@@ -39,51 +39,117 @@ export const AttendanceScreen: React.FC = () => {
   const [rawGeocodeResponse, setRawGeocodeResponse] = useState<string>('');
   const startTrackingRef = useRef<() => void>();
 
+  const getValidCachedAddress = (): string | null => {
+    const cached = localStorage.getItem('lastKnownAddress');
+    if (cached && !cached.toLowerCase().includes('address unavailable')) {
+      return cached.trim();
+    }
+    return null;
+  };
+
+  const extractBestLocation = (addressData: any): string | null => {
+    if (!addressData) return null;
+
+    if (typeof addressData === 'string') {
+      const trimmed = addressData.trim();
+      if (trimmed && !trimmed.toLowerCase().includes('address unavailable')) {
+        return trimmed;
+      }
+      return null;
+    }
+
+    // Check full address constructed from fields or formatted address properties
+    const fullAddress = addressData.addressLine0 || 
+                        addressData.formattedAddress || 
+                        addressData.formatted_address || 
+                        addressData.address ||
+                        [
+                          addressData.subThoroughfare,
+                          addressData.thoroughfare,
+                          addressData.subLocality || addressData.village || addressData.suburb,
+                          addressData.locality || addressData.city || addressData.town,
+                          addressData.subAdminArea || addressData.district || addressData.county,
+                          addressData.adminArea || addressData.state,
+                          addressData.postalCode,
+                          addressData.countryName
+                        ].filter(Boolean).join(', ');
+
+    if (fullAddress && fullAddress.trim() && !fullAddress.toLowerCase().includes('address unavailable')) {
+      return fullAddress.trim();
+    }
+
+    // Priority list if full address is not available:
+    // 1. Town/City: locality, city, town
+    const townCity = addressData.locality || addressData.city || addressData.town;
+    if (townCity && typeof townCity === 'string' && townCity.trim()) return townCity.trim();
+
+    // 2. Village: village
+    const village = addressData.village;
+    if (village && typeof village === 'string' && village.trim()) return village.trim();
+
+    // 3. Suburb: suburb, subLocality
+    const suburb = addressData.suburb || addressData.subLocality;
+    if (suburb && typeof suburb === 'string' && suburb.trim()) return suburb.trim();
+
+    // 4. District: subAdminArea, district, county
+    const district = addressData.subAdminArea || addressData.district || addressData.county;
+    if (district && typeof district === 'string' && district.trim()) return district.trim();
+
+    // 5. State: adminArea, state
+    const state = addressData.adminArea || addressData.state;
+    if (state && typeof state === 'string' && state.trim()) return state.trim();
+
+    return null;
+  };
+
   const performReverseGeocode = async (latitude: number, longitude: number) => {
-    // 1. Try Native Android Geocoder if running natively and available on bridge
-    if (Capacitor.isNativePlatform() && (window as any).AndroidGeocoder) {
-      try {
-        const nativeResult = await (window as any).AndroidGeocoder.getFromLocation(latitude, longitude);
-        if (nativeResult) {
-          setCurrentAddress(nativeResult);
-          localStorage.setItem('lastKnownAddress', nativeResult);
-          setRawGeocodeResponse(`Native Android Geocoder:\n${nativeResult}`);
-          setLocationStatus('success');
-          return;
-        }
-      } catch (e) {
-        console.warn('Native Android Geocoder error, falling back to Google Maps API:', e);
-      }
-    }
+    let resolvedAddress: string | null = null;
+    let geocodeSourceInfo = '';
 
-    // 2. Fallback to Google Maps Geocoding API
+    // Native Android Geocoder via Capacitor / Android Bridge
     try {
-      const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '';
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setRawGeocodeResponse(JSON.stringify(data, null, 2));
-
-        if (data.results && data.results.length > 0) {
-          const formattedAddress = data.results[0].formatted_address;
-          setCurrentAddress(formattedAddress);
-          localStorage.setItem('lastKnownAddress', formattedAddress);
-          setLocationStatus('success');
-          return;
+      const win = window as any;
+      if (Capacitor.isNativePlatform()) {
+        if (win.AndroidGeocoder && typeof win.AndroidGeocoder.getFromLocation === 'function') {
+          const raw = await win.AndroidGeocoder.getFromLocation(latitude, longitude);
+          resolvedAddress = extractBestLocation(raw);
+          geocodeSourceInfo = 'Native Android Geocoder (AndroidGeocoder bridge)';
+        } else if (win.Capacitor?.Plugins?.NativeGeocoder) {
+          const res = await win.Capacitor.Plugins.NativeGeocoder.reverseGeocode({ latitude, longitude });
+          if (res && res.addresses && res.addresses.length > 0) {
+            resolvedAddress = extractBestLocation(res.addresses[0]);
+          } else if (res && res.address) {
+            resolvedAddress = extractBestLocation(res.address);
+          }
+          geocodeSourceInfo = 'Native Android Geocoder (Capacitor NativeGeocoder plugin)';
+        } else if (win.Capacitor?.Plugins?.Geocoder) {
+          const res = await win.Capacitor.Plugins.Geocoder.reverseGeocode({ latitude, longitude });
+          if (res && res.addresses && res.addresses.length > 0) {
+            resolvedAddress = extractBestLocation(res.addresses[0]);
+          }
+          geocodeSourceInfo = 'Native Android Geocoder (Capacitor Geocoder plugin)';
         }
       }
-    } catch (error: any) {
-      console.error('Google Maps Reverse geocoding error:', error);
+    } catch (e: any) {
+      console.warn('Native Android Geocoder error:', e);
+      geocodeSourceInfo = `Native Android Geocoder Error: ${e?.message || String(e)}`;
     }
 
-    // 3. Fallback to cached address or default message
-    const cachedAddress = localStorage.getItem('lastKnownAddress');
-    if (cachedAddress) {
-      setCurrentAddress(`${cachedAddress} (Last known location)`);
+    if (resolvedAddress && resolvedAddress.trim()) {
+      const cleanAddress = resolvedAddress.trim();
+      setCurrentAddress(cleanAddress);
+      localStorage.setItem('lastKnownAddress', cleanAddress);
+      setRawGeocodeResponse(`${geocodeSourceInfo}\nResult: ${cleanAddress}`);
     } else {
-      setCurrentAddress('Current address unavailable');
+      const cachedAddress = getValidCachedAddress();
+      if (cachedAddress) {
+        setCurrentAddress(`${cachedAddress} (Last known location)`);
+      } else {
+        setCurrentAddress('Current Location');
+      }
+      setRawGeocodeResponse(
+        `${geocodeSourceInfo || 'Android Geocoder unavailable on this platform'}\nStatus: Fallback to ${cachedAddress ? 'cached address' : 'Current Location'}`
+      );
     }
     setLocationStatus('success');
   };
@@ -122,11 +188,11 @@ export const AttendanceScreen: React.FC = () => {
         setIsInsideGeofence(calculatedDistance <= OFFICE_LOCATION.radius);
 
         if (!navigator.onLine) {
-          const cachedAddress = localStorage.getItem('lastKnownAddress');
+          const cachedAddress = getValidCachedAddress();
           if (cachedAddress) {
             setCurrentAddress(`${cachedAddress} (Last known location)`);
           } else {
-            setCurrentAddress('Address unavailable (Offline)');
+            setCurrentAddress('Current Location');
           }
           setRawGeocodeResponse('Browser is offline.');
           setLocationStatus('success');
