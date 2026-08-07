@@ -1,0 +1,15 @@
+{
+  "name": "EXFIN OMS ENTERPRISE v5.0 (PHOENIX)",
+  "short_name": "EXFIN OMS",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FEF7FF",
+  "theme_color": "#6750A4",
+  "icons": [
+    {
+      "src": "https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/package/default/24px.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}

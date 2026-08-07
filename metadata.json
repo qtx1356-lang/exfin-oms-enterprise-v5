@@ -1,0 +1,6 @@
+{
+  "name": "EXFIN OMS ENTERPRISE v5.0 (PHOENIX)",
+  "description": "Enterprise Order Management System",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
