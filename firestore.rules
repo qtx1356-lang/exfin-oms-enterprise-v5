@@ -10,5 +10,11 @@ service cloud.firestore {
     match /attendance/{attendanceId} {
       allow read, write: if true;
     }
+    match /expenses/{expenseId} {
+      allow read, write: if true;
+    }
+    match /notifications/{notificationId} {
+      allow read, write: if true;
+    }
   }
 }

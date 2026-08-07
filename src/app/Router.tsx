@@ -15,6 +15,7 @@ import { LoadingScreen } from '../components/ui/LoadingScreen';
 
 import { EmployeeDashboard } from '../features/employee/EmployeeDashboard';
 import { AttendanceScreen } from '../features/attendance/AttendanceScreen';
+import { ExpenseScreen } from '../features/expenses/ExpenseScreen';
 
 // Protects /admin/dashboard - only logged-in admin can access
 const AdminProtectedRoute = () => {
@@ -77,7 +78,7 @@ export const AppRouter: React.FC = () => {
             <Route index element={<EmployeeDashboard />} />
             <Route path="attendance" element={<AttendanceScreen />} />
             <Route path="leave" element={<PlaceholderPage title="Leave" />} />
-            <Route path="expenses" element={<PlaceholderPage title="Expenses" />} />
+            <Route path="expenses" element={<ExpenseScreen />} />
             <Route path="planner" element={<PlaceholderPage title="Work Planner" />} />
             <Route path="notifications" element={<PlaceholderPage title="Notifications" />} />
             <Route path="profile" element={<PlaceholderPage title="Profile" />} />

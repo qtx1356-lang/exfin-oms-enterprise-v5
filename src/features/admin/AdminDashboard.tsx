@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { db } from '../../services/firebase/config';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { LogOut, Search, CheckCircle, XCircle, Clock, Smartphone, User, Phone, Calendar, Wifi, WifiOff, Shield, RefreshCw } from 'lucide-react';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { LogOut, Search, CheckCircle, XCircle, Clock, Smartphone, User, Phone, Calendar, Wifi, WifiOff, Shield, RefreshCw, Wallet, Paperclip, IndianRupee } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Dialog } from '../../components/ui/Dialog';
@@ -10,6 +10,8 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord } from '../../types/attendance';
 import { getStoredAttendanceRecords } from '../../services/attendance/attendanceStorage';
+import { ExpenseRecord } from '../../types/expense';
+import { getStoredExpenseRecords } from '../../services/expenses/expenseStorage';
 
 type Registration = {
   id: string;
@@ -31,14 +33,19 @@ export const AdminDashboard: React.FC = () => {
   const { logout } = useAdminAuth();
   const navigate = useNavigate();
   
-  const [activeTab, setActiveTab] = useState<'registrations' | 'attendance'>('attendance');
+  const [activeTab, setActiveTab] = useState<'registrations' | 'attendance' | 'expenses'>('attendance');
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReg, setSelectedReg] = useState<Registration | null>(null);
   const [selectedAttendance, setSelectedAttendance] = useState<AttendanceRecord | null>(null);
+  const [selectedExpense, setSelectedExpense] = useState<ExpenseRecord | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [expenseRejectReason, setExpenseRejectReason] = useState('');
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showExpenseRejectDialog, setShowExpenseRejectDialog] = useState(false);
+  const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!db) return;
@@ -83,9 +90,37 @@ export const AdminDashboard: React.FC = () => {
       setAttendanceRecords(getStoredAttendanceRecords());
     });
 
+    // Listen to expense claims from Firestore
+    const qExpenses = query(collection(db, 'expenses'), orderBy('createdAtDeviceTime', 'desc'));
+    const unsubExpenses = onSnapshot(qExpenses, (snapshot) => {
+      const firestoreExp: ExpenseRecord[] = [];
+      snapshot.forEach((doc) => {
+        firestoreExp.push({ id: doc.id, ...doc.data() } as ExpenseRecord);
+      });
+
+      const localExpenses = getStoredExpenseRecords();
+      const mergedMap = new Map<string, ExpenseRecord>();
+
+      firestoreExp.forEach((rec) => mergedMap.set(rec.id, rec));
+      localExpenses.forEach((rec) => {
+        if (!mergedMap.has(rec.id)) {
+          mergedMap.set(rec.id, rec);
+        }
+      });
+
+      const combinedExp = Array.from(mergedMap.values()).sort(
+        (a, b) => new Date(b.createdAtDeviceTime).getTime() - new Date(a.createdAtDeviceTime).getTime()
+      );
+      setExpenseRecords(combinedExp);
+    }, (err) => {
+      console.warn('Error fetching expenses from firestore, loading local fallback:', err);
+      setExpenseRecords(getStoredExpenseRecords());
+    });
+
     return () => {
       unsubRegs();
       unsubAttendance();
+      unsubExpenses();
     };
   }, []);
 
@@ -114,6 +149,59 @@ export const AdminDashboard: React.FC = () => {
     setRejectionReason('');
   };
 
+  const handleApproveExpense = async (exp: ExpenseRecord) => {
+    if (!db) return;
+    try {
+      await updateDoc(doc(db, 'expenses', exp.id), {
+        status: 'Approved',
+        rejectionReason: null,
+      });
+
+      const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      await setDoc(doc(db, 'notifications', notifId), {
+        id: notifId,
+        employeeCode: exp.employeeCode || exp.employeeId,
+        type: 'EXPENSE_APPROVED',
+        title: 'Expense Claim Approved',
+        message: `Your claim of ₹${exp.amount.toLocaleString('en-IN')} for ${exp.category} (${exp.date}) has been approved.`,
+        createdAt: new Date().toISOString(),
+        read: false,
+      });
+    } catch (err) {
+      console.error('Error approving expense:', err);
+    }
+    setSelectedExpense(null);
+  };
+
+  const handleRejectExpense = async (exp: ExpenseRecord) => {
+    if (!db) return;
+    const reason = expenseRejectReason.trim() || 'Rejected by administrator';
+
+    try {
+      await updateDoc(doc(db, 'expenses', exp.id), {
+        status: 'Rejected',
+        rejectionReason: reason,
+      });
+
+      const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      await setDoc(doc(db, 'notifications', notifId), {
+        id: notifId,
+        employeeCode: exp.employeeCode || exp.employeeId,
+        type: 'EXPENSE_REJECTED',
+        title: 'Expense Claim Rejected',
+        message: `Your claim of ₹${exp.amount.toLocaleString('en-IN')} for ${exp.category} was rejected. Reason: ${reason}`,
+        createdAt: new Date().toISOString(),
+        read: false,
+      });
+    } catch (err) {
+      console.error('Error rejecting expense:', err);
+    }
+
+    setShowExpenseRejectDialog(false);
+    setSelectedExpense(null);
+    setExpenseRejectReason('');
+  };
+
   const filteredRegs = registrations.filter(r => 
     r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     r.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -133,7 +221,20 @@ export const AdminDashboard: React.FC = () => {
     );
   });
 
+  const filteredExpenses = expenseRecords.filter(e => {
+    const term = searchTerm.toLowerCase();
+    return (
+      e.employeeName.toLowerCase().includes(term) ||
+      e.employeeCode.toLowerCase().includes(term) ||
+      e.category.toLowerCase().includes(term) ||
+      e.status.toLowerCase().includes(term) ||
+      e.date.includes(term) ||
+      e.description.toLowerCase().includes(term)
+    );
+  });
+
   const pendingRegCount = registrations.filter(r => r.status === 'Pending Approval').length;
+  const pendingExpenseCount = expenseRecords.filter(e => e.status === 'Pending').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#170B38] via-[#211044] to-[#2A145B] text-white pb-12">
@@ -160,6 +261,21 @@ export const AdminDashboard: React.FC = () => {
               }`}
             >
               Smart Attendance ({attendanceRecords.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('expenses')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+                activeTab === 'expenses'
+                  ? 'bg-[#7C3AED] text-white shadow-lg shadow-purple-900/50'
+                  : 'text-purple-300/70 hover:text-white'
+              }`}
+            >
+              Expense Claims ({expenseRecords.length})
+              {pendingExpenseCount > 0 && (
+                <span className="bg-amber-500 text-black text-[10px] px-2 py-0.5 rounded-full font-black animate-pulse">
+                  {pendingExpenseCount}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('registrations')}
@@ -313,6 +429,125 @@ export const AdminDashboard: React.FC = () => {
                     icon={Calendar} 
                     title="No attendance records found" 
                     description="Attendance events logged by employees will appear here." 
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* EXPENSE CLAIMS PANEL VIEW */}
+        {activeTab === 'expenses' && (
+          <div className="space-y-4">
+            <div className="overflow-x-auto bg-[#2D1B5A] rounded-[22px] shadow-2xl border border-purple-500/20">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#211044] text-purple-300 uppercase text-[10px] font-extrabold tracking-wider border-b border-purple-500/20">
+                  <tr>
+                    <th className="p-4">Employee</th>
+                    <th className="p-4">Employee Code</th>
+                    <th className="p-4">Date</th>
+                    <th className="p-4">Category</th>
+                    <th className="p-4">Amount</th>
+                    <th className="p-4">Receipt</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4">Sync Status</th>
+                    <th className="p-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-purple-500/10 text-white font-medium">
+                  {filteredExpenses.map((exp) => (
+                    <tr 
+                      key={exp.id} 
+                      className="hover:bg-[#35206A]/60 transition-colors"
+                    >
+                      <td className="p-4 whitespace-nowrap">
+                        <div className="font-bold text-sm text-white">{exp.employeeName}</div>
+                      </td>
+                      <td className="p-4 whitespace-nowrap font-mono text-purple-200">
+                        {exp.employeeCode}
+                      </td>
+                      <td className="p-4 whitespace-nowrap text-purple-200">{exp.date}</td>
+                      <td className="p-4 whitespace-nowrap">
+                        <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-200 border border-purple-500/30">
+                          {exp.category}
+                        </span>
+                      </td>
+                      <td className="p-4 whitespace-nowrap font-black text-sm text-white">
+                        ₹{exp.amount.toLocaleString('en-IN')}
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
+                        {exp.receiptUrl ? (
+                          <button
+                            onClick={() => setPreviewReceiptUrl(exp.receiptUrl!)}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-500/20 text-purple-200 hover:bg-purple-500/30 text-[10px] font-bold border border-purple-500/30"
+                          >
+                            <Paperclip className="w-3.5 h-3.5 text-[#A78BFA]" /> View Receipt
+                          </button>
+                        ) : (
+                          <span className="text-purple-300/40 text-[10px]">No Receipt</span>
+                        )}
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+                          exp.status === 'Approved'
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                            : exp.status === 'Rejected'
+                            ? 'bg-red-500/20 text-red-300 border-red-500/30'
+                            : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        }`}>
+                          {exp.status}
+                        </span>
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                          exp.syncStatus === 'Synced'
+                            ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+                            : 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                        }`}>
+                          {exp.syncStatus}
+                        </span>
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          {exp.status === 'Pending' ? (
+                            <>
+                              <button
+                                onClick={() => handleApproveExpense(exp)}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px]"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedExpense(exp);
+                                  setShowExpenseRejectDialog(true);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-red-600/80 hover:bg-red-700 text-white font-bold text-[10px]"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => setSelectedExpense(exp)}
+                              className="px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 font-bold text-[10px]"
+                            >
+                              Audit Details
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {filteredExpenses.length === 0 && (
+                <div className="py-12">
+                  <EmptyState 
+                    icon={Wallet} 
+                    title="No expense claims found" 
+                    description="Submitted expense claims from employees will appear here." 
                   />
                 </div>
               )}
@@ -488,6 +723,128 @@ export const AdminDashboard: React.FC = () => {
                 </Button>
               </div>
             )}
+          </div>
+        )}
+      </Dialog>
+
+      {/* Expense Detail Audit Dialog */}
+      <Dialog isOpen={!!selectedExpense && !showExpenseRejectDialog} onClose={() => setSelectedExpense(null)} title="Expense Claim Audit Log">
+        {selectedExpense && (
+          <div className="space-y-4 text-xs">
+            <div className="p-3 bg-[#211044] rounded-2xl border border-purple-500/30 flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-sm text-white">{selectedExpense.employeeName}</h3>
+                <p className="text-[10px] text-purple-300/70 font-mono">Code: {selectedExpense.employeeCode} | UUID: {selectedExpense.id}</p>
+              </div>
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${
+                selectedExpense.status === 'Approved'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                  : selectedExpense.status === 'Rejected'
+                  ? 'bg-red-500/20 text-red-300 border-red-500/30'
+                  : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+              }`}>
+                {selectedExpense.status}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 p-3 bg-[#211044]/60 rounded-2xl border border-purple-500/20">
+              <div className="col-span-2 p-3 bg-[#2D1B5A] rounded-xl border border-purple-500/20">
+                <p className="text-[10px] text-purple-300/70 font-bold uppercase mb-0.5">Category & Amount</p>
+                <div className="flex justify-between items-center">
+                  <p className="font-bold text-sm text-white">{selectedExpense.category}</p>
+                  <p className="font-black text-base text-emerald-400">₹{selectedExpense.amount.toLocaleString('en-IN')}</p>
+                </div>
+                {selectedExpense.description && (
+                  <div className="mt-2 pt-2 border-t border-purple-500/20 text-xs text-purple-200">
+                    <p className="font-bold text-purple-300 mb-0.5">Description:</p>
+                    <p className="text-purple-100">{selectedExpense.description}</p>
+                  </div>
+                )}
+                {selectedExpense.rejectionReason && (
+                  <div className="mt-2 pt-2 border-t border-purple-500/20 text-xs text-red-300">
+                    <p className="font-bold mb-0.5">Rejection Reason:</p>
+                    <p className="text-red-200">{selectedExpense.rejectionReason}</p>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="text-[10px] text-purple-300/70 mb-0.5">Claim Date</p>
+                <p className="font-bold text-white">{selectedExpense.date}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-purple-300/70 mb-0.5">Sync Status</p>
+                <p className="font-bold text-purple-200">{selectedExpense.syncStatus}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-[10px] text-purple-300/70 mb-0.5">Device Timestamp</p>
+                <p className="font-mono text-purple-300/80">{new Date(selectedExpense.createdAtDeviceTime).toLocaleString()}</p>
+              </div>
+            </div>
+
+            {selectedExpense.receiptUrl && (
+              <div className="space-y-1.5">
+                <p className="font-bold text-purple-200">Receipt Attachment:</p>
+                <div className="w-full h-44 rounded-xl overflow-hidden bg-[#211044] border border-purple-500/30">
+                  <img
+                    src={selectedExpense.receiptUrl}
+                    alt="Receipt"
+                    className="w-full h-full object-contain cursor-pointer"
+                    onClick={() => setPreviewReceiptUrl(selectedExpense.receiptUrl!)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {selectedExpense.status === 'Pending' ? (
+              <div className="flex gap-3 pt-2">
+                <Button variant="outlined" className="flex-1 border-red-500/40 text-red-300 hover:bg-red-500/20" onClick={() => setShowExpenseRejectDialog(true)}>
+                  Reject Claim
+                </Button>
+                <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleApproveExpense(selectedExpense)}>
+                  Approve Claim
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={() => setSelectedExpense(null)} className="w-full">Close Audit</Button>
+            )}
+          </div>
+        )}
+      </Dialog>
+
+      {/* Expense Reject Dialog */}
+      <Dialog isOpen={showExpenseRejectDialog} onClose={() => setShowExpenseRejectDialog(false)} title="Reject Expense Claim">
+        <div className="space-y-4">
+          <p className="text-xs text-purple-200">Please provide a reason for rejecting this claim (will be sent to the employee):</p>
+          <textarea
+            value={expenseRejectReason}
+            onChange={(e) => setExpenseRejectReason(e.target.value)}
+            className="w-full p-3 rounded-2xl border border-purple-500/30 bg-[#211044] text-white min-h-[90px] text-xs focus:ring-2 focus:ring-[#7C3AED] focus:outline-none"
+            placeholder="e.g., Missing valid invoice bill, duplicate claim, clear policy mismatch..."
+          />
+          <div className="flex gap-3 pt-2">
+            <Button variant="text" onClick={() => setShowExpenseRejectDialog(false)} className="flex-1">
+              Cancel
+            </Button>
+            <Button 
+              className="flex-1 bg-red-600 text-white hover:bg-red-700" 
+              onClick={() => selectedExpense && handleRejectExpense(selectedExpense)}
+              disabled={!expenseRejectReason.trim()}
+            >
+              Confirm Reject
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Receipt Preview Modal */}
+      <Dialog isOpen={!!previewReceiptUrl} onClose={() => setPreviewReceiptUrl(null)} title="Receipt Preview">
+        {previewReceiptUrl && (
+          <div className="space-y-4">
+            <div className="max-h-[70vh] overflow-auto flex justify-center bg-[#211044] p-2 rounded-2xl border border-purple-500/30">
+              <img src={previewReceiptUrl} alt="Receipt preview" className="max-w-full rounded-lg object-contain" />
+            </div>
+            <Button onClick={() => setPreviewReceiptUrl(null)} className="w-full">Close Preview</Button>
           </div>
         )}
       </Dialog>
