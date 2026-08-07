@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { 
-  MapPin, 
   AlertCircle, 
   CheckCircle, 
   ChevronDown, 
@@ -15,7 +14,6 @@ import {
   LogOut, 
   Bell, 
   Calendar,
-  Navigation,
   Building2,
   Home,
   Users,
@@ -29,7 +27,9 @@ import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
-  Activity
+  Activity,
+  Compass,
+  Radio
 } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
@@ -112,23 +112,11 @@ export const AttendanceScreen: React.FC = () => {
   const [historySearchTerm, setHistorySearchTerm] = useState<string>('');
   const [historySyncFilter, setHistorySyncFilter] = useState<'ALL' | 'Synced' | 'Pending'>('ALL');
 
-  // Debug toggle
-  const [showDebug, setShowDebug] = useState<boolean>(false);
-  const [rawGeocodeResponse, setRawGeocodeResponse] = useState<string>('');
-
   const startTrackingRef = useRef<() => void>();
   const autoCheckInTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const employeeId = employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN';
   const employeeName = employeeData?.name || 'Employee';
-
-  // Helper greetings & formatting
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning,';
-    if (hour < 17) return 'Good Afternoon,';
-    return 'Good Evening,';
-  };
 
   const getFormattedDateLong = () => {
     return new Date().toLocaleDateString('en-US', {
@@ -146,17 +134,6 @@ export const AttendanceScreen: React.FC = () => {
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();
-  };
-
-  const getDisplayCity = (addressStr: string) => {
-    if (!addressStr || addressStr.toLowerCase().includes('address unavailable')) {
-      return 'Raniganj';
-    }
-    const parts = addressStr.split(',').map(p => p.trim()).filter(Boolean);
-    if (parts.length > 0) {
-      return parts[0];
-    }
-    return 'Raniganj';
   };
 
   const formatDistanceDisplay = (meters: number | null) => {
@@ -242,7 +219,6 @@ export const AttendanceScreen: React.FC = () => {
 
   const performReverseGeocode = async (latitude: number, longitude: number) => {
     let resolvedAddress: string | null = null;
-    let geocodeSourceInfo = '';
 
     try {
       const win = window as any;
@@ -250,7 +226,6 @@ export const AttendanceScreen: React.FC = () => {
         if (win.AndroidGeocoder && typeof win.AndroidGeocoder.getFromLocation === 'function') {
           const raw = await win.AndroidGeocoder.getFromLocation(latitude, longitude);
           resolvedAddress = extractBestLocation(raw);
-          geocodeSourceInfo = 'Native Android Geocoder';
         } else if (win.Capacitor?.Plugins?.NativeGeocoder) {
           const res = await win.Capacitor.Plugins.NativeGeocoder.reverseGeocode({ latitude, longitude });
           if (res && res.addresses && res.addresses.length > 0) {
@@ -258,25 +233,21 @@ export const AttendanceScreen: React.FC = () => {
           } else if (res && res.address) {
             resolvedAddress = extractBestLocation(res.address);
           }
-          geocodeSourceInfo = 'Native Android Geocoder';
         } else if (win.Capacitor?.Plugins?.Geocoder) {
           const res = await win.Capacitor.Plugins.Geocoder.reverseGeocode({ latitude, longitude });
           if (res && res.addresses && res.addresses.length > 0) {
             resolvedAddress = extractBestLocation(res.addresses[0]);
           }
-          geocodeSourceInfo = 'Native Android Geocoder';
         }
       }
     } catch (e: any) {
       console.warn('Native Android Geocoder error:', e);
-      geocodeSourceInfo = `Native Geocoder Error: ${e?.message || String(e)}`;
     }
 
     if (resolvedAddress && resolvedAddress.trim()) {
       const cleanAddress = resolvedAddress.trim();
       setCurrentAddress(cleanAddress);
       localStorage.setItem('lastKnownAddress', cleanAddress);
-      setRawGeocodeResponse(`${geocodeSourceInfo}\nTown/City Result: ${cleanAddress}`);
     } else {
       const cachedAddress = getValidCachedAddress();
       if (cachedAddress) {
@@ -284,9 +255,6 @@ export const AttendanceScreen: React.FC = () => {
       } else {
         setCurrentAddress('Raniganj HQ');
       }
-      setRawGeocodeResponse(
-        `${geocodeSourceInfo || 'Offline / Native Geocoder default'}\nLocation: ${cachedAddress || 'Raniganj HQ'}`
-      );
     }
     setLocationStatus('success');
   };
@@ -356,7 +324,6 @@ export const AttendanceScreen: React.FC = () => {
       setCurrentAddress('');
       setDistance(null);
       setIsInsideGeofence(false);
-      setRawGeocodeResponse('');
 
       if (watchId !== null) {
         if (typeof watchId === 'string') {
@@ -391,7 +358,6 @@ export const AttendanceScreen: React.FC = () => {
         if (!navigator.onLine) {
           const cachedAddress = getValidCachedAddress();
           setCurrentAddress(cachedAddress || 'Raniganj HQ');
-          setRawGeocodeResponse('Browser is offline.');
           setLocationStatus('success');
           return;
         }
@@ -630,6 +596,66 @@ export const AttendanceScreen: React.FC = () => {
   const reminderStatus = getCheckoutReminderStatus(todayRecord);
   const pendingCount = allRecords.filter((r) => r.syncStatus === 'Pending').length;
 
+  // Derive Ribbon Status Text & Style
+  const getRibbonInfo = () => {
+    if (isSyncing) {
+      return {
+        text: 'SYNCING ATTENDANCE...',
+        style: 'bg-blue-600/30 text-blue-200 border-blue-500/40 animate-pulse',
+        icon: <RotateCw className="w-4 h-4 animate-spin text-blue-400" />
+      };
+    }
+    if (todayRecord) {
+      if (todayRecord.checkOutTime) {
+        return {
+          text: 'CHECKED OUT',
+          style: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+          icon: <CheckCircle className="w-4 h-4 text-emerald-400" />
+        };
+      }
+      return {
+        text: 'CHECKED IN SUCCESSFULLY',
+        style: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+        icon: <CheckCircle className="w-4 h-4 text-emerald-400" />
+      };
+    }
+    if (pendingCount > 0) {
+      return {
+        text: 'OFFLINE ATTENDANCE SAVED – SYNC PENDING',
+        style: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+        icon: <Clock className="w-4 h-4 text-amber-400" />
+      };
+    }
+    if (activeMode === 'OFFICE') {
+      if (autoCheckInCountdown !== null) {
+        return {
+          text: `AUTO CHECK-IN IN ${autoCheckInCountdown} SEC...`,
+          style: 'bg-purple-600/40 text-purple-200 border-purple-400/60 animate-pulse',
+          icon: <Radio className="w-4 h-4 text-purple-300 animate-spin" />
+        };
+      }
+      if (isInsideGeofence) {
+        return {
+          text: 'ENTERING OFFICE... READY FOR AUTO CHECK-IN',
+          style: 'bg-purple-500/25 text-purple-200 border-purple-400/40',
+          icon: <Compass className="w-4 h-4 text-purple-300 animate-bounce" />
+        };
+      }
+      return {
+        text: 'OUTSIDE OFFICE GEOFENCE',
+        style: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+        icon: <AlertCircle className="w-4 h-4 text-rose-400" />
+      };
+    }
+    return {
+      text: 'READY FOR ATTENDANCE SUBMISSION',
+      style: 'bg-purple-600/30 text-purple-200 border-purple-500/40',
+      icon: <Sparkles className="w-4 h-4 text-purple-300" />
+    };
+  };
+
+  const ribbonInfo = getRibbonInfo();
+
   // History filtering
   const filteredHistoryRecords = allRecords.filter((rec) => {
     const typeMatch = historyTypeFilter === 'ALL' || (rec.attendanceType || 'OFFICE') === historyTypeFilter;
@@ -646,166 +672,159 @@ export const AttendanceScreen: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-[#F7F9FC] text-slate-900 pb-28 pt-2 px-3 sm:px-6 max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-b from-[#170B38] via-[#200D4B] to-[#2A145B] text-white p-3 sm:p-6 pb-32 max-w-5xl mx-auto space-y-5 font-sans">
+      
       {/* ==================================================== */}
-      {/* ENTERPRISE EXECUTIVE HEADER */}
+      {/* HEADER – DEEP PURPLE ENTERPRISE */}
       {/* ==================================================== */}
-      <div className="bg-white rounded-[24px] border border-slate-200/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.37)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{getGreeting()}</span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-[#2563EB]">EXFIN OMS</span>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-2 h-2 rounded-full bg-[#7C3AED] animate-ping" />
+            <span className="text-xs font-bold text-purple-300 uppercase tracking-widest">
+              Enterprise Engine v6.0
+            </span>
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">{employeeName}</h1>
-          <p className="text-xs font-medium text-slate-500 flex items-center gap-1.5 mt-1">
-            <Calendar className="w-3.5 h-3.5 text-[#2563EB]" />
-            {getFormattedDateLong()}
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+            EXFIN Smart Attendance
+          </h1>
+          <p className="text-xs text-purple-200/80 font-medium mt-1 flex items-center gap-2">
+            <Calendar className="w-3.5 h-3.5 text-purple-400" />
+            {getFormattedDateLong()} • <strong className="text-white">{employeeName}</strong> ({employeeId})
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 self-end sm:self-center">
-          {/* Connectivity Status Badge */}
-          <span className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${
-            isOnline ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-amber-50 text-amber-700 border border-amber-200/60'
+        <div className="flex items-center gap-3 self-end sm:self-center">
+          {/* Network Status Badge */}
+          <div className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold flex items-center gap-2 border transition-all ${
+            isSyncing
+              ? 'bg-blue-500/20 text-blue-300 border-blue-400/50'
+              : isOnline
+              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
+              : 'bg-amber-500/20 text-amber-300 border-amber-400/50'
           }`}>
-            <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-            {isOnline ? 'Online' : 'Offline'}
-          </span>
+            <span className={`w-2 h-2 rounded-full ${
+              isSyncing ? 'bg-blue-400 animate-spin' : isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+            }`} />
+            {isSyncing ? 'SYNCING' : isOnline ? 'ONLINE' : 'OFFLINE'}
+          </div>
 
-          {/* Sync Trigger Badge */}
+          {/* Sync Trigger Button */}
           <button
             onClick={handleSyncNow}
             disabled={!isOnline || isSyncing}
-            className={`p-2 rounded-full border transition-all flex items-center justify-center relative ${
+            className={`p-2.5 rounded-2xl border transition-all flex items-center justify-center relative ${
               pendingCount > 0 
-                ? 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100' 
-                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                ? 'bg-amber-500/20 text-amber-300 border-amber-400/50 hover:bg-amber-500/30' 
+                : 'bg-purple-950/60 text-purple-300 border-purple-500/30 hover:bg-purple-900/60'
             }`}
-            title={pendingCount > 0 ? `${pendingCount} offline records pending sync` : 'All records synced'}
+            title={pendingCount > 0 ? `${pendingCount} records pending sync` : 'All records synced'}
           >
-            <RotateCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-[#2563EB]' : ''}`} />
+            <RotateCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-purple-300' : ''}`} />
             {pendingCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-extrabold flex items-center justify-center shadow">
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black flex items-center justify-center shadow">
                 {pendingCount}
               </span>
             )}
           </button>
 
-          {/* Notification Bell Badge */}
-          <div className="p-2 rounded-full bg-slate-50 border border-slate-200 text-slate-600 relative">
-            <Bell className="w-4 h-4" />
-            {reminderStatus.isReminderActive && (
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 animate-ping" />
-            )}
-          </div>
-
-          {/* Profile Avatar with Initials */}
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#1E3A8A] to-[#2563EB] text-white font-extrabold text-sm flex items-center justify-center shadow-md ring-2 ring-blue-500/20">
+          {/* Employee Avatar Badge */}
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#7C3AED] to-[#4C1D95] text-white font-black text-sm flex items-center justify-center shadow-lg ring-2 ring-purple-400/30">
             {getEmployeeInitials(employeeName)}
           </div>
         </div>
       </div>
 
-      {/* Sync Status Alert Banner if Offline Pending */}
-      {pendingCount > 0 && (
-        <div className="p-4 bg-amber-50/90 border border-amber-200/80 rounded-[20px] flex items-center justify-between text-xs text-amber-900 shadow-sm animate-fade-in">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
-              <RotateCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-            </div>
-            <div>
-              <p className="font-bold text-sm">Offline Synchronization Pending</p>
-              <p className="text-amber-800/80 text-[11px]">{pendingCount} attendance record(s) saved locally on device.</p>
-            </div>
-          </div>
-          <Button 
-            size="sm" 
-            onClick={handleSyncNow} 
-            disabled={!isOnline || isSyncing}
-            className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-sm"
-          >
-            {isSyncing ? 'Syncing...' : 'Sync Cloud'}
-          </Button>
+      {/* ==================================================== */}
+      {/* LIVE STATUS RIBBON */}
+      {/* ==================================================== */}
+      <div className={`px-5 py-3 rounded-[22px] border flex items-center justify-between text-xs font-black tracking-wider transition-all duration-300 shadow-md ${ribbonInfo.style}`}>
+        <div className="flex items-center gap-3">
+          {ribbonInfo.icon}
+          <span>{ribbonInfo.text}</span>
         </div>
-      )}
+        <span className="text-[10px] opacity-75 font-mono uppercase">LIVE STATUS</span>
+      </div>
 
       {/* Action Feedback Banner */}
       {actionFeedback && (
-        <div className="p-4 bg-blue-50 border border-blue-200 text-[#1E3A8A] rounded-[20px] text-xs font-bold flex justify-between items-center shadow-sm animate-fade-in">
+        <div className="p-4 bg-purple-900/60 border border-purple-400/40 text-purple-100 rounded-[22px] text-xs font-bold flex justify-between items-center shadow-md animate-fade-in">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#2563EB]" />
+            <Sparkles className="w-4 h-4 text-purple-300" />
             <span>{actionFeedback}</span>
           </div>
-          <button onClick={() => setActionFeedback(null)} className="text-slate-500 hover:text-slate-900 font-bold text-sm px-1">✕</button>
+          <button onClick={() => setActionFeedback(null)} className="text-purple-300 hover:text-white font-bold text-sm px-1">✕</button>
         </div>
       )}
 
       {/* Location Status Card - Loading State */}
       {locationStatus === 'loading' && (
-        <div className="p-8 rounded-[24px] bg-white border border-slate-200/80 shadow-sm flex flex-col items-center justify-center gap-3 text-center">
-          <div className="w-10 h-10 border-4 border-[#2563EB] border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-xs font-bold text-slate-600">Acquiring Enterprise GPS Lock...</p>
+        <div className="p-8 rounded-[22px] bg-[#2D1B5A]/80 border border-purple-500/20 shadow-md flex flex-col items-center justify-center gap-3 text-center">
+          <div className="w-10 h-10 border-4 border-[#7C3AED] border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs font-bold text-purple-200">Acquiring Enterprise GPS Lock...</p>
         </div>
       )}
 
       {/* Location Status Card - Error State */}
       {locationStatus === 'error' && (
-        <div className="p-6 rounded-[24px] bg-red-50 border border-red-200 text-red-900 shadow-sm flex flex-col items-center justify-center gap-3 text-center">
-          <AlertCircle className="w-10 h-10 text-red-600" />
+        <div className="p-6 rounded-[22px] bg-rose-950/60 border border-rose-500/40 text-rose-200 shadow-md flex flex-col items-center justify-center gap-3 text-center">
+          <AlertCircle className="w-10 h-10 text-rose-400" />
           <div>
             <h2 className="text-sm font-bold">GPS Location Unavailable</h2>
-            <p className="text-xs opacity-80 mt-0.5">{errorMessage}</p>
+            <p className="text-xs text-rose-300 mt-0.5">{errorMessage}</p>
           </div>
-          <Button onClick={() => startTrackingRef.current?.()} className="bg-red-600 text-white font-bold text-xs py-2 px-4 rounded-xl shadow">
-            Retry GPS
+          <Button onClick={() => startTrackingRef.current?.()} className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-2 px-4 rounded-xl shadow">
+            Retry GPS Lock
           </Button>
         </div>
       )}
 
-      {/* Location Status Card - Success State */}
-      {locationStatus === 'success' && liveLocation && distance !== null && (
+      {/* Location Status Success State */}
+      {locationStatus === 'success' && distance !== null && (
         <>
           {/* ==================================================== */}
-          {/* CURRENT LOCATION CARD (ENTERPRISE REDESIGN) */}
+          {/* OFFICE STATUS CARD (NO COORDINATES, DISTANCE ONLY) */}
           {/* ==================================================== */}
-          <div className="bg-white rounded-[24px] border border-slate-200/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] flex items-center justify-between gap-4">
+          <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.37)] flex items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-blue-50 text-[#2563EB] flex items-center justify-center flex-shrink-0 font-bold shadow-sm">
-                <MapPin className="w-5 h-5" />
+              <div className="w-11 h-11 rounded-2xl bg-purple-950/80 text-purple-300 border border-purple-500/30 flex items-center justify-center flex-shrink-0 font-bold shadow-inner">
+                <Building2 className="w-5 h-5 text-[#7C3AED]" />
               </div>
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Current City / Location</p>
-                <h3 className="text-base font-black text-slate-900 leading-tight">
-                  📍 {getDisplayCity(currentAddress)}
+                <p className="text-[10px] font-black text-purple-300 uppercase tracking-widest mb-0.5">
+                  OFFICE STATUS
+                </p>
+                <h3 className="text-base font-black text-white leading-tight">
+                  Distance from Office: <span className="text-purple-200">{formatDistanceDisplay(distance)}</span>
                 </h3>
-                <p className="text-xs font-medium text-slate-500 mt-0.5">
-                  Distance: <strong className="text-slate-800">{formatDistanceDisplay(distance)}</strong>
+                <p className="text-[11px] text-purple-300/80 font-medium mt-0.5">
+                  Office Geofence Radius: {OFFICE_LOCATION.radius}m
                 </p>
               </div>
             </div>
 
             <div className="text-right flex-shrink-0">
-              <span className={`px-3 py-1.5 rounded-full text-xs font-black inline-flex items-center gap-1.5 border ${
+              <span className={`px-3.5 py-1.5 rounded-full text-xs font-black inline-flex items-center gap-2 border ${
                 isInsideGeofence 
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                  : 'bg-slate-100 text-slate-700 border-slate-200'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.2)]' 
+                  : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
               }`}>
-                <span className={`w-2 h-2 rounded-full ${isInsideGeofence ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                {isInsideGeofence ? 'Inside Office' : 'Outside Office'}
+                <span className={`w-2.5 h-2.5 rounded-full ${isInsideGeofence ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+                {isInsideGeofence ? 'INSIDE OFFICE' : 'OUTSIDE OFFICE'}
               </span>
             </div>
           </div>
 
           {/* ==================================================== */}
-          {/* ATTENDANCE MODES SELECTION GRID (4 CARDS REDESIGN) */}
+          {/* ATTENDANCE MODES SELECTION GRID */}
           {/* ==================================================== */}
           <div className="space-y-3">
             <div className="flex justify-between items-center px-1">
-              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Select Today's Attendance Mode
+              <h2 className="text-xs font-bold text-purple-300 uppercase tracking-wider">
+                Select Attendance Mode
               </h2>
               {todayRecord && (
-                <span className="text-[10px] bg-blue-50 text-[#2563EB] font-extrabold px-2.5 py-1 rounded-full border border-blue-200">
+                <span className="text-[10px] bg-purple-900/60 text-purple-200 font-extrabold px-3 py-1 rounded-full border border-purple-500/30">
                   Mode Locked for Today
                 </span>
               )}
@@ -817,30 +836,30 @@ export const AttendanceScreen: React.FC = () => {
                 type="button"
                 disabled={!!todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE'}
                 onClick={() => setActiveMode('OFFICE')}
-                className={`p-4 rounded-[24px] border text-left transition-all duration-200 flex flex-col justify-between h-32 relative overflow-hidden group ${
+                className={`p-4 rounded-[22px] border text-left transition-all duration-300 flex flex-col justify-between h-32 relative overflow-hidden group ${
                   activeMode === 'OFFICE'
-                    ? 'border-[#2563EB] bg-blue-50/40 shadow-md ring-4 ring-blue-500/10'
-                    : 'border-slate-200/80 bg-white hover:border-blue-400/50 hover:shadow-sm'
-                } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-40 cursor-not-allowed bg-slate-50' : ''}`}
+                    ? 'border-[#7C3AED] bg-[#381F6D] shadow-[0_0_25px_rgba(124,58,237,0.4)] ring-2 ring-[#7C3AED]'
+                    : 'border-purple-500/20 bg-[#2D1B5A]/70 hover:border-purple-400/40 hover:bg-[#2D1B5A]'
+                } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
                 <div className="flex justify-between items-start">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-bold transition-transform group-hover:scale-105 ${
-                    activeMode === 'OFFICE' ? 'bg-[#2563EB] text-white shadow-sm' : 'bg-purple-50 text-purple-700'
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl font-bold transition-transform group-hover:scale-105 ${
+                    activeMode === 'OFFICE' ? 'bg-[#7C3AED] text-white shadow-lg' : 'bg-purple-950/80 text-purple-300'
                   }`}>
                     🏢
                   </div>
                   {activeMode === 'OFFICE' && (
-                    <span className="w-5 h-5 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-xs shadow">
+                    <span className="w-5 h-5 rounded-full bg-[#7C3AED] text-white flex items-center justify-center text-xs shadow-md">
                       <Check className="w-3.5 h-3.5" />
                     </span>
                   )}
                   {todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' && (
-                    <Lock className="w-4 h-4 text-slate-400" />
+                    <Lock className="w-4 h-4 text-purple-400/60" />
                   )}
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-slate-900">Office</h3>
-                  <p className="text-[11px] text-slate-500 font-medium leading-tight">25m Office Geofence</p>
+                  <h3 className="font-extrabold text-sm text-white">Office</h3>
+                  <p className="text-[11px] text-purple-300 font-medium leading-tight mt-0.5">25m Office Geofence</p>
                 </div>
               </button>
 
@@ -849,32 +868,32 @@ export const AttendanceScreen: React.FC = () => {
                 type="button"
                 disabled={!!todayRecord && todayRecord.attendanceType !== 'WFH'}
                 onClick={() => setActiveMode('WFH')}
-                className={`p-4 rounded-[24px] border text-left transition-all duration-200 flex flex-col justify-between h-32 relative overflow-hidden group ${
+                className={`p-4 rounded-[22px] border text-left transition-all duration-300 flex flex-col justify-between h-32 relative overflow-hidden group ${
                   activeMode === 'WFH'
-                    ? 'border-emerald-600 bg-emerald-50/40 shadow-md ring-4 ring-emerald-500/10'
-                    : 'border-slate-200/80 bg-white hover:border-emerald-400/50 hover:shadow-sm'
-                } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-40 cursor-not-allowed bg-slate-50' : ''}`}
+                    ? 'border-emerald-500 bg-[#1E3B30] shadow-[0_0_25px_rgba(16,185,129,0.3)] ring-2 ring-emerald-500'
+                    : 'border-purple-500/20 bg-[#2D1B5A]/70 hover:border-emerald-400/40 hover:bg-[#2D1B5A]'
+                } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
                 <div className="flex justify-between items-start">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-bold transition-transform group-hover:scale-105 ${
-                    activeMode === 'WFH' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-emerald-50 text-emerald-700'
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl font-bold transition-transform group-hover:scale-105 ${
+                    activeMode === 'WFH' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-emerald-950/80 text-emerald-300'
                   }`}>
                     🏠
                   </div>
                   <div className="flex items-center gap-1">
                     {activeMode === 'WFH' && (
-                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs shadow">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs shadow-md">
                         <Check className="w-3.5 h-3.5" />
                       </span>
                     )}
-                    <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md">
+                    <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-md border border-emerald-500/30">
                       {currentWfhMonthCount}/2 Used
                     </span>
                   </div>
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-slate-900">Work From Home</h3>
-                  <p className="text-[11px] text-slate-500 font-medium leading-tight">Max 2 per Month</p>
+                  <h3 className="font-extrabold text-sm text-white">Work From Home</h3>
+                  <p className="text-[11px] text-purple-300 font-medium leading-tight mt-0.5">Max 2 per Month</p>
                 </div>
               </button>
 
@@ -883,27 +902,27 @@ export const AttendanceScreen: React.FC = () => {
                 type="button"
                 disabled={!!todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT'}
                 onClick={() => setActiveMode('CLIENT_VISIT')}
-                className={`p-4 rounded-[24px] border text-left transition-all duration-200 flex flex-col justify-between h-32 relative overflow-hidden group ${
+                className={`p-4 rounded-[22px] border text-left transition-all duration-300 flex flex-col justify-between h-32 relative overflow-hidden group ${
                   activeMode === 'CLIENT_VISIT'
-                    ? 'border-amber-600 bg-amber-50/40 shadow-md ring-4 ring-amber-500/10'
-                    : 'border-slate-200/80 bg-white hover:border-amber-400/50 hover:shadow-sm'
-                } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-40 cursor-not-allowed bg-slate-50' : ''}`}
+                    ? 'border-amber-500 bg-[#3B2D1E] shadow-[0_0_25px_rgba(245,158,11,0.3)] ring-2 ring-amber-500'
+                    : 'border-purple-500/20 bg-[#2D1B5A]/70 hover:border-amber-400/40 hover:bg-[#2D1B5A]'
+                } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
                 <div className="flex justify-between items-start">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-bold transition-transform group-hover:scale-105 ${
-                    activeMode === 'CLIENT_VISIT' ? 'bg-amber-600 text-white shadow-sm' : 'bg-amber-50 text-amber-700'
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl font-bold transition-transform group-hover:scale-105 ${
+                    activeMode === 'CLIENT_VISIT' ? 'bg-amber-600 text-white shadow-lg' : 'bg-amber-950/80 text-amber-300'
                   }`}>
                     🤝
                   </div>
                   {activeMode === 'CLIENT_VISIT' && (
-                    <span className="w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-xs shadow">
+                    <span className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs shadow-md">
                       <Check className="w-3.5 h-3.5" />
                     </span>
                   )}
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-slate-900">Client Visit</h3>
-                  <p className="text-[11px] text-slate-500 font-medium leading-tight">On-site Meetings</p>
+                  <h3 className="font-extrabold text-sm text-white">Client Visit</h3>
+                  <p className="text-[11px] text-purple-300 font-medium leading-tight mt-0.5">On-site Meetings</p>
                 </div>
               </button>
 
@@ -912,166 +931,162 @@ export const AttendanceScreen: React.FC = () => {
                 type="button"
                 disabled={!!todayRecord && todayRecord.attendanceType !== 'OUTDOOR'}
                 onClick={() => setActiveMode('OUTDOOR')}
-                className={`p-4 rounded-[24px] border text-left transition-all duration-200 flex flex-col justify-between h-32 relative overflow-hidden group ${
+                className={`p-4 rounded-[22px] border text-left transition-all duration-300 flex flex-col justify-between h-32 relative overflow-hidden group ${
                   activeMode === 'OUTDOOR'
-                    ? 'border-indigo-600 bg-indigo-50/40 shadow-md ring-4 ring-indigo-500/10'
-                    : 'border-slate-200/80 bg-white hover:border-indigo-400/50 hover:shadow-sm'
-                } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-40 cursor-not-allowed bg-slate-50' : ''}`}
+                    ? 'border-indigo-500 bg-[#2A234A] shadow-[0_0_25px_rgba(99,102,241,0.3)] ring-2 ring-indigo-500'
+                    : 'border-purple-500/20 bg-[#2D1B5A]/70 hover:border-indigo-400/40 hover:bg-[#2D1B5A]'
+                } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
                 <div className="flex justify-between items-start">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-bold transition-transform group-hover:scale-105 ${
-                    activeMode === 'OUTDOOR' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-indigo-50 text-indigo-700'
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl font-bold transition-transform group-hover:scale-105 ${
+                    activeMode === 'OUTDOOR' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-950/80 text-indigo-300'
                   }`}>
                     🚗
                   </div>
                   {activeMode === 'OUTDOOR' && (
-                    <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs shadow">
+                    <span className="w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs shadow-md">
                       <Check className="w-3.5 h-3.5" />
                     </span>
                   )}
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-slate-900">Outdoor Work</h3>
-                  <p className="text-[11px] text-slate-500 font-medium leading-tight">Field & Market Visit</p>
+                  <h3 className="font-extrabold text-sm text-white">Outdoor Work</h3>
+                  <p className="text-[11px] text-purple-300 font-medium leading-tight mt-0.5">Field & Market Visit</p>
                 </div>
               </button>
             </div>
           </div>
 
           {/* ==================================================== */}
-          {/* TODAY'S ATTENDANCE SUMMARY CARD (IF ACTIVE) */}
+          {/* TODAY STATUS CARD */}
           {/* ==================================================== */}
           {todayRecord && (
-            <div className="bg-gradient-to-br from-[#1E3A8A] to-[#2563EB] text-white rounded-[24px] p-6 shadow-md space-y-4">
-              <div className="flex justify-between items-center border-b border-white/20 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">
+            <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.37)] space-y-4">
+              <div className="flex justify-between items-center border-b border-purple-500/20 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">
                     {todayRecord.attendanceType === 'WFH' ? '🏠' : todayRecord.attendanceType === 'CLIENT_VISIT' ? '🤝' : todayRecord.attendanceType === 'OUTDOOR' ? '🚗' : '🏢'}
                   </span>
                   <div>
-                    <p className="text-[10px] text-blue-200 font-bold uppercase tracking-wider">Today's Active Attendance</p>
+                    <p className="text-[10px] text-purple-300 font-bold uppercase tracking-widest">Today's Active Attendance</p>
                     <h3 className="font-black text-lg text-white">{todayRecord.attendanceType || 'OFFICE'}</h3>
                   </div>
                 </div>
-                <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-xs font-bold flex items-center gap-1.5">
+                <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   Logged {todayRecord.checkInTime}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/10">
-                  <p className="text-[10px] text-blue-200 font-semibold mb-0.5">Check-In Time</p>
-                  <p className="font-extrabold text-base text-white">{todayRecord.checkInTime}</p>
-                  <p className="text-[9px] text-blue-200 mt-0.5">{todayRecord.checkInMode} Mode</p>
+                <div className="bg-purple-950/60 p-3.5 rounded-2xl border border-purple-500/20">
+                  <p className="text-[10px] text-purple-300 font-bold mb-0.5">Check-In Time</p>
+                  <p className="font-black text-base text-white">{todayRecord.checkInTime}</p>
+                  <p className="text-[9px] text-purple-300/80 mt-0.5">Source: {todayRecord.checkInMode}</p>
                 </div>
 
-                <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/10">
-                  <p className="text-[10px] text-blue-200 font-semibold mb-0.5">Check-Out Time</p>
-                  <p className="font-extrabold text-base text-white">{todayRecord.checkOutTime || 'Pending'}</p>
-                  <p className="text-[9px] text-blue-200 mt-0.5">{todayRecord.checkOutMode !== 'N/A' ? todayRecord.checkOutMode : 'In Progress'}</p>
+                <div className="bg-purple-950/60 p-3.5 rounded-2xl border border-purple-500/20">
+                  <p className="text-[10px] text-purple-300 font-bold mb-0.5">Check-Out Time</p>
+                  <p className="font-black text-base text-white">{todayRecord.checkOutTime || 'Pending'}</p>
+                  <p className="text-[9px] text-purple-300/80 mt-0.5">{todayRecord.checkOutMode !== 'N/A' ? `Source: ${todayRecord.checkOutMode}` : 'In Progress'}</p>
                 </div>
 
-                <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/10">
-                  <p className="text-[10px] text-blue-200 font-semibold mb-0.5">Working Hours</p>
-                  <p className="font-extrabold text-base text-white">{todayRecord.workingHours || '--:--'}</p>
-                  <p className="text-[9px] text-blue-200 mt-0.5">Today Session</p>
+                <div className="bg-purple-950/60 p-3.5 rounded-2xl border border-purple-500/20">
+                  <p className="text-[10px] text-purple-300 font-bold mb-0.5">Working Hours</p>
+                  <p className="font-black text-base text-white">{todayRecord.workingHours || '--:--'}</p>
+                  <p className="text-[9px] text-purple-300/80 mt-0.5">Session Total</p>
                 </div>
 
-                <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-sm border border-white/10">
-                  <p className="text-[10px] text-blue-200 font-semibold mb-0.5">Cloud Sync</p>
-                  <p className="font-extrabold text-sm text-white">{todayRecord.syncStatus}</p>
-                  <p className="text-[9px] text-blue-200 mt-0.5">{todayRecord.isOffline ? 'Saved Offline' : 'Cloud Direct'}</p>
+                <div className="bg-purple-950/60 p-3.5 rounded-2xl border border-purple-500/20">
+                  <p className="text-[10px] text-purple-300 font-bold mb-0.5">Cloud Sync Status</p>
+                  <p className="font-black text-sm text-white">{todayRecord.syncStatus}</p>
+                  <p className="text-[9px] text-purple-300/80 mt-0.5">{todayRecord.isOffline ? 'Offline Stored' : 'Direct Cloud'}</p>
                 </div>
               </div>
             </div>
           )}
 
           {/* ==================================================== */}
-          {/* MODE 1: OFFICE MODE REDESIGN */}
+          {/* MODE 1: OFFICE MODE */}
           {/* ==================================================== */}
           {activeMode === 'OFFICE' && (
             <div className="space-y-4">
-              {/* Geofence Banner */}
-              <div className={`p-4 rounded-[24px] flex items-center justify-between shadow-sm border transition-all ${
-                isInsideGeofence 
-                  ? 'bg-emerald-50 text-emerald-950 border-emerald-200/80' 
-                  : 'bg-amber-50 text-amber-950 border-amber-200/80'
-              }`}>
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 font-bold ${
-                    isInsideGeofence ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                  }`}>
-                    {isInsideGeofence ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-sm leading-tight">
-                      {isInsideGeofence ? 'Inside Office Geofence (25m Radius)' : 'Outside Office Geofence'}
-                    </h3>
-                    <p className="text-xs opacity-80 mt-0.5">
-                      Distance to Office HQ: <strong>{formatDistanceDisplay(distance)}</strong> (Geofence: {OFFICE_LOCATION.radius}m)
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Auto Check-In Countdown Notification Banner */}
-              {autoCheckInCountdown !== null && (
-                <div className="p-5 rounded-[24px] bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white shadow-md space-y-2 animate-bounce">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
-                      <UserCheck className="w-4 h-4" /> Auto Check-In Countdown
-                    </span>
-                    <span className="text-xl font-black bg-white/20 px-3.5 py-0.5 rounded-full">
-                      {autoCheckInCountdown}s
-                    </span>
-                  </div>
-                  <p className="text-xs text-blue-100 leading-tight">
-                    Remain inside 25m office geofence for 10 seconds to complete automatic check-in.
-                  </p>
-                  <div className="w-full bg-white/20 h-2.5 rounded-full overflow-hidden mt-1">
-                    <div 
-                      className="bg-white h-full transition-all duration-1000 ease-linear"
-                      style={{ width: `${((10 - autoCheckInCountdown) / 10) * 100}%` }}
-                    />
-                  </div>
+              {/* AUTO CHECK-IN CARD */}
+              {!todayRecord && (
+                <div className="space-y-3">
+                  {isInsideGeofence ? (
+                    <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-400/40 p-6 shadow-[0_0_25px_rgba(124,58,237,0.3)] text-center space-y-4">
+                      <div className="flex items-center justify-center gap-2 text-purple-200 text-xs font-black uppercase tracking-wider">
+                        <Radio className="w-4 h-4 text-[#7C3AED] animate-spin" /> Auto Check-In Active
+                      </div>
+                      
+                      {autoCheckInCountdown !== null ? (
+                        <div className="space-y-3 py-2">
+                          <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
+                            <div className="absolute inset-0 rounded-full border-4 border-purple-500/20 animate-ping" />
+                            <div className="w-20 h-20 rounded-full bg-[#7C3AED] text-white flex items-center justify-center text-3xl font-black shadow-lg">
+                              {autoCheckInCountdown}
+                            </div>
+                          </div>
+                          <p className="text-xs text-purple-200 font-semibold">
+                            Auto Check-In in <strong className="text-white">{autoCheckInCountdown} seconds</strong>... Stay within 25m.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-xs text-purple-200 font-medium">
+                            Inside Office Geofence (25m). Auto Check-in will start shortly, or click manual check-in.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="bg-rose-950/50 rounded-[22px] border border-rose-500/30 p-5 shadow-md flex items-center gap-3">
+                      <AlertCircle className="w-6 h-6 text-rose-400 flex-shrink-0" />
+                      <div>
+                        <h3 className="font-extrabold text-sm text-white">Outside Office Geofence</h3>
+                        <p className="text-xs text-rose-300/80 mt-0.5">
+                          Auto check-in requires being within 25 meters of office HQ.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Smart Checkout Reminder Banner */}
               {reminderStatus.isReminderActive && (
-                <div className="p-4 rounded-[24px] bg-amber-500 text-white shadow-md flex items-start gap-3 border-l-4 border-l-amber-700">
-                  <Bell className="w-5 h-5 flex-shrink-0 mt-0.5 animate-pulse" />
+                <div className="p-4 rounded-[22px] bg-amber-500/20 border border-amber-500/40 text-amber-200 shadow-md flex items-start gap-3">
+                  <Bell className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5 animate-pulse" />
                   <div>
-                    <h3 className="font-bold text-sm">Smart Checkout Reminder</h3>
-                    <p className="text-xs text-amber-100 mt-0.5">
-                      Office closing time passed (06:00 PM). Please perform manual checkout before exiting geofence.
+                    <h3 className="font-extrabold text-sm text-white">Smart Checkout Reminder</h3>
+                    <p className="text-xs text-amber-200/80 mt-0.5">
+                      Office hours ended (06:00 PM). Please perform manual checkout before exiting office geofence.
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Office Action Panel */}
-              <div className="bg-white rounded-[24px] border border-slate-200/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-[#2563EB]" /> Office Attendance Control
+              {/* MANUAL CHECK-IN & CHECK-OUT ACTION BUTTONS */}
+              <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.37)] space-y-4">
+                <div className="flex items-center justify-between border-b border-purple-500/20 pb-3">
+                  <h3 className="text-xs font-black text-purple-300 uppercase tracking-widest flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-[#7C3AED]" /> Office Attendance Control
                   </h3>
-                  <span className="text-[11px] font-semibold text-slate-400">Raniganj HQ</span>
+                  <span className="text-[11px] font-semibold text-purple-300">Raniganj HQ</span>
                 </div>
 
                 {!todayRecord ? (
                   <div className="space-y-3">
-                    <div className="p-3.5 bg-slate-50 rounded-2xl text-xs text-slate-600 border border-slate-200/60">
-                      <p className="font-bold text-slate-800 mb-0.5">Status: Not Checked In</p>
-                      <p>Stay inside 25m radius for 10s for <strong>Auto Check-In</strong>, or click below to check in manually.</p>
-                    </div>
-                    <Button 
-                      onClick={handleManualCheckIn} 
-                      className="w-full py-3.5 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-sm rounded-2xl shadow-md transition-all"
-                    >
-                      <UserCheck className="w-5 h-5 mr-2" /> Manual Office Check-In
-                    </Button>
+                    {/* Hide Manual Check-In button during active countdown */}
+                    {autoCheckInCountdown === null && (
+                      <Button 
+                        onClick={handleManualCheckIn} 
+                        className="w-full py-4 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-extrabold text-sm rounded-2xl shadow-lg transition-all border border-purple-400/30 active:scale-95"
+                      >
+                        <UserCheck className="w-5 h-5 mr-2" /> Manual Office Check-In
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -1080,16 +1095,16 @@ export const AttendanceScreen: React.FC = () => {
                         <Button 
                           onClick={handleManualCheckOut} 
                           disabled={!isInsideGeofence}
-                          className={`w-full py-3.5 font-bold text-sm rounded-2xl transition-all shadow-md ${
+                          className={`w-full py-4 font-extrabold text-sm rounded-2xl transition-all shadow-lg ${
                             isInsideGeofence 
-                              ? 'bg-red-600 hover:bg-red-700 text-white' 
-                              : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                              ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-400/30 active:scale-95' 
+                              : 'bg-purple-950/60 text-purple-400 border border-purple-500/20 cursor-not-allowed'
                           }`}
                         >
                           <LogOut className="w-5 h-5 mr-2" /> Manual Check-Out (Inside Geofence Only)
                         </Button>
                         {!isInsideGeofence && (
-                          <p className="text-[11px] text-red-600 text-center font-semibold">
+                          <p className="text-[11px] text-rose-300 text-center font-bold">
                             Manual Check-Out is allowed ONLY inside the 25m office geofence.
                           </p>
                         )}
@@ -1102,597 +1117,416 @@ export const AttendanceScreen: React.FC = () => {
           )}
 
           {/* ==================================================== */}
-          {/* MODE 2: WORK FROM HOME (WFH) REDESIGN */}
+          {/* MODE 2: WORK FROM HOME (WFH) */}
           {/* ==================================================== */}
           {activeMode === 'WFH' && (
-            <div className="bg-white rounded-[24px] border border-slate-200/80 p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-5">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+            <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-emerald-500/30 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.37)] space-y-5">
+              <div className="flex justify-between items-center border-b border-purple-500/20 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-lg">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 flex items-center justify-center font-black text-lg">
                     🏠
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Work From Home (WFH)</h3>
-                    <p className="text-xs text-slate-500">No office geofence required</p>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Work From Home (WFH)</h3>
+                    <p className="text-xs text-purple-300">No office geofence required</p>
                   </div>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-black border ${
-                  currentWfhMonthCount >= 2 ? 'bg-red-50 text-red-800 border-red-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  currentWfhMonthCount >= 2 ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                 }`}>
                   {currentWfhMonthCount} / 2 Used This Month
                 </span>
               </div>
 
-              {currentWfhMonthCount >= 2 && !todayRecord && (
-                <div className="p-3.5 bg-red-50 border border-red-200 text-red-900 rounded-2xl text-xs font-bold flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                  <span>Monthly WFH limit exceeded. (Maximum 2 requests permitted per calendar month)</span>
+              {wfhFormError && (
+                <div className="p-3.5 bg-rose-950/80 border border-rose-500/40 text-rose-200 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                  <span>{wfhFormError}</span>
                 </div>
               )}
 
-              {todayRecord && todayRecord.attendanceType === 'WFH' ? (
-                <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl space-y-3 text-xs text-emerald-950">
-                  <div className="flex justify-between font-bold text-sm text-emerald-900 border-b border-emerald-200/60 pb-2">
-                    <span>WFH Attendance Active</span>
-                    <span>Logged at {todayRecord.checkInTime}</span>
-                  </div>
-                  <div>
-                    <p className="font-bold text-emerald-900">Reason:</p>
-                    <p className="bg-white p-2.5 rounded-xl border border-emerald-200 mt-1">{todayRecord.wfhReason}</p>
-                  </div>
-                  <div>
-                    <p className="font-bold text-emerald-900">Today's Work Plan:</p>
-                    <p className="bg-white p-2.5 rounded-xl border border-emerald-200 mt-1">{todayRecord.workPlan}</p>
-                  </div>
-                  <p className="text-[11px] text-emerald-700 font-medium italic">No Check-Out required for Work From Home sessions.</p>
-                </div>
-              ) : (
+              {!todayRecord ? (
                 <form onSubmit={handleWfhSubmit} className="space-y-4">
-                  {wfhFormError && (
-                    <div className="p-3.5 bg-red-50 text-red-800 border border-red-200 rounded-2xl text-xs font-medium">
-                      {wfhFormError}
-                    </div>
-                  )}
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                      Reason for WFH <span className="text-red-500">*</span>
+                  <div>
+                    <label className="block text-xs font-bold text-purple-300 mb-1">
+                      Reason for WFH <span className="text-rose-400">*</span>
                     </label>
-                    <textarea
-                      rows={2}
+                    <input
+                      type="text"
                       value={wfhReason}
                       onChange={(e) => setWfhReason(e.target.value)}
-                      placeholder="Specify detailed reason for working from home..."
-                      disabled={currentWfhMonthCount >= 2 || !!todayRecord}
-                      className="w-full p-3.5 text-xs rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-[#2563EB] text-slate-900 font-medium"
+                      placeholder="e.g., Personal errand / Doctor visit / Remote task"
+                      className="w-full px-4 py-3 bg-purple-950/80 border border-purple-500/30 rounded-xl text-xs text-white placeholder-purple-400/60 focus:outline-none focus:border-emerald-400"
                     />
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                      Today's Work Plan <span className="text-red-500">*</span>
+                  <div>
+                    <label className="block text-xs font-bold text-purple-300 mb-1">
+                      Today's Work Plan <span className="text-rose-400">*</span>
                     </label>
                     <textarea
-                      rows={3}
                       value={wfhWorkPlan}
                       onChange={(e) => setWfhWorkPlan(e.target.value)}
-                      placeholder="Outline key deliverables planned for today..."
-                      disabled={currentWfhMonthCount >= 2 || !!todayRecord}
-                      className="w-full p-3.5 text-xs rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-[#2563EB] text-slate-900 font-medium"
+                      rows={3}
+                      placeholder="Detail your planned deliverables for today..."
+                      className="w-full px-4 py-3 bg-purple-950/80 border border-purple-500/30 rounded-xl text-xs text-white placeholder-purple-400/60 focus:outline-none focus:border-emerald-400"
                     />
                   </div>
 
                   <Button
                     type="submit"
-                    disabled={currentWfhMonthCount >= 2 || !!todayRecord}
-                    className={`w-full py-3.5 font-bold text-sm rounded-2xl text-white transition-all shadow-md ${
-                      currentWfhMonthCount >= 2 || !!todayRecord
-                        ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                        : 'bg-[#2563EB] hover:bg-blue-700'
-                    }`}
+                    disabled={currentWfhMonthCount >= 2}
+                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm rounded-2xl shadow-lg border border-emerald-400/30"
                   >
-                    Submit WFH
+                    Submit WFH Attendance
                   </Button>
                 </form>
+              ) : (
+                <div className="p-4 bg-purple-950/60 rounded-2xl border border-purple-500/20 text-xs space-y-2">
+                  <p className="font-bold text-emerald-300">WFH Session Active for Today</p>
+                  <p><span className="text-purple-300">Reason:</span> {todayRecord.wfhReason || 'N/A'}</p>
+                  <p><span className="text-purple-300">Work Plan:</span> {todayRecord.workPlan || 'N/A'}</p>
+                </div>
               )}
             </div>
           )}
 
           {/* ==================================================== */}
-          {/* MODE 3: CLIENT VISIT REDESIGN */}
+          {/* MODE 3: CLIENT VISIT */}
           {/* ==================================================== */}
           {activeMode === 'CLIENT_VISIT' && (
-            <div className="bg-white rounded-[24px] border border-slate-200/80 p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-5">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-lg">
-                    🤝
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Client Visit</h3>
-                    <p className="text-xs text-slate-500">On-site client meetings & calls</p>
-                  </div>
+            <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-amber-500/30 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.37)] space-y-5">
+              <div className="flex items-center gap-3 border-b border-purple-500/20 pb-4">
+                <div className="w-10 h-10 rounded-2xl bg-amber-950/80 text-amber-300 border border-amber-500/30 flex items-center justify-center font-black text-lg">
+                  🤝
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Client Visit</h3>
+                  <p className="text-xs text-purple-300">Log on-site client meetings</p>
                 </div>
               </div>
 
-              {todayRecord && todayRecord.attendanceType === 'CLIENT_VISIT' ? (
-                <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-3 text-xs text-amber-950">
-                  <div className="flex justify-between font-bold text-sm text-amber-900 border-b border-amber-200/60 pb-2">
-                    <span>Client Visit Logged</span>
-                    <span>Logged at {todayRecord.checkInTime}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-[10px] text-amber-800 font-bold uppercase">Client Name</p>
-                      <p className="font-extrabold text-slate-900 text-sm">{todayRecord.clientName}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-amber-800 font-bold uppercase">Location / Address</p>
-                      <p className="font-extrabold text-slate-900 text-sm">{todayRecord.clientLocation}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-amber-800 font-bold uppercase">Purpose of Visit</p>
-                    <p className="bg-white p-2.5 rounded-xl border border-amber-200 mt-1">{todayRecord.purpose}</p>
-                  </div>
-                  <p className="text-[11px] text-amber-800 font-medium italic">No Check-Out required for Client Visit.</p>
+              {clientFormError && (
+                <div className="p-3.5 bg-rose-950/80 border border-rose-500/40 text-rose-200 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                  <span>{clientFormError}</span>
                 </div>
-              ) : (
-                <form onSubmit={handleClientVisitSubmit} className="space-y-4">
-                  {clientFormError && (
-                    <div className="p-3.5 bg-red-50 text-red-800 border border-red-200 rounded-2xl text-xs font-medium">
-                      {clientFormError}
-                    </div>
-                  )}
+              )}
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                      Client Name <span className="text-red-500">*</span>
+              {!todayRecord ? (
+                <form onSubmit={handleClientVisitSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-purple-300 mb-1">
+                      Client Name <span className="text-rose-400">*</span>
                     </label>
                     <input
                       type="text"
                       value={clientName}
                       onChange={(e) => setClientName(e.target.value)}
-                      placeholder="E.g., Tata Steel Ltd"
-                      disabled={!!todayRecord}
-                      className="w-full p-3.5 text-xs rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-[#2563EB] text-slate-900 font-medium"
+                      placeholder="e.g., Tata Steel Ltd"
+                      className="w-full px-4 py-3 bg-purple-950/80 border border-purple-500/30 rounded-xl text-xs text-white placeholder-purple-400/60 focus:outline-none focus:border-amber-400"
                     />
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                      Client Address / Location <span className="text-red-500">*</span>
+                  <div>
+                    <label className="block text-xs font-bold text-purple-300 mb-1">
+                      Client Location / Address <span className="text-rose-400">*</span>
                     </label>
                     <input
                       type="text"
                       value={clientLocation}
                       onChange={(e) => setClientLocation(e.target.value)}
-                      placeholder="E.g., Asansol Industrial Estate, Plot 14"
-                      disabled={!!todayRecord}
-                      className="w-full p-3.5 text-xs rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-[#2563EB] text-slate-900 font-medium"
+                      placeholder="e.g., Durgapur Industrial Complex"
+                      className="w-full px-4 py-3 bg-purple-950/80 border border-purple-500/30 rounded-xl text-xs text-white placeholder-purple-400/60 focus:outline-none focus:border-amber-400"
                     />
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                      Purpose of Visit <span className="text-red-500">*</span>
+                  <div>
+                    <label className="block text-xs font-bold text-purple-300 mb-1">
+                      Purpose of Visit <span className="text-rose-400">*</span>
                     </label>
                     <textarea
-                      rows={2}
                       value={clientPurpose}
                       onChange={(e) => setClientPurpose(e.target.value)}
-                      placeholder="E.g., Requirements gathering and project review meeting"
-                      disabled={!!todayRecord}
-                      className="w-full p-3.5 text-xs rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-[#2563EB] text-slate-900 font-medium"
+                      rows={2}
+                      placeholder="e.g., Contract negotiation and site inspection"
+                      className="w-full px-4 py-3 bg-purple-950/80 border border-purple-500/30 rounded-xl text-xs text-white placeholder-purple-400/60 focus:outline-none focus:border-amber-400"
                     />
                   </div>
 
                   <Button
                     type="submit"
-                    disabled={!!todayRecord}
-                    className={`w-full py-3.5 font-bold text-sm rounded-2xl text-white transition-all shadow-md ${
-                      !!todayRecord
-                        ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                        : 'bg-[#2563EB] hover:bg-blue-700'
-                    }`}
+                    className="w-full py-3.5 bg-amber-600 hover:bg-amber-700 text-white font-black text-sm rounded-2xl shadow-lg border border-amber-400/30"
                   >
-                    Submit Client Visit
+                    Submit Client Visit Attendance
                   </Button>
                 </form>
+              ) : (
+                <div className="p-4 bg-purple-950/60 rounded-2xl border border-purple-500/20 text-xs space-y-2">
+                  <p className="font-bold text-amber-300">Client Visit Active for Today</p>
+                  <p><span className="text-purple-300">Client:</span> {todayRecord.clientName || 'N/A'}</p>
+                  <p><span className="text-purple-300">Location:</span> {todayRecord.clientLocation || 'N/A'}</p>
+                  <p><span className="text-purple-300">Purpose:</span> {todayRecord.purpose || 'N/A'}</p>
+                </div>
               )}
             </div>
           )}
 
           {/* ==================================================== */}
-          {/* MODE 4: OUTDOOR WORK REDESIGN */}
+          {/* MODE 4: OUTDOOR WORK */}
           {/* ==================================================== */}
           {activeMode === 'OUTDOOR' && (
-            <div className="bg-white rounded-[24px] border border-slate-200/80 p-6 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-5">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-lg">
-                    🚗
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Outdoor Work</h3>
-                    <p className="text-xs text-slate-500">Field duties, site work & deliveries</p>
-                  </div>
+            <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-indigo-500/30 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.37)] space-y-5">
+              <div className="flex items-center gap-3 border-b border-purple-500/20 pb-4">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-950/80 text-indigo-300 border border-indigo-500/30 flex items-center justify-center font-black text-lg">
+                  🚗
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Outdoor Work</h3>
+                  <p className="text-xs text-purple-300">Field visits, surveys, market duty</p>
                 </div>
               </div>
 
-              {todayRecord && todayRecord.attendanceType === 'OUTDOOR' ? (
-                <div className="p-4 bg-indigo-50/80 border border-indigo-200 rounded-2xl space-y-3 text-xs text-indigo-950">
-                  <div className="flex justify-between font-bold text-sm text-indigo-900 border-b border-indigo-200/60 pb-2">
-                    <span>Outdoor Work Logged</span>
-                    <span>Logged at {todayRecord.checkInTime}</span>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-indigo-800 font-bold uppercase">Outdoor Work Type</p>
-                    <p className="font-extrabold text-slate-900 text-sm mt-0.5">{todayRecord.outdoorType}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-indigo-800 font-bold uppercase">Description</p>
-                    <p className="bg-white p-2.5 rounded-xl border border-indigo-200 mt-1">{todayRecord.description}</p>
-                  </div>
-                  <p className="text-[11px] text-indigo-800 font-medium italic">No Check-Out required for Outdoor Work.</p>
+              {outdoorFormError && (
+                <div className="p-3.5 bg-rose-950/80 border border-rose-500/40 text-rose-200 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                  <span>{outdoorFormError}</span>
                 </div>
-              ) : (
-                <form onSubmit={handleOutdoorSubmit} className="space-y-4">
-                  {outdoorFormError && (
-                    <div className="p-3.5 bg-red-50 text-red-800 border border-red-200 rounded-2xl text-xs font-medium">
-                      {outdoorFormError}
-                    </div>
-                  )}
+              )}
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                      Outdoor Work Type <span className="text-red-500">*</span>
+              {!todayRecord ? (
+                <form onSubmit={handleOutdoorSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-purple-300 mb-1">
+                      Outdoor Work Type <span className="text-rose-400">*</span>
                     </label>
                     <select
                       value={outdoorType}
                       onChange={(e) => setOutdoorType(e.target.value as OutdoorWorkTypeOption)}
-                      disabled={!!todayRecord}
-                      className="w-full p-3.5 text-xs rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-[#2563EB] text-slate-900 font-bold"
+                      className="w-full px-4 py-3 bg-purple-950 border border-purple-500/30 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-400"
                     >
                       {OUTDOOR_TYPE_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
+                        <option key={opt} value={opt} className="bg-purple-950 text-white">{opt}</option>
                       ))}
                     </select>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                      Description <span className="text-red-500">*</span>
+                  <div>
+                    <label className="block text-xs font-bold text-purple-300 mb-1">
+                      Description <span className="text-rose-400">*</span>
                     </label>
                     <textarea
-                      rows={3}
                       value={outdoorDescription}
                       onChange={(e) => setOutdoorDescription(e.target.value)}
-                      placeholder="Describe field activity, site location or assignment details..."
-                      disabled={!!todayRecord}
-                      className="w-full p-3.5 text-xs rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-[#2563EB] text-slate-900 font-medium"
+                      rows={3}
+                      placeholder="Provide details about your outdoor field assignment..."
+                      className="w-full px-4 py-3 bg-purple-950/80 border border-purple-500/30 rounded-xl text-xs text-white placeholder-purple-400/60 focus:outline-none focus:border-indigo-400"
                     />
                   </div>
 
                   <Button
                     type="submit"
-                    disabled={!!todayRecord}
-                    className={`w-full py-3.5 font-bold text-sm rounded-2xl text-white transition-all shadow-md ${
-                      !!todayRecord
-                        ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                        : 'bg-[#2563EB] hover:bg-blue-700'
-                    }`}
+                    className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm rounded-2xl shadow-lg border border-indigo-400/30"
                   >
-                    Submit Outdoor Work
+                    Submit Outdoor Work Attendance
                   </Button>
                 </form>
+              ) : (
+                <div className="p-4 bg-purple-950/60 rounded-2xl border border-purple-500/20 text-xs space-y-2">
+                  <p className="font-bold text-indigo-300">Outdoor Work Active for Today</p>
+                  <p><span className="text-purple-300">Type:</span> {todayRecord.outdoorType || 'N/A'}</p>
+                  <p><span className="text-purple-300">Description:</span> {todayRecord.description || 'N/A'}</p>
+                </div>
               )}
             </div>
           )}
 
           {/* ==================================================== */}
-          {/* TODAY'S TIMELINE (VISUAL STEP TIMELINE REDESIGN) */}
+          {/* TODAY'S VERTICAL TIMELINE */}
           {/* ==================================================== */}
-          {todayRecord && (
-            <div className="bg-white rounded-[24px] border border-slate-200/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-4">
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                <Clock className="w-4 h-4 text-[#2563EB]" /> Today's Timeline
-              </h3>
+          <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.37)] space-y-4">
+            <h3 className="text-xs font-black text-purple-300 uppercase tracking-widest flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[#7C3AED]" /> Today's Activity Timeline
+            </h3>
 
-              <div className="relative pl-6 border-l-2 border-slate-200 space-y-4 ml-2 my-2">
-                {/* Event 1: Check In */}
-                <div className="relative">
-                  <span className="absolute -left-[31px] top-0.5 w-4 h-4 rounded-full bg-[#2563EB] ring-4 ring-blue-100 flex items-center justify-center text-white text-[9px]">
-                    ✓
+            {todayRecord ? (
+              <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-purple-500/30">
+                {/* Check-In Event */}
+                <div className="relative flex items-start gap-3">
+                  <span className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-[#7C3AED] text-white flex items-center justify-center text-[10px] font-black shadow ring-4 ring-[#2D1B5A]">
+                    <Check className="w-3 h-3" />
                   </span>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-sm text-slate-900">{todayRecord.checkInTime}</span>
-                      <span className="px-2 py-0.5 rounded-full bg-blue-50 text-[#2563EB] text-[10px] font-bold">
-                        {todayRecord.checkInMode} Check-In
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                      Mode: <strong>{todayRecord.attendanceType || 'OFFICE'}</strong> | Location: {todayRecord.townCity}
+                    <p className="text-xs font-black text-white">{todayRecord.checkInTime} • {todayRecord.checkInMode} Check-In</p>
+                    <p className="text-[11px] text-purple-300/80 mt-0.5">
+                      Mode: <strong className="text-purple-200">{todayRecord.attendanceType || 'OFFICE'}</strong>
                     </p>
                   </div>
                 </div>
 
-                {/* Event 2: Exit Log if any */}
-                {todayRecord.exitTime && (
-                  <div className="relative">
-                    <span className="absolute -left-[31px] top-0.5 w-4 h-4 rounded-full bg-amber-500 ring-4 ring-amber-100 flex items-center justify-center text-white text-[9px]">
-                      !
+                {/* Specific Mode Details Event */}
+                {todayRecord.attendanceType === 'WFH' && todayRecord.wfhReason && (
+                  <div className="relative flex items-start gap-3">
+                    <span className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black shadow ring-4 ring-[#2D1B5A]">
+                      🏠
                     </span>
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-sm text-slate-900">{todayRecord.exitTime}</span>
-                        <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold">
-                          Office Exit Recorded
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                        Return: {todayRecord.returnTime || 'Out of Office'}
-                      </p>
+                      <p className="text-xs font-black text-emerald-300">Work From Home Logged</p>
+                      <p className="text-[11px] text-purple-200 mt-0.5">Plan: {todayRecord.workPlan}</p>
                     </div>
                   </div>
                 )}
 
-                {/* Event 3: Check Out */}
-                <div className="relative">
-                  <span className={`absolute -left-[31px] top-0.5 w-4 h-4 rounded-full ring-4 flex items-center justify-center text-white text-[9px] ${
-                    todayRecord.checkOutTime ? 'bg-emerald-600 ring-emerald-100' : 'bg-slate-300 ring-slate-100'
-                  }`}>
-                    {todayRecord.checkOutTime ? '✓' : '•'}
-                  </span>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-sm text-slate-900">
-                        {todayRecord.checkOutTime || 'Session In Progress'}
-                      </span>
-                      {todayRecord.checkOutTime && (
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          todayRecord.checkOutMode === 'AUTO_SYSTEM' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'
-                        }`}>
-                          {todayRecord.checkOutMode} Check-Out
-                        </span>
-                      )}
+                {todayRecord.attendanceType === 'CLIENT_VISIT' && todayRecord.clientName && (
+                  <div className="relative flex items-start gap-3">
+                    <span className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-[10px] font-black shadow ring-4 ring-[#2D1B5A]">
+                      🤝
+                    </span>
+                    <div>
+                      <p className="text-xs font-black text-amber-300">Client Meeting • {todayRecord.clientName}</p>
+                      <p className="text-[11px] text-purple-200 mt-0.5">Location: {todayRecord.clientLocation}</p>
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                      {todayRecord.workingHours ? `Total Working Hours: ${todayRecord.workingHours}` : 'Awaiting checkout at end of shift'}
-                    </p>
                   </div>
+                )}
+
+                {/* Check-Out Event */}
+                {todayRecord.checkOutTime && (
+                  <div className="relative flex items-start gap-3">
+                    <span className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] font-black shadow ring-4 ring-[#2D1B5A]">
+                      <LogOut className="w-3 h-3" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-black text-white">{todayRecord.checkOutTime} • {todayRecord.checkOutMode} Check-Out</p>
+                      <p className="text-[11px] text-purple-300/80 mt-0.5">
+                        Total Session: <strong className="text-purple-200">{todayRecord.workingHours}</strong>
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-purple-300/60 italic">No activity logged for today yet.</p>
+            )}
+          </div>
+
+          {/* ==================================================== */}
+          {/* OFFLINE STATUS CARD */}
+          {/* ==================================================== */}
+          <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.37)] space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className={`p-2 rounded-xl ${pendingCount > 0 ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
+                  {pendingCount > 0 ? <WifiOff className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
+                </div>
+                <div>
+                  <h3 className="text-xs font-extrabold text-white">
+                    {pendingCount > 0 ? 'Offline Records Saved Locally' : 'Cloud Sync Engine Active'}
+                  </h3>
+                  <p className="text-[11px] text-purple-300">
+                    {pendingCount > 0 ? `${pendingCount} record(s) pending background upload.` : 'All attendance logs fully synchronized with Firebase.'}
+                  </p>
                 </div>
               </div>
+
+              {pendingCount > 0 && (
+                <Button 
+                  onClick={handleSyncNow} 
+                  disabled={!isOnline || isSyncing}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-md border border-amber-400/30"
+                >
+                  {isSyncing ? 'Syncing...' : 'Sync Cloud'}
+                </Button>
+              )}
             </div>
-          )}
+          </div>
 
           {/* ==================================================== */}
-          {/* EMPLOYEE ATTENDANCE HISTORY SECTION */}
+          {/* ATTENDANCE HISTORY & RECORDS LIST */}
           {/* ==================================================== */}
-          <div className="space-y-3 pt-2">
-            <div className="flex justify-between items-center px-1">
-              <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#2563EB]" /> Employee History
-              </h2>
-              <span className="text-xs text-slate-500 font-bold">
-                {filteredHistoryRecords.length} record(s)
-              </span>
-            </div>
-
-            {/* Filter & Search Bar */}
-            <div className="bg-white rounded-[24px] border border-slate-200/80 p-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-3">
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  placeholder="Search date, location, client, mode..."
-                  value={historySearchTerm}
-                  onChange={(e) => setHistorySearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-[#2563EB] text-slate-900 font-medium"
-                />
+          <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.37)] space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-purple-500/20 pb-4">
+              <div>
+                <h3 className="text-sm font-black text-white uppercase tracking-wider">Attendance History Logs</h3>
+                <p className="text-xs text-purple-300">View local & synchronized attendance history</p>
               </div>
 
-              {/* Attendance Type Badges Filter */}
-              <div className="flex gap-2 overflow-x-auto pb-1 text-xs font-bold">
-                <button
-                  onClick={() => setHistoryTypeFilter('ALL')}
-                  className={`px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${
-                    historyTypeFilter === 'ALL'
-                      ? 'bg-[#2563EB] text-white shadow-sm'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
+              {/* Filters */}
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <select
+                  value={historyTypeFilter}
+                  onChange={(e) => setHistoryTypeFilter(e.target.value as any)}
+                  className="px-3 py-1.5 bg-purple-950 border border-purple-500/30 rounded-xl text-xs text-white focus:outline-none"
                 >
-                  All Types
-                </button>
-                <button
-                  onClick={() => setHistoryTypeFilter('OFFICE')}
-                  className={`px-3 py-1.5 rounded-full whitespace-nowrap flex items-center gap-1 transition-all ${
-                    historyTypeFilter === 'OFFICE'
-                      ? 'bg-purple-700 text-white shadow-sm'
-                      : 'bg-purple-50 text-purple-800 hover:bg-purple-100'
-                  }`}
+                  <option value="ALL">All Modes</option>
+                  <option value="OFFICE">Office</option>
+                  <option value="WFH">WFH</option>
+                  <option value="CLIENT_VISIT">Client Visit</option>
+                  <option value="OUTDOOR">Outdoor</option>
+                </select>
+
+                <select
+                  value={historySyncFilter}
+                  onChange={(e) => setHistorySyncFilter(e.target.value as any)}
+                  className="px-3 py-1.5 bg-purple-950 border border-purple-500/30 rounded-xl text-xs text-white focus:outline-none"
                 >
-                  🏢 Office
-                </button>
-                <button
-                  onClick={() => setHistoryTypeFilter('WFH')}
-                  className={`px-3 py-1.5 rounded-full whitespace-nowrap flex items-center gap-1 transition-all ${
-                    historyTypeFilter === 'WFH'
-                      ? 'bg-emerald-700 text-white shadow-sm'
-                      : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                  }`}
-                >
-                  🏠 WFH
-                </button>
-                <button
-                  onClick={() => setHistoryTypeFilter('CLIENT_VISIT')}
-                  className={`px-3 py-1.5 rounded-full whitespace-nowrap flex items-center gap-1 transition-all ${
-                    historyTypeFilter === 'CLIENT_VISIT'
-                      ? 'bg-amber-700 text-white shadow-sm'
-                      : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
-                  }`}
-                >
-                  🤝 Client Visit
-                </button>
-                <button
-                  onClick={() => setHistoryTypeFilter('OUTDOOR')}
-                  className={`px-3 py-1.5 rounded-full whitespace-nowrap flex items-center gap-1 transition-all ${
-                    historyTypeFilter === 'OUTDOOR'
-                      ? 'bg-indigo-700 text-white shadow-sm'
-                      : 'bg-indigo-50 text-indigo-800 hover:bg-indigo-100'
-                  }`}
-                >
-                  🚗 Outdoor Work
-                </button>
+                  <option value="ALL">All Status</option>
+                  <option value="Synced">Synced</option>
+                  <option value="Pending">Pending</option>
+                </select>
               </div>
             </div>
 
             {filteredHistoryRecords.length === 0 ? (
-              <div className="bg-white rounded-[24px] border border-slate-200/80 p-8 text-center text-slate-500 text-xs font-medium">
-                No attendance logs found matching filters.
-              </div>
+              <p className="text-xs text-purple-300/60 italic text-center py-4">No matching attendance records found.</p>
             ) : (
               <div className="space-y-3">
-                {filteredHistoryRecords.slice(0, 15).map((rec) => {
-                  const modeType = rec.attendanceType || 'OFFICE';
-                  return (
-                    <div key={rec.id} className="bg-white rounded-[24px] border border-slate-200/80 p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] space-y-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-black text-sm text-slate-900">{rec.date}</h3>
-                            {/* Mode Badge */}
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1 ${
-                              modeType === 'WFH'
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                : modeType === 'CLIENT_VISIT'
-                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                : modeType === 'OUTDOOR'
-                                ? 'bg-indigo-100 text-indigo-800 border border-indigo-300'
-                                : 'bg-purple-100 text-purple-800 border border-purple-300'
-                            }`}>
-                              {modeType === 'WFH' ? '🏠 WFH' : modeType === 'CLIENT_VISIT' ? '🤝 Client Visit' : modeType === 'OUTDOOR' ? '🚗 Outdoor Work' : '🏢 Office'}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-500 font-medium mt-0.5">{rec.townCity}</p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            rec.syncStatus === 'Synced' 
-                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
-                              : 'bg-amber-50 text-amber-800 border border-amber-200'
-                          }`}>
-                            {rec.syncStatus === 'Synced' ? 'Synced' : 'Offline Pending'}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            {rec.isOffline ? 'Recorded Offline' : 'Recorded Online'}
-                          </span>
-                        </div>
+                {filteredHistoryRecords.map((rec) => (
+                  <div 
+                    key={rec.id} 
+                    className="p-4 bg-purple-950/60 rounded-2xl border border-purple-500/20 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-purple-400/40 transition-all"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+                          (rec.attendanceType || 'OFFICE') === 'WFH'
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                            : (rec.attendanceType || 'OFFICE') === 'CLIENT_VISIT'
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                            : (rec.attendanceType || 'OFFICE') === 'OUTDOOR'
+                            ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                            : 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                        }`}>
+                          {(rec.attendanceType || 'OFFICE') === 'WFH' ? '🏠 WFH' : (rec.attendanceType || 'OFFICE') === 'CLIENT_VISIT' ? '🤝 Client Visit' : (rec.attendanceType || 'OFFICE') === 'OUTDOOR' ? '🚗 Outdoor Work' : '🏢 Office'}
+                        </span>
+                        <span className="font-bold text-white">{rec.date}</span>
                       </div>
 
-                      {/* Mode-Specific Details Box */}
-                      {modeType === 'WFH' && (
-                        <div className="bg-emerald-50/70 p-3 rounded-2xl border border-emerald-200/60 text-xs space-y-1 text-emerald-950">
-                          <p className="text-[11px] font-bold text-emerald-900">Reason: <span className="font-normal text-emerald-950">{rec.wfhReason || 'N/A'}</span></p>
-                          <p className="text-[11px] font-bold text-emerald-900">Work Plan: <span className="font-normal text-emerald-950">{rec.workPlan || 'N/A'}</span></p>
-                        </div>
-                      )}
-
-                      {modeType === 'CLIENT_VISIT' && (
-                        <div className="bg-amber-50/70 p-3 rounded-2xl border border-amber-200/60 text-xs space-y-1 text-amber-950">
-                          <p className="text-[11px] font-bold text-amber-900">Client: <span className="font-extrabold text-amber-950">{rec.clientName}</span> | Location: <span className="font-medium text-amber-950">{rec.clientLocation}</span></p>
-                          <p className="text-[11px] font-bold text-amber-900">Purpose: <span className="font-normal text-amber-950">{rec.purpose}</span></p>
-                        </div>
-                      )}
-
-                      {modeType === 'OUTDOOR' && (
-                        <div className="bg-indigo-50/70 p-3 rounded-2xl border border-indigo-200/60 text-xs space-y-1 text-indigo-950">
-                          <p className="text-[11px] font-bold text-indigo-900">Outdoor Type: <span className="font-extrabold text-indigo-950">{rec.outdoorType}</span></p>
-                          <p className="text-[11px] font-bold text-indigo-900">Description: <span className="font-normal text-indigo-950">{rec.description}</span></p>
-                        </div>
-                      )}
-
-                      {/* Timing Metrics */}
-                      <div className="grid grid-cols-3 gap-2 text-xs pt-2 border-t border-slate-100">
-                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
-                          <p className="text-[10px] text-slate-400 font-semibold">Check-In</p>
-                          <p className="font-extrabold text-slate-900">{rec.checkInTime}</p>
-                          <span className="text-[9px] font-bold text-[#2563EB]">{rec.checkInMode}</span>
-                        </div>
-                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
-                          <p className="text-[10px] text-slate-400 font-semibold">Check-Out</p>
-                          <p className="font-extrabold text-slate-900">{rec.checkOutTime || '--:--'}</p>
-                          <span className={`text-[9px] font-bold ${
-                            rec.checkOutMode === 'AUTO_SYSTEM' ? 'text-red-600' : 'text-emerald-600'
-                          }`}>
-                            {rec.checkOutMode}
-                          </span>
-                        </div>
-                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
-                          <p className="text-[10px] text-slate-400 font-semibold">Working Hrs</p>
-                          <p className="font-extrabold text-slate-900">{rec.workingHours || '--'}</p>
-                        </div>
+                      <div className="text-purple-300/80 text-[11px] flex flex-wrap gap-x-3">
+                        <span>Check-In: <strong className="text-emerald-300">{rec.checkInTime}</strong> ({rec.checkInMode})</span>
+                        <span>Check-Out: <strong className="text-rose-300">{rec.checkOutTime || 'Pending'}</strong></span>
+                        {rec.workingHours && <span>Hours: <strong className="text-purple-200">{rec.workingHours}</strong></span>}
                       </div>
 
-                      {(rec.exitTime || rec.returnTime) && (
-                        <div className="text-[11px] text-amber-900 bg-amber-50 p-2.5 rounded-xl font-medium flex justify-between border border-amber-200/60">
-                          <span>Office Exit Log:</span>
-                          <span>Exit: {rec.exitTime || '--'} | Return: {rec.returnTime || '--'}</span>
-                        </div>
+                      {rec.clientName && (
+                        <p className="text-[11px] text-amber-300">Client: {rec.clientName} ({rec.clientLocation})</p>
                       )}
-
-                      {rec.reason && (
-                        <p className="text-[11px] text-red-600 bg-red-50 p-2.5 rounded-xl font-medium border border-red-200/60">
-                          Auto Checkout Reason: {rec.reason}
-                        </p>
+                      {rec.wfhReason && (
+                        <p className="text-[11px] text-emerald-300">WFH Reason: {rec.wfhReason}</p>
+                      )}
+                      {rec.outdoorType && (
+                        <p className="text-[11px] text-indigo-300">Outdoor: {rec.outdoorType} - {rec.description}</p>
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
 
-          {/* Debug Mode Toggle */}
-          <div className="mt-6 border border-slate-200 rounded-[20px] overflow-hidden bg-white shadow-sm">
-            <button 
-              onClick={() => setShowDebug(!showDebug)}
-              className="w-full flex items-center justify-between p-4 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-[#2563EB]" />
-                Developer Debug Mode
-              </div>
-              {showDebug ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-            
-            {showDebug && (
-              <div className="p-4 space-y-3 text-[11px] font-mono text-slate-600 border-t border-slate-100 overflow-x-auto bg-slate-50/50">
-                <div>
-                  <strong className="text-[#2563EB] block mb-0.5">Active Attendance Mode:</strong>
-                  {activeMode}
-                </div>
-                <div>
-                  <strong className="text-[#2563EB] block mb-0.5">Office Target GPS:</strong>
-                  Lat: {OFFICE_LOCATION.latitude}, Lon: {OFFICE_LOCATION.longitude} (Radius: {OFFICE_LOCATION.radius}m)
-                </div>
-                <div>
-                  <strong className="text-[#2563EB] block mb-0.5">Live GPS:</strong>
-                  Lat: {liveLocation.latitude}, Lon: {liveLocation.longitude} (Distance: {distance.toFixed(2)}m)
-                </div>
-                <div>
-                  <strong className="text-[#2563EB] block mb-0.5">Geocode Output:</strong>
-                  <pre className="whitespace-pre-wrap bg-white p-2.5 rounded-xl border border-slate-200 mt-1 text-[10px]">
-                    {rawGeocodeResponse}
-                  </pre>
-                </div>
-                <div>
-                  <strong className="text-[#2563EB] block mb-0.5">Employee Metadata:</strong>
-                  ID: {employeeId} | Name: {employeeName}
-                </div>
+                    <div className="self-end sm:self-center flex items-center gap-2">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                        rec.syncStatus === 'Synced' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                      }`}>
+                        {rec.syncStatus}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

@@ -11,28 +11,28 @@ export const BottomNav: React.FC = () => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-20 bg-white/90 backdrop-blur-md border-t border-slate-200/80 flex items-center justify-around px-4 z-30 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+    <div className="fixed bottom-4 left-4 right-4 max-w-lg mx-auto h-16 bg-[#2D1B5A]/95 backdrop-blur-2xl border border-purple-500/30 rounded-full flex items-center justify-around px-3 z-40 shadow-[0_10px_35px_rgba(0,0,0,0.5)]">
       {navItems.map((item) => (
         <NavLink
           key={item.path}
           to={item.path}
           className={({ isActive }) => 
-            `flex flex-col items-center justify-center w-16 h-14 rounded-2xl transition-all duration-200 ${
-              isActive ? 'text-[#2563EB]' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+            `flex flex-col items-center justify-center w-16 h-12 rounded-full transition-all duration-300 ${
+              isActive ? 'text-white' : 'text-purple-300/60 hover:text-purple-200'
             }`
           }
         >
           {({ isActive }) => (
             <>
-              <div className={`flex items-center justify-center w-12 h-7 rounded-full mb-1 transition-all duration-200 ${
-                isActive ? 'bg-blue-50 text-[#2563EB] shadow-sm' : 'bg-transparent text-slate-500'
+              <div className={`flex items-center justify-center w-10 h-7 rounded-full mb-0.5 transition-all duration-300 ${
+                isActive ? 'bg-[#7C3AED] text-white shadow-[0_0_15px_rgba(124,58,237,0.5)] scale-105' : 'bg-transparent'
               }`}>
-                <item.icon className={`w-5 h-5 transition-transform duration-200 ${
-                  isActive ? 'stroke-[#2563EB] scale-110' : 'stroke-slate-500'
+                <item.icon className={`w-4 h-4 transition-transform duration-300 ${
+                  isActive ? 'stroke-white scale-110' : 'stroke-purple-300/70'
                 }`} />
               </div>
-              <span className={`text-[11px] leading-none transition-all ${
-                isActive ? 'font-black text-[#2563EB]' : 'font-semibold text-slate-500'
+              <span className={`text-[10px] leading-none transition-all ${
+                isActive ? 'font-black text-white' : 'font-semibold text-purple-300/60'
               }`}>
                 {item.label}
               </span>
