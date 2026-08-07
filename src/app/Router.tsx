@@ -14,6 +14,7 @@ import { RejectedScreen } from '../features/registration/RejectedScreen';
 import { LoadingScreen } from '../components/ui/LoadingScreen';
 
 import { EmployeeDashboard } from '../features/employee/EmployeeDashboard';
+import { AttendanceScreen } from '../features/attendance/AttendanceScreen';
 
 // Protects /admin/dashboard - only logged-in admin can access
 const AdminProtectedRoute = () => {
@@ -74,7 +75,7 @@ export const AppRouter: React.FC = () => {
         <Route element={<EmployeeGuard />}>
           <Route path="/" element={<Layout />}>
             <Route index element={<EmployeeDashboard />} />
-            <Route path="attendance" element={<PlaceholderPage title="Attendance" />} />
+            <Route path="attendance" element={<AttendanceScreen />} />
             <Route path="leave" element={<PlaceholderPage title="Leave" />} />
             <Route path="expenses" element={<PlaceholderPage title="Expenses" />} />
             <Route path="planner" element={<PlaceholderPage title="Work Planner" />} />

@@ -18,10 +18,10 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [status, setStatus] = useState<RegistrationStatus>('loading');
   const [rejectionReason, setRejectionReason] = useState<string>();
   const [employeeData, setEmployeeData] = useState<any>(null);
+  const [localRegId, setLocalRegId] = useState<string | null>(localStorage.getItem('registrationId'));
 
   useEffect(() => {
-    const registrationId = localStorage.getItem('registrationId');
-    if (!registrationId) {
+    if (!localRegId) {
       setStatus('unregistered');
       return;
     }
@@ -32,8 +32,8 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
 
     // Listen to changes
-    console.log('Listening to registration document:', registrationId);
-    const unsub = onSnapshot(doc(db, 'registrations', registrationId), (docSnap) => {
+    console.log('Listening to registration document:', localRegId);
+    const unsub = onSnapshot(doc(db, 'registrations', localRegId), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         console.log('Firestore document data retrieved:', data);
@@ -41,9 +41,10 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setRejectionReason(data.rejectionReason);
         setEmployeeData(data);
       } else {
-        console.log('Firestore document does NOT exist for registrationId:', registrationId);
+        console.log('Firestore document does NOT exist for registrationId:', localRegId);
         setStatus('unregistered');
         localStorage.removeItem('registrationId');
+        setLocalRegId(null);
         setEmployeeData(null);
       }
     }, (error) => {
@@ -53,7 +54,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => {
       if (unsub) unsub();
     };
-  }, []);
+  }, [localRegId]);
 
   const getDeviceInfo = () => {
     let deviceId = localStorage.getItem('deviceId');
@@ -116,13 +117,17 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     // 4. Save to local storage
     localStorage.setItem('registrationId', registrationId);
+    setLocalRegId(registrationId);
     setStatus('Pending Approval');
+    setEmployeeData(registrationData);
   };
 
   const resetRegistration = () => {
     localStorage.removeItem('registrationId');
+    setLocalRegId(null);
     setStatus('unregistered');
     setRejectionReason(undefined);
+    setEmployeeData(null);
   };
 
   return (
