@@ -1,6 +1,17 @@
 export type CheckInMode = 'AUTO' | 'MANUAL';
 export type CheckOutMode = 'MANUAL' | 'AUTO_SYSTEM' | 'N/A';
 export type SyncStatus = 'Pending' | 'Synced';
+export type AttendanceType = 'OFFICE' | 'WFH' | 'CLIENT_VISIT' | 'OUTDOOR';
+
+export type OutdoorWorkTypeOption = 
+  | 'Market Visit'
+  | 'Site Visit'
+  | 'Field Work'
+  | 'Survey'
+  | 'Installation'
+  | 'Collection'
+  | 'Delivery'
+  | 'Inspection';
 
 export interface AttendanceRecord {
   id: string; // UUID
@@ -8,6 +19,7 @@ export interface AttendanceRecord {
   employeeId: string;
   employeeName: string;
   date: string; // YYYY-MM-DD
+  attendanceType: AttendanceType;
   checkInTime: string; // Formatted time e.g. "09:30 AM"
   checkOutTime: string | null; // Formatted time e.g. "06:00 PM"
   workingHours: string | null; // Calculated duration string e.g. "8h 30m"
@@ -25,4 +37,19 @@ export interface AttendanceRecord {
   syncStatus: SyncStatus;
   serverSyncTime: string | null;
   isOffline: boolean;
+
+  // Work From Home (WFH) fields
+  wfhReason?: string | null;
+  workPlan?: string | null;
+  monthlyWfhCount?: number;
+
+  // Client Visit fields
+  clientName?: string | null;
+  clientLocation?: string | null;
+  purpose?: string | null;
+
+  // Outdoor Work fields
+  outdoorType?: OutdoorWorkTypeOption | string | null;
+  description?: string | null;
 }
+

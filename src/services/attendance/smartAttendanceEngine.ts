@@ -122,6 +122,7 @@ export const performCheckIn = (
     employeeId,
     employeeName: employeeName || 'Employee',
     date: todayStr,
+    attendanceType: 'OFFICE',
     checkInTime: getFormattedTimeStr(now),
     checkOutTime: null,
     workingHours: null,
@@ -343,3 +344,206 @@ export const getCheckoutReminderStatus = (
 
   return { isReminderActive: false, nextReminderTimeStr: null, currentReminderCount: record.reminderCount };
 };
+
+/**
+ * Calculates current month WFH count for an employee
+ */
+export const getMonthlyWfhCount = (employeeId: string, dateStr: string = getFormattedDateStr()): number => {
+  const currentMonth = dateStr.substring(0, 7); // "YYYY-MM"
+  const records = getStoredAttendanceRecords();
+  return records.filter(
+    (r) => r.employeeId === employeeId && 
+           r.date.startsWith(currentMonth) && 
+           (r.attendanceType === 'WFH')
+  ).length;
+};
+
+/**
+ * Performs Work From Home (WFH) Attendance Submission
+ */
+export const performWFHAttendance = (
+  employeeId: string,
+  employeeName: string,
+  coords: { latitude: number; longitude: number } | null,
+  townCity: string,
+  wfhReason: string,
+  workPlan: string
+): AttendanceRecord => {
+  const todayStr = getFormattedDateStr();
+  const docId = `${employeeId}_${todayStr}`;
+
+  // Daily Attendance Lock check
+  const existingRecord = getTodayAttendanceRecord(employeeId, todayStr);
+  if (existingRecord) {
+    throw new Error('Attendance session already logged for today.');
+  }
+
+  // Monthly WFH limit check (max 2 per calendar month)
+  const currentMonthCount = getMonthlyWfhCount(employeeId, todayStr);
+  if (currentMonthCount >= 2) {
+    throw new Error('Monthly WFH limit exceeded.');
+  }
+
+  const now = new Date();
+  const record: AttendanceRecord = {
+    id: generateUUID(),
+    docId,
+    employeeId,
+    employeeName: employeeName || 'Employee',
+    date: todayStr,
+    attendanceType: 'WFH',
+    checkInTime: getFormattedTimeStr(now),
+    checkOutTime: null,
+    workingHours: null,
+    latitude: coords?.latitude || 0,
+    longitude: coords?.longitude || 0,
+    distance: 0,
+    townCity: townCity || 'Home',
+    checkInMode: 'MANUAL',
+    checkOutMode: 'N/A',
+    exitTime: null,
+    returnTime: null,
+    reason: null,
+    createdAtDeviceTime: now.toISOString(),
+    syncStatus: 'Pending',
+    serverSyncTime: null,
+    isOffline: !navigator.onLine,
+    reminderCount: 0,
+    wfhReason,
+    workPlan,
+    monthlyWfhCount: currentMonthCount + 1
+  };
+
+  saveAttendanceRecord(record);
+
+  if (navigator.onLine) {
+    syncPendingAttendanceRecords().catch((err) =>
+      console.warn('Background sync on WFH submission failed:', err)
+    );
+  }
+
+  return record;
+};
+
+/**
+ * Performs Client Visit Attendance Submission
+ */
+export const performClientVisitAttendance = (
+  employeeId: string,
+  employeeName: string,
+  coords: { latitude: number; longitude: number } | null,
+  townCity: string,
+  clientName: string,
+  clientLocation: string,
+  purpose: string
+): AttendanceRecord => {
+  const todayStr = getFormattedDateStr();
+  const docId = `${employeeId}_${todayStr}`;
+
+  // Daily Attendance Lock check
+  const existingRecord = getTodayAttendanceRecord(employeeId, todayStr);
+  if (existingRecord) {
+    throw new Error('Attendance session already logged for today.');
+  }
+
+  const now = new Date();
+  const record: AttendanceRecord = {
+    id: generateUUID(),
+    docId,
+    employeeId,
+    employeeName: employeeName || 'Employee',
+    date: todayStr,
+    attendanceType: 'CLIENT_VISIT',
+    checkInTime: getFormattedTimeStr(now),
+    checkOutTime: null,
+    workingHours: null,
+    latitude: coords?.latitude || 0,
+    longitude: coords?.longitude || 0,
+    distance: 0,
+    townCity: townCity || clientLocation || 'On Site',
+    checkInMode: 'MANUAL',
+    checkOutMode: 'N/A',
+    exitTime: null,
+    returnTime: null,
+    reason: null,
+    createdAtDeviceTime: now.toISOString(),
+    syncStatus: 'Pending',
+    serverSyncTime: null,
+    isOffline: !navigator.onLine,
+    reminderCount: 0,
+    clientName,
+    clientLocation,
+    purpose
+  };
+
+  saveAttendanceRecord(record);
+
+  if (navigator.onLine) {
+    syncPendingAttendanceRecords().catch((err) =>
+      console.warn('Background sync on Client Visit submission failed:', err)
+    );
+  }
+
+  return record;
+};
+
+/**
+ * Performs Outdoor Work Attendance Submission
+ */
+export const performOutdoorAttendance = (
+  employeeId: string,
+  employeeName: string,
+  coords: { latitude: number; longitude: number } | null,
+  townCity: string,
+  outdoorType: string,
+  description: string
+): AttendanceRecord => {
+  const todayStr = getFormattedDateStr();
+  const docId = `${employeeId}_${todayStr}`;
+
+  // Daily Attendance Lock check
+  const existingRecord = getTodayAttendanceRecord(employeeId, todayStr);
+  if (existingRecord) {
+    throw new Error('Attendance session already logged for today.');
+  }
+
+  const now = new Date();
+  const record: AttendanceRecord = {
+    id: generateUUID(),
+    docId,
+    employeeId,
+    employeeName: employeeName || 'Employee',
+    date: todayStr,
+    attendanceType: 'OUTDOOR',
+    checkInTime: getFormattedTimeStr(now),
+    checkOutTime: null,
+    workingHours: null,
+    latitude: coords?.latitude || 0,
+    longitude: coords?.longitude || 0,
+    distance: 0,
+    townCity: townCity || 'Field',
+    checkInMode: 'MANUAL',
+    checkOutMode: 'N/A',
+    exitTime: null,
+    returnTime: null,
+    reason: null,
+    createdAtDeviceTime: now.toISOString(),
+    syncStatus: 'Pending',
+    serverSyncTime: null,
+    isOffline: !navigator.onLine,
+    reminderCount: 0,
+    outdoorType,
+    description
+  };
+
+  saveAttendanceRecord(record);
+
+  if (navigator.onLine) {
+    syncPendingAttendanceRecords().catch((err) =>
+      console.warn('Background sync on Outdoor Work submission failed:', err)
+    );
+  }
+
+  return record;
+};
+

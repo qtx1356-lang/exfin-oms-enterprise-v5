@@ -120,12 +120,18 @@ export const AdminDashboard: React.FC = () => {
     r.mobileNumber.includes(searchTerm)
   );
 
-  const filteredAttendance = attendanceRecords.filter(a =>
-    a.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.date.includes(searchTerm) ||
-    a.townCity.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredAttendance = attendanceRecords.filter(a => {
+    const term = searchTerm.toLowerCase();
+    return (
+      a.employeeName.toLowerCase().includes(term) ||
+      a.employeeId.toLowerCase().includes(term) ||
+      a.date.includes(term) ||
+      a.townCity.toLowerCase().includes(term) ||
+      (a.attendanceType || 'OFFICE').toLowerCase().includes(term) ||
+      (a.clientName && a.clientName.toLowerCase().includes(term)) ||
+      (a.outdoorType && a.outdoorType.toLowerCase().includes(term))
+    );
+  });
 
   const pendingRegCount = registrations.filter(r => r.status === 'Pending Approval').length;
 
@@ -192,6 +198,7 @@ export const AdminDashboard: React.FC = () => {
                 <thead className="bg-surface-variant/50 text-on-surface-variant uppercase text-[10px] font-bold tracking-wider">
                   <tr>
                     <th className="p-3.5">Employee</th>
+                    <th className="p-3.5">Attendance Mode</th>
                     <th className="p-3.5">Date</th>
                     <th className="p-3.5">Check-In Time</th>
                     <th className="p-3.5">Check-In Mode</th>
@@ -217,6 +224,19 @@ export const AdminDashboard: React.FC = () => {
                       <td className="p-3.5 whitespace-nowrap">
                         <div className="font-bold text-sm text-primary">{rec.employeeName}</div>
                         <div className="text-[10px] text-outline">{rec.employeeId}</div>
+                      </td>
+                      <td className="p-3.5 whitespace-nowrap">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold flex items-center gap-1 w-fit ${
+                          (rec.attendanceType || 'OFFICE') === 'WFH'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : (rec.attendanceType || 'OFFICE') === 'CLIENT_VISIT'
+                            ? 'bg-amber-100 text-amber-800'
+                            : (rec.attendanceType || 'OFFICE') === 'OUTDOOR'
+                            ? 'bg-indigo-100 text-indigo-800'
+                            : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {(rec.attendanceType || 'OFFICE') === 'WFH' ? '🏠 WFH' : (rec.attendanceType || 'OFFICE') === 'CLIENT_VISIT' ? '🤝 Client Visit' : (rec.attendanceType || 'OFFICE') === 'OUTDOOR' ? '🚗 Outdoor Work' : '🏢 Office'}
+                        </span>
                       </td>
                       <td className="p-3.5 whitespace-nowrap">{rec.date}</td>
                       <td className="p-3.5 whitespace-nowrap font-bold text-green-700">{rec.checkInTime}</td>
@@ -360,6 +380,32 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-3 p-3 bg-surface-variant/30 rounded-xl">
+              <div className="col-span-2 p-2.5 bg-surface rounded-lg border border-outline/20">
+                <p className="text-[10px] text-outline mb-0.5">Attendance Mode</p>
+                <p className="font-extrabold text-sm text-primary flex items-center gap-1.5">
+                  {(selectedAttendance.attendanceType || 'OFFICE') === 'WFH' ? '🏠 Work From Home (WFH)' : (selectedAttendance.attendanceType || 'OFFICE') === 'CLIENT_VISIT' ? '🤝 Client Visit' : (selectedAttendance.attendanceType || 'OFFICE') === 'OUTDOOR' ? '🚗 Outdoor Work' : '🏢 Office Attendance'}
+                </p>
+                {selectedAttendance.wfhReason && (
+                  <div className="mt-2 pt-2 border-t border-outline/10 space-y-1 text-xs">
+                    <p><span className="font-bold text-emerald-900">Reason:</span> {selectedAttendance.wfhReason}</p>
+                    <p><span className="font-bold text-emerald-900">Work Plan:</span> {selectedAttendance.workPlan}</p>
+                  </div>
+                )}
+                {selectedAttendance.clientName && (
+                  <div className="mt-2 pt-2 border-t border-outline/10 space-y-1 text-xs">
+                    <p><span className="font-bold text-amber-900">Client:</span> {selectedAttendance.clientName}</p>
+                    <p><span className="font-bold text-amber-900">Location:</span> {selectedAttendance.clientLocation}</p>
+                    <p><span className="font-bold text-amber-900">Purpose:</span> {selectedAttendance.purpose}</p>
+                  </div>
+                )}
+                {selectedAttendance.outdoorType && (
+                  <div className="mt-2 pt-2 border-t border-outline/10 space-y-1 text-xs">
+                    <p><span className="font-bold text-indigo-900">Outdoor Type:</span> {selectedAttendance.outdoorType}</p>
+                    <p><span className="font-bold text-indigo-900">Description:</span> {selectedAttendance.description}</p>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <p className="text-[10px] text-outline mb-0.5">Employee ID</p>
                 <p className="font-semibold text-on-surface">{selectedAttendance.employeeId}</p>
