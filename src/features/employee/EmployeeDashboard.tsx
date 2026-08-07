@@ -15,7 +15,9 @@ import {
   MapPin,
   Building2,
   PhoneCall,
-  Sparkles
+  Sparkles,
+  Users,
+  BarChart3
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getTodayAttendanceRecord } from '../../services/attendance/attendanceStorage';
@@ -114,9 +116,13 @@ export const EmployeeDashboard: React.FC = () => {
 
   const quickActions = [
     { icon: UserCheck, label: 'Attendance', path: '/attendance', bg: 'bg-[#7C3AED]/20 text-[#A78BFA] border-purple-500/30' },
-    { icon: Calendar, label: 'Leave', path: '/leave', bg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-    { icon: Wallet, label: 'Expenses', path: '/expenses', bg: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
     { icon: Briefcase, label: 'Work Planner', path: '/planner', bg: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+    ...(employeeData.isTeamLeader ? [
+      { icon: Users, label: 'My Team', path: '/my-team', bg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' }
+    ] : []),
+    { icon: BarChart3, label: 'Efficiency', path: '/efficiency', bg: 'bg-[#7C3AED]/20 text-purple-300 border-purple-500/30' },
+    { icon: Wallet, label: 'Expenses', path: '/expenses', bg: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+    { icon: Calendar, label: 'Leave', path: '/leave', bg: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
   ];
 
   return (

@@ -14,6 +14,7 @@ import { ExpenseRecord } from '../../types/expense';
 import { getStoredExpenseRecords } from '../../services/expenses/expenseStorage';
 import { TaskRecord, TaskPriority, TaskStatus, AssignmentType, TaskComment, getEffectiveTaskStatus } from '../../types/planner';
 import { getStoredTasks, saveTaskRecord } from '../../services/planner/taskStorage';
+import { EfficiencyDashboard } from '../efficiency/EfficiencyDashboard';
 
 type Registration = {
   id: string;
@@ -29,13 +30,17 @@ type Registration = {
   status: string;
   rejectionReason?: string;
   office: string;
+  isTeamLeader?: boolean;
+  teamLeaderId?: string | null;
+  teamLeaderCode?: string | null;
+  teamLeaderName?: string | null;
 };
 
 export const AdminDashboard: React.FC = () => {
   const { logout } = useAdminAuth();
   const navigate = useNavigate();
   
-  const [activeTab, setActiveTab] = useState<'registrations' | 'attendance' | 'expenses' | 'planner'>('attendance');
+  const [activeTab, setActiveTab] = useState<'registrations' | 'attendance' | 'expenses' | 'planner' | 'efficiency'>('attendance');
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([]);
@@ -193,6 +198,43 @@ export const AdminDashboard: React.FC = () => {
       rejectionReason: null
     });
     setSelectedReg(null);
+  };
+
+  const handleToggleTeamLeader = async (reg: Registration, isTL: boolean) => {
+    if (!db) return;
+    try {
+      await updateDoc(doc(db, 'registrations', reg.id), {
+        isTeamLeader: isTL
+      });
+      if (selectedReg && selectedReg.id === reg.id) {
+        setSelectedReg({ ...selectedReg, isTeamLeader: isTL });
+      }
+    } catch (err) {
+      console.error('Error updating Team Leader status:', err);
+    }
+  };
+
+  const handleAssignTeamLeader = async (reg: Registration, tlCode: string) => {
+    if (!db) return;
+    try {
+      const targetTL = registrations.find((r) => r.employeeCode === tlCode);
+      const updates = tlCode ? {
+        teamLeaderId: targetTL ? targetTL.id : null,
+        teamLeaderCode: tlCode,
+        teamLeaderName: targetTL ? targetTL.name : null,
+      } : {
+        teamLeaderId: null,
+        teamLeaderCode: null,
+        teamLeaderName: null,
+      };
+
+      await updateDoc(doc(db, 'registrations', reg.id), updates);
+      if (selectedReg && selectedReg.id === reg.id) {
+        setSelectedReg({ ...selectedReg, ...updates });
+      }
+    } catch (err) {
+      console.error('Error assigning Team Leader:', err);
+    }
   };
 
   const handleReject = async (id: string) => {
@@ -517,6 +559,16 @@ export const AdminDashboard: React.FC = () => {
                   {pendingRegCount}
                 </span>
               )}
+            </button>
+            <button
+              onClick={() => setActiveTab('efficiency')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+                activeTab === 'efficiency'
+                  ? 'bg-[#7C3AED] text-white shadow-lg shadow-purple-900/50'
+                  : 'text-purple-300/70 hover:text-white'
+              }`}
+            >
+              Efficiency Hub
             </button>
           </div>
         </div>
@@ -1047,8 +1099,18 @@ export const AdminDashboard: React.FC = () => {
                       )}
                     </div>
                     <div>
-                      <h3 className="font-bold text-white text-sm line-clamp-1">{reg.name}</h3>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h3 className="font-bold text-white text-sm line-clamp-1">{reg.name}</h3>
+                        {reg.isTeamLeader && (
+                          <span className="bg-emerald-500/20 text-emerald-300 text-[9px] font-black px-2 py-0.2 rounded-full border border-emerald-500/30">
+                            ⭐ TL
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-purple-300/70 font-mono">{reg.employeeCode}</p>
+                      {reg.teamLeaderName && (
+                        <p className="text-[10px] text-purple-300/60 font-semibold">TL: {reg.teamLeaderName}</p>
+                      )}
                     </div>
                   </div>
                   <StatusBadge status={reg.status} />
@@ -1075,6 +1137,11 @@ export const AdminDashboard: React.FC = () => {
               </div>
             )}
           </div>
+        )}
+
+        {/* EFFICIENCY HUB PANEL VIEW */}
+        {activeTab === 'efficiency' && (
+          <EfficiencyDashboard />
         )}
 
       </main>
@@ -1189,6 +1256,48 @@ export const AdminDashboard: React.FC = () => {
                 <p className="font-bold text-white">{selectedReg.deviceModel} ({selectedReg.androidVersion})</p>
               </div>
             </div>
+
+            {/* Team Leader Management Controls */}
+            {selectedReg.status === 'Approved' && (
+              <div className="p-4 bg-[#211044] rounded-2xl border border-purple-500/30 space-y-3 text-xs">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="font-extrabold text-white">Team Leader Designation</h4>
+                    <p className="text-[10px] text-purple-300/70">Grants My Team module & team task review authority</p>
+                  </div>
+
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(selectedReg.isTeamLeader)}
+                      onChange={(e) => handleToggleTeamLeader(selectedReg, e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-purple-950 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#7C3AED]"></div>
+                  </label>
+                </div>
+
+                {!selectedReg.isTeamLeader && (
+                  <div className="pt-2 border-t border-purple-500/20 space-y-1">
+                    <label className="font-bold text-purple-300 text-[10px] uppercase block">Assigned Team Leader</label>
+                    <select
+                      value={selectedReg.teamLeaderCode || ''}
+                      onChange={(e) => handleAssignTeamLeader(selectedReg, e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-purple-500/30 bg-[#2D1B5A] text-white font-bold text-xs"
+                    >
+                      <option value="">-- No Team Leader Assigned --</option>
+                      {registrations
+                        .filter((r) => r.isTeamLeader && r.id !== selectedReg.id && r.status === 'Approved')
+                        .map((tl) => (
+                          <option key={tl.id} value={tl.employeeCode}>
+                            {tl.name} ({tl.employeeCode})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            )}
 
             {selectedReg.status === 'Pending Approval' && (
               <div className="flex gap-3 pt-2">

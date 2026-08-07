@@ -211,6 +211,7 @@ export const PlannerScreen: React.FC = () => {
         ...selectedTask,
         completionPercentage: newCompletion,
         status: newStatus,
+        approvalStatus: newCompletion === 100 ? 'PENDING_REVIEW' : selectedTask.approvalStatus,
         comments: updatedComments,
         completedAt: newCompletion === 100 ? (selectedTask.completedAt || nowIso) : null,
         completedBy: newCompletion === 100 ? (selectedTask.completedBy || empName) : null,
@@ -281,6 +282,13 @@ export const PlannerScreen: React.FC = () => {
   };
 
   const getStatusBadge = (task: TaskRecord) => {
+    if (task.approvalStatus === 'PENDING_REVIEW') {
+      return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">UNDER REVIEW</span>;
+    }
+    if (task.approvalStatus === 'REVISION_REQUIRED') {
+      return <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-red-500/20 text-red-300 border border-red-500/30">REVISION REQUIRED</span>;
+    }
+
     const effectiveStatus = getEffectiveTaskStatus(task);
 
     switch (effectiveStatus) {
@@ -524,6 +532,13 @@ export const PlannerScreen: React.FC = () => {
                 <p className="text-xs text-purple-200/90 line-clamp-2 bg-[#211044]/60 p-2 rounded-xl border border-purple-500/10">
                   {task.description}
                 </p>
+
+                {task.approvalStatus === 'REVISION_REQUIRED' && task.reviewRemark && (
+                  <div className="p-2.5 bg-red-900/30 border border-red-500/40 rounded-xl text-xs text-red-200">
+                    <span className="font-extrabold text-red-300 block mb-0.5">⚠️ TL REVISION REQUESTED:</span>
+                    {task.reviewRemark}
+                  </div>
+                )}
 
                 {/* Progress Bar & Footer */}
                 <div className="space-y-1 pt-1">

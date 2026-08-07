@@ -17,6 +17,8 @@ import { EmployeeDashboard } from '../features/employee/EmployeeDashboard';
 import { AttendanceScreen } from '../features/attendance/AttendanceScreen';
 import { ExpenseScreen } from '../features/expenses/ExpenseScreen';
 import { PlannerScreen } from '../features/planner/PlannerScreen';
+import { MyTeamScreen } from '../features/team/MyTeamScreen';
+import { EfficiencyDashboard } from '../features/efficiency/EfficiencyDashboard';
 
 // Protects /admin/dashboard - only logged-in admin can access
 const AdminProtectedRoute = () => {
@@ -81,6 +83,8 @@ export const AppRouter: React.FC = () => {
             <Route path="leave" element={<PlaceholderPage title="Leave" />} />
             <Route path="expenses" element={<ExpenseScreen />} />
             <Route path="planner" element={<PlannerScreen />} />
+            <Route path="my-team" element={<MyTeamScreen />} />
+            <Route path="efficiency" element={<EfficiencyDashboard />} />
             <Route path="notifications" element={<PlaceholderPage title="Notifications" />} />
             <Route path="profile" element={<PlaceholderPage title="Profile" />} />
           </Route>

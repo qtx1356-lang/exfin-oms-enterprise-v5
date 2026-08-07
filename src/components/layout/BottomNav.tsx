@@ -1,11 +1,16 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, CalendarCheck, Wallet, User } from 'lucide-react';
+import { Home, CalendarCheck, Wallet, User, Users, Briefcase } from 'lucide-react';
+import { useRegistration } from '../../context/RegistrationContext';
 
 export const BottomNav: React.FC = () => {
+  const { employeeData } = useRegistration();
+
   const navItems = [
     { icon: Home, label: 'Home', path: '/' },
     { icon: CalendarCheck, label: 'Attendance', path: '/attendance' },
+    { icon: Briefcase, label: 'Planner', path: '/planner' },
+    ...(employeeData?.isTeamLeader ? [{ icon: Users, label: 'My Team', path: '/my-team' }] : []),
     { icon: Wallet, label: 'Expenses', path: '/expenses' },
     { icon: User, label: 'Profile', path: '/profile' },
   ];

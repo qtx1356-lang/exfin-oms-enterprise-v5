@@ -2,6 +2,8 @@ export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'OVERDUE';
 
+export type TaskApprovalStatus = 'NOT_REQUIRED' | 'PENDING_REVIEW' | 'APPROVED' | 'REVISION_REQUIRED';
+
 export type AssignmentType = 'EMPLOYEE' | 'MULTIPLE_EMPLOYEES' | 'DEPARTMENT';
 
 export type TaskSyncStatus = 'Pending Sync' | 'Synced' | 'Sync Failed';
@@ -10,7 +12,7 @@ export interface TaskComment {
   id: string;
   authorId: string;
   authorName: string;
-  authorRole: 'EMPLOYEE' | 'ADMIN';
+  authorRole: 'EMPLOYEE' | 'ADMIN' | 'TEAM_LEADER';
   content: string;
   timestamp: string;
 }
@@ -26,6 +28,11 @@ export interface TaskRecord {
   assignedToEmployeeCodes: string[];
   assignedToDepartment: string;
   
+  // Team Leader link
+  teamLeaderId?: string | null;
+  teamLeaderCode?: string | null;
+  teamLeaderName?: string | null;
+  
   // Creator metadata
   createdBy: string;
   createdByName: string;
@@ -33,6 +40,7 @@ export interface TaskRecord {
   // Task properties
   priority: TaskPriority;
   status: TaskStatus;
+  approvalStatus?: TaskApprovalStatus;
   completionPercentage: number; // 0 to 100
   
   // Timestamps & deadlines
@@ -50,9 +58,16 @@ export interface TaskRecord {
   comments: TaskComment[];
   managerRemarks?: string | null;
   
-  // Completion tracking
+  // Completion & Review tracking
   completedAt?: string | null;
   completedBy?: string | null;
+  approvedBy?: string | null;
+  approvedByName?: string | null;
+  approvedAtDeviceTime?: string | null;
+  reviewedBy?: string | null;
+  reviewedAtDeviceTime?: string | null;
+  reviewRemark?: string | null;
+  revisionCount?: number;
   
   // Historical / Efficiency tracking timestamps
   assignedTime?: string;

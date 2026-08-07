@@ -45,6 +45,50 @@
         "reminderCount": { "type": "number" }
       },
       "required": ["id", "employeeId", "date", "checkInTime", "checkInMode", "createdAtDeviceTime"]
+    },
+    "SystemSettings": {
+      "title": "SystemSettings",
+      "description": "Configurable system-wide settings including efficiency score weights",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "efficiencyTaskCompletionWeight": { "type": "number" },
+        "efficiencyOnTimeWeight": { "type": "number" },
+        "efficiencyQualityWeight": { "type": "number" },
+        "efficiencyPunctualityWeight": { "type": "number" },
+        "efficiencyWorkloadWeight": { "type": "number" },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedByName": { "type": "string" }
+      },
+      "required": ["id", "efficiencyTaskCompletionWeight", "efficiencyOnTimeWeight", "efficiencyQualityWeight", "efficiencyPunctualityWeight", "efficiencyWorkloadWeight"]
+    },
+    "EfficiencySnapshot": {
+      "title": "EfficiencySnapshot",
+      "description": "Saved period-based efficiency metrics snapshot for historical reporting",
+      "type": "object",
+      "properties": {
+        "employeeId": { "type": "string" },
+        "employeeCode": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "department": { "type": "string" },
+        "teamLeaderId": { "type": "string" },
+        "periodStart": { "type": "string" },
+        "periodEnd": { "type": "string" },
+        "periodType": { "type": "string" },
+        "taskCompletionScore": { "type": "number" },
+        "onTimeCompletionScore": { "type": "number" },
+        "qualityScore": { "type": "number" },
+        "punctualityScore": { "type": "number" },
+        "workloadScore": { "type": "number" },
+        "overduePenalty": { "type": "number" },
+        "revisionPenalty": { "type": "number" },
+        "finalScore": { "type": "number" },
+        "grade": { "type": "string" },
+        "calculatedAtDeviceTime": { "type": "string" },
+        "serverSyncTime": { "type": "string" }
+      },
+      "required": ["employeeId", "employeeCode", "employeeName", "periodStart", "periodEnd", "periodType", "finalScore", "grade", "calculatedAtDeviceTime"]
     }
   },
   "firestore": {
@@ -55,6 +99,14 @@
     "/attendance/{attendanceId}": {
       "schema": "AttendanceRecord",
       "description": "Smart attendance logs and sync data"
+    },
+    "/system_settings/{settingsId}": {
+      "schema": "SystemSettings",
+      "description": "System configuration parameters"
+    },
+    "/efficiency_snapshots/{snapshotId}": {
+      "schema": "EfficiencySnapshot",
+      "description": "Historical employee efficiency ratings"
     }
   }
 }

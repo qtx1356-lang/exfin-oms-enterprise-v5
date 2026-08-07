@@ -19,5 +19,11 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read, write: if true;
     }
+    match /system_settings/{settingsId} {
+      allow read, write: if true;
+    }
+    match /efficiency_snapshots/{snapshotId} {
+      allow read, write: if true;
+    }
   }
 }
