@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import appletConfig from '../../../firebase-applet-config.json';
 
 const getEnvVar = (key: string, fallback: string) => {
   const value = import.meta.env[key] || fallback;
@@ -12,17 +13,20 @@ const getEnvVar = (key: string, fallback: string) => {
 };
 
 const firebaseConfig = {
-  apiKey: getEnvVar('VITE_FIREBASE_API_KEY', "AIzaSyCHsJlbsTdaDw3xOTfM5usiS6GMVL-udxM"),
-  authDomain: getEnvVar('VITE_FIREBASE_AUTH_DOMAIN', "exfin-oms-production.firebaseapp.com"),
-  projectId: getEnvVar('VITE_FIREBASE_PROJECT_ID', "exfin-oms-production"),
-  storageBucket: getEnvVar('VITE_FIREBASE_STORAGE_BUCKET', "exfin-oms-production.firebasestorage.app"),
-  messagingSenderId: getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID', "467454374123"),
-  appId: getEnvVar('VITE_FIREBASE_APP_ID', "1:467454374123:web:1c039dad311c6362b44eae")
+  apiKey: appletConfig.apiKey || getEnvVar('VITE_FIREBASE_API_KEY', "AIzaSyCHsJlbsTdaDw3xOTfM5usiS6GMVL-udxM"),
+  authDomain: appletConfig.authDomain || getEnvVar('VITE_FIREBASE_AUTH_DOMAIN', "exfin-oms-production.firebaseapp.com"),
+  projectId: appletConfig.projectId || getEnvVar('VITE_FIREBASE_PROJECT_ID', "exfin-oms-production"),
+  storageBucket: appletConfig.storageBucket || getEnvVar('VITE_FIREBASE_STORAGE_BUCKET', "exfin-oms-production.firebasestorage.app"),
+  messagingSenderId: appletConfig.messagingSenderId || getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID', "467454374123"),
+  appId: appletConfig.appId || getEnvVar('VITE_FIREBASE_APP_ID', "1:467454374123:web:1c039dad311c6362b44eae")
 };
 
 console.log('Current Firebase projectId:', firebaseConfig.projectId);
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const db = appletConfig.firestoreDatabaseId 
+  ? getFirestore(app, appletConfig.firestoreDatabaseId)
+  : getFirestore(app);
 export const storage = getStorage(app);
+

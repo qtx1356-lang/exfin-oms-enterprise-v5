@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "Registration": {
+      "title": "Registration",
+      "description": "Employee device registration record",
+      "type": "object",
+      "properties": {
+        "employeeCode": { "type": "string" },
+        "name": { "type": "string" },
+        "mobileNumber": { "type": "string" },
+        "deviceId": { "type": "string" },
+        "deviceModel": { "type": "string" },
+        "androidVersion": { "type": "string" },
+        "appVersion": { "type": "string" },
+        "selfieUrl": { "type": "string" },
+        "registrationDate": { "type": "string" },
+        "status": { "type": "string" },
+        "rejectionReason": { "type": "string" },
+        "office": { "type": "string" }
+      },
+      "required": ["employeeCode", "name", "deviceId", "registrationDate", "status"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Smart Attendance Record with offline support and sync tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "date": { "type": "string" },
+        "checkInTime": { "type": "string" },
+        "checkOutTime": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "distance": { "type": "number" },
+        "townCity": { "type": "string" },
+        "checkInMode": { "type": "string", "enum": ["AUTO", "MANUAL"] },
+        "checkOutMode": { "type": "string", "enum": ["MANUAL", "AUTO_SYSTEM", "N/A"] },
+        "reason": { "type": "string" },
+        "createdAtDeviceTime": { "type": "string" },
+        "syncStatus": { "type": "string", "enum": ["Pending", "Synced"] },
+        "serverSyncTime": { "type": "string" },
+        "isOffline": { "type": "boolean" },
+        "reminderCount": { "type": "number" }
+      },
+      "required": ["id", "employeeId", "date", "checkInTime", "checkInMode", "createdAtDeviceTime"]
+    }
+  },
+  "firestore": {
+    "/registrations/{registrationId}": {
+      "schema": "Registration",
+      "description": "Device registrations for employee approval"
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "AttendanceRecord",
+      "description": "Smart attendance logs and sync data"
+    }
+  }
+}

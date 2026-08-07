@@ -17,6 +17,9 @@ import {
   MapPin
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getTodayAttendanceRecord } from '../../services/attendance/attendanceStorage';
+import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEngine';
+import { AttendanceRecord } from '../../types/attendance';
 
 interface Announcement {
   id: string;
@@ -37,6 +40,17 @@ export const EmployeeDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
+
+  useEffect(() => {
+    if (employeeData) {
+      const empId = employeeData.employeeCode || employeeData.id || 'EMP-UNKNOWN';
+      const todayStr = getFormattedDateStr();
+      const rec = getTodayAttendanceRecord(empId, todayStr);
+      setTodayAttendance(rec);
+    }
+  }, [employeeData]);
+
 
   useEffect(() => {
     if (!db) return;
@@ -169,7 +183,7 @@ export const EmployeeDashboard: React.FC = () => {
         <div className="z-10 flex justify-between items-start">
           <div>
             <h2 className="text-lg font-bold">{todayDate}</h2>
-            <p className="text-primary-container text-sm font-medium">Office Timing: 10:00 AM - 07:00 PM</p>
+            <p className="text-primary-container text-sm font-medium">Office Closing Time: 06:00 PM</p>
           </div>
         </div>
         
@@ -178,19 +192,26 @@ export const EmployeeDashboard: React.FC = () => {
             <p className="text-primary-container text-xs mb-1 flex items-center gap-1">
               <UserCheck className="w-3.5 h-3.5" /> Status
             </p>
-            <p className="font-bold text-lg">Not Checked In</p>
+            <p className="font-bold text-base leading-tight">
+              {todayAttendance 
+                ? (todayAttendance.checkOutTime ? 'Checked Out' : `Checked In (${todayAttendance.checkInMode})`)
+                : 'Not Checked In'}
+            </p>
           </div>
           <div className="bg-primary-container/20 rounded-lg p-3">
             <p className="text-primary-container text-xs mb-1 flex items-center gap-1">
-              <Hourglass className="w-3.5 h-3.5" /> Working Hrs
+              <Hourglass className="w-3.5 h-3.5" /> Check-Out
             </p>
-            <p className="font-bold text-lg">--:--</p>
+            <p className="font-bold text-base leading-tight">
+              {todayAttendance?.checkOutTime || '--:--'}
+            </p>
           </div>
         </div>
         <div className="z-10 text-xs font-medium text-primary-container mt-1">
-          Last Check-in: --:--
+          Last Check-In: {todayAttendance?.checkInTime || '--:--'} {todayAttendance ? `(${todayAttendance.checkInMode})` : ''}
         </div>
       </Card>
+
 
       {/* Quick Actions */}
       <div>
