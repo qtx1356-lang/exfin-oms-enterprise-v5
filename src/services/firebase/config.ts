@@ -4,12 +4,12 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCHsJlbsTdaDw3xOTfM5usiS6GMVL-udxM",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "exfin-oms-production.firebaseapp.com",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "exfin-oms-production",
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "exfin-oms-production.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "467454374123",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:467454374123:web:1c039dad311c6362b44eae",
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || ""
 };
 
