@@ -13,12 +13,12 @@ const getEnvVar = (key: string, fallback: string) => {
 };
 
 const firebaseConfig = {
-  apiKey: appletConfig.apiKey || getEnvVar('VITE_FIREBASE_API_KEY', "AIzaSyCHsJlbsTdaDw3xOTfM5usiS6GMVL-udxM"),
-  authDomain: appletConfig.authDomain || getEnvVar('VITE_FIREBASE_AUTH_DOMAIN', "exfin-oms-production.firebaseapp.com"),
-  projectId: appletConfig.projectId || getEnvVar('VITE_FIREBASE_PROJECT_ID', "exfin-oms-production"),
-  storageBucket: appletConfig.storageBucket || getEnvVar('VITE_FIREBASE_STORAGE_BUCKET', "exfin-oms-production.firebasestorage.app"),
-  messagingSenderId: appletConfig.messagingSenderId || getEnvVar('VITE_FIREBASE_MESSAGING_SENDER_ID', "467454374123"),
-  appId: appletConfig.appId || getEnvVar('VITE_FIREBASE_APP_ID', "1:467454374123:web:1c039dad311c6362b44eae")
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || appletConfig.apiKey || "AIzaSyCHsJlbsTdaDw3xOTfM5usiS6GMVL-udxM",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || appletConfig.authDomain || "exfin-oms-production.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || appletConfig.projectId || "exfin-oms-production",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || appletConfig.storageBucket || "exfin-oms-production.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || appletConfig.messagingSenderId || "467454374123",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || appletConfig.appId || "1:467454374123:web:1c039dad311c6362b44eae"
 };
 
 console.log('Current Firebase projectId:', firebaseConfig.projectId);
