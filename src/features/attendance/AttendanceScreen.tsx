@@ -68,7 +68,12 @@ export const AttendanceScreen: React.FC = () => {
         try {
           // Using Nominatim for reverse geocoding
           const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+            {
+              headers: {
+                'Accept-Language': 'en-US,en;q=0.9',
+              }
+            }
           );
           if (!response.ok) {
             throw new Error('Failed to fetch address');
@@ -233,15 +238,20 @@ export const AttendanceScreen: React.FC = () => {
                 </div>
 
                 <div>
-                  <strong className="text-primary block mb-1">Reverse Geocode Input:</strong>
-                  https://nominatim.openstreetmap.org/reverse?format=json&lat={liveLocation.latitude}&lon={liveLocation.longitude}
+                  <strong className="text-primary block mb-1">GPS coordinates sent to reverse geocoder:</strong>
+                  Latitude: {liveLocation.latitude}, Longitude: {liveLocation.longitude}
                 </div>
 
                 <div>
-                  <strong className="text-primary block mb-1">Reverse Geocode Output:</strong>
+                  <strong className="text-primary block mb-1">Reverse geocoder response:</strong>
                   <pre className="whitespace-pre-wrap bg-surface p-2 rounded border border-outline-variant mt-1 text-[10px]">
                     {rawGeocodeResponse}
                   </pre>
+                </div>
+
+                <div>
+                  <strong className="text-primary block mb-1">Final displayed address:</strong>
+                  {currentAddress}
                 </div>
               </div>
             )}
