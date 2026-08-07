@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { MapPin, AlertCircle, CheckCircle, Crosshair, ChevronDown, ChevronUp } from 'lucide-react';
+import { MapPin, AlertCircle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 
 const OFFICE_LOCATION = {
   latitude: 23.616227,
@@ -35,83 +35,103 @@ export const AttendanceScreen: React.FC = () => {
   const [isInsideGeofence, setIsInsideGeofence] = useState<boolean>(false);
   const [showDebug, setShowDebug] = useState<boolean>(false);
   const [rawGeocodeResponse, setRawGeocodeResponse] = useState<string>('');
-
-  const fetchLocation = () => {
-    setLocationStatus('loading');
-    setErrorMessage('');
-    setLiveLocation(null);
-    setCurrentAddress('');
-    setDistance(null);
-    setIsInsideGeofence(false);
-    setRawGeocodeResponse('');
-
-    if (!navigator.geolocation) {
-      setLocationStatus('error');
-      setErrorMessage('Geolocation is not supported by your browser.');
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        setLiveLocation({ latitude, longitude });
-
-        const calculatedDistance = getDistanceFromLatLonInM(
-          latitude,
-          longitude,
-          OFFICE_LOCATION.latitude,
-          OFFICE_LOCATION.longitude
-        );
-        setDistance(calculatedDistance);
-        setIsInsideGeofence(calculatedDistance <= OFFICE_LOCATION.radius);
-
-        try {
-          // Using Nominatim for reverse geocoding
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-          );
-          if (!response.ok) {
-            throw new Error('Failed to fetch address');
-          }
-          const data = await response.json();
-          setRawGeocodeResponse(JSON.stringify(data, null, 2));
-          setCurrentAddress(data.display_name || 'Address not found');
-          setLocationStatus('success');
-        } catch (error: any) {
-          console.error('Reverse geocoding error:', error);
-          setCurrentAddress('Unable to determine current address.');
-          setRawGeocodeResponse(error?.message || String(error));
-          setLocationStatus('success'); // still success because we got GPS
-        }
-      },
-      (error) => {
-        setLocationStatus('error');
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            setErrorMessage('Location permission is required for attendance.');
-            break;
-          case error.POSITION_UNAVAILABLE:
-            setErrorMessage('Location information is unavailable.');
-            break;
-          case error.TIMEOUT:
-            setErrorMessage('The request to get user location timed out.');
-            break;
-          default:
-            setErrorMessage('An unknown error occurred.');
-            break;
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
-  };
+  const startTrackingRef = useRef<() => void>();
 
   useEffect(() => {
+    let watchId: number;
+
+    startTrackingRef.current = () => {
+      setLocationStatus('loading');
+      setErrorMessage('');
+      setLiveLocation(null);
+      setCurrentAddress('');
+      setDistance(null);
+      setIsInsideGeofence(false);
+      setRawGeocodeResponse('');
+
+      if (watchId !== undefined) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+
+      if (!navigator.geolocation) {
+        setLocationStatus('error');
+        setErrorMessage('Geolocation is not supported by your browser.');
+        return;
+      }
+
+      watchId = navigator.geolocation.watchPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          setLiveLocation({ latitude, longitude });
+
+          const calculatedDistance = getDistanceFromLatLonInM(
+            latitude,
+            longitude,
+            OFFICE_LOCATION.latitude,
+            OFFICE_LOCATION.longitude
+          );
+          setDistance(calculatedDistance);
+          setIsInsideGeofence(calculatedDistance <= OFFICE_LOCATION.radius);
+
+          if (!navigator.onLine) {
+            setCurrentAddress('Address unavailable (offline)');
+            setRawGeocodeResponse('Browser is offline.');
+            setLocationStatus('success');
+            return;
+          }
+
+          try {
+            // Using Nominatim for reverse geocoding
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+            );
+            if (!response.ok) {
+              throw new Error('Failed to fetch address');
+            }
+            const data = await response.json();
+            setRawGeocodeResponse(JSON.stringify(data, null, 2));
+            setCurrentAddress(data.display_name || 'Current address unavailable');
+            setLocationStatus('success');
+          } catch (error: any) {
+            console.error('Reverse geocoding error:', error);
+            setCurrentAddress('Current address unavailable');
+            setRawGeocodeResponse(error?.message || String(error));
+            setLocationStatus('success'); // still success because we got GPS
+          }
+        },
+        (error) => {
+          setLocationStatus('error');
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              setErrorMessage('Location permission is required for attendance.');
+              break;
+            case error.POSITION_UNAVAILABLE:
+              setErrorMessage('Location information is unavailable.');
+              break;
+            case error.TIMEOUT:
+              setErrorMessage('The request to get user location timed out.');
+              break;
+            default:
+              setErrorMessage('An unknown error occurred.');
+              break;
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    };
+
     // Automatically fetch location when opened
-    fetchLocation();
+    startTrackingRef.current();
+
+    return () => {
+      if (watchId !== undefined) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
   }, []);
 
   try {
@@ -135,7 +155,7 @@ export const AttendanceScreen: React.FC = () => {
               <h2 className="text-lg font-bold mb-1">Permission Denied</h2>
               <p className="text-sm">{errorMessage}</p>
             </div>
-            <Button onClick={fetchLocation} className="mt-2 bg-error text-on-error hover:bg-error/90">
+            <Button onClick={() => startTrackingRef.current?.()} className="mt-2 bg-error text-on-error hover:bg-error/90">
               Retry
             </Button>
           </Card>
@@ -177,30 +197,7 @@ export const AttendanceScreen: React.FC = () => {
                   </p>
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-4 border-t border-outline-variant pt-4">
-                <div>
-                  <p className="text-xs text-on-surface-variant mb-1">Latitude</p>
-                  <p className="font-mono text-sm text-on-surface">{liveLocation.latitude.toFixed(6)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-on-surface-variant mb-1">Longitude</p>
-                  <p className="font-mono text-sm text-on-surface">{liveLocation.longitude.toFixed(6)}</p>
-                </div>
-              </div>
             </Card>
-
-            {/* Action (Just for layout, not functional for check-in yet) */}
-            <div className="flex justify-center mt-2">
-              <Button 
-                onClick={fetchLocation}
-                variant="outlined" 
-                className="w-full max-w-xs flex items-center gap-2 justify-center"
-              >
-                <Crosshair className="w-4 h-4" />
-                Refresh Location
-              </Button>
-            </div>
 
             {/* Debug Panel */}
             <div className="mt-8 border border-outline-variant rounded-xl overflow-hidden bg-surface-variant/30">
