@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { MapPin, AlertCircle, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
 
 const OFFICE_LOCATION = {
   latitude: 23.616227,
@@ -37,10 +39,59 @@ export const AttendanceScreen: React.FC = () => {
   const [rawGeocodeResponse, setRawGeocodeResponse] = useState<string>('');
   const startTrackingRef = useRef<() => void>();
 
-  useEffect(() => {
-    let watchId: number;
+  const performReverseGeocode = async (latitude: number, longitude: number) => {
+    // 1. Try Native Android Geocoder if running natively and available on bridge
+    if (Capacitor.isNativePlatform() && (window as any).AndroidGeocoder) {
+      try {
+        const nativeResult = await (window as any).AndroidGeocoder.getFromLocation(latitude, longitude);
+        if (nativeResult) {
+          setCurrentAddress(nativeResult);
+          localStorage.setItem('lastKnownAddress', nativeResult);
+          setRawGeocodeResponse(`Native Android Geocoder:\n${nativeResult}`);
+          setLocationStatus('success');
+          return;
+        }
+      } catch (e) {
+        console.warn('Native Android Geocoder error, falling back to Google Maps API:', e);
+      }
+    }
 
-    startTrackingRef.current = () => {
+    // 2. Fallback to Google Maps Geocoding API
+    try {
+      const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '';
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setRawGeocodeResponse(JSON.stringify(data, null, 2));
+
+        if (data.results && data.results.length > 0) {
+          const formattedAddress = data.results[0].formatted_address;
+          setCurrentAddress(formattedAddress);
+          localStorage.setItem('lastKnownAddress', formattedAddress);
+          setLocationStatus('success');
+          return;
+        }
+      }
+    } catch (error: any) {
+      console.error('Google Maps Reverse geocoding error:', error);
+    }
+
+    // 3. Fallback to cached address or default message
+    const cachedAddress = localStorage.getItem('lastKnownAddress');
+    if (cachedAddress) {
+      setCurrentAddress(`${cachedAddress} (Last known location)`);
+    } else {
+      setCurrentAddress('Current address unavailable');
+    }
+    setLocationStatus('success');
+  };
+
+  useEffect(() => {
+    let watchId: string | number | null = null;
+
+    startTrackingRef.current = async () => {
       setLocationStatus('loading');
       setErrorMessage('');
       setLiveLocation(null);
@@ -49,101 +100,114 @@ export const AttendanceScreen: React.FC = () => {
       setIsInsideGeofence(false);
       setRawGeocodeResponse('');
 
-      if (watchId !== undefined) {
-        navigator.geolocation.clearWatch(watchId);
+      if (watchId !== null) {
+        if (typeof watchId === 'string') {
+          Geolocation.clearWatch({ id: watchId });
+        } else {
+          navigator.geolocation.clearWatch(watchId);
+        }
+        watchId = null;
       }
 
-      if (!navigator.geolocation) {
-        setLocationStatus('error');
-        setErrorMessage('Geolocation is not supported by your browser.');
-        return;
-      }
+      const processPosition = async (latitude: number, longitude: number) => {
+        setLiveLocation({ latitude, longitude });
 
-      watchId = navigator.geolocation.watchPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          setLiveLocation({ latitude, longitude });
+        const calculatedDistance = getDistanceFromLatLonInM(
+          latitude,
+          longitude,
+          OFFICE_LOCATION.latitude,
+          OFFICE_LOCATION.longitude
+        );
+        setDistance(calculatedDistance);
+        setIsInsideGeofence(calculatedDistance <= OFFICE_LOCATION.radius);
 
-          const calculatedDistance = getDistanceFromLatLonInM(
-            latitude,
-            longitude,
-            OFFICE_LOCATION.latitude,
-            OFFICE_LOCATION.longitude
-          );
-          setDistance(calculatedDistance);
-          setIsInsideGeofence(calculatedDistance <= OFFICE_LOCATION.radius);
+        if (!navigator.onLine) {
+          const cachedAddress = localStorage.getItem('lastKnownAddress');
+          if (cachedAddress) {
+            setCurrentAddress(`${cachedAddress} (Last known location)`);
+          } else {
+            setCurrentAddress('Address unavailable (Offline)');
+          }
+          setRawGeocodeResponse('Browser is offline.');
+          setLocationStatus('success');
+          return;
+        }
 
-          if (!navigator.onLine) {
-            const cachedAddress = localStorage.getItem('lastKnownAddress');
-            if (cachedAddress) {
-              setCurrentAddress(`${cachedAddress} (Last known location)`);
-            } else {
-              setCurrentAddress('Address unavailable (Offline)');
-            }
-            setRawGeocodeResponse('Browser is offline.');
-            setLocationStatus('success');
+        await performReverseGeocode(latitude, longitude);
+      };
+
+      // Try Capacitor Geolocation first
+      try {
+        if (Capacitor.isNativePlatform()) {
+          const perm = await Geolocation.requestPermissions();
+          if (perm.location !== 'granted') {
+            setLocationStatus('error');
+            setErrorMessage('Location permission is required for attendance.');
             return;
           }
-
-          try {
-            // Using Google Maps Geocoding API
-            const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '';
-            const response = await fetch(
-              `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`
-            );
-            if (!response.ok) {
-              throw new Error('Failed to fetch address');
-            }
-            const data = await response.json();
-            setRawGeocodeResponse(JSON.stringify(data, null, 2));
-            
-            if (data.results && data.results.length > 0) {
-              const formattedAddress = data.results[0].formatted_address;
-              setCurrentAddress(formattedAddress);
-              localStorage.setItem('lastKnownAddress', formattedAddress);
-            } else {
-              setCurrentAddress(data.error_message || 'Current address unavailable');
-            }
-            
-            setLocationStatus('success');
-          } catch (error: any) {
-            console.error('Reverse geocoding error:', error);
-            setCurrentAddress('Current address unavailable');
-            setRawGeocodeResponse(error?.message || String(error));
-            setLocationStatus('success'); // still success because we got GPS
-          }
-        },
-        (error) => {
-          setLocationStatus('error');
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              setErrorMessage('Location permission is required for attendance.');
-              break;
-            case error.POSITION_UNAVAILABLE:
-              setErrorMessage('Location information is unavailable.');
-              break;
-            case error.TIMEOUT:
-              setErrorMessage('The request to get user location timed out.');
-              break;
-            default:
-              setErrorMessage('An unknown error occurred.');
-              break;
-          }
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
         }
-      );
+
+        watchId = await Geolocation.watchPosition(
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+          (position, err) => {
+            if (err || !position || !position.coords) {
+              if (err) {
+                setLocationStatus('error');
+                setErrorMessage(err.message || 'Location information is unavailable.');
+              }
+              return;
+            }
+            processPosition(position.coords.latitude, position.coords.longitude);
+          }
+        );
+      } catch (err) {
+        // Web fallback using browser geolocation API
+        if (!navigator.geolocation) {
+          setLocationStatus('error');
+          setErrorMessage('Geolocation is not supported by your browser.');
+          return;
+        }
+
+        watchId = navigator.geolocation.watchPosition(
+          (position) => {
+            processPosition(position.coords.latitude, position.coords.longitude);
+          },
+          (error) => {
+            setLocationStatus('error');
+            switch (error.code) {
+              case error.PERMISSION_DENIED:
+                setErrorMessage('Location permission is required for attendance.');
+                break;
+              case error.POSITION_UNAVAILABLE:
+                setErrorMessage('Location information is unavailable.');
+                break;
+              case error.TIMEOUT:
+                setErrorMessage('The request to get user location timed out.');
+                break;
+              default:
+                setErrorMessage('An unknown error occurred.');
+                break;
+            }
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
+        );
+      }
     };
 
     // Automatically fetch location when opened
     startTrackingRef.current();
 
     return () => {
-      if (watchId !== undefined) {
-        navigator.geolocation.clearWatch(watchId);
+      if (watchId !== null) {
+        if (typeof watchId === 'string') {
+          Geolocation.clearWatch({ id: watchId });
+        } else {
+          navigator.geolocation.clearWatch(watchId);
+        }
       }
     };
   }, []);
