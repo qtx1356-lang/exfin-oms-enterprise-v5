@@ -41,7 +41,9 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
     });
 
-    return () => unsub();
+    return () => {
+      if (unsub) unsub();
+    };
   }, []);
 
   const getDeviceInfo = () => {

@@ -24,7 +24,9 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setUser(u);
       setLoading(false);
     });
-    return () => unsub();
+    return () => {
+      if (unsub) unsub();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
