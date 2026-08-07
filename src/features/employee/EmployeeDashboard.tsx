@@ -41,6 +41,8 @@ export const EmployeeDashboard: React.FC = () => {
   useEffect(() => {
     if (!db) return;
 
+    console.log('Fetching announcements and notifications...');
+
     // Fetch announcements
     const announcementsQ = query(
       collection(db, 'announcements'),
@@ -48,11 +50,14 @@ export const EmployeeDashboard: React.FC = () => {
       limit(3)
     );
     const unsubAnnouncements = onSnapshot(announcementsQ, (snapshot) => {
+      console.log(`Announcements query returned ${snapshot.docs.length} documents.`);
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Announcement[];
       setAnnouncements(data);
+    }, (error) => {
+      console.error('Error fetching announcements:', error);
     });
 
     // Fetch notifications
@@ -62,11 +67,14 @@ export const EmployeeDashboard: React.FC = () => {
       limit(3)
     );
     const unsubNotifications = onSnapshot(notificationsQ, (snapshot) => {
+      console.log(`Notifications query returned ${snapshot.docs.length} documents.`);
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Notification[];
       setNotifications(data);
+    }, (error) => {
+      console.error('Error fetching notifications:', error);
     });
 
     return () => {
@@ -75,7 +83,17 @@ export const EmployeeDashboard: React.FC = () => {
     };
   }, []);
 
-  if (!employeeData) return null;
+  console.log('Employee Dashboard rendering. employeeData:', employeeData);
+
+  if (!employeeData) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
+        <h2 className="text-xl font-bold text-error mb-2">Employee profile not found</h2>
+        <p className="text-sm text-on-surface-variant">We couldn't load your employee data. Please try again or contact support.</p>
+        <p className="text-xs text-on-surface-variant mt-4 opacity-50">Diagnostic: employeeData is falsy.</p>
+      </div>
+    );
+  }
 
   const todayDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'short',

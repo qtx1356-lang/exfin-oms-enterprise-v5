@@ -32,17 +32,22 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
 
     // Listen to changes
+    console.log('Listening to registration document:', registrationId);
     const unsub = onSnapshot(doc(db, 'registrations', registrationId), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+        console.log('Firestore document data retrieved:', data);
         setStatus(data.status);
         setRejectionReason(data.rejectionReason);
         setEmployeeData(data);
       } else {
+        console.log('Firestore document does NOT exist for registrationId:', registrationId);
         setStatus('unregistered');
         localStorage.removeItem('registrationId');
         setEmployeeData(null);
       }
+    }, (error) => {
+      console.error('Error listening to registration document:', error);
     });
 
     return () => {
