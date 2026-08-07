@@ -74,23 +74,37 @@ export const AttendanceScreen: React.FC = () => {
           setIsInsideGeofence(calculatedDistance <= OFFICE_LOCATION.radius);
 
           if (!navigator.onLine) {
-            setCurrentAddress('Address unavailable (offline)');
+            const cachedAddress = localStorage.getItem('lastKnownAddress');
+            if (cachedAddress) {
+              setCurrentAddress(`${cachedAddress} (Last known location)`);
+            } else {
+              setCurrentAddress('Address unavailable (Offline)');
+            }
             setRawGeocodeResponse('Browser is offline.');
             setLocationStatus('success');
             return;
           }
 
           try {
-            // Using Nominatim for reverse geocoding
+            // Using Google Maps Geocoding API
+            const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '';
             const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+              `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`
             );
             if (!response.ok) {
               throw new Error('Failed to fetch address');
             }
             const data = await response.json();
             setRawGeocodeResponse(JSON.stringify(data, null, 2));
-            setCurrentAddress(data.display_name || 'Current address unavailable');
+            
+            if (data.results && data.results.length > 0) {
+              const formattedAddress = data.results[0].formatted_address;
+              setCurrentAddress(formattedAddress);
+              localStorage.setItem('lastKnownAddress', formattedAddress);
+            } else {
+              setCurrentAddress(data.error_message || 'Current address unavailable');
+            }
+            
             setLocationStatus('success');
           } catch (error: any) {
             console.error('Reverse geocoding error:', error);
