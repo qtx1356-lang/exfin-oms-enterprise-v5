@@ -13,6 +13,8 @@ import { PendingApproval } from '../features/registration/PendingApproval';
 import { RejectedScreen } from '../features/registration/RejectedScreen';
 import { LoadingScreen } from '../components/ui/LoadingScreen';
 
+import { EmployeeDashboard } from '../features/employee/EmployeeDashboard';
+
 // Protects /admin/dashboard - only logged-in admin can access
 const AdminProtectedRoute = () => {
   const { user, loading } = useAdminAuth();
@@ -71,9 +73,12 @@ export const AppRouter: React.FC = () => {
         {/* Employee Routes */}
         <Route element={<EmployeeGuard />}>
           <Route path="/" element={<Layout />}>
-            <Route index element={<PlaceholderPage title="Home" />} />
-            <Route path="dashboard" element={<PlaceholderPage title="Dashboard" />} />
-            <Route path="search" element={<PlaceholderPage title="Search" />} />
+            <Route index element={<EmployeeDashboard />} />
+            <Route path="attendance" element={<PlaceholderPage title="Attendance" />} />
+            <Route path="leave" element={<PlaceholderPage title="Leave" />} />
+            <Route path="expenses" element={<PlaceholderPage title="Expenses" />} />
+            <Route path="planner" element={<PlaceholderPage title="Work Planner" />} />
+            <Route path="notifications" element={<PlaceholderPage title="Notifications" />} />
             <Route path="profile" element={<PlaceholderPage title="Profile" />} />
           </Route>
         </Route>

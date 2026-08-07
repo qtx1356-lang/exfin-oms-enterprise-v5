@@ -7,6 +7,7 @@ type RegistrationStatus = 'unregistered' | 'Pending Approval' | 'Approved' | 'Re
 interface RegistrationContextType {
   status: RegistrationStatus;
   rejectionReason?: string;
+  employeeData?: any;
   submitRegistration: (name: string, mobileNumber: string, selfieBase64: string) => Promise<void>;
   resetRegistration: () => void;
 }
@@ -16,6 +17,7 @@ const RegistrationContext = createContext<RegistrationContextType | undefined>(u
 export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [status, setStatus] = useState<RegistrationStatus>('loading');
   const [rejectionReason, setRejectionReason] = useState<string>();
+  const [employeeData, setEmployeeData] = useState<any>(null);
 
   useEffect(() => {
     const registrationId = localStorage.getItem('registrationId');
@@ -35,9 +37,11 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const data = docSnap.data();
         setStatus(data.status);
         setRejectionReason(data.rejectionReason);
+        setEmployeeData(data);
       } else {
         setStatus('unregistered');
         localStorage.removeItem('registrationId');
+        setEmployeeData(null);
       }
     });
 
@@ -117,7 +121,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   return (
-    <RegistrationContext.Provider value={{ status, rejectionReason, submitRegistration, resetRegistration }}>
+    <RegistrationContext.Provider value={{ status, rejectionReason, employeeData, submitRegistration, resetRegistration }}>
       {children}
     </RegistrationContext.Provider>
   );
