@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { db } from '../../services/firebase/config';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc } from 'firebase/firestore';
-import { LogOut, Search, CheckCircle, XCircle, Clock, Smartphone, User, Phone, Calendar, Wifi, WifiOff, Shield, RefreshCw, Wallet, Paperclip, IndianRupee } from 'lucide-react';
+import { LogOut, Search, CheckCircle, XCircle, Clock, Smartphone, User, Phone, Calendar, Wifi, WifiOff, Shield, RefreshCw, Wallet, Paperclip, IndianRupee, Briefcase, Plus, Users, Building2, Sliders, Filter, CheckSquare, Sparkles, Layers, AlertTriangle, Edit3, MessageSquare, Send } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Dialog } from '../../components/ui/Dialog';
@@ -12,6 +12,8 @@ import { AttendanceRecord } from '../../types/attendance';
 import { getStoredAttendanceRecords } from '../../services/attendance/attendanceStorage';
 import { ExpenseRecord } from '../../types/expense';
 import { getStoredExpenseRecords } from '../../services/expenses/expenseStorage';
+import { TaskRecord, TaskPriority, TaskStatus, AssignmentType, TaskComment, getEffectiveTaskStatus } from '../../types/planner';
+import { getStoredTasks, saveTaskRecord } from '../../services/planner/taskStorage';
 
 type Registration = {
   id: string;
@@ -33,19 +35,46 @@ export const AdminDashboard: React.FC = () => {
   const { logout } = useAdminAuth();
   const navigate = useNavigate();
   
-  const [activeTab, setActiveTab] = useState<'registrations' | 'attendance' | 'expenses'>('attendance');
+  const [activeTab, setActiveTab] = useState<'registrations' | 'attendance' | 'expenses' | 'planner'>('attendance');
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([]);
+  const [tasks, setTasks] = useState<TaskRecord[]>([]);
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReg, setSelectedReg] = useState<Registration | null>(null);
   const [selectedAttendance, setSelectedAttendance] = useState<AttendanceRecord | null>(null);
   const [selectedExpense, setSelectedExpense] = useState<ExpenseRecord | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskRecord | null>(null);
+
   const [rejectionReason, setRejectionReason] = useState('');
   const [expenseRejectReason, setExpenseRejectReason] = useState('');
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showExpenseRejectDialog, setShowExpenseRejectDialog] = useState(false);
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
+
+  // Admin Task Planner States
+  const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
+  const [taskFilterDept, setTaskFilterDept] = useState<string>('All');
+  const [taskFilterPriority, setTaskFilterPriority] = useState<string>('All');
+  const [taskFilterStatus, setTaskFilterStatus] = useState<string>('All');
+  const [adminRemarkInput, setAdminRemarkInput] = useState<string>('');
+
+  // Form fields for Create / Edit Task
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDescription, setTaskDescription] = useState('');
+  const [taskDept, setTaskDept] = useState('Operations');
+  const [taskAssignmentType, setTaskAssignmentType] = useState<AssignmentType>('EMPLOYEE');
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [taskPriority, setTaskPriority] = useState<TaskPriority>('MEDIUM');
+  const [taskStartDate, setTaskStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [taskDueDate, setTaskDueDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  });
+  const [taskDueTime, setTaskDueTime] = useState('18:00');
+  const [taskManagerRemarks, setTaskManagerRemarks] = useState('');
 
   useEffect(() => {
     if (!db) return;
@@ -117,10 +146,38 @@ export const AdminDashboard: React.FC = () => {
       setExpenseRecords(getStoredExpenseRecords());
     });
 
+    // Listen to tasks from Firestore
+    const qTasks = query(collection(db, 'tasks'), orderBy('createdAtDeviceTime', 'desc'));
+    const unsubTasks = onSnapshot(qTasks, (snapshot) => {
+      const firestoreTasks: TaskRecord[] = [];
+      snapshot.forEach((docSnap) => {
+        firestoreTasks.push({ id: docSnap.id, ...docSnap.data() } as TaskRecord);
+      });
+
+      const localTasks = getStoredTasks();
+      const mergedMap = new Map<string, TaskRecord>();
+
+      firestoreTasks.forEach((rec) => mergedMap.set(rec.id, rec));
+      localTasks.forEach((rec) => {
+        if (!mergedMap.has(rec.id)) {
+          mergedMap.set(rec.id, rec);
+        }
+      });
+
+      const combinedTasks = Array.from(mergedMap.values()).sort(
+        (a, b) => new Date(b.createdAtDeviceTime).getTime() - new Date(a.createdAtDeviceTime).getTime()
+      );
+      setTasks(combinedTasks);
+    }, (err) => {
+      console.warn('Error fetching tasks from firestore, loading local fallback:', err);
+      setTasks(getStoredTasks());
+    });
+
     return () => {
       unsubRegs();
       unsubAttendance();
       unsubExpenses();
+      unsubTasks();
     };
   }, []);
 
@@ -202,6 +259,140 @@ export const AdminDashboard: React.FC = () => {
     setExpenseRejectReason('');
   };
 
+  const handleCreateTask = async () => {
+    if (!taskTitle.trim() || !taskDescription.trim() || !taskDueDate) return;
+
+    const nowIso = new Date().toISOString();
+    const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    // Build assignee arrays
+    let assignedIds: string[] = [];
+    let assignedCodes: string[] = [];
+
+    if (taskAssignmentType === 'DEPARTMENT') {
+      // Find all employees registered in this department
+      const deptRegs = registrations.filter(r => r.status === 'Approved' && (r.office === taskDept || true));
+      assignedIds = deptRegs.map(r => r.id);
+      assignedCodes = deptRegs.map(r => r.employeeCode);
+    } else {
+      assignedIds = selectedEmployeeIds;
+      assignedCodes = registrations
+        .filter(r => selectedEmployeeIds.includes(r.id) || selectedEmployeeIds.includes(r.employeeCode))
+        .map(r => r.employeeCode);
+    }
+
+    const newTask: TaskRecord = {
+      id: taskId,
+      title: taskTitle.trim(),
+      description: taskDescription.trim(),
+      assignmentType: taskAssignmentType,
+      assignedToEmployeeIds: assignedIds,
+      assignedToEmployeeCodes: assignedCodes,
+      assignedToDepartment: taskDept,
+      createdBy: 'ADMIN',
+      createdByName: 'Admin Manager',
+      priority: taskPriority,
+      status: 'PENDING',
+      completionPercentage: 0,
+      startDate: taskStartDate,
+      dueDate: taskDueDate,
+      dueTime: taskDueTime,
+      createdAtDeviceTime: nowIso,
+      updatedAtDeviceTime: nowIso,
+      syncStatus: 'Synced',
+      comments: [],
+      managerRemarks: taskManagerRemarks.trim() || null,
+      assignedTime: nowIso,
+    };
+
+    // Save locally
+    saveTaskRecord(newTask);
+
+    // Save to Firestore
+    if (db) {
+      try {
+        await setDoc(doc(db, 'tasks', taskId), newTask);
+
+        // Send notifications
+        for (const empCode of assignedCodes) {
+          const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          await setDoc(doc(db, 'notifications', notifId), {
+            id: notifId,
+            employeeCode: empCode,
+            type: 'TASK_ASSIGNED',
+            title: 'New Task Assigned',
+            message: `You have been assigned task "${taskTitle}" (${taskPriority} Priority) due on ${taskDueDate}.`,
+            createdAt: nowIso,
+            read: false,
+          });
+        }
+      } catch (err) {
+        console.error('Error creating task in Firestore:', err);
+      }
+    }
+
+    // Reset Form
+    setTaskTitle('');
+    setTaskDescription('');
+    setSelectedEmployeeIds([]);
+    setTaskManagerRemarks('');
+    setShowCreateTaskDialog(false);
+  };
+
+  const handleSaveManagerRemark = async () => {
+    if (!selectedTask || !db) return;
+    const nowIso = new Date().toISOString();
+
+    const updatedComments = [...(selectedTask.comments || [])];
+    if (adminRemarkInput.trim()) {
+      updatedComments.push({
+        id: `comment_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        authorId: 'ADMIN',
+        authorName: 'Admin Manager',
+        authorRole: 'ADMIN',
+        content: adminRemarkInput.trim(),
+        timestamp: nowIso,
+      });
+    }
+
+    const updatedTask: TaskRecord = {
+      ...selectedTask,
+      managerRemarks: taskManagerRemarks.trim() || selectedTask.managerRemarks,
+      comments: updatedComments,
+      updatedAtDeviceTime: nowIso,
+      syncStatus: 'Synced',
+    };
+
+    saveTaskRecord(updatedTask);
+
+    try {
+      await updateDoc(doc(db, 'tasks', selectedTask.id), {
+        managerRemarks: updatedTask.managerRemarks,
+        comments: updatedTask.comments,
+        updatedAtDeviceTime: nowIso,
+      });
+
+      // Send notifications to assigned employees
+      for (const empCode of selectedTask.assignedToEmployeeCodes || []) {
+        const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        await setDoc(doc(db, 'notifications', notifId), {
+          id: notifId,
+          employeeCode: empCode,
+          type: 'MANAGER_REMARK_ADDED',
+          title: 'Manager Remark Added',
+          message: `Admin manager added a remark to task "${selectedTask.title}".`,
+          createdAt: nowIso,
+          read: false,
+        });
+      }
+    } catch (err) {
+      console.error('Error updating manager remarks in Firestore:', err);
+    }
+
+    setSelectedTask(updatedTask);
+    setAdminRemarkInput('');
+  };
+
   const filteredRegs = registrations.filter(r => 
     r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     r.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -233,8 +424,28 @@ export const AdminDashboard: React.FC = () => {
     );
   });
 
+  const filteredTasks = tasks.filter(t => {
+    const term = searchTerm.toLowerCase();
+    const effStatus = getEffectiveTaskStatus(t);
+
+    const matchesSearch = 
+      t.title.toLowerCase().includes(term) ||
+      t.description.toLowerCase().includes(term) ||
+      t.assignedToDepartment.toLowerCase().includes(term) ||
+      t.createdBy.toLowerCase().includes(term) ||
+      (t.assignedToEmployeeCodes || []).some(c => c.toLowerCase().includes(term));
+
+    const matchesDept = taskFilterDept === 'All' || t.assignedToDepartment === taskFilterDept;
+    const matchesPriority = taskFilterPriority === 'All' || t.priority === taskFilterPriority;
+    const matchesStatus = taskFilterStatus === 'All' || effStatus === taskFilterStatus;
+
+    return matchesSearch && matchesDept && matchesPriority && matchesStatus;
+  });
+
   const pendingRegCount = registrations.filter(r => r.status === 'Pending Approval').length;
   const pendingExpenseCount = expenseRecords.filter(e => e.status === 'Pending').length;
+  const pendingTaskCount = tasks.filter(t => getEffectiveTaskStatus(t) === 'PENDING').length;
+  const overdueTaskCount = tasks.filter(t => getEffectiveTaskStatus(t) === 'OVERDUE').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#170B38] via-[#211044] to-[#2A145B] text-white pb-12">
@@ -274,6 +485,21 @@ export const AdminDashboard: React.FC = () => {
               {pendingExpenseCount > 0 && (
                 <span className="bg-amber-500 text-black text-[10px] px-2 py-0.5 rounded-full font-black animate-pulse">
                   {pendingExpenseCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('planner')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+                activeTab === 'planner'
+                  ? 'bg-[#7C3AED] text-white shadow-lg shadow-purple-900/50'
+                  : 'text-purple-300/70 hover:text-white'
+              }`}
+            >
+              Work Planner ({tasks.length})
+              {overdueTaskCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black animate-pulse">
+                  {overdueTaskCount} OVERDUE
                 </span>
               )}
             </button>
@@ -429,6 +655,257 @@ export const AdminDashboard: React.FC = () => {
                     icon={Calendar} 
                     title="No attendance records found" 
                     description="Attendance events logged by employees will appear here." 
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* WORK PLANNER PANEL VIEW */}
+        {activeTab === 'planner' && (
+          <div className="space-y-5">
+            {/* Action Bar & Stats Cards */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#2D1B5A] p-4 rounded-[22px] border border-purple-500/20">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 w-full md:w-auto">
+                <div className="bg-[#211044] p-3 rounded-2xl border border-purple-500/20 text-center">
+                  <p className="text-[10px] font-bold text-purple-300 uppercase">Total Tasks</p>
+                  <p className="text-xl font-black text-white">{tasks.length}</p>
+                </div>
+                <div className="bg-[#211044] p-3 rounded-2xl border border-amber-500/30 text-center">
+                  <p className="text-[10px] font-bold text-amber-300 uppercase">Pending</p>
+                  <p className="text-xl font-black text-amber-300">{pendingTaskCount}</p>
+                </div>
+                <div className="bg-[#211044] p-3 rounded-2xl border border-blue-500/30 text-center">
+                  <p className="text-[10px] font-bold text-blue-300 uppercase">In Progress</p>
+                  <p className="text-xl font-black text-blue-300">
+                    {tasks.filter(t => getEffectiveTaskStatus(t) === 'IN_PROGRESS').length}
+                  </p>
+                </div>
+                <div className="bg-[#211044] p-3 rounded-2xl border border-emerald-500/30 text-center">
+                  <p className="text-[10px] font-bold text-emerald-300 uppercase">Completed</p>
+                  <p className="text-xl font-black text-emerald-400">
+                    {tasks.filter(t => getEffectiveTaskStatus(t) === 'COMPLETED').length}
+                  </p>
+                </div>
+                <div className="bg-[#211044] p-3 rounded-2xl border border-red-500/30 text-center col-span-2 sm:col-span-1">
+                  <p className="text-[10px] font-bold text-red-300 uppercase">Overdue</p>
+                  <p className="text-xl font-black text-red-400">{overdueTaskCount}</p>
+                </div>
+              </div>
+
+              <Button
+                onClick={() => {
+                  setTaskTitle('');
+                  setTaskDescription('');
+                  setSelectedEmployeeIds([]);
+                  setTaskManagerRemarks('');
+                  setShowCreateTaskDialog(true);
+                }}
+                className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-extrabold px-5 py-3 rounded-2xl shadow-lg shadow-purple-900/50 flex items-center justify-center gap-2 whitespace-nowrap"
+              >
+                <Plus className="w-4 h-4" /> Create & Assign Task
+              </Button>
+            </div>
+
+            {/* Department & Employee Workload Summaries */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Department Workload */}
+              <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 rounded-[22px] space-y-3">
+                <h3 className="text-xs font-black uppercase text-purple-300 tracking-wider flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-[#A78BFA]" /> Department Workload Summary
+                </h3>
+                <div className="space-y-2">
+                  {['Operations', 'Sales', 'HR', 'Logistics'].map((dept) => {
+                    const deptTasks = tasks.filter(t => t.assignedToDepartment === dept);
+                    const completed = deptTasks.filter(t => getEffectiveTaskStatus(t) === 'COMPLETED').length;
+                    const overdue = deptTasks.filter(t => getEffectiveTaskStatus(t) === 'OVERDUE').length;
+                    const pct = deptTasks.length ? Math.round((completed / deptTasks.length) * 100) : 0;
+
+                    return (
+                      <div key={dept} className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 flex items-center justify-between text-xs">
+                        <div>
+                          <p className="font-bold text-white">{dept}</p>
+                          <p className="text-[10px] text-purple-300/70">{deptTasks.length} total tasks ({overdue} overdue)</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-extrabold text-emerald-400">{pct}% Done</p>
+                          <p className="text-[10px] text-purple-300/60">{completed}/{deptTasks.length} completed</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+
+              {/* Employee Workload */}
+              <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 rounded-[22px] space-y-3">
+                <h3 className="text-xs font-black uppercase text-purple-300 tracking-wider flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-[#A78BFA]" /> Employee Task Load
+                </h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {registrations.filter(r => r.status === 'Approved').length > 0 ? (
+                    registrations.filter(r => r.status === 'Approved').map((emp) => {
+                      const empTasks = tasks.filter(t => 
+                        (t.assignedToEmployeeIds || []).includes(emp.id) || 
+                        (t.assignedToEmployeeCodes || []).includes(emp.employeeCode)
+                      );
+                      const completed = empTasks.filter(t => getEffectiveTaskStatus(t) === 'COMPLETED').length;
+                      const overdue = empTasks.filter(t => getEffectiveTaskStatus(t) === 'OVERDUE').length;
+
+                      return (
+                        <div key={emp.id} className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 flex items-center justify-between text-xs">
+                          <div>
+                            <p className="font-bold text-white">{emp.name} <span className="text-[10px] font-mono text-purple-300">({emp.employeeCode})</span></p>
+                            <p className="text-[10px] text-purple-300/70">{emp.office || 'Operations'}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-extrabold text-purple-200">{empTasks.length} Assigned</p>
+                            <p className="text-[10px] text-emerald-300">{completed} Done {overdue > 0 ? `• ${overdue} Overdue` : ''}</p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-[11px] text-purple-300/60 italic text-center py-4">No approved registered employees available.</p>
+                  )}
+                </div>
+              </Card>
+            </div>
+
+            {/* Filters Row */}
+            <div className="flex flex-wrap items-center gap-3 bg-[#2D1B5A] p-3 rounded-2xl border border-purple-500/20 text-xs">
+              <span className="font-bold text-purple-300 flex items-center gap-1">
+                <Filter className="w-3.5 h-3.5 text-[#A78BFA]" /> Filters:
+              </span>
+
+              {/* Dept filter */}
+              <select
+                value={taskFilterDept}
+                onChange={(e) => setTaskFilterDept(e.target.value)}
+                className="bg-[#211044] text-white px-3 py-1.5 rounded-xl border border-purple-500/30 font-bold focus:outline-none"
+              >
+                <option value="All">All Departments</option>
+                <option value="Operations">Operations</option>
+                <option value="Sales">Sales</option>
+                <option value="HR">HR</option>
+                <option value="Logistics">Logistics</option>
+              </select>
+
+              {/* Priority filter */}
+              <select
+                value={taskFilterPriority}
+                onChange={(e) => setTaskFilterPriority(e.target.value)}
+                className="bg-[#211044] text-white px-3 py-1.5 rounded-xl border border-purple-500/30 font-bold focus:outline-none"
+              >
+                <option value="All">All Priorities</option>
+                <option value="URGENT">URGENT</option>
+                <option value="HIGH">HIGH</option>
+                <option value="MEDIUM">MEDIUM</option>
+                <option value="LOW">LOW</option>
+              </select>
+
+              {/* Status filter */}
+              <select
+                value={taskFilterStatus}
+                onChange={(e) => setTaskFilterStatus(e.target.value)}
+                className="bg-[#211044] text-white px-3 py-1.5 rounded-xl border border-purple-500/30 font-bold focus:outline-none"
+              >
+                <option value="All">All Statuses</option>
+                <option value="PENDING">PENDING</option>
+                <option value="IN_PROGRESS">IN_PROGRESS</option>
+                <option value="COMPLETED">COMPLETED</option>
+                <option value="OVERDUE">OVERDUE</option>
+              </select>
+            </div>
+
+            {/* Task Table */}
+            <div className="overflow-x-auto bg-[#2D1B5A] rounded-[22px] shadow-2xl border border-purple-500/20">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#211044] text-purple-300 uppercase text-[10px] font-extrabold tracking-wider border-b border-purple-500/20">
+                  <tr>
+                    <th className="p-4">Task Details</th>
+                    <th className="p-4">Department</th>
+                    <th className="p-4">Assigned To</th>
+                    <th className="p-4">Priority</th>
+                    <th className="p-4">Due Date</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4">Progress</th>
+                    <th className="p-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-purple-500/10 text-white font-medium">
+                  {filteredTasks.map((t) => {
+                    const effStatus = getEffectiveTaskStatus(t);
+
+                    return (
+                      <tr key={t.id} className="hover:bg-[#35206A]/60 transition-colors">
+                        <td className="p-4">
+                          <div className="font-bold text-sm text-white">{t.title}</div>
+                          <div className="text-[10px] text-purple-300/70 line-clamp-1 max-w-xs">{t.description}</div>
+                        </td>
+                        <td className="p-4 whitespace-nowrap font-bold text-purple-200">{t.assignedToDepartment}</td>
+                        <td className="p-4 whitespace-nowrap text-purple-200">
+                          {t.assignmentType === 'DEPARTMENT' ? (
+                            <span className="text-blue-300 font-bold">Entire Dept</span>
+                          ) : (
+                            <span className="font-mono text-xs">{(t.assignedToEmployeeCodes || []).join(', ') || 'N/A'}</span>
+                          )}
+                        </td>
+                        <td className="p-4 whitespace-nowrap">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+                            t.priority === 'URGENT' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
+                            t.priority === 'HIGH' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
+                            t.priority === 'MEDIUM' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
+                            'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                          }`}>
+                            {t.priority}
+                          </span>
+                        </td>
+                        <td className="p-4 whitespace-nowrap font-semibold text-purple-200">{t.dueDate} {t.dueTime || ''}</td>
+                        <td className="p-4 whitespace-nowrap">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+                            effStatus === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                            effStatus === 'OVERDUE' ? 'bg-red-600/30 text-red-300 border-red-500/40 animate-pulse' :
+                            effStatus === 'IN_PROGRESS' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' :
+                            'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          }`}>
+                            {effStatus}
+                          </span>
+                        </td>
+                        <td className="p-4 whitespace-nowrap">
+                          <div className="w-24 bg-[#211044] h-2 rounded-full overflow-hidden border border-purple-500/20 mb-0.5">
+                            <div 
+                              className={`h-full ${effStatus === 'COMPLETED' ? 'bg-emerald-400' : effStatus === 'OVERDUE' ? 'bg-red-500' : 'bg-[#7C3AED]'}`}
+                              style={{ width: `${t.completionPercentage || 0}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-bold text-purple-300">{t.completionPercentage || 0}%</span>
+                        </td>
+                        <td className="p-4 whitespace-nowrap">
+                          <button
+                            onClick={() => {
+                              setSelectedTask(t);
+                              setTaskManagerRemarks(t.managerRemarks || '');
+                              setAdminRemarkInput('');
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 font-bold text-[10px]"
+                          >
+                            Audit & Remarks
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {filteredTasks.length === 0 && (
+                <div className="py-12">
+                  <EmptyState
+                    icon={CheckSquare}
+                    title="No tasks found"
+                    description="No work planner tasks match your current filter selection."
                   />
                 </div>
               )}
@@ -872,6 +1349,262 @@ export const AdminDashboard: React.FC = () => {
             </Button>
           </div>
         </div>
+      </Dialog>
+
+      {/* Create Task Dialog */}
+      <Dialog isOpen={showCreateTaskDialog} onClose={() => setShowCreateTaskDialog(false)} title="Create & Assign Work Planner Task">
+        <div className="space-y-4 text-xs max-h-[75vh] overflow-y-auto pr-1">
+          <div className="space-y-1">
+            <label className="font-extrabold text-purple-300 uppercase tracking-wider block">Task Title *</label>
+            <input
+              type="text"
+              value={taskTitle}
+              onChange={(e) => setTaskTitle(e.target.value)}
+              placeholder="e.g., Q3 Financial Reconciliations & Audit"
+              className="w-full p-3 rounded-xl border border-purple-500/30 bg-[#211044] text-white font-bold text-xs focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-extrabold text-purple-300 uppercase tracking-wider block">Description & Work Plan *</label>
+            <textarea
+              value={taskDescription}
+              onChange={(e) => setTaskDescription(e.target.value)}
+              placeholder="Provide detailed instructions, required deliverables, and guidelines..."
+              className="w-full p-3 rounded-xl border border-purple-500/30 bg-[#211044] text-white text-xs min-h-[80px] focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="font-extrabold text-purple-300 uppercase tracking-wider block">Department *</label>
+              <select
+                value={taskDept}
+                onChange={(e) => setTaskDept(e.target.value)}
+                className="w-full p-3 rounded-xl border border-purple-500/30 bg-[#211044] text-white font-bold text-xs focus:outline-none"
+              >
+                <option value="Operations">Operations</option>
+                <option value="Sales">Sales</option>
+                <option value="HR">HR</option>
+                <option value="Logistics">Logistics</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-extrabold text-purple-300 uppercase tracking-wider block">Priority *</label>
+              <select
+                value={taskPriority}
+                onChange={(e) => setTaskPriority(e.target.value as TaskPriority)}
+                className="w-full p-3 rounded-xl border border-purple-500/30 bg-[#211044] text-white font-bold text-xs focus:outline-none"
+              >
+                <option value="LOW">LOW (Grey/Purple)</option>
+                <option value="MEDIUM">MEDIUM (Blue)</option>
+                <option value="HIGH">HIGH (Amber)</option>
+                <option value="URGENT">URGENT (Red)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-extrabold text-purple-300 uppercase tracking-wider block">Assignment Mode *</label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setTaskAssignmentType('EMPLOYEE')}
+                className={`p-2 rounded-xl text-[11px] font-bold border transition-all ${
+                  taskAssignmentType === 'EMPLOYEE' ? 'bg-[#7C3AED] text-white border-purple-400' : 'bg-[#211044] text-purple-300 border-purple-500/20'
+                }`}
+              >
+                Single Employee
+              </button>
+              <button
+                type="button"
+                onClick={() => setTaskAssignmentType('MULTIPLE_EMPLOYEES')}
+                className={`p-2 rounded-xl text-[11px] font-bold border transition-all ${
+                  taskAssignmentType === 'MULTIPLE_EMPLOYEES' ? 'bg-[#7C3AED] text-white border-purple-400' : 'bg-[#211044] text-purple-300 border-purple-500/20'
+                }`}
+              >
+                Multiple
+              </button>
+              <button
+                type="button"
+                onClick={() => setTaskAssignmentType('DEPARTMENT')}
+                className={`p-2 rounded-xl text-[11px] font-bold border transition-all ${
+                  taskAssignmentType === 'DEPARTMENT' ? 'bg-[#7C3AED] text-white border-purple-400' : 'bg-[#211044] text-purple-300 border-purple-500/20'
+                }`}
+              >
+                Entire Dept
+              </button>
+            </div>
+          </div>
+
+          {taskAssignmentType !== 'DEPARTMENT' && (
+            <div className="space-y-1">
+              <label className="font-extrabold text-purple-300 uppercase tracking-wider block">Assign Employees *</label>
+              <div className="max-h-36 overflow-y-auto bg-[#211044] p-2 rounded-xl border border-purple-500/30 space-y-1">
+                {registrations.filter(r => r.status === 'Approved').map((emp) => {
+                  const isChecked = selectedEmployeeIds.includes(emp.id) || selectedEmployeeIds.includes(emp.employeeCode);
+                  return (
+                    <label key={emp.id} className="flex items-center gap-2.5 p-2 hover:bg-[#2D1B5A] rounded-lg cursor-pointer">
+                      <input
+                        type={taskAssignmentType === 'EMPLOYEE' ? 'radio' : 'checkbox'}
+                        name="assignee"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (taskAssignmentType === 'EMPLOYEE') {
+                            setSelectedEmployeeIds([emp.id]);
+                          } else {
+                            if (e.target.checked) {
+                              setSelectedEmployeeIds([...selectedEmployeeIds, emp.id]);
+                            } else {
+                              setSelectedEmployeeIds(selectedEmployeeIds.filter(id => id !== emp.id));
+                            }
+                          }
+                        }}
+                        className="accent-[#7C3AED]"
+                      />
+                      <div>
+                        <p className="font-bold text-white text-xs">{emp.name}</p>
+                        <p className="text-[10px] text-purple-300/70 font-mono">{emp.employeeCode} • {emp.office || 'Operations'}</p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1">
+              <label className="font-extrabold text-purple-300 uppercase tracking-wider block">Start Date</label>
+              <input
+                type="date"
+                value={taskStartDate}
+                onChange={(e) => setTaskStartDate(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-purple-500/30 bg-[#211044] text-white text-xs font-bold"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-extrabold text-purple-300 uppercase tracking-wider block">Due Date *</label>
+              <input
+                type="date"
+                value={taskDueDate}
+                onChange={(e) => setTaskDueDate(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-purple-500/30 bg-[#211044] text-white text-xs font-bold"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-extrabold text-purple-300 uppercase tracking-wider block">Due Time</label>
+              <input
+                type="time"
+                value={taskDueTime}
+                onChange={(e) => setTaskDueTime(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-purple-500/30 bg-[#211044] text-white text-xs font-bold"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="font-extrabold text-purple-300 uppercase tracking-wider block">Initial Manager Remarks (Optional)</label>
+            <input
+              type="text"
+              value={taskManagerRemarks}
+              onChange={(e) => setTaskManagerRemarks(e.target.value)}
+              placeholder="Special instructions or notes for the assignee..."
+              className="w-full p-3 rounded-xl border border-purple-500/30 bg-[#211044] text-white text-xs focus:outline-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <Button variant="text" onClick={() => setShowCreateTaskDialog(false)} className="flex-1">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateTask}
+              disabled={!taskTitle.trim() || !taskDescription.trim() || !taskDueDate || (taskAssignmentType !== 'DEPARTMENT' && selectedEmployeeIds.length === 0)}
+              className="flex-1 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold"
+            >
+              Create & Assign Task
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Admin Task Audit & Manager Remarks Dialog */}
+      <Dialog isOpen={!!selectedTask} onClose={() => setSelectedTask(null)} title="Admin Task Audit & Manager Remarks">
+        {selectedTask && (
+          <div className="space-y-4 text-xs max-h-[75vh] overflow-y-auto pr-1">
+            <div className="p-3 bg-[#211044] rounded-2xl border border-purple-500/30 space-y-2">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-bold text-base text-white">{selectedTask.title}</h3>
+                  <p className="text-[10px] text-purple-300 font-mono mt-0.5">ID: {selectedTask.id}</p>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${
+                  getEffectiveTaskStatus(selectedTask) === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                  getEffectiveTaskStatus(selectedTask) === 'OVERDUE' ? 'bg-red-600/30 text-red-300 border-red-500/40 animate-pulse' :
+                  'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                }`}>
+                  {getEffectiveTaskStatus(selectedTask)}
+                </span>
+              </div>
+
+              <div className="p-2.5 bg-[#2D1B5A] rounded-xl text-purple-100 text-xs leading-relaxed border border-purple-500/20">
+                {selectedTask.description}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-purple-200">
+                <div><span className="text-purple-300/70 font-bold">Dept:</span> {selectedTask.assignedToDepartment}</div>
+                <div><span className="text-purple-300/70 font-bold">Priority:</span> {selectedTask.priority}</div>
+                <div><span className="text-purple-300/70 font-bold">Due Date:</span> {selectedTask.dueDate} {selectedTask.dueTime || ''}</div>
+                <div><span className="text-purple-300/70 font-bold">Progress:</span> {selectedTask.completionPercentage || 0}%</div>
+              </div>
+            </div>
+
+            {/* Manager Remarks Section */}
+            <div className="space-y-2 p-3 bg-[#211044] rounded-2xl border border-purple-500/30">
+              <label className="font-extrabold text-xs text-white uppercase tracking-wider block">Manager Remarks</label>
+              <textarea
+                value={taskManagerRemarks}
+                onChange={(e) => setTaskManagerRemarks(e.target.value)}
+                placeholder="Write manager remarks or directive for employee..."
+                className="w-full p-2.5 rounded-xl border border-purple-500/30 bg-[#2D1B5A] text-white text-xs min-h-[60px] focus:outline-none"
+              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={adminRemarkInput}
+                  onChange={(e) => setAdminRemarkInput(e.target.value)}
+                  placeholder="Post an admin comment to thread..."
+                  className="flex-1 px-3 py-2 rounded-xl border border-purple-500/30 bg-[#2D1B5A] text-white text-xs"
+                />
+                <Button onClick={handleSaveManagerRemark} className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold text-xs">
+                  Save Remarks
+                </Button>
+              </div>
+            </div>
+
+            {/* Comments Thread */}
+            <div className="space-y-2">
+              <h4 className="font-extrabold text-xs text-purple-300 uppercase tracking-wider">Comment History</h4>
+              <div className="max-h-36 overflow-y-auto space-y-2">
+                {(selectedTask.comments || []).map((c) => (
+                  <div key={c.id} className="p-2.5 bg-[#211044] rounded-xl border border-purple-500/20 text-xs">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-purple-300">
+                      <span>{c.authorName} ({c.authorRole})</span>
+                      <span className="text-purple-300/60">{new Date(c.timestamp).toLocaleString()}</span>
+                    </div>
+                    <p className="text-purple-100 mt-1">{c.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Button onClick={() => setSelectedTask(null)} className="w-full">Close Audit</Button>
+          </div>
+        )}
       </Dialog>
 
     </div>

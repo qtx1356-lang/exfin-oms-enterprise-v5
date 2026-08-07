@@ -13,6 +13,9 @@ service cloud.firestore {
     match /expenses/{expenseId} {
       allow read, write: if true;
     }
+    match /tasks/{taskId} {
+      allow read, write: if true;
+    }
     match /notifications/{notificationId} {
       allow read, write: if true;
     }
