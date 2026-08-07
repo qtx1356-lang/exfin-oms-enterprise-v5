@@ -11,11 +11,11 @@ interface EmptyStateProps {
 export const EmptyState: React.FC<EmptyStateProps> = ({ icon: Icon, title, description, action }) => {
   return (
     <div className="flex flex-col items-center justify-center p-8 text-center h-full">
-      <div className="w-16 h-16 bg-secondary-container rounded-full flex items-center justify-center mb-4">
-        <Icon className="w-8 h-8 text-on-secondary-container" />
+      <div className="w-16 h-16 bg-[#35206A] border border-purple-500/30 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
+        <Icon className="w-8 h-8 text-purple-300" />
       </div>
-      <h3 className="text-xl font-medium text-on-surface mb-2">{title}</h3>
-      <p className="text-sm text-outline mb-6 max-w-xs">{description}</p>
+      <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
+      <p className="text-xs text-purple-300/80 mb-6 max-w-xs leading-relaxed">{description}</p>
       {action && <div>{action}</div>}
     </div>
   );

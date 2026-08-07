@@ -13,23 +13,23 @@ export const SplashScreen: React.FC<{ onFinish: () => void }> = ({ onFinish }) =
     <motion.div 
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-primary flex flex-col items-center justify-center z-50"
+      className="fixed inset-0 bg-gradient-to-b from-[#170B38] via-[#211044] to-[#2A145B] flex flex-col items-center justify-center z-50 text-white"
     >
       <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
+        initial={{ scale: 0.85, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="text-on-primary text-3xl font-bold tracking-wider"
+        className="text-center"
       >
-        EXFIN PHOENIX
-      </motion.div>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5, duration: 0.5 }}
-        className="text-primary-container mt-2 text-sm uppercase tracking-widest"
-      >
-        Enterprise OMS v5.0
+        <div className="w-20 h-20 mx-auto mb-4 bg-[#7C3AED] rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(124,58,237,0.6)]">
+          <span className="text-3xl font-black tracking-tighter text-white">EO</span>
+        </div>
+        <div className="text-2xl font-black tracking-wider text-white">
+          EXFIN OMS ENTERPRISE
+        </div>
+        <div className="mt-2 text-xs font-bold uppercase tracking-widest text-purple-300 bg-purple-900/40 border border-purple-500/30 px-3 py-1 rounded-full inline-block">
+          v6.0 • Deep Purple Enterprise
+        </div>
       </motion.div>
     </motion.div>
   );

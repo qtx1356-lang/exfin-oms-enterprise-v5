@@ -11,16 +11,16 @@ export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-surface w-full max-w-md rounded-[28px] p-6 shadow-xl animate-in fade-in zoom-in-95">
-        <h2 className="text-[24px] text-on-surface mb-4 font-normal">{title}</h2>
-        <div className="mb-6 text-on-surface-variant text-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-[#2D1B5A] border border-purple-500/30 w-full max-w-md rounded-[28px] p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-white">
+        <h2 className="text-xl font-bold text-white mb-4 tracking-tight">{title}</h2>
+        <div className="mb-6 text-purple-200 text-sm leading-relaxed">
           {children}
         </div>
         <div className="flex justify-end gap-2">
           <button 
             onClick={onClose}
-            className="px-4 py-2 text-primary font-medium rounded-full hover:bg-primary/10 transition-colors"
+            className="px-5 py-2 text-purple-300 font-semibold rounded-full hover:bg-purple-500/20 transition-colors"
           >
             Close
           </button>

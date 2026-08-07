@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Camera, User, Phone, CheckCircle2 } from 'lucide-react';
+import { Camera, User, Phone, CheckCircle2, Shield } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useRegistration } from '../../context/RegistrationContext';
@@ -68,48 +68,51 @@ export const DeviceRegistration: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-surface p-4 flex flex-col justify-center">
-      <div className="max-w-md w-full mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-b from-[#170B38] via-[#211044] to-[#2A145B] text-white p-4 flex flex-col justify-center items-center">
+      <div className="max-w-md w-full space-y-5">
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-medium text-on-surface">Register Device</h1>
-          <p className="text-on-surface-variant text-sm">Please provide your details to register this device for Exfin OMS.</p>
+          <div className="w-16 h-16 bg-[#7C3AED] rounded-2xl flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(124,58,237,0.5)]">
+            <Shield className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-2xl font-black tracking-tight text-white">Register Device</h1>
+          <p className="text-purple-300/80 text-xs">Register your phone to access Exfin OMS Enterprise v6.0</p>
         </div>
 
-        <Card variant="outlined" className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <Card className="p-6 bg-[#2D1B5A] border border-purple-500/30 shadow-2xl rounded-[28px]">
+          <form onSubmit={handleSubmit} className="space-y-4">
             
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-on-surface flex items-center gap-2">
-                <User className="w-4 h-4" /> Full Name
+              <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-[#A78BFA]" /> Full Name
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your full name"
-                className="w-full px-4 py-3 rounded-xl border border-outline/30 bg-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-on-surface placeholder:text-outline"
+                placeholder="Enter full name"
+                className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[#211044] text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED] text-sm"
                 required
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-on-surface flex items-center gap-2">
-                <Phone className="w-4 h-4" /> Mobile Number
+              <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-[#A78BFA]" /> Mobile Number
               </label>
               <input
                 type="tel"
                 value={mobileNumber}
                 onChange={(e) => setMobileNumber(e.target.value)}
-                placeholder="Enter 10-digit mobile number"
-                className="w-full px-4 py-3 rounded-xl border border-outline/30 bg-surface focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-on-surface placeholder:text-outline"
+                placeholder="10-digit mobile number"
+                className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[#211044] text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED] text-sm"
                 required
                 pattern="[0-9]{10}"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-on-surface flex items-center gap-2">
-                <Camera className="w-4 h-4" /> Selfie
+              <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-[#A78BFA]" /> Verification Selfie
               </label>
               
               <input
@@ -124,23 +127,23 @@ export const DeviceRegistration: React.FC = () => {
               {!selfieBase64 ? (
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-outline/30 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:bg-surface-variant/30 transition-colors"
+                  className="border-2 border-dashed border-purple-500/30 bg-[#211044]/60 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-[#211044] transition-colors"
                 >
-                  <div className="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center mb-3">
-                    <Camera className="w-6 h-6 text-on-primary-container" />
+                  <div className="w-12 h-12 rounded-full bg-[#7C3AED]/20 border border-purple-500/30 flex items-center justify-center mb-2">
+                    <Camera className="w-6 h-6 text-[#A78BFA]" />
                   </div>
-                  <span className="text-sm font-medium text-primary">Tap to take selfie</span>
-                  <span className="text-xs text-on-surface-variant mt-1">Camera only</span>
+                  <span className="text-xs font-bold text-white">Tap to take selfie</span>
+                  <span className="text-[10px] text-purple-300/70 mt-0.5">Camera verification required</span>
                 </div>
               ) : (
-                <div className="relative rounded-xl overflow-hidden border border-outline/30 aspect-square max-h-64 mx-auto w-full">
+                <div className="relative rounded-2xl overflow-hidden border border-purple-500/30 aspect-square max-h-56 mx-auto w-full">
                   <img src={selfieBase64} alt="Selfie preview" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                     <Button type="button" variant="tonal" onClick={() => fileInputRef.current?.click()}>
                       Retake Photo
                     </Button>
                   </div>
-                  <div className="absolute top-2 right-2 bg-green-500 text-white p-1 rounded-full">
+                  <div className="absolute top-2 right-2 bg-emerald-500 text-white p-1 rounded-full shadow-lg">
                     <CheckCircle2 className="w-5 h-5" />
                   </div>
                 </div>
@@ -148,7 +151,7 @@ export const DeviceRegistration: React.FC = () => {
             </div>
 
             {error && (
-              <div className="p-3 bg-red-100 text-red-800 rounded-lg text-sm text-center">
+              <div className="p-3 bg-red-500/20 border border-red-500/40 text-red-200 rounded-2xl text-xs font-bold text-center">
                 {error}
               </div>
             )}
@@ -156,9 +159,9 @@ export const DeviceRegistration: React.FC = () => {
             <Button
               type="submit"
               disabled={loading || !name || !mobileNumber || !selfieBase64}
-              className="w-full py-4 text-base font-medium rounded-xl"
+              className="w-full py-3.5 text-sm font-bold rounded-2xl shadow-xl mt-2"
             >
-              {loading ? 'Submitting...' : 'Register Device'}
+              {loading ? 'Submitting Registration...' : 'Submit Device Registration'}
             </Button>
           </form>
         </Card>

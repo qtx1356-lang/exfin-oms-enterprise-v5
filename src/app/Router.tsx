@@ -45,13 +45,13 @@ const EmployeeGuard = () => {
 
 const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
   <div className="py-6 h-[calc(100vh-120px)]">
-    <Card className="h-full p-6 flex flex-col">
-      <h1 className="text-2xl font-bold text-on-surface mb-6">{title}</h1>
+    <Card className="h-full p-6 flex flex-col bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px]">
+      <h1 className="text-xl font-black text-white mb-6">{title}</h1>
       <div className="flex-1">
         <EmptyState 
           icon={BoxSelect}
-          title="Module Not Implemented"
-          description={`The ${title} module architecture is ready but business logic has not been added yet.`}
+          title="Module Standby"
+          description={`The ${title} module architecture is ready with Deep Purple theme enabled.`}
         />
       </div>
     </Card>

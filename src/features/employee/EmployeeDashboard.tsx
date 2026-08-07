@@ -8,13 +8,14 @@ import {
   Clock, 
   UserCheck, 
   Hourglass,
-  LogOut,
-  ChevronRight,
   Bell,
   Wallet,
   Briefcase,
   Megaphone,
-  MapPin
+  MapPin,
+  Building2,
+  PhoneCall,
+  Sparkles
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getTodayAttendanceRecord } from '../../services/attendance/attendanceStorage';
@@ -51,11 +52,8 @@ export const EmployeeDashboard: React.FC = () => {
     }
   }, [employeeData]);
 
-
   useEffect(() => {
     if (!db) return;
-
-    console.log('Fetching announcements and notifications...');
 
     // Fetch announcements
     const announcementsQ = query(
@@ -64,7 +62,6 @@ export const EmployeeDashboard: React.FC = () => {
       limit(3)
     );
     const unsubAnnouncements = onSnapshot(announcementsQ, (snapshot) => {
-      console.log(`Announcements query returned ${snapshot.docs.length} documents.`);
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -81,7 +78,6 @@ export const EmployeeDashboard: React.FC = () => {
       limit(3)
     );
     const unsubNotifications = onSnapshot(notificationsQ, (snapshot) => {
-      console.log(`Notifications query returned ${snapshot.docs.length} documents.`);
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -97,14 +93,14 @@ export const EmployeeDashboard: React.FC = () => {
     };
   }, []);
 
-  console.log('Employee Dashboard rendering. employeeData:', employeeData);
-
   if (!employeeData) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
-        <h2 className="text-xl font-bold text-error mb-2">Employee profile not found</h2>
-        <p className="text-sm text-on-surface-variant">We couldn't load your employee data. Please try again or contact support.</p>
-        <p className="text-xs text-on-surface-variant mt-4 opacity-50">Diagnostic: employeeData is falsy.</p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center text-white">
+        <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
+          <UserCheck className="w-8 h-8 text-red-400" />
+        </div>
+        <h2 className="text-xl font-bold text-red-400 mb-2">Employee profile not found</h2>
+        <p className="text-sm text-purple-200">We couldn't load your employee data. Please contact administrator.</p>
       </div>
     );
   }
@@ -117,116 +113,108 @@ export const EmployeeDashboard: React.FC = () => {
   }).format(new Date());
 
   const quickActions = [
-    { icon: UserCheck, label: 'Attendance', path: '/attendance', color: 'bg-primary-container text-on-primary-container' },
-    { icon: Calendar, label: 'Leave', path: '/leave', color: 'bg-tertiary-container text-on-tertiary-container' },
-    { icon: Wallet, label: 'Expenses', path: '/expenses', color: 'bg-secondary-container text-on-secondary-container' },
-    { icon: Briefcase, label: 'Work Planner', path: '/planner', color: 'bg-surface-variant text-on-surface-variant' },
-    { icon: Bell, label: 'Notifications', path: '/notifications', color: 'bg-error-container text-on-error-container' },
+    { icon: UserCheck, label: 'Attendance', path: '/attendance', bg: 'bg-[#7C3AED]/20 text-[#A78BFA] border-purple-500/30' },
+    { icon: Calendar, label: 'Leave', path: '/leave', bg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+    { icon: Wallet, label: 'Expenses', path: '/expenses', bg: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+    { icon: Briefcase, label: 'Work Planner', path: '/planner', bg: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
   ];
 
   return (
-    <div className="flex flex-col gap-6 pb-6">
+    <div className="flex flex-col gap-5 pb-8 text-white">
       {/* Top Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full overflow-hidden bg-surface-variant flex-shrink-0 border-2 border-primary/20">
+      <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl overflow-hidden bg-[#211044] border-2 border-[#7C3AED]/50 flex-shrink-0 shadow-lg">
             {employeeData.selfieUrl ? (
               <img src={employeeData.selfieUrl} alt="Profile" className="w-full h-full object-cover" />
             ) : (
-              <UserCheck className="w-6 h-6 m-auto mt-3 text-on-surface-variant" />
+              <UserCheck className="w-6 h-6 m-auto mt-3 text-purple-300" />
             )}
           </div>
           <div>
-            <h1 className="text-xl font-bold text-on-background leading-tight">
-              {employeeData.name || 'Employee'}
-            </h1>
-            <p className="text-sm text-on-surface-variant font-medium">
-              {employeeData.employeeCode || 'No Code'}
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-black text-white leading-none">
+                {employeeData.name || 'Employee'}
+              </h1>
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#7C3AED]/30 text-[#A78BFA] border border-purple-500/30">
+                PRO
+              </span>
+            </div>
+            <p className="text-xs text-purple-300/80 font-medium mt-1">
+              Code: <span className="text-white font-bold">{employeeData.employeeCode || 'N/A'}</span>
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1 bg-surface-variant px-3 py-1.5 rounded-full text-xs font-medium text-on-surface-variant">
-          <MapPin className="w-3.5 h-3.5" />
+
+        <div className="flex items-center gap-1.5 bg-[#2D1B5A] border border-purple-500/30 px-3 py-1.5 rounded-full text-xs font-semibold text-purple-200 shadow-md">
+          <MapPin className="w-3.5 h-3.5 text-[#A78BFA]" />
           <span>{employeeData.office || 'Raniganj HQ'}</span>
         </div>
       </div>
 
-      {/* Profile Card */}
-      <Card className="p-5 flex flex-col gap-4 border-l-4 border-l-primary shadow-sm bg-surface">
-        <div className="flex justify-between items-start">
-          <h2 className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase">Profile Information</h2>
-          <span className="px-2 py-1 rounded text-xs font-bold bg-primary/10 text-primary">
-            {employeeData.status || 'Active'}
+      {/* Today Status Hero Banner */}
+      <Card className="p-5 relative overflow-hidden bg-gradient-to-br from-[#2D1B5A] via-[#35206A] to-[#211044] border border-purple-500/30 shadow-2xl">
+        <div className="absolute -top-6 -right-6 w-32 h-32 bg-[#7C3AED]/15 rounded-full blur-2xl pointer-events-none" />
+        
+        <div className="flex justify-between items-start mb-4 relative z-10">
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-purple-300 flex items-center gap-1 mb-1">
+              <Sparkles className="w-3 h-3 text-amber-400" /> Today's Overview
+            </span>
+            <h2 className="text-xl font-black text-white tracking-tight">{todayDate}</h2>
+          </div>
+          <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-[#211044] border border-purple-500/30 text-purple-200">
+            Shift End: 06:00 PM
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm">
-          <div>
-            <p className="text-on-surface-variant text-xs">Department</p>
-            <p className="font-medium text-on-surface">{employeeData.department || 'Not Assigned'}</p>
-          </div>
-          <div>
-            <p className="text-on-surface-variant text-xs">Designation</p>
-            <p className="font-medium text-on-surface">{employeeData.designation || 'Not Assigned'}</p>
-          </div>
-          <div>
-            <p className="text-on-surface-variant text-xs">Mobile</p>
-            <p className="font-medium text-on-surface">{employeeData.mobileNumber || 'N/A'}</p>
-          </div>
-        </div>
-      </Card>
 
-      {/* Today Status Card */}
-      <Card className="p-5 flex flex-col gap-4 bg-primary text-on-primary shadow-md overflow-hidden relative">
-        <div className="absolute top-0 right-0 p-4 opacity-10">
-          <Clock className="w-24 h-24" />
-        </div>
-        <div className="z-10 flex justify-between items-start">
-          <div>
-            <h2 className="text-lg font-bold">{todayDate}</h2>
-            <p className="text-primary-container text-sm font-medium">Office Closing Time: 06:00 PM</p>
+        <div className="grid grid-cols-2 gap-3 relative z-10">
+          <div className="bg-[#211044]/80 backdrop-blur-md rounded-2xl p-3.5 border border-purple-500/20">
+            <p className="text-[11px] font-semibold text-purple-300/80 mb-1 flex items-center gap-1.5">
+              <UserCheck className="w-3.5 h-3.5 text-[#10B981]" /> Check-In
+            </p>
+            <p className="font-black text-base text-white">
+              {todayAttendance ? todayAttendance.checkInTime : 'Not Checked In'}
+            </p>
+            {todayAttendance && (
+              <span className="inline-block text-[10px] font-extrabold text-[#10B981] mt-1 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                {todayAttendance.checkInMode}
+              </span>
+            )}
           </div>
-        </div>
-        
-        <div className="z-10 grid grid-cols-2 gap-4 mt-2">
-          <div className="bg-primary-container/20 rounded-lg p-3">
-            <p className="text-primary-container text-xs mb-1 flex items-center gap-1">
-              <UserCheck className="w-3.5 h-3.5" /> Status
+
+          <div className="bg-[#211044]/80 backdrop-blur-md rounded-2xl p-3.5 border border-purple-500/20">
+            <p className="text-[11px] font-semibold text-purple-300/80 mb-1 flex items-center gap-1.5">
+              <Hourglass className="w-3.5 h-3.5 text-amber-400" /> Check-Out
             </p>
-            <p className="font-bold text-base leading-tight">
-              {todayAttendance 
-                ? (todayAttendance.checkOutTime ? 'Checked Out' : `Checked In (${todayAttendance.checkInMode})`)
-                : 'Not Checked In'}
-            </p>
-          </div>
-          <div className="bg-primary-container/20 rounded-lg p-3">
-            <p className="text-primary-container text-xs mb-1 flex items-center gap-1">
-              <Hourglass className="w-3.5 h-3.5" /> Check-Out
-            </p>
-            <p className="font-bold text-base leading-tight">
+            <p className="font-black text-base text-white">
               {todayAttendance?.checkOutTime || '--:--'}
             </p>
+            {todayAttendance?.checkOutMode && (
+              <span className="inline-block text-[10px] font-extrabold text-amber-300 mt-1 bg-amber-500/10 px-2 py-0.5 rounded-md">
+                {todayAttendance.checkOutMode}
+              </span>
+            )}
           </div>
-        </div>
-        <div className="z-10 text-xs font-medium text-primary-container mt-1">
-          Last Check-In: {todayAttendance?.checkInTime || '--:--'} {todayAttendance ? `(${todayAttendance.checkInMode})` : ''}
         </div>
       </Card>
 
-
-      {/* Quick Actions */}
+      {/* Quick Actions Grid */}
       <div>
-        <h2 className="text-base font-bold text-on-background mb-3">Quick Actions</h2>
+        <h2 className="text-xs font-extrabold text-purple-300/80 uppercase tracking-wider mb-3">
+          Quick Actions
+        </h2>
         <div className="grid grid-cols-4 gap-3">
           {quickActions.map((action, idx) => (
             <button 
               key={idx}
               onClick={() => navigate(action.path)}
-              className="flex flex-col items-center justify-center gap-2"
+              className="flex flex-col items-center justify-center p-3 rounded-2xl bg-[#2D1B5A] border border-purple-500/20 hover:border-purple-500/40 transition-all hover:scale-105 active:scale-95 shadow-lg group"
             >
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-transform hover:scale-105 active:scale-95 ${action.color}`}>
-                <action.icon className="w-6 h-6" />
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-2 border ${action.bg}`}>
+                <action.icon className="w-5 h-5 transition-transform group-hover:scale-110" />
               </div>
-              <span className="text-[11px] font-semibold text-on-surface-variant text-center leading-tight">
+              <span className="text-[11px] font-bold text-purple-100 text-center leading-tight">
                 {action.label}
               </span>
             </button>
@@ -234,32 +222,61 @@ export const EmployeeDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Profile Card */}
+      <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20">
+        <div className="flex justify-between items-center mb-3 pb-2 border-b border-purple-500/15">
+          <span className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+            <Building2 className="w-3.5 h-3.5 text-[#A78BFA]" /> Profile Information
+          </span>
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            {employeeData.status || 'Active'}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
+            <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Department</p>
+            <p className="font-bold text-white">{employeeData.department || 'Operations'}</p>
+          </div>
+          <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
+            <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Designation</p>
+            <p className="font-bold text-white">{employeeData.designation || 'Staff Executive'}</p>
+          </div>
+          <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 col-span-2 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-purple-300/70 font-semibold">Registered Mobile</p>
+              <p className="font-bold text-white">{employeeData.mobileNumber || 'N/A'}</p>
+            </div>
+            <PhoneCall className="w-4 h-4 text-purple-300/60" />
+          </div>
+        </div>
+      </Card>
+
       {/* Announcements */}
       <div>
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-base font-bold text-on-background flex items-center gap-2">
-            <Megaphone className="w-5 h-5 text-secondary" />
+        <div className="flex justify-between items-center mb-2.5">
+          <h2 className="text-xs font-extrabold text-purple-300/80 uppercase tracking-wider flex items-center gap-1.5">
+            <Megaphone className="w-4 h-4 text-[#A78BFA]" />
             Announcements
           </h2>
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2.5">
           {announcements.length > 0 ? (
             announcements.map((ann) => (
-              <Card key={ann.id} className="p-4 bg-surface shadow-sm">
+              <Card key={ann.id} className="p-3.5 bg-[#2D1B5A] border border-purple-500/20">
                 <div className="flex justify-between items-start mb-1">
-                  <h3 className="font-bold text-sm text-on-surface">{ann.title}</h3>
-                  <span className="text-[10px] font-medium text-on-surface-variant whitespace-nowrap bg-surface-variant/50 px-2 py-0.5 rounded">
+                  <h3 className="font-bold text-xs text-white">{ann.title}</h3>
+                  <span className="text-[10px] font-semibold text-purple-300 bg-[#211044] px-2 py-0.5 rounded-full border border-purple-500/20">
                     {new Date(ann.date).toLocaleDateString()}
                   </span>
                 </div>
-                <p className="text-sm text-on-surface-variant line-clamp-2 leading-relaxed">
+                <p className="text-xs text-purple-200/90 leading-relaxed line-clamp-2">
                   {ann.content}
                 </p>
               </Card>
             ))
           ) : (
-            <div className="text-center py-6 text-on-surface-variant bg-surface rounded-xl border border-dashed border-outline-variant">
-              <p className="text-sm font-medium">No recent announcements</p>
+            <div className="text-center py-5 text-purple-300/70 bg-[#211044] rounded-2xl border border-dashed border-purple-500/20">
+              <p className="text-xs font-semibold">No recent announcements</p>
             </div>
           )}
         </div>
@@ -267,29 +284,29 @@ export const EmployeeDashboard: React.FC = () => {
 
       {/* Recent Notifications */}
       <div>
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-base font-bold text-on-background flex items-center gap-2">
-            <Bell className="w-5 h-5 text-tertiary" />
+        <div className="flex justify-between items-center mb-2.5">
+          <h2 className="text-xs font-extrabold text-purple-300/80 uppercase tracking-wider flex items-center gap-1.5">
+            <Bell className="w-4 h-4 text-amber-400" />
             Recent Notifications
           </h2>
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
           {notifications.length > 0 ? (
             notifications.map((notif) => (
-              <div key={notif.id} className="flex items-start gap-3 p-3 bg-surface rounded-xl shadow-sm border border-surface-variant">
-                <div className="w-2 h-2 rounded-full bg-error mt-1.5 flex-shrink-0" />
+              <div key={notif.id} className="flex items-start gap-3 p-3 bg-[#2D1B5A] rounded-2xl border border-purple-500/20">
+                <div className="w-2 h-2 rounded-full bg-[#7C3AED] mt-1.5 flex-shrink-0 shadow-[0_0_8px_#7C3AED]" />
                 <div className="flex-1">
-                  <h3 className="text-sm font-bold text-on-surface mb-0.5">{notif.title}</h3>
-                  <p className="text-xs text-on-surface-variant">{notif.message}</p>
+                  <h3 className="text-xs font-bold text-white mb-0.5">{notif.title}</h3>
+                  <p className="text-[11px] text-purple-200/80 leading-tight">{notif.message}</p>
                 </div>
-                <span className="text-[10px] text-on-surface-variant">
+                <span className="text-[10px] font-semibold text-purple-300/60">
                   {new Date(notif.timestamp).toLocaleDateString()}
                 </span>
               </div>
             ))
           ) : (
-            <div className="text-center py-6 text-on-surface-variant bg-surface rounded-xl border border-dashed border-outline-variant">
-              <p className="text-sm font-medium">No new notifications</p>
+            <div className="text-center py-5 text-purple-300/70 bg-[#211044] rounded-2xl border border-dashed border-purple-500/20">
+              <p className="text-xs font-semibold">No new notifications</p>
             </div>
           )}
         </div>
