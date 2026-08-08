@@ -13,7 +13,12 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+          navigator.serviceWorker.register('/service-worker.js')
+            .then((registration) => {
+              // Ensure we check for updates on load
+              registration.update().catch(() => {});
+            })
+            .catch(() => {});
         });
       }
     </script>
