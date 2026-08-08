@@ -35,6 +35,7 @@ export interface ManagedUser {
   isTeamLeader?: boolean;
   assignedTeamLeaderId?: string;
   assignedTeamLeaderName?: string;
+  teamMemberUids?: string[];
   deviceId?: string;
   deviceModel?: string;
   androidVersion?: string;
@@ -64,6 +65,11 @@ export const UserManagementTab: React.FC = () => {
   const [editDepartment, setEditDepartment] = useState('Raniganj');
   const [editIsTeamLeader, setEditIsTeamLeader] = useState(false);
   const [editTeamLeaderId, setEditTeamLeaderId] = useState('');
+  const [editTeamMemberUids, setEditTeamMemberUids] = useState<string[]>([]);
+
+  // Team Member selector filter state
+  const [teamMemberSearchTerm, setTeamMemberSearchTerm] = useState('');
+  const [teamMemberDeptFilter, setTeamMemberDeptFilter] = useState('ALL');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -92,6 +98,7 @@ export const UserManagementTab: React.FC = () => {
           isTeamLeader: !!data.isTeamLeader,
           assignedTeamLeaderId: data.assignedTeamLeaderId || '',
           assignedTeamLeaderName: data.assignedTeamLeaderName || '',
+          teamMemberUids: Array.isArray(data.teamMemberUids) ? data.teamMemberUids : [],
           deviceId: data.deviceId || 'N/A',
           deviceModel: data.deviceModel || 'N/A',
           androidVersion: data.androidVersion || 'N/A',
@@ -148,8 +155,19 @@ export const UserManagementTab: React.FC = () => {
     setEditRole(u.role);
     setEditStatus(u.status as any);
     setEditDepartment(u.office || 'Raniganj');
-    setEditIsTeamLeader(!!u.isTeamLeader || u.role === 'TEAM_LEADER');
+    const isTl = !!u.isTeamLeader || u.role === 'TEAM_LEADER';
+    setEditIsTeamLeader(isTl);
     setEditTeamLeaderId(u.assignedTeamLeaderId || '');
+
+    // Pre-populate assigned team members if user is a Team Leader
+    const existingMembers = users
+      .filter((emp) => emp.assignedTeamLeaderId === u.id || (emp as any).teamLeaderUid === u.id)
+      .map((emp) => emp.id);
+    const initialMemberUids = Array.from(new Set([...(u.teamMemberUids || []), ...existingMembers]));
+    setEditTeamMemberUids(initialMemberUids);
+
+    setTeamMemberSearchTerm('');
+    setTeamMemberDeptFilter('ALL');
     setStatusMessage(null);
     setIsEditModalOpen(true);
   };
@@ -157,6 +175,34 @@ export const UserManagementTab: React.FC = () => {
   const openDetailModal = (u: ManagedUser) => {
     setSelectedUser(u);
     setIsDetailModalOpen(true);
+  };
+
+  const toggleMemberSelection = (empId: string) => {
+    setEditTeamMemberUids((prev) =>
+      prev.includes(empId) ? prev.filter((id) => id !== empId) : [...prev, empId]
+    );
+  };
+
+  const eligibleEmployees = users.filter((u) => {
+    if (selectedUser && u.id === selectedUser.id) return false; // Do not allow self assignment
+    if (u.role === 'SUPER_ADMIN' || u.role === 'ADMIN') return false; // Exclude admins
+    
+    const matchesSearch =
+      u.name.toLowerCase().includes(teamMemberSearchTerm.toLowerCase()) ||
+      u.employeeCode.toLowerCase().includes(teamMemberSearchTerm.toLowerCase());
+    const matchesDept = teamMemberDeptFilter === 'ALL' || u.office === teamMemberDeptFilter;
+
+    return matchesSearch && matchesDept;
+  });
+
+  const handleSelectAllMembers = () => {
+    const visibleIds = eligibleEmployees.map((e) => e.id);
+    setEditTeamMemberUids((prev) => Array.from(new Set([...prev, ...visibleIds])));
+  };
+
+  const handleClearAllMembers = () => {
+    const visibleIds = new Set(eligibleEmployees.map((e) => e.id));
+    setEditTeamMemberUids((prev) => prev.filter((id) => !visibleIds.has(id)));
   };
 
   const handleSaveUser = async () => {
@@ -191,6 +237,7 @@ export const UserManagementTab: React.FC = () => {
 
     try {
       const selectedTL = teamLeaders.find((tl) => tl.id === editTeamLeaderId);
+      const isTargetTl = editIsTeamLeader || editRole === 'TEAM_LEADER';
 
       await updateUserRoleAndStatus({
         userId: selectedUser.id,
@@ -200,9 +247,10 @@ export const UserManagementTab: React.FC = () => {
         newStatus: editStatus,
         previousStatus: selectedUser.status,
         department: editDepartment,
-        isTeamLeader: editIsTeamLeader || editRole === 'TEAM_LEADER',
+        isTeamLeader: isTargetTl,
         assignedTeamLeaderId: editTeamLeaderId,
         assignedTeamLeaderName: selectedTL ? selectedTL.name : '',
+        teamMemberUids: isTargetTl ? editTeamMemberUids : [],
         actorEmail: adminUser?.email || 'admin@exfin.internal',
         actorUid: adminUser?.uid || 'ADMIN_UID',
       });
@@ -450,7 +498,7 @@ export const UserManagementTab: React.FC = () => {
       {/* EDIT MODAL */}
       {isEditModalOpen && selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#211044] border border-purple-500/30 rounded-2xl max-w-md w-full p-6 space-y-4">
+          <div className="bg-[#211044] border border-purple-500/30 rounded-2xl max-w-md w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-lg font-bold text-white">Edit User Settings</h3>
@@ -532,6 +580,124 @@ export const UserManagementTab: React.FC = () => {
                   Designate as Team Leader
                 </label>
               </div>
+
+              {/* ASSIGN TEAM MEMBERS SECTION */}
+              {(editIsTeamLeader || editRole === 'TEAM_LEADER') && (
+                <div className="space-y-3 pt-3 border-t border-purple-500/20">
+                  <div className="flex items-center justify-between">
+                    <label className="text-purple-300 font-bold block text-xs">Assign Team Members</label>
+                    <span className="text-[10px] text-emerald-300 font-bold bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                      {editTeamMemberUids.length} Assigned
+                    </span>
+                  </div>
+
+                  {/* Member Search & Department Filter */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      placeholder="Search employee..."
+                      value={teamMemberSearchTerm}
+                      onChange={(e) => setTeamMemberSearchTerm(e.target.value)}
+                      className="px-2.5 py-1.5 bg-[#2D1B5A] border border-purple-500/30 rounded-lg text-xs text-white placeholder-purple-300/40 focus:outline-none"
+                    />
+                    <select
+                      value={teamMemberDeptFilter}
+                      onChange={(e) => setTeamMemberDeptFilter(e.target.value)}
+                      className="px-2.5 py-1.5 bg-[#2D1B5A] border border-purple-500/30 rounded-lg text-xs text-white focus:outline-none"
+                    >
+                      <option value="ALL">All Depts</option>
+                      {departments.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Select All / Clear All */}
+                  <div className="flex items-center justify-between text-[11px] pt-0.5">
+                    <span className="text-purple-300/60 font-medium">Eligible Employees</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSelectAllMembers}
+                        className="text-purple-400 hover:text-purple-200 font-bold underline text-[10px]"
+                      >
+                        Select All
+                      </button>
+                      <span className="text-purple-500">•</span>
+                      <button
+                        type="button"
+                        onClick={handleClearAllMembers}
+                        className="text-purple-400 hover:text-purple-200 font-bold underline text-[10px]"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Member Checkbox List */}
+                  <div className="max-h-48 overflow-y-auto space-y-1.5 p-2 bg-[#1A0B36] border border-purple-500/20 rounded-xl">
+                    {eligibleEmployees.length === 0 ? (
+                      <div className="p-3 text-center text-purple-300/50 text-xs">No eligible employees found.</div>
+                    ) : (
+                      eligibleEmployees.map((emp) => {
+                        const isChecked = editTeamMemberUids.includes(emp.id);
+                        const currentTl = teamLeaders.find(
+                          (tl) => tl.id === emp.assignedTeamLeaderId || tl.id === (emp as any).teamLeaderUid
+                        );
+                        const assignedToOther = currentTl && currentTl.id !== selectedUser.id;
+
+                        return (
+                          <label
+                            key={emp.id}
+                            className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors border ${
+                              isChecked
+                                ? 'bg-purple-600/20 border-purple-500/40 text-white'
+                                : 'bg-[#211044]/50 border-transparent hover:bg-purple-500/10 text-purple-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleMemberSelection(emp.id)}
+                                className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-purple-500/40"
+                              />
+                              <div className="truncate">
+                                <div className="font-bold text-xs text-white truncate">{emp.name}</div>
+                                <div className="text-[10px] text-purple-300/60 font-mono">
+                                  {emp.employeeCode} • {emp.office || 'Raniganj'}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0 ml-2">
+                              {assignedToOther ? (
+                                <span className="text-[9px] font-bold text-amber-300 bg-amber-500/20 px-1.5 py-0.5 rounded border border-amber-500/30">
+                                  TL: {currentTl.name}
+                                </span>
+                              ) : currentTl && currentTl.id === selectedUser.id ? (
+                                <span className="text-[9px] font-bold text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                                  In Team
+                                </span>
+                              ) : (
+                                <span className="text-[9px] text-purple-300/40 italic">Unassigned</span>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {editTeamMemberUids.length === 0 && (
+                    <div className="text-[11px] text-amber-300/90 italic bg-amber-500/10 p-2 rounded-lg border border-amber-500/20 text-center font-medium">
+                      No team members assigned
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Assign Team Leader */}
               {!editIsTeamLeader && editRole !== 'TEAM_LEADER' && (
