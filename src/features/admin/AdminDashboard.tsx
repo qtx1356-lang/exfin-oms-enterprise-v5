@@ -15,6 +15,9 @@ import { getStoredExpenseRecords } from '../../services/expenses/expenseStorage'
 import { TaskRecord, TaskPriority, TaskStatus, AssignmentType, TaskComment, getEffectiveTaskStatus } from '../../types/planner';
 import { getStoredTasks, saveTaskRecord } from '../../services/planner/taskStorage';
 import { EfficiencyDashboard } from '../efficiency/EfficiencyDashboard';
+import { LeaveRecord, LeaveConfig, EmployeeAllowance } from '../../types/leave';
+import { reviewLeaveRequest, adminOverrideLeave, updateLeaveConfig, updateEmployeeAllowance, calculateLeaveBalance } from '../../services/leave/leaveService';
+import { getStoredLeaves, getStoredLeaveConfig, getStoredEmployeeAllowances } from '../../services/leave/leaveStorage';
 
 type Registration = {
   id: string;
@@ -40,11 +43,31 @@ export const AdminDashboard: React.FC = () => {
   const { logout } = useAdminAuth();
   const navigate = useNavigate();
   
-  const [activeTab, setActiveTab] = useState<'registrations' | 'attendance' | 'expenses' | 'planner' | 'efficiency'>('attendance');
+  const [activeTab, setActiveTab] = useState<'registrations' | 'attendance' | 'expenses' | 'planner' | 'efficiency' | 'leaves'>('attendance');
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([]);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
+
+  // Admin Leaves states
+  const [leaves, setLeaves] = useState<LeaveRecord[]>([]);
+  const [leaveConfig, setLeaveConfig] = useState<LeaveConfig | null>(null);
+  const [employeeAllowances, setEmployeeAllowances] = useState<EmployeeAllowance[]>([]);
+  const [selectedLeave, setSelectedLeave] = useState<LeaveRecord | null>(null);
+  const [leaveRemark, setLeaveRemark] = useState('');
+  const [isOverridingDecision, setIsOverridingDecision] = useState(false);
+  const [leaveStatusFilter, setLeaveStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
+  const [leaveTeamFilter, setLeaveTeamFilter] = useState<string>('ALL');
+  const [leaveSearch, setLeaveSearch] = useState('');
+  
+  // Settings dialog states
+  const [showConfigDialog, setShowConfigDialog] = useState(false);
+  const [showAllowanceDialog, setShowAllowanceDialog] = useState(false);
+  const [editingAllowanceEmployeeId, setEditingAllowanceEmployeeId] = useState('');
+  const [editingAllowanceDays, setEditingAllowanceDays] = useState(24);
+  const [editingAllowanceDept, setEditingAllowanceDept] = useState('');
+  const [editingAllowanceDeptDays, setEditingAllowanceDeptDays] = useState(24);
+  const [defaultAllowanceDays, setDefaultAllowanceDays] = useState(24);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReg, setSelectedReg] = useState<Registration | null>(null);
@@ -178,11 +201,69 @@ export const AdminDashboard: React.FC = () => {
       setTasks(getStoredTasks());
     });
 
+    // Listen to leaves from Firestore
+    const unsubLeaves = onSnapshot(collection(db, 'leaves'), (snapshot) => {
+      const firestoreLeaves: LeaveRecord[] = [];
+      snapshot.forEach((doc) => {
+        firestoreLeaves.push({ id: doc.id, ...doc.data() } as LeaveRecord);
+      });
+      const localLeaves = getStoredLeaves();
+      const mergedMap = new Map<string, LeaveRecord>();
+      firestoreLeaves.forEach((l) => mergedMap.set(l.id, l));
+      localLeaves.forEach((l) => {
+        if (!mergedMap.has(l.id)) mergedMap.set(l.id, l);
+      });
+      const combined = Array.from(mergedMap.values()).sort(
+        (a, b) => new Date(b.createdAtDeviceTime).getTime() - new Date(a.createdAtDeviceTime).getTime()
+      );
+      setLeaves(combined);
+    }, (err) => {
+      console.warn('Error fetching leaves, loading local fallback:', err);
+      setLeaves(getStoredLeaves());
+    });
+
+    // Listen to leave config from Firestore
+    const unsubConfig = onSnapshot(collection(db, 'leave_settings'), (snapshot) => {
+      let foundGlobal = false;
+      snapshot.forEach((doc) => {
+        if (doc.id === 'global_config') {
+          setLeaveConfig({ id: doc.id, ...doc.data() } as LeaveConfig);
+          setDefaultAllowanceDays((doc.data() as LeaveConfig).defaultAnnualAllowance);
+          foundGlobal = true;
+        }
+      });
+      if (!foundGlobal) {
+        const loc = getStoredLeaveConfig();
+        setLeaveConfig(loc);
+        setDefaultAllowanceDays(loc.defaultAnnualAllowance);
+      }
+    }, (err) => {
+      console.warn('Error fetching leave settings:', err);
+      const loc = getStoredLeaveConfig();
+      setLeaveConfig(loc);
+      setDefaultAllowanceDays(loc.defaultAnnualAllowance);
+    });
+
+    // Listen to employee allowances from Firestore
+    const unsubAllowances = onSnapshot(collection(db, 'leave_balances'), (snapshot) => {
+      const allowances: EmployeeAllowance[] = [];
+      snapshot.forEach((doc) => {
+        allowances.push({ employeeId: doc.id, ...doc.data() } as EmployeeAllowance);
+      });
+      setEmployeeAllowances(allowances);
+    }, (err) => {
+      console.warn('Error fetching leave balances, using local storage:', err);
+      setEmployeeAllowances(getStoredEmployeeAllowances());
+    });
+
     return () => {
       unsubRegs();
       unsubAttendance();
       unsubExpenses();
       unsubTasks();
+      unsubLeaves();
+      unsubConfig();
+      unsubAllowances();
     };
   }, []);
 
@@ -246,6 +327,111 @@ export const AdminDashboard: React.FC = () => {
     setShowRejectDialog(false);
     setSelectedReg(null);
     setRejectionReason('');
+  };
+
+  // Admin Leave review handlers
+  const handleAdminReviewLeave = async (action: 'APPROVE' | 'REJECT') => {
+    if (!selectedLeave) return;
+    if (action === 'REJECT' && !leaveRemark.trim()) {
+      alert('A remark is required when rejecting a leave request.');
+      return;
+    }
+    try {
+      await reviewLeaveRequest(
+        selectedLeave.id,
+        'ADMIN',
+        { id: 'ADMIN_USER', name: 'Admin Manager' },
+        action,
+        leaveRemark
+      );
+      setSelectedLeave(null);
+      setLeaveRemark('');
+    } catch (err: any) {
+      alert(err.message || 'Failed to review leave.');
+    }
+  };
+
+  const handleAdminOverrideLeave = async (targetStatus: 'APPROVED' | 'REJECTED') => {
+    if (!selectedLeave) return;
+    if (!leaveRemark.trim()) {
+      alert('A mandatory reason is required to override any leave decision.');
+      return;
+    }
+    try {
+      await adminOverrideLeave(
+        selectedLeave.id,
+        { id: 'ADMIN_USER', name: 'Admin Manager' },
+        targetStatus === 'APPROVED' ? 'APPROVE' : 'REJECT',
+        leaveRemark
+      );
+      setSelectedLeave(null);
+      setLeaveRemark('');
+      setIsOverridingDecision(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to override leave decision.');
+    }
+  };
+
+  const handleSaveGlobalConfig = async () => {
+    if (defaultAllowanceDays < 0) {
+      alert('Allowance cannot be negative.');
+      return;
+    }
+    try {
+      await updateLeaveConfig({ id: 'config', defaultAnnualAllowance: defaultAllowanceDays });
+      alert('Global leave allowance updated successfully.');
+      setShowConfigDialog(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update global leave allowance.');
+    }
+  };
+
+  const handleSaveEmployeeAllowance = async () => {
+    if (!editingAllowanceEmployeeId) return;
+    if (editingAllowanceDays < 0) {
+      alert('Allowance cannot be negative.');
+      return;
+    }
+    const emp = registrations.find((r) => r.id === editingAllowanceEmployeeId);
+    if (!emp) return;
+    try {
+      await updateEmployeeAllowance({
+        id: emp.id,
+        employeeId: emp.id,
+        employeeCode: emp.employeeCode,
+        employeeName: emp.name,
+        department: emp.office || 'Raniganj',
+        allowance: editingAllowanceDays,
+      });
+      alert('Employee leave allowance updated successfully.');
+      setShowAllowanceDialog(false);
+      setEditingAllowanceEmployeeId('');
+    } catch (err: any) {
+      alert(err.message || 'Failed to update allowance.');
+    }
+  };
+
+  const handleSaveDeptAllowance = async () => {
+    if (!editingAllowanceDept) return;
+    if (editingAllowanceDeptDays < 0) {
+      alert('Allowance cannot be negative.');
+      return;
+    }
+    try {
+      const currentConfig = getStoredLeaveConfig();
+      const updatedDeptAllowances = {
+        ...(currentConfig.departmentAllowances || {}),
+        [editingAllowanceDept]: editingAllowanceDeptDays,
+      };
+      await updateLeaveConfig({
+        ...currentConfig,
+        departmentAllowances: updatedDeptAllowances,
+      });
+      alert(`Department "${editingAllowanceDept}" allowance applied successfully.`);
+      setEditingAllowanceDept('');
+    } catch (err: any) {
+      alert(err.message || 'Failed to update department allowance.');
+    }
   };
 
   const handleApproveExpense = async (exp: ExpenseRecord) => {
@@ -488,6 +674,7 @@ export const AdminDashboard: React.FC = () => {
   const pendingExpenseCount = expenseRecords.filter(e => e.status === 'Pending').length;
   const pendingTaskCount = tasks.filter(t => getEffectiveTaskStatus(t) === 'PENDING').length;
   const overdueTaskCount = tasks.filter(t => getEffectiveTaskStatus(t) === 'OVERDUE').length;
+  const pendingLeaveCount = leaves.filter((l) => l.status === 'PENDING').length;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#170B38] via-[#211044] to-[#2A145B] text-white pb-12">
@@ -570,6 +757,21 @@ export const AdminDashboard: React.FC = () => {
             >
               Efficiency Hub
             </button>
+            <button
+              onClick={() => setActiveTab('leaves')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+                activeTab === 'leaves'
+                  ? 'bg-[#7C3AED] text-white shadow-lg shadow-purple-900/50'
+                  : 'text-purple-300/70 hover:text-white'
+              }`}
+            >
+              Leave Management ({leaves.length})
+              {pendingLeaveCount > 0 && (
+                <span className="bg-amber-500 text-black text-[10px] px-2 py-0.5 rounded-full font-black animate-pulse">
+                  {pendingLeaveCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -581,18 +783,20 @@ export const AdminDashboard: React.FC = () => {
       <main className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-6">
         
         {/* Search Bar */}
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
-          <div className="relative w-full md:w-96">
-            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-purple-300/70" />
-            <input
-              type="text"
-              placeholder={activeTab === 'attendance' ? "Search employee, date or mode..." : "Search name, code or mobile..."}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-2xl border border-purple-500/30 bg-[#2D1B5A] text-white focus:ring-2 focus:ring-[#7C3AED] focus:outline-none text-xs font-medium placeholder:text-purple-300/50 shadow-md"
-            />
+        {activeTab !== 'leaves' && (
+          <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+            <div className="relative w-full md:w-96">
+              <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-purple-300/70" />
+              <input
+                type="text"
+                placeholder={activeTab === 'attendance' ? "Search employee, date or mode..." : "Search name, code or mobile..."}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 rounded-2xl border border-purple-500/30 bg-[#2D1B5A] text-white focus:ring-2 focus:ring-[#7C3AED] focus:outline-none text-xs font-medium placeholder:text-purple-300/50 shadow-md"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ATTENDANCE PANEL VIEW */}
         {activeTab === 'attendance' && (
@@ -1142,6 +1346,314 @@ export const AdminDashboard: React.FC = () => {
         {/* EFFICIENCY HUB PANEL VIEW */}
         {activeTab === 'efficiency' && (
           <EfficiencyDashboard />
+        )}
+
+        {/* LEAVE MANAGEMENT PANEL VIEW */}
+        {activeTab === 'leaves' && (
+          <div className="space-y-6">
+            {/* Top metrics bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 text-center">
+                <p className="text-[10px] text-purple-300 font-bold uppercase tracking-wider">Total Requests</p>
+                <p className="text-2xl font-black text-white">{leaves.length}</p>
+              </Card>
+              <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 text-center">
+                <p className="text-[10px] text-amber-300 font-bold uppercase tracking-wider">Awaiting Review</p>
+                <p className="text-2xl font-black text-amber-400">{pendingLeaveCount}</p>
+              </Card>
+              <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 text-center">
+                <p className="text-[10px] text-emerald-300 font-bold uppercase tracking-wider">Approved Leaves</p>
+                <p className="text-2xl font-black text-emerald-400">
+                  {leaves.filter((l) => l.status === 'APPROVED').length}
+                </p>
+              </Card>
+              <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 text-center">
+                <p className="text-[10px] text-rose-300 font-bold uppercase tracking-wider">Rejected Requests</p>
+                <p className="text-2xl font-black text-rose-400">
+                  {leaves.filter((l) => l.status === 'REJECTED').length}
+                </p>
+              </Card>
+            </div>
+
+            {/* Leave Balance Configuration Hub */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Global & Dept Settings */}
+              <Card className="p-5 bg-[#1C0940] border border-purple-500/20 rounded-[22px] space-y-4 lg:col-span-1 shadow-2xl">
+                <h3 className="text-xs font-black uppercase text-purple-300 tracking-wider flex items-center gap-2 border-b border-purple-500/15 pb-2">
+                  <Sliders className="w-4 h-4 text-[#A78BFA]" /> Allowance Rules
+                </h3>
+
+                {/* Global allowance settings */}
+                <div className="space-y-2">
+                  <label className="block text-[10px] uppercase font-black text-purple-300">
+                    Default Annual Leave Allowance
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={defaultAllowanceDays}
+                      onChange={(e) => setDefaultAllowanceDays(Math.max(0, parseInt(e.target.value) || 0))}
+                      min="0"
+                      className="w-full bg-[#25134F] border border-purple-500/20 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none focus:border-purple-500/60"
+                    />
+                    <Button
+                      onClick={handleSaveGlobalConfig}
+                      className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold px-4 py-2 rounded-xl whitespace-nowrap"
+                    >
+                      Save Rule
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Dept-wide allowance tool */}
+                <div className="space-y-2 pt-2 border-t border-purple-500/10">
+                  <label className="block text-[10px] uppercase font-black text-purple-300">
+                    Department-Wide Allowance Override
+                  </label>
+                  <div className="space-y-2">
+                    <select
+                      value={editingAllowanceDept}
+                      onChange={(e) => setEditingAllowanceDept(e.target.value)}
+                      className="w-full bg-[#25134F] border border-purple-500/20 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none"
+                    >
+                      <option value="">Select Department...</option>
+                      <option value="ENGINEERING">Engineering</option>
+                      <option value="SALES">Sales</option>
+                      <option value="MARKETING">Marketing</option>
+                      <option value="HR">Human Resources</option>
+                      <option value="OPERATIONS">Operations</option>
+                    </select>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        placeholder="Allowance (Days)"
+                        value={editingAllowanceDeptDays}
+                        onChange={(e) => setEditingAllowanceDeptDays(Math.max(0, parseInt(e.target.value) || 0))}
+                        min="0"
+                        className="w-full bg-[#25134F] border border-purple-500/20 rounded-xl px-3 py-2 text-xs text-white font-bold focus:outline-none"
+                      />
+                      <Button
+                        onClick={handleSaveDeptAllowance}
+                        disabled={!editingAllowanceDept}
+                        className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold px-4 py-2 rounded-xl whitespace-nowrap"
+                      >
+                        Apply Override
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-purple-300/40 leading-tight">
+                      * Applying sets this leave allowance for all registered employees currently in the selected department.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Individual Employee balances */}
+              <Card className="p-5 bg-[#1C0940] border border-purple-500/20 rounded-[22px] space-y-4 lg:col-span-2 shadow-2xl">
+                <h3 className="text-xs font-black uppercase text-purple-300 tracking-wider flex items-center gap-2 border-b border-purple-500/15 pb-2">
+                  <Users className="w-4 h-4 text-[#A78BFA]" /> Individual Employee Allocations
+                </h3>
+
+                <div className="overflow-y-auto max-h-[250px] space-y-2 pr-1 no-scrollbar">
+                  {registrations
+                    .filter((r) => r.status === 'Approved')
+                    .map((emp) => {
+                      const balanceRec = employeeAllowances.find((a) => a.employeeId === emp.id);
+                      const currentAlloc = balanceRec ? balanceRec.customAnnualAllowance : (leaveConfig?.defaultAnnualAllowance || 24);
+                      
+                      return (
+                        <div
+                          key={emp.id}
+                          className="flex items-center justify-between p-3 bg-[#25134F]/50 hover:bg-[#25134F] rounded-xl border border-purple-500/10 text-xs"
+                        >
+                          <div>
+                            <p className="font-extrabold text-white">{emp.name}</p>
+                            <p className="text-[10px] text-purple-300/60 font-mono">
+                              Code: {emp.employeeCode} | Dept: {emp.office || 'N/A'}
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-[#A78BFA]">
+                              {currentAlloc} Days Allowance
+                            </span>
+                            <Button
+                              onClick={() => {
+                                setEditingAllowanceEmployeeId(emp.id);
+                                setEditingAllowanceDays(currentAlloc);
+                                setShowAllowanceDialog(true);
+                              }}
+                              className="bg-purple-500/10 hover:bg-purple-500/25 text-[#D8B4FE] text-[10px] px-2.5 py-1.5 rounded-lg border border-purple-500/20"
+                            >
+                              Edit
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                  {registrations.filter((r) => r.status === 'Approved').length === 0 && (
+                    <div className="text-center py-6 text-purple-300/40 font-semibold text-xs">
+                      No active employee registrations found to set allocations.
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </div>
+
+            {/* Leave Requests Audit logs & Filtering */}
+            <Card className="p-5 bg-[#1C0940] border border-purple-500/20 rounded-[22px] space-y-4 shadow-2xl">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-purple-500/15 pb-4">
+                <div>
+                  <h3 className="text-xs font-black uppercase text-purple-300 tracking-wider">
+                    Enterprise Leave Audit Logs
+                  </h3>
+                  <p className="text-[10px] text-purple-300/60">
+                    Search and review team leader decisions or fully resolve pending requests.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
+                  {/* Search */}
+                  <div className="relative w-full md:w-56">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-purple-300/50" />
+                    <input
+                      type="text"
+                      placeholder="Search name or code..."
+                      value={leaveSearch}
+                      onChange={(e) => setLeaveSearch(e.target.value)}
+                      className="w-full bg-[#25134F] border border-purple-500/20 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500/50"
+                    />
+                  </div>
+
+                  {/* Team/Leader Filter */}
+                  <select
+                    value={leaveTeamFilter}
+                    onChange={(e) => setLeaveTeamFilter(e.target.value)}
+                    className="bg-[#25134F] border border-purple-500/20 rounded-xl px-3 py-2 text-xs text-white focus:outline-none font-semibold"
+                  >
+                    <option value="ALL">All Teams</option>
+                    {registrations
+                      .filter((r) => r.isTeamLeader)
+                      .map((tl) => (
+                        <option key={tl.id} value={tl.employeeCode}>
+                          Team {tl.name}
+                        </option>
+                      ))}
+                  </select>
+
+                  {/* Status subtabs */}
+                  <div className="flex gap-1 bg-[#25134F] p-1 rounded-xl border border-purple-500/10 text-xs">
+                    {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => setLeaveStatusFilter(status)}
+                        className={`px-3 py-1 rounded-lg transition-all font-bold text-[11px] ${
+                          leaveStatusFilter === status
+                            ? 'bg-[#7C3AED] text-white shadow-md'
+                            : 'text-purple-300/70 hover:text-white'
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Request Lists */}
+              <div className="space-y-3">
+                {leaves
+                  .filter((l) => {
+                    // Status Filter
+                    if (leaveStatusFilter !== 'ALL' && l.status !== leaveStatusFilter) return false;
+                    
+                    // Team Filter
+                    if (leaveTeamFilter !== 'ALL') {
+                      const empReg = registrations.find((r) => r.id === l.employeeId || r.employeeCode === l.employeeCode);
+                      if (!empReg || empReg.teamLeaderCode !== leaveTeamFilter) return false;
+                    }
+
+                    // Search Filter
+                    const term = leaveSearch.toLowerCase();
+                    if (term) {
+                      const nameMatch = l.employeeName.toLowerCase().includes(term);
+                      const codeMatch = l.employeeCode.toLowerCase().includes(term);
+                      return nameMatch || codeMatch;
+                    }
+
+                    return true;
+                  })
+                  .map((leave) => (
+                    <div
+                      key={leave.id}
+                      onClick={() => {
+                        setSelectedLeave(leave);
+                        setIsOverridingDecision(false);
+                      }}
+                      className="p-4 bg-[#25134F]/30 hover:bg-[#25134F]/70 cursor-pointer rounded-2xl border border-purple-500/10 transition flex flex-col md:flex-row md:items-center justify-between gap-4"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2.5">
+                          <span className="font-extrabold text-white text-xs">{leave.employeeName}</span>
+                          <span className="text-[10px] text-purple-300 font-mono">({leave.employeeCode})</span>
+                          <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
+                            leave.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                            leave.status === 'PENDING' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                            'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          }`}>
+                            {leave.status}
+                          </span>
+                        </div>
+
+                        <div className="text-xs text-purple-200 font-medium">
+                          Range: <span className="font-bold text-white">{leave.startDate}</span> to <span className="font-bold text-white">{leave.endDate}</span> ({leave.totalDays} Days)
+                        </div>
+                        <p className="text-[11px] text-purple-300/60 leading-normal italic">
+                          Reason: "{leave.reason}"
+                        </p>
+                      </div>
+
+                      <div className="flex md:flex-col items-end gap-1.5 text-xs text-right border-t border-purple-500/5 md:border-0 pt-2 md:pt-0 justify-between md:justify-center">
+                        <div>
+                          <p className="text-[10px] text-purple-300/40 uppercase font-bold">Current State</p>
+                          <p className="font-extrabold text-purple-200">
+                            {leave.approvalStatus === 'TEAM_LEADER_APPROVED' ? 'TL Approved &rarr; Awaiting Admin' :
+                             leave.approvalStatus === 'APPROVED' ? 'Fully Resolved' :
+                             leave.approvalStatus === 'SUBMITTED' ? 'Submitted &rarr; Awaiting TL' :
+                             leave.approvalStatus}
+                          </p>
+                        </div>
+                        <span className="text-[10px] text-purple-300/50">
+                          Filed: {new Date(leave.createdAtDeviceTime).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+
+                {leaves.filter((l) => {
+                  if (leaveStatusFilter !== 'ALL' && l.status !== leaveStatusFilter) return false;
+                  if (leaveTeamFilter !== 'ALL') {
+                    const empReg = registrations.find((r) => r.id === l.employeeId || r.employeeCode === l.employeeCode);
+                    if (!empReg || empReg.teamLeaderCode !== leaveTeamFilter) return false;
+                  }
+                  const term = leaveSearch.toLowerCase();
+                  if (term) {
+                    return l.employeeName.toLowerCase().includes(term) || l.employeeCode.toLowerCase().includes(term);
+                  }
+                  return true;
+                }).length === 0 && (
+                  <div className="py-12">
+                    <EmptyState
+                      icon={Calendar}
+                      title="No Leaves Audited"
+                      description="No records found matching the specified filters."
+                    />
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
         )}
 
       </main>
@@ -1715,6 +2227,227 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
       </Dialog>
+
+      {/* EDIT INDIVIDUAL ALLOWANCE DIALOG */}
+      <Dialog
+        isOpen={showAllowanceDialog}
+        onClose={() => {
+          setShowAllowanceDialog(false);
+          setEditingAllowanceEmployeeId('');
+        }}
+        title="Edit Individual Annual Allowance"
+      >
+        <div className="space-y-4 text-xs text-purple-200">
+          <p className="text-purple-300">
+            Set a custom annual leave allowance for this employee. This will override the global default allowance rule.
+          </p>
+          <div className="space-y-1">
+            <label className="block text-[10px] uppercase font-black text-purple-300">Annual Leave Days Allowance</label>
+            <input
+              type="number"
+              value={editingAllowanceDays}
+              onChange={(e) => setEditingAllowanceDays(Math.max(0, parseInt(e.target.value) || 0))}
+              min="0"
+              className="w-full bg-[#211044] border border-purple-500/30 rounded-xl p-3 text-xs text-white font-bold focus:outline-none"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setShowAllowanceDialog(false);
+                setEditingAllowanceEmployeeId('');
+              }}
+              className="flex-1 border-purple-500/30 text-purple-200"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEmployeeAllowance}
+              className="flex-1 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold"
+            >
+              Save Allocation
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* LEAVE AUDITING & ADMINISTRATIVE OVERRIDE DIALOG */}
+      {selectedLeave && (
+        <Dialog
+          isOpen={true}
+          onClose={() => {
+            setSelectedLeave(null);
+            setLeaveRemark('');
+            setIsOverridingDecision(false);
+          }}
+          title="Leave Request Auditing"
+        >
+          <div className="space-y-4 text-xs text-purple-200 max-h-[75vh] overflow-y-auto pr-1">
+            {/* Meta Info */}
+            <div className="bg-[#211044] p-4 rounded-2xl border border-purple-500/30 space-y-2">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-bold text-sm text-white">{selectedLeave.employeeName}</h3>
+                  <p className="text-[10px] text-purple-300/70 font-mono">Code: {selectedLeave.employeeCode} | Dept: {selectedLeave.department}</p>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${
+                  selectedLeave.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                  selectedLeave.status === 'PENDING' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
+                  'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                }`}>
+                  {selectedLeave.status}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-purple-500/10">
+                <div>
+                  <p className="text-[10px] text-purple-300/50 font-bold uppercase">Duration</p>
+                  <p className="text-xs font-black text-white">{selectedLeave.totalDays} Days</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-purple-300/50 font-bold uppercase">Date Range</p>
+                  <p className="text-xs font-black text-white">{selectedLeave.startDate} — {selectedLeave.endDate}</p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-purple-500/10">
+                <p className="text-[10px] text-purple-300/50 font-bold uppercase">Reason</p>
+                <p className="text-xs text-white leading-normal mt-0.5">"{selectedLeave.reason}"</p>
+              </div>
+            </div>
+
+            {/* Existing Approver remarks */}
+            {(selectedLeave.teamLeaderRemark || selectedLeave.adminRemark) && (
+              <div className="space-y-2">
+                {selectedLeave.teamLeaderRemark && (
+                  <div className="bg-[#2D1B5A] p-3 rounded-xl border border-purple-500/20">
+                    <p className="font-extrabold text-[#A78BFA] text-[10px] uppercase">Team Leader Remark</p>
+                    <p className="italic text-purple-200 mt-0.5">"{selectedLeave.teamLeaderRemark}"</p>
+                  </div>
+                )}
+                {selectedLeave.adminRemark && (
+                  <div className="bg-[#2D1B5A] p-3 rounded-xl border border-purple-500/20">
+                    <p className="font-extrabold text-[#A78BFA] text-[10px] uppercase">Previous Admin Remark</p>
+                    <p className="italic text-purple-200 mt-0.5">"{selectedLeave.adminRemark}"</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Flow state controls */}
+            {selectedLeave.status === 'PENDING' && !isOverridingDecision ? (
+              <div className="space-y-3.5 pt-2 border-t border-purple-500/15">
+                <div>
+                  <label className="block text-[10px] uppercase font-black text-purple-300 mb-1">
+                    Admin Audit Notes / Remark
+                  </label>
+                  <textarea
+                    value={leaveRemark}
+                    onChange={(e) => setLeaveRemark(e.target.value)}
+                    placeholder="Enter resolution notes (mandatory if rejecting)..."
+                    rows={3}
+                    className="w-full bg-[#211044] border border-purple-500/30 focus:border-purple-500/70 rounded-xl p-3 text-xs text-white focus:outline-none placeholder-purple-300/30"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => handleAdminReviewLeave('REJECT')}
+                    className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold"
+                  >
+                    Reject Claim
+                  </Button>
+                  <Button
+                    onClick={() => handleAdminReviewLeave('APPROVE')}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                  >
+                    Approve Request
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Decisions override flow */}
+            {selectedLeave.status !== 'PENDING' && !isOverridingDecision ? (
+              <div className="pt-2 border-t border-purple-500/15 text-center">
+                <Button
+                  onClick={() => {
+                    setIsOverridingDecision(true);
+                    setLeaveRemark('');
+                  }}
+                  className="bg-amber-600/20 hover:bg-amber-600/35 border border-amber-500/30 text-amber-200 text-xs font-bold py-2 px-4 rounded-xl w-full"
+                >
+                  Initiate Administrative Decision Override
+                </Button>
+              </div>
+            ) : null}
+
+            {isOverridingDecision ? (
+              <div className="space-y-3.5 pt-2 border-t border-purple-500/15 bg-amber-950/25 border border-amber-500/20 rounded-2xl p-4">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-extrabold text-amber-300">ADMINISTRATIVE OVERRIDE MODE</h4>
+                    <p className="text-[10px] text-amber-200/70 leading-normal mt-0.5">
+                      You are overriding a previous final decision. This override will directly update the database, recompute leaf balances, and alert the employee. A mandatory explanation justification reason is required.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] uppercase font-black text-amber-300 mb-1">
+                    Override Justification Reason *
+                  </label>
+                  <textarea
+                    value={leaveRemark}
+                    onChange={(e) => setLeaveRemark(e.target.value)}
+                    placeholder="Provide detailed reasons for this decision override..."
+                    rows={3}
+                    className="w-full bg-[#1C0940] border border-amber-500/30 focus:border-amber-500/60 rounded-xl p-3 text-xs text-white focus:outline-none placeholder-amber-300/30"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    variant="outlined"
+                    onClick={() => setIsOverridingDecision(false)}
+                    className="flex-1 border-purple-500/30 text-purple-200 font-bold"
+                  >
+                    Cancel Override
+                  </Button>
+                  <Button
+                    onClick={() => handleAdminOverrideLeave('REJECTED')}
+                    disabled={!leaveRemark.trim()}
+                    className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold"
+                  >
+                    Force Reject
+                  </Button>
+                  <Button
+                    onClick={() => handleAdminOverrideLeave('APPROVED')}
+                    disabled={!leaveRemark.trim()}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                  >
+                    Force Approve
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setSelectedLeave(null);
+                setLeaveRemark('');
+                setIsOverridingDecision(false);
+              }}
+              className="w-full border-purple-500/30 text-purple-200"
+            >
+              Close Log
+            </Button>
+          </div>
+        </Dialog>
+      )}
 
     </div>
   );

@@ -28,6 +28,8 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Dialog } from '../../components/ui/Dialog';
+import { LeaveRecord } from '../../types/leave';
+import { reviewLeaveRequest } from '../../services/leave/leaveService';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { TaskRecord, TaskPriority, TaskApprovalStatus, AssignmentType, getEffectiveTaskStatus } from '../../types/planner';
 import { getStoredTasks, saveTaskRecord } from '../../services/planner/taskStorage';
@@ -53,7 +55,14 @@ export const MyTeamScreen: React.FC = () => {
   
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [teamTasks, setTeamTasks] = useState<TaskRecord[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'tasks' | 'approvals' | 'reports'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'tasks' | 'approvals' | 'reports' | 'leaves'>('overview');
+
+  // Team Leaves states
+  const [teamLeaves, setTeamLeaves] = useState<LeaveRecord[]>([]);
+  const [leaveStatusFilter, setLeaveStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
+  const [selectedLeaveForReview, setSelectedLeaveForReview] = useState<LeaveRecord | null>(null);
+  const [leaveReviewRemark, setLeaveReviewRemark] = useState('');
+  const [isReviewingLeave, setIsReviewingLeave] = useState(false);
 
   // Filter & Search states
   const [taskSearchTerm, setTaskSearchTerm] = useState('');
@@ -155,6 +164,36 @@ export const MyTeamScreen: React.FC = () => {
     };
   }, [db, isTeamLeader, currentLeaderCode, currentLeaderId]);
 
+  // Fetch leaves assigned to this Team Leader's members
+  useEffect(() => {
+    if (!db || !isTeamLeader) return;
+
+    const leavesRef = collection(db, 'leaves');
+    const unsub = onSnapshot(leavesRef, (snapshot) => {
+      const fetchedLeaves: LeaveRecord[] = [];
+      const memberIds = new Set(teamMembers.map((m) => m.id));
+      const memberCodes = new Set(teamMembers.map((m) => m.employeeCode));
+
+      snapshot.forEach((docSnap) => {
+        const l = docSnap.data() as LeaveRecord;
+        const isMember = memberIds.has(l.employeeId) || memberCodes.has(l.employeeCode);
+        const matchesLeader = l.teamLeaderId === currentLeaderId;
+        if (isMember || matchesLeader) {
+          fetchedLeaves.push(l);
+        }
+      });
+
+      fetchedLeaves.sort((a, b) => new Date(b.createdAtDeviceTime).getTime() - new Date(a.createdAtDeviceTime).getTime());
+      setTeamLeaves(fetchedLeaves);
+    }, (err) => {
+      console.error('Error listening to team leaves:', err);
+    });
+
+    return () => {
+      unsub();
+    };
+  }, [db, isTeamLeader, currentLeaderCode, currentLeaderId, teamMembers]);
+
   if (!isTeamLeader) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center text-white">
@@ -190,6 +229,9 @@ export const MyTeamScreen: React.FC = () => {
 
   // Revision count
   const revisionRequiredCount = teamTasks.filter((t) => t.approvalStatus === 'REVISION_REQUIRED').length;
+
+  // Pending leaves count for current Team Leader
+  const pendingTeamLeavesCount = teamLeaves.filter((l) => l.status === 'PENDING' && l.currentApproverRole === 'TEAM_LEADER').length;
 
   // Handle Task Creation by Team Leader
   const handleCreateTask = async () => {
@@ -387,6 +429,31 @@ export const MyTeamScreen: React.FC = () => {
     setRevisionRemarkInput('');
   };
 
+  // Handle reviewing team leaves
+  const handleReviewLeave = async (action: 'APPROVE' | 'REJECT') => {
+    if (!selectedLeaveForReview) return;
+    if (action === 'REJECT' && !leaveReviewRemark.trim()) {
+      alert('A remark is required when rejecting a leave request.');
+      return;
+    }
+    setIsReviewingLeave(true);
+    try {
+      await reviewLeaveRequest(
+        selectedLeaveForReview.id,
+        'TEAM_LEADER',
+        { id: currentLeaderId, name: employeeData?.name || 'Team Leader' },
+        action,
+        leaveReviewRemark
+      );
+      setSelectedLeaveForReview(null);
+      setLeaveReviewRemark('');
+    } catch (err: any) {
+      alert(err.message || 'Failed to review leave request.');
+    } finally {
+      setIsReviewingLeave(false);
+    }
+  };
+
   // Filtered Tasks
   const filteredTasks = teamTasks.filter((t) => {
     const term = taskSearchTerm.toLowerCase();
@@ -490,6 +557,20 @@ export const MyTeamScreen: React.FC = () => {
           }`}
         >
           <BarChart3 className="w-3.5 h-3.5" /> Team Reports
+        </button>
+
+        <button
+          onClick={() => setActiveTab('leaves')}
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 ${
+            activeTab === 'leaves' ? 'bg-[#7C3AED] text-white shadow-md' : 'text-purple-300/70 hover:text-white'
+          }`}
+        >
+          <Calendar className="w-3.5 h-3.5" /> Team Leaves ({teamLeaves.length})
+          {pendingTeamLeavesCount > 0 && (
+            <span className="bg-amber-500 text-black text-[10px] px-2 py-0.5 rounded-full font-black ml-1 animate-pulse">
+              {pendingTeamLeavesCount}
+            </span>
+          )}
         </button>
       </div>
 
@@ -915,6 +996,232 @@ export const MyTeamScreen: React.FC = () => {
           
           <EfficiencyDashboard />
         </div>
+      )}
+
+      {/* TEAM LEAVES REVIEW PANEL */}
+      {activeTab === 'leaves' && (
+        <div className="space-y-4">
+          <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20 rounded-2xl space-y-4">
+            <h3 className="text-sm font-black uppercase text-purple-300 tracking-wider flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-[#A78BFA]" /> Team Leave Management
+            </h3>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-[#211044] p-3.5 rounded-xl border border-purple-500/20 text-center">
+                <p className="text-[10px] text-purple-300 font-bold uppercase">Total Requests</p>
+                <p className="text-xl font-black text-white">{teamLeaves.length}</p>
+              </div>
+
+              <div className="bg-[#211044] p-3.5 rounded-xl border border-amber-500/30 text-center">
+                <p className="text-[10px] text-amber-300 font-bold uppercase">Pending TL Review</p>
+                <p className="text-xl font-black text-amber-400">{pendingTeamLeavesCount}</p>
+              </div>
+
+              <div className="bg-[#211044] p-3.5 rounded-xl border border-emerald-500/30 text-center">
+                <p className="text-[10px] text-emerald-300 font-bold uppercase">TL Approved</p>
+                <p className="text-xl font-black text-emerald-400">
+                  {teamLeaves.filter((l) => l.approvalStatus === 'TEAM_LEADER_APPROVED' || l.approvalStatus === 'APPROVED').length}
+                </p>
+              </div>
+
+              <div className="bg-[#211044] p-3.5 rounded-xl border border-rose-500/30 text-center">
+                <p className="text-[10px] text-rose-300 font-bold uppercase">Rejected</p>
+                <p className="text-xl font-black text-rose-400">
+                  {teamLeaves.filter((l) => l.status === 'REJECTED').length}
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Filters and List */}
+          <Card className="p-5 bg-[#1C0940] border border-purple-500/20 rounded-2xl space-y-4 shadow-xl">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-purple-500/15 pb-4">
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-purple-200">
+                Team Leave Requests History
+              </h4>
+              <div className="flex gap-1 bg-[#25134F] p-1 rounded-xl border border-purple-500/10 text-xs self-start">
+                {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => setLeaveStatusFilter(status)}
+                    className={`px-3 py-1.5 rounded-lg transition-all font-semibold ${
+                      leaveStatusFilter === status
+                        ? 'bg-[#7C3AED] text-white shadow-md'
+                        : 'text-purple-300/70 hover:text-white'
+                    }`}
+                  >
+                    {status.charAt(0) + status.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {teamLeaves.filter((l) => {
+                if (leaveStatusFilter === 'ALL') return true;
+                return l.status === leaveStatusFilter;
+              }).length > 0 ? (
+                teamLeaves
+                  .filter((l) => {
+                    if (leaveStatusFilter === 'ALL') return true;
+                    return l.status === leaveStatusFilter;
+                  })
+                  .map((leave) => {
+                    const isPendingMyReview = leave.status === 'PENDING' && leave.currentApproverRole === 'TEAM_LEADER';
+                    
+                    return (
+                      <div
+                        key={leave.id}
+                        onClick={() => setSelectedLeaveForReview(leave)}
+                        className="p-4 bg-[#22104E] hover:bg-[#2C175F] rounded-2xl border border-purple-500/15 transition cursor-pointer flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center"
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-white">
+                              {leave.employeeName} ({leave.employeeCode})
+                            </span>
+                            <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
+                              leave.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                              leave.status === 'PENDING' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                              'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                            }`}>
+                              {leave.status}
+                            </span>
+                            {isPendingMyReview && (
+                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-purple-500 text-white animate-pulse">
+                                Action Required
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs font-semibold text-purple-200">
+                            Range: {leave.startDate} to {leave.endDate} ({leave.totalDays} Days)
+                          </p>
+                          <p className="text-[11px] text-purple-200/60 leading-tight line-clamp-1">
+                            Reason: "{leave.reason}"
+                          </p>
+                        </div>
+
+                        <div className="flex sm:flex-col items-end gap-2 w-full sm:w-auto justify-between border-t border-purple-500/5 sm:border-0 pt-2 sm:pt-0">
+                          <span className="text-xs text-purple-300/50">
+                            {new Date(leave.createdAtDeviceTime).toLocaleDateString()}
+                          </span>
+                          <span className="text-xs font-bold text-purple-300">
+                            {leave.approvalStatus === 'TEAM_LEADER_APPROVED' ? 'TL Approved &rarr; Admin' : 
+                             leave.approvalStatus === 'APPROVED' ? 'Fully Approved' : 
+                             leave.approvalStatus}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+              ) : (
+                <div className="py-12">
+                  <EmptyState
+                    icon={Calendar}
+                    title="No Leaves Found"
+                    description="No leave requests matched the current filter."
+                  />
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* TEAM LEAVE REVIEW MODAL */}
+      {selectedLeaveForReview && (
+        <Dialog
+          isOpen={true}
+          onClose={() => setSelectedLeaveForReview(null)}
+          title="Team Leave Request Audit"
+        >
+          <div className="space-y-4 text-xs text-purple-200">
+            <div className="bg-[#22104E] p-4 rounded-2xl border border-purple-500/10 space-y-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[10px] text-purple-300/50 font-bold uppercase">Employee</p>
+                  <p className="text-xs font-black text-white">{selectedLeaveForReview.employeeName}</p>
+                  <p className="text-[10px] text-purple-300/70">Code: {selectedLeaveForReview.employeeCode}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-purple-300/50 font-bold uppercase">Department</p>
+                  <p className="text-xs font-black text-white">{selectedLeaveForReview.department}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-purple-500/5">
+                <div>
+                  <p className="text-[10px] text-purple-300/50 font-bold uppercase">Duration</p>
+                  <p className="text-xs font-black text-white">{selectedLeaveForReview.totalDays} Days</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-purple-300/50 font-bold uppercase">Date Range</p>
+                  <p className="text-xs font-black text-white">{selectedLeaveForReview.startDate} — {selectedLeaveForReview.endDate}</p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-purple-500/5">
+                <p className="text-[10px] text-purple-300/50 font-bold uppercase">Reason</p>
+                <p className="text-xs text-white leading-normal mt-0.5">"{selectedLeaveForReview.reason}"</p>
+              </div>
+            </div>
+
+            {/* Existing Remarks Info */}
+            {selectedLeaveForReview.teamLeaderRemark && (
+              <div className="bg-[#1C0A3F] p-3 rounded-xl border border-purple-500/10 space-y-1">
+                <p className="font-bold text-purple-300/80">Team Leader Remark</p>
+                <p className="italic text-white">"{selectedLeaveForReview.teamLeaderRemark}"</p>
+              </div>
+            )}
+            
+            {selectedLeaveForReview.adminRemark && (
+              <div className="bg-[#1C0A3F] p-3 rounded-xl border border-purple-500/10 space-y-1">
+                <p className="font-bold text-purple-300/80">Admin Remark</p>
+                <p className="italic text-white">"{selectedLeaveForReview.adminRemark}"</p>
+              </div>
+            )}
+
+            {/* Decision panel if still pending TL action */}
+            {selectedLeaveForReview.status === 'PENDING' && selectedLeaveForReview.currentApproverRole === 'TEAM_LEADER' ? (
+              <div className="space-y-3.5 pt-2 border-t border-purple-500/10">
+                <div>
+                  <label className="block text-xs font-extrabold uppercase text-purple-300 mb-1.5">
+                    Review Remark / Notes
+                  </label>
+                  <textarea
+                    value={leaveReviewRemark}
+                    onChange={(e) => setLeaveReviewRemark(e.target.value)}
+                    placeholder="Enter review notes or rejection reason (rejection reason is mandatory)..."
+                    rows={3}
+                    className="w-full bg-[#230F4F] border border-purple-500/20 focus:border-purple-500/60 rounded-xl p-3 text-xs text-white focus:outline-none placeholder-purple-300/30"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => handleReviewLeave('REJECT')}
+                    disabled={isReviewingLeave}
+                    className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-bold p-3 rounded-xl transition flex justify-center items-center gap-1 shadow-lg shadow-rose-950/40"
+                  >
+                    <XCircle className="w-4 h-4" /> Reject
+                  </Button>
+                  
+                  <Button
+                    onClick={() => handleReviewLeave('APPROVE')}
+                    disabled={isReviewingLeave}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold p-3 rounded-xl transition flex justify-center items-center gap-1 shadow-lg shadow-emerald-950/40"
+                  >
+                    <CheckCircle className="w-4 h-4" /> Approve & Forward
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-2.5 bg-purple-950/30 border border-purple-500/10 rounded-xl text-purple-300/70 font-semibold">
+                Status: {selectedLeaveForReview.status} — Awaiting: {selectedLeaveForReview.currentApproverRole}
+              </div>
+            )}
+          </div>
+        </Dialog>
       )}
 
       {/* CREATE TASK DIALOG */}

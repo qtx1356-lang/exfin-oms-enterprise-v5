@@ -23,6 +23,8 @@ import { useNavigate } from 'react-router-dom';
 import { getTodayAttendanceRecord } from '../../services/attendance/attendanceStorage';
 import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEngine';
 import { AttendanceRecord } from '../../types/attendance';
+import { getStoredLeaves, getStoredLeaveConfig, getStoredEmployeeAllowances } from '../../services/leave/leaveStorage';
+import { calculateLeaveBalance } from '../../services/leave/leaveService';
 
 interface Announcement {
   id: string;
@@ -44,6 +46,23 @@ export const EmployeeDashboard: React.FC = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
+  const [leaveBalance, setLeaveBalance] = useState({ available: 24, pending: 0, used: 0 });
+
+  useEffect(() => {
+    if (employeeData) {
+      const empId = employeeData.id || employeeData.employeeCode || '';
+      const dept = employeeData.office || 'Raniganj';
+      const localLeaves = getStoredLeaves();
+      const localConfig = getStoredLeaveConfig();
+      const localAllowances = getStoredEmployeeAllowances();
+      const bal = calculateLeaveBalance(empId, dept, localLeaves, localConfig, localAllowances);
+      setLeaveBalance({
+        available: bal.available,
+        pending: bal.pending,
+        used: bal.used,
+      });
+    }
+  }, [employeeData]);
 
   useEffect(() => {
     if (employeeData) {
@@ -201,6 +220,35 @@ export const EmployeeDashboard: React.FC = () => {
                 {todayAttendance.checkOutMode}
               </span>
             )}
+          </div>
+        </div>
+      </Card>
+
+      {/* Compact Leave Status Card */}
+      <Card 
+        className="p-4 bg-[#2D1B5A] border border-purple-500/20 hover:border-purple-500/35 transition cursor-pointer relative overflow-hidden"
+        onClick={() => navigate('/leave')}
+      >
+        <div className="flex justify-between items-center mb-3 pb-2 border-b border-purple-500/15">
+          <span className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-purple-400" /> My Leave Status
+          </span>
+          <span className="text-[10px] text-purple-300/60 font-bold hover:text-white transition">
+            Apply / History &rarr;
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-3 text-center">
+          <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
+            <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Available Balance</p>
+            <p className="text-sm font-black text-white">{leaveBalance.available} Days</p>
+          </div>
+          <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
+            <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Pending Leave</p>
+            <p className="text-sm font-black text-amber-400">{leaveBalance.pending} Days</p>
+          </div>
+          <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
+            <p className="text-[10px] text-[#10B981] font-semibold mb-0.5">Used Leave</p>
+            <p className="text-sm font-black text-emerald-400">{leaveBalance.used} Days</p>
           </div>
         </div>
       </Card>
