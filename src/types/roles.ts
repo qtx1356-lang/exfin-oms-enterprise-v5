@@ -1,6 +1,7 @@
 export type AppRole = 'EMPLOYEE' | 'TEAM_LEADER' | 'HR' | 'ADMIN' | 'SUPER_ADMIN';
 
 export type FeatureKey =
+  | 'dashboard'
   | 'attendance'
   | 'expenses'
   | 'workPlanner'
@@ -9,6 +10,8 @@ export type FeatureKey =
   | 'leave'
   | 'notifications'
   | 'reports'
+  | 'profile'
+  | 'syncCenter'
   | 'deviceRegistration'
   | 'employeeManagement'
   | 'teamManagement'
@@ -16,20 +19,24 @@ export type FeatureKey =
   | 'systemSettings'
   | 'departmentManagement'
   | 'adminManagement'
-  | 'hrManagement';
+  | 'hrManagement'
+  | 'userManagement'
+  | 'systemHealth'
+  | 'featurePermissions';
 
 export interface RoleFeaturePermissions {
   roleId: AppRole;
   name: string;
   description: string;
   enabled: boolean;
-  permissions: Record<FeatureKey, boolean>;
+  permissions: Record<string, boolean>;
   createdAt: string;
   updatedAt: string;
 }
 
-export const DEFAULT_ROLE_PERMISSIONS: Record<AppRole, Record<FeatureKey, boolean>> = {
+export const DEFAULT_ROLE_PERMISSIONS: Record<AppRole, Record<string, boolean>> = {
   EMPLOYEE: {
+    dashboard: true,
     attendance: true,
     expenses: true,
     workPlanner: true,
@@ -38,6 +45,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<AppRole, Record<FeatureKey, boolea
     leave: true,
     notifications: true,
     reports: false,
+    profile: true,
+    syncCenter: true,
     deviceRegistration: false,
     employeeManagement: false,
     teamManagement: false,
@@ -46,8 +55,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<AppRole, Record<FeatureKey, boolea
     departmentManagement: false,
     adminManagement: false,
     hrManagement: false,
+    userManagement: false,
+    systemHealth: false,
+    featurePermissions: false,
   },
   TEAM_LEADER: {
+    dashboard: true,
     attendance: true,
     expenses: true,
     workPlanner: true,
@@ -55,17 +68,23 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<AppRole, Record<FeatureKey, boolea
     employeeEfficiency: true,
     leave: true,
     notifications: true,
-    reports: false,
+    reports: true,
+    profile: true,
+    syncCenter: true,
     deviceRegistration: false,
     employeeManagement: false,
-    teamManagement: false,
+    teamManagement: true,
     roleManagement: false,
     systemSettings: false,
     departmentManagement: false,
     adminManagement: false,
     hrManagement: false,
+    userManagement: false,
+    systemHealth: false,
+    featurePermissions: false,
   },
   HR: {
+    dashboard: true,
     attendance: true,
     expenses: true,
     workPlanner: false,
@@ -74,16 +93,22 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<AppRole, Record<FeatureKey, boolea
     leave: true,
     notifications: true,
     reports: true,
+    profile: true,
+    syncCenter: true,
     deviceRegistration: false,
     employeeManagement: true,
     teamManagement: false,
     roleManagement: false,
     systemSettings: false,
-    departmentManagement: false,
+    departmentManagement: true,
     adminManagement: false,
-    hrManagement: false,
+    hrManagement: true,
+    userManagement: false,
+    systemHealth: false,
+    featurePermissions: false,
   },
   ADMIN: {
+    dashboard: true,
     attendance: true,
     expenses: true,
     workPlanner: true,
@@ -92,6 +117,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<AppRole, Record<FeatureKey, boolea
     leave: true,
     notifications: true,
     reports: true,
+    profile: true,
+    syncCenter: true,
     deviceRegistration: true,
     employeeManagement: true,
     teamManagement: true,
@@ -100,8 +127,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<AppRole, Record<FeatureKey, boolea
     departmentManagement: true,
     adminManagement: false,
     hrManagement: true,
+    userManagement: true,
+    systemHealth: true,
+    featurePermissions: false,
   },
   SUPER_ADMIN: {
+    dashboard: true,
     attendance: true,
     expenses: true,
     workPlanner: true,
@@ -110,6 +141,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<AppRole, Record<FeatureKey, boolea
     leave: true,
     notifications: true,
     reports: true,
+    profile: true,
+    syncCenter: true,
     deviceRegistration: true,
     employeeManagement: true,
     teamManagement: true,
@@ -118,5 +151,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<AppRole, Record<FeatureKey, boolea
     departmentManagement: true,
     adminManagement: true,
     hrManagement: true,
+    userManagement: true,
+    systemHealth: true,
+    featurePermissions: true,
   },
 };

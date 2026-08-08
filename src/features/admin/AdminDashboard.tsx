@@ -21,6 +21,8 @@ import { ReportsAnalyticsTab } from './ReportsAnalyticsTab';
 import { RBACTab } from './RBACTab';
 import { EmployeeProfilesTab } from './EmployeeProfilesTab';
 import { SystemHealthSection } from './SystemHealthSection';
+import { UserManagementTab } from './UserManagementTab';
+import { HRManagementTab } from './HRManagementTab';
 import { LeaveRecord, LeaveConfig, EmployeeAllowance } from '../../types/leave';
 import { reviewLeaveRequest, adminOverrideLeave, updateLeaveConfig, updateEmployeeAllowance, calculateLeaveBalance } from '../../services/leave/leaveService';
 import { getStoredLeaves, getStoredLeaveConfig, getStoredEmployeeAllowances } from '../../services/leave/leaveStorage';
@@ -50,7 +52,7 @@ export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { hasFeatureAccess, isSuperAdmin } = usePermission();
   
-  const [activeTab, setActiveTab] = useState<'registrations' | 'attendance' | 'expenses' | 'planner' | 'efficiency' | 'leaves' | 'reports' | 'rbac' | 'profiles' | 'health'>('attendance');
+  const [activeTab, setActiveTab] = useState<'registrations' | 'attendance' | 'expenses' | 'planner' | 'efficiency' | 'leaves' | 'reports' | 'rbac' | 'profiles' | 'health' | 'userManagement' | 'hr'>('attendance');
 
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
@@ -811,6 +813,26 @@ export const AdminDashboard: React.FC = () => {
               }`}
             >
               System Health
+            </button>
+            <button
+              onClick={() => setActiveTab('userManagement')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+                activeTab === 'userManagement'
+                  ? 'bg-[#7C3AED] text-white shadow-lg shadow-purple-900/50'
+                  : 'text-purple-300/70 hover:text-white'
+              }`}
+            >
+              User Management
+            </button>
+            <button
+              onClick={() => setActiveTab('hr')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+                activeTab === 'hr'
+                  ? 'bg-[#7C3AED] text-white shadow-lg shadow-purple-900/50'
+                  : 'text-purple-300/70 hover:text-white'
+              }`}
+            >
+              HR Hub
             </button>
             {isSuperAdmin() && (
               <button
@@ -1728,6 +1750,9 @@ export const AdminDashboard: React.FC = () => {
 
         {activeTab === 'profiles' && <EmployeeProfilesTab />}
         {activeTab === 'health' && <SystemHealthSection isSuperAdminUser={isSuperAdmin()} />}
+        {activeTab === 'userManagement' && <UserManagementTab />}
+        {activeTab === 'hr' && <HRManagementTab />}
+        {activeTab === 'rbac' && <RBACTab />}
 
       </main>
 

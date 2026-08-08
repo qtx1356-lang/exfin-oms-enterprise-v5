@@ -131,10 +131,17 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const hasPermission = (feature: FeatureKey): boolean => {
     if (!currentRole) return false;
+    // Super Admin safeguards: Super Admin always retains core management features
+    if (currentRole === 'SUPER_ADMIN') {
+      const isCritical = ['userManagement', 'roleManagement', 'featurePermissions', 'systemHealth', 'systemSettings'].includes(feature);
+      if (isCritical) return true;
+    }
     const roleConfig = rolesCache[currentRole];
-    if (!roleConfig) return false;
+    if (!roleConfig) return DEFAULT_ROLE_PERMISSIONS[currentRole]?.[feature] === true;
     if (!roleConfig.enabled) return false;
-    return roleConfig.permissions[feature] === true;
+    const val = roleConfig.permissions?.[feature];
+    if (val !== undefined) return val === true;
+    return DEFAULT_ROLE_PERMISSIONS[currentRole]?.[feature] === true;
   };
 
   const hasFeatureAccess = hasPermission;
