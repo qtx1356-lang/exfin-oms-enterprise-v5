@@ -2,6 +2,7 @@ import { syncPendingAttendanceRecords } from '../attendance/syncEngine';
 import { syncPendingExpenseRecords } from '../expenses/expenseSyncEngine';
 import { syncPendingTasks } from '../planner/taskSyncEngine';
 import { syncPendingLeaves } from '../leave/leaveSyncEngine';
+import { syncPendingProfileChanges } from '../profile/profileService';
 import { getDeadLetterQueue, retryDeadLetterItem } from './syncQueueService';
 
 export const syncAllPendingRecords = async (): Promise<{
@@ -53,6 +54,14 @@ export const syncAllPendingRecords = async (): Promise<{
     totalErrors += leaveRes.errorsCount;
   } catch (e) {
     console.error('Global Sync: Error syncing leaves:', e);
+  }
+
+  try {
+    const profileRes = await syncPendingProfileChanges();
+    totalSynced += profileRes.syncedCount;
+    totalErrors += profileRes.errorsCount;
+  } catch (e) {
+    console.error('Global Sync: Error syncing profile changes:', e);
   }
 
   return { totalSynced, totalErrors };
