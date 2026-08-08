@@ -50,10 +50,6 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               console.warn("Could not read registration for admin check:", rErr);
             }
 
-            // Fallback check for initial Super Admin email
-            if (!regRole && u.email && u.email.toLowerCase() === 'qtx1356@gmail.com') {
-              regRole = 'SUPER_ADMIN';
-            }
 
             if (regRole === 'ADMIN' || regRole === 'SUPER_ADMIN' || regRole === 'HR') {
               try {

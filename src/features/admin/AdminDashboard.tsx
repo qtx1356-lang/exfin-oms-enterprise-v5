@@ -52,7 +52,7 @@ export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { hasFeatureAccess, isSuperAdmin } = usePermission();
   
-  const [activeTab, setActiveTab] = useState<'registrations' | 'attendance' | 'expenses' | 'planner' | 'efficiency' | 'leaves' | 'reports' | 'rbac' | 'profiles' | 'health' | 'userManagement' | 'hr'>('attendance');
+  const [activeTab, setActiveTab] = useState<'registrations' | 'attendance' | 'expenses' | 'planner' | 'efficiency' | 'leaves' | 'reports' | 'profiles' | 'hr'>('attendance');
 
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
@@ -805,26 +805,6 @@ export const AdminDashboard: React.FC = () => {
               Employee Profiles
             </button>
             <button
-              onClick={() => setActiveTab('health')}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
-                activeTab === 'health'
-                  ? 'bg-[#7C3AED] text-white shadow-lg shadow-purple-900/50'
-                  : 'text-purple-300/70 hover:text-white'
-              }`}
-            >
-              System Health
-            </button>
-            <button
-              onClick={() => setActiveTab('userManagement')}
-              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
-                activeTab === 'userManagement'
-                  ? 'bg-[#7C3AED] text-white shadow-lg shadow-purple-900/50'
-                  : 'text-purple-300/70 hover:text-white'
-              }`}
-            >
-              User Management
-            </button>
-            <button
               onClick={() => setActiveTab('hr')}
               className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
                 activeTab === 'hr'
@@ -834,18 +814,6 @@ export const AdminDashboard: React.FC = () => {
             >
               HR Hub
             </button>
-            {isSuperAdmin() && (
-              <button
-                onClick={() => setActiveTab('rbac')}
-                className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
-                  activeTab === 'rbac'
-                    ? 'bg-[#7C3AED] text-white shadow-lg shadow-purple-900/50'
-                    : 'text-purple-300/70 hover:text-white'
-                }`}
-              >
-                Roles & Permissions
-              </button>
-            )}
           </div>
         </div>
 

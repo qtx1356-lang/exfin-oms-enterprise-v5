@@ -7,6 +7,7 @@ import { BoxSelect, ShieldAlert } from 'lucide-react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { AdminLogin } from '../features/admin/AdminLogin';
 import { AdminDashboard } from '../features/admin/AdminDashboard';
+import { SuperAdminDashboard } from '../features/admin/SuperAdminDashboard';
 import { useRegistration } from '../context/RegistrationContext';
 import { usePermission } from '../context/PermissionContext';
 import { FeatureKey } from '../types/roles';
@@ -25,7 +26,7 @@ import { NotificationCenter } from '../features/notifications/NotificationCenter
 import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { SyncCenterScreen } from '../features/sync/SyncCenterScreen';
 
-// Protects /admin/dashboard - only logged-in admin can access
+// Protects /admin/dashboard - accessible by ADMIN, HR, SUPER_ADMIN
 const AdminProtectedRoute = () => {
   const { user, loading, role, adminProfileError, logout } = useAdminAuth();
   if (loading) return <LoadingScreen />;
@@ -58,12 +59,53 @@ const AdminProtectedRoute = () => {
   return <Outlet />;
 };
 
-// For /admin/login: if already logged in as admin, go to dashboard; else render AdminLogin
+// Protects /super-admin/dashboard - strictly SUPER_ADMIN only
+const SuperAdminProtectedRoute = () => {
+  const { user, loading, role, adminProfileError, logout } = useAdminAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/admin/login" replace />;
+
+  if (adminProfileError || role !== 'SUPER_ADMIN') {
+    if (!adminProfileError && (role === 'ADMIN' || role === 'HR')) {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#170B38] via-[#211044] to-[#2A145B] flex flex-col items-center justify-center p-4 text-white">
+        <Card className="max-w-md w-full p-8 space-y-6 bg-[#2D1B5A] border border-purple-500/30 shadow-2xl rounded-[28px] text-center">
+          <div className="w-16 h-16 bg-red-500/20 border border-red-500/40 rounded-2xl flex items-center justify-center mx-auto shadow-[0_0_25px_rgba(239,68,68,0.3)]">
+            <ShieldAlert className="w-9 h-9 text-red-400" />
+          </div>
+          <h1 className="text-xl font-black text-white">Super Admin Access Denied</h1>
+          <p className="text-purple-200/80 text-xs leading-relaxed">
+            {adminProfileError || 'Access Restricted: Super Admin authorization is required to access this portal.'}
+          </p>
+          <div className="pt-2">
+            <button
+              onClick={() => logout()}
+              className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-2xl text-xs transition-colors shadow-lg"
+            >
+              Sign Out & Return to Login
+            </button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  return <Outlet />;
+};
+
+// For /admin/login: route based on role when already authenticated
 const AdminPublicRoute = () => {
   const { user, loading, role, adminProfileError } = useAdminAuth();
   if (loading) return <LoadingScreen />;
-  if (user && !adminProfileError && (role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'HR')) {
-    return <Navigate to="/admin/dashboard" replace />;
+  if (user && !adminProfileError) {
+    if (role === 'SUPER_ADMIN') {
+      return <Navigate to="/super-admin/dashboard" replace />;
+    }
+    if (role === 'ADMIN' || role === 'HR') {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
   }
   return <AdminLogin />;
 };
@@ -104,31 +146,24 @@ const FeatureGuard: React.FC<{ feature: FeatureKey; children: React.ReactNode }>
   return <>{children}</>;
 };
 
-const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
-  <div className="py-6 h-[calc(100vh-120px)]">
-    <Card className="h-full p-6 flex flex-col bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px]">
-      <h1 className="text-xl font-black text-white mb-6">{title}</h1>
-      <div className="flex-1">
-        <EmptyState 
-          icon={BoxSelect}
-          title="Module Standby"
-          description={`The ${title} module architecture is ready with Deep Purple theme enabled.`}
-        />
-      </div>
-    </Card>
-  </div>
-);
-
 export const AppRouter: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Admin Routes - strictly outside Employee route group */}
+        {/* Admin Routes */}
         <Route path="/admin">
           <Route index element={<Navigate to="/admin/login" replace />} />
           <Route path="login" element={<AdminPublicRoute />} />
           <Route element={<AdminProtectedRoute />}>
             <Route path="dashboard" element={<AdminDashboard />} />
+          </Route>
+        </Route>
+
+        {/* Super Admin Routes */}
+        <Route path="/super-admin">
+          <Route index element={<Navigate to="/super-admin/dashboard" replace />} />
+          <Route element={<SuperAdminProtectedRoute />}>
+            <Route path="dashboard" element={<SuperAdminDashboard />} />
           </Route>
         </Route>
 
