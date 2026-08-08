@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Lock, Mail, ShieldCheck } from 'lucide-react';
+import { Lock, User, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const AdminLogin: React.FC = () => {
   const { login } = useAdminAuth();
-  const [email, setEmail] = useState('');
+  const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ export const AdminLogin: React.FC = () => {
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
+      await login(loginId, password);
       navigate('/admin/dashboard');
     } catch (err: any) {
       setError(err.message || 'Login failed');
@@ -41,14 +41,14 @@ export const AdminLogin: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-[#A78BFA]" /> Admin Email
+              <User className="w-3.5 h-3.5 text-[#A78BFA]" /> Login ID
             </label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              value={loginId}
+              onChange={(e) => setLoginId(e.target.value)}
               className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[#211044] text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED] text-sm"
-              placeholder="admin@exfin.com"
+              placeholder="admin"
               required
             />
           </div>

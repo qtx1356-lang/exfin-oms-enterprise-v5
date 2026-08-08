@@ -1,4 +1,4 @@
-import { doc, setDoc, updateDoc, addDoc, collection, serverTimestamp, getDocs, getDoc, query, where } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, addDoc, collection, serverTimestamp, getDocs, getDoc, query, where, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { AppRole, RoleFeaturePermissions } from '../../types/roles';
 
@@ -313,13 +313,30 @@ export const updateUserRoleAndStatus = async (params: {
   // 3. If changing to ADMIN or SUPER_ADMIN or HR, ensure admin_users document is updated
   if (newRole === 'ADMIN' || newRole === 'SUPER_ADMIN' || newRole === 'HR') {
     const adminRef = doc(db, 'admin_users', userId);
-    await setDoc(adminRef, {
+    const updatePayload: any = {
       uid: userId,
       role: newRole,
       authorizedOffice: department || 'ALL',
       updatedAt: nowIso,
       updatedBy: actorEmail,
-    }, { merge: true });
+      active: newStatus !== 'Suspended',
+    };
+    if (newStatus) updatePayload.status = newStatus;
+    if (targetData && targetData.email) {
+      updatePayload.email = targetData.email;
+    }
+    await setDoc(adminRef, updatePayload, { merge: true });
+  } else {
+    // If demoted from Admin, delete from admin_users and login_ids mapping to revoke access
+    const adminRef = doc(db, 'admin_users', userId);
+    const adminDoc = await getDoc(adminRef).catch(() => null);
+    if (adminDoc?.exists()) {
+      const adminData = adminDoc.data();
+      if (adminData.loginId) {
+        await deleteDoc(doc(db, 'login_ids', adminData.loginId)).catch(() => null);
+      }
+      await deleteDoc(adminRef).catch(() => null);
+    }
   }
 
   // 4. Log main user role/status audit event

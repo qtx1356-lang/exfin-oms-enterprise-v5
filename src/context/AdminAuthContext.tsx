@@ -50,7 +50,6 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               console.warn("Could not read registration for admin check:", rErr);
             }
 
-
             if (regRole === 'ADMIN' || regRole === 'SUPER_ADMIN' || regRole === 'HR') {
               try {
                 const nowIso = new Date().toISOString();
@@ -76,6 +75,50 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             const isActive = data.active !== false && data.status !== 'Suspended';
             const userRole = (data.role as AppRole) || 'ADMIN';
 
+            // Auto-migration for missing loginId in existing user profiles:
+            if (!data.loginId && isActive) {
+              let proposedId = '';
+              if (userRole === 'SUPER_ADMIN') {
+                proposedId = 'super-admin';
+              } else if (userRole === 'ADMIN') {
+                proposedId = 'admin';
+              } else if (userRole === 'HR') {
+                proposedId = 'hr';
+              } else {
+                proposedId = `user-${u.uid.slice(0, 5).toLowerCase()}`;
+              }
+
+              try {
+                // Ensure unique proposedId
+                let isUnique = false;
+                let counter = 0;
+                let finalId = proposedId;
+                while (!isUnique && counter < 100) {
+                  const checkRef = doc(db, 'login_ids', finalId);
+                  const checkSnap = await getDoc(checkRef);
+                  if (!checkSnap.exists() || checkSnap.data().uid === u.uid) {
+                    isUnique = true;
+                  } else {
+                    counter++;
+                    finalId = `${proposedId}-${counter}`;
+                  }
+                }
+
+                await setDoc(doc(db, 'login_ids', finalId), {
+                  email: u.email || (data && data.email) || '',
+                  uid: u.uid,
+                });
+
+                await setDoc(doc(db, 'admin_users', u.uid), {
+                  loginId: finalId,
+                }, { merge: true });
+
+                console.log(`Successfully migrated user ${u.uid} to loginId: ${finalId}`);
+              } catch (migErr) {
+                console.error("Failed to auto-migrate admin user to login ID:", migErr);
+              }
+            }
+
             if (isActive && (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'HR')) {
               setRole(userRole);
               setAuthorizedOffice(data.authorizedOffice || 'ALL');
@@ -83,7 +126,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             } else if (!isActive) {
               setRole('EMPLOYEE');
               setAuthorizedOffice('');
-              setAdminProfileError('Your Admin account has been suspended or deactivated. Please contact the Super Admin.');
+              setAdminProfileError('Your account is inactive. Please contact the administrator.');
             } else {
               setRole(userRole);
               setAuthorizedOffice('');
@@ -114,9 +157,62 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, []);
 
-  const login = async (email: string, password: string) => {
-    if (!auth) throw new Error('Firebase Auth not initialized');
-    await signInWithEmailAndPassword(auth, email, password);
+  const login = async (emailOrLoginId: string, password: string) => {
+    if (!auth || !db) throw new Error('Firebase services not initialized');
+    
+    const inputCleaned = emailOrLoginId.trim();
+    let emailToAuth = '';
+
+    if (inputCleaned.includes('@')) {
+      // Direct email fallback to prevent lockouts and allow original session fallback
+      emailToAuth = inputCleaned;
+    } else {
+      const normalizedLoginId = inputCleaned.toLowerCase().replace(/\s+/g, '');
+      try {
+        const loginDoc = await getDoc(doc(db, 'login_ids', normalizedLoginId));
+        if (!loginDoc.exists()) {
+          throw new Error('Invalid Login ID or password.');
+        }
+        emailToAuth = loginDoc.data()?.email || '';
+      } catch (err: any) {
+        throw new Error('Invalid Login ID or password.');
+      }
+    }
+
+    if (!emailToAuth) {
+      throw new Error('Invalid Login ID or password.');
+    }
+
+    // Attempt Firebase Authentication
+    let userCredential;
+    try {
+      userCredential = await signInWithEmailAndPassword(auth, emailToAuth, password);
+    } catch (err: any) {
+      throw new Error('Invalid Login ID or password.');
+    }
+
+    // Verify Active State
+    const u = userCredential.user;
+    try {
+      const adminDoc = await getDoc(doc(db, 'admin_users', u.uid));
+      if (adminDoc.exists()) {
+        const data = adminDoc.data();
+        const isActive = data.active !== false && data.status !== 'Suspended';
+        if (!isActive) {
+          await signOut(auth);
+          throw new Error('Your account is inactive. Please contact the administrator.');
+        }
+      } else {
+        await signOut(auth);
+        throw new Error('Your Admin profile has not been provisioned yet. Please contact the Super Admin.');
+      }
+    } catch (err: any) {
+      if (err.message.includes('inactive') || err.message.includes('provisioned')) {
+        throw err;
+      }
+      await signOut(auth);
+      throw new Error('Invalid Login ID or password.');
+    }
   };
 
   const logout = async () => {

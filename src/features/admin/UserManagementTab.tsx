@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, doc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, doc, getDocs, getDoc, setDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { AppRole } from '../../types/roles';
 import { updateUserRoleAndStatus } from '../../services/rbac/rbacService';
@@ -42,6 +42,8 @@ export interface ManagedUser {
   appVersion?: string;
   registrationDate?: string;
   selfieUrl?: string;
+  loginId?: string;
+  email?: string;
 }
 
 export const UserManagementTab: React.FC = () => {
@@ -66,6 +68,7 @@ export const UserManagementTab: React.FC = () => {
   const [editIsTeamLeader, setEditIsTeamLeader] = useState(false);
   const [editTeamLeaderId, setEditTeamLeaderId] = useState('');
   const [editTeamMemberUids, setEditTeamMemberUids] = useState<string[]>([]);
+  const [editLoginId, setEditLoginId] = useState('');
 
   // Team Member selector filter state
   const [teamMemberSearchTerm, setTeamMemberSearchTerm] = useState('');
@@ -105,6 +108,8 @@ export const UserManagementTab: React.FC = () => {
           appVersion: data.appVersion || 'N/A',
           registrationDate: data.registrationDate || '',
           selfieUrl: data.selfieUrl || '',
+          email: data.email || '',
+          loginId: data.loginId || '',
         });
       });
 
@@ -119,6 +124,21 @@ export const UserManagementTab: React.FC = () => {
               ...existing,
               role: (aData.role as AppRole) || existing.role,
               office: aData.authorizedOffice || existing.office,
+              loginId: aData.loginId || existing.loginId || '',
+              email: aData.email || existing.email || '',
+            });
+          } else {
+            // Include administrative users created directly or without registrations
+            regUsersMap.set(docSnap.id, {
+              id: docSnap.id,
+              employeeCode: docSnap.id.slice(0, 8),
+              name: aData.email ? aData.email.split('@')[0] : 'Admin User',
+              mobileNumber: 'N/A',
+              office: aData.authorizedOffice || 'ALL',
+              role: (aData.role as AppRole) || 'ADMIN',
+              status: aData.active === false ? 'Suspended' : 'Approved',
+              loginId: aData.loginId || '',
+              email: aData.email || '',
             });
           }
         });
@@ -158,6 +178,7 @@ export const UserManagementTab: React.FC = () => {
     const isTl = !!u.isTeamLeader || u.role === 'TEAM_LEADER';
     setEditIsTeamLeader(isTl);
     setEditTeamLeaderId(u.assignedTeamLeaderId || '');
+    setEditLoginId(u.loginId || '');
 
     // Pre-populate assigned team members if user is a Team Leader
     const existingMembers = users
@@ -235,6 +256,65 @@ export const UserManagementTab: React.FC = () => {
       }
     }
 
+    // Login ID validations
+    const cleanedLoginId = editLoginId.trim().toLowerCase().replace(/\s+/g, '');
+    const previousLoginId = (selectedUser.loginId || '').trim().toLowerCase().replace(/\s+/g, '');
+    const isNewRoleAdmin = editRole === 'ADMIN' || editRole === 'SUPER_ADMIN' || editRole === 'HR';
+
+    // Block non-Super Admins from modifying Super Admin credentials/login IDs
+    if (targetIsSuperAdmin && !isSuperAdmin() && (cleanedLoginId !== previousLoginId)) {
+      setStatusMessage({
+        type: 'error',
+        text: 'Security Policy Violation: Admins are NOT allowed to modify Super Admin credentials.',
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (isNewRoleAdmin && cleanedLoginId !== previousLoginId) {
+      if (!isSuperAdmin()) {
+        setStatusMessage({
+          type: 'error',
+          text: 'Security Policy Violation: Only Super Admins can assign or change Login IDs.',
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!cleanedLoginId) {
+        setStatusMessage({
+          type: 'error',
+          text: 'Validation Error: Login ID cannot be empty for administrative roles.',
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Check uniqueness of login ID globally
+      try {
+        const checkDoc = await getDoc(doc(db, 'login_ids', cleanedLoginId));
+        if (checkDoc.exists()) {
+          const checkData = checkDoc.data();
+          if (checkData.uid !== selectedUser.id) {
+            setStatusMessage({
+              type: 'error',
+              text: 'Duplicate Login ID: This Login ID is already assigned to another user.',
+            });
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Error checking login ID uniqueness:', err);
+        setStatusMessage({
+          type: 'error',
+          text: 'Database Error: Could not verify Login ID uniqueness.',
+        });
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     try {
       const selectedTL = teamLeaders.find((tl) => tl.id === editTeamLeaderId);
       const isTargetTl = editIsTeamLeader || editRole === 'TEAM_LEADER';
@@ -254,6 +334,49 @@ export const UserManagementTab: React.FC = () => {
         actorEmail: adminUser?.email || 'admin@exfin.internal',
         actorUid: adminUser?.uid || 'ADMIN_UID',
       });
+
+      // Update loginId mapping based on the role and changes
+      if (isSuperAdmin()) {
+        if (!isNewRoleAdmin) {
+          // If demoted from Admin, delete old loginId map
+          if (previousLoginId) {
+            await deleteDoc(doc(db, 'login_ids', previousLoginId));
+          }
+        } else if (cleanedLoginId !== previousLoginId) {
+          // Delete old mapping if changed
+          if (previousLoginId) {
+            await deleteDoc(doc(db, 'login_ids', previousLoginId));
+          }
+
+          // Create new mapping
+          const targetEmail = selectedUser.email || (selectedUser as any).email || '';
+          await setDoc(doc(db, 'login_ids', cleanedLoginId), {
+            email: targetEmail,
+            uid: selectedUser.id,
+          });
+
+          // Set loginId in admin_users doc
+          await setDoc(doc(db, 'admin_users', selectedUser.id), {
+            loginId: cleanedLoginId,
+          }, { merge: true });
+
+          // Immutable Audit Log entry for Super Admin changing Login ID
+          await addDoc(collection(db, 'audit_logs'), {
+            actorUid: adminUser?.uid || 'SUPER_ADMIN_UID',
+            actorEmail: adminUser?.email || 'super_admin@exfin.internal',
+            actorRole: activeAdminRole || 'SUPER_ADMIN',
+            action: 'SUPER_ADMIN_CHANGED_LOGIN_ID',
+            targetType: 'USER',
+            targetId: selectedUser.id,
+            targetUid: selectedUser.id,
+            oldLoginId: previousLoginId,
+            newLoginId: cleanedLoginId,
+            timestamp: new Date().toISOString(),
+            deviceMetadata: navigator.userAgent,
+            deviceInfo: navigator.userAgent,
+          });
+        }
+      }
 
       setStatusMessage({ type: 'success', text: `User ${selectedUser.name} updated successfully!` });
       setTimeout(() => {
@@ -540,6 +663,29 @@ export const UserManagementTab: React.FC = () => {
                   <p className="text-[10px] text-amber-300/80 italic">Only Super Admins can assign Admin or Super Admin roles.</p>
                 )}
               </div>
+
+              {/* Login ID Input */}
+              {(editRole === 'ADMIN' || editRole === 'SUPER_ADMIN' || editRole === 'HR') && (
+                <div className="space-y-1">
+                  <label className="text-purple-300 font-bold block flex items-center justify-between">
+                    <span>Login ID (Username)</span>
+                    {isSuperAdmin() && (
+                      <span className="text-[10px] text-purple-400 font-medium">Lowercase, no spaces</span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    value={editLoginId}
+                    disabled={!isSuperAdmin() || (selectedUser?.role === 'SUPER_ADMIN' && !isSuperAdmin())}
+                    onChange={(e) => setEditLoginId(e.target.value.toLowerCase().trim().replace(/\s+/g, ''))}
+                    placeholder="e.g. admin"
+                    className="w-full px-3 py-2 bg-[#2D1B5A] border border-purple-500/30 rounded-xl text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  {!isSuperAdmin() && (
+                    <p className="text-[10px] text-amber-300/80 italic">Only Super Admins can manage administrative Login IDs.</p>
+                  )}
+                </div>
+              )}
 
               {/* Status Select */}
               <div className="space-y-1">

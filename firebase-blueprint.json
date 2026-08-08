@@ -116,6 +116,32 @@
         "syncStatus": { "type": "string" }
       },
       "required": ["id", "type", "category", "title", "message", "recipientEmployeeCode", "recipientRole", "read", "timestamp"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Administrative user metadata with associated loginId",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "loginId": { "type": "string" },
+        "role": { "type": "string" },
+        "active": { "type": "boolean" },
+        "email": { "type": "string" },
+        "authorizedOffice": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "loginId", "role"]
+    },
+    "LoginId": {
+      "title": "LoginId",
+      "description": "Globally unique login ID reference matching a known email address",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "uid": { "type": "string" }
+      },
+      "required": ["email", "uid"]
     }
   },
   "firestore": {
@@ -138,6 +164,14 @@
     "/notifications/{notificationId}": {
       "schema": "NotificationRecord",
       "description": "Central notification collection"
+    },
+    "/admin_users/{userId}": {
+      "schema": "AdminUser",
+      "description": "Administrative user mapping collection"
+    },
+    "/login_ids/{loginId}": {
+      "schema": "LoginId",
+      "description": "Mapping from unique login ID to Firebase Auth identity details"
     }
   }
 }
