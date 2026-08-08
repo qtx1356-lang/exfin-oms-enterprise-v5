@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { db } from '../../services/firebase/config';
+import { createNotification } from '../../services/notification/notificationService';
 import { collection, query, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { 
   Users, 
@@ -289,15 +290,15 @@ export const MyTeamScreen: React.FC = () => {
 
         // Send notification to each assigned team member
         for (const code of assignedCodes) {
-          const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-          await setDoc(doc(db, 'notifications', notifId), {
-            id: notifId,
-            employeeCode: code,
+          await createNotification({
+            recipientEmployeeCode: code,
             type: 'TASK_ASSIGNED',
+            category: 'PLANNER',
+            priority: taskPriority === 'HIGH' ? 'HIGH' : taskPriority === 'URGENT' ? 'URGENT' : 'NORMAL',
             title: 'New Team Task Assigned',
             message: `Team Leader ${employeeData?.name} assigned you task "${taskTitle}" (${taskPriority} Priority) due on ${taskDueDate}.`,
-            createdAt: nowIso,
-            read: false,
+            entityId: taskId,
+            entityType: 'TASK',
           });
         }
       } catch (err) {
@@ -344,15 +345,15 @@ export const MyTeamScreen: React.FC = () => {
 
         // Send notifications
         for (const empCode of task.assignedToEmployeeCodes || []) {
-          const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-          await setDoc(doc(db, 'notifications', notifId), {
-            id: notifId,
-            employeeCode: empCode,
+          await createNotification({
+            recipientEmployeeCode: empCode,
             type: 'TASK_APPROVED',
+            category: 'PLANNER',
+            priority: 'NORMAL',
             title: 'Task Approved! 🎉',
             message: `Your task "${task.title}" has been reviewed and APPROVED by Team Leader ${employeeData?.name}.`,
-            createdAt: nowIso,
-            read: false,
+            entityId: task.id,
+            entityType: 'TASK',
           });
         }
       } catch (err) {
@@ -408,15 +409,15 @@ export const MyTeamScreen: React.FC = () => {
         });
 
         for (const empCode of selectedTaskForReview.assignedToEmployeeCodes || []) {
-          const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-          await setDoc(doc(db, 'notifications', notifId), {
-            id: notifId,
-            employeeCode: empCode,
+          await createNotification({
+            recipientEmployeeCode: empCode,
             type: 'REVISION_REQUIRED',
+            category: 'PLANNER',
+            priority: 'HIGH',
             title: 'Task Returned for Revision ⚠️',
             message: `Team Leader ${employeeData?.name} returned task "${selectedTaskForReview.title}" for revision: "${revisionRemarkInput.trim()}".`,
-            createdAt: nowIso,
-            read: false,
+            entityId: selectedTaskForReview.id,
+            entityType: 'TASK',
           });
         }
       } catch (err) {

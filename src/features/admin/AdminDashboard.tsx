@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { db } from '../../services/firebase/config';
+import { createNotification } from '../../services/notification/notificationService';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { LogOut, Search, CheckCircle, XCircle, Clock, Smartphone, User, Phone, Calendar, Wifi, WifiOff, Shield, RefreshCw, Wallet, Paperclip, IndianRupee, Briefcase, Plus, Users, Building2, Sliders, Filter, CheckSquare, Sparkles, Layers, AlertTriangle, Edit3, MessageSquare, Send } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -442,15 +443,16 @@ export const AdminDashboard: React.FC = () => {
         rejectionReason: null,
       });
 
-      const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      await setDoc(doc(db, 'notifications', notifId), {
-        id: notifId,
-        employeeCode: exp.employeeCode || exp.employeeId,
+      await createNotification({
+        recipientEmployeeCode: exp.employeeCode || exp.employeeId,
+        recipientUserId: exp.employeeId,
         type: 'EXPENSE_APPROVED',
+        category: 'EXPENSE',
+        priority: 'NORMAL',
         title: 'Expense Claim Approved',
         message: `Your claim of ₹${exp.amount.toLocaleString('en-IN')} for ${exp.category} (${exp.date}) has been approved.`,
-        createdAt: new Date().toISOString(),
-        read: false,
+        entityId: exp.id,
+        entityType: 'EXPENSE',
       });
     } catch (err) {
       console.error('Error approving expense:', err);
@@ -468,15 +470,16 @@ export const AdminDashboard: React.FC = () => {
         rejectionReason: reason,
       });
 
-      const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      await setDoc(doc(db, 'notifications', notifId), {
-        id: notifId,
-        employeeCode: exp.employeeCode || exp.employeeId,
+      await createNotification({
+        recipientEmployeeCode: exp.employeeCode || exp.employeeId,
+        recipientUserId: exp.employeeId,
         type: 'EXPENSE_REJECTED',
+        category: 'EXPENSE',
+        priority: 'HIGH',
         title: 'Expense Claim Rejected',
         message: `Your claim of ₹${exp.amount.toLocaleString('en-IN')} for ${exp.category} was rejected. Reason: ${reason}`,
-        createdAt: new Date().toISOString(),
-        read: false,
+        entityId: exp.id,
+        entityType: 'EXPENSE',
       });
     } catch (err) {
       console.error('Error rejecting expense:', err);
@@ -543,15 +546,15 @@ export const AdminDashboard: React.FC = () => {
 
         // Send notifications
         for (const empCode of assignedCodes) {
-          const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-          await setDoc(doc(db, 'notifications', notifId), {
-            id: notifId,
-            employeeCode: empCode,
+          await createNotification({
+            recipientEmployeeCode: empCode,
             type: 'TASK_ASSIGNED',
+            category: 'PLANNER',
+            priority: taskPriority === 'HIGH' ? 'HIGH' : taskPriority === 'URGENT' ? 'URGENT' : 'NORMAL',
             title: 'New Task Assigned',
             message: `You have been assigned task "${taskTitle}" (${taskPriority} Priority) due on ${taskDueDate}.`,
-            createdAt: nowIso,
-            read: false,
+            entityId: taskId,
+            entityType: 'TASK',
           });
         }
       } catch (err) {
@@ -602,15 +605,15 @@ export const AdminDashboard: React.FC = () => {
 
       // Send notifications to assigned employees
       for (const empCode of selectedTask.assignedToEmployeeCodes || []) {
-        const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-        await setDoc(doc(db, 'notifications', notifId), {
-          id: notifId,
-          employeeCode: empCode,
+        await createNotification({
+          recipientEmployeeCode: empCode,
           type: 'MANAGER_REMARK_ADDED',
+          category: 'PLANNER',
+          priority: 'NORMAL',
           title: 'Manager Remark Added',
           message: `Admin manager added a remark to task "${selectedTask.title}".`,
-          createdAt: nowIso,
-          read: false,
+          entityId: selectedTask.id,
+          entityType: 'TASK',
         });
       }
     } catch (err) {

@@ -11,6 +11,7 @@ import {
   saveEmployeeAllowances,
   markLeaveSynced,
 } from './leaveStorage';
+import { createNotification } from '../notification/notificationService';
 
 // OperationType for firestore error info conforming to skill guidelines
 enum OperationType {
@@ -218,29 +219,29 @@ export const createLeaveRequest = async (
       markLeaveSynced(leaveId, new Date().toISOString());
       
       // Send notification: Leave Submitted (to team leader if exists, or admin)
-      const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      await setDoc(doc(db, 'notifications', notifId), {
-        id: notifId,
-        employeeCode: employeeData.teamLeaderCode || 'ADMIN',
+      await createNotification({
+        recipientEmployeeCode: employeeData.teamLeaderCode || 'ADMIN',
+        recipientRole: employeeData.teamLeaderCode ? 'TEAM_LEADER' : 'ADMIN',
         type: 'LEAVE_SUBMITTED',
+        category: 'LEAVE',
+        priority: 'NORMAL',
         title: 'New Leave Request Submitted',
         message: `${employeeData.name} requested leave from ${startDate} to ${endDate} (${totalDays} Days) for "${reason}".`,
-        createdAt: nowIso,
-        timestamp: nowIso,
-        read: false,
+        entityId: leaveId,
+        entityType: 'LEAVE',
       });
 
       // Leave Approval Required notification
-      const notifReqId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      await setDoc(doc(db, 'notifications', notifReqId), {
-        id: notifReqId,
-        employeeCode: employeeData.teamLeaderCode || 'ADMIN',
+      await createNotification({
+        recipientEmployeeCode: employeeData.teamLeaderCode || 'ADMIN',
+        recipientRole: employeeData.teamLeaderCode ? 'TEAM_LEADER' : 'ADMIN',
         type: 'LEAVE_APPROVAL_REQUIRED',
+        category: 'LEAVE',
+        priority: 'HIGH',
         title: 'Leave Approval Required',
         message: `Leave approval required for ${employeeData.name} (${startDate} to ${endDate}).`,
-        createdAt: nowIso,
-        timestamp: nowIso,
-        read: false,
+        entityId: leaveId,
+        entityType: 'LEAVE',
       });
     } catch (err) {
       console.warn('Could not sync leave record immediately. Saved offline.', err);
@@ -277,16 +278,16 @@ export const cancelLeaveRequest = async (leaveId: string): Promise<LeaveRecord> 
       markLeaveSynced(leaveId, nowIso);
 
       // Notify Team Leader / Admin
-      const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      await setDoc(doc(db, 'notifications', notifId), {
-        id: notifId,
-        employeeCode: leave.teamLeaderId ? 'TL' : 'ADMIN',
+      await createNotification({
+        recipientEmployeeCode: leave.teamLeaderId || 'ADMIN',
+        recipientRole: leave.teamLeaderId ? 'TEAM_LEADER' : 'ADMIN',
         type: 'LEAVE_CANCELLED',
+        category: 'LEAVE',
+        priority: 'NORMAL',
         title: 'Leave Request Cancelled',
         message: `${leave.employeeName} cancelled their leave request from ${leave.startDate} to ${leave.endDate}.`,
-        createdAt: nowIso,
-        timestamp: nowIso,
-        read: false,
+        entityId: leaveId,
+        entityType: 'LEAVE',
       });
     } catch (err) {
       console.warn('Could not sync leave cancellation immediately.', err);
@@ -357,15 +358,16 @@ export const reviewLeaveRequest = async (
       markLeaveSynced(leaveId, nowIso);
 
       // Create notifications
-      const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
       let title = '';
       let message = '';
       let type = '';
+      let priority: 'NORMAL' | 'HIGH' | 'URGENT' = 'NORMAL';
 
       if (action === 'REJECT') {
         type = 'LEAVE_REJECTED';
         title = `Leave Request Rejected`;
         message = `Your leave request for ${leave.startDate} to ${leave.endDate} was rejected by ${reviewer.name}. Reason: ${remark}`;
+        priority = 'HIGH';
       } else {
         if (reviewerRole === 'TEAM_LEADER') {
           type = 'LEAVE_APPROVED_BY_LEADER';
@@ -378,29 +380,30 @@ export const reviewLeaveRequest = async (
         }
       }
 
-      await setDoc(doc(db, 'notifications', notifId), {
-        id: notifId,
-        employeeCode: leave.employeeCode,
+      await createNotification({
+        recipientEmployeeCode: leave.employeeCode,
+        recipientUserId: leave.employeeId,
         type,
+        category: 'LEAVE',
+        priority,
         title,
         message,
-        createdAt: nowIso,
-        timestamp: nowIso,
-        read: false,
+        entityId: leaveId,
+        entityType: 'LEAVE',
       });
 
       // If approved by TL, trigger a notification to admin
       if (reviewerRole === 'TEAM_LEADER' && action === 'APPROVE') {
-        const adminNotifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-        await setDoc(doc(db, 'notifications', adminNotifId), {
-          id: adminNotifId,
-          employeeCode: 'ADMIN',
+        await createNotification({
+          recipientEmployeeCode: 'ADMIN',
+          recipientRole: 'ADMIN',
           type: 'LEAVE_APPROVAL_REQUIRED',
+          category: 'LEAVE',
+          priority: 'HIGH',
           title: 'Admin Review Required',
           message: `${leave.employeeName}'s leave request was approved by Team Leader ${reviewer.name} and requires Admin review.`,
-          createdAt: nowIso,
-          timestamp: nowIso,
-          read: false,
+          entityId: leaveId,
+          entityType: 'LEAVE',
         });
       }
     } catch (err) {
@@ -446,16 +449,16 @@ export const adminOverrideLeave = async (
       markLeaveSynced(leaveId, nowIso);
 
       // Create notification
-      const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      await setDoc(doc(db, 'notifications', notifId), {
-        id: notifId,
-        employeeCode: leave.employeeCode,
+      await createNotification({
+        recipientEmployeeCode: leave.employeeCode,
+        recipientUserId: leave.employeeId,
         type: 'LEAVE_APPROVED',
+        category: 'LEAVE',
+        priority: 'HIGH',
         title: `Leave Action Overridden by Admin`,
         message: `Your leave request from ${leave.startDate} to ${leave.endDate} was manually ${action === 'APPROVE' ? 'approved' : 'rejected'} by Admin. Override Reason: ${reason}`,
-        createdAt: nowIso,
-        timestamp: nowIso,
-        read: false,
+        entityId: leaveId,
+        entityType: 'LEAVE',
       });
     } catch (err) {
       console.warn('Could not sync leave override immediately.', err);
@@ -493,17 +496,16 @@ export const updateEmployeeAllowance = async (allowance: EmployeeAllowance): Pro
       await setDoc(doc(db, 'leave_balances', allowance.id), allowance);
 
       // Trigger a notification to the employee
-      const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      const nowIso = new Date().toISOString();
-      await setDoc(doc(db, 'notifications', notifId), {
-        id: notifId,
-        employeeCode: allowance.employeeCode,
+      await createNotification({
+        recipientEmployeeCode: allowance.employeeCode,
+        recipientUserId: allowance.employeeId,
         type: 'BALANCE_CHANGED',
+        category: 'LEAVE',
+        priority: 'HIGH',
         title: 'Leave Allowance Updated',
         message: `Your total annual leave allowance has been updated to ${allowance.allowance} Days by Admin.`,
-        createdAt: nowIso,
-        timestamp: nowIso,
-        read: false,
+        entityId: allowance.id,
+        entityType: 'BALANCE',
       });
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `leave_balances/${allowance.id}`);

@@ -5,6 +5,7 @@ import {
   getStoredAttendanceRecords
 } from './attendanceStorage';
 import { syncPendingAttendanceRecords } from './syncEngine';
+import { createNotification } from '../notification/notificationService';
 
 export const OFFICE_LOCATION = {
   name: 'EXFIN OFFICE',
@@ -144,6 +145,18 @@ export const performCheckIn = (
 
   saveAttendanceRecord(record);
 
+  // Send local check-in system notification
+  createNotification({
+    recipientEmployeeCode: employeeId,
+    type: 'ATTENDANCE_CHECK_IN',
+    category: 'ATTENDANCE',
+    priority: 'LOW',
+    title: 'Attendance Check-In Logged',
+    message: `You successfully checked-in at ${record.checkInTime} (${mode} mode) at ${townCity}.`,
+    entityId: record.id,
+    entityType: 'ATTENDANCE',
+  }).catch((err) => console.warn('Failed to dispatch check-in notification:', err));
+
   if (navigator.onLine) {
     syncPendingAttendanceRecords().catch((err) =>
       console.warn('Background sync on check-in failed:', err)
@@ -192,6 +205,18 @@ export const performCheckOut = (
   };
 
   saveAttendanceRecord(updatedRecord);
+
+  // Send local check-out system notification
+  createNotification({
+    recipientEmployeeCode: record.employeeId,
+    type: 'ATTENDANCE_CHECK_OUT',
+    category: 'ATTENDANCE',
+    priority: 'LOW',
+    title: 'Attendance Check-Out Logged',
+    message: `You successfully checked-out at ${updatedRecord.checkOutTime}. Total working hours logged: ${workingHours}.`,
+    entityId: record.id,
+    entityType: 'ATTENDANCE',
+  }).catch((err) => console.warn('Failed to dispatch check-out notification:', err));
 
   if (navigator.onLine) {
     syncPendingAttendanceRecords().catch((err) =>
@@ -416,6 +441,18 @@ export const performWFHAttendance = (
 
   saveAttendanceRecord(record);
 
+  // Send local WFH check-in system notification
+  createNotification({
+    recipientEmployeeCode: employeeId,
+    type: 'ATTENDANCE_CHECK_IN',
+    category: 'ATTENDANCE',
+    priority: 'LOW',
+    title: 'WFH Attendance Logged',
+    message: `You successfully submitted WFH attendance for today at ${record.checkInTime}.`,
+    entityId: record.id,
+    entityType: 'ATTENDANCE',
+  }).catch((err) => console.warn('Failed to dispatch WFH notification:', err));
+
   if (navigator.onLine) {
     syncPendingAttendanceRecords().catch((err) =>
       console.warn('Background sync on WFH submission failed:', err)
@@ -478,6 +515,18 @@ export const performClientVisitAttendance = (
 
   saveAttendanceRecord(record);
 
+  // Send local Client Visit system notification
+  createNotification({
+    recipientEmployeeCode: employeeId,
+    type: 'ATTENDANCE_CHECK_IN',
+    category: 'ATTENDANCE',
+    priority: 'LOW',
+    title: 'Client Visit Logged',
+    message: `Client visit attendance submitted at ${record.checkInTime} for client: ${clientName}.`,
+    entityId: record.id,
+    entityType: 'ATTENDANCE',
+  }).catch((err) => console.warn('Failed to dispatch client visit notification:', err));
+
   if (navigator.onLine) {
     syncPendingAttendanceRecords().catch((err) =>
       console.warn('Background sync on Client Visit submission failed:', err)
@@ -537,6 +586,18 @@ export const performOutdoorAttendance = (
   };
 
   saveAttendanceRecord(record);
+
+  // Send local Outdoor system notification
+  createNotification({
+    recipientEmployeeCode: employeeId,
+    type: 'ATTENDANCE_CHECK_IN',
+    category: 'ATTENDANCE',
+    priority: 'LOW',
+    title: 'Outdoor Work Logged',
+    message: `Outdoor work attendance (${outdoorType}) submitted at ${record.checkInTime}.`,
+    entityId: record.id,
+    entityType: 'ATTENDANCE',
+  }).catch((err) => console.warn('Failed to dispatch outdoor work notification:', err));
 
   if (navigator.onLine) {
     syncPendingAttendanceRecords().catch((err) =>

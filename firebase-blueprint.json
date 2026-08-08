@@ -89,6 +89,33 @@
         "serverSyncTime": { "type": "string" }
       },
       "required": ["employeeId", "employeeCode", "employeeName", "periodStart", "periodEnd", "periodType", "finalScore", "grade", "calculatedAtDeviceTime"]
+    },
+    "NotificationRecord": {
+      "title": "NotificationRecord",
+      "description": "Secure, centralized, offline-first notification record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "category": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "recipientUserId": { "type": "string" },
+        "recipientEmployeeCode": { "type": "string" },
+        "recipientRole": { "type": "string" },
+        "recipientTeamLeaderId": { "type": "string" },
+        "priority": { "type": "string" },
+        "route": { "type": "string" },
+        "entityId": { "type": "string" },
+        "entityType": { "type": "string" },
+        "read": { "type": "boolean" },
+        "timestamp": { "type": "string" },
+        "createdAtDeviceTime": { "type": "string" },
+        "updatedAtDeviceTime": { "type": "string" },
+        "serverSyncTime": { "type": "string" },
+        "syncStatus": { "type": "string" }
+      },
+      "required": ["id", "type", "category", "title", "message", "recipientEmployeeCode", "recipientRole", "read", "timestamp"]
     }
   },
   "firestore": {
@@ -107,6 +134,10 @@
     "/efficiency_snapshots/{snapshotId}": {
       "schema": "EfficiencySnapshot",
       "description": "Historical employee efficiency ratings"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "NotificationRecord",
+      "description": "Central notification collection"
     }
   }
 }

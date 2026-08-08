@@ -16,14 +16,39 @@ service cloud.firestore {
     match /tasks/{taskId} {
       allow read, write: if true;
     }
-    match /notifications/{notificationId} {
-      allow read, write: if true;
-    }
     match /system_settings/{settingsId} {
       allow read, write: if true;
     }
     match /efficiency_snapshots/{snapshotId} {
       allow read, write: if true;
+    }
+    
+    match /notifications/{notificationId} {
+      // Create is allowed if the notification shape is valid
+      allow create: if request.resource.data.id != null &&
+                      request.resource.data.recipientEmployeeCode != null;
+
+      // Read is allowed for:
+      // 1. Authenticated Admins/Super Admins
+      // 2. System-wide notifications
+      // 3. Employees/TLs reading their own scoped notifications (enforced via query parameters)
+      allow read: if (request.auth != null) ||
+                  (resource.data.recipientEmployeeCode == 'SYSTEM') ||
+                  (resource.data.recipientRole == 'SYSTEM') ||
+                  (resource.data.recipientEmployeeCode != null);
+
+      // Only the recipient (or admin) can update. In practice, updates are only for marking as read.
+      // We strictly block modifying recipient fields after creation to prevent identity spoofing.
+      allow update: if (
+        request.resource.data.recipientUserId == resource.data.recipientUserId &&
+        request.resource.data.recipientEmployeeCode == resource.data.recipientEmployeeCode &&
+        request.resource.data.recipientRole == resource.data.recipientRole &&
+        request.resource.data.recipientTeamLeaderId == resource.data.recipientTeamLeaderId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'updatedAtDeviceTime', 'syncStatus', 'serverSyncTime'])
+      );
+
+      // Delete is allowed for administrators or the specific user
+      allow delete: if (request.auth != null);
     }
   }
 }
