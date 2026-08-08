@@ -5,6 +5,7 @@ import { SplashScreen } from './components/ui/SplashScreen';
 import { AnimatePresence } from 'motion/react';
 import { RegistrationProvider } from './context/RegistrationContext';
 import { AdminAuthProvider } from './context/AdminAuthContext';
+import { PermissionProvider } from './context/PermissionContext';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -13,10 +14,12 @@ export default function App() {
     <ErrorBoundary>
       <AdminAuthProvider>
         <RegistrationProvider>
-          <AnimatePresence>
-            {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
-          </AnimatePresence>
-          {!showSplash && <AppRouter />}
+          <PermissionProvider>
+            <AnimatePresence>
+              {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+            </AnimatePresence>
+            {!showSplash && <AppRouter />}
+          </PermissionProvider>
         </RegistrationProvider>
       </AdminAuthProvider>
     </ErrorBoundary>

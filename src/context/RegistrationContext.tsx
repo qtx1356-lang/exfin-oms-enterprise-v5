@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { doc, onSnapshot, runTransaction, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../services/firebase/config';
+import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
+import { db, auth } from '../services/firebase/config';
 
 type RegistrationStatus = 'unregistered' | 'Pending Approval' | 'Approved' | 'Rejected' | 'loading';
 
@@ -10,6 +11,7 @@ interface RegistrationContextType {
   employeeData?: any;
   submitRegistration: (name: string, mobileNumber: string, selfieBase64: string) => Promise<void>;
   resetRegistration: () => void;
+  authUser: User | null;
 }
 
 const RegistrationContext = createContext<RegistrationContextType | undefined>(undefined);
@@ -19,13 +21,21 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [rejectionReason, setRejectionReason] = useState<string>();
   const [employeeData, setEmployeeData] = useState<any>(null);
   const [localRegId, setLocalRegId] = useState<string | null>(localStorage.getItem('registrationId'));
+  const [authUser, setAuthUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      setAuthUser(user);
+    });
+    return () => unsubAuth();
+  }, []);
 
   useEffect(() => {
     if (!localRegId) {
       setStatus('unregistered');
       return;
     }
-
+    
     if (!db) {
       setStatus('unregistered');
       return;
@@ -62,6 +72,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       deviceId = crypto.randomUUID();
       localStorage.setItem('deviceId', deviceId);
     }
+    
     const ua = navigator.userAgent;
     let deviceModel = 'Web Browser';
     let androidVersion = 'N/A';
@@ -69,18 +80,26 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (/android/i.test(ua)) {
       const match = ua.match(/Android\s([0-9\.]*)/);
       androidVersion = match ? match[1] : 'Unknown';
+      
       const modelMatch = ua.match(/Android.*; (.*) Build/);
       deviceModel = modelMatch ? modelMatch[1] : 'Android Device';
     } else if (/iPhone|iPad|iPod/i.test(ua)) {
       deviceModel = 'iOS Device';
     }
-
+    
     return { deviceId, deviceModel, androidVersion, appVersion: 'v5.1.0' };
   };
 
   const submitRegistration = async (name: string, mobileNumber: string, selfieBase64: string) => {
     if (!db) throw new Error('Firestore not initialized');
     
+    // Ensure the user is signed in anonymously to get a UID
+    let currentAuthUser = auth.currentUser;
+    if (!currentAuthUser) {
+      const credential = await signInAnonymously(auth);
+      currentAuthUser = credential.user;
+    }
+
     // 1. Generate Employee Code using transaction
     const counterRef = doc(db, 'metadata', 'counters');
     
@@ -96,8 +115,10 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     // 2. Prepare data
     const { deviceId, deviceModel, androidVersion, appVersion } = getDeviceInfo();
-    const registrationId = crypto.randomUUID();
-
+    
+    // Use the Firebase Auth UID instead of a random UUID
+    const registrationId = currentAuthUser.uid;
+    
     const registrationData = {
       employeeCode,
       name,
@@ -107,9 +128,10 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       androidVersion,
       appVersion,
       selfieUrl: selfieBase64,
-      registrationDate: new Date().toISOString(), // Use ISO string as requested or serverTimestamp
+      registrationDate: new Date().toISOString(),
       status: 'Pending Approval',
-      office: 'Raniganj'
+      office: 'Raniganj',
+      uid: currentAuthUser.uid
     };
 
     // 3. Save to Firestore
@@ -131,7 +153,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   return (
-    <RegistrationContext.Provider value={{ status, rejectionReason, employeeData, submitRegistration, resetRegistration }}>
+    <RegistrationContext.Provider value={{ status, rejectionReason, employeeData, submitRegistration, resetRegistration, authUser }}>
       {children}
     </RegistrationContext.Provider>
   );

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { usePermission } from '../../context/PermissionContext';
 import { db } from '../../services/firebase/config';
 import { createNotification } from '../../services/notification/notificationService';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc } from 'firebase/firestore';
@@ -16,6 +17,8 @@ import { getStoredExpenseRecords } from '../../services/expenses/expenseStorage'
 import { TaskRecord, TaskPriority, TaskStatus, AssignmentType, TaskComment, getEffectiveTaskStatus } from '../../types/planner';
 import { getStoredTasks, saveTaskRecord } from '../../services/planner/taskStorage';
 import { EfficiencyDashboard } from '../efficiency/EfficiencyDashboard';
+import { ReportsAnalyticsTab } from './ReportsAnalyticsTab';
+import { RBACTab } from './RBACTab';
 import { LeaveRecord, LeaveConfig, EmployeeAllowance } from '../../types/leave';
 import { reviewLeaveRequest, adminOverrideLeave, updateLeaveConfig, updateEmployeeAllowance, calculateLeaveBalance } from '../../services/leave/leaveService';
 import { getStoredLeaves, getStoredLeaveConfig, getStoredEmployeeAllowances } from '../../services/leave/leaveStorage';
@@ -41,10 +44,12 @@ type Registration = {
 };
 
 export const AdminDashboard: React.FC = () => {
-  const { logout } = useAdminAuth();
+  const { logout, role = 'ADMIN', authorizedOffice = 'ALL' } = useAdminAuth();
   const navigate = useNavigate();
+  const { hasFeatureAccess, isSuperAdmin } = usePermission();
   
-  const [activeTab, setActiveTab] = useState<'registrations' | 'attendance' | 'expenses' | 'planner' | 'efficiency' | 'leaves'>('attendance');
+  const [activeTab, setActiveTab] = useState<'registrations' | 'attendance' | 'expenses' | 'planner' | 'efficiency' | 'leaves' | 'reports' | 'rbac'>('attendance');
+
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([]);
@@ -775,6 +780,28 @@ export const AdminDashboard: React.FC = () => {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveTab('reports')}
+              className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+                activeTab === 'reports'
+                  ? 'bg-[#7C3AED] text-white shadow-lg shadow-purple-900/50'
+                  : 'text-purple-300/70 hover:text-white'
+              }`}
+            >
+              Reports & Analytics
+            </button>
+            {isSuperAdmin() && (
+              <button
+                onClick={() => setActiveTab('rbac')}
+                className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 ${
+                  activeTab === 'rbac'
+                    ? 'bg-[#7C3AED] text-white shadow-lg shadow-purple-900/50'
+                    : 'text-purple-300/70 hover:text-white'
+                }`}
+              >
+                Roles & Permissions
+              </button>
+            )}
           </div>
         </div>
 
@@ -786,7 +813,7 @@ export const AdminDashboard: React.FC = () => {
       <main className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8 space-y-6">
         
         {/* Search Bar */}
-        {activeTab !== 'leaves' && (
+        {activeTab !== 'leaves' && activeTab !== 'reports' && (
           <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
             <div className="relative w-full md:w-96">
               <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-purple-300/70" />
@@ -1349,6 +1376,24 @@ export const AdminDashboard: React.FC = () => {
         {/* EFFICIENCY HUB PANEL VIEW */}
         {activeTab === 'efficiency' && (
           <EfficiencyDashboard />
+        )}
+
+        {/* REPORTS & ANALYTICS PANEL VIEW */}
+        {activeTab === 'reports' && (
+          <ReportsAnalyticsTab
+            role={role}
+            authorizedOffice={authorizedOffice}
+            registrations={registrations}
+            attendanceRecords={attendanceRecords}
+            expenseRecords={expenseRecords}
+            tasks={tasks}
+            leaves={leaves}
+          />
+        )}
+
+        {/* RBAC PANEL VIEW */}
+        {activeTab === 'rbac' && (
+          <RBACTab />
         )}
 
         {/* LEAVE MANAGEMENT PANEL VIEW */}

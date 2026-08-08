@@ -1,54 +1,137 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Admin checking functions
+    function isAdmin() {
+      return request.auth != null && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid));
+    }
+    
+    function getAdminRole() {
+      return get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role;
+    }
+    
+    function isSuperAdmin() {
+      return isAdmin() && getAdminRole() == 'SUPER_ADMIN';
+    }
+
+    function isHR() {
+      return isAdmin() && getAdminRole() == 'HR';
+    }
+    
+    function isRegularAdmin() {
+      return isAdmin() && getAdminRole() == 'ADMIN';
+    }
+
+    // Since employees might use Anonymous auth (their UID is the registration ID)
+    function isEmployee(employeeCode) {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/registrations/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/registrations/$(request.auth.uid)).data.employeeCode == employeeCode;
+    }
+
+    // Check if the current user is a Team Leader
+    function isTeamLeader() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/registrations/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/registrations/$(request.auth.uid)).data.isTeamLeader == true;
+    }
+
+    // Role-based Access Control configuration from the 'roles' collection
+    function hasFeatureAccess(role, feature) {
+      return exists(/databases/$(database)/documents/roles/$(role)) && 
+             get(/databases/$(database)/documents/roles/$(role)).data.permissions[feature] == true;
+    }
+
     match /metadata/counters {
       allow read, write: if true;
     }
-    match /registrations/{registrationId} {
-      allow read, write: if true;
-    }
-    match /attendance/{attendanceId} {
-      allow read, write: if true;
-    }
-    match /expenses/{expenseId} {
-      allow read, write: if true;
-    }
-    match /tasks/{taskId} {
-      allow read, write: if true;
-    }
-    match /system_settings/{settingsId} {
-      allow read, write: if true;
-    }
-    match /efficiency_snapshots/{snapshotId} {
-      allow read, write: if true;
-    }
     
+    match /roles/{roleId} {
+      allow read: if request.auth != null;
+      allow write: if isSuperAdmin();
+    }
+
+    match /admin_users/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
+
+    match /registrations/{registrationId} {
+      // Allow creation for new devices
+      allow create: if true;
+      // Admins can read all, owner can read their own
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == registrationId);
+      // Only Super Admin or HR can approve/update status, or owner for certain fields
+      allow update: if isSuperAdmin() || isHR() || isRegularAdmin() || 
+                    (request.auth != null && request.auth.uid == registrationId && request.resource.data.status == resource.data.status);
+      allow delete: if isSuperAdmin();
+    }
+
+    match /attendance/{attendanceId} {
+      // Admins and HR can read all. Users can read their own.
+      allow read: if isAdmin() || (request.auth != null && resource.data.employeeCode != null && isEmployee(resource.data.employeeCode));
+      // Anyone can create (to support clock in/out offline sync) but they must set their own employeeCode
+      allow create: if request.auth != null && isEmployee(request.resource.data.employeeCode);
+      // Employees can update their own. Admins can update all.
+      allow update: if isAdmin() || (request.auth != null && isEmployee(resource.data.employeeCode));
+      allow delete: if isSuperAdmin();
+    }
+
+    match /expenses/{expenseId} {
+      allow read: if isAdmin() || (request.auth != null && isEmployee(resource.data.employeeCode));
+      allow create: if request.auth != null && isEmployee(request.resource.data.employeeCode);
+      // Allow update if status is pending and it's their own, or if Admin
+      allow update: if isAdmin() || (request.auth != null && isEmployee(resource.data.employeeCode) && resource.data.status == 'PENDING');
+      allow delete: if isSuperAdmin();
+    }
+
+    match /tasks/{taskId} {
+      // Team planners/tasks
+      allow read: if isAdmin() || request.auth != null;
+      allow create: if isAdmin() || isTeamLeader();
+      allow update: if isAdmin() || isTeamLeader() || (request.auth != null && isEmployee(resource.data.assigneeCode));
+      allow delete: if isSuperAdmin() || isTeamLeader();
+    }
+
+    match /system_settings/{settingsId} {
+      allow read: if request.auth != null;
+      allow write: if isSuperAdmin();
+    }
+
+    match /efficiency_snapshots/{snapshotId} {
+      allow read: if isAdmin() || (request.auth != null && isEmployee(resource.data.employeeCode));
+      allow create: if request.auth != null && isEmployee(request.resource.data.employeeCode);
+      allow update, delete: if isSuperAdmin();
+    }
+        
     match /notifications/{notificationId} {
-      // Create is allowed if the notification shape is valid
-      allow create: if request.resource.data.id != null &&
-                      request.resource.data.recipientEmployeeCode != null;
+      allow create: if request.auth != null && request.resource.data.id != null;
+      allow read: if isAdmin() || 
+                  (resource.data.recipientEmployeeCode == 'SYSTEM') || 
+                  (resource.data.recipientRole == 'SYSTEM') || 
+                  (request.auth != null && isEmployee(resource.data.recipientEmployeeCode));
+      allow update: if request.auth != null && isEmployee(resource.data.recipientEmployeeCode) && 
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'updatedAtDeviceTime', 'syncStatus', 'serverSyncTime']);
+      allow delete: if isSuperAdmin();
+    }
 
-      // Read is allowed for:
-      // 1. Authenticated Admins/Super Admins
-      // 2. System-wide notifications
-      // 3. Employees/TLs reading their own scoped notifications (enforced via query parameters)
-      allow read: if (request.auth != null) ||
-                  (resource.data.recipientEmployeeCode == 'SYSTEM') ||
-                  (resource.data.recipientRole == 'SYSTEM') ||
-                  (resource.data.recipientEmployeeCode != null);
+    match /leave_config/{configId} {
+      allow read: if request.auth != null;
+      allow write: if isSuperAdmin() || isHR();
+    }
 
-      // Only the recipient (or admin) can update. In practice, updates are only for marking as read.
-      // We strictly block modifying recipient fields after creation to prevent identity spoofing.
-      allow update: if (
-        request.resource.data.recipientUserId == resource.data.recipientUserId &&
-        request.resource.data.recipientEmployeeCode == resource.data.recipientEmployeeCode &&
-        request.resource.data.recipientRole == resource.data.recipientRole &&
-        request.resource.data.recipientTeamLeaderId == resource.data.recipientTeamLeaderId &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'updatedAtDeviceTime', 'syncStatus', 'serverSyncTime'])
-      );
+    match /employee_allowances/{allowanceId} {
+      allow read: if isAdmin() || (request.auth != null && isEmployee(resource.data.employeeCode));
+      allow write: if isSuperAdmin() || isHR();
+    }
 
-      // Delete is allowed for administrators or the specific user
-      allow delete: if (request.auth != null);
+    match /leaves/{leaveId} {
+      allow read: if isAdmin() || (request.auth != null && isEmployee(resource.data.employeeCode));
+      allow create: if request.auth != null && isEmployee(request.resource.data.employeeCode);
+      allow update: if isSuperAdmin() || isHR() || isRegularAdmin() || 
+                    (request.auth != null && isEmployee(resource.data.employeeCode) && resource.data.status == 'PENDING');
+      allow delete: if isSuperAdmin();
     }
   }
 }

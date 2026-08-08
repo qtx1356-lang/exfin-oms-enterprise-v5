@@ -3,16 +3,17 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { Layout } from '../components/layout/Layout';
 import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
-import { BoxSelect } from 'lucide-react';
+import { BoxSelect, ShieldAlert } from 'lucide-react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { AdminLogin } from '../features/admin/AdminLogin';
 import { AdminDashboard } from '../features/admin/AdminDashboard';
 import { useRegistration } from '../context/RegistrationContext';
+import { usePermission } from '../context/PermissionContext';
+import { FeatureKey } from '../types/roles';
 import { DeviceRegistration } from '../features/registration/DeviceRegistration';
 import { PendingApproval } from '../features/registration/PendingApproval';
 import { RejectedScreen } from '../features/registration/RejectedScreen';
 import { LoadingScreen } from '../components/ui/LoadingScreen';
-
 import { EmployeeDashboard } from '../features/employee/EmployeeDashboard';
 import { AttendanceScreen } from '../features/attendance/AttendanceScreen';
 import { ExpenseScreen } from '../features/expenses/ExpenseScreen';
@@ -49,6 +50,31 @@ const EmployeeGuard = () => {
   return <Outlet />;
 };
 
+const FeatureGuard: React.FC<{ feature: FeatureKey; children: React.ReactNode }> = ({ feature, children }) => {
+  const { hasFeatureAccess, loading } = usePermission();
+  
+  if (loading) return <LoadingScreen />;
+  
+  if (!hasFeatureAccess(feature)) {
+    return (
+      <div className="py-6 h-[calc(100vh-120px)]">
+        <Card className="h-full p-6 flex flex-col bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px]">
+          <h1 className="text-xl font-black text-white mb-6">Access Denied</h1>
+          <div className="flex-1">
+            <EmptyState 
+              icon={ShieldAlert}
+              title="Feature not available for your role"
+              description="You do not have permission to access this module."
+            />
+          </div>
+        </Card>
+      </div>
+    );
+  }
+  
+  return <>{children}</>;
+};
+
 const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
   <div className="py-6 h-[calc(100vh-120px)]">
     <Card className="h-full p-6 flex flex-col bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px]">
@@ -81,13 +107,13 @@ export const AppRouter: React.FC = () => {
         <Route element={<EmployeeGuard />}>
           <Route path="/" element={<Layout />}>
             <Route index element={<EmployeeDashboard />} />
-            <Route path="attendance" element={<AttendanceScreen />} />
-            <Route path="leave" element={<LeaveScreen />} />
-            <Route path="expenses" element={<ExpenseScreen />} />
-            <Route path="planner" element={<PlannerScreen />} />
-            <Route path="my-team" element={<MyTeamScreen />} />
-            <Route path="efficiency" element={<EfficiencyDashboard />} />
-            <Route path="notifications" element={<NotificationCenter />} />
+            <Route path="attendance" element={<FeatureGuard feature="attendance"><AttendanceScreen /></FeatureGuard>} />
+            <Route path="leave" element={<FeatureGuard feature="leave"><LeaveScreen /></FeatureGuard>} />
+            <Route path="expenses" element={<FeatureGuard feature="expenses"><ExpenseScreen /></FeatureGuard>} />
+            <Route path="planner" element={<FeatureGuard feature="workPlanner"><PlannerScreen /></FeatureGuard>} />
+            <Route path="my-team" element={<FeatureGuard feature="myTeam"><MyTeamScreen /></FeatureGuard>} />
+            <Route path="efficiency" element={<FeatureGuard feature="employeeEfficiency"><EfficiencyDashboard /></FeatureGuard>} />
+            <Route path="notifications" element={<FeatureGuard feature="notifications"><NotificationCenter /></FeatureGuard>} />
             <Route path="profile" element={<PlaceholderPage title="Profile" />} />
           </Route>
         </Route>
@@ -98,3 +124,4 @@ export const AppRouter: React.FC = () => {
     </BrowserRouter>
   );
 };
+
