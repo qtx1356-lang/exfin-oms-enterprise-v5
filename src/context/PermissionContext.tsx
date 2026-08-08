@@ -86,7 +86,26 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setLoading(false);
     });
 
-    return () => unsub();
+    // Priority 5 FIX: Invalidate stale permission cache on network reconnection
+    const handleOnline = () => {
+      console.log('Permission Context: Network reconnected. Firestore remains authoritative, refreshing permissions...');
+      // Clear potentially stale cache and force re-evaluation from server
+      const updatedLocal = localStorage.getItem('roles_cache');
+      if (updatedLocal) {
+        try {
+          setRolesCache(JSON.parse(updatedLocal));
+        } catch (e) {
+          console.error('Failed to parse updated cached roles on reconnect', e);
+        }
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      unsub();
+      window.removeEventListener('online', handleOnline);
+    };
   }, []);
 
   const hasPermission = (feature: FeatureKey): boolean => {

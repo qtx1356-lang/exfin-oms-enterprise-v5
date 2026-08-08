@@ -36,28 +36,20 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             setRole(data.role as AppRole || 'ADMIN');
             setAuthorizedOffice(data.authorizedOffice || 'ALL');
           } else {
-            // Fallback for initial setup
-            const email = u.email || '';
-            if (email.toLowerCase() === 'superadmin@exfin.com') {
-              setRole('SUPER_ADMIN');
-              setAuthorizedOffice('ALL');
-            } else if (email) {
-              setRole('ADMIN');
-              setAuthorizedOffice('ALL');
-            } else {
-              // Anonymous or non-admin user
-              setUser(null);
-            }
+            // Unrecognized user. Ensure no fallback permissions are granted.
+            setUser(null);
+            setRole('EMPLOYEE');
+            setAuthorizedOffice('');
           }
         } catch (err) {
           console.error("Error fetching admin role", err);
-          // Fallback
-          setRole('ADMIN');
-          setAuthorizedOffice('ALL');
+          setUser(null);
+          setRole('EMPLOYEE');
+          setAuthorizedOffice('');
         }
       } else {
-        setRole('ADMIN');
-        setAuthorizedOffice('ALL');
+        setRole('EMPLOYEE');
+        setAuthorizedOffice('');
       }
       setLoading(false);
     });

@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { AttendanceRecord } from '../../types/attendance';
 import {
@@ -6,6 +6,7 @@ import {
   markRecordSyncedInLocal,
   saveAttendanceRecord
 } from './attendanceStorage';
+import { recordSyncFailure, recordSyncSuccess } from '../sync/syncQueueService';
 
 export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: number; errorsCount: number }> => {
   if (!navigator.onLine) {
@@ -34,20 +35,19 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
       const docRef = doc(db, 'attendance', documentKey);
       
       const docSnap = await getDoc(docRef);
-      const serverSyncTime = new Date().toISOString();
+      const localServerSyncTime = new Date().toISOString();
 
       if (!docSnap.exists()) {
-        const firestorePayload: AttendanceRecord = {
+        const firestorePayload: any = {
           ...record,
           docId: documentKey,
           syncStatus: 'Synced',
-          serverSyncTime: serverSyncTime,
+          serverSyncTime: serverTimestamp(),
           // CRITICAL: Preserve original device creation time and attendance event timestamps
           createdAtDeviceTime: record.createdAtDeviceTime,
           checkInTime: record.checkInTime,
           checkOutTime: record.checkOutTime
         };
-
         await setDoc(docRef, firestorePayload);
         console.log(`Sync Engine: Successfully synced record docId ${documentKey} (UUID: ${record.id})`);
       } else {
@@ -64,7 +64,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
             reason: record.reason || existingData.reason,
             reminderCount: Math.max(record.reminderCount || 0, existingData.reminderCount || 0),
             syncStatus: 'Synced',
-            serverSyncTime: serverSyncTime
+            serverSyncTime: serverTimestamp()
           }, { merge: true });
           console.log(`Sync Engine: Updated checkout for synced docId ${documentKey}`);
         } else {
@@ -72,10 +72,12 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
         }
       }
 
-      markRecordSyncedInLocal(record.id, serverSyncTime);
+      recordSyncSuccess('Attendance', record.id);
+      markRecordSyncedInLocal(record.id, localServerSyncTime);
       syncedCount++;
-    } catch (err) {
+    } catch (err: any) {
       console.error(`Sync Engine: Error syncing record UUID ${record.id}:`, err);
+      recordSyncFailure('Attendance', record.id, err?.message || 'Attendance sync failed', `Attendance for ${record.date}`);
       errorsCount++;
     }
   }

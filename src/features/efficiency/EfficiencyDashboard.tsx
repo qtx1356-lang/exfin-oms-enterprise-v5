@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, limit, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
@@ -165,8 +165,21 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       console.warn('Registrations subscription error:', err);
     });
 
+    // Priority 7 FIX: Use bounded queries for tasks and attendance to prevent scaling bottleneck
+    const prevStartDateStr = prevStartDate;
+
+    const tasksQuery = query(
+      collection(db, 'tasks'),
+      limit(500)
+    );
+
+    const attQuery = query(
+      collection(db, 'attendance'),
+      limit(500)
+    );
+
     // Subscribe to tasks
-    const unsubTasks = onSnapshot(collection(db, 'tasks'), (snap) => {
+    const unsubTasks = onSnapshot(tasksQuery, (snap) => {
       const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as TaskRecord[];
       setTasks(list);
     }, (err) => {
@@ -174,7 +187,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
     });
 
     // Subscribe to attendance
-    const unsubAtt = onSnapshot(collection(db, 'attendance'), (snap) => {
+    const unsubAtt = onSnapshot(attQuery, (snap) => {
       const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AttendanceRecord[];
       setAttendance(list);
       setLoading(false);

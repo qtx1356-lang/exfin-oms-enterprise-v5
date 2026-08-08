@@ -31,6 +31,11 @@ export interface ExpenseRecord {
   date: string;
   description: string;
   receiptUrl?: string | null;
+  localReceiptData?: string | null;
+  storagePath?: string | null;
+  receiptFileName?: string | null;
+  receiptContentType?: string | null;
+  receiptSize?: number | null;
   status: ExpenseStatus;
   rejectionReason?: string | null;
   syncStatus: ExpenseSyncStatus;

@@ -3,7 +3,8 @@ import {
   collection, 
   query, 
   onSnapshot, 
-  orderBy 
+  orderBy,
+  where
 } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { useRegistration } from '../../context/RegistrationContext';
@@ -114,6 +115,7 @@ export const PlannerScreen: React.FC = () => {
 
     const q = query(
       collection(db, 'tasks'),
+      where('assignedToEmployeeCodes', 'array-contains', employeeData?.employeeCode || ''),
       orderBy('createdAtDeviceTime', 'desc')
     );
 
@@ -126,7 +128,7 @@ export const PlannerScreen: React.FC = () => {
         });
 
         // Filter assigned for this employee/department
-        const assignedFromFirestore = firestoreList.filter(isAssigned);
+        const assignedFromFirestore = firestoreList;
 
         // Save to local cache
         saveMultipleTaskRecords(assignedFromFirestore);

@@ -252,7 +252,11 @@ export const ExpenseScreen: React.FC = () => {
         category,
         date,
         description: description.trim(),
-        receiptUrl: receiptUrl || null,
+        receiptUrl: null, // Don't put Base64 in receiptUrl (saved for Storage download URL)
+        localReceiptData: receiptUrl || null, // Keep Base64 locally for preview & pending upload
+        receiptFileName: receiptUrl ? `receipt_${expenseId}.jpg` : null,
+        receiptContentType: receiptUrl ? 'image/jpeg' : null,
+        receiptSize: receiptUrl ? Math.round(receiptUrl.length * 0.75) : null,
         status: 'Pending',
         rejectionReason: null,
         syncStatus: 'Pending Sync',
@@ -465,10 +469,10 @@ export const ExpenseScreen: React.FC = () => {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-extrabold text-sm text-white">{expense.category}</span>
-                        {expense.receiptUrl && (
+                        {(expense.receiptUrl || expense.localReceiptData) && (
                           <button
                             onClick={() => {
-                              setPreviewReceipt(expense.receiptUrl!);
+                              setPreviewReceipt((expense.receiptUrl || expense.localReceiptData)!);
                               setZoomScale(1);
                             }}
                             className="p-1 rounded-md bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors"

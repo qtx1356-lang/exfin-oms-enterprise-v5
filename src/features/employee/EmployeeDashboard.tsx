@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { useRegistration } from '../../context/RegistrationContext';
 import { Card } from '../../components/ui/Card';
@@ -95,6 +95,7 @@ export const EmployeeDashboard: React.FC = () => {
     // Fetch notifications
     const notificationsQ = query(
       collection(db, 'notifications'),
+      where('recipientEmployeeCode', '==', employeeData?.employeeCode || ''),
       orderBy('timestamp', 'desc'),
       limit(3)
     );

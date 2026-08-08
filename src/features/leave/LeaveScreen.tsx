@@ -97,8 +97,12 @@ export const LeaveScreen: React.FC = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Start auto sync engine
-    const cleanupSync = startLeaveAutoSyncEngine();
+    // Start auto sync engine with scoped options
+    const cleanupSync = startLeaveAutoSyncEngine({
+      employeeCode: empCode,
+      department: empDept,
+      isTeamLeader: employeeData?.isTeamLeader,
+    });
 
     return () => {
       window.removeEventListener('online', handleOnline);

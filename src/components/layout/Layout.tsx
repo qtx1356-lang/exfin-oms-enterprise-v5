@@ -4,6 +4,7 @@ import { BottomNav } from './BottomNav';
 import { Bell, ChevronRight, CheckCheck, Info } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { GlobalSyncStatus } from '../common/GlobalSyncStatus';
 import {
   getUnreadNotificationCount,
   getNotificationsForUser,
@@ -131,9 +132,12 @@ export const Layout: React.FC = () => {
       {/* Dynamic Header Bar with Notification Bell */}
       <header className="sticky top-0 z-30 bg-[#1D113B]/80 backdrop-blur-md border-b border-purple-500/10">
         <div className="container mx-auto px-4 py-3.5 max-w-3xl flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-            <span className="text-xs font-black tracking-widest text-white bg-purple-600 px-2.5 py-1 rounded-xl shadow-md">EXFIN</span>
-            <span className="text-xs font-black text-purple-300">OMS</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
+              <span className="text-xs font-black tracking-widest text-white bg-purple-600 px-2.5 py-1 rounded-xl shadow-md">EXFIN</span>
+              <span className="text-xs font-black text-purple-300">OMS</span>
+            </div>
+            <GlobalSyncStatus />
           </div>
 
           {currentUser && (

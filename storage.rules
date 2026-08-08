@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /profile_photos/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /expense_receipts/{userId}/{fileName} {
+      // Due to Firebase Storage rules inability to query Firestore without custom claims,
+      // we allow any authenticated user to read receipts, but only the owner to write them.
+      // A more robust solution requires a Cloud Function to sync roles to custom claims.
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

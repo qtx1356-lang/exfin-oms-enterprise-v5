@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, collection, onSnapshot, query } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, onSnapshot, query, where, limit } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { LeaveRecord, LeaveConfig, EmployeeAllowance } from '../../types/leave';
 import {
@@ -9,6 +9,14 @@ import {
   saveLeaveConfig,
   saveEmployeeAllowances,
 } from './leaveStorage';
+import { recordSyncFailure, recordSyncSuccess } from '../sync/syncQueueService';
+
+export interface LeaveSyncScopeOptions {
+  employeeCode?: string;
+  department?: string;
+  isTeamLeader?: boolean;
+  isAdminOrHR?: boolean;
+}
 
 export const syncPendingLeaves = async (): Promise<{ syncedCount: number; errorsCount: number }> => {
   if (!navigator.onLine) {
@@ -63,10 +71,12 @@ export const syncPendingLeaves = async (): Promise<{ syncedCount: number; errors
         console.log(`Leave Sync Engine: Updated synced leave ID ${leave.id}`);
       }
 
+      recordSyncSuccess('Leave', leave.id);
       markLeaveSynced(leave.id, serverSyncTime);
       syncedCount++;
-    } catch (err) {
+    } catch (err: any) {
       console.error(`Leave Sync Engine: Error syncing leave ID ${leave.id}:`, err);
+      recordSyncFailure('Leave', leave.id, err?.message || 'Leave sync failed', `Leave ${leave.startDate} to ${leave.endDate}`);
       markLeaveSyncFailed(leave.id);
       errorsCount++;
     }
@@ -75,12 +85,23 @@ export const syncPendingLeaves = async (): Promise<{ syncedCount: number; errors
   return { syncedCount, errorsCount };
 };
 
-// Start real-time sync listeners for leaves and settings
-export const startLeaveSyncListeners = (): (() => void) => {
+// Start real-time sync listeners for leaves and settings with scoped queries
+export const startLeaveSyncListeners = (options?: LeaveSyncScopeOptions): (() => void) => {
   if (!db) return () => {};
 
-  // 1. Listen to all leaves to keep local cache updated
-  const leavesQ = query(collection(db, 'leaves'));
+  // Priority 2 FIX: Remove unbounded leaves collection listener. Use scoped query.
+  let leavesQ;
+  if (options?.isAdminOrHR) {
+    leavesQ = query(collection(db, 'leaves'), limit(300));
+  } else if (options?.isTeamLeader && options?.department) {
+    leavesQ = query(collection(db, 'leaves'), where('office', '==', options.department));
+  } else if (options?.employeeCode) {
+    leavesQ = query(collection(db, 'leaves'), where('employeeCode', '==', options.employeeCode));
+  } else {
+    // If no specific options provided, query bounded by current employee if known, or avoid unbounded fetch
+    leavesQ = query(collection(db, 'leaves'), limit(50));
+  }
+
   const unsubLeaves = onSnapshot(
     leavesQ,
     (snapshot) => {
@@ -108,9 +129,16 @@ export const startLeaveSyncListeners = (): (() => void) => {
     }
   );
 
-  // 3. Listen to employee-specific allowances
+  // 3. Listen to employee-specific allowances (scoped if employeeCode present)
+  let allowancesQ;
+  if (options?.employeeCode && !options.isAdminOrHR) {
+    allowancesQ = query(collection(db, 'leave_balances'), where('employeeCode', '==', options.employeeCode));
+  } else {
+    allowancesQ = query(collection(db, 'leave_balances'), limit(100));
+  }
+
   const unsubAllowances = onSnapshot(
-    collection(db, 'leave_balances'),
+    allowancesQ,
     (snapshot) => {
       const serverAllowances: EmployeeAllowance[] = [];
       snapshot.forEach((docSnap) => {
@@ -130,7 +158,7 @@ export const startLeaveSyncListeners = (): (() => void) => {
   };
 };
 
-export const startLeaveAutoSyncEngine = (intervalMs = 15000): (() => void) => {
+export const startLeaveAutoSyncEngine = (options?: LeaveSyncScopeOptions, intervalMs = 15000): (() => void) => {
   const handleOnline = () => {
     console.log('Leave Sync Engine: Connectivity restored. Syncing pending leaves...');
     syncPendingLeaves();
@@ -148,7 +176,7 @@ export const startLeaveAutoSyncEngine = (intervalMs = 15000): (() => void) => {
     syncPendingLeaves();
   }
 
-  const unsubListeners = startLeaveSyncListeners();
+  const unsubListeners = startLeaveSyncListeners(options);
 
   return () => {
     window.removeEventListener('online', handleOnline);

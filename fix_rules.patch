@@ -1,0 +1,13 @@
+--- firestore.rules
++++ firestore.rules
+@@ -140,6 +140,11 @@
+                      request.resource.data.currentApproverId == resource.data.currentApproverId);
+       allow delete: if isSuperAdmin();
+     }
++
++    match /announcements/{announcementId} {
++      allow read: if request.auth != null;
++      allow write: if isSuperAdmin() || isHR() || isRegularAdmin();
++    }
+   }
+ }

@@ -48,6 +48,17 @@ export interface TaskRecord {
   dueDate: string; // ISO string or YYYY-MM-DD
   dueTime?: string; // e.g. "17:00"
   
+  // Revision & Conflict Tracking (Priority 3)
+  revision?: number;
+  lastModifiedAt?: string;
+  lastModifiedBy?: string;
+  hasConflict?: boolean;
+  conflictDetails?: {
+    serverVersion: Partial<TaskRecord>;
+    localVersion: Partial<TaskRecord>;
+    conflictTime: string;
+  } | null;
+
   // Timestamps for audit & efficiency analysis
   createdAtDeviceTime: string;
   updatedAtDeviceTime: string;
