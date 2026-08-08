@@ -22,6 +22,7 @@ import {
   UploadCloud,
   ChevronRight,
   Send,
+  Info,
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -34,6 +35,8 @@ import {
 } from '../../services/profile/profileService';
 import { db } from '../../services/firebase/config';
 import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
+
+import { APP_VERSION, SERVICE_WORKER_VERSION } from '../../config/version';
 
 export const ProfileScreen: React.FC = () => {
   const { employeeData, authUser } = useRegistration();
@@ -506,6 +509,22 @@ export const ProfileScreen: React.FC = () => {
           </div>
         </Card>
       )}
+
+      {/* System & Application Info */}
+      <Card className="p-4 bg-[#2D1B5A]/60 border border-purple-500/15 text-white rounded-[22px] flex flex-wrap items-center justify-between gap-3 shadow-md">
+        <div className="flex items-center gap-2">
+          <Info className="w-4 h-4 text-purple-400" />
+          <span className="text-xs font-bold text-purple-200">EXFIN OMS ENTERPRISE</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            App Version: {APP_VERSION}
+          </span>
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            SW Cache: {SERVICE_WORKER_VERSION}
+          </span>
+        </div>
+      </Card>
 
       {/* Profile Edit Modal */}
       <Dialog

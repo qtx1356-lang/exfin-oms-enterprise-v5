@@ -79,3 +79,5 @@ export const removeNotificationLocally = (id: string): void => {
     console.error('Failed to remove notification locally:', err);
   }
 };
+
+export const removePendingNotification = removeNotificationLocally;

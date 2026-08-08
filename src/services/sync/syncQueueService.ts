@@ -1,4 +1,6 @@
-export type SyncModule = 'Attendance' | 'Expenses' | 'WorkPlanner' | 'Leave';
+import { SyncModule } from '../../types/sync';
+
+export type { SyncModule };
 
 export interface DeadLetterItem {
   id: string;
@@ -10,6 +12,7 @@ export interface DeadLetterItem {
   nextRetryAt: string;
   status: 'pending' | 'syncing' | 'failed' | 'resolved';
   payloadSummary?: string;
+  createdAtDeviceTime?: string;
 }
 
 const STORAGE_KEY = 'exfin_dead_letter_queue_v1';
@@ -94,6 +97,12 @@ export const retryDeadLetterItem = (id: string): void => {
     item.nextRetryAt = new Date().toISOString();
     saveDeadLetterQueue(queue);
   }
+};
+
+export const removeDeadLetterItem = (id: string): void => {
+  const queue = getDeadLetterQueue();
+  const filtered = queue.filter((i) => i.id !== id);
+  saveDeadLetterQueue(filtered);
 };
 
 export const clearDeadLetterQueue = (): void => {

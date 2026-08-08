@@ -84,3 +84,13 @@ export const markTaskSyncFailedInLocal = (id: string): void => {
     console.error('Failed to mark task sync failed locally:', err);
   }
 };
+
+export const removePendingTask = (id: string): void => {
+  try {
+    const tasks = getStoredTasks();
+    const filtered = tasks.filter((t) => t.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  } catch (err) {
+    console.error('Failed to remove pending task:', err);
+  }
+};

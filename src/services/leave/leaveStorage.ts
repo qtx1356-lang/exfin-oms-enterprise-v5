@@ -85,6 +85,16 @@ export const markLeaveSyncFailed = (id: string): void => {
   }
 };
 
+export const removePendingLeave = (id: string): void => {
+  try {
+    const leaves = getStoredLeaves();
+    const filtered = leaves.filter((l) => l.id !== id);
+    localStorage.setItem(LEAVES_STORAGE_KEY, JSON.stringify(filtered));
+  } catch (err) {
+    console.error('Failed to remove pending leave:', err);
+  }
+};
+
 // Leave configurations caching
 export const getStoredLeaveConfig = (): LeaveConfig => {
   try {

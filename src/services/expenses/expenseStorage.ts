@@ -58,3 +58,13 @@ export const markExpenseSyncFailedInLocal = (id: string): void => {
     console.error('Failed to mark expense sync failed locally:', err);
   }
 };
+
+export const removePendingExpenseRecord = (id: string): void => {
+  try {
+    const records = getStoredExpenseRecords();
+    const filtered = records.filter((r) => r.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  } catch (err) {
+    console.error('Failed to remove pending expense record:', err);
+  }
+};

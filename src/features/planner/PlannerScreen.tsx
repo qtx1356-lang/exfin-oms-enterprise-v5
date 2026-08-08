@@ -133,13 +133,33 @@ export const PlannerScreen: React.FC = () => {
         // Save to local cache
         saveMultipleTaskRecords(assignedFromFirestore);
 
-        // Merge local pending items with Firestore items
+        // Merge local pending items with Firestore items & detect conflicts
         const mergedMap = new Map<string, TaskRecord>();
         assignedFromFirestore.forEach((t) => mergedMap.set(t.id, t));
 
-        localAssigned.forEach((t) => {
-          if (!mergedMap.has(t.id) || t.syncStatus === 'Pending Sync') {
-            mergedMap.set(t.id, t);
+        localAssigned.forEach((localTask) => {
+          const serverTask = mergedMap.get(localTask.id);
+          if (!serverTask) {
+            mergedMap.set(localTask.id, localTask);
+          } else if (localTask.syncStatus === 'Pending Sync') {
+            // Check if conflict exists between local pending edit and server version
+            const timesDiffer = localTask.updatedAtDeviceTime !== serverTask.updatedAtDeviceTime;
+            const contentDiffers = localTask.completionPercentage !== serverTask.completionPercentage || localTask.status !== serverTask.status;
+
+            if (timesDiffer && contentDiffers) {
+              const conflictedTask: TaskRecord = {
+                ...localTask,
+                hasConflict: true,
+                conflictDetails: {
+                  localVersion: localTask,
+                  serverVersion: serverTask,
+                  conflictTime: new Date().toISOString(),
+                },
+              };
+              mergedMap.set(localTask.id, conflictedTask);
+            } else {
+              mergedMap.set(localTask.id, localTask);
+            }
           }
         });
 
@@ -266,6 +286,50 @@ export const PlannerScreen: React.FC = () => {
 
     if (navigator.onLine) {
       syncPendingTasks();
+    }
+  };
+
+  // Conflict Resolution Handler
+  const handleResolveConflict = async (choice: 'LOCAL' | 'SERVER') => {
+    if (!selectedTask || !selectedTask.conflictDetails) return;
+    setIsUpdating(true);
+
+    try {
+      const nowIso = new Date().toISOString();
+      let resolvedTask: TaskRecord;
+
+      if (choice === 'LOCAL') {
+        resolvedTask = {
+          ...selectedTask,
+          hasConflict: false,
+          conflictDetails: null,
+          updatedAtDeviceTime: nowIso,
+          syncStatus: 'Pending Sync',
+        };
+      } else {
+        const serverVer = selectedTask.conflictDetails.serverVersion;
+        resolvedTask = {
+          ...selectedTask,
+          ...serverVer,
+          hasConflict: false,
+          conflictDetails: null,
+          updatedAtDeviceTime: nowIso,
+          syncStatus: 'Synced',
+        };
+      }
+
+      saveTaskRecord(resolvedTask);
+      setSelectedTask(null);
+
+      if (navigator.onLine && choice === 'LOCAL') {
+        await syncPendingTasks();
+      }
+
+      loadAndMergeTasks();
+    } catch (err) {
+      console.error('Error resolving task conflict:', err);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -591,6 +655,66 @@ export const PlannerScreen: React.FC = () => {
       >
         {selectedTask && (
           <div className="space-y-4 text-xs">
+            {/* Conflict Resolution Banner */}
+            {selectedTask.conflictDetails && (
+              <div className="p-4 bg-amber-950/40 border-2 border-amber-500/50 rounded-2xl space-y-3">
+                <div className="flex items-center gap-2 text-amber-300 font-black text-xs uppercase tracking-wider">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                  Conflict Detected (Server vs Local Edits)
+                </div>
+                <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                  This task was modified offline on this device while a different update was recorded on the server. Compare versions below and select which state to preserve:
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
+                  {/* Local Version */}
+                  <div className="p-3 bg-[#211044] border border-amber-500/30 rounded-xl space-y-1">
+                    <span className="font-extrabold text-amber-300 uppercase block">Local Version</span>
+                    <p className="text-purple-200">
+                      <strong>Progress:</strong> {selectedTask.conflictDetails.localVersion.completionPercentage || 0}%
+                    </p>
+                    <p className="text-purple-200">
+                      <strong>Status:</strong> {selectedTask.conflictDetails.localVersion.status}
+                    </p>
+                    <p className="text-[10px] text-purple-300/60 font-mono">
+                      Modified: {new Date(selectedTask.conflictDetails.localVersion.updatedAtDeviceTime || '').toLocaleTimeString()}
+                    </p>
+                  </div>
+
+                  {/* Server Version */}
+                  <div className="p-3 bg-[#211044] border border-amber-500/30 rounded-xl space-y-1">
+                    <span className="font-extrabold text-blue-300 uppercase block">Server Version</span>
+                    <p className="text-purple-200">
+                      <strong>Progress:</strong> {selectedTask.conflictDetails.serverVersion.completionPercentage || 0}%
+                    </p>
+                    <p className="text-purple-200">
+                      <strong>Status:</strong> {selectedTask.conflictDetails.serverVersion.status}
+                    </p>
+                    <p className="text-[10px] text-purple-300/60 font-mono">
+                      Modified: {new Date(selectedTask.conflictDetails.serverVersion.updatedAtDeviceTime || '').toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    onClick={() => handleResolveConflict('LOCAL')}
+                    disabled={isUpdating}
+                    className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs"
+                  >
+                    Keep Local Version
+                  </Button>
+                  <Button
+                    onClick={() => handleResolveConflict('SERVER')}
+                    disabled={isUpdating}
+                    className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs"
+                  >
+                    Keep Server Version
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Task Header info */}
             <div className="p-3 bg-[#211044] rounded-2xl border border-purple-500/30 space-y-2">
               <div className="flex justify-between items-start gap-2">

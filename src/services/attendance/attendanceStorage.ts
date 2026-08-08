@@ -57,3 +57,13 @@ export const markRecordSyncedInLocal = (id: string, serverSyncTime: string): voi
     console.error('Failed to mark record synced locally:', err);
   }
 };
+
+export const removePendingAttendanceRecord = (id: string): void => {
+  try {
+    const records = getStoredAttendanceRecords();
+    const filtered = records.filter((r) => r.id !== id && r.docId !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+  } catch (err) {
+    console.error('Failed to remove pending attendance record:', err);
+  }
+};

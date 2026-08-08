@@ -3,7 +3,9 @@ import { syncPendingExpenseRecords } from '../expenses/expenseSyncEngine';
 import { syncPendingTasks } from '../planner/taskSyncEngine';
 import { syncPendingLeaves } from '../leave/leaveSyncEngine';
 import { syncPendingProfileChanges } from '../profile/profileService';
+import { syncPendingNotifications } from '../notification/notificationService';
 import { getDeadLetterQueue, retryDeadLetterItem } from './syncQueueService';
+import { setLastSyncTime } from './syncFailureService';
 
 export const syncAllPendingRecords = async (): Promise<{
   totalSynced: number;
@@ -62,6 +64,16 @@ export const syncAllPendingRecords = async (): Promise<{
     totalErrors += profileRes.errorsCount;
   } catch (e) {
     console.error('Global Sync: Error syncing profile changes:', e);
+  }
+
+  try {
+    await syncPendingNotifications();
+  } catch (e) {
+    console.error('Global Sync: Error syncing notifications:', e);
+  }
+
+  if (totalSynced > 0) {
+    setLastSyncTime();
   }
 
   return { totalSynced, totalErrors };
