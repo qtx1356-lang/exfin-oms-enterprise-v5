@@ -56,6 +56,9 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Sync roles from Firestore
   useEffect(() => {
+    let isMounted = true;
+    let timerId: NodeJS.Timeout | null = null;
+
     if (!db) {
       setLoading(false);
       return;
@@ -71,8 +74,20 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
     }
 
+    // Bounded initialization wait: 5000 ms
+    timerId = setTimeout(() => {
+      if (!isMounted) return;
+      console.log('Permission initialization timed out');
+      setLoading(false);
+    }, 5000);
+
     const q = query(collection(db, 'roles'));
     const unsub = onSnapshot(q, (snapshot) => {
+      if (!isMounted) return;
+      if (timerId) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
       const newRoles = { ...rolesCache };
       snapshot.docs.forEach(doc => {
         const data = doc.data() as RoleFeaturePermissions;
@@ -82,14 +97,18 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       localStorage.setItem('roles_cache', JSON.stringify(newRoles));
       setLoading(false);
     }, (error) => {
+      if (!isMounted) return;
       console.error('Error fetching roles:', error);
+      if (timerId) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
       setLoading(false);
     });
 
     // Priority 5 FIX: Invalidate stale permission cache on network reconnection
     const handleOnline = () => {
       console.log('Permission Context: Network reconnected. Firestore remains authoritative, refreshing permissions...');
-      // Clear potentially stale cache and force re-evaluation from server
       const updatedLocal = localStorage.getItem('roles_cache');
       if (updatedLocal) {
         try {
@@ -103,6 +122,8 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     window.addEventListener('online', handleOnline);
 
     return () => {
+      isMounted = false;
+      if (timerId) clearTimeout(timerId);
       unsub();
       window.removeEventListener('online', handleOnline);
     };

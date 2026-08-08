@@ -31,37 +31,113 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+    let timerId: NodeJS.Timeout | null = null;
+
     if (!localRegId) {
+      console.log('Registration initialization started: No local registration ID');
       setStatus('unregistered');
       return;
     }
     
     if (!db) {
+      console.log('Registration initialization started: No DB instance');
       setStatus('unregistered');
       return;
     }
 
+    console.log('Registration initialization started for ID:', localRegId);
+
+    // Bounded initialization timeout (5000 ms)
+    timerId = setTimeout(() => {
+      if (!isMounted) return;
+      console.log('Registration initialization timed out');
+
+      // Attempt to load cached registration data
+      try {
+        const cachedRaw = localStorage.getItem('cached_registration_data');
+        if (cachedRaw) {
+          const cachedData = JSON.parse(cachedRaw);
+          if (cachedData && cachedData.status) {
+            console.log('Registration using cached state:', cachedData.status);
+            setStatus(cachedData.status);
+            setRejectionReason(cachedData.rejectionReason);
+            setEmployeeData(cachedData);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to parse cached registration data:', err);
+      }
+
+      // No valid cached registration -> default to unregistered
+      setStatus('unregistered');
+    }, 5000);
+
     // Listen to changes
-    console.log('Listening to registration document:', localRegId);
     const unsub = onSnapshot(doc(db, 'registrations', localRegId), (docSnap) => {
+      if (!isMounted) return;
+
+      if (timerId) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
+
+      console.log('Registration Firestore resolved');
+
       if (docSnap.exists()) {
         const data = docSnap.data();
-        console.log('Firestore document data retrieved:', data);
         setStatus(data.status);
         setRejectionReason(data.rejectionReason);
         setEmployeeData(data);
+
+        // Save authoritative state to local storage cache
+        try {
+          localStorage.setItem('cached_registration_data', JSON.stringify(data));
+        } catch (e) {
+          console.error('Failed to cache registration data:', e);
+        }
       } else {
         console.log('Firestore document does NOT exist for registrationId:', localRegId);
         setStatus('unregistered');
         localStorage.removeItem('registrationId');
+        localStorage.removeItem('cached_registration_data');
         setLocalRegId(null);
         setEmployeeData(null);
       }
     }, (error) => {
-      console.error('Error listening to registration document:', error);
+      if (!isMounted) return;
+
+      console.error('Registration Firestore error:', error);
+
+      if (timerId) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
+
+      // Attempt cached state fallback on Firestore error
+      try {
+        const cachedRaw = localStorage.getItem('cached_registration_data');
+        if (cachedRaw) {
+          const cachedData = JSON.parse(cachedRaw);
+          if (cachedData && cachedData.status) {
+            console.log('Registration using cached state after Firestore error:', cachedData.status);
+            setStatus(cachedData.status);
+            setRejectionReason(cachedData.rejectionReason);
+            setEmployeeData(cachedData);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load cached registration data on error:', err);
+      }
+
+      setStatus('unregistered');
     });
 
     return () => {
+      isMounted = false;
+      if (timerId) clearTimeout(timerId);
       if (unsub) unsub();
     };
   }, [localRegId]);
@@ -139,6 +215,11 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     // 4. Save to local storage
     localStorage.setItem('registrationId', registrationId);
+    try {
+      localStorage.setItem('cached_registration_data', JSON.stringify(registrationData));
+    } catch (e) {
+      console.error('Failed to cache submitted registration:', e);
+    }
     setLocalRegId(registrationId);
     setStatus('Pending Approval');
     setEmployeeData(registrationData);
@@ -146,6 +227,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const resetRegistration = () => {
     localStorage.removeItem('registrationId');
+    localStorage.removeItem('cached_registration_data');
     setLocalRegId(null);
     setStatus('unregistered');
     setRejectionReason(undefined);
