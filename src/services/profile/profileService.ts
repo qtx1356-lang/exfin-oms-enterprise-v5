@@ -45,6 +45,7 @@ export const loadProfile = async (uid: string, employeeCode?: string): Promise<E
           workLocation: data.office || 'Raniganj Office',
           emergencyContact: data.emergencyContact || 'Not Provided',
           role: data.role || (data.isTeamLeader ? 'TEAM_LEADER' : 'EMPLOYEE'),
+          baseSalary: data.baseSalary !== undefined ? data.baseSalary : undefined,
           createdAt: data.registrationDate,
           updatedAt: new Date().toISOString(),
         };

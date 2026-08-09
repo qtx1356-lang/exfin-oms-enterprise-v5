@@ -20,6 +20,7 @@ export interface EmployeeProfile {
   workLocation?: string;
   emergencyContact?: string;
   role?: string; // EMPLOYEE | TEAM_LEADER | HR | ADMIN | SUPER_ADMIN
+  baseSalary?: number;
   createdAt?: string;
   updatedAt?: string;
 }

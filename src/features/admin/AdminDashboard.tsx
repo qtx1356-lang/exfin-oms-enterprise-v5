@@ -62,6 +62,7 @@ import { AdminWorkPlannerTab } from './AdminWorkPlannerTab';
 import { SystemHealthSection } from './SystemHealthSection';
 import { UserManagementTab } from './UserManagementTab';
 import { HRManagementTab } from './HRManagementTab';
+import { SalaryManagementTab } from './SalaryManagementTab';
 import { LeaveRecord, LeaveConfig, EmployeeAllowance } from '../../types/leave';
 import { reviewLeaveRequest, adminOverrideLeave, updateLeaveConfig, updateEmployeeAllowance, calculateLeaveBalance } from '../../services/leave/leaveService';
 import { getStoredLeaves, getStoredLeaveConfig, getStoredEmployeeAllowances } from '../../services/leave/leaveStorage';
@@ -91,6 +92,7 @@ type AdminTab =
   | 'userManagement'
   | 'profiles'
   | 'hr'
+  | 'salaries'
   | 'attendance'
   | 'expenses'
   | 'planner'
@@ -113,6 +115,7 @@ export const AdminDashboard: React.FC = () => {
   const canSeeUserManagement = isSuperAdmin() || hasFeatureAccess('userManagement');
   const canSeeProfiles = isSuperAdmin() || hasFeatureAccess('employeeManagement');
   const canSeeHr = isSuperAdmin() || hasFeatureAccess('hrManagement');
+  const canSeeSalaries = isSuperAdmin() || hasFeatureAccess('hrManagement') || hasFeatureAccess('employeeManagement');
   const canSeeRbac = isSuperAdmin() || hasFeatureAccess('roleManagement') || hasFeatureAccess('featurePermissions');
   const canSeeRegistrations = isSuperAdmin() || hasFeatureAccess('deviceRegistration');
   const canSeeAttendance = isSuperAdmin() || hasFeatureAccess('attendance');
@@ -424,6 +427,16 @@ export const AdminDashboard: React.FC = () => {
                   HR Management
                 </button>
               )}
+              {canSeeSalaries && (
+                <button
+                  onClick={() => setActiveTab('salaries')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                    activeTab === 'salaries' ? 'bg-purple-600 text-white shadow-md' : 'text-purple-300/80 hover:text-white bg-white/5'
+                  }`}
+                >
+                  Salary Generation
+                </button>
+              )}
             </div>
           )}
 
@@ -633,6 +646,9 @@ export const AdminDashboard: React.FC = () => {
 
         {/* HR MANAGEMENT TAB */}
         {activeTab === 'hr' && canSeeHr && <HRManagementTab />}
+
+        {/* SALARY MANAGEMENT TAB */}
+        {activeTab === 'salaries' && canSeeSalaries && <SalaryManagementTab />}
 
         {/* ROLES & PERMISSIONS MATRIX TAB */}
         {activeTab === 'rbac' && canSeeRbac && <RBACTab />}

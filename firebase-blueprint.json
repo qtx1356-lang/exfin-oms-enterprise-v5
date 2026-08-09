@@ -16,7 +16,8 @@
         "registrationDate": { "type": "string" },
         "status": { "type": "string" },
         "rejectionReason": { "type": "string" },
-        "office": { "type": "string" }
+        "office": { "type": "string" },
+        "baseSalary": { "type": "number" }
       },
       "required": ["employeeCode", "name", "deviceId", "registrationDate", "status"]
     },
@@ -142,6 +143,24 @@
         "uid": { "type": "string" }
       },
       "required": ["email", "uid"]
+    },
+    "SalaryRecord": {
+      "title": "SalaryRecord",
+      "description": "Persistent salary generation record for an employee",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeCode": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "month": { "type": "number" },
+        "year": { "type": "number" },
+        "baseSalary": { "type": "number" },
+        "daysInMonth": { "type": "number" },
+        "presentDays": { "type": "number" },
+        "generatedSalary": { "type": "number" },
+        "generationTimestamp": { "type": "string" }
+      },
+      "required": ["id", "employeeCode", "employeeName", "month", "year", "baseSalary", "daysInMonth", "presentDays", "generatedSalary", "generationTimestamp"]
     }
   },
   "firestore": {
@@ -172,6 +191,10 @@
     "/login_ids/{loginId}": {
       "schema": "LoginId",
       "description": "Mapping from unique login ID to Firebase Auth identity details"
+    },
+    "/salaries/{salaryId}": {
+      "schema": "SalaryRecord",
+      "description": "Persistent employee salary generation records"
     }
   }
 }

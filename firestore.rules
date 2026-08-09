@@ -104,5 +104,9 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow update, delete: if false;
     }
+
+    match /salaries/{salaryId} {
+      allow read, write: if isAdmin();
+    }
   }
 }
