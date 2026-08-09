@@ -58,7 +58,7 @@ export const AdminPortalLogin: React.FC = () => {
               value={loginId}
               onChange={(e) => setLoginId(e.target.value)}
               className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[#1A0B36] text-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
-              placeholder="admin or super-admin"
+              placeholder="Enter Login ID"
               required
             />
           </div>
