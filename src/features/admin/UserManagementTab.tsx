@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, doc, getDocs, getDoc, setDoc, deleteDoc, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, doc, getDocs, getDoc, setDoc, deleteDoc, addDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { AppRole } from '../../types/roles';
 import { updateUserRoleAndStatus } from '../../services/rbac/rbacService';
@@ -15,6 +15,7 @@ import {
   UserCheck,
   UserX,
   Edit3,
+  Trash2,
   CheckCircle,
   XCircle,
   AlertCircle,
@@ -60,6 +61,7 @@ export const UserManagementTab: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Edit form state
   const [editRole, setEditRole] = useState<AppRole>('EMPLOYEE');
@@ -408,6 +410,118 @@ export const UserManagementTab: React.FC = () => {
     }
   };
 
+  const openDeleteConfirmModal = (u: ManagedUser) => {
+    if (!isSuperAdmin()) return;
+    setSelectedUser(u);
+    setIsDeleteModalOpen(true);
+    setStatusMessage(null);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+    if (!isSuperAdmin()) {
+      setStatusMessage({
+        type: 'error',
+        text: 'You do not have permission to perform this action.',
+      });
+      return;
+    }
+
+    // Protection: don't delete super admin or admin through this
+    if (selectedUser.role === 'SUPER_ADMIN' || selectedUser.role === 'ADMIN') {
+      setStatusMessage({
+        type: 'error',
+        text: 'Protected Operation: Admin/Super Admin accounts cannot be deleted through this interface.',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMessage(null);
+
+    try {
+      const empCode = selectedUser.employeeCode;
+      
+      // 1. Delete all matching registrations by employee code
+      const regsQ = query(collection(db, 'registrations'), where('employeeCode', '==', empCode));
+      const regSnaps = await getDocs(regsQ);
+      for (const d of regSnaps.docs) {
+        await deleteDoc(doc(db, 'registrations', d.id));
+      }
+
+      // 2. Delete leaves
+      const leavesQ = query(collection(db, 'leaves'), where('employeeCode', '==', empCode));
+      const leavesSnaps = await getDocs(leavesQ);
+      for (const d of leavesSnaps.docs) await deleteDoc(doc(db, 'leaves', d.id));
+
+      // 3. Delete leave balances
+      const balQ = query(collection(db, 'leave_balances'), where('employeeCode', '==', empCode));
+      const balSnaps = await getDocs(balQ);
+      for (const d of balSnaps.docs) await deleteDoc(doc(db, 'leave_balances', d.id));
+
+      // 4. Delete tasks
+      const tasksQ = query(collection(db, 'tasks'), where('employeeCode', '==', empCode));
+      const tasksSnaps = await getDocs(tasksQ);
+      for (const d of tasksSnaps.docs) await deleteDoc(doc(db, 'tasks', d.id));
+
+      // 5. Delete attendance
+      const attQ = query(collection(db, 'attendance'), where('employeeCode', '==', empCode));
+      const attSnaps = await getDocs(attQ);
+      for (const d of attSnaps.docs) await deleteDoc(doc(db, 'attendance', d.id));
+
+      // 6. Delete expenses
+      const expQ = query(collection(db, 'expenses'), where('employeeCode', '==', empCode));
+      const expSnaps = await getDocs(expQ);
+      for (const d of expSnaps.docs) await deleteDoc(doc(db, 'expenses', d.id));
+
+      // 7. Delete efficiency snapshots
+      const effQ = query(collection(db, 'efficiency_snapshots'), where('employeeCode', '==', empCode));
+      const effSnaps = await getDocs(effQ);
+      for (const d of effSnaps.docs) await deleteDoc(doc(db, 'efficiency_snapshots', d.id));
+
+      // 8. Delete profile_change_requests
+      const profQ = query(collection(db, 'profile_change_requests'), where('employeeCode', '==', empCode));
+      const profSnaps = await getDocs(profQ);
+      for (const d of profSnaps.docs) await deleteDoc(doc(db, 'profile_change_requests', d.id));
+
+      // 8b. Delete notifications
+      const notifQ = query(collection(db, 'notifications'), where('recipientEmployeeCode', '==', empCode));
+      const notifSnaps = await getDocs(notifQ);
+      for (const d of notifSnaps.docs) await deleteDoc(doc(db, 'notifications', d.id));
+
+      // 9. Delete login_ids mapping if it exists
+      if (selectedUser.loginId) {
+         await deleteDoc(doc(db, 'login_ids', selectedUser.loginId));
+      }
+
+      // Audit Log
+      await addDoc(collection(db, 'audit_logs'), {
+        actorUid: adminUser?.uid || 'SUPER_ADMIN_UID',
+        actorEmail: loginId || adminUser?.email || 'super_admin@exfin.internal',
+        actorRole: activeAdminRole || 'SUPER_ADMIN',
+        action: 'SUPER_ADMIN_DELETED_EMPLOYEE',
+        targetType: 'USER',
+        targetId: selectedUser.id,
+        employeeCode: empCode,
+        employeeName: selectedUser.name,
+        timestamp: new Date().toISOString(),
+        recordsDeleted: regSnaps.size + leavesSnaps.size + balSnaps.size + tasksSnaps.size + attSnaps.size + expSnaps.size + effSnaps.size
+      });
+
+      setStatusMessage({ type: 'success', text: `Employee ${selectedUser.name} deleted successfully.` });
+      setTimeout(() => {
+        setIsDeleteModalOpen(false);
+        setSelectedUser(null);
+      }, 1500);
+
+    } catch (err: any) {
+      console.error('Error deleting user:', err);
+      setStatusMessage({ type: 'error', text: 'Failed to delete employee: ' + (err.message || 'Unknown error') });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const departments = Array.from(new Set(users.map((u) => u.office || 'Raniganj')));
 
   const [isCleaning, setIsCleaning] = useState(false);
@@ -639,6 +753,16 @@ export const UserManagementTab: React.FC = () => {
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </Button>
+                        {isSuperAdmin() && (
+                          <Button
+                            onClick={() => openDeleteConfirmModal(u)}
+                            variant="secondary"
+                            className="p-1.5 h-auto bg-red-600/30 hover:bg-red-600 text-red-200 hover:text-white"
+                            title="Delete Employee"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -963,6 +1087,48 @@ export const UserManagementTab: React.FC = () => {
                 className="flex-1 bg-purple-600 hover:bg-purple-500 text-xs"
               >
                 {isSubmitting ? 'Saving...' : 'Update User'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRM MODAL */}
+      {isDeleteModalOpen && selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#211044] border border-red-500/50 rounded-2xl max-w-sm w-full p-6 space-y-4">
+            <div>
+              <h3 className="text-lg font-bold text-red-400 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" /> Confirm Deletion
+              </h3>
+              <p className="text-xs text-purple-200 mt-2">
+                Delete this employee and all associated data? This action is permanent and cannot be undone.
+              </p>
+            </div>
+
+            <div className="p-3 bg-red-500/10 rounded-xl border border-red-500/30 text-xs">
+              <span className="text-white font-bold block">{selectedUser.name}</span>
+              <span className="text-red-300 font-mono block">{selectedUser.employeeCode}</span>
+            </div>
+
+            {statusMessage && (
+              <div
+                className={`p-3 rounded-xl text-xs font-medium ${
+                  statusMessage.type === 'success'
+                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-red-500/10 text-red-400 border border-red-500/30'
+                }`}
+              >
+                {statusMessage.text}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button onClick={() => setIsDeleteModalOpen(false)} variant="secondary" className="px-4 py-2 text-xs" disabled={isSubmitting}>
+                Cancel
+              </Button>
+              <Button onClick={handleDeleteUser} className="px-4 py-2 text-xs bg-red-600 hover:bg-red-700 text-white border border-red-500" disabled={isSubmitting}>
+                {isSubmitting ? 'Deleting...' : 'DELETE'}
               </Button>
             </div>
           </div>
