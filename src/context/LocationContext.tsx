@@ -33,8 +33,13 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [locationStatus, setLocationStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [currentAddress, setCurrentAddress] = useState<string>(() => {
-    const cached = localStorage.getItem('lastKnownAddress');
-    return (cached && !cached.toLowerCase().includes('unavailable')) ? cached.trim() : '';
+    try {
+      const cached = localStorage.getItem('lastKnownAddress');
+      if (cached && typeof cached === 'string' && !cached.toLowerCase().includes('unavailable')) {
+        return cached.trim();
+      }
+    } catch (e) {}
+    return '';
   });
   const watchIdRef = useRef<string | number | null>(null);
 
@@ -42,28 +47,35 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const formattedDistance = formatOfficeDistance(distance);
 
   const getValidCachedAddress = (): string | null => {
-    const cached = localStorage.getItem('lastKnownAddress');
-    if (cached && !cached.toLowerCase().includes('unavailable')) {
-      return cached.trim();
-    }
+    try {
+      const cached = localStorage.getItem('lastKnownAddress');
+      if (cached && typeof cached === 'string' && !cached.toLowerCase().includes('unavailable')) {
+        return cached.trim();
+      }
+    } catch (e) {}
     return null;
   };
 
   const extractBestLocation = (addressData: any): string | null => {
-    if (!addressData) return null;
-    if (typeof addressData === 'string') {
-      const trimmed = addressData.trim();
-      if (trimmed && !trimmed.toLowerCase().includes('unavailable')) {
-        return trimmed;
+    try {
+      if (!addressData) return null;
+      if (typeof addressData === 'string') {
+        const trimmed = addressData.trim();
+        if (trimmed && !trimmed.toLowerCase().includes('unavailable')) {
+          return trimmed;
+        }
+        return null;
       }
-      return null;
+      if (typeof addressData !== 'object') return null;
+      const townCity = addressData.locality || addressData.city || addressData.town || addressData.suburb || addressData.subLocality || addressData.village;
+      if (townCity && typeof townCity === 'string' && townCity.trim()) return townCity.trim();
+      const district = addressData.subAdminArea || addressData.district || addressData.county;
+      if (district && typeof district === 'string' && district.trim()) return district.trim();
+      const state = addressData.adminArea || addressData.state;
+      if (state && typeof state === 'string' && state.trim()) return state.trim();
+    } catch (e) {
+      console.warn('extractBestLocation error:', e);
     }
-    const townCity = addressData.locality || addressData.city || addressData.town || addressData.suburb || addressData.subLocality || addressData.village;
-    if (townCity && typeof townCity === 'string' && townCity.trim()) return townCity.trim();
-    const district = addressData.subAdminArea || addressData.district || addressData.county;
-    if (district && typeof district === 'string' && district.trim()) return district.trim();
-    const state = addressData.adminArea || addressData.state;
-    if (state && typeof state === 'string' && state.trim()) return state.trim();
     return null;
   };
 
@@ -71,7 +83,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let resolvedAddress: string | null = null;
     try {
       const win = window as any;
-      if (Capacitor.isNativePlatform()) {
+      if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
         if (win.AndroidGeocoder && typeof win.AndroidGeocoder.getFromLocation === 'function') {
           const raw = await win.AndroidGeocoder.getFromLocation(latitude, longitude);
           resolvedAddress = extractBestLocation(raw);
@@ -90,7 +102,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       }
 
-      if (!resolvedAddress && navigator.onLine) {
+      if (!resolvedAddress && typeof navigator !== 'undefined' && navigator.onLine) {
         try {
           const resp = await fetch(
             `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
@@ -113,10 +125,12 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.warn('Geocoder error:', e);
     }
 
-    if (resolvedAddress && resolvedAddress.trim()) {
+    if (resolvedAddress && typeof resolvedAddress === 'string' && resolvedAddress.trim()) {
       const cleanAddress = resolvedAddress.trim();
       setCurrentAddress(cleanAddress);
-      localStorage.setItem('lastKnownAddress', cleanAddress);
+      try {
+        localStorage.setItem('lastKnownAddress', cleanAddress);
+      } catch (e) {}
     } else {
       const cachedAddress = getValidCachedAddress();
       if (cachedAddress) {

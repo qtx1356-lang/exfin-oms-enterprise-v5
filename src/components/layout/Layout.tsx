@@ -14,6 +14,29 @@ import {
 import { NotificationRecord } from '../../types/notification';
 import { motion, AnimatePresence } from 'motion/react';
 
+const CompactLocationRow: React.FC = () => {
+  let displayAddress = 'Location unavailable';
+  try {
+    const { currentAddress } = useLocationContext();
+    if (typeof currentAddress === 'string' && currentAddress.trim()) {
+      displayAddress = currentAddress.trim();
+    }
+  } catch (e) {
+    console.warn('CompactLocationRow context access error:', e);
+  }
+
+  return (
+    <div className="bg-[#170C30]/80 border-t border-purple-500/10 py-1 px-3 sm:px-4">
+      <div className="container mx-auto max-w-3xl flex items-center gap-1.5 text-[11px] text-purple-200/80 font-medium overflow-hidden">
+        <MapPin className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+        <span className="truncate" title={displayAddress}>
+          {displayAddress}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 export const Layout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -271,14 +294,7 @@ export const Layout: React.FC = () => {
         </div>
 
         {/* Compact Current Location Address Row (Value ONLY, e.g., "📍 Mithapur, Patna, Bihar") */}
-        <div className="bg-[#170C30]/80 border-t border-purple-500/10 py-1 px-3 sm:px-4">
-          <div className="container mx-auto max-w-3xl flex items-center gap-1.5 text-[11px] text-purple-200/80 font-medium overflow-hidden">
-            <MapPin className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-            <span className="truncate" title={currentAddress || 'Location unavailable'}>
-              {currentAddress || 'Location unavailable'}
-            </span>
-          </div>
-        </div>
+        <CompactLocationRow />
       </header>
 
       <main className="container mx-auto p-4 max-w-3xl">

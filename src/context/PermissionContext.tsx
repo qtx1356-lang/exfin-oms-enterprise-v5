@@ -168,7 +168,7 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     <PermissionContext.Provider value={{
       roles: rolesCache,
       currentRole,
-      loading: loading || adminLoading,
+      loading: (loading || (adminUser ? adminLoading : false)) && !rolesCache['EMPLOYEE'],
       hasPermission,
       hasFeatureAccess,
       hasRole,
