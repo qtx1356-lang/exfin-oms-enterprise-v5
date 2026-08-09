@@ -69,9 +69,13 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (localRoles) {
       try {
         setRolesCache(JSON.parse(localRoles));
+        setLoading(false);
       } catch (e) {
         console.error('Failed to parse cached roles', e);
       }
+    } else if (regStatus === 'Approved') {
+      // For employees with default permissions, don't block offline startup
+      setLoading(false);
     }
 
     // Bounded initialization wait: 5000 ms

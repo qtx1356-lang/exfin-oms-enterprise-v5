@@ -81,10 +81,31 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     let isMounted = true;
     let unsubSnapshot: (() => void) | null = null;
 
+    // Fast-path offline restoration from cache immediately
+    const cachedRaw = localStorage.getItem('cached_registration_data');
+    if (cachedRaw) {
+      try {
+        const cachedData = JSON.parse(cachedRaw);
+        if (cachedData && cachedData.status) {
+          setStatus(cachedData.status);
+          setEmployeeData(cachedData);
+          if (cachedData.rejectionReason) setRejectionReason(cachedData.rejectionReason);
+          const regIdToUse = cachedData.employeeCode || cachedData.uid || localStorage.getItem('registrationId');
+          if (regIdToUse) {
+            setLocalRegId(regIdToUse);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to parse cached_registration_data at sync startup:', e);
+      }
+    }
+
     const initializeRegistration = async () => {
       if (!db) {
         console.warn('Registration initialization: Firestore DB unavailable');
-        if (isMounted) setStatus('unregistered');
+        if (isMounted && !localStorage.getItem('cached_registration_data')) {
+          setStatus('unregistered');
+        }
         return;
       }
 
