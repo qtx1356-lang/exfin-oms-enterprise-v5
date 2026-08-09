@@ -156,11 +156,49 @@
         "year": { "type": "number" },
         "baseSalary": { "type": "number" },
         "daysInMonth": { "type": "number" },
-        "presentDays": { "type": "number" },
-        "generatedSalary": { "type": "number" },
+        "officePresentDays": { "type": "number" },
+        "wfhDays": { "type": "number" },
+        "clientVisitDays": { "type": "number" },
+        "outdoorDays": { "type": "number" },
+        "paidLeaveDays": { "type": "number" },
+        "sundayHolidayDays": { "type": "number" },
+        "totalPresentDays": { "type": "number" },
+        "advance": { "type": "number" },
+        "salaryBeforeAdvance": { "type": "number" },
+        "finalSalary": { "type": "number" },
         "generationTimestamp": { "type": "string" }
       },
-      "required": ["id", "employeeCode", "employeeName", "month", "year", "baseSalary", "daysInMonth", "presentDays", "generatedSalary", "generationTimestamp"]
+      "required": ["id", "employeeCode", "employeeName", "month", "year", "baseSalary", "daysInMonth", "officePresentDays", "wfhDays", "clientVisitDays", "outdoorDays", "paidLeaveDays", "sundayHolidayDays", "totalPresentDays", "advance", "salaryBeforeAdvance", "finalSalary", "generationTimestamp"]
+    },
+    "SalaryEmployeeConfig": {
+      "title": "SalaryEmployeeConfig",
+      "description": "One-time configuration of base salary and leave allocation for an employee",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeCode": { "type": "string" },
+        "leaveYear": { "type": "string" },
+        "baseSalary": { "type": "number" },
+        "allocatedPaidLeaves": { "type": "number" }
+      },
+      "required": ["id", "employeeCode", "leaveYear", "baseSalary", "allocatedPaidLeaves"]
+    },
+    "SalaryLeaveAudit": {
+      "title": "SalaryLeaveAudit",
+      "description": "Persistent record of dates that consumed paid leave",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeCode": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "date": { "type": "string" },
+        "month": { "type": "number" },
+        "year": { "type": "number" },
+        "leaveYear": { "type": "string" },
+        "daysConsumed": { "type": "number" },
+        "reason": { "type": "string" }
+      },
+      "required": ["id", "employeeCode", "employeeName", "date", "month", "year", "leaveYear", "daysConsumed", "reason"]
     }
   },
   "firestore": {
@@ -195,6 +233,14 @@
     "/salaries/{salaryId}": {
       "schema": "SalaryRecord",
       "description": "Persistent employee salary generation records"
+    },
+    "/salary_employee_configs/{configId}": {
+      "schema": "SalaryEmployeeConfig",
+      "description": "One-time employee base salary and leave configs per leave year"
+    },
+    "/salary_leave_audits/{auditId}": {
+      "schema": "SalaryLeaveAudit",
+      "description": "Persistent records of dates that consumed paid leave"
     }
   }
 }

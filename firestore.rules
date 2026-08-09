@@ -108,5 +108,13 @@ service cloud.firestore {
     match /salaries/{salaryId} {
       allow read, write: if isAdmin();
     }
+
+    match /salary_employee_configs/{configId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /salary_leave_audits/{auditId} {
+      allow read, write: if isAdmin();
+    }
   }
 }
