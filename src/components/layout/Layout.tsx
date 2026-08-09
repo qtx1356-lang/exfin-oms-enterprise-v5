@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
-import { Bell, ChevronRight, CheckCheck, Info, User, Home } from 'lucide-react';
+import { Bell, ChevronRight, CheckCheck, Info, User, Home, MapPin } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useLocationContext } from '../../context/LocationContext';
@@ -19,7 +19,7 @@ export const Layout: React.FC = () => {
   const location = useLocation();
   const { employeeData } = useRegistration();
   const { user: adminUser } = useAdminAuth();
-  const { formattedDistance, isInsideGeofence } = useLocationContext();
+  const { formattedDistance, isInsideGeofence, currentAddress } = useLocationContext();
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [recentNotifs, setRecentNotifs] = useState<NotificationRecord[]>([]);
@@ -267,6 +267,16 @@ export const Layout: React.FC = () => {
               </AnimatePresence>
             </div>
           )}
+          </div>
+        </div>
+
+        {/* Compact Current Location Address Row (Value ONLY, e.g., "📍 Mithapur, Patna, Bihar") */}
+        <div className="bg-[#170C30]/80 border-t border-purple-500/10 py-1 px-3 sm:px-4">
+          <div className="container mx-auto max-w-3xl flex items-center gap-1.5 text-[11px] text-purple-200/80 font-medium overflow-hidden">
+            <MapPin className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+            <span className="truncate" title={currentAddress || 'Location unavailable'}>
+              {currentAddress || 'Location unavailable'}
+            </span>
           </div>
         </div>
       </header>

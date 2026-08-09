@@ -808,51 +808,42 @@ export const AttendanceScreen: React.FC = () => {
               )}
 
               {/* MANUAL CHECK-IN & CHECK-OUT ACTION BUTTONS */}
-              <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.37)] space-y-4">
-                <div className="flex items-center justify-between border-b border-purple-500/20 pb-3">
-                  <h3 className="text-xs font-black text-purple-300 uppercase tracking-widest flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-[#7C3AED]" /> Office Attendance Control
-                  </h3>
-                  <span className="text-[11px] font-semibold text-purple-300">Raniganj HQ</span>
+              {!todayRecord ? (
+                <div className="space-y-3">
+                  {/* Hide Manual Check-In button during active countdown */}
+                  {autoCheckInCountdown === null && (
+                    <Button 
+                      onClick={handleManualCheckIn} 
+                      className="w-full py-4 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-extrabold text-sm rounded-2xl shadow-lg transition-all border border-purple-400/30 active:scale-95"
+                    >
+                      <UserCheck className="w-5 h-5 mr-2" /> Manual Office Check-In
+                    </Button>
+                  )}
                 </div>
-
-                {!todayRecord ? (
-                  <div className="space-y-3">
-                    {/* Hide Manual Check-In button during active countdown */}
-                    {autoCheckInCountdown === null && (
+              ) : (
+                <div className="space-y-4">
+                  {!todayRecord.checkOutTime && (
+                    <div className="space-y-2">
                       <Button 
-                        onClick={handleManualCheckIn} 
-                        className="w-full py-4 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-extrabold text-sm rounded-2xl shadow-lg transition-all border border-purple-400/30 active:scale-95"
+                        onClick={handleManualCheckOut} 
+                        disabled={!isInsideGeofence}
+                        className={`w-full py-4 font-extrabold text-sm rounded-2xl transition-all shadow-lg ${
+                          isInsideGeofence 
+                            ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-400/30 active:scale-95' 
+                            : 'bg-purple-950/60 text-purple-400 border border-purple-500/20 cursor-not-allowed'
+                        }`}
                       >
-                        <UserCheck className="w-5 h-5 mr-2" /> Manual Office Check-In
+                        <LogOut className="w-5 h-5 mr-2" /> Manual Check-Out (Inside Geofence Only)
                       </Button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {!todayRecord.checkOutTime && (
-                      <div className="space-y-2">
-                        <Button 
-                          onClick={handleManualCheckOut} 
-                          disabled={!isInsideGeofence}
-                          className={`w-full py-4 font-extrabold text-sm rounded-2xl transition-all shadow-lg ${
-                            isInsideGeofence 
-                              ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-400/30 active:scale-95' 
-                              : 'bg-purple-950/60 text-purple-400 border border-purple-500/20 cursor-not-allowed'
-                          }`}
-                        >
-                          <LogOut className="w-5 h-5 mr-2" /> Manual Check-Out (Inside Geofence Only)
-                        </Button>
-                        {!isInsideGeofence && (
-                          <p className="text-[11px] text-rose-300 text-center font-bold">
-                            Manual Check-Out is allowed ONLY inside the 25m office geofence.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                      {!isInsideGeofence && (
+                        <p className="text-[11px] text-rose-300 text-center font-bold">
+                          Manual Check-Out is allowed ONLY inside the 25m office geofence.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

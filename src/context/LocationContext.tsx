@@ -32,7 +32,10 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [distance, setDistance] = useState<number | null>(null);
   const [locationStatus, setLocationStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [currentAddress, setCurrentAddress] = useState<string>('');
+  const [currentAddress, setCurrentAddress] = useState<string>(() => {
+    const cached = localStorage.getItem('lastKnownAddress');
+    return (cached && !cached.toLowerCase().includes('unavailable')) ? cached.trim() : '';
+  });
   const watchIdRef = useRef<string | number | null>(null);
 
   const isInsideGeofence = distance !== null && distance <= OFFICE_LOCATION.radius;
@@ -40,7 +43,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const getValidCachedAddress = (): string | null => {
     const cached = localStorage.getItem('lastKnownAddress');
-    if (cached && !cached.toLowerCase().includes('address unavailable')) {
+    if (cached && !cached.toLowerCase().includes('unavailable')) {
       return cached.trim();
     }
     return null;
@@ -50,7 +53,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!addressData) return null;
     if (typeof addressData === 'string') {
       const trimmed = addressData.trim();
-      if (trimmed && !trimmed.toLowerCase().includes('address unavailable')) {
+      if (trimmed && !trimmed.toLowerCase().includes('unavailable')) {
         return trimmed;
       }
       return null;
@@ -86,8 +89,28 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         }
       }
+
+      if (!resolvedAddress && navigator.onLine) {
+        try {
+          const resp = await fetch(
+            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+          );
+          if (resp.ok) {
+            const data = await resp.json();
+            const parts: string[] = [];
+            if (data.locality || data.city) parts.push(data.locality || data.city);
+            if (data.principalSubdivision) parts.push(data.principalSubdivision);
+            if (data.countryName) parts.push(data.countryName);
+            if (parts.length > 0) {
+              resolvedAddress = parts.join(', ');
+            }
+          }
+        } catch (e) {
+          console.warn('Web reverse geocoding fallback error:', e);
+        }
+      }
     } catch (e: any) {
-      console.warn('Native Android Geocoder error:', e);
+      console.warn('Geocoder error:', e);
     }
 
     if (resolvedAddress && resolvedAddress.trim()) {
@@ -99,7 +122,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (cachedAddress) {
         setCurrentAddress(cachedAddress);
       } else {
-        setCurrentAddress('Raniganj HQ');
+        setCurrentAddress('Location unavailable');
       }
     }
     setLocationStatus('success');
@@ -117,7 +140,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     if (!navigator.onLine) {
       const cachedAddress = getValidCachedAddress();
-      setCurrentAddress(cachedAddress || 'Raniganj HQ');
+      setCurrentAddress(cachedAddress || 'Location unavailable');
       setLocationStatus('success');
       return;
     }
