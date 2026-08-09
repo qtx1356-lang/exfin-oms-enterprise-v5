@@ -1,4 +1,4 @@
-const CACHE_NAME = 'exfin-v11';
+const CACHE_NAME = 'exfin-v13';
 
 // Assets to cache on install (optional/default shell assets)
 const PRECACHE_ASSETS = [
@@ -41,6 +41,16 @@ self.addEventListener('fetch', (event) => {
   }
 
   const url = new URL(request.url);
+
+  // Bypass service worker for dev server internal requests or hot reloads
+  if (
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/@') ||
+    url.search.includes('t=') ||
+    url.search.includes('v=')
+  ) {
+    return;
+  }
 
   // Exclude Firebase, Firestore, API, auth, and dynamic user-specific data from caching
   if (
@@ -107,14 +117,10 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.json');
 
   if (isStaticAsset) {
-    // CACHE-FIRST Strategy
+    // NETWORK-FIRST Strategy for CSS/JS static assets
     event.respondWith(
-      caches.match(request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        return fetch(request).then((response) => {
-          // Cache successful responses only (avoid caching 404, etc.)
+      fetch(request)
+        .then((response) => {
           if (response && response.status === 200) {
             const responseToCache = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
@@ -122,8 +128,10 @@ self.addEventListener('fetch', (event) => {
             });
           }
           return response;
-        });
-      })
+        })
+        .catch(() => {
+          return caches.match(request);
+        })
     );
     return;
   }
