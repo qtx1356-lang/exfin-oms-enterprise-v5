@@ -106,7 +106,8 @@ service cloud.firestore {
     }
 
     match /salaries/{salaryId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || (request.auth != null && resource.data.employeeCode == get(/databases/$(database)/documents/registrations/$(request.auth.uid)).data.employeeCode);
+      allow write: if isAdmin();
     }
 
     match /salary_employee_configs/{configId} {
