@@ -164,23 +164,22 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     let emailToAuth = '';
 
     if (inputCleaned.includes('@')) {
-      // Direct email fallback to prevent lockouts and allow original session fallback
       emailToAuth = inputCleaned;
     } else {
       const normalizedLoginId = inputCleaned.toLowerCase().replace(/\s+/g, '');
       try {
         const loginDoc = await getDoc(doc(db, 'login_ids', normalizedLoginId));
         if (!loginDoc.exists()) {
-          throw new Error('Invalid Login ID or password.');
+          throw new Error(`Login ID "${normalizedLoginId}" not found in login_ids database collection.`);
         }
         emailToAuth = loginDoc.data()?.email || '';
       } catch (err: any) {
-        throw new Error('Invalid Login ID or password.');
+        throw new Error(`Login ID lookup failed: ${err.message || 'Document not found'}`);
       }
     }
 
     if (!emailToAuth) {
-      throw new Error('Invalid Login ID or password.');
+      throw new Error('Login ID mapping has no associated email address.');
     }
 
     // Attempt Firebase Authentication
@@ -188,10 +187,10 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       userCredential = await signInWithEmailAndPassword(auth, emailToAuth, password);
     } catch (err: any) {
-      throw new Error('Invalid Login ID or password.');
+      throw new Error(`Firebase Auth failed (${err.code || 'error'}): ${err.message}`);
     }
 
-    // Verify Active State
+    // Verify Active State and Admin Profile
     const u = userCredential.user;
     try {
       const adminDoc = await getDoc(doc(db, 'admin_users', u.uid));
@@ -204,14 +203,14 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       } else {
         await signOut(auth);
-        throw new Error('Your Admin profile has not been provisioned yet. Please contact the Super Admin.');
+        throw new Error(`Admin user profile missing in admin_users for UID: ${u.uid}`);
       }
     } catch (err: any) {
-      if (err.message.includes('inactive') || err.message.includes('provisioned')) {
+      if (err.message.includes('inactive') || err.message.includes('missing') || err.message.includes('profile')) {
         throw err;
       }
       await signOut(auth);
-      throw new Error('Invalid Login ID or password.');
+      throw new Error(`Admin profile verification failed: ${err.message}`);
     }
   };
 
