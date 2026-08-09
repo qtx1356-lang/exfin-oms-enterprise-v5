@@ -14,29 +14,6 @@ import {
 import { NotificationRecord } from '../../types/notification';
 import { motion, AnimatePresence } from 'motion/react';
 
-const CompactLocationRow: React.FC = () => {
-  let displayAddress = 'Location unavailable';
-  try {
-    const { currentAddress } = useLocationContext();
-    if (typeof currentAddress === 'string' && currentAddress.trim()) {
-      displayAddress = currentAddress.trim();
-    }
-  } catch (e) {
-    console.warn('CompactLocationRow context access error:', e);
-  }
-
-  return (
-    <div className="bg-[#170C30]/80 border-t border-purple-500/10 py-1 px-3 sm:px-4">
-      <div className="container mx-auto max-w-3xl flex items-center gap-1.5 text-[11px] text-purple-200/80 font-medium overflow-hidden">
-        <MapPin className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-        <span className="truncate" title={displayAddress}>
-          {displayAddress}
-        </span>
-      </div>
-    </div>
-  );
-};
-
 export const Layout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -152,16 +129,20 @@ export const Layout: React.FC = () => {
     navigate('/notifications');
   };
 
+  const displayAddress = (typeof currentAddress === 'string' && currentAddress.trim())
+    ? currentAddress.trim()
+    : 'Location unavailable';
+
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Dynamic Header Bar with Global Distance, Office Location Status, Home, Bell & Profile */}
+      {/* Dynamic Header Bar with [Distance] [Office Status] [Location Address] [Bell] */}
       <header className="sticky top-0 z-30 bg-[#1D113B]/90 backdrop-blur-md border-b border-purple-500/10">
-        <div className="container mx-auto px-3 sm:px-4 py-2.5 max-w-3xl flex items-center justify-between gap-2">
-          {/* Left Header Status Controls: [Distance] [Office Status] */}
-          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5">
+        <div className="container mx-auto px-2.5 sm:px-4 py-2 max-w-3xl flex items-center justify-between gap-1.5 sm:gap-2">
+          {/* Left/Center Header Status & Location Controls */}
+          <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden py-0.5">
             {/* Live Distance Value (Value ONLY, e.g., "476 m", "1.24 km") */}
             <div
-              className="text-[11px] sm:text-xs font-bold text-purple-200 bg-[#2D1B5A]/80 border border-purple-500/20 px-2 sm:px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
+              className="text-[11px] font-bold text-purple-200 bg-[#2D1B5A]/80 border border-purple-500/20 px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
               title="Live distance from office"
             >
               <span>{formattedDistance}</span>
@@ -169,7 +150,7 @@ export const Layout: React.FC = () => {
 
             {/* Office Location Status Badge with subtle pulse animation */}
             <div
-              className={`text-[10px] sm:text-xs font-black px-2 sm:px-2.5 py-1 rounded-full border whitespace-nowrap animate-subtle-pulse flex items-center gap-1.5 shadow-sm select-none shrink-0 ${
+              className={`text-[10px] font-black px-2 py-0.5 rounded-full border whitespace-nowrap animate-subtle-pulse flex items-center gap-1 shadow-sm select-none shrink-0 ${
                 isInsideGeofence
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                   : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
@@ -182,23 +163,23 @@ export const Layout: React.FC = () => {
 
             {/* Global Sync Status (shown only when offline/pending) */}
             <GlobalSyncStatus />
+
+            {/* Compact Location Address */}
+            <div 
+              className="flex items-center gap-1 text-[11px] text-purple-200/80 font-medium min-w-0 truncate bg-[#2D1B5A]/50 border border-purple-500/15 px-2 py-0.5 rounded-full shrink min-w-[60px]"
+              title={displayAddress}
+            >
+              <MapPin className="w-3 h-3 text-purple-400 shrink-0" />
+              <span className="truncate text-[10.5px]">
+                {displayAddress}
+              </span>
+            </div>
           </div>
 
-          {/* Right Header Navigation Controls: [Home] [Bell] [Profile] */}
+          {/* Right Header Navigation Controls: [Notification Bell] */}
           <div className="flex items-center gap-1.5 shrink-0">
-            {/* Home Icon Button */}
-            <button
-              onClick={() => navigate('/')}
-              className="p-1.5 sm:p-2 rounded-xl bg-[#2D1B5A]/80 border border-purple-500/20 text-purple-300 hover:text-white hover:bg-purple-500/20 transition-all cursor-pointer"
-              title="Home Dashboard"
-              aria-label="Home Dashboard"
-              id="header-home-btn"
-            >
-              <Home className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
-
             {currentUser && (
-              <div className="relative shrink-0 flex items-center gap-1.5" ref={dropdownRef}>
+              <div className="relative shrink-0 flex items-center" ref={dropdownRef}>
                 {/* Bell Button */}
                 <button
                   onClick={handleBellClick}
@@ -214,87 +195,73 @@ export const Layout: React.FC = () => {
                   )}
                 </button>
 
-                {/* Profile Link */}
-                <button
-                  onClick={() => navigate('/profile')}
-                  className="p-1.5 sm:p-2 rounded-xl bg-[#2D1B5A]/80 border border-purple-500/20 text-purple-300 hover:text-white hover:bg-purple-500/20 transition-all cursor-pointer"
-                  title="Profile"
-                  aria-label="User Profile"
-                  id="header-profile-btn"
-                >
-                  <User className="w-4 h-4 sm:w-5 sm:h-5" />
-                </button>
-
-              {/* Popover Dropdown */}
-              <AnimatePresence>
-                {dropdownOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#2D1B5A] border border-purple-500/30 rounded-[22px] shadow-[0_15px_50px_rgba(0,0,0,0.6)] z-50 overflow-hidden text-white"
-                    id="notification-bell-dropdown"
-                  >
-                    <div className="p-4 border-b border-purple-500/20 flex items-center justify-between">
-                      <span className="font-bold text-sm">Recent Alerts</span>
-                      {unreadCount > 0 && (
-                        <span className="text-xs text-purple-300 bg-purple-500/20 px-2 py-0.5 rounded-full font-bold">
-                          {unreadCount} unread
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="max-h-64 overflow-y-auto divide-y divide-purple-500/10">
-                      {recentNotifs.length === 0 ? (
-                        <div className="p-6 text-center text-slate-400 text-xs">
-                          No recent notifications.
-                        </div>
-                      ) : (
-                        recentNotifs.map((notif) => (
-                          <div
-                            key={notif.id}
-                            onClick={() => handleNotificationClick(notif)}
-                            className={`p-3.5 hover:bg-purple-500/10 transition-colors cursor-pointer flex gap-3 text-left ${
-                              notif.read ? 'opacity-60' : 'bg-[#1D113B]/20'
-                            }`}
-                          >
-                            <div className="mt-1">
-                              <Info className={`w-4 h-4 ${notif.read ? 'text-slate-400' : 'text-purple-400'}`} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-xs font-bold ${notif.read ? 'text-slate-300' : 'text-white'}`}>
-                                {notif.title}
-                              </p>
-                              <p className="text-[11px] text-slate-400 truncate mt-0.5">
-                                {notif.message}
-                              </p>
-                            </div>
-                            {!notif.read && (
-                              <div className="w-2 h-2 rounded-full bg-purple-500 mt-2 flex-shrink-0" />
-                            )}
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    <button
-                      onClick={handleViewAll}
-                      className="w-full py-3 bg-[#1D113B]/40 hover:bg-[#1D113B]/60 text-center text-xs font-bold text-purple-300 hover:text-white transition-colors border-t border-purple-500/20 flex items-center justify-center gap-1.5"
+                {/* Popover Dropdown */}
+                <AnimatePresence>
+                  {dropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#2D1B5A] border border-purple-500/30 rounded-[22px] shadow-[0_15px_50px_rgba(0,0,0,0.6)] z-50 overflow-hidden text-white"
+                      id="notification-bell-dropdown"
                     >
-                      <span>View all alerts</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
+                      <div className="p-4 border-b border-purple-500/20 flex items-center justify-between">
+                        <span className="font-bold text-sm">Recent Alerts</span>
+                        {unreadCount > 0 && (
+                          <span className="text-xs text-purple-300 bg-purple-500/20 px-2 py-0.5 rounded-full font-bold">
+                            {unreadCount} unread
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="max-h-64 overflow-y-auto divide-y divide-purple-500/10">
+                        {recentNotifs.length === 0 ? (
+                          <div className="p-6 text-center text-slate-400 text-xs">
+                            No recent notifications.
+                          </div>
+                        ) : (
+                          recentNotifs.map((notif) => (
+                            <div
+                              key={notif.id}
+                              onClick={() => handleNotificationClick(notif)}
+                              className={`p-3.5 hover:bg-purple-500/10 transition-colors cursor-pointer flex gap-3 text-left ${
+                                notif.read ? 'opacity-60' : 'bg-[#1D113B]/20'
+                              }`}
+                            >
+                              <div className="mt-1">
+                                <Info className={`w-4 h-4 ${notif.read ? 'text-slate-400' : 'text-purple-400'}`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-xs font-bold ${notif.read ? 'text-slate-300' : 'text-white'}`}>
+                                  {notif.title}
+                                </p>
+                                <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                                  {notif.message}
+                                </p>
+                              </div>
+                              {!notif.read && (
+                                <div className="w-2 h-2 rounded-full bg-purple-500 mt-2 flex-shrink-0" />
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      <button
+                        onClick={handleViewAll}
+                        className="w-full py-3 bg-[#1D113B]/40 hover:bg-[#1D113B]/60 text-center text-xs font-bold text-purple-300 hover:text-white transition-colors border-t border-purple-500/20 flex items-center justify-center gap-1.5"
+                      >
+                        <span>View all alerts</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Compact Current Location Address Row (Value ONLY, e.g., "📍 Mithapur, Patna, Bihar") */}
-        <CompactLocationRow />
       </header>
 
       <main className="container mx-auto p-4 max-w-3xl">

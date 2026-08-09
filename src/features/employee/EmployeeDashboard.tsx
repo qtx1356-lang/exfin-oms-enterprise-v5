@@ -17,7 +17,8 @@ import {
   PhoneCall,
   Sparkles,
   Users,
-  BarChart3
+  BarChart3,
+  User
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getTodayAttendanceRecord } from '../../services/attendance/attendanceStorage';
@@ -143,6 +144,7 @@ export const EmployeeDashboard: React.FC = () => {
     { icon: BarChart3, label: 'Efficiency', path: '/efficiency', bg: 'bg-[#7C3AED]/20 text-purple-300 border-purple-500/30' },
     { icon: Wallet, label: 'Expenses', path: '/expenses', bg: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
     { icon: Calendar, label: 'Leave', path: '/leave', bg: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+    { icon: User, label: 'Profile', path: '/profile', bg: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
   ];
 
   return (
