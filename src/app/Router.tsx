@@ -7,7 +7,9 @@ import { BoxSelect, ShieldAlert } from 'lucide-react';
 import { useAdminAuth } from '../context/AdminAuthContext';
 import { AdminLogin } from '../features/admin/AdminLogin';
 import { AdminDashboard } from '../features/admin/AdminDashboard';
-import { useRegistration } from '../context/RegistrationContext';
+import { AdminPortalLogin } from '../features/adminPortal/AdminPortalLogin';
+import { AdminPortalDashboard } from '../features/adminPortal/AdminPortalDashboard';
+import { RegistrationProvider, useRegistration } from '../context/RegistrationContext';
 import { usePermission } from '../context/PermissionContext';
 import { FeatureKey } from '../types/roles';
 import { DeviceRegistration } from '../features/registration/DeviceRegistration';
@@ -70,6 +72,18 @@ const AdminPublicRoute = () => {
   return <AdminLogin />;
 };
 
+// For /admin-portal/login: route based on role when already authenticated
+const AdminPortalPublicRoute = () => {
+  const { user, loading, role, adminProfileError } = useAdminAuth();
+  if (loading) return <LoadingScreen />;
+  if (user && !adminProfileError) {
+    if (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR') {
+      return <Navigate to="/admin-portal/dashboard" replace />;
+    }
+  }
+  return <AdminPortalLogin />;
+};
+
 const EmployeeGuard = () => {
   const { status } = useRegistration();
   
@@ -110,7 +124,14 @@ export const AppRouter: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Admin Routes */}
+        {/* NEW INDEPENDENT ADMIN PORTAL ROUTES */}
+        <Route path="/admin-portal">
+          <Route index element={<Navigate to="/admin-portal/login" replace />} />
+          <Route path="login" element={<AdminPortalPublicRoute />} />
+          <Route path="dashboard" element={<AdminPortalDashboard />} />
+        </Route>
+
+        {/* Existing Admin Routes */}
         <Route path="/admin">
           <Route index element={<Navigate to="/admin/login" replace />} />
           <Route path="login" element={<AdminPublicRoute />} />
@@ -122,8 +143,8 @@ export const AppRouter: React.FC = () => {
         {/* Super Admin Routes (Backward Compatibility Redirect) */}
         <Route path="/super-admin/*" element={<Navigate to="/admin/dashboard" replace />} />
 
-        {/* Employee Routes */}
-        <Route element={<EmployeeGuard />}>
+        {/* Employee Routes with RegistrationProvider */}
+        <Route element={<RegistrationProvider><EmployeeGuard /></RegistrationProvider>}>
           <Route path="/" element={<Layout />}>
             <Route index element={<EmployeeDashboard />} />
             <Route path="attendance" element={<FeatureGuard feature="attendance"><AttendanceScreen /></FeatureGuard>} />

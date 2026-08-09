@@ -3,7 +3,6 @@ import { ErrorBoundary } from './app/ErrorBoundary';
 import { AppRouter } from './app/Router';
 import { SplashScreen } from './components/ui/SplashScreen';
 import { AnimatePresence } from 'motion/react';
-import { RegistrationProvider } from './context/RegistrationContext';
 import { AdminAuthProvider } from './context/AdminAuthContext';
 import { PermissionProvider } from './context/PermissionContext';
 
@@ -13,14 +12,12 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AdminAuthProvider>
-        <RegistrationProvider>
-          <PermissionProvider>
-            <AnimatePresence>
-              {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
-            </AnimatePresence>
-            {!showSplash && <AppRouter />}
-          </PermissionProvider>
-        </RegistrationProvider>
+        <PermissionProvider>
+          <AnimatePresence>
+            {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+          </AnimatePresence>
+          {!showSplash && <AppRouter />}
+        </PermissionProvider>
       </AdminAuthProvider>
     </ErrorBoundary>
   );
