@@ -172,7 +172,7 @@ export const AttendanceScreen: React.FC = () => {
         const autoCheckedOut = checkAndTriggerAutoCheckout(employeeId, liveLocation || undefined);
         if (autoCheckedOut) {
           refreshRecords();
-          setActionFeedback('Auto System Checkout triggered at 11:59 PM (Reason: Forgot Checkout)');
+          setActionFeedback(`Auto System Checkout triggered (Reason: ${autoCheckedOut.reason})`);
         }
       }
     }, 15000);

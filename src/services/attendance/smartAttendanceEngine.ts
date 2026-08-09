@@ -116,6 +116,10 @@ export const performCheckIn = (
     OFFICE_LOCATION.longitude
   );
 
+  if (distance > 25) {
+    throw new Error(`Attendance check-in is allowed only within 25 meters of the office.`);
+  }
+
   const now = new Date();
   const record: AttendanceRecord = {
     id: generateUUID(),
@@ -181,13 +185,27 @@ export const performCheckOut = (
     OFFICE_LOCATION.longitude
   );
 
-  if (distance > OFFICE_LOCATION.radius) {
-    throw new Error(
-      `Check-Out is allowed ONLY inside the ${OFFICE_LOCATION.radius} meter office geofence. Current distance: ${distance.toFixed(1)}m`
-    );
+  const now = new Date();
+  
+  if (now.getHours() >= 18) {
+    if (distance > 500) {
+      throw new Error(`Cannot manually checkout. You left the office beyond 500m after 6 PM. Auto-checkout at 6 PM will apply.`);
+    }
+  } else {
+    // Wait, what is the rule for before 6 PM?
+    // "Before 6:00 PM Manual Office checkout is allowed according to the existing attendance flow."
+    // Does it still need the 25m check? If so, I should put it here.
+    // I'll assume they need to be in the office (or not?), the existing code had:
+    // if (distance > OFFICE_LOCATION.radius) { throw ... }
+    // Wait, the prompt says "Do not apply the 25-meter check-in geofence to this 500-meter checkout rule."
+    // I'll just leave the 25m check for < 6PM? No, the prompt says "The employee can manually check out before 6 PM." I will leave the 25m rule for before 6PM because it was there in the "existing attendance flow".
+    if (distance > OFFICE_LOCATION.radius) {
+      throw new Error(
+        `Check-Out is allowed ONLY inside the ${OFFICE_LOCATION.radius} meter office geofence. Current distance: ${distance.toFixed(1)}m`
+      );
+    }
   }
 
-  const now = new Date();
   const checkOutTimeStr = getFormattedTimeStr(now);
   const workingHours = calculateWorkingHours(record.checkInTime, checkOutTimeStr);
 
@@ -283,10 +301,13 @@ export const checkAndTriggerAutoCheckout = (
   const hours = now.getHours();
   const minutes = now.getMinutes();
 
+  // Check if time is 18:00 (6:00 PM) or later
+  const isAfter6PM = hours >= 18;
+
   // Check if time is 23:59 (11:59 PM) or later
   const is1159PMOrLater = hours === 23 && minutes >= 59;
 
-  let isOutsideGeofence = false;
+  let isOutside500m = false;
   if (currentCoords) {
     const dist = getDistanceFromLatLonInM(
       currentCoords.latitude,
@@ -294,12 +315,23 @@ export const checkAndTriggerAutoCheckout = (
       OFFICE_LOCATION.latitude,
       OFFICE_LOCATION.longitude
     );
-    isOutsideGeofence = dist > OFFICE_LOCATION.radius; // > 25m
+    isOutside500m = dist > 500;
   } else {
-    isOutsideGeofence = record.distance > OFFICE_LOCATION.radius;
+    isOutside500m = record.distance > 500;
   }
 
-  if (is1159PMOrLater && isOutsideGeofence) {
+  let triggerAutoCheckout = false;
+  let reason = '';
+
+  if (isAfter6PM && isOutside500m) {
+    triggerAutoCheckout = true;
+    reason = 'Left Office Beyond 500m After 6 PM';
+  } else if (is1159PMOrLater) {
+    triggerAutoCheckout = true;
+    reason = 'Forgot Checkout';
+  }
+
+  if (triggerAutoCheckout) {
     const checkOutTimeStr = '06:00 PM'; // Office Closing Time
     const workingHours = calculateWorkingHours(record.checkInTime, checkOutTimeStr);
 
@@ -307,7 +339,7 @@ export const checkAndTriggerAutoCheckout = (
       ...record,
       checkOutTime: checkOutTimeStr,
       checkOutMode: 'AUTO_SYSTEM',
-      reason: 'Forgot Checkout',
+      reason,
       workingHours,
       syncStatus: 'Pending',
       isOffline: !navigator.onLine
@@ -344,7 +376,7 @@ export const getCheckoutReminderStatus = (
 
   if (currentMinutes >= closingMinutes && currentMinutes <= endOfDayMinutes) {
     const minutesSinceClosing = currentMinutes - closingMinutes;
-    const elapsedSlots = Math.floor(minutesSinceClosing / 15) + 1;
+    const elapsedSlots = Math.floor(minutesSinceClosing / 10) + 1;
 
     // Update reminder count if changed
     if (elapsedSlots > record.reminderCount) {
@@ -352,8 +384,8 @@ export const getCheckoutReminderStatus = (
       saveAttendanceRecord(record);
     }
 
-    const remainder = minutesSinceClosing % 15;
-    const nextSlotMinutes = currentMinutes + (15 - remainder);
+    const remainder = minutesSinceClosing % 10;
+    const nextSlotMinutes = currentMinutes + (10 - remainder);
     const nextHours = Math.floor(nextSlotMinutes / 60);
     const nextMins = nextSlotMinutes % 60;
 

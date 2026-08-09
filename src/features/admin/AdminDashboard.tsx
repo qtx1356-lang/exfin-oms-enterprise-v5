@@ -58,6 +58,7 @@ import { EfficiencyDashboard } from '../efficiency/EfficiencyDashboard';
 import { ReportsAnalyticsTab } from './ReportsAnalyticsTab';
 import { RBACTab } from './RBACTab';
 import { EmployeeProfilesTab } from './EmployeeProfilesTab';
+import { AdminWorkPlannerTab } from './AdminWorkPlannerTab';
 import { SystemHealthSection } from './SystemHealthSection';
 import { UserManagementTab } from './UserManagementTab';
 import { HRManagementTab } from './HRManagementTab';
@@ -837,28 +838,7 @@ export const AdminDashboard: React.FC = () => {
 
         {/* PLANNER TAB */}
         {activeTab === 'planner' && canSeePlanner && (
-          <Card className="p-6 bg-[#250F4C] border border-purple-500/20 space-y-4">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <CheckSquare className="w-5 h-5 text-purple-400" /> Enterprise Task Planner
-            </h3>
-            <div className="space-y-2">
-              {tasks.length === 0 ? (
-                <p className="text-xs text-purple-300/60 text-center py-6">No tasks assigned yet.</p>
-              ) : (
-                tasks.map((t) => (
-                  <div key={t.id} className="p-3 bg-[#1A0B36] rounded-xl border border-purple-500/20 flex justify-between items-center text-xs">
-                    <div>
-                      <div className="font-bold text-white">{t.title}</div>
-                      <div className="text-[10px] text-purple-300/60">Due: {t.dueDate} • Dept: {t.assignedToDepartment}</div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300">
-                      {t.status}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
+          <AdminWorkPlannerTab />
         )}
 
         {/* LEAVES TAB */}
