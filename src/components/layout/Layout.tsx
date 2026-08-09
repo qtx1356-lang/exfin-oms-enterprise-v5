@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
-import { Bell, ChevronRight, CheckCheck, Info } from 'lucide-react';
+import { Bell, ChevronRight, CheckCheck, Info, User } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { useLocationContext } from '../../context/LocationContext';
 import { GlobalSyncStatus } from '../common/GlobalSyncStatus';
 import {
   getUnreadNotificationCount,
@@ -18,6 +19,7 @@ export const Layout: React.FC = () => {
   const location = useLocation();
   const { employeeData } = useRegistration();
   const { user: adminUser } = useAdminAuth();
+  const { formattedDistance, isInsideGeofence } = useLocationContext();
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [recentNotifs, setRecentNotifs] = useState<NotificationRecord[]>([]);
@@ -129,33 +131,67 @@ export const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Dynamic Header Bar with Notification Bell */}
-      <header className="sticky top-0 z-30 bg-[#1D113B]/80 backdrop-blur-md border-b border-purple-500/10">
-        <div className="container mx-auto px-4 py-3.5 max-w-3xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-              <span className="text-xs font-black tracking-widest text-white bg-purple-600 px-2.5 py-1 rounded-xl shadow-md">EXFIN</span>
-              <span className="text-xs font-black text-purple-300">OMS</span>
-            </div>
-            <GlobalSyncStatus />
+      {/* Dynamic Header Bar with Global Distance, Office Location Status & Notification Bell */}
+      <header className="sticky top-0 z-30 bg-[#1D113B]/90 backdrop-blur-md border-b border-purple-500/10">
+        <div className="container mx-auto px-3 sm:px-4 py-2.5 max-w-3xl flex items-center justify-between gap-2">
+          {/* Brand Logo */}
+          <div className="flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0" onClick={() => navigate('/')}>
+            <span className="text-xs font-black tracking-widest text-white bg-purple-600 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl shadow-md">EXFIN</span>
+            <span className="text-xs font-black text-purple-300 hidden min-[380px]:inline">OMS</span>
           </div>
 
-          {currentUser && (
-            <div className="relative" ref={dropdownRef}>
-              {/* Trigger Button */}
-              <button
-                onClick={handleBellClick}
-                className="relative p-2 rounded-xl bg-[#2D1B5A]/40 border border-purple-500/10 text-purple-300 hover:text-white hover:bg-purple-500/10 transition-all"
-                aria-label="Toggle notifications"
-                id="notification-bell-btn"
-              >
-                <Bell className="w-5 h-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white ring-2 ring-[#1D113B] animate-pulse">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
+          {/* Right Header Status Controls: [Distance] [Office Status] [Bell] [Profile] */}
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5">
+            {/* Live Distance Value (Value ONLY, e.g., "20.34 km", "476 m", "25 m", "—") */}
+            <div
+              className="text-[11px] sm:text-xs font-bold text-purple-200 bg-[#2D1B5A]/80 border border-purple-500/20 px-2 sm:px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1"
+              title="Live distance from office"
+            >
+              <span>{formattedDistance}</span>
+            </div>
+
+            {/* Office Location Status Badge with subtle pulse animation */}
+            <div
+              className={`text-[10px] sm:text-xs font-black px-2 sm:px-2.5 py-1 rounded-full border whitespace-nowrap animate-subtle-pulse flex items-center gap-1.5 shadow-sm select-none ${
+                isInsideGeofence
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+              }`}
+              title={isInsideGeofence ? 'Inside 25m office geofence' : 'Outside 25m office geofence'}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <span>{isInsideGeofence ? 'INSIDE OFFICE' : 'OUTSIDE OFFICE'}</span>
+            </div>
+
+            {/* Global Sync Status (shown only when offline/pending) */}
+            <GlobalSyncStatus />
+
+            {currentUser && (
+              <div className="relative shrink-0 flex items-center gap-1.5" ref={dropdownRef}>
+                {/* Trigger Button */}
+                <button
+                  onClick={handleBellClick}
+                  className="relative p-1.5 sm:p-2 rounded-xl bg-[#2D1B5A]/40 border border-purple-500/10 text-purple-300 hover:text-white hover:bg-purple-500/10 transition-all cursor-pointer"
+                  aria-label="Toggle notifications"
+                  id="notification-bell-btn"
+                >
+                  <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-red-500 text-[9px] sm:text-[10px] font-black text-white ring-2 ring-[#1D113B] animate-pulse">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Profile Link */}
+                <button
+                  onClick={() => navigate('/profile')}
+                  className="p-1.5 sm:p-2 rounded-xl bg-[#2D1B5A]/40 border border-purple-500/10 text-purple-300 hover:text-white hover:bg-purple-500/10 transition-all cursor-pointer"
+                  title="Profile"
+                  aria-label="User Profile"
+                >
+                  <User className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
 
               {/* Popover Dropdown */}
               <AnimatePresence>
@@ -222,6 +258,7 @@ export const Layout: React.FC = () => {
               </AnimatePresence>
             </div>
           )}
+          </div>
         </div>
       </header>
 

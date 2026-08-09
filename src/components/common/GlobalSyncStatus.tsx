@@ -93,15 +93,7 @@ export const GlobalSyncStatus: React.FC = () => {
           <RefreshCw className="w-3.5 h-3.5 text-purple-300" />
           <span>Pending Sync ({summary.totalPending})</span>
         </button>
-      ) : (
-        <button
-          onClick={handleGoToSyncCenter}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all cursor-pointer"
-          title="Click to open Sync Center"
-        >
-          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Synced
-        </button>
-      )}
+      ) : null}
     </div>
   );
 };

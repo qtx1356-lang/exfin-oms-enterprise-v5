@@ -6,6 +6,7 @@ import { AnimatePresence } from 'motion/react';
 import { AdminAuthProvider } from './context/AdminAuthContext';
 import { RegistrationProvider } from './context/RegistrationContext';
 import { PermissionProvider } from './context/PermissionContext';
+import { LocationProvider } from './context/LocationContext';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -15,10 +16,12 @@ export default function App() {
       <AdminAuthProvider>
         <RegistrationProvider>
           <PermissionProvider>
-            <AnimatePresence>
-              {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
-            </AnimatePresence>
-            {!showSplash && <AppRouter />}
+            <LocationProvider>
+              <AnimatePresence>
+                {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+              </AnimatePresence>
+              {!showSplash && <AppRouter />}
+            </LocationProvider>
           </PermissionProvider>
         </RegistrationProvider>
       </AdminAuthProvider>

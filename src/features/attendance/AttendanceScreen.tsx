@@ -34,6 +34,7 @@ import {
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import { useRegistration } from '../../context/RegistrationContext';
+import { useLocationContext } from '../../context/LocationContext';
 import { AttendanceRecord, AttendanceType, OutdoorWorkTypeOption } from '../../types/attendance';
 import {
   OFFICE_LOCATION,
@@ -73,12 +74,16 @@ const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
 export const AttendanceScreen: React.FC = () => {
   const { employeeData } = useRegistration();
 
-  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [errorMessage, setErrorMessage] = useState<string>('');
-  const [liveLocation, setLiveLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [currentAddress, setCurrentAddress] = useState<string>('');
-  const [distance, setDistance] = useState<number | null>(null);
-  const [isInsideGeofence, setIsInsideGeofence] = useState<boolean>(false);
+  const {
+    liveLocation,
+    distance,
+    formattedDistance,
+    isInsideGeofence,
+    locationStatus,
+    errorMessage,
+    currentAddress,
+    refreshLocation,
+  } = useLocationContext();
   
   // Attendance state
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
@@ -112,7 +117,6 @@ export const AttendanceScreen: React.FC = () => {
   const [historySearchTerm, setHistorySearchTerm] = useState<string>('');
   const [historySyncFilter, setHistorySyncFilter] = useState<'ALL' | 'Synced' | 'Pending'>('ALL');
 
-  const startTrackingRef = useRef<() => void>();
   const autoCheckInTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const employeeId = employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN';
@@ -186,79 +190,6 @@ export const AttendanceScreen: React.FC = () => {
     };
   }, [employeeId]);
 
-  const getValidCachedAddress = (): string | null => {
-    const cached = localStorage.getItem('lastKnownAddress');
-    if (cached && !cached.toLowerCase().includes('address unavailable')) {
-      return cached.trim();
-    }
-    return null;
-  };
-
-  const extractBestLocation = (addressData: any): string | null => {
-    if (!addressData) return null;
-
-    if (typeof addressData === 'string') {
-      const trimmed = addressData.trim();
-      if (trimmed && !trimmed.toLowerCase().includes('address unavailable')) {
-        return trimmed;
-      }
-      return null;
-    }
-
-    const townCity = addressData.locality || addressData.city || addressData.town || addressData.suburb || addressData.subLocality || addressData.village;
-    if (townCity && typeof townCity === 'string' && townCity.trim()) return townCity.trim();
-
-    const district = addressData.subAdminArea || addressData.district || addressData.county;
-    if (district && typeof district === 'string' && district.trim()) return district.trim();
-
-    const state = addressData.adminArea || addressData.state;
-    if (state && typeof state === 'string' && state.trim()) return state.trim();
-
-    return null;
-  };
-
-  const performReverseGeocode = async (latitude: number, longitude: number) => {
-    let resolvedAddress: string | null = null;
-
-    try {
-      const win = window as any;
-      if (Capacitor.isNativePlatform()) {
-        if (win.AndroidGeocoder && typeof win.AndroidGeocoder.getFromLocation === 'function') {
-          const raw = await win.AndroidGeocoder.getFromLocation(latitude, longitude);
-          resolvedAddress = extractBestLocation(raw);
-        } else if (win.Capacitor?.Plugins?.NativeGeocoder) {
-          const res = await win.Capacitor.Plugins.NativeGeocoder.reverseGeocode({ latitude, longitude });
-          if (res && res.addresses && res.addresses.length > 0) {
-            resolvedAddress = extractBestLocation(res.addresses[0]);
-          } else if (res && res.address) {
-            resolvedAddress = extractBestLocation(res.address);
-          }
-        } else if (win.Capacitor?.Plugins?.Geocoder) {
-          const res = await win.Capacitor.Plugins.Geocoder.reverseGeocode({ latitude, longitude });
-          if (res && res.addresses && res.addresses.length > 0) {
-            resolvedAddress = extractBestLocation(res.addresses[0]);
-          }
-        }
-      }
-    } catch (e: any) {
-      console.warn('Native Android Geocoder error:', e);
-    }
-
-    if (resolvedAddress && resolvedAddress.trim()) {
-      const cleanAddress = resolvedAddress.trim();
-      setCurrentAddress(cleanAddress);
-      localStorage.setItem('lastKnownAddress', cleanAddress);
-    } else {
-      const cachedAddress = getValidCachedAddress();
-      if (cachedAddress) {
-        setCurrentAddress(cachedAddress);
-      } else {
-        setCurrentAddress('Raniganj HQ');
-      }
-    }
-    setLocationStatus('success');
-  };
-
   // Auto Check-In timer trigger logic (OFFICE Mode ONLY)
   const handleAutoCheckInCountdown = (inside: boolean, coords: { latitude: number; longitude: number }) => {
     const todayStr = getFormattedDateStr();
@@ -315,111 +246,15 @@ export const AttendanceScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    let watchId: string | number | null = null;
-
-    startTrackingRef.current = async () => {
-      setLocationStatus('loading');
-      setErrorMessage('');
-      setLiveLocation(null);
-      setCurrentAddress('');
-      setDistance(null);
-      setIsInsideGeofence(false);
-
-      if (watchId !== null) {
-        if (typeof watchId === 'string') {
-          Geolocation.clearWatch({ id: watchId });
-        } else {
-          navigator.geolocation.clearWatch(watchId);
-        }
-        watchId = null;
+    if (liveLocation && distance !== null) {
+      const todayStr = getFormattedDateStr();
+      const activeRecord = getTodayAttendanceRecord(employeeId, todayStr);
+      if (activeRecord && (activeRecord.attendanceType === 'OFFICE' || !activeRecord.attendanceType)) {
+        trackSmartOfficeExit(activeRecord, distance);
       }
-
-      const processPosition = async (latitude: number, longitude: number) => {
-        setLiveLocation({ latitude, longitude });
-
-        const calculatedDistance = getDistanceFromLatLonInM(
-          latitude,
-          longitude,
-          OFFICE_LOCATION.latitude,
-          OFFICE_LOCATION.longitude
-        );
-        setDistance(calculatedDistance);
-        const inside = calculatedDistance <= OFFICE_LOCATION.radius;
-        setIsInsideGeofence(inside);
-
-        const todayStr = getFormattedDateStr();
-        const activeRecord = getTodayAttendanceRecord(employeeId, todayStr);
-        if (activeRecord && (activeRecord.attendanceType === 'OFFICE' || !activeRecord.attendanceType)) {
-          trackSmartOfficeExit(activeRecord, calculatedDistance);
-        }
-
-        handleAutoCheckInCountdown(inside, { latitude, longitude });
-
-        if (!navigator.onLine) {
-          const cachedAddress = getValidCachedAddress();
-          setCurrentAddress(cachedAddress || 'Raniganj HQ');
-          setLocationStatus('success');
-          return;
-        }
-
-        await performReverseGeocode(latitude, longitude);
-      };
-
-      try {
-        if (Capacitor.isNativePlatform()) {
-          const perm = await Geolocation.requestPermissions();
-          if (perm.location !== 'granted') {
-            setLocationStatus('error');
-            setErrorMessage('Location permission is required for attendance.');
-            return;
-          }
-        }
-
-        watchId = await Geolocation.watchPosition(
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
-          (position, err) => {
-            if (err || !position || !position.coords) {
-              if (err) {
-                setLocationStatus('error');
-                setErrorMessage(err.message || 'Location information is unavailable.');
-              }
-              return;
-            }
-            processPosition(position.coords.latitude, position.coords.longitude);
-          }
-        );
-      } catch (err) {
-        if (!navigator.geolocation) {
-          setLocationStatus('error');
-          setErrorMessage('Geolocation is not supported by your browser.');
-          return;
-        }
-
-        watchId = navigator.geolocation.watchPosition(
-          (position) => {
-            processPosition(position.coords.latitude, position.coords.longitude);
-          },
-          (error) => {
-            setLocationStatus('error');
-            setErrorMessage('Unable to retrieve location. Please enable GPS.');
-          },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
-      }
-    };
-
-    startTrackingRef.current();
-
-    return () => {
-      if (watchId !== null) {
-        if (typeof watchId === 'string') {
-          Geolocation.clearWatch({ id: watchId });
-        } else {
-          navigator.geolocation.clearWatch(watchId);
-        }
-      }
-    };
-  }, [employeeId, employeeName]);
+      handleAutoCheckInCountdown(isInsideGeofence, liveLocation);
+    }
+  }, [liveLocation, distance, isInsideGeofence, employeeId]);
 
   // Office Check-In Handler
   const handleManualCheckIn = () => {
@@ -773,7 +608,7 @@ export const AttendanceScreen: React.FC = () => {
             <h2 className="text-sm font-bold">GPS Location Unavailable</h2>
             <p className="text-xs text-rose-300 mt-0.5">{errorMessage}</p>
           </div>
-          <Button onClick={() => startTrackingRef.current?.()} className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-2 px-4 rounded-xl shadow">
+          <Button onClick={() => refreshLocation()} className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-2 px-4 rounded-xl shadow">
             Retry GPS Lock
           </Button>
         </div>
@@ -783,33 +618,33 @@ export const AttendanceScreen: React.FC = () => {
       {locationStatus === 'success' && distance !== null && (
         <>
           {/* ==================================================== */}
-          {/* OFFICE STATUS CARD (NO COORDINATES, DISTANCE ONLY) */}
+          {/* OFFICE STATUS CARD (CLEAN & UNCLUTTERED) */}
           {/* ==================================================== */}
-          <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.37)] flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-purple-950/80 text-purple-300 border border-purple-500/30 flex items-center justify-center flex-shrink-0 font-bold shadow-inner">
+          <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-4 sm:p-5 shadow-[0_8px_32px_rgba(0,0,0,0.37)] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-purple-950/80 text-purple-300 border border-purple-500/30 flex items-center justify-center flex-shrink-0 font-bold shadow-inner">
                 <Building2 className="w-5 h-5 text-[#7C3AED]" />
               </div>
               <div>
                 <p className="text-[10px] font-black text-purple-300 uppercase tracking-widest mb-0.5">
-                  OFFICE STATUS
+                  OFFICE LOCATION & GEOFENCE
                 </p>
-                <h3 className="text-base font-black text-white leading-tight">
-                  Distance from Office: <span className="text-purple-200">{formatDistanceDisplay(distance)}</span>
+                <h3 className="text-sm sm:text-base font-black text-white leading-tight">
+                  Distance: <span className="text-purple-200">{formattedDistance}</span>
                 </h3>
                 <p className="text-[11px] text-purple-300/80 font-medium mt-0.5">
-                  Office Geofence Radius: {OFFICE_LOCATION.radius}m
+                  Office Geofence: {OFFICE_LOCATION.radius}m • {currentAddress || 'Raniganj HQ'}
                 </p>
               </div>
             </div>
 
             <div className="text-right flex-shrink-0">
-              <span className={`px-3.5 py-1.5 rounded-full text-xs font-black inline-flex items-center gap-2 border ${
+              <span className={`px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-black inline-flex items-center gap-1.5 border animate-subtle-pulse select-none ${
                 isInsideGeofence 
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.2)]' 
-                  : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                  : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
               }`}>
-                <span className={`w-2.5 h-2.5 rounded-full ${isInsideGeofence ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+                <span className={`w-2 h-2 rounded-full ${isInsideGeofence ? 'bg-emerald-400' : 'bg-amber-400'}`} />
                 {isInsideGeofence ? 'INSIDE OFFICE' : 'OUTSIDE OFFICE'}
               </span>
             </div>
