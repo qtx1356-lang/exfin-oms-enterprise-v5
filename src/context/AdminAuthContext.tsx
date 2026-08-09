@@ -32,92 +32,12 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setUser(u);
       if (u && db) {
         try {
-          let adminDoc = await getDoc(doc(db, 'admin_users', u.uid));
-
-          // Idempotent migration / repair mechanism:
-          // Check if user is a legitimate Admin/SuperAdmin in registrations or is primary Super Admin
-          if (!adminDoc.exists()) {
-            let regRole: AppRole | null = null;
-            let regData: any = null;
-
-            try {
-              const regDoc = await getDoc(doc(db, 'registrations', u.uid));
-              if (regDoc.exists()) {
-                regData = regDoc.data();
-                regRole = regData.role || null;
-              }
-            } catch (rErr) {
-              console.warn("Could not read registration for admin check:", rErr);
-            }
-
-            if (regRole === 'ADMIN' || regRole === 'SUPER_ADMIN' || regRole === 'HR') {
-              try {
-                const nowIso = new Date().toISOString();
-                await setDoc(doc(db, 'admin_users', u.uid), {
-                  uid: u.uid,
-                  role: regRole,
-                  active: true,
-                  email: u.email || (regData && regData.email) || '',
-                  authorizedOffice: (regData && regData.office) || 'ALL',
-                  createdAt: nowIso,
-                  updatedAt: nowIso,
-                }, { merge: true });
-
-                adminDoc = await getDoc(doc(db, 'admin_users', u.uid));
-              } catch (repairErr) {
-                console.warn("Admin auto-provisioning repair note:", repairErr);
-              }
-            }
-          }
+          const adminDoc = await getDoc(doc(db, 'admin_users', u.uid));
 
           if (adminDoc.exists()) {
             const data = adminDoc.data();
             const isActive = data.active !== false && data.status !== 'Suspended';
             const userRole = (data.role as AppRole) || 'ADMIN';
-
-            // Auto-migration for missing loginId in existing user profiles:
-            if (!data.loginId && isActive) {
-              let proposedId = '';
-              if (userRole === 'SUPER_ADMIN') {
-                proposedId = 'super-admin';
-              } else if (userRole === 'ADMIN') {
-                proposedId = 'admin';
-              } else if (userRole === 'HR') {
-                proposedId = 'hr';
-              } else {
-                proposedId = `user-${u.uid.slice(0, 5).toLowerCase()}`;
-              }
-
-              try {
-                // Ensure unique proposedId
-                let isUnique = false;
-                let counter = 0;
-                let finalId = proposedId;
-                while (!isUnique && counter < 100) {
-                  const checkRef = doc(db, 'login_ids', finalId);
-                  const checkSnap = await getDoc(checkRef);
-                  if (!checkSnap.exists() || checkSnap.data().uid === u.uid) {
-                    isUnique = true;
-                  } else {
-                    counter++;
-                    finalId = `${proposedId}-${counter}`;
-                  }
-                }
-
-                await setDoc(doc(db, 'login_ids', finalId), {
-                  email: u.email || (data && data.email) || '',
-                  uid: u.uid,
-                });
-
-                await setDoc(doc(db, 'admin_users', u.uid), {
-                  loginId: finalId,
-                }, { merge: true });
-
-                console.log(`Successfully migrated user ${u.uid} to loginId: ${finalId}`);
-              } catch (migErr) {
-                console.error("Failed to auto-migrate admin user to login ID:", migErr);
-              }
-            }
 
             if (isActive && (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'HR')) {
               setRole(userRole);
@@ -161,37 +81,31 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!auth || !db) throw new Error('Firebase services not initialized');
     
     const inputCleaned = emailOrLoginId.trim();
-    let emailToAuth = '';
     const normalizedLoginId = inputCleaned.toLowerCase().replace(/\s+/g, '');
+    
+    let emailToAuth = '';
+    let expectedUid = '';
 
-    if (inputCleaned.includes('@')) {
-      emailToAuth = inputCleaned;
-    } else {
-      try {
-        const loginDoc = await getDoc(doc(db, 'login_ids', normalizedLoginId));
-        if (loginDoc.exists()) {
-          emailToAuth = loginDoc.data()?.email || '';
-        }
-        if (!emailToAuth && normalizedLoginId === 'admin') {
-          emailToAuth = 'admin_v6_secure@exfinoms.com';
-        }
-        if (!emailToAuth && normalizedLoginId === 'super-admin') {
-          emailToAuth = 'super_admin@exfinoms.com';
-        }
-        if (!emailToAuth && !loginDoc.exists()) {
-          throw new Error(`Login ID "${normalizedLoginId}" not found in login_ids database collection.`);
-        }
-      } catch (err: any) {
-        if (normalizedLoginId === 'admin') {
-          emailToAuth = 'admin_v6_secure@exfinoms.com';
-        } else {
-          throw new Error(`Login ID lookup failed: ${err.message || 'Document not found'}`);
-        }
+    // Always attempt to resolve Login ID first for security and mapping consistency
+    try {
+      const loginDoc = await getDoc(doc(db, 'login_ids', normalizedLoginId));
+      if (loginDoc.exists()) {
+        const mappingData = loginDoc.data();
+        emailToAuth = mappingData?.email || '';
+        expectedUid = mappingData?.uid || '';
+      } else if (inputCleaned.includes('@')) {
+        // Fallback for direct email login if not found as a Login ID
+        emailToAuth = inputCleaned;
+      } else {
+        throw new Error(`Login ID "${normalizedLoginId}" not found.`);
       }
+    } catch (err: any) {
+      if (err.message.includes('not found')) throw err;
+      throw new Error(`Login resolution failed: ${err.message || 'Unknown error'}`);
     }
 
     if (!emailToAuth) {
-      throw new Error('Login ID mapping has no associated email address.');
+      throw new Error('Could not resolve an email address for authentication.');
     }
 
     // Attempt Firebase Authentication
@@ -199,11 +113,21 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       userCredential = await signInWithEmailAndPassword(auth, emailToAuth, password);
     } catch (err: any) {
-      throw new Error(`Firebase Auth failed (${err.code || 'error'}): ${err.message}`);
+      // Provide user-friendly errors for common auth failures
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
+        throw new Error('Invalid Login ID or password.');
+      }
+      throw new Error(`Authentication failed: ${err.message}`);
     }
 
-    // Verify Active State and Admin Profile
+    // Security Verification: Check if authenticated UID matches the expected UID from mapping
     const u = userCredential.user;
+    if (expectedUid && u.uid !== expectedUid) {
+      await signOut(auth);
+      throw new Error('Security violation: Authenticated user does not match the mapped Login ID profile.');
+    }
+
+    // Verify Active State and Admin Profile in admin_users
     try {
       const adminDoc = await getDoc(doc(db, 'admin_users', u.uid));
 
@@ -216,14 +140,14 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
       } else {
         await signOut(auth);
-        throw new Error(`Admin user profile missing in admin_users for UID: ${u.uid}`);
+        throw new Error('Admin profile not found. Access denied.');
       }
     } catch (err: any) {
-      if (err.message.includes('inactive') || err.message.includes('missing') || err.message.includes('profile')) {
+      if (err.message.includes('inactive') || err.message.includes('not found') || err.message.includes('denied')) {
         throw err;
       }
       await signOut(auth);
-      throw new Error(`Admin profile verification failed: ${err.message}`);
+      throw new Error(`Profile verification failed: ${err.message}`);
     }
   };
 
