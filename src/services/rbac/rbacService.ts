@@ -88,6 +88,7 @@ export const updateUserRoleAndStatus = async (params: {
   newStatus?: 'Pending Approval' | 'Approved' | 'Rejected' | 'Suspended';
   previousStatus?: string;
   department?: string;
+  designation?: string;
   assignedTeamLeaderId?: string;
   assignedTeamLeaderName?: string;
   isTeamLeader?: boolean;
@@ -105,6 +106,7 @@ export const updateUserRoleAndStatus = async (params: {
     newStatus,
     previousStatus,
     department,
+    designation,
     assignedTeamLeaderId,
     assignedTeamLeaderName,
     isTeamLeader,
@@ -132,6 +134,7 @@ export const updateUserRoleAndStatus = async (params: {
 
   if (newStatus) updateData.status = newStatus;
   if (department !== undefined) updateData.office = department;
+  if (designation !== undefined) updateData.designation = designation;
   updateData.isTeamLeader = effectiveIsTeamLeader;
 
   if (assignedTeamLeaderId !== undefined) {

@@ -7,6 +7,7 @@ import { usePermission } from '../../context/PermissionContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { OrganizationSettingsTab } from './OrganizationSettingsTab';
 import {
   Users,
   Search,
@@ -31,6 +32,7 @@ export interface ManagedUser {
   name: string;
   mobileNumber?: string;
   office?: string;
+  designation?: string;
   role: AppRole;
   status: 'Pending Approval' | 'Approved' | 'Rejected' | 'Suspended';
   isTeamLeader?: boolean;
@@ -67,10 +69,41 @@ export const UserManagementTab: React.FC = () => {
   const [editRole, setEditRole] = useState<AppRole>('EMPLOYEE');
   const [editStatus, setEditStatus] = useState<'Approved' | 'Suspended' | 'Pending Approval' | 'Rejected'>('Approved');
   const [editDepartment, setEditDepartment] = useState('Raniganj');
+  const [editDesignation, setEditDesignation] = useState('');
   const [editIsTeamLeader, setEditIsTeamLeader] = useState(false);
   const [editTeamLeaderId, setEditTeamLeaderId] = useState('');
   const [editTeamMemberUids, setEditTeamMemberUids] = useState<string[]>([]);
   const [editLoginId, setEditLoginId] = useState('');
+
+  const [activeSubTab, setActiveSubTab] = useState<'DIRECTORY' | 'ORG_SETTINGS'>('DIRECTORY');
+  const [masterDepts, setMasterDepts] = useState<any[]>([]);
+  const [masterDesigs, setMasterDesigs] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!db) return;
+    const unsubDepts = onSnapshot(collection(db, 'departments'), (snap) => {
+      const list: any[] = [];
+      snap.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      setMasterDepts(list);
+    });
+
+    const unsubDesigs = onSnapshot(collection(db, 'designations'), (snap) => {
+      const list: any[] = [];
+      snap.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      setMasterDesigs(list);
+    });
+
+    return () => {
+      unsubDepts();
+      unsubDesigs();
+    };
+  }, []);
 
   // Team Member selector filter state
   const [teamMemberSearchTerm, setTeamMemberSearchTerm] = useState('');
@@ -98,6 +131,7 @@ export const UserManagementTab: React.FC = () => {
           name: data.name || 'Unnamed Employee',
           mobileNumber: data.mobileNumber || 'N/A',
           office: data.office || 'Raniganj',
+          designation: data.designation || '',
           role: uRole,
           status: data.status || 'Approved',
           isTeamLeader: !!data.isTeamLeader,
@@ -134,6 +168,7 @@ export const UserManagementTab: React.FC = () => {
               ...existing,
               role: aRole,
               office: aData.authorizedOffice || existing.office,
+              designation: aData.designation || existing.designation || 'Admin',
               loginId: isSuperAdmin() ? (aData.loginId || existing.loginId || '') : '',
               email: isSuperAdmin() ? (aData.email || existing.email || '') : '',
             });
@@ -145,6 +180,7 @@ export const UserManagementTab: React.FC = () => {
               name: aData.email ? aData.email.split('@')[0] : 'Admin User',
               mobileNumber: 'N/A',
               office: aData.authorizedOffice || 'ALL',
+              designation: aData.designation || 'Admin',
               role: aRole,
               status: aData.active === false ? 'Suspended' : 'Approved',
               loginId: isSuperAdmin() ? (aData.loginId || '') : '',
@@ -194,6 +230,7 @@ export const UserManagementTab: React.FC = () => {
     setEditRole(u.role);
     setEditStatus(u.status as any);
     setEditDepartment(u.office || 'Raniganj');
+    setEditDesignation(u.designation || '');
     const isTl = !!u.isTeamLeader || u.role === 'TEAM_LEADER';
     setEditIsTeamLeader(isTl);
     setEditTeamLeaderId(u.assignedTeamLeaderId || '');
@@ -346,6 +383,7 @@ export const UserManagementTab: React.FC = () => {
         newStatus: editStatus,
         previousStatus: selectedUser.status,
         department: editDepartment,
+        designation: editDesignation,
         isTeamLeader: isTargetTl,
         assignedTeamLeaderId: editTeamLeaderId,
         assignedTeamLeaderName: selectedTL ? selectedTL.name : '',
@@ -522,7 +560,12 @@ export const UserManagementTab: React.FC = () => {
     }
   };
 
-  const departments = Array.from(new Set(users.map((u) => u.office || 'Raniganj')));
+  const departments = Array.from(
+    new Set([
+      ...users.map((u) => u.office || 'Raniganj'),
+      ...masterDepts.filter((d) => d.active).map((d) => d.name),
+    ])
+  );
 
   const [isCleaning, setIsCleaning] = useState(false);
 
@@ -609,8 +652,38 @@ export const UserManagementTab: React.FC = () => {
         )}
       </div>
 
-      {/* Filter and Search Bar */}
-      <Card className="p-4 bg-[#2D1B5A] border-purple-500/20 space-y-4">
+      {/* Sub tabs */}
+      {isAdmin() && (
+        <div className="flex bg-[#211044] p-1.5 rounded-2xl w-fit border border-purple-500/20">
+          <button
+            onClick={() => setActiveSubTab('DIRECTORY')}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+              activeSubTab === 'DIRECTORY'
+                ? 'bg-purple-600 text-white shadow-md'
+                : 'text-purple-300/80 hover:text-white'
+            }`}
+          >
+            Employee Directory
+          </button>
+          <button
+            onClick={() => setActiveSubTab('ORG_SETTINGS')}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+              activeSubTab === 'ORG_SETTINGS'
+                ? 'bg-purple-600 text-white shadow-md'
+                : 'text-purple-300/80 hover:text-white'
+            }`}
+          >
+            Organization Settings (Departments & Designations)
+          </button>
+        </div>
+      )}
+
+      {activeSubTab === 'ORG_SETTINGS' ? (
+        <OrganizationSettingsTab users={users} />
+      ) : (
+        <>
+          {/* Filter and Search Bar */}
+          <Card className="p-4 bg-[#2D1B5A] border-purple-500/20 space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* Search */}
           <div className="relative">
@@ -712,7 +785,10 @@ export const UserManagementTab: React.FC = () => {
                         {u.role.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="p-3 text-purple-200">{u.office || 'Raniganj'}</td>
+                    <td className="p-3 text-purple-200">
+                      <div>{u.office || 'Raniganj'}</div>
+                      {u.designation && <div className="text-[10px] text-purple-300/60 font-medium">{u.designation}</div>}
+                    </td>
                     <td className="p-3 text-purple-300/80">
                       {u.isTeamLeader ? (
                         <span className="text-emerald-400 font-bold">Self (Team Leader)</span>
@@ -801,6 +877,10 @@ export const UserManagementTab: React.FC = () => {
                 <span className="text-white font-bold">{selectedUser.office || 'Raniganj'}</span>
               </div>
               <div className="p-3 bg-[#2D1B5A] rounded-xl border border-purple-500/20 space-y-1">
+                <span className="text-[10px] text-purple-300/60 uppercase font-bold block">Designation</span>
+                <span className="text-white font-bold">{selectedUser.designation || 'N/A'}</span>
+              </div>
+              <div className="p-3 bg-[#2D1B5A] rounded-xl border border-purple-500/20 space-y-1 col-span-2">
                 <span className="text-[10px] text-purple-300/60 uppercase font-bold block">Mobile</span>
                 <span className="text-white font-bold">{selectedUser.mobileNumber || 'N/A'}</span>
               </div>
@@ -917,12 +997,47 @@ export const UserManagementTab: React.FC = () => {
               {/* Department */}
               <div className="space-y-1">
                 <label className="text-purple-300 font-bold block">Department / Office</label>
-                <input
-                  type="text"
+                <select
                   value={editDepartment}
                   onChange={(e) => setEditDepartment(e.target.value)}
                   className="w-full px-3 py-2 bg-[#2D1B5A] border border-purple-500/30 rounded-xl text-white focus:outline-none"
-                />
+                >
+                  {masterDepts
+                    .filter((d) => d.active || d.name === editDepartment)
+                    .map((d) => (
+                      <option key={d.id} value={d.name}>
+                        {d.name} {!d.active && '(Inactive)'}
+                      </option>
+                    ))}
+                  {editDepartment && !masterDepts.some((d) => d.name === editDepartment) && (
+                    <option value={editDepartment}>{editDepartment} (Unmapped)</option>
+                  )}
+                  <option value="Raniganj">Raniganj (Default)</option>
+                </select>
+              </div>
+
+              {/* Designation */}
+              <div className="space-y-1">
+                <label className="text-purple-300 font-bold block">Designation</label>
+                <select
+                  value={editDesignation}
+                  onChange={(e) => setEditDesignation(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#2D1B5A] border border-purple-500/30 rounded-xl text-white focus:outline-none"
+                >
+                  <option value="">-- Select Designation --</option>
+                  {masterDesigs
+                    .filter((d) => d.active || d.name === editDesignation)
+                    .map((d) => (
+                      <option key={d.id} value={d.name}>
+                        {d.name} {!d.active && '(Inactive)'}
+                      </option>
+                    ))}
+                  {editDesignation && !masterDesigs.some((d) => d.name === editDesignation) && (
+                    <option value={editDesignation}>{editDesignation} (Unmapped)</option>
+                  )}
+                  <option value="Executive">Executive</option>
+                  <option value="Team Leader">Team Leader</option>
+                </select>
               </div>
 
               {/* Is Team Leader Toggle */}
@@ -1133,6 +1248,8 @@ export const UserManagementTab: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

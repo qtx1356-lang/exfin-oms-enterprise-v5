@@ -27,6 +27,16 @@ service cloud.firestore {
       allow read: if true;
       allow write: if true; // Needs to be true for transaction to work during registration
     }
+
+    match /departments/{departmentId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /designations/{designationId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
     
     match /roles/{roleId} {
       allow read: if true;

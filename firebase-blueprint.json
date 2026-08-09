@@ -230,9 +230,45 @@
         "timestamp": { "type": "string" }
       },
       "required": ["id", "senderId", "senderName", "senderRole", "content", "timestamp"]
+    },
+    "Department": {
+      "title": "Department",
+      "description": "Company specific department master record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "active", "createdAt", "updatedAt"]
+    },
+    "Designation": {
+      "title": "Designation",
+      "description": "Company specific designation master record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "active", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
+    "/departments/{departmentId}": {
+      "schema": "Department",
+      "description": "Company departments master list"
+    },
+    "/designations/{designationId}": {
+      "schema": "Designation",
+      "description": "Company designations master list"
+    },
     "/registrations/{registrationId}": {
       "schema": "Registration",
       "description": "Device registrations for employee approval"
