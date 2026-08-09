@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { doc, onSnapshot, runTransaction, setDoc, serverTimestamp, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, onSnapshot, runTransaction, setDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from '../services/firebase/config';
 import { Device } from '@capacitor/device';
@@ -25,136 +25,33 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [authUser, setAuthUser] = useState<User | null>(null);
 
   useEffect(() => {
+    if (!auth) return;
     const unsubAuth = onAuthStateChanged(auth, (user) => {
       setAuthUser(user);
     });
     return () => unsubAuth();
   }, []);
 
-  useEffect(() => {
-    let isMounted = true;
-    let timerId: NodeJS.Timeout | null = null;
-
-    if (!localRegId) {
-      console.log('Registration initialization started: No local registration ID');
-      setStatus('unregistered');
-      return;
-    }
-    
-    if (!db) {
-      console.log('Registration initialization started: No DB instance');
-      setStatus('unregistered');
-      return;
-    }
-
-    console.log('Registration initialization started for ID:', localRegId);
-
-    // Bounded initialization timeout (5000 ms)
-    timerId = setTimeout(() => {
-      if (!isMounted) return;
-      console.log('Registration initialization timed out');
-
-      // Attempt to load cached registration data
-      try {
-        const cachedRaw = localStorage.getItem('cached_registration_data');
-        if (cachedRaw) {
-          const cachedData = JSON.parse(cachedRaw);
-          if (cachedData && cachedData.status) {
-            console.log('Registration using cached state:', cachedData.status);
-            setStatus(cachedData.status);
-            setRejectionReason(cachedData.rejectionReason);
-            setEmployeeData(cachedData);
-            return;
-          }
-        }
-      } catch (err) {
-        console.error('Failed to parse cached registration data:', err);
-      }
-
-      // No valid cached registration -> default to unregistered
-      setStatus('unregistered');
-    }, 5000);
-
-    // Listen to changes
-    const unsub = onSnapshot(doc(db, 'registrations', localRegId), (docSnap) => {
-      if (!isMounted) return;
-
-      if (timerId) {
-        clearTimeout(timerId);
-        timerId = null;
-      }
-
-      console.log('Registration Firestore resolved');
-
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setStatus(data.status);
-        setRejectionReason(data.rejectionReason);
-        setEmployeeData(data);
-
-        // Save authoritative state to local storage cache
-        try {
-          localStorage.setItem('cached_registration_data', JSON.stringify(data));
-        } catch (e) {
-          console.error('Failed to cache registration data:', e);
-        }
-      } else {
-        console.log('Firestore document does NOT exist for registrationId:', localRegId);
-        setStatus('unregistered');
-        localStorage.removeItem('registrationId');
-        localStorage.removeItem('cached_registration_data');
-        setLocalRegId(null);
-        setEmployeeData(null);
-      }
-    }, (error) => {
-      if (!isMounted) return;
-
-      console.error('Registration Firestore error:', error);
-
-      if (timerId) {
-        clearTimeout(timerId);
-        timerId = null;
-      }
-
-      // Attempt cached state fallback on Firestore error
-      try {
-        const cachedRaw = localStorage.getItem('cached_registration_data');
-        if (cachedRaw) {
-          const cachedData = JSON.parse(cachedRaw);
-          if (cachedData && cachedData.status) {
-            console.log('Registration using cached state after Firestore error:', cachedData.status);
-            setStatus(cachedData.status);
-            setRejectionReason(cachedData.rejectionReason);
-            setEmployeeData(cachedData);
-            return;
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load cached registration data on error:', err);
-      }
-
-      setStatus('unregistered');
-    });
-
-    return () => {
-      isMounted = false;
-      if (timerId) clearTimeout(timerId);
-      if (unsub) unsub();
-    };
-  }, [localRegId]);
-
   const getDeviceInfo = async () => {
     let deviceId = '';
     
     try {
       const deviceIdInfo = await Device.getId();
-      deviceId = deviceIdInfo.identifier;
+      if (deviceIdInfo && deviceIdInfo.identifier) {
+        deviceId = deviceIdInfo.identifier;
+      }
     } catch (e) {
+      console.warn('Device.getId() failed, checking localStorage fallback:', e);
+    }
+
+    if (!deviceId) {
       deviceId = localStorage.getItem('deviceId') || '';
       if (!deviceId) {
         deviceId = crypto.randomUUID();
         localStorage.setItem('deviceId', deviceId);
       }
+    } else {
+      localStorage.setItem('deviceId', deviceId);
     }
     
     const ua = navigator.userAgent;
@@ -180,33 +77,205 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return { deviceId, deviceModel, androidVersion, appVersion: 'v5.1.0' };
   };
 
+  useEffect(() => {
+    let isMounted = true;
+    let unsubSnapshot: (() => void) | null = null;
+
+    const initializeRegistration = async () => {
+      if (!db) {
+        console.warn('Registration initialization: Firestore DB unavailable');
+        if (isMounted) setStatus('unregistered');
+        return;
+      }
+
+      try {
+        const { deviceId } = await getDeviceInfo();
+        console.log('Registration initialization starting. Target deviceId:', deviceId, 'Stored localRegId:', localRegId);
+
+        let activeRegId = localRegId;
+        let activeData: any = null;
+
+        // Step 1: Query Firestore by deviceId FIRST to detect any existing registration for this physical device
+        const regsRef = collection(db, 'registrations');
+        const qByDevice = query(regsRef, where('deviceId', '==', deviceId));
+        const deviceQuerySnap = await getDocs(qByDevice);
+
+        if (!deviceQuerySnap.empty) {
+          const getCodeNum = (code: string) => parseInt(code.replace('EXFRNG', ''), 10) || 0;
+          const docs = deviceQuerySnap.docs.map(d => ({ id: d.id, data: d.data() }));
+          
+          docs.sort((a, b) => {
+            const dateA = new Date(a.data.registrationDate || 0).getTime();
+            const dateB = new Date(b.data.registrationDate || 0).getTime();
+            if (dateB !== dateA) return dateB - dateA;
+            return getCodeNum(b.data.employeeCode || '') - getCodeNum(a.data.employeeCode || '');
+          });
+
+          const bestDoc = docs[0];
+          activeRegId = bestDoc.id;
+          activeData = bestDoc.data;
+
+          console.log('Successfully detected existing device registration:', activeRegId, activeData.employeeCode);
+
+          // Cleanup duplicate device records if found
+          if (docs.length > 1) {
+            console.warn('Cleaning up extra duplicate device records for deviceId:', deviceId);
+            for (let i = 1; i < docs.length; i++) {
+              try {
+                await deleteDoc(doc(db, 'registrations', docs[i].id));
+              } catch (delErr) {
+                console.error('Failed to delete duplicate doc:', docs[i].id, delErr);
+              }
+            }
+          }
+
+          localStorage.setItem('registrationId', activeRegId);
+          try {
+            localStorage.setItem('cached_registration_data', JSON.stringify(activeData));
+          } catch (e) {}
+          
+          if (isMounted) {
+            setLocalRegId(activeRegId);
+            setEmployeeData(activeData);
+            setStatus(activeData.status || 'Pending Approval');
+            if (activeData.rejectionReason) setRejectionReason(activeData.rejectionReason);
+          }
+        } else if (activeRegId) {
+          // Step 2: Query by localRegId if no doc was found by deviceId
+          try {
+            const docSnap = await getDocs(query(regsRef, where('__name__', '==', activeRegId)));
+            if (!docSnap.empty) {
+              const data = docSnap.docs[0].data();
+              activeData = data;
+              if (isMounted) {
+                setEmployeeData(data);
+                setStatus(data.status || 'Pending Approval');
+                if (data.rejectionReason) setRejectionReason(data.rejectionReason);
+              }
+            } else {
+              console.warn('Doc for localRegId does not exist in Firestore:', activeRegId);
+              const cachedRaw = localStorage.getItem('cached_registration_data');
+              if (cachedRaw) {
+                const cachedData = JSON.parse(cachedRaw);
+                if (cachedData && cachedData.status) {
+                  if (isMounted) {
+                    setStatus(cachedData.status);
+                    setEmployeeData(cachedData);
+                    setRejectionReason(cachedData.rejectionReason);
+                  }
+                  return;
+                }
+              }
+              if (isMounted) setStatus('unregistered');
+            }
+          } catch (err) {
+            console.error('Error fetching registration by localRegId:', err);
+            const cachedRaw = localStorage.getItem('cached_registration_data');
+            if (cachedRaw && isMounted) {
+              try {
+                const cachedData = JSON.parse(cachedRaw);
+                if (cachedData && cachedData.status) {
+                  setStatus(cachedData.status);
+                  setEmployeeData(cachedData);
+                  setRejectionReason(cachedData.rejectionReason);
+                  return;
+                }
+              } catch (e) {}
+            }
+            if (isMounted) setStatus('unregistered');
+          }
+        } else {
+          // Step 3: Check cached registration data as fallback
+          const cachedRaw = localStorage.getItem('cached_registration_data');
+          if (cachedRaw) {
+            try {
+              const cachedData = JSON.parse(cachedRaw);
+              if (cachedData && cachedData.status && (cachedData.deviceId === deviceId || cachedData.employeeCode)) {
+                if (isMounted) {
+                  setStatus(cachedData.status);
+                  setEmployeeData(cachedData);
+                  setRejectionReason(cachedData.rejectionReason);
+                  const regIdToUse = cachedData.employeeCode || cachedData.uid;
+                  if (regIdToUse) {
+                    localStorage.setItem('registrationId', regIdToUse);
+                    setLocalRegId(regIdToUse);
+                  }
+                }
+                return;
+              }
+            } catch (e) {}
+          }
+          if (isMounted) setStatus('unregistered');
+        }
+
+        // Subscribe to real-time updates for activeRegId
+        if (activeRegId) {
+          unsubSnapshot = onSnapshot(doc(db, 'registrations', activeRegId), (docSnap) => {
+            if (!isMounted) return;
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              setStatus(data.status);
+              setRejectionReason(data.rejectionReason);
+              setEmployeeData(data);
+              try {
+                localStorage.setItem('cached_registration_data', JSON.stringify(data));
+              } catch (e) {}
+            }
+          }, (err) => {
+            console.error('Realtime registration snapshot error:', err);
+          });
+        }
+      } catch (err) {
+        console.error('Registration initialization error:', err);
+        const cachedRaw = localStorage.getItem('cached_registration_data');
+        if (cachedRaw && isMounted) {
+          try {
+            const cachedData = JSON.parse(cachedRaw);
+            if (cachedData && cachedData.status) {
+              setStatus(cachedData.status);
+              setEmployeeData(cachedData);
+              setRejectionReason(cachedData.rejectionReason);
+              return;
+            }
+          } catch (e) {}
+        }
+        if (isMounted) setStatus('unregistered');
+      }
+    };
+
+    initializeRegistration();
+
+    return () => {
+      isMounted = false;
+      if (unsubSnapshot) unsubSnapshot();
+    };
+  }, []);
+
   const submitRegistration = async (name: string, mobileNumber: string, selfieBase64: string) => {
     if (!db) throw new Error('Firestore not initialized');
     
-    // Ensure the user is signed in anonymously to get a UID
-    let currentAuthUser = auth.currentUser;
-    if (!currentAuthUser) {
-      const credential = await signInAnonymously(auth);
-      currentAuthUser = credential.user;
+    let currentAuthUser = auth?.currentUser || null;
+    if (!currentAuthUser && auth) {
+      try {
+        const credential = await signInAnonymously(auth);
+        currentAuthUser = credential.user;
+      } catch (authErr: any) {
+        console.warn('signInAnonymously skipped/failed (Anonymous Auth may be disabled in Firebase Console):', authErr?.message || authErr);
+      }
     }
 
-    // 2. Prepare data
     const { deviceId, deviceModel, androidVersion, appVersion } = await getDeviceInfo();
     
-    // 3. Check for existing registration with same deviceId to prevent duplicates
-    // Using Capacitor Device.getId() provides a stable hardware UUID that survives app reinstalls
+    // Check for existing registration with same deviceId to prevent duplicate registration documents
     const regsRef = collection(db, 'registrations');
     const q = query(regsRef, where('deviceId', '==', deviceId));
     const querySnapshot = await getDocs(q);
     
-    let registrationId = currentAuthUser.uid;
+    let registrationId = currentAuthUser?.uid || localRegId || '';
     let existingData: any = null;
     let finalEmployeeCode = '';
     
     if (!querySnapshot.empty) {
-      // If a record with this deviceId exists, use its ID to update it
-      // Sort by registrationDate descending to get the newest one if duplicates exist
-      // Fallback to employee code sequence (higher number) if dates are same
       const getCodeNum = (code: string) => parseInt(code.replace('EXFRNG', ''), 10) || 0;
       const docs = querySnapshot.docs.map(d => ({ id: d.id, data: d.data() }));
       
@@ -214,35 +283,39 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const dateA = new Date(a.data.registrationDate || 0).getTime();
         const dateB = new Date(b.data.registrationDate || 0).getTime();
         if (dateB !== dateA) return dateB - dateA;
-        
         return getCodeNum(b.data.employeeCode || '') - getCodeNum(a.data.employeeCode || '');
       });
 
       const bestDoc = docs[0];
       registrationId = bestDoc.id;
       existingData = bestDoc.data;
-      finalEmployeeCode = existingData.employeeCode;
-      console.log('Found existing device registration, updating record:', registrationId);
+      finalEmployeeCode = existingData.employeeCode || bestDoc.id;
+      console.log('Found existing device registration during submit, updating record:', registrationId);
       
-      // Cleanup extra duplicates immediately if found
       if (docs.length > 1) {
-        console.warn('Multiple duplicate device records found for deviceId during registration:', deviceId);
         for (let i = 1; i < docs.length; i++) {
-          await deleteDoc(doc(db, 'registrations', docs[i].id));
+          try {
+            await deleteDoc(doc(db, 'registrations', docs[i].id));
+          } catch (e) {}
         }
       }
     } else {
-      // 3b. ONLY Generate Employee Code using transaction if brand new device
-      const counterRef = doc(db, 'metadata', 'counters');
-      finalEmployeeCode = await runTransaction(db, async (transaction) => {
-        const counterDoc = await transaction.get(counterRef);
-        let newSeq = 1;
-        if (counterDoc.exists() && counterDoc.data().employeeCodeSequence) {
-          newSeq = counterDoc.data().employeeCodeSequence + 1;
-        }
-        transaction.set(counterRef, { employeeCodeSequence: newSeq }, { merge: true });
-        return `EXFRNG${newSeq.toString().padStart(3, '0')}`;
-      });
+      if (!registrationId) {
+        // Generate new employee code sequence ONLY if genuinely new device
+        const counterRef = doc(db, 'metadata', 'counters');
+        finalEmployeeCode = await runTransaction(db, async (transaction) => {
+          const counterDoc = await transaction.get(counterRef);
+          let newSeq = 1;
+          if (counterDoc.exists() && counterDoc.data().employeeCodeSequence) {
+            newSeq = counterDoc.data().employeeCodeSequence + 1;
+          }
+          transaction.set(counterRef, { employeeCodeSequence: newSeq }, { merge: true });
+          return `EXFRNG${newSeq.toString().padStart(3, '0')}`;
+        });
+        registrationId = finalEmployeeCode;
+      } else {
+        finalEmployeeCode = existingData?.employeeCode || registrationId;
+      }
     }
 
     const registrationData = {
@@ -258,13 +331,11 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       lastUpdated: new Date().toISOString(),
       status: existingData?.status || 'Pending Approval',
       office: existingData?.office || 'Raniganj',
-      uid: currentAuthUser.uid
+      uid: currentAuthUser?.uid || registrationId
     };
 
-    // 4. Save to Firestore
-    await setDoc(doc(db, 'registrations', registrationId), registrationData);
+    await setDoc(doc(db, 'registrations', registrationId), registrationData, { merge: true });
 
-    // 4. Save to local storage
     localStorage.setItem('registrationId', registrationId);
     try {
       localStorage.setItem('cached_registration_data', JSON.stringify(registrationData));
@@ -272,7 +343,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       console.error('Failed to cache submitted registration:', e);
     }
     setLocalRegId(registrationId);
-    setStatus('Pending Approval');
+    setStatus(registrationData.status as RegistrationStatus);
     setEmployeeData(registrationData);
   };
 
