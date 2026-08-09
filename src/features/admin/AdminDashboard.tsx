@@ -142,13 +142,24 @@ export const AdminDashboard: React.FC = () => {
   // Deduplicate registrations by deviceId, keeping the newest registrationDate
   const deduplicatedRegistrations = React.useMemo(() => {
     const map = new Map<string, Registration>();
+    const getCodeNum = (code: string) => parseInt(code.replace('EXFRNG', ''), 10) || 0;
+
     registrations.forEach((reg) => {
       const existing = map.get(reg.deviceId);
-      if (
-        !existing || 
-        new Date(reg.registrationDate || 0).getTime() > new Date(existing.registrationDate || 0).getTime()
-      ) {
+      if (!existing) {
         map.set(reg.deviceId, reg);
+      } else {
+        const dateNew = new Date(reg.registrationDate || 0).getTime();
+        const dateOld = new Date(existing.registrationDate || 0).getTime();
+        
+        if (dateNew > dateOld) {
+          map.set(reg.deviceId, reg);
+        } else if (dateNew === dateOld) {
+          // Fallback to employee code sequence
+          if (getCodeNum(reg.employeeCode) > getCodeNum(existing.employeeCode)) {
+            map.set(reg.deviceId, reg);
+          }
+        }
       }
     });
     return Array.from(map.values());

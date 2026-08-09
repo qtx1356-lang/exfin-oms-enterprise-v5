@@ -122,6 +122,7 @@ export const UserManagementTab: React.FC = () => {
           
           // Information Hiding: Normal Admins must NOT see or load any administrative users
           if (!isSuperAdmin() && (aRole === 'ADMIN' || aRole === 'SUPER_ADMIN')) {
+            regUsersMap.delete(docSnap.id); // Remove from list if they were added from registrations
             return;
           }
 
@@ -418,13 +419,13 @@ export const UserManagementTab: React.FC = () => {
     
     try {
       const regSnaps = await getDocs(collection(db, 'registrations'));
-      const deviceMap = new Map<string, ManagedUser[]>();
+      const deviceMap = new Map<string, any[]>();
       
       regSnaps.docs.forEach(docSnap => {
         const data = docSnap.data();
         const deviceId = data.deviceId;
         if (deviceId && deviceId !== 'N/A') {
-          const user = { id: docSnap.id, ...data } as any;
+          const user = { id: docSnap.id, ...data };
           if (!deviceMap.has(deviceId)) {
             deviceMap.set(deviceId, []);
           }
@@ -433,13 +434,18 @@ export const UserManagementTab: React.FC = () => {
       });
       
       let deletedCount = 0;
+      const getCodeNum = (code: string) => parseInt(code.replace('EXFRNG', ''), 10) || 0;
+
       for (const [deviceId, users] of deviceMap.entries()) {
         if (users.length > 1) {
           // Sort by registrationDate descending (newest first)
+          // Fallback to employee code sequence (higher number EXFRNG002 vs EXFRNG001) if dates are same
           users.sort((a, b) => {
             const dateA = new Date(a.registrationDate || 0).getTime();
             const dateB = new Date(b.registrationDate || 0).getTime();
-            return dateB - dateA;
+            if (dateB !== dateA) return dateB - dateA;
+            
+            return getCodeNum(b.employeeCode) - getCodeNum(a.employeeCode);
           });
           
           // Keep the first one, delete the rest

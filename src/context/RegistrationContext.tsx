@@ -191,11 +191,16 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (!querySnapshot.empty) {
       // If a record with this deviceId exists, use its ID to update it
       // Sort by registrationDate descending to get the newest one if duplicates exist
+      // Fallback to employee code sequence (higher number) if dates are same
+      const getCodeNum = (code: string) => parseInt(code.replace('EXFRNG', ''), 10) || 0;
       const docs = querySnapshot.docs.map(d => ({ id: d.id, data: d.data() }));
+      
       docs.sort((a, b) => {
         const dateA = new Date(a.data.registrationDate || 0).getTime();
         const dateB = new Date(b.data.registrationDate || 0).getTime();
-        return dateB - dateA;
+        if (dateB !== dateA) return dateB - dateA;
+        
+        return getCodeNum(b.data.employeeCode || '') - getCodeNum(a.data.employeeCode || '');
       });
 
       const bestDoc = docs[0];
