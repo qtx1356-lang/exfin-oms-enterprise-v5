@@ -257,27 +257,66 @@ export const AttendanceScreen: React.FC = () => {
   }, [liveLocation, distance, isInsideGeofence, employeeId]);
 
   // Office Check-In Handler
-  const handleManualCheckIn = () => {
+  const handleManualCheckIn = async () => {
     if (todayRecord) {
       setActionFeedback('Attendance session already logged for today.');
       return;
     }
-    if (!liveLocation) {
-      setActionFeedback('Live GPS location required for check-in.');
-      return;
-    }
+
+    setActionFeedback('Obtaining fresh GPS coordinates...');
+
     try {
+      let freshCoords: { latitude: number; longitude: number } | null = null;
+      
+      try {
+        if (Capacitor.isNativePlatform()) {
+          const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000 });
+          if (pos && pos.coords) {
+            freshCoords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+          }
+        } else if (navigator.geolocation) {
+          freshCoords = await new Promise<{ latitude: number; longitude: number }>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+              (err) => reject(err),
+              { enableHighAccuracy: true, timeout: 5000 }
+            );
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to obtain fresh coordinates, falling back to watched location:', err);
+      }
+
+      const finalCoords = freshCoords || liveLocation;
+
+      if (!finalCoords) {
+        setActionFeedback('Office check-in is available only within 25 meters of the office.');
+        return;
+      }
+
+      const finalDistance = getDistanceFromLatLonInM(
+        finalCoords.latitude,
+        finalCoords.longitude,
+        OFFICE_LOCATION.latitude,
+        OFFICE_LOCATION.longitude
+      );
+
+      if (finalDistance > 25) {
+        setActionFeedback('Office check-in is available only within 25 meters of the office.');
+        return;
+      }
+
       const record = performCheckIn(
         employeeId,
         employeeName,
-        liveLocation,
+        finalCoords,
         currentAddress || 'Raniganj HQ',
         'MANUAL'
       );
       refreshRecords();
       setActionFeedback(`Manual Office Check-In Successful at ${record.checkInTime}`);
     } catch (err: any) {
-      setActionFeedback(`Check-In Failed: ${err.message}`);
+      setActionFeedback(err.message || 'Office check-in is available only within 25 meters of the office.');
     }
   };
 
@@ -812,12 +851,25 @@ export const AttendanceScreen: React.FC = () => {
                 <div className="space-y-3">
                   {/* Hide Manual Check-In button during active countdown */}
                   {autoCheckInCountdown === null && (
-                    <Button 
-                      onClick={handleManualCheckIn} 
-                      className="w-full py-4 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-extrabold text-sm rounded-2xl shadow-lg transition-all border border-purple-400/30 active:scale-95"
-                    >
-                      <UserCheck className="w-5 h-5 mr-2" /> Manual Office Check-In
-                    </Button>
+                    <div className="space-y-2">
+                      <Button 
+                        onClick={handleManualCheckIn}
+                        disabled={distance === null || distance > 25}
+                        className={`w-full py-4 font-extrabold text-sm rounded-2xl transition-all border ${
+                          distance !== null && distance <= 25
+                            ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white border-purple-400/30 active:scale-95 shadow-lg'
+                            : 'bg-[#1D123C] text-purple-300/40 border-purple-950/40 opacity-40 cursor-not-allowed pointer-events-none shadow-none transform-none'
+                        }`}
+                      >
+                        <UserCheck className="w-5 h-5 mr-2" /> 
+                        {distance !== null && distance <= 25 ? 'Manual Office Check-In' : 'Check-In Unavailable'}
+                      </Button>
+                      {(distance === null || distance > 25) && (
+                        <p className="text-[11px] text-rose-300 text-center font-bold">
+                          Move within 25 meters of office to check in
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               ) : (

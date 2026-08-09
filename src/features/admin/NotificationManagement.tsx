@@ -433,8 +433,8 @@ export const NotificationManagement: React.FC = () => {
 
     const nowIso = new Date().toISOString();
 
-    if (campaign.type === 'NOTIFICATION') {
-      // Create batch or individual documents in notifications collection
+    if (campaign.type === 'NOTIFICATION' || campaign.type === 'ANNOUNCEMENT') {
+      // Create batch or individual documents in notifications collection for both notifications and announcements
       const batch = writeBatch(db);
       
       recipients.forEach((rec) => {
@@ -443,14 +443,14 @@ export const NotificationManagement: React.FC = () => {
         
         const payload: NotificationRecord = {
           id: notifId,
-          type: campaign.notificationType || 'SYSTEM_ALERT',
-          category: (campaign.category as any) || 'SYSTEM',
+          type: campaign.type === 'ANNOUNCEMENT' ? 'ANNOUNCEMENT' : (campaign.notificationType || 'SYSTEM_ALERT'),
+          category: campaign.type === 'ANNOUNCEMENT' ? 'SYSTEM' : ((campaign.category as any) || 'SYSTEM'),
           title: campaign.title,
           message: campaign.message,
           recipientUserId: rec.id,
           recipientEmployeeCode: rec.employeeCode,
           recipientRole: rec.role,
-          priority: campaign.priority || 'NORMAL',
+          priority: campaign.type === 'ANNOUNCEMENT' ? 'HIGH' : (campaign.priority || 'NORMAL'),
           route: campaign.route || '',
           read: false,
           timestamp: nowIso,
@@ -465,6 +465,21 @@ export const NotificationManagement: React.FC = () => {
       });
 
       await batch.commit();
+
+      // Also create announcement entry in announcements collection for announcements section display
+      if (campaign.type === 'ANNOUNCEMENT') {
+        const announcementId = `ann_${campaign.id}`;
+        await setDoc(doc(db, 'announcements', announcementId), {
+          id: announcementId,
+          title: campaign.title,
+          content: campaign.message,
+          date: nowIso, // Backward compatibility timestamp
+          campaignId: campaign.id,
+          targetType: campaign.targetType,
+          targetValue: campaign.targetValue,
+          createdBy: campaign.createdBy
+        });
+      }
     } else {
       // Create a single document in announcements collection
       const announcementId = `ann_${campaign.id}`;
