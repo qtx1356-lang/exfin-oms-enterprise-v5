@@ -9,6 +9,7 @@ interface AdminAuthContextType {
   loading: boolean;
   role: AppRole;
   authorizedOffice: string; // 'ALL' or specific office name
+  loginId: string;
   adminProfileError: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -21,6 +22,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<AppRole>('EMPLOYEE');
   const [authorizedOffice, setAuthorizedOffice] = useState<string>('');
+  const [loginId, setLoginId] = useState<string>('');
   const [adminProfileError, setAdminProfileError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,21 +44,25 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             if (isActive && (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'HR')) {
               setRole(userRole);
               setAuthorizedOffice(data.authorizedOffice || 'ALL');
+              setLoginId(data.loginId || '');
               setAdminProfileError(null);
             } else if (!isActive) {
               setRole('EMPLOYEE');
               setAuthorizedOffice('');
+              setLoginId('');
               setAdminProfileError('Your account is inactive. Please contact the administrator.');
             } else {
               setRole(userRole);
               setAuthorizedOffice('');
+              setLoginId('');
               setAdminProfileError('Your account does not have Admin access privileges.');
             }
           } else {
             // Document missing: preserve Firebase authentication state, set explicit error message
             setRole('EMPLOYEE');
             setAuthorizedOffice('');
-            setAdminProfileError('Your account is authenticated, but your Admin profile has not been provisioned yet. Please contact the Super Admin.');
+            setLoginId('');
+            setAdminProfileError('Your account is authenticated, but your Admin profile has not been provisioned yet. Please contact the administrator.');
           }
         } catch (err: any) {
           console.error("Error fetching admin role:", err);
@@ -157,11 +163,12 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setUser(null);
     setRole('EMPLOYEE');
     setAuthorizedOffice('');
+    setLoginId('');
     setAdminProfileError(null);
   };
 
   return (
-    <AdminAuthContext.Provider value={{ user, loading, role, authorizedOffice, adminProfileError, login, logout }}>
+    <AdminAuthContext.Provider value={{ user, loading, role, authorizedOffice, loginId, adminProfileError, login, logout }}>
       {children}
     </AdminAuthContext.Provider>
   );

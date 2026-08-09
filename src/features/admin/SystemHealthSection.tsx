@@ -22,12 +22,16 @@ import { getSyncSummary } from '../../services/sync/syncFailureService';
 import { getRecentErrors, getLastError, clearErrorLogs, ErrorLogEntry } from '../../services/monitoring/errorLogger';
 import { SyncSummary } from '../../types/sync';
 import { db } from '../../services/firebase/config';
+import { usePermission } from '../../context/PermissionContext';
 
 interface SystemHealthSectionProps {
-  isSuperAdminUser: boolean;
+  isSuperAdminUser?: boolean;
 }
 
-export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSuperAdminUser }) => {
+export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSuperAdminUser: isSuperAdminProp }) => {
+  const { isSuperAdmin } = usePermission();
+  const isSuperAdminUser = isSuperAdminProp ?? isSuperAdmin();
+
   const [summary, setSummary] = useState<SyncSummary>(getSyncSummary());
   const [lastErr, setLastErr] = useState<ErrorLogEntry | null>(getLastError());
   const [allErrors, setAllErrors] = useState<ErrorLogEntry[]>(getRecentErrors());
@@ -179,9 +183,9 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
         <div className="space-y-6 pt-2">
           <div className="flex items-center justify-between border-b border-purple-500/20 pb-3">
             <h3 className="text-sm font-black uppercase tracking-wider text-purple-300 flex items-center gap-2">
-              <Lock className="w-4 h-4 text-amber-400" /> Super Admin Detailed Telemetry
+              <Lock className="w-4 h-4 text-amber-400" /> Advanced System Telemetry
             </h3>
-            <span className="text-xs font-bold text-purple-300/70">Elevated Privilege Access Only</span>
+            <span className="text-xs font-bold text-purple-300/70">Privileged Access Level</span>
           </div>
 
           {/* Module Unsynced Breakdown */}

@@ -99,7 +99,7 @@ type AdminTab =
   | 'sync';
 
 export const AdminDashboard: React.FC = () => {
-  const { logout, user: adminUser, role = 'ADMIN', authorizedOffice = 'ALL' } = useAdminAuth();
+  const { logout, user: adminUser, role = 'ADMIN', authorizedOffice = 'ALL', loginId } = useAdminAuth();
   const navigate = useNavigate();
   const { hasFeatureAccess, isSuperAdmin } = usePermission();
 
@@ -279,8 +279,10 @@ export const AdminDashboard: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
-            <div className="text-xs font-bold text-white">{adminUser?.email || 'Admin'}</div>
-            <div className="text-[10px] text-amber-400 font-mono">{role} • {authorizedOffice}</div>
+            <div className="text-xs font-bold text-white uppercase">{loginId || adminUser?.email?.split('@')[0] || 'Admin'}</div>
+            <div className="text-[10px] text-amber-400 font-mono">
+              {role === 'SUPER_ADMIN' ? 'SUPER ADMIN' : role} • {authorizedOffice}
+            </div>
           </div>
           <Button onClick={handleLogout} variant="secondary" className="gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs">
             <LogOut className="w-4 h-4" />

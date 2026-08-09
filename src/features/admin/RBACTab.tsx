@@ -9,17 +9,20 @@ import { Shield, Save, Check, X, Lock, RefreshCw, AlertTriangle, Monitor, Smartp
 import { usePermission } from '../../context/PermissionContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 
-const ROLES: AppRole[] = ['EMPLOYEE', 'TEAM_LEADER', 'HR', 'ADMIN', 'SUPER_ADMIN'];
+const ROLES_LIST: AppRole[] = ['EMPLOYEE', 'TEAM_LEADER', 'HR', 'ADMIN', 'SUPER_ADMIN'];
 
 export const RBACTab: React.FC = () => {
   const { roles: activeRoles, isSuperAdmin } = usePermission();
-  const { user: adminUser } = useAdminAuth();
+  const { user: adminUser, loginId } = useAdminAuth();
 
   const [localRoles, setLocalRoles] = useState<Record<AppRole, RoleFeaturePermissions>>(activeRoles);
   const [selectedMobileRole, setSelectedMobileRole] = useState<AppRole>('EMPLOYEE');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  // Filter roles based on permissions
+  const ROLES = ROLES_LIST.filter(r => isSuperAdmin() || r !== 'SUPER_ADMIN');
 
   useEffect(() => {
     setLocalRoles(activeRoles);
@@ -30,7 +33,7 @@ export const RBACTab: React.FC = () => {
       <div className="p-8 text-center text-white/70">
         <Shield className="w-12 h-12 mx-auto mb-4 opacity-50 text-red-400" />
         <h2 className="text-xl font-bold text-white">Access Denied</h2>
-        <p className="text-purple-200/70 text-sm mt-1">Super Admin authorization is required to access Role & Feature Permissions.</p>
+        <p className="text-purple-200/70 text-sm mt-1">Administrator authorization is required to access Role & Feature Permissions.</p>
       </div>
     );
   }
@@ -78,7 +81,7 @@ export const RBACTab: React.FC = () => {
     setMessage(null);
 
     try {
-      const actorEmail = adminUser?.email || 'super_admin@exfin.internal';
+      const actorEmail = loginId || adminUser?.email || 'super_admin@exfin.internal';
       const actorUid = adminUser?.uid || 'SUPER_ADMIN_UID';
 
       for (const role of ROLES) {
@@ -123,7 +126,7 @@ export const RBACTab: React.FC = () => {
             <h2 className="text-2xl font-black text-white">Feature Permissions & Role Matrix</h2>
           </div>
           <p className="text-purple-300/70 text-xs sm:text-sm mt-1">
-            Configure feature-level security access across Employee, Team Leader, HR, Admin, and Super Admin roles.
+            Configure feature-level security access across {isSuperAdmin() ? 'Employee, Team Leader, HR, Admin, and Super Admin' : 'Employee, Team Leader, HR, and Admin'} roles.
           </p>
         </div>
         <Button onClick={handleSaveClick} disabled={saving} className="gap-2 bg-purple-600 hover:bg-purple-500 shrink-0">
@@ -206,7 +209,7 @@ export const RBACTab: React.FC = () => {
                           <button
                             onClick={() => togglePermission(role, feature)}
                             disabled={isLocked}
-                            title={isLocked ? 'Protected Super Admin Privilege' : `Toggle ${feature.name} for ${role}`}
+                            title={isLocked ? 'Protected System Privilege' : `Toggle ${feature.name} for ${role}`}
                             className={`w-9 h-9 rounded-xl inline-flex items-center justify-center transition-all ${
                               hasPerm
                                 ? 'bg-purple-600 text-white shadow-[0_0_12px_rgba(124,58,237,0.5)]'

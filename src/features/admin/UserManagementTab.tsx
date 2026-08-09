@@ -48,7 +48,7 @@ export interface ManagedUser {
 
 export const UserManagementTab: React.FC = () => {
   const { isSuperAdmin, isAdmin } = usePermission();
-  const { user: adminUser, role: activeAdminRole } = useAdminAuth();
+  const { user: adminUser, role: activeAdminRole, loginId } = useAdminAuth();
 
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,6 +158,9 @@ export const UserManagementTab: React.FC = () => {
 
   // Filter users
   const filteredUsers = users.filter((u) => {
+    // Information Hiding: Exclude Super Admins from the list for normal Admins
+    if (!isSuperAdmin() && u.role === 'SUPER_ADMIN') return false;
+
     const matchesSearch =
       u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -238,7 +241,7 @@ export const UserManagementTab: React.FC = () => {
     if (!isSuperAdmin() && (targetIsSuperAdmin || assigningAdminOrSuper)) {
       setStatusMessage({
         type: 'error',
-        text: 'Security Policy Violation: Only Super Admins can manage Admin or Super Admin roles.',
+        text: 'Security Policy Violation: You do not have permission to assign or manage this role.',
       });
       setIsSubmitting(false);
       return;
@@ -249,7 +252,7 @@ export const UserManagementTab: React.FC = () => {
       if (activeSuperAdmins.length <= 1) {
         setStatusMessage({
           type: 'error',
-          text: 'Protected Super Admin Operation: Cannot revoke or deactivate the last Super Admin in the system.',
+          text: 'Protected Operation: This account cannot be deactivated or have its role changed at this time.',
         });
         setIsSubmitting(false);
         return;
@@ -261,11 +264,11 @@ export const UserManagementTab: React.FC = () => {
     const previousLoginId = (selectedUser.loginId || '').trim().toLowerCase().replace(/\s+/g, '');
     const isNewRoleAdmin = editRole === 'ADMIN' || editRole === 'SUPER_ADMIN' || editRole === 'HR';
 
-    // Block non-Super Admins from modifying Super Admin credentials/login IDs
+    // Block non-Super Admins from modifying privileged credentials/login IDs
     if (targetIsSuperAdmin && !isSuperAdmin() && (cleanedLoginId !== previousLoginId)) {
       setStatusMessage({
         type: 'error',
-        text: 'Security Policy Violation: Admins are NOT allowed to modify Super Admin credentials.',
+        text: 'Security Policy Violation: You do not have permission to modify these credentials.',
       });
       setIsSubmitting(false);
       return;
@@ -275,7 +278,7 @@ export const UserManagementTab: React.FC = () => {
       if (!isSuperAdmin()) {
         setStatusMessage({
           type: 'error',
-          text: 'Security Policy Violation: Only Super Admins can assign or change Login IDs.',
+          text: 'Security Policy Violation: You do not have permission to assign or change Login IDs.',
         });
         setIsSubmitting(false);
         return;
@@ -331,7 +334,7 @@ export const UserManagementTab: React.FC = () => {
         assignedTeamLeaderId: editTeamLeaderId,
         assignedTeamLeaderName: selectedTL ? selectedTL.name : '',
         teamMemberUids: isTargetTl ? editTeamMemberUids : [],
-        actorEmail: adminUser?.email || 'admin@exfin.internal',
+        actorEmail: loginId || adminUser?.email || 'admin@exfin.internal',
         actorUid: adminUser?.uid || 'ADMIN_UID',
       });
 
@@ -363,7 +366,7 @@ export const UserManagementTab: React.FC = () => {
           // Immutable Audit Log entry for Super Admin changing Login ID
           await addDoc(collection(db, 'audit_logs'), {
             actorUid: adminUser?.uid || 'SUPER_ADMIN_UID',
-            actorEmail: adminUser?.email || 'super_admin@exfin.internal',
+            actorEmail: loginId || adminUser?.email || 'super_admin@exfin.internal',
             actorRole: activeAdminRole || 'SUPER_ADMIN',
             action: 'SUPER_ADMIN_CHANGED_LOGIN_ID',
             targetType: 'USER',
@@ -448,7 +451,7 @@ export const UserManagementTab: React.FC = () => {
             <option value="TEAM_LEADER">Team Leader</option>
             <option value="HR">HR</option>
             <option value="ADMIN">Admin</option>
-            <option value="SUPER_ADMIN">Super Admin</option>
+            {isSuperAdmin() && <option value="SUPER_ADMIN">Super Admin</option>}
           </select>
 
           {/* Status Filter */}
@@ -657,10 +660,10 @@ export const UserManagementTab: React.FC = () => {
                   <option value="TEAM_LEADER">Team Leader</option>
                   <option value="HR">HR</option>
                   <option value="ADMIN">Admin</option>
-                  <option value="SUPER_ADMIN">Super Admin</option>
+                  {isSuperAdmin() && <option value="SUPER_ADMIN">Super Admin</option>}
                 </select>
-                {!isSuperAdmin() && (
-                  <p className="text-[10px] text-amber-300/80 italic">Only Super Admins can assign Admin or Super Admin roles.</p>
+                {!isSuperAdmin() && (editRole === 'ADMIN' || editRole === 'SUPER_ADMIN') && (
+                  <p className="text-[10px] text-amber-300/80 italic">You do not have permission to modify administrative roles.</p>
                 )}
               </div>
 
@@ -682,7 +685,7 @@ export const UserManagementTab: React.FC = () => {
                     className="w-full px-3 py-2 bg-[#2D1B5A] border border-purple-500/30 rounded-xl text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   {!isSuperAdmin() && (
-                    <p className="text-[10px] text-amber-300/80 italic">Only Super Admins can manage administrative Login IDs.</p>
+                    <p className="text-[10px] text-amber-300/80 italic">You do not have permission to manage administrative Login IDs.</p>
                   )}
                 </div>
               )}

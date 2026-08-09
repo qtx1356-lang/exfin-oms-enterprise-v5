@@ -28,7 +28,7 @@ import { reviewProfileChangeRequest } from '../../services/profile/profileServic
 import { useAdminAuth } from '../../context/AdminAuthContext';
 
 export const EmployeeProfilesTab: React.FC = () => {
-  const { user, role = 'ADMIN' } = useAdminAuth();
+  const { user, role = 'ADMIN', loginId } = useAdminAuth();
 
   const [employees, setEmployees] = useState<any[]>([]);
   const [changeRequests, setChangeRequests] = useState<ProfileChangeRequest[]>([]);
@@ -97,7 +97,7 @@ export const EmployeeProfilesTab: React.FC = () => {
       await reviewProfileChangeRequest(
         selectedReq.id,
         user?.uid || 'ADMIN_USER',
-        user?.email?.split('@')[0] || 'Admin Manager',
+        loginId || user?.email?.split('@')[0] || 'Admin Manager',
         role,
         reviewAction,
         rejectionReason.trim()

@@ -176,8 +176,15 @@ export const getNotificationsForUser = async (user: {
       return isOwn || isTeamMgmt;
     }
 
-    // Admins and Super Admins can see ADMIN/SUPER_ADMIN alerts or system alerts
-    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+    // Admins can see ADMIN alerts or system alerts
+    if (user.role === 'ADMIN') {
+      const isOwn = n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
+      const isAdminType = n.recipientRole === 'ADMIN';
+      return isOwn || isAdminType;
+    }
+
+    // Super Admins can see ADMIN/SUPER_ADMIN alerts or system alerts
+    if (user.role === 'SUPER_ADMIN') {
       const isOwn = n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
       const isAdminType = n.recipientRole === 'ADMIN' || n.recipientRole === 'SUPER_ADMIN';
       return isOwn || isAdminType;
@@ -218,8 +225,13 @@ export const getNotificationsForUser = async (user: {
       }
     }
 
-    // Query 5: Role-based notifications for Admins / Super Admins
-    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+    // Role-based notifications for Admins
+    if (user.role === 'ADMIN') {
+      queries.push(query(notifCollection, where('recipientRole', '==', 'ADMIN')));
+    }
+
+    // Role-based notifications for Super Admins
+    if (user.role === 'SUPER_ADMIN') {
       queries.push(query(notifCollection, where('recipientRole', '==', 'ADMIN')));
       queries.push(query(notifCollection, where('recipientRole', '==', 'SUPER_ADMIN')));
     }
@@ -320,9 +332,10 @@ export const markAllNotificationsRead = async (user: {
   local.forEach((n) => {
     const isOwn = n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
     const isTLMgmt = user.role === 'TEAM_LEADER' && n.recipientTeamLeaderId === user.id;
-    const isAdminType = (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && (n.recipientRole === 'ADMIN' || n.recipientRole === 'SUPER_ADMIN');
+    const isAdminType = user.role === 'ADMIN' && n.recipientRole === 'ADMIN';
+    const isSuperAdminType = user.role === 'SUPER_ADMIN' && (n.recipientRole === 'ADMIN' || n.recipientRole === 'SUPER_ADMIN');
     
-    if (!n.read && (isOwn || isTLMgmt || isAdminType || n.recipientRole === 'SYSTEM')) {
+    if (!n.read && (isOwn || isTLMgmt || isAdminType || isSuperAdminType || n.recipientRole === 'SYSTEM')) {
       n.read = true;
       n.updatedAtDeviceTime = nowIso;
       n.syncStatus = 'PENDING';
@@ -380,7 +393,13 @@ export const getUnreadNotificationCount = (user: {
       return isOwn || isTeamMgmt;
     }
 
-    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+    if (user.role === 'ADMIN') {
+      const isOwn = n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
+      const isAdminType = n.recipientRole === 'ADMIN';
+      return isOwn || isAdminType;
+    }
+
+    if (user.role === 'SUPER_ADMIN') {
       const isOwn = n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
       const isAdminType = n.recipientRole === 'ADMIN' || n.recipientRole === 'SUPER_ADMIN';
       return isOwn || isAdminType;

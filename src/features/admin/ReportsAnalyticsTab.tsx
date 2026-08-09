@@ -408,7 +408,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
           <Shield className="w-4 h-4 text-amber-400 animate-pulse" />
           <div className="text-left">
             <div className="text-[9px] text-purple-300 uppercase font-bold tracking-wider">Access Clearance</div>
-            <div className="text-xs font-black text-white">{isSuperAdmin ? 'SUPER ADMIN (ROOT)' : `DEPARTMENT ADMIN (${authorizedOffice})`}</div>
+            <div className="text-xs font-black text-white">{isSuperAdmin ? 'ADMINISTRATOR (SYSTEM)' : `DEPARTMENT ADMIN (${authorizedOffice})`}</div>
           </div>
         </div>
       </div>
