@@ -144,7 +144,7 @@ export const AppRouter: React.FC = () => {
         <Route path="/super-admin/*" element={<Navigate to="/admin/dashboard" replace />} />
 
         {/* Employee Routes with RegistrationProvider */}
-        <Route element={<RegistrationProvider><EmployeeGuard /></RegistrationProvider>}>
+        <Route element={<EmployeeGuard />}>
           <Route path="/" element={<Layout />}>
             <Route index element={<EmployeeDashboard />} />
             <Route path="attendance" element={<FeatureGuard feature="attendance"><AttendanceScreen /></FeatureGuard>} />

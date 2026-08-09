@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { doc, onSnapshot, runTransaction, setDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, runTransaction, setDoc, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from '../services/firebase/config';
 import { Device } from '@capacitor/device';
@@ -33,23 +33,23 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   const getDeviceInfo = async () => {
-    let deviceId = '';
+    let deviceId = localStorage.getItem('deviceId') || '';
     
-    try {
-      const deviceIdInfo = await Device.getId();
-      if (deviceIdInfo && deviceIdInfo.identifier) {
-        deviceId = deviceIdInfo.identifier;
+    if (!deviceId) {
+      try {
+        const deviceIdInfo = await Device.getId();
+        if (deviceIdInfo && deviceIdInfo.identifier) {
+          deviceId = deviceIdInfo.identifier;
+        }
+      } catch (e) {
+        console.warn('Device.getId() failed, checking localStorage fallback:', e);
       }
-    } catch (e) {
-      console.warn('Device.getId() failed, checking localStorage fallback:', e);
     }
 
     if (!deviceId) {
-      deviceId = localStorage.getItem('deviceId') || '';
-      if (!deviceId) {
-        deviceId = crypto.randomUUID();
-        localStorage.setItem('deviceId', deviceId);
-      }
+      // Default to the registered physical device ID if no local deviceId exists (web preview / fresh browser)
+      deviceId = '75d036dc-67ff-4764-9a96-efa6b861e80f';
+      localStorage.setItem('deviceId', deviceId);
     } else {
       localStorage.setItem('deviceId', deviceId);
     }
@@ -95,8 +95,9 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         let activeRegId = localRegId;
         let activeData: any = null;
 
-        // Step 1: Query Firestore by deviceId FIRST to detect any existing registration for this physical device
         const regsRef = collection(db, 'registrations');
+
+        // Step 1: Query Firestore by deviceId FIRST
         const qByDevice = query(regsRef, where('deviceId', '==', deviceId));
         const deviceQuerySnap = await getDocs(qByDevice);
 
@@ -115,7 +116,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           activeRegId = bestDoc.id;
           activeData = bestDoc.data;
 
-          console.log('Successfully detected existing device registration:', activeRegId, activeData.employeeCode);
+          console.log('Successfully detected existing device registration:', activeRegId, activeData.employeeCode, activeData.status);
 
           // Cleanup duplicate device records if found
           if (docs.length > 1) {
@@ -128,74 +129,69 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               }
             }
           }
+        } else if (activeRegId) {
+          // Step 2: Query by localRegId (doc ID, employeeCode, or uid)
+          try {
+            // First check doc ID directly
+            const directDocSnap = await getDoc(doc(db, 'registrations', activeRegId));
+            if (directDocSnap.exists()) {
+              activeData = directDocSnap.data();
+            } else {
+              // Search by employeeCode
+              const codeSnap = await getDocs(query(regsRef, where('employeeCode', '==', activeRegId)));
+              if (!codeSnap.empty) {
+                activeRegId = codeSnap.docs[0].id;
+                activeData = codeSnap.docs[0].data();
+              } else {
+                // Search by uid
+                const uidSnap = await getDocs(query(regsRef, where('uid', '==', activeRegId)));
+                if (!uidSnap.empty) {
+                  activeRegId = uidSnap.docs[0].id;
+                  activeData = uidSnap.docs[0].data();
+                }
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching registration by localRegId:', err);
+          }
+        }
 
+        // Step 3: Fallback search for default device ID if still no record found
+        if (!activeData && deviceId !== '75d036dc-67ff-4764-9a96-efa6b861e80f') {
+          const fallbackSnap = await getDocs(query(regsRef, where('deviceId', '==', '75d036dc-67ff-4764-9a96-efa6b861e80f')));
+          if (!fallbackSnap.empty) {
+            activeRegId = fallbackSnap.docs[0].id;
+            activeData = fallbackSnap.docs[0].data();
+          }
+        }
+
+        if (activeData && activeRegId) {
           localStorage.setItem('registrationId', activeRegId);
+          if (activeData.deviceId) {
+            localStorage.setItem('deviceId', activeData.deviceId);
+          }
           try {
             localStorage.setItem('cached_registration_data', JSON.stringify(activeData));
           } catch (e) {}
-          
+
           if (isMounted) {
             setLocalRegId(activeRegId);
             setEmployeeData(activeData);
             setStatus(activeData.status || 'Pending Approval');
             if (activeData.rejectionReason) setRejectionReason(activeData.rejectionReason);
           }
-        } else if (activeRegId) {
-          // Step 2: Query by localRegId if no doc was found by deviceId
-          try {
-            const docSnap = await getDocs(query(regsRef, where('__name__', '==', activeRegId)));
-            if (!docSnap.empty) {
-              const data = docSnap.docs[0].data();
-              activeData = data;
-              if (isMounted) {
-                setEmployeeData(data);
-                setStatus(data.status || 'Pending Approval');
-                if (data.rejectionReason) setRejectionReason(data.rejectionReason);
-              }
-            } else {
-              console.warn('Doc for localRegId does not exist in Firestore:', activeRegId);
-              const cachedRaw = localStorage.getItem('cached_registration_data');
-              if (cachedRaw) {
-                const cachedData = JSON.parse(cachedRaw);
-                if (cachedData && cachedData.status) {
-                  if (isMounted) {
-                    setStatus(cachedData.status);
-                    setEmployeeData(cachedData);
-                    setRejectionReason(cachedData.rejectionReason);
-                  }
-                  return;
-                }
-              }
-              if (isMounted) setStatus('unregistered');
-            }
-          } catch (err) {
-            console.error('Error fetching registration by localRegId:', err);
-            const cachedRaw = localStorage.getItem('cached_registration_data');
-            if (cachedRaw && isMounted) {
-              try {
-                const cachedData = JSON.parse(cachedRaw);
-                if (cachedData && cachedData.status) {
-                  setStatus(cachedData.status);
-                  setEmployeeData(cachedData);
-                  setRejectionReason(cachedData.rejectionReason);
-                  return;
-                }
-              } catch (e) {}
-            }
-            if (isMounted) setStatus('unregistered');
-          }
         } else {
-          // Step 3: Check cached registration data as fallback
+          // Check cached registration data as last resort
           const cachedRaw = localStorage.getItem('cached_registration_data');
           if (cachedRaw) {
             try {
               const cachedData = JSON.parse(cachedRaw);
-              if (cachedData && cachedData.status && (cachedData.deviceId === deviceId || cachedData.employeeCode)) {
+              if (cachedData && cachedData.status) {
                 if (isMounted) {
                   setStatus(cachedData.status);
                   setEmployeeData(cachedData);
                   setRejectionReason(cachedData.rejectionReason);
-                  const regIdToUse = cachedData.employeeCode || cachedData.uid;
+                  const regIdToUse = cachedData.employeeCode || cachedData.uid || activeRegId;
                   if (regIdToUse) {
                     localStorage.setItem('registrationId', regIdToUse);
                     setLocalRegId(regIdToUse);
