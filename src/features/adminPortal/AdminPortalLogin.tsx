@@ -94,13 +94,13 @@ export const AdminPortalLogin: React.FC = () => {
               <Terminal className="w-4 h-4" /> RUNTIME FIREBASE AUDIT
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <div className="text-purple-400">PROJECT_ID:</div>
+              <div className="text-purple-400">RUNTIME_PROJECT_ID:</div>
               <div className="col-span-2 text-white break-all">{app.options.projectId}</div>
               
-              <div className="text-purple-400">APP_ID:</div>
+              <div className="text-purple-400">RUNTIME_APP_ID:</div>
               <div className="col-span-2 text-white break-all">{app.options.appId}</div>
               
-              <div className="text-purple-400">AUTH_DOMAIN:</div>
+              <div className="text-purple-400">RUNTIME_AUTH_DOMAIN:</div>
               <div className="col-span-2 text-white break-all">{app.options.authDomain}</div>
               
               <div className="text-purple-400">API_KEY:</div>
