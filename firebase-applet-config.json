@@ -1,12 +1,11 @@
 {
-  "projectId": "gen-lang-client-0947333745",
-  "appId": "1:784353035260:web:17650f38e816958f91a879",
-  "apiKey": "AIzaSyDmu3IqZYoqzgNMVkYIB6yRCkJHHegnb3Y",
-  "authDomain": "gen-lang-client-0947333745.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-exfinomsenterpri-b4e161a4-dcff-4b57-bd11-50183775a4f1",
-  "storageBucket": "gen-lang-client-0947333745.firebasestorage.app",
-  "messagingSenderId": "784353035260",
+  "projectId": "exfin-oms-production",
+  "appId": "1:467454374123:web:1c039dad311c6362b44eae",
+  "apiKey": "AIzaSyCHsJlbsTdaDw3xOTfM5usiS6GMVL-udxM",
+  "authDomain": "exfin-oms-production.firebaseapp.com",
+  "storageBucket": "exfin-oms-production.firebasestorage.app",
+  "messagingSenderId": "467454374123",
   "measurementId": "",
-  "oAuthClientId": "784353035260-if555u0jbdsodoo624i04lbigedlr8gq.apps.googleusercontent.com",
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }
