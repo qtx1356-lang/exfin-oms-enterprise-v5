@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
-import { Bell, ChevronRight, CheckCheck, Info, User, Home, MapPin } from 'lucide-react';
+import { Bell, ChevronRight, CheckCheck, Info, User, Home, MapPin, Trash2 } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useLocationContext } from '../../context/LocationContext';
@@ -10,6 +10,8 @@ import {
   getUnreadNotificationCount,
   getNotificationsForUser,
   markNotificationRead,
+  markAllNotificationsRead,
+  deleteNotification,
 } from '../../services/notification/notificationService';
 import { NotificationRecord } from '../../types/notification';
 import { motion, AnimatePresence } from 'motion/react';
@@ -162,6 +164,27 @@ export const Layout: React.FC = () => {
     setDropdownOpen(!dropdownOpen);
   };
 
+  const handleMarkAllRead = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!currentUser) return;
+    try {
+      await markAllNotificationsRead(currentUser);
+      await refreshNotificationCount();
+    } catch (err) {
+      console.error('Failed to mark all notifications read:', err);
+    }
+  };
+
+  const handleDeleteNotification = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    try {
+      await deleteNotification(id, currentUser || undefined);
+      await refreshNotificationCount();
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+    }
+  };
+
   const handleNotificationClick = async (notif: NotificationRecord) => {
     setDropdownOpen(false);
     try {
@@ -278,11 +301,24 @@ export const Layout: React.FC = () => {
                     >
                       <div className="p-4 border-b border-purple-500/20 flex items-center justify-between">
                         <span className="font-bold text-sm">Recent Alerts</span>
-                        {unreadCount > 0 && (
-                          <span className="text-xs text-purple-300 bg-purple-500/20 px-2 py-0.5 rounded-full font-bold">
-                            {unreadCount} unread
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {unreadCount > 0 && (
+                            <button
+                              onClick={handleMarkAllRead}
+                              className="text-[11px] text-purple-300 hover:text-white font-bold hover:underline flex items-center gap-1 bg-purple-500/10 hover:bg-purple-500/20 px-2 py-0.5 rounded-full transition-colors"
+                              title="Mark all notifications as read"
+                              id="mark-all-read-btn"
+                            >
+                              <CheckCheck className="w-3 h-3" />
+                              <span>Mark all read</span>
+                            </button>
+                          )}
+                          {unreadCount > 0 && (
+                            <span className="text-xs text-purple-300 bg-purple-500/20 px-2 py-0.5 rounded-full font-bold">
+                              {unreadCount} unread
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="max-h-64 overflow-y-auto divide-y divide-purple-500/10">
@@ -295,7 +331,7 @@ export const Layout: React.FC = () => {
                             <div
                               key={notif.id}
                               onClick={() => handleNotificationClick(notif)}
-                              className={`p-3.5 hover:bg-purple-500/10 transition-colors cursor-pointer flex gap-3 text-left ${
+                              className={`p-3.5 hover:bg-purple-500/10 transition-colors cursor-pointer flex items-start gap-3 text-left group ${
                                 notif.read ? 'opacity-60' : 'bg-[#1D113B]/20'
                               }`}
                             >
@@ -310,9 +346,18 @@ export const Layout: React.FC = () => {
                                   {notif.message}
                                 </p>
                               </div>
-                              {!notif.read && (
-                                <div className="w-2 h-2 rounded-full bg-purple-500 mt-2 flex-shrink-0" />
-                              )}
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                {!notif.read && (
+                                  <div className="w-2 h-2 rounded-full bg-purple-500 mt-1" />
+                                )}
+                                <button
+                                  onClick={(e) => handleDeleteNotification(e, notif.id)}
+                                  className="p-1 rounded hover:bg-red-500/20 text-slate-400 hover:text-red-300 transition-colors opacity-80 group-hover:opacity-100"
+                                  title="Delete notification"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                           ))
                         )}

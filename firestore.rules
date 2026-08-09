@@ -76,8 +76,7 @@ service cloud.firestore {
     }
         
     match /notifications/{notificationId} {
-      allow create, read, update: if true;
-      allow delete: if isSuperAdmin();
+      allow create, read, update, delete: if true;
     }
 
     match /leave_config/{configId} {

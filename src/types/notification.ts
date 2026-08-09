@@ -64,5 +64,7 @@ export interface NotificationRecord {
   updatedAtDeviceTime: string;
   serverSyncTime: string;
   syncStatus: 'PENDING' | 'SYNCED';
+  deleted?: boolean;
+  deletedUserIds?: string[];
   createdAt?: string; // Backward compatibility fallback
 }

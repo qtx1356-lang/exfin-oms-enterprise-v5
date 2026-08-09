@@ -10,6 +10,7 @@ import {
   limit,
   writeBatch,
   deleteDoc,
+  arrayUnion,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
 import { NotificationRecord, NotificationType, NotificationCategory, NotificationPriority } from '../../types/notification';
@@ -20,6 +21,8 @@ import {
   getPendingNotifications,
   markNotificationSyncedLocally,
   removeNotificationLocally,
+  isNotificationDeletedLocally,
+  getDeletedNotificationIds,
 } from './notificationStorage';
 
 enum OperationType {
@@ -242,10 +245,21 @@ export const getNotificationsForUser = async (user: {
     snapshots.forEach((snap) => {
       snap.forEach((docSnap) => {
         const d = docSnap.data() as any;
+        const deletedUserIds: string[] = d.deletedUserIds || [];
+        const isDeletedForUser =
+          d.deleted === true ||
+          deletedUserIds.includes(user.id) ||
+          deletedUserIds.includes(user.employeeCode) ||
+          isNotificationDeletedLocally(docSnap.id);
+
+        if (isDeletedForUser) {
+          return;
+        }
+
         // Support backward compatibility (timestamp || createdAt)
         const canonicalTime = d.timestamp || d.createdAt || nowIsoString();
         const record: NotificationRecord = {
-          id: d.id,
+          id: d.id || docSnap.id,
           type: d.type,
           category: d.category || 'SYSTEM',
           title: d.title || '',
@@ -264,6 +278,8 @@ export const getNotificationsForUser = async (user: {
           updatedAtDeviceTime: d.updatedAtDeviceTime || canonicalTime,
           serverSyncTime: d.serverSyncTime || '',
           syncStatus: 'SYNCED',
+          deleted: d.deleted || false,
+          deletedUserIds: deletedUserIds,
         };
         fetchedMap.set(record.id, record);
       });
@@ -330,12 +346,15 @@ export const markAllNotificationsRead = async (user: {
   const updatedNotifs: NotificationRecord[] = [];
   
   local.forEach((n) => {
+    if (n.deleted || isNotificationDeletedLocally(n.id)) return;
+
     const isOwn = n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
-    const isTLMgmt = user.role === 'TEAM_LEADER' && n.recipientTeamLeaderId === user.id;
+    const isTLMgmt = user.role === 'TEAM_LEADER' && (n.recipientTeamLeaderId === user.id || n.recipientTeamLeaderId === user.employeeCode);
     const isAdminType = user.role === 'ADMIN' && n.recipientRole === 'ADMIN';
     const isSuperAdminType = user.role === 'SUPER_ADMIN' && (n.recipientRole === 'ADMIN' || n.recipientRole === 'SUPER_ADMIN');
+    const isSystem = n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM';
     
-    if (!n.read && (isOwn || isTLMgmt || isAdminType || isSuperAdminType || n.recipientRole === 'SYSTEM')) {
+    if (!n.read && (isOwn || isTLMgmt || isAdminType || isSuperAdminType || isSystem)) {
       n.read = true;
       n.updatedAtDeviceTime = nowIso;
       n.syncStatus = 'PENDING';
@@ -352,12 +371,12 @@ export const markAllNotificationsRead = async (user: {
       const batch = writeBatch(db);
       updatedNotifs.forEach((n) => {
         const ref = doc(db, 'notifications', n.id);
-        batch.update(ref, {
+        batch.set(ref, {
           read: true,
           updatedAtDeviceTime: nowIso,
           syncStatus: 'SYNCED',
           serverSyncTime: nowIso,
-        });
+        }, { merge: true });
       });
       await batch.commit();
       updatedNotifs.forEach((n) => {
@@ -380,6 +399,7 @@ export const getUnreadNotificationCount = (user: {
   const local = getStoredNotifications();
   return local.filter((n) => {
     if (n.read) return false;
+    if (n.deleted || isNotificationDeletedLocally(n.id)) return false;
     
     if (n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM') return true;
     
@@ -412,14 +432,35 @@ export const getUnreadNotificationCount = (user: {
 /**
  * Delete / Archive a notification
  */
-export const deleteNotification = async (id: string): Promise<void> => {
+export const deleteNotification = async (
+  id: string,
+  user?: { id?: string; employeeCode?: string }
+): Promise<void> => {
   removeNotificationLocally(id);
   if (isOnline()) {
     try {
       const docRef = doc(db, 'notifications', id);
-      await deleteDoc(docRef);
+      const nowIso = new Date().toISOString();
+      const userIdOrCode = user?.id || user?.employeeCode || auth.currentUser?.uid || 'USER';
+
+      await setDoc(
+        docRef,
+        {
+          deleted: true,
+          deletedUserIds: arrayUnion(userIdOrCode),
+          updatedAtDeviceTime: nowIso,
+          serverSyncTime: nowIso,
+        },
+        { merge: true }
+      );
+
+      try {
+        await deleteDoc(docRef);
+      } catch {
+        // Soft delete in Firestore recorded successfully
+      }
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `notifications/${id}`);
+      console.warn('Failed to delete notification on server (retained deleted locally):', err);
     }
   }
 };

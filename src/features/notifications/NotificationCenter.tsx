@@ -135,7 +135,7 @@ export const NotificationCenter: React.FC = () => {
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     try {
-      await deleteNotification(id);
+      await deleteNotification(id, currentUser || undefined);
       setNotifications((prev) => prev.filter((n) => n.id !== id));
     } catch (err) {
       console.error('Error deleting notification:', err);
