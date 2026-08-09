@@ -251,14 +251,14 @@ export const Layout: React.FC = () => {
 
             {/* Office Location Status Badge with subtle pulse animation */}
             <div
-              className={`text-[10px] font-black px-2 py-0.5 rounded-full border whitespace-nowrap animate-subtle-pulse flex items-center gap-1 shadow-sm select-none shrink-0 ${
+              className={`text-[10px] font-black px-2 py-0.5 rounded-full border whitespace-nowrap animate-subtle-pulse flex items-center gap-1 shadow-sm select-none shrink-0 transition-colors duration-300 ${
                 isInsideGeofence
-                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                  : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                  ? 'bg-emerald-600 text-white border-emerald-500'
+                  : 'bg-red-600 text-white border-red-500'
               }`}
               title={isInsideGeofence ? 'Inside 25m office geofence' : 'Outside 25m office geofence'}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <span className="w-1.5 h-1.5 rounded-full bg-white" />
               <span>{isInsideGeofence ? 'INSIDE OFFICE' : 'OUTSIDE OFFICE'}</span>
             </div>
 
