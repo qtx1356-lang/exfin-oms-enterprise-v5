@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { doc, onSnapshot, runTransaction, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, runTransaction, setDoc, serverTimestamp, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from '../services/firebase/config';
 
@@ -192,11 +192,34 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // 2. Prepare data
     const { deviceId, deviceModel, androidVersion, appVersion } = getDeviceInfo();
     
-    // Use the Firebase Auth UID instead of a random UUID
-    const registrationId = currentAuthUser.uid;
+    // 3. Check for existing registration with same deviceId to prevent duplicates
+    const regsRef = collection(db, 'registrations');
+    const q = query(regsRef, where('deviceId', '==', deviceId));
+    const querySnapshot = await getDocs(q);
     
+    let registrationId = currentAuthUser.uid;
+    let existingData: any = null;
+    
+    if (!querySnapshot.empty) {
+      // If a record with this deviceId exists, use its ID to update it
+      const existingDoc = querySnapshot.docs[0];
+      registrationId = existingDoc.id;
+      existingData = existingDoc.data();
+      console.log('Found existing device registration, updating record:', registrationId);
+      
+      // If there are multiple duplicates (shouldn't happen with this fix, but for cleanup), 
+      // we could handle them here. For now, we just update the first one found.
+      if (querySnapshot.size > 1) {
+        console.warn('Multiple duplicate device records found for deviceId:', deviceId);
+        // Delete extra duplicates
+        for (let i = 1; i < querySnapshot.size; i++) {
+          await deleteDoc(doc(db, 'registrations', querySnapshot.docs[i].id));
+        }
+      }
+    }
+
     const registrationData = {
-      employeeCode,
+      employeeCode: existingData?.employeeCode || employeeCode,
       name,
       mobileNumber,
       deviceId,
@@ -204,13 +227,14 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       androidVersion,
       appVersion,
       selfieUrl: selfieBase64,
-      registrationDate: new Date().toISOString(),
-      status: 'Pending Approval',
-      office: 'Raniganj',
+      registrationDate: existingData?.registrationDate || new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
+      status: existingData?.status || 'Pending Approval',
+      office: existingData?.office || 'Raniganj',
       uid: currentAuthUser.uid
     };
 
-    // 3. Save to Firestore
+    // 4. Save to Firestore
     await setDoc(doc(db, 'registrations', registrationId), registrationData);
 
     // 4. Save to local storage

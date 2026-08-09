@@ -396,6 +396,59 @@ export const UserManagementTab: React.FC = () => {
 
   const departments = Array.from(new Set(users.map((u) => u.office || 'Raniganj')));
 
+  const [isCleaning, setIsCleaning] = useState(false);
+
+  const cleanupDuplicateDevices = async () => {
+    if (!isSuperAdmin()) return;
+    setIsCleaning(true);
+    setStatusMessage({ type: 'success', text: 'Analyzing device records for duplicates...' });
+    
+    try {
+      const regSnaps = await getDocs(collection(db, 'registrations'));
+      const deviceMap = new Map<string, ManagedUser[]>();
+      
+      regSnaps.docs.forEach(docSnap => {
+        const data = docSnap.data();
+        const deviceId = data.deviceId;
+        if (deviceId && deviceId !== 'N/A') {
+          const user = { id: docSnap.id, ...data } as any;
+          if (!deviceMap.has(deviceId)) {
+            deviceMap.set(deviceId, []);
+          }
+          deviceMap.get(deviceId)!.push(user);
+        }
+      });
+      
+      let deletedCount = 0;
+      for (const [deviceId, users] of deviceMap.entries()) {
+        if (users.length > 1) {
+          // Sort by registrationDate descending (newest first)
+          users.sort((a, b) => {
+            const dateA = new Date(a.registrationDate || 0).getTime();
+            const dateB = new Date(b.registrationDate || 0).getTime();
+            return dateB - dateA;
+          });
+          
+          // Keep the first one, delete the rest
+          for (let i = 1; i < users.length; i++) {
+            await deleteDoc(doc(db, 'registrations', users[i].id));
+            deletedCount++;
+          }
+        }
+      }
+      
+      setStatusMessage({ 
+        type: 'success', 
+        text: `Cleanup Complete: Removed ${deletedCount} duplicate device records. The newest registration for each device has been preserved.` 
+      });
+    } catch (err: any) {
+      console.error('Error during device cleanup:', err);
+      setStatusMessage({ type: 'error', text: 'Cleanup Failed: ' + (err.message || 'Unknown error') });
+    } finally {
+      setIsCleaning(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -409,6 +462,18 @@ export const UserManagementTab: React.FC = () => {
             Manage user roles, status activation, department scope, and team leader assignments enterprise-wide.
           </p>
         </div>
+        
+        {isSuperAdmin() && (
+          <Button 
+            onClick={cleanupDuplicateDevices} 
+            disabled={isCleaning}
+            variant="secondary"
+            className="gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs h-9"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCleaning ? 'animate-spin' : ''}`} />
+            {isCleaning ? 'Cleaning...' : 'Cleanup Duplicates'}
+          </Button>
+        )}
       </div>
 
       {/* Filter and Search Bar */}
@@ -450,7 +515,7 @@ export const UserManagementTab: React.FC = () => {
             <option value="EMPLOYEE">Employee</option>
             <option value="TEAM_LEADER">Team Leader</option>
             <option value="HR">HR</option>
-            <option value="ADMIN">Admin</option>
+            {isSuperAdmin() && <option value="ADMIN">Admin</option>}
             {isSuperAdmin() && <option value="SUPER_ADMIN">Super Admin</option>}
           </select>
 
@@ -549,8 +614,9 @@ export const UserManagementTab: React.FC = () => {
                         </Button>
                         <Button
                           onClick={() => openEditModal(u)}
-                          className="p-1.5 h-auto bg-purple-600/30 hover:bg-purple-600 text-purple-200 hover:text-white"
-                          title="Edit User Role / Status"
+                          disabled={!isSuperAdmin() && (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN')}
+                          className="p-1.5 h-auto bg-purple-600/30 hover:bg-purple-600 text-purple-200 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={!isSuperAdmin() && (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN') ? "Privileged account - Only Super Admin can edit" : "Edit User Role / Status"}
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </Button>
@@ -659,7 +725,7 @@ export const UserManagementTab: React.FC = () => {
                   <option value="EMPLOYEE">Employee</option>
                   <option value="TEAM_LEADER">Team Leader</option>
                   <option value="HR">HR</option>
-                  <option value="ADMIN">Admin</option>
+                  {isSuperAdmin() && <option value="ADMIN">Admin</option>}
                   {isSuperAdmin() && <option value="SUPER_ADMIN">Super Admin</option>}
                 </select>
                 {!isSuperAdmin() && (editRole === 'ADMIN' || editRole === 'SUPER_ADMIN') && (
