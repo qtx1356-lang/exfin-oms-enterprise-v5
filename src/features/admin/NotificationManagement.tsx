@@ -9,8 +9,46 @@ import {
   setDoc, 
   deleteDoc, 
   addDoc,
-  writeBatch
+  writeBatch,
+  Timestamp
 } from 'firebase/firestore';
+
+// Helper functions for robust Date/Timestamp conversions to handle both Firestore Timestamp and ISO string formats
+const getScheduledDate = (val: any): Date | null => {
+  if (!val) return null;
+  if (typeof val === 'string') {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (val && typeof val.toDate === 'function') {
+    return val.toDate();
+  }
+  if (val && val.seconds) {
+    return new Date(val.seconds * 1000);
+  }
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+const getScheduledDateString = (val: any): string => {
+  const d = getScheduledDate(val);
+  return d ? d.toLocaleString() : 'N/A';
+};
+
+const getDatetimeLocalString = (val: any): string => {
+  const dateObj = getScheduledDate(val);
+  if (!dateObj) return '';
+  
+  // Convert date object to Local ISO String (YYYY-MM-DDTHH:mm)
+  const pad = (num: number) => String(num).padStart(2, '0');
+  const year = dateObj.getFullYear();
+  const month = pad(dateObj.getMonth() + 1);
+  const day = pad(dateObj.getDate());
+  const hours = pad(dateObj.getHours());
+  const minutes = pad(dateObj.getMinutes());
+  
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
 import { db, auth } from '../../services/firebase/config';
 import { usePermission } from '../../context/PermissionContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
@@ -64,7 +102,7 @@ interface Campaign {
   targetValue: string | string[]; // department name, designation name, or array of employee codes
   status: 'SCHEDULED' | 'SENT' | 'CANCELLED';
   createdAt: string;
-  scheduledAt?: string;
+  scheduledAt?: any;
   sentAt?: string;
   recipientCount: number;
   createdBy: string;
@@ -215,9 +253,11 @@ export const NotificationManagement: React.FC = () => {
 
     const processScheduled = async () => {
       const now = new Date();
-      const passedCampaigns = campaigns.filter(
-        (c) => c.status === 'SCHEDULED' && c.scheduledAt && new Date(c.scheduledAt) <= now
-      );
+      const passedCampaigns = campaigns.filter((c) => {
+        if (c.status !== 'SCHEDULED' || !c.scheduledAt) return false;
+        const dateVal = getScheduledDate(c.scheduledAt);
+        return dateVal ? dateVal <= now : false;
+      });
 
       if (passedCampaigns.length === 0) return;
 
@@ -295,22 +335,22 @@ export const NotificationManagement: React.FC = () => {
       return;
     }
 
-    let scheduledAtStr: string | undefined;
+    let scheduledAtTimestamp: Timestamp | undefined;
     if (isScheduled) {
       if (!scheduledDate || !scheduledTime) {
-        setErrorMessage('Validation Error: Please specify date and time for scheduling.');
+        setErrorMessage('Please select a valid schedule date and time.');
         return;
       }
       const sched = new Date(`${scheduledDate}T${scheduledTime}`);
       if (isNaN(sched.getTime())) {
-        setErrorMessage('Validation Error: Invalid scheduling date or time.');
+        setErrorMessage('Please select a valid schedule date and time.');
         return;
       }
       if (sched <= new Date()) {
         setErrorMessage('Validation Error: Scheduling time must be in the future.');
         return;
       }
-      scheduledAtStr = sched.toISOString();
+      scheduledAtTimestamp = Timestamp.fromDate(sched);
     }
 
     setIsSubmitting(true);
@@ -325,7 +365,7 @@ export const NotificationManagement: React.FC = () => {
         selectedEmployees
       );
 
-      const campaignPayload: Campaign = {
+      const campaignPayload: any = {
         id: campaignId,
         title: title.trim(),
         message: message.trim(),
@@ -334,17 +374,26 @@ export const NotificationManagement: React.FC = () => {
         targetValue: targetType === 'SELECTED' ? selectedEmployees : targetValue,
         status: isScheduled ? 'SCHEDULED' : 'SENT',
         createdAt: new Date().toISOString(),
-        scheduledAt: scheduledAtStr,
-        sentAt: isScheduled ? undefined : new Date().toISOString(),
         recipientCount: recipients.length,
         createdBy: adminEmail,
-        ...(composerType === 'NOTIFICATION' ? {
-          notificationType: notifType,
-          category: getCategoryFromNotifType(notifType),
-          priority,
-          route: route.trim() || undefined
-        } : {})
       };
+
+      if (isScheduled && scheduledAtTimestamp) {
+        campaignPayload.scheduledAt = scheduledAtTimestamp;
+      }
+
+      if (!isScheduled) {
+        campaignPayload.sentAt = new Date().toISOString();
+      }
+
+      if (composerType === 'NOTIFICATION') {
+        campaignPayload.notificationType = notifType;
+        campaignPayload.category = getCategoryFromNotifType(notifType);
+        campaignPayload.priority = priority;
+        if (route.trim()) {
+          campaignPayload.route = route.trim();
+        }
+      }
 
       await setDoc(doc(db, 'notification_campaigns', campaignId), campaignPayload);
 
@@ -353,7 +402,8 @@ export const NotificationManagement: React.FC = () => {
         await triggerCampaignSend(campaignPayload);
         setSuccessMessage(`${composerType === 'NOTIFICATION' ? 'Notification' : 'Announcement'} sent successfully to ${recipients.length} recipients!`);
       } else {
-        setSuccessMessage(`${composerType === 'NOTIFICATION' ? 'Notification' : 'Announcement'} scheduled successfully for ${new Date(scheduledAtStr!).toLocaleString()}`);
+        const localSchedString = scheduledAtTimestamp ? scheduledAtTimestamp.toDate().toLocaleString() : '';
+        setSuccessMessage(`${composerType === 'NOTIFICATION' ? 'Notification' : 'Announcement'} scheduled successfully for ${localSchedString}`);
       }
 
       // Reset Form State
@@ -492,12 +542,24 @@ export const NotificationManagement: React.FC = () => {
     setIsSubmitting(true);
     try {
       const ref = doc(db, 'notification_campaigns', editingCampaign.id);
-      await setDoc(ref, {
+      
+      const updatePayload: any = {
         title: editingCampaign.title.trim(),
-        message: editingCampaign.message.trim(),
-        priority: editingCampaign.priority,
-        scheduledAt: editingCampaign.scheduledAt
-      }, { merge: true });
+        message: editingCampaign.message.trim()
+      };
+
+      if (editingCampaign.priority) {
+        updatePayload.priority = editingCampaign.priority;
+      }
+
+      if (editingCampaign.scheduledAt) {
+        const dateObj = getScheduledDate(editingCampaign.scheduledAt);
+        if (dateObj) {
+          updatePayload.scheduledAt = Timestamp.fromDate(dateObj);
+        }
+      }
+
+      await setDoc(ref, updatePayload, { merge: true });
 
       setSuccessMessage('Scheduled campaign updated successfully.');
       setIsEditModalOpen(false);
@@ -976,7 +1038,7 @@ export const NotificationManagement: React.FC = () => {
                     <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1.5 text-[10px] text-purple-300/60 font-medium">
                       <span>Target: <strong className="text-white">{campaign.targetType} ({campaign.targetValue || 'ALL'})</strong></span>
                       <span>Resolved: <strong className="text-emerald-400">{campaign.recipientCount}</strong></span>
-                      <span>Scheduled At: <strong className="text-amber-400">{new Date(campaign.scheduledAt!).toLocaleString()}</strong></span>
+                      <span>Scheduled At: <strong className="text-amber-400">{getScheduledDateString(campaign.scheduledAt)}</strong></span>
                     </div>
                   </div>
 
@@ -1162,7 +1224,7 @@ export const NotificationManagement: React.FC = () => {
               <label className="text-[10px] text-purple-300 font-extrabold uppercase block mb-1">Scheduled Release Date & Time</label>
               <input
                 type="datetime-local"
-                value={editingCampaign.scheduledAt ? new Date(editingCampaign.scheduledAt).toISOString().slice(0, 16) : ''}
+                value={editingCampaign.scheduledAt ? getDatetimeLocalString(editingCampaign.scheduledAt) : ''}
                 onChange={(e) => {
                   const val = e.target.value;
                   setEditingCampaign({ ...editingCampaign, scheduledAt: val ? new Date(val).toISOString() : undefined });
