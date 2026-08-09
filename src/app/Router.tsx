@@ -31,7 +31,7 @@ import { SyncCenterScreen } from '../features/sync/SyncCenterScreen';
 const AdminProtectedRoute = () => {
   const { user, loading, role, adminProfileError, logout } = useAdminAuth();
   if (loading) return <LoadingScreen />;
-  if (!user) return <Navigate to="/admin/login" replace />;
+  if (!user) return <Navigate to="/x7Kp9/login" replace />;
 
   if (adminProfileError || (role !== 'ADMIN' && role !== 'SUPER_ADMIN' && role !== 'HR')) {
     return (
@@ -66,7 +66,7 @@ const AdminPublicRoute = () => {
   if (loading) return <LoadingScreen />;
   if (user && !adminProfileError) {
     if (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'HR') {
-      return <Navigate to="/admin/dashboard" replace />;
+      return <Navigate to="/x7Kp9/dashboard" replace />;
     }
   }
   return <AdminLogin />;
@@ -132,8 +132,8 @@ export const AppRouter: React.FC = () => {
         </Route>
 
         {/* Existing Admin Routes */}
-        <Route path="/admin">
-          <Route index element={<Navigate to="/admin/login" replace />} />
+        <Route path="/x7Kp9">
+          <Route index element={<Navigate to="/x7Kp9/login" replace />} />
           <Route path="login" element={<AdminPublicRoute />} />
           <Route element={<AdminProtectedRoute />}>
             <Route path="dashboard" element={<AdminDashboard />} />
@@ -141,7 +141,7 @@ export const AppRouter: React.FC = () => {
         </Route>
 
         {/* Super Admin Routes (Backward Compatibility Redirect) */}
-        <Route path="/super-admin/*" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="/super-admin/*" element={<Navigate to="/x7Kp9/dashboard" replace />} />
 
         {/* Employee Routes with RegistrationProvider */}
         <Route element={<EmployeeGuard />}>

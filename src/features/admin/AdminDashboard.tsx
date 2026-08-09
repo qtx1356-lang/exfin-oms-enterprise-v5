@@ -304,7 +304,7 @@ export const AdminDashboard: React.FC = () => {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/admin/login');
+    navigate('/x7Kp9/login');
   };
 
   const pendingRegCount = deduplicatedRegistrations.filter((r) => r.status === 'Pending Approval').length;

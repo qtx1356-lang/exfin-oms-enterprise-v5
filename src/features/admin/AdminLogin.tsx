@@ -19,7 +19,7 @@ export const AdminLogin: React.FC = () => {
     setLoading(true);
     try {
       await login(loginId, password);
-      navigate('/admin/dashboard');
+      navigate('/x7Kp9/dashboard');
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {
