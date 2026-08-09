@@ -176,19 +176,6 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       currentAuthUser = credential.user;
     }
 
-    // 1. Generate Employee Code using transaction
-    const counterRef = doc(db, 'metadata', 'counters');
-    
-    const employeeCode = await runTransaction(db, async (transaction) => {
-      const counterDoc = await transaction.get(counterRef);
-      let newSeq = 1;
-      if (counterDoc.exists() && counterDoc.data().employeeCodeSequence) {
-        newSeq = counterDoc.data().employeeCodeSequence + 1;
-      }
-      transaction.set(counterRef, { employeeCodeSequence: newSeq }, { merge: true });
-      return `EXFRNG${newSeq.toString().padStart(3, '0')}`;
-    });
-
     // 2. Prepare data
     const { deviceId, deviceModel, androidVersion, appVersion } = getDeviceInfo();
     
@@ -199,27 +186,47 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     
     let registrationId = currentAuthUser.uid;
     let existingData: any = null;
+    let finalEmployeeCode = '';
     
     if (!querySnapshot.empty) {
       // If a record with this deviceId exists, use its ID to update it
-      const existingDoc = querySnapshot.docs[0];
-      registrationId = existingDoc.id;
-      existingData = existingDoc.data();
+      // Sort by registrationDate descending to get the newest one if duplicates exist
+      const docs = querySnapshot.docs.map(d => ({ id: d.id, data: d.data() }));
+      docs.sort((a, b) => {
+        const dateA = new Date(a.data.registrationDate || 0).getTime();
+        const dateB = new Date(b.data.registrationDate || 0).getTime();
+        return dateB - dateA;
+      });
+
+      const bestDoc = docs[0];
+      registrationId = bestDoc.id;
+      existingData = bestDoc.data;
+      finalEmployeeCode = existingData.employeeCode;
       console.log('Found existing device registration, updating record:', registrationId);
       
-      // If there are multiple duplicates (shouldn't happen with this fix, but for cleanup), 
-      // we could handle them here. For now, we just update the first one found.
-      if (querySnapshot.size > 1) {
-        console.warn('Multiple duplicate device records found for deviceId:', deviceId);
-        // Delete extra duplicates
-        for (let i = 1; i < querySnapshot.size; i++) {
-          await deleteDoc(doc(db, 'registrations', querySnapshot.docs[i].id));
+      // Cleanup extra duplicates immediately if found
+      if (docs.length > 1) {
+        console.warn('Multiple duplicate device records found for deviceId during registration:', deviceId);
+        for (let i = 1; i < docs.length; i++) {
+          await deleteDoc(doc(db, 'registrations', docs[i].id));
         }
       }
+    } else {
+      // 3b. ONLY Generate Employee Code using transaction if brand new device
+      const counterRef = doc(db, 'metadata', 'counters');
+      finalEmployeeCode = await runTransaction(db, async (transaction) => {
+        const counterDoc = await transaction.get(counterRef);
+        let newSeq = 1;
+        if (counterDoc.exists() && counterDoc.data().employeeCodeSequence) {
+          newSeq = counterDoc.data().employeeCodeSequence + 1;
+        }
+        transaction.set(counterRef, { employeeCodeSequence: newSeq }, { merge: true });
+        return `EXFRNG${newSeq.toString().padStart(3, '0')}`;
+      });
     }
 
     const registrationData = {
-      employeeCode: existingData?.employeeCode || employeeCode,
+      employeeCode: finalEmployeeCode,
       name,
       mobileNumber,
       deviceId,

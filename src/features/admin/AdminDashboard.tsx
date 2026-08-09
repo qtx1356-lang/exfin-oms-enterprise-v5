@@ -138,6 +138,22 @@ export const AdminDashboard: React.FC = () => {
   });
 
   const [registrations, setRegistrations] = useState<Registration[]>([]);
+  
+  // Deduplicate registrations by deviceId, keeping the newest registrationDate
+  const deduplicatedRegistrations = React.useMemo(() => {
+    const map = new Map<string, Registration>();
+    registrations.forEach((reg) => {
+      const existing = map.get(reg.deviceId);
+      if (
+        !existing || 
+        new Date(reg.registrationDate || 0).getTime() > new Date(existing.registrationDate || 0).getTime()
+      ) {
+        map.set(reg.deviceId, reg);
+      }
+    });
+    return Array.from(map.values());
+  }, [registrations]);
+
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([]);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
@@ -279,7 +295,7 @@ export const AdminDashboard: React.FC = () => {
     navigate('/admin/login');
   };
 
-  const pendingRegCount = registrations.filter((r) => r.status === 'Pending Approval').length;
+  const pendingRegCount = deduplicatedRegistrations.filter((r) => r.status === 'Pending Approval').length;
   const pendingExpenseCount = expenseRecords.filter((e) => e.status === 'PENDING').length;
   const pendingLeaveCount = leaves.filter((l) => l.status === 'PENDING').length;
 
@@ -514,8 +530,8 @@ export const AdminDashboard: React.FC = () => {
                   <Users className="w-8 h-8" />
                 </div>
                 <div>
-                  <div className="text-[10px] text-purple-300 uppercase font-bold">Device Registrations</div>
-                  <div className="text-xl font-black text-white">{registrations.length} Total</div>
+                  <div className="text-[10px] text-purple-300 uppercase font-bold">Unique Devices</div>
+                  <div className="text-xl font-black text-white">{deduplicatedRegistrations.length} Total</div>
                 </div>
               </Card>
 
@@ -614,7 +630,7 @@ export const AdminDashboard: React.FC = () => {
           <ReportsAnalyticsTab 
             role={role as 'ADMIN' | 'SUPER_ADMIN'}
             authorizedOffice={authorizedOffice}
-            registrations={registrations}
+            registrations={deduplicatedRegistrations}
             attendanceRecords={attendanceRecords}
             expenseRecords={expenseRecords}
             tasks={tasks}
@@ -873,20 +889,22 @@ export const AdminDashboard: React.FC = () => {
                     <th className="p-3">Employee</th>
                     <th className="p-3">Device Model</th>
                     <th className="p-3">Office</th>
+                    <th className="p-3">Device ID</th>
                     <th className="p-3">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-purple-500/10">
-                  {registrations.length === 0 ? (
+                  {deduplicatedRegistrations.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="p-6 text-center text-purple-300/60">No device registrations found.</td>
                     </tr>
                   ) : (
-                    registrations.map((reg) => (
+                    deduplicatedRegistrations.map((reg) => (
                       <tr key={reg.id} className="hover:bg-white/[0.02]">
                         <td className="p-3 font-bold text-white">{reg.name} ({reg.employeeCode})</td>
                         <td className="p-3 text-purple-200">{reg.deviceModel} (Android {reg.androidVersion})</td>
                         <td className="p-3 text-purple-200">{reg.office}</td>
+                        <td className="p-3 text-purple-200 font-mono text-[10px]">{reg.deviceId}</td>
                         <td className="p-3">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                             reg.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'

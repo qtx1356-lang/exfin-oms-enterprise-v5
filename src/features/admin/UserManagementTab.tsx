@@ -118,14 +118,21 @@ export const UserManagementTab: React.FC = () => {
         const adminSnaps = await getDocs(collection(db, 'admin_users'));
         adminSnaps.docs.forEach((docSnap) => {
           const aData = docSnap.data();
+          const aRole = (aData.role as AppRole) || 'ADMIN';
+          
+          // Information Hiding: Normal Admins must NOT see or load any administrative users
+          if (!isSuperAdmin() && (aRole === 'ADMIN' || aRole === 'SUPER_ADMIN')) {
+            return;
+          }
+
           if (regUsersMap.has(docSnap.id)) {
             const existing = regUsersMap.get(docSnap.id)!;
             regUsersMap.set(docSnap.id, {
               ...existing,
-              role: (aData.role as AppRole) || existing.role,
+              role: aRole,
               office: aData.authorizedOffice || existing.office,
-              loginId: aData.loginId || existing.loginId || '',
-              email: aData.email || existing.email || '',
+              loginId: isSuperAdmin() ? (aData.loginId || existing.loginId || '') : '',
+              email: isSuperAdmin() ? (aData.email || existing.email || '') : '',
             });
           } else {
             // Include administrative users created directly or without registrations
@@ -135,10 +142,10 @@ export const UserManagementTab: React.FC = () => {
               name: aData.email ? aData.email.split('@')[0] : 'Admin User',
               mobileNumber: 'N/A',
               office: aData.authorizedOffice || 'ALL',
-              role: (aData.role as AppRole) || 'ADMIN',
+              role: aRole,
               status: aData.active === false ? 'Suspended' : 'Approved',
-              loginId: aData.loginId || '',
-              email: aData.email || '',
+              loginId: isSuperAdmin() ? (aData.loginId || '') : '',
+              email: isSuperAdmin() ? (aData.email || '') : '',
             });
           }
         });
@@ -146,20 +153,26 @@ export const UserManagementTab: React.FC = () => {
         console.error('Error supplementing admin users:', e);
       }
 
-      setUsers(Array.from(regUsersMap.values()));
+      // Final pass: Ensure no admin leaks even from registrations collection
+      const allUsers = Array.from(regUsersMap.values());
+      const visibleUsers = isSuperAdmin() 
+        ? allUsers 
+        : allUsers.filter(u => u.role !== 'ADMIN' && u.role !== 'SUPER_ADMIN');
+
+      setUsers(visibleUsers);
       setLoading(false);
     });
 
     return () => unsubRegs();
-  }, []);
+  }, [isSuperAdmin]);
 
   const teamLeaders = users.filter((u) => u.isTeamLeader || u.role === 'TEAM_LEADER');
   const activeSuperAdmins = users.filter((u) => u.role === 'SUPER_ADMIN' && u.status === 'Approved');
 
   // Filter users
   const filteredUsers = users.filter((u) => {
-    // Information Hiding: Exclude Super Admins from the list for normal Admins
-    if (!isSuperAdmin() && u.role === 'SUPER_ADMIN') return false;
+    // Redundant but safe check: Normal Admins never see Admin/Super Admin
+    if (!isSuperAdmin() && (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN')) return false;
 
     const matchesSearch =
       u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -241,7 +254,7 @@ export const UserManagementTab: React.FC = () => {
     if (!isSuperAdmin() && (targetIsSuperAdmin || assigningAdminOrSuper)) {
       setStatusMessage({
         type: 'error',
-        text: 'Security Policy Violation: You do not have permission to assign or manage this role.',
+        text: 'You do not have permission to perform this action.',
       });
       setIsSubmitting(false);
       return;
@@ -268,7 +281,7 @@ export const UserManagementTab: React.FC = () => {
     if (targetIsSuperAdmin && !isSuperAdmin() && (cleanedLoginId !== previousLoginId)) {
       setStatusMessage({
         type: 'error',
-        text: 'Security Policy Violation: You do not have permission to modify these credentials.',
+        text: 'You do not have permission to perform this action.',
       });
       setIsSubmitting(false);
       return;
@@ -278,7 +291,7 @@ export const UserManagementTab: React.FC = () => {
       if (!isSuperAdmin()) {
         setStatusMessage({
           type: 'error',
-          text: 'Security Policy Violation: You do not have permission to assign or change Login IDs.',
+          text: 'You do not have permission to perform this action.',
         });
         setIsSubmitting(false);
         return;
@@ -616,7 +629,7 @@ export const UserManagementTab: React.FC = () => {
                           onClick={() => openEditModal(u)}
                           disabled={!isSuperAdmin() && (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN')}
                           className="p-1.5 h-auto bg-purple-600/30 hover:bg-purple-600 text-purple-200 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-                          title={!isSuperAdmin() && (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN') ? "Privileged account - Only Super Admin can edit" : "Edit User Role / Status"}
+                          title={!isSuperAdmin() && (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN') ? "You do not have permission to perform this action." : "Edit User Role / Status"}
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </Button>
@@ -729,7 +742,7 @@ export const UserManagementTab: React.FC = () => {
                   {isSuperAdmin() && <option value="SUPER_ADMIN">Super Admin</option>}
                 </select>
                 {!isSuperAdmin() && (editRole === 'ADMIN' || editRole === 'SUPER_ADMIN') && (
-                  <p className="text-[10px] text-amber-300/80 italic">You do not have permission to modify administrative roles.</p>
+                  <p className="text-[10px] text-amber-300/80 italic">You do not have permission to perform this action.</p>
                 )}
               </div>
 
@@ -751,7 +764,7 @@ export const UserManagementTab: React.FC = () => {
                     className="w-full px-3 py-2 bg-[#2D1B5A] border border-purple-500/30 rounded-xl text-white focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   {!isSuperAdmin() && (
-                    <p className="text-[10px] text-amber-300/80 italic">You do not have permission to manage administrative Login IDs.</p>
+                    <p className="text-[10px] text-amber-300/80 italic">You do not have permission to perform this action.</p>
                   )}
                 </div>
               )}
