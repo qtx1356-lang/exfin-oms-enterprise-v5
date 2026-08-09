@@ -1,4 +1,4 @@
-const CACHE_NAME = 'exfin-v2';
+const CACHE_NAME = 'exfin-v6';
 
 // Assets to cache on install (optional/default shell assets)
 const PRECACHE_ASSETS = [
