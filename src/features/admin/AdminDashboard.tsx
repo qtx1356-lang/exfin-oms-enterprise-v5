@@ -144,6 +144,7 @@ export const AdminDashboard: React.FC = () => {
   const [leaves, setLeaves] = useState<LeaveRecord[]>([]);
   const [leaveConfig, setLeaveConfig] = useState<LeaveConfig | null>(null);
   const [employeeAllowances, setEmployeeAllowances] = useState<EmployeeAllowance[]>([]);
+  const [isDataLoading, setIsDataLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReg, setSelectedReg] = useState<Registration | null>(null);
@@ -193,6 +194,18 @@ export const AdminDashboard: React.FC = () => {
   useEffect(() => {
     if (!db) return;
 
+    let regsLoaded = false;
+    let attendanceLoaded = false;
+    let expensesLoaded = false;
+    let tasksLoaded = false;
+    let leavesLoaded = false;
+
+    const checkAllLoaded = () => {
+      if (regsLoaded && attendanceLoaded && expensesLoaded && tasksLoaded && leavesLoaded) {
+        setIsDataLoading(false);
+      }
+    };
+
     // Listen to registrations
     const qRegs = query(collection(db, 'registrations'), orderBy('registrationDate', 'desc'));
     const unsubRegs = onSnapshot(qRegs, (snapshot) => {
@@ -201,7 +214,9 @@ export const AdminDashboard: React.FC = () => {
         regs.push({ id: doc.id, ...doc.data() } as Registration);
       });
       setRegistrations(regs);
-    });
+      regsLoaded = true;
+      checkAllLoaded();
+    }, () => { regsLoaded = true; checkAllLoaded(); });
 
     // Listen to attendance
     const qAttendance = query(collection(db, 'attendance'), orderBy('createdAtDeviceTime', 'desc'));
@@ -211,7 +226,9 @@ export const AdminDashboard: React.FC = () => {
         firestoreAtt.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
       });
       setAttendanceRecords(firestoreAtt);
-    });
+      attendanceLoaded = true;
+      checkAllLoaded();
+    }, () => { attendanceLoaded = true; checkAllLoaded(); });
 
     // Listen to expenses
     const qExpenses = query(collection(db, 'expenses'), orderBy('createdAtDeviceTime', 'desc'));
@@ -221,7 +238,9 @@ export const AdminDashboard: React.FC = () => {
         firestoreExp.push({ id: doc.id, ...doc.data() } as ExpenseRecord);
       });
       setExpenseRecords(firestoreExp);
-    });
+      expensesLoaded = true;
+      checkAllLoaded();
+    }, () => { expensesLoaded = true; checkAllLoaded(); });
 
     // Listen to tasks
     const qTasks = query(collection(db, 'tasks'), orderBy('createdAtDeviceTime', 'desc'));
@@ -231,7 +250,9 @@ export const AdminDashboard: React.FC = () => {
         firestoreTasks.push({ id: docSnap.id, ...docSnap.data() } as TaskRecord);
       });
       setTasks(firestoreTasks);
-    });
+      tasksLoaded = true;
+      checkAllLoaded();
+    }, () => { tasksLoaded = true; checkAllLoaded(); });
 
     // Listen to leaves
     const unsubLeaves = onSnapshot(collection(db, 'leaves'), (snapshot) => {
@@ -240,7 +261,9 @@ export const AdminDashboard: React.FC = () => {
         firestoreLeaves.push({ id: doc.id, ...doc.data() } as LeaveRecord);
       });
       setLeaves(firestoreLeaves);
-    });
+      leavesLoaded = true;
+      checkAllLoaded();
+    }, () => { leavesLoaded = true; checkAllLoaded(); });
 
     return () => {
       unsubRegs();
@@ -587,7 +610,18 @@ export const AdminDashboard: React.FC = () => {
         {activeTab === 'rbac' && canSeeRbac && <RBACTab />}
 
         {/* REPORTS & ANALYTICS TAB */}
-        {activeTab === 'reports' && canSeeReports && <ReportsAnalyticsTab />}
+        {activeTab === 'reports' && canSeeReports && (
+          <ReportsAnalyticsTab 
+            role={role as 'ADMIN' | 'SUPER_ADMIN'}
+            authorizedOffice={authorizedOffice}
+            registrations={registrations}
+            attendanceRecords={attendanceRecords}
+            expenseRecords={expenseRecords}
+            tasks={tasks}
+            leaves={leaves}
+            isLoading={isDataLoading}
+          />
+        )}
 
         {/* SYSTEM HEALTH TAB */}
         {activeTab === 'health' && canSeeHealth && <SystemHealthSection />}

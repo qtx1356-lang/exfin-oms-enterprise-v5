@@ -3,7 +3,7 @@ import { Card } from '../../components/ui/Card';
 import { 
   BarChart3, FileText, Download, Printer, Calendar, Users, Filter, 
   TrendingUp, Coins, Clock, MapPin, CheckCircle2, XCircle, AlertCircle, 
-  Shield, Compass, Building, Star, ClipboardList, Briefcase
+  Shield, Compass, Building, Star, ClipboardList, Briefcase, RefreshCw
 } from 'lucide-react';
 import { exportToCSV, exportToXLSX, printReport } from '../../services/reports/exportService';
 
@@ -16,6 +16,7 @@ interface ReportsAnalyticsTabProps {
   expenseRecords: any[];
   tasks: any[];
   leaves: any[];
+  isLoading?: boolean;
 }
 
 export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
@@ -25,9 +26,30 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
   attendanceRecords,
   expenseRecords,
   tasks,
-  leaves
+  leaves,
+  isLoading = false
 }) => {
   const isSuperAdmin = role === 'SUPER_ADMIN';
+
+  // 1. LOADING & EMPTY STATES
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+        <RefreshCw className="w-12 h-12 text-purple-500 animate-spin" />
+        <div className="text-purple-300 font-bold animate-pulse">Initializing Analytical Engine...</div>
+      </div>
+    );
+  }
+
+  if (registrations.length === 0) {
+    return (
+      <Card className="p-12 bg-[#2D1B5A] border border-purple-500/20 text-center">
+        <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+        <h3 className="text-lg font-black text-white">No Corporate Data Detected</h3>
+        <p className="text-sm text-purple-300 mt-2">The system cannot find any registered employee data to generate analytics.</p>
+      </Card>
+    );
+  }
 
   // 1. FILTER STATES
   const [selectedOffice, setSelectedOffice] = useState<string>(
@@ -74,15 +96,16 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
   const filteredAttendance = useMemo(() => {
     return attendanceRecords.filter(rec => {
       // Date filter
-      const recDate = rec.createdAtDeviceTime.split('T')[0];
-      if (recDate < startDate || recDate > endDate) return false;
+      const recDate = (rec.createdAtDeviceTime || rec.date || '').split('T')[0];
+      if (!recDate || recDate < startDate || recDate > endDate) return false;
       
       // Office/Department boundary filter
-      const emp = registrations.find(r => r.employeeCode === rec.employeeCode);
+      const recEmpCode = rec.employeeCode || rec.employeeId;
+      const emp = registrations.find(r => r.employeeCode === recEmpCode);
       if (!emp) return false;
       
       if (selectedOffice !== 'ALL' && emp.office !== selectedOffice) return false;
-      if (selectedEmployeeCode !== 'ALL' && rec.employeeCode !== selectedEmployeeCode) return false;
+      if (selectedEmployeeCode !== 'ALL' && recEmpCode !== selectedEmployeeCode) return false;
       
       return true;
     });
@@ -90,14 +113,15 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
 
   const filteredExpenses = useMemo(() => {
     return expenseRecords.filter(rec => {
-      const recDate = rec.createdAtDeviceTime.split('T')[0];
-      if (recDate < startDate || recDate > endDate) return false;
+      const recDate = (rec.createdAtDeviceTime || rec.date || '').split('T')[0];
+      if (!recDate || recDate < startDate || recDate > endDate) return false;
 
-      const emp = registrations.find(r => r.employeeCode === rec.employeeCode);
+      const recEmpCode = rec.employeeCode || rec.employeeId;
+      const emp = registrations.find(r => r.employeeCode === recEmpCode);
       if (!emp) return false;
 
       if (selectedOffice !== 'ALL' && emp.office !== selectedOffice) return false;
-      if (selectedEmployeeCode !== 'ALL' && rec.employeeCode !== selectedEmployeeCode) return false;
+      if (selectedEmployeeCode !== 'ALL' && recEmpCode !== selectedEmployeeCode) return false;
 
       return true;
     });
@@ -105,8 +129,8 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
 
   const filteredTasks = useMemo(() => {
     return tasks.filter(rec => {
-      const recDate = (rec.createdAtDeviceTime || rec.dueDate || '').split('T')[0];
-      if (recDate && (recDate < startDate || recDate > endDate)) return false;
+      const recDate = (rec.createdAtDeviceTime || rec.dueDate || rec.date || '').split('T')[0];
+      if (!recDate || recDate < startDate || recDate > endDate) return false;
 
       // Filter by assignee's department and code
       const emp = registrations.find(r => r.employeeCode === rec.assigneeCode || r.id === rec.assigneeId);
@@ -121,8 +145,8 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
 
   const filteredLeaves = useMemo(() => {
     return leaves.filter(rec => {
-      const recDate = (rec.createdAtDeviceTime || rec.startDate || '').split('T')[0];
-      if (recDate && (recDate < startDate || recDate > endDate)) return false;
+      const recDate = (rec.createdAtDeviceTime || rec.startDate || rec.date || '').split('T')[0];
+      if (!recDate || recDate < startDate || recDate > endDate) return false;
 
       if (selectedOffice !== 'ALL' && rec.department !== selectedOffice) return false;
       if (selectedEmployeeCode !== 'ALL' && rec.employeeCode !== selectedEmployeeCode) return false;
@@ -134,11 +158,15 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
   // 4. METRIC SUMMARIES
   const metrics = useMemo(() => {
     const totalAttendance = filteredAttendance.length;
-    const lates = filteredAttendance.filter(r => r.isLate).length;
+    const lates = filteredAttendance.filter(r => r.isLate || r.late).length;
     const earlyOuts = filteredAttendance.filter(r => r.isEarlyCheckout).length;
     const missedOuts = filteredAttendance.filter(r => r.checkInTime && !r.checkOutTime).length;
-    const wfh = filteredAttendance.filter(r => r.isWfh).length;
-    const clientVisits = filteredAttendance.filter(r => r.isClientVisit).length;
+    
+    // Use attendanceType for accurate classification
+    const office = filteredAttendance.filter(r => r.attendanceType === 'OFFICE').length;
+    const wfh = filteredAttendance.filter(r => r.attendanceType === 'WFH').length;
+    const clientVisits = filteredAttendance.filter(r => r.attendanceType === 'CLIENT_VISIT').length;
+    const outdoor = filteredAttendance.filter(r => r.attendanceType === 'OUTDOOR').length;
 
     const totalClaimsCount = filteredExpenses.length;
     const approvedClaims = filteredExpenses.filter(r => r.status === 'APPROVED');
@@ -153,7 +181,16 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
     const pendingLeavesCount = filteredLeaves.filter(r => r.status === 'PENDING').length;
 
     return {
-      attendance: { total: totalAttendance, lates, earlyOuts, missedOuts, wfh, clientVisits },
+      attendance: { 
+        total: totalAttendance, 
+        lates, 
+        earlyOuts, 
+        missedOuts, 
+        office,
+        wfh, 
+        clientVisits,
+        outdoor 
+      },
       expenses: { total: totalClaimsCount, approvedAmount: totalExpensesApprovedAmount, pending: pendingClaims },
       tasks: { total: totalTasksCount, completed: completedTasks, overdue: overdueTasks },
       leaves: { approved: approvedLeavesCount, pending: pendingLeavesCount }
@@ -164,24 +201,38 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
   const departmentComparison = useMemo(() => {
     if (!isSuperAdmin) return [];
     
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+    
     // Extract unique offices (excluding 'ALL')
     const offices = departments.filter(d => d !== 'ALL');
-    
+
     return offices.map(officeName => {
       const officeEmployees = registrations.filter(r => r.status === 'Approved' && (r.office === officeName || (!r.office && officeName === 'Raniganj')));
       const officeEmpCodes = officeEmployees.map(r => r.employeeCode);
       
-      const officeAttendance = attendanceRecords.filter(r => officeEmpCodes.includes(r.employeeCode));
-      const officeLates = officeAttendance.filter(r => r.isLate).length;
-      const attRate = officeEmployees.length > 0 ? ((officeAttendance.length / (officeEmployees.length * 30)) * 100).toFixed(1) : '0.0';
+      const officeAttendance = attendanceRecords.filter(r => {
+        const recDate = (r.createdAtDeviceTime || r.date || '').split('T')[0];
+        return recDate >= startDate && recDate <= endDate && officeEmpCodes.includes(r.employeeCode || r.employeeId);
+      });
+      const officeLates = officeAttendance.filter(r => r.isLate || r.late).length;
+      const attRate = officeEmployees.length > 0 ? ((officeAttendance.length / (officeEmployees.length * diffDays)) * 100).toFixed(1) : '0.0';
 
-      const officeExpenses = expenseRecords.filter(r => officeEmpCodes.includes(r.employeeCode) && r.status === 'APPROVED');
+      const officeExpenses = expenseRecords.filter(r => {
+        const recDate = (r.createdAtDeviceTime || r.date || '').split('T')[0];
+        return recDate >= startDate && recDate <= endDate && officeEmpCodes.includes(r.employeeCode || r.employeeId) && r.status === 'APPROVED';
+      });
       const totalExpense = officeExpenses.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
 
-      const officeTasks = tasks.filter(r => officeEmpCodes.includes(r.assigneeCode));
-      const completedTasks = officeTasks.filter(r => r.status === 'COMPLETED').length;
-      const totalTasks = officeTasks.length;
-      const taskCompRate = totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(1) : '0.0';
+      const officeTasks = tasks.filter(r => {
+        const recDate = (r.createdAtDeviceTime || r.dueDate || r.date || '').split('T')[0];
+        return recDate >= startDate && recDate <= endDate && (officeEmpCodes.includes(r.assigneeCode) || officeEmployees.some(e => e.id === r.assigneeId));
+      });
+      const completedTasksCount = officeTasks.filter(r => r.status === 'COMPLETED').length;
+      const totalTasksCount = officeTasks.length;
+      const taskCompRate = totalTasksCount > 0 ? ((completedTasksCount / totalTasksCount) * 100).toFixed(1) : '0.0';
 
       return {
         name: officeName,
@@ -190,11 +241,11 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
         lateCount: officeLates,
         attendanceRate: Math.min(parseFloat(attRate), 100).toFixed(1) + '%',
         totalExpenses: '₹' + totalExpense.toLocaleString('en-IN'),
-        tasksAssigned: totalTasks,
+        tasksAssigned: totalTasksCount,
         taskCompletionRate: taskCompRate + '%'
       };
     });
-  }, [isSuperAdmin, departments, registrations, attendanceRecords, expenseRecords, tasks]);
+  }, [isSuperAdmin, departments, registrations, attendanceRecords, expenseRecords, tasks, startDate, endDate]);
 
   // 6. TREND CHART GENERATION (SVG BASED)
   const trendData = useMemo(() => {
@@ -215,19 +266,22 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
 
       const labelStr = currentStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
+      const startStr = currentStart.toISOString().split('T')[0];
+      const endStr = currentEnd.toISOString().split('T')[0];
+
       // Filter local
       const att = filteredAttendance.filter(r => {
-        const d = new Date(r.createdAtDeviceTime);
-        return d >= currentStart && d < currentEnd;
+        const d = (r.createdAtDeviceTime || r.date || '').split('T')[0];
+        return d >= startStr && d < endStr;
       }).length;
 
       const exp = filteredExpenses
-        .filter(r => r.status === 'APPROVED' && new Date(r.createdAtDeviceTime) >= currentStart && new Date(r.createdAtDeviceTime) < currentEnd)
+        .filter(r => r.status === 'APPROVED' && (r.createdAtDeviceTime || r.date || '').split('T')[0] >= startStr && (r.createdAtDeviceTime || r.date || '').split('T')[0] < endStr)
         .reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
 
       const tsk = filteredTasks.filter(r => {
-        const d = new Date(r.createdAtDeviceTime || r.dueDate || '');
-        return d >= currentStart && d < currentEnd;
+        const d = (r.createdAtDeviceTime || r.dueDate || r.date || '').split('T')[0];
+        return d >= startStr && d < endStr;
       }).length;
 
       intervals.push({
@@ -261,25 +315,28 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
     };
 
     if (type === 'attendance') {
-      const headers = ['Record ID', 'Employee Code', 'Date', 'Check-In', 'Check-Out', 'Mode', 'Distance (m)', 'Late', 'Early Out', 'WFH', 'Client Visit'];
+      const headers = ['Record ID', 'Employee Code', 'Date', 'Check-In', 'Check-Out', 'Mode', 'Distance (m)', 'Late', 'Early Out', 'WFH', 'Client Visit', 'Outdoor'];
       const rows = filteredAttendance.map(r => [
         r.id,
-        r.employeeCode,
-        r.createdAtDeviceTime.split('T')[0],
+        r.employeeCode || r.employeeId,
+        (r.createdAtDeviceTime || r.date || '').split('T')[0],
         r.checkInTime || 'N/A',
         r.checkOutTime || 'N/A',
         r.checkInMode || 'Manual',
         r.distance?.toFixed(1) || '0.0',
-        r.isLate ? 'YES' : 'NO',
+        (r.isLate || r.late) ? 'YES' : 'NO',
         r.isEarlyCheckout ? 'YES' : 'NO',
-        r.isWfh ? 'YES' : 'NO',
-        r.isClientVisit ? 'YES' : 'NO'
+        r.attendanceType === 'WFH' ? 'YES' : 'NO',
+        r.attendanceType === 'CLIENT_VISIT' ? 'YES' : 'NO',
+        r.attendanceType === 'OUTDOOR' ? 'YES' : 'NO'
       ]);
       const summary = [
         { label: 'Total Records', value: metrics.attendance.total },
         { label: 'Late Entries', value: metrics.attendance.lates },
-        { label: 'Early Checkouts', value: metrics.attendance.earlyOuts },
-        { label: 'WFH Events', value: metrics.attendance.wfh }
+        { label: 'Office Attendance', value: metrics.attendance.office },
+        { label: 'WFH Events', value: metrics.attendance.wfh },
+        { label: 'Client Visits', value: metrics.attendance.clientVisits },
+        { label: 'Outdoor Work', value: metrics.attendance.outdoor }
       ];
 
       exportToCSV(`Attendance_Report_${startDate}_${endDate}`, headers, rows);
@@ -594,9 +651,10 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
           </div>
           <p className="text-2xl font-black mt-2 text-white">{metrics.attendance.total}</p>
           <div className="mt-2 text-[10px] text-purple-300 font-bold space-y-0.5">
-            <div>Late Arrivals: <span className="text-amber-400 font-black">{metrics.attendance.lates}</span></div>
-            <div>Early Checkouts: <span className="text-amber-300 font-black">{metrics.attendance.earlyOuts}</span></div>
-            <div>Outdoor Visits: <span className="text-emerald-400 font-black">{metrics.attendance.clientVisits}</span></div>
+            <div>Office: <span className="text-emerald-400 font-black">{metrics.attendance.office}</span></div>
+            <div>WFH: <span className="text-blue-400 font-black">{metrics.attendance.wfh}</span></div>
+            <div>Client: <span className="text-purple-400 font-black">{metrics.attendance.clientVisits}</span></div>
+            <div>Outdoor: <span className="text-amber-400 font-black">{metrics.attendance.outdoor}</span></div>
           </div>
         </Card>
 
