@@ -44,6 +44,7 @@ import {
   MapPin,
   ExternalLink,
   ChevronRight,
+  Megaphone,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -64,6 +65,7 @@ import { UserManagementTab } from './UserManagementTab';
 import { HRManagementTab } from './HRManagementTab';
 import { SalaryManagementTab } from './SalaryManagementTab';
 import { AdminChatTab } from './AdminChatTab';
+import { NotificationManagement } from './NotificationManagement';
 import { listenConversations } from '../../services/chat/chatService';
 import { LeaveRecord, LeaveConfig, EmployeeAllowance } from '../../types/leave';
 import { reviewLeaveRequest, adminOverrideLeave, updateLeaveConfig, updateEmployeeAllowance, calculateLeaveBalance } from '../../services/leave/leaveService';
@@ -105,7 +107,8 @@ type AdminTab =
   | 'reports'
   | 'health'
   | 'sync'
-  | 'chat';
+  | 'chat'
+  | 'announcements';
 
 export const AdminDashboard: React.FC = () => {
   const { logout, user: adminUser, role = 'ADMIN', authorizedOffice = 'ALL', loginId } = useAdminAuth();
@@ -137,6 +140,7 @@ export const AdminDashboard: React.FC = () => {
   const canSeePlanner = isSuperAdmin() || hasFeatureAccess('workPlanner');
   const canSeeLeaves = isSuperAdmin() || hasFeatureAccess('leave');
   const canSeeEfficiency = isSuperAdmin() || hasFeatureAccess('employeeEfficiency');
+  const canSeeAnnouncements = isSuperAdmin() || hasFeatureAccess('notifications');
 
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
     if (isSuperAdmin() || hasFeatureAccess('dashboard')) return 'overview';
@@ -557,6 +561,17 @@ export const AdminDashboard: React.FC = () => {
                   </span>
                 )}
               </button>
+              {canSeeAnnouncements && (
+                <button
+                  onClick={() => setActiveTab('announcements')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 ${
+                    activeTab === 'announcements' ? 'bg-purple-600 text-white shadow-md' : 'text-purple-300/80 hover:text-white bg-white/5'
+                  }`}
+                >
+                  <Megaphone className="w-3.5 h-3.5 text-amber-300" />
+                  Announcements & Alerts
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -703,6 +718,9 @@ export const AdminDashboard: React.FC = () => {
 
         {/* INTERNAL CHAT TAB */}
         {activeTab === 'chat' && <AdminChatTab />}
+
+        {/* ANNOUNCEMENTS & ALERTS TAB */}
+        {activeTab === 'announcements' && canSeeAnnouncements && <NotificationManagement />}
 
         {/* ATTENDANCE TAB */}
         {activeTab === 'attendance' && canSeeAttendance && (

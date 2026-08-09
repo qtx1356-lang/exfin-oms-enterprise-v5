@@ -105,14 +105,46 @@ export const EmployeeDashboard: React.FC = () => {
     const announcementsQ = query(
       collection(db, 'announcements'),
       orderBy('date', 'desc'),
-      limit(3)
+      limit(10)
     );
     const unsubAnnouncements = onSnapshot(announcementsQ, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
+      const allAnnouncements = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      })) as Announcement[];
-      setAnnouncements(data);
+      })) as any[];
+
+      // Filter targeted announcements
+      const filtered = allAnnouncements.filter((ann) => {
+        // Exclude pending, rejected, or suspended employees, or Super Admin/Admin
+        if (!employeeData || employeeData.status !== 'Approved') return false;
+        if (employeeData.role === 'SUPER_ADMIN' || employeeData.role === 'ADMIN') return false;
+
+        if (!ann.targetType || ann.targetType === 'ALL') {
+          return true;
+        }
+
+        if (ann.targetType === 'DEPARTMENT') {
+          const userDept = (employeeData.department || '').toLowerCase();
+          const userOffice = (employeeData.office || '').toLowerCase();
+          const targetVal = String(ann.targetValue).toLowerCase();
+          return userDept === targetVal || userOffice === targetVal;
+        }
+
+        if (ann.targetType === 'DESIGNATION') {
+          const userDesig = (employeeData.designation || '').toLowerCase();
+          const targetVal = String(ann.targetValue).toLowerCase();
+          return userDesig === targetVal;
+        }
+
+        if (ann.targetType === 'SELECTED') {
+          const selectedCodes = Array.isArray(ann.targetValue) ? ann.targetValue : [];
+          return selectedCodes.includes(employeeData.employeeCode);
+        }
+
+        return true;
+      });
+
+      setAnnouncements(filtered.slice(0, 3));
     }, (error) => {
       console.error('Error fetching announcements:', error);
     });
