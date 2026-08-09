@@ -507,74 +507,28 @@ export const AttendanceScreen: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#170B38] via-[#200D4B] to-[#2A145B] text-white p-3 sm:p-6 pb-32 max-w-5xl mx-auto space-y-5 font-sans">
+    <div className="min-h-screen bg-gradient-to-b from-[#170B38] via-[#200D4B] to-[#2A145B] text-white p-3 sm:p-6 pb-32 max-w-5xl mx-auto space-y-4 font-sans">
       
       {/* ==================================================== */}
-      {/* HEADER – DEEP PURPLE ENTERPRISE */}
+      {/* CLEAN PAGE TITLE */}
       {/* ==================================================== */}
-      <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.37)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-purple-500/20">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-[#7C3AED] animate-ping" />
-            <span className="text-xs font-bold text-purple-300 uppercase tracking-widest">
-              Enterprise Engine v6.0
-            </span>
-          </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            EXFIN Smart Attendance
+            Attendance
           </h1>
-          <p className="text-xs text-purple-200/80 font-medium mt-1 flex items-center gap-2">
+          <p className="text-xs text-purple-200/80 font-medium mt-0.5 flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5 text-purple-400" />
             {getFormattedDateLong()} • <strong className="text-white">{employeeName}</strong> ({employeeId})
           </p>
-        </div>
-
-        <div className="flex items-center gap-3 self-end sm:self-center">
-          {/* Network Status Badge */}
-          <div className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold flex items-center gap-2 border transition-all ${
-            isSyncing
-              ? 'bg-blue-500/20 text-blue-300 border-blue-400/50'
-              : isOnline
-              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50'
-              : 'bg-amber-500/20 text-amber-300 border-amber-400/50'
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${
-              isSyncing ? 'bg-blue-400 animate-spin' : isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
-            }`} />
-            {isSyncing ? 'SYNCING' : isOnline ? 'ONLINE' : 'OFFLINE'}
-          </div>
-
-          {/* Sync Trigger Button */}
-          <button
-            onClick={handleSyncNow}
-            disabled={!isOnline || isSyncing}
-            className={`p-2.5 rounded-2xl border transition-all flex items-center justify-center relative ${
-              pendingCount > 0 
-                ? 'bg-amber-500/20 text-amber-300 border-amber-400/50 hover:bg-amber-500/30' 
-                : 'bg-purple-950/60 text-purple-300 border-purple-500/30 hover:bg-purple-900/60'
-            }`}
-            title={pendingCount > 0 ? `${pendingCount} records pending sync` : 'All records synced'}
-          >
-            <RotateCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-purple-300' : ''}`} />
-            {pendingCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black flex items-center justify-center shadow">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-
-          {/* Employee Avatar Badge */}
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#7C3AED] to-[#4C1D95] text-white font-black text-sm flex items-center justify-center shadow-lg ring-2 ring-purple-400/30">
-            {getEmployeeInitials(employeeName)}
-          </div>
         </div>
       </div>
 
       {/* ==================================================== */}
       {/* LIVE STATUS RIBBON */}
       {/* ==================================================== */}
-      <div className={`px-5 py-3 rounded-[22px] border flex items-center justify-between text-xs font-black tracking-wider transition-all duration-300 shadow-md ${ribbonInfo.style}`}>
-        <div className="flex items-center gap-3">
+      <div className={`px-4 py-2.5 rounded-2xl border flex items-center justify-between text-xs font-bold tracking-wider transition-all duration-300 shadow-sm ${ribbonInfo.style}`}>
+        <div className="flex items-center gap-2.5">
           {ribbonInfo.icon}
           <span>{ribbonInfo.text}</span>
         </div>
@@ -583,7 +537,7 @@ export const AttendanceScreen: React.FC = () => {
 
       {/* Action Feedback Banner */}
       {actionFeedback && (
-        <div className="p-4 bg-purple-900/60 border border-purple-400/40 text-purple-100 rounded-[22px] text-xs font-bold flex justify-between items-center shadow-md animate-fade-in">
+        <div className="p-3.5 bg-purple-900/60 border border-purple-400/40 text-purple-100 rounded-2xl text-xs font-bold flex justify-between items-center shadow-sm animate-fade-in">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-purple-300" />
             <span>{actionFeedback}</span>
@@ -594,19 +548,19 @@ export const AttendanceScreen: React.FC = () => {
 
       {/* Location Status Card - Loading State */}
       {locationStatus === 'loading' && (
-        <div className="p-8 rounded-[22px] bg-[#2D1B5A]/80 border border-purple-500/20 shadow-md flex flex-col items-center justify-center gap-3 text-center">
-          <div className="w-10 h-10 border-4 border-[#7C3AED] border-t-transparent rounded-full animate-spin" />
+        <div className="p-6 rounded-2xl bg-[#2D1B5A]/80 border border-purple-500/20 shadow-sm flex flex-col items-center justify-center gap-2.5 text-center">
+          <div className="w-8 h-8 border-3 border-[#7C3AED] border-t-transparent rounded-full animate-spin" />
           <p className="text-xs font-bold text-purple-200">Acquiring Enterprise GPS Lock...</p>
         </div>
       )}
 
       {/* Location Status Card - Error State */}
       {locationStatus === 'error' && (
-        <div className="p-6 rounded-[22px] bg-rose-950/60 border border-rose-500/40 text-rose-200 shadow-md flex flex-col items-center justify-center gap-3 text-center">
-          <AlertCircle className="w-10 h-10 text-rose-400" />
+        <div className="p-5 rounded-2xl bg-rose-950/60 border border-rose-500/40 text-rose-200 shadow-sm flex flex-col items-center justify-center gap-2.5 text-center">
+          <AlertCircle className="w-8 h-8 text-rose-400" />
           <div>
-            <h2 className="text-sm font-bold">GPS Location Unavailable</h2>
-            <p className="text-xs text-rose-300 mt-0.5">{errorMessage}</p>
+            <h2 className="text-xs font-bold">GPS Location Unavailable</h2>
+            <p className="text-[11px] text-rose-300 mt-0.5">{errorMessage}</p>
           </div>
           <Button onClick={() => refreshLocation()} className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs py-2 px-4 rounded-xl shadow">
             Retry GPS Lock
@@ -618,83 +572,46 @@ export const AttendanceScreen: React.FC = () => {
       {locationStatus === 'success' && distance !== null && (
         <>
           {/* ==================================================== */}
-          {/* OFFICE STATUS CARD (CLEAN & UNCLUTTERED) */}
-          {/* ==================================================== */}
-          <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-4 sm:p-5 shadow-[0_8px_32px_rgba(0,0,0,0.37)] flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-purple-950/80 text-purple-300 border border-purple-500/30 flex items-center justify-center flex-shrink-0 font-bold shadow-inner">
-                <Building2 className="w-5 h-5 text-[#7C3AED]" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black text-purple-300 uppercase tracking-widest mb-0.5">
-                  OFFICE LOCATION & GEOFENCE
-                </p>
-                <h3 className="text-sm sm:text-base font-black text-white leading-tight">
-                  Distance: <span className="text-purple-200">{formattedDistance}</span>
-                </h3>
-                <p className="text-[11px] text-purple-300/80 font-medium mt-0.5">
-                  Office Geofence: {OFFICE_LOCATION.radius}m • {currentAddress || 'Raniganj HQ'}
-                </p>
-              </div>
-            </div>
-
-            <div className="text-right flex-shrink-0">
-              <span className={`px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-black inline-flex items-center gap-1.5 border animate-subtle-pulse select-none ${
-                isInsideGeofence 
-                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.2)]' 
-                  : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-              }`}>
-                <span className={`w-2 h-2 rounded-full ${isInsideGeofence ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                {isInsideGeofence ? 'INSIDE OFFICE' : 'OUTSIDE OFFICE'}
-              </span>
-            </div>
-          </div>
-
-          {/* ==================================================== */}
           {/* ATTENDANCE MODES SELECTION GRID */}
           {/* ==================================================== */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex justify-between items-center px-1">
               <h2 className="text-xs font-bold text-purple-300 uppercase tracking-wider">
                 Select Attendance Mode
               </h2>
               {todayRecord && (
-                <span className="text-[10px] bg-purple-900/60 text-purple-200 font-extrabold px-3 py-1 rounded-full border border-purple-500/30">
+                <span className="text-[10px] bg-purple-900/60 text-purple-200 font-extrabold px-2.5 py-0.5 rounded-full border border-purple-500/30">
                   Mode Locked for Today
                 </span>
               )}
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
               {/* Card 1: Office */}
               <button
                 type="button"
                 disabled={!!todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE'}
                 onClick={() => setActiveMode('OFFICE')}
-                className={`p-4 rounded-[22px] border text-left transition-all duration-300 flex flex-col justify-between h-32 relative overflow-hidden group ${
+                className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
                   activeMode === 'OFFICE'
-                    ? 'border-[#7C3AED] bg-[#381F6D] shadow-[0_0_25px_rgba(124,58,237,0.4)] ring-2 ring-[#7C3AED]'
+                    ? 'border-[#7C3AED] bg-[#381F6D] shadow-[0_0_20px_rgba(124,58,237,0.35)] ring-2 ring-[#7C3AED]'
                     : 'border-purple-500/20 bg-[#2D1B5A]/70 hover:border-purple-400/40 hover:bg-[#2D1B5A]'
                 } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
-                <div className="flex justify-between items-start">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl font-bold transition-transform group-hover:scale-105 ${
-                    activeMode === 'OFFICE' ? 'bg-[#7C3AED] text-white shadow-lg' : 'bg-purple-950/80 text-purple-300'
-                  }`}>
-                    🏢
-                  </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xl">🏢</span>
                   {activeMode === 'OFFICE' && (
-                    <span className="w-5 h-5 rounded-full bg-[#7C3AED] text-white flex items-center justify-center text-xs shadow-md">
-                      <Check className="w-3.5 h-3.5" />
+                    <span className="w-4 h-4 rounded-full bg-[#7C3AED] text-white flex items-center justify-center text-[10px]">
+                      <Check className="w-3 h-3" />
                     </span>
                   )}
                   {todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' && (
-                    <Lock className="w-4 h-4 text-purple-400/60" />
+                    <Lock className="w-3.5 h-3.5 text-purple-400/60" />
                   )}
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm text-white">Office</h3>
-                  <p className="text-[11px] text-purple-300 font-medium leading-tight mt-0.5">25m Office Geofence</p>
+                  <h3 className="font-extrabold text-xs text-white">Office</h3>
+                  <p className="text-[10px] text-purple-300 font-medium leading-tight mt-0.5">25m Geofence</p>
                 </div>
               </button>
 
@@ -703,32 +620,28 @@ export const AttendanceScreen: React.FC = () => {
                 type="button"
                 disabled={!!todayRecord && todayRecord.attendanceType !== 'WFH'}
                 onClick={() => setActiveMode('WFH')}
-                className={`p-4 rounded-[22px] border text-left transition-all duration-300 flex flex-col justify-between h-32 relative overflow-hidden group ${
+                className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
                   activeMode === 'WFH'
-                    ? 'border-emerald-500 bg-[#1E3B30] shadow-[0_0_25px_rgba(16,185,129,0.3)] ring-2 ring-emerald-500'
+                    ? 'border-emerald-500 bg-[#1E3B30] shadow-[0_0_20px_rgba(16,185,129,0.3)] ring-2 ring-emerald-500'
                     : 'border-purple-500/20 bg-[#2D1B5A]/70 hover:border-emerald-400/40 hover:bg-[#2D1B5A]'
                 } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
-                <div className="flex justify-between items-start">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl font-bold transition-transform group-hover:scale-105 ${
-                    activeMode === 'WFH' ? 'bg-emerald-600 text-white shadow-lg' : 'bg-emerald-950/80 text-emerald-300'
-                  }`}>
-                    🏠
-                  </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xl">🏠</span>
                   <div className="flex items-center gap-1">
                     {activeMode === 'WFH' && (
-                      <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs shadow-md">
-                        <Check className="w-3.5 h-3.5" />
+                      <span className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px]">
+                        <Check className="w-3 h-3" />
                       </span>
                     )}
-                    <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-md border border-emerald-500/30">
-                      {currentWfhMonthCount}/2 Used
+                    <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                      {currentWfhMonthCount}/2
                     </span>
                   </div>
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm text-white">Work From Home</h3>
-                  <p className="text-[11px] text-purple-300 font-medium leading-tight mt-0.5">Max 2 per Month</p>
+                  <h3 className="font-extrabold text-xs text-white">Work From Home</h3>
+                  <p className="text-[10px] text-purple-300 font-medium leading-tight mt-0.5">Max 2 per Month</p>
                 </div>
               </button>
 
@@ -737,27 +650,23 @@ export const AttendanceScreen: React.FC = () => {
                 type="button"
                 disabled={!!todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT'}
                 onClick={() => setActiveMode('CLIENT_VISIT')}
-                className={`p-4 rounded-[22px] border text-left transition-all duration-300 flex flex-col justify-between h-32 relative overflow-hidden group ${
+                className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
                   activeMode === 'CLIENT_VISIT'
-                    ? 'border-amber-500 bg-[#3B2D1E] shadow-[0_0_25px_rgba(245,158,11,0.3)] ring-2 ring-amber-500'
+                    ? 'border-amber-500 bg-[#3B2D1E] shadow-[0_0_20px_rgba(245,158,11,0.3)] ring-2 ring-amber-500'
                     : 'border-purple-500/20 bg-[#2D1B5A]/70 hover:border-amber-400/40 hover:bg-[#2D1B5A]'
                 } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
-                <div className="flex justify-between items-start">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl font-bold transition-transform group-hover:scale-105 ${
-                    activeMode === 'CLIENT_VISIT' ? 'bg-amber-600 text-white shadow-lg' : 'bg-amber-950/80 text-amber-300'
-                  }`}>
-                    🤝
-                  </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xl">🤝</span>
                   {activeMode === 'CLIENT_VISIT' && (
-                    <span className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs shadow-md">
-                      <Check className="w-3.5 h-3.5" />
+                    <span className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px]">
+                      <Check className="w-3 h-3" />
                     </span>
                   )}
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm text-white">Client Visit</h3>
-                  <p className="text-[11px] text-purple-300 font-medium leading-tight mt-0.5">On-site Meetings</p>
+                  <h3 className="font-extrabold text-xs text-white">Client Visit</h3>
+                  <p className="text-[10px] text-purple-300 font-medium leading-tight mt-0.5">On-site Meetings</p>
                 </div>
               </button>
 
@@ -766,27 +675,23 @@ export const AttendanceScreen: React.FC = () => {
                 type="button"
                 disabled={!!todayRecord && todayRecord.attendanceType !== 'OUTDOOR'}
                 onClick={() => setActiveMode('OUTDOOR')}
-                className={`p-4 rounded-[22px] border text-left transition-all duration-300 flex flex-col justify-between h-32 relative overflow-hidden group ${
+                className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
                   activeMode === 'OUTDOOR'
-                    ? 'border-indigo-500 bg-[#2A234A] shadow-[0_0_25px_rgba(99,102,241,0.3)] ring-2 ring-indigo-500'
+                    ? 'border-indigo-500 bg-[#2A234A] shadow-[0_0_20px_rgba(99,102,241,0.3)] ring-2 ring-indigo-500'
                     : 'border-purple-500/20 bg-[#2D1B5A]/70 hover:border-indigo-400/40 hover:bg-[#2D1B5A]'
                 } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
-                <div className="flex justify-between items-start">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl font-bold transition-transform group-hover:scale-105 ${
-                    activeMode === 'OUTDOOR' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-950/80 text-indigo-300'
-                  }`}>
-                    🚗
-                  </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xl">🚗</span>
                   {activeMode === 'OUTDOOR' && (
-                    <span className="w-5 h-5 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs shadow-md">
-                      <Check className="w-3.5 h-3.5" />
+                    <span className="w-4 h-4 rounded-full bg-indigo-500 text-white flex items-center justify-center text-[10px]">
+                      <Check className="w-3 h-3" />
                     </span>
                   )}
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm text-white">Outdoor Work</h3>
-                  <p className="text-[11px] text-purple-300 font-medium leading-tight mt-0.5">Field & Market Visit</p>
+                  <h3 className="font-extrabold text-xs text-white">Outdoor Work</h3>
+                  <p className="text-[10px] text-purple-300 font-medium leading-tight mt-0.5">Field & Market Duty</p>
                 </div>
               </button>
             </div>
@@ -1242,37 +1147,6 @@ export const AttendanceScreen: React.FC = () => {
             ) : (
               <p className="text-xs text-purple-300/60 italic">No activity logged for today yet.</p>
             )}
-          </div>
-
-          {/* ==================================================== */}
-          {/* OFFLINE STATUS CARD */}
-          {/* ==================================================== */}
-          <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.37)] space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className={`p-2 rounded-xl ${pendingCount > 0 ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
-                  {pendingCount > 0 ? <WifiOff className="w-4 h-4" /> : <Wifi className="w-4 h-4" />}
-                </div>
-                <div>
-                  <h3 className="text-xs font-extrabold text-white">
-                    {pendingCount > 0 ? 'Offline Records Saved Locally' : 'Cloud Sync Engine Active'}
-                  </h3>
-                  <p className="text-[11px] text-purple-300">
-                    {pendingCount > 0 ? `${pendingCount} record(s) pending background upload.` : 'All attendance logs fully synchronized with Firebase.'}
-                  </p>
-                </div>
-              </div>
-
-              {pendingCount > 0 && (
-                <Button 
-                  onClick={handleSyncNow} 
-                  disabled={!isOnline || isSyncing}
-                  className="bg-amber-600 hover:bg-amber-700 text-white font-black text-xs px-3.5 py-2 rounded-xl shadow-md border border-amber-400/30"
-                >
-                  {isSyncing ? 'Syncing...' : 'Sync Cloud'}
-                </Button>
-              )}
-            </div>
           </div>
 
           {/* ==================================================== */}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
-import { Bell, ChevronRight, CheckCheck, Info, User } from 'lucide-react';
+import { Bell, ChevronRight, CheckCheck, Info, User, Home } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useLocationContext } from '../../context/LocationContext';
@@ -131,20 +131,14 @@ export const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Dynamic Header Bar with Global Distance, Office Location Status & Notification Bell */}
+      {/* Dynamic Header Bar with Global Distance, Office Location Status, Home, Bell & Profile */}
       <header className="sticky top-0 z-30 bg-[#1D113B]/90 backdrop-blur-md border-b border-purple-500/10">
         <div className="container mx-auto px-3 sm:px-4 py-2.5 max-w-3xl flex items-center justify-between gap-2">
-          {/* Brand Logo */}
-          <div className="flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0" onClick={() => navigate('/')}>
-            <span className="text-xs font-black tracking-widest text-white bg-purple-600 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl shadow-md">EXFIN</span>
-            <span className="text-xs font-black text-purple-300 hidden min-[380px]:inline">OMS</span>
-          </div>
-
-          {/* Right Header Status Controls: [Distance] [Office Status] [Bell] [Profile] */}
+          {/* Left Header Status Controls: [Distance] [Office Status] */}
           <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5">
-            {/* Live Distance Value (Value ONLY, e.g., "20.34 km", "476 m", "25 m", "—") */}
+            {/* Live Distance Value (Value ONLY, e.g., "476 m", "1.24 km") */}
             <div
-              className="text-[11px] sm:text-xs font-bold text-purple-200 bg-[#2D1B5A]/80 border border-purple-500/20 px-2 sm:px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1"
+              className="text-[11px] sm:text-xs font-bold text-purple-200 bg-[#2D1B5A]/80 border border-purple-500/20 px-2 sm:px-2.5 py-1 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
               title="Live distance from office"
             >
               <span>{formattedDistance}</span>
@@ -152,7 +146,7 @@ export const Layout: React.FC = () => {
 
             {/* Office Location Status Badge with subtle pulse animation */}
             <div
-              className={`text-[10px] sm:text-xs font-black px-2 sm:px-2.5 py-1 rounded-full border whitespace-nowrap animate-subtle-pulse flex items-center gap-1.5 shadow-sm select-none ${
+              className={`text-[10px] sm:text-xs font-black px-2 sm:px-2.5 py-1 rounded-full border whitespace-nowrap animate-subtle-pulse flex items-center gap-1.5 shadow-sm select-none shrink-0 ${
                 isInsideGeofence
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                   : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
@@ -165,13 +159,27 @@ export const Layout: React.FC = () => {
 
             {/* Global Sync Status (shown only when offline/pending) */}
             <GlobalSyncStatus />
+          </div>
+
+          {/* Right Header Navigation Controls: [Home] [Bell] [Profile] */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Home Icon Button */}
+            <button
+              onClick={() => navigate('/')}
+              className="p-1.5 sm:p-2 rounded-xl bg-[#2D1B5A]/80 border border-purple-500/20 text-purple-300 hover:text-white hover:bg-purple-500/20 transition-all cursor-pointer"
+              title="Home Dashboard"
+              aria-label="Home Dashboard"
+              id="header-home-btn"
+            >
+              <Home className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
 
             {currentUser && (
               <div className="relative shrink-0 flex items-center gap-1.5" ref={dropdownRef}>
-                {/* Trigger Button */}
+                {/* Bell Button */}
                 <button
                   onClick={handleBellClick}
-                  className="relative p-1.5 sm:p-2 rounded-xl bg-[#2D1B5A]/40 border border-purple-500/10 text-purple-300 hover:text-white hover:bg-purple-500/10 transition-all cursor-pointer"
+                  className="relative p-1.5 sm:p-2 rounded-xl bg-[#2D1B5A]/80 border border-purple-500/20 text-purple-300 hover:text-white hover:bg-purple-500/20 transition-all cursor-pointer"
                   aria-label="Toggle notifications"
                   id="notification-bell-btn"
                 >
@@ -186,9 +194,10 @@ export const Layout: React.FC = () => {
                 {/* Profile Link */}
                 <button
                   onClick={() => navigate('/profile')}
-                  className="p-1.5 sm:p-2 rounded-xl bg-[#2D1B5A]/40 border border-purple-500/10 text-purple-300 hover:text-white hover:bg-purple-500/10 transition-all cursor-pointer"
+                  className="p-1.5 sm:p-2 rounded-xl bg-[#2D1B5A]/80 border border-purple-500/20 text-purple-300 hover:text-white hover:bg-purple-500/20 transition-all cursor-pointer"
                   title="Profile"
                   aria-label="User Profile"
+                  id="header-profile-btn"
                 >
                   <User className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>

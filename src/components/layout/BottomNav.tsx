@@ -1,22 +1,22 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, CalendarCheck, Wallet, User, Users, Briefcase } from 'lucide-react';
+import { CalendarCheck, Briefcase, BarChart3, Users } from 'lucide-react';
 import { usePermission } from '../../context/PermissionContext';
 
 export const BottomNav: React.FC = () => {
-  const { hasFeatureAccess } = usePermission();
+  const { hasFeatureAccess, isTeamLeader } = usePermission();
+
+  const showMyTeam = isTeamLeader() || hasFeatureAccess('myTeam');
 
   const navItems = [
-    { icon: Home, label: 'Home', path: '/' },
-    ...(hasFeatureAccess('attendance') ? [{ icon: CalendarCheck, label: 'Attendance', path: '/attendance' }] : []),
-    ...(hasFeatureAccess('workPlanner') ? [{ icon: Briefcase, label: 'Planner', path: '/planner' }] : []),
-    ...(hasFeatureAccess('myTeam') ? [{ icon: Users, label: 'My Team', path: '/my-team' }] : []),
-    ...(hasFeatureAccess('expenses') ? [{ icon: Wallet, label: 'Expenses', path: '/expenses' }] : []),
-    { icon: User, label: 'Profile', path: '/profile' },
+    { icon: CalendarCheck, label: 'Attendance', path: '/attendance' },
+    { icon: Briefcase, label: 'Planner', path: '/planner' },
+    { icon: BarChart3, label: 'Efficiency', path: '/efficiency' },
+    ...(showMyTeam ? [{ icon: Users, label: 'My Team', path: '/my-team' }] : []),
   ];
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 max-w-lg mx-auto h-16 bg-[#2D1B5A]/95 backdrop-blur-2xl border border-purple-500/30 rounded-full flex items-center justify-around px-3 z-40 shadow-[0_10px_35px_rgba(0,0,0,0.5)]">
+    <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto h-16 bg-[#2D1B5A]/95 backdrop-blur-2xl border border-purple-500/30 rounded-full flex items-center justify-around px-3 z-40 shadow-[0_10px_35px_rgba(0,0,0,0.5)]">
       {navItems.map((item) => (
         <NavLink
           key={item.path}
