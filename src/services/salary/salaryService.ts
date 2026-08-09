@@ -17,9 +17,16 @@ export interface SalaryRecord {
   sundayHolidayDays: number;
   totalPresentDays: number;
   advance: number;
-  salaryBeforeAdvance: number;
+  lateDays: number;
+  lateFine: number;
+  salaryBeforeDeductions: number;
+  salaryBeforeAdvance: number; // for compatibility
   finalSalary: number;
   generationTimestamp: string;
+  allocatedPaidLeaves?: number;
+  usedPaidLeaves?: number;
+  remainingPaidLeaves?: number;
+  attendanceCutOffDate?: string;
 }
 
 export interface SalaryEmployeeConfig {
@@ -62,6 +69,33 @@ export interface PresentDaysResult {
   totalPresentDays: number;
   datesConvertedToPaidLeave: string[];
   datesRemovedFromPaidLeave: string[];
+  cutOffDateStr: string;
+  lateDays: number;
+}
+
+/**
+ * Checks if a check-in time string (e.g. "10:31 AM") is late (10:31 AM or later)
+ */
+export function isSalaryLateCheckIn(checkInTimeStr: string): boolean {
+  if (!checkInTimeStr) return false;
+  try {
+    const trimmed = checkInTimeStr.trim().toUpperCase();
+    const match = trimmed.match(/^(\d+):(\d+)(?::\d+)?\s*(AM|PM)?/);
+    if (!match) return false;
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const ampm = match[3];
+    if (ampm === 'PM' && hours < 12) {
+      hours += 12;
+    } else if (ampm === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    const totalMinutes = hours * 60 + minutes;
+    const threshold = 10 * 60 + 30; // 10:30 AM is 630 minutes
+    return totalMinutes > threshold; // 10:31 AM or later is > 630 mins
+  } catch (err) {
+    return false;
+  }
 }
 
 /**
@@ -79,12 +113,22 @@ export function calculatePresentDays(
   const daysInMonth = new Date(year, month, 0).getDate();
   const leaveYear = getLeaveYear(month, year);
 
+  // 1. Calculate Cut-off date Str (YYYY-MM-DD)
+  const now = new Date();
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  const padZero = (n: number) => String(n).padStart(2, '0');
+  const yesterdayStr = `${yesterday.getFullYear()}-${padZero(yesterday.getMonth() + 1)}-${padZero(yesterday.getDate())}`;
+  
+  const lastDayOfSelectedMonthStr = `${year}-${padZero(month)}-${padZero(daysInMonth)}`;
+  const cutOffDateStr = lastDayOfSelectedMonthStr < yesterdayStr ? lastDayOfSelectedMonthStr : yesterdayStr;
+
   let officeDays = 0;
   let wfhDays = 0;
   let clientVisitDays = 0;
   let outdoorDays = 0;
   let paidLeaveDays = 0;
   let sundayHolidayDays = 0;
+  let lateDays = 0;
 
   // Track audits that already exist for other months in this leave year
   const auditsOtherMonths = allLeaveAuditsForYear.filter(
@@ -116,9 +160,19 @@ export function calculatePresentDays(
     const monthStr = month < 10 ? `0${month}` : `${month}`;
     const dateStr = `${year}-${monthStr}-${dayStr}`;
 
+    // Skip entirely if date is after the cut-off date
+    if (dateStr > cutOffDateStr) {
+      continue;
+    }
+
     const attendance = attendanceMap.get(dateStr);
 
     if (attendance) {
+      // Check for late check-in
+      if (attendance.checkInTime && isSalaryLateCheckIn(attendance.checkInTime)) {
+        lateDays++;
+      }
+
       // Rule 1: Attendance modes count as PRESENT
       const type = (attendance.attendanceType || '').toUpperCase();
       if (type === 'OFFICE') {
@@ -190,5 +244,7 @@ export function calculatePresentDays(
     totalPresentDays,
     datesConvertedToPaidLeave,
     datesRemovedFromPaidLeave,
+    cutOffDateStr,
+    lateDays,
   };
 }

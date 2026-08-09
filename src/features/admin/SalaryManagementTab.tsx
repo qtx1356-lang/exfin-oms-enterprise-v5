@@ -61,8 +61,11 @@ export const SalaryManagementTab: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1); // 1-12
   const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
   
-  // Local input overrides for Advances, keyed by employeeCode -> string representation
+  // Local input overrides for editable salary fields, keyed by employeeCode -> string representation
+  const [overrideBaseSalaries, setOverrideBaseSalaries] = useState<Record<string, string>>({});
+  const [overridePaidLeaves, setOverridePaidLeaves] = useState<Record<string, string>>({});
   const [overrideAdvances, setOverrideAdvances] = useState<Record<string, string>>({});
+  const [overrideLateFines, setOverrideLateFines] = useState<Record<string, string>>({});
 
   // Loading and Action statuses
   const [loading, setLoading] = useState(false);
@@ -153,11 +156,9 @@ export const SalaryManagementTab: React.FC = () => {
         );
         const salSnap = await getDocs(qSalaries);
         const salMap: Record<string, SalaryRecord> = {};
-        const advanceMap: Record<string, string> = {};
         salSnap.forEach((d) => {
           const s = d.data() as SalaryRecord;
           salMap[s.employeeCode] = s;
-          advanceMap[s.employeeCode] = (s.advance || 0).toString();
         });
 
         // B. Load Salary Employee Configs for current Leave Year
@@ -222,15 +223,53 @@ export const SalaryManagementTab: React.FC = () => {
           }
         });
 
+        const baseSalMap: Record<string, string> = {};
+        const paidLeaveMap: Record<string, string> = {};
+        const advanceMap: Record<string, string> = {};
+        const lateFineMap: Record<string, string> = {};
+
+        employees.forEach((emp) => {
+          const cfg = configMap[emp.employeeCode];
+          const sal = salMap[emp.employeeCode];
+
+          baseSalMap[emp.employeeCode] = cfg && cfg.baseSalary !== undefined
+            ? cfg.baseSalary.toString()
+            : (emp.baseSalary || 0).toString();
+
+          paidLeaveMap[emp.employeeCode] = cfg && cfg.allocatedPaidLeaves !== undefined
+            ? cfg.allocatedPaidLeaves.toString()
+            : '22';
+
+          advanceMap[emp.employeeCode] = sal && sal.advance !== undefined
+            ? sal.advance.toString()
+            : '0';
+
+          lateFineMap[emp.employeeCode] = sal && sal.lateFine !== undefined
+            ? sal.lateFine.toString()
+            : '0';
+        });
+
         if (active) {
           setSalaryRecords(salMap);
           setEmployeeConfigs(configMap);
           setLeaveAudits(auditMap);
           setAttendanceRecords(attMap);
           setApprovedLeaveRequests(leavesList);
+          setOverrideBaseSalaries((prev) => ({
+            ...baseSalMap,
+            ...prev
+          }));
+          setOverridePaidLeaves((prev) => ({
+            ...paidLeaveMap,
+            ...prev
+          }));
           setOverrideAdvances((prev) => ({
             ...advanceMap,
-            ...prev // Retain unsaved manual edits if already entered in current session
+            ...prev
+          }));
+          setOverrideLateFines((prev) => ({
+            ...lateFineMap,
+            ...prev
           }));
         }
       } catch (err) {
@@ -265,14 +304,16 @@ export const SalaryManagementTab: React.FC = () => {
 
   // Helper: Calculate remaining paid leaves for an employee
   const getRemainingLeaves = (emp: EmployeeWithSalary): number => {
-    const allocated = getAllocatedLeaves(emp);
+    const paidLeaveStr = overridePaidLeaves[emp.employeeCode];
+    const allocated = paidLeaveStr !== undefined ? parseInt(paidLeaveStr, 10) || 0 : getAllocatedLeaves(emp);
     const audits = leaveAudits[emp.employeeCode] || [];
     return Math.max(0, allocated - audits.length);
   };
 
-  // Helper: Execute calculations for an employee
+  // Helper: Execute calculations for an employee using the editable local states
   const getCalculationResult = (emp: EmployeeWithSalary): PresentDaysResult => {
-    const allocated = getAllocatedLeaves(emp);
+    const paidLeaveStr = overridePaidLeaves[emp.employeeCode];
+    const allocated = paidLeaveStr !== undefined ? parseInt(paidLeaveStr, 10) || 0 : getAllocatedLeaves(emp);
     const atts = attendanceRecords[emp.employeeCode] || [];
     const audits = leaveAudits[emp.employeeCode] || [];
     return calculatePresentDays(
@@ -284,6 +325,25 @@ export const SalaryManagementTab: React.FC = () => {
       approvedLeaveRequests,
       audits
     );
+  };
+
+  // Find cut-off date for displaying in the screen
+  const getCutOffDateDisplayStr = (): string => {
+    const now = new Date();
+    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    const padZero = (n: number) => String(n).padStart(2, '0');
+    const yesterdayStr = `${yesterday.getFullYear()}-${padZero(yesterday.getMonth() + 1)}-${padZero(yesterday.getDate())}`;
+    
+    const lastDayOfSelectedMonthStr = `${selectedYear}-${padZero(selectedMonth)}-${padZero(daysInMonth)}`;
+    const cutOffDateStr = lastDayOfSelectedMonthStr < yesterdayStr ? lastDayOfSelectedMonthStr : yesterdayStr;
+
+    try {
+      const parts = cutOffDateStr.split('-');
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      return d.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+    } catch (e) {
+      return cutOffDateStr;
+    }
   };
 
   // Open settings modal for an employee
@@ -356,29 +416,86 @@ export const SalaryManagementTab: React.FC = () => {
   const handleGenerateSalary = async (emp: EmployeeWithSalary) => {
     if (!db) return;
 
-    const baseSalary = getBaseSalary(emp);
-    if (baseSalary <= 0) {
-      triggerNotification('error', `Basic salary is required before salary can be generated. Please configure it for ${emp.name}.`);
+    const baseSalStr = overrideBaseSalaries[emp.employeeCode];
+    const paidLeaveStr = overridePaidLeaves[emp.employeeCode];
+    const advanceStr = overrideAdvances[emp.employeeCode];
+    const lateFineStr = overrideLateFines[emp.employeeCode];
+
+    // Check for blank/missing values
+    if (!baseSalStr || baseSalStr.trim() === '') {
+      triggerNotification('error', `Gross/Base Salary is required for ${emp.name}.`);
+      return;
+    }
+    if (!paidLeaveStr || paidLeaveStr.trim() === '') {
+      triggerNotification('error', `Paid Leave Allocation is required for ${emp.name}.`);
+      return;
+    }
+    if (!advanceStr || advanceStr.trim() === '') {
+      triggerNotification('error', `Advance is required for ${emp.name}. Enter ₹0 if there is no advance.`);
+      return;
+    }
+    if (!lateFineStr || lateFineStr.trim() === '') {
+      triggerNotification('error', `Late Fine is required. Enter ₹0 if there is no fine for ${emp.name}.`);
       return;
     }
 
-    const advanceValStr = overrideAdvances[emp.employeeCode] || '0';
-    const advanceVal = parseFloat(advanceValStr);
+    const baseSalary = parseFloat(baseSalStr);
+    const allocatedPaidLeaves = parseInt(paidLeaveStr, 10);
+    const advanceVal = parseFloat(advanceStr);
+    const lateFineVal = parseFloat(lateFineStr);
+
+    if (isNaN(baseSalary) || baseSalary <= 0) {
+      triggerNotification('error', `Gross/Base Salary must be a valid positive number for ${emp.name}.`);
+      return;
+    }
+    if (isNaN(allocatedPaidLeaves) || allocatedPaidLeaves < 0) {
+      triggerNotification('error', `Paid Leave Allocation must be a valid non-negative integer for ${emp.name}.`);
+      return;
+    }
     if (isNaN(advanceVal) || advanceVal < 0) {
-      triggerNotification('error', 'Please enter a valid non-negative advance amount.');
+      triggerNotification('error', `Advance must be a valid non-negative number for ${emp.name}.`);
+      return;
+    }
+    if (isNaN(lateFineVal) || lateFineVal < 0) {
+      triggerNotification('error', `Late Fine must be a valid non-negative number for ${emp.name}.`);
       return;
     }
 
     setSavingId(emp.employeeCode);
 
     try {
+      // Create local configs to save persistently
+      const localConfig: SalaryEmployeeConfig = {
+        id: `${emp.employeeCode}_${leaveYear}`,
+        employeeCode: emp.employeeCode,
+        leaveYear,
+        baseSalary,
+        allocatedPaidLeaves
+      };
+
+      const atts = attendanceRecords[emp.employeeCode] || [];
+      const audits = leaveAudits[emp.employeeCode] || [];
+
       // 1. Calculate PRESENT-days & leave audits to add/remove
-      const calcResult = getCalculationResult(emp);
+      const calcResult = calculatePresentDays(
+        emp.employeeCode,
+        selectedMonth,
+        selectedYear,
+        allocatedPaidLeaves,
+        atts,
+        approvedLeaveRequests,
+        audits
+      );
+
+      const remainingLeaves = Math.max(
+        0,
+        allocatedPaidLeaves - (audits.filter(a => a.month !== selectedMonth).length + calcResult.paidLeaveDays)
+      );
 
       // 2. Perform financial calculations
       const rawSalary = (baseSalary / daysInMonth) * calcResult.totalPresentDays;
-      const salaryBeforeAdvance = Math.round(rawSalary * 100) / 100;
-      const finalSalary = Math.max(0, Math.round((salaryBeforeAdvance - advanceVal) * 100) / 100);
+      const salaryBeforeDeductions = Math.round(rawSalary * 100) / 100;
+      const finalSalary = Math.max(0, Math.round((salaryBeforeDeductions - advanceVal - lateFineVal) * 100) / 100);
 
       const recordId = `${emp.employeeCode}_${selectedYear}_${selectedMonth}`;
       
@@ -402,14 +519,27 @@ export const SalaryManagementTab: React.FC = () => {
         sundayHolidayDays: calcResult.sundayHolidayDays,
         totalPresentDays: calcResult.totalPresentDays,
         advance: advanceVal,
-        salaryBeforeAdvance,
+        lateDays: calcResult.lateDays,
+        lateFine: lateFineVal,
+        salaryBeforeDeductions,
+        salaryBeforeAdvance: salaryBeforeDeductions, // compat
         finalSalary,
-        generationTimestamp: new Date().toISOString()
+        generationTimestamp: new Date().toISOString(),
+        allocatedPaidLeaves: allocatedPaidLeaves,
+        usedPaidLeaves: calcResult.paidLeaveDays,
+        remainingPaidLeaves: remainingLeaves,
+        attendanceCutOffDate: calcResult.cutOffDateStr
       };
       batch.set(doc(db, 'salaries', recordId), salaryRec);
 
-      // B. Create Paid Leave Audits
-      const newAudits = [...(leaveAudits[emp.employeeCode] || [])];
+      // B. Save configuration doc persistently
+      batch.set(doc(db, 'salary_employee_configs', localConfig.id), localConfig);
+
+      // C. Sync into employee registration baseSalary
+      batch.set(doc(db, 'registrations', emp.id), { baseSalary }, { merge: true });
+
+      // D. Create Paid Leave Audits
+      const newAudits = [...audits];
 
       for (const date of calcResult.datesConvertedToPaidLeave) {
         const auditId = `${emp.employeeCode}_${date}`;
@@ -428,7 +558,7 @@ export const SalaryManagementTab: React.FC = () => {
         newAudits.push(auditRec);
       }
 
-      // C. Delete removed Paid Leave Audits
+      // E. Delete removed Paid Leave Audits
       for (const date of calcResult.datesRemovedFromPaidLeave) {
         const auditId = `${emp.employeeCode}_${date}`;
         batch.delete(doc(db, 'salary_leave_audits', auditId));
@@ -445,6 +575,11 @@ export const SalaryManagementTab: React.FC = () => {
       setSalaryRecords((prev) => ({
         ...prev,
         [emp.employeeCode]: salaryRec
+      }));
+
+      setEmployeeConfigs((prev) => ({
+        ...prev,
+        [emp.employeeCode]: localConfig
       }));
 
       setLeaveAudits((prev) => ({
@@ -465,14 +600,55 @@ export const SalaryManagementTab: React.FC = () => {
   const handleGenerateAllSalaries = async () => {
     if (!db || employees.length === 0) return;
 
-    // Check if any employees are missing basic salary
-    const unconfiguredEmps = employees.filter(e => getBaseSalary(e) <= 0);
-    if (unconfiguredEmps.length === employees.length) {
-      triggerNotification('error', 'All approved employees are missing basic salary configurations. Please configure them first.');
-      return;
+    // Validate that ALL employees have valid, populated configurations
+    for (const emp of employees) {
+      const baseSalStr = overrideBaseSalaries[emp.employeeCode];
+      const paidLeaveStr = overridePaidLeaves[emp.employeeCode];
+      const advanceStr = overrideAdvances[emp.employeeCode];
+      const lateFineStr = overrideLateFines[emp.employeeCode];
+
+      if (!baseSalStr || baseSalStr.trim() === '') {
+        triggerNotification('error', `Gross/Base Salary is required for ${emp.name} before batch processing.`);
+        return;
+      }
+      if (!paidLeaveStr || paidLeaveStr.trim() === '') {
+        triggerNotification('error', `Paid Leave Allocation is required for ${emp.name} before batch processing.`);
+        return;
+      }
+      if (!advanceStr || advanceStr.trim() === '') {
+        triggerNotification('error', `Advance is required for ${emp.name} before batch processing. Enter ₹0 if there is no advance.`);
+        return;
+      }
+      if (!lateFineStr || lateFineStr.trim() === '') {
+        triggerNotification('error', `Late Fine is required for ${emp.name} before batch processing. Enter ₹0 if there is no fine.`);
+        return;
+      }
+
+      const baseSalary = parseFloat(baseSalStr);
+      const allocatedPaidLeaves = parseInt(paidLeaveStr, 10);
+      const advanceVal = parseFloat(advanceStr);
+      const lateFineVal = parseFloat(lateFineStr);
+
+      if (isNaN(baseSalary) || baseSalary <= 0) {
+        triggerNotification('error', `Gross/Base Salary must be a valid positive number for ${emp.name}.`);
+        return;
+      }
+      if (isNaN(allocatedPaidLeaves) || allocatedPaidLeaves < 0) {
+        triggerNotification('error', `Paid Leave Allocation must be a valid non-negative integer for ${emp.name}.`);
+        return;
+      }
+      if (isNaN(advanceVal) || advanceVal < 0) {
+        triggerNotification('error', `Advance must be a valid non-negative number for ${emp.name}.`);
+        return;
+      }
+      if (isNaN(lateFineVal) || lateFineVal < 0) {
+        triggerNotification('error', `Late Fine must be a valid non-negative number for ${emp.name}.`);
+        return;
+      }
     }
 
-    const confirmMsg = `Are you sure you want to generate/re-calculate salaries for all configured employees for ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}?`;
+    const monthLabel = months.find(m => m.value === selectedMonth)?.label || '';
+    const confirmMsg = `Are you sure you want to generate/re-calculate salaries for all approved employees for ${monthLabel} ${selectedYear}?`;
     if (!window.confirm(confirmMsg)) return;
 
     setBatchSaving(true);
@@ -481,26 +657,50 @@ export const SalaryManagementTab: React.FC = () => {
     try {
       const batch = writeBatch(db);
       const updatedRecords = { ...salaryRecords };
+      const updatedConfigs = { ...employeeConfigs };
       const updatedAudits = { ...leaveAudits };
 
       for (const emp of employees) {
-        const baseSalary = getBaseSalary(emp);
-        if (baseSalary <= 0) continue; // Skip unconfigured employees safely
+        const baseSalary = parseFloat(overrideBaseSalaries[emp.employeeCode]);
+        const allocatedPaidLeaves = parseInt(overridePaidLeaves[emp.employeeCode], 10);
+        const advanceVal = parseFloat(overrideAdvances[emp.employeeCode]);
+        const lateFineVal = parseFloat(overrideLateFines[emp.employeeCode]);
 
-        const advanceValStr = overrideAdvances[emp.employeeCode] || '0';
-        const advanceVal = isNaN(parseFloat(advanceValStr)) ? 0 : parseFloat(advanceValStr);
+        const localConfig: SalaryEmployeeConfig = {
+          id: `${emp.employeeCode}_${leaveYear}`,
+          employeeCode: emp.employeeCode,
+          leaveYear,
+          baseSalary,
+          allocatedPaidLeaves
+        };
 
-        // 1. Calculate Present Days
-        const calcResult = getCalculationResult(emp);
+        const atts = attendanceRecords[emp.employeeCode] || [];
+        const audits = leaveAudits[emp.employeeCode] || [];
+
+        // 1. Calculate PRESENT Days
+        const calcResult = calculatePresentDays(
+          emp.employeeCode,
+          selectedMonth,
+          selectedYear,
+          allocatedPaidLeaves,
+          atts,
+          approvedLeaveRequests,
+          audits
+        );
+
+        const remainingLeaves = Math.max(
+          0,
+          allocatedPaidLeaves - (audits.filter(a => a.month !== selectedMonth).length + calcResult.paidLeaveDays)
+        );
 
         // 2. Perform financial calculations
         const rawSalary = (baseSalary / daysInMonth) * calcResult.totalPresentDays;
-        const salaryBeforeAdvance = Math.round(rawSalary * 100) / 100;
-        const finalSalary = Math.max(0, Math.round((salaryBeforeAdvance - advanceVal) * 100) / 100);
+        const salaryBeforeDeductions = Math.round(rawSalary * 100) / 100;
+        const finalSalary = Math.max(0, Math.round((salaryBeforeDeductions - advanceVal - lateFineVal) * 100) / 100);
 
         const recordId = `${emp.employeeCode}_${selectedYear}_${selectedMonth}`;
 
-        // Add to batch write
+        // A. Write Salary Record
         const salaryRec: SalaryRecord = {
           id: recordId,
           employeeCode: emp.employeeCode,
@@ -517,15 +717,27 @@ export const SalaryManagementTab: React.FC = () => {
           sundayHolidayDays: calcResult.sundayHolidayDays,
           totalPresentDays: calcResult.totalPresentDays,
           advance: advanceVal,
-          salaryBeforeAdvance,
+          lateDays: calcResult.lateDays,
+          lateFine: lateFineVal,
+          salaryBeforeDeductions,
+          salaryBeforeAdvance: salaryBeforeDeductions, // compat
           finalSalary,
-          generationTimestamp: new Date().toISOString()
+          generationTimestamp: new Date().toISOString(),
+          allocatedPaidLeaves: allocatedPaidLeaves,
+          usedPaidLeaves: calcResult.paidLeaveDays,
+          remainingPaidLeaves: remainingLeaves,
+          attendanceCutOffDate: calcResult.cutOffDateStr
         };
         batch.set(doc(db, 'salaries', recordId), salaryRec);
-        updatedRecords[emp.employeeCode] = salaryRec;
 
-        // Process leave audits
-        const auditsList = [...(leaveAudits[emp.employeeCode] || [])];
+        // B. Save Configuration doc persistently
+        batch.set(doc(db, 'salary_employee_configs', localConfig.id), localConfig);
+
+        // C. Sync into employee registration baseSalary
+        batch.set(doc(db, 'registrations', emp.id), { baseSalary }, { merge: true });
+
+        // D. Create Paid Leave Audits
+        const auditsList = [...audits];
 
         for (const date of calcResult.datesConvertedToPaidLeave) {
           const auditId = `${emp.employeeCode}_${date}`;
@@ -544,6 +756,7 @@ export const SalaryManagementTab: React.FC = () => {
           auditsList.push(auditRec);
         }
 
+        // E. Delete removed Paid Leave Audits
         for (const date of calcResult.datesRemovedFromPaidLeave) {
           const auditId = `${emp.employeeCode}_${date}`;
           batch.delete(doc(db, 'salary_leave_audits', auditId));
@@ -553,12 +766,15 @@ export const SalaryManagementTab: React.FC = () => {
           }
         }
 
+        updatedRecords[emp.employeeCode] = salaryRec;
+        updatedConfigs[emp.employeeCode] = localConfig;
         updatedAudits[emp.employeeCode] = auditsList;
         successCount++;
       }
 
       await batch.commit();
       setSalaryRecords(updatedRecords);
+      setEmployeeConfigs(updatedConfigs);
       setLeaveAudits(updatedAudits);
       triggerNotification('success', `Successfully generated/updated salaries for ${successCount} employees!`);
     } catch (err) {
@@ -590,24 +806,28 @@ export const SalaryManagementTab: React.FC = () => {
       'Paid Leave Used',
       'Sunday/Holiday',
       'Total PRESENT Days',
-      'Salary Before Advance',
+      'Late Days',
+      'Late Fine',
+      'Salary Before Deductions',
       'Advance',
       'Final Salary',
-      'Paid Leave Remaining'
+      'Paid Leave Remaining',
+      'Attendance Cut-off Date'
     ];
 
     const csvRows = [headers.join(',')];
 
     for (const emp of employees) {
-      const baseSalary = getBaseSalary(emp);
-      const advanceVal = parseFloat(overrideAdvances[emp.employeeCode] || '0') || 0;
+      const baseSalary = parseFloat(overrideBaseSalaries[emp.employeeCode]) || 0;
+      const advanceVal = parseFloat(overrideAdvances[emp.employeeCode]) || 0;
+      const lateFineVal = parseFloat(overrideLateFines[emp.employeeCode]) || 0;
       const calcResult = getCalculationResult(emp);
       const remainingLeaves = getRemainingLeaves(emp);
 
       // Financials
       const rawSalary = baseSalary > 0 ? (baseSalary / daysInMonth) * calcResult.totalPresentDays : 0;
-      const salaryBeforeAdvance = Math.round(rawSalary * 100) / 100;
-      const finalSalary = Math.max(0, Math.round((salaryBeforeAdvance - advanceVal) * 100) / 100);
+      const salaryBeforeDeductions = Math.round(rawSalary * 100) / 100;
+      const finalSalary = Math.max(0, Math.round((salaryBeforeDeductions - advanceVal - lateFineVal) * 100) / 100);
 
       const row = [
         `"${emp.employeeCode}"`,
@@ -623,10 +843,13 @@ export const SalaryManagementTab: React.FC = () => {
         calcResult.paidLeaveDays,
         calcResult.sundayHolidayDays,
         calcResult.totalPresentDays,
-        salaryBeforeAdvance,
+        calcResult.lateDays,
+        lateFineVal,
+        salaryBeforeDeductions,
         advanceVal,
         finalSalary,
-        remainingLeaves
+        remainingLeaves,
+        `"${calcResult.cutOffDateStr}"`
       ];
 
       csvRows.push(row.join(','));
@@ -794,6 +1017,22 @@ export const SalaryManagementTab: React.FC = () => {
         </Card>
       </div>
 
+      {/* ATTENDANCE CALCULATION CUT-OFF ALERT BANNER */}
+      <div className="bg-[#1F0F3E]/80 border border-amber-500/30 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="text-xs font-black uppercase text-amber-300 tracking-wider">Attendance Cut-Off Active</h4>
+            <p className="text-[11px] text-purple-200/90 leading-relaxed mt-0.5">
+              Salary calculations are limited to the previous completed day: <strong className="text-white font-mono">{getCutOffDateDisplayStr()}</strong>. Current day attendance records are never included in the salary run.
+            </p>
+          </div>
+        </div>
+        <span className="text-[10px] font-bold text-amber-300 bg-amber-500/10 px-3 py-1 rounded-full shrink-0 font-mono">
+          Through {getCutOffDateDisplayStr()}
+        </span>
+      </div>
+
       {/* CORE SALARY LISTING AND CALCULATION GRID */}
       <Card className="p-6 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[24px] shadow-2xl">
         <div className="overflow-x-auto">
@@ -807,215 +1046,256 @@ export const SalaryManagementTab: React.FC = () => {
               No approved employees found in registrations directory.
             </div>
           ) : (
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-[11px] border-collapse">
               <thead>
                 <tr className="bg-[#1F0F3E] text-purple-200 uppercase font-extrabold border-b border-purple-500/20">
-                  <th className="p-3.5 rounded-l-xl">Employee</th>
-                  <th className="p-3.5">Basic/Gross</th>
-                  <th className="p-3.5 text-center">Days</th>
-                  <th className="p-3.5 text-center">Office</th>
-                  <th className="p-3.5 text-center">WFH</th>
-                  <th className="p-3.5 text-center">Client</th>
-                  <th className="p-3.5 text-center">Outdoor</th>
-                  <th className="p-3.5 text-center">Paid Leave</th>
-                  <th className="p-3.5 text-center">Sun/Hol</th>
-                  <th className="p-3.5 text-center bg-purple-500/10">PRESENT</th>
-                  <th className="p-3.5 text-center">Advance</th>
-                  <th className="p-3.5 text-right">Net Salary</th>
-                  <th className="p-3.5 text-center">Status</th>
-                  <th className="p-3.5 text-right rounded-r-xl">Actions</th>
+                  <th className="p-2.5 rounded-l-xl">Employee</th>
+                  <th className="p-2.5 text-center">Gross Salary</th>
+                  <th className="p-2.5 text-center">Paid Leaves</th>
+                  <th className="p-2.5 text-center">Days</th>
+                  <th className="p-2.5 text-center">Office</th>
+                  <th className="p-2.5 text-center">WFH</th>
+                  <th className="p-2.5 text-center">Client</th>
+                  <th className="p-2.5 text-center">Outdoor</th>
+                  <th className="p-2.5 text-center">Paid Lve</th>
+                  <th className="p-2.5 text-center">Sun/Hol</th>
+                  <th className="p-2.5 text-center bg-purple-500/10">PRESENT</th>
+                  <th className="p-2.5 text-center">Late Days</th>
+                  <th className="p-2.5 text-center">Late Fine</th>
+                  <th className="p-2.5 text-center">Advance</th>
+                  <th className="p-2.5 text-right">Net Salary</th>
+                  <th className="p-2.5 text-center">Status</th>
+                  <th className="p-2.5 text-right rounded-r-xl">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-purple-500/10">
                 {employees.map((emp) => {
                   const savedRecord = salaryRecords[emp.employeeCode];
-                  const baseSalary = getBaseSalary(emp);
                   const calcResult = getCalculationResult(emp);
                   const remainingLeaves = getRemainingLeaves(emp);
 
-                  // Current dynamic advance from override input state or fallback to saved record
-                  const currentAdvanceValStr = overrideAdvances[emp.employeeCode] !== undefined
-                    ? overrideAdvances[emp.employeeCode]
-                    : '0';
+                  // Bind to live editable state overrides
+                  const baseSalStr = overrideBaseSalaries[emp.employeeCode] || '0';
+                  const baseSalary = parseFloat(baseSalStr) || 0;
+
+                  const paidLeaveStr = overridePaidLeaves[emp.employeeCode] || '22';
+
+                  const currentAdvanceValStr = overrideAdvances[emp.employeeCode] || '0';
                   const currentAdvanceVal = parseFloat(currentAdvanceValStr) || 0;
+
+                  const currentLateFineStr = overrideLateFines[emp.employeeCode] || '0';
+                  const currentLateFineVal = parseFloat(currentLateFineStr) || 0;
 
                   // Financial calculations
                   const rawSalary = baseSalary > 0 ? (baseSalary / daysInMonth) * calcResult.totalPresentDays : 0;
-                  const salaryBeforeAdvance = Math.round(rawSalary * 100) / 100;
-                  const finalSalary = Math.max(0, Math.round((salaryBeforeAdvance - currentAdvanceVal) * 100) / 100);
+                  const salaryBeforeDeductions = Math.round(rawSalary * 100) / 100;
+                  const finalSalary = Math.max(0, Math.round((salaryBeforeDeductions - currentAdvanceVal - currentLateFineVal) * 100) / 100);
 
                   const isUnconfigured = baseSalary <= 0;
-                  const hasHighAdvance = currentAdvanceVal > salaryBeforeAdvance;
+                  const hasHighDeductions = (currentAdvanceVal + currentLateFineVal) > salaryBeforeDeductions;
 
                   return (
-                    <tr key={emp.id} className={`hover:bg-white/[0.02] transition-colors ${isUnconfigured ? 'opacity-80' : ''}`}>
+                    <tr key={emp.id} className="hover:bg-white/[0.02] transition-colors">
                       {/* Employee Core */}
-                      <td className="p-3.5 whitespace-nowrap">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-[#1F0F3E] border border-purple-500/20 flex items-center justify-center">
-                            <User className="w-4 h-4 text-purple-300" />
+                      <td className="p-2.5 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-[#1F0F3E] border border-purple-500/20 flex items-center justify-center">
+                            <User className="w-3.5 h-3.5 text-purple-300" />
                           </div>
                           <div>
-                            <span className="font-extrabold text-white block">{emp.name}</span>
-                            <span className="text-[10px] font-mono text-purple-300/70">{emp.employeeCode}</span>
+                            <span className="font-extrabold text-white block leading-tight">{emp.name}</span>
+                            <span className="text-[9px] font-mono text-purple-300/70 block leading-none mt-0.5">{emp.employeeCode}</span>
                           </div>
                         </div>
                       </td>
 
-                      {/* Gross Base Salary */}
-                      <td className="p-3.5 whitespace-nowrap">
-                        {isUnconfigured ? (
-                          <button
-                            onClick={() => handleOpenConfigModal(emp)}
-                            className="text-red-400 font-bold hover:underline flex items-center gap-1.5"
-                          >
-                            <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                            Configure
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-extrabold text-white">₹{baseSalary.toLocaleString('en-IN')}</span>
-                            <button
-                              onClick={() => handleOpenConfigModal(emp)}
-                              className="text-purple-400 hover:text-white transition-colors"
-                              title="Edit base salary / leave config"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        )}
+                      {/* Gross Base Salary Input */}
+                      <td className="p-2.5 text-center">
+                        <div className="flex items-center justify-center bg-[#1F0F3E] border border-purple-500/20 rounded-lg p-1 w-20 mx-auto">
+                          <span className="text-purple-400 font-extrabold text-[9px] mr-0.5">₹</span>
+                          <input
+                            type="number"
+                            value={overrideBaseSalaries[emp.employeeCode] !== undefined ? overrideBaseSalaries[emp.employeeCode] : ''}
+                            onChange={(e) => setOverrideBaseSalaries(prev => ({
+                              ...prev,
+                              [emp.employeeCode]: e.target.value
+                            }))}
+                            placeholder="Salary"
+                            className="bg-transparent text-white text-xs font-bold w-full focus:outline-none text-center"
+                            min="1"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Paid Leave Allocation Input */}
+                      <td className="p-2.5 text-center">
+                        <div className="flex items-center justify-center bg-[#1F0F3E] border border-purple-500/20 rounded-lg p-1 w-12 mx-auto">
+                          <input
+                            type="number"
+                            value={overridePaidLeaves[emp.employeeCode] !== undefined ? overridePaidLeaves[emp.employeeCode] : ''}
+                            onChange={(e) => setOverridePaidLeaves(prev => ({
+                              ...prev,
+                              [emp.employeeCode]: e.target.value
+                            }))}
+                            placeholder="Leaves"
+                            className="bg-transparent text-white text-xs font-bold w-full focus:outline-none text-center"
+                            min="0"
+                          />
+                        </div>
                       </td>
 
                       {/* Days in Month */}
-                      <td className="p-3.5 text-center font-bold text-purple-200">
+                      <td className="p-2.5 text-center font-bold text-purple-200">
                         {daysInMonth}
                       </td>
 
                       {/* Office Days */}
-                      <td className="p-3.5 text-center font-medium text-white">
+                      <td className="p-2.5 text-center font-medium text-white">
                         {calcResult.officeDays}
                       </td>
 
                       {/* WFH Days */}
-                      <td className="p-3.5 text-center font-medium text-white">
+                      <td className="p-2.5 text-center font-medium text-white">
                         {calcResult.wfhDays}
                       </td>
 
                       {/* Client Days */}
-                      <td className="p-3.5 text-center font-medium text-white">
+                      <td className="p-2.5 text-center font-medium text-white">
                         {calcResult.clientVisitDays}
                       </td>
 
                       {/* Outdoor Days */}
-                      <td className="p-3.5 text-center font-medium text-white">
+                      <td className="p-2.5 text-center font-medium text-white">
                         {calcResult.outdoorDays}
                       </td>
 
                       {/* Paid Leave Used */}
-                      <td className="p-3.5 text-center">
+                      <td className="p-2.5 text-center">
                         <span className={`font-bold ${calcResult.paidLeaveDays > 0 ? 'text-amber-400' : 'text-purple-300/60'}`}>
                           {calcResult.paidLeaveDays}
                         </span>
-                        <span className="text-[9px] text-purple-300/40 block">
+                        <span className="text-[8px] text-purple-300/40 block">
                           Bal: {remainingLeaves}
                         </span>
                       </td>
 
                       {/* Sunday Holiday Days */}
-                      <td className="p-3.5 text-center font-medium text-purple-300/80">
+                      <td className="p-2.5 text-center font-medium text-purple-300/80">
                         {calcResult.sundayHolidayDays}
                       </td>
 
                       {/* Total PRESENT Days */}
-                      <td className="p-3.5 text-center bg-purple-500/5 font-black text-amber-300 text-sm">
+                      <td className="p-2.5 text-center bg-purple-500/5 font-black text-amber-300 text-xs">
                         {calcResult.totalPresentDays}
                       </td>
 
-                      {/* Advance taken input */}
-                      <td className="p-3.5 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <span className="text-purple-400">₹</span>
+                      {/* Late Days Column */}
+                      <td className="p-2.5 text-center font-bold text-red-300">
+                        {calcResult.lateDays}
+                      </td>
+
+                      {/* Late Fine Input */}
+                      <td className="p-2.5 text-center">
+                        <div className="flex items-center justify-center bg-[#1F0F3E] border border-purple-500/20 rounded-lg p-1 w-16 mx-auto">
+                          <span className="text-purple-400 font-extrabold text-[9px] mr-0.5">₹</span>
                           <input
                             type="number"
-                            value={currentAdvanceValStr}
+                            value={overrideLateFines[emp.employeeCode] !== undefined ? overrideLateFines[emp.employeeCode] : ''}
+                            onChange={(e) => setOverrideLateFines(prev => ({
+                              ...prev,
+                              [emp.employeeCode]: e.target.value
+                            }))}
+                            placeholder="Fine"
+                            className="bg-transparent text-white text-xs font-bold w-full focus:outline-none text-center"
+                            min="0"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Advance input */}
+                      <td className="p-2.5 text-center">
+                        <div className="flex items-center justify-center bg-[#1F0F3E] border border-purple-500/20 rounded-lg p-1 w-16 mx-auto">
+                          <span className="text-purple-400 font-extrabold text-[9px] mr-0.5">₹</span>
+                          <input
+                            type="number"
+                            value={overrideAdvances[emp.employeeCode] !== undefined ? overrideAdvances[emp.employeeCode] : ''}
                             onChange={(e) => setOverrideAdvances(prev => ({
                               ...prev,
                               [emp.employeeCode]: e.target.value
                             }))}
-                            disabled={isUnconfigured}
-                            placeholder="0"
+                            placeholder="Advance"
+                            className="bg-transparent text-white text-xs font-bold w-full focus:outline-none text-center"
                             min="0"
-                            className="w-16 px-1.5 py-1 rounded bg-[#1F0F3E] border border-purple-500/20 text-white font-bold text-xs text-center focus:outline-none focus:ring-1 focus:ring-purple-400 disabled:opacity-40"
                           />
                         </div>
                       </td>
 
                       {/* Net Final Salary */}
-                      <td className="p-3.5 text-right whitespace-nowrap">
+                      <td className="p-2.5 text-right whitespace-nowrap">
                         <div className="flex flex-col items-end">
-                          <span className="font-black text-white text-sm">
+                          <span className="font-black text-white text-xs">
                             ₹{finalSalary.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                           </span>
-                          {hasHighAdvance && (
-                            <span className="text-[8px] bg-red-500/20 text-red-300 font-bold px-1.5 py-0.5 rounded-full mt-0.5 flex items-center gap-1">
-                              <AlertTriangle className="w-2.5 h-2.5 shrink-0" /> Review Req.
+                          {hasHighDeductions && (
+                            <span className="text-[7px] bg-red-500/20 text-red-300 font-bold px-1 py-0.5 rounded mt-0.5 flex items-center gap-0.5">
+                              <AlertTriangle className="w-2 h-2 shrink-0" /> Review
                             </span>
                           )}
                         </div>
                       </td>
 
                       {/* Generation Status */}
-                      <td className="p-3.5 text-center whitespace-nowrap">
+                      <td className="p-2.5 text-center whitespace-nowrap">
                         {savedRecord ? (
-                          <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-300 flex items-center justify-center gap-1 w-max mx-auto">
-                            <Check className="w-2.5 h-2.5" /> Generated
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-emerald-500/20 text-emerald-300 flex items-center justify-center gap-0.5 w-max mx-auto">
+                            <Check className="w-2 h-2" /> Generated
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-amber-500/10 text-amber-300/80 flex items-center justify-center gap-1 w-max mx-auto">
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-amber-500/10 text-amber-300/80 flex items-center justify-center gap-0.5 w-max mx-auto">
                             Pending
                           </span>
                         )}
                         {savedRecord && (
-                          <span className="text-[8px] text-purple-300/40 block mt-0.5 font-mono">
+                          <span className="text-[7px] text-purple-300/40 block mt-0.5 font-mono">
                             {new Date(savedRecord.generationTimestamp).toLocaleDateString()}
                           </span>
                         )}
                       </td>
 
                       {/* Individual Actions */}
-                      <td className="p-3.5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="p-2.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1">
                           {/* Info Button */}
                           <button
                             onClick={() => setSelectedBreakdownCode(emp.employeeCode)}
-                            className="p-1.5 text-purple-400 hover:text-white hover:bg-[#1F0F3E] rounded-lg transition-colors"
+                            className="p-1 text-purple-400 hover:text-white hover:bg-[#1F0F3E] rounded transition-colors"
                             title="See detailed calculation breakdown"
                           >
-                            <Info className="w-4 h-4" />
+                            <Info className="w-3.5 h-3.5" />
                           </button>
 
                           {/* Audit logs */}
                           <button
                             onClick={() => setSelectedAuditCode(emp.employeeCode)}
-                            className="p-1.5 text-purple-400 hover:text-white hover:bg-[#1F0F3E] rounded-lg transition-colors"
+                            className="p-1 text-purple-400 hover:text-white hover:bg-[#1F0F3E] rounded transition-colors"
                             title="View paid leave audits"
                           >
-                            <History className="w-4 h-4" />
+                            <History className="w-3.5 h-3.5" />
                           </button>
 
                           {/* Generate Button */}
                           <Button
                             size="xs"
                             onClick={() => handleGenerateSalary(emp)}
-                            disabled={savingId === emp.employeeCode || isUnconfigured}
-                            className={`font-black py-1.5 px-3 rounded-xl text-[10px] uppercase tracking-wider ${
+                            disabled={savingId === emp.employeeCode}
+                            className={`font-black py-1 px-2 rounded-lg text-[9px] uppercase tracking-wider ${
                               savedRecord
                                 ? 'bg-purple-950/40 border border-purple-500/20 text-purple-300 hover:text-white'
                                 : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md'
                             }`}
                           >
                             {savingId === emp.employeeCode ? (
-                              <RefreshCw className="w-3 h-3 animate-spin" />
+                              <RefreshCw className="w-2.5 h-2.5 animate-spin" />
                             ) : savedRecord ? (
                               'Regenerate'
                             ) : (
@@ -1037,13 +1317,16 @@ export const SalaryManagementTab: React.FC = () => {
       {selectedBreakdownCode && (() => {
         const emp = employees.find(e => e.employeeCode === selectedBreakdownCode);
         if (!emp) return null;
-        const baseSalary = getBaseSalary(emp);
+        const baseSalary = parseFloat(overrideBaseSalaries[emp.employeeCode]) || 0;
         const calcResult = getCalculationResult(emp);
         const currentAdvanceValStr = overrideAdvances[emp.employeeCode] || '0';
         const currentAdvanceVal = parseFloat(currentAdvanceValStr) || 0;
+        const currentLateFineStr = overrideLateFines[emp.employeeCode] || '0';
+        const currentLateFineVal = parseFloat(currentLateFineStr) || 0;
         const rawSalary = baseSalary > 0 ? (baseSalary / daysInMonth) * calcResult.totalPresentDays : 0;
-        const salaryBeforeAdvance = Math.round(rawSalary * 100) / 100;
-        const finalSalary = Math.max(0, Math.round((salaryBeforeAdvance - currentAdvanceVal) * 100) / 100);
+        const salaryBeforeDeductions = Math.round(rawSalary * 100) / 100;
+        const finalSalary = Math.max(0, Math.round((salaryBeforeDeductions - currentAdvanceVal - currentLateFineVal) * 100) / 100);
+        const hasHighDeductions = (currentAdvanceVal + currentLateFineVal) > salaryBeforeDeductions;
 
         return (
           <Dialog
@@ -1090,8 +1373,12 @@ export const SalaryManagementTab: React.FC = () => {
               </div>
 
               {/* Financial Calculation Steps */}
-              <div className="p-4 bg-[#1F0F3E] rounded-2xl border border-purple-500/20 text-xs space-y-2.5">
-                <h4 className="font-bold text-purple-300 uppercase tracking-wider text-[10px]">Financial Calculation</h4>
+              <div className="p-4 bg-[#1F0F3E] text-purple-200 rounded-2xl border border-purple-500/20 text-xs space-y-2.5">
+                <h4 className="font-bold text-purple-300 uppercase tracking-wider text-[10px]">Financial Calculation & Cut-off</h4>
+                <div className="flex justify-between">
+                  <span className="text-purple-300/80">Attendance Cut-off Date</span>
+                  <span className="font-bold text-white font-mono">{calcResult.cutOffDateStr}</span>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-purple-300/80">Gross/Base Salary</span>
                   <span className="font-bold text-white">₹{baseSalary.toLocaleString('en-IN')}</span>
@@ -1105,8 +1392,16 @@ export const SalaryManagementTab: React.FC = () => {
                   <span className="font-mono text-[10px] text-purple-200">(Base ÷ Days) × PRESENT</span>
                 </div>
                 <div className="flex justify-between pt-1 border-t border-purple-500/5">
-                  <span className="text-purple-300/80">Salary Before Advance</span>
-                  <span className="font-extrabold text-white">₹{salaryBeforeAdvance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-purple-300/80">Salary Before Deductions</span>
+                  <span className="font-extrabold text-white">₹{salaryBeforeDeductions.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-purple-300/80">Late Days (Check-in &ge; 10:31 AM)</span>
+                  <span className="font-bold text-red-300">{calcResult.lateDays} Days</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-purple-300/80">Late Fine</span>
+                  <span className="font-extrabold text-red-400">- ₹{currentLateFineVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-purple-300/80">Advance Claim Deductions</span>
@@ -1117,9 +1412,9 @@ export const SalaryManagementTab: React.FC = () => {
                   <span className="text-white">₹{finalSalary.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 </div>
 
-                {currentAdvanceVal > salaryBeforeAdvance && (
+                {hasHighDeductions && (
                   <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-[11px] text-red-300 leading-relaxed font-semibold mt-2">
-                    ⚠️ Review Required: Advance taken (₹{currentAdvanceVal.toLocaleString()}) exceeds the computed salary (₹{salaryBeforeAdvance.toLocaleString()}). Net disbursal capped at ₹0.00.
+                    ⚠️ Review Required: Total deductions (Advance + Late Fine: ₹{(currentAdvanceVal + currentLateFineVal).toLocaleString()}) exceed computed salary (₹{salaryBeforeDeductions.toLocaleString()}). Net disbursal is capped at ₹0.00.
                   </div>
                 )}
               </div>
