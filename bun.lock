@@ -6,6 +6,7 @@
       "name": "react-example",
       "dependencies": {
         "@capacitor/core": "^8.5.0",
+        "@capacitor/device": "^8.0.3",
         "@capacitor/geolocation": "^8.2.1",
         "@google/genai": "^2.4.0",
         "@tailwindcss/vite": "^4.1.14",
@@ -75,6 +76,8 @@
     "@babel/types": ["@babel/types@7.29.8", "", { "dependencies": { "@babel/helper-string-parser": "^7.29.7", "@babel/helper-validator-identifier": "^7.29.7" } }, "sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg=="],
 
     "@capacitor/core": ["@capacitor/core@8.5.0", "", { "dependencies": { "tslib": "^2.1.0" } }, "sha512-Ca4krtqH1hothjtBIwf2J2TW7IhYq1ujp8QeItTiJohNsqij8ja2DYYH3DU0l8RmxCWaBAFTGA2TgOgOMCSNsQ=="],
+
+    "@capacitor/device": ["@capacitor/device@8.0.3", "", { "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-rliPCCZwxtjU6200jJNDAsQhioyozV3fGgiP+NgRqtDOI7i+Jdz+DYNwEup+3MGZZ4NEmkuFaBeWLM3T01vJRg=="],
 
     "@capacitor/geolocation": ["@capacitor/geolocation@8.2.1", "", { "dependencies": { "@capacitor/synapse": "^1.0.4" }, "peerDependencies": { "@capacitor/core": ">=8.0.0" } }, "sha512-1QprZ0KXKKuCkwrv0Ot8ao63QZQ0wIQC/vYbB54eSHmyNjSQ/o7rTbzRtW4VsGMhcx4EmY9RxlyzcnM7Da+lqw=="],
 

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@capacitor/core": "^8.5.0",
+    "@capacitor/device": "^8.0.3",
     "@capacitor/geolocation": "^8.2.1",
     "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",

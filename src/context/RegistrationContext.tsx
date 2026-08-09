@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { doc, onSnapshot, runTransaction, setDoc, serverTimestamp, collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from '../services/firebase/config';
+import { Device } from '@capacitor/device';
 
 type RegistrationStatus = 'unregistered' | 'Pending Approval' | 'Approved' | 'Rejected' | 'loading';
 
@@ -142,25 +143,38 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
   }, [localRegId]);
 
-  const getDeviceInfo = () => {
-    let deviceId = localStorage.getItem('deviceId');
-    if (!deviceId) {
-      deviceId = crypto.randomUUID();
-      localStorage.setItem('deviceId', deviceId);
+  const getDeviceInfo = async () => {
+    let deviceId = '';
+    
+    try {
+      const deviceIdInfo = await Device.getId();
+      deviceId = deviceIdInfo.identifier;
+    } catch (e) {
+      deviceId = localStorage.getItem('deviceId') || '';
+      if (!deviceId) {
+        deviceId = crypto.randomUUID();
+        localStorage.setItem('deviceId', deviceId);
+      }
     }
     
     const ua = navigator.userAgent;
     let deviceModel = 'Web Browser';
     let androidVersion = 'N/A';
     
-    if (/android/i.test(ua)) {
-      const match = ua.match(/Android\s([0-9\.]*)/);
-      androidVersion = match ? match[1] : 'Unknown';
-      
-      const modelMatch = ua.match(/Android.*; (.*) Build/);
-      deviceModel = modelMatch ? modelMatch[1] : 'Android Device';
-    } else if (/iPhone|iPad|iPod/i.test(ua)) {
-      deviceModel = 'iOS Device';
+    try {
+      const info = await Device.getInfo();
+      deviceModel = info.model;
+      androidVersion = info.osVersion;
+    } catch (e) {
+      if (/android/i.test(ua)) {
+        const match = ua.match(/Android\s([0-9\.]*)/);
+        androidVersion = match ? match[1] : 'Unknown';
+        
+        const modelMatch = ua.match(/Android.*; (.*) Build/);
+        deviceModel = modelMatch ? modelMatch[1] : 'Android Device';
+      } else if (/iPhone|iPad|iPod/i.test(ua)) {
+        deviceModel = 'iOS Device';
+      }
     }
     
     return { deviceId, deviceModel, androidVersion, appVersion: 'v5.1.0' };
@@ -177,9 +191,10 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
 
     // 2. Prepare data
-    const { deviceId, deviceModel, androidVersion, appVersion } = getDeviceInfo();
+    const { deviceId, deviceModel, androidVersion, appVersion } = await getDeviceInfo();
     
     // 3. Check for existing registration with same deviceId to prevent duplicates
+    // Using Capacitor Device.getId() provides a stable hardware UUID that survives app reinstalls
     const regsRef = collection(db, 'registrations');
     const q = query(regsRef, where('deviceId', '==', deviceId));
     const querySnapshot = await getDocs(q);
