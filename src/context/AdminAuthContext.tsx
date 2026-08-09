@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { signInWithEmailAndPassword, signInAnonymously, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase/config';
 import { AppRole } from '../types/roles';
@@ -164,29 +164,6 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     let emailToAuth = '';
     const normalizedLoginId = inputCleaned.toLowerCase().replace(/\s+/g, '');
 
-    // Auto-seed authoritative admin mappings if accessing 'admin'
-    if (normalizedLoginId === 'admin' || inputCleaned === 'admin_v6_secure@exfinoms.com') {
-      try {
-        await setDoc(doc(db, 'login_ids', 'admin'), {
-          email: 'admin_v6_secure@exfinoms.com',
-          uid: 'admin_fresh_uid_v6_789'
-        }, { merge: true });
-
-        await setDoc(doc(db, 'admin_users', 'admin_fresh_uid_v6_789'), {
-          uid: 'admin_fresh_uid_v6_789',
-          role: 'ADMIN',
-          active: true,
-          loginId: 'admin',
-          email: 'admin_v6_secure@exfinoms.com',
-          authorizedOffice: 'ALL',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      } catch (seedErr) {
-        console.warn("Auto-seed admin mapping note:", seedErr);
-      }
-    }
-
     if (inputCleaned.includes('@')) {
       emailToAuth = inputCleaned;
     } else {
@@ -217,65 +194,18 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       throw new Error('Login ID mapping has no associated email address.');
     }
 
-    // Attempt Firebase Authentication with fallback to anonymous/direct admin session if email/password auth is disabled
+    // Attempt Firebase Authentication
     let userCredential;
     try {
       userCredential = await signInWithEmailAndPassword(auth, emailToAuth, password);
     } catch (err: any) {
-      // Fallback for resilient admin login when email/password provider is disabled in Firebase Auth
-      if (normalizedLoginId === 'admin' || emailToAuth === 'admin_v6_secure@exfinoms.com') {
-        try {
-          const anonCred = await signInAnonymously(auth);
-          const anonUid = anonCred.user.uid;
-          // Ensure anonUid has admin rights in Firestore as well as admin_fresh_uid_v6_789
-          await setDoc(doc(db, 'admin_users', anonUid), {
-            uid: anonUid,
-            role: 'ADMIN',
-            active: true,
-            loginId: 'admin',
-            email: emailToAuth,
-            authorizedOffice: 'ALL',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-
-          await setDoc(doc(db, 'admin_users', 'admin_fresh_uid_v6_789'), {
-            uid: 'admin_fresh_uid_v6_789',
-            role: 'ADMIN',
-            active: true,
-            loginId: 'admin',
-            email: emailToAuth,
-            authorizedOffice: 'ALL',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-
-          userCredential = anonCred;
-        } catch (fallbackErr: any) {
-          throw new Error(`Firebase Auth failed (${err.code || 'error'}): ${err.message}`);
-        }
-      } else {
-        throw new Error(`Firebase Auth failed (${err.code || 'error'}): ${err.message}`);
-      }
+      throw new Error(`Firebase Auth failed (${err.code || 'error'}): ${err.message}`);
     }
 
     // Verify Active State and Admin Profile
     const u = userCredential.user;
     try {
-      let adminDoc = await getDoc(doc(db, 'admin_users', u.uid));
-      if (!adminDoc.exists() && (normalizedLoginId === 'admin' || u.uid === 'admin_fresh_uid_v6_789')) {
-        await setDoc(doc(db, 'admin_users', u.uid), {
-          uid: u.uid,
-          role: 'ADMIN',
-          active: true,
-          loginId: 'admin',
-          email: emailToAuth,
-          authorizedOffice: 'ALL',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-        adminDoc = await getDoc(doc(db, 'admin_users', u.uid));
-      }
+      const adminDoc = await getDoc(doc(db, 'admin_users', u.uid));
 
       if (adminDoc.exists()) {
         const data = adminDoc.data();
