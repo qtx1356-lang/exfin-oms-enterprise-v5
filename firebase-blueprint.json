@@ -199,6 +199,37 @@
         "reason": { "type": "string" }
       },
       "required": ["id", "employeeCode", "employeeName", "date", "month", "year", "leaveYear", "daysConsumed", "reason"]
+    },
+    "ChatConversation": {
+      "title": "ChatConversation",
+      "description": "Internal communication conversation thread",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["DIRECT", "GROUP", "ALL_EMPLOYEES"] },
+        "title": { "type": "string" },
+        "participantIds": { "type": "array" },
+        "participantNames": { "type": "object" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "lastMessage": { "type": "object" },
+        "unreadCounts": { "type": "object" }
+      },
+      "required": ["id", "type", "participantIds", "participantNames", "createdAt", "updatedAt", "unreadCounts"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A single message within a chat conversation thread",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderRole": { "type": "string", "enum": ["EMPLOYEE", "ADMIN", "HR", "TEAM_LEADER"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "senderId", "senderName", "senderRole", "content", "timestamp"]
     }
   },
   "firestore": {
@@ -241,6 +272,14 @@
     "/salary_leave_audits/{auditId}": {
       "schema": "SalaryLeaveAudit",
       "description": "Persistent records of dates that consumed paid leave"
+    },
+    "/chat_conversations/{conversationId}": {
+      "schema": "ChatConversation",
+      "description": "Internal communication conversation threads"
+    },
+    "/chat_conversations/{conversationId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Messages within a conversation thread"
     }
   }
 }

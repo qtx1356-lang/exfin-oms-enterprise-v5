@@ -117,5 +117,43 @@ service cloud.firestore {
     match /salary_leave_audits/{auditId} {
       allow read, write: if isAdmin();
     }
+
+    // Helper to get chat identity (employeeCode or admin loginId)
+    function getChatIdentity() {
+      return exists(/databases/$(database)/documents/registrations/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/registrations/$(request.auth.uid)).data.employeeCode
+        : (exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
+           ? get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.loginId
+           : null);
+    }
+
+    match /chat_conversations/{conversationId} {
+      allow read: if request.auth != null && (
+        resource.data.type == 'ALL_EMPLOYEES' ||
+        getChatIdentity() in resource.data.participantIds
+      );
+      allow create: if request.auth != null && (
+        request.resource.data.type == 'ALL_EMPLOYEES' ||
+        getChatIdentity() in request.resource.data.participantIds
+      );
+      allow update: if request.auth != null && (
+        resource.data.type == 'ALL_EMPLOYEES' ||
+        getChatIdentity() in resource.data.participantIds
+      );
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null && (
+          get(/databases/$(database)/documents/chat_conversations/$(conversationId)).data.type == 'ALL_EMPLOYEES' ||
+          getChatIdentity() in get(/databases/$(database)/documents/chat_conversations/$(conversationId)).data.participantIds
+        );
+        allow create: if request.auth != null && (
+          (get(/databases/$(database)/documents/chat_conversations/$(conversationId)).data.type == 'ALL_EMPLOYEES' ||
+           getChatIdentity() in get(/databases/$(database)/documents/chat_conversations/$(conversationId)).data.participantIds) &&
+          request.resource.data.senderId == getChatIdentity()
+        );
+        allow update, delete: if false; // Messages are immutable
+      }
+    }
   }
 }

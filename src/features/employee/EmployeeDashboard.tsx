@@ -20,7 +20,8 @@ import {
   BarChart3,
   User,
   FileText,
-  AlertCircle
+  AlertCircle,
+  MessageSquare
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getTodayAttendanceRecord } from '../../services/attendance/attendanceStorage';
@@ -183,6 +184,7 @@ export const EmployeeDashboard: React.FC = () => {
         : 'bg-rose-500/20 text-rose-300 border-rose-500/30' 
     },
     { icon: User, label: 'Profile', onClick: () => navigate('/profile'), bg: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
+    { icon: MessageSquare, label: 'Chat', onClick: () => navigate('/chat'), bg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
   ];
 
   return (

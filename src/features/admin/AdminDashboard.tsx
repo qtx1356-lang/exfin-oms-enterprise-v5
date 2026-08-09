@@ -63,6 +63,8 @@ import { SystemHealthSection } from './SystemHealthSection';
 import { UserManagementTab } from './UserManagementTab';
 import { HRManagementTab } from './HRManagementTab';
 import { SalaryManagementTab } from './SalaryManagementTab';
+import { AdminChatTab } from './AdminChatTab';
+import { listenConversations } from '../../services/chat/chatService';
 import { LeaveRecord, LeaveConfig, EmployeeAllowance } from '../../types/leave';
 import { reviewLeaveRequest, adminOverrideLeave, updateLeaveConfig, updateEmployeeAllowance, calculateLeaveBalance } from '../../services/leave/leaveService';
 import { getStoredLeaves, getStoredLeaveConfig, getStoredEmployeeAllowances } from '../../services/leave/leaveStorage';
@@ -102,12 +104,24 @@ type AdminTab =
   | 'registrations'
   | 'reports'
   | 'health'
-  | 'sync';
+  | 'sync'
+  | 'chat';
 
 export const AdminDashboard: React.FC = () => {
   const { logout, user: adminUser, role = 'ADMIN', authorizedOffice = 'ALL', loginId } = useAdminAuth();
   const navigate = useNavigate();
   const { hasFeatureAccess, isSuperAdmin } = usePermission();
+
+  const [totalUnreadChatCount, setTotalUnreadChatCount] = useState(0);
+
+  useEffect(() => {
+    if (!db || !loginId) return;
+    const unsub = listenConversations(loginId, (convs) => {
+      const sum = convs.reduce((acc, c) => acc + (c.unreadCounts?.[loginId] || 0), 0);
+      setTotalUnreadChatCount(sum);
+    });
+    return () => unsub();
+  }, [loginId]);
 
   const canSeeOverview = isSuperAdmin() || hasFeatureAccess('dashboard');
   const canSeeReports = isSuperAdmin() || hasFeatureAccess('reports');
@@ -529,6 +543,20 @@ export const AdminDashboard: React.FC = () => {
                   Efficiency
                 </button>
               )}
+              <button
+                onClick={() => setActiveTab('chat')}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 ${
+                  activeTab === 'chat' ? 'bg-purple-600 text-white shadow-md' : 'text-purple-300/80 hover:text-white bg-white/5'
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                Internal Chat
+                {totalUnreadChatCount > 0 && (
+                  <span className="ml-1 bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
+                    {totalUnreadChatCount}
+                  </span>
+                )}
+              </button>
             </div>
           )}
         </div>
@@ -672,6 +700,9 @@ export const AdminDashboard: React.FC = () => {
 
         {/* EFFICIENCY TAB */}
         {activeTab === 'efficiency' && canSeeEfficiency && <EfficiencyDashboard />}
+
+        {/* INTERNAL CHAT TAB */}
+        {activeTab === 'chat' && <AdminChatTab />}
 
         {/* ATTENDANCE TAB */}
         {activeTab === 'attendance' && canSeeAttendance && (
