@@ -141,6 +141,23 @@ export const Layout: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
+  const [isOnline, setIsOnline] = useState<boolean>(
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const handleBellClick = () => {
     setDropdownOpen(!dropdownOpen);
   };
@@ -187,9 +204,12 @@ export const Layout: React.FC = () => {
     navigate('/notifications');
   };
 
-  const displayAddress = (typeof currentAddress === 'string' && currentAddress.trim())
-    ? currentAddress.trim()
-    : 'Location unavailable';
+  const rawAddress = (typeof currentAddress === 'string' ? currentAddress.trim() : '');
+  const displayAddress = (!isOnline || rawAddress === 'Offline')
+    ? 'Offline'
+    : (rawAddress && rawAddress !== 'Location unavailable')
+      ? rawAddress
+      : 'Offline';
 
   return (
     <div className="min-h-screen bg-background pb-20">

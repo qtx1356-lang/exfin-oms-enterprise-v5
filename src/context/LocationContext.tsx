@@ -34,8 +34,11 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [currentAddress, setCurrentAddress] = useState<string>(() => {
     try {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        return 'Offline';
+      }
       const cached = localStorage.getItem('lastKnownAddress');
-      if (cached && typeof cached === 'string' && !cached.toLowerCase().includes('unavailable')) {
+      if (cached && typeof cached === 'string' && !cached.toLowerCase().includes('unavailable') && !cached.toLowerCase().includes('offline')) {
         return cached.trim();
       }
     } catch (e) {}
@@ -50,8 +53,11 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const getValidCachedAddress = (): string | null => {
     try {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        return null;
+      }
       const cached = localStorage.getItem('lastKnownAddress');
-      if (cached && typeof cached === 'string' && !cached.toLowerCase().includes('unavailable')) {
+      if (cached && typeof cached === 'string' && !cached.toLowerCase().includes('unavailable') && !cached.toLowerCase().includes('offline')) {
         return cached.trim();
       }
     } catch (e) {}
@@ -78,7 +84,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         lower.includes('plus code') ||
         /^[a-z0-9]{4}\+[a-z0-9]{2,}/i.test(trimmed) ||
         /^[-+]?\d+\.\d+/.test(trimmed) ||
-        lower.includes('unavailable')
+        lower.includes('unavailable') ||
+        lower === 'offline'
       ) {
         continue;
       }
@@ -98,7 +105,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       if (typeof addressData === 'string') {
         const rawString = addressData.trim();
-        if (!rawString || rawString.toLowerCase().includes('unavailable')) return null;
+        if (!rawString || rawString.toLowerCase().includes('unavailable') || rawString.toLowerCase() === 'offline') return null;
         const splitParts = rawString.split(',');
         return formatCleanAddressParts(splitParts);
       }
@@ -115,7 +122,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         addressData.street ||
         addressData.road ||
         addressData.featureName ||
-        addressData.name ||
+        (addressData.localityInfo?.informative?.[0]?.name) ||
         (Array.isArray(addressData.lines) && addressData.lines[0]);
 
       const subLocalityArea = 
@@ -123,13 +130,17 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         addressData.suburb ||
         addressData.neighbourhood ||
         addressData.residential ||
-        addressData.city_district;
+        addressData.city_district ||
+        addressData.quarter ||
+        (addressData.localityInfo?.administrative?.find((a: any) => a.order === 4 || a.order === 5)?.name);
 
       const localityCity = 
         addressData.locality ||
         addressData.city ||
         addressData.town ||
-        addressData.village;
+        addressData.village ||
+        addressData.municipality ||
+        (addressData.localityInfo?.administrative?.find((a: any) => a.order === 3 || a.order === 2)?.name);
 
       const districtSubAdmin = 
         addressData.subAdminArea ||
@@ -166,6 +177,12 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const performReverseGeocode = async (latitude: number, longitude: number) => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setCurrentAddress('Offline');
+      setLocationStatus('success');
+      return;
+    }
+
     let resolvedAddress: string | null = null;
     try {
       const win = window as any;
@@ -236,11 +253,13 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         localStorage.setItem('lastKnownAddress', cleanAddress);
       } catch (e) {}
     } else {
-      const cachedAddress = getValidCachedAddress();
-      if (cachedAddress) {
-        setCurrentAddress(cachedAddress);
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setCurrentAddress('Offline');
       } else {
-        setCurrentAddress('Location unavailable');
+        const cachedAddress = getValidCachedAddress();
+        if (cachedAddress) {
+          setCurrentAddress(cachedAddress);
+        }
       }
     }
     setLocationStatus('success');
@@ -256,9 +275,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
     setDistance(calculatedDistance);
 
-    if (!navigator.onLine) {
-      const cachedAddress = getValidCachedAddress();
-      setCurrentAddress(cachedAddress || 'Location unavailable');
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setCurrentAddress('Offline');
       setLocationStatus('success');
       return;
     }
@@ -341,9 +359,30 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   useEffect(() => {
+    const handleOnline = () => {
+      if (liveLocation) {
+        performReverseGeocode(liveLocation.latitude, liveLocation.longitude);
+      } else {
+        startTracking();
+      }
+    };
+
+    const handleOffline = () => {
+      setCurrentAddress('Offline');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setCurrentAddress('Offline');
+    }
+
     startTracking();
 
     return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
       if (watchIdRef.current !== null) {
         if (typeof watchIdRef.current === 'string') {
           Geolocation.clearWatch({ id: watchIdRef.current });
