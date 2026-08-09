@@ -13,15 +13,16 @@ const firebaseConfig = {
   appId: firebaseAppConfig.appId
 };
 
-console.log('Active Firebase Config:', {
-  projectId: firebaseConfig.projectId,
-  authDomain: firebaseConfig.authDomain,
-  storageBucket: firebaseConfig.storageBucket
-});
+console.log('CRITICAL: Initializing Firebase with Project:', firebaseConfig.projectId);
+console.log('Runtime app.options.projectId:', firebaseConfig.projectId);
+console.log('Runtime app.options.apiKey:', firebaseConfig.apiKey);
+console.log('Runtime app.options.authDomain:', firebaseConfig.authDomain);
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app, firebaseAppConfig.firestoreDatabaseId);
 export const storage = getStorage(app);
+
+console.log('Firebase Auth Instance Project ID:', auth.app.options.projectId);
 
 
