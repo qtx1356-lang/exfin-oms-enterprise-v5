@@ -4,6 +4,7 @@ import { AppRouter } from './app/Router';
 import { SplashScreen } from './components/ui/SplashScreen';
 import { AnimatePresence } from 'motion/react';
 import { AdminAuthProvider } from './context/AdminAuthContext';
+import { RegistrationProvider } from './context/RegistrationContext';
 import { PermissionProvider } from './context/PermissionContext';
 
 export default function App() {
@@ -12,13 +13,16 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AdminAuthProvider>
-        <PermissionProvider>
-          <AnimatePresence>
-            {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
-          </AnimatePresence>
-          {!showSplash && <AppRouter />}
-        </PermissionProvider>
+        <RegistrationProvider>
+          <PermissionProvider>
+            <AnimatePresence>
+              {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+            </AnimatePresence>
+            {!showSplash && <AppRouter />}
+          </PermissionProvider>
+        </RegistrationProvider>
       </AdminAuthProvider>
     </ErrorBoundary>
   );
 }
+
