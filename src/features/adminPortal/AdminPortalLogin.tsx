@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Lock, User, ShieldCheck } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Lock, User, ShieldCheck, Terminal } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { app } from '../../services/firebase/config';
 
 export const AdminPortalLogin: React.FC = () => {
   const { login } = useAdminAuth();
@@ -11,7 +12,16 @@ export const AdminPortalLogin: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showAudit, setShowAudit] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('debug') === 'true') {
+      setShowAudit(true);
+    }
+  }, [location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +87,32 @@ export const AdminPortalLogin: React.FC = () => {
             {loading ? 'Authenticating...' : 'Sign In to Portal'}
           </Button>
         </form>
+
+        {showAudit && app && (
+          <div className="mt-8 p-4 bg-black/40 border border-purple-500/30 rounded-2xl space-y-3 font-mono text-[10px] text-purple-300">
+            <div className="flex items-center gap-2 text-amber-400 font-bold mb-1">
+              <Terminal className="w-4 h-4" /> RUNTIME FIREBASE AUDIT
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="text-purple-400">PROJECT_ID:</div>
+              <div className="col-span-2 text-white break-all">{app.options.projectId}</div>
+              
+              <div className="text-purple-400">APP_ID:</div>
+              <div className="col-span-2 text-white break-all">{app.options.appId}</div>
+              
+              <div className="text-purple-400">AUTH_DOMAIN:</div>
+              <div className="col-span-2 text-white break-all">{app.options.authDomain}</div>
+              
+              <div className="text-purple-400">API_KEY:</div>
+              <div className="col-span-2 text-white break-all">
+                {app.options.apiKey?.substring(0, 12)}...{app.options.apiKey?.substring(app.options.apiKey.length - 4)}
+              </div>
+            </div>
+            <div className="pt-2 border-t border-purple-500/20 text-[9px] text-purple-400/60 text-center italic">
+              Verification Mode Active (v6.0 Build)
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );
