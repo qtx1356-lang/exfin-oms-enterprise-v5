@@ -43,6 +43,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
   const watchIdRef = useRef<string | number | null>(null);
 
+  const lastGeocodedCoordsRef = useRef<{ lat: number; lon: number; time: number } | null>(null);
+
   const isInsideGeofence = distance !== null && distance <= OFFICE_LOCATION.radius;
   const formattedDistance = formatOfficeDistance(distance);
 
@@ -56,23 +58,107 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return null;
   };
 
+  const formatCleanAddressParts = (parts: (string | null | undefined)[]): string | null => {
+    const seen = new Set<string>();
+    const validParts: string[] = [];
+
+    for (const p of parts) {
+      if (!p || typeof p !== 'string') continue;
+      let trimmed = p.trim();
+      // Remove postal/zip codes (5-6 digit numbers)
+      trimmed = trimmed.replace(/\b\d{5,6}\b/g, '').trim();
+      if (!trimmed) continue;
+
+      const lower = trimmed.toLowerCase();
+      // Filter out raw country names, plus codes, or lat/lon strings
+      if (
+        lower === 'india' ||
+        lower === 'in' ||
+        lower === 'united states' ||
+        lower.includes('plus code') ||
+        /^[a-z0-9]{4}\+[a-z0-9]{2,}/i.test(trimmed) ||
+        /^[-+]?\d+\.\d+/.test(trimmed) ||
+        lower.includes('unavailable')
+      ) {
+        continue;
+      }
+
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        validParts.push(trimmed);
+      }
+    }
+
+    return validParts.length > 0 ? validParts.join(', ') : null;
+  };
+
   const extractBestLocation = (addressData: any): string | null => {
     try {
       if (!addressData) return null;
+
       if (typeof addressData === 'string') {
-        const trimmed = addressData.trim();
-        if (trimmed && !trimmed.toLowerCase().includes('unavailable')) {
-          return trimmed;
-        }
-        return null;
+        const rawString = addressData.trim();
+        if (!rawString || rawString.toLowerCase().includes('unavailable')) return null;
+        const splitParts = rawString.split(',');
+        return formatCleanAddressParts(splitParts);
       }
+
       if (typeof addressData !== 'object') return null;
-      const townCity = addressData.locality || addressData.city || addressData.town || addressData.suburb || addressData.subLocality || addressData.village;
-      if (townCity && typeof townCity === 'string' && townCity.trim()) return townCity.trim();
-      const district = addressData.subAdminArea || addressData.district || addressData.county;
-      if (district && typeof district === 'string' && district.trim()) return district.trim();
-      const state = addressData.adminArea || addressData.state;
-      if (state && typeof state === 'string' && state.trim()) return state.trim();
+
+      // Build hierarchical address components from most specific to broader area
+      const houseBuildingStreet = 
+        addressData.subThoroughfare ||
+        addressData.house_number ||
+        addressData.houseNumber ||
+        addressData.building ||
+        addressData.thoroughfare ||
+        addressData.street ||
+        addressData.road ||
+        addressData.featureName ||
+        addressData.name ||
+        (Array.isArray(addressData.lines) && addressData.lines[0]);
+
+      const subLocalityArea = 
+        addressData.subLocality ||
+        addressData.suburb ||
+        addressData.neighbourhood ||
+        addressData.residential ||
+        addressData.city_district;
+
+      const localityCity = 
+        addressData.locality ||
+        addressData.city ||
+        addressData.town ||
+        addressData.village;
+
+      const districtSubAdmin = 
+        addressData.subAdminArea ||
+        addressData.district ||
+        addressData.state_district ||
+        addressData.county;
+
+      const stateAdmin = 
+        addressData.adminArea ||
+        addressData.state ||
+        addressData.principalSubdivision;
+
+      const constructed = formatCleanAddressParts([
+        houseBuildingStreet,
+        subLocalityArea,
+        localityCity,
+        districtSubAdmin,
+        stateAdmin,
+      ]);
+
+      if (constructed) return constructed;
+
+      // Fallback for formatted address fields
+      if (addressData.formattedAddress || addressData.formatted_address || addressData.display_name) {
+        const fmt = addressData.formattedAddress || addressData.formatted_address || addressData.display_name;
+        if (typeof fmt === 'string') {
+          return formatCleanAddressParts(fmt.split(','));
+        }
+      }
     } catch (e) {
       console.warn('extractBestLocation error:', e);
     }
@@ -103,22 +189,40 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       if (!resolvedAddress && typeof navigator !== 'undefined' && navigator.onLine) {
+        // Try OpenStreetMap Nominatim first for high-precision address
         try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
           const resp = await fetch(
-            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
+            { signal: controller.signal }
           );
+          clearTimeout(timeoutId);
           if (resp.ok) {
             const data = await resp.json();
-            const parts: string[] = [];
-            if (data.locality || data.city) parts.push(data.locality || data.city);
-            if (data.principalSubdivision) parts.push(data.principalSubdivision);
-            if (data.countryName) parts.push(data.countryName);
-            if (parts.length > 0) {
-              resolvedAddress = parts.join(', ');
+            if (data && data.address) {
+              resolvedAddress = extractBestLocation(data.address);
+            } else if (data && data.display_name) {
+              resolvedAddress = extractBestLocation(data.display_name);
             }
           }
         } catch (e) {
-          console.warn('Web reverse geocoding fallback error:', e);
+          console.warn('OSM Nominatim reverse geocode error:', e);
+        }
+
+        // Fallback to BigDataCloud
+        if (!resolvedAddress) {
+          try {
+            const resp = await fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+            );
+            if (resp.ok) {
+              const data = await resp.json();
+              resolvedAddress = extractBestLocation(data);
+            }
+          } catch (e) {
+            console.warn('BigDataCloud reverse geocode error:', e);
+          }
         }
       }
     } catch (e: any) {
@@ -159,7 +263,25 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return;
     }
 
-    await performReverseGeocode(latitude, longitude);
+    // Debounce reverse-geocoding calls: only re-geocode if moved >= 50m or >= 3 minutes elapsed
+    const now = Date.now();
+    const last = lastGeocodedCoordsRef.current;
+    let shouldGeocode = false;
+
+    if (!last) {
+      shouldGeocode = true;
+    } else {
+      const distMoved = getDistanceFromLatLonInM(latitude, longitude, last.lat, last.lon);
+      const timeElapsed = now - last.time;
+      if (distMoved >= 50 || timeElapsed >= 180000) {
+        shouldGeocode = true;
+      }
+    }
+
+    if (shouldGeocode) {
+      lastGeocodedCoordsRef.current = { lat: latitude, lon: longitude, time: now };
+      await performReverseGeocode(latitude, longitude);
+    }
   };
 
   const startTracking = async () => {

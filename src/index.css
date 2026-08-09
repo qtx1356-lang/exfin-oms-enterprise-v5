@@ -98,3 +98,16 @@ textarea::placeholder {
 .animate-subtle-pulse {
   animation: subtlePulse 2.5s ease-in-out infinite;
 }
+
+@keyframes marqueeSmooth {
+  0%, 15% {
+    transform: translateX(0);
+  }
+  75%, 88% {
+    transform: translateX(var(--scroll-dist));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+

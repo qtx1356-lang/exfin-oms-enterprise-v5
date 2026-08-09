@@ -14,6 +14,64 @@ import {
 import { NotificationRecord } from '../../types/notification';
 import { motion, AnimatePresence } from 'motion/react';
 
+const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [overflowDistance, setOverflowDistance] = useState(0);
+
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (containerRef.current && textRef.current) {
+        const containerWidth = containerRef.current.clientWidth;
+        const textWidth = textRef.current.scrollWidth;
+        if (textWidth > containerWidth + 4) {
+          setOverflowDistance(textWidth - containerWidth + 12);
+        } else {
+          setOverflowDistance(0);
+        }
+      }
+    };
+
+    checkOverflow();
+
+    const observer = new ResizeObserver(() => checkOverflow());
+    if (containerRef.current) observer.observe(containerRef.current);
+    if (textRef.current) observer.observe(textRef.current);
+
+    return () => observer.disconnect();
+  }, [address]);
+
+  const durationSec = Math.max(7, Math.round(overflowDistance / 18));
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex items-center gap-1 text-[11px] text-purple-200/80 font-medium overflow-hidden bg-[#2D1B5A]/50 border border-purple-500/15 px-2 py-0.5 rounded-full min-w-[60px] flex-1 max-w-[150px] xs:max-w-[200px] sm:max-w-[280px]"
+      title={address}
+    >
+      <MapPin className="w-3 h-3 text-purple-400 shrink-0 z-10" />
+      <div className="overflow-hidden relative flex-1 min-w-0">
+        <span
+          ref={textRef}
+          className={`inline-block whitespace-nowrap text-[10.5px] ${
+            overflowDistance > 0 ? '' : 'truncate'
+          }`}
+          style={
+            overflowDistance > 0
+              ? ({
+                  '--scroll-dist': `-${overflowDistance}px`,
+                  animation: `marqueeSmooth ${durationSec}s ease-in-out infinite`,
+                } as React.CSSProperties)
+              : undefined
+          }
+        >
+          {address}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 export const Layout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -164,16 +222,8 @@ export const Layout: React.FC = () => {
             {/* Global Sync Status (shown only when offline/pending) */}
             <GlobalSyncStatus />
 
-            {/* Compact Location Address */}
-            <div 
-              className="flex items-center gap-1 text-[11px] text-purple-200/80 font-medium min-w-0 truncate bg-[#2D1B5A]/50 border border-purple-500/15 px-2 py-0.5 rounded-full shrink min-w-[60px]"
-              title={displayAddress}
-            >
-              <MapPin className="w-3 h-3 text-purple-400 shrink-0" />
-              <span className="truncate text-[10.5px]">
-                {displayAddress}
-              </span>
-            </div>
+            {/* Marquee Location Address */}
+            <MarqueeAddress address={displayAddress} />
           </div>
 
           {/* Right Header Navigation Controls: [Notification Bell] */}
