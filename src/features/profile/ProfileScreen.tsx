@@ -154,7 +154,13 @@ export const ProfileScreen: React.FC = () => {
           });
         }
       } catch (err: any) {
-        alert(err.message || 'Photo upload failed.');
+        if (!navigator.onLine) {
+          alert("You're offline. Connect to the internet to update your profile photo.");
+        } else if (err.message === 'STORAGE_SUCCESS_FIRESTORE_FAIL') {
+          alert('Photo uploaded but profile update failed. Please try again.');
+        } else {
+          alert('Unable to upload profile photo. Please try again.');
+        }
       } finally {
         setUploadingPhoto(false);
       }
@@ -254,8 +260,12 @@ export const ProfileScreen: React.FC = () => {
               )}
             </div>
 
-            <label className="absolute bottom-0 right-0 p-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white rounded-full cursor-pointer shadow-md transition-all scale-95 group-hover:scale-105">
-              <Camera className="w-4 h-4" />
+            <label className={`absolute bottom-0 right-0 p-2 ${uploadingPhoto ? 'bg-purple-800' : 'bg-[#7C3AED] hover:bg-[#6D28D9]'} text-white rounded-full cursor-pointer shadow-md transition-all scale-95 group-hover:scale-105`}>
+              {uploadingPhoto ? (
+                <span className="text-[9px] font-black animate-pulse">Wait...</span>
+              ) : (
+                <Camera className="w-4 h-4" />
+              )}
               <input
                 type="file"
                 accept="image/*"

@@ -71,7 +71,7 @@ export const uploadProfilePhoto = async (
 
   if (navigator.onLine && storage && db) {
     try {
-      const storagePath = `profileImages/${employeeCode}/profile.jpg`;
+      const storagePath = `profile_photos/${uid}/profile_${Date.now()}.jpg`;
       const storageRef = ref(storage, storagePath);
 
       console.log(`Profile Service: Uploading photo to Storage path: ${storagePath}`);
@@ -79,12 +79,17 @@ export const uploadProfilePhoto = async (
       const downloadUrl = await getDownloadURL(storageRef);
 
       // Update Firestore registration document
-      const regRef = doc(db, 'registrations', uid);
-      await updateDoc(regRef, {
-        profilePhotoUrl: downloadUrl,
-        selfieUrl: downloadUrl,
-        updatedAt: new Date().toISOString(),
-      });
+      try {
+        const regRef = doc(db, 'registrations', uid);
+        await updateDoc(regRef, {
+          profilePhotoUrl: downloadUrl,
+          selfieUrl: downloadUrl,
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (firestoreErr) {
+        console.error('Profile photo Firestore update error:', firestoreErr);
+        throw new Error('STORAGE_SUCCESS_FIRESTORE_FAIL');
+      }
 
       // Update local cached profile
       const cached = getCachedProfile(uid);
@@ -111,25 +116,31 @@ export const uploadProfilePhoto = async (
     } catch (uploadErr: any) {
       console.error('Profile photo upload error:', uploadErr);
       recordSyncFailure('Attendance', uploadId, uploadErr?.message || 'Photo upload failed', 'Profile photo upload');
+      throw uploadErr; // Rethrow to let UI handle the error
     }
   }
 
-  // Save for offline synchronization
-  savePendingPhotoUpload({
-    id: uploadId,
-    uid,
-    employeeCode,
-    base64Data: imageBase64,
-    timestamp: new Date().toISOString(),
-  });
+  // If we reach here, we are either offline or storage/db was not available
+  if (!navigator.onLine) {
+    // Save for offline synchronization
+    savePendingPhotoUpload({
+      id: uploadId,
+      uid,
+      employeeCode,
+      base64Data: imageBase64,
+      timestamp: new Date().toISOString(),
+    });
 
-  const cached = getCachedProfile(uid);
-  if (cached) {
-    cached.localPhotoData = imageBase64;
-    saveCachedProfile(cached);
+    const cached = getCachedProfile(uid);
+    if (cached) {
+      cached.localPhotoData = imageBase64;
+      saveCachedProfile(cached);
+    }
+
+    return { success: true, photoUrl: imageBase64, isOffline: true };
   }
-
-  return { success: true, photoUrl: imageBase64 };
+  
+  throw new Error('Unable to connect to upload service.');
 };
 
 export const submitProfileChangeRequest = async (
