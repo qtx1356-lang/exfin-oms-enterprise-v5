@@ -186,26 +186,6 @@ export const performCheckOut = (
   );
 
   const now = new Date();
-  
-  if (now.getHours() >= 18) {
-    if (distance > 500) {
-      throw new Error(`Cannot manually checkout. You left the office beyond 500m after 6 PM. Auto-checkout at 6 PM will apply.`);
-    }
-  } else {
-    // Wait, what is the rule for before 6 PM?
-    // "Before 6:00 PM Manual Office checkout is allowed according to the existing attendance flow."
-    // Does it still need the 25m check? If so, I should put it here.
-    // I'll assume they need to be in the office (or not?), the existing code had:
-    // if (distance > OFFICE_LOCATION.radius) { throw ... }
-    // Wait, the prompt says "Do not apply the 25-meter check-in geofence to this 500-meter checkout rule."
-    // I'll just leave the 25m check for < 6PM? No, the prompt says "The employee can manually check out before 6 PM." I will leave the 25m rule for before 6PM because it was there in the "existing attendance flow".
-    if (distance > OFFICE_LOCATION.radius) {
-      throw new Error(
-        `Check-Out is allowed ONLY inside the ${OFFICE_LOCATION.radius} meter office geofence. Current distance: ${distance.toFixed(1)}m`
-      );
-    }
-  }
-
   const checkOutTimeStr = getFormattedTimeStr(now);
   const workingHours = calculateWorkingHours(record.checkInTime, checkOutTimeStr);
 
@@ -213,6 +193,9 @@ export const performCheckOut = (
     ...record,
     checkOutTime: checkOutTimeStr,
     checkOutMode: 'MANUAL',
+    pendingCheckoutConfirmation: false,
+    checkoutDismissed: false,
+    checkoutConfirmed: true,
     workingHours,
     latitude: coords.latitude,
     longitude: coords.longitude,
@@ -349,26 +332,27 @@ export const runAutoCheckoutFinalizer = (): void => {
 
       // Office:
       if (rec.attendanceType === 'OFFICE' || !rec.attendanceType) {
-        let checkoutTime = '06:00 PM';
-        let source = 'automatic_end_of_day';
+        // Only finalize Office checkout if employee has a recorded final exit (outside 25m, never returned)
         if (rec.lastExitTime || rec.exitTime) {
-          checkoutTime = rec.lastExitTime || rec.exitTime!;
-          source = 'automatic_end_of_day_exit';
+          const checkoutTime = rec.lastExitTime || rec.exitTime!;
+          const source = 'automatic_end_of_day_exit';
+          const workingHours = calculateWorkingHours(rec.checkInTime, checkoutTime);
+          modified = true;
+          return {
+            ...rec,
+            checkOutTime: checkoutTime,
+            checkOutMode: 'AUTO_SYSTEM' as CheckOutMode,
+            checkoutSource: source,
+            checkoutFinalized: true,
+            checkoutFinalizedAt: now.toISOString(),
+            pendingCheckoutConfirmation: false,
+            checkoutDismissed: false,
+            workingHours,
+            syncStatus: 'Pending' as SyncStatus
+          };
         }
-        const workingHours = calculateWorkingHours(rec.checkInTime, checkoutTime);
-        modified = true;
-        return {
-          ...rec,
-          checkOutTime: checkoutTime,
-          checkOutMode: 'AUTO_SYSTEM' as CheckOutMode,
-          checkoutSource: source,
-          checkoutFinalized: true,
-          checkoutFinalizedAt: now.toISOString(),
-          pendingCheckoutConfirmation: false,
-          checkoutDismissed: false,
-          workingHours,
-          syncStatus: 'Pending' as SyncStatus
-        };
+        // Employee is inside 25m (no exit recorded) - DO NOT create checkout!
+        return rec;
       }
     }
 
@@ -381,7 +365,7 @@ export const runAutoCheckoutFinalizer = (): void => {
 };
 
 /**
- * Checks and triggers Auto System Checkout at 11:59 PM if employee forgot checkout & is > 25m away
+ * Checks and triggers Auto System Checkout at 11:59 PM if employee forgot checkout & is > 25m away with recorded exit
  */
 export const checkAndTriggerAutoCheckout = (
   employeeId: string,
@@ -402,6 +386,13 @@ export const checkAndTriggerAutoCheckout = (
   const is1159PMOrLater = hours === 23 && minutes >= 59;
 
   if (is1159PMOrLater) {
+    if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
+      // If employee is inside 25m (no exit recorded), DO NOT create checkout!
+      if (!record.lastExitTime && !record.exitTime) {
+        return null;
+      }
+    }
+
     const checkOutTimeStr = record.lastExitTime || record.exitTime || '06:00 PM';
     const workingHours = calculateWorkingHours(record.checkInTime, checkOutTimeStr);
 
