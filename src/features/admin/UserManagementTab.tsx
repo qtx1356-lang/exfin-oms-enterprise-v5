@@ -1,5 +1,6 @@
 import React from "react";
 import { useAdminAuth } from "../../context/AdminAuthContext";
+import { usePermission } from "../../context/PermissionContext";
 
 export const UserManagementTab: React.FC = () => {
   console.log("UM_STAGE_1_RENDER");
@@ -10,10 +11,23 @@ export const UserManagementTab: React.FC = () => {
     role: auth?.role ?? null
   });
 
+  console.log("UM_STAGE_3_RBAC_START");
+  const { isSuperAdmin, isAdmin } = usePermission();
+  const rbacSuccess = typeof isSuperAdmin === 'function' && typeof isAdmin === 'function';
+  console.log("UM_STAGE_3_RBAC_SUCCESS", rbacSuccess);
+
   return (
-    <div>
+    <div className="p-4 text-white">
       <h1>User Management</h1>
       <p>UM_STAGE_1_SUCCESS</p>
+      <br/>
+      <p>UM_STAGE_2: PASS</p>
+      <p>SAFE AUTH DIAGNOSTIC:</p>
+      <p>Authenticated: {!!auth ? 'YES' : 'NO'}</p>
+      <p>Role: {auth?.role ?? 'UNKNOWN'}</p>
+      <p>Auth Hook: SUCCESS</p>
+      <br/>
+      <p>UM_STAGE_3: {rbacSuccess ? 'PASS' : 'FAIL'}</p>
     </div>
   );
 };
