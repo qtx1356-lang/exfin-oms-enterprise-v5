@@ -220,7 +220,7 @@ export const processAttendanceStateTransition = (
   }
 
   // Record exists: handle state machine transitions
-  if (record.checkOutTime && eventType !== 'GEOFENCE_ENTER') {
+  if (record.checkOutTime) {
     // Session is already completed for today
     return record;
   }
