@@ -87,10 +87,7 @@ export const UserManagementTab: React.FC = () => {
             <tr>
               <th className="px-6 py-4">Employee</th>
               <th className="px-6 py-4">Code</th>
-              <th className="px-6 py-4">Role</th>
-              <th className="px-6 py-4">Office</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4 text-right">Actions</th>
+              <th className="px-6 py-4 text-right">ACTION</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-purple-500/10">
@@ -102,27 +99,22 @@ export const UserManagementTab: React.FC = () => {
                     <div className="text-[10px] text-purple-300/50">{emp.email || 'No Email'}</div>
                   </td>
                   <td className="px-6 py-4 font-mono text-purple-300">{emp.employeeCode || 'N/A'}</td>
-                  <td className="px-6 py-4 text-xs font-bold text-purple-200">{emp.role || 'N/A'}</td>
-                  <td className="px-6 py-4 text-xs text-purple-300/80">{emp.office || 'Raniganj'}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${emp.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
-                      {emp.status || 'Pending'}
-                    </span>
-                  </td>
                   <td className="px-6 py-4 text-right">
                     <button 
                       onClick={() => handleEditClick(emp)}
-                      className="p-2.5 bg-purple-600 hover:bg-purple-500 rounded-xl transition-all shadow-lg hover:shadow-purple-500/20 flex items-center justify-center float-right"
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-xl transition-all shadow-lg hover:shadow-purple-500/20 inline-flex items-center justify-center gap-2"
                       title="Edit Profile"
                     >
-                      <Edit className="w-5 h-5 text-white" />
+                      <Edit className="w-4 h-4 text-white" />
+                      <span className="font-bold text-white text-xs">Edit</span>
                     </button>
+                    <div className="text-[8px] text-purple-300/30 mt-1">UM-PHASE-6A-BUTTON-2026-08-10</div>
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-purple-300/40">
+                <td colSpan={3} className="px-6 py-12 text-center text-purple-300/40">
                   {queryCompleted ? 'No records found' : 'Loading records...'}
                 </td>
               </tr>
