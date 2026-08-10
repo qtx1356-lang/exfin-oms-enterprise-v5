@@ -4,6 +4,7 @@ import { useAdminAuth } from "../../context/AdminAuthContext";
 import { db } from "../../services/firebase/config";
 import { collection, onSnapshot, getDocs, doc, deleteDoc } from "firebase/firestore";
 import { ProfileEditModal } from "../../components/common/ProfileEditModal";
+import { TeamManagementTab } from "./TeamManagementTab";
 import { ManagedUser } from "../../types/user";
 import { updateEmployeeProfile } from "../../services/admin/adminProfileService";
 import { updateUserRoleAndStatus } from "../../services/rbac/rbacService";
@@ -16,6 +17,7 @@ export const UserManagementTab: React.FC = () => {
   const [designations, setDesignations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
+  const [activeSubTab, setActiveSubTab] = useState<'directory' | 'teamManagement'>('directory');
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDept, setFilterDept] = useState("ALL");
   const [filterDesig, setFilterDesig] = useState("ALL");
@@ -157,7 +159,37 @@ export const UserManagementTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Search and Filters */}
+      {/* Sub-tab Navigation Bar */}
+      <div className="flex items-center gap-2 bg-[#1A0B36] p-1.5 rounded-2xl border border-purple-500/20 w-fit">
+        <button
+          onClick={() => setActiveSubTab('directory')}
+          className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+            activeSubTab === 'directory'
+              ? 'bg-amber-500 text-black shadow-lg'
+              : 'text-purple-300 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          User Directory & Roles
+        </button>
+        <button
+          onClick={() => setActiveSubTab('teamManagement')}
+          className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+            activeSubTab === 'teamManagement'
+              ? 'bg-amber-500 text-black shadow-lg'
+              : 'text-purple-300 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          Team Management
+        </button>
+      </div>
+
+      {activeSubTab === 'teamManagement' ? (
+        <TeamManagementTab />
+      ) : (
+        <>
+          {/* Search and Filters */}
       <div className="bg-[#2D1B5A] border border-purple-500/20 p-4 rounded-[20px] shadow-xl space-y-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
@@ -339,6 +371,8 @@ export const UserManagementTab: React.FC = () => {
           designations={designations}
           allUsers={employees}
         />
+      )}
+        </>
       )}
     </div>
   );

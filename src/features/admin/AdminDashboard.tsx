@@ -66,6 +66,7 @@ import { EmployeeProfilesTab } from './EmployeeProfilesTab';
 import { AdminWorkPlannerTab } from './AdminWorkPlannerTab';
 import { SystemHealthSection } from './SystemHealthSection';
 import { UserManagementTab } from './UserManagementTab';
+import { TeamManagementTab } from './TeamManagementTab';
 import { HRManagementTab } from './HRManagementTab';
 import { OrganizationSettingsTab } from './OrganizationSettingsTab';
 import { SalaryManagementTab } from './SalaryManagementTab';
@@ -99,6 +100,7 @@ type Registration = {
 type AdminTab =
   | 'overview'
   | 'userManagement'
+  | 'teamManagement'
   | 'organization'
   | 'profiles'
   | 'hr'
@@ -379,6 +381,7 @@ export const AdminDashboard: React.FC = () => {
       title: 'PEOPLE & HR',
       items: [
         { id: 'userManagement' as AdminTab, label: 'User Directory & Roles', icon: Users, visible: canSeeUserManagement },
+        { id: 'teamManagement' as AdminTab, label: 'Team Management', icon: Users, visible: canSeeUserManagement },
         { id: 'organization' as AdminTab, label: 'Departments & Designations', icon: Building2, visible: canSeeOrganization },
         { id: 'profiles' as AdminTab, label: 'Employee Profiles', icon: User, visible: canSeeProfiles },
         { id: 'hr' as AdminTab, label: 'HR Management', icon: Briefcase, visible: canSeeHr },
@@ -566,6 +569,7 @@ export const AdminDashboard: React.FC = () => {
                 {activeTab === 'reports' && 'Analytics & Reports'}
                 {activeTab === 'health' && 'System Health & Security'}
                 {activeTab === 'userManagement' && 'User Directory & Roles'}
+                {activeTab === 'teamManagement' && 'Team Management'}
                 {activeTab === 'organization' && 'Departments & Designations'}
                 {activeTab === 'profiles' && 'Employee Profiles'}
                 {activeTab === 'hr' && 'HR Management'}
@@ -713,6 +717,11 @@ export const AdminDashboard: React.FC = () => {
         {/* USER MANAGEMENT TAB */}
         {activeTab === 'userManagement' && canSeeUserManagement && (
           <UserManagementTab />
+        )}
+
+        {/* TEAM MANAGEMENT TAB */}
+        {activeTab === 'teamManagement' && canSeeUserManagement && (
+          <TeamManagementTab />
         )}
 
         {/* DEPARTMENTS & DESIGNATIONS TAB */}
