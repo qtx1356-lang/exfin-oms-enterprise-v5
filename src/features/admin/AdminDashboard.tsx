@@ -73,6 +73,33 @@ import { SalaryManagementTab } from './SalaryManagementTab';
 import { AdminChatTab } from './AdminChatTab';
 import { NotificationManagement } from './NotificationManagement';
 import { listenConversations } from '../../services/chat/chatService';
+
+export const safeStringify = (val: any): string => {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (typeof val === 'object') {
+    if (typeof val.toDate === 'function') {
+      try {
+        return val.toDate().toLocaleString();
+      } catch {
+        return String(val);
+      }
+    }
+    if ('seconds' in val && typeof val.seconds === 'number') {
+      return new Date(val.seconds * 1000).toLocaleString();
+    }
+    if ('_seconds' in val && typeof val._seconds === 'number') {
+      return new Date(val._seconds * 1000).toLocaleString();
+    }
+    try {
+      return JSON.stringify(val);
+    } catch {
+      return String(val);
+    }
+  }
+  return String(val);
+};
 import { LeaveRecord, LeaveConfig, EmployeeAllowance } from '../../types/leave';
 import { reviewLeaveRequest, adminOverrideLeave, updateLeaveConfig, updateEmployeeAllowance, calculateLeaveBalance } from '../../services/leave/leaveService';
 import { getStoredLeaves, getStoredLeaveConfig, getStoredEmployeeAllowances } from '../../services/leave/leaveStorage';
@@ -770,6 +797,7 @@ export const AdminDashboard: React.FC = () => {
         {/* ATTENDANCE TAB */}
         {activeTab === 'attendance' && canSeeAttendance && (
           <Card className="p-6 bg-[#250F4C] border border-purple-500/20 space-y-4">
+            <span className="hidden">ATTENDANCE-CLICK-DIAGNOSTIC-2026-08-10</span>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-blue-400" /> Operational Attendance Records
@@ -808,7 +836,7 @@ export const AdminDashboard: React.FC = () => {
                   ) : (
                     attendanceRecords.map((rec) => (
                       <tr 
-                        key={rec.id} 
+                        key={rec.id || Math.random().toString()} 
                         className="hover:bg-white/[0.05] cursor-pointer transition-colors group"
                         onClick={() => {
                           if (!rec) return;
@@ -818,14 +846,14 @@ export const AdminDashboard: React.FC = () => {
                       >
                         <td className="p-3 border-b border-purple-500/10">
                           <div className="font-bold text-white group-hover:text-amber-400 transition-colors">
-                            {rec.employeeName || '—'}
+                            {safeStringify(rec.employeeName) || '—'}
                           </div>
                         </td>
                         <td className="p-3 border-b border-purple-500/10 font-mono text-purple-300 font-medium">
-                          {rec.employeeId || rec.employeeCode || '—'}
+                          {safeStringify(rec.employeeId || rec.employeeCode) || '—'}
                         </td>
                         <td className="p-3 border-b border-purple-500/10 text-white whitespace-nowrap">
-                          {rec.date}
+                          {safeStringify(rec.date)}
                         </td>
                         <td className="p-3 border-b border-purple-500/10">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${
@@ -841,7 +869,7 @@ export const AdminDashboard: React.FC = () => {
                           </span>
                         </td>
                         <td className="p-3 border-b border-purple-500/10 text-emerald-400 font-bold whitespace-nowrap">
-                          {rec.checkInTime}
+                          {safeStringify(rec.checkInTime) || '—'}
                         </td>
                         <td className="p-3 border-b border-purple-500/10">
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
@@ -851,7 +879,7 @@ export const AdminDashboard: React.FC = () => {
                           </span>
                         </td>
                         <td className="p-3 border-b border-purple-500/10 text-purple-200 whitespace-nowrap">
-                          {rec.checkOutTime || '--:--'}
+                          {safeStringify(rec.checkOutTime) || '--:--'}
                         </td>
                         <td className="p-3 border-b border-purple-500/10">
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
@@ -864,29 +892,29 @@ export const AdminDashboard: React.FC = () => {
                           </span>
                         </td>
                         <td className="p-3 border-b border-purple-500/10 font-bold text-white">
-                          {rec.workingHours || '—'}
+                          {safeStringify(rec.workingHours) || '—'}
                         </td>
                         <td className="p-3 border-b border-purple-500/10 text-purple-300 font-mono">
-                          {rec.distance ? `${(rec.distance / 1000).toFixed(2)}km` : '—'}
+                          {typeof rec.distance === 'number' && !isNaN(rec.distance) ? `${(rec.distance / 1000).toFixed(2)}km` : (rec.distance ? `${safeStringify(rec.distance)}m` : '—')}
                         </td>
-                        <td className="p-3 border-b border-purple-500/10 text-purple-200 truncate max-w-[120px]" title={rec.townCity}>
-                          {rec.townCity || '—'}
+                        <td className="p-3 border-b border-purple-500/10 text-purple-200 truncate max-w-[120px]" title={safeStringify(rec.townCity)}>
+                          {safeStringify(rec.townCity) || '—'}
                         </td>
                         <td className="p-3 border-b border-purple-500/10">
                           {rec.attendanceType === 'CLIENT_VISIT' ? (
                             <div className="text-[10px] leading-tight">
-                              <div className="text-white font-bold truncate max-w-[100px]">{rec.clientName}</div>
-                              <div className="text-purple-300/60 truncate max-w-[100px]">{rec.clientLocation}</div>
+                              <div className="text-white font-bold truncate max-w-[100px]">{safeStringify(rec.clientName)}</div>
+                              <div className="text-purple-300/60 truncate max-w-[100px]">{safeStringify(rec.clientLocation)}</div>
                             </div>
                           ) : rec.attendanceType === 'OUTDOOR' ? (
-                            <div className="text-[10px] font-bold text-amber-300">{rec.outdoorType || '—'}</div>
+                            <div className="text-[10px] font-bold text-amber-300">{safeStringify(rec.outdoorType) || '—'}</div>
                           ) : '—'}
                         </td>
                         <td className="p-3 border-b border-purple-500/10">
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                             rec.syncStatus === 'Synced' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'
                           }`}>
-                            {rec.syncStatus}
+                            {safeStringify(rec.syncStatus) || 'Synced'}
                           </span>
                         </td>
                         <td className="p-3 border-b border-purple-500/10">
@@ -900,8 +928,8 @@ export const AdminDashboard: React.FC = () => {
                           <Button
                             onClick={() => {
                               setSelectedForRectify(rec);
-                              setRectifyCheckIn(rec.checkInTime);
-                              setRectifyCheckOut(rec.checkOutTime || '');
+                              setRectifyCheckIn(safeStringify(rec.checkInTime));
+                              setRectifyCheckOut(safeStringify(rec.checkOutTime) || '');
                               setRectifyReason('');
                               setRectifyError('');
                               setShowRectifyModal(true);
@@ -1040,6 +1068,7 @@ export const AdminDashboard: React.FC = () => {
           </Card>
         )}
       </main>
+
       {/* Attendance Forensic Details Dialog */}
       <Dialog
         isOpen={showAttendanceDetails && !!selectedAttendance}
@@ -1052,15 +1081,15 @@ export const AdminDashboard: React.FC = () => {
             <div className="p-4 bg-[#1A0B36] rounded-2xl border border-purple-500/30">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-black text-xl shadow-lg">
-                  {selectedAttendance.employeeName ? selectedAttendance.employeeName.charAt(0).toUpperCase() : 'U'}
+                  {selectedAttendance.employeeName ? safeStringify(selectedAttendance.employeeName).charAt(0).toUpperCase() : 'U'}
                 </div>
                 <div>
-                  <h4 className="text-lg font-black text-white">{selectedAttendance.employeeName || 'Unknown Employee'}</h4>
-                  <p className="text-xs text-purple-300 font-mono uppercase tracking-widest">{selectedAttendance.employeeId || selectedAttendance.employeeCode || 'No Code'}</p>
+                  <h4 className="text-lg font-black text-white">{safeStringify(selectedAttendance.employeeName) || 'Unknown Employee'}</h4>
+                  <p className="text-xs text-purple-300 font-mono uppercase tracking-widest">{safeStringify(selectedAttendance.employeeId || selectedAttendance.employeeCode) || 'No Code'}</p>
                 </div>
                 <div className="ml-auto text-right">
                   <div className="text-[10px] text-purple-300/60 uppercase font-bold">Shift Date</div>
-                  <div className="text-sm font-black text-white">{selectedAttendance.date || '—'}</div>
+                  <div className="text-sm font-black text-white">{safeStringify(selectedAttendance.date) || '—'}</div>
                 </div>
               </div>
             </div>
@@ -1075,20 +1104,20 @@ export const AdminDashboard: React.FC = () => {
                   <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex justify-between items-center">
                     <span className="text-[11px] text-emerald-300 font-bold">Check-In</span>
                     <div className="text-right">
-                      <div className="text-sm font-black text-white">{selectedAttendance.checkInTime || '—'}</div>
-                      <div className="text-[9px] text-emerald-300/60 font-mono uppercase">{selectedAttendance.checkInMode || 'N/A'} Mode</div>
+                      <div className="text-sm font-black text-white">{safeStringify(selectedAttendance.checkInTime) || '—'}</div>
+                      <div className="text-[9px] text-emerald-300/60 font-mono uppercase">{safeStringify(selectedAttendance.checkInMode) || 'N/A'} Mode</div>
                     </div>
                   </div>
                   <div className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-xl flex justify-between items-center">
                     <span className="text-[11px] text-purple-300 font-bold">Check-Out</span>
                     <div className="text-right">
-                      <div className="text-sm font-black text-white">{selectedAttendance.checkOutTime || '—'}</div>
-                      <div className="text-[9px] text-purple-300/60 font-mono uppercase">{selectedAttendance.checkOutMode || 'N/A'} Mode</div>
+                      <div className="text-sm font-black text-white">{safeStringify(selectedAttendance.checkOutTime) || '—'}</div>
+                      <div className="text-[9px] text-purple-300/60 font-mono uppercase">{safeStringify(selectedAttendance.checkOutMode) || 'N/A'} Mode</div>
                     </div>
                   </div>
                   <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex justify-between items-center">
                     <span className="text-[11px] text-white/70 font-bold">Total Duration</span>
-                    <span className="text-sm font-black text-white">{selectedAttendance.workingHours || '—'}</span>
+                    <span className="text-sm font-black text-white">{safeStringify(selectedAttendance.workingHours) || '—'}</span>
                   </div>
                 </div>
               </div>
@@ -1103,14 +1132,14 @@ export const AdminDashboard: React.FC = () => {
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-[11px] text-amber-300 font-bold">Location</span>
                       <span className="text-[10px] text-amber-300/60 font-mono uppercase">
-                        {typeof selectedAttendance.distance === 'number'
+                        {typeof selectedAttendance.distance === 'number' && !isNaN(selectedAttendance.distance)
                           ? `${selectedAttendance.distance.toFixed(0)}m from HQ`
-                          : (selectedAttendance.distance ? `${selectedAttendance.distance}m from HQ` : '—')}
+                          : (selectedAttendance.distance ? `${safeStringify(selectedAttendance.distance)}m from HQ` : '—')}
                       </span>
                     </div>
-                    <div className="text-xs text-white font-medium mb-2">{selectedAttendance.townCity || 'Unknown Location'}</div>
+                    <div className="text-xs text-white font-medium mb-2">{safeStringify(selectedAttendance.townCity) || 'Unknown Location'}</div>
                     <div className="text-[9px] text-purple-300/40 font-mono">
-                      {selectedAttendance.latitude || '—'}, {selectedAttendance.longitude || '—'}
+                      {safeStringify(selectedAttendance.latitude) || '—'}, {safeStringify(selectedAttendance.longitude) || '—'}
                     </div>
                   </div>
                   
@@ -1120,11 +1149,11 @@ export const AdminDashboard: React.FC = () => {
                       <div className="text-[11px] text-red-300 font-bold">Geofence Violation Logs</div>
                       <div className="flex justify-between text-[10px]">
                         <span className="text-white/60">Last Exit:</span>
-                        <span className="text-white font-bold">{selectedAttendance.exitTime || '—'}</span>
+                        <span className="text-white font-bold">{safeStringify(selectedAttendance.exitTime) || '—'}</span>
                       </div>
                       <div className="flex justify-between text-[10px]">
                         <span className="text-white/60">Last Return:</span>
-                        <span className="text-white font-bold">{selectedAttendance.returnTime || '—'}</span>
+                        <span className="text-white font-bold">{safeStringify(selectedAttendance.returnTime) || '—'}</span>
                       </div>
                     </div>
                   )}
@@ -1135,7 +1164,7 @@ export const AdminDashboard: React.FC = () => {
             {/* Context Specific Data */}
             <div className="space-y-3">
               <h5 className="text-[10px] font-black text-blue-300 uppercase tracking-widest flex items-center gap-2">
-                <Briefcase className="w-3 h-3" /> Professional Context: {selectedAttendance.attendanceType || 'STANDARD'}
+                <Briefcase className="w-3 h-3" /> Professional Context: {safeStringify(selectedAttendance.attendanceType) || 'STANDARD'}
               </h5>
               
               <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-2xl">
@@ -1148,7 +1177,7 @@ export const AdminDashboard: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <div className="text-[10px] text-blue-300/60 uppercase font-bold">WFH Reason</div>
-                        <div className="text-xs text-white font-medium">{selectedAttendance.wfhReason || '—'}</div>
+                        <div className="text-xs text-white font-medium">{safeStringify(selectedAttendance.wfhReason) || '—'}</div>
                       </div>
                       <div>
                         <div className="text-[10px] text-blue-300/60 uppercase font-bold">Monthly WFH Tally</div>
@@ -1157,7 +1186,7 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                     <div>
                       <div className="text-[10px] text-blue-300/60 uppercase font-bold">Planned Objectives</div>
-                      <div className="text-xs text-white leading-relaxed mt-1">{selectedAttendance.workPlan || '—'}</div>
+                      <div className="text-xs text-white leading-relaxed mt-1">{safeStringify(selectedAttendance.workPlan) || '—'}</div>
                     </div>
                   </div>
                 )}
@@ -1167,16 +1196,16 @@ export const AdminDashboard: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <div className="text-[10px] text-blue-300/60 uppercase font-bold">Client Authority</div>
-                        <div className="text-xs text-white font-black">{selectedAttendance.clientName || '—'}</div>
+                        <div className="text-xs text-white font-black">{safeStringify(selectedAttendance.clientName) || '—'}</div>
                       </div>
                       <div>
                         <div className="text-[10px] text-blue-300/60 uppercase font-bold">Site Location</div>
-                        <div className="text-xs text-white font-medium">{selectedAttendance.clientLocation || '—'}</div>
+                        <div className="text-xs text-white font-medium">{safeStringify(selectedAttendance.clientLocation) || '—'}</div>
                       </div>
                     </div>
                     <div>
                       <div className="text-[10px] text-blue-300/60 uppercase font-bold">Mission Purpose</div>
-                      <div className="text-xs text-white leading-relaxed mt-1">{selectedAttendance.purpose || '—'}</div>
+                      <div className="text-xs text-white leading-relaxed mt-1">{safeStringify(selectedAttendance.purpose) || '—'}</div>
                     </div>
                   </div>
                 )}
@@ -1186,12 +1215,12 @@ export const AdminDashboard: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <div className="text-[10px] text-blue-300/60 uppercase font-bold">Operational Type</div>
-                        <div className="text-xs text-white font-black">{selectedAttendance.outdoorType || '—'}</div>
+                        <div className="text-xs text-white font-black">{safeStringify(selectedAttendance.outdoorType) || '—'}</div>
                       </div>
                     </div>
                     <div>
                       <div className="text-[10px] text-blue-300/60 uppercase font-bold">Activity Description</div>
-                      <div className="text-xs text-white leading-relaxed mt-1">{selectedAttendance.description || '—'}</div>
+                      <div className="text-xs text-white leading-relaxed mt-1">{safeStringify(selectedAttendance.description) || '—'}</div>
                     </div>
                   </div>
                 )}
@@ -1206,17 +1235,15 @@ export const AdminDashboard: React.FC = () => {
               <div className="grid grid-cols-3 gap-2">
                 <div className="p-2 bg-white/5 rounded-lg">
                   <div className="text-[9px] text-purple-300/40 uppercase font-bold">Device Stamp</div>
-                  <div className="text-[10px] text-white/60 truncate" title={selectedAttendance.createdAtDeviceTime || ''}>
-                    {selectedAttendance.createdAtDeviceTime && typeof selectedAttendance.createdAtDeviceTime === 'string'
-                      ? (selectedAttendance.createdAtDeviceTime.includes('T') ? selectedAttendance.createdAtDeviceTime.split('T')[0] : selectedAttendance.createdAtDeviceTime)
-                      : (selectedAttendance.date || '—')}
+                  <div className="text-[10px] text-white/60 truncate" title={safeStringify(selectedAttendance.createdAtDeviceTime)}>
+                    {safeStringify(selectedAttendance.createdAtDeviceTime) || safeStringify(selectedAttendance.date) || '—'}
                   </div>
                 </div>
                 <div className="p-2 bg-white/5 rounded-lg">
                   <div className="text-[9px] text-purple-300/40 uppercase font-bold">Sync State</div>
-                  <div className="text-[10px] text-white/60 font-bold">{selectedAttendance.syncStatus || 'Synced'}</div>
+                  <div className="text-[10px] text-white/60 font-bold">{safeStringify(selectedAttendance.syncStatus) || 'Synced'}</div>
                   {selectedAttendance.serverSyncTime && (
-                    <div className="text-[8px] text-emerald-400/60 font-mono mt-0.5 truncate">{selectedAttendance.serverSyncTime}</div>
+                    <div className="text-[8px] text-emerald-400/60 font-mono mt-0.5 truncate">{safeStringify(selectedAttendance.serverSyncTime)}</div>
                   )}
                 </div>
                 <div className="p-2 bg-white/5 rounded-lg">
@@ -1230,7 +1257,7 @@ export const AdminDashboard: React.FC = () => {
                   <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
                   <div>
                     <div className="text-[10px] text-amber-500 font-black uppercase">System Flag</div>
-                    <div className="text-xs text-white">{selectedAttendance.reason}</div>
+                    <div className="text-xs text-white">{safeStringify(selectedAttendance.reason)}</div>
                   </div>
                 </div>
               )}
@@ -1244,13 +1271,13 @@ export const AdminDashboard: React.FC = () => {
                     {selectedAttendance.correctionHistory.map((corr, idx) => (
                       <div key={corr.id || idx} className="p-3 bg-purple-950/60 rounded-xl border border-purple-500/20 text-xs space-y-1">
                         <div className="flex justify-between text-[10px] text-purple-300">
-                          <span>By: {corr.correctedBy || 'Admin'} ({corr.correctedByRole || 'ADMIN'})</span>
-                          <span>{corr.correctedAt ? new Date(corr.correctedAt).toLocaleString() : '—'}</span>
+                          <span>By: {safeStringify(corr.correctedBy) || 'Admin'} ({safeStringify(corr.correctedByRole) || 'ADMIN'})</span>
+                          <span>{safeStringify(corr.correctedAt) || '—'}</span>
                         </div>
                         <div className="text-white text-[11px]">
-                          <div><strong>Check-In:</strong> {corr.originalCheckIn || '—'} → <span className="text-emerald-400 font-bold">{corr.correctedCheckIn || '—'}</span></div>
-                          <div><strong>Check-Out:</strong> {corr.originalCheckOut || 'None'} → <span className="text-emerald-400 font-bold">{corr.correctedCheckOut || 'None'}</span></div>
-                          <div className="text-amber-300 italic mt-0.5">Reason: &quot;{corr.reason || ''}&quot;</div>
+                          <div><strong>Check-In:</strong> {safeStringify(corr.originalCheckIn) || '—'} → <span className="text-emerald-400 font-bold">{safeStringify(corr.correctedCheckIn) || '—'}</span></div>
+                          <div><strong>Check-Out:</strong> {safeStringify(corr.originalCheckOut) || 'None'} → <span className="text-emerald-400 font-bold">{safeStringify(corr.correctedCheckOut) || 'None'}</span></div>
+                          <div className="text-amber-300 italic mt-0.5">Reason: &quot;{safeStringify(corr.reason) || ''}&quot;</div>
                         </div>
                       </div>
                     ))}
@@ -1279,15 +1306,15 @@ export const AdminDashboard: React.FC = () => {
             <div className="p-3 bg-purple-950/60 rounded-xl border border-purple-500/20 space-y-1 text-xs">
               <div className="flex justify-between">
                 <span className="text-purple-300">Employee:</span>
-                <span className="font-bold text-white">{selectedForRectify.employeeName} ({selectedForRectify.employeeId || selectedForRectify.employeeCode})</span>
+                <span className="font-bold text-white">{safeStringify(selectedForRectify.employeeName)} ({safeStringify(selectedForRectify.employeeId || selectedForRectify.employeeCode)})</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-purple-300">Date & Mode:</span>
-                <span className="font-bold text-white">{selectedForRectify.date} • {selectedForRectify.attendanceType}</span>
+                <span className="font-bold text-white">{safeStringify(selectedForRectify.date)} • {safeStringify(selectedForRectify.attendanceType)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-purple-300">Current Times:</span>
-                <span className="text-emerald-400 font-mono">In: {selectedForRectify.checkInTime}</span> | <span className="text-purple-200 font-mono">Out: {selectedForRectify.checkOutTime || 'Pending'}</span>
+                <span className="text-emerald-400 font-mono">In: {safeStringify(selectedForRectify.checkInTime)}</span> | <span className="text-purple-200 font-mono">Out: {safeStringify(selectedForRectify.checkOutTime) || 'Pending'}</span>
               </div>
             </div>
 
