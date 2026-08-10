@@ -23,6 +23,7 @@ import { getRecentErrors, getLastError, clearErrorLogs, ErrorLogEntry } from '..
 import { SyncSummary } from '../../types/sync';
 import { db } from '../../services/firebase/config';
 import { usePermission } from '../../context/PermissionContext';
+import { DeleteAllDataSection } from './DeleteAllDataSection';
 
 interface SystemHealthSectionProps {
   isSuperAdminUser?: boolean;
@@ -181,6 +182,8 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
       {/* Super Admin Monitoring Details */}
       {isSuperAdminUser && (
         <div className="space-y-6 pt-2">
+          <DeleteAllDataSection />
+
           <div className="flex items-center justify-between border-b border-purple-500/20 pb-3">
             <h3 className="text-sm font-black uppercase tracking-wider text-purple-300 flex items-center gap-2">
               <Lock className="w-4 h-4 text-amber-400" /> Advanced System Telemetry
