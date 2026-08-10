@@ -255,6 +255,20 @@ export const UserManagementTab: React.FC = () => {
     setIsDetailModalOpen(true);
   };
 
+  const openProfileEditModal = (u: ManagedUser) => {
+    setSelectedUser(u);
+    setIsProfileEditModalOpen(true);
+  };
+
+  const handleUpdateProfile = async (uid: string, data: Record<string, any>, oldData: Record<string, any>) => {
+    await updateEmployeeProfile(uid, data, {
+        uid: adminUser?.uid || 'ADMIN_UID',
+        email: adminUser?.email || 'admin@exfin.internal',
+        role: activeAdminRole || 'ADMIN'
+    }, oldData);
+    setStatusMessage({ type: 'success', text: 'Employee profile updated successfully.' });
+  };
+
   const toggleMemberSelection = (empId: string) => {
     setEditTeamMemberUids((prev) =>
       prev.includes(empId) ? prev.filter((id) => id !== empId) : [...prev, empId]
