@@ -8,7 +8,7 @@ import { ProfileEditModal } from "../../components/common/ProfileEditModal";
 import { ManagedUser } from "../../types/user";
 
 export const UserManagementTab: React.FC = () => {
-  console.log("[UM_PHASE_6] RENDER_START");
+  console.log("[UM_PHASE_6A] RENDER_START");
 
   const [queryStarted, setQueryStarted] = useState(false);
   const [queryCompleted, setQueryCompleted] = useState(false);
@@ -24,9 +24,9 @@ export const UserManagementTab: React.FC = () => {
   try {
     auth = useAdminAuth();
     authInit = true;
-    console.log("[UM_PHASE_5] ADMIN_AUTH_RESULT", auth);
+    console.log("[UM_PHASE_6A] ADMIN_AUTH_RESULT", auth);
   } catch (e) {
-    console.error("[UM_PHASE_5] ADMIN_AUTH_ERROR", e);
+    console.error("[UM_PHASE_6A] ADMIN_AUTH_ERROR", e);
   }
 
   let permissions: any = null;
@@ -34,14 +34,14 @@ export const UserManagementTab: React.FC = () => {
   try {
     permissions = usePermission();
     permInit = true;
-    console.log("[UM_PHASE_6] PERMISSION_RESULT", permissions);
+    console.log("[UM_PHASE_6A] PERMISSION_RESULT", permissions);
   } catch (e) {
-    console.error("[UM_PHASE_6] PERMISSION_ERROR", e);
+    console.error("[UM_PHASE_6A] PERMISSION_ERROR", e);
   }
 
   useEffect(() => {
     const loadData = async () => {
-      console.log("[UM_PHASE_6] DATA_LOAD_START");
+      console.log("[UM_PHASE_6A] DATA_LOAD_START");
       setQueryStarted(true);
       try {
         const querySnapshot = await getDocs(collection(db, "registrations"));
@@ -51,9 +51,9 @@ export const UserManagementTab: React.FC = () => {
         })) as ManagedUser[];
         setEmployees(data);
         setQueryCompleted(true);
-        console.log("[UM_PHASE_6] DATA_LOAD_SUCCESS", data.length);
+        console.log("[UM_PHASE_6A] DATA_LOAD_SUCCESS", data.length);
       } catch (e: any) {
-        console.error("[UM_PHASE_6] DATA_LOAD_ERROR", e);
+        console.error("[UM_PHASE_6A] DATA_LOAD_ERROR", e);
         setQueryError(e.message || "Unknown Firestore error");
       }
     };
@@ -63,10 +63,10 @@ export const UserManagementTab: React.FC = () => {
     }
   }, [authInit, permInit]);
 
-  console.log("[UM_PHASE_6] RENDER_SUCCESS");
+  console.log("[UM_PHASE_6A] RENDER_SUCCESS");
 
   const handleEditClick = (user: ManagedUser) => {
-    console.log("[UM_PHASE_6] EDIT_CLICKED", user.id);
+    console.log("[UM_PHASE_6A] EDIT_CLICKED", user.id);
     setSelectedUser(user);
     setIsModalOpen(true);
   };
@@ -74,9 +74,9 @@ export const UserManagementTab: React.FC = () => {
   return (
     <div className="p-4 text-white font-mono text-sm space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-black text-white">PHASE 6 — EDIT MODAL (UM-PHASE-6-EDIT-MODAL)</h1>
+        <h1 className="text-xl font-black text-white uppercase">PHASE 6A — EDIT MODAL (UM-PHASE-6A-EDIT-MODAL)</h1>
         <div className={`px-3 py-1 rounded-full text-[10px] font-bold ${queryCompleted ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-amber-500/20 text-amber-400 border border-amber-500/30"}`}>
-          PHASE 6: {queryCompleted ? 'STABLE' : 'LOADING'}
+          PHASE 6A: {queryCompleted ? 'STABLE' : 'LOADING'}
         </div>
       </div>
       
@@ -112,10 +112,10 @@ export const UserManagementTab: React.FC = () => {
                   <td className="px-6 py-4 text-right">
                     <button 
                       onClick={() => handleEditClick(emp)}
-                      className="p-2 hover:bg-purple-500/20 rounded-lg transition-colors group"
+                      className="p-2.5 bg-purple-600 hover:bg-purple-500 rounded-xl transition-all shadow-lg hover:shadow-purple-500/20 flex items-center justify-center float-right"
                       title="Edit Profile"
                     >
-                      <Edit className="w-4 h-4 text-purple-300 group-hover:text-white" />
+                      <Edit className="w-5 h-5 text-white" />
                     </button>
                   </td>
                 </tr>

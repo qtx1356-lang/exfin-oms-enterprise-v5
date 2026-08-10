@@ -14,7 +14,7 @@ interface ProfileEditModalProps {
 }
 
 export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, isOpen, onClose, onSave, departments = [], designations = [] }) => {
-  console.log("[UM_PHASE_6] MODAL_RENDER_START", user?.id);
+  console.log("[UM_PHASE_6A] MODAL_RENDER_START", user?.id);
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -27,20 +27,20 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, isOpen
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("[UM_PHASE_6] SAVE_ATTEMPT_BLOCKED (Phase 6B only)", formData);
+    console.log("[UM_PHASE_6A] SAVE_ATTEMPT_BLOCKED (Phase 6B only)", formData);
     // onSave is disabled for Phase 6A stability
     onClose();
   };
 
   if (!user) {
-    console.warn("[UM_PHASE_6] MODAL_USER_MISSING");
+    console.warn("[UM_PHASE_6A] MODAL_USER_MISSING");
     return null;
   }
 
   return (
     <Dialog isOpen={isOpen} onClose={onClose} title={`Edit Profile: ${user.name || 'Unknown'}`}>
       <div className="mb-4 p-2 bg-purple-900/40 border border-purple-500/30 rounded-lg text-center">
-        <p className="text-[10px] font-black text-purple-300">DIAGNOSTIC: UM-PHASE-6-EDIT-MODAL</p>
+        <p className="text-[10px] font-black text-purple-300">DIAGNOSTIC: UM-PHASE-6A-EDIT-MODAL</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
