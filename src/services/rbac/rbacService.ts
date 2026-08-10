@@ -140,13 +140,32 @@ export const updateUserRoleAndStatus = async (params: {
   updateData.isTeamLeader = effectiveIsTeamLeader;
 
   if (assignedTeamLeaderId !== undefined) {
+    const prevTlId = targetData.assignedTeamLeaderId || targetData.teamLeaderUid || targetData.teamLeaderId;
+
+    // If Team Leader changed, remove member from previous Team Leader's teamMemberUids
+    if (prevTlId && prevTlId !== assignedTeamLeaderId) {
+      try {
+        const oldTlRef = doc(db, 'registrations', prevTlId);
+        const oldTlSnap = await getDoc(oldTlRef);
+        if (oldTlSnap.exists()) {
+          const oldTlData = oldTlSnap.data();
+          const updatedOldUids = (oldTlData.teamMemberUids || []).filter((id: string) => id !== userId);
+          await updateDoc(oldTlRef, { teamMemberUids: updatedOldUids, updatedAt: nowIso });
+        }
+      } catch (err) {
+        console.warn('Error removing member from old Team Leader:', err);
+      }
+    }
+
     updateData.assignedTeamLeaderId = assignedTeamLeaderId || null;
     updateData.teamLeaderUid = assignedTeamLeaderId || null;
     updateData.teamLeaderId = assignedTeamLeaderId || null;
     updateData.assignedTeamLeaderName = assignedTeamLeaderName || null;
+    updateData.teamLeaderName = assignedTeamLeaderName || null;
     updateData.teamLeaderCode = assignedTeamLeaderCode || null;
+    updateData.assignedTeamLeaderCode = assignedTeamLeaderCode || null;
 
-    // Sync member with assigned Team Leader's teamMemberUids
+    // Sync member with newly assigned Team Leader's teamMemberUids
     if (assignedTeamLeaderId) {
       try {
         const tlRef = doc(db, 'registrations', assignedTeamLeaderId);

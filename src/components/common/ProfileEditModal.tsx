@@ -334,21 +334,21 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             />
           </div>
 
-          {/* Assigned Team Leader dropdown (if not a Team Leader themselves) */}
+          {/* Team Leader dropdown (if not a Team Leader themselves) */}
           {!formData.isTeamLeader && formData.role !== 'TEAM_LEADER' && (
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase text-purple-300 block">
-                Assigned Team Leader
+                Team Leader
               </label>
               <select
                 value={formData.assignedTeamLeaderId}
                 onChange={(e) => setFormData({ ...formData, assignedTeamLeaderId: e.target.value })}
                 className="w-full px-3 py-2 rounded-xl bg-[#211044] border border-purple-500/30 text-white text-xs font-bold focus:outline-none focus:border-purple-400"
               >
-                <option value="">No Team Leader (Direct / Unassigned)</option>
+                <option value="">No Team Leader</option>
                 {candidateTeamLeaders.map((tl) => (
                   <option key={tl.id} value={tl.id}>
-                    {tl.name} ({tl.employeeCode || tl.id}) - {tl.office || 'Raniganj'}
+                    {tl.name} ({tl.employeeCode || tl.id}) - {tl.office || (tl as any).departmentName || 'Raniganj'}
                   </option>
                 ))}
               </select>

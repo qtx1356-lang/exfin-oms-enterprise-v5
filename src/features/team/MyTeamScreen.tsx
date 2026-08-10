@@ -110,9 +110,12 @@ export const MyTeamScreen: React.FC = () => {
         const data = docSnap.data();
         // Check if assigned to this team leader
         const matchesLeader = 
-          data.teamLeaderCode === currentLeaderCode || 
-          data.teamLeaderId === currentLeaderId ||
-          (data.teamLeaderId && data.teamLeaderId === docSnap.id);
+          (currentLeaderCode && data.teamLeaderCode === currentLeaderCode) || 
+          (currentLeaderCode && data.assignedTeamLeaderCode === currentLeaderCode) || 
+          (currentLeaderId && data.teamLeaderId === currentLeaderId) ||
+          (currentLeaderId && data.assignedTeamLeaderId === currentLeaderId) ||
+          (currentLeaderId && data.teamLeaderUid === currentLeaderId) ||
+          (Array.isArray(employeeData?.teamMemberUids) && employeeData.teamMemberUids.includes(docSnap.id));
 
         if (matchesLeader && data.status === 'Approved') {
           fetchedMembers.push({ id: docSnap.id, ...data } as TeamMember);
