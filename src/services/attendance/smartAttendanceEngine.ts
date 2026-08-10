@@ -1,9 +1,24 @@
-import { AttendanceRecord, CheckInMode, CheckOutMode, SyncStatus } from '../../types/attendance';
+import { 
+  AttendanceRecord, 
+  CheckInMode, 
+  CheckOutMode, 
+  SyncStatus, 
+  AttendanceState, 
+  AttendanceEventType,
+  AttendanceType
+} from '../../types/attendance';
 import {
   getTodayAttendanceRecord,
   saveAttendanceRecord,
   getStoredAttendanceRecords
 } from './attendanceStorage';
+import { 
+  enqueueAttendanceEvent, 
+  generateIdempotentEventId, 
+  getProcessedEventIds, 
+  markEventIdProcessed 
+} from './attendanceEventQueue';
+import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { createNotification } from '../notification/notificationService';
 
@@ -11,8 +26,8 @@ export const OFFICE_LOCATION = {
   name: 'EXFIN OFFICE',
   latitude: 23.616227,
   longitude: 87.117063,
-  radius: 25, // meters
-  autoCheckoutDistanceThreshold: 25 // 25 meters office geofence
+  radius: 25, // 25 meters office geofence
+  autoCheckoutDistanceThreshold: 25
 };
 
 export function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -51,9 +66,6 @@ export const getFormattedDateStr = (date: Date = new Date()): string => {
   return `${year}-${month}-${day}`;
 };
 
-/**
- * Calculates working hours string e.g. "8h 30m"
- */
 export const calculateWorkingHours = (checkInTimeStr: string, checkOutTimeStr: string | null): string | null => {
   if (!checkInTimeStr || !checkOutTimeStr) return null;
 
@@ -73,7 +85,6 @@ export const calculateWorkingHours = (checkInTimeStr: string, checkOutTimeStr: s
 
     let diffMs = outTime.getTime() - inTime.getTime();
     if (diffMs < 0) {
-      // Overnight adjustment if applicable
       diffMs += 24 * 60 * 60 * 1000;
     }
 
@@ -89,8 +100,224 @@ export const calculateWorkingHours = (checkInTimeStr: string, checkOutTimeStr: s
 };
 
 /**
- * Performs Check-In (either AUTO or MANUAL)
- * Enforces Daily Attendance Lock: Only ONE session per day per employee.
+ * State Machine Processor for Automatic & Manual Attendance Events
+ */
+export const processAttendanceStateTransition = (
+  employeeId: string,
+  employeeName: string,
+  coords: { latitude: number; longitude: number },
+  townCity: string,
+  eventType: AttendanceEventType,
+  source: 'AUTO_GEOFENCE' | 'MANUAL' | 'AUTO_SYSTEM_END_OF_DAY' = 'AUTO_GEOFENCE',
+  eventTimestamp: Date = new Date(),
+  attendanceMode: AttendanceType = 'OFFICE'
+): AttendanceRecord => {
+  const dateStr = getFormattedDateStr(eventTimestamp);
+  const docId = `${employeeId}_${dateStr}`;
+  const timeStr = getFormattedTimeStr(eventTimestamp);
+  const eventIso = eventTimestamp.toISOString();
+
+  const distance = getDistanceFromLatLonInM(
+    coords.latitude,
+    coords.longitude,
+    OFFICE_LOCATION.latitude,
+    OFFICE_LOCATION.longitude
+  );
+
+  const eventId = generateIdempotentEventId(employeeId, dateStr, eventType, timeStr);
+
+  // Check Idempotency
+  const processedSet = getProcessedEventIds();
+  let record = getTodayAttendanceRecord(employeeId, dateStr);
+
+  if (record && record.processedEvents?.includes(eventId)) {
+    console.log(`State Machine: Event ${eventId} already processed for record ${docId}. Skipping.`);
+    return record;
+  }
+
+  // Enqueue event locally first for offline safety
+  const queuedEvent = enqueueAttendanceEvent({
+    eventId,
+    employeeId,
+    attendanceDate: dateStr,
+    eventType,
+    eventTime: timeStr,
+    location: {
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      townCity: townCity || 'Raniganj HQ',
+      distance
+    },
+    attendanceMode,
+    source
+  });
+
+  const processedEvents = Array.from(new Set([...(record?.processedEvents || []), eventId]));
+
+  if (!record) {
+    if (eventType === 'CHECK_IN') {
+      record = {
+        id: generateUUID(),
+        docId,
+        employeeId,
+        employeeName: employeeName || 'Employee',
+        date: dateStr,
+        attendanceType: attendanceMode,
+        checkInTime: timeStr,
+        checkOutTime: null,
+        workingHours: null,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        distance,
+        townCity: townCity || 'Raniganj HQ',
+        checkInMode: source === 'AUTO_GEOFENCE' ? 'AUTO' : 'MANUAL',
+        checkOutMode: 'N/A',
+        exitTime: null,
+        returnTime: null,
+        reason: null,
+        createdAtDeviceTime: eventIso,
+        syncStatus: 'Pending',
+        serverSyncTime: null,
+        isOffline: !navigator.onLine,
+        reminderCount: 0,
+        currentState: 'CHECKED_IN',
+        processedEvents
+      };
+
+      saveAttendanceRecord(record);
+      markEventIdProcessed(eventId);
+
+      logAttendanceEvent('CHECKIN_CREATED', employeeId, `Check-in created at ${timeStr} (${source})`, {
+        eventId,
+        eventTimestamp: eventIso,
+        syncStatus: record.syncStatus
+      });
+
+      createNotification({
+        recipientEmployeeCode: employeeId,
+        type: 'ATTENDANCE_CHECK_IN',
+        category: 'ATTENDANCE',
+        priority: 'LOW',
+        title: 'Attendance Check-In Logged',
+        message: `You successfully checked in at ${timeStr} (${source}).`,
+        entityId: record.id,
+        entityType: 'ATTENDANCE'
+      }).catch((e) => console.warn('Check-in notification error:', e));
+
+      if (navigator.onLine) {
+        syncPendingAttendanceRecords().catch((e) => console.warn('Sync on check-in error:', e));
+      }
+
+      return record;
+    } else {
+      // No record exists and event is not CHECK_IN -> Return null or dummy state
+      logAttendanceEvent('GEOFENCE_ENTER', employeeId, `Received ${eventType} event with no active check-in record.`, {
+        eventId,
+        eventTimestamp: eventIso
+      });
+      return null as any;
+    }
+  }
+
+  // Record exists: handle state machine transitions
+  if (record.checkOutTime && eventType !== 'GEOFENCE_ENTER') {
+    // Session is already completed for today
+    return record;
+  }
+
+  let modified = false;
+
+  switch (eventType) {
+    case 'CHECK_IN':
+      // Already checked in, ignore duplicate
+      break;
+
+    case 'GEOFENCE_EXIT':
+      if (record.currentState === 'CHECKED_IN' || !record.currentState) {
+        record.lastExitTime = timeStr;
+        record.exitTime = record.exitTime || timeStr;
+        record.currentState = 'PENDING_FINAL_EXIT';
+        record.processedEvents = processedEvents;
+        modified = true;
+
+        logAttendanceEvent('GEOFENCE_EXIT', employeeId, `Office geofence exit detected at ${timeStr} (Distance: ${Math.round(distance)}m)`, {
+          eventId,
+          eventTimestamp: eventIso,
+          syncStatus: record.syncStatus
+        });
+      }
+      break;
+
+    case 'GEOFENCE_RETURN':
+      if (record.currentState === 'PENDING_FINAL_EXIT' || record.lastExitTime || record.exitTime) {
+        record.returnTime = timeStr;
+        // CRITICAL: Employee returned inside 25m range!
+        // Cancel the pending exit event by clearing lastExitTime and exitTime.
+        record.lastExitTime = null;
+        record.exitTime = null;
+        record.currentState = 'CHECKED_IN';
+        record.processedEvents = processedEvents;
+        modified = true;
+
+        logAttendanceEvent('RETURN_DETECTED', employeeId, `Return to office geofence logged at ${timeStr}. Pending exit cancelled.`, {
+          eventId,
+          eventTimestamp: eventIso,
+          syncStatus: record.syncStatus
+        });
+      }
+      break;
+
+    case 'CHECK_OUT':
+    case 'END_OF_DAY_CHECKOUT':
+      const checkoutTimeStr = source === 'AUTO_SYSTEM_END_OF_DAY' && record.attendanceType === 'OFFICE'
+        ? (record.lastExitTime || record.exitTime || timeStr)
+        : (source === 'AUTO_SYSTEM_END_OF_DAY' ? '06:00 PM' : timeStr);
+
+      const workingHours = calculateWorkingHours(record.checkInTime, checkoutTimeStr);
+
+      record.checkOutTime = checkoutTimeStr;
+      record.checkOutMode = source === 'MANUAL' ? 'MANUAL' : 'AUTO_SYSTEM';
+      record.workingHours = workingHours;
+      record.currentState = 'CHECKED_OUT';
+      record.syncStatus = 'Pending';
+      record.processedEvents = processedEvents;
+      modified = true;
+
+      logAttendanceEvent('CHECKOUT_CREATED', employeeId, `Check-out finalized at ${checkoutTimeStr} (${source})`, {
+        eventId,
+        eventTimestamp: eventIso,
+        syncStatus: record.syncStatus
+      });
+
+      createNotification({
+        recipientEmployeeCode: employeeId,
+        type: 'ATTENDANCE_CHECK_OUT',
+        category: 'ATTENDANCE',
+        priority: 'LOW',
+        title: 'Attendance Check-Out Logged',
+        message: `Check-out recorded at ${checkoutTimeStr}. Total working hours: ${workingHours}.`,
+        entityId: record.id,
+        entityType: 'ATTENDANCE'
+      }).catch((e) => console.warn('Check-out notification error:', e));
+
+      break;
+  }
+
+  if (modified) {
+    record.processedEvents = processedEvents;
+    saveAttendanceRecord(record);
+    markEventIdProcessed(eventId);
+
+    if (navigator.onLine) {
+      syncPendingAttendanceRecords().catch((e) => console.warn('Sync error on state transition:', e));
+    }
+  }
+
+  return record;
+};
+
+/**
+ * Standard Manual or Auto Check-In Handler
  */
 export const performCheckIn = (
   employeeId: string,
@@ -100,9 +327,6 @@ export const performCheckIn = (
   mode: CheckInMode
 ): AttendanceRecord => {
   const todayStr = getFormattedDateStr();
-  const docId = `${employeeId}_${todayStr}`;
-
-  // Daily Attendance Lock check
   const existingRecord = getTodayAttendanceRecord(employeeId, todayStr);
   if (existingRecord) {
     console.log('Daily Attendance Lock active: Existing session found for today.');
@@ -116,58 +340,20 @@ export const performCheckIn = (
     OFFICE_LOCATION.longitude
   );
 
-  if (distance > 25) {
-    throw new Error(`Attendance check-in is allowed only within 25 meters of the office.`);
+  if (distance > OFFICE_LOCATION.radius) {
+    throw new Error(`Attendance check-in is allowed only within ${OFFICE_LOCATION.radius} meters of the office.`);
   }
 
-  const now = new Date();
-  const record: AttendanceRecord = {
-    id: generateUUID(),
-    docId,
+  return processAttendanceStateTransition(
     employeeId,
-    employeeName: employeeName || 'Employee',
-    date: todayStr,
-    attendanceType: 'OFFICE',
-    checkInTime: getFormattedTimeStr(now),
-    checkOutTime: null,
-    workingHours: null,
-    latitude: coords.latitude,
-    longitude: coords.longitude,
-    distance,
-    townCity: townCity || 'Raniganj HQ',
-    checkInMode: mode,
-    checkOutMode: 'N/A',
-    exitTime: null,
-    returnTime: null,
-    reason: null,
-    createdAtDeviceTime: now.toISOString(),
-    syncStatus: 'Pending',
-    serverSyncTime: null,
-    isOffline: !navigator.onLine,
-    reminderCount: 0
-  };
-
-  saveAttendanceRecord(record);
-
-  // Send local check-in system notification
-  createNotification({
-    recipientEmployeeCode: employeeId,
-    type: 'ATTENDANCE_CHECK_IN',
-    category: 'ATTENDANCE',
-    priority: 'LOW',
-    title: 'Attendance Check-In Logged',
-    message: `You successfully checked-in at ${record.checkInTime} (${mode} mode) at ${townCity}.`,
-    entityId: record.id,
-    entityType: 'ATTENDANCE',
-  }).catch((err) => console.warn('Failed to dispatch check-in notification:', err));
-
-  if (navigator.onLine) {
-    syncPendingAttendanceRecords().catch((err) =>
-      console.warn('Background sync on check-in failed:', err)
-    );
-  }
-
-  return record;
+    employeeName,
+    coords,
+    townCity,
+    'CHECK_IN',
+    mode === 'AUTO' ? 'AUTO_GEOFENCE' : 'MANUAL',
+    new Date(),
+    'OFFICE'
+  );
 };
 
 /**
@@ -185,47 +371,16 @@ export const performCheckOut = (
     OFFICE_LOCATION.longitude
   );
 
-  const now = new Date();
-  const checkOutTimeStr = getFormattedTimeStr(now);
-  const workingHours = calculateWorkingHours(record.checkInTime, checkOutTimeStr);
-
-  const updatedRecord: AttendanceRecord = {
-    ...record,
-    checkOutTime: checkOutTimeStr,
-    checkOutMode: 'MANUAL',
-    pendingCheckoutConfirmation: false,
-    checkoutDismissed: false,
-    checkoutConfirmed: true,
-    workingHours,
-    latitude: coords.latitude,
-    longitude: coords.longitude,
-    distance,
-    townCity: townCity || record.townCity,
-    syncStatus: 'Pending',
-    isOffline: !navigator.onLine
-  };
-
-  saveAttendanceRecord(updatedRecord);
-
-  // Send local check-out system notification
-  createNotification({
-    recipientEmployeeCode: record.employeeId,
-    type: 'ATTENDANCE_CHECK_OUT',
-    category: 'ATTENDANCE',
-    priority: 'LOW',
-    title: 'Attendance Check-Out Logged',
-    message: `You successfully checked-out at ${updatedRecord.checkOutTime}. Total working hours logged: ${workingHours}.`,
-    entityId: record.id,
-    entityType: 'ATTENDANCE',
-  }).catch((err) => console.warn('Failed to dispatch check-out notification:', err));
-
-  if (navigator.onLine) {
-    syncPendingAttendanceRecords().catch((err) =>
-      console.warn('Background sync on check-out failed:', err)
-    );
-  }
-
-  return updatedRecord;
+  return processAttendanceStateTransition(
+    record.employeeId,
+    record.employeeName,
+    coords,
+    townCity,
+    'CHECK_OUT',
+    'MANUAL',
+    new Date(),
+    record.attendanceType
+  );
 };
 
 /**
@@ -233,66 +388,50 @@ export const performCheckOut = (
  */
 export const trackSmartOfficeExit = (
   record: AttendanceRecord,
-  currentDistance: number
+  currentDistance: number,
+  currentCoords?: { latitude: number; longitude: number },
+  currentTownCity?: string
 ): AttendanceRecord => {
-  if (!record || record.checkOutTime || record.manualRectified || record.checkoutConfirmed) {
-    return record; // Completed session, manually rectified, or already checkout confirmed
+  if (!record || record.checkOutTime || record.manualRectified) {
+    return record;
   }
 
-  let modified = false;
-  const now = new Date();
-  const updatedRecord = { ...record };
+  const coords = currentCoords || { latitude: record.latitude, longitude: record.longitude };
+  const town = currentTownCity || record.townCity;
 
   // Employee exited geofence (> 25m) after check-in
-  if (currentDistance > OFFICE_LOCATION.radius) {
-    const exitTimeStr = getFormattedTimeStr(now);
-    
-    if (updatedRecord.lastExitTime !== exitTimeStr) {
-      updatedRecord.lastExitTime = exitTimeStr;
-      modified = true;
-    }
-    if (!updatedRecord.exitTime) {
-      updatedRecord.exitTime = exitTimeStr;
-      modified = true;
-    }
-    if (updatedRecord.pendingCheckoutConfirmation) {
-      updatedRecord.pendingCheckoutConfirmation = false;
-      modified = true;
-    }
-    console.log(`Smart Office Exit Logged: Exit detected at ${exitTimeStr}`);
+  if (currentDistance > OFFICE_LOCATION.radius && record.currentState !== 'PENDING_FINAL_EXIT') {
+    return processAttendanceStateTransition(
+      record.employeeId,
+      record.employeeName,
+      coords,
+      town,
+      'GEOFENCE_EXIT',
+      'AUTO_GEOFENCE',
+      new Date(),
+      record.attendanceType
+    );
   }
 
   // Employee returned to geofence (<= 25m) after exiting
-  if (currentDistance <= OFFICE_LOCATION.radius) {
-    if (
-      updatedRecord.pendingCheckoutConfirmation ||
-      updatedRecord.checkoutDismissed ||
-      updatedRecord.lastExitTime ||
-      updatedRecord.exitTime
-    ) {
-      const returnTimeStr = getFormattedTimeStr(now);
-      updatedRecord.pendingCheckoutConfirmation = false;
-      updatedRecord.checkoutDismissed = false; // Reset dismissed flag so future exits will trigger prompt
-      updatedRecord.returnTime = returnTimeStr;
-      // CRITICAL: Employee returned inside 25m range!
-      // Cancel the pending exit event by clearing lastExitTime and exitTime.
-      // Every exit that is followed by a return must be discarded as a pending checkout event.
-      updatedRecord.lastExitTime = null;
-      updatedRecord.exitTime = null;
-      modified = true;
-      console.log(`Smart Office Return Logged: Exit event cancelled and return logged at ${returnTimeStr}`);
-    }
+  if (currentDistance <= OFFICE_LOCATION.radius && (record.currentState === 'PENDING_FINAL_EXIT' || record.lastExitTime || record.exitTime)) {
+    return processAttendanceStateTransition(
+      record.employeeId,
+      record.employeeName,
+      coords,
+      town,
+      'GEOFENCE_RETURN',
+      'AUTO_GEOFENCE',
+      new Date(),
+      record.attendanceType
+    );
   }
 
-  if (modified) {
-    saveAttendanceRecord(updatedRecord);
-  }
-
-  return updatedRecord;
+  return record;
 };
 
 /**
- * End-of-day attendance checkout finalizer (WFH/Client Visit -> 6:00 PM, Office -> last exit or 6:00 PM)
+ * End-of-day attendance checkout finalizer (WFH/Client Visit -> 6:00 PM, Office -> last exit or NO checkout if still inside)
  */
 export const runAutoCheckoutFinalizer = (): void => {
   const records = getStoredAttendanceRecords();
@@ -302,64 +441,49 @@ export const runAutoCheckoutFinalizer = (): void => {
   const minutes = now.getMinutes();
   const is1159PMOrLater = hours === 23 && minutes >= 59;
 
-  let modified = false;
-  const newRecords = records.map((rec) => {
+  logAttendanceEvent('END_OF_DAY_PROCESSING', 'SYSTEM', 'Running end-of-day attendance checkout finalizer...', {
+    eventTimestamp: now.toISOString()
+  });
+
+  records.forEach((rec) => {
     if (rec.checkOutTime || rec.manualRectified) {
-      return rec;
+      return;
     }
 
     // Only finalize today's records at end of day (11:59 PM) or past unfinalized records
     if (rec.date < todayStr || is1159PMOrLater) {
       if (rec.attendanceType === 'WFH' || rec.attendanceType === 'CLIENT_VISIT') {
-        const checkOutTimeStr = '06:00 PM';
-        const workingHours = calculateWorkingHours(rec.checkInTime, checkOutTimeStr);
-        modified = true;
-        return {
-          ...rec,
-          checkOutTime: checkOutTimeStr,
-          checkOutMode: 'AUTO_SYSTEM' as CheckOutMode,
-          checkoutSource: rec.attendanceType === 'WFH' ? 'automatic_wfh_end_of_day' : 'automatic_client_visit_end_of_day',
-          checkoutFinalized: true,
-          checkoutFinalizedAt: now.toISOString(),
-          pendingCheckoutConfirmation: false,
-          checkoutDismissed: false,
-          workingHours,
-          syncStatus: 'Pending' as SyncStatus
-        };
-      }
-
-      // Office:
-      if (rec.attendanceType === 'OFFICE' || !rec.attendanceType) {
+        processAttendanceStateTransition(
+          rec.employeeId,
+          rec.employeeName,
+          { latitude: rec.latitude, longitude: rec.longitude },
+          rec.townCity,
+          'END_OF_DAY_CHECKOUT',
+          'AUTO_SYSTEM_END_OF_DAY',
+          now,
+          rec.attendanceType
+        );
+      } else if (rec.attendanceType === 'OFFICE' || !rec.attendanceType) {
+        // Office:
         // Only finalize Office checkout if employee has a recorded final exit (outside 25m, never returned)
-        if (rec.lastExitTime || rec.exitTime) {
-          const checkoutTime = rec.lastExitTime || rec.exitTime!;
-          const source = 'automatic_end_of_day_exit';
-          const workingHours = calculateWorkingHours(rec.checkInTime, checkoutTime);
-          modified = true;
-          return {
-            ...rec,
-            checkOutTime: checkoutTime,
-            checkOutMode: 'AUTO_SYSTEM' as CheckOutMode,
-            checkoutSource: source,
-            checkoutFinalized: true,
-            checkoutFinalizedAt: now.toISOString(),
-            pendingCheckoutConfirmation: false,
-            checkoutDismissed: false,
-            workingHours,
-            syncStatus: 'Pending' as SyncStatus
-          };
+        if (rec.currentState === 'PENDING_FINAL_EXIT' || rec.lastExitTime || rec.exitTime) {
+          processAttendanceStateTransition(
+            rec.employeeId,
+            rec.employeeName,
+            { latitude: rec.latitude, longitude: rec.longitude },
+            rec.townCity,
+            'END_OF_DAY_CHECKOUT',
+            'AUTO_SYSTEM_END_OF_DAY',
+            now,
+            'OFFICE'
+          );
+        } else {
+          // Employee is inside 25m (no exit recorded) - DO NOT create checkout!
+          logAttendanceEvent('END_OF_DAY_PROCESSING', rec.employeeId, `Employee inside office at 6 PM/EOD. No automatic checkout applied. Remains checked in.`);
         }
-        // Employee is inside 25m (no exit recorded) - DO NOT create checkout!
-        return rec;
       }
     }
-
-    return rec;
   });
-
-  if (modified) {
-    localStorage.setItem('exfin_attendance_records_v1', JSON.stringify(newRecords));
-  }
 };
 
 /**
@@ -373,56 +497,37 @@ export const checkAndTriggerAutoCheckout = (
   const record = getTodayAttendanceRecord(employeeId, todayStr);
 
   if (!record || record.checkOutTime) {
-    return null; // No check-in today or already checked out
+    return null;
   }
 
   const now = new Date();
   const hours = now.getHours();
   const minutes = now.getMinutes();
 
-  // Check if time is 23:59 (11:59 PM) or later
   const is1159PMOrLater = hours === 23 && minutes >= 59;
 
   if (is1159PMOrLater) {
     if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
-      // If employee is inside 25m (no exit recorded), DO NOT create checkout!
       if (!record.lastExitTime && !record.exitTime) {
         return null;
       }
     }
 
-    const checkOutTimeStr = record.lastExitTime || record.exitTime || '06:00 PM';
-    const workingHours = calculateWorkingHours(record.checkInTime, checkOutTimeStr);
-
-    const updatedRecord: AttendanceRecord = {
-      ...record,
-      checkOutTime: checkOutTimeStr,
-      checkOutMode: 'AUTO_SYSTEM',
-      reason: 'Forgot Checkout (End of Day)',
-      pendingCheckoutConfirmation: false,
-      checkoutDismissed: false,
-      workingHours,
-      syncStatus: 'Pending',
-      isOffline: !navigator.onLine
-    };
-
-    saveAttendanceRecord(updatedRecord);
-
-    if (navigator.onLine) {
-      syncPendingAttendanceRecords().catch((err) =>
-        console.warn('Background sync on auto-checkout failed:', err)
-      );
-    }
-
-    return updatedRecord;
+    return processAttendanceStateTransition(
+      employeeId,
+      record.employeeName,
+      currentCoords || { latitude: record.latitude, longitude: record.longitude },
+      record.townCity,
+      'END_OF_DAY_CHECKOUT',
+      'AUTO_SYSTEM_END_OF_DAY',
+      now,
+      record.attendanceType
+    );
   }
 
   return null;
 };
 
-/**
- * Evaluates smart reminder engine status starting at 06:00 PM every 15 mins
- */
 export const getCheckoutReminderStatus = (
   record: AttendanceRecord | null
 ): { isReminderActive: boolean; nextReminderTimeStr: string | null; currentReminderCount: number } => {
@@ -432,14 +537,13 @@ export const getCheckoutReminderStatus = (
 
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const closingMinutes = 18 * 60; // 06:00 PM = 1080 min
+  const closingMinutes = 18 * 60; // 06:00 PM
   const endOfDayMinutes = 23 * 60 + 59; // 11:59 PM
 
   if (currentMinutes >= closingMinutes && currentMinutes <= endOfDayMinutes) {
     const minutesSinceClosing = currentMinutes - closingMinutes;
     const elapsedSlots = Math.floor(minutesSinceClosing / 10) + 1;
 
-    // Update reminder count if changed
     if (elapsedSlots > record.reminderCount) {
       record.reminderCount = elapsedSlots;
       saveAttendanceRecord(record);
@@ -463,11 +567,8 @@ export const getCheckoutReminderStatus = (
   return { isReminderActive: false, nextReminderTimeStr: null, currentReminderCount: record.reminderCount };
 };
 
-/**
- * Calculates current month WFH count for an employee
- */
 export const getMonthlyWfhCount = (employeeId: string, dateStr: string = getFormattedDateStr()): number => {
-  const currentMonth = dateStr.substring(0, 7); // "YYYY-MM"
+  const currentMonth = dateStr.substring(0, 7);
   const records = getStoredAttendanceRecords();
   return records.filter(
     (r) => r.employeeId === employeeId && 
@@ -476,9 +577,6 @@ export const getMonthlyWfhCount = (employeeId: string, dateStr: string = getForm
   ).length;
 };
 
-/**
- * Performs Work From Home (WFH) Attendance Submission
- */
 export const performWFHAttendance = (
   employeeId: string,
   employeeName: string,
@@ -488,76 +586,35 @@ export const performWFHAttendance = (
   workPlan: string
 ): AttendanceRecord => {
   const todayStr = getFormattedDateStr();
-  const docId = `${employeeId}_${todayStr}`;
-
-  // Daily Attendance Lock check
   const existingRecord = getTodayAttendanceRecord(employeeId, todayStr);
   if (existingRecord) {
     throw new Error('Attendance session already logged for today.');
   }
 
-  // Monthly WFH limit check (max 2 per calendar month)
   const currentMonthCount = getMonthlyWfhCount(employeeId, todayStr);
   if (currentMonthCount >= 2) {
-    throw new Error('Monthly WFH limit exceeded.');
+    throw new Error('Monthly WFH limit exceeded (max 2 per calendar month).');
   }
 
-  const now = new Date();
-  const record: AttendanceRecord = {
-    id: generateUUID(),
-    docId,
+  const record = processAttendanceStateTransition(
     employeeId,
-    employeeName: employeeName || 'Employee',
-    date: todayStr,
-    attendanceType: 'WFH',
-    checkInTime: getFormattedTimeStr(now),
-    checkOutTime: null,
-    workingHours: null,
-    latitude: coords?.latitude || 0,
-    longitude: coords?.longitude || 0,
-    distance: 0,
-    townCity: townCity || 'Home',
-    checkInMode: 'MANUAL',
-    checkOutMode: 'N/A',
-    exitTime: null,
-    returnTime: null,
-    reason: null,
-    createdAtDeviceTime: now.toISOString(),
-    syncStatus: 'Pending',
-    serverSyncTime: null,
-    isOffline: !navigator.onLine,
-    reminderCount: 0,
-    wfhReason,
-    workPlan,
-    monthlyWfhCount: currentMonthCount + 1
-  };
+    employeeName,
+    coords || { latitude: 0, longitude: 0 },
+    townCity || 'Home',
+    'CHECK_IN',
+    'MANUAL',
+    new Date(),
+    'WFH'
+  );
 
+  record.wfhReason = wfhReason;
+  record.workPlan = workPlan;
+  record.monthlyWfhCount = currentMonthCount + 1;
   saveAttendanceRecord(record);
-
-  // Send local WFH check-in system notification
-  createNotification({
-    recipientEmployeeCode: employeeId,
-    type: 'ATTENDANCE_CHECK_IN',
-    category: 'ATTENDANCE',
-    priority: 'LOW',
-    title: 'WFH Attendance Logged',
-    message: `You successfully submitted WFH attendance for today at ${record.checkInTime}.`,
-    entityId: record.id,
-    entityType: 'ATTENDANCE',
-  }).catch((err) => console.warn('Failed to dispatch WFH notification:', err));
-
-  if (navigator.onLine) {
-    syncPendingAttendanceRecords().catch((err) =>
-      console.warn('Background sync on WFH submission failed:', err)
-    );
-  }
 
   return record;
 };
 
-/**
- * Performs Client Visit Attendance Submission
- */
 export const performClientVisitAttendance = (
   employeeId: string,
   employeeName: string,
@@ -568,70 +625,30 @@ export const performClientVisitAttendance = (
   purpose: string
 ): AttendanceRecord => {
   const todayStr = getFormattedDateStr();
-  const docId = `${employeeId}_${todayStr}`;
-
-  // Daily Attendance Lock check
   const existingRecord = getTodayAttendanceRecord(employeeId, todayStr);
   if (existingRecord) {
     throw new Error('Attendance session already logged for today.');
   }
 
-  const now = new Date();
-  const record: AttendanceRecord = {
-    id: generateUUID(),
-    docId,
+  const record = processAttendanceStateTransition(
     employeeId,
-    employeeName: employeeName || 'Employee',
-    date: todayStr,
-    attendanceType: 'CLIENT_VISIT',
-    checkInTime: getFormattedTimeStr(now),
-    checkOutTime: null,
-    workingHours: null,
-    latitude: coords?.latitude || 0,
-    longitude: coords?.longitude || 0,
-    distance: 0,
-    townCity: townCity || clientLocation || 'On Site',
-    checkInMode: 'MANUAL',
-    checkOutMode: 'N/A',
-    exitTime: null,
-    returnTime: null,
-    reason: null,
-    createdAtDeviceTime: now.toISOString(),
-    syncStatus: 'Pending',
-    serverSyncTime: null,
-    isOffline: !navigator.onLine,
-    reminderCount: 0,
-    clientName,
-    clientLocation,
-    purpose
-  };
+    employeeName,
+    coords || { latitude: 0, longitude: 0 },
+    townCity || clientLocation || 'On Site',
+    'CHECK_IN',
+    'MANUAL',
+    new Date(),
+    'CLIENT_VISIT'
+  );
 
+  record.clientName = clientName;
+  record.clientLocation = clientLocation;
+  record.purpose = purpose;
   saveAttendanceRecord(record);
-
-  // Send local Client Visit system notification
-  createNotification({
-    recipientEmployeeCode: employeeId,
-    type: 'ATTENDANCE_CHECK_IN',
-    category: 'ATTENDANCE',
-    priority: 'LOW',
-    title: 'Client Visit Logged',
-    message: `Client visit attendance submitted at ${record.checkInTime} for client: ${clientName}.`,
-    entityId: record.id,
-    entityType: 'ATTENDANCE',
-  }).catch((err) => console.warn('Failed to dispatch client visit notification:', err));
-
-  if (navigator.onLine) {
-    syncPendingAttendanceRecords().catch((err) =>
-      console.warn('Background sync on Client Visit submission failed:', err)
-    );
-  }
 
   return record;
 };
 
-/**
- * Performs Outdoor Work Attendance Submission
- */
 export const performOutdoorAttendance = (
   employeeId: string,
   employeeName: string,
@@ -641,63 +658,25 @@ export const performOutdoorAttendance = (
   description: string
 ): AttendanceRecord => {
   const todayStr = getFormattedDateStr();
-  const docId = `${employeeId}_${todayStr}`;
-
-  // Daily Attendance Lock check
   const existingRecord = getTodayAttendanceRecord(employeeId, todayStr);
   if (existingRecord) {
     throw new Error('Attendance session already logged for today.');
   }
 
-  const now = new Date();
-  const record: AttendanceRecord = {
-    id: generateUUID(),
-    docId,
+  const record = processAttendanceStateTransition(
     employeeId,
-    employeeName: employeeName || 'Employee',
-    date: todayStr,
-    attendanceType: 'OUTDOOR',
-    checkInTime: getFormattedTimeStr(now),
-    checkOutTime: null,
-    workingHours: null,
-    latitude: coords?.latitude || 0,
-    longitude: coords?.longitude || 0,
-    distance: 0,
-    townCity: townCity || 'Field',
-    checkInMode: 'MANUAL',
-    checkOutMode: 'N/A',
-    exitTime: null,
-    returnTime: null,
-    reason: null,
-    createdAtDeviceTime: now.toISOString(),
-    syncStatus: 'Pending',
-    serverSyncTime: null,
-    isOffline: !navigator.onLine,
-    reminderCount: 0,
-    outdoorType,
-    description
-  };
+    employeeName,
+    coords || { latitude: 0, longitude: 0 },
+    townCity || 'Field',
+    'CHECK_IN',
+    'MANUAL',
+    new Date(),
+    'OUTDOOR'
+  );
 
+  record.outdoorType = outdoorType;
+  record.description = description;
   saveAttendanceRecord(record);
-
-  // Send local Outdoor system notification
-  createNotification({
-    recipientEmployeeCode: employeeId,
-    type: 'ATTENDANCE_CHECK_IN',
-    category: 'ATTENDANCE',
-    priority: 'LOW',
-    title: 'Outdoor Work Logged',
-    message: `Outdoor work attendance (${outdoorType}) submitted at ${record.checkInTime}.`,
-    entityId: record.id,
-    entityType: 'ATTENDANCE',
-  }).catch((err) => console.warn('Failed to dispatch outdoor work notification:', err));
-
-  if (navigator.onLine) {
-    syncPendingAttendanceRecords().catch((err) =>
-      console.warn('Background sync on Outdoor Work submission failed:', err)
-    );
-  }
 
   return record;
 };
-

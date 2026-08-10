@@ -2,6 +2,12 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import { OFFICE_LOCATION, getDistanceFromLatLonInM } from '../services/attendance/smartAttendanceEngine';
+import { 
+  handleLocationUpdateForAttendance, 
+  initializeBackgroundAttendanceManager, 
+  checkBackgroundPermissionStatus, 
+  requestBackgroundLocationPermission 
+} from '../services/attendance/backgroundAttendanceManager';
 
 export interface LocationContextType {
   liveLocation: { latitude: number; longitude: number } | null;
@@ -12,7 +18,10 @@ export interface LocationContextType {
   errorMessage: string;
   currentAddress: string;
   refreshLocation: () => Promise<void>;
+  requestBackgroundPermission: () => Promise<boolean>;
+  backgroundPermissionGranted: boolean;
 }
+
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
 
@@ -265,6 +274,38 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setLocationStatus('success');
   };
 
+  const [backgroundPermissionGranted, setBackgroundPermissionGranted] = useState<boolean>(false);
+
+  useEffect(() => {
+    checkBackgroundPermissionStatus().then((res) => {
+      setBackgroundPermissionGranted(res.isBackgroundGranted);
+    });
+
+    const cleanupBg = initializeBackgroundAttendanceManager(() => {
+      try {
+        const raw = localStorage.getItem('cached_registration_data');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          return {
+            id: parsed.employeeCode || parsed.uid || parsed.id || '',
+            name: parsed.name || 'Employee'
+          };
+        }
+      } catch (e) {}
+      return null;
+    });
+
+    return () => {
+      cleanupBg();
+    };
+  }, []);
+
+  const handleRequestBgPermission = async (): Promise<boolean> => {
+    const granted = await requestBackgroundLocationPermission();
+    setBackgroundPermissionGranted(granted);
+    return granted;
+  };
+
   const processPosition = async (latitude: number, longitude: number) => {
     setLiveLocation({ latitude, longitude });
     const calculatedDistance = getDistanceFromLatLonInM(
@@ -274,6 +315,27 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       OFFICE_LOCATION.longitude
     );
     setDistance(calculatedDistance);
+
+    // Evaluate automatic background geofence state transition
+    try {
+      const cachedRaw = localStorage.getItem('cached_registration_data');
+      if (cachedRaw) {
+        const parsed = JSON.parse(cachedRaw);
+        const empId = parsed.employeeCode || parsed.uid || parsed.id;
+        const empName = parsed.name || 'Employee';
+        if (empId) {
+          handleLocationUpdateForAttendance(
+            latitude,
+            longitude,
+            empId,
+            empName,
+            currentAddress || 'Raniganj HQ'
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('Error evaluating location update for attendance:', err);
+    }
 
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       setCurrentAddress('Offline');
@@ -404,6 +466,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         errorMessage,
         currentAddress,
         refreshLocation: startTracking,
+        requestBackgroundPermission: handleRequestBgPermission,
+        backgroundPermissionGranted
       }}
     >
       {children}

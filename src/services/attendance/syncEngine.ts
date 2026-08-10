@@ -3,10 +3,31 @@ import { db } from '../firebase/config';
 import { AttendanceRecord } from '../../types/attendance';
 import {
   getPendingAttendanceRecords,
-  markRecordSyncedInLocal,
-  saveAttendanceRecord
+  markRecordSyncedInLocal
 } from './attendanceStorage';
+import { 
+  getPendingEventsFromQueue, 
+  markEventSyncedInQueue 
+} from './attendanceEventQueue';
+import { logAttendanceEvent } from './attendanceLogger';
 import { recordSyncFailure, recordSyncSuccess } from '../sync/syncQueueService';
+
+/**
+ * Strips undefined properties from object before sending to Firestore
+ */
+function sanitizeFirestorePayload<T extends Record<string, any>>(obj: T): T {
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+        clean[key] = sanitizeFirestorePayload(value);
+      } else {
+        clean[key] = value;
+      }
+    }
+  }
+  return clean as T;
+}
 
 export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: number; errorsCount: number }> => {
   if (!navigator.onLine) {
@@ -19,6 +40,39 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
     return { syncedCount: 0, errorsCount: 0 };
   }
 
+  // 1. Sync Pending Events Queue first
+  const pendingEvents = getPendingEventsFromQueue();
+  if (pendingEvents.length > 0) {
+    logAttendanceEvent('SYNC_STARTED', 'SYSTEM', `Syncing ${pendingEvents.length} queued attendance events to Firestore...`);
+    for (const evt of pendingEvents) {
+      try {
+        const evtRef = doc(db, 'attendance_events', evt.eventId);
+        const evtSnap = await getDoc(evtRef);
+        if (!evtSnap.exists()) {
+          await setDoc(evtRef, sanitizeFirestorePayload({
+            ...evt,
+            syncStatus: 'Synced',
+            syncedAt: new Date().toISOString(),
+            serverSyncTime: serverTimestamp()
+          }));
+        }
+        markEventSyncedInQueue(evt.eventId);
+        logAttendanceEvent('SYNC_SUCCESS', evt.employeeId, `Event ${evt.eventId} synced successfully.`, {
+          eventId: evt.eventId,
+          eventTimestamp: evt.createdAt,
+          syncStatus: 'Synced'
+        });
+      } catch (err: any) {
+        logAttendanceEvent('SYNC_FAILED', evt.employeeId, `Failed to sync event ${evt.eventId}: ${err?.message}`, {
+          eventId: evt.eventId,
+          eventTimestamp: evt.createdAt,
+          syncStatus: 'Pending'
+        });
+      }
+    }
+  }
+
+  // 2. Sync Pending Attendance Records
   const pendingRecords = getPendingAttendanceRecords();
   if (pendingRecords.length === 0) {
     return { syncedCount: 0, errorsCount: 0 };
@@ -30,46 +84,63 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
 
   for (const record of pendingRecords) {
     try {
-      // Use docId (e.g. EMP101_2026-08-07) or record.id as the Firestore Document ID for Daily Attendance Lock & Duplicate Prevention
       const documentKey = record.docId || `${record.employeeId}_${record.date}` || record.id;
       const docRef = doc(db, 'attendance', documentKey);
       
       const docSnap = await getDoc(docRef);
       const localServerSyncTime = new Date().toISOString();
 
+      const sanitizedRecord = sanitizeFirestorePayload({
+        ...record,
+        docId: documentKey,
+        syncStatus: 'Synced',
+        serverSyncTime: localServerSyncTime,
+        // CRITICAL: Preserve original device creation time and original event timestamps
+        createdAtDeviceTime: record.createdAtDeviceTime,
+        checkInTime: record.checkInTime,
+        checkOutTime: record.checkOutTime,
+        lastExitTime: record.lastExitTime || null,
+        exitTime: record.exitTime || null,
+        returnTime: record.returnTime || null,
+        processedEvents: record.processedEvents || []
+      });
+
       if (!docSnap.exists()) {
-        const firestorePayload: any = {
-          ...record,
-          docId: documentKey,
-          syncStatus: 'Synced',
-          serverSyncTime: serverTimestamp(),
-          // CRITICAL: Preserve original device creation time and attendance event timestamps
-          createdAtDeviceTime: record.createdAtDeviceTime,
-          checkInTime: record.checkInTime,
-          checkOutTime: record.checkOutTime
-        };
-        await setDoc(docRef, firestorePayload);
-        console.log(`Sync Engine: Successfully synced record docId ${documentKey} (UUID: ${record.id})`);
+        await setDoc(docRef, {
+          ...sanitizedRecord,
+          serverSyncTimestamp: serverTimestamp()
+        });
+        console.log(`Sync Engine: Successfully synced new attendance record docId ${documentKey}`);
+        logAttendanceEvent('SYNC_SUCCESS', record.employeeId, `Synced attendance record docId ${documentKey}`, {
+          eventTimestamp: record.createdAtDeviceTime,
+          syncStatus: 'Synced'
+        });
       } else {
         const existingData = docSnap.data() as AttendanceRecord;
-        // If local has updated checkout or exit/return log that Firestore doesn't have yet, update doc
-        if (record.checkOutTime && !existingData.checkOutTime) {
-          await setDoc(docRef, {
-            ...existingData,
-            checkOutTime: record.checkOutTime,
-            checkOutMode: record.checkOutMode,
-            workingHours: record.workingHours,
-            exitTime: record.exitTime || existingData.exitTime,
-            returnTime: record.returnTime || existingData.returnTime,
-            reason: record.reason || existingData.reason,
-            reminderCount: Math.max(record.reminderCount || 0, existingData.reminderCount || 0),
-            syncStatus: 'Synced',
-            serverSyncTime: serverTimestamp()
-          }, { merge: true });
-          console.log(`Sync Engine: Updated checkout for synced docId ${documentKey}`);
-        } else {
-          console.log(`Sync Engine: Record docId ${documentKey} already synced in Firestore. Skipping duplicate.`);
-        }
+        const mergedEvents = Array.from(new Set([...(existingData.processedEvents || []), ...(record.processedEvents || [])]));
+
+        // Merge state safely preserving highest progress
+        const updatedPayload = sanitizeFirestorePayload({
+          ...existingData,
+          checkOutTime: record.checkOutTime || existingData.checkOutTime,
+          checkOutMode: record.checkOutTime ? record.checkOutMode : existingData.checkOutMode,
+          workingHours: record.workingHours || existingData.workingHours,
+          exitTime: record.exitTime !== undefined ? record.exitTime : existingData.exitTime,
+          lastExitTime: record.lastExitTime !== undefined ? record.lastExitTime : existingData.lastExitTime,
+          returnTime: record.returnTime !== undefined ? record.returnTime : existingData.returnTime,
+          currentState: record.currentState || existingData.currentState,
+          processedEvents: mergedEvents,
+          syncStatus: 'Synced',
+          serverSyncTime: localServerSyncTime,
+          serverSyncTimestamp: serverTimestamp()
+        });
+
+        await setDoc(docRef, updatedPayload, { merge: true });
+        console.log(`Sync Engine: Updated synced attendance record docId ${documentKey}`);
+        logAttendanceEvent('SYNC_SUCCESS', record.employeeId, `Updated attendance docId ${documentKey} (Idempotent merge)`, {
+          eventTimestamp: record.createdAtDeviceTime,
+          syncStatus: 'Synced'
+        });
       }
 
       recordSyncSuccess('Attendance', record.id);
@@ -77,6 +148,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
       syncedCount++;
     } catch (err: any) {
       console.error(`Sync Engine: Error syncing record UUID ${record.id}:`, err);
+      logAttendanceEvent('SYNC_FAILED', record.employeeId, `Failed to sync attendance record ${record.docId}: ${err?.message}`);
       recordSyncFailure('Attendance', record.id, err?.message || 'Attendance sync failed', `Attendance for ${record.date}`);
       errorsCount++;
     }

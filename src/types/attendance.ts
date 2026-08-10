@@ -3,6 +3,63 @@ export type CheckOutMode = 'MANUAL' | 'AUTO_SYSTEM' | 'N/A';
 export type SyncStatus = 'Pending' | 'Synced';
 export type AttendanceType = 'OFFICE' | 'WFH' | 'CLIENT_VISIT' | 'OUTDOOR';
 
+export type AttendanceState = 
+  | 'NO_ATTENDANCE'
+  | 'CHECKED_IN'
+  | 'PENDING_FINAL_EXIT'
+  | 'CHECKED_OUT';
+
+export type AttendanceEventType = 
+  | 'CHECK_IN' 
+  | 'GEOFENCE_EXIT' 
+  | 'GEOFENCE_RETURN' 
+  | 'CHECK_OUT' 
+  | 'END_OF_DAY_CHECKOUT';
+
+export type AttendanceLogCategory =
+  | 'GEOFENCE_ENTER'
+  | 'GEOFENCE_EXIT'
+  | 'CHECKIN_CREATED'
+  | 'CHECKOUT_CREATED'
+  | 'RETURN_DETECTED'
+  | 'OFFLINE_EVENT_QUEUED'
+  | 'SYNC_STARTED'
+  | 'SYNC_SUCCESS'
+  | 'SYNC_FAILED'
+  | 'END_OF_DAY_PROCESSING';
+
+export interface OfflineAttendanceEvent {
+  eventId: string; // Unique, e.g. EMP101-2026-08-10-CHECKIN-100201 or UUID
+  employeeId: string;
+  attendanceDate: string; // YYYY-MM-DD
+  eventType: AttendanceEventType;
+  eventTime: string; // Formatted e.g. "10:02 AM"
+  location: {
+    latitude: number;
+    longitude: number;
+    townCity: string;
+    distance: number;
+  };
+  attendanceMode: AttendanceType;
+  source: 'AUTO_GEOFENCE' | 'MANUAL' | 'AUTO_SYSTEM_END_OF_DAY';
+  createdAt: string; // ISO timestamp when event occurred
+  syncStatus: SyncStatus;
+  syncedAt?: string | null;
+  meta?: Record<string, any>;
+}
+
+export interface AttendanceDiagnosticLog {
+  id: string;
+  timestamp: string;
+  category: AttendanceLogCategory;
+  employeeId: string;
+  eventId?: string;
+  eventTimestamp?: string;
+  syncStatus?: SyncStatus | 'N/A';
+  details: string;
+  metadata?: Record<string, any>;
+}
+
 export type OutdoorWorkTypeOption = 
   | 'Market Visit'
   | 'Site Visit'
@@ -59,6 +116,10 @@ export interface AttendanceRecord {
   manualRectified?: boolean;
   checkoutDismissed?: boolean;
 
+  // State Machine & Idempotency tracking
+  currentState?: AttendanceState;
+  processedEvents?: string[]; // List of eventIds processed for this record
+
   // Work From Home (WFH) fields
   wfhReason?: string | null;
   workPlan?: string | null;
@@ -73,4 +134,5 @@ export interface AttendanceRecord {
   outdoorType?: OutdoorWorkTypeOption | string | null;
   description?: string | null;
 }
+
 

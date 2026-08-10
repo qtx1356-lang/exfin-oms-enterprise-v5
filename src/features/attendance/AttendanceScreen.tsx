@@ -63,6 +63,7 @@ import {
   startAutoSyncEngine,
   syncPendingAttendanceRecords
 } from '../../services/attendance/syncEngine';
+import { BatteryAndPermissionGuide } from '../../components/common/BatteryAndPermissionGuide';
 
 const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
   'Market Visit',
@@ -579,6 +580,11 @@ export const AttendanceScreen: React.FC = () => {
         </div>
         <span className="text-[10px] opacity-75 font-mono uppercase">LIVE STATUS</span>
       </div>
+
+      {/* ==================================================== */}
+      {/* BACKGROUND ATTENDANCE & BATTERY GUIDE */}
+      {/* ==================================================== */}
+      <BatteryAndPermissionGuide />
 
       {/* Action Feedback Banner */}
       {actionFeedback && (
