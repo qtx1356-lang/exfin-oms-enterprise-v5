@@ -15,8 +15,6 @@ interface ProfileEditModalProps {
 }
 
 export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, isOpen, onClose, onSave, departments = [], designations = [] }) => {
-  console.log("[UM_PHASE_6A] MODAL_RENDER_START", user?.id);
-
   const [formData, setFormData] = useState({
     name: user?.name || '',
     mobileNumber: user?.mobileNumber || '',
@@ -31,9 +29,16 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, isOpen
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("[UM_PHASE_6A] SAVE_ATTEMPT_BLOCKED (Phase 6B only)", formData);
-    // onSave is disabled for Phase 6A stability
-    onClose();
+    if (isSaving) return;
+    
+    setIsSaving(true);
+    try {
+      await onSave(user.id, formData, user);
+    } catch (error) {
+      console.error("Save failed", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,16 +78,11 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, isOpen
   };
 
   if (!user) {
-    console.warn("[UM_PHASE_6A] MODAL_USER_MISSING");
     return null;
   }
 
   return (
     <Dialog isOpen={isOpen} onClose={onClose} title={`Edit Profile: ${user.name || 'Unknown'}`}>
-      <div className="mb-4 p-2 bg-purple-900/40 border border-purple-500/30 rounded-lg text-center">
-        <p className="text-[10px] font-black text-purple-300">DIAGNOSTIC: UM-PHASE-6A-EDIT-MODAL</p>
-      </div>
-
       <div className="flex flex-col items-center mb-6">
         <div className="relative group">
           <div className="w-24 h-24 rounded-full bg-[#170B38] border-2 border-[#7C3AED] overflow-hidden flex items-center justify-center shadow-lg">
@@ -152,7 +152,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, isOpen
         </div>
 
         <div className="flex justify-end gap-2 pt-4">
-          <Button variant="text" onClick={onClose}>Cancel</Button>
+          <Button variant="text" onClick={onClose} disabled={isSaving}>Cancel</Button>
           <Button type="submit" disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Changes'}</Button>
         </div>
       </form>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { Department, Designation } from '../../types/organization';
-import { ManagedUser } from './UserManagementTab';
+import { ManagedUser } from '../../types/user';
 import {
   addDepartment,
   updateDepartment,

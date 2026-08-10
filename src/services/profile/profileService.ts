@@ -137,7 +137,7 @@ export const uploadProfilePhoto = async (
       saveCachedProfile(cached);
     }
 
-    return { success: true, photoUrl: imageBase64, isOffline: true };
+    return { success: true, photoUrl: imageBase64 };
   }
   
   throw new Error('Unable to connect to upload service.');

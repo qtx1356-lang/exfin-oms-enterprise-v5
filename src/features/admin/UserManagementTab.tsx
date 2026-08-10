@@ -1,129 +1,293 @@
 import React, { useEffect, useState } from "react";
-import { Edit } from "lucide-react";
+import { Edit, Search, Filter, User, CheckCircle2, ShieldCheck, Mail, Phone, Building2, Briefcase, Trash2 } from "lucide-react";
 import { useAdminAuth } from "../../context/AdminAuthContext";
-import { usePermission } from "../../context/PermissionContext";
 import { db } from "../../services/firebase/config";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, onSnapshot, getDocs, doc, deleteDoc } from "firebase/firestore";
 import { ProfileEditModal } from "../../components/common/ProfileEditModal";
 import { ManagedUser } from "../../types/user";
+import { updateEmployeeProfile } from "../../services/admin/adminProfileService";
 
 export const UserManagementTab: React.FC = () => {
-  console.log("[UM_PHASE_6A] RENDER_START");
-
-  const [queryStarted, setQueryStarted] = useState(false);
-  const [queryCompleted, setQueryCompleted] = useState(false);
+  const { user, role, loginId } = useAdminAuth();
+  
   const [employees, setEmployees] = useState<ManagedUser[]>([]);
-  const [queryError, setQueryError] = useState<string | null>(null);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [designations, setDesignations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterDept, setFilterDept] = useState("ALL");
+  const [filterDesig, setFilterDesig] = useState("ALL");
+  const [filterRole, setFilterRole] = useState("ALL");
+  const [filterStatus, setFilterStatus] = useState("ALL");
 
-  // Phase 6 State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
 
-  let auth: any = null;
-  let authInit = false;
-  try {
-    auth = useAdminAuth();
-    authInit = true;
-    console.log("[UM_PHASE_6A] ADMIN_AUTH_RESULT", auth);
-  } catch (e) {
-    console.error("[UM_PHASE_6A] ADMIN_AUTH_ERROR", e);
-  }
-
-  let permissions: any = null;
-  let permInit = false;
-  try {
-    permissions = usePermission();
-    permInit = true;
-    console.log("[UM_PHASE_6A] PERMISSION_RESULT", permissions);
-  } catch (e) {
-    console.error("[UM_PHASE_6A] PERMISSION_ERROR", e);
-  }
-
   useEffect(() => {
-    if (authInit && permInit && !queryStarted) {
-      console.log("[UM_PHASE_6A] DATA_LOAD_START");
-      setQueryStarted(true);
-      const loadData = async () => {
-        try {
-          const querySnapshot = await getDocs(collection(db, "registrations"));
-          const data = querySnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          })) as ManagedUser[];
-          setEmployees(data);
-          setQueryCompleted(true);
-          console.log("[UM_PHASE_6A] DATA_LOAD_SUCCESS", data.length);
-        } catch (e: any) {
-          console.error("[UM_PHASE_6A] DATA_LOAD_ERROR", e);
-          setQueryError(e.message || "Unknown Firestore error");
-        }
-      };
-      loadData();
-    }
-  }, [authInit, permInit, queryStarted]);
+    if (!db) return;
+    
+    // Load Departments
+    const unsubDepts = onSnapshot(collection(db, 'departments'), (snap) => {
+      const depts: any[] = [];
+      snap.forEach(d => depts.push({ id: d.id, ...d.data() }));
+      setDepartments(depts);
+    });
 
-  console.log("[UM_PHASE_6A] RENDER_SUCCESS");
+    // Load Designations
+    const unsubDesigs = onSnapshot(collection(db, 'designations'), (snap) => {
+      const desigs: any[] = [];
+      snap.forEach(d => desigs.push({ id: d.id, ...d.data() }));
+      setDesignations(desigs);
+    });
 
-  const handleEditClick = (user: ManagedUser) => {
-    console.log("[UM_PHASE_6A] EDIT_CLICKED", user.id);
-    setSelectedUser(user);
+    // Load Employees
+    const unsubEmps = onSnapshot(collection(db, 'registrations'), (snap) => {
+      const emps: ManagedUser[] = [];
+      snap.forEach(d => {
+        const data = d.data();
+        emps.push({ id: d.id, ...data } as ManagedUser);
+      });
+      setEmployees(emps);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubDepts();
+      unsubDesigs();
+      unsubEmps();
+    };
+  }, []);
+
+  const handleEditClick = (emp: ManagedUser) => {
+    setSelectedUser(emp);
     setIsModalOpen(true);
   };
 
+  const handleSaveProfile = async (uid: string, data: Record<string, any>, oldData: Record<string, any>) => {
+    if (!user) return;
+    
+    try {
+      const actor = {
+        uid: user.uid,
+        email: loginId || user.email || 'Unknown',
+        role: role || 'ADMIN'
+      };
+      
+      // Filter out undefined values
+      const cleanData: Record<string, any> = {};
+      Object.keys(data).forEach(k => {
+        if (data[k] !== undefined) {
+          cleanData[k] = data[k];
+        }
+      });
+      
+      await updateEmployeeProfile(uid, cleanData, actor, oldData);
+      // alert('Employee profile updated successfully.');
+      setIsModalOpen(false);
+    } catch (err: any) {
+      console.error('Update failed', err);
+      alert(err.message || 'Failed to update profile.');
+    }
+  };
+  
+  const handleDeleteEmployee = async (emp: ManagedUser) => {
+    // Basic delete
+    if (!window.confirm(`Are you sure you want to completely delete employee ${emp.name}? This cannot be undone.`)) {
+       return;
+    }
+    
+    try {
+       await deleteDoc(doc(db, 'registrations', emp.id));
+       // If there's an associated admin_users record, we're not deleting it here unless requested, but usually employees are only in registrations.
+    } catch (err: any) {
+       alert(err.message || "Failed to delete employee.");
+    }
+  };
+
+  const filteredEmployees = employees.filter(emp => {
+    // Search
+    const search = searchTerm.toLowerCase();
+    const matchesSearch = 
+      (emp.name || '').toLowerCase().includes(search) ||
+      (emp.employeeCode || '').toLowerCase().includes(search) ||
+      (emp.email || '').toLowerCase().includes(search) ||
+      (emp.mobileNumber || '').toLowerCase().includes(search);
+      
+    if (!matchesSearch) return false;
+
+    // Filters
+    if (filterDept !== 'ALL' && emp.office !== filterDept) return false;
+    if (filterDesig !== 'ALL' && emp.designation !== filterDesig) return false;
+    if (filterRole !== 'ALL' && emp.role !== filterRole) return false;
+    if (filterStatus !== 'ALL' && emp.status !== filterStatus) return false;
+    
+    // Role visibility logic
+    if (role === 'ADMIN') {
+      // Normal admins cannot see super admins or other admins if we strictly enforce it
+      if (emp.role === 'SUPER_ADMIN' || emp.role === 'ADMIN') {
+         return false;
+      }
+    }
+
+    return true;
+  });
+
+  if (loading) {
+     return <div className="p-8 text-center text-purple-300">Loading user management...</div>;
+  }
+
   return (
-    <div className="p-4 text-white font-mono text-sm space-y-6">
-      <div className="flex justify-between items-center flex-wrap gap-2">
-        <h1 className="text-xl font-black text-white uppercase">PHASE 6A — EDIT MODAL</h1>
-        <div className="flex gap-2">
-          <div className="px-3 py-1 bg-purple-900/40 border border-purple-500/30 rounded-lg text-center text-[10px] font-black text-purple-300">
-            UM-PHASE-6A-UI-VISIBLE-2026-08-10-E
+    <div className="space-y-6">
+      {/* Search and Filters */}
+      <div className="bg-[#2D1B5A] border border-purple-500/20 p-4 rounded-[20px] shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-purple-400" />
+            <input
+              type="text"
+              placeholder="Search by name, code, email, or phone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-[#1A0B2E] border border-purple-500/20 rounded-xl text-white text-xs focus:outline-none focus:border-purple-500/50 transition-colors"
+            />
           </div>
-          <div className={`px-3 py-1 rounded-full text-[10px] font-bold ${queryCompleted ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-amber-500/20 text-amber-400 border border-amber-500/30"}`}>
-            PHASE 6A UI: {queryCompleted ? 'PASS' : 'LOADING'}
-          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <select
+            value={filterDept}
+            onChange={(e) => setFilterDept(e.target.value)}
+            className="px-3 py-2 bg-[#1A0B2E] border border-purple-500/20 rounded-xl text-white text-xs focus:outline-none"
+          >
+            <option value="ALL">All Departments</option>
+            {departments.map(d => (
+              <option key={d.id} value={d.name}>{d.name}</option>
+            ))}
+          </select>
+          
+          <select
+            value={filterDesig}
+            onChange={(e) => setFilterDesig(e.target.value)}
+            className="px-3 py-2 bg-[#1A0B2E] border border-purple-500/20 rounded-xl text-white text-xs focus:outline-none"
+          >
+            <option value="ALL">All Designations</option>
+            {designations.map(d => (
+              <option key={d.id} value={d.name}>{d.name}</option>
+            ))}
+          </select>
+
+          <select
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value)}
+            className="px-3 py-2 bg-[#1A0B2E] border border-purple-500/20 rounded-xl text-white text-xs focus:outline-none"
+          >
+            <option value="ALL">All Roles</option>
+            <option value="EMPLOYEE">Employee</option>
+            <option value="TEAM_LEADER">Team Leader</option>
+            <option value="HR">HR</option>
+            {role === 'SUPER_ADMIN' && <option value="ADMIN">Admin</option>}
+            {role === 'SUPER_ADMIN' && <option value="SUPER_ADMIN">Super Admin</option>}
+          </select>
+
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-3 py-2 bg-[#1A0B2E] border border-purple-500/20 rounded-xl text-white text-xs focus:outline-none"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="Pending Approval">Pending</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Suspended">Suspended</option>
+          </select>
         </div>
       </div>
-      
-      {queryError && (
-        <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-200 text-xs">
-          Error: {queryError}
-        </div>
-      )}
 
-      <div className="bg-[#1A0B2E] border border-purple-500/20 rounded-2xl overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-max">
+      {/* Employee Table */}
+      <div className="bg-[#2D1B5A] border border-purple-500/20 rounded-[20px] shadow-xl overflow-x-auto">
+        <table className="w-full text-left min-w-max border-collapse">
           <thead>
-            <tr className="border-b border-purple-500/20 bg-purple-900/20">
-              <th className="px-6 py-4 font-bold text-purple-300">Employee</th>
-              <th className="px-6 py-4 font-bold text-purple-300">Code</th>
-              <th className="px-6 py-4 font-bold text-purple-300 text-right">ACTION</th>
+            <tr className="bg-purple-900/30 border-b border-purple-500/20 text-[10px] font-black tracking-wider text-purple-300 uppercase">
+              <th className="px-4 py-3">Profile</th>
+              <th className="px-4 py-3">Employee</th>
+              <th className="px-4 py-3">Code</th>
+              <th className="px-4 py-3">Department</th>
+              <th className="px-4 py-3">Designation</th>
+              <th className="px-4 py-3">Role</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-purple-500/10">
-            {queryCompleted && employees.length > 0 ? (
-              employees.map(emp => (
+            {filteredEmployees.length > 0 ? (
+              filteredEmployees.map(emp => (
                 <tr key={emp.id} className="hover:bg-purple-900/10 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-white text-base">{emp.name || 'Unknown'}</div>
-                    <div className="text-[10px] text-purple-300/50">{emp.email || 'No Email'}</div>
+                  <td className="px-4 py-3">
+                    <div className="w-10 h-10 rounded-full bg-[#1A0B2E] border border-purple-500/30 overflow-hidden flex items-center justify-center">
+                      {(emp as any).profilePhotoUrl || emp.selfieUrl ? (
+                        <img src={(emp as any).profilePhotoUrl || emp.selfieUrl} alt={emp.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-5 h-5 text-purple-300/50" />
+                      )}
+                    </div>
                   </td>
-                  <td className="px-6 py-4 font-mono text-purple-300">{emp.employeeCode || 'N/A'}</td>
-                  <td className="px-6 py-4 text-right">
-                    <button 
-                      onClick={() => handleEditClick(emp)}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-500 rounded-xl transition-all shadow-lg hover:shadow-purple-500/20 inline-flex items-center justify-center gap-2"
-                      title="Edit Profile"
-                    >
-                      <Edit className="w-4 h-4 text-white" />
-                      <span className="font-bold text-white text-xs">Edit</span>
-                    </button>
+                  <td className="px-4 py-3">
+                    <div className="font-bold text-white text-sm">{emp.name || 'Unknown'}</div>
+                    <div className="text-[10px] text-purple-300/70 flex items-center gap-1 mt-0.5">
+                      {emp.email || 'No Email'}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="px-2 py-1 rounded bg-[#1A0B2E] border border-purple-500/20 font-mono text-purple-300 text-[10px]">
+                      {emp.employeeCode || 'N/A'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-purple-200">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-purple-400" />
+                      {emp.office || 'Raniganj'}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-purple-200">
+                    <div className="flex items-center gap-1.5">
+                      <Briefcase className="w-3.5 h-3.5 text-purple-400" />
+                      {emp.designation || 'N/A'}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="px-2 py-1 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 text-[9px] font-black uppercase flex items-center gap-1 w-max">
+                      <ShieldCheck className="w-3 h-3" />
+                      {emp.role?.replace('_', ' ') || 'EMPLOYEE'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase flex items-center gap-1 w-max ${
+                      emp.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                      emp.status === 'Rejected' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                      'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                    }`}>
+                      <CheckCircle2 className="w-3 h-3" />
+                      {emp.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => handleEditClick(emp)}
+                        className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded-lg transition-all shadow-md flex items-center gap-1.5"
+                      >
+                        <Edit className="w-3.5 h-3.5 text-white" />
+                        <span className="text-xs font-bold text-white">Edit</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={3} className="px-6 py-12 text-center text-purple-300/40">
-                  {queryCompleted ? 'No records found' : 'Loading records...'}
+                <td colSpan={8} className="px-4 py-12 text-center text-purple-300/40 text-sm">
+                  No employees found matching criteria.
                 </td>
               </tr>
             )}
@@ -131,29 +295,16 @@ export const UserManagementTab: React.FC = () => {
         </table>
       </div>
 
-      {/* Profile Edit Modal */}
       {selectedUser && (
         <ProfileEditModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           user={selectedUser}
-          onSave={async () => {}} // Disabled for Phase 6A
-          departments={[]}
-          designations={[]}
+          onSave={handleSaveProfile}
+          departments={departments}
+          designations={designations}
         />
       )}
-
-      {/* DIAGNOSTICS FOOTER */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="p-4 bg-gray-800/50 border border-purple-500/10 rounded-xl">
-          <div className="text-[10px] font-black text-purple-400 mb-1">AUTH STATUS</div>
-          <div className="text-xs text-white">{authInit ? "Initialized" : "Pending"}</div>
-        </div>
-        <div className="p-4 bg-gray-800/50 border border-purple-500/10 rounded-xl">
-          <div className="text-[10px] font-black text-purple-400 mb-1">DATA STATUS</div>
-          <div className="text-xs text-white">{queryCompleted ? "Loaded" : "Loading..."}</div>
-        </div>
-      </div>
     </div>
   );
 };
