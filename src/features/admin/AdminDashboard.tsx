@@ -708,7 +708,13 @@ export const AdminDashboard: React.FC = () => {
         )}
 
         {/* USER MANAGEMENT TAB */}
-        {activeTab === 'userManagement' && canSeeUserManagement && <UserManagementTab />}
+        {activeTab === 'userManagement' && canSeeUserManagement && (
+          <div>
+            USER MANAGEMENT ROUTE DIAGNOSTIC SUCCESS
+            <br />
+            BUILD: UM-DIAGNOSTIC-2026-08-10-A
+          </div>
+        )}
 
         {/* PROFILES TAB */}
         {activeTab === 'profiles' && canSeeProfiles && <EmployeeProfilesTab />}
