@@ -255,13 +255,11 @@ export const trackSmartOfficeExit = (
       updatedRecord.exitTime = exitTimeStr;
       modified = true;
     }
-    
-    // Only show pending checkout confirmation prompt if not already dismissed for this exit session
-    if (!updatedRecord.checkoutDismissed && !updatedRecord.pendingCheckoutConfirmation) {
-      updatedRecord.pendingCheckoutConfirmation = true;
+    if (updatedRecord.pendingCheckoutConfirmation) {
+      updatedRecord.pendingCheckoutConfirmation = false;
       modified = true;
-      console.log(`Smart Office Exit Logged: Exit detected at ${exitTimeStr}`);
     }
+    console.log(`Smart Office Exit Logged: Exit detected at ${exitTimeStr}`);
   }
 
   // Employee returned to geofence (<= 25m) after exiting
