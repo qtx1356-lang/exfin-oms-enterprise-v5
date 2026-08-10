@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Edit, Search, Filter, User, CheckCircle2, ShieldCheck, Mail, Phone, Building2, Briefcase, Trash2 } from "lucide-react";
+import { Edit, Search, Filter, User, CheckCircle2, ShieldCheck, Mail, Phone, Building2, Briefcase, Trash2, Users } from "lucide-react";
 import { useAdminAuth } from "../../context/AdminAuthContext";
 import { db } from "../../services/firebase/config";
 import { collection, onSnapshot, getDocs, doc, deleteDoc } from "firebase/firestore";
 import { ProfileEditModal } from "../../components/common/ProfileEditModal";
 import { ManagedUser } from "../../types/user";
 import { updateEmployeeProfile } from "../../services/admin/adminProfileService";
+import { updateUserRoleAndStatus } from "../../services/rbac/rbacService";
 
 export const UserManagementTab: React.FC = () => {
   const { user, role, loginId } = useAdminAuth();
@@ -74,16 +75,35 @@ export const UserManagementTab: React.FC = () => {
         role: role || 'ADMIN'
       };
       
-      // Filter out undefined values
-      const cleanData: Record<string, any> = {};
-      Object.keys(data).forEach(k => {
-        if (data[k] !== undefined) {
-          cleanData[k] = data[k];
-        }
+      // Call updateUserRoleAndStatus to process role, status, department, designation, and Team Leader assignments
+      await updateUserRoleAndStatus({
+        userId: uid,
+        employeeCode: oldData.employeeCode,
+        newRole: data.role || oldData.role || 'EMPLOYEE',
+        previousRole: oldData.role,
+        newStatus: data.status || oldData.status,
+        previousStatus: oldData.status,
+        department: data.office,
+        designation: data.designation,
+        assignedTeamLeaderId: data.assignedTeamLeaderId,
+        assignedTeamLeaderName: data.assignedTeamLeaderName,
+        assignedTeamLeaderCode: data.assignedTeamLeaderCode,
+        isTeamLeader: data.isTeamLeader,
+        actorEmail: actor.email,
+        actorUid: actor.uid,
       });
-      
-      await updateEmployeeProfile(uid, cleanData, actor, oldData);
-      // alert('Employee profile updated successfully.');
+
+      // Update basic details (name, phone, email, photo)
+      const extraFields: Record<string, any> = {};
+      if (data.name !== undefined) extraFields.name = data.name;
+      if (data.mobileNumber !== undefined) extraFields.mobileNumber = data.mobileNumber;
+      if (data.email !== undefined) extraFields.email = data.email;
+      if (data.profilePhotoUrl !== undefined) extraFields.profilePhotoUrl = data.profilePhotoUrl;
+
+      if (Object.keys(extraFields).length > 0) {
+        await updateEmployeeProfile(uid, extraFields, actor, oldData);
+      }
+
       setIsModalOpen(false);
     } catch (err: any) {
       console.error('Update failed', err);
@@ -92,14 +112,12 @@ export const UserManagementTab: React.FC = () => {
   };
   
   const handleDeleteEmployee = async (emp: ManagedUser) => {
-    // Basic delete
     if (!window.confirm(`Are you sure you want to completely delete employee ${emp.name}? This cannot be undone.`)) {
        return;
     }
     
     try {
        await deleteDoc(doc(db, 'registrations', emp.id));
-       // If there's an associated admin_users record, we're not deleting it here unless requested, but usually employees are only in registrations.
     } catch (err: any) {
        alert(err.message || "Failed to delete employee.");
     }
@@ -112,19 +130,19 @@ export const UserManagementTab: React.FC = () => {
       (emp.name || '').toLowerCase().includes(search) ||
       (emp.employeeCode || '').toLowerCase().includes(search) ||
       (emp.email || '').toLowerCase().includes(search) ||
-      (emp.mobileNumber || '').toLowerCase().includes(search);
+      (emp.mobileNumber || '').toLowerCase().includes(search) ||
+      (emp.office || '').toLowerCase().includes(search);
       
     if (!matchesSearch) return false;
 
     // Filters
-    if (filterDept !== 'ALL' && emp.office !== filterDept) return false;
+    if (filterDept !== 'ALL' && emp.office !== filterDept && (emp as any).departmentName !== filterDept) return false;
     if (filterDesig !== 'ALL' && emp.designation !== filterDesig) return false;
-    if (filterRole !== 'ALL' && emp.role !== filterRole) return false;
+    if (filterRole !== 'ALL' && emp.role !== filterRole && !(filterRole === 'TEAM_LEADER' && emp.isTeamLeader)) return false;
     if (filterStatus !== 'ALL' && emp.status !== filterStatus) return false;
     
     // Role visibility logic
     if (role === 'ADMIN') {
-      // Normal admins cannot see super admins or other admins if we strictly enforce it
       if (emp.role === 'SUPER_ADMIN' || emp.role === 'ADMIN') {
          return false;
       }
@@ -146,7 +164,7 @@ export const UserManagementTab: React.FC = () => {
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-purple-400" />
             <input
               type="text"
-              placeholder="Search by name, code, email, or phone..."
+              placeholder="Search by name, code, email, department, or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-2 bg-[#1A0B2E] border border-purple-500/20 rounded-xl text-white text-xs focus:outline-none focus:border-purple-500/50 transition-colors"
@@ -158,7 +176,7 @@ export const UserManagementTab: React.FC = () => {
           <select
             value={filterDept}
             onChange={(e) => setFilterDept(e.target.value)}
-            className="px-3 py-2 bg-[#1A0B2E] border border-purple-500/20 rounded-xl text-white text-xs focus:outline-none"
+            className="px-3 py-2 bg-[#1A0B2E] border border-purple-500/20 rounded-xl text-white text-xs focus:outline-none font-bold"
           >
             <option value="ALL">All Departments</option>
             {departments.map(d => (
@@ -169,7 +187,7 @@ export const UserManagementTab: React.FC = () => {
           <select
             value={filterDesig}
             onChange={(e) => setFilterDesig(e.target.value)}
-            className="px-3 py-2 bg-[#1A0B2E] border border-purple-500/20 rounded-xl text-white text-xs focus:outline-none"
+            className="px-3 py-2 bg-[#1A0B2E] border border-purple-500/20 rounded-xl text-white text-xs focus:outline-none font-bold"
           >
             <option value="ALL">All Designations</option>
             {designations.map(d => (
@@ -180,7 +198,7 @@ export const UserManagementTab: React.FC = () => {
           <select
             value={filterRole}
             onChange={(e) => setFilterRole(e.target.value)}
-            className="px-3 py-2 bg-[#1A0B2E] border border-purple-500/20 rounded-xl text-white text-xs focus:outline-none"
+            className="px-3 py-2 bg-[#1A0B2E] border border-purple-500/20 rounded-xl text-white text-xs focus:outline-none font-bold"
           >
             <option value="ALL">All Roles</option>
             <option value="EMPLOYEE">Employee</option>
@@ -193,7 +211,7 @@ export const UserManagementTab: React.FC = () => {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 bg-[#1A0B2E] border border-purple-500/20 rounded-xl text-white text-xs focus:outline-none"
+            className="px-3 py-2 bg-[#1A0B2E] border border-purple-500/20 rounded-xl text-white text-xs focus:outline-none font-bold"
           >
             <option value="ALL">All Statuses</option>
             <option value="Pending Approval">Pending</option>
@@ -214,6 +232,7 @@ export const UserManagementTab: React.FC = () => {
               <th className="px-4 py-3">Code</th>
               <th className="px-4 py-3">Department</th>
               <th className="px-4 py-3">Designation</th>
+              <th className="px-4 py-3">Team Leader / Assignment</th>
               <th className="px-4 py-3">Role</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Action</th>
@@ -239,21 +258,36 @@ export const UserManagementTab: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="px-2 py-1 rounded bg-[#1A0B2E] border border-purple-500/20 font-mono text-purple-300 text-[10px]">
+                    <span className="px-2 py-1 rounded bg-[#1A0B2E] border border-purple-500/20 font-mono text-purple-300 text-[10px] font-bold">
                       {emp.employeeCode || 'N/A'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-purple-200">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 font-bold">
                       <Building2 className="w-3.5 h-3.5 text-purple-400" />
-                      {emp.office || 'Raniganj'}
+                      {emp.office || (emp as any).departmentName || 'N/A'}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-xs text-purple-200">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 font-bold">
                       <Briefcase className="w-3.5 h-3.5 text-purple-400" />
                       {emp.designation || 'N/A'}
                     </div>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-purple-200">
+                    {emp.isTeamLeader || emp.role === 'TEAM_LEADER' ? (
+                      <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-black uppercase flex items-center gap-1 w-max">
+                        <Users className="w-3 h-3 text-amber-400" />
+                        Team Leader
+                      </span>
+                    ) : (emp as any).assignedTeamLeaderName || (emp as any).teamLeaderName ? (
+                      <div className="flex items-center gap-1 text-[11px] text-purple-200 font-bold">
+                        <Users className="w-3 h-3 text-purple-400 shrink-0" />
+                        <span>{(emp as any).assignedTeamLeaderName || (emp as any).teamLeaderName}</span>
+                      </div>
+                    ) : (
+                      <span className="text-purple-300/40 text-[10px] italic">Unassigned</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <span className="px-2 py-1 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 text-[9px] font-black uppercase flex items-center gap-1 w-max">
@@ -286,7 +320,7 @@ export const UserManagementTab: React.FC = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-purple-300/40 text-sm">
+                <td colSpan={9} className="px-4 py-12 text-center text-purple-300/40 text-sm">
                   No employees found matching criteria.
                 </td>
               </tr>
@@ -303,8 +337,10 @@ export const UserManagementTab: React.FC = () => {
           onSave={handleSaveProfile}
           departments={departments}
           designations={designations}
+          allUsers={employees}
         />
       )}
     </div>
   );
 };
+

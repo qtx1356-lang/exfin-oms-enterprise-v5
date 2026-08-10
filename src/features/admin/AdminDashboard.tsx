@@ -64,6 +64,7 @@ import { AdminWorkPlannerTab } from './AdminWorkPlannerTab';
 import { SystemHealthSection } from './SystemHealthSection';
 import { UserManagementTab } from './UserManagementTab';
 import { HRManagementTab } from './HRManagementTab';
+import { OrganizationSettingsTab } from './OrganizationSettingsTab';
 import { SalaryManagementTab } from './SalaryManagementTab';
 import { AdminChatTab } from './AdminChatTab';
 import { NotificationManagement } from './NotificationManagement';
@@ -95,6 +96,7 @@ type Registration = {
 type AdminTab =
   | 'overview'
   | 'userManagement'
+  | 'organization'
   | 'profiles'
   | 'hr'
   | 'salaries'
@@ -131,6 +133,7 @@ export const AdminDashboard: React.FC = () => {
   const canSeeReports = isSuperAdmin() || hasFeatureAccess('reports');
   const canSeeHealth = isSuperAdmin() || hasFeatureAccess('systemHealth');
   const canSeeUserManagement = isSuperAdmin() || hasFeatureAccess('userManagement');
+  const canSeeOrganization = isSuperAdmin() || hasFeatureAccess('userManagement') || hasFeatureAccess('hrManagement') || role === 'ADMIN';
   const canSeeProfiles = isSuperAdmin() || hasFeatureAccess('employeeManagement');
   const canSeeHr = isSuperAdmin() || hasFeatureAccess('hrManagement');
   const canSeeSalaries = isSuperAdmin() || hasFeatureAccess('hrManagement') || hasFeatureAccess('employeeManagement');
@@ -436,7 +439,7 @@ export const AdminDashboard: React.FC = () => {
           )}
 
           {/* SECTION: PEOPLE */}
-          {(canSeeUserManagement || canSeeProfiles || canSeeHr) && (
+          {(canSeeUserManagement || canSeeOrganization || canSeeProfiles || canSeeHr) && (
             <div className="flex items-center gap-1.5 shrink-0">
               <span className="text-[10px] font-extrabold text-purple-400 uppercase tracking-wider pr-1">People:</span>
               {canSeeUserManagement && (
@@ -447,6 +450,16 @@ export const AdminDashboard: React.FC = () => {
                   }`}
                 >
                   User Directory & Roles
+                </button>
+              )}
+              {canSeeOrganization && (
+                <button
+                  onClick={() => setActiveTab('organization')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all ${
+                    activeTab === 'organization' ? 'bg-purple-600 text-white shadow-md' : 'text-purple-300/80 hover:text-white bg-white/5'
+                  }`}
+                >
+                  Departments & Designations
                 </button>
               )}
               {canSeeProfiles && (
@@ -710,6 +723,11 @@ export const AdminDashboard: React.FC = () => {
         {/* USER MANAGEMENT TAB */}
         {activeTab === 'userManagement' && canSeeUserManagement && (
           <UserManagementTab />
+        )}
+
+        {/* DEPARTMENTS & DESIGNATIONS TAB */}
+        {activeTab === 'organization' && canSeeOrganization && (
+          <OrganizationSettingsTab users={deduplicatedRegistrations as any} />
         )}
 
         {/* PROFILES TAB */}

@@ -89,8 +89,9 @@ export const updateUserRoleAndStatus = async (params: {
   previousStatus?: string;
   department?: string;
   designation?: string;
-  assignedTeamLeaderId?: string;
-  assignedTeamLeaderName?: string;
+  assignedTeamLeaderId?: string | null;
+  assignedTeamLeaderName?: string | null;
+  assignedTeamLeaderCode?: string | null;
   isTeamLeader?: boolean;
   teamMemberUids?: string[];
   actorEmail: string;
@@ -109,6 +110,7 @@ export const updateUserRoleAndStatus = async (params: {
     designation,
     assignedTeamLeaderId,
     assignedTeamLeaderName,
+    assignedTeamLeaderCode,
     isTeamLeader,
     teamMemberUids,
     actorEmail,
@@ -142,6 +144,27 @@ export const updateUserRoleAndStatus = async (params: {
     updateData.teamLeaderUid = assignedTeamLeaderId || null;
     updateData.teamLeaderId = assignedTeamLeaderId || null;
     updateData.assignedTeamLeaderName = assignedTeamLeaderName || null;
+    updateData.teamLeaderCode = assignedTeamLeaderCode || null;
+
+    // Sync member with assigned Team Leader's teamMemberUids
+    if (assignedTeamLeaderId) {
+      try {
+        const tlRef = doc(db, 'registrations', assignedTeamLeaderId);
+        const tlSnap = await getDoc(tlRef);
+        if (tlSnap.exists()) {
+          const tlData = tlSnap.data();
+          const currentUids: string[] = Array.isArray(tlData.teamMemberUids) ? tlData.teamMemberUids : [];
+          if (!currentUids.includes(userId)) {
+            await updateDoc(tlRef, {
+              teamMemberUids: [...currentUids, userId],
+              updatedAt: nowIso,
+            });
+          }
+        }
+      } catch (tlErr) {
+        console.warn('Error updating Team Leader teamMemberUids:', tlErr);
+      }
+    }
   }
 
   // 2. Handle Team Leader member assignments
