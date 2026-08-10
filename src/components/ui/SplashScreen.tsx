@@ -21,14 +21,8 @@ export const SplashScreen: React.FC<{ onFinish: () => void }> = ({ onFinish }) =
         transition={{ duration: 0.5 }}
         className="text-center"
       >
-        <div className="w-20 h-20 mx-auto mb-4 bg-[#7C3AED] rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(124,58,237,0.6)]">
+        <div className="w-20 h-20 mx-auto bg-[#7C3AED] rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(124,58,237,0.6)]">
           <span className="text-3xl font-black tracking-tighter text-white">EO</span>
-        </div>
-        <div className="text-2xl font-black tracking-wider text-white">
-          EXFIN OMS ENTERPRISE
-        </div>
-        <div className="mt-2 text-xs font-bold uppercase tracking-widest text-purple-300 bg-purple-900/40 border border-purple-500/30 px-3 py-1 rounded-full inline-block">
-          v6.0 • Deep Purple Enterprise
         </div>
       </motion.div>
     </motion.div>
