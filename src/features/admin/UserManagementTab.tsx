@@ -8,6 +8,8 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { OrganizationSettingsTab } from './OrganizationSettingsTab';
+import { ProfileEditModal } from '../../components/common/ProfileEditModal';
+import { updateEmployeeProfile } from '../../services/admin/adminProfileService';
 import {
   Users,
   Search,
@@ -62,8 +64,7 @@ export const UserManagementTab: React.FC = () => {
 
   const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isProfileEditModalOpen, setIsProfileEditModalOpen] = useState(false);
 
   // Edit form state
   const [editRole, setEditRole] = useState<AppRole>('EMPLOYEE');
@@ -822,6 +823,13 @@ export const UserManagementTab: React.FC = () => {
                           <Eye className="w-3.5 h-3.5" />
                         </Button>
                         <Button
+                          onClick={() => openProfileEditModal(u)}
+                          className="p-1.5 h-auto bg-blue-600/30 hover:bg-blue-600 text-blue-200 hover:text-white"
+                          title="Edit Profile"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
                           onClick={() => openEditModal(u)}
                           disabled={!isSuperAdmin() && (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN')}
                           className="p-1.5 h-auto bg-purple-600/30 hover:bg-purple-600 text-purple-200 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
@@ -908,6 +916,16 @@ export const UserManagementTab: React.FC = () => {
             )}
           </div>
         </div>
+      )}
+      {isProfileEditModalOpen && selectedUser && (
+        <ProfileEditModal
+          user={selectedUser}
+          isOpen={isProfileEditModalOpen}
+          onClose={() => setIsProfileEditModalOpen(false)}
+          onSave={handleUpdateProfile}
+          departments={masterDepts}
+          designations={masterDesigs}
+        />
       )}
 
       {/* EDIT MODAL */}
