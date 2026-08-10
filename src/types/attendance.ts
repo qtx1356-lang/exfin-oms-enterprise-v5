@@ -13,6 +13,18 @@ export type OutdoorWorkTypeOption =
   | 'Delivery'
   | 'Inspection';
 
+export interface AttendanceCorrection {
+  id: string;
+  originalCheckIn: string;
+  correctedCheckIn: string;
+  originalCheckOut: string | null;
+  correctedCheckOut: string | null;
+  reason: string;
+  correctedBy: string;
+  correctedByRole: string;
+  correctedAt: string;
+}
+
 export interface AttendanceRecord {
   id: string; // UUID
   docId: string; // Key: ${employeeId}_${date} e.g. EMP101_2026-08-07
@@ -37,6 +49,7 @@ export interface AttendanceRecord {
   syncStatus: SyncStatus;
   serverSyncTime: string | null;
   isOffline: boolean;
+  correctionHistory?: AttendanceCorrection[];
 
   // Work From Home (WFH) fields
   wfhReason?: string | null;

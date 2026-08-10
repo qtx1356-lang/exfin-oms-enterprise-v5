@@ -51,7 +51,8 @@ import { Card } from '../../components/ui/Card';
 import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
-import { AttendanceRecord } from '../../types/attendance';
+import { AttendanceRecord, AttendanceCorrection } from '../../types/attendance';
+import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { ExpenseRecord } from '../../types/expense';
 import { TaskRecord, TaskPriority, TaskStatus, AssignmentType, TaskComment, getEffectiveTaskStatus } from '../../types/planner';
 import { getStoredTasks, saveTaskRecord } from '../../services/planner/taskStorage';
@@ -215,6 +216,15 @@ export const AdminDashboard: React.FC = () => {
   const [showAttendanceDetails, setShowAttendanceDetails] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<ExpenseRecord | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskRecord | null>(null);
+
+  // Attendance Rectification States
+  const [selectedForRectify, setSelectedForRectify] = useState<AttendanceRecord | null>(null);
+  const [showRectifyModal, setShowRectifyModal] = useState(false);
+  const [rectifyCheckIn, setRectifyCheckIn] = useState('');
+  const [rectifyCheckOut, setRectifyCheckOut] = useState('');
+  const [rectifyReason, setRectifyReason] = useState('');
+  const [showRectifyConfirm, setShowRectifyConfirm] = useState(false);
+  const [rectifyError, setRectifyError] = useState('');
 
   const [rejectionReason, setRejectionReason] = useState('');
   const [expenseRejectReason, setExpenseRejectReason] = useState('');
@@ -766,12 +776,13 @@ export const AdminDashboard: React.FC = () => {
                     <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Client/Outdoor</th>
                     <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Sync</th>
                     <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Conn</th>
+                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-purple-500/10">
                   {attendanceRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={14} className="p-12 text-center text-purple-300/60">
+                      <td colSpan={15} className="p-12 text-center text-purple-300/60">
                         <EmptyState icon={Calendar} title="No Records" description="No attendance records logged yet." />
                       </td>
                     </tr>
@@ -864,6 +875,22 @@ export const AdminDashboard: React.FC = () => {
                           ) : (
                             <Wifi className="w-3.5 h-3.5 text-emerald-500" />
                           )}
+                        </td>
+                        <td className="p-3 border-b border-purple-500/10" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            onClick={() => {
+                              setSelectedForRectify(rec);
+                              setRectifyCheckIn(rec.checkInTime);
+                              setRectifyCheckOut(rec.checkOutTime || '');
+                              setRectifyReason('');
+                              setRectifyError('');
+                              setShowRectifyModal(true);
+                            }}
+                            className="bg-purple-600/80 hover:bg-purple-500 text-white text-[10px] px-2.5 py-1 rounded-xl flex items-center gap-1 shadow-sm font-bold"
+                            title="Rectify Check-In / Check-Out Times"
+                          >
+                            <Clock className="w-3 h-3" /> Rectify
+                          </Button>
                         </td>
                       </tr>
                     ))
@@ -1177,11 +1204,207 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {selectedAttendance.correctionHistory && selectedAttendance.correctionHistory.length > 0 && (
+                <div className="space-y-3 pt-3 border-t border-purple-500/20">
+                  <h5 className="text-[10px] font-black text-amber-300 uppercase tracking-widest flex items-center gap-2">
+                    <Clock className="w-3 h-3" /> Attendance Correction Audit History ({selectedAttendance.correctionHistory.length})
+                  </h5>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {selectedAttendance.correctionHistory.map((corr, idx) => (
+                      <div key={corr.id || idx} className="p-3 bg-purple-950/60 rounded-xl border border-purple-500/20 text-xs space-y-1">
+                        <div className="flex justify-between text-[10px] text-purple-300">
+                          <span>By: {corr.correctedBy} ({corr.correctedByRole})</span>
+                          <span>{new Date(corr.correctedAt).toLocaleString()}</span>
+                        </div>
+                        <div className="text-white text-[11px]">
+                          <div><strong>Check-In:</strong> {corr.originalCheckIn} → <span className="text-emerald-400 font-bold">{corr.correctedCheckIn}</span></div>
+                          <div><strong>Check-Out:</strong> {corr.originalCheckOut || 'None'} → <span className="text-emerald-400 font-bold">{corr.correctedCheckOut || 'None'}</span></div>
+                          <div className="text-amber-300 italic mt-0.5">Reason: "{corr.reason}"</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="pt-4 border-t border-purple-500/20 flex justify-end">
               <Button onClick={() => setShowAttendanceDetails(false)} className="bg-purple-600 hover:bg-purple-500">
                 Close Audit View
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      {/* Attendance Rectification Modal */}
+      <Dialog
+        isOpen={showRectifyModal && !!selectedForRectify}
+        onClose={() => setShowRectifyModal(false)}
+        title="Rectify Attendance Check-In / Check-Out"
+      >
+        {selectedForRectify && (
+          <div className="space-y-4 text-white">
+            <div className="p-3 bg-purple-950/60 rounded-xl border border-purple-500/20 space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-purple-300">Employee:</span>
+                <span className="font-bold text-white">{selectedForRectify.employeeName} ({selectedForRectify.employeeId || selectedForRectify.employeeCode})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-purple-300">Date & Mode:</span>
+                <span className="font-bold text-white">{selectedForRectify.date} • {selectedForRectify.attendanceType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-purple-300">Current Times:</span>
+                <span className="text-emerald-400 font-mono">In: {selectedForRectify.checkInTime}</span> | <span className="text-purple-200 font-mono">Out: {selectedForRectify.checkOutTime || 'Pending'}</span>
+              </div>
+            </div>
+
+            {rectifyError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{rectifyError}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-purple-300">Check-In Time</label>
+                <input
+                  type="text"
+                  value={rectifyCheckIn}
+                  onChange={(e) => setRectifyCheckIn(e.target.value)}
+                  placeholder="e.g. 10:30 AM"
+                  className="w-full px-3 py-2 bg-[#1B0D38] border border-purple-500/30 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-purple-400"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-purple-300">Check-Out Time</label>
+                <input
+                  type="text"
+                  value={rectifyCheckOut}
+                  onChange={(e) => setRectifyCheckOut(e.target.value)}
+                  placeholder="e.g. 06:00 PM"
+                  className="w-full px-3 py-2 bg-[#1B0D38] border border-purple-500/30 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-purple-400"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-purple-300">Mandatory Rectification Reason <span className="text-red-400">*</span></label>
+              <textarea
+                value={rectifyReason}
+                onChange={(e) => setRectifyReason(e.target.value)}
+                placeholder="e.g. Employee forgot to check out / Biometric correction / Approved manual edit"
+                rows={3}
+                className="w-full px-3 py-2 bg-[#1B0D38] border border-purple-500/30 rounded-xl text-white text-xs focus:outline-none focus:border-purple-400 resize-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-purple-500/20">
+              <Button variant="outline" onClick={() => setShowRectifyModal(false)} className="text-xs">
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!rectifyReason.trim()) {
+                    setRectifyError('Mandatory rectification reason is required.');
+                    return;
+                  }
+                  const parseTimeMins = (timeStr: string): number => {
+                    const clean = timeStr.trim().toUpperCase();
+                    const [time, modifier] = clean.split(' ');
+                    let [hours, minutes] = time.split(':').map(Number);
+                    if (isNaN(hours) || isNaN(minutes)) return 0;
+                    if (modifier === 'PM' && hours < 12) hours += 12;
+                    if (modifier === 'AM' && hours === 12) hours = 0;
+                    return hours * 60 + minutes;
+                  };
+
+                  if (rectifyCheckOut.trim()) {
+                    const inMins = parseTimeMins(rectifyCheckIn);
+                    const outMins = parseTimeMins(rectifyCheckOut);
+                    if (inMins > outMins) {
+                      setRectifyError('Check-out time must be later than check-in time.');
+                      return;
+                    }
+                  }
+
+                  setRectifyError('');
+                  setShowRectifyConfirm(true);
+                }}
+                className="bg-purple-600 hover:bg-purple-500 text-xs font-bold"
+              >
+                Save Correction
+              </Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      {/* Attendance Rectification Confirmation Dialog */}
+      <Dialog
+        isOpen={showRectifyConfirm && !!selectedForRectify}
+        onClose={() => setShowRectifyConfirm(false)}
+        title="Confirm Attendance Correction"
+      >
+        {selectedForRectify && (
+          <div className="space-y-4 text-white">
+            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3 text-xs">
+              <div className="font-black text-amber-300 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" /> Please verify attendance correction details:
+              </div>
+              <div className="space-y-1.5 text-purple-200">
+                <div><strong>Employee:</strong> {selectedForRectify.employeeName} ({selectedForRectify.employeeId || selectedForRectify.employeeCode})</div>
+                <div><strong>Date:</strong> {selectedForRectify.date}</div>
+                <div><strong>Check-In:</strong> <span className="text-red-300 line-through">{selectedForRectify.checkInTime}</span> → <span className="text-emerald-300 font-bold">{rectifyCheckIn}</span></div>
+                <div><strong>Check-Out:</strong> <span className="text-red-300 line-through">{selectedForRectify.checkOutTime || 'Pending'}</span> → <span className="text-emerald-300 font-bold">{rectifyCheckOut || 'Pending'}</span></div>
+                <div><strong>Reason:</strong> {rectifyReason}</div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-purple-500/20">
+              <Button variant="outline" onClick={() => setShowRectifyConfirm(false)} className="text-xs">
+                Back
+              </Button>
+              <Button
+                onClick={async () => {
+                  try {
+                    const correction: AttendanceCorrection = {
+                      id: `corr_${Date.now()}`,
+                      originalCheckIn: selectedForRectify.checkInTime,
+                      correctedCheckIn: rectifyCheckIn,
+                      originalCheckOut: selectedForRectify.checkOutTime || null,
+                      correctedCheckOut: rectifyCheckOut ? rectifyCheckOut : null,
+                      reason: rectifyReason.trim(),
+                      correctedBy: loginId || adminUser?.email || 'admin',
+                      correctedByRole: role,
+                      correctedAt: new Date().toISOString()
+                    };
+
+                    const updatedHistory = [...(selectedForRectify.correctionHistory || []), correction];
+                    const newWorkingHours = calculateWorkingHours(rectifyCheckIn, rectifyCheckOut ? rectifyCheckOut : null);
+
+                    await updateDoc(doc(db, 'attendance', selectedForRectify.id), {
+                      checkInTime: rectifyCheckIn,
+                      checkOutTime: rectifyCheckOut ? rectifyCheckOut : null,
+                      workingHours: newWorkingHours,
+                      correctionHistory: updatedHistory
+                    });
+
+                    setShowRectifyConfirm(false);
+                    setShowRectifyModal(false);
+                    setSelectedForRectify(null);
+                    alert('Attendance corrected successfully.');
+                  } catch (err: any) {
+                    console.error('Failed to rectify attendance:', err);
+                    alert(`Failed to rectify attendance: ${err.message || 'Unknown error'}`);
+                  }
+                }}
+                className="bg-emerald-600 hover:bg-emerald-500 text-xs font-extrabold"
+              >
+                Confirm Correction
               </Button>
             </div>
           </div>
