@@ -236,9 +236,6 @@ export const EmployeeDashboard: React.FC = () => {
               <h1 className="text-lg font-black text-white leading-none">
                 {employeeData.name || 'Employee'}
               </h1>
-              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#7C3AED]/30 text-[#A78BFA] border border-purple-500/30">
-                PRO
-              </span>
             </div>
             <p className="text-xs text-purple-300/80 font-medium mt-1">
               Code: <span className="text-white font-bold">{employeeData.employeeCode || 'N/A'}</span>
