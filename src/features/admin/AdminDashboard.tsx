@@ -195,6 +195,20 @@ export const AdminDashboard: React.FC = () => {
   const [employeeAllowances, setEmployeeAllowances] = useState<EmployeeAllowance[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
 
+  const todayAttendanceCount = React.useMemo(() => {
+    let todayStr = '';
+    try {
+      todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    } catch {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      todayStr = `${year}-${month}-${day}`;
+    }
+    return attendanceRecords.filter((rec) => rec.date === todayStr).length;
+  }, [attendanceRecords]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReg, setSelectedReg] = useState<Registration | null>(null);
   const [selectedAttendance, setSelectedAttendance] = useState<AttendanceRecord | null>(null);
@@ -609,7 +623,9 @@ export const AdminDashboard: React.FC = () => {
                 </div>
                 <div>
                   <div className="text-[10px] text-purple-300 uppercase font-bold">Attendance Records</div>
-                  <div className="text-xl font-black text-emerald-400">{attendanceRecords.length} Today</div>
+                  <div className="text-xl font-black text-emerald-400">
+                    {isDataLoading ? '—' : todayAttendanceCount} Today
+                  </div>
                 </div>
               </Card>
 
