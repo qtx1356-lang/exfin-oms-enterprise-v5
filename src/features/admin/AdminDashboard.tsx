@@ -73,6 +73,7 @@ import { SalaryManagementTab } from './SalaryManagementTab';
 import { AdminChatTab } from './AdminChatTab';
 import { NotificationManagement } from './NotificationManagement';
 import { listenConversations } from '../../services/chat/chatService';
+import { OfficePulse } from './OfficePulse';
 
 export const safeStringify = (val: any): string => {
   if (val === null || val === undefined) return '';
@@ -126,6 +127,7 @@ type Registration = {
 
 type AdminTab =
   | 'overview'
+  | 'officePulse'
   | 'userManagement'
   | 'teamManagement'
   | 'organization'
@@ -400,6 +402,7 @@ export const AdminDashboard: React.FC = () => {
       title: 'ENTERPRISE',
       items: [
         { id: 'overview' as AdminTab, label: 'Overview', icon: LayoutDashboard, visible: canSeeOverview },
+        { id: 'officePulse' as AdminTab, label: 'Office Pulse', icon: Sparkles, visible: canSeeOverview },
         { id: 'reports' as AdminTab, label: 'Analytics', icon: Activity, visible: canSeeReports },
         { id: 'health' as AdminTab, label: 'System Health', icon: Wifi, visible: canSeeHealth },
       ],
@@ -593,6 +596,7 @@ export const AdminDashboard: React.FC = () => {
             <div className="min-w-0">
               <h2 className="text-sm sm:text-base font-black text-white tracking-wide truncate">
                 {activeTab === 'overview' && 'Overview Dashboard'}
+                {activeTab === 'officePulse' && 'Office Pulse'}
                 {activeTab === 'reports' && 'Analytics & Reports'}
                 {activeTab === 'health' && 'System Health & Security'}
                 {activeTab === 'userManagement' && 'User Directory & Roles'}
@@ -715,6 +719,11 @@ export const AdminDashboard: React.FC = () => {
                       Enterprise Reports
                     </Button>
                   )}
+                  {canSeeOverview && (
+                    <Button onClick={() => setActiveTab('officePulse')} className="col-span-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-xs py-2.5">
+                      Live Office Pulse
+                    </Button>
+                  )}
                 </div>
               </Card>
 
@@ -739,6 +748,17 @@ export const AdminDashboard: React.FC = () => {
               </Card>
             </div>
           </div>
+        )}
+
+        {/* OFFICE PULSE TAB */}
+        {activeTab === 'officePulse' && canSeeOverview && (
+          <OfficePulse 
+            registrations={deduplicatedRegistrations as any}
+            attendanceRecords={attendanceRecords}
+            leaves={leaves}
+            role={role}
+            authorizedOffice={authorizedOffice}
+          />
         )}
 
         {/* USER MANAGEMENT TAB */}
