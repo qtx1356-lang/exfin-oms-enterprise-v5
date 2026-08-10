@@ -811,6 +811,7 @@ export const AdminDashboard: React.FC = () => {
                         key={rec.id} 
                         className="hover:bg-white/[0.05] cursor-pointer transition-colors group"
                         onClick={() => {
+                          if (!rec) return;
                           setSelectedAttendance(rec);
                           setShowAttendanceDetails(true);
                         }}
@@ -1051,15 +1052,15 @@ export const AdminDashboard: React.FC = () => {
             <div className="p-4 bg-[#1A0B36] rounded-2xl border border-purple-500/30">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-black text-xl shadow-lg">
-                  {selectedAttendance.employeeName?.charAt(0) || 'U'}
+                  {selectedAttendance.employeeName ? selectedAttendance.employeeName.charAt(0).toUpperCase() : 'U'}
                 </div>
                 <div>
-                  <h4 className="text-lg font-black text-white">{selectedAttendance.employeeName}</h4>
-                  <p className="text-xs text-purple-300 font-mono uppercase tracking-widest">{selectedAttendance.employeeId || selectedAttendance.employeeCode}</p>
+                  <h4 className="text-lg font-black text-white">{selectedAttendance.employeeName || 'Unknown Employee'}</h4>
+                  <p className="text-xs text-purple-300 font-mono uppercase tracking-widest">{selectedAttendance.employeeId || selectedAttendance.employeeCode || 'No Code'}</p>
                 </div>
                 <div className="ml-auto text-right">
                   <div className="text-[10px] text-purple-300/60 uppercase font-bold">Shift Date</div>
-                  <div className="text-sm font-black text-white">{selectedAttendance.date}</div>
+                  <div className="text-sm font-black text-white">{selectedAttendance.date || '—'}</div>
                 </div>
               </div>
             </div>
@@ -1074,15 +1075,15 @@ export const AdminDashboard: React.FC = () => {
                   <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex justify-between items-center">
                     <span className="text-[11px] text-emerald-300 font-bold">Check-In</span>
                     <div className="text-right">
-                      <div className="text-sm font-black text-white">{selectedAttendance.checkInTime}</div>
-                      <div className="text-[9px] text-emerald-300/60 font-mono uppercase">{selectedAttendance.checkInMode} Mode</div>
+                      <div className="text-sm font-black text-white">{selectedAttendance.checkInTime || '—'}</div>
+                      <div className="text-[9px] text-emerald-300/60 font-mono uppercase">{selectedAttendance.checkInMode || 'N/A'} Mode</div>
                     </div>
                   </div>
                   <div className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-xl flex justify-between items-center">
                     <span className="text-[11px] text-purple-300 font-bold">Check-Out</span>
                     <div className="text-right">
                       <div className="text-sm font-black text-white">{selectedAttendance.checkOutTime || '—'}</div>
-                      <div className="text-[9px] text-purple-300/60 font-mono uppercase">{selectedAttendance.checkOutMode} Mode</div>
+                      <div className="text-[9px] text-purple-300/60 font-mono uppercase">{selectedAttendance.checkOutMode || 'N/A'} Mode</div>
                     </div>
                   </div>
                   <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex justify-between items-center">
@@ -1101,10 +1102,16 @@ export const AdminDashboard: React.FC = () => {
                   <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl">
                     <div className="flex justify-between items-center mb-1">
                       <span className="text-[11px] text-amber-300 font-bold">Location</span>
-                      <span className="text-[10px] text-amber-300/60 font-mono uppercase">{selectedAttendance.distance ? `${(selectedAttendance.distance).toFixed(0)}m from HQ` : '—'}</span>
+                      <span className="text-[10px] text-amber-300/60 font-mono uppercase">
+                        {typeof selectedAttendance.distance === 'number'
+                          ? `${selectedAttendance.distance.toFixed(0)}m from HQ`
+                          : (selectedAttendance.distance ? `${selectedAttendance.distance}m from HQ` : '—')}
+                      </span>
                     </div>
                     <div className="text-xs text-white font-medium mb-2">{selectedAttendance.townCity || 'Unknown Location'}</div>
-                    <div className="text-[9px] text-purple-300/40 font-mono">{selectedAttendance.latitude}, {selectedAttendance.longitude}</div>
+                    <div className="text-[9px] text-purple-300/40 font-mono">
+                      {selectedAttendance.latitude || '—'}, {selectedAttendance.longitude || '—'}
+                    </div>
                   </div>
                   
                   {/* Geo-Fencing Logs */}
@@ -1128,7 +1135,7 @@ export const AdminDashboard: React.FC = () => {
             {/* Context Specific Data */}
             <div className="space-y-3">
               <h5 className="text-[10px] font-black text-blue-300 uppercase tracking-widest flex items-center gap-2">
-                <Briefcase className="w-3 h-3" /> Professional Context: {selectedAttendance.attendanceType}
+                <Briefcase className="w-3 h-3" /> Professional Context: {selectedAttendance.attendanceType || 'STANDARD'}
               </h5>
               
               <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-2xl">
@@ -1199,11 +1206,15 @@ export const AdminDashboard: React.FC = () => {
               <div className="grid grid-cols-3 gap-2">
                 <div className="p-2 bg-white/5 rounded-lg">
                   <div className="text-[9px] text-purple-300/40 uppercase font-bold">Device Stamp</div>
-                  <div className="text-[10px] text-white/60 truncate" title={selectedAttendance.createdAtDeviceTime}>{selectedAttendance.createdAtDeviceTime.split('T')[0]}</div>
+                  <div className="text-[10px] text-white/60 truncate" title={selectedAttendance.createdAtDeviceTime || ''}>
+                    {selectedAttendance.createdAtDeviceTime && typeof selectedAttendance.createdAtDeviceTime === 'string'
+                      ? (selectedAttendance.createdAtDeviceTime.includes('T') ? selectedAttendance.createdAtDeviceTime.split('T')[0] : selectedAttendance.createdAtDeviceTime)
+                      : (selectedAttendance.date || '—')}
+                  </div>
                 </div>
                 <div className="p-2 bg-white/5 rounded-lg">
                   <div className="text-[9px] text-purple-300/40 uppercase font-bold">Sync State</div>
-                  <div className="text-[10px] text-white/60 font-bold">{selectedAttendance.syncStatus}</div>
+                  <div className="text-[10px] text-white/60 font-bold">{selectedAttendance.syncStatus || 'Synced'}</div>
                   {selectedAttendance.serverSyncTime && (
                     <div className="text-[8px] text-emerald-400/60 font-mono mt-0.5 truncate">{selectedAttendance.serverSyncTime}</div>
                   )}
@@ -1224,7 +1235,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               )}
 
-              {selectedAttendance.correctionHistory && selectedAttendance.correctionHistory.length > 0 && (
+              {Array.isArray(selectedAttendance.correctionHistory) && selectedAttendance.correctionHistory.length > 0 && (
                 <div className="space-y-3 pt-3 border-t border-purple-500/20">
                   <h5 className="text-[10px] font-black text-amber-300 uppercase tracking-widest flex items-center gap-2">
                     <Clock className="w-3 h-3" /> Attendance Correction Audit History ({selectedAttendance.correctionHistory.length})
@@ -1233,13 +1244,13 @@ export const AdminDashboard: React.FC = () => {
                     {selectedAttendance.correctionHistory.map((corr, idx) => (
                       <div key={corr.id || idx} className="p-3 bg-purple-950/60 rounded-xl border border-purple-500/20 text-xs space-y-1">
                         <div className="flex justify-between text-[10px] text-purple-300">
-                          <span>By: {corr.correctedBy} ({corr.correctedByRole})</span>
-                          <span>{new Date(corr.correctedAt).toLocaleString()}</span>
+                          <span>By: {corr.correctedBy || 'Admin'} ({corr.correctedByRole || 'ADMIN'})</span>
+                          <span>{corr.correctedAt ? new Date(corr.correctedAt).toLocaleString() : '—'}</span>
                         </div>
                         <div className="text-white text-[11px]">
-                          <div><strong>Check-In:</strong> {corr.originalCheckIn} → <span className="text-emerald-400 font-bold">{corr.correctedCheckIn}</span></div>
+                          <div><strong>Check-In:</strong> {corr.originalCheckIn || '—'} → <span className="text-emerald-400 font-bold">{corr.correctedCheckIn || '—'}</span></div>
                           <div><strong>Check-Out:</strong> {corr.originalCheckOut || 'None'} → <span className="text-emerald-400 font-bold">{corr.correctedCheckOut || 'None'}</span></div>
-                          <div className="text-amber-300 italic mt-0.5">Reason: "{corr.reason}"</div>
+                          <div className="text-amber-300 italic mt-0.5">Reason: &quot;{corr.reason || ''}&quot;</div>
                         </div>
                       </div>
                     ))}
