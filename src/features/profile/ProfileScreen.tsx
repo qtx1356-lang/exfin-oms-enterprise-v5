@@ -131,43 +131,6 @@ export const ProfileScreen: React.FC = () => {
     });
   }, [profile, role, employeeData]);
 
-  // Handle Photo Selection
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Photo size must be under 5MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result as string;
-      setUploadingPhoto(true);
-      try {
-        const res = await uploadProfilePhoto(uid, profile?.employeeCode || 'EXFRNG000', base64);
-        if (profile) {
-          setProfile({
-            ...profile,
-            profilePhotoUrl: res.photoUrl || base64,
-          });
-        }
-      } catch (err: any) {
-        if (!navigator.onLine) {
-          alert("You're offline. Connect to the internet to update your profile photo.");
-        } else if (err.message === 'STORAGE_SUCCESS_FIRESTORE_FAIL') {
-          alert('Photo uploaded but profile update failed. Please try again.');
-        } else {
-          alert('Unable to upload profile photo. Please try again.');
-        }
-      } finally {
-        setUploadingPhoto(false);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
   // Open Edit Request Modal
   const openEditModal = (field: 'mobileNumber' | 'email' | 'emergencyContact', label: string, val: string) => {
     setEditField(field);
@@ -259,21 +222,6 @@ export const ProfileScreen: React.FC = () => {
                 <User className="w-12 h-12 text-purple-300/60" />
               )}
             </div>
-
-            <label className={`absolute bottom-0 right-0 p-2 ${uploadingPhoto ? 'bg-purple-800' : 'bg-[#7C3AED] hover:bg-[#6D28D9]'} text-white rounded-full cursor-pointer shadow-md transition-all scale-95 group-hover:scale-105`}>
-              {uploadingPhoto ? (
-                <span className="text-[9px] font-black animate-pulse">Wait...</span>
-              ) : (
-                <Camera className="w-4 h-4" />
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoSelect}
-                className="hidden"
-                disabled={uploadingPhoto}
-              />
-            </label>
           </div>
 
           {/* User Basic Info */}

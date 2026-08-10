@@ -56,7 +56,9 @@ service cloud.firestore {
     match /registrations/{registrationId} {
       allow create: if true;
       allow read: if true;
-      allow update: if true;
+      allow update: if isAdmin() || 
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['profilePhotoUrl', 'selfieUrl'])) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasAll(['deviceId', 'selfieUrl']) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['profilePhotoUrl']));
       allow delete: if isSuperAdmin();
     }
 
