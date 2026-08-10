@@ -263,29 +263,43 @@ export const trackSmartOfficeExit = (
   // Employee exited geofence (> 25m) after check-in
   if (currentDistance > OFFICE_LOCATION.radius) {
     const exitTimeStr = getFormattedTimeStr(now);
-    updatedRecord.lastExitTime = exitTimeStr;
+    
+    if (updatedRecord.lastExitTime !== exitTimeStr) {
+      updatedRecord.lastExitTime = exitTimeStr;
+      modified = true;
+    }
     if (!updatedRecord.exitTime) {
       updatedRecord.exitTime = exitTimeStr;
+      modified = true;
     }
     
-    // Only set pending if not dismissed
-    if (!updatedRecord.checkoutDismissed) {
+    // Only show pending checkout confirmation prompt if not already dismissed for this exit session
+    if (!updatedRecord.checkoutDismissed && !updatedRecord.pendingCheckoutConfirmation) {
       updatedRecord.pendingCheckoutConfirmation = true;
+      modified = true;
+      console.log(`Smart Office Exit Logged: Exit detected at ${exitTimeStr}`);
     }
-    updatedRecord.syncStatus = 'Pending';
-    modified = true;
-    console.log(`Smart Office Exit Logged: Last Exit Time ${exitTimeStr}`);
   }
 
   // Employee returned to geofence (<= 25m) after exiting
   if (currentDistance <= OFFICE_LOCATION.radius) {
-    if (updatedRecord.pendingCheckoutConfirmation || updatedRecord.checkoutDismissed) {
+    if (
+      updatedRecord.pendingCheckoutConfirmation ||
+      updatedRecord.checkoutDismissed ||
+      updatedRecord.lastExitTime ||
+      updatedRecord.exitTime
+    ) {
+      const returnTimeStr = getFormattedTimeStr(now);
       updatedRecord.pendingCheckoutConfirmation = false;
-      updatedRecord.checkoutDismissed = false; // Reset dismissed flag
-      updatedRecord.returnTime = getFormattedTimeStr(now);
-      updatedRecord.syncStatus = 'Pending';
+      updatedRecord.checkoutDismissed = false; // Reset dismissed flag so future exits will trigger prompt
+      updatedRecord.returnTime = returnTimeStr;
+      // CRITICAL: Employee returned inside 25m range!
+      // Cancel the pending exit event by clearing lastExitTime and exitTime.
+      // Every exit that is followed by a return must be discarded as a pending checkout event.
+      updatedRecord.lastExitTime = null;
+      updatedRecord.exitTime = null;
       modified = true;
-      console.log(`Smart Office Return Logged: Pending checkout prompt cleared at ${updatedRecord.returnTime}`);
+      console.log(`Smart Office Return Logged: Exit event cancelled and return logged at ${returnTimeStr}`);
     }
   }
 
@@ -304,7 +318,8 @@ export const runAutoCheckoutFinalizer = (): void => {
   const todayStr = getFormattedDateStr();
   const now = new Date();
   const hours = now.getHours();
-  const isAfter6PM = hours >= 18;
+  const minutes = now.getMinutes();
+  const is1159PMOrLater = hours === 23 && minutes >= 59;
 
   let modified = false;
   const newRecords = records.map((rec) => {
@@ -312,28 +327,28 @@ export const runAutoCheckoutFinalizer = (): void => {
       return rec;
     }
 
-    // Only finalize today's or past unfinalized records if after 6 PM or end of day
-    // For WFH and Client Visit, they do not require manual checkout and finalize to 6:00 PM
-    if (rec.attendanceType === 'WFH' || rec.attendanceType === 'CLIENT_VISIT') {
-      const checkOutTimeStr = '06:00 PM';
-      const workingHours = calculateWorkingHours(rec.checkInTime, checkOutTimeStr);
-      modified = true;
-      return {
-        ...rec,
-        checkOutTime: checkOutTimeStr,
-        checkOutMode: 'AUTO_SYSTEM' as CheckOutMode,
-        checkoutSource: rec.attendanceType === 'WFH' ? 'automatic_wfh_end_of_day' : 'automatic_client_visit_end_of_day',
-        checkoutFinalized: true,
-        checkoutFinalizedAt: now.toISOString(),
-        workingHours,
-        syncStatus: 'Pending' as SyncStatus
-      };
-    }
+    // Only finalize today's records at end of day (11:59 PM) or past unfinalized records
+    if (rec.date < todayStr || is1159PMOrLater) {
+      if (rec.attendanceType === 'WFH' || rec.attendanceType === 'CLIENT_VISIT') {
+        const checkOutTimeStr = '06:00 PM';
+        const workingHours = calculateWorkingHours(rec.checkInTime, checkOutTimeStr);
+        modified = true;
+        return {
+          ...rec,
+          checkOutTime: checkOutTimeStr,
+          checkOutMode: 'AUTO_SYSTEM' as CheckOutMode,
+          checkoutSource: rec.attendanceType === 'WFH' ? 'automatic_wfh_end_of_day' : 'automatic_client_visit_end_of_day',
+          checkoutFinalized: true,
+          checkoutFinalizedAt: now.toISOString(),
+          pendingCheckoutConfirmation: false,
+          checkoutDismissed: false,
+          workingHours,
+          syncStatus: 'Pending' as SyncStatus
+        };
+      }
 
-    // Office:
-    if (rec.attendanceType === 'OFFICE' || !rec.attendanceType) {
-      // If after 6 PM or if it's a past date
-      if (isAfter6PM || rec.date < todayStr) {
+      // Office:
+      if (rec.attendanceType === 'OFFICE' || !rec.attendanceType) {
         let checkoutTime = '06:00 PM';
         let source = 'automatic_end_of_day';
         if (rec.lastExitTime || rec.exitTime) {
@@ -349,6 +364,8 @@ export const runAutoCheckoutFinalizer = (): void => {
           checkoutSource: source,
           checkoutFinalized: true,
           checkoutFinalizedAt: now.toISOString(),
+          pendingCheckoutConfirmation: false,
+          checkoutDismissed: false,
           workingHours,
           syncStatus: 'Pending' as SyncStatus
         };
@@ -381,45 +398,20 @@ export const checkAndTriggerAutoCheckout = (
   const hours = now.getHours();
   const minutes = now.getMinutes();
 
-  // Check if time is 18:00 (6:00 PM) or later
-  const isAfter6PM = hours >= 18;
-
   // Check if time is 23:59 (11:59 PM) or later
   const is1159PMOrLater = hours === 23 && minutes >= 59;
 
-  let isOutside500m = false;
-  if (currentCoords) {
-    const dist = getDistanceFromLatLonInM(
-      currentCoords.latitude,
-      currentCoords.longitude,
-      OFFICE_LOCATION.latitude,
-      OFFICE_LOCATION.longitude
-    );
-    isOutside500m = dist > 500;
-  } else {
-    isOutside500m = record.distance > 500;
-  }
-
-  let triggerAutoCheckout = false;
-  let reason = '';
-
-  if (isAfter6PM && isOutside500m) {
-    triggerAutoCheckout = true;
-    reason = 'Left Office Beyond 500m After 6 PM';
-  } else if (is1159PMOrLater) {
-    triggerAutoCheckout = true;
-    reason = 'Forgot Checkout';
-  }
-
-  if (triggerAutoCheckout) {
-    const checkOutTimeStr = '06:00 PM'; // Office Closing Time
+  if (is1159PMOrLater) {
+    const checkOutTimeStr = record.lastExitTime || record.exitTime || '06:00 PM';
     const workingHours = calculateWorkingHours(record.checkInTime, checkOutTimeStr);
 
     const updatedRecord: AttendanceRecord = {
       ...record,
       checkOutTime: checkOutTimeStr,
       checkOutMode: 'AUTO_SYSTEM',
-      reason,
+      reason: 'Forgot Checkout (End of Day)',
+      pendingCheckoutConfirmation: false,
+      checkoutDismissed: false,
       workingHours,
       syncStatus: 'Pending',
       isOffline: !navigator.onLine

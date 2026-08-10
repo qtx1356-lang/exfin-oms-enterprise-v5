@@ -287,7 +287,7 @@ export const EmployeeDashboard: React.FC = () => {
             <p className="font-black text-base text-white">
               {todayAttendance?.checkOutTime || '--:--'}
             </p>
-            {todayAttendance?.checkOutMode && (
+            {todayAttendance?.checkOutTime && todayAttendance?.checkOutMode && todayAttendance.checkOutMode !== 'N/A' && (
               <span className="inline-block text-[10px] font-extrabold text-amber-300 mt-1 bg-amber-500/10 px-2 py-0.5 rounded-md">
                 {todayAttendance.checkOutMode}
               </span>

@@ -255,7 +255,8 @@ export const AttendanceScreen: React.FC = () => {
       const todayStr = getFormattedDateStr();
       const activeRecord = getTodayAttendanceRecord(employeeId, todayStr);
       if (activeRecord && (activeRecord.attendanceType === 'OFFICE' || !activeRecord.attendanceType)) {
-        trackSmartOfficeExit(activeRecord, distance);
+        const updated = trackSmartOfficeExit(activeRecord, distance);
+        setTodayRecord(updated);
       }
       handleAutoCheckInCountdown(isInsideGeofence, liveLocation);
     }
@@ -750,7 +751,7 @@ export const AttendanceScreen: React.FC = () => {
                 <div className="bg-amber-500/20 border border-amber-500/40 rounded-[22px] p-5 backdrop-blur-xl shadow-[0_0_25px_rgba(245,158,11,0.3)] space-y-3 animate-pulse">
                   <div className="flex items-center gap-2 text-amber-300 font-black text-sm">
                     <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
-                    <span>You're outside the office premises. Is this your checkout?</span>
+                    <span>You have left the office premises. Is this your checkout time?</span>
                   </div>
                   <div className="text-xs text-purple-200">
                     Last detected exit time: <strong className="text-white">{todayRecord.lastExitTime || todayRecord.exitTime}</strong>
@@ -761,11 +762,10 @@ export const AttendanceScreen: React.FC = () => {
                         const updated: AttendanceRecord = {
                           ...todayRecord,
                           pendingCheckoutConfirmation: false,
-                          checkoutDismissed: true, // Dismissed for this exit
-                          syncStatus: 'Pending',
-                          isOffline: !navigator.onLine
+                          checkoutDismissed: true // Dismissed for this exit prompt
                         };
                         saveAttendanceRecord(updated);
+                        setTodayRecord(updated);
                         refreshRecords();
                         setActionFeedback(`Checkout dismissed. Monitoring continues.`);
                       }}
@@ -790,6 +790,7 @@ export const AttendanceScreen: React.FC = () => {
                           isOffline: !navigator.onLine
                         };
                         saveAttendanceRecord(updated);
+                        setTodayRecord(updated);
                         refreshRecords();
                         setActionFeedback(`Checkout recorded at ${exitTimeStr}.`);
                       }}
