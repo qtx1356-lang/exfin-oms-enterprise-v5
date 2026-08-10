@@ -709,10 +709,11 @@ export const AdminDashboard: React.FC = () => {
 
         {/* USER MANAGEMENT TAB */}
         {activeTab === 'userManagement' && canSeeUserManagement && (
-          <div>
-            USER MANAGEMENT ROUTE DIAGNOSTIC SUCCESS
+          <div className="p-8 bg-[#2D1B5A] border border-purple-500/20 rounded-[22px] text-white">
+            <h1 className="text-2xl font-black mb-4">DEPLOYMENT ROUTE TEST</h1>
+            <p className="text-lg font-bold text-emerald-400">UM-ROUTE-2026-08-10-C</p>
             <br />
-            BUILD: UM-DIAGNOSTIC-2026-08-10-A
+            <p className="text-xs text-purple-300/60">SOURCE: AdminDashboard.tsx</p>
           </div>
         )}
 
