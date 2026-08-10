@@ -31,11 +31,14 @@ import {
 
 
 export const UserManagementTab: React.FC = () => {
+  console.log('USER_MANAGEMENT_RENDER_START');
   const { isSuperAdmin, isAdmin } = usePermission();
+  console.log('USER_MANAGEMENT_AUTH_READY');
   const { user: adminUser, role: activeAdminRole, loginId } = useAdminAuth();
 
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
+  console.log('USER_MANAGEMENT_STATE_READY');
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('ALL');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');

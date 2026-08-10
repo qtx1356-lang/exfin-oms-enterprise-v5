@@ -24,11 +24,18 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      const isDev = import.meta.env.MODE !== 'production';
       return (
         <div className="min-h-screen bg-surface flex flex-col items-center justify-center p-4">
           <div className="bg-surface-variant p-6 rounded-2xl max-w-md w-full shadow-sm">
             <h2 className="text-xl font-bold text-on-primary-container mb-2">Something went wrong</h2>
             <p className="text-sm text-outline mb-4">The application encountered an unexpected error.</p>
+            {isDev && this.state.error && (
+              <div className="bg-red-100 p-4 rounded text-xs text-red-900 mb-4 overflow-auto max-h-60">
+                <p><strong>Error:</strong> {this.state.error.message}</p>
+                <p><strong>Stack:</strong> {this.state.error.stack}</p>
+              </div>
+            )}
             <button 
               onClick={() => window.location.reload()}
               className="bg-primary text-on-primary px-4 py-2 rounded-full font-medium text-sm hover:opacity-90 transition-opacity"
