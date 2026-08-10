@@ -245,7 +245,7 @@ export const EmployeeDashboard: React.FC = () => {
 
         <div className="flex items-center gap-1.5 bg-[#2D1B5A] border border-purple-500/30 px-3 py-1.5 rounded-full text-xs font-semibold text-purple-200 shadow-md">
           <MapPin className="w-3.5 h-3.5 text-[#A78BFA]" />
-          <span>{employeeData.office || 'Raniganj HQ'}</span>
+          <span>{employeeData.officeLocation || employeeData.workLocation || 'Raniganj HQ'}</span>
         </div>
       </div>
 
@@ -370,13 +370,17 @@ export const EmployeeDashboard: React.FC = () => {
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
             <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Department</p>
-            <p className="font-bold text-white">{employeeData.department || 'Operations'}</p>
+            <p className="font-bold text-white">{employeeData.department || employeeData.office || 'Operations'}</p>
           </div>
           <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
             <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Designation</p>
             <p className="font-bold text-white">{employeeData.designation || 'Staff Executive'}</p>
           </div>
-          <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 col-span-2 flex items-center justify-between">
+          <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
+            <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Office Location</p>
+            <p className="font-bold text-white">{employeeData.officeLocation || employeeData.workLocation || 'Raniganj HQ'}</p>
+          </div>
+          <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 flex items-center justify-between">
             <div>
               <p className="text-[10px] text-purple-300/70 font-semibold">Registered Mobile</p>
               <p className="font-bold text-white">{employeeData.mobileNumber || 'N/A'}</p>

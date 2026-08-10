@@ -307,8 +307,8 @@ export const ProfileScreen: React.FC = () => {
             </div>
 
             <div className="bg-[#211044] p-3 rounded-xl border border-purple-500/10">
-              <p className="text-[10px] font-bold text-purple-300/70">WORK LOCATION</p>
-              <p className="text-sm font-bold text-white mt-0.5">{profile?.workLocation || profile?.department}</p>
+              <p className="text-[10px] font-bold text-purple-300/70">OFFICE LOCATION</p>
+              <p className="text-sm font-bold text-white mt-0.5">{profile?.officeLocation || profile?.workLocation || 'Raniganj HQ'}</p>
             </div>
           </div>
         </Card>
