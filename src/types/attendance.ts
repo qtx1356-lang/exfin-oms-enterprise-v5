@@ -57,6 +57,7 @@ export interface AttendanceRecord {
   checkoutSource?: string;
   checkoutFinalizedAt?: string;
   manualRectified?: boolean;
+  checkoutDismissed?: boolean;
 
   // Work From Home (WFH) fields
   wfhReason?: string | null;

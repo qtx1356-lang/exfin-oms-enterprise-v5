@@ -758,6 +758,23 @@ export const AttendanceScreen: React.FC = () => {
                   <div className="flex justify-end gap-3 pt-2">
                     <Button
                       onClick={() => {
+                        const updated: AttendanceRecord = {
+                          ...todayRecord,
+                          pendingCheckoutConfirmation: false,
+                          checkoutDismissed: true, // Dismissed for this exit
+                          syncStatus: 'Pending',
+                          isOffline: !navigator.onLine
+                        };
+                        saveAttendanceRecord(updated);
+                        refreshRecords();
+                        setActionFeedback(`Checkout dismissed. Monitoring continues.`);
+                      }}
+                      className="bg-gray-600 hover:bg-gray-500 text-white text-xs font-extrabold px-4 py-2 rounded-xl shadow-md"
+                    >
+                      Cancel / Close
+                    </Button>
+                    <Button
+                      onClick={() => {
                         const exitTimeStr = todayRecord.lastExitTime || todayRecord.exitTime || getFormattedTimeStr(new Date());
                         const workingHours = calculateWorkingHours(todayRecord.checkInTime, exitTimeStr);
                         const updated: AttendanceRecord = {
@@ -766,6 +783,7 @@ export const AttendanceScreen: React.FC = () => {
                           checkOutMode: 'MANUAL',
                           checkoutConfirmed: true,
                           pendingCheckoutConfirmation: false,
+                          checkoutDismissed: false,
                           checkoutSource: 'manual_confirmation',
                           workingHours,
                           syncStatus: 'Pending',

@@ -267,7 +267,11 @@ export const trackSmartOfficeExit = (
     if (!updatedRecord.exitTime) {
       updatedRecord.exitTime = exitTimeStr;
     }
-    updatedRecord.pendingCheckoutConfirmation = true;
+    
+    // Only set pending if not dismissed
+    if (!updatedRecord.checkoutDismissed) {
+      updatedRecord.pendingCheckoutConfirmation = true;
+    }
     updatedRecord.syncStatus = 'Pending';
     modified = true;
     console.log(`Smart Office Exit Logged: Last Exit Time ${exitTimeStr}`);
@@ -275,8 +279,9 @@ export const trackSmartOfficeExit = (
 
   // Employee returned to geofence (<= 25m) after exiting
   if (currentDistance <= OFFICE_LOCATION.radius) {
-    if (updatedRecord.pendingCheckoutConfirmation) {
+    if (updatedRecord.pendingCheckoutConfirmation || updatedRecord.checkoutDismissed) {
       updatedRecord.pendingCheckoutConfirmation = false;
+      updatedRecord.checkoutDismissed = false; // Reset dismissed flag
       updatedRecord.returnTime = getFormattedTimeStr(now);
       updatedRecord.syncStatus = 'Pending';
       modified = true;
