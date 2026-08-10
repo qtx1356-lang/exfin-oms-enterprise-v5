@@ -1,16 +1,23 @@
 import React, { useEffect, useState } from "react";
+import { Edit } from "lucide-react";
 import { useAdminAuth } from "../../context/AdminAuthContext";
 import { usePermission } from "../../context/PermissionContext";
 import { db } from "../../services/firebase/config";
 import { collection, getDocs } from "firebase/firestore";
+import { ProfileEditModal } from "../../components/common/ProfileEditModal";
+import { ManagedUser } from "../../types/user";
 
 export const UserManagementTab: React.FC = () => {
-  console.log("[UM_PHASE_5] RENDER_START");
+  console.log("[UM_PHASE_6] RENDER_START");
 
   const [queryStarted, setQueryStarted] = useState(false);
   const [queryCompleted, setQueryCompleted] = useState(false);
-  const [employees, setEmployees] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<ManagedUser[]>([]);
   const [queryError, setQueryError] = useState<string | null>(null);
+
+  // Phase 6 State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
 
   let auth: any = null;
   let authInit = false;
@@ -27,26 +34,26 @@ export const UserManagementTab: React.FC = () => {
   try {
     permissions = usePermission();
     permInit = true;
-    console.log("[UM_PHASE_5] PERMISSION_RESULT", permissions);
+    console.log("[UM_PHASE_6] PERMISSION_RESULT", permissions);
   } catch (e) {
-    console.error("[UM_PHASE_5] PERMISSION_ERROR", e);
+    console.error("[UM_PHASE_6] PERMISSION_ERROR", e);
   }
 
   useEffect(() => {
     const loadData = async () => {
-      console.log("[UM_PHASE_5] DATA_LOAD_START");
+      console.log("[UM_PHASE_6] DATA_LOAD_START");
       setQueryStarted(true);
       try {
         const querySnapshot = await getDocs(collection(db, "registrations"));
         const data = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
-        }));
+        })) as ManagedUser[];
         setEmployees(data);
         setQueryCompleted(true);
-        console.log("[UM_PHASE_5] DATA_LOAD_SUCCESS", data.length);
+        console.log("[UM_PHASE_6] DATA_LOAD_SUCCESS", data.length);
       } catch (e: any) {
-        console.error("[UM_PHASE_5] DATA_LOAD_ERROR", e);
+        console.error("[UM_PHASE_6] DATA_LOAD_ERROR", e);
         setQueryError(e.message || "Unknown Firestore error");
       }
     };
@@ -56,14 +63,20 @@ export const UserManagementTab: React.FC = () => {
     }
   }, [authInit, permInit]);
 
-  console.log("[UM_PHASE_5] RENDER_SUCCESS");
+  console.log("[UM_PHASE_6] RENDER_SUCCESS");
+
+  const handleEditClick = (user: ManagedUser) => {
+    console.log("[UM_PHASE_6] EDIT_CLICKED", user.id);
+    setSelectedUser(user);
+    setIsModalOpen(true);
+  };
 
   return (
     <div className="p-4 text-white font-mono text-sm space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-black text-white">PHASE 5 — LIST UI (UM-PHASE-5-LIST-UI)</h1>
+        <h1 className="text-xl font-black text-white">PHASE 6 — EDIT MODAL (UM-PHASE-6-EDIT-MODAL)</h1>
         <div className={`px-3 py-1 rounded-full text-[10px] font-bold ${queryCompleted ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-amber-500/20 text-amber-400 border border-amber-500/30"}`}>
-          PHASE 5: {queryCompleted ? 'STABLE' : 'LOADING'}
+          PHASE 6: {queryCompleted ? 'STABLE' : 'LOADING'}
         </div>
       </div>
       
@@ -77,6 +90,7 @@ export const UserManagementTab: React.FC = () => {
               <th className="px-6 py-4">Role</th>
               <th className="px-6 py-4">Office</th>
               <th className="px-6 py-4">Status</th>
+              <th className="px-6 py-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-purple-500/10">
@@ -95,11 +109,20 @@ export const UserManagementTab: React.FC = () => {
                       {emp.status || 'Pending'}
                     </span>
                   </td>
+                  <td className="px-6 py-4 text-right">
+                    <button 
+                      onClick={() => handleEditClick(emp)}
+                      className="p-2 hover:bg-purple-500/20 rounded-lg transition-colors group"
+                      title="Edit Profile"
+                    >
+                      <Edit className="w-4 h-4 text-purple-300 group-hover:text-white" />
+                    </button>
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-purple-300/40">
+                <td colSpan={6} className="px-6 py-12 text-center text-purple-300/40">
                   {queryCompleted ? 'No records found' : 'Loading records...'}
                 </td>
               </tr>
@@ -107,6 +130,18 @@ export const UserManagementTab: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Profile Edit Modal */}
+      {selectedUser && (
+        <ProfileEditModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          user={selectedUser}
+          onSave={async () => {}} // Disabled for Phase 6A
+          departments={[]}
+          designations={[]}
+        />
+      )}
 
       {/* DIAGNOSTICS FOOTER */}
       <div className="grid grid-cols-2 gap-4">

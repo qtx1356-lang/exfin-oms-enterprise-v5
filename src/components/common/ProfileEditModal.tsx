@@ -13,45 +13,41 @@ interface ProfileEditModalProps {
   designations: any[];
 }
 
-export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, isOpen, onClose, onSave, departments, designations }) => {
+export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ user, isOpen, onClose, onSave, departments = [], designations = [] }) => {
+  console.log("[UM_PHASE_6] MODAL_RENDER_START", user?.id);
+
   const [formData, setFormData] = useState({
-    name: user.name,
-    mobileNumber: user.mobileNumber || '',
-    email: user.email || '',
-    office: user.office || 'Raniganj',
-    designation: user.designation || '',
-    // Add other fields based on schema
+    name: user?.name || '',
+    mobileNumber: user?.mobileNumber || '',
+    email: user?.email || '',
+    office: user?.office || 'Raniganj',
+    designation: user?.designation || '',
   });
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
-    try {
-      await onSave(user.id, formData, { 
-        name: user.name, 
-        mobileNumber: user.mobileNumber, 
-        email: user.email, 
-        office: user.office, 
-        designation: user.designation,
-        employeeCode: user.employeeCode 
-      });
-      onClose();
-    } catch (err) {
-      console.error(err);
-      alert('Failed to save changes.');
-    } finally {
-      setIsSaving(false);
-    }
+    console.log("[UM_PHASE_6] SAVE_ATTEMPT_BLOCKED (Phase 6B only)", formData);
+    // onSave is disabled for Phase 6A stability
+    onClose();
   };
 
+  if (!user) {
+    console.warn("[UM_PHASE_6] MODAL_USER_MISSING");
+    return null;
+  }
+
   return (
-    <Dialog isOpen={isOpen} onClose={onClose} title={`Edit Profile: ${user.name}`}>
+    <Dialog isOpen={isOpen} onClose={onClose} title={`Edit Profile: ${user.name || 'Unknown'}`}>
+      <div className="mb-4 p-2 bg-purple-900/40 border border-purple-500/30 rounded-lg text-center">
+        <p className="text-[10px] font-black text-purple-300">DIAGNOSTIC: UM-PHASE-6-EDIT-MODAL</p>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Employee Code (Read-only) */}
         <div className="space-y-1">
           <label className="text-[10px] font-bold uppercase text-purple-300">EMPLOYEE CODE (Read-Only)</label>
-          <input type="text" readOnly value={user.employeeCode} className="w-full px-3 py-2 rounded-xl bg-[#170B38] border border-purple-500/20 text-purple-300/70 text-xs font-bold" />
+          <input type="text" readOnly value={user.employeeCode || 'N/A'} className="w-full px-3 py-2 rounded-xl bg-[#170B38] border border-purple-500/20 text-purple-300/70 text-xs font-bold" />
         </div>
 
         {/* Fields */}
