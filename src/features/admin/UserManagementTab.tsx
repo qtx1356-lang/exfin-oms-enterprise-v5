@@ -8,6 +8,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { OrganizationSettingsTab } from './OrganizationSettingsTab';
+import { ManagedUser } from '../../types/user';
 import { ProfileEditModal } from '../../components/common/ProfileEditModal';
 import { updateEmployeeProfile } from '../../services/admin/adminProfileService';
 import {
@@ -28,28 +29,6 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
-export interface ManagedUser {
-  id: string; // registrationId or uid
-  employeeCode: string;
-  name: string;
-  mobileNumber?: string;
-  office?: string;
-  designation?: string;
-  role: AppRole;
-  status: 'Pending Approval' | 'Approved' | 'Rejected' | 'Suspended';
-  isTeamLeader?: boolean;
-  assignedTeamLeaderId?: string;
-  assignedTeamLeaderName?: string;
-  teamMemberUids?: string[];
-  deviceId?: string;
-  deviceModel?: string;
-  androidVersion?: string;
-  appVersion?: string;
-  registrationDate?: string;
-  selfieUrl?: string;
-  loginId?: string;
-  email?: string;
-}
 
 export const UserManagementTab: React.FC = () => {
   const { isSuperAdmin, isAdmin } = usePermission();

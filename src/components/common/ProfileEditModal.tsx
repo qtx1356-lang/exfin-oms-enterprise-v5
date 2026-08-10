@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Camera, User, Phone, Mail, Building, Briefcase, MapPin, Users } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
-import { ManagedUser } from '../../features/admin/UserManagementTab';
+import { ManagedUser } from '../../types/user';
 
 interface ProfileEditModalProps {
   user: ManagedUser;
