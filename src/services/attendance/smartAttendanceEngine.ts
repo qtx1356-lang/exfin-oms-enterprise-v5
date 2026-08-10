@@ -1,4 +1,4 @@
-import { AttendanceRecord, CheckInMode, CheckOutMode } from '../../types/attendance';
+import { AttendanceRecord, CheckInMode, CheckOutMode, SyncStatus } from '../../types/attendance';
 import {
   getTodayAttendanceRecord,
   saveAttendanceRecord,
@@ -252,8 +252,8 @@ export const trackSmartOfficeExit = (
   record: AttendanceRecord,
   currentDistance: number
 ): AttendanceRecord => {
-  if (!record || record.checkOutTime) {
-    return record; // Completed session or no check-in
+  if (!record || record.checkOutTime || record.manualRectified || record.checkoutConfirmed) {
+    return record; // Completed session, manually rectified, or already checkout confirmed
   }
 
   let modified = false;
@@ -261,19 +261,27 @@ export const trackSmartOfficeExit = (
   const updatedRecord = { ...record };
 
   // Employee exited geofence (> 25m) after check-in
-  if (currentDistance > OFFICE_LOCATION.radius && !updatedRecord.exitTime) {
-    updatedRecord.exitTime = getFormattedTimeStr(now);
+  if (currentDistance > OFFICE_LOCATION.radius) {
+    const exitTimeStr = getFormattedTimeStr(now);
+    updatedRecord.lastExitTime = exitTimeStr;
+    if (!updatedRecord.exitTime) {
+      updatedRecord.exitTime = exitTimeStr;
+    }
+    updatedRecord.pendingCheckoutConfirmation = true;
     updatedRecord.syncStatus = 'Pending';
     modified = true;
-    console.log(`Smart Office Exit Logged: Exit Time ${updatedRecord.exitTime}`);
+    console.log(`Smart Office Exit Logged: Last Exit Time ${exitTimeStr}`);
   }
 
   // Employee returned to geofence (<= 25m) after exiting
-  if (currentDistance <= OFFICE_LOCATION.radius && updatedRecord.exitTime && !updatedRecord.returnTime) {
-    updatedRecord.returnTime = getFormattedTimeStr(now);
-    updatedRecord.syncStatus = 'Pending';
-    modified = true;
-    console.log(`Smart Office Exit Logged: Return Time ${updatedRecord.returnTime}`);
+  if (currentDistance <= OFFICE_LOCATION.radius) {
+    if (updatedRecord.pendingCheckoutConfirmation) {
+      updatedRecord.pendingCheckoutConfirmation = false;
+      updatedRecord.returnTime = getFormattedTimeStr(now);
+      updatedRecord.syncStatus = 'Pending';
+      modified = true;
+      console.log(`Smart Office Return Logged: Pending checkout prompt cleared at ${updatedRecord.returnTime}`);
+    }
   }
 
   if (modified) {
@@ -281,6 +289,73 @@ export const trackSmartOfficeExit = (
   }
 
   return updatedRecord;
+};
+
+/**
+ * End-of-day attendance checkout finalizer (WFH/Client Visit -> 6:00 PM, Office -> last exit or 6:00 PM)
+ */
+export const runAutoCheckoutFinalizer = (): void => {
+  const records = getStoredAttendanceRecords();
+  const todayStr = getFormattedDateStr();
+  const now = new Date();
+  const hours = now.getHours();
+  const isAfter6PM = hours >= 18;
+
+  let modified = false;
+  const newRecords = records.map((rec) => {
+    if (rec.checkOutTime || rec.manualRectified) {
+      return rec;
+    }
+
+    // Only finalize today's or past unfinalized records if after 6 PM or end of day
+    // For WFH and Client Visit, they do not require manual checkout and finalize to 6:00 PM
+    if (rec.attendanceType === 'WFH' || rec.attendanceType === 'CLIENT_VISIT') {
+      const checkOutTimeStr = '06:00 PM';
+      const workingHours = calculateWorkingHours(rec.checkInTime, checkOutTimeStr);
+      modified = true;
+      return {
+        ...rec,
+        checkOutTime: checkOutTimeStr,
+        checkOutMode: 'AUTO_SYSTEM' as CheckOutMode,
+        checkoutSource: rec.attendanceType === 'WFH' ? 'automatic_wfh_end_of_day' : 'automatic_client_visit_end_of_day',
+        checkoutFinalized: true,
+        checkoutFinalizedAt: now.toISOString(),
+        workingHours,
+        syncStatus: 'Pending' as SyncStatus
+      };
+    }
+
+    // Office:
+    if (rec.attendanceType === 'OFFICE' || !rec.attendanceType) {
+      // If after 6 PM or if it's a past date
+      if (isAfter6PM || rec.date < todayStr) {
+        let checkoutTime = '06:00 PM';
+        let source = 'automatic_end_of_day';
+        if (rec.lastExitTime || rec.exitTime) {
+          checkoutTime = rec.lastExitTime || rec.exitTime!;
+          source = 'automatic_end_of_day_exit';
+        }
+        const workingHours = calculateWorkingHours(rec.checkInTime, checkoutTime);
+        modified = true;
+        return {
+          ...rec,
+          checkOutTime: checkoutTime,
+          checkOutMode: 'AUTO_SYSTEM' as CheckOutMode,
+          checkoutSource: source,
+          checkoutFinalized: true,
+          checkoutFinalizedAt: now.toISOString(),
+          workingHours,
+          syncStatus: 'Pending' as SyncStatus
+        };
+      }
+    }
+
+    return rec;
+  });
+
+  if (modified) {
+    localStorage.setItem('exfin_attendance_records_v1', JSON.stringify(newRecords));
+  }
 };
 
 /**

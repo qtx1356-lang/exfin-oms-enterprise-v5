@@ -50,6 +50,13 @@ export interface AttendanceRecord {
   serverSyncTime: string | null;
   isOffline: boolean;
   correctionHistory?: AttendanceCorrection[];
+  lastExitTime?: string | null;
+  pendingCheckoutConfirmation?: boolean;
+  checkoutConfirmed?: boolean;
+  checkoutFinalized?: boolean;
+  checkoutSource?: string;
+  checkoutFinalizedAt?: string;
+  manualRectified?: boolean;
 
   // Work From Home (WFH) fields
   wfhReason?: string | null;

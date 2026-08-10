@@ -3,6 +3,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { 
   AlertCircle, 
+  AlertTriangle,
   CheckCircle, 
   ChevronDown, 
   ChevronUp, 
@@ -49,11 +50,14 @@ import {
   getMonthlyWfhCount,
   performWFHAttendance,
   performClientVisitAttendance,
-  performOutdoorAttendance
+  performOutdoorAttendance,
+  runAutoCheckoutFinalizer,
+  calculateWorkingHours
 } from '../../services/attendance/smartAttendanceEngine';
 import {
   getStoredAttendanceRecords,
-  getTodayAttendanceRecord
+  getTodayAttendanceRecord,
+  saveAttendanceRecord
 } from '../../services/attendance/attendanceStorage';
 import {
   startAutoSyncEngine,
@@ -150,6 +154,7 @@ export const AttendanceScreen: React.FC = () => {
 
   // Load attendance records from local storage
   const refreshRecords = () => {
+    runAutoCheckoutFinalizer();
     const records = getStoredAttendanceRecords();
     setAllRecords(records);
     const todayStr = getFormattedDateStr();
@@ -740,6 +745,44 @@ export const AttendanceScreen: React.FC = () => {
           {/* TODAY STATUS CARD */}
           {/* ==================================================== */}
           {todayRecord && (
+            <div className="space-y-4">
+              {todayRecord.pendingCheckoutConfirmation && !todayRecord.checkOutTime && (
+                <div className="bg-amber-500/20 border border-amber-500/40 rounded-[22px] p-5 backdrop-blur-xl shadow-[0_0_25px_rgba(245,158,11,0.3)] space-y-3 animate-pulse">
+                  <div className="flex items-center gap-2 text-amber-300 font-black text-sm">
+                    <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+                    <span>You're outside the office premises. Is this your checkout?</span>
+                  </div>
+                  <div className="text-xs text-purple-200">
+                    Last detected exit time: <strong className="text-white">{todayRecord.lastExitTime || todayRecord.exitTime}</strong>
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <Button
+                      onClick={() => {
+                        const exitTimeStr = todayRecord.lastExitTime || todayRecord.exitTime || getFormattedTimeStr(new Date());
+                        const workingHours = calculateWorkingHours(todayRecord.checkInTime, exitTimeStr);
+                        const updated: AttendanceRecord = {
+                          ...todayRecord,
+                          checkOutTime: exitTimeStr,
+                          checkOutMode: 'MANUAL',
+                          checkoutConfirmed: true,
+                          pendingCheckoutConfirmation: false,
+                          checkoutSource: 'manual_confirmation',
+                          workingHours,
+                          syncStatus: 'Pending',
+                          isOffline: !navigator.onLine
+                        };
+                        saveAttendanceRecord(updated);
+                        refreshRecords();
+                        setActionFeedback(`Checkout recorded at ${exitTimeStr}.`);
+                      }}
+                      className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-extrabold px-4 py-2 rounded-xl shadow-md"
+                    >
+                      Confirm Checkout
+                    </Button>
+                  </div>
+                </div>
+              )}
+
             <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.37)] space-y-4">
               <div className="flex justify-between items-center border-b border-purple-500/20 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -783,6 +826,7 @@ export const AttendanceScreen: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
           )}
 
           {/* ==================================================== */}
