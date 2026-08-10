@@ -1,7 +1,14 @@
 import React from "react";
+import { useAdminAuth } from "../../context/AdminAuthContext";
 
 export const UserManagementTab: React.FC = () => {
   console.log("UM_STAGE_1_RENDER");
+  console.log("UM_STAGE_2_AUTH_START");
+  const auth = useAdminAuth();
+  console.log("UM_STAGE_2_AUTH_SUCCESS", {
+    authenticated: !!auth,
+    role: auth?.role ?? null
+  });
 
   return (
     <div>
