@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ErrorBoundary } from './app/ErrorBoundary';
-import { AppRouter } from './app/Router';
+import { IdentityDiagnosticScreen } from './components/IdentityDiagnosticScreen';
 import { SplashScreen } from './components/ui/SplashScreen';
 import { AnimatePresence } from 'motion/react';
 import { AdminAuthProvider } from './context/AdminAuthContext';
@@ -20,7 +20,7 @@ export default function App() {
               <AnimatePresence>
                 {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
               </AnimatePresence>
-              {!showSplash && <AppRouter />}
+              {!showSplash && <IdentityDiagnosticScreen />}
             </LocationProvider>
           </PermissionProvider>
         </RegistrationProvider>
