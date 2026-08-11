@@ -65,6 +65,7 @@ import {
   syncPendingAttendanceRecords
 } from '../../services/attendance/syncEngine';
 import { TodayAttendanceCard } from './TodayAttendanceCard';
+import { AttendanceCalendar } from './AttendanceCalendar';
 
 const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
   'Market Visit',
@@ -631,6 +632,16 @@ export const AttendanceScreen: React.FC = () => {
         todayRecord={todayRecord} 
         isSyncing={isSyncing} 
         isOnline={isOnline} 
+      />
+
+      {/* ==================================================== */}
+      {/* ATTENDANCE CALENDAR & MONTHLY INSIGHTS */}
+      {/* ==================================================== */}
+      <AttendanceCalendar 
+        employeeId={employeeId}
+        employeeName={employeeName}
+        attendanceRecords={allRecords}
+        onRefreshRecords={refreshRecords}
       />
 
       {/* Location Status Card - Loading State */}
