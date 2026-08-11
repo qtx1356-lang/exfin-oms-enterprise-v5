@@ -15,6 +15,9 @@ import {
 } from '../../services/notification/notificationService';
 import { NotificationRecord } from '../../types/notification';
 import { motion, AnimatePresence } from 'motion/react';
+import { InAppNotificationToast } from '../common/InAppNotificationToast';
+import { initRealtimePushListener } from '../../services/notification/pushNotificationService';
+import { initTaskDeadlineMonitor } from '../../services/planner/taskDeadlineEngine';
 
 const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -83,6 +86,7 @@ export const Layout: React.FC = () => {
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [recentNotifs, setRecentNotifs] = useState<NotificationRecord[]>([]);
+  const [activeToastNotif, setActiveToastNotif] = useState<NotificationRecord | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -131,6 +135,23 @@ export const Layout: React.FC = () => {
 
     return () => clearInterval(timer);
   }, [employeeData, adminUser, location.pathname]);
+
+  // Real-time Push Notification Engine Listener for current employee
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsubPush = initRealtimePushListener(currentUser, (incomingNotif) => {
+      setActiveToastNotif(incomingNotif);
+      refreshNotificationCount();
+    });
+
+    const empCode = currentUser.employeeCode;
+    const unsubDeadline = empCode ? initTaskDeadlineMonitor(empCode) : () => {};
+
+    return () => {
+      unsubPush();
+      unsubDeadline();
+    };
+  }, [currentUser?.employeeCode, currentUser?.id]);
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -380,6 +401,10 @@ export const Layout: React.FC = () => {
       </header>
 
       <main className="container mx-auto p-4 max-w-3xl">
+        <InAppNotificationToast
+          notification={activeToastNotif}
+          onDismiss={() => setActiveToastNotif(null)}
+        />
         <Outlet />
       </main>
       <BottomNav />

@@ -26,7 +26,9 @@ import {
   Info,
   Circle,
   Clock,
+  Settings,
 } from 'lucide-react';
+import { NotificationSettingsCard } from '../../components/common/NotificationSettingsCard';
 
 export const NotificationCenter: React.FC = () => {
   const navigate = useNavigate();
@@ -36,7 +38,7 @@ export const NotificationCenter: React.FC = () => {
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
-  const [activeTab, setActiveTab] = useState<'ALL' | 'UNREAD' | 'IMPORTANT'>('ALL');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'UNREAD' | 'IMPORTANT' | 'SETTINGS'>('ALL');
 
   // Determine current user context
   const currentUser = adminUser
@@ -199,13 +201,26 @@ export const NotificationCenter: React.FC = () => {
   const getPriorityStyle = (priority: NotificationPriority) => {
     switch (priority) {
       case 'URGENT':
-        return 'bg-red-500/20 text-red-300 border border-red-500/30';
+        return 'bg-red-500/20 text-red-300 border border-red-500/40 shadow-sm shadow-red-500/20';
       case 'HIGH':
-        return 'bg-amber-500/20 text-amber-300 border border-amber-500/30';
+        return 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm shadow-amber-500/20';
       case 'NORMAL':
-        return 'bg-blue-500/10 text-blue-300 border border-blue-500/20';
+        return 'bg-purple-500/20 text-purple-300 border border-purple-500/30';
       default:
         return 'bg-slate-500/10 text-slate-300 border border-slate-500/20';
+    }
+  };
+
+  const getPriorityBadgeLabel = (priority: NotificationPriority) => {
+    switch (priority) {
+      case 'URGENT':
+        return '🔴 URGENT';
+      case 'HIGH':
+        return '🔴 HIGH';
+      case 'NORMAL':
+        return '🟣 IMPORTANT';
+      default:
+        return '⚪ NORMAL';
     }
   };
 
@@ -236,7 +251,7 @@ export const NotificationCenter: React.FC = () => {
 
       {/* Tabs */}
       <div className="flex border-b border-purple-500/20 gap-6">
-        {(['ALL', 'UNREAD', 'IMPORTANT'] as const).map((tab) => (
+        {(['ALL', 'UNREAD', 'IMPORTANT', 'SETTINGS'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -247,6 +262,7 @@ export const NotificationCenter: React.FC = () => {
             {tab === 'ALL' && 'All Alerts'}
             {tab === 'UNREAD' && 'Unread'}
             {tab === 'IMPORTANT' && 'Critical & High'}
+            {tab === 'SETTINGS' && 'Preferences'}
             {activeTab === tab && (
               <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500 rounded-full" />
             )}
@@ -254,31 +270,34 @@ export const NotificationCenter: React.FC = () => {
         ))}
       </div>
 
-      {/* Categories Horizontal Filter */}
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-        {[
-          { key: 'ALL', label: 'All Modules' },
-          { key: 'ATTENDANCE', label: 'Attendance' },
-          { key: 'PLANNER', label: 'Planner' },
-          { key: 'LEAVE', label: 'Leave' },
-          { key: 'EXPENSE', label: 'Expenses' },
-          { key: 'DEVICE', label: 'Device' },
-          { key: 'EFFICIENCY', label: 'Efficiency' },
-          { key: 'SYSTEM', label: 'System' },
-        ].map((cat) => (
-          <button
-            key={cat.key}
-            onClick={() => setActiveCategory(cat.key)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border whitespace-nowrap ${
-              activeCategory === cat.key
-                ? 'bg-purple-600 border-purple-500 text-white shadow-lg'
-                : 'bg-[#2D1B5A]/50 border-purple-500/10 text-slate-300 hover:bg-purple-500/10'
-            }`}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
+      {activeTab === 'SETTINGS' ? (
+        <NotificationSettingsCard />
+      ) : (
+        <>
+          {/* Categories Horizontal Filter */}
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+            {[
+              { key: 'ALL', label: 'All Modules' },
+              { key: 'ATTENDANCE', label: 'Attendance' },
+              { key: 'PLANNER', label: 'Planner' },
+              { key: 'LEAVE', label: 'Leave' },
+              { key: 'EXPENSE', label: 'Expenses' },
+              { key: 'DEVICE', label: 'Device' },
+              { key: 'EFFICIENCY', label: 'Efficiency' },
+            ].map((cat) => (
+              <button
+                key={cat.key}
+                onClick={() => setActiveCategory(cat.key)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border whitespace-nowrap ${
+                  activeCategory === cat.key
+                    ? 'bg-purple-600 border-purple-500 text-white shadow-lg'
+                    : 'bg-[#2D1B5A]/50 border-purple-500/10 text-slate-300 hover:bg-purple-500/10'
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
 
       {/* Content Feed */}
       {loading ? (
@@ -327,7 +346,7 @@ export const NotificationCenter: React.FC = () => {
                   </h3>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${getPriorityStyle(notif.priority as NotificationPriority)}`}>
-                      {notif.priority}
+                      {getPriorityBadgeLabel(notif.priority as NotificationPriority)}
                     </span>
                     <span className="text-[11px] text-slate-400 font-medium">
                       {formatTime(notif.timestamp || notif.createdAtDeviceTime)}
@@ -364,6 +383,8 @@ export const NotificationCenter: React.FC = () => {
             </div>
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   );

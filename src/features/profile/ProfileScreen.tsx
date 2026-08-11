@@ -37,6 +37,7 @@ import { db } from '../../services/firebase/config';
 import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 
 import { APP_VERSION, SERVICE_WORKER_VERSION } from '../../config/version';
+import { NotificationSettingsCard } from '../../components/common/NotificationSettingsCard';
 
 export const ProfileScreen: React.FC = () => {
   const { employeeData, authUser } = useRegistration();
@@ -379,6 +380,9 @@ export const ProfileScreen: React.FC = () => {
           ))}
         </div>
       </Card>
+
+      {/* Notification Preferences Card */}
+      <NotificationSettingsCard />
 
       {/* 4. My Profile Change Requests Section */}
       <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px] space-y-4 shadow-xl">

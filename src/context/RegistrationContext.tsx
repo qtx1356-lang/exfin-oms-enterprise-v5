@@ -3,6 +3,10 @@ import { doc, getDoc, onSnapshot, runTransaction, setDoc, collection, query, whe
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from '../services/firebase/config';
 import { Device } from '@capacitor/device';
+import {
+  registerEmployeeDeviceToken,
+  invalidateEmployeeDeviceToken,
+} from '../services/notification/pushNotificationService';
 
 type RegistrationStatus = 'unregistered' | 'Pending Approval' | 'Approved' | 'Rejected' | 'loading';
 
@@ -233,6 +237,15 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
   }, []);
 
+  useEffect(() => {
+    if (status === 'Approved' && employeeData?.employeeCode) {
+      const devId = localStorage.getItem('deviceId') || '';
+      if (devId) {
+        registerEmployeeDeviceToken(employeeData.employeeCode, devId);
+      }
+    }
+  }, [status, employeeData?.employeeCode]);
+
   const submitRegistration = async (name: string, mobileNumber: string, selfieBase64: string) => {
     if (!db) throw new Error('Firestore not initialized');
     
@@ -326,6 +339,11 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const resetRegistration = () => {
+    const empCode = employeeData?.employeeCode || '';
+    const devId = localStorage.getItem('deviceId') || '';
+    if (devId) {
+      invalidateEmployeeDeviceToken(empCode, devId);
+    }
     localStorage.removeItem('registrationId');
     localStorage.removeItem('cached_registration_data');
     setLocalRegId(null);

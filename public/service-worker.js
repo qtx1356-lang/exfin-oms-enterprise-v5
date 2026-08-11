@@ -138,3 +138,50 @@ self.addEventListener('fetch', (event) => {
 
   // Default: bypass cache, go directly to network
 });
+
+// Push notification event handler for Android & Web Push
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  try {
+    const payload = event.data.json();
+    const title = payload.title || 'EXFIN OMS';
+    const options = {
+      body: payload.message || payload.body || '',
+      icon: '/manifest-icon-192.png',
+      badge: '/manifest-icon-192.png',
+      data: {
+        route: payload.route || '/notifications',
+        entityType: payload.entityType,
+        entityId: payload.entityId,
+        notifId: payload.id,
+      },
+      tag: payload.id || 'exfin_push_' + Date.now(),
+      renotify: false,
+      vibrate: [200, 100, 200, 100, 200],
+    };
+    event.waitUntil(self.registration.showNotification(title, options));
+  } catch (err) {
+    console.error('ServiceWorker push event error:', err);
+  }
+});
+
+// Notification click router handler
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const notifData = event.notification.data || {};
+  const targetRoute = notifData.route || '/notifications';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.navigate(targetRoute);
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetRoute);
+      }
+    })
+  );
+});
