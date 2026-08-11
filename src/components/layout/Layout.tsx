@@ -264,7 +264,7 @@ export const Layout: React.FC = () => {
           <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden py-0.5">
             {/* Live Distance Value (Value ONLY, e.g., "476 m", "1.24 km") */}
             <div
-              className="text-[11px] font-bold text-purple-200 bg-[#2D1B5A]/80 border border-purple-500/20 px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
+              className="text-[10px] font-extrabold text-purple-200 bg-[#2D1B5A]/80 border border-purple-500/20 px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
               title="Live distance from office"
             >
               <span>{formattedDistance}</span>
@@ -272,14 +272,14 @@ export const Layout: React.FC = () => {
 
             {/* Office Location Status Badge with subtle pulse animation */}
             <div
-              className={`text-[10px] font-black px-2 py-0.5 rounded-full border whitespace-nowrap animate-subtle-pulse flex items-center gap-1 shadow-sm select-none shrink-0 transition-colors duration-300 ${
+              className={`text-[9px] font-black px-2 py-0.5 rounded-full border whitespace-nowrap flex items-center gap-1 shadow-sm select-none shrink-0 transition-colors duration-300 ${
                 isInsideGeofence
-                  ? 'bg-emerald-600 text-white border-emerald-500'
-                  : 'bg-red-600 text-white border-red-500'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
               }`}
-              title={isInsideGeofence ? 'Inside 25m office geofence' : 'Outside 25m office geofence'}
+              title={isInsideGeofence ? 'Inside office geofence' : 'Outside office geofence'}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-white" />
+              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-emerald-400' : 'bg-rose-400'}`} />
               <span>{isInsideGeofence ? 'INSIDE OFFICE' : 'OUTSIDE OFFICE'}</span>
             </div>
 
@@ -287,7 +287,9 @@ export const Layout: React.FC = () => {
             <GlobalSyncStatus />
 
             {/* Marquee Location Address */}
-            <MarqueeAddress address={displayAddress} />
+            <div className="hidden sm:block min-w-0 flex-1">
+              <MarqueeAddress address={displayAddress} />
+            </div>
           </div>
 
           {/* Right Header Navigation Controls: [Notification Bell] */}

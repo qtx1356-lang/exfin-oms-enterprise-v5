@@ -483,8 +483,7 @@ export const EmployeeDashboard: React.FC = () => {
   // SMART DAILY BRIEFING CALCULATIONS (FEATURE 5)
   // -------------------------------------------------------------------------
   const currentHour = new Date().getHours();
-  const greetingPrefix = currentHour < 12 ? 'Good morning' : currentHour < 17 ? 'Good afternoon' : 'Good evening';
-  const employeeName = employeeData.name || 'Employee';
+  const greetingPrefix = currentHour < 12 ? 'GOOD MORNING!' : currentHour < 17 ? 'GOOD AFTERNOON!' : 'GOOD EVENING!';
 
   // Today's attendance status & details
   const todayStr = getFormattedDateStr();
@@ -723,9 +722,9 @@ export const EmployeeDashboard: React.FC = () => {
           {/* Header Greeting */}
           <div className="flex items-start justify-between mb-4 relative z-10">
             <div>
-              <p className="text-xs font-bold text-purple-300 uppercase tracking-widest flex items-center gap-1.5 mb-1">
+              <p className="text-xs font-black text-amber-300 uppercase tracking-widest flex items-center gap-1.5 mb-1">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                {greetingPrefix}, {employeeName}
+                ✨ {greetingPrefix}
               </p>
               <h1 className="text-2xl font-black text-white tracking-tight">Today at a Glance</h1>
             </div>
@@ -736,42 +735,43 @@ export const EmployeeDashboard: React.FC = () => {
 
           {/* Quick Glance Metrics Summary Bar */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 relative z-10 p-3 bg-[#211044]/70 backdrop-blur-md rounded-2xl border border-purple-500/20 mb-5">
-            <div className="flex flex-col p-2 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10">
+            <div className="flex flex-col p-2.5 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10">
               <span className="text-[10px] font-semibold text-purple-300/80">Attendance</span>
-              <span className="text-xs font-black text-white truncate mt-0.5">{attendanceStatusLabel}</span>
+              <span className="text-xs font-black text-white mt-0.5 leading-snug">{attendanceStatusLabel}</span>
             </div>
 
-            <div className="flex flex-col p-2 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10">
+            <div className="flex flex-col p-2.5 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10">
               <span className="text-[10px] font-semibold text-purple-300/80">Working Time</span>
-              <span className="text-xs font-black text-amber-300 truncate mt-0.5">{workingDurationStr}</span>
+              <span className="text-xs font-black text-amber-300 mt-0.5 leading-snug">{workingDurationStr}</span>
             </div>
 
-            <div className="flex flex-col p-2 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10">
+            <div className="flex flex-col p-2.5 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10">
               <span className="text-[10px] font-semibold text-purple-300/80">Tasks</span>
-              <span className="text-xs font-black text-emerald-300 truncate mt-0.5">
-                {assignedTaskCount} assigned · {completedTaskCount} completed
-              </span>
+              <div className="text-[11px] font-black leading-tight mt-0.5 space-y-0.5">
+                <div className="text-purple-100">{assignedTaskCount} assigned</div>
+                <div className="text-emerald-300">{completedTaskCount} completed</div>
+              </div>
             </div>
 
             <div 
               onClick={() => navigate('/notifications')}
-              className="flex flex-col p-2 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10 hover:border-purple-500/40 cursor-pointer transition"
+              className="flex flex-col p-2.5 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10 hover:border-purple-500/40 cursor-pointer transition"
             >
               <span className="text-[10px] font-semibold text-purple-300/80 flex items-center justify-between">
                 Notifications
                 {unreadNotificationCount > 0 && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
               </span>
-              <span className="text-xs font-black text-pink-300 truncate mt-0.5">
+              <span className="text-xs font-black text-pink-300 mt-0.5 leading-snug">
                 {unreadNotificationCount} unread
               </span>
             </div>
 
             <div 
               onClick={() => navigate('/leave')}
-              className="flex flex-col p-2 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10 hover:border-purple-500/40 cursor-pointer transition col-span-2 sm:col-span-1"
+              className="flex flex-col p-2.5 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10 hover:border-purple-500/40 cursor-pointer transition col-span-2 sm:col-span-1"
             >
               <span className="text-[10px] font-semibold text-purple-300/80">Leave</span>
-              <span className="text-xs font-black text-purple-200 truncate mt-0.5">
+              <span className="text-[11px] font-black text-purple-200 mt-0.5 leading-snug line-clamp-2">
                 {nextUpcomingLeave ? formatLeaveRange(nextUpcomingLeave.startDate, nextUpcomingLeave.endDate) : 'No upcoming leave'}
               </span>
             </div>
@@ -1143,7 +1143,7 @@ export const EmployeeDashboard: React.FC = () => {
                       <h1 className="text-2xl font-black text-white leading-tight">
                         Your Work Pulse Snapshot
                       </h1>
-                      <p className="text-xs text-purple-300 mt-1">Here's your work snapshot, {employeeData.name || 'Employee'} 👋</p>
+                      <p className="text-xs text-purple-300 mt-1">Here's your personal work snapshot 👋</p>
                     </div>
                     <div className="bg-[#2D1B5A] border border-purple-500/20 px-3 py-1.5 rounded-full text-[10px] font-bold text-purple-200 mt-1">
                       {monthName} {currentYear}
