@@ -46,6 +46,7 @@ import { TaskRecord } from '../../types/planner';
 import { ExpenseRecord } from '../../types/expense';
 import { EfficiencyWeightages } from '../../types/efficiency';
 import { Activity } from 'lucide-react';
+import { MyDayTimeline } from '../../components/timeline/MyDayTimeline';
 
 interface Announcement {
   id: string;
@@ -922,6 +923,9 @@ export const EmployeeDashboard: React.FC = () => {
 
           </div>
         </Card>
+
+        {/* MY DAY TIMELINE (FEATURE 6) */}
+        <MyDayTimeline />
 
         {/* Your Work Pulse Snapshot Card */}
         <Card 
