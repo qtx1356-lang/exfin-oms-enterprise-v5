@@ -857,17 +857,9 @@ export const PlannerScreen: React.FC = () => {
             {/* Dialog Actions */}
             <div className="flex gap-3 pt-2">
               <Button
-                variant="text"
-                onClick={() => setSelectedTask(null)}
-                disabled={isUpdating}
-                className="flex-1"
-              >
-                Close
-              </Button>
-              <Button
                 onClick={handleSaveTaskProgress}
                 disabled={isUpdating}
-                className="flex-1 py-3 bg-[#7C3AED] hover:bg-[#6D28D9] font-bold rounded-2xl"
+                className="w-full py-3 bg-[#7C3AED] hover:bg-[#6D28D9] font-bold rounded-2xl"
               >
                 {isUpdating ? 'Saving...' : 'Save Task Progress'}
               </Button>
