@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { useRegistration } from '../../context/RegistrationContext';
@@ -464,279 +465,10 @@ export const EmployeeDashboard: React.FC = () => {
     weightages
   );
 
-  if (activeView === 'workpulse') {
-    return (
-      <div className="flex flex-col gap-5 pb-8 text-white min-h-screen">
-        {/* Work Pulse Header */}
-        <div className="flex items-center justify-between pt-2">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setActiveView('dashboard')} 
-              className="p-2 bg-[#2D1B5A] border border-purple-500/30 rounded-xl hover:bg-[#3B2677] transition font-bold text-xs flex items-center gap-1.5 shadow-md"
-            >
-              &larr; Back
-            </button>
-            <div>
-              <h1 className="text-xl font-black text-white leading-none flex items-center gap-2">
-                <Activity className="w-5 h-5 text-pink-400" /> Your Work Pulse
-              </h1>
-              <p className="text-xs text-purple-300 mt-1">Here's your work snapshot, {employeeData.name || 'Employee'} 👋</p>
-            </div>
-          </div>
-          <div className="bg-[#2D1B5A] border border-purple-500/20 px-3 py-1 rounded-full text-[10px] font-bold text-purple-200">
-            {monthName} {currentYear}
-          </div>
-        </div>
-
-        {/* 1. Today's Attendance Status Card */}
-        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-pink-500/5 rounded-full blur-xl pointer-events-none" />
-          <div className="flex justify-between items-center mb-4 border-b border-purple-500/15 pb-2.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-300">Today's Attendance Status</span>
-            <div className="flex items-center gap-1.5">
-              {isCorrected && (
-                <span className="text-[10px] font-extrabold text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
-                  Corrected
-                </span>
-              )}
-              <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider
-                ${todayStatus === 'Present' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' :
-                  todayStatus === 'WFH' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30' :
-                  todayStatus === 'Client Visit' ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30' :
-                  todayStatus === 'Outdoor Work' ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30' :
-                  todayStatus === 'Leave' ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' :
-                  todayStatus === 'Absent' ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30' :
-                  'bg-gray-500/15 text-gray-400 border border-gray-500/30'}`}
-              >
-                {todayStatus}
-              </span>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="bg-[#211044] p-3 rounded-xl border border-purple-500/10">
-              <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Check-In</p>
-              <p className="font-extrabold text-sm text-white">{todayCheckIn}</p>
-            </div>
-            <div className="bg-[#211044] p-3 rounded-xl border border-purple-500/10">
-              <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Check-Out</p>
-              <p className="font-extrabold text-sm text-white">{todayCheckOut}</p>
-            </div>
-            <div className="bg-[#211044] p-3 rounded-xl border border-purple-500/10">
-              <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Mode</p>
-              <p className="font-extrabold text-sm text-white">{todayMode}</p>
-            </div>
-          </div>
-        </Card>
-
-        {/* 2. Monthly Attendance Summary Card */}
-        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 shadow-xl">
-          <div className="flex justify-between items-center mb-4 border-b border-purple-500/15 pb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-300">Monthly Attendance Summary</span>
-            <span className="text-[10px] text-purple-300/60 font-semibold">{monthName} Tracker</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-            {/* Circular Progress & Present Days */}
-            <div className="flex items-center gap-4 bg-[#211044] p-3 rounded-xl border border-purple-500/10">
-              {/* SVG Ring */}
-              <div className="relative w-16 h-16 flex-shrink-0">
-                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                  <path
-                    className="text-purple-950"
-                    strokeWidth="3.5"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                  <path
-                    className="text-pink-500"
-                    strokeDasharray={`${attendancePercentage}, 100`}
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    stroke="currentColor"
-                    fill="none"
-                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-black text-white">{attendancePercentage}%</span>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs font-black text-white">Attendance Rate</p>
-                <p className="text-[10px] text-purple-300/80 mt-1">Logged <span className="text-white font-bold">{presentDaysCount}</span> out of <span className="text-white font-bold">{expectedWorkingDays}</span> expected working days</p>
-              </div>
-            </div>
-
-            {/* Other Status Days Row */}
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 text-center">
-                <p className="text-[9px] text-amber-300 font-bold mb-0.5">Late Days</p>
-                <p className="text-base font-black text-amber-400">{lateDaysCount}</p>
-              </div>
-              <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 text-center">
-                <p className="text-[9px] text-rose-300 font-bold mb-0.5">Absent Days</p>
-                <p className="text-base font-black text-rose-400">{actualAbsentDays}</p>
-              </div>
-              <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 text-center">
-                <p className="text-[9px] text-purple-300 font-bold mb-0.5">Present Days</p>
-                <p className="text-base font-black text-white">{presentDaysCount}</p>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* 3. Detailed Pulse Snapshot Sections */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Leave & WFH Usage Card */}
-          <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 shadow-xl">
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-300 block mb-3.5 border-b border-purple-500/15 pb-2">
-              Leave & WFH Limits
-            </span>
-            <div className="flex flex-col gap-4">
-              {/* WFH Progress */}
-              <div>
-                <div className="flex justify-between items-center text-xs font-bold mb-1">
-                  <span className="text-purple-200">Work From Home (WFH)</span>
-                  <span className={wfhDaysCount >= 2 ? 'text-rose-400' : 'text-blue-300'}>{wfhDaysCount} / 2 Used</span>
-                </div>
-                <div className="w-full bg-[#211044] h-2.5 rounded-full overflow-hidden border border-purple-500/10">
-                  <div 
-                    className={`h-full rounded-full transition-all duration-500 ${wfhDaysCount >= 2 ? 'bg-rose-500' : 'bg-blue-500'}`}
-                    style={{ width: `${Math.min(100, (wfhDaysCount / 2) * 100)}%` }}
-                  />
-                </div>
-                <p className="text-[9px] text-purple-300/70 mt-1">Maximum limit is 2 WFH sessions allowed per month</p>
-              </div>
-
-              {/* Client visits & Outdoor */}
-              <div className="grid grid-cols-2 gap-2 mt-1">
-                <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 text-center">
-                  <p className="text-[9px] text-indigo-300 font-bold mb-0.5">Client Visits</p>
-                  <p className="text-sm font-black text-indigo-400">{clientVisitDaysCount} Days</p>
-                </div>
-                <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 text-center">
-                  <p className="text-[9px] text-purple-300 font-bold mb-0.5">Outdoor Work</p>
-                  <p className="text-sm font-black text-purple-400">{outdoorDaysCount} Days</p>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Tasks & Expenses Card */}
-          <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 shadow-xl">
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-300 block mb-3.5 border-b border-purple-500/15 pb-2">
-              Tasks & Expense Status
-            </span>
-            <div className="flex flex-col gap-4">
-              {/* Tasks Progress */}
-              <div>
-                <div className="flex justify-between items-center text-xs font-bold mb-1">
-                  <span className="text-purple-200">Tasks Completed</span>
-                  <span className="text-purple-300">{completedTasksCount} / {assignedTasksCount} Completed</span>
-                </div>
-                {assignedTasksCount > 0 ? (
-                  <>
-                    <div className="w-full bg-[#211044] h-2.5 rounded-full overflow-hidden border border-purple-500/10">
-                      <div 
-                        className="h-full bg-[#7C3AED] rounded-full transition-all duration-500"
-                        style={{ width: `${(completedTasksCount / assignedTasksCount) * 100}%` }}
-                      />
-                    </div>
-                    <p className="text-[9px] text-purple-300/70 mt-1">Completion Rate: {Math.round((completedTasksCount / assignedTasksCount) * 100)}%</p>
-                  </>
-                ) : (
-                  <p className="text-xs text-purple-300/60 font-semibold italic bg-[#211044] p-2 rounded-lg text-center border border-purple-500/5 mt-1.5">No tasks assigned this month</p>
-                )}
-              </div>
-
-              {/* Expense Tracker */}
-              <div className="bg-[#211044] p-3 rounded-xl border border-purple-500/10 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] text-purple-300/70 font-semibold">Total Expenses Requested</p>
-                  <p className="font-black text-base text-white">₹{totalExpenseAmount.toLocaleString()}</p>
-                </div>
-                <div className="flex flex-col items-end gap-1 text-[9px] font-bold text-purple-300">
-                  <span className="text-emerald-400">Approved: ₹{totalApprovedAmount.toLocaleString()}</span>
-                  <span className="text-amber-400">Pending: ₹{totalPendingAmount.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* 4. Performance Snapshot Card */}
-        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 shadow-xl">
-          <span className="text-xs font-bold uppercase tracking-wider text-purple-300 block mb-3.5 border-b border-purple-500/15 pb-2">
-            Performance Snapshot
-          </span>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4 bg-[#211044] p-3.5 rounded-xl border border-purple-500/10 flex-1">
-              <div className="w-14 h-14 rounded-xl bg-pink-500/10 flex items-center justify-center text-pink-400 font-black text-xl border border-pink-500/25 shrink-0 shadow-inner">
-                {efficiencyResult.finalScore === -1 ? 'N/A' : efficiencyResult.grade}
-              </div>
-              <div>
-                <p className="text-sm font-black text-white">Efficiency Score</p>
-                <p className="text-lg font-black text-pink-400 mt-0.5">
-                  {efficiencyResult.finalScore === -1 ? 'NO DATA' : `${efficiencyResult.finalScore}%`}
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex-1 bg-[#211044] p-3 rounded-xl border border-purple-500/10 text-[10px] font-semibold text-purple-300">
-              <p className="font-extrabold text-white text-xs mb-1.5 border-b border-purple-500/10 pb-1">Applied Weightages</p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                <div className="flex justify-between"><span>Task Completion:</span> <span className="text-white font-bold">{weightages.taskCompletion}%</span></div>
-                <div className="flex justify-between"><span>On-Time:</span> <span className="text-white font-bold">{weightages.onTimeCompletion}%</span></div>
-                <div className="flex justify-between"><span>Quality:</span> <span className="text-white font-bold">{weightages.quality}%</span></div>
-                <div className="flex justify-between"><span>Punctuality:</span> <span className="text-white font-bold">{weightages.punctuality}%</span></div>
-                <div className="flex justify-between"><span>Workload:</span> <span className="text-white font-bold">{weightages.workload}%</span></div>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* 5. Quick Navigation Links */}
-        <div>
-          <h2 className="text-xs font-extrabold text-purple-300/80 uppercase tracking-wider mb-3">
-            Quick Links
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <button 
-              onClick={() => navigate('/attendance')}
-              className="p-3.5 bg-[#2D1B5A] hover:bg-[#35206A] border border-purple-500/20 hover:border-purple-500/40 rounded-xl font-bold text-xs text-purple-200 transition text-left flex items-center justify-between group shadow-md"
-            >
-              <span>View Attendance History</span>
-              <span className="text-pink-400 group-hover:translate-x-1.5 transition-transform">&rarr;</span>
-            </button>
-            <button 
-              onClick={() => navigate('/leave')}
-              className="p-3.5 bg-[#2D1B5A] hover:bg-[#35206A] border border-purple-500/20 hover:border-purple-500/40 rounded-xl font-bold text-xs text-purple-200 transition text-left flex items-center justify-between group shadow-md"
-            >
-              <span>View Leave Status</span>
-              <span className="text-pink-400 group-hover:translate-x-1.5 transition-transform">&rarr;</span>
-            </button>
-            <button 
-              onClick={() => navigate('/expenses')}
-              className="p-3.5 bg-[#2D1B5A] hover:bg-[#35206A] border border-purple-500/20 hover:border-purple-500/40 rounded-xl font-bold text-xs text-purple-200 transition text-left flex items-center justify-between group shadow-md"
-            >
-              <span>View Expenses</span>
-              <span className="text-pink-400 group-hover:translate-x-1.5 transition-transform">&rarr;</span>
-            </button>
-            <button 
-              onClick={() => navigate('/planner')}
-              className="p-3.5 bg-[#2D1B5A] hover:bg-[#35206A] border border-purple-500/20 hover:border-purple-500/40 rounded-xl font-bold text-xs text-purple-200 transition text-left flex items-center justify-between group shadow-md"
-            >
-              <span>View Tasks</span>
-              <span className="text-pink-400 group-hover:translate-x-1.5 transition-transform">&rarr;</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  
   return (
-    <div className="flex flex-col gap-5 pb-8 text-white">
+    <>
+      <div className="flex flex-col gap-5 pb-8 text-white">
       {/* Top Header */}
       <div className="flex items-center justify-between pt-2">
         <div className="flex items-center gap-3.5">
@@ -1000,5 +732,290 @@ export const EmployeeDashboard: React.FC = () => {
         </div>
       </div>
     </div>
+
+      <AnimatePresence>
+        {activeView === 'workpulse' && (
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 30, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="fixed inset-0 z-50 bg-[#170B38] overflow-y-auto"
+          >
+            <div className="container mx-auto p-4 max-w-3xl">
+              <div className="flex flex-col gap-5 pb-8 text-white min-h-screen">
+        {/* Work Pulse Header */}
+        <div className="flex flex-col gap-4 pt-2">
+          <button 
+            onClick={() => setActiveView('dashboard')} 
+            className="self-start p-2 px-3 bg-[#2D1B5A] border border-purple-500/30 rounded-xl hover:bg-[#3B2677] transition font-bold text-xs flex items-center gap-1.5 shadow-md text-white"
+          >
+            &larr; Back
+          </button>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[10px] font-black text-pink-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5" /> WORK PULSE
+              </p>
+              <h1 className="text-2xl font-black text-white leading-tight">
+                Your Work Pulse Snapshot
+              </h1>
+              <p className="text-xs text-purple-300 mt-1">Here's your work snapshot, {employeeData.name || 'Employee'} 👋</p>
+            </div>
+            <div className="bg-[#2D1B5A] border border-purple-500/20 px-3 py-1.5 rounded-full text-[10px] font-bold text-purple-200 mt-1">
+              {monthName} {currentYear}
+            </div>
+          </div>
+        </div>
+
+        {/* 1. Today's Attendance Status Card */}
+        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-pink-500/5 rounded-full blur-xl pointer-events-none" />
+          <div className="flex justify-between items-center mb-4 border-b border-purple-500/15 pb-2.5">
+            <span className="text-xs font-bold uppercase tracking-wider text-purple-300">Today's Attendance Status</span>
+            <div className="flex items-center gap-1.5">
+              {isCorrected && (
+                <span className="text-[10px] font-extrabold text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                  Corrected
+                </span>
+              )}
+              <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider
+                ${todayStatus === 'Present' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' :
+                  todayStatus === 'WFH' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30' :
+                  todayStatus === 'Client Visit' ? 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30' :
+                  todayStatus === 'Outdoor Work' ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30' :
+                  todayStatus === 'Leave' ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' :
+                  todayStatus === 'Absent' ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30' :
+                  'bg-gray-500/15 text-gray-400 border border-gray-500/30'}`}
+              >
+                {todayStatus}
+              </span>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="bg-[#211044] p-3 rounded-xl border border-purple-500/10">
+              <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Check-In</p>
+              <p className="font-extrabold text-sm text-white">{todayCheckIn}</p>
+            </div>
+            <div className="bg-[#211044] p-3 rounded-xl border border-purple-500/10">
+              <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Check-Out</p>
+              <p className="font-extrabold text-sm text-white">{todayCheckOut}</p>
+            </div>
+            <div className="bg-[#211044] p-3 rounded-xl border border-purple-500/10">
+              <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Mode</p>
+              <p className="font-extrabold text-sm text-white">{todayMode}</p>
+            </div>
+          </div>
+        </Card>
+
+        {/* 2. Monthly Attendance Summary Card */}
+        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 shadow-xl">
+          <div className="flex justify-between items-center mb-4 border-b border-purple-500/15 pb-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-purple-300">Monthly Attendance Summary</span>
+            <span className="text-[10px] text-purple-300/60 font-semibold">{monthName} Tracker</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+            {/* Circular Progress & Present Days */}
+            <div className="flex items-center gap-4 bg-[#211044] p-3 rounded-xl border border-purple-500/10">
+              {/* SVG Ring */}
+              <div className="relative w-16 h-16 flex-shrink-0">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                  <path
+                    className="text-purple-950"
+                    strokeWidth="3.5"
+                    stroke="currentColor"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path
+                    className="text-pink-500"
+                    strokeDasharray={`${attendancePercentage}, 100`}
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    stroke="currentColor"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs font-black text-white">{attendancePercentage}%</span>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-black text-white">Attendance Rate</p>
+                <p className="text-[10px] text-purple-300/80 mt-1">Logged <span className="text-white font-bold">{presentDaysCount}</span> out of <span className="text-white font-bold">{expectedWorkingDays}</span> expected working days</p>
+              </div>
+            </div>
+
+            {/* Other Status Days Row */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 text-center">
+                <p className="text-[9px] text-amber-300 font-bold mb-0.5">Late Days</p>
+                <p className="text-base font-black text-amber-400">{lateDaysCount}</p>
+              </div>
+              <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 text-center">
+                <p className="text-[9px] text-rose-300 font-bold mb-0.5">Absent Days</p>
+                <p className="text-base font-black text-rose-400">{actualAbsentDays}</p>
+              </div>
+              <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 text-center">
+                <p className="text-[9px] text-purple-300 font-bold mb-0.5">Present Days</p>
+                <p className="text-base font-black text-white">{presentDaysCount}</p>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* 3. Detailed Pulse Snapshot Sections */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Leave & WFH Usage Card */}
+          <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 shadow-xl">
+            <span className="text-xs font-bold uppercase tracking-wider text-purple-300 block mb-3.5 border-b border-purple-500/15 pb-2">
+              Leave & WFH Limits
+            </span>
+            <div className="flex flex-col gap-4">
+              {/* WFH Progress */}
+              <div>
+                <div className="flex justify-between items-center text-xs font-bold mb-1">
+                  <span className="text-purple-200">Work From Home (WFH)</span>
+                  <span className={wfhDaysCount >= 2 ? 'text-rose-400' : 'text-blue-300'}>{wfhDaysCount} / 2 Used</span>
+                </div>
+                <div className="w-full bg-[#211044] h-2.5 rounded-full overflow-hidden border border-purple-500/10">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ${wfhDaysCount >= 2 ? 'bg-rose-500' : 'bg-blue-500'}`}
+                    style={{ width: `${Math.min(100, (wfhDaysCount / 2) * 100)}%` }}
+                  />
+                </div>
+                <p className="text-[9px] text-purple-300/70 mt-1">Maximum limit is 2 WFH sessions allowed per month</p>
+              </div>
+
+              {/* Client visits & Outdoor */}
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 text-center">
+                  <p className="text-[9px] text-indigo-300 font-bold mb-0.5">Client Visits</p>
+                  <p className="text-sm font-black text-indigo-400">{clientVisitDaysCount} Days</p>
+                </div>
+                <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 text-center">
+                  <p className="text-[9px] text-purple-300 font-bold mb-0.5">Outdoor Work</p>
+                  <p className="text-sm font-black text-purple-400">{outdoorDaysCount} Days</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Tasks & Expenses Card */}
+          <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 shadow-xl">
+            <span className="text-xs font-bold uppercase tracking-wider text-purple-300 block mb-3.5 border-b border-purple-500/15 pb-2">
+              Tasks & Expense Status
+            </span>
+            <div className="flex flex-col gap-4">
+              {/* Tasks Progress */}
+              <div>
+                <div className="flex justify-between items-center text-xs font-bold mb-1">
+                  <span className="text-purple-200">Tasks Completed</span>
+                  <span className="text-purple-300">{completedTasksCount} / {assignedTasksCount} Completed</span>
+                </div>
+                {assignedTasksCount > 0 ? (
+                  <>
+                    <div className="w-full bg-[#211044] h-2.5 rounded-full overflow-hidden border border-purple-500/10">
+                      <div 
+                        className="h-full bg-[#7C3AED] rounded-full transition-all duration-500"
+                        style={{ width: `${(completedTasksCount / assignedTasksCount) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-[9px] text-purple-300/70 mt-1">Completion Rate: {Math.round((completedTasksCount / assignedTasksCount) * 100)}%</p>
+                  </>
+                ) : (
+                  <p className="text-xs text-purple-300/60 font-semibold italic bg-[#211044] p-2 rounded-lg text-center border border-purple-500/5 mt-1.5">No tasks assigned this month</p>
+                )}
+              </div>
+
+              {/* Expense Tracker */}
+              <div className="bg-[#211044] p-3 rounded-xl border border-purple-500/10 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-purple-300/70 font-semibold">Total Expenses Requested</p>
+                  <p className="font-black text-base text-white">₹{totalExpenseAmount.toLocaleString()}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1 text-[9px] font-bold text-purple-300">
+                  <span className="text-emerald-400">Approved: ₹{totalApprovedAmount.toLocaleString()}</span>
+                  <span className="text-amber-400">Pending: ₹{totalPendingAmount.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* 4. Performance Snapshot Card */}
+        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 shadow-xl">
+          <span className="text-xs font-bold uppercase tracking-wider text-purple-300 block mb-3.5 border-b border-purple-500/15 pb-2">
+            Performance Snapshot
+          </span>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4 bg-[#211044] p-3.5 rounded-xl border border-purple-500/10 flex-1">
+              <div className="w-14 h-14 rounded-xl bg-pink-500/10 flex items-center justify-center text-pink-400 font-black text-xl border border-pink-500/25 shrink-0 shadow-inner">
+                {efficiencyResult.finalScore === -1 ? 'N/A' : efficiencyResult.grade}
+              </div>
+              <div>
+                <p className="text-sm font-black text-white">Efficiency Score</p>
+                <p className="text-lg font-black text-pink-400 mt-0.5">
+                  {efficiencyResult.finalScore === -1 ? 'NO DATA' : `${efficiencyResult.finalScore}%`}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex-1 bg-[#211044] p-3 rounded-xl border border-purple-500/10 text-[10px] font-semibold text-purple-300">
+              <p className="font-extrabold text-white text-xs mb-1.5 border-b border-purple-500/10 pb-1">Applied Weightages</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <div className="flex justify-between"><span>Task Completion:</span> <span className="text-white font-bold">{weightages.taskCompletion}%</span></div>
+                <div className="flex justify-between"><span>On-Time:</span> <span className="text-white font-bold">{weightages.onTimeCompletion}%</span></div>
+                <div className="flex justify-between"><span>Quality:</span> <span className="text-white font-bold">{weightages.quality}%</span></div>
+                <div className="flex justify-between"><span>Punctuality:</span> <span className="text-white font-bold">{weightages.punctuality}%</span></div>
+                <div className="flex justify-between"><span>Workload:</span> <span className="text-white font-bold">{weightages.workload}%</span></div>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* 5. Quick Navigation Links */}
+        <div>
+          <h2 className="text-xs font-extrabold text-purple-300/80 uppercase tracking-wider mb-3">
+            Quick Links
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            <button 
+              onClick={() => navigate('/attendance')}
+              className="p-3.5 bg-[#2D1B5A] hover:bg-[#35206A] border border-purple-500/20 hover:border-purple-500/40 rounded-xl font-bold text-xs text-purple-200 transition text-left flex items-center justify-between group shadow-md"
+            >
+              <span>View Attendance History</span>
+              <span className="text-pink-400 group-hover:translate-x-1.5 transition-transform">&rarr;</span>
+            </button>
+            <button 
+              onClick={() => navigate('/leave')}
+              className="p-3.5 bg-[#2D1B5A] hover:bg-[#35206A] border border-purple-500/20 hover:border-purple-500/40 rounded-xl font-bold text-xs text-purple-200 transition text-left flex items-center justify-between group shadow-md"
+            >
+              <span>View Leave Status</span>
+              <span className="text-pink-400 group-hover:translate-x-1.5 transition-transform">&rarr;</span>
+            </button>
+            <button 
+              onClick={() => navigate('/expenses')}
+              className="p-3.5 bg-[#2D1B5A] hover:bg-[#35206A] border border-purple-500/20 hover:border-purple-500/40 rounded-xl font-bold text-xs text-purple-200 transition text-left flex items-center justify-between group shadow-md"
+            >
+              <span>View Expenses</span>
+              <span className="text-pink-400 group-hover:translate-x-1.5 transition-transform">&rarr;</span>
+            </button>
+            <button 
+              onClick={() => navigate('/planner')}
+              className="p-3.5 bg-[#2D1B5A] hover:bg-[#35206A] border border-purple-500/20 hover:border-purple-500/40 rounded-xl font-bold text-xs text-purple-200 transition text-left flex items-center justify-between group shadow-md"
+            >
+              <span>View Tasks</span>
+              <span className="text-pink-400 group-hover:translate-x-1.5 transition-transform">&rarr;</span>
+            </button>
+          </div>
+        </div>
+      </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
