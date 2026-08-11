@@ -55,7 +55,7 @@ export const saveMultipleTaskRecords = (newTasks: TaskRecord[]): void => {
 
 export const getPendingTasks = (): TaskRecord[] => {
   const tasks = getStoredTasks();
-  return tasks.filter((t) => t.syncStatus === 'Pending Sync');
+  return tasks.filter((t) => t.syncStatus === 'Pending Sync' || t.syncStatus === 'Sync Failed');
 };
 
 export const markTaskSyncedInLocal = (id: string, serverSyncTime: string): void => {

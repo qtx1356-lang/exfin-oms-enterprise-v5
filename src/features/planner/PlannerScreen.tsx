@@ -653,14 +653,23 @@ export const PlannerScreen: React.FC = () => {
         onClose={() => !isUpdating && setSelectedTask(null)}
         title="Task Audit & Update Progress"
       >
-        {selectedTask && (
+        {selectedTask && (() => {
+          let displaySyncStatus = selectedTask.syncStatus as string;
+          if (selectedTask.syncStatus === 'Synced') displaySyncStatus = 'SYNCED';
+          else if (selectedTask.syncStatus === 'Sync Failed') displaySyncStatus = 'SYNC ERROR';
+          else if (selectedTask.syncStatus === 'Pending Sync') {
+            if (!navigator.onLine) displaySyncStatus = 'WAITING FOR CONNECTION';
+            else displaySyncStatus = isUpdating ? 'SYNCING' : 'RETRYING';
+          }
+
+          return (
           <div className="space-y-4 text-xs">
             {/* Sync Issue Banner */}
-            {selectedTask.conflictDetails && (
+            {selectedTask.syncStatus === 'Sync Failed' && (
               <div className="p-3 bg-amber-950/40 border border-amber-500/50 rounded-xl flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <p className="text-xs font-medium text-amber-200 leading-relaxed">
-                  Unable to sync latest task update. Please try again.
+                  Unable to sync latest task update. We'll retry automatically.
                 </p>
               </div>
             )}
@@ -691,7 +700,7 @@ export const PlannerScreen: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-purple-300/70 font-bold block">Sync Status</span>
-                  <span className="font-semibold text-purple-200">{selectedTask.syncStatus}</span>
+                  <span className="font-semibold text-purple-200">{displaySyncStatus}</span>
                 </div>
               </div>
             </div>
@@ -815,7 +824,8 @@ export const PlannerScreen: React.FC = () => {
               </Button>
             </div>
           </div>
-        )}
+          );
+        })()}
       </Dialog>
     </div>
   );

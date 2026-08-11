@@ -30,98 +30,77 @@ export const syncPendingTasks = async (): Promise<{ syncedCount: number; errorsC
   let errorsCount = 0;
 
   for (const task of pendingTasks) {
-    try {
-      // If task is explicitly marked with unresolved conflict, skip auto-pushing until resolved by user
-      if (task.hasConflict) {
-        console.warn(`Task Sync Engine: Task ${task.id} has an unresolved conflict. Skipping auto sync.`);
-        errorsCount++;
-        continue;
-      }
+    let attempt = 0;
+    let success = false;
+    
+    while (attempt < 3 && !success) {
+      attempt++;
+      try {
+        const docRef = doc(db, 'tasks', task.id);
+        const docSnap = await getDoc(docRef);
+        const serverSyncTime = new Date().toISOString();
 
-      const docRef = doc(db, 'tasks', task.id);
-      const docSnap = await getDoc(docRef);
-      const serverSyncTime = new Date().toISOString();
-
-      if (!docSnap.exists()) {
-        const firestorePayload: TaskRecord = {
-          ...task,
-          revision: task.revision || 1,
-          lastModifiedAt: new Date().toISOString(),
-          hasConflict: false,
-          conflictDetails: null,
-          syncStatus: 'Synced',
-          serverSyncTime: serverSyncTime,
-          createdAtDeviceTime: task.createdAtDeviceTime,
-          updatedAtDeviceTime: task.updatedAtDeviceTime || new Date().toISOString(),
-        };
-
-        await setDoc(docRef, firestorePayload);
-        recordSyncSuccess('WorkPlanner', task.id);
-        markTaskSyncedInLocal(task.id, serverSyncTime);
-        console.log(`Task Sync Engine: Successfully synced new task ID ${task.id}`);
-        syncedCount++;
-      } else {
-        const serverData = docSnap.data() as TaskRecord;
-
-        // Priority 3: Conflict Detection
-        // If server doc was updated after local task base time and modified by someone else, detect conflict!
-        const serverRev = serverData.revision || 1;
-        const localRev = task.revision || 1;
-        const serverLastModifiedBy = serverData.lastModifiedBy || serverData.updatedAtDeviceTime || 'SERVER';
-        const localLastModifiedBy = task.lastModifiedBy || task.createdBy;
-
-        const isModifiedByOther = serverLastModifiedBy !== localLastModifiedBy;
-        const isServerNewer = serverRev >= localRev || (serverData.serverSyncTime && task.serverSyncTime && serverData.serverSyncTime > task.serverSyncTime);
-
-        if (isServerNewer && isModifiedByOther) {
-          console.warn(`Task Sync Engine: Conflict detected on task ID ${task.id}. Marking for manual resolution.`);
-          const conflictTask: TaskRecord = {
+        if (!docSnap.exists()) {
+          const firestorePayload: TaskRecord = {
             ...task,
-            hasConflict: true,
-            syncStatus: 'Sync Failed',
-            conflictDetails: {
-              serverVersion: serverData,
-              localVersion: task,
-              conflictTime: new Date().toISOString(),
-            },
+            revision: task.revision || 1,
+            lastModifiedAt: new Date().toISOString(),
+            hasConflict: false,
+            conflictDetails: null,
+            syncStatus: 'Synced',
+            serverSyncTime: serverSyncTime,
+            createdAtDeviceTime: task.createdAtDeviceTime,
+            updatedAtDeviceTime: task.updatedAtDeviceTime || new Date().toISOString(),
           };
 
-          saveTaskRecord(conflictTask);
-          recordSyncFailure(
-            'WorkPlanner',
-            task.id,
-            'Conflict detected: Server task updated offline by another user',
-            `Task "${task.title}" has conflicting server modifications`
-          );
-          errorsCount++;
-          continue;
+          await setDoc(docRef, firestorePayload);
+          recordSyncSuccess('WorkPlanner', task.id);
+          markTaskSyncedInLocal(task.id, serverSyncTime);
+          console.log(`Task Sync Engine: Successfully synced new task ID ${task.id}`);
+          syncedCount++;
+          success = true;
+        } else {
+          const serverData = docSnap.data() as TaskRecord;
+          const serverRev = serverData.revision || 1;
+          const localRev = task.revision || 1;
+          const newRevision = Math.max(serverRev, localRev) + 1;
+
+          // Merge without conflict - partial payload
+          const firestorePayload: Partial<TaskRecord> = {
+            completionPercentage: task.completionPercentage,
+            status: task.status,
+            approvalStatus: task.approvalStatus,
+            comments: task.comments || [],
+            completedAt: task.completedAt || null,
+            completedBy: task.completedBy || null,
+            startedTime: task.startedTime || null,
+            updatedAtDeviceTime: task.updatedAtDeviceTime || new Date().toISOString(),
+            lastModifiedAt: new Date().toISOString(),
+            revision: newRevision,
+            serverSyncTime: serverSyncTime,
+            hasConflict: false,
+            conflictDetails: null,
+            syncStatus: 'Synced'
+          };
+
+          await setDoc(docRef, firestorePayload, { merge: true });
+          recordSyncSuccess('WorkPlanner', task.id);
+          markTaskSyncedInLocal(task.id, serverSyncTime);
+          console.log(`Task Sync Engine: Updated synced task ID ${task.id}`);
+          syncedCount++;
+          success = true;
         }
-
-        // Merge without conflict
-        const newRevision = Math.max(serverRev, localRev) + 1;
-        const firestorePayload: TaskRecord = {
-          ...task,
-          revision: newRevision,
-          lastModifiedAt: new Date().toISOString(),
-          hasConflict: false,
-          conflictDetails: null,
-          syncStatus: 'Synced',
-          serverSyncTime: serverSyncTime,
-          createdAtDeviceTime: serverData.createdAtDeviceTime || task.createdAtDeviceTime,
-          updatedAtDeviceTime: new Date().toISOString(),
-        };
-
-        await setDoc(docRef, firestorePayload, { merge: true });
-        recordSyncSuccess('WorkPlanner', task.id);
-        markTaskSyncedInLocal(task.id, serverSyncTime);
-        console.log(`Task Sync Engine: Updated synced task ID ${task.id}`);
-        syncedCount++;
+      } catch (err: any) {
+        console.error(`Task Sync Engine: Error syncing task ID ${task.id} (Attempt ${attempt}):`, err);
+        if (attempt < 3) {
+          // short delay
+          await new Promise(res => setTimeout(res, 1000 * attempt));
+        } else {
+          recordSyncFailure('WorkPlanner', task.id, err?.message || 'Task sync failed', `Task "${task.title}"`);
+          markTaskSyncFailedInLocal(task.id);
+          errorsCount++;
+        }
       }
-    } catch (err: any) {
-      console.error(`Task Sync Engine: Error syncing task ID ${task.id}:`, err);
-      recordSyncFailure('WorkPlanner', task.id, err?.message || 'Task sync failed', `Task "${task.title}"`);
-      markTaskSyncFailedInLocal(task.id);
-      errorsCount++;
     }
   }
 
