@@ -3,6 +3,7 @@ import { doc, getDoc, onSnapshot, runTransaction, setDoc, collection, query, whe
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { db, auth } from '../services/firebase/config';
 import { Device } from '@capacitor/device';
+import { logStartupTag } from '../services/startup/startupPerformanceLogger';
 import {
   registerEmployeeDeviceToken,
   invalidateEmployeeDeviceToken,
@@ -91,6 +92,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
     }
     
+    logStartupTag('DEVICE_ID_READY', `Device ID: ${deviceId}, Model: ${deviceModel}`);
     return { deviceId, deviceModel, androidVersion, appVersion: 'v5.1.0' };
   };
 
@@ -99,8 +101,11 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     let unsubSnapshot: (() => void) | null = null;
 
     const initializeRegistration = async () => {
+      logStartupTag('REGISTRATION_CHECK_START', 'Checking device registration in Firestore and local cache');
+
       if (!db) {
         console.warn('Registration initialization: Firestore DB unavailable');
+        logStartupTag('REGISTRATION_READY', 'Status: unregistered (DB Unavailable)');
         if (isMounted) {
           setStatus('unregistered');
         }
@@ -169,6 +174,8 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             localStorage.setItem('cached_registration_data', JSON.stringify(activeData));
           } catch (e) {}
 
+          logStartupTag('REGISTRATION_READY', `Status: ${regStatus}, EmployeeId: ${resolvedEmpId}`);
+
           if (isMounted) {
             setLocalRegId(activeRegId);
             setEmployeeData(activeData);
@@ -188,6 +195,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           console.log('REGISTRATION_STATUS: unregistered');
           console.log('RESOLVED_EMPLOYEE_ID: none');
           console.log('STARTUP_DESTINATION: Register Device');
+          logStartupTag('REGISTRATION_READY', 'Status: unregistered');
 
           localStorage.removeItem('registrationId');
           localStorage.removeItem('cached_registration_data');

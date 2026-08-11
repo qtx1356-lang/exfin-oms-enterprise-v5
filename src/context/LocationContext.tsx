@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
+import { logStartupTag } from '../services/startup/startupPerformanceLogger';
 import { OFFICE_LOCATION, getDistanceFromLatLonInM } from '../services/attendance/smartAttendanceEngine';
 import { 
   handleLocationUpdateForAttendance, 
@@ -455,6 +456,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const startTracking = async () => {
+    logStartupTag('LOCATION_INIT_START', 'Starting Geolocation tracking & adaptive polling');
     setLocationStatus('loading');
     setErrorMessage('');
 

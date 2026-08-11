@@ -16,6 +16,7 @@ import { DeviceRegistration } from '../features/registration/DeviceRegistration'
 import { PendingApproval } from '../features/registration/PendingApproval';
 import { RejectedScreen } from '../features/registration/RejectedScreen';
 import { LoadingScreen } from '../components/ui/LoadingScreen';
+import { WelcomeScreen } from '../components/ui/WelcomeScreen';
 import { EmployeeDashboard } from '../features/employee/EmployeeDashboard';
 import { AttendanceScreen } from '../features/attendance/AttendanceScreen';
 import { ExpenseScreen } from '../features/expenses/ExpenseScreen';
@@ -88,12 +89,16 @@ const AdminPortalPublicRoute = () => {
 
 const EmployeeGuard = () => {
   const { status } = useRegistration();
-  
-  if (status === 'loading') return <LoadingScreen />;
+  const [showWelcome, setShowWelcome] = React.useState(true);
+
+  if (showWelcome || status === 'loading') {
+    return <WelcomeScreen onProceed={() => setShowWelcome(false)} />;
+  }
+
   if (status === 'unregistered') return <DeviceRegistration />;
   if (status === 'Pending Approval') return <PendingApproval />;
   if (status === 'Rejected') return <RejectedScreen />;
-  
+
   return <Outlet />;
 };
 

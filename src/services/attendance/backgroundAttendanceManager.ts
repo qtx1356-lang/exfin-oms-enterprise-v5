@@ -4,6 +4,7 @@ import { OFFICE_LOCATION, getDistanceFromLatLonInM, processAttendanceStateTransi
 import { getTodayAttendanceRecord } from './attendanceStorage';
 import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
+import { logStartupTag } from '../startup/startupPerformanceLogger';
 
 const GEOFENCE_REGISTERED_KEY = 'exfin_office_geofence_25m';
 
@@ -34,6 +35,7 @@ export const ensureOfficeGeofenceRegistered = (): BackgroundGeofenceConfig => {
       existing.longitude === OFFICE_LOCATION.longitude &&
       existing.radius === OFFICE_LOCATION.radius
     ) {
+      logStartupTag('GEOFENCE_READY', `Office 25m Geofence Active at (${OFFICE_LOCATION.latitude}, ${OFFICE_LOCATION.longitude})`);
       return existing;
     }
   }
@@ -55,6 +57,7 @@ export const ensureOfficeGeofenceRegistered = (): BackgroundGeofenceConfig => {
     console.warn('Failed to save geofence registration:', err);
   }
 
+  logStartupTag('GEOFENCE_READY', `Office 25m Geofence Registered at (${OFFICE_LOCATION.latitude}, ${OFFICE_LOCATION.longitude})`);
   return config;
 };
 
@@ -193,6 +196,7 @@ export const requestBackgroundLocationPermission = async (): Promise<boolean> =>
  * Initializes global background lifecycle listeners
  */
 export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { id: string; name: string } | null): (() => void) => {
+  logStartupTag('ATTENDANCE_INIT_START', 'Initializing background attendance manager');
   ensureOfficeGeofenceRegistered();
 
   // Run initial end-of-day finalizer check
@@ -219,6 +223,8 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
 
   document.addEventListener('visibilitychange', handleVisibilityChange);
   window.addEventListener('online', syncPendingAttendanceRecords);
+
+  logStartupTag('AUTO_ATTENDANCE_READY', 'Background attendance monitoring and automatic check-in listener ready');
 
   return () => {
     clearInterval(intervalId);

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { useRegistration } from '../../context/RegistrationContext';
+import { logStartupTag } from '../../services/startup/startupPerformanceLogger';
 import { Card } from '../../components/ui/Card';
 import { 
   Calendar, 
@@ -74,6 +75,7 @@ export const EmployeeDashboard: React.FC = () => {
 
   // Initialize data from local storage
   useEffect(() => {
+    logStartupTag('DASHBOARD_READY', 'Employee Dashboard fully mounted');
     setAttendanceRecords(getStoredAttendanceRecords());
     setTasks(getStoredTasks());
     setExpenses(getStoredExpenseRecords());
