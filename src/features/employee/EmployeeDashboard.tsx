@@ -162,6 +162,7 @@ export const EmployeeDashboard: React.FC = () => {
 
   // Personal Work Pulse States
   const [activeView, setActiveView] = useState<'dashboard' | 'workpulse'>('dashboard');
+  const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
@@ -717,216 +718,138 @@ export const EmployeeDashboard: React.FC = () => {
         </div>
 
         {/* 1. TODAY AT A GLANCE (FEATURE 5 - SMART DAILY BRIEFING DASHBOARD) */}
-        <Card className="p-5 relative overflow-hidden bg-gradient-to-br from-[#2D1B5A] via-[#35206A] to-[#211044] border border-purple-500/30 shadow-2xl rounded-[28px]">
+        <Card className="p-6 relative overflow-hidden bg-gradient-to-br from-[#2D1B5A] via-[#35206A] to-[#211044] border border-purple-500/30 shadow-2xl rounded-[28px]">
           <div className="absolute -top-10 -right-10 w-44 h-44 bg-[#7C3AED]/20 rounded-full blur-3xl pointer-events-none" />
 
           {/* Header Greeting */}
-          <div className="flex items-start justify-between mb-4 relative z-10">
+          <div className="flex items-start justify-between mb-5 relative z-10 pb-3 border-b border-purple-500/20">
             <div>
-              <p className="text-xs font-black text-amber-300 uppercase tracking-widest flex items-center gap-1.5 mb-1">
+              <p className="text-[10px] font-black text-amber-300 uppercase tracking-widest flex items-center gap-1.5 mb-1">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                ✨ {greetingPrefix}
+                {greetingPrefix}
               </p>
-              <h1 className="text-2xl font-black text-white tracking-tight">Today at a Glance</h1>
+              <h1 className="text-xl font-black text-white tracking-tight">Today at a Glance</h1>
             </div>
-            <span className="text-[11px] font-bold px-3 py-1 rounded-full bg-[#211044]/90 border border-purple-500/30 text-purple-200 shadow-inner">
+            <span className="text-[10px] font-black px-3 py-1 rounded-full bg-[#211044]/90 border border-purple-500/30 text-purple-200 uppercase tracking-wider">
               {todayDate}
             </span>
           </div>
 
-          {/* Quick Glance Metrics Summary Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 relative z-10 p-3 bg-[#211044]/70 backdrop-blur-md rounded-2xl border border-purple-500/20 mb-5">
-            <div className="flex flex-col p-2.5 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10">
-              <span className="text-[10px] font-semibold text-purple-300/80">Attendance</span>
-              <span className="text-xs font-black text-white mt-0.5 leading-snug">{attendanceStatusLabel}</span>
+          {/* Metrics Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 relative z-10 mb-6">
+            <div className="p-3.5 bg-[#211044]/60 backdrop-blur-md rounded-2xl border border-purple-500/15 flex flex-col justify-between">
+              <span className="text-[10px] font-extrabold text-purple-300/80 uppercase tracking-wider">Attendance</span>
+              <span className={`text-sm font-black mt-1 leading-none ${
+                attendanceStatusLabel === 'Checked In' || attendanceStatusLabel === 'WFH' || attendanceStatusLabel === 'Client Visit' || attendanceStatusLabel === 'Outdoor Work'
+                  ? 'text-emerald-300'
+                  : 'text-purple-200'
+              }`}>{attendanceStatusLabel}</span>
             </div>
 
-            <div className="flex flex-col p-2.5 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10">
-              <span className="text-[10px] font-semibold text-purple-300/80">Working Time</span>
-              <span className="text-xs font-black text-amber-300 mt-0.5 leading-snug">{workingDurationStr}</span>
+            <div className="p-3.5 bg-[#211044]/60 backdrop-blur-md rounded-2xl border border-purple-500/15 flex flex-col justify-between">
+              <span className="text-[10px] font-extrabold text-purple-300/80 uppercase tracking-wider">Working</span>
+              <span className="text-sm font-black text-amber-300 mt-1 leading-none">{workingDurationStr}</span>
             </div>
 
-            <div className="flex flex-col p-2.5 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10">
-              <span className="text-[10px] font-semibold text-purple-300/80">Tasks</span>
-              <div className="text-[11px] font-black leading-tight mt-0.5 space-y-0.5">
-                <div className="text-purple-100">{assignedTaskCount} assigned</div>
-                <div className="text-emerald-300">{completedTaskCount} completed</div>
-              </div>
+            <div className="p-3.5 bg-[#211044]/60 backdrop-blur-md rounded-2xl border border-purple-500/15 flex flex-col justify-between">
+              <span className="text-[10px] font-extrabold text-purple-300/80 uppercase tracking-wider">Tasks</span>
+              <span className="text-sm font-black text-white mt-1 leading-none">{completedTaskCount} / {assignedTaskCount}</span>
             </div>
 
-            <div 
-              onClick={() => navigate('/notifications')}
-              className="flex flex-col p-2.5 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10 hover:border-purple-500/40 cursor-pointer transition"
-            >
-              <span className="text-[10px] font-semibold text-purple-300/80 flex items-center justify-between">
-                Notifications
-                {unreadNotificationCount > 0 && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
-              </span>
-              <span className="text-xs font-black text-pink-300 mt-0.5 leading-snug">
-                {unreadNotificationCount} unread
-              </span>
-            </div>
-
-            <div 
-              onClick={() => navigate('/leave')}
-              className="flex flex-col p-2.5 bg-[#2D1B5A]/60 rounded-xl border border-purple-500/10 hover:border-purple-500/40 cursor-pointer transition col-span-2 sm:col-span-1"
-            >
-              <span className="text-[10px] font-semibold text-purple-300/80">Leave</span>
-              <span className="text-[11px] font-black text-purple-200 mt-0.5 leading-snug line-clamp-2">
-                {nextUpcomingLeave ? formatLeaveRange(nextUpcomingLeave.startDate, nextUpcomingLeave.endDate) : 'No upcoming leave'}
-              </span>
+            <div className="p-3.5 bg-[#211044]/60 backdrop-blur-md rounded-2xl border border-purple-500/15 flex flex-col justify-between">
+              <span className="text-[10px] font-extrabold text-purple-300/80 uppercase tracking-wider">Alerts</span>
+              <span className={`text-sm font-black mt-1 leading-none ${
+                (myTasks.filter(t => t.status !== 'COMPLETED' && t.dueDate === todayStr).length + (unreadNotificationCount > 0 ? 1 : 0)) > 0
+                  ? 'text-rose-400'
+                  : 'text-purple-300'
+              }`}>{(myTasks.filter(t => t.status !== 'COMPLETED' && t.dueDate === todayStr).length + (unreadNotificationCount > 0 ? 1 : 0))}</span>
             </div>
           </div>
 
-          {/* Detailed Briefing Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 relative z-10">
-            
-            {/* 2. ATTENDANCE CARD */}
-            {attendanceLoading ? <CardSkeleton /> : attendanceError ? <CardError title="Attendance" onRetry={() => setAttendanceRecords(getStoredAttendanceRecords())} /> : (
-              <div className="bg-[#211044]/80 backdrop-blur-md rounded-2xl p-4 border border-purple-500/25 flex flex-col justify-between">
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
-                    <UserCheck className="w-4 h-4 text-emerald-400" /> Attendance State
-                  </span>
-                  <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${attendanceBadgeColor}`}>
-                    {attendanceStatusLabel}
-                  </span>
-                </div>
-                <div className="mt-2 space-y-1">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-purple-300/70 font-medium">Check-In Time:</span>
-                    <span className="font-bold text-white">{todayAttendanceRec?.checkInTime || 'Not Checked In'}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-purple-300/70 font-medium">Currently Working / Shift:</span>
-                    <span className="font-bold text-amber-300">{workingDurationStr}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 3 & 7. TASK SUMMARY & DAILY PROGRESS */}
-            {tasksLoading ? <CardSkeleton /> : tasksError ? <CardError title="Tasks" onRetry={() => setTasks(getStoredTasks())} /> : (
-              <div className="bg-[#211044]/80 backdrop-blur-md rounded-2xl p-4 border border-purple-500/25 flex flex-col justify-between">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
-                    <CheckSquare className="w-4 h-4 text-emerald-400" /> Tasks Today
-                  </span>
-                  <span className="text-xs font-black text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                    {taskProgressPercentage}% Done
-                  </span>
-                </div>
-                <div className="text-xs flex justify-between text-purple-200 mb-2">
-                  <span>Assigned: <strong className="text-white">{assignedTaskCount}</strong></span>
-                  <span>Completed: <strong className="text-emerald-300">{completedTaskCount}</strong></span>
-                </div>
-                {/* Visual Progress Bar */}
-                <div>
-                  <div className="flex justify-between text-[10px] font-extrabold text-purple-300 uppercase tracking-widest mb-1">
-                    <span>Today's Progress</span>
-                    <span>{taskProgressPercentage}%</span>
-                  </div>
-                  <div className="w-full bg-[#2D1B5A] h-2.5 rounded-full overflow-hidden border border-purple-500/20">
-                    <div 
-                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
-                      style={{ width: `${taskProgressPercentage}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 4. NEXT TASK CARD */}
-            {tasksLoading ? <CardSkeleton /> : tasksError ? <CardError title="Next Task" onRetry={() => setTasks(getStoredTasks())} /> : (
-              <div className="bg-[#211044]/80 backdrop-blur-md rounded-2xl p-4 border border-purple-500/25 flex flex-col justify-between">
-                <div className="flex justify-between items-center mb-1.5">
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-300 flex items-center gap-1">
-                    <Briefcase className="w-3.5 h-3.5" /> Next Task
-                  </span>
-                  {nextTask && (
-                    <span className="text-[10px] font-bold text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
-                      {nextTask.priority || 'Medium'} Priority
-                    </span>
-                  )}
-                </div>
-
-                {nextTask ? (
-                  <div>
-                    <h3 className="font-black text-sm text-white line-clamp-1 mb-1">{nextTask.title || 'Untitled Task'}</h3>
-                    <div className="flex justify-between items-center text-[11px] text-purple-300/80 mb-2">
-                      <span>Due: {nextTask.dueDate ? nextTask.dueDate : 'Today'}</span>
-                      <span>Progress: {nextTask.completionPercentage !== undefined ? nextTask.completionPercentage : (nextTask.status === 'IN_PROGRESS' ? 50 : 0)}%</span>
-                    </div>
-                    <button
-                      onClick={() => navigate('/planner')}
-                      className="w-full py-2 px-3 bg-[#7C3AED]/30 hover:bg-[#7C3AED]/50 border border-purple-500/30 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1.5 transition active:scale-98"
+          {/* Action Required - only show if there are actual action items */}
+          {(myTasks.filter(t => t.status !== 'COMPLETED' && t.dueDate === todayStr).length + (unreadNotificationCount > 0 ? 1 : 0)) > 0 && (
+            <div className="relative z-10 mb-6 p-4 bg-[#451225]/40 rounded-2xl border border-rose-500/30 space-y-2">
+              <p className="text-[10px] font-black text-rose-300 uppercase tracking-wider flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                ACTION REQUIRED
+              </p>
+              <div className="space-y-1.5 text-xs text-rose-200/90 font-medium">
+                {myTasks.filter(t => t.status !== 'COMPLETED' && t.dueDate === todayStr).map((task) => (
+                  <div key={task.id} className="flex items-center justify-between gap-2 bg-[#2D1B5A]/40 p-2 rounded-xl border border-rose-500/10">
+                    <span className="truncate">⚠️ Task due today: <strong>{task.title}</strong></span>
+                    <button 
+                      onClick={() => navigate('/planner')} 
+                      className="text-[10px] font-black bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 px-2 py-0.5 rounded-full transition"
                     >
-                      <span>Continue Task</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      Start
                     </button>
                   </div>
-                ) : (
-                  <div className="py-2 text-center text-xs text-purple-300/70">
-                    {assignedTaskCount > 0 ? 'All tasks completed 🎉' : 'No tasks assigned'}
+                ))}
+                {unreadNotificationCount > 0 && (
+                  <div className="flex items-center justify-between gap-2 bg-[#2D1B5A]/40 p-2 rounded-xl border border-rose-500/10">
+                    <span>🔔 You have <strong>{unreadNotificationCount} unread notification(s)</strong></span>
+                    <button 
+                      onClick={() => navigate('/notifications')} 
+                      className="text-[10px] font-black bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 px-2 py-0.5 rounded-full transition"
+                    >
+                      View
+                    </button>
                   </div>
                 )}
               </div>
-            )}
-
-            {/* 5 & 6. LEAVE & NOTIFICATION SUMMARY */}
-            <div className="grid grid-cols-2 gap-2.5">
-              {/* 5. LEAVE SUMMARY */}
-              {leavesLoading ? <CardSkeleton /> : leavesError ? <CardError title="Leave" onRetry={() => setAllLeaves(getStoredLeaves())} /> : (
-                <div 
-                  onClick={() => navigate('/leave')}
-                  className="bg-[#211044]/80 backdrop-blur-md rounded-2xl p-3.5 border border-purple-500/25 flex flex-col justify-between cursor-pointer hover:border-purple-500/40 transition"
-                >
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-purple-300">
-                    <Calendar className="w-3.5 h-3.5 text-purple-400" /> Upcoming Leave
-                  </div>
-                  <div className="my-1.5">
-                    {nextUpcomingLeave ? (
-                      <>
-                        <p className="font-bold text-xs text-white leading-tight">
-                          {formatLeaveRange(nextUpcomingLeave.startDate, nextUpcomingLeave.endDate)}
-                        </p>
-                        <span className="text-[10px] font-extrabold text-emerald-300 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 inline-block mt-1">
-                          Approved
-                        </span>
-                      </>
-                    ) : (
-                      <p className="text-xs font-medium text-purple-300/70 italic">No upcoming leave</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* 6. NOTIFICATION SUMMARY */}
-              {notificationsLoading ? <CardSkeleton /> : notificationsError ? <CardError title="Notifications" onRetry={() => {}} /> : (
-                <div 
-                  onClick={() => navigate('/notifications')}
-                  className="bg-[#211044]/80 backdrop-blur-md rounded-2xl p-3.5 border border-purple-500/25 flex flex-col justify-between cursor-pointer hover:border-purple-500/40 transition"
-                >
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-pink-300">
-                    <Bell className="w-3.5 h-3.5 text-amber-400" /> Notifications
-                  </div>
-                  <div className="my-1.5">
-                    <p className="font-black text-sm text-white">
-                      {unreadNotificationCount} unread
-                    </p>
-                    <span className="text-[10px] font-bold text-pink-300/80 hover:text-white flex items-center gap-1 mt-1">
-                      View All &rarr;
-                    </span>
-                  </div>
-                </div>
-              )}
             </div>
+          )}
 
+          {/* Today's Progress */}
+          <div className="relative z-10 bg-[#211044]/60 backdrop-blur-md p-4 rounded-2xl border border-purple-500/15">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[10px] font-black text-purple-300 uppercase tracking-wider">Today's Progress</span>
+              <span className="text-xs font-black text-emerald-300">{taskProgressPercentage}%</span>
+            </div>
+            
+            {/* Elegant Progress Bar */}
+            <div className="w-full bg-[#170B38] h-3 rounded-full overflow-hidden border border-purple-500/20 mb-2">
+              <div 
+                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
+                style={{ width: `${taskProgressPercentage}%` }}
+              />
+            </div>
+            
+            <p className="text-[11px] text-purple-200/80 font-bold">
+              {completedTaskCount} of {assignedTaskCount} tasks completed today
+            </p>
           </div>
         </Card>
 
         {/* MY DAY TIMELINE (FEATURE 6) */}
-        <MyDayTimeline />
+        <div className="bg-[#2D1B5A] border border-purple-500/20 rounded-2xl overflow-hidden shadow-lg">
+          <div 
+            onClick={() => setIsTimelineExpanded(!isTimelineExpanded)}
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-purple-500/10 transition select-none"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-300">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-extrabold text-white uppercase tracking-wider">My Day Timeline</h3>
+                <p className="text-[10px] text-purple-300/80 font-semibold">
+                  {isTimelineExpanded ? 'Interactive hourly agenda and activity log' : 'Click to expand agenda tracker'}
+                </p>
+              </div>
+            </div>
+            <div className="w-7 h-7 rounded-lg bg-[#211044]/90 border border-purple-500/25 flex items-center justify-center text-[#A78BFA]">
+              <span className={`transform transition-transform duration-200 ${isTimelineExpanded ? 'rotate-90' : ''}`}>
+                &rarr;
+              </span>
+            </div>
+          </div>
+          {isTimelineExpanded && (
+            <div className="border-t border-purple-500/15 p-4 bg-[#211044]/40">
+              <MyDayTimeline />
+            </div>
+          )}
+        </div>
 
         {/* PERFORMANCE SNAPSHOT */}
         <PerformanceSnapshot
@@ -939,68 +862,6 @@ export const EmployeeDashboard: React.FC = () => {
           leaves={allLeaves}
           isOnline={navigator.onLine}
         />
-
-        {/* Your Work Pulse Snapshot Card */}
-        <Card 
-          className="p-4 bg-gradient-to-r from-[#2D1B5A] to-[#3B1F70] border border-pink-500/20 hover:border-pink-500/35 transition cursor-pointer relative overflow-hidden shadow-xl"
-          onClick={() => setActiveView('workpulse')}
-        >
-          <div className="absolute top-0 right-0 w-20 h-20 bg-pink-500/5 rounded-full blur-xl pointer-events-none" />
-          <div className="flex justify-between items-center mb-3 pb-2 border-b border-purple-500/15">
-            <span className="text-xs font-bold uppercase tracking-wider text-pink-300 flex items-center gap-1.5">
-              <Activity className="w-4 h-4 text-pink-400" /> Your Work Pulse Snapshot
-            </span>
-            <span className="text-[10px] text-pink-300/80 font-bold hover:text-white transition flex items-center gap-1">
-              Open Details <span className="text-pink-400">&rarr;</span>
-            </span>
-          </div>
-          
-          <div className="grid grid-cols-3 gap-2.5 text-center">
-            <div className="bg-[#211044]/90 p-2 rounded-xl border border-purple-500/10">
-              <p className="text-[9px] text-purple-300/70 font-semibold mb-0.5">Attendance Rate</p>
-              <p className="text-sm font-black text-pink-300">{attendancePercentage}%</p>
-            </div>
-            <div className="bg-[#211044]/90 p-2 rounded-xl border border-purple-500/10">
-              <p className="text-[9px] text-purple-300/70 font-semibold mb-0.5">WFH Usage</p>
-              <p className="text-sm font-black text-blue-300">{wfhDaysCount} / 2</p>
-            </div>
-            <div className="bg-[#211044]/90 p-2 rounded-xl border border-purple-500/10">
-              <p className="text-[9px] text-purple-300/70 font-semibold mb-0.5">Performance</p>
-              <p className="text-sm font-black text-emerald-400">
-                {efficiencyResult.finalScore === -1 ? 'N/A' : `${efficiencyResult.finalScore}%`}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        {/* Compact Leave Status Card */}
-        <Card 
-          className="p-4 bg-[#2D1B5A] border border-purple-500/20 hover:border-purple-500/35 transition cursor-pointer relative overflow-hidden"
-          onClick={() => navigate('/leave')}
-        >
-          <div className="flex justify-between items-center mb-3 pb-2 border-b border-purple-500/15">
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-purple-400" /> My Leave Status
-            </span>
-            <span className="text-[10px] text-purple-300/60 font-bold hover:text-white transition">
-              Apply / History &rarr;
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
-              <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Available Balance</p>
-              <p className="text-sm font-black text-white">{leaveBalance.available} Days</p>
-            </div>
-            <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
-              <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Pending Leave</p>
-              <p className="text-sm font-black text-amber-400">{leaveBalance.pending} Days</p>
-            </div>
-            <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
-              <p className="text-[10px] text-[#10B981] font-semibold mb-0.5">Used Leave</p>
-              <p className="text-sm font-black text-emerald-400">{leaveBalance.used} Days</p>
-            </div>
-          </div>
-        </Card>
 
         {/* Quick Actions Grid */}
         <div>
@@ -1033,39 +894,6 @@ export const EmployeeDashboard: React.FC = () => {
             ))}
           </div>
         </div>
-
-        {/* Profile Card */}
-        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20">
-          <div className="flex justify-between items-center mb-3 pb-2 border-b border-purple-500/15">
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
-              <Building2 className="w-3.5 h-3.5 text-[#A78BFA]" /> Profile Information
-            </span>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              {employeeData.status || 'Active'}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
-              <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Department</p>
-              <p className="font-bold text-white">{employeeData.department || employeeData.office || 'Operations'}</p>
-            </div>
-            <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
-              <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Designation</p>
-              <p className="font-bold text-white">{employeeData.designation || 'Staff Executive'}</p>
-            </div>
-            <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
-              <p className="text-[10px] text-purple-300/70 font-semibold mb-0.5">Office Location</p>
-              <p className="font-bold text-white">{employeeData.officeLocation || employeeData.workLocation || 'Raniganj HQ'}</p>
-            </div>
-            <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] text-purple-300/70 font-semibold">Registered Mobile</p>
-                <p className="font-bold text-white">{employeeData.mobileNumber || 'N/A'}</p>
-              </div>
-              <PhoneCall className="w-4 h-4 text-purple-300/60" />
-            </div>
-          </div>
-        </Card>
 
         {/* Announcements */}
         <div>

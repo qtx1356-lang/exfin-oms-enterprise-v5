@@ -13,7 +13,10 @@ import {
   MinusCircle, 
   Info,
   Car,
-  Briefcase
+  Briefcase,
+  Search,
+  Filter,
+  List
 } from 'lucide-react';
 import { AttendanceRecord, AttendanceType } from '../../types/attendance';
 import { LeaveRecord } from '../../types/leave';
