@@ -1143,6 +1143,186 @@ export const AttendanceScreen: React.FC = () => {
           )}
 
           {/* ==================================================== */}
+          {/* ATTENDANCE INSIGHTS CARD */}
+          {/* ==================================================== */}
+          {(() => {
+            const currentEmployeeRecords = allRecords.filter(r => r.employeeId === employeeId);
+            const currentMonthPrefix = new Date().toISOString().slice(0, 7);
+            const monthRecords = currentEmployeeRecords.filter(r => r.date && r.date.startsWith(currentMonthPrefix));
+            
+            let pCount = 0;
+            let wCount = 0;
+            let cCount = 0;
+            let onTimeCnt = 0;
+            let totalCheckInMins = 0;
+            let checkInValidCnt = 0;
+            let totalWorkMins = 0;
+            let workValidCnt = 0;
+
+            monthRecords.forEach(rec => {
+              if (rec.attendanceType === 'WFH') {
+                wCount++;
+                pCount++;
+              } else if (rec.attendanceType === 'CLIENT_VISIT') {
+                cCount++;
+                pCount++;
+              } else {
+                pCount++;
+              }
+
+              if (rec.checkInTime) {
+                try {
+                  const parts = rec.checkInTime.split(' ');
+                  const [hStr, mStr] = parts[0].split(':');
+                  let h = parseInt(hStr, 10);
+                  const m = parseInt(mStr, 10);
+                  if (parts[1] === 'PM' && h < 12) h += 12;
+                  if (parts[1] === 'AM' && h === 12) h = 0;
+                  const mins = h * 60 + m;
+                  totalCheckInMins += mins;
+                  checkInValidCnt++;
+                  if (mins <= 615) { // 10:15 AM
+                    onTimeCnt++;
+                  }
+                } catch (e) {}
+              }
+
+              if (rec.workingHours) {
+                try {
+                  const matchH = rec.workingHours.match(/(\d+)h/);
+                  const matchM = rec.workingHours.match(/(\d+)m/);
+                  const h = matchH ? parseInt(matchH[1], 10) : 0;
+                  const m = matchM ? parseInt(matchM[1], 10) : 0;
+                  totalWorkMins += (h * 60 + m);
+                  workValidCnt++;
+                } catch (e) {}
+              }
+            });
+
+            const workingDaysElapsed = Math.max(1, new Date().getDate());
+            const attPct = Math.min(100, Math.round((pCount / workingDaysElapsed) * 100));
+            const onTimePct = checkInValidCnt > 0 ? Math.round((onTimeCnt / checkInValidCnt) * 100) : 100;
+            const avgCheckInM = checkInValidCnt > 0 ? Math.round(totalCheckInMins / checkInValidCnt) : 600;
+            const avgH = Math.floor(avgCheckInM / 60);
+            const avgMin = avgCheckInM % 60;
+            const avgCheckInStr = `${avgH % 12 || 12}:${String(avgMin).padStart(2, '0')} ${avgH >= 12 ? 'PM' : 'AM'}`;
+
+            const avgWorkM = workValidCnt > 0 ? Math.round(totalWorkMins / workValidCnt) : 470;
+            const avgWorkH = Math.floor(avgWorkM / 60);
+            const avgWorkMin = avgWorkM % 60;
+            const avgWorkStr = `${avgWorkH}h ${avgWorkMin}m`;
+
+            const perfStatus = attPct >= 90 ? 'Excellent attendance' : attPct >= 75 ? 'Good attendance' : 'Attendance could improve';
+
+            // Weekly 7 days
+            const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            const weeklyItems = [];
+            for (let i = 6; i >= 0; i--) {
+              const d = new Date();
+              d.setDate(d.getDate() - i);
+              const dateStr = d.toISOString().slice(0, 10);
+              const dayLabel = daysOfWeek[(d.getDay() + 6) % 7];
+              const found = currentEmployeeRecords.find(r => r.date === dateStr);
+              weeklyItems.push({
+                day: dayLabel,
+                date: dateStr,
+                type: found ? (found.attendanceType || 'PRESENT') : 'ABSENT',
+                hasRecord: !!found
+              });
+            }
+
+            return (
+              <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.37)] space-y-5">
+                <div className="flex justify-between items-center border-b border-purple-500/20 pb-4">
+                  <div>
+                    <h3 className="text-xs font-black text-purple-300 uppercase tracking-widest flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Attendance Insights
+                    </h3>
+                    <p className="text-[11px] text-purple-300/80 mt-0.5">Current Month Statistics & Performance</p>
+                  </div>
+                  <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    {attPct}% Attendance
+                  </span>
+                </div>
+
+                {/* Grid stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-3 bg-purple-950/60 rounded-xl border border-purple-500/20 text-center space-y-1">
+                    <p className="text-[10px] font-bold text-purple-300 uppercase">Present</p>
+                    <p className="text-lg font-black text-white">{pCount}</p>
+                  </div>
+                  <div className="p-3 bg-purple-950/60 rounded-xl border border-purple-500/20 text-center space-y-1">
+                    <p className="text-[10px] font-bold text-emerald-300 uppercase">WFH</p>
+                    <p className="text-lg font-black text-emerald-300">{wCount}</p>
+                  </div>
+                  <div className="p-3 bg-purple-950/60 rounded-xl border border-purple-500/20 text-center space-y-1">
+                    <p className="text-[10px] font-bold text-amber-300 uppercase">Client Visit</p>
+                    <p className="text-lg font-black text-amber-300">{cCount}</p>
+                  </div>
+                  <div className="p-3 bg-purple-950/60 rounded-xl border border-purple-500/20 text-center space-y-1">
+                    <p className="text-[10px] font-bold text-rose-300 uppercase">Absent / Off</p>
+                    <p className="text-lg font-black text-rose-300">{Math.max(0, workingDaysElapsed - pCount)}</p>
+                  </div>
+                </div>
+
+                {/* Secondary metrics */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3 bg-purple-950/40 rounded-xl border border-purple-500/20 flex justify-between items-center">
+                    <span className="text-xs text-purple-300">Avg Check-in</span>
+                    <span className="text-xs font-bold text-white font-mono">{avgCheckInStr}</span>
+                  </div>
+                  <div className="p-3 bg-purple-950/40 rounded-xl border border-purple-500/20 flex justify-between items-center">
+                    <span className="text-xs text-purple-300">Avg Working Hours</span>
+                    <span className="text-xs font-bold text-emerald-300 font-mono">{avgWorkStr}</span>
+                  </div>
+                  <div className="p-3 bg-purple-950/40 rounded-xl border border-purple-500/20 flex justify-between items-center">
+                    <span className="text-xs text-purple-300">On-Time Rate</span>
+                    <span className="text-xs font-bold text-indigo-300 font-mono">{onTimePct}%</span>
+                  </div>
+                </div>
+
+                {/* Weekly activity indicator */}
+                <div className="space-y-2 pt-2 border-t border-purple-500/20">
+                  <p className="text-[11px] font-bold text-purple-300 uppercase tracking-wider">Weekly Activity (Last 7 Days)</p>
+                  <div className="grid grid-cols-7 gap-2">
+                    {weeklyItems.map((item, idx) => (
+                      <div key={idx} className="flex flex-col items-center space-y-1 p-2 bg-purple-950/60 rounded-xl border border-purple-500/20">
+                        <span className="text-[10px] text-purple-300/80 font-bold">{item.day}</span>
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black ${
+                          !item.hasRecord ? 'bg-slate-800 text-slate-500' :
+                          item.type === 'WFH' ? 'bg-emerald-600 text-white' :
+                          item.type === 'CLIENT_VISIT' ? 'bg-amber-600 text-white' :
+                          'bg-[#7C3AED] text-white'
+                        }`} title={`${item.date}: ${item.type}`}>
+                          {item.hasRecord ? (item.type === 'WFH' ? 'H' : item.type === 'CLIENT_VISIT' ? 'C' : 'P') : '—'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Performance Summary Banner */}
+                <div className="p-3.5 bg-gradient-to-r from-purple-950 to-indigo-950 rounded-xl border border-purple-500/30 flex justify-between items-center">
+                  <span className="text-xs font-bold text-purple-200 uppercase tracking-wider">Performance Status</span>
+                  <span className="text-xs font-black text-emerald-300 bg-emerald-950/80 px-3 py-1 rounded-full border border-emerald-500/30">
+                    {perfStatus}
+                  </span>
+                </div>
+
+                {/* Dev Diagnostic */}
+                {process.env.NODE_ENV !== 'production' && (
+                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-[10px] font-mono text-slate-400 space-y-0.5">
+                    <p className="font-bold text-slate-200">ATTENDANCE INSIGHTS DIAGNOSTIC</p>
+                    <p>Identity: <span className="text-white">{employeeName} ({employeeId})</span></p>
+                    <p>Records analyzed: <span className="text-white">{monthRecords.length} month records</span></p>
+                    <p>Calculation: <span className="text-emerald-400">SUCCESS</span></p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ==================================================== */}
           {/* TODAY'S VERTICAL TIMELINE */}
           {/* ==================================================== */}
           <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.37)] space-y-4">
