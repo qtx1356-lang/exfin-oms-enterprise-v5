@@ -191,11 +191,18 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
           {/* Time Summary */}
           <div className="mt-2 text-xs font-bold text-white/80">
             {isCheckedOut ? (
-              <span className="flex items-center gap-1 text-emerald-200">
-                <span>{todayRecord.checkInTime}</span>
-                <span>→</span>
-                <span>{todayRecord.checkOutTime}</span>
-              </span>
+              <div className="flex flex-col gap-1 text-emerald-200">
+                <span className="flex items-center gap-1">
+                  <span>{todayRecord.checkInTime}</span>
+                  <span>→</span>
+                  <span>{todayRecord.checkOutTime}</span>
+                </span>
+                {todayRecord.checkOutMode && (
+                  <span className="text-[10px] text-white/70 font-semibold uppercase tracking-wider">
+                    Checkout Type: {todayRecord.checkOutMode === 'AUTO_SYSTEM' ? 'Automatic' : 'Manual'}
+                  </span>
+                )}
+              </div>
             ) : isCheckedIn ? (
               <span className="text-white/90">
                 Checked in at <span className="font-mono text-emerald-300">{todayRecord.checkInTime}</span>

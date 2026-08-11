@@ -116,6 +116,10 @@ export interface AttendanceRecord {
   manualRectified?: boolean;
   checkoutDismissed?: boolean;
 
+  // New fields requested for auto checkout alignment
+  checkoutType?: 'AUTO_CHECKOUT' | 'MANUAL' | string;
+  status?: 'completed' | 'active' | string;
+
   // State Machine & Idempotency tracking
   currentState?: AttendanceState;
   processedEvents?: string[]; // List of eventIds processed for this record

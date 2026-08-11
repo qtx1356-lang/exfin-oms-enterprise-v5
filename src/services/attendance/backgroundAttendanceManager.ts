@@ -99,7 +99,7 @@ export const handleLocationUpdateForAttendance = (
     localStorage.setItem('stableInsideOffice', isInsideStable ? 'true' : 'false');
   } catch (e) {}
 
-  const todayStr = new Date().toISOString().substring(0, 10);
+  let todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   const record = getTodayAttendanceRecord(employeeId, todayStr);
 
   // 1. AUTO CHECK-IN: Inside geofence with hysteresis and no session logged today

@@ -269,14 +269,16 @@ export const processAttendanceStateTransition = (
 
     case 'CHECK_OUT':
     case 'END_OF_DAY_CHECKOUT':
-      const checkoutTimeStr = source === 'AUTO_SYSTEM_END_OF_DAY' && record.attendanceType === 'OFFICE'
-        ? (record.lastExitTime || record.exitTime || timeStr)
-        : (source === 'AUTO_SYSTEM_END_OF_DAY' ? '06:00 PM' : timeStr);
+      const checkoutTimeStr = source === 'AUTO_SYSTEM_END_OF_DAY'
+        ? '06:00 PM'
+        : timeStr;
 
       const workingHours = calculateWorkingHours(record.checkInTime, checkoutTimeStr);
 
       record.checkOutTime = checkoutTimeStr;
       record.checkOutMode = source === 'MANUAL' ? 'MANUAL' : 'AUTO_SYSTEM';
+      record.checkoutType = source === 'MANUAL' ? 'MANUAL' : 'AUTO_CHECKOUT';
+      record.status = 'completed';
       record.workingHours = workingHours;
       record.currentState = 'CHECKED_OUT';
       record.syncStatus = 'Pending';
@@ -430,19 +432,39 @@ export const trackSmartOfficeExit = (
   return record;
 };
 
+export const getIndiaTime = (): Date => {
+  try {
+    const now = new Date();
+    const kolkataStr = now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+    return new Date(kolkataStr);
+  } catch {
+    return new Date();
+  }
+};
+
 /**
- * End-of-day attendance checkout finalizer (WFH/Client Visit -> 6:00 PM, Office -> last exit or NO checkout if still inside)
+ * End-of-day attendance checkout finalizer (WFH/Client Visit -> 11:59 PM, Office -> last exit or NO checkout if still inside at 6:00 PM IST or later)
  */
 export const runAutoCheckoutFinalizer = (): void => {
+  const now = getIndiaTime();
   const records = getStoredAttendanceRecords();
-  const todayStr = getFormattedDateStr();
-  const now = new Date();
+  let todayStr = getFormattedDateStr(now);
+  try {
+    todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  } catch (e) {
+    console.warn('Failed to calculate Kolkata date string:', e);
+  }
   const hours = now.getHours();
   const minutes = now.getMinutes();
   const is1159PMOrLater = hours === 23 && minutes >= 59;
 
   logAttendanceEvent('END_OF_DAY_PROCESSING', 'SYSTEM', 'Running end-of-day attendance checkout finalizer...', {
-    eventTimestamp: now.toISOString()
+    eventTimestamp: now.toISOString(),
+    metadata: {
+      hours,
+      minutes,
+      todayStr
+    }
   });
 
   records.forEach((rec) => {
@@ -450,8 +472,12 @@ export const runAutoCheckoutFinalizer = (): void => {
       return;
     }
 
-    // Only finalize today's records at end of day (11:59 PM) or past unfinalized records
-    if (rec.date < todayStr || is1159PMOrLater) {
+    const isPastDay = rec.date < todayStr;
+    const isToday = rec.date === todayStr;
+    const isPastDayEndToday = hours >= 18;
+
+    if (isPastDay) {
+      // Previous days (missed checkouts)
       if (rec.attendanceType === 'WFH' || rec.attendanceType === 'CLIENT_VISIT') {
         processAttendanceStateTransition(
           rec.employeeId,
@@ -464,8 +490,6 @@ export const runAutoCheckoutFinalizer = (): void => {
           rec.attendanceType
         );
       } else if (rec.attendanceType === 'OFFICE' || !rec.attendanceType) {
-        // Office:
-        // Only finalize Office checkout if employee has a recorded final exit (outside 25m, never returned)
         if (rec.currentState === 'PENDING_FINAL_EXIT' || rec.lastExitTime || rec.exitTime) {
           processAttendanceStateTransition(
             rec.employeeId,
@@ -478,8 +502,42 @@ export const runAutoCheckoutFinalizer = (): void => {
             'OFFICE'
           );
         } else {
-          // Employee is inside 25m (no exit recorded) - DO NOT create checkout!
-          logAttendanceEvent('END_OF_DAY_PROCESSING', rec.employeeId, `Employee inside office at 6 PM/EOD. No automatic checkout applied. Remains checked in.`);
+          logAttendanceEvent('END_OF_DAY_PROCESSING', rec.employeeId, `Missed checkout from previous day (${rec.date}). Employee inside geofence. Remains checked in.`);
+        }
+      }
+    } else if (isToday) {
+      // Today's record
+      if (rec.attendanceType === 'OFFICE' || !rec.attendanceType) {
+        // Office mode automatic checkout at 18:00 (6:00 PM) or later if they have left the office geofence
+        if (isPastDayEndToday) {
+          if (rec.currentState === 'PENDING_FINAL_EXIT' || rec.lastExitTime || rec.exitTime) {
+            processAttendanceStateTransition(
+              rec.employeeId,
+              rec.employeeName,
+              { latitude: rec.latitude, longitude: rec.longitude },
+              rec.townCity,
+              'END_OF_DAY_CHECKOUT',
+              'AUTO_SYSTEM_END_OF_DAY',
+              now,
+              'OFFICE'
+            );
+          } else {
+            logAttendanceEvent('END_OF_DAY_PROCESSING', rec.employeeId, `Employee still inside office geofence after 6:00 PM. No automatic checkout applied.`);
+          }
+        }
+      } else if (rec.attendanceType === 'WFH' || rec.attendanceType === 'CLIENT_VISIT') {
+        // WFH & Client Visit: only auto checkout at 11:59 PM
+        if (is1159PMOrLater) {
+          processAttendanceStateTransition(
+            rec.employeeId,
+            rec.employeeName,
+            { latitude: rec.latitude, longitude: rec.longitude },
+            rec.townCity,
+            'END_OF_DAY_CHECKOUT',
+            'AUTO_SYSTEM_END_OF_DAY',
+            now,
+            rec.attendanceType
+          );
         }
       }
     }
