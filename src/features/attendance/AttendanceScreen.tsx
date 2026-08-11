@@ -64,6 +64,7 @@ import {
   startAutoSyncEngine,
   syncPendingAttendanceRecords
 } from '../../services/attendance/syncEngine';
+import { TodayAttendanceCard } from './TodayAttendanceCard';
 
 const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
   'Market Visit',
@@ -78,7 +79,7 @@ const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
 
 export const AttendanceScreen: React.FC = () => {
   const { employeeData } = useRegistration();
-  const { updateAttendanceOptimistically, triggerManualSync } = useRealtimeSync();
+  const { attendance: syncAttendance, updateAttendanceOptimistically, triggerManualSync } = useRealtimeSync();
 
   const {
     liveLocation,
@@ -206,6 +207,10 @@ export const AttendanceScreen: React.FC = () => {
       if (autoCheckInTimerRef.current) clearInterval(autoCheckInTimerRef.current);
     };
   }, [employeeId]);
+
+  useEffect(() => {
+    refreshRecords();
+  }, [syncAttendance]);
 
   // Auto Check-In timer trigger logic (OFFICE Mode ONLY)
   const handleAutoCheckInCountdown = (inside: boolean, coords: { latitude: number; longitude: number }) => {
@@ -618,6 +623,15 @@ export const AttendanceScreen: React.FC = () => {
           <button onClick={() => setActionFeedback(null)} className="text-purple-300 hover:text-white font-bold text-sm px-1">✕</button>
         </div>
       )}
+
+      {/* ==================================================== */}
+      {/* TODAY'S ATTENDANCE CARD */}
+      {/* ==================================================== */}
+      <TodayAttendanceCard 
+        todayRecord={todayRecord} 
+        isSyncing={isSyncing} 
+        isOnline={isOnline} 
+      />
 
       {/* Location Status Card - Loading State */}
       {locationStatus === 'loading' && (
