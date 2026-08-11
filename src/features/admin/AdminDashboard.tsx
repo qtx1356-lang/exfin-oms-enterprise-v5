@@ -57,6 +57,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord, AttendanceCorrection } from '../../types/attendance';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
+import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { ExpenseRecord } from '../../types/expense';
 import { TaskRecord, TaskPriority, TaskStatus, AssignmentType, TaskComment, getEffectiveTaskStatus } from '../../types/planner';
 import { getStoredTasks, saveTaskRecord } from '../../services/planner/taskStorage';
@@ -76,6 +77,7 @@ import { NotificationManagement } from './NotificationManagement';
 import { listenConversations } from '../../services/chat/chatService';
 import { OfficePulse } from './OfficePulse';
 import { AttendanceIntelligence } from './AttendanceIntelligence';
+import { SmartDailyBrief } from './SmartDailyBrief';
 
 export const safeStringify = (val: any): string => {
   if (val === null || val === undefined) return '';
@@ -237,6 +239,73 @@ export const AdminDashboard: React.FC = () => {
   const [leaveConfig, setLeaveConfig] = useState<LeaveConfig | null>(null);
   const [employeeAllowances, setEmployeeAllowances] = useState<EmployeeAllowance[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
+
+  const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'MISSING_CHECKOUT' | 'LATE'>('ALL');
+  const [attendanceSearch, setAttendanceSearch] = useState('');
+
+  const filteredAttendanceRecords = React.useMemo(() => {
+    let records = attendanceRecords;
+
+    if (attendanceSearch.trim()) {
+      const q = attendanceSearch.toLowerCase();
+      records = records.filter(
+        (rec) =>
+          (rec.employeeName || '').toLowerCase().includes(q) ||
+          (rec.employeeId || rec.employeeCode || '').toLowerCase().includes(q)
+      );
+    }
+
+    if (attendanceFilter === 'MISSING_CHECKOUT') {
+      records = records.filter((rec) => {
+        if (rec.checkInTime && !rec.checkOutTime) {
+          const type = (rec.attendanceType || 'OFFICE').toUpperCase();
+          if (type === 'OUTDOOR') return false;
+          
+          let todayStr = '';
+          try {
+            todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+          } catch {
+            const now = new Date();
+            todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+          }
+          const isToday = rec.date === todayStr;
+          
+          let curHour = new Date().getHours();
+          try {
+            const kolHour = new Intl.DateTimeFormat('en-US', {
+              timeZone: 'Asia/Kolkata',
+              hour: 'numeric',
+              hour12: false
+            }).format(new Date());
+            curHour = parseInt(kolHour, 10);
+          } catch {}
+
+          if (isToday) {
+            if ((type === 'WFH' || type === 'CLIENT_VISIT') && curHour < 18) {
+              return false;
+            }
+            if (type === 'OFFICE' && !(rec.exitTime || rec.lastExitTime || rec.currentState === 'PENDING_FINAL_EXIT')) {
+              return false;
+            }
+          }
+          return true;
+        }
+        return false;
+      });
+    } else if (attendanceFilter === 'LATE') {
+      records = records.filter((rec) => rec.checkInTime && isSalaryLateCheckIn(rec.checkInTime));
+    }
+
+    return records;
+  }, [attendanceRecords, attendanceSearch, attendanceFilter]);
+
+  const handleSmartBriefNavigation = (tabName: AdminTab, filter?: string) => {
+    setActiveTab(tabName);
+    if (tabName === 'attendance' && filter) {
+      setAttendanceFilter(filter as any);
+      setAttendanceSearch('');
+    }
+  };
 
   const todayAttendanceCount = React.useMemo(() => {
     let todayStr = '';
@@ -648,6 +717,16 @@ export const AdminDashboard: React.FC = () => {
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && canSeeOverview && (
           <div className="space-y-6">
+            <SmartDailyBrief 
+              registrations={deduplicatedRegistrations}
+              attendanceRecords={attendanceRecords}
+              leaves={leaves}
+              role={role}
+              authorizedOffice={authorizedOffice}
+              adminName={loginId || adminUser?.email?.split('@')[0] || 'Admin'}
+              onNavigateToTab={handleSmartBriefNavigation}
+            />
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card className="p-5 bg-[#250F4C] border border-amber-500/30 flex items-center gap-4">
                 <div className="p-3 bg-amber-500/20 rounded-2xl text-amber-300">
@@ -851,6 +930,49 @@ export const AdminDashboard: React.FC = () => {
               </h3>
               <div className="text-[10px] text-purple-300/60 italic">Click any record to view complete forensic details</div>
             </div>
+
+            {/* Attendance Filter Controls */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 p-3 bg-[#1A0B36]/50 border border-purple-500/10 rounded-xl">
+              <div>
+                <label className="block text-[10px] font-bold text-purple-300 uppercase tracking-wider mb-1.5">Search Employee Name / Code</label>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-purple-400/50" />
+                  <input
+                    type="text"
+                    value={attendanceSearch}
+                    onChange={(e) => setAttendanceSearch(e.target.value)}
+                    placeholder="Search name or ID..."
+                    className="w-full bg-[#13072D] border border-purple-500/20 text-white rounded-lg text-xs pl-8 pr-3 py-2 focus:outline-none focus:border-purple-500/60"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-purple-300 uppercase tracking-wider mb-1.5">Attention Quick Filter</label>
+                <select
+                  value={attendanceFilter}
+                  onChange={(e) => setAttendanceFilter(e.target.value as any)}
+                  className="w-full bg-[#13072D] border border-purple-500/20 text-white rounded-lg text-xs px-3 py-2 focus:outline-none focus:border-purple-500/60"
+                >
+                  <option value="ALL">Show All Logs</option>
+                  <option value="MISSING_CHECKOUT">Missing Checkouts Only</option>
+                  <option value="LATE">Late Arrivals Only</option>
+                </select>
+              </div>
+
+              <div className="flex items-end justify-start sm:justify-end">
+                <Button
+                  onClick={() => {
+                    setAttendanceFilter('ALL');
+                    setAttendanceSearch('');
+                  }}
+                  variant="secondary"
+                  className="text-xs py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/20"
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            </div>
             
             <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-purple-500/20 scrollbar-track-transparent pb-4">
               <table className="w-full text-left text-xs border-separate border-spacing-0">
@@ -874,14 +996,14 @@ export const AdminDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-purple-500/10">
-                  {attendanceRecords.length === 0 ? (
+                  {filteredAttendanceRecords.length === 0 ? (
                     <tr>
                       <td colSpan={15} className="p-12 text-center text-purple-300/60">
-                        <EmptyState icon={Calendar} title="No Records" description="No attendance records logged yet." />
+                        <EmptyState icon={Calendar} title="No Records" description="No attendance records found matching filters." />
                       </td>
                     </tr>
                   ) : (
-                    attendanceRecords.map((rec) => (
+                    filteredAttendanceRecords.map((rec) => (
                       <tr 
                         key={rec.id || Math.random().toString()} 
                         className="hover:bg-white/[0.05] cursor-pointer transition-colors group"
