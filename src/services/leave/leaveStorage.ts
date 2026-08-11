@@ -29,6 +29,8 @@ export const saveLeave = (leave: LeaveRecord): void => {
   }
 };
 
+export const saveLeaveRecord = saveLeave;
+
 export const saveMultipleLeaves = (newLeaves: LeaveRecord[]): void => {
   try {
     const existing = getStoredLeaves();

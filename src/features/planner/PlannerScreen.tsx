@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { useRegistration } from '../../context/RegistrationContext';
+import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { 
   TaskRecord, 
   TaskPriority, 
@@ -20,10 +21,6 @@ import {
   saveTaskRecord, 
   saveMultipleTaskRecords 
 } from '../../services/planner/taskStorage';
-import { 
-  syncPendingTasks, 
-  startTaskAutoSyncEngine 
-} from '../../services/planner/taskSyncEngine';
 
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -54,17 +51,14 @@ import {
 
 export const PlannerScreen: React.FC = () => {
   const { employeeData } = useRegistration();
+  const { tasks: realtimeTasks, isOnline, syncState, updateTaskOptimistically, triggerManualSync } = useRealtimeSync();
+
   const empCode = employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN';
   const empId = employeeData?.id || empCode;
   const empName = employeeData?.name || 'Employee';
   const empDept = employeeData?.department || 'Operations';
 
-  // Network & Sync States
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
-
-  // Task Data
-  const [tasks, setTasks] = useState<TaskRecord[]>([]);
 
   // View & Filter States
   const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('daily');
@@ -77,119 +71,20 @@ export const PlannerScreen: React.FC = () => {
   const [commentInput, setCommentInput] = useState<string>('');
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
 
-  // Connectivity Listener
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    const cleanupSync = startTaskAutoSyncEngine();
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      cleanupSync();
-    };
-  }, []);
-
-  // Load and merge local and Firestore tasks
-  const loadAndMergeTasks = () => {
-    const localTasks = getStoredTasks();
-
-    // Filter tasks assigned to this employee or their department
-    const isAssigned = (t: TaskRecord) => {
-      const matchEmpId = t.assignedToEmployeeIds?.includes(empId) || t.assignedToEmployeeIds?.includes(empCode);
-      const matchEmpCode = t.assignedToEmployeeCodes?.includes(empCode);
-      const matchDept = t.assignedToDepartment === empDept || t.assignmentType === 'DEPARTMENT' && t.assignedToDepartment === empDept;
-      return matchEmpId || matchEmpCode || matchDept;
-    };
-
-    const localAssigned = localTasks.filter(isAssigned);
-
-    if (!db || !isOnline) {
-      setTasks(localAssigned);
-      return;
-    }
-
-    const q = query(
-      collection(db, 'tasks'),
-      where('assignedToEmployeeCodes', 'array-contains', employeeData?.employeeCode || ''),
-      orderBy('createdAtDeviceTime', 'desc')
-    );
-
-    const unsub = onSnapshot(
-      q,
-      (snapshot) => {
-        const firestoreList: TaskRecord[] = [];
-        snapshot.forEach((docSnap) => {
-          firestoreList.push({ id: docSnap.id, ...docSnap.data() } as TaskRecord);
-        });
-
-        // Filter assigned for this employee/department
-        const assignedFromFirestore = firestoreList;
-
-        // Save to local cache
-        saveMultipleTaskRecords(assignedFromFirestore);
-
-        // Merge local pending items with Firestore items & detect conflicts
-        const mergedMap = new Map<string, TaskRecord>();
-        assignedFromFirestore.forEach((t) => mergedMap.set(t.id, t));
-
-        localAssigned.forEach((localTask) => {
-          const serverTask = mergedMap.get(localTask.id);
-          if (!serverTask) {
-            mergedMap.set(localTask.id, localTask);
-          } else if (localTask.syncStatus === 'Pending Sync') {
-            // Check if conflict exists between local pending edit and server version
-            const timesDiffer = localTask.updatedAtDeviceTime !== serverTask.updatedAtDeviceTime;
-            const contentDiffers = localTask.completionPercentage !== serverTask.completionPercentage || localTask.status !== serverTask.status;
-
-            if (timesDiffer && contentDiffers) {
-              const conflictedTask: TaskRecord = {
-                ...localTask,
-                hasConflict: true,
-                conflictDetails: {
-                  localVersion: localTask,
-                  serverVersion: serverTask,
-                  conflictTime: new Date().toISOString(),
-                },
-              };
-              mergedMap.set(localTask.id, conflictedTask);
-            } else {
-              mergedMap.set(localTask.id, localTask);
-            }
-          }
-        });
-
-        const merged = Array.from(mergedMap.values()).sort(
-          (a, b) => new Date(b.createdAtDeviceTime).getTime() - new Date(a.createdAtDeviceTime).getTime()
-        );
-
-        setTasks(merged);
-      },
-      (err) => {
-        console.warn('Task Firestore snapshot error:', err);
-        setTasks(localAssigned);
-      }
-    );
-
-    return unsub;
+  // Filter tasks assigned to this employee or department
+  const isAssigned = (t: TaskRecord) => {
+    const matchEmpId = t.assignedToEmployeeIds?.includes(empId) || t.assignedToEmployeeIds?.includes(empCode);
+    const matchEmpCode = t.assignedToEmployeeCodes?.includes(empCode);
+    const matchDept = t.assignedToDepartment === empDept || (t.assignmentType === 'DEPARTMENT' && t.assignedToDepartment === empDept);
+    return matchEmpId || matchEmpCode || matchDept;
   };
 
-  useEffect(() => {
-    const unsub = loadAndMergeTasks();
-    return () => {
-      if (typeof unsub === 'function') unsub();
-    };
-  }, [empId, empCode, empDept, isOnline]);
+  const tasks = realtimeTasks.filter(isAssigned);
 
   const handleTriggerSync = async () => {
     setIsSyncing(true);
-    await syncPendingTasks();
+    await triggerManualSync();
     setIsSyncing(false);
-    loadAndMergeTasks();
   };
 
   // Open Task Modal
@@ -199,7 +94,7 @@ export const PlannerScreen: React.FC = () => {
     setCommentInput('');
   };
 
-  // Update Task Progress & Status
+  // Update Task Progress & Status (OPTIMISTIC UI)
   const handleSaveTaskProgress = async () => {
     if (!selectedTask) return;
     setIsUpdating(true);
@@ -242,16 +137,9 @@ export const PlannerScreen: React.FC = () => {
         syncStatus: 'Pending Sync',
       };
 
-      // Save locally first
-      saveTaskRecord(updatedRecord);
-
-      // Attempt automatic sync if online
-      if (navigator.onLine) {
-        await syncPendingTasks();
-      }
-
+      // Immediate optimistic update
+      await updateTaskOptimistically(updatedRecord);
       setSelectedTask(null);
-      loadAndMergeTasks();
     } catch (err) {
       console.error('Error updating task:', err);
     } finally {
@@ -280,13 +168,9 @@ export const PlannerScreen: React.FC = () => {
       syncStatus: 'Pending Sync',
     };
 
-    saveTaskRecord(updatedTask);
+    updateTaskOptimistically(updatedTask);
     setSelectedTask(updatedTask);
     setCommentInput('');
-
-    if (navigator.onLine) {
-      syncPendingTasks();
-    }
   };
 
   // Conflict Resolution Handler
@@ -318,14 +202,8 @@ export const PlannerScreen: React.FC = () => {
         };
       }
 
-      saveTaskRecord(resolvedTask);
+      await updateTaskOptimistically(resolvedTask);
       setSelectedTask(null);
-
-      if (navigator.onLine && choice === 'LOCAL') {
-        await syncPendingTasks();
-      }
-
-      loadAndMergeTasks();
     } catch (err) {
       console.error('Error resolving task conflict:', err);
     } finally {

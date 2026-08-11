@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRegistration } from '../../context/RegistrationContext';
+import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { LeaveRecord, LeaveBalance, LeaveConfig, EmployeeAllowance } from '../../types/leave';
 import {
   calculateLeaveDays,
@@ -9,14 +10,9 @@ import {
   cancelLeaveRequest,
 } from '../../services/leave/leaveService';
 import {
-  getStoredLeaves,
   getStoredLeaveConfig,
   getStoredEmployeeAllowances,
 } from '../../services/leave/leaveStorage';
-import {
-  syncPendingLeaves,
-  startLeaveAutoSyncEngine,
-} from '../../services/leave/leaveSyncEngine';
 
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -45,29 +41,21 @@ import {
 
 export const LeaveScreen: React.FC = () => {
   const { employeeData } = useRegistration();
+  const { leaves: realtimeLeaves, isOnline, syncState, updateLeaveOptimistically, triggerManualSync } = useRealtimeSync();
+
   const empCode = employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN';
   const empId = employeeData?.id || empCode;
   const empName = employeeData?.name || 'Employee';
   const empDept = employeeData?.office || 'Raniganj';
 
-  // Network & Sync States
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   // Leave Data
-  const [leaves, setLeaves] = useState<LeaveRecord[]>([]);
-  const [config, setConfig] = useState<LeaveConfig>({ id: 'config', defaultAnnualAllowance: 24, departmentAllowances: {} });
-  const [allowances, setAllowances] = useState<EmployeeAllowance[]>([]);
-  const [balance, setBalance] = useState<LeaveBalance>({
-    employeeId: empId,
-    employeeCode: empCode,
-    employeeName: empName,
-    department: empDept,
-    annualAllowance: 24,
-    used: 0,
-    pending: 0,
-    available: 24,
-  });
+  const config = getStoredLeaveConfig();
+  const allowances = getStoredEmployeeAllowances();
+
+  const leaves = realtimeLeaves.filter((l) => l.employeeId === empId || l.employeeCode === empCode);
+  const balance = calculateLeaveBalance(empId, empDept, leaves, config, allowances);
 
   // Filter Status
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'>('ALL');
@@ -89,67 +77,10 @@ export const LeaveScreen: React.FC = () => {
   const [selectedLeave, setSelectedLeave] = useState<LeaveRecord | null>(null);
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
 
-  // Connectivity and Sync listeners
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    // Start auto sync engine with scoped options
-    const cleanupSync = startLeaveAutoSyncEngine({
-      employeeCode: empCode,
-      department: empDept,
-      isTeamLeader: employeeData?.isTeamLeader,
-    });
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      cleanupSync();
-    };
-  }, []);
-
-  // Sync / Load data
-  const loadData = () => {
-    const localLeaves = getStoredLeaves();
-    const localConfig = getStoredLeaveConfig();
-    const localAllowances = getStoredEmployeeAllowances();
-
-    // Only filter for this employee
-    const filteredLeaves = localLeaves.filter((l) => l.employeeId === empId);
-
-    setLeaves(filteredLeaves);
-    setConfig(localConfig);
-    setAllowances(localAllowances);
-
-    const calculatedBalance = calculateLeaveBalance(empId, empDept, localLeaves, localConfig, localAllowances);
-    setBalance(calculatedBalance);
-  };
-
-  useEffect(() => {
-    loadData();
-
-    // Setup an interval to check local storage updates (e.g. from sync snapshots)
-    const intervalId = setInterval(() => {
-      loadData();
-    }, 3000);
-
-    return () => clearInterval(intervalId);
-  }, [empId, empDept]);
-
   const handleManualSync = async () => {
-    if (!isOnline) return;
     setIsSyncing(true);
-    try {
-      await syncPendingLeaves();
-      loadData();
-    } catch (err) {
-      console.error('Manual sync failed:', err);
-    } finally {
-      setIsSyncing(false);
-    }
+    await triggerManualSync();
+    setIsSyncing(false);
   };
 
   // Calendar Helper Logic
@@ -248,13 +179,14 @@ export const LeaveScreen: React.FC = () => {
         reason
       );
 
+      await updateLeaveOptimistically(req);
+
       setFormSuccess(`Leave request submitted successfully for ${requestedDays} Day(s)!`);
       setReason('');
       setSelectedRangeStart(null);
       setSelectedRangeEnd(null);
       setStartDate('');
       setEndDate('');
-      loadData();
     } catch (err: any) {
       setFormError(err.message || 'An error occurred while submitting.');
     } finally {
@@ -267,7 +199,6 @@ export const LeaveScreen: React.FC = () => {
     setIsCancelling(true);
     try {
       await cancelLeaveRequest(leaveId);
-      loadData();
       setSelectedLeave(null);
     } catch (err: any) {
       alert(err.message || 'Failed to cancel leave request.');

@@ -36,6 +36,7 @@ import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
+import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { AttendanceRecord, AttendanceType, OutdoorWorkTypeOption } from '../../types/attendance';
 import {
   OFFICE_LOCATION,
@@ -77,6 +78,7 @@ const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
 
 export const AttendanceScreen: React.FC = () => {
   const { employeeData } = useRegistration();
+  const { updateAttendanceOptimistically, triggerManualSync } = useRealtimeSync();
 
   const {
     liveLocation,
@@ -179,7 +181,7 @@ export const AttendanceScreen: React.FC = () => {
     refreshRecords();
 
     // Start sync engine listener
-    const stopSync = startAutoSyncEngine(20000);
+    const stopSync = startAutoSyncEngine();
 
     const handleOnlineStatus = () => setIsOnline(navigator.onLine);
     window.addEventListener('online', handleOnlineStatus);
@@ -329,6 +331,7 @@ export const AttendanceScreen: React.FC = () => {
         currentAddress || 'Raniganj HQ',
         'MANUAL'
       );
+      updateAttendanceOptimistically(record);
       refreshRecords();
       setActionFeedback(`Manual Office Check-In Successful at ${record.checkInTime}`);
     } catch (err: any) {
@@ -363,6 +366,7 @@ export const AttendanceScreen: React.FC = () => {
         liveLocation,
         currentAddress || 'Raniganj HQ'
       );
+      updateAttendanceOptimistically(updated);
       refreshRecords();
       setActionFeedback(`Manual Check-Out Successful at ${updated.checkOutTime}`);
     } catch (err: any) {

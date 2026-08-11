@@ -1,27 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { 
-  collection, 
-  query, 
-  where, 
-  onSnapshot, 
-  orderBy 
-} from 'firebase/firestore';
-import { db } from '../../services/firebase/config';
+import React, { useRef, useState } from 'react';
 import { useRegistration } from '../../context/RegistrationContext';
+import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { 
   ExpenseRecord, 
   ExpenseCategory, 
   ExpenseStatus, 
   EXPENSE_CATEGORIES 
 } from '../../types/expense';
-import { 
-  getStoredExpenseRecords, 
-  saveExpenseRecord 
-} from '../../services/expenses/expenseStorage';
-import { 
-  syncPendingExpenseRecords, 
-  startExpenseAutoSyncEngine 
-} from '../../services/expenses/expenseSyncEngine';
 
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -57,15 +42,17 @@ import {
 
 export const ExpenseScreen: React.FC = () => {
   const { employeeData } = useRegistration();
+  const { expenses: realtimeExpenses, isOnline, syncState, updateExpenseOptimistically, triggerManualSync } = useRealtimeSync();
+
   const empCode = employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN';
   const empName = employeeData?.name || 'Employee';
 
-  // Network & Sync States
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
-  
+
   // Expense Data
-  const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
+  const expenses = realtimeExpenses.filter(
+    (r) => r.employeeCode === empCode || r.employeeId === empCode
+  );
   
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('All');
@@ -94,89 +81,11 @@ export const ExpenseScreen: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Connectivity Listener
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    const cleanupSync = startExpenseAutoSyncEngine();
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      cleanupSync();
-    };
-  }, []);
-
-  // Sync Engine Trigger & Local / Firestore Merging
-  const loadAndMergeExpenses = () => {
-    const local = getStoredExpenseRecords().filter(
-      (r) => r.employeeCode === empCode || r.employeeId === empCode
-    );
-
-    if (!db || !isOnline) {
-      setExpenses(local);
-      return;
-    }
-
-    const q = query(
-      collection(db, 'expenses'),
-      where('employeeCode', '==', empCode),
-      orderBy('createdAtDeviceTime', 'desc')
-    );
-
-    const unsub = onSnapshot(
-      q,
-      (snapshot) => {
-        const firestoreList: ExpenseRecord[] = [];
-        snapshot.forEach((docSnap) => {
-          firestoreList.push({ id: docSnap.id, ...docSnap.data() } as ExpenseRecord);
-        });
-
-        // Merge local pending with Firestore
-        const mergedMap = new Map<string, ExpenseRecord>();
-        
-        // Put Firestore items first
-        firestoreList.forEach((item) => mergedMap.set(item.id, item));
-        
-        // Put local items if not already in Firestore or if local is pending
-        local.forEach((item) => {
-          if (!mergedMap.has(item.id) || item.syncStatus === 'Pending Sync') {
-            mergedMap.set(item.id, item);
-          }
-        });
-
-        const merged = Array.from(mergedMap.values()).sort(
-          (a, b) => new Date(b.createdAtDeviceTime).getTime() - new Date(a.createdAtDeviceTime).getTime()
-        );
-
-        setExpenses(merged);
-      },
-      (err) => {
-        console.warn('Expense Firestore snapshot error:', err);
-        setExpenses(local);
-      }
-    );
-
-    return unsub;
-  };
-
-  useEffect(() => {
-    const unsub = loadAndMergeExpenses();
-    return () => {
-      if (typeof unsub === 'function') unsub();
-    };
-  }, [empCode, isOnline]);
-
   // Handle Manual Sync
   const handleTriggerSync = async () => {
     setIsSyncing(true);
-    await syncPendingExpenseRecords();
+    await triggerManualSync();
     setIsSyncing(false);
-    loadAndMergeExpenses();
   };
 
   // Capture & Compress Image
@@ -273,13 +182,8 @@ export const ExpenseScreen: React.FC = () => {
         gstAmount: scannedGstAmount,
       };
 
-      // Save locally first (Mandatory Offline First requirement)
-      saveExpenseRecord(newRecord);
-
-      // Attempt automatic sync if online
-      if (navigator.onLine) {
-        await syncPendingExpenseRecords();
-      }
+      // Optimistically update central state and queue background sync
+      await updateExpenseOptimistically(newRecord);
 
       // Reset form & state
       setAmount('');
@@ -291,7 +195,6 @@ export const ExpenseScreen: React.FC = () => {
       setScannedReceiptNum(null);
       setScannedGstAmount(null);
       setIsModalOpen(false);
-      loadAndMergeExpenses();
     } catch (err: any) {
       console.error('Error submitting expense:', err);
       setFormError(err.message || 'Failed to submit expense. Saved locally.');

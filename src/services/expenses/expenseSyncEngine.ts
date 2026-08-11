@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase/config';
 import { ExpenseRecord } from '../../types/expense';
@@ -9,10 +9,17 @@ import {
   saveExpenseRecord,
 } from './expenseStorage';
 import { recordSyncFailure, recordSyncSuccess } from '../sync/syncQueueService';
+import {
+  logSyncStart,
+  logSyncLocalUpdate,
+  logSyncServerWrite,
+  logSyncServerConfirm,
+  logSyncComplete,
+} from '../sync/syncPerformanceLogger';
 
 export const syncPendingExpenseRecords = async (): Promise<{ syncedCount: number; errorsCount: number }> => {
   if (!navigator.onLine) {
-    console.log('Expense Sync Engine: Device is offline. Skipping sync.');
+    console.log('Expense Sync Engine: Device is offline. Changes saved locally.');
     return { syncedCount: 0, errorsCount: 0 };
   }
 
@@ -31,104 +38,107 @@ export const syncPendingExpenseRecords = async (): Promise<{ syncedCount: number
   let errorsCount = 0;
 
   for (const record of pendingRecords) {
-    try {
-      let receiptDownloadUrl = record.receiptUrl || null;
-      let storagePathVal = record.storagePath || null;
+    let attempt = 0;
+    let success = false;
+    const maxAttempts = 3;
 
-      // Priority 1: Move receipt image from Base64 to Firebase Storage
-      if (
-        record.localReceiptData &&
-        record.localReceiptData.startsWith('data:') &&
-        storage
-      ) {
-        try {
-          const empCode = record.employeeCode || 'EMP-UNKNOWN';
-          const fileName = record.receiptFileName || `receipt_${record.id}.jpg`;
-          storagePathVal = `expenseReceipts/${empCode}/${record.id}/${fileName}`;
-          const storageRef = ref(storage, storagePathVal);
+    logSyncStart('Expenses', record.id);
+    logSyncLocalUpdate('Expenses', record.id);
 
-          console.log(`Expense Sync Engine: Uploading receipt to Storage path: ${storagePathVal}`);
-          await uploadString(storageRef, record.localReceiptData, 'data_url');
-          receiptDownloadUrl = await getDownloadURL(storageRef);
-          console.log(`Expense Sync Engine: Receipt uploaded successfully. URL: ${receiptDownloadUrl}`);
-        } catch (uploadErr: any) {
-          console.error(`Expense Sync Engine: Receipt upload failed for ${record.id}:`, uploadErr);
-          recordSyncFailure('Expenses', record.id, uploadErr?.message || 'Receipt storage upload failed', `Expense ₹${record.amount} (${record.category})`);
+    while (attempt < maxAttempts && !success) {
+      attempt++;
+      try {
+        let receiptDownloadUrl = record.receiptUrl || null;
+        let storagePathVal = record.storagePath || null;
+
+        if (
+          record.localReceiptData &&
+          record.localReceiptData.startsWith('data:') &&
+          storage
+        ) {
+          try {
+            const empCode = record.employeeCode || 'EMP-UNKNOWN';
+            const fileName = record.receiptFileName || `receipt_${record.id}.jpg`;
+            storagePathVal = `expenseReceipts/${empCode}/${record.id}/${fileName}`;
+            const storageRef = ref(storage, storagePathVal);
+
+            logSyncServerWrite('Expenses_Storage', record.id);
+            await uploadString(storageRef, record.localReceiptData, 'data_url');
+            receiptDownloadUrl = await getDownloadURL(storageRef);
+          } catch (uploadErr: any) {
+            console.error(`Expense Sync Engine: Receipt upload failed for ${record.id}:`, uploadErr);
+            recordSyncFailure('Expenses', record.id, uploadErr?.message || 'Receipt storage upload failed', `Expense ₹${record.amount} (${record.category})`);
+            markExpenseSyncFailedInLocal(record.id);
+            errorsCount++;
+            break;
+          }
+        }
+
+        logSyncServerWrite('Expenses', record.id);
+        const docRef = doc(db, 'expenses', record.id);
+        const serverSyncTime = new Date().toISOString();
+
+        const { localReceiptData, ...cleanPayload } = record;
+        const firestorePayload: Partial<ExpenseRecord> = {
+          ...cleanPayload,
+          receiptUrl: receiptDownloadUrl,
+          storagePath: storagePathVal,
+          syncStatus: 'Synced',
+          serverSyncTime: serverSyncTime,
+          createdAtDeviceTime: record.createdAtDeviceTime,
+        };
+
+        await setDoc(docRef, firestorePayload, { merge: true });
+
+        logSyncServerConfirm('Expenses', record.id);
+
+        saveExpenseRecord({
+          ...record,
+          receiptUrl: receiptDownloadUrl,
+          storagePath: storagePathVal,
+          localReceiptData: null,
+          syncStatus: 'Synced',
+          serverSyncTime: serverSyncTime,
+        });
+
+        recordSyncSuccess('Expenses', record.id);
+        logSyncComplete('Expenses', record.id);
+
+        syncedCount++;
+        success = true;
+      } catch (err: any) {
+        console.error(`Expense Sync Engine: Error syncing expense ID ${record.id} (Attempt ${attempt}/${maxAttempts}):`, err);
+
+        if (attempt < maxAttempts) {
+          const backoffMs = attempt === 1 ? 300 : attempt === 2 ? 800 : 1500;
+          await new Promise((res) => setTimeout(res, backoffMs));
+        } else {
+          recordSyncFailure('Expenses', record.id, err?.message || 'Expense sync failed', `Expense ₹${record.amount} (${record.category})`);
           markExpenseSyncFailedInLocal(record.id);
           errorsCount++;
-          continue; // Skip Firestore doc update if Storage upload fails
         }
       }
-
-      const docRef = doc(db, 'expenses', record.id);
-      const docSnap = await getDoc(docRef);
-      const serverSyncTime = new Date().toISOString();
-
-      // Clean payload for Firestore: NEVER include heavy Base64 localReceiptData
-      const { localReceiptData, ...cleanPayload } = record;
-      const firestorePayload: ExpenseRecord = {
-        ...cleanPayload,
-        receiptUrl: receiptDownloadUrl,
-        storagePath: storagePathVal,
-        syncStatus: 'Synced',
-        serverSyncTime: serverSyncTime,
-        createdAtDeviceTime: record.createdAtDeviceTime,
-      };
-
-      if (!docSnap.exists()) {
-        await setDoc(docRef, firestorePayload);
-        console.log(`Expense Sync Engine: Successfully synced expense ID ${record.id}`);
-      } else {
-        const existingData = docSnap.data() as ExpenseRecord;
-        await setDoc(
-          docRef,
-          {
-            ...firestorePayload,
-            status: existingData.status || record.status,
-            rejectionReason: existingData.rejectionReason || record.rejectionReason,
-            createdAtDeviceTime: existingData.createdAtDeviceTime || record.createdAtDeviceTime,
-          },
-          { merge: true }
-        );
-        console.log(`Expense Sync Engine: Updated synced expense ID ${record.id}`);
-      }
-
-      // Update local storage record with download URL, clear Base64 to save local storage space
-      saveExpenseRecord({
-        ...record,
-        receiptUrl: receiptDownloadUrl,
-        storagePath: storagePathVal,
-        localReceiptData: null,
-        syncStatus: 'Synced',
-        serverSyncTime: serverSyncTime,
-      });
-
-      recordSyncSuccess('Expenses', record.id);
-      syncedCount++;
-    } catch (err: any) {
-      console.error(`Expense Sync Engine: Error syncing expense ID ${record.id}:`, err);
-      recordSyncFailure('Expenses', record.id, err?.message || 'Expense sync failed', `Expense ₹${record.amount} (${record.category})`);
-      markExpenseSyncFailedInLocal(record.id);
-      errorsCount++;
     }
   }
 
   return { syncedCount, errorsCount };
 };
 
-export const startExpenseAutoSyncEngine = (intervalMs = 15000): (() => void) => {
+export const startExpenseAutoSyncEngine = (): (() => void) => {
   const handleOnline = () => {
     console.log('Expense Sync Engine: Connectivity restored. Syncing pending expenses...');
     syncPendingExpenseRecords();
   };
 
-  window.addEventListener('online', handleOnline);
-
-  const intervalId = setInterval(() => {
-    if (navigator.onLine) {
+  const handleVisibility = () => {
+    if (document.visibilityState === 'visible' && navigator.onLine) {
+      console.log('Expense Sync Engine: App returned to foreground. Syncing pending expenses...');
       syncPendingExpenseRecords();
     }
-  }, intervalMs);
+  };
+
+  window.addEventListener('online', handleOnline);
+  document.addEventListener('visibilitychange', handleVisibility);
 
   if (navigator.onLine) {
     syncPendingExpenseRecords();
@@ -136,6 +146,6 @@ export const startExpenseAutoSyncEngine = (intervalMs = 15000): (() => void) => 
 
   return () => {
     window.removeEventListener('online', handleOnline);
-    clearInterval(intervalId);
+    document.removeEventListener('visibilitychange', handleVisibility);
   };
 };

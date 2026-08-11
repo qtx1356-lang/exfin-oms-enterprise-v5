@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { TaskRecord } from '../../types/planner';
 import {
@@ -8,10 +8,44 @@ import {
   saveTaskRecord,
 } from './taskStorage';
 import { recordSyncFailure, recordSyncSuccess } from '../sync/syncQueueService';
+import {
+  logSyncStart,
+  logSyncLocalUpdate,
+  logSyncServerWrite,
+  logSyncServerConfirm,
+  logSyncComplete,
+} from '../sync/syncPerformanceLogger';
+
+// Coalescing queue for rapid task progress updates
+const coalescedTaskQueue = new Map<string, TaskRecord>();
+let debounceTimer: any = null;
+
+export const queueTaskSync = (task: TaskRecord): void => {
+  logSyncStart('WorkPlanner', task.id);
+
+  // 1. Immediate local UI update
+  saveTaskRecord({
+    ...task,
+    syncStatus: 'Pending Sync',
+  });
+  logSyncLocalUpdate('WorkPlanner', task.id);
+
+  // 2. Coalesce rapid edits (e.g. 25% -> 50% -> 75% -> 100%)
+  coalescedTaskQueue.set(task.id, task);
+
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+  }
+
+  // Flush queue to server after 300ms debounce
+  debounceTimer = setTimeout(() => {
+    syncPendingTasks();
+  }, 300);
+};
 
 export const syncPendingTasks = async (): Promise<{ syncedCount: number; errorsCount: number }> => {
   if (!navigator.onLine) {
-    console.log('Task Sync Engine: Device is offline. Skipping sync.');
+    console.log('Task Sync Engine: Device is offline. Changes saved locally.');
     return { syncedCount: 0, errorsCount: 0 };
   }
 
@@ -32,71 +66,53 @@ export const syncPendingTasks = async (): Promise<{ syncedCount: number; errorsC
   for (const task of pendingTasks) {
     let attempt = 0;
     let success = false;
-    
-    while (attempt < 3 && !success) {
+    const maxAttempts = 3;
+
+    while (attempt < maxAttempts && !success) {
       attempt++;
       try {
+        logSyncServerWrite('WorkPlanner', task.id);
         const docRef = doc(db, 'tasks', task.id);
-        const docSnap = await getDoc(docRef);
         const serverSyncTime = new Date().toISOString();
 
-        if (!docSnap.exists()) {
-          const firestorePayload: TaskRecord = {
-            ...task,
-            revision: task.revision || 1,
-            lastModifiedAt: new Date().toISOString(),
-            hasConflict: false,
-            conflictDetails: null,
-            syncStatus: 'Synced',
-            serverSyncTime: serverSyncTime,
-            createdAtDeviceTime: task.createdAtDeviceTime,
-            updatedAtDeviceTime: task.updatedAtDeviceTime || new Date().toISOString(),
-          };
+        // Direct surgical merge write without roundtrip getDoc
+        const firestorePayload: Partial<TaskRecord> = {
+          ...task,
+          syncStatus: 'Synced',
+          serverSyncTime: serverSyncTime,
+          updatedAtDeviceTime: task.updatedAtDeviceTime || new Date().toISOString(),
+          lastModifiedAt: new Date().toISOString(),
+          revision: (task.revision || 1) + 1,
+          hasConflict: false,
+          conflictDetails: null,
+        };
 
-          await setDoc(docRef, firestorePayload);
-          recordSyncSuccess('WorkPlanner', task.id);
-          markTaskSyncedInLocal(task.id, serverSyncTime);
-          console.log(`Task Sync Engine: Successfully synced new task ID ${task.id}`);
-          syncedCount++;
-          success = true;
-        } else {
-          const serverData = docSnap.data() as TaskRecord;
-          const serverRev = serverData.revision || 1;
-          const localRev = task.revision || 1;
-          const newRevision = Math.max(serverRev, localRev) + 1;
+        await setDoc(docRef, firestorePayload, { merge: true });
 
-          // Merge without conflict - partial payload
-          const firestorePayload: Partial<TaskRecord> = {
-            completionPercentage: task.completionPercentage,
-            status: task.status,
-            approvalStatus: task.approvalStatus,
-            comments: task.comments || [],
-            completedAt: task.completedAt || null,
-            completedBy: task.completedBy || null,
-            startedTime: task.startedTime || null,
-            updatedAtDeviceTime: task.updatedAtDeviceTime || new Date().toISOString(),
-            lastModifiedAt: new Date().toISOString(),
-            revision: newRevision,
-            serverSyncTime: serverSyncTime,
-            hasConflict: false,
-            conflictDetails: null,
-            syncStatus: 'Synced'
-          };
+        logSyncServerConfirm('WorkPlanner', task.id);
+        recordSyncSuccess('WorkPlanner', task.id);
+        markTaskSyncedInLocal(task.id, serverSyncTime);
+        logSyncComplete('WorkPlanner', task.id);
 
-          await setDoc(docRef, firestorePayload, { merge: true });
-          recordSyncSuccess('WorkPlanner', task.id);
-          markTaskSyncedInLocal(task.id, serverSyncTime);
-          console.log(`Task Sync Engine: Updated synced task ID ${task.id}`);
-          syncedCount++;
-          success = true;
-        }
+        syncedCount++;
+        success = true;
       } catch (err: any) {
-        console.error(`Task Sync Engine: Error syncing task ID ${task.id} (Attempt ${attempt}):`, err);
-        if (attempt < 3) {
-          // short delay
-          await new Promise(res => setTimeout(res, 1000 * attempt));
+        console.error(
+          `Task Sync Engine: Error syncing task ID ${task.id} (Attempt ${attempt}/${maxAttempts}):`,
+          err
+        );
+
+        if (attempt < maxAttempts) {
+          // Fast exponential backoff retry: 300ms, 800ms, 1500ms
+          const backoffMs = attempt === 1 ? 300 : attempt === 2 ? 800 : 1500;
+          await new Promise((res) => setTimeout(res, backoffMs));
         } else {
-          recordSyncFailure('WorkPlanner', task.id, err?.message || 'Task sync failed', `Task "${task.title}"`);
+          recordSyncFailure(
+            'WorkPlanner',
+            task.id,
+            err?.message || 'Task sync failed',
+            `Task "${task.title}"`
+          );
           markTaskSyncFailedInLocal(task.id);
           errorsCount++;
         }
@@ -104,22 +120,27 @@ export const syncPendingTasks = async (): Promise<{ syncedCount: number; errorsC
     }
   }
 
+  // Clear coalesced map
+  coalescedTaskQueue.clear();
+
   return { syncedCount, errorsCount };
 };
 
-export const startTaskAutoSyncEngine = (intervalMs = 15000): (() => void) => {
+export const startTaskAutoSyncEngine = (): (() => void) => {
   const handleOnline = () => {
-    console.log('Task Sync Engine: Connectivity restored. Syncing pending tasks...');
+    console.log('Task Sync Engine: Connectivity restored. Automatically syncing pending tasks...');
     syncPendingTasks();
   };
 
-  window.addEventListener('online', handleOnline);
-
-  const intervalId = setInterval(() => {
-    if (navigator.onLine) {
+  const handleVisibility = () => {
+    if (document.visibilityState === 'visible' && navigator.onLine) {
+      console.log('Task Sync Engine: App returned to foreground. Reconciling pending task sync...');
       syncPendingTasks();
     }
-  }, intervalMs);
+  };
+
+  window.addEventListener('online', handleOnline);
+  document.addEventListener('visibilitychange', handleVisibility);
 
   if (navigator.onLine) {
     syncPendingTasks();
@@ -127,6 +148,6 @@ export const startTaskAutoSyncEngine = (intervalMs = 15000): (() => void) => {
 
   return () => {
     window.removeEventListener('online', handleOnline);
-    clearInterval(intervalId);
+    document.removeEventListener('visibilitychange', handleVisibility);
   };
 };
