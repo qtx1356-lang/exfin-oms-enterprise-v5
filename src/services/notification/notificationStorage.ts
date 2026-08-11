@@ -1,11 +1,16 @@
 import { NotificationRecord } from '../../types/notification';
 
-const NOTIFICATIONS_STORAGE_KEY = 'exfin_notifications_v1';
-const DELETED_NOTIFICATIONS_STORAGE_KEY = 'exfin_deleted_notifications_v1';
+const getStorageKeys = () => {
+  const currentUserId = localStorage.getItem('registrationId') || localStorage.getItem('deviceId') || 'default';
+  return {
+    notificationsKey: `exfin_notifications_${currentUserId}_v1`,
+    deletedNotificationsKey: `exfin_deleted_notifications_${currentUserId}_v1`
+  };
+};
 
 export const getDeletedNotificationIds = (): string[] => {
   try {
-    const data = localStorage.getItem(DELETED_NOTIFICATIONS_STORAGE_KEY);
+    const data = localStorage.getItem(getStorageKeys().deletedNotificationsKey);
     return data ? JSON.parse(data) : [];
   } catch (err) {
     console.error('Failed to parse deleted notification IDs:', err);
@@ -18,7 +23,7 @@ export const addDeletedNotificationId = (id: string): void => {
     const deleted = getDeletedNotificationIds();
     if (!deleted.includes(id)) {
       deleted.push(id);
-      localStorage.setItem(DELETED_NOTIFICATIONS_STORAGE_KEY, JSON.stringify(deleted));
+      localStorage.setItem(getStorageKeys().deletedNotificationsKey, JSON.stringify(deleted));
     }
   } catch (err) {
     console.error('Failed to save deleted notification ID:', err);
@@ -32,7 +37,7 @@ export const isNotificationDeletedLocally = (id: string): boolean => {
 
 export const getStoredNotifications = (): NotificationRecord[] => {
   try {
-    const data = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    const data = localStorage.getItem(getStorageKeys().notificationsKey);
     const notifications: NotificationRecord[] = data ? JSON.parse(data) : [];
     const deletedIds = getDeletedNotificationIds();
     return notifications.filter((n) => !deletedIds.includes(n.id) && !n.deleted);
@@ -55,7 +60,7 @@ export const saveNotificationLocally = (notification: NotificationRecord): void 
     } else {
       notifications.unshift(notification);
     }
-    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+    localStorage.setItem(getStorageKeys().notificationsKey, JSON.stringify(notifications));
   } catch (err) {
     console.error('Failed to save notification locally:', err);
   }
@@ -101,7 +106,7 @@ export const saveMultipleNotificationsLocally = (newNotifs: NotificationRecord[]
         (a, b) => new Date(b.timestamp || b.createdAt || b.createdAtDeviceTime).getTime() - new Date(a.timestamp || a.createdAt || a.createdAtDeviceTime).getTime()
       );
 
-    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(mergedList));
+    localStorage.setItem(getStorageKeys().notificationsKey, JSON.stringify(mergedList));
   } catch (err) {
     console.error('Failed to save multiple notifications locally:', err);
   }
@@ -119,7 +124,7 @@ export const markNotificationSyncedLocally = (id: string, serverSyncTime: string
     if (notification) {
       notification.syncStatus = 'SYNCED';
       notification.serverSyncTime = serverSyncTime;
-      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+      localStorage.setItem(getStorageKeys().notificationsKey, JSON.stringify(notifications));
     }
   } catch (err) {
     console.error('Failed to mark notification synced locally:', err);
@@ -131,7 +136,7 @@ export const removeNotificationLocally = (id: string): void => {
     addDeletedNotificationId(id);
     const notifications = getStoredNotifications();
     const updated = notifications.filter((n) => n.id !== id);
-    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem(getStorageKeys().notificationsKey, JSON.stringify(updated));
   } catch (err) {
     console.error('Failed to remove notification locally:', err);
   }

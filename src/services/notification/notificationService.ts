@@ -158,14 +158,19 @@ export const getNotificationsForUser = async (user: {
   employeeCode: string;
   role: string;
   teamLeaderId?: string;
-}): Promise<NotificationRecord[]> => {
+} | null | undefined): Promise<NotificationRecord[]> => {
+  if (!user || (!user.id && !user.employeeCode)) {
+    return [];
+  }
   // First, fetch whatever is stored locally
   const localNotifications = getStoredNotifications();
   
   // Filter local based on permissions
   const filterAllowedLocal = (n: NotificationRecord) => {
-    // SYSTEM alerts are visible to everyone
-    if (n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM') return true;
+    // SYSTEM alerts are visible only to ADMIN and SUPER_ADMIN
+    if (n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM') {
+      return user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
+    }
     
     // Employee can only see own notifications
     if (user.role === 'EMPLOYEE') {
@@ -217,8 +222,10 @@ export const getNotificationsForUser = async (user: {
       queries.push(query(notifCollection, where('recipientUserId', '==', user.id)));
     }
 
-    // Query 3: Scoped by recipientRole SYSTEM/public
-    queries.push(query(notifCollection, where('recipientEmployeeCode', '==', 'SYSTEM')));
+    // Query 3: Scoped by recipientRole SYSTEM/public - ONLY for ADMIN and SUPER_ADMIN
+    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+      queries.push(query(notifCollection, where('recipientEmployeeCode', '==', 'SYSTEM')));
+    }
 
     // Query 4: Team-specific notifications for Team Leaders
     if (user.role === 'TEAM_LEADER') {
@@ -352,7 +359,7 @@ export const markAllNotificationsRead = async (user: {
     const isTLMgmt = user.role === 'TEAM_LEADER' && (n.recipientTeamLeaderId === user.id || n.recipientTeamLeaderId === user.employeeCode);
     const isAdminType = user.role === 'ADMIN' && n.recipientRole === 'ADMIN';
     const isSuperAdminType = user.role === 'SUPER_ADMIN' && (n.recipientRole === 'ADMIN' || n.recipientRole === 'SUPER_ADMIN');
-    const isSystem = n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM';
+    const isSystem = (n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM') && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN');
     
     if (!n.read && (isOwn || isTLMgmt || isAdminType || isSuperAdminType || isSystem)) {
       n.read = true;
@@ -395,13 +402,18 @@ export const getUnreadNotificationCount = (user: {
   id: string;
   employeeCode: string;
   role: string;
-}): number => {
+} | null | undefined): number => {
+  if (!user || (!user.id && !user.employeeCode)) {
+    return 0;
+  }
   const local = getStoredNotifications();
   return local.filter((n) => {
     if (n.read) return false;
     if (n.deleted || isNotificationDeletedLocally(n.id)) return false;
     
-    if (n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM') return true;
+    if (n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM') {
+      return user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
+    }
     
     if (user.role === 'EMPLOYEE') {
       return n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;

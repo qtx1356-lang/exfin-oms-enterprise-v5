@@ -88,7 +88,17 @@ service cloud.firestore {
     }
         
     match /notifications/{notificationId} {
-      allow create, read, update, delete: if true;
+      allow create: if true;
+      allow read, update, delete: if isAdmin() || (
+        request.auth != null && exists(/databases/$(database)/documents/registrations/$(request.auth.uid)) && (
+          resource.data.recipientEmployeeCode == get(/databases/$(database)/documents/registrations/$(request.auth.uid)).data.employeeCode ||
+          resource.data.recipientUserId == request.auth.uid ||
+          (get(/databases/$(database)/documents/registrations/$(request.auth.uid)).data.isTeamLeader == true && (
+            resource.data.recipientTeamLeaderId == get(/databases/$(database)/documents/registrations/$(request.auth.uid)).data.employeeCode ||
+            resource.data.recipientTeamLeaderId == request.auth.uid
+          ))
+        )
+      );
     }
 
     match /leave_config/{configId} {

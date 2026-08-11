@@ -208,7 +208,7 @@ export const EmployeeDashboard: React.FC = () => {
   }, [employeeData]);
 
   useEffect(() => {
-    if (!db) return;
+    if (!db || !employeeData?.employeeCode) return;
 
     // Fetch announcements
     const announcementsQ = query(
@@ -261,7 +261,7 @@ export const EmployeeDashboard: React.FC = () => {
     // Fetch notifications
     const notificationsQ = query(
       collection(db, 'notifications'),
-      where('recipientEmployeeCode', '==', employeeData?.employeeCode || ''),
+      where('recipientEmployeeCode', '==', employeeData.employeeCode),
       orderBy('timestamp', 'desc'),
       limit(3)
     );
@@ -279,7 +279,7 @@ export const EmployeeDashboard: React.FC = () => {
       unsubAnnouncements();
       unsubNotifications();
     };
-  }, []);
+  }, [employeeData]);
 
   if (!employeeData) {
     return (
