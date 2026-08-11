@@ -44,6 +44,7 @@ import {
   MapPin,
   ExternalLink,
   ChevronRight,
+  ChevronDown,
   Megaphone,
   Menu,
   X,
@@ -204,10 +205,6 @@ export const AdminDashboard: React.FC = () => {
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  const [showExpenseDetails, setShowExpenseDetails] = useState<boolean>(false);
-  const [expenseRejectionReason, setExpenseRejectionReason] = useState<string>('');
-  const [isProcessingExpense, setIsProcessingExpense] = useState<boolean>(false);
-
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   
   // Deduplicate registrations by deviceId, keeping the newest registrationDate
@@ -302,6 +299,91 @@ export const AdminDashboard: React.FC = () => {
 
     return records;
   }, [attendanceRecords, attendanceSearch, attendanceFilter]);
+
+  const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
+
+  const toggleDateCollapse = (dateStr: string) => {
+    setCollapsedDates((prev) => ({
+      ...prev,
+      [dateStr]: !prev[dateStr],
+    }));
+  };
+
+  const groupedAttendanceByDate = React.useMemo(() => {
+    const map: Record<string, AttendanceRecord[]> = {};
+
+    let todayStr = '';
+    try {
+      todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    } catch {
+      const now = new Date();
+      todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    }
+
+    filteredAttendanceRecords.forEach((rec) => {
+      const d = rec.date || 'Unknown Date';
+      if (!map[d]) {
+        map[d] = [];
+      }
+      map[d].push(rec);
+    });
+
+    const sortedDates = Object.keys(map).sort((a, b) => {
+      if (a === todayStr) return -1;
+      if (b === todayStr) return 1;
+      return b.localeCompare(a);
+    });
+
+    return sortedDates.map((dateStr) => {
+      const records = map[dateStr].sort((a, b) => {
+        const nameA = (a.employeeName || '').toLowerCase();
+        const nameB = (b.employeeName || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
+      let presentCount = 0;
+      let wfhCount = 0;
+      let clientVisitCount = 0;
+      let outdoorCount = 0;
+
+      records.forEach((r) => {
+        const t = (r.attendanceType || 'OFFICE').toUpperCase();
+        if (t === 'OFFICE') presentCount++;
+        else if (t === 'WFH') wfhCount++;
+        else if (t === 'CLIENT_VISIT') clientVisitCount++;
+        else if (t === 'OUTDOOR') outdoorCount++;
+      });
+
+      let formattedDateLabel = dateStr;
+      const isToday = dateStr === todayStr;
+      try {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        if (y && m && d) {
+          const dt = new Date(y, m - 1, d);
+          formattedDateLabel = dt.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          });
+        }
+      } catch {}
+
+      return {
+        dateStr,
+        isToday,
+        formattedDateLabel,
+        records,
+        summary: {
+          present: presentCount,
+          wfh: wfhCount,
+          clientVisit: clientVisitCount,
+          outdoor: outdoorCount,
+          total: records.length,
+        },
+      };
+    });
+  }, [filteredAttendanceRecords]);
 
   const handleSmartBriefNavigation = (tabName: AdminTab, filter?: string) => {
     setActiveTab(tabName);
@@ -978,140 +1060,238 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
             
-            <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-purple-500/20 scrollbar-track-transparent pb-4">
-              <table className="w-full text-left text-xs border-separate border-spacing-0">
+            {groupedAttendanceByDate.length === 0 ? (
+              <div className="p-12 text-center text-purple-300/60 bg-[#1A0B36]/30 border border-purple-500/10 rounded-xl">
+                <EmptyState icon={Calendar} title="No Records" description="No attendance records found matching filters." />
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {groupedAttendanceByDate.map((group) => {
+                  const isCollapsed = !!collapsedDates[group.dateStr];
+                  return (
+                    <div key={group.dateStr} className="bg-[#1A0B36]/50 border border-purple-500/20 rounded-xl overflow-hidden shadow-lg">
+                      {/* Date Header */}
+                      <div
+                        onClick={() => toggleDateCollapse(group.dateStr)}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gradient-to-r from-[#200D42] to-[#13072D] border-b border-purple-500/20 cursor-pointer hover:bg-purple-900/20 transition-colors gap-3"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${group.isToday ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40' : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'}`}>
+                            <Calendar className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-black text-white tracking-wide uppercase">
+                                {group.isToday ? `TODAY — ${group.formattedDateLabel}` : group.formattedDateLabel}
+                              </h4>
+                              {group.isToday && (
+                                <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold rounded-full uppercase tracking-wider">
+                                  Live Today
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-purple-300/70 font-mono mt-0.5">
+                              {group.summary.total} {group.summary.total === 1 ? 'record' : 'records'} logged
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center flex-wrap gap-2">
+                          <span className="px-2 py-1 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-bold rounded-md">
+                            Office: {group.summary.present}
+                          </span>
+                          <span className="px-2 py-1 bg-blue-500/10 text-blue-300 border border-blue-500/20 text-[10px] font-bold rounded-md">
+                            WFH: {group.summary.wfh}
+                          </span>
+                          <span className="px-2 py-1 bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[10px] font-bold rounded-md">
+                            Client: {group.summary.clientVisit}
+                          </span>
+                          <span className="px-2 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-bold rounded-md">
+                            Outdoor: {group.summary.outdoor}
+                          </span>
+                          <div className="text-purple-300/60 ml-2">
+                            {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Table for this date */}
+                      {!isCollapsed && (
+                        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-purple-500/20 scrollbar-track-transparent">
+                          <table className="w-full text-left text-xs border-separate border-spacing-0">
+                            <thead>
+                              <tr className="bg-[#1A0B36]/80 text-purple-300 uppercase font-bold sticky top-0 z-10">
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Employee</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Code</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Date</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Mode</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-emerald-400">Check In</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">CI Mode</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-purple-200">Check Out</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">CO Mode</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Hours</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Distance</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Town/City</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Client/Outdoor</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Sync</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Conn</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-purple-500/10">
+                              {group.records.map((rec) => (
+                                <tr
+                                  key={rec.id || Math.random().toString()}
+                                  className="hover:bg-white/[0.05] cursor-pointer transition-colors group"
+                                  onClick={() => {
+                                    if (!rec) return;
+                                    setSelectedAttendance(rec);
+                                    setShowAttendanceDetails(true);
+                                  }}
+                                >
+                                  <td className="p-3 border-b border-purple-500/10">
+                                    <div className="font-bold text-white group-hover:text-amber-400 transition-colors">
+                                      {safeStringify(rec.employeeName) || '—'}
+                                    </div>
+                                  </td>
+                                  <td className="p-3 border-b border-purple-500/10 font-mono text-purple-300 font-medium">
+                                    {safeStringify(rec.employeeId || rec.employeeCode) || '—'}
+                                  </td>
+                                  <td className="p-3 border-b border-purple-500/10 text-white whitespace-nowrap">
+                                    {safeStringify(rec.date)}
+                                  </td>
+                                  <td className="p-3 border-b border-purple-500/10">
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${
+                                      rec.attendanceType === 'OFFICE' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' :
+                                      rec.attendanceType === 'WFH' ? 'bg-blue-500/10 text-blue-300 border-blue-500/30' :
+                                      rec.attendanceType === 'CLIENT_VISIT' ? 'bg-purple-500/10 text-purple-300 border-purple-500/30' :
+                                      'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                                    }`}>
+                                      {rec.attendanceType === 'OFFICE' ? 'Office' :
+                                       rec.attendanceType === 'WFH' ? 'WFH' :
+                                       rec.attendanceType === 'CLIENT_VISIT' ? 'Client' :
+                                       'Outdoor'}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 border-b border-purple-500/10 text-emerald-400 font-bold whitespace-nowrap">
+                                    {safeStringify(rec.checkInTime) || '—'}
+                                  </td>
+                                  <td className="p-3 border-b border-purple-500/10">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                      rec.checkInMode === 'AUTO' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-purple-500/10 text-purple-300'
+                                    }`}>
+                                      {rec.checkInMode === 'AUTO' ? 'Auto' : 'Manual'}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 border-b border-purple-500/10 text-purple-200 whitespace-nowrap">
+                                    {safeStringify(rec.checkOutTime) || '--:--'}
+                                  </td>
+                                  <td className="p-3 border-b border-purple-500/10">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                      rec.checkOutMode === 'MANUAL' ? 'bg-purple-500/10 text-purple-300' : 
+                                      rec.checkOutMode === 'AUTO_SYSTEM' ? 'bg-amber-500/10 text-amber-300' :
+                                      'bg-white/5 text-white/40'
+                                    }`}>
+                                      {rec.checkOutMode === 'MANUAL' ? 'Manual' : 
+                                       rec.checkOutMode === 'AUTO_SYSTEM' ? 'System' : 'N/A'}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 border-b border-purple-500/10 font-bold text-white">
+                                    {safeStringify(rec.workingHours) || '—'}
+                                  </td>
+                                  <td className="p-3 border-b border-purple-500/10 text-purple-300 font-mono">
+                                    {typeof rec.distance === 'number' && !isNaN(rec.distance) ? `${(rec.distance / 1000).toFixed(2)}km` : (rec.distance ? `${safeStringify(rec.distance)}m` : '—')}
+                                  </td>
+                                  <td className="p-3 border-b border-purple-500/10 text-purple-200 truncate max-w-[120px]" title={safeStringify(rec.townCity)}>
+                                    {safeStringify(rec.townCity) || '—'}
+                                  </td>
+                                  <td className="p-3 border-b border-purple-500/10">
+                                    {rec.attendanceType === 'CLIENT_VISIT' ? (
+                                      <div className="text-[10px] leading-tight">
+                                        <div className="text-white font-bold truncate max-w-[100px]">{safeStringify(rec.clientName)}</div>
+                                        <div className="text-purple-300/60 truncate max-w-[100px]">{safeStringify(rec.clientLocation)}</div>
+                                      </div>
+                                    ) : rec.attendanceType === 'OUTDOOR' ? (
+                                      <div className="text-[10px] font-bold text-amber-300">{safeStringify(rec.outdoorType) || '—'}</div>
+                                    ) : '—'}
+                                  </td>
+                                  <td className="p-3 border-b border-purple-500/10">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                      rec.syncStatus === 'Synced' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'
+                                    }`}>
+                                      {safeStringify(rec.syncStatus) || 'Synced'}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 border-b border-purple-500/10">
+                                    {rec.isOffline ? (
+                                      <WifiOff className="w-3.5 h-3.5 text-amber-500" />
+                                    ) : (
+                                      <Wifi className="w-3.5 h-3.5 text-emerald-500" />
+                                    )}
+                                  </td>
+                                  <td className="p-3 border-b border-purple-500/10" onClick={(e) => e.stopPropagation()}>
+                                    <Button
+                                      onClick={() => {
+                                        setSelectedForRectify(rec);
+                                        setRectifyCheckIn(safeStringify(rec.checkInTime));
+                                        setRectifyCheckOut(safeStringify(rec.checkOutTime) || '');
+                                        setRectifyReason('');
+                                        setRectifyError('');
+                                        setShowRectifyModal(true);
+                                      }}
+                                      className="bg-purple-600/80 hover:bg-purple-500 text-white text-[10px] px-2.5 py-1 rounded-xl flex items-center gap-1 shadow-sm font-bold"
+                                      title="Rectify Check-In / Check-Out Times"
+                                    >
+                                      <Clock className="w-3 h-3" /> Rectify
+                                    </Button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* EXPENSES TAB */}
+        {activeTab === 'expenses' && canSeeExpenses && (
+          <Card className="p-6 bg-[#250F4C] border border-purple-500/20 space-y-4">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-emerald-400" /> Expense Claims Audit
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#1A0B36] text-purple-300 uppercase font-bold sticky top-0 z-10">
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Employee</th>
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Code</th>
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Date</th>
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Mode</th>
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-emerald-400">Check In</th>
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">CI Mode</th>
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-purple-200">Check Out</th>
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">CO Mode</th>
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Hours</th>
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Distance</th>
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Town/City</th>
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Client/Outdoor</th>
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Sync</th>
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Conn</th>
-                    <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Action</th>
+                  <tr className="bg-[#1A0B36] text-purple-300 uppercase font-bold border-b border-purple-500/20">
+                    <th className="p-3">Employee</th>
+                    <th className="p-3">Category</th>
+                    <th className="p-3">Amount</th>
+                    <th className="p-3">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-purple-500/10">
-                  {filteredAttendanceRecords.length === 0 ? (
+                  {expenseRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={15} className="p-12 text-center text-purple-300/60">
-                        <EmptyState icon={Calendar} title="No Records" description="No attendance records found matching filters." />
-                      </td>
+                      <td colSpan={4} className="p-6 text-center text-purple-300/60">No expense claims found.</td>
                     </tr>
                   ) : (
-                    filteredAttendanceRecords.map((rec) => (
-                      <tr 
-                        key={rec.id || Math.random().toString()} 
-                        className="hover:bg-white/[0.05] cursor-pointer transition-colors group"
-                        onClick={() => {
-                          if (!rec) return;
-                          setSelectedAttendance(rec);
-                          setShowAttendanceDetails(true);
-                        }}
-                      >
-                        <td className="p-3 border-b border-purple-500/10">
-                          <div className="font-bold text-white group-hover:text-amber-400 transition-colors">
-                            {safeStringify(rec.employeeName) || '—'}
-                          </div>
-                        </td>
-                        <td className="p-3 border-b border-purple-500/10 font-mono text-purple-300 font-medium">
-                          {safeStringify(rec.employeeId || rec.employeeCode) || '—'}
-                        </td>
-                        <td className="p-3 border-b border-purple-500/10 text-white whitespace-nowrap">
-                          {safeStringify(rec.date)}
-                        </td>
-                        <td className="p-3 border-b border-purple-500/10">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${
-                            rec.attendanceType === 'OFFICE' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' :
-                            rec.attendanceType === 'WFH' ? 'bg-blue-500/10 text-blue-300 border-blue-500/30' :
-                            rec.attendanceType === 'CLIENT_VISIT' ? 'bg-purple-500/10 text-purple-300 border-purple-500/30' :
-                            'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                    expenseRecords.map((exp) => (
+                      <tr key={exp.id} className="hover:bg-white/[0.02]">
+                        <td className="p-3 font-bold text-white">{exp.employeeName} ({exp.employeeCode})</td>
+                        <td className="p-3 text-purple-200">{exp.category}</td>
+                        <td className="p-3 font-bold text-emerald-400">₹{exp.amount}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            exp.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
                           }`}>
-                            {rec.attendanceType === 'OFFICE' ? 'Office' :
-                             rec.attendanceType === 'WFH' ? 'WFH' :
-                             rec.attendanceType === 'CLIENT_VISIT' ? 'Client' :
-                             'Outdoor'}
+                            {exp.status}
                           </span>
-                        </td>
-                        <td className="p-3 border-b border-purple-500/10 text-emerald-400 font-bold whitespace-nowrap">
-                          {safeStringify(rec.checkInTime) || '—'}
-                        </td>
-                        <td className="p-3 border-b border-purple-500/10">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                            rec.checkInMode === 'AUTO' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-purple-500/10 text-purple-300'
-                          }`}>
-                            {rec.checkInMode === 'AUTO' ? 'Auto' : 'Manual'}
-                          </span>
-                        </td>
-                        <td className="p-3 border-b border-purple-500/10 text-purple-200 whitespace-nowrap">
-                          {safeStringify(rec.checkOutTime) || '--:--'}
-                        </td>
-                        <td className="p-3 border-b border-purple-500/10">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                            rec.checkOutMode === 'MANUAL' ? 'bg-purple-500/10 text-purple-300' : 
-                            rec.checkOutMode === 'AUTO_SYSTEM' ? 'bg-amber-500/10 text-amber-300' :
-                            'bg-white/5 text-white/40'
-                          }`}>
-                            {rec.checkOutMode === 'MANUAL' ? 'Manual' : 
-                             rec.checkOutMode === 'AUTO_SYSTEM' ? 'System' : 'N/A'}
-                          </span>
-                        </td>
-                        <td className="p-3 border-b border-purple-500/10 font-bold text-white">
-                          {safeStringify(rec.workingHours) || '—'}
-                        </td>
-                        <td className="p-3 border-b border-purple-500/10 text-purple-300 font-mono">
-                          {typeof rec.distance === 'number' && !isNaN(rec.distance) ? `${(rec.distance / 1000).toFixed(2)}km` : (rec.distance ? `${safeStringify(rec.distance)}m` : '—')}
-                        </td>
-                        <td className="p-3 border-b border-purple-500/10 text-purple-200 truncate max-w-[120px]" title={safeStringify(rec.townCity)}>
-                          {safeStringify(rec.townCity) || '—'}
-                        </td>
-                        <td className="p-3 border-b border-purple-500/10">
-                          {rec.attendanceType === 'CLIENT_VISIT' ? (
-                            <div className="text-[10px] leading-tight">
-                              <div className="text-white font-bold truncate max-w-[100px]">{safeStringify(rec.clientName)}</div>
-                              <div className="text-purple-300/60 truncate max-w-[100px]">{safeStringify(rec.clientLocation)}</div>
-                            </div>
-                          ) : rec.attendanceType === 'OUTDOOR' ? (
-                            <div className="text-[10px] font-bold text-amber-300">{safeStringify(rec.outdoorType) || '—'}</div>
-                          ) : '—'}
-                        </td>
-                        <td className="p-3 border-b border-purple-500/10">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                            rec.syncStatus === 'Synced' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-amber-500/10 text-amber-300'
-                          }`}>
-                            {safeStringify(rec.syncStatus) || 'Synced'}
-                          </span>
-                        </td>
-                        <td className="p-3 border-b border-purple-500/10">
-                          {rec.isOffline ? (
-                            <WifiOff className="w-3.5 h-3.5 text-amber-500" />
-                          ) : (
-                            <Wifi className="w-3.5 h-3.5 text-emerald-500" />
-                          )}
-                        </td>
-                        <td className="p-3 border-b border-purple-500/10" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            onClick={() => {
-                              setSelectedForRectify(rec);
-                              setRectifyCheckIn(safeStringify(rec.checkInTime));
-                              setRectifyCheckOut(safeStringify(rec.checkOutTime) || '');
-                              setRectifyReason('');
-                              setRectifyError('');
-                              setShowRectifyModal(true);
-                            }}
-                            className="bg-purple-600/80 hover:bg-purple-500 text-white text-[10px] px-2.5 py-1 rounded-xl flex items-center gap-1 shadow-sm font-bold"
-                            title="Rectify Check-In / Check-Out Times"
-                          >
-                            <Clock className="w-3 h-3" /> Rectify
-                          </Button>
                         </td>
                       </tr>
                     ))
@@ -1120,255 +1300,6 @@ export const AdminDashboard: React.FC = () => {
               </table>
             </div>
           </Card>
-        )}
-
-        {/* EXPENSES TAB */}
-        {activeTab === 'expenses' && canSeeExpenses && (
-          <div className="space-y-6">
-            <Card className="p-6 bg-[#250F4C] border border-purple-500/20 space-y-4">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Wallet className="w-5 h-5 text-emerald-400" /> Expense Claims Audit
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-[#1A0B36] text-purple-300 uppercase font-bold border-b border-purple-500/20">
-                      <th className="p-3">Employee</th>
-                      <th className="p-3">Category</th>
-                      <th className="p-3">Date</th>
-                      <th className="p-3">Amount</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-purple-500/10">
-                    {expenseRecords.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="p-6 text-center text-purple-300/60">No expense claims found.</td>
-                      </tr>
-                    ) : (
-                      expenseRecords.map((exp) => (
-                        <tr key={exp.id} className="hover:bg-white/[0.02]">
-                          <td className="p-3 font-bold text-white">{exp.employeeName} ({exp.employeeCode})</td>
-                          <td className="p-3 text-purple-200">{exp.category}</td>
-                          <td className="p-3 text-purple-300 font-mono">{exp.date}</td>
-                          <td className="p-3 font-bold text-emerald-400">₹{exp.amount.toLocaleString('en-IN')}</td>
-                          <td className="p-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              exp.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300' : 
-                              exp.status === 'REJECTED' ? 'bg-red-500/20 text-red-300' : 'bg-amber-500/20 text-amber-300'
-                            }`}>
-                              {exp.status}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right">
-                            <button
-                              onClick={() => {
-                                setSelectedExpense(exp);
-                                setExpenseRejectionReason(exp.rejectionReason || '');
-                                setShowExpenseDetails(true);
-                              }}
-                              className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-[#1A0B36] border border-purple-500/30 text-purple-200 hover:text-white hover:border-purple-400 transition flex items-center gap-1.5 ml-auto"
-                            >
-                              <Paperclip className="w-3.5 h-3.5 text-purple-400" /> Audit Claim
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-
-            {/* Expense Audit Dialog */}
-            <Dialog
-              isOpen={showExpenseDetails && !!selectedExpense}
-              onClose={() => {
-                setShowExpenseDetails(false);
-                setSelectedExpense(null);
-              }}
-              title="Expense Claim Forensic Audit"
-            >
-              {selectedExpense && (
-                <div className="space-y-5 max-h-[75vh] overflow-y-auto pr-2 text-white">
-                  
-                  {/* Header: Employee Info */}
-                  <div className="p-4 bg-[#1A0B36] rounded-2xl border border-purple-500/30 flex items-center justify-between">
-                    <div>
-                      <h4 className="text-sm font-extrabold text-white">{selectedExpense.employeeName}</h4>
-                      <p className="text-[10px] text-purple-300 font-mono uppercase tracking-widest">{selectedExpense.employeeCode}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
-                        selectedExpense.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300' : 
-                        selectedExpense.status === 'REJECTED' ? 'bg-red-500/20 text-red-300' : 'bg-amber-500/20 text-amber-300'
-                      }`}>
-                        {selectedExpense.status}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Core Details Grid */}
-                  <div className="grid grid-cols-2 gap-3.5 bg-[#1B0D38] p-4 rounded-2xl border border-purple-500/15">
-                    <div>
-                      <p className="text-[9px] text-purple-300/80 font-bold uppercase tracking-wider">Amount Claimed</p>
-                      <p className="text-lg font-black text-emerald-400 mt-0.5">₹{selectedExpense.amount.toLocaleString('en-IN')}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-purple-300/80 font-bold uppercase tracking-wider">Date of Expense</p>
-                      <p className="text-xs font-black text-white mt-1">{selectedExpense.date}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-purple-300/80 font-bold uppercase tracking-wider">Category</p>
-                      <p className="text-xs font-extrabold text-white bg-purple-500/20 px-2 py-0.5 rounded border border-purple-500/10 inline-block mt-1">
-                        {selectedExpense.category}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-purple-300/80 font-bold uppercase tracking-wider">Merchant/Vendor</p>
-                      <p className="text-xs font-bold text-purple-200 mt-1">{selectedExpense.merchant || '—'}</p>
-                    </div>
-                    {selectedExpense.gstAmount !== undefined && selectedExpense.gstAmount !== null && (
-                      <div>
-                        <p className="text-[9px] text-purple-300/80 font-bold uppercase tracking-wider">GST Included</p>
-                        <p className="text-xs font-black text-emerald-400 mt-0.5">₹{selectedExpense.gstAmount.toLocaleString('en-IN')}</p>
-                      </div>
-                    )}
-                    {selectedExpense.receiptNumber && (
-                      <div>
-                        <p className="text-[9px] text-purple-300/80 font-bold uppercase tracking-wider">Receipt/Invoice #</p>
-                        <p className="text-xs font-mono font-bold text-purple-200 mt-1">{selectedExpense.receiptNumber}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Description Box */}
-                  <div className="space-y-1">
-                    <p className="text-[9px] text-purple-300/80 font-bold uppercase tracking-wider">Business Purpose / Description</p>
-                    <p className="text-xs text-purple-200 bg-black/30 p-3 rounded-xl border border-purple-500/10 leading-relaxed font-medium">
-                      {selectedExpense.description}
-                    </p>
-                  </div>
-
-                  {/* Receipt Image Attachment */}
-                  {(selectedExpense.receiptUrl || selectedExpense.localReceiptData) && (
-                    <div className="space-y-2">
-                      <p className="text-[9px] text-purple-300/80 font-bold uppercase tracking-wider flex items-center gap-1">
-                        <Paperclip className="w-3 h-3 text-purple-400" /> Scanned Receipt Copy
-                      </p>
-                      <div className="rounded-2xl overflow-hidden border border-purple-500/20 bg-black/40 p-2 max-h-64 flex items-center justify-center">
-                        <img 
-                          src={selectedExpense.receiptUrl || selectedExpense.localReceiptData || ''} 
-                          alt="Scanned Receipt Attachment" 
-                          className="max-h-60 max-w-full object-contain rounded-xl hover:scale-105 transition-transform duration-200"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Existing Rejection Reason Display */}
-                  {selectedExpense.status === 'REJECTED' && selectedExpense.rejectionReason && (
-                    <div className="p-3.5 bg-red-500/10 border border-red-500/20 text-red-200 rounded-xl text-xs space-y-1">
-                      <p className="font-extrabold uppercase text-[10px] text-red-400 tracking-wider">Rejection Reason</p>
-                      <p className="font-medium">{selectedExpense.rejectionReason}</p>
-                    </div>
-                  )}
-
-                  {/* Action Handlers for Pending Approval */}
-                  {selectedExpense.status === 'Pending' && (
-                    <div className="pt-3 border-t border-purple-500/15 space-y-4">
-                      
-                      {/* Rejection Input */}
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-purple-300 uppercase tracking-wider">
-                          Rejection Comments (Required if Rejecting)
-                        </label>
-                        <input
-                          type="text"
-                          value={expenseRejectionReason}
-                          onChange={(e) => setExpenseRejectionReason(e.target.value)}
-                          placeholder="e.g., Receipt is blurry, invalid category, or wrong amount"
-                          className="w-full px-3 py-2 bg-[#1B0D38] border border-purple-500/30 rounded-xl text-white text-xs focus:outline-none focus:border-purple-400"
-                        />
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          disabled={isProcessingExpense}
-                          onClick={async () => {
-                            if (!expenseRejectionReason.trim()) {
-                              alert('Please enter a rejection reason before rejecting the claim.');
-                              return;
-                            }
-                            try {
-                              setIsProcessingExpense(true);
-                              await updateDoc(doc(db, 'expenses', selectedExpense.id), {
-                                status: 'REJECTED',
-                                rejectionReason: expenseRejectionReason.trim()
-                              });
-                              setShowExpenseDetails(false);
-                              setSelectedExpense(null);
-                              alert('Expense claim rejected successfully.');
-                            } catch (err: any) {
-                              console.error('Failed to reject:', err);
-                              alert('Error: ' + err.message);
-                            } finally {
-                              setIsProcessingExpense(false);
-                            }
-                          }}
-                          className="flex-1 py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white font-bold rounded-xl text-xs transition"
-                        >
-                          Reject Claim
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={isProcessingExpense}
-                          onClick={async () => {
-                            try {
-                              setIsProcessingExpense(true);
-                              await updateDoc(doc(db, 'expenses', selectedExpense.id), {
-                                status: 'APPROVED',
-                                rejectionReason: null
-                              });
-                              setShowExpenseDetails(false);
-                              setSelectedExpense(null);
-                              alert('Expense claim approved successfully.');
-                            } catch (err: any) {
-                              console.error('Failed to approve:', err);
-                              alert('Error: ' + err.message);
-                            } finally {
-                              setIsProcessingExpense(false);
-                            }
-                          }}
-                          className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 text-white font-bold rounded-xl text-xs transition"
-                        >
-                          Approve Claim
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedExpense.status !== 'Pending' && (
-                    <div className="flex justify-end pt-3 border-t border-purple-500/15">
-                      <Button
-                        onClick={() => {
-                          setShowExpenseDetails(false);
-                          setSelectedExpense(null);
-                        }}
-                      >
-                        Close Auditor View
-                      </Button>
-                    </div>
-                  )}
-
-                </div>
-              )}
-            </Dialog>
-          </div>
         )}
 
         {/* PLANNER TAB */}
