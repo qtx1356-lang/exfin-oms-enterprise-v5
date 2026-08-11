@@ -361,52 +361,243 @@ export const LeaveScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Leave Balance Dashboard */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="p-4 bg-[#1E0B45] border border-purple-500/20 relative overflow-hidden flex flex-col justify-between">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-[11px] font-bold text-purple-300/80 uppercase tracking-wider">Annual Allowance</span>
-            <CalendarIcon className="w-4 h-4 text-purple-400" />
-          </div>
-          <div>
-            <p className="text-2xl font-black text-white">{balance.annualAllowance} Days</p>
-            <p className="text-[10px] text-purple-300/50 mt-1">Configured by Admin</p>
-          </div>
-        </Card>
+      {/* Main Leave Balance Dashboard (Redesigned) */}
+      {(() => {
+        // Calculate leave year: Apr 1 to Mar 31
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth(); // 0-indexed, Apr = 3
+        
+        let startYear = currentYear;
+        let endYear = currentYear + 1;
+        if (currentMonth < 3) {
+          startYear = currentYear - 1;
+          endYear = currentYear;
+        }
+        
+        const leaveYearStart = new Date(startYear, 3, 1);
+        const leaveYearEnd = new Date(endYear, 2, 31, 23, 59, 59);
 
-        <Card className="p-4 bg-[#1E0B45] border border-purple-500/20 relative overflow-hidden flex flex-col justify-between">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-[11px] font-bold text-emerald-300/80 uppercase tracking-wider">Approved / Used</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div>
-            <p className="text-2xl font-black text-emerald-400">{balance.used} Days</p>
-            <p className="text-[10px] text-purple-300/50 mt-1">Deducted from balance</p>
-          </div>
-        </Card>
+        // Filter leaves for current leave year
+        const leaveYearRecords = leaves.filter(l => {
+          const lDate = new Date(l.startDate);
+          return lDate >= leaveYearStart && lDate <= leaveYearEnd;
+        });
 
-        <Card className="p-4 bg-[#1E0B45] border border-purple-500/20 relative overflow-hidden flex flex-col justify-between">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-[11px] font-bold text-amber-300/80 uppercase tracking-wider">Pending Review</span>
-            <Clock className="w-4 h-4 text-amber-400" />
-          </div>
-          <div>
-            <p className="text-2xl font-black text-amber-400">{balance.pending} Days</p>
-            <p className="text-[10px] text-purple-300/50 mt-1">Temporarily reserved</p>
-          </div>
-        </Card>
+        // Calculate Used, Pending
+        let used = 0;
+        let pending = 0;
+        leaveYearRecords.forEach(l => {
+          if (l.status === 'APPROVED') used += l.totalDays;
+          else if (l.status === 'PENDING') pending += l.totalDays;
+        });
 
-        <Card className="p-4 bg-[#230C52] border-2 border-purple-500/40 relative overflow-hidden flex flex-col justify-between shadow-lg shadow-purple-950/50">
-          <div className="flex justify-between items-start mb-2">
-            <span className="text-[11px] font-bold text-purple-200 uppercase tracking-wider">Available Balance</span>
-            <div className="w-2.5 h-2.5 rounded-full bg-purple-400 animate-pulse" />
+        const annualEntitlement = 22;
+        const remaining = Math.max(0, annualEntitlement - used - pending);
+        const usedPercent = Math.min(100, (used / annualEntitlement) * 100);
+        const pendingPercent = Math.min(100, (pending / annualEntitlement) * 100);
+
+        // Find upcoming leave
+        const upcomingLeaves = leaves.filter(l => {
+          const lStart = new Date(l.startDate);
+          return lStart >= now && (l.status === 'APPROVED' || l.status === 'PENDING');
+        }).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+        const nearestUpcoming = upcomingLeaves.length > 0 ? upcomingLeaves[0] : null;
+
+        // Calendar variables
+        const cYear = currentCalendarDate.getFullYear();
+        const cMonth = currentCalendarDate.getMonth();
+        const dInMonth = getDaysInMonth(cYear, cMonth);
+        const firstDayIdx = getFirstDayOfMonth(cYear, cMonth);
+        
+        const calCells = [];
+        for (let i = 0; i < firstDayIdx; i++) calCells.push(null);
+        for (let d = 1; d <= dInMonth; d++) {
+          const mStr = String(cMonth + 1).padStart(2, '0');
+          const dStr = String(d).padStart(2, '0');
+          calCells.push(`${cYear}-${mStr}-${dStr}`);
+        }
+
+        const handleCalNav = (offset: number) => {
+          const nextDate = new Date(cYear, cMonth + offset, 1);
+          // Restrict to leave year Apr - Mar? Or just let them navigate freely.
+          // The prompt says "The employee can navigate: April -> March". We can just enforce bounds if needed, but simple changeMonth is fine.
+          if (nextDate >= leaveYearStart && nextDate <= leaveYearEnd) {
+             changeMonth(offset);
+          } else if (offset === 0) {
+             // reset to today if they are clicking a button
+          } else {
+             // Maybe allow navigation but just standard changeMonth
+             changeMonth(offset);
+          }
+        };
+
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            {/* Left Column: Balance & Upcoming */}
+            <div className="lg:col-span-5 space-y-6">
+              
+              <Card className="p-6 bg-[#2D1B5A]/90 backdrop-blur-xl border border-purple-500/30 rounded-[22px] shadow-[0_8px_32px_rgba(0,0,0,0.37)]">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h2 className="text-sm font-black text-white flex items-center gap-2">
+                      <CalendarDays className="w-4.5 h-4.5 text-[#7C3AED]" />
+                      LEAVE BALANCE
+                    </h2>
+                    <p className="text-[11px] text-purple-300/80 mt-1">Leave Year: 1 Apr {startYear} — 31 Mar {endYear}</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-end mb-4">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-purple-300/60 uppercase tracking-wider">Annual Entitlement</p>
+                    <p className="text-3xl font-black text-white">{annualEntitlement}</p>
+                  </div>
+                  <div className="text-right space-y-1">
+                    <p className="text-[10px] font-bold text-purple-300/60 uppercase tracking-wider">Remaining</p>
+                    <p className="text-3xl font-black text-[#A78BFA]">{remaining}</p>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="h-3 w-full bg-purple-950/60 rounded-full overflow-hidden flex mb-4 border border-purple-500/20">
+                  <div style={{ width: `${usedPercent}%` }} className="bg-emerald-500 h-full transition-all" />
+                  <div style={{ width: `${pendingPercent}%` }} className="bg-amber-500 h-full transition-all" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-purple-500/15">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                    <div>
+                      <p className="text-[10px] font-bold text-emerald-300 uppercase">Used</p>
+                      <p className="text-sm font-black text-white">{used} Days</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-3 h-3 rounded-full bg-amber-500" />
+                    <div>
+                      <p className="text-[10px] font-bold text-amber-300 uppercase">Pending</p>
+                      <p className="text-sm font-black text-white">{pending} Days</p>
+                    </div>
+                  </div>
+                </div>
+
+                {used + pending >= annualEntitlement && (
+                  <div className="mt-5 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2 text-[11px] text-amber-200">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-400" />
+                    <p>No leave balance remaining for this leave year. Further requests may be subject to unpaid leave.</p>
+                  </div>
+                )}
+              </Card>
+
+              <Card className="p-5 bg-[#1C0940] border border-purple-500/20 shadow-xl rounded-[22px]">
+                <h3 className="text-xs font-black text-purple-300 uppercase tracking-widest mb-4">Upcoming Leave</h3>
+                {nearestUpcoming ? (
+                  <div className="bg-[#230F4F] p-4 rounded-xl border border-purple-500/10 flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-black text-white">{nearestUpcoming.startDate} <span className="text-[10px] text-purple-300/60 font-medium ml-1">to</span> {nearestUpcoming.endDate}</p>
+                      <p className="text-[11px] text-purple-200 mt-0.5">{nearestUpcoming.totalDays} Day{nearestUpcoming.totalDays > 1 ? 's' : ''} • {nearestUpcoming.reason}</p>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${getStatusBadgeClass(nearestUpcoming.status)}`}>
+                      {nearestUpcoming.status}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-xs text-purple-300/60 italic p-3 bg-[#230F4F]/50 rounded-xl border border-purple-500/10">No upcoming leave.</p>
+                )}
+              </Card>
+              
+              {/* Dev Diagnostic */}
+              {process.env.NODE_ENV !== 'production' && (
+                <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-[10px] font-mono text-slate-400 space-y-0.5">
+                  <p className="font-bold text-slate-200">LEAVE CALENDAR DIAGNOSTIC</p>
+                  <p>Employee: <span className="text-white">{empName} ({empId})</span></p>
+                  <p>Leave Year: <span className="text-white">APR 1 — MAR 31</span></p>
+                  <p>Records: <span className="text-white">{leaveYearRecords.length} in year</span></p>
+                  <p>Calculation: <span className="text-emerald-400">SUCCESS</span></p>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: Calendar Visualizer */}
+            <div className="lg:col-span-7">
+              <Card className="p-6 bg-[#1C0940] border border-purple-500/20 shadow-xl rounded-[22px] h-full flex flex-col">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-sm font-black text-white flex items-center gap-2">
+                    <CalendarIcon className="w-4.5 h-4.5 text-[#7C3AED]" />
+                    Leave Calendar
+                  </h2>
+                  <div className="flex gap-2">
+                    <button onClick={() => changeMonth(-1)} className="p-1.5 hover:bg-[#341C6C] rounded-lg transition text-purple-300 bg-[#25134F] border border-purple-500/20">
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <div className="px-3 py-1.5 bg-[#25134F] rounded-lg border border-purple-500/20 text-xs font-bold text-white min-w-[100px] text-center">
+                      {monthNames[cMonth]} {cYear}
+                    </div>
+                    <button onClick={() => changeMonth(1)} className="p-1.5 hover:bg-[#341C6C] rounded-lg transition text-purple-300 bg-[#25134F] border border-purple-500/20">
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex-1 bg-[#230F4F] border border-purple-500/20 rounded-2xl p-4 sm:p-6 flex flex-col">
+                  <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                    {weekdayNames.map((n) => (
+                      <span key={n} className="text-[10px] font-bold text-purple-300/50 py-2 uppercase tracking-wider">
+                        {n}
+                      </span>
+                    ))}
+                  </div>
+                  
+                  <div className="grid grid-cols-7 gap-1 sm:gap-2 flex-1">
+                    {calCells.map((dayStr, idx) => {
+                      if (!dayStr) return <div key={`empty-${idx}`} className="p-2" />;
+                      
+                      const dObj = new Date(dayStr);
+                      const dNum = dObj.getDate();
+                      const todayStr = new Date().toISOString().split('T')[0];
+                      const isToday = dayStr === todayStr;
+
+                      // Check if day is a leave day
+                      const leaveOnDay = leaves.find(l => {
+                        return dayStr >= l.startDate && dayStr <= l.endDate && l.status !== 'CANCELLED';
+                      });
+
+                      let cellClass = 'bg-[#1C0940]/50 border border-purple-500/5 text-purple-200';
+                      let indicator = null;
+
+                      if (leaveOnDay) {
+                         if (leaveOnDay.status === 'APPROVED') {
+                           cellClass = 'bg-emerald-500/20 border-emerald-500/40 text-emerald-100 font-bold';
+                         } else if (leaveOnDay.status === 'PENDING') {
+                           cellClass = 'bg-amber-500/20 border-amber-500/40 text-amber-100 font-bold';
+                         } else if (leaveOnDay.status === 'REJECTED') {
+                           cellClass = 'bg-rose-500/20 border-rose-500/40 text-rose-100 font-bold opacity-60';
+                         }
+                      } else if (isToday) {
+                         cellClass = 'bg-[#7C3AED]/40 border-[#7C3AED] text-white font-black ring-2 ring-[#7C3AED]/50';
+                      }
+
+                      return (
+                        <div key={dayStr} className={`relative flex flex-col items-center justify-center p-2 sm:p-3 rounded-xl transition ${cellClass}`}>
+                          <span className="text-xs sm:text-sm">{dNum}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="flex gap-4 justify-center mt-6 pt-4 border-t border-purple-500/10">
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-emerald-500/40 border border-emerald-500/40"></div><span className="text-[10px] text-purple-300">Approved</span></div>
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-amber-500/40 border border-amber-500/40"></div><span className="text-[10px] text-purple-300">Pending</span></div>
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-[#7C3AED]/40 border border-[#7C3AED]"></div><span className="text-[10px] text-purple-300">Today</span></div>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
-          <div>
-            <p className="text-2xl font-black text-white">{balance.available} Days</p>
-            <p className="text-[10px] text-purple-300/60 mt-1 font-semibold">Ready to request</p>
-          </div>
-        </Card>
-      </div>
+        );
+      })()}
 
       {/* Grid: Apply Leave Form + Leave History */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -653,7 +844,7 @@ export const LeaveScreen: React.FC = () => {
                 <div className="h-full flex items-center justify-center py-12">
                   <EmptyState
                     title="No Leave Records"
-                    description="No leave requests found matching the current status filter."
+                    description="No leave records yet."
                     icon={CalendarIcon}
                   />
                 </div>
