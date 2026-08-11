@@ -48,6 +48,7 @@ import {
   Menu,
   X,
   LayoutDashboard,
+  Brain,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -74,6 +75,7 @@ import { AdminChatTab } from './AdminChatTab';
 import { NotificationManagement } from './NotificationManagement';
 import { listenConversations } from '../../services/chat/chatService';
 import { OfficePulse } from './OfficePulse';
+import { AttendanceIntelligence } from './AttendanceIntelligence';
 
 export const safeStringify = (val: any): string => {
   if (val === null || val === undefined) return '';
@@ -128,6 +130,7 @@ type Registration = {
 type AdminTab =
   | 'overview'
   | 'officePulse'
+  | 'attendanceIntelligence'
   | 'userManagement'
   | 'teamManagement'
   | 'organization'
@@ -403,6 +406,7 @@ export const AdminDashboard: React.FC = () => {
       items: [
         { id: 'overview' as AdminTab, label: 'Overview', icon: LayoutDashboard, visible: canSeeOverview },
         { id: 'officePulse' as AdminTab, label: 'Office Pulse', icon: Sparkles, visible: canSeeOverview },
+        { id: 'attendanceIntelligence' as AdminTab, label: 'Attendance Intelligence', icon: Brain, visible: canSeeOverview },
         { id: 'reports' as AdminTab, label: 'Analytics', icon: Activity, visible: canSeeReports },
         { id: 'health' as AdminTab, label: 'System Health', icon: Wifi, visible: canSeeHealth },
       ],
@@ -758,6 +762,29 @@ export const AdminDashboard: React.FC = () => {
             leaves={leaves}
             role={role}
             authorizedOffice={authorizedOffice}
+          />
+        )}
+
+        {/* ATTENDANCE INTELLIGENCE TAB */}
+        {activeTab === 'attendanceIntelligence' && canSeeOverview && (
+          <AttendanceIntelligence 
+            registrations={deduplicatedRegistrations as any}
+            attendanceRecords={attendanceRecords}
+            leaves={leaves}
+            role={role}
+            authorizedOffice={authorizedOffice}
+            onViewAttendanceDetails={(rec) => {
+              setSelectedAttendance(rec);
+              setShowAttendanceDetails(true);
+            }}
+            onRectifyAttendance={(rec) => {
+              setSelectedForRectify(rec);
+              setRectifyCheckIn(rec.checkInTime || '');
+              setRectifyCheckOut(rec.checkOutTime || '');
+              setRectifyReason('');
+              setRectifyError('');
+              setShowRectifyModal(true);
+            }}
           />
         )}
 
