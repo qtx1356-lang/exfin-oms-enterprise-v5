@@ -343,6 +343,20 @@ export const AttendanceScreen: React.FC = () => {
       setActionFeedback('Live GPS location required for check-out.');
       return;
     }
+
+    // FINAL GEOLOCATION VERIFICATION FOR RACE CONDITIONS
+    const currentDistance = getDistanceFromLatLonInM(
+      liveLocation.latitude,
+      liveLocation.longitude,
+      OFFICE_LOCATION.latitude,
+      OFFICE_LOCATION.longitude
+    );
+
+    if (currentDistance > 25) {
+      setActionFeedback('Checkout is only available inside the office premises.');
+      return;
+    }
+
     try {
       const updated = performCheckOut(
         todayRecord,
@@ -851,20 +865,7 @@ export const AttendanceScreen: React.FC = () => {
                 </div>
               )}
 
-              {/* Smart Checkout Reminder Banner */}
-              {reminderStatus.isReminderActive && (
-                <div className="p-4 rounded-[22px] bg-amber-500/20 border border-amber-500/40 text-amber-200 shadow-md flex items-start gap-3">
-                  <Bell className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5 animate-pulse" />
-                  <div>
-                    <h3 className="font-extrabold text-sm text-white">Smart Checkout Reminder</h3>
-                    <p className="text-xs text-amber-200/80 mt-0.5">
-                      Office hours ended (06:00 PM). Please perform manual checkout before exiting office geofence.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* MANUAL CHECK-IN & CHECK-OUT ACTION BUTTONS */}
+                            {/* MANUAL CHECK-IN & CHECK-OUT ACTION BUTTONS */}
               {!todayRecord ? (
                 <div className="space-y-3">
                   {/* Hide Manual Check-In button during active countdown */}
