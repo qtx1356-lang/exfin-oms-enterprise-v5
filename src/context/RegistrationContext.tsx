@@ -105,6 +105,18 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       try {
         const { deviceId } = await getDeviceInfo();
+        const cachedRegRaw = localStorage.getItem('cached_registration_data');
+        if (cachedRegRaw) {
+          try {
+            const cachedObj = JSON.parse(cachedRegRaw);
+            if (cachedObj.deviceId && cachedObj.deviceId !== deviceId) {
+              console.warn('Stale cached registration belongs to different deviceId. Discarding.');
+              localStorage.removeItem('registrationId');
+              localStorage.removeItem('cached_registration_data');
+            }
+          } catch (e) {}
+        }
+
         const authUid = auth?.currentUser?.uid || 'none';
         const localEmployeeId = localStorage.getItem('registrationId') || 'none';
         const localDeviceId = deviceId;

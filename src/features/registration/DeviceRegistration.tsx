@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { useRegistration } from '../../context/RegistrationContext';
 
 export const DeviceRegistration: React.FC = () => {
-  const { submitRegistration } = useRegistration();
+  const { submitRegistration, resetRegistration } = useRegistration();
   const [name, setName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   const [selfieBase64, setSelfieBase64] = useState<string | null>(null);
@@ -163,6 +163,19 @@ export const DeviceRegistration: React.FC = () => {
             >
               {loading ? 'Submitting Registration...' : 'Submit Device Registration'}
             </Button>
+
+            <button
+              type="button"
+              onClick={() => {
+                resetRegistration();
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.reload();
+              }}
+              className="w-full py-2.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-xs font-bold rounded-xl border border-rose-500/30 transition-colors mt-3 cursor-pointer"
+            >
+              CLEAR DEVICE REGISTRATION
+            </button>
           </form>
         </Card>
       </div>
