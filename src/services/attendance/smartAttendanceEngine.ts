@@ -55,15 +55,20 @@ export const getFormattedTimeStr = (date: Date = new Date()): string => {
   return date.toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: true
+    hour12: true,
+    timeZone: 'Asia/Kolkata'
   });
 };
 
 export const getFormattedDateStr = (date: Date = new Date()): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  try {
+    return date.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  } catch (e) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 };
 
 export const calculateWorkingHours = (checkInTimeStr: string, checkOutTimeStr: string | null): string | null => {
@@ -269,9 +274,14 @@ export const processAttendanceStateTransition = (
 
     case 'CHECK_OUT':
     case 'END_OF_DAY_CHECKOUT':
-      const checkoutTimeStr = source === 'AUTO_SYSTEM_END_OF_DAY'
-        ? '06:00 PM'
-        : timeStr;
+      let checkoutTimeStr = timeStr;
+      if (source === 'AUTO_SYSTEM_END_OF_DAY') {
+        if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
+          checkoutTimeStr = record.lastExitTime || record.exitTime || timeStr;
+        } else {
+          checkoutTimeStr = timeStr;
+        }
+      }
 
       const workingHours = calculateWorkingHours(record.checkInTime, checkoutTimeStr);
 
@@ -442,6 +452,25 @@ export const getIndiaTime = (): Date => {
   }
 };
 
+export const timeStrToMinutes = (timeStr: string): number => {
+  try {
+    const [time, modifier] = timeStr.trim().split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+    if (modifier === 'PM' && hours < 12) hours += 12;
+    if (modifier === 'AM' && hours === 12) hours = 0;
+    return hours * 60 + minutes;
+  } catch {
+    return 0;
+  }
+};
+
+export const isExitGracePeriodPassed = (exitTimeStr: string, currentHours: number, currentMinutes: number, graceMinutes = 15): boolean => {
+  if (!exitTimeStr) return false;
+  const exitMins = timeStrToMinutes(exitTimeStr);
+  const currentMins = currentHours * 60 + currentMinutes;
+  return (currentMins - exitMins) >= graceMinutes;
+};
+
 /**
  * End-of-day attendance checkout finalizer (WFH/Client Visit -> 11:59 PM, Office -> last exit or NO checkout if still inside at 6:00 PM IST or later)
  */
@@ -508,19 +537,25 @@ export const runAutoCheckoutFinalizer = (): void => {
     } else if (isToday) {
       // Today's record
       if (rec.attendanceType === 'OFFICE' || !rec.attendanceType) {
-        // Office mode automatic checkout at 18:00 (6:00 PM) or later if they have left the office geofence
+        // Office mode automatic checkout at 18:00 (6:00 PM) or later if they have left the office geofence and 15-minute grace has passed
         if (isPastDayEndToday) {
-          if (rec.currentState === 'PENDING_FINAL_EXIT' || rec.lastExitTime || rec.exitTime) {
-            processAttendanceStateTransition(
-              rec.employeeId,
-              rec.employeeName,
-              { latitude: rec.latitude, longitude: rec.longitude },
-              rec.townCity,
-              'END_OF_DAY_CHECKOUT',
-              'AUTO_SYSTEM_END_OF_DAY',
-              now,
-              'OFFICE'
-            );
+          const hasExit = rec.currentState === 'PENDING_FINAL_EXIT' || rec.lastExitTime || rec.exitTime;
+          if (hasExit) {
+            const exitTimeStr = rec.lastExitTime || rec.exitTime || '';
+            if (isExitGracePeriodPassed(exitTimeStr, hours, minutes, 15)) {
+              processAttendanceStateTransition(
+                rec.employeeId,
+                rec.employeeName,
+                { latitude: rec.latitude, longitude: rec.longitude },
+                rec.townCity,
+                'END_OF_DAY_CHECKOUT',
+                'AUTO_SYSTEM_END_OF_DAY',
+                now,
+                'OFFICE'
+              );
+            } else {
+              logAttendanceEvent('END_OF_DAY_PROCESSING', rec.employeeId, `Employee exited at ${exitTimeStr}, but 15-minute grace period has not yet passed.`);
+            }
           } else {
             logAttendanceEvent('END_OF_DAY_PROCESSING', rec.employeeId, `Employee still inside office geofence after 6:00 PM. No automatic checkout applied.`);
           }

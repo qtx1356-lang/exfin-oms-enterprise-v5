@@ -628,7 +628,9 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                   <div className="p-3.5 bg-purple-950/60 rounded-2xl border border-purple-500/20 space-y-1">
                     <p className="text-[10px] text-purple-300 font-bold uppercase">Check-Out</p>
                     <p className="text-base font-black text-white">{selectedDayDetail.attendanceRecord.checkOutTime || 'Pending'}</p>
-                    <p className="text-[9px] text-purple-300/80">Source: {selectedDayDetail.attendanceRecord.checkOutMode !== 'N/A' ? selectedDayDetail.attendanceRecord.checkOutMode : 'In Progress'}</p>
+                    <p className="text-[9px] text-purple-300/80">
+                      Source: {selectedDayDetail.attendanceRecord.checkOutMode === 'AUTO_SYSTEM' ? 'Automatic Checkout' : (selectedDayDetail.attendanceRecord.checkOutMode === 'MANUAL' ? 'Manual Checkout' : 'In Progress')}
+                    </p>
                   </div>
                 </div>
 
