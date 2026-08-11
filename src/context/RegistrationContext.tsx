@@ -32,6 +32,15 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => unsubAuth();
   }, []);
 
+  const getOrGenerateSyncDeviceId = (): string => {
+    let dId = localStorage.getItem('deviceId') || '';
+    if (!dId) {
+      dId = 'dev_' + Math.random().toString(36).substring(2, 15) + '_' + Date.now().toString(36);
+      localStorage.setItem('deviceId', dId);
+    }
+    return dId;
+  };
+
   const getDeviceInfo = async () => {
     let deviceId = localStorage.getItem('deviceId') || '';
     
@@ -47,9 +56,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
 
     if (!deviceId) {
-      // Default to the registered physical device ID if no local deviceId exists (web preview / fresh browser)
-      deviceId = '75d036dc-67ff-4764-9a96-efa6b861e80f';
-      localStorage.setItem('deviceId', deviceId);
+      deviceId = getOrGenerateSyncDeviceId();
     } else {
       localStorage.setItem('deviceId', deviceId);
     }
@@ -83,10 +90,11 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     // Fast-path offline restoration from cache immediately
     const cachedRaw = localStorage.getItem('cached_registration_data');
+    const currentDeviceId = localStorage.getItem('deviceId') || getOrGenerateSyncDeviceId();
     if (cachedRaw) {
       try {
         const cachedData = JSON.parse(cachedRaw);
-        if (cachedData && cachedData.status) {
+        if (cachedData && cachedData.status && cachedData.deviceId === currentDeviceId) {
           setStatus(cachedData.status);
           setEmployeeData(cachedData);
           if (cachedData.rejectionReason) setRejectionReason(cachedData.rejectionReason);
@@ -94,6 +102,8 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           if (regIdToUse) {
             setLocalRegId(regIdToUse);
           }
+        } else {
+          console.log('[Registration] Cached device registration does not match current device ID. skipping offline cache restore.');
         }
       } catch (e) {
         console.warn('Failed to parse cached_registration_data at sync startup:', e);
@@ -156,19 +166,37 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             // First check doc ID directly
             const directDocSnap = await getDoc(doc(db, 'registrations', activeRegId));
             if (directDocSnap.exists()) {
-              activeData = directDocSnap.data();
+              const fetchedData = directDocSnap.data();
+              if (fetchedData.deviceId === deviceId) {
+                activeData = fetchedData;
+              } else {
+                console.warn('[Registration] localRegId exists but deviceId mismatch. Active reg reset.');
+                activeRegId = null;
+              }
             } else {
               // Search by employeeCode
               const codeSnap = await getDocs(query(regsRef, where('employeeCode', '==', activeRegId)));
               if (!codeSnap.empty) {
-                activeRegId = codeSnap.docs[0].id;
-                activeData = codeSnap.docs[0].data();
+                const fetchedData = codeSnap.docs[0].data();
+                if (fetchedData.deviceId === deviceId) {
+                  activeRegId = codeSnap.docs[0].id;
+                  activeData = fetchedData;
+                } else {
+                  console.warn('[Registration] employeeCode matched but deviceId mismatch. Active reg reset.');
+                  activeRegId = null;
+                }
               } else {
                 // Search by uid
                 const uidSnap = await getDocs(query(regsRef, where('uid', '==', activeRegId)));
                 if (!uidSnap.empty) {
-                  activeRegId = uidSnap.docs[0].id;
-                  activeData = uidSnap.docs[0].data();
+                  const fetchedData = uidSnap.docs[0].data();
+                  if (fetchedData.deviceId === deviceId) {
+                    activeRegId = uidSnap.docs[0].id;
+                    activeData = fetchedData;
+                  } else {
+                    console.warn('[Registration] uid matched but deviceId mismatch. Active reg reset.');
+                    activeRegId = null;
+                  }
                 }
               }
             }
@@ -177,20 +205,8 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           }
         }
 
-        // Step 3: Fallback search for default device ID if still no record found
-        if (!activeData && deviceId !== '75d036dc-67ff-4764-9a96-efa6b861e80f') {
-          const fallbackSnap = await getDocs(query(regsRef, where('deviceId', '==', '75d036dc-67ff-4764-9a96-efa6b861e80f')));
-          if (!fallbackSnap.empty) {
-            activeRegId = fallbackSnap.docs[0].id;
-            activeData = fallbackSnap.docs[0].data();
-          }
-        }
-
-        if (activeData && activeRegId) {
+        if (activeData && activeRegId && activeData.deviceId === deviceId) {
           localStorage.setItem('registrationId', activeRegId);
-          if (activeData.deviceId) {
-            localStorage.setItem('deviceId', activeData.deviceId);
-          }
           try {
             localStorage.setItem('cached_registration_data', JSON.stringify(activeData));
           } catch (e) {}
@@ -207,7 +223,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           if (cachedRaw) {
             try {
               const cachedData = JSON.parse(cachedRaw);
-              if (cachedData && cachedData.status) {
+              if (cachedData && cachedData.status && cachedData.deviceId === deviceId) {
                 if (isMounted) {
                   setStatus(cachedData.status);
                   setEmployeeData(cachedData);
@@ -222,21 +238,30 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               }
             } catch (e) {}
           }
-          if (isMounted) setStatus('unregistered');
+          // No matching record, ensure clean state!
+          localStorage.removeItem('registrationId');
+          localStorage.removeItem('cached_registration_data');
+          if (isMounted) {
+            setLocalRegId(null);
+            setEmployeeData(null);
+            setStatus('unregistered');
+          }
         }
 
         // Subscribe to real-time updates for activeRegId
-        if (activeRegId) {
+        if (activeRegId && activeData && activeData.deviceId === deviceId) {
           unsubSnapshot = onSnapshot(doc(db, 'registrations', activeRegId), (docSnap) => {
             if (!isMounted) return;
             if (docSnap.exists()) {
               const data = docSnap.data();
-              setStatus(data.status);
-              setRejectionReason(data.rejectionReason);
-              setEmployeeData(data);
-              try {
-                localStorage.setItem('cached_registration_data', JSON.stringify(data));
-              } catch (e) {}
+              if (data.deviceId === deviceId) {
+                setStatus(data.status);
+                setRejectionReason(data.rejectionReason);
+                setEmployeeData(data);
+                try {
+                  localStorage.setItem('cached_registration_data', JSON.stringify(data));
+                } catch (e) {}
+              }
             }
           }, (err) => {
             console.error('Realtime registration snapshot error:', err);
@@ -248,7 +273,8 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (cachedRaw && isMounted) {
           try {
             const cachedData = JSON.parse(cachedRaw);
-            if (cachedData && cachedData.status) {
+            const currentId = localStorage.getItem('deviceId') || '';
+            if (cachedData && cachedData.status && cachedData.deviceId === currentId) {
               setStatus(cachedData.status);
               setEmployeeData(cachedData);
               setRejectionReason(cachedData.rejectionReason);
@@ -256,7 +282,13 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             }
           } catch (e) {}
         }
-        if (isMounted) setStatus('unregistered');
+        localStorage.removeItem('registrationId');
+        localStorage.removeItem('cached_registration_data');
+        if (isMounted) {
+          setLocalRegId(null);
+          setEmployeeData(null);
+          setStatus('unregistered');
+        }
       }
     };
 
@@ -288,7 +320,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const q = query(regsRef, where('deviceId', '==', deviceId));
     const querySnapshot = await getDocs(q);
     
-    let registrationId = currentAuthUser?.uid || localRegId || '';
+    let registrationId = '';
     let existingData: any = null;
     let finalEmployeeCode = '';
     
@@ -317,22 +349,18 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
       }
     } else {
-      if (!registrationId) {
-        // Generate new employee code sequence ONLY if genuinely new device
-        const counterRef = doc(db, 'metadata', 'counters');
-        finalEmployeeCode = await runTransaction(db, async (transaction) => {
-          const counterDoc = await transaction.get(counterRef);
-          let newSeq = 1;
-          if (counterDoc.exists() && counterDoc.data().employeeCodeSequence) {
-            newSeq = counterDoc.data().employeeCodeSequence + 1;
-          }
-          transaction.set(counterRef, { employeeCodeSequence: newSeq }, { merge: true });
-          return `EXFRNG${newSeq.toString().padStart(3, '0')}`;
-        });
-        registrationId = finalEmployeeCode;
-      } else {
-        finalEmployeeCode = existingData?.employeeCode || registrationId;
-      }
+      // Genuinely new device registration! Generate brand new employee code.
+      const counterRef = doc(db, 'metadata', 'counters');
+      finalEmployeeCode = await runTransaction(db, async (transaction) => {
+        const counterDoc = await transaction.get(counterRef);
+        let newSeq = 1;
+        if (counterDoc.exists() && counterDoc.data().employeeCodeSequence) {
+          newSeq = counterDoc.data().employeeCodeSequence + 1;
+        }
+        transaction.set(counterRef, { employeeCodeSequence: newSeq }, { merge: true });
+        return `EXFRNG${newSeq.toString().padStart(3, '0')}`;
+      });
+      registrationId = currentAuthUser?.uid || finalEmployeeCode;
     }
 
     const registrationData = {
