@@ -47,6 +47,7 @@ import { ExpenseRecord } from '../../types/expense';
 import { EfficiencyWeightages } from '../../types/efficiency';
 import { Activity } from 'lucide-react';
 import { MyDayTimeline } from '../../components/timeline/MyDayTimeline';
+import { PerformanceSnapshot } from './PerformanceSnapshot';
 
 interface Announcement {
   id: string;
@@ -926,6 +927,18 @@ export const EmployeeDashboard: React.FC = () => {
 
         {/* MY DAY TIMELINE (FEATURE 6) */}
         <MyDayTimeline />
+
+        {/* PERFORMANCE SNAPSHOT */}
+        <PerformanceSnapshot
+          employeeId={employeeData?.id || ''}
+          employeeCode={employeeData?.employeeCode || ''}
+          employeeName={employeeData?.name || 'Employee'}
+          department={employeeData?.department || employeeData?.office || 'Operations'}
+          tasks={tasks}
+          attendanceRecords={attendanceRecords}
+          leaves={allLeaves}
+          isOnline={navigator.onLine}
+        />
 
         {/* Your Work Pulse Snapshot Card */}
         <Card 
