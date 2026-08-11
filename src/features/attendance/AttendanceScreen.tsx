@@ -1146,67 +1146,119 @@ export const AttendanceScreen: React.FC = () => {
           {/* TODAY'S VERTICAL TIMELINE */}
           {/* ==================================================== */}
           <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-500/30 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.37)] space-y-4">
-            <h3 className="text-xs font-black text-purple-300 uppercase tracking-widest flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[#7C3AED]" /> Today's Activity Timeline
-            </h3>
+            <div className="flex justify-between items-center border-b border-purple-500/20 pb-3">
+              <div>
+                <h3 className="text-xs font-black text-purple-300 uppercase tracking-widest flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-[#7C3AED]" /> Today's Timeline
+                </h3>
+                <p className="text-[11px] text-purple-300/80 mt-0.5">{getFormattedDateLong()}</p>
+              </div>
+              <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-purple-900/60 text-purple-200 border border-purple-500/30">
+                {todayRecord ? (todayRecord.checkOutTime ? 'Completed' : 'Currently checked in') : 'No attendance activity recorded yet.'}
+              </span>
+            </div>
 
             {todayRecord ? (
-              <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-purple-500/30">
-                {/* Check-In Event */}
-                <div className="relative flex items-start gap-3">
-                  <span className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-[#7C3AED] text-white flex items-center justify-center text-[10px] font-black shadow ring-4 ring-[#2D1B5A]">
-                    <Check className="w-3 h-3" />
-                  </span>
-                  <div>
-                    <p className="text-xs font-black text-white">{todayRecord.checkInTime} • {todayRecord.checkInMode} Check-In</p>
-                    <p className="text-[11px] text-purple-300/80 mt-0.5">
-                      Mode: <strong className="text-purple-200">{todayRecord.attendanceType || 'OFFICE'}</strong>
-                    </p>
+              <div className="space-y-6">
+                <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-purple-500/30">
+                  {/* Check-In / WFH / Client Visit Event */}
+                  <div className="relative flex items-start gap-3">
+                    <span className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-[#7C3AED] text-white flex items-center justify-center text-[10px] font-black shadow ring-4 ring-[#2D1B5A]">
+                      <Check className="w-3 h-3" />
+                    </span>
+                    <div className="flex-1 flex justify-between items-start">
+                      <div>
+                        <p className="text-xs font-black text-white">
+                          {todayRecord.checkInTime} • {todayRecord.attendanceType === 'WFH' ? 'WFH' : todayRecord.attendanceType === 'CLIENT_VISIT' ? 'Client Visit' : 'Check-in'}
+                        </p>
+                        <p className="text-[11px] text-purple-300/80 mt-0.5">
+                          {todayRecord.townCity || 'Raniganj HQ'} {todayRecord.clientName ? `• ${todayRecord.clientName}` : ''} {todayRecord.wfhReason ? `• ${todayRecord.wfhReason}` : ''}
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-bold text-purple-300 bg-purple-950 px-2 py-0.5 rounded border border-purple-500/20">
+                        {todayRecord.checkInMode === 'AUTO' ? 'Automatic' : 'Manual'}
+                      </span>
+                    </div>
                   </div>
+
+                  {/* Office Exit / Geofence Exit */}
+                  {(todayRecord.lastExitTime || todayRecord.exitTime) && (
+                    <div className="relative flex items-start gap-3">
+                      <span className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-[10px] font-black shadow ring-4 ring-[#2D1B5A]">
+                        🚪
+                      </span>
+                      <div className="flex-1 flex justify-between items-start">
+                        <div>
+                          <p className="text-xs font-black text-amber-300">Office Exit / Geofence Exit</p>
+                          <p className="text-[11px] text-purple-300/80 mt-0.5">Left office perimeter</p>
+                        </div>
+                        <span className="text-[10px] font-bold text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/20">
+                          Automatic
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Return Event */}
+                  {todayRecord.returnTime && (
+                    <div className="relative flex items-start gap-3">
+                      <span className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black shadow ring-4 ring-[#2D1B5A]">
+                        ↩
+                      </span>
+                      <div className="flex-1 flex justify-between items-start">
+                        <div>
+                          <p className="text-xs font-black text-indigo-300">
+                            {todayRecord.attendanceType === 'CLIENT_VISIT' ? 'Client Return' : 'Returned to Office'}
+                          </p>
+                          <p className="text-[11px] text-purple-300/80 mt-0.5">Geofence re-entry detected</p>
+                        </div>
+                        <span className="text-[10px] font-bold text-indigo-300 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-500/20">
+                          Automatic
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Check-Out Event */}
+                  {todayRecord.checkOutTime && (
+                    <div className="relative flex items-start gap-3">
+                      <span className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] font-black shadow ring-4 ring-[#2D1B5A]">
+                        <LogOut className="w-3 h-3" />
+                      </span>
+                      <div className="flex-1 flex justify-between items-start">
+                        <div>
+                          <p className="text-xs font-black text-white">{todayRecord.checkOutTime} • Check-out</p>
+                          <p className="text-[11px] text-purple-300/80 mt-0.5">{todayRecord.townCity || 'Raniganj HQ'}</p>
+                        </div>
+                        <span className="text-[10px] font-bold text-rose-300 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-500/20">
+                          {todayRecord.checkOutMode === 'AUTO_SYSTEM' ? 'Automatic' : 'Manual'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Specific Mode Details Event */}
-                {todayRecord.attendanceType === 'WFH' && todayRecord.wfhReason && (
-                  <div className="relative flex items-start gap-3">
-                    <span className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black shadow ring-4 ring-[#2D1B5A]">
-                      🏠
-                    </span>
-                    <div>
-                      <p className="text-xs font-black text-emerald-300">Work From Home Logged</p>
-                      <p className="text-[11px] text-purple-200 mt-0.5">Plan: {todayRecord.workPlan}</p>
-                    </div>
-                  </div>
-                )}
-
-                {todayRecord.attendanceType === 'CLIENT_VISIT' && todayRecord.clientName && (
-                  <div className="relative flex items-start gap-3">
-                    <span className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-amber-600 text-white flex items-center justify-center text-[10px] font-black shadow ring-4 ring-[#2D1B5A]">
-                      🤝
-                    </span>
-                    <div>
-                      <p className="text-xs font-black text-amber-300">Client Meeting • {todayRecord.clientName}</p>
-                      <p className="text-[11px] text-purple-200 mt-0.5">Location: {todayRecord.clientLocation}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Check-Out Event */}
-                {todayRecord.checkOutTime && (
-                  <div className="relative flex items-start gap-3">
-                    <span className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] font-black shadow ring-4 ring-[#2D1B5A]">
-                      <LogOut className="w-3 h-3" />
-                    </span>
-                    <div>
-                      <p className="text-xs font-black text-white">{todayRecord.checkOutTime} • {todayRecord.checkOutMode} Check-Out</p>
-                      <p className="text-[11px] text-purple-300/80 mt-0.5">
-                        Total Session: <strong className="text-purple-200">{todayRecord.workingHours}</strong>
-                      </p>
-                    </div>
-                  </div>
-                )}
+                {/* Total Working Time Footer */}
+                <div className="pt-3 border-t border-purple-500/20 flex justify-between items-center bg-purple-950/60 px-4 py-3 rounded-xl border border-purple-500/20">
+                  <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">TOTAL WORKING TIME</span>
+                  <span className="text-sm font-black text-emerald-300 font-mono">
+                    {todayRecord.workingHours || (todayRecord.checkInTime ? 'Currently checked in' : '--')}
+                  </span>
+                </div>
               </div>
             ) : (
-              <p className="text-xs text-purple-300/60 italic">No activity logged for today yet.</p>
+              <p className="text-xs text-purple-300/60 italic py-2">No attendance activity recorded yet.</p>
+            )}
+
+            {/* Dev Diagnostic Section */}
+            {process.env.NODE_ENV !== 'production' && (
+              <div className="mt-4 p-3 bg-slate-950 border border-slate-800 rounded-xl text-[10px] font-mono text-slate-400 space-y-0.5">
+                <p className="font-bold text-slate-200">TIMELINE DATA (Dev)</p>
+                <p>Query: <span className="text-emerald-400">SUCCESS</span></p>
+                <p>Events loaded: <span className="text-white">{todayRecord ? (1 + (todayRecord.exitTime ? 1 : 0) + (todayRecord.returnTime ? 1 : 0) + (todayRecord.checkOutTime ? 1 : 0)) : 0}</span></p>
+                <p>History records: <span className="text-white">{allRecords.length}</span></p>
+                <p>Identity: <span className="text-white">{employeeName} ({employeeId})</span></p>
+              </div>
             )}
           </div>
 
