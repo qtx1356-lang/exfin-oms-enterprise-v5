@@ -261,16 +261,15 @@ export const EmployeeDashboard: React.FC = () => {
     // Fetch notifications
     const notificationsQ = query(
       collection(db, 'notifications'),
-      where('recipientEmployeeCode', '==', employeeData.employeeCode),
-      orderBy('timestamp', 'desc'),
-      limit(3)
+      where('recipientEmployeeCode', '==', employeeData.employeeCode)
     );
     const unsubNotifications = onSnapshot(notificationsQ, (snapshot) => {
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Notification[];
-      setNotifications(data);
+      const sorted = data.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+      setNotifications(sorted.slice(0, 3));
     }, (error) => {
       console.error('Error fetching notifications:', error);
     });
