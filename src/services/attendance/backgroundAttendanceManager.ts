@@ -79,12 +79,29 @@ export const handleLocationUpdateForAttendance = (
     OFFICE_LOCATION.longitude
   );
 
+  // Implement hysteresis for background/foreground automatic transitions
+  let isInsideStable = distance <= OFFICE_LOCATION.radius;
+  try {
+    const cachedStable = localStorage.getItem('stableInsideOffice');
+    if (cachedStable !== null) {
+      const prevStable = cachedStable === 'true';
+      if (distance <= 23) {
+        isInsideStable = true;
+      } else if (distance >= 27) {
+        isInsideStable = false;
+      } else {
+        isInsideStable = prevStable;
+      }
+    }
+    localStorage.setItem('stableInsideOffice', isInsideStable ? 'true' : 'false');
+  } catch (e) {}
+
   const todayStr = new Date().toISOString().substring(0, 10);
   const record = getTodayAttendanceRecord(employeeId, todayStr);
 
-  // 1. AUTO CHECK-IN: Inside 25m geofence and no session logged today
-  if (distance <= OFFICE_LOCATION.radius && !record) {
-    logAttendanceEvent('GEOFENCE_ENTER', employeeId, `Entered 25m office geofence (${Math.round(distance)}m). Triggering auto check-in.`);
+  // 1. AUTO CHECK-IN: Inside geofence with hysteresis and no session logged today
+  if (isInsideStable && !record) {
+    logAttendanceEvent('GEOFENCE_ENTER', employeeId, `Entered 25m office geofence hysteresis (distance: ${Math.round(distance)}m). Triggering auto check-in.`);
     processAttendanceStateTransition(
       employeeId,
       employeeName || 'Employee',
@@ -100,9 +117,9 @@ export const handleLocationUpdateForAttendance = (
 
   // 2. ACTIVE SESSION LOGIC
   if (record && !record.checkOutTime && (record.attendanceType === 'OFFICE' || !record.attendanceType)) {
-    // Exited geofence (> 25m)
-    if (distance > OFFICE_LOCATION.radius && record.currentState !== 'PENDING_FINAL_EXIT') {
-      logAttendanceEvent('GEOFENCE_EXIT', employeeId, `Exited 25m office geofence (${Math.round(distance)}m). Recording exit event.`);
+    // Exited geofence with hysteresis (distance >= 27m)
+    if (!isInsideStable && record.currentState !== 'PENDING_FINAL_EXIT') {
+      logAttendanceEvent('GEOFENCE_EXIT', employeeId, `Exited 25m office geofence hysteresis (distance: ${Math.round(distance)}m). Recording exit event.`);
       processAttendanceStateTransition(
         employeeId,
         employeeName || record.employeeName,
@@ -114,9 +131,9 @@ export const handleLocationUpdateForAttendance = (
         'OFFICE'
       );
     }
-    // Returned to geofence (<= 25m)
-    else if (distance <= OFFICE_LOCATION.radius && (record.currentState === 'PENDING_FINAL_EXIT' || record.lastExitTime || record.exitTime)) {
-      logAttendanceEvent('RETURN_DETECTED', employeeId, `Returned inside 25m office geofence (${Math.round(distance)}m). Cancelling pending exit.`);
+    // Returned to geofence with hysteresis (distance <= 23 or retaining inside)
+    else if (isInsideStable && (record.currentState === 'PENDING_FINAL_EXIT' || record.lastExitTime || record.exitTime)) {
+      logAttendanceEvent('RETURN_DETECTED', employeeId, `Returned inside 25m office geofence hysteresis (distance: ${Math.round(distance)}m). Cancelling pending exit.`);
       processAttendanceStateTransition(
         employeeId,
         employeeName || record.employeeName,

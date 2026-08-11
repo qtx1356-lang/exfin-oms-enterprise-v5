@@ -8,6 +8,7 @@ import {
   checkBackgroundPermissionStatus, 
   requestBackgroundLocationPermission 
 } from '../services/attendance/backgroundAttendanceManager';
+import { getTodayAttendanceRecord } from '../services/attendance/attendanceStorage';
 
 export interface LocationContextType {
   liveLocation: { latitude: number; longitude: number } | null;
@@ -20,6 +21,9 @@ export interface LocationContextType {
   refreshLocation: () => Promise<void>;
   requestBackgroundPermission: () => Promise<boolean>;
   backgroundPermissionGranted: boolean;
+  locationState: 'UNKNOWN' | 'LOCATING' | 'INSIDE_OFFICE' | 'OUTSIDE_OFFICE' | 'STALE_LOCATION';
+  activeAttendanceMode: boolean;
+  setActiveAttendanceMode: (active: boolean) => void;
 }
 
 
@@ -37,8 +41,31 @@ export const formatOfficeDistance = (meters: number | null): string => {
 };
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [liveLocation, setLiveLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [distance, setDistance] = useState<number | null>(null);
+  const [liveLocation, setLiveLocation] = useState<{ latitude: number; longitude: number } | null>(() => {
+    try {
+      const cached = localStorage.getItem('lastKnownLocation');
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const [distance, setDistance] = useState<number | null>(() => {
+    try {
+      const cached = localStorage.getItem('lastKnownDistance');
+      return cached ? Number(cached) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const [stableInsideOffice, setStableInsideOffice] = useState<boolean | null>(() => {
+    try {
+      const cachedDist = localStorage.getItem('lastKnownDistance');
+      if (cachedDist !== null) {
+        return Number(cachedDist) <= OFFICE_LOCATION.radius;
+      }
+    } catch (e) {}
+    return null;
+  });
   const [locationStatus, setLocationStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [currentAddress, setCurrentAddress] = useState<string>(() => {
@@ -53,12 +80,30 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (e) {}
     return '';
   });
-  const watchIdRef = useRef<string | number | null>(null);
+  const [locationState, setLocationState] = useState<'UNKNOWN' | 'LOCATING' | 'INSIDE_OFFICE' | 'OUTSIDE_OFFICE' | 'STALE_LOCATION'>('UNKNOWN');
+  const [activeAttendanceMode, setActiveAttendanceMode] = useState<boolean>(false);
+  const [locationTimestamp, setLocationTimestamp] = useState<number | null>(null);
 
+  const watchIdRef = useRef<string | number | null>(null);
   const lastGeocodedCoordsRef = useRef<{ lat: number; lon: number; time: number } | null>(null);
+  const adaptiveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const isInsideGeofence = distance !== null && distance <= OFFICE_LOCATION.radius;
   const formattedDistance = formatOfficeDistance(distance);
+
+  const getEmployeeInfo = () => {
+    try {
+      const raw = localStorage.getItem('cached_registration_data');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          id: parsed.employeeCode || parsed.uid || parsed.id || '',
+          name: parsed.name || 'Employee'
+        };
+      }
+    } catch (e) {}
+    return null;
+  };
 
   const getValidCachedAddress = (): string | null => {
     try {
@@ -306,8 +351,28 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return granted;
   };
 
-  const processPosition = async (latitude: number, longitude: number) => {
+  const processPosition = async (latitude: number, longitude: number, accuracy?: number, timestamp?: number) => {
+    const now = Date.now();
+    const fixTime = timestamp || now;
+    const ageMs = now - fixTime;
+    const ageSec = ageMs / 1000;
+
+    // Filter out location if it is extremely old (e.g. > 60 seconds) to avoid false calculations
+    if (ageSec > 60) {
+      console.log(`[Location] Rejected stale fix: ${ageSec.toFixed(1)}s old`);
+      return;
+    }
+
+    // Accept location if accuracy is reasonable (e.g. <= 35m) to avoid discarding good-enough fixes
+    const isReliable = !accuracy || accuracy <= 35;
+    if (!isReliable) {
+      console.log(`[Location] Discarded low-accuracy fix: ${accuracy}m`);
+      return;
+    }
+
     setLiveLocation({ latitude, longitude });
+    setLocationTimestamp(fixTime);
+
     const calculatedDistance = getDistanceFromLatLonInM(
       latitude,
       longitude,
@@ -315,6 +380,31 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       OFFICE_LOCATION.longitude
     );
     setDistance(calculatedDistance);
+
+    // Save to cache immediately
+    try {
+      localStorage.setItem('lastKnownLocation', JSON.stringify({ latitude, longitude }));
+      localStorage.setItem('lastKnownDistance', String(calculatedDistance));
+    } catch (e) {}
+
+    // Dynamic state determination with Hysteresis / Border Stability
+    let nextInside = stableInsideOffice;
+    if (calculatedDistance <= 23) {
+      nextInside = true;
+    } else if (calculatedDistance >= 27) {
+      nextInside = false;
+    } else {
+      if (stableInsideOffice === null || stableInsideOffice === undefined) {
+        nextInside = calculatedDistance <= OFFICE_LOCATION.radius;
+      } else {
+        nextInside = stableInsideOffice;
+      }
+    }
+
+    if (nextInside !== stableInsideOffice) {
+      console.log(`[Location] State transition via hysteresis: distance=${calculatedDistance.toFixed(1)}m, accuracy=${accuracy || 'N/A'}m, insideOffice=${nextInside}`);
+    }
+    setStableInsideOffice(nextInside);
 
     // Evaluate automatic background geofence state transition
     try {
@@ -337,6 +427,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.warn('Error evaluating location update for attendance:', err);
     }
 
+    // Offline mode support: complete location state immediately without network/reverse geocoding
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       setCurrentAddress('Offline');
       setLocationStatus('success');
@@ -344,7 +435,6 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     // Debounce reverse-geocoding calls: only re-geocode if moved >= 50m or >= 3 minutes elapsed
-    const now = Date.now();
     const last = lastGeocodedCoordsRef.current;
     let shouldGeocode = false;
 
@@ -397,7 +487,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             }
             return;
           }
-          processPosition(position.coords.latitude, position.coords.longitude);
+          processPosition(position.coords.latitude, position.coords.longitude, position.coords.accuracy, position.timestamp);
         }
       );
     } catch (err) {
@@ -409,7 +499,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       watchIdRef.current = navigator.geolocation.watchPosition(
         (position) => {
-          processPosition(position.coords.latitude, position.coords.longitude);
+          processPosition(position.coords.latitude, position.coords.longitude, position.coords.accuracy, position.timestamp);
         },
         (error) => {
           setLocationStatus('error');
@@ -419,6 +509,62 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       );
     }
   };
+
+  // Adaptive Battery-Saving Polling Engine
+  useEffect(() => {
+    if (adaptiveTimerRef.current) {
+      clearTimeout(adaptiveTimerRef.current);
+      adaptiveTimerRef.current = null;
+    }
+
+    let isRunning = true;
+
+    const queryPosition = async () => {
+      if (!isRunning) return;
+
+      try {
+        const pos = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 4000,
+          maximumAge: 0
+        });
+        if (pos && pos.coords) {
+          processPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, pos.timestamp);
+        }
+      } catch (err) {
+        console.warn('Adaptive location poll error:', err);
+      }
+
+      scheduleNextPoll();
+    };
+
+    const scheduleNextPoll = () => {
+      if (!isRunning) return;
+
+      let delay = 30000; // Default background/passive delay: 30 seconds
+
+      const todayStr = new Date().toISOString().substring(0, 10);
+      const emp = getEmployeeInfo();
+      const hasCheckedInToday = emp ? !!getTodayAttendanceRecord(emp.id, todayStr) : false;
+
+      if (activeAttendanceMode) {
+        delay = 1500; // Active screen mode: 1.5s interval (fast first fix and active tracking)
+      } else if (distance !== null && distance <= 100 && !hasCheckedInToday) {
+        delay = 5000; // Approach mode un-checked-in: 5s interval to catch entry quickly
+      }
+
+      adaptiveTimerRef.current = setTimeout(queryPosition, delay);
+    };
+
+    scheduleNextPoll();
+
+    return () => {
+      isRunning = false;
+      if (adaptiveTimerRef.current) {
+        clearTimeout(adaptiveTimerRef.current);
+      }
+    };
+  }, [activeAttendanceMode, distance]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -455,6 +601,45 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, []);
 
+  // Update dynamic locationState on state changes
+  useEffect(() => {
+    if (locationStatus === 'loading') {
+      setLocationState('LOCATING');
+    } else if (locationStatus === 'error') {
+      setLocationState('UNKNOWN');
+    } else if (locationStatus === 'success') {
+      const now = Date.now();
+      const ageMs = now - (locationTimestamp || now);
+      const ageSec = ageMs / 1000;
+
+      if (ageSec > 45) {
+        setLocationState('STALE_LOCATION');
+      } else if (stableInsideOffice) {
+        setLocationState('INSIDE_OFFICE');
+      } else {
+        setLocationState('OUTSIDE_OFFICE');
+      }
+    }
+  }, [locationStatus, stableInsideOffice, locationTimestamp]);
+
+  const forceRefreshLocation = async () => {
+    setLocationStatus('loading');
+    try {
+      const pos = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
+      });
+      if (pos && pos.coords) {
+        await processPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, pos.timestamp);
+      }
+    } catch (err: any) {
+      console.warn('Force refresh error:', err);
+      setErrorMessage(err?.message || 'Unable to retrieve location.');
+      setLocationStatus('error');
+    }
+  };
+
   return (
     <LocationContext.Provider
       value={{
@@ -465,9 +650,12 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         locationStatus,
         errorMessage,
         currentAddress,
-        refreshLocation: startTracking,
+        refreshLocation: forceRefreshLocation,
         requestBackgroundPermission: handleRequestBgPermission,
-        backgroundPermissionGranted
+        backgroundPermissionGranted,
+        locationState,
+        activeAttendanceMode,
+        setActiveAttendanceMode
       }}
     >
       {children}

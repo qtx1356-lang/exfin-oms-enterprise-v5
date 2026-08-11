@@ -27,6 +27,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { ReceiptScanner } from './ReceiptScanner';
 
 import { 
   Wallet, 
@@ -74,6 +75,12 @@ export const ExpenseScreen: React.FC = () => {
   // Submit Modal & Form
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [amount, setAmount] = useState<string>('');
+  
+  // Scanner Modal Visibility & Scanned Metadata States
+  const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
+  const [scannedMerchant, setScannedMerchant] = useState<string | null>(null);
+  const [scannedReceiptNum, setScannedReceiptNum] = useState<string | null>(null);
+  const [scannedGstAmount, setScannedGstAmount] = useState<number | null>(null);
   const [category, setCategory] = useState<ExpenseCategory>('Travel');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [description, setDescription] = useState<string>('');
@@ -261,6 +268,9 @@ export const ExpenseScreen: React.FC = () => {
         rejectionReason: null,
         syncStatus: 'Pending Sync',
         createdAtDeviceTime: new Date().toISOString(),
+        merchant: scannedMerchant,
+        receiptNumber: scannedReceiptNum,
+        gstAmount: scannedGstAmount,
       };
 
       // Save locally first (Mandatory Offline First requirement)
@@ -277,6 +287,9 @@ export const ExpenseScreen: React.FC = () => {
       setDate(new Date().toISOString().split('T')[0]);
       setDescription('');
       setReceiptUrl(null);
+      setScannedMerchant(null);
+      setScannedReceiptNum(null);
+      setScannedGstAmount(null);
       setIsModalOpen(false);
       loadAndMergeExpenses();
     } catch (err: any) {
@@ -383,13 +396,24 @@ export const ExpenseScreen: React.FC = () => {
         </Card>
       </div>
 
-      {/* Primary Submit Button */}
-      <div>
+      {/* Primary Actions Grid */}
+      <div className="grid grid-cols-2 gap-3">
         <Button 
-          onClick={() => setIsModalOpen(true)} 
-          className="w-full py-3.5 text-sm font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-[#7C3AED] hover:bg-[#6D28D9]"
+          onClick={() => {
+            setScannedMerchant(null);
+            setScannedReceiptNum(null);
+            setScannedGstAmount(null);
+            setIsModalOpen(true);
+          }} 
+          className="py-3.5 text-sm font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-[#7C3AED] hover:bg-[#6D28D9]"
         >
-          <Plus className="w-5 h-5" /> Submit Expense Claim
+          <Plus className="w-5 h-5" /> Enter Manually
+        </Button>
+        <Button 
+          onClick={() => setIsScannerOpen(true)} 
+          className="py-3.5 text-sm font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white"
+        >
+          <Camera className="w-5 h-5" /> Scan Receipt
         </Button>
       </div>
 
@@ -669,6 +693,24 @@ export const ExpenseScreen: React.FC = () => {
           </div>
         </form>
       </Dialog>
+
+      {/* Receipt Scanner Component */}
+      <ReceiptScanner
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        existingExpenses={expenses}
+        onConfirm={({ amount, category, date, merchant, receiptNumber, gstAmount, localReceiptData }) => {
+          setAmount(String(amount));
+          setCategory(category);
+          setDate(date);
+          setScannedMerchant(merchant);
+          setScannedReceiptNum(receiptNumber);
+          setScannedGstAmount(gstAmount);
+          setReceiptUrl(localReceiptData);
+          setIsScannerOpen(false);
+          setIsModalOpen(true);
+        }}
+      />
 
       {/* Receipt Preview Modal */}
       <Dialog 

@@ -87,7 +87,17 @@ export const AttendanceScreen: React.FC = () => {
     errorMessage,
     currentAddress,
     refreshLocation,
+    locationState,
+    setActiveAttendanceMode,
   } = useLocationContext();
+
+  // Trigger Active Attendance Mode on Mount for high-frequency location updates
+  useEffect(() => {
+    setActiveAttendanceMode(true);
+    return () => {
+      setActiveAttendanceMode(false);
+    };
+  }, [setActiveAttendanceMode]);
   
   // Attendance state
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
@@ -258,9 +268,9 @@ export const AttendanceScreen: React.FC = () => {
         const updated = trackSmartOfficeExit(activeRecord, distance);
         setTodayRecord(updated);
       }
-      handleAutoCheckInCountdown(isInsideGeofence, liveLocation);
+      handleAutoCheckInCountdown(locationState === 'INSIDE_OFFICE', liveLocation);
     }
-  }, [liveLocation, distance, isInsideGeofence, employeeId]);
+  }, [liveLocation, distance, locationState, employeeId]);
 
   // Office Check-In Handler
   const handleManualCheckIn = async () => {
@@ -801,7 +811,7 @@ export const AttendanceScreen: React.FC = () => {
               {/* AUTO CHECK-IN CARD */}
               {!todayRecord && (
                 <div className="space-y-3">
-                  {isInsideGeofence ? (
+                  {locationState === 'INSIDE_OFFICE' ? (
                     <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-400/40 p-6 shadow-[0_0_25px_rgba(124,58,237,0.3)] text-center space-y-4">
                       <div className="flex items-center justify-center gap-2 text-purple-200 text-xs font-black uppercase tracking-wider">
                         <Radio className="w-4 h-4 text-[#7C3AED] animate-spin" /> Auto Check-In Active

@@ -41,4 +41,7 @@ export interface ExpenseRecord {
   syncStatus: ExpenseSyncStatus;
   createdAtDeviceTime: string;
   serverSyncTime?: string | null;
+  merchant?: string | null;
+  receiptNumber?: string | null;
+  gstAmount?: number | null;
 }
