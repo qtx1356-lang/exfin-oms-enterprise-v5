@@ -42,25 +42,42 @@ export type NotificationCategory =
   | 'EXPENSE'
   | 'DEVICE'
   | 'EFFICIENCY'
+  | 'TEAM'
+  | 'ACCOUNT'
+  | 'ADMINISTRATIVE'
   | 'SYSTEM';
 
 export type NotificationRecipientType = 'EMPLOYEE' | 'TEAM_LEADER' | 'ADMIN' | 'SUPER_ADMIN' | 'SYSTEM';
 
+export type ChannelDeliveryStatus =
+  | 'PENDING'
+  | 'SENT'
+  | 'DELIVERED' | 'FAILED'
+  | 'BLOCKED'
+  | 'NOT_REQUIRED'
+  | 'NOT_CONFIGURED';
+
 export interface NotificationRecord {
-  id: string;
+  id: string; // notificationId
+  notificationId?: string;
   type: NotificationType | string;
   category: NotificationCategory;
   title: string;
   message: string;
   recipientUserId: string;
   recipientEmployeeCode: string;
+  recipientMobile?: string;
+  recipientEmail?: string;
   recipientRole: string; // 'EMPLOYEE' | 'TEAM_LEADER' | 'ADMIN' | 'SUPER_ADMIN'
   recipientTeamLeaderId?: string;
   priority: NotificationPriority;
   route?: string; // Route path to deep-link
   entityId?: string; // Related task ID, leave ID, expense ID, etc.
+  relatedRecordId?: string;
   entityType?: string; // 'TASK' | 'LEAVE' | 'EXPENSE' | 'REGISTRATION' | 'ATTENDANCE'
   read: boolean;
+  isRead?: boolean;
+  readAt?: string;
   timestamp: string; // Canonical Firestore ISO timestamp
   createdAtDeviceTime: string; // Original event time
   updatedAtDeviceTime: string;
@@ -69,5 +86,15 @@ export interface NotificationRecord {
   deleted?: boolean;
   deletedUserIds?: string[];
   createdAt?: string; // Backward compatibility fallback
-  channels?: string[]; // 'IN_APP', 'PUSH'
+  channels?: string[]; // 'IN_APP', 'EMAIL', 'SMS', 'PUSH'
+  
+  // Independent channel delivery statuses
+  inAppStatus?: ChannelDeliveryStatus;
+  emailStatus?: ChannelDeliveryStatus;
+  smsStatus?: ChannelDeliveryStatus;
+  pushStatus?: ChannelDeliveryStatus;
+  
+  source?: string;
+  idempotencyKey?: string;
+  expiresAt?: string;
 }

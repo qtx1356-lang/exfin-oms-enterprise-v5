@@ -82,6 +82,36 @@ export const generateNotificationId = (
 };
 
 /**
+ * Check if a notification already exists for an idempotency key (locally or on server)
+ */
+export const findNotificationByIdempotencyKey = async (
+  key: string
+): Promise<NotificationRecord | null> => {
+  if (!key) return null;
+  const local = getStoredNotifications();
+  const foundLocal = local.find(n => n.idempotencyKey === key || n.id === key || n.id === `notif_${key}`);
+  if (foundLocal) return foundLocal;
+
+  if (isOnline()) {
+    try {
+      const q = query(collection(db, 'notifications'), where('idempotencyKey', '==', key));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const docSnap = snap.docs[0];
+        const d = docSnap.data() as any;
+        return {
+          id: docSnap.id,
+          ...d,
+        } as NotificationRecord;
+      }
+    } catch (err) {
+      console.warn('Idempotency check query warning:', err);
+    }
+  }
+  return null;
+};
+
+/**
  * Create a single notification with duplicate protection and offline-first persistence
  */
 export const createNotification = async (
@@ -90,29 +120,48 @@ export const createNotification = async (
   const nowIso = new Date().toISOString();
   
   const recipientCode = data.recipientEmployeeCode || 'SYSTEM';
-  const notifId = data.id || generateNotificationId(data.type || 'SYSTEM', recipientCode, data.entityId);
+  const idempotencyKey = data.idempotencyKey || (data as any).key || `${data.type}_${data.entityId || 'general'}_${recipientCode}`.replace(/[^a-zA-Z0-9_]/g, '_');
+
+  // Check idempotency first
+  const existing = await findNotificationByIdempotencyKey(idempotencyKey);
+  if (existing) {
+    return existing;
+  }
+
+  const notifId = data.id || data.notificationId || generateNotificationId(data.type || 'SYSTEM', recipientCode, data.entityId);
 
   const newNotif: NotificationRecord = {
     id: notifId,
+    notificationId: notifId,
     type: data.type || 'SYSTEM_ALERT',
     category: data.category || 'SYSTEM',
     title: data.title || 'System Alert',
     message: data.message || '',
     recipientUserId: data.recipientUserId || '',
     recipientEmployeeCode: recipientCode,
+    recipientEmail: data.recipientEmail || '',
+    recipientMobile: data.recipientMobile || '',
     recipientRole: data.recipientRole || 'EMPLOYEE',
     recipientTeamLeaderId: data.recipientTeamLeaderId || '',
     priority: data.priority || 'NORMAL',
     route: data.route || '',
     entityId: data.entityId || '',
+    relatedRecordId: data.entityId || data.relatedRecordId || '',
     entityType: data.entityType || '',
     read: false,
+    isRead: false,
     timestamp: nowIso,
     createdAtDeviceTime: data.createdAtDeviceTime || nowIso,
     updatedAtDeviceTime: nowIso,
     serverSyncTime: '',
     syncStatus: 'PENDING',
     channels: (data as any).channels || ['IN_APP'],
+    inAppStatus: data.inAppStatus || 'DELIVERED',
+    emailStatus: data.emailStatus || 'NOT_REQUIRED',
+    smsStatus: data.smsStatus || 'NOT_REQUIRED',
+    pushStatus: data.pushStatus || 'NOT_REQUIRED',
+    source: data.source || 'SYSTEM',
+    idempotencyKey,
   };
 
   // Save locally first so it shows up immediately

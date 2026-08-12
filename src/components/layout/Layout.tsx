@@ -15,8 +15,12 @@ import {
 } from '../../services/notification/notificationService';
 import { NotificationRecord } from '../../types/notification';
 import { motion, AnimatePresence } from 'motion/react';
-import { InAppNotificationToast } from '../common/InAppNotificationToast';
-import { initRealtimePushListener } from '../../services/notification/pushNotificationService';
+import { InAppNotificationToast, ToastPayload } from '../common/InAppNotificationToast';
+import {
+  initRealtimePushListener,
+  initializeNotificationBaseline,
+  processIncomingNotifications,
+} from '../../services/notification/pushNotificationService';
 import { initTaskDeadlineMonitor } from '../../services/planner/taskDeadlineEngine';
 
 const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
@@ -86,9 +90,10 @@ export const Layout: React.FC = () => {
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [recentNotifs, setRecentNotifs] = useState<NotificationRecord[]>([]);
-  const [activeToastNotif, setActiveToastNotif] = useState<NotificationRecord | null>(null);
+  const [activeToastNotif, setActiveToastNotif] = useState<ToastPayload | NotificationRecord | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const baselineDoneRef = useRef(false);
 
   const currentUser = adminUser
     ? {
@@ -120,6 +125,16 @@ export const Layout: React.FC = () => {
       // Get 3 most recent unread, or 3 most recent overall
       const recents = sorted.slice(0, 3);
       setRecentNotifs(recents);
+
+      // 3. Baseline initialization or process incoming
+      if (!baselineDoneRef.current) {
+        initializeNotificationBaseline(sorted);
+        baselineDoneRef.current = true;
+      } else {
+        processIncomingNotifications(sorted, (toastData) => {
+          setActiveToastNotif(toastData);
+        });
+      }
     } catch (err) {
       console.warn('Failed to refresh notification count:', err);
     }
@@ -136,11 +151,22 @@ export const Layout: React.FC = () => {
     return () => clearInterval(timer);
   }, [employeeData, adminUser, location.pathname]);
 
+  // Handle visibility change / app resume from background
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshNotificationCount();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [currentUser?.employeeCode, currentUser?.id]);
+
   // Real-time Push Notification Engine Listener for current employee
   useEffect(() => {
     if (!currentUser) return;
-    const unsubPush = initRealtimePushListener(currentUser, (incomingNotif) => {
-      setActiveToastNotif(incomingNotif);
+    const unsubPush = initRealtimePushListener(currentUser, (incomingToast) => {
+      setActiveToastNotif(incomingToast);
       refreshNotificationCount();
     });
 
@@ -418,7 +444,7 @@ export const Layout: React.FC = () => {
 
       <main className="container mx-auto p-4 max-w-3xl">
         <InAppNotificationToast
-          notification={activeToastNotif}
+          toastData={activeToastNotif}
           onDismiss={() => setActiveToastNotif(null)}
         />
         <Outlet />

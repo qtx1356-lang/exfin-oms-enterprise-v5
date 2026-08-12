@@ -379,10 +379,46 @@ export const NotificationCenter: React.FC = () => {
                   {notif.message}
                 </p>
 
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2 flex-wrap mt-2">
                   <span className="text-[10px] uppercase tracking-wider font-extrabold text-purple-400">
                     {notif.category}
                   </span>
+                  
+                  {/* Delivery Channel Badges */}
+                  <span className="text-[9px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-1.5 py-0.5 rounded-md font-bold">
+                    In-App ✓
+                  </span>
+
+                  {notif.emailStatus && notif.emailStatus !== 'NOT_REQUIRED' && (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold border ${
+                      notif.emailStatus === 'DELIVERED' || notif.emailStatus === 'SENT'
+                        ? 'bg-blue-500/10 text-blue-300 border-blue-500/20'
+                        : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                    }`}>
+                      Email: {notif.emailStatus}
+                    </span>
+                  )}
+
+                  {notif.smsStatus && notif.smsStatus !== 'NOT_REQUIRED' && (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold border ${
+                      notif.smsStatus === 'DELIVERED' || notif.smsStatus === 'SENT'
+                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+                        : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                    }`}>
+                      SMS: {notif.smsStatus}
+                    </span>
+                  )}
+
+                  {notif.pushStatus && notif.pushStatus !== 'NOT_REQUIRED' && (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold border ${
+                      notif.pushStatus === 'SENT' || notif.pushStatus === 'DELIVERED'
+                        ? 'bg-purple-500/10 text-purple-300 border-purple-500/20'
+                        : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                    }`}>
+                      Push: {notif.pushStatus === 'SENT' ? 'SENT ✓' : notif.pushStatus}
+                    </span>
+                  )}
+
                   {notif.syncStatus === 'PENDING' && (
                     <span className="text-[9px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-md font-bold">
                       Offline Sync Pending

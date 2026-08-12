@@ -9,7 +9,7 @@ import {
   deleteDoc,
   getDocs,
 } from 'firebase/firestore';
-import { NotificationRecord } from '../../types/notification';
+import { NotificationRecord, NotificationPriority } from '../../types/notification';
 import { getNotificationSettings } from './notificationSettings';
 
 // Keys for persistence
@@ -124,21 +124,91 @@ export const playNotificationChime = (
   }
 };
 
-// Vibration Trigger - Vibrates ONLY for HIGH / URGENT priority
+// Vibration Trigger - Vibrates for active notifications when setting enabled
 export const triggerNotificationVibration = (
-  priority: 'HIGH' | 'URGENT' | 'NORMAL' | 'LOW' = 'NORMAL'
+  priority: NotificationPriority = 'NORMAL'
 ): void => {
   try {
     const settings = getNotificationSettings();
     if (!settings.vibrationEnabled) return;
 
-    // Do NOT vibrate for LOW or NORMAL priority
-    if (priority !== 'HIGH' && priority !== 'URGENT') return;
+    // Do NOT vibrate for LOW priority
+    if (priority === 'LOW') return;
 
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate([200, 100, 200]);
+      if (priority === 'HIGH' || priority === 'URGENT') {
+        navigator.vibrate([250, 100, 250]);
+      } else {
+        navigator.vibrate([150]);
+      }
     }
   } catch (e) {}
+};
+
+// Initialize baseline on app startup so historical notifications are recorded as processed silently
+export const initializeNotificationBaseline = (
+  notifications: NotificationRecord[]
+): void => {
+  if (!notifications || notifications.length === 0) return;
+  notifications.forEach((n) => {
+    if (n.id) {
+      markNotificationProcessed(n.id);
+    }
+  });
+};
+
+// Unified incoming notification processor handling single & summary popups + sound + vibration + deduplication
+export const processIncomingNotifications = (
+  incomingNotifs: NotificationRecord[],
+  onToast: (toastData: any) => void
+): void => {
+  if (!incomingNotifs || incomingNotifs.length === 0) return;
+
+  // Filter out already processed, system technical, or already read notifications
+  const unprocessed = incomingNotifs.filter((n) => {
+    if (!n.id) return false;
+    if (isNotificationProcessed(n.id)) return false;
+    if (isSystemTechnicalNotification(n)) return false;
+    if (n.read || (n as any).isRead) return false;
+    return true;
+  });
+
+  if (unprocessed.length === 0) return;
+
+  if (unprocessed.length === 1) {
+    const item = unprocessed[0];
+    markNotificationProcessed(item.id);
+
+    onToast({
+      mode: 'SINGLE',
+      notification: item,
+    });
+
+    playNotificationChime(item.priority || 'NORMAL');
+    triggerNotificationVibration(item.priority || 'NORMAL');
+  } else {
+    // 2 or more new unread notifications arrived together (e.g. app resume or batch sync)
+    unprocessed.forEach((item) => markNotificationProcessed(item.id));
+
+    const count = unprocessed.length;
+    const hasCritical = unprocessed.some(
+      (n) => n.priority === 'URGENT' || n.priority === 'HIGH'
+    );
+    const summaryPriority = hasCritical ? 'HIGH' : 'NORMAL';
+
+    onToast({
+      mode: 'SUMMARY',
+      count,
+      title: count <= 5 ? `🔔 ${count} New Notifications` : `🔔 New Notifications`,
+      message: `You have ${count} new notifications.`,
+      actionLabel: count <= 5 ? 'View Notifications' : 'View All',
+      route: '/notifications',
+      priority: summaryPriority,
+    });
+
+    playNotificationChime(summaryPriority);
+    triggerNotificationVibration(summaryPriority);
+  }
 };
 
 // System technical log filter
@@ -695,7 +765,7 @@ const flushBatch = (
 // Main Real-Time Push Notification Engine Listener
 export const initRealtimePushListener = (
   currentUser: { id?: string; employeeCode?: string },
-  onInAppToast: (notif: NotificationRecord) => void
+  onInAppToast: (toastData: any) => void
 ): (() => void) => {
   if (!db || !currentUser || !currentUser.employeeCode) {
     return () => {};
@@ -713,6 +783,8 @@ export const initRealtimePushListener = (
   const unsub = onSnapshot(
     q,
     (snapshot) => {
+      const incoming: NotificationRecord[] = [];
+
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added' || change.type === 'modified') {
           const docData = change.doc.data();
@@ -759,41 +831,13 @@ export const initRealtimePushListener = (
             return;
           }
 
-          // Mark as processed immediately so duplicate snapshots don't re-trigger
-          markNotificationProcessed(notif.id);
-
-          const priority = notif.priority || 'NORMAL';
-
-          // 5. HIGH & URGENT Priority Notifications: Bypass batching, deliver immediately!
-          if (priority === 'HIGH' || priority === 'URGENT') {
-            const isAppVisible =
-              typeof document !== 'undefined' &&
-              document.visibilityState === 'visible';
-
-            if (isAppVisible) {
-              onInAppToast(notif);
-              playNotificationChime(priority);
-              triggerNotificationVibration(priority);
-            } else {
-              triggerOSPushNotification(notif);
-              playNotificationChime(priority);
-              triggerNotificationVibration(priority);
-            }
-            return;
-          }
-
-          // 6. NORMAL & LOW Priority: Add to Smart Summary batch queue (2.0s buffer window)
-          pendingBatch.push(notif);
-
-          if (batchTimer) {
-            clearTimeout(batchTimer);
-          }
-
-          batchTimer = setTimeout(() => {
-            flushBatch(onInAppToast);
-          }, 2000);
+          incoming.push(notif);
         }
       });
+
+      if (incoming.length > 0) {
+        processIncomingNotifications(incoming, onInAppToast);
+      }
     },
     (err) => {
       console.warn('Real-time push notification listener warning:', err);

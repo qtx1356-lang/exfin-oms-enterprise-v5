@@ -13,6 +13,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { NotificationDeliveryLog } from './NotificationDeliveryLog';
+import { NotificationMatrixTab } from './NotificationMatrixTab';
 
 // Helper functions for robust Date/Timestamp conversions to handle both Firestore Timestamp and ISO string formats
 const getScheduledDate = (val: any): Date | null => {
@@ -113,7 +114,7 @@ export const NotificationManagement: React.FC = () => {
   const { isSuperAdmin, isAdmin } = usePermission();
   const { user: adminUser, loginId } = useAdminAuth();
 
-  const [activeTab, setActiveTab] = useState<'compose' | 'active' | 'history' | 'delivery'>('compose');
+  const [activeTab, setActiveTab] = useState<'compose' | 'active' | 'history' | 'delivery' | 'matrix'>('compose');
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -666,6 +667,13 @@ export const NotificationManagement: React.FC = () => {
           >
             Delivery Log
           </Button>
+          <Button 
+            onClick={() => setActiveTab('matrix')} 
+            variant={activeTab === 'matrix' ? 'primary' : 'secondary'}
+            className="text-xs flex items-center gap-1.5"
+          >
+            Channel Matrix
+          </Button>
         </div>
       </div>
 
@@ -1198,6 +1206,10 @@ export const NotificationManagement: React.FC = () => {
       {/* DELIVERY LOG TAB */}
       {activeTab === 'delivery' && (
         <NotificationDeliveryLog />
+      )}
+
+      {activeTab === 'matrix' && (
+        <NotificationMatrixTab />
       )}
 
       {/* Edit Scheduled Campaign Modal Dialog */}

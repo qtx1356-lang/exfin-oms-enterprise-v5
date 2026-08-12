@@ -187,47 +187,45 @@ export const NotificationSettingsCard: React.FC = () => {
           </div>
         </div>
       ) : permState === 'denied' ? (
-        /* DENIED / PERMANENTLY BLOCKED STATE */
-        <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl space-y-2">
+        /* DENIED / OPTIONAL DISABLED STATE */
+        <div className="p-3 bg-purple-900/20 border border-purple-500/20 rounded-xl space-y-2">
           <div className="flex items-start gap-2">
-            <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <Info className="w-4 h-4 text-purple-300 shrink-0 mt-0.5" />
             <div className="text-xs">
-              <p className="font-bold text-rose-200">
-                Notifications are blocked
+              <p className="font-bold text-white">
+                Android Push Notifications (Optional)
               </p>
               <p className="text-purple-200/80 text-[11px] mt-0.5">
-                Notifications are disabled. Enable them in Android Settings to
-                receive alerts about tasks, leave approvals, and messages.
+                Android device push alerts are currently disabled. In-App and Email notifications remain fully active.
               </p>
             </div>
           </div>
           <button
             onClick={handleOpenSettings}
-            className="w-full py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg transition-colors shadow-md flex items-center justify-center gap-2"
+            className="w-full py-2 bg-purple-800/50 hover:bg-purple-700/60 text-purple-200 font-bold text-xs rounded-lg transition-colors border border-purple-500/30 flex items-center justify-center gap-2"
           >
             <ExternalLink className="w-3.5 h-3.5" />
-            Open Notification Settings
+            Open Android Notification Settings
           </button>
         </div>
       ) : (
-        /* PROMPT / ACTION REQUIRED STATE */
-        <div className="p-3 bg-[#211044] border border-amber-500/30 rounded-xl space-y-2">
+        /* PROMPT / OPTIONAL STATE */
+        <div className="p-3 bg-[#211044] border border-purple-500/30 rounded-xl space-y-2">
           <div className="flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <Smartphone className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
             <div className="text-xs">
-              <p className="font-bold text-amber-200">
-                ⚠ Enable Android Device Notifications
+              <p className="font-bold text-purple-200">
+                Enable Android Device Push Alerts (Optional)
               </p>
               <p className="text-purple-200/80 text-[11px] mt-0.5">
-                Allow notifications so EXFIN OMS can alert you immediately about
-                important tasks, leave updates, and team messages.
+                Allow Android device push notifications for instant heads-up alerts.
               </p>
             </div>
           </div>
           <button
             onClick={handleGrantPermission}
             disabled={requestingPerm}
-            className="w-full py-2 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black text-xs rounded-lg transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-2 bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white font-bold text-xs rounded-lg transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {requestingPerm ? (
               <>
@@ -251,16 +249,12 @@ export const NotificationSettingsCard: React.FC = () => {
           className={`text-[10px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider border ${
             permState === 'granted'
               ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-              : permState === 'denied'
-              ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-              : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+              : 'bg-purple-500/20 text-purple-300 border-purple-500/30'
           }`}
         >
           {permState === 'granted'
             ? 'ENABLED ✓'
-            : permState === 'denied'
-            ? 'BLOCKED'
-            : 'ACTION REQUIRED'}
+            : 'DISABLED (OPTIONAL)'}
         </span>
       </div>
 
