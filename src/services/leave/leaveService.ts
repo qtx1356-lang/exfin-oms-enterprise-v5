@@ -12,6 +12,7 @@ import {
   markLeaveSynced,
 } from './leaveStorage';
 import { createNotification } from '../notification/notificationService';
+import { NotificationType } from '../../types/notification';
 
 // OperationType for firestore error info conforming to skill guidelines
 enum OperationType {
@@ -384,7 +385,7 @@ export const reviewLeaveRequest = async (
         const { sendNotification } = await import('../notification/centralNotificationService');
         await sendNotification({
           employeeCode: leave.employeeCode,
-          type,
+          type: type as NotificationType,
           category: 'LEAVE',
           title,
           message,

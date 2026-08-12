@@ -406,6 +406,33 @@ export const triggerOSPushNotification = async (
   }
 };
 
+// Convenient wrapper for server/central notification service
+export const sendPushNotification = async (payload: {
+  employeeCode: string;
+  title: string;
+  body: string;
+  data?: any;
+}): Promise<void> => {
+  await triggerOSPushNotification({
+    id: `push_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    title: payload.title,
+    message: payload.body,
+    recipientEmployeeCode: payload.employeeCode,
+    recipientUserId: '',
+    recipientRole: 'EMPLOYEE',
+    type: payload.data?.type || 'SYSTEM_ALERT',
+    category: 'SYSTEM',
+    priority: 'NORMAL',
+    route: '/notifications',
+    read: false,
+    timestamp: new Date().toISOString(),
+    createdAtDeviceTime: new Date().toISOString(),
+    updatedAtDeviceTime: new Date().toISOString(),
+    serverSyncTime: '',
+    syncStatus: 'SYNCED',
+  });
+};
+
 // Smart Summary Batch Queue for rapid normal/low notifications
 let pendingBatch: NotificationRecord[] = [];
 let batchTimer: any = null;
