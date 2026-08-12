@@ -3,7 +3,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import { usePermission } from '../../context/PermissionContext';
 import { db } from '../../services/firebase/config';
 import { createNotification } from '../../services/notification/notificationService';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, where, getDocs, getDoc } from 'firebase/firestore';
 import {
   LogOut,
   Search,
@@ -422,6 +422,10 @@ export const AdminDashboard: React.FC = () => {
   const [rectifyReason, setRectifyReason] = useState('');
   const [showRectifyConfirm, setShowRectifyConfirm] = useState(false);
   const [rectifyError, setRectifyError] = useState('');
+  const [isCorrecting, setIsCorrecting] = useState(false);
+  const [correctionStep, setCorrectionStep] = useState<'verifying' | 'applying' | 'completed' | 'failed' | ''>('');
+  const [correctionMessage, setCorrectionMessage] = useState('');
+  const [correctionResult, setCorrectionResult] = useState<AttendanceRecord | null>(null);
 
   const [rejectionReason, setRejectionReason] = useState('');
   const [expenseRejectReason, setExpenseRejectReason] = useState('');
@@ -543,6 +547,215 @@ export const AdminDashboard: React.FC = () => {
       unsubLeaves();
     };
   }, []);
+
+  // Offline correction listener
+  useEffect(() => {
+    const processOfflineCorrections = async () => {
+      if (!navigator.onLine) return;
+      const offlineQueue = JSON.parse(localStorage.getItem('exfin_admin_offline_corrections') || '[]');
+      if (offlineQueue.length === 0) return;
+
+      console.log('Online restored! Processing', offlineQueue.length, 'offline corrections...');
+      
+      for (const item of offlineQueue) {
+        try {
+          await handleConfirmCorrection(
+            item.selectedForRectify,
+            item.rectifyCheckIn,
+            item.rectifyCheckOut,
+            item.rectifyReason
+          );
+        } catch (e) {
+          console.error('Failed to process queued offline correction:', e);
+        }
+      }
+      
+      localStorage.removeItem('exfin_admin_offline_corrections');
+    };
+
+    window.addEventListener('online', processOfflineCorrections);
+    return () => {
+      window.removeEventListener('online', processOfflineCorrections);
+    };
+  }, []);
+
+  const handleConfirmCorrection = async (
+    targetRecord: AttendanceRecord | null,
+    proposedIn: string,
+    proposedOut: string,
+    reasonText: string
+  ) => {
+    if (!targetRecord) return;
+    setIsCorrecting(true);
+    setCorrectionStep('verifying');
+    setCorrectionMessage('Verifying attendance...');
+    setCorrectionResult(null);
+
+    // Short delay for visual confirmation of the step
+    await new Promise((r) => setTimeout(r, 600));
+
+    try {
+      // Check offline first
+      if (!navigator.onLine) {
+        setCorrectionStep('failed');
+        const offlineMsg = 'Unable to connect. Correction will be retried when connection is restored.';
+        setCorrectionMessage(offlineMsg);
+        
+        // Queue the correction to local storage so we don't lose it!
+        const offlineQueue = JSON.parse(localStorage.getItem('exfin_admin_offline_corrections') || '[]');
+        offlineQueue.push({
+          selectedForRectify: targetRecord,
+          rectifyCheckIn: proposedIn,
+          rectifyCheckOut: proposedOut,
+          rectifyReason: reasonText
+        });
+        localStorage.setItem('exfin_admin_offline_corrections', JSON.stringify(offlineQueue));
+        return;
+      }
+
+      // Step 1: Re-fetch / Resolve current attendance record from authoritative database
+      let targetDocRef = null;
+      let currentRecordData: AttendanceRecord | null = null;
+
+      // Try direct getDoc
+      try {
+        const directSnap = await getDoc(doc(db, 'attendance', targetRecord.id));
+        if (directSnap.exists()) {
+          targetDocRef = directSnap.ref;
+          currentRecordData = { id: directSnap.id, ...(directSnap.data() as any) } as AttendanceRecord;
+        }
+      } catch (e) {
+        console.warn('Direct getDoc failed, will try queries', e);
+      }
+
+      // Try employeeId + date query
+      if (!targetDocRef && targetRecord.employeeId && targetRecord.date) {
+        const q = query(
+          collection(db, 'attendance'),
+          where('employeeId', '==', targetRecord.employeeId),
+          where('date', '==', targetRecord.date)
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const docSnap = snap.docs[0];
+          targetDocRef = docSnap.ref;
+          currentRecordData = { id: docSnap.id, ...(docSnap.data() as any) } as AttendanceRecord;
+        }
+      }
+
+      // Try docId lookup
+      if (!targetDocRef && targetRecord.date) {
+        const empCode = targetRecord.employeeId || '';
+        if (empCode) {
+          const canonicalDocId = `${empCode}_${targetRecord.date}`;
+          try {
+            const canonicalSnap = await getDoc(doc(db, 'attendance', canonicalDocId));
+            if (canonicalSnap.exists()) {
+              targetDocRef = canonicalSnap.ref;
+              currentRecordData = { id: canonicalSnap.id, ...(canonicalSnap.data() as any) } as AttendanceRecord;
+            }
+          } catch (e) {
+            console.warn('Canonical docId getDoc failed', e);
+          }
+        }
+      }
+
+      if (!targetDocRef || !currentRecordData) {
+        throw new Error('Attendance record could not be found. Refreshing the latest record...');
+      }
+
+      // Step 2: Verify record
+      const currentEmpId = currentRecordData.employeeId || '';
+      const targetEmpId = targetRecord.employeeId || '';
+      if (currentEmpId !== targetEmpId) {
+        throw new Error('Employee identity verification failed: selected employee does not match the stored record.');
+      }
+
+      if (currentRecordData.date !== targetRecord.date) {
+        throw new Error('Attendance date verification failed: record date does not match selection.');
+      }
+
+      // Check if any fields actually require correction
+      const isCheckInChanged = proposedIn !== currentRecordData.checkInTime;
+      const isCheckOutChanged = proposedOut !== (currentRecordData.checkOutTime || '');
+
+      if (!isCheckInChanged && !isCheckOutChanged) {
+        setCorrectionStep('completed');
+        setCorrectionResult(currentRecordData);
+        setCorrectionMessage('Attendance correction already applied.');
+        return;
+      }
+
+      setCorrectionStep('applying');
+      setCorrectionMessage('Applying correction...');
+      await new Promise((r) => setTimeout(r, 600));
+
+      // Build updated data & audit logs
+      const correctionItem: AttendanceCorrection = {
+        id: `corr_${Date.now()}`,
+        originalCheckIn: currentRecordData.checkInTime,
+        correctedCheckIn: proposedIn,
+        originalCheckOut: currentRecordData.checkOutTime || null,
+        correctedCheckOut: proposedOut ? proposedOut : null,
+        reason: reasonText.trim(),
+        correctedBy: loginId || adminUser?.email || 'admin',
+        correctedByRole: role,
+        correctedAt: new Date().toISOString()
+      };
+
+      // Add other requested fields to the audit trail object
+      const fullAuditRecord = {
+        ...correctionItem,
+        employeeName: currentRecordData.employeeName || targetRecord.employeeName,
+        employeeCode: currentEmpId,
+        attendanceDate: currentRecordData.date,
+        previousCheckoutType: currentRecordData.checkoutType || currentRecordData.checkOutMode || 'N/A',
+        newCheckoutType: proposedOut ? (proposedOut === (currentRecordData.lastExitTime || currentRecordData.exitTime) ? 'Automatic Checkout' : 'Manual Checkout') : 'Pending',
+        correctionSource: 'Admin Dashboard Portal'
+      };
+
+      const updatedHistory = [...(currentRecordData.correctionHistory || []), fullAuditRecord];
+      const newWorkingHours = calculateWorkingHours(proposedIn, proposedOut ? proposedOut : null);
+
+      // Determine updated checkout properties
+      // Rule 12: For automatic checkout correction, Checkout Type should remain: Automatic Checkout. Do not label it: Day-End Automatic
+      const isProposedAutoCheckout = proposedOut && proposedOut === (currentRecordData.lastExitTime || currentRecordData.exitTime);
+      const updatedCheckoutType = isProposedAutoCheckout ? 'AUTO_CHECKOUT' : (proposedOut ? 'MANUAL' : 'N/A');
+      const updatedCheckoutMode = isProposedAutoCheckout ? 'AUTO_SYSTEM' : (proposedOut ? 'MANUAL' : 'N/A');
+
+      const updatePayload: Partial<AttendanceRecord> = {
+        checkInTime: proposedIn,
+        checkOutTime: proposedOut ? proposedOut : null,
+        workingHours: newWorkingHours,
+        correctionHistory: updatedHistory,
+        checkoutType: updatedCheckoutType,
+        checkOutMode: updatedCheckoutMode,
+        manualRectified: true
+      };
+
+      await updateDoc(targetDocRef, updatePayload);
+
+      // Re-fetch to display the finalized corrected record in the success state
+      const finalSnap = await getDoc(targetDocRef);
+      const finalRecord = { id: finalSnap.id, ...(finalSnap.data() as any) } as AttendanceRecord;
+
+      setCorrectionStep('completed');
+      setCorrectionResult(finalRecord);
+      setCorrectionMessage('Correction completed');
+
+    } catch (err: any) {
+      console.error('Failed to rectify attendance:', err);
+      setCorrectionStep('failed');
+      
+      const friendlyMessage = err.message && err.message.includes('No document to update')
+        ? 'The latest attendance record could not be located. The system will refresh the record before retrying.'
+        : (err.message || 'Unable to locate the latest attendance record. Please refresh and try again.');
+        
+      setCorrectionMessage(friendlyMessage);
+    } finally {
+      setIsCorrecting(false);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -945,7 +1158,7 @@ export const AdminDashboard: React.FC = () => {
             onRectifyAttendance={(rec) => {
               setSelectedForRectify(rec);
               setRectifyCheckIn(rec.checkInTime || '');
-              setRectifyCheckOut(rec.checkOutTime || '');
+              setRectifyCheckOut(rec.checkOutTime || rec.lastExitTime || rec.exitTime || '');
               setRectifyReason('');
               setRectifyError('');
               setShowRectifyModal(true);
@@ -1234,7 +1447,7 @@ export const AdminDashboard: React.FC = () => {
                                       onClick={() => {
                                         setSelectedForRectify(rec);
                                         setRectifyCheckIn(safeStringify(rec.checkInTime));
-                                        setRectifyCheckOut(safeStringify(rec.checkOutTime) || '');
+                                        setRectifyCheckOut(safeStringify(rec.checkOutTime) || rec.lastExitTime || rec.exitTime || '');
                                         setRectifyReason('');
                                         setRectifyError('');
                                         setShowRectifyModal(true);
@@ -1713,67 +1926,118 @@ export const AdminDashboard: React.FC = () => {
       {/* Attendance Rectification Confirmation Dialog */}
       <Dialog
         isOpen={showRectifyConfirm && !!selectedForRectify}
-        onClose={() => setShowRectifyConfirm(false)}
+        onClose={() => {
+          if (!isCorrecting && correctionStep !== 'verifying' && correctionStep !== 'applying') {
+            setShowRectifyConfirm(false);
+          }
+        }}
         title="Confirm Attendance Correction"
       >
         {selectedForRectify && (
           <div className="space-y-4 text-white">
-            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3 text-xs">
-              <div className="font-black text-amber-300 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4" /> Please verify attendance correction details:
+            {correctionStep === 'verifying' || correctionStep === 'applying' ? (
+              <div className="flex flex-col items-center justify-center py-8 space-y-4 text-center">
+                <RefreshCw className="w-8 h-8 text-purple-400 animate-spin" />
+                <p className="text-sm font-bold text-purple-200">{correctionMessage}</p>
               </div>
-              <div className="space-y-1.5 text-purple-200">
-                <div><strong>Employee:</strong> {selectedForRectify.employeeName} ({selectedForRectify.employeeId || selectedForRectify.employeeCode})</div>
-                <div><strong>Date:</strong> {selectedForRectify.date}</div>
-                <div><strong>Check-In:</strong> <span className="text-red-300 line-through">{selectedForRectify.checkInTime}</span> → <span className="text-emerald-300 font-bold">{rectifyCheckIn}</span></div>
-                <div><strong>Check-Out:</strong> <span className="text-red-300 line-through">{selectedForRectify.checkOutTime || 'Pending'}</span> → <span className="text-emerald-300 font-bold">{rectifyCheckOut || 'Pending'}</span></div>
-                <div><strong>Reason:</strong> {rectifyReason}</div>
+            ) : correctionStep === 'completed' ? (
+              <div className="space-y-4">
+                <div className="p-5 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-center space-y-3">
+                  <div className="w-12 h-12 bg-emerald-500/20 border border-emerald-500/40 rounded-full flex items-center justify-center mx-auto text-emerald-400">
+                    <CheckCircle className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-sm font-black text-emerald-300">✓ Attendance corrected successfully</h3>
+                  <p className="text-xs text-purple-300">
+                    {correctionMessage === 'Attendance correction already applied.' 
+                      ? 'This correction was already applied in the database.' 
+                      : 'The changes have been securely written to the authoritative database.'}
+                  </p>
+                </div>
+
+                {correctionResult && (
+                  <div className="p-4 bg-purple-950/40 border border-purple-500/20 rounded-2xl text-xs space-y-2 text-purple-200">
+                    <div><strong>Employee:</strong> {correctionResult.employeeName}</div>
+                    <div><strong>Date:</strong> {correctionResult.date}</div>
+                    <div><strong>Check-In:</strong> <span className="text-emerald-300 font-bold font-mono">{correctionResult.checkInTime}</span></div>
+                    <div><strong>Check-Out:</strong> <span className="text-emerald-300 font-bold font-mono">{correctionResult.checkOutTime || 'Pending'}</span></div>
+                    <div><strong>Checkout Type:</strong> {correctionResult.checkOutMode === 'AUTO_SYSTEM' ? 'Automatic Checkout' : (correctionResult.checkOutMode === 'MANUAL' ? 'Manual Checkout' : 'In Progress')}</div>
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-3">
+                  <Button 
+                    onClick={() => {
+                      setShowRectifyConfirm(false);
+                      setShowRectifyModal(false);
+                      setSelectedForRectify(null);
+                      setCorrectionStep('');
+                      setCorrectionMessage('');
+                      setCorrectionResult(null);
+                    }}
+                    className="bg-purple-600 hover:bg-purple-500 text-xs font-bold"
+                  >
+                    Close
+                  </Button>
+                </div>
               </div>
-            </div>
+            ) : correctionStep === 'failed' ? (
+              <div className="space-y-4">
+                <div className="p-5 bg-red-500/10 border border-red-500/30 rounded-2xl text-center space-y-3">
+                  <div className="w-12 h-12 bg-red-500/20 border border-red-500/40 rounded-full flex items-center justify-center mx-auto text-red-400">
+                    <AlertTriangle className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-sm font-black text-red-300">⚠ Attendance correction could not be completed</h3>
+                  <p className="text-xs text-purple-200">{correctionMessage}</p>
+                </div>
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-purple-500/20">
-              <Button variant="outline" onClick={() => setShowRectifyConfirm(false)} className="text-xs">
-                Back
-              </Button>
-              <Button
-                onClick={async () => {
-                  try {
-                    const correction: AttendanceCorrection = {
-                      id: `corr_${Date.now()}`,
-                      originalCheckIn: selectedForRectify.checkInTime,
-                      correctedCheckIn: rectifyCheckIn,
-                      originalCheckOut: selectedForRectify.checkOutTime || null,
-                      correctedCheckOut: rectifyCheckOut ? rectifyCheckOut : null,
-                      reason: rectifyReason.trim(),
-                      correctedBy: loginId || adminUser?.email || 'admin',
-                      correctedByRole: role,
-                      correctedAt: new Date().toISOString()
-                    };
+                <div className="flex justify-end gap-3 pt-3">
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setCorrectionStep('');
+                      setCorrectionMessage('');
+                      setShowRectifyConfirm(false);
+                    }}
+                    className="text-xs"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={() => handleConfirmCorrection(selectedForRectify, rectifyCheckIn, rectifyCheckOut, rectifyReason)}
+                    className="bg-purple-600 hover:bg-purple-500 text-xs font-bold"
+                  >
+                    Retry
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-3 text-xs">
+                  <div className="font-black text-amber-300 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" /> Please verify attendance correction details:
+                  </div>
+                  <div className="space-y-1.5 text-purple-200">
+                    <div><strong>Employee:</strong> {selectedForRectify.employeeName} ({selectedForRectify.employeeId || selectedForRectify.employeeCode})</div>
+                    <div><strong>Date:</strong> {selectedForRectify.date}</div>
+                    <div><strong>Check-In:</strong> <span className="text-red-300 line-through">{selectedForRectify.checkInTime}</span> → <span className="text-emerald-300 font-bold">{rectifyCheckIn}</span></div>
+                    <div><strong>Check-Out:</strong> <span className="text-red-300 line-through">{selectedForRectify.checkOutTime || 'Pending'}</span> → <span className="text-emerald-300 font-bold">{rectifyCheckOut || 'Pending'}</span></div>
+                    <div><strong>Reason:</strong> {rectifyReason}</div>
+                  </div>
+                </div>
 
-                    const updatedHistory = [...(selectedForRectify.correctionHistory || []), correction];
-                    const newWorkingHours = calculateWorkingHours(rectifyCheckIn, rectifyCheckOut ? rectifyCheckOut : null);
-
-                    await updateDoc(doc(db, 'attendance', selectedForRectify.id), {
-                      checkInTime: rectifyCheckIn,
-                      checkOutTime: rectifyCheckOut ? rectifyCheckOut : null,
-                      workingHours: newWorkingHours,
-                      correctionHistory: updatedHistory
-                    });
-
-                    setShowRectifyConfirm(false);
-                    setShowRectifyModal(false);
-                    setSelectedForRectify(null);
-                    alert('Attendance corrected successfully.');
-                  } catch (err: any) {
-                    console.error('Failed to rectify attendance:', err);
-                    alert(`Failed to rectify attendance: ${err.message || 'Unknown error'}`);
-                  }
-                }}
-                className="bg-emerald-600 hover:bg-emerald-500 text-xs font-extrabold"
-              >
-                Confirm Correction
-              </Button>
-            </div>
+                <div className="flex justify-end gap-3 pt-3 border-t border-purple-500/20">
+                  <Button variant="outline" onClick={() => setShowRectifyConfirm(false)} className="text-xs">
+                    Back
+                  </Button>
+                  <Button
+                    onClick={() => handleConfirmCorrection(selectedForRectify, rectifyCheckIn, rectifyCheckOut, rectifyReason)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-xs font-extrabold"
+                  >
+                    Confirm Correction
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Dialog>
