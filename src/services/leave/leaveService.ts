@@ -304,18 +304,27 @@ export const reviewLeaveRequest = async (
   reviewerRole: 'TEAM_LEADER' | 'ADMIN',
   reviewer: { id: string; name: string },
   action: 'APPROVE' | 'REJECT',
-  remark: string
+  remark: string = ''
 ): Promise<LeaveRecord> => {
-  const leaves = getStoredLeaves();
-  const leave = leaves.find((l) => l.id === leaveId);
+  let leaves = getStoredLeaves();
+  let leave = leaves.find((l) => l.id === leaveId);
+
+  // Fallback to fetch from Firestore if record is not found in local cache
+  if (!leave && db) {
+    try {
+      const snap = await getDoc(doc(db, 'leaves', leaveId));
+      if (snap.exists()) {
+        leave = { id: snap.id, ...snap.data() } as LeaveRecord;
+      }
+    } catch (e) {
+      console.warn('Could not fetch leave record from Firestore:', e);
+    }
+  }
+
   if (!leave) throw new Error('Leave request not found.');
 
   if (leave.status !== 'PENDING') {
-    throw new Error('This leave request has already been finalized.');
-  }
-
-  if (action === 'REJECT' && !remark.trim()) {
-    throw new Error('Rejection remark is required.');
+    throw new Error(`This leave request has already been ${leave.status.toLowerCase()}.`);
   }
 
   const nowIso = new Date().toISOString();
@@ -333,7 +342,7 @@ export const reviewLeaveRequest = async (
       updatedLeave.approvalStatus = 'REJECTED';
       updatedLeave.currentApproverRole = 'NONE';
     }
-    updatedLeave.teamLeaderRemark = remark;
+    updatedLeave.teamLeaderRemark = remark || null;
     updatedLeave.teamLeaderReviewedAtDeviceTime = nowIso;
   } else if (reviewerRole === 'ADMIN') {
     if (action === 'APPROVE') {
@@ -343,7 +352,7 @@ export const reviewLeaveRequest = async (
       updatedLeave.status = 'REJECTED';
       updatedLeave.approvalStatus = 'REJECTED';
     }
-    updatedLeave.adminRemark = remark;
+    updatedLeave.adminRemark = remark || null;
     updatedLeave.adminReviewedAtDeviceTime = nowIso;
     updatedLeave.currentApproverRole = 'NONE';
   }
@@ -355,29 +364,31 @@ export const reviewLeaveRequest = async (
 
   if (navigator.onLine && db) {
     try {
+      updatedLeave.syncStatus = 'Synced';
       await setDoc(doc(db, 'leaves', leaveId), updatedLeave, { merge: true });
       markLeaveSynced(leaveId, nowIso);
 
       // Create notifications
+      const dateRangeStr = leave.startDate === leave.endDate ? leave.startDate : `${leave.startDate} to ${leave.endDate}`;
       let title = '';
       let message = '';
-      let type = '';
+      let type: NotificationType = 'LEAVE_APPROVED';
       let priority: 'NORMAL' | 'HIGH' | 'URGENT' = 'NORMAL';
 
       if (action === 'REJECT') {
         type = 'LEAVE_REJECTED';
         title = `Leave Request Rejected`;
-        message = `Your leave request for ${leave.startDate} to ${leave.endDate} was rejected by ${reviewer.name}. Reason: ${remark}`;
+        message = `Your leave request for ${dateRangeStr} has been rejected.${remark ? ` Reason: ${remark}` : ''}`;
         priority = 'HIGH';
       } else {
         if (reviewerRole === 'TEAM_LEADER') {
-          type = 'LEAVE_APPROVED_BY_LEADER';
+          type = 'LEAVE_TL_APPROVED';
           title = `Leave Approved by Team Leader`;
-          message = `Your leave request was approved by Team Leader ${reviewer.name} and is now pending Admin approval.`;
+          message = `Your leave request for ${dateRangeStr} was approved by Team Leader ${reviewer.name} and is now pending Admin approval.`;
         } else {
           type = 'LEAVE_APPROVED';
-          title = `Leave Request Fully Approved`;
-          message = `Your leave request for ${leave.startDate} to ${leave.endDate} has been fully approved by Admin.`;
+          title = `Leave Request Approved`;
+          message = `Your leave request for ${dateRangeStr} has been approved.`;
         }
       }
 
@@ -385,7 +396,7 @@ export const reviewLeaveRequest = async (
         const { sendNotification } = await import('../notification/centralNotificationService');
         await sendNotification({
           employeeCode: leave.employeeCode,
-          type: type as NotificationType,
+          type,
           category: 'LEAVE',
           title,
           message,
@@ -415,6 +426,7 @@ export const reviewLeaveRequest = async (
       }
     } catch (err) {
       console.warn('Could not sync leave review immediately.', err);
+      throw err;
     }
   }
 

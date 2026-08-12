@@ -87,6 +87,7 @@ import { PendingDeviceApprovalsTab } from './PendingDeviceApprovalsTab';
 import { createAuditLog } from '../../services/audit/auditService';
 import { AdminFAQScreen } from '../help/AdminFAQScreen';
 import { WhatsAppConfigTab } from './WhatsAppConfigTab';
+import { AdminLeaveManagementTab } from './AdminLeaveManagementTab';
 
 export const safeStringify = (val: any): string => {
   if (val === null || val === undefined) return '';
@@ -1656,28 +1657,7 @@ export const AdminDashboard: React.FC = () => {
 
         {/* LEAVES TAB */}
         {activeTab === 'leaves' && canSeeLeaves && (
-          <Card className="p-6 bg-[#250F4C] border border-purple-500/20 space-y-4">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-amber-400" /> Leave Requests Overview
-            </h3>
-            <div className="space-y-2">
-              {leaves.length === 0 ? (
-                <p className="text-xs text-purple-300/60 text-center py-6">No leave requests found.</p>
-              ) : (
-                leaves.map((l) => (
-                  <div key={l.id} className="p-3 bg-[#1A0B36] rounded-xl border border-purple-500/20 flex justify-between items-center text-xs">
-                    <div>
-                      <div className="font-bold text-white">{l.employeeName} ({l.leaveType})</div>
-                      <div className="text-[10px] text-purple-300/60">{l.startDate} to {l.endDate} ({l.totalDays} Days)</div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300">
-                      {l.status}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </Card>
+          <AdminLeaveManagementTab leaves={leaves} />
         )}
 
         {/* DEVICE REGISTRATIONS TAB */}
