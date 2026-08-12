@@ -749,41 +749,47 @@ export const EmployeeDashboard: React.FC = () => {
               {todayDate}
             </span>
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-bold text-purple-100">
-            <div className="space-y-0.5">
+          <div className="grid grid-cols-2 gap-3.5 text-xs font-bold text-purple-100">
+            <div className="space-y-1 p-3 bg-purple-950/40 rounded-xl border border-purple-500/10">
               <p className="text-[10px] text-purple-300/70 uppercase">Attendance</p>
               <p className="text-sm font-black text-white">{attendanceStatusLabel}</p>
             </div>
-            <div className="space-y-0.5">
+            <div className="space-y-1 p-3 bg-purple-950/40 rounded-xl border border-purple-500/10">
               <p className="text-[10px] text-purple-300/70 uppercase">Working Time</p>
               <p className="text-sm font-black text-amber-300">{workingDurationStr}</p>
             </div>
-            <div className="space-y-0.5">
+            <div className="space-y-1 p-3 bg-purple-950/40 rounded-xl border border-purple-500/10">
               <p className="text-[10px] text-purple-300/70 uppercase">Tasks</p>
               <p className="text-sm font-black text-white">{completedTaskCount} / {assignedTaskCount} completed</p>
+            </div>
+            <div className="space-y-1 p-3 bg-purple-950/40 rounded-xl border border-purple-500/10">
+              <p className="text-[10px] text-purple-300/70 uppercase">Work Progress</p>
+              <p className="text-sm font-black text-emerald-300">{taskProgressPercentage}%</p>
             </div>
           </div>
         </Card>
 
         {/* ACTION REQUIRED */}
-        <Card className="p-5 bg-gradient-to-br from-[#2D1B5A]/90 to-[#211044]/90 border border-purple-500/30 shadow-xl rounded-2xl">
-          <h3 className="text-xs font-extrabold text-purple-300 uppercase tracking-widest border-b border-purple-500/20 pb-2 mb-3.5 flex items-center gap-2">
-            <span>⚠️</span> ACTION REQUIRED
-          </h3>
-          {(() => {
-            const dueTodayTasks = myTasks.filter(t => t.status !== 'COMPLETED' && t.dueDate === todayStr);
-            const importantAlertsCount = dueTodayTasks.length;
-            
-            if (importantAlertsCount === 0) {
-              return (
-                <div className="flex items-center gap-2.5 text-xs text-emerald-300/90 font-bold py-1">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>You're all caught up.</span>
-                </div>
-              );
-            }
-
+        {(() => {
+          const dueTodayTasks = myTasks.filter(t => t.status !== 'COMPLETED' && t.dueDate === todayStr);
+          const importantAlertsCount = dueTodayTasks.length;
+          
+          if (importantAlertsCount === 0) {
             return (
+              <Card className="p-3.5 bg-gradient-to-br from-[#2D1B5A]/90 to-[#211044]/90 border border-purple-500/30 shadow-xl rounded-2xl flex items-center justify-between">
+                <div className="flex items-center gap-2.5 text-xs text-emerald-300/90 font-bold px-1">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>✓ ALL CAUGHT UP — No action required right now.</span>
+                </div>
+              </Card>
+            );
+          }
+
+          return (
+            <Card className="p-5 bg-gradient-to-br from-[#2D1B5A]/90 to-[#211044]/90 border border-purple-500/30 shadow-xl rounded-2xl">
+              <h3 className="text-xs font-extrabold text-purple-300 uppercase tracking-widest border-b border-purple-500/20 pb-2 mb-3.5 flex items-center gap-2">
+                <span>⚠️</span> ACTION REQUIRED
+              </h3>
               <div className="space-y-2.5">
                 {dueTodayTasks.map((task) => (
                   <div key={task.id} className="flex items-center justify-between gap-3 bg-[#451225]/30 p-3 rounded-xl border border-rose-500/20 text-xs">
@@ -792,14 +798,14 @@ export const EmployeeDashboard: React.FC = () => {
                       onClick={() => navigate('/planner')} 
                       className="text-[10px] font-black bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 px-3 py-1 rounded-full transition flex-shrink-0"
                     >
-                      Start
+                      Start →
                     </button>
                   </div>
                 ))}
               </div>
-            );
-          })()}
-        </Card>
+            </Card>
+          );
+        })()}
 
         {/* TODAY'S PROGRESS */}
         <Card className="p-5 bg-gradient-to-br from-[#2D1B5A]/90 to-[#211044]/90 border border-purple-500/30 shadow-xl rounded-2xl relative overflow-hidden">
