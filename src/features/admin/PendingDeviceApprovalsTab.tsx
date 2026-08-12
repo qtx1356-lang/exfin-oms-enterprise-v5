@@ -81,6 +81,25 @@ export const PendingDeviceApprovalsTab: React.FC = () => {
         }
       });
 
+      // Send WhatsApp-enabled notification
+      try {
+        const { sendNotification } = await import('../../services/notification/centralNotificationService');
+        await sendNotification({
+          employeeCode: reg.employeeCode || reg.id,
+          type: 'DEVICE_APPROVED',
+          category: 'DEVICE',
+          title: 'Device Approved',
+          message: 'Your device registration has been reviewed and approved.',
+          priority: 'HIGH',
+          allowedChannels: ['IN_APP', 'PUSH', 'WHATSAPP'],
+          whatsappTemplateId: 'device_approval_alert',
+          entityId: reg.id,
+          entityType: 'REGISTRATION'
+        });
+      } catch (e) {
+        console.warn('Failed to send device approval notification:', e);
+      }
+
     } catch (err: any) {
       console.error('Approval failed:', err);
       alert(err.message || 'Failed to approve device registration.');

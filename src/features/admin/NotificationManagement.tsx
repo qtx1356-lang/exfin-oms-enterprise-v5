@@ -12,6 +12,7 @@ import {
   writeBatch,
   Timestamp
 } from 'firebase/firestore';
+import { NotificationDeliveryLog } from './NotificationDeliveryLog';
 
 // Helper functions for robust Date/Timestamp conversions to handle both Firestore Timestamp and ISO string formats
 const getScheduledDate = (val: any): Date | null => {
@@ -112,7 +113,7 @@ export const NotificationManagement: React.FC = () => {
   const { isSuperAdmin, isAdmin } = usePermission();
   const { user: adminUser, loginId } = useAdminAuth();
 
-  const [activeTab, setActiveTab] = useState<'compose' | 'active' | 'history'>('compose');
+  const [activeTab, setActiveTab] = useState<'compose' | 'active' | 'history' | 'delivery'>('compose');
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -441,7 +442,7 @@ export const NotificationManagement: React.FC = () => {
         const notifId = `notif_${campaign.id}_${rec.employeeCode}`;
         const ref = doc(db, 'notifications', notifId);
         
-        const payload: NotificationRecord = {
+        const payload: NotificationRecord & { channels?: string[]; whatsappStatus?: string; whatsappTemplateId?: string } = {
           id: notifId,
           type: campaign.type === 'ANNOUNCEMENT' ? 'ANNOUNCEMENT' : (campaign.notificationType || 'SYSTEM_ALERT'),
           category: campaign.type === 'ANNOUNCEMENT' ? 'SYSTEM' : ((campaign.category as any) || 'SYSTEM'),
@@ -458,6 +459,9 @@ export const NotificationManagement: React.FC = () => {
           updatedAtDeviceTime: nowIso,
           serverSyncTime: nowIso,
           syncStatus: 'SYNCED',
+          channels: campaign.type === 'ANNOUNCEMENT' ? ['IN_APP', 'PUSH', 'WHATSAPP'] : ['IN_APP', 'PUSH'],
+          whatsappStatus: campaign.type === 'ANNOUNCEMENT' ? 'QUEUED' : undefined,
+          whatsappTemplateId: campaign.type === 'ANNOUNCEMENT' ? 'urgent_system_alert' : undefined,
           campaignId: campaign.id // Group key for analytics
         } as any;
 
@@ -656,6 +660,13 @@ export const NotificationManagement: React.FC = () => {
             className="text-xs flex items-center gap-1.5"
           >
             Campaign History
+          </Button>
+          <Button 
+            onClick={() => setActiveTab('delivery')} 
+            variant={activeTab === 'delivery' ? 'primary' : 'secondary'}
+            className="text-xs flex items-center gap-1.5"
+          >
+            Delivery Log
           </Button>
         </div>
       </div>
@@ -1184,6 +1195,11 @@ export const NotificationManagement: React.FC = () => {
             )}
           </div>
         </Card>
+      )}
+
+      {/* DELIVERY LOG TAB */}
+      {activeTab === 'delivery' && (
+        <NotificationDeliveryLog />
       )}
 
       {/* Edit Scheduled Campaign Modal Dialog */}

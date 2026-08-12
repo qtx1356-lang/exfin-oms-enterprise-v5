@@ -380,17 +380,23 @@ export const reviewLeaveRequest = async (
         }
       }
 
-      await createNotification({
-        recipientEmployeeCode: leave.employeeCode,
-        recipientUserId: leave.employeeId,
-        type,
-        category: 'LEAVE',
-        priority,
-        title,
-        message,
-        entityId: leaveId,
-        entityType: 'LEAVE',
-      });
+      try {
+        const { sendNotification } = await import('../notification/centralNotificationService');
+        await sendNotification({
+          employeeCode: leave.employeeCode,
+          type,
+          category: 'LEAVE',
+          title,
+          message,
+          priority,
+          allowedChannels: ['IN_APP', 'PUSH', 'WHATSAPP'],
+          whatsappTemplateId: type === 'LEAVE_APPROVED' ? 'leave_approved_v1' : undefined,
+          entityId: leaveId,
+          entityType: 'LEAVE'
+        });
+      } catch (err) {
+        console.warn('Could not send leave notification.', err);
+      }
 
       // If approved by TL, trigger a notification to admin
       if (reviewerRole === 'TEAM_LEADER' && action === 'APPROVE') {
@@ -449,17 +455,23 @@ export const adminOverrideLeave = async (
       markLeaveSynced(leaveId, nowIso);
 
       // Create notification
-      await createNotification({
-        recipientEmployeeCode: leave.employeeCode,
-        recipientUserId: leave.employeeId,
-        type: 'LEAVE_APPROVED',
-        category: 'LEAVE',
-        priority: 'HIGH',
-        title: `Leave Action Overridden by Admin`,
-        message: `Your leave request from ${leave.startDate} to ${leave.endDate} was manually ${action === 'APPROVE' ? 'approved' : 'rejected'} by Admin. Override Reason: ${reason}`,
-        entityId: leaveId,
-        entityType: 'LEAVE',
-      });
+      try {
+        const { sendNotification } = await import('../notification/centralNotificationService');
+        await sendNotification({
+          employeeCode: leave.employeeCode,
+          type: 'LEAVE_APPROVED',
+          category: 'LEAVE',
+          title: `Leave Action Overridden by Admin`,
+          message: `Your leave request from ${leave.startDate} to ${leave.endDate} was manually ${action === 'APPROVE' ? 'approved' : 'rejected'} by Admin. Override Reason: ${reason}`,
+          priority: 'HIGH',
+          allowedChannels: ['IN_APP', 'PUSH', 'WHATSAPP'],
+          whatsappTemplateId: action === 'APPROVE' ? 'leave_approved_v1' : undefined,
+          entityId: leaveId,
+          entityType: 'LEAVE'
+        });
+      } catch (err) {
+        console.warn('Could not send override notification.', err);
+      }
     } catch (err) {
       console.warn('Could not sync leave override immediately.', err);
     }

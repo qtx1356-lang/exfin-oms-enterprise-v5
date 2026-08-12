@@ -239,6 +239,12 @@ export async function executeEmployeeDeletion(params: {
           operationCount++;
         }
       }
+
+      if (empCode) {
+        batch.delete(doc(db, 'whatsapp_preferences', empCode));
+        operationCount++;
+      }
+
       details.registration = true;
     }
 

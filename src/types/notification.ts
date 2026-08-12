@@ -67,4 +67,7 @@ export interface NotificationRecord {
   deleted?: boolean;
   deletedUserIds?: string[];
   createdAt?: string; // Backward compatibility fallback
+  channels?: string[]; // 'IN_APP', 'PUSH', 'WHATSAPP'
+  whatsappStatus?: 'QUEUED' | 'SENDING' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
+  whatsappTemplateId?: string;
 }

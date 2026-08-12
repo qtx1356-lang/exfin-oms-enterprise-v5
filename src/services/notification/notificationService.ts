@@ -112,6 +112,9 @@ export const createNotification = async (
     updatedAtDeviceTime: nowIso,
     serverSyncTime: '',
     syncStatus: 'PENDING',
+    channels: (data as any).channels || ['IN_APP'],
+    whatsappStatus: (data as any).whatsappStatus,
+    whatsappTemplateId: (data as any).whatsappTemplateId,
   };
 
   // Save locally first so it shows up immediately
