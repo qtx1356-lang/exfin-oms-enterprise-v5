@@ -50,6 +50,7 @@ import {
   X,
   LayoutDashboard,
   Brain,
+  ShieldAlert,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -79,6 +80,8 @@ import { listenConversations } from '../../services/chat/chatService';
 import { OfficePulse } from './OfficePulse';
 import { AttendanceIntelligence } from './AttendanceIntelligence';
 import { SmartDailyBrief } from './SmartDailyBrief';
+import { AuditLogTab } from './AuditLogTab';
+import { createAuditLog } from '../../services/audit/auditService';
 
 export const safeStringify = (val: any): string => {
   if (val === null || val === undefined) return '';
@@ -151,7 +154,8 @@ type AdminTab =
   | 'health'
   | 'sync'
   | 'chat'
-  | 'announcements';
+  | 'announcements'
+  | 'auditLog';
 
 export const AdminDashboard: React.FC = () => {
   const { logout, user: adminUser, role = 'ADMIN', authorizedOffice = 'ALL', loginId } = useAdminAuth();
@@ -746,6 +750,27 @@ export const AdminDashboard: React.FC = () => {
       setCorrectionResult(finalRecord);
       setCorrectionMessage('Correction completed');
 
+      try {
+        await createAuditLog({
+          action: 'Attendance Correction',
+          actionCategory: 'Attendance',
+          performedByUserId: adminUser?.uid || loginId || 'admin',
+          performedByName: adminUser?.displayName || loginId || 'Admin',
+          performedByRole: role,
+          employeeCode: currentRecordData.employeeId,
+          targetUserId: currentRecordData.employeeId,
+          targetUserName: currentRecordData.employeeName,
+          targetRecordId: targetRecord.id,
+          description: `Admin corrected attendance record for ${currentRecordData.employeeName} (${currentRecordData.employeeId}).`,
+          oldValue: { checkInTime: currentRecordData.checkInTime, checkOutTime: currentRecordData.checkOutTime },
+          newValue: { checkInTime: proposedIn, checkOutTime: proposedOut },
+          result: 'SUCCESS',
+          source: 'ADMIN_PANEL'
+        });
+      } catch (auditErr) {
+        console.error('Audit log error:', auditErr);
+      }
+
     } catch (err: any) {
       console.error('Failed to rectify attendance:', err);
       setCorrectionStep('failed');
@@ -755,6 +780,28 @@ export const AdminDashboard: React.FC = () => {
         : (err.message || 'Unable to locate the latest attendance record. Please refresh and try again.');
         
       setCorrectionMessage(friendlyMessage);
+
+      try {
+        await createAuditLog({
+          action: 'Attendance Correction',
+          actionCategory: 'Attendance',
+          performedByUserId: adminUser?.uid || loginId || 'admin',
+          performedByName: adminUser?.displayName || loginId || 'Admin',
+          performedByRole: role,
+          employeeCode: targetRecord.employeeId,
+          targetUserId: targetRecord.employeeId,
+          targetUserName: targetRecord.employeeName,
+          targetRecordId: targetRecord.id,
+          description: `Failed to correct attendance record for ${targetRecord.employeeName}`,
+          oldValue: { checkInTime: targetRecord.checkInTime, checkOutTime: targetRecord.checkOutTime },
+          newValue: { checkInTime: proposedIn, checkOutTime: proposedOut },
+          result: 'FAILED',
+          failureReason: err.message || 'Unknown error',
+          source: 'ADMIN_PANEL'
+        });
+      } catch (auditErr) {
+        console.error('Audit log error:', auditErr);
+      }
     } finally {
       setIsCorrecting(false);
     }
@@ -798,6 +845,7 @@ export const AdminDashboard: React.FC = () => {
       items: [
         { id: 'rbac' as AdminTab, label: 'Roles & Permissions Matrix', icon: KeyRound, visible: canSeeRbac },
         { id: 'registrations' as AdminTab, label: 'Device Registrations', icon: Smartphone, badge: pendingRegCount, visible: canSeeRegistrations },
+        { id: 'auditLog' as AdminTab, label: 'Audit Log', icon: ShieldCheck, visible: isSuperAdmin() },
       ],
     },
     {
@@ -1221,6 +1269,19 @@ export const AdminDashboard: React.FC = () => {
 
         {/* ANNOUNCEMENTS & ALERTS TAB */}
         {activeTab === 'announcements' && canSeeAnnouncements && <NotificationManagement />}
+
+        {/* AUDIT LOG TAB (SUPER ADMIN ONLY) */}
+        {activeTab === 'auditLog' && (
+          isSuperAdmin() ? (
+            <AuditLogTab />
+          ) : (
+            <Card className="p-8 bg-[#2D1B5A] border border-rose-500/30 text-center space-y-4">
+              <ShieldAlert className="w-12 h-12 text-rose-400 mx-auto" />
+              <h2 className="text-lg font-bold text-white">Access Denied</h2>
+              <p className="text-xs text-purple-200">The Audit Log is restricted exclusively to Super Administrators. You do not have permission to view this section.</p>
+            </Card>
+          )
+        )}
 
         {/* ATTENDANCE TAB */}
         {activeTab === 'attendance' && canSeeAttendance && (

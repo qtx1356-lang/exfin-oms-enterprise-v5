@@ -123,7 +123,7 @@ service cloud.firestore {
 
     match /audit_logs/{logId} {
       allow create: if true;
-      allow read: if isAdmin();
+      allow read: if isSuperAdmin();
       allow update, delete: if false;
     }
 
