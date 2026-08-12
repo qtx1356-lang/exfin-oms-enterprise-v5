@@ -706,9 +706,9 @@ export const EmployeeDashboard: React.FC = () => {
     <>
       <div className="flex flex-col gap-5 pb-8 text-white">
         {/* Top Header */}
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-[#211044] border-2 border-[#7C3AED]/50 flex-shrink-0 shadow-lg">
+            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-[#211044] border-2 border-[#7C3AED]/60 flex-shrink-0 shadow-lg ring-2 ring-purple-500/20">
               {employeeData.selfieUrl ? (
                 <img src={employeeData.selfieUrl} alt="Profile" className="w-full h-full object-cover" />
               ) : (
@@ -716,55 +716,125 @@ export const EmployeeDashboard: React.FC = () => {
               )}
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black text-white leading-none">
-                  {employeeData.name || 'Employee'}
-                </h1>
-              </div>
-              <p className="text-xs text-purple-300/80 font-medium mt-1">
-                Code: <span className="text-white font-bold">{employeeData.employeeCode || 'N/A'}</span>
+              <h1 className="text-lg font-black text-white leading-tight">
+                {employeeData.name || 'Employee'}
+              </h1>
+              <p className="text-xs text-purple-300/80 font-medium mt-0.5">
+                Code: <span className="text-purple-200 font-bold">{employeeData.employeeCode || 'N/A'}</span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-[#2D1B5A] border border-purple-500/30 px-3 py-1.5 rounded-full text-xs font-semibold text-purple-200 shadow-md">
-            <MapPin className="w-3.5 h-3.5 text-[#A78BFA]" />
-            <span>{employeeData.officeLocation || employeeData.workLocation || 'Raniganj HQ'}</span>
+          <div className="flex items-center gap-1.5 bg-gradient-to-r from-[#2B1754] to-[#201042] border border-purple-500/35 px-3 py-1.5 rounded-full text-xs font-semibold text-purple-200 shadow-md">
+            <MapPin className="w-3.5 h-3.5 text-[#A78BFA] shrink-0" />
+            <span className="truncate max-w-[130px]">{employeeData.officeLocation || employeeData.workLocation || 'Raniganj HQ'}</span>
           </div>
         </div>
 
         {/* Greeting Banner */}
-        <div className="text-left py-1">
-          <h2 className="text-2xl font-black text-[#A78BFA] tracking-tight uppercase">
+        <div className="text-left py-0.5">
+          <h2 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#C4B5FD] via-[#A78BFA] to-[#818CF8] tracking-tight uppercase">
             {greetingPrefix}
           </h2>
         </div>
 
-        {/* TODAY SNAPSHOT */}
-        <Card className="p-5 bg-gradient-to-br from-[#2D1B5A]/90 to-[#211044]/90 border border-purple-500/30 shadow-xl rounded-2xl relative overflow-hidden animate-fade-in">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl pointer-events-none" />
-          <h3 className="text-xs font-extrabold text-purple-300 uppercase tracking-widest border-b border-purple-500/20 pb-2 mb-3.5 flex items-center justify-between">
-            <span className="flex items-center gap-2">📅 TODAY</span>
-            <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#211044]/90 border border-purple-500/30 text-purple-200 uppercase tracking-wider font-mono">
+        {/* TODAY OVERVIEW CARD */}
+        <Card className="p-4 sm:p-5 bg-gradient-to-br from-[#1C1236] via-[#160A2D] to-[#120724] border-2 border-indigo-500/40 shadow-[0_8px_30px_rgba(99,102,241,0.15)] rounded-2xl relative overflow-hidden transition-all">
+          {/* Subtle Ambient Glow */}
+          <div className="absolute top-0 right-0 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="border-b border-indigo-500/20 pb-3 mb-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-300">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <h3 className="text-xs font-black text-indigo-200 uppercase tracking-widest">
+                TODAY OVERVIEW
+              </h3>
+            </div>
+            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-[#120722] border border-indigo-500/30 text-indigo-200 uppercase tracking-wider font-mono shadow-inner">
               {todayDate}
             </span>
-          </h3>
-          <div className="grid grid-cols-2 gap-3.5 text-xs font-bold text-purple-100">
-            <div className="space-y-1 p-3 bg-purple-950/40 rounded-xl border border-purple-500/10">
-              <p className="text-[10px] text-purple-300/70 uppercase">Attendance</p>
-              <p className="text-sm font-black text-white">{attendanceStatusLabel}</p>
+          </div>
+
+          {/* 2-Column Grid */}
+          <div className="grid grid-cols-2 gap-3 text-xs font-bold">
+            {/* ATTENDANCE MINI-CARD */}
+            <div className={`p-3 rounded-xl border-2 flex flex-col justify-between transition-all ${
+              attendanceStatusLabel === 'Checked In' || attendanceStatusLabel === 'WFH' || attendanceStatusLabel === 'Client Visit' || attendanceStatusLabel === 'Outdoor Work'
+                ? 'bg-gradient-to-br from-[#0D2E2B]/90 to-[#0A1E1E]/90 border-emerald-500/50 text-emerald-100 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                : attendanceStatusLabel === 'Absent'
+                ? 'bg-gradient-to-br from-[#2F121C]/90 to-[#1F0A12]/90 border-rose-500/50 text-rose-100 shadow-[0_0_15px_rgba(244,63,94,0.15)]'
+                : 'bg-gradient-to-br from-[#12282C]/90 to-[#0C1B1E]/90 border-teal-500/40 text-teal-100 shadow-sm'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] uppercase font-black tracking-wider text-teal-300/80">
+                  ATTENDANCE
+                </span>
+                <UserCheck className="w-4 h-4 text-teal-400" />
+              </div>
+              <div>
+                <p className="text-sm font-black tracking-tight truncate">
+                  {attendanceStatusLabel}
+                </p>
+                <p className="text-[10px] font-medium text-teal-200/70 mt-0.5 truncate">
+                  {checkInTimeStr && checkInTimeStr !== '--:--' ? `In at ${checkInTimeStr}` : 'Shift active'}
+                </p>
+              </div>
             </div>
-            <div className="space-y-1 p-3 bg-purple-950/40 rounded-xl border border-purple-500/10">
-              <p className="text-[10px] text-purple-300/70 uppercase">Working Time</p>
-              <p className="text-sm font-black text-amber-300">{workingDurationStr}</p>
+
+            {/* WORKING TIME MINI-CARD */}
+            <div className="p-3 rounded-xl border-2 border-amber-500/40 bg-gradient-to-br from-[#2A1D0C]/90 to-[#1C1205]/90 text-amber-100 shadow-[0_0_15px_rgba(245,158,11,0.12)] flex flex-col justify-between transition-all">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] uppercase font-black tracking-wider text-amber-300/80">
+                  WORKING TIME
+                </span>
+                <Clock className="w-4 h-4 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-sm font-black tracking-tight text-amber-300">
+                  {workingDurationStr}
+                </p>
+                <p className="text-[10px] font-medium text-amber-200/70 mt-0.5">
+                  Logged duration
+                </p>
+              </div>
             </div>
-            <div className="space-y-1 p-3 bg-purple-950/40 rounded-xl border border-purple-500/10">
-              <p className="text-[10px] text-purple-300/70 uppercase">Tasks</p>
-              <p className="text-sm font-black text-white">{completedTaskCount} / {assignedTaskCount} completed</p>
+
+            {/* TASKS MINI-CARD */}
+            <div className="p-3 rounded-xl border-2 border-cyan-500/40 bg-gradient-to-br from-[#0C2236]/90 to-[#081524]/90 text-cyan-100 shadow-[0_0_15px_rgba(6,182,212,0.12)] flex flex-col justify-between transition-all">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] uppercase font-black tracking-wider text-cyan-300/80">
+                  TASKS
+                </span>
+                <CheckSquare className="w-4 h-4 text-cyan-400" />
+              </div>
+              <div>
+                <p className="text-sm font-black tracking-tight text-cyan-200">
+                  {completedTaskCount} / {assignedTaskCount} completed
+                </p>
+                <p className="text-[10px] font-medium text-cyan-300/70 mt-0.5">
+                  {assignedTaskCount - completedTaskCount > 0 ? `${assignedTaskCount - completedTaskCount} remaining` : 'All tasks completed'}
+                </p>
+              </div>
             </div>
-            <div className="space-y-1 p-3 bg-purple-950/40 rounded-xl border border-purple-500/10">
-              <p className="text-[10px] text-purple-300/70 uppercase">Work Progress</p>
-              <p className="text-sm font-black text-emerald-300">{taskProgressPercentage}%</p>
+
+            {/* WORK PROGRESS MINI-CARD */}
+            <div className="p-3 rounded-xl border-2 border-emerald-500/40 bg-gradient-to-br from-[#0B281D]/90 to-[#071B13]/90 text-emerald-100 shadow-[0_0_15px_rgba(16,185,129,0.12)] flex flex-col justify-between transition-all">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] uppercase font-black tracking-wider text-emerald-300/80">
+                  WORK PROGRESS
+                </span>
+                <BarChart3 className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-sm font-black tracking-tight text-emerald-300">
+                  {taskProgressPercentage}%
+                </p>
+                <p className="text-[10px] font-medium text-emerald-200/70 mt-0.5">
+                  Completion rate
+                </p>
+              </div>
             </div>
           </div>
         </Card>
@@ -773,32 +843,56 @@ export const EmployeeDashboard: React.FC = () => {
         {(() => {
           const dueTodayTasks = myTasks.filter(t => t.status !== 'COMPLETED' && t.dueDate === todayStr);
           const importantAlertsCount = dueTodayTasks.length;
-          
+
           if (importantAlertsCount === 0) {
             return (
-              <Card className="p-3.5 bg-gradient-to-br from-[#2D1B5A]/90 to-[#211044]/90 border border-purple-500/30 shadow-xl rounded-2xl flex items-center justify-between">
-                <div className="flex items-center gap-2.5 text-xs text-emerald-300/90 font-bold px-1">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>✓ ALL CAUGHT UP — No action required right now.</span>
+              <Card className="p-4 bg-gradient-to-r from-[#0B2A1A]/95 via-[#072215]/95 to-[#05180E]/95 border-2 border-emerald-500/40 shadow-[0_4px_20px_rgba(16,185,129,0.15)] rounded-2xl flex items-center justify-between transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-xs text-emerald-300 flex items-center gap-1.5">
+                      <span>✓ All caught up</span>
+                    </h4>
+                    <p className="text-[11px] text-emerald-200/80 font-medium mt-0.5">
+                      No action required right now.
+                    </p>
+                  </div>
                 </div>
               </Card>
             );
           }
 
           return (
-            <Card className="p-5 bg-gradient-to-br from-[#2D1B5A]/90 to-[#211044]/90 border border-purple-500/30 shadow-xl rounded-2xl">
-              <h3 className="text-xs font-extrabold text-purple-300 uppercase tracking-widest border-b border-purple-500/20 pb-2 mb-3.5 flex items-center gap-2">
-                <span>⚠️</span> ACTION REQUIRED
-              </h3>
-              <div className="space-y-2.5">
+            <Card className="p-4 sm:p-5 bg-gradient-to-br from-[#2E1B07]/95 via-[#201204]/95 to-[#160B02]/95 border-2 border-amber-500/50 shadow-[0_6px_25px_rgba(245,158,11,0.18)] rounded-2xl transition-all">
+              <div className="flex items-center justify-between border-b border-amber-500/20 pb-2.5 mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400">
+                    <AlertCircle className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-xs font-black text-amber-300 uppercase tracking-widest">
+                    ⚠️ ACTION REQUIRED
+                  </h3>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  {dueTodayTasks.length} {dueTodayTasks.length === 1 ? 'Item' : 'Items'}
+                </span>
+              </div>
+              
+              <div className="space-y-2">
                 {dueTodayTasks.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between gap-3 bg-[#451225]/30 p-3 rounded-xl border border-rose-500/20 text-xs">
-                    <span className="truncate text-rose-200">⚠️ Task due today: <strong>{task.title}</strong></span>
+                  <div key={task.id} className="flex items-center justify-between gap-3 bg-[#1F1004]/70 p-3 rounded-xl border border-amber-500/25 text-xs">
+                    <div className="truncate min-w-0 flex-1">
+                      <p className="text-amber-200 font-extrabold truncate">{task.title}</p>
+                      <p className="text-[10px] text-amber-300/70 font-medium mt-0.5">Due today • High Priority</p>
+                    </div>
                     <button 
                       onClick={() => navigate('/planner')} 
-                      className="text-[10px] font-black bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 px-3 py-1 rounded-full transition flex-shrink-0"
+                      className="text-[11px] font-black bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 hover:brightness-110 active:scale-95 px-3.5 py-1.5 rounded-xl transition shadow-md flex-shrink-0 flex items-center gap-1"
                     >
-                      Start →
+                      <span>Start</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ))}
@@ -807,67 +901,85 @@ export const EmployeeDashboard: React.FC = () => {
           );
         })()}
 
-        {/* TODAY'S PROGRESS */}
-        <Card className="p-5 bg-gradient-to-br from-[#2D1B5A]/90 to-[#211044]/90 border border-purple-500/30 shadow-xl rounded-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
-          <h3 className="text-xs font-extrabold text-purple-300 uppercase tracking-widest border-b border-purple-500/20 pb-2 mb-3.5 flex items-center justify-between">
-            <span className="flex items-center gap-2">📈 Today's Work</span>
-            <span className="text-emerald-300 font-mono text-xs">{taskProgressPercentage}%</span>
-          </h3>
+        {/* TODAY'S WORK CARD */}
+        <Card className="p-4 sm:p-5 bg-gradient-to-br from-[#0B2A1E]/95 via-[#071F16]/95 to-[#05150E]/95 border-2 border-emerald-500/40 shadow-[0_8px_30px_rgba(16,185,129,0.15)] rounded-2xl relative overflow-hidden transition-all">
+          <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+          
+          <div className="border-b border-emerald-500/20 pb-3 mb-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
+                <BarChart3 className="w-4 h-4" />
+              </div>
+              <h3 className="text-xs font-black text-emerald-200 uppercase tracking-widest">
+                📈 TODAY'S WORK
+              </h3>
+            </div>
+            <span className="text-emerald-300 font-mono text-sm font-black bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+              {taskProgressPercentage}%
+            </span>
+          </div>
           
           {/* Progress Bar */}
-          <div className="w-full bg-[#170B38] h-2.5 rounded-full overflow-hidden border border-purple-500/20 mb-4">
+          <div className="w-full bg-[#05150E] h-3 rounded-full overflow-hidden border border-emerald-500/20 mb-4 p-0.5">
             <div 
-              className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
+              className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-300 rounded-full transition-all duration-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
               style={{ width: `${taskProgressPercentage}%` }}
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs font-semibold text-purple-200/90">
-            <div>
-              <span className="text-purple-300/70 text-[10px] uppercase block">Tasks Status</span>
-              <span className="text-white font-bold">{completedTaskCount} of {assignedTaskCount} completed</span>
+          <div className="grid grid-cols-2 gap-3 text-xs font-semibold text-emerald-200/90 mb-2">
+            <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/15">
+              <span className="text-emerald-300/70 text-[10px] uppercase font-bold block mb-0.5">Tasks Assigned</span>
+              <span className="text-white font-black text-sm">{assignedTaskCount} Total Tasks</span>
             </div>
-            <div>
-              <span className="text-purple-300/70 text-[10px] uppercase block">Work Progress</span>
-              <span className="text-white font-bold">{taskProgressPercentage}% Completed</span>
-            </div>
-            <div>
-              <span className="text-purple-300/70 text-[10px] uppercase block">Today's Attendance</span>
-              <span className="text-white font-bold">{attendanceStatusLabel}</span>
-            </div>
-            <div>
-              <span className="text-purple-300/70 text-[10px] uppercase block">Working Duration</span>
-              <span className="text-white font-bold">{workingDurationStr}</span>
+            <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/15">
+              <span className="text-emerald-300/70 text-[10px] uppercase font-bold block mb-0.5">Tasks Completed</span>
+              <span className="text-emerald-300 font-black text-sm">{completedTaskCount} Completed</span>
             </div>
           </div>
+
+          {/* Next Task Focus if incomplete tasks exist */}
+          {nextTask && (
+            <div className="mt-2 p-3 rounded-xl bg-[#071912]/90 border border-emerald-500/25 flex items-center justify-between text-xs">
+              <div className="truncate min-w-0 pr-2">
+                <span className="text-[10px] uppercase font-extrabold text-emerald-400 tracking-wider block">Next Priority Task</span>
+                <p className="text-white font-bold truncate mt-0.5">{nextTask.title}</p>
+              </div>
+              <button
+                onClick={() => navigate('/planner')}
+                className="px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-xl text-[10px] font-extrabold shrink-0 transition"
+              >
+                View
+              </button>
+            </div>
+          )}
         </Card>
 
         {/* MY DAY TIMELINE (FEATURE 6) */}
-        <div className="bg-[#2D1B5A] border border-purple-500/20 rounded-2xl overflow-hidden shadow-lg">
+        <div className="bg-gradient-to-br from-[#1E113C] to-[#140A2D] border-2 border-purple-500/30 rounded-2xl overflow-hidden shadow-xl transition-all">
           <div 
             onClick={() => setIsTimelineExpanded(!isTimelineExpanded)}
             className="p-4 flex items-center justify-between cursor-pointer hover:bg-purple-500/10 transition select-none"
           >
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-300">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300">
                 <Clock className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-xs font-extrabold text-white uppercase tracking-wider">TODAY'S TIMELINE</h3>
-                <p className="text-[10px] text-purple-300/80 font-semibold">
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">TODAY'S TIMELINE</h3>
+                <p className="text-[10px] text-purple-300/80 font-semibold mt-0.5">
                   {isTimelineExpanded ? 'Interactive hourly agenda and activity log' : 'Click to expand agenda tracker'}
                 </p>
               </div>
             </div>
-            <div className="w-7 h-7 rounded-lg bg-[#211044]/90 border border-purple-500/25 flex items-center justify-center text-[#A78BFA]">
+            <div className="w-7 h-7 rounded-lg bg-[#120722] border border-purple-500/30 flex items-center justify-center text-[#A78BFA]">
               <span className={`transform transition-transform duration-200 ${isTimelineExpanded ? 'rotate-90' : ''}`}>
                 &rarr;
               </span>
             </div>
           </div>
           {isTimelineExpanded && (
-            <div className="border-t border-purple-500/15 p-4 bg-[#211044]/40">
+            <div className="border-t border-purple-500/20 p-4 bg-[#120722]/60">
               <MyDayTimeline />
             </div>
           )}
@@ -876,7 +988,7 @@ export const EmployeeDashboard: React.FC = () => {
         {/* Quick Actions Grid */}
         <div>
           {showUnavailableMessage && (
-            <div className="bg-rose-950/60 border border-rose-500/30 rounded-2xl p-3.5 flex items-start gap-3 text-xs text-rose-200 mb-4 shadow-lg">
+            <div className="bg-rose-950/80 border-2 border-rose-500/40 rounded-2xl p-3.5 flex items-start gap-3 text-xs text-rose-200 mb-4 shadow-xl">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               <div>
                 <p className="font-extrabold text-white">Payslip Not Available Yet</p>
@@ -884,20 +996,20 @@ export const EmployeeDashboard: React.FC = () => {
               </div>
             </div>
           )}
-          <h2 className="text-xs font-extrabold text-purple-300/80 uppercase tracking-wider mb-3">
-            Quick Actions
+          <h2 className="text-xs font-black text-purple-300/80 uppercase tracking-widest mb-3">
+            QUICK ACTIONS
           </h2>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-4 gap-2.5 sm:gap-3">
             {quickActions.map((action, idx) => (
               <button 
                 key={idx}
                 onClick={action.onClick}
-                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-[#2D1B5A] border border-purple-500/20 hover:border-purple-500/40 transition-all hover:scale-105 active:scale-95 shadow-lg group"
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-gradient-to-br from-[#1C1036] to-[#140A2A] border border-purple-500/25 hover:border-purple-500/50 transition-all hover:scale-105 active:scale-95 shadow-lg group"
               >
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-2 border ${action.bg}`}>
+                <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-2 border ${action.bg}`}>
                   <action.icon className="w-5 h-5 transition-transform group-hover:scale-110" />
                 </div>
-                <span className="text-[11px] font-bold text-purple-100 text-center leading-tight">
+                <span className="text-[10px] sm:text-[11px] font-extrabold text-purple-100 text-center leading-tight">
                   {action.label}
                 </span>
               </button>
@@ -908,18 +1020,18 @@ export const EmployeeDashboard: React.FC = () => {
         {/* Announcements */}
         <div>
           <div className="flex justify-between items-center mb-2.5">
-            <h2 className="text-xs font-extrabold text-purple-300/80 uppercase tracking-wider flex items-center gap-1.5">
+            <h2 className="text-xs font-black text-purple-300/80 uppercase tracking-widest flex items-center gap-1.5">
               <Megaphone className="w-4 h-4 text-[#A78BFA]" />
-              Announcements
+              ANNOUNCEMENTS
             </h2>
           </div>
           <div className="flex flex-col gap-2.5">
             {announcements.length > 0 ? (
               announcements.map((ann) => (
-                <Card key={ann.id} className="p-3.5 bg-[#2D1B5A] border border-purple-500/20">
+                <Card key={ann.id} className="p-3.5 bg-gradient-to-br from-[#1C1036] to-[#140A2A] border border-purple-500/25 shadow-lg">
                   <div className="flex justify-between items-start mb-1">
                     <h3 className="font-bold text-xs text-white">{ann.title}</h3>
-                    <span className="text-[10px] font-semibold text-purple-300 bg-[#211044] px-2 py-0.5 rounded-full border border-purple-500/20">
+                    <span className="text-[10px] font-semibold text-purple-300 bg-[#120722] px-2 py-0.5 rounded-full border border-purple-500/20">
                       {new Date(ann.date).toLocaleDateString()}
                     </span>
                   </div>
@@ -929,7 +1041,7 @@ export const EmployeeDashboard: React.FC = () => {
                 </Card>
               ))
             ) : (
-              <div className="text-center py-5 text-purple-300/70 bg-[#211044] rounded-2xl border border-dashed border-purple-500/20">
+              <div className="text-center py-5 text-purple-300/70 bg-[#140A2A] rounded-2xl border border-dashed border-purple-500/20">
                 <p className="text-xs font-semibold">No recent announcements</p>
               </div>
             )}
