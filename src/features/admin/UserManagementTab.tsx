@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Edit, Search, Filter, User, CheckCircle2, ShieldCheck, Mail, Phone, Building2, Briefcase, Trash2, Users } from "lucide-react";
+import { Edit, Search, Filter, User, CheckCircle2, ShieldCheck, Mail, Phone, Building2, Briefcase, Trash2, Users, Eye } from "lucide-react";
 import { useAdminAuth } from "../../context/AdminAuthContext";
 import { db } from "../../services/firebase/config";
 import { collection, onSnapshot, getDocs, doc, deleteDoc } from "firebase/firestore";
 import { ProfileEditModal } from "../../components/common/ProfileEditModal";
 import { DeleteEmployeeModal } from "./DeleteEmployeeModal";
+import { EmployeeProfileModal } from "./EmployeeProfileModal";
 import { TeamManagementTab } from "./TeamManagementTab";
 import { ManagedUser } from "../../types/user";
 import { updateEmployeeProfile } from "../../services/admin/adminProfileService";
@@ -28,6 +29,7 @@ export const UserManagementTab: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
   const [deleteModalUser, setDeleteModalUser] = useState<ManagedUser | null>(null);
+  const [profileModalEmp, setProfileModalEmp] = useState<ManagedUser | null>(null);
 
   useEffect(() => {
     if (!db) return;
@@ -342,6 +344,15 @@ export const UserManagementTab: React.FC = () => {
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button
+                        onClick={() => setProfileModalEmp(emp)}
+                        className="px-3 py-1.5 bg-purple-900/50 hover:bg-purple-800 text-purple-200 border border-purple-500/30 rounded-lg transition-all shadow-md flex items-center gap-1.5"
+                        title="View Profile Details"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-purple-300" />
+                        <span className="text-xs font-bold">Profile</span>
+                      </button>
+
+                      <button
                         onClick={() => handleEditClick(emp)}
                         className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded-lg transition-all shadow-md flex items-center gap-1.5"
                       >
@@ -373,6 +384,20 @@ export const UserManagementTab: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {profileModalEmp && (
+        <EmployeeProfileModal
+          isOpen={!!profileModalEmp}
+          onClose={() => setProfileModalEmp(null)}
+          employee={profileModalEmp}
+          adminUser={{
+            uid: user?.uid || 'admin',
+            email: loginId || user?.email || 'admin@exfin.com',
+            displayName: user?.displayName || loginId || 'Admin',
+            role: role || 'ADMIN'
+          }}
+        />
+      )}
 
       {selectedUser && (
         <ProfileEditModal
