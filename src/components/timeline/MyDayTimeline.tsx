@@ -286,28 +286,7 @@ export const MyDayTimeline: React.FC = () => {
       }
     });
 
-    // --- NOTIFICATION EVENTS ---
-    const allNotifications = realtimeSync?.notifications?.length ? realtimeSync.notifications : getStoredNotifications();
-    allNotifications.forEach(notif => {
-      const notifDateKolkata = getKolkataDateFromIso(notif.timestamp);
-      if (notifDateKolkata === todayKolkataYmd) {
-        const timeStr = formatIsoToTimeStr(notif.timestamp) || 'Today';
-        const timeMs = notif.timestamp ? new Date(notif.timestamp).getTime() : now.getTime();
 
-        compiledEvents.push({
-          id: `notif-${notif.id}`,
-          category: 'NOTIFICATION',
-          timeStr,
-          timeMs,
-          title: '🔔 Notification',
-          description: `${notif.title}: ${notif.message}`,
-          badgeLabel: 'Alert',
-          badgeStyle: 'bg-pink-500/15 text-pink-300 border-pink-500/30',
-          icon: Bell,
-          iconBg: 'bg-pink-500/20 text-pink-400 border-pink-500/30'
-        });
-      }
-    });
 
     // --- LEAVE EVENTS ---
     const allLeaves = realtimeSync?.leaves?.length ? realtimeSync.leaves : getStoredLeaves();
