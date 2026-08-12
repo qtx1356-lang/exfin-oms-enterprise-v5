@@ -82,7 +82,7 @@ export const Layout: React.FC = () => {
   const location = useLocation();
   const { employeeData } = useRegistration();
   const { user: adminUser } = useAdminAuth();
-  const { formattedDistance, isInsideGeofence, currentAddress } = useLocationContext();
+  const { formattedDistance, isInsideGeofence, currentAddress, locationStatus } = useLocationContext();
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [recentNotifs, setRecentNotifs] = useState<NotificationRecord[]>([]);
@@ -253,7 +253,9 @@ export const Layout: React.FC = () => {
     ? 'Offline'
     : (rawAddress && rawAddress !== 'Location unavailable')
       ? rawAddress
-      : 'Offline';
+      : locationStatus === 'error'
+        ? 'Location unavailable'
+        : 'Locating…';
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -286,8 +288,8 @@ export const Layout: React.FC = () => {
             {/* Global Sync Status (shown only when offline/pending) */}
             <GlobalSyncStatus />
 
-            {/* Marquee Location Address */}
-            <div className="hidden sm:block min-w-0 flex-1">
+            {/* Location Address */}
+            <div className="block min-w-0 flex-1">
               <MarqueeAddress address={displayAddress} />
             </div>
           </div>
