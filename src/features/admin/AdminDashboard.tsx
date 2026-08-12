@@ -81,6 +81,7 @@ import { OfficePulse } from './OfficePulse';
 import { AttendanceIntelligence } from './AttendanceIntelligence';
 import { SmartDailyBrief } from './SmartDailyBrief';
 import { AuditLogTab } from './AuditLogTab';
+import { PendingDeviceApprovalsTab } from './PendingDeviceApprovalsTab';
 import { createAuditLog } from '../../services/audit/auditService';
 
 export const safeStringify = (val: any): string => {
@@ -155,7 +156,8 @@ type AdminTab =
   | 'sync'
   | 'chat'
   | 'announcements'
-  | 'auditLog';
+  | 'auditLog'
+  | 'pendingDeviceApprovals';
 
 export const AdminDashboard: React.FC = () => {
   const { logout, user: adminUser, role = 'ADMIN', authorizedOffice = 'ALL', loginId } = useAdminAuth();
@@ -844,7 +846,8 @@ export const AdminDashboard: React.FC = () => {
       title: 'SECURITY & RBAC',
       items: [
         { id: 'rbac' as AdminTab, label: 'Roles & Permissions Matrix', icon: KeyRound, visible: canSeeRbac },
-        { id: 'registrations' as AdminTab, label: 'Device Registrations', icon: Smartphone, badge: pendingRegCount, visible: canSeeRegistrations },
+        { id: 'pendingDeviceApprovals' as AdminTab, label: 'Pending Device Approvals', icon: Smartphone, badge: pendingRegCount, visible: canSeeRegistrations },
+        { id: 'registrations' as AdminTab, label: 'Device Registrations', icon: Smartphone, visible: canSeeRegistrations },
         { id: 'auditLog' as AdminTab, label: 'Audit Log', icon: ShieldCheck, visible: isSuperAdmin() },
       ],
     },
@@ -1067,6 +1070,26 @@ export const AdminDashboard: React.FC = () => {
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && canSeeOverview && (
           <div className="space-y-6">
+            {pendingRegCount > 0 && canSeeRegistrations && (
+              <div 
+                onClick={() => setActiveTab('pendingDeviceApprovals')}
+                className="p-4 bg-gradient-to-r from-amber-500/20 via-purple-600/20 to-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between cursor-pointer hover:border-amber-500/50 transition-all shadow-lg animate-pulse"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-500/20 rounded-xl text-amber-300">
+                    <Smartphone className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">Pending Device Approvals Required</h4>
+                    <p className="text-xs text-amber-200/80">{pendingRegCount} {pendingRegCount === 1 ? 'new device is' : 'new devices are'} awaiting administrative approval.</p>
+                  </div>
+                </div>
+                <Button className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs pointer-events-none">
+                  Review Approvals →
+                </Button>
+              </div>
+            )}
+
             <SmartDailyBrief 
               registrations={deduplicatedRegistrations}
               attendanceRecords={attendanceRecords}
@@ -1165,8 +1188,14 @@ export const AdminDashboard: React.FC = () => {
                   <Activity className="w-4 h-4 text-emerald-400" /> Immediate Attention Summary
                 </h3>
                 <div className="space-y-2 text-xs">
-                  <div className="p-3 bg-[#1A0B36] rounded-xl flex justify-between items-center border border-purple-500/20">
-                    <span className="text-purple-200 font-medium">Pending Device Registrations</span>
+                  <div 
+                    onClick={() => setActiveTab('pendingDeviceApprovals')}
+                    className="p-3 bg-[#1A0B36] rounded-xl flex justify-between items-center border border-purple-500/20 cursor-pointer hover:border-amber-400/50 transition-all"
+                  >
+                    <span className="text-purple-200 font-medium flex items-center gap-2">
+                      Pending Device Registrations
+                      <span className="text-[10px] text-amber-400 font-bold underline">Review →</span>
+                    </span>
                     <span className="font-bold text-amber-400">{pendingRegCount}</span>
                   </div>
                   <div className="p-3 bg-[#1A0B36] rounded-xl flex justify-between items-center border border-purple-500/20">
@@ -1269,6 +1298,9 @@ export const AdminDashboard: React.FC = () => {
 
         {/* ANNOUNCEMENTS & ALERTS TAB */}
         {activeTab === 'announcements' && canSeeAnnouncements && <NotificationManagement />}
+
+        {/* PENDING DEVICE APPROVALS TAB */}
+        {activeTab === 'pendingDeviceApprovals' && canSeeRegistrations && <PendingDeviceApprovalsTab />}
 
         {/* AUDIT LOG TAB (SUPER ADMIN ONLY) */}
         {activeTab === 'auditLog' && (
