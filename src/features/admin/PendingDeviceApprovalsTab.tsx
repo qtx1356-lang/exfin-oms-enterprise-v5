@@ -81,7 +81,7 @@ export const PendingDeviceApprovalsTab: React.FC = () => {
         }
       });
 
-      // Send WhatsApp-enabled notification
+      // Send push & in-app notification
       try {
         const { sendNotification } = await import('../../services/notification/centralNotificationService');
         await sendNotification({
@@ -91,8 +91,7 @@ export const PendingDeviceApprovalsTab: React.FC = () => {
           title: 'Device Approved',
           message: 'Your device registration has been reviewed and approved.',
           priority: 'HIGH',
-          allowedChannels: ['IN_APP', 'PUSH', 'WHATSAPP'],
-          whatsappTemplateId: 'device_approval_alert',
+          allowedChannels: ['IN_APP', 'PUSH'],
           entityId: reg.id,
           entityType: 'REGISTRATION'
         });

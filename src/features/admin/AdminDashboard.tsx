@@ -86,7 +86,6 @@ import { AuditLogTab } from './AuditLogTab';
 import { PendingDeviceApprovalsTab } from './PendingDeviceApprovalsTab';
 import { createAuditLog } from '../../services/audit/auditService';
 import { AdminFAQScreen } from '../help/AdminFAQScreen';
-import { WhatsAppConfigTab } from './WhatsAppConfigTab';
 import { AdminLeaveManagementTab } from './AdminLeaveManagementTab';
 
 export const safeStringify = (val: any): string => {
@@ -161,7 +160,6 @@ type AdminTab =
   | 'sync'
   | 'chat'
   | 'announcements'
-  | 'whatsappConfig'
   | 'auditLog'
   | 'faq'
   | 'pendingDeviceApprovals';
@@ -789,8 +787,7 @@ export const AdminDashboard: React.FC = () => {
           title: 'Attendance Corrected',
           message: `Your attendance record for ${currentRecordData.date} has been updated by an administrator.`,
           priority: 'HIGH',
-          allowedChannels: ['IN_APP', 'PUSH', 'WHATSAPP'],
-          whatsappTemplateId: 'attendance_correction_v1',
+          allowedChannels: ['IN_APP', 'PUSH'],
           entityId: targetRecord.id,
           entityType: 'ATTENDANCE'
         });
@@ -891,7 +888,6 @@ export const AdminDashboard: React.FC = () => {
       items: [
         { id: 'chat' as AdminTab, label: 'Internal Chat', icon: MessageSquare, badge: totalUnreadChatCount, visible: true },
         { id: 'announcements' as AdminTab, label: 'Announcements & Alerts', icon: Megaphone, visible: canSeeAnnouncements },
-        { id: 'whatsappConfig' as AdminTab, label: 'WhatsApp Integration', icon: MessageCircle, visible: isSuperAdmin() },
       ],
     },
     {
@@ -1072,7 +1068,6 @@ export const AdminDashboard: React.FC = () => {
                 {activeTab === 'efficiency' && 'Team Efficiency'}
                 {activeTab === 'chat' && 'Internal Communications'}
                 {activeTab === 'announcements' && 'Announcements & Alerts'}
-                {activeTab === 'whatsappConfig' && 'WhatsApp Integration'}
               </h2>
               <p className="text-[10px] text-purple-300/70 font-medium truncate hidden sm:block">
                 EXFIN OMS Enterprise Governance Portal v6.0
@@ -1331,9 +1326,6 @@ export const AdminDashboard: React.FC = () => {
 
         {/* ANNOUNCEMENTS & ALERTS TAB */}
         {activeTab === 'announcements' && canSeeAnnouncements && <NotificationManagement />}
-
-        {/* WHATSAPP CONFIG TAB */}
-        {activeTab === 'whatsappConfig' && isSuperAdmin() && <WhatsAppConfigTab />}
 
         {/* FAQ TAB */}
         {activeTab === 'faq' && <AdminFAQScreen />}

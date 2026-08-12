@@ -401,8 +401,7 @@ export const reviewLeaveRequest = async (
           title,
           message,
           priority,
-          allowedChannels: ['IN_APP', 'PUSH', 'WHATSAPP'],
-          whatsappTemplateId: type === 'LEAVE_APPROVED' ? 'leave_approved_v1' : undefined,
+          allowedChannels: ['IN_APP', 'PUSH'],
           entityId: leaveId,
           entityType: 'LEAVE'
         });
@@ -477,8 +476,7 @@ export const adminOverrideLeave = async (
           title: `Leave Action Overridden by Admin`,
           message: `Your leave request from ${leave.startDate} to ${leave.endDate} was manually ${action === 'APPROVE' ? 'approved' : 'rejected'} by Admin. Override Reason: ${reason}`,
           priority: 'HIGH',
-          allowedChannels: ['IN_APP', 'PUSH', 'WHATSAPP'],
-          whatsappTemplateId: action === 'APPROVE' ? 'leave_approved_v1' : undefined,
+          allowedChannels: ['IN_APP', 'PUSH'],
           entityId: leaveId,
           entityType: 'LEAVE'
         });

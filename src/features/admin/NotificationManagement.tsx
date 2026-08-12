@@ -442,7 +442,7 @@ export const NotificationManagement: React.FC = () => {
         const notifId = `notif_${campaign.id}_${rec.employeeCode}`;
         const ref = doc(db, 'notifications', notifId);
         
-        const payload: NotificationRecord & { channels?: string[]; whatsappStatus?: string; whatsappTemplateId?: string } = {
+        const payload: NotificationRecord & { channels?: string[] } = {
           id: notifId,
           type: campaign.type === 'ANNOUNCEMENT' ? 'ANNOUNCEMENT' : (campaign.notificationType || 'SYSTEM_ALERT'),
           category: campaign.type === 'ANNOUNCEMENT' ? 'SYSTEM' : ((campaign.category as any) || 'SYSTEM'),
@@ -459,9 +459,7 @@ export const NotificationManagement: React.FC = () => {
           updatedAtDeviceTime: nowIso,
           serverSyncTime: nowIso,
           syncStatus: 'SYNCED',
-          channels: campaign.type === 'ANNOUNCEMENT' ? ['IN_APP', 'PUSH', 'WHATSAPP'] : ['IN_APP', 'PUSH'],
-          whatsappStatus: campaign.type === 'ANNOUNCEMENT' ? 'QUEUED' : undefined,
-          whatsappTemplateId: campaign.type === 'ANNOUNCEMENT' ? 'urgent_system_alert' : undefined,
+          channels: ['IN_APP', 'PUSH'],
           campaignId: campaign.id // Group key for analytics
         } as any;
 

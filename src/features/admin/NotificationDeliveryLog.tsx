@@ -41,7 +41,7 @@ export const NotificationDeliveryLog: React.FC = () => {
             <Info className="w-4 h-4 text-emerald-400" /> Multi-Channel Delivery Logs
           </h3>
           <p className="text-[10px] text-purple-300/60 mt-0.5">
-            Audit trail of In-App, Push, and WhatsApp Business dispatch status per business event
+            Audit trail of In-App and Push dispatch status per business event
           </p>
         </div>
         <button
@@ -108,32 +108,6 @@ export const NotificationDeliveryLog: React.FC = () => {
                   </span>
                   {log.channels?.includes('PUSH') ? (
                     <span className="text-emerald-400 font-bold">✓</span>
-                  ) : (
-                    <span className="text-purple-300/30">—</span>
-                  )}
-                </div>
-
-                {/* WhatsApp */}
-                <div className="flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 text-purple-200">
-                    <MessageCircle className="w-3.5 h-3.5 text-emerald-400" /> WhatsApp
-                  </span>
-                  {log.channels?.includes('WHATSAPP') ? (
-                    <span
-                      className={`font-bold text-[11px] ${
-                        log.whatsappStatus === 'FAILED'
-                          ? 'text-rose-400'
-                          : log.whatsappStatus === 'DELIVERED' || log.whatsappStatus === 'READ'
-                          ? 'text-emerald-400'
-                          : 'text-amber-400'
-                      }`}
-                    >
-                      {log.whatsappStatus === 'FAILED'
-                        ? 'FAILED ✗'
-                        : log.whatsappStatus === 'DELIVERED' || log.whatsappStatus === 'READ'
-                        ? 'DELIVERED ✓'
-                        : log.whatsappStatus || 'QUEUED'}
-                    </span>
                   ) : (
                     <span className="text-purple-300/30">—</span>
                   )}
