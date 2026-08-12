@@ -749,7 +749,7 @@ export const EmployeeDashboard: React.FC = () => {
               {todayDate}
             </span>
           </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-bold text-purple-100">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-bold text-purple-100">
             <div className="space-y-0.5">
               <p className="text-[10px] text-purple-300/70 uppercase">Attendance</p>
               <p className="text-sm font-black text-white">{attendanceStatusLabel}</p>
@@ -762,10 +762,6 @@ export const EmployeeDashboard: React.FC = () => {
               <p className="text-[10px] text-purple-300/70 uppercase">Tasks</p>
               <p className="text-sm font-black text-white">{completedTaskCount} / {assignedTaskCount} completed</p>
             </div>
-            <div className="space-y-0.5">
-              <p className="text-[10px] text-purple-300/70 uppercase">Notifications</p>
-              <p className="text-sm font-black text-pink-400">{unreadNotificationCount} unread</p>
-            </div>
           </div>
         </Card>
 
@@ -776,7 +772,7 @@ export const EmployeeDashboard: React.FC = () => {
           </h3>
           {(() => {
             const dueTodayTasks = myTasks.filter(t => t.status !== 'COMPLETED' && t.dueDate === todayStr);
-            const importantAlertsCount = dueTodayTasks.length + unreadNotificationCount;
+            const importantAlertsCount = dueTodayTasks.length;
             
             if (importantAlertsCount === 0) {
               return (
@@ -800,17 +796,6 @@ export const EmployeeDashboard: React.FC = () => {
                     </button>
                   </div>
                 ))}
-                {unreadNotificationCount > 0 && (
-                  <div className="flex items-center justify-between gap-3 bg-purple-950/40 p-3 rounded-xl border border-purple-500/10 text-xs">
-                    <span className="text-purple-200">🔔 You have <strong>{unreadNotificationCount} unread notification(s)</strong></span>
-                    <button 
-                      onClick={() => navigate('/notifications')} 
-                      className="text-[10px] font-black bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/30 px-3 py-1 rounded-full transition flex-shrink-0"
-                    >
-                      View
-                    </button>
-                  </div>
-                )}
               </div>
             );
           })()}
@@ -940,36 +925,6 @@ export const EmployeeDashboard: React.FC = () => {
             ) : (
               <div className="text-center py-5 text-purple-300/70 bg-[#211044] rounded-2xl border border-dashed border-purple-500/20">
                 <p className="text-xs font-semibold">No recent announcements</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Notifications */}
-        <div>
-          <div className="flex justify-between items-center mb-2.5">
-            <h2 className="text-xs font-extrabold text-purple-300/80 uppercase tracking-wider flex items-center gap-1.5">
-              <Bell className="w-4 h-4 text-amber-400" />
-              Recent Notifications
-            </h2>
-          </div>
-          <div className="flex flex-col gap-2">
-            {notifications.length > 0 ? (
-              notifications.slice(0, 3).map((notif) => (
-                <div key={notif.id} className="flex items-start gap-3 p-3 bg-[#2D1B5A] rounded-2xl border border-purple-500/20">
-                  <div className="w-2 h-2 rounded-full bg-[#7C3AED] mt-1.5 flex-shrink-0 shadow-[0_0_8px_#7C3AED]" />
-                  <div className="flex-1">
-                    <h3 className="text-xs font-bold text-white mb-0.5">{notif.title}</h3>
-                    <p className="text-[11px] text-purple-200/80 leading-tight">{notif.message}</p>
-                  </div>
-                  <span className="text-[10px] font-semibold text-purple-300/60">
-                    {new Date(notif.timestamp).toLocaleDateString()}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-5 text-purple-300/70 bg-[#211044] rounded-2xl border border-dashed border-purple-500/20">
-                <p className="text-xs font-semibold">No new notifications</p>
               </div>
             )}
           </div>
