@@ -15,6 +15,8 @@ import { FeatureKey } from '../types/roles';
 import { DeviceRegistration } from '../features/registration/DeviceRegistration';
 import { PendingApproval } from '../features/registration/PendingApproval';
 import { RejectedScreen } from '../features/registration/RejectedScreen';
+import { MobileRecoveryScreen } from '../features/registration/MobileRecoveryScreen';
+import { SuspendedNoticeScreen } from '../features/registration/SuspendedNoticeScreen';
 import { LoadingScreen } from '../components/ui/LoadingScreen';
 import { WelcomeScreen } from '../components/ui/WelcomeScreen';
 import { EmployeeDashboard } from '../features/employee/EmployeeDashboard';
@@ -91,13 +93,22 @@ const EmployeeGuard = () => {
   const { status } = useRegistration();
   const [showWelcome, setShowWelcome] = React.useState(true);
 
-  if (showWelcome || status === 'loading') {
+  if (status === 'loading') {
+    return <LoadingScreen />;
+  }
+
+  if (status === 'mobile_recovery') {
+    return <MobileRecoveryScreen />;
+  }
+
+  if (showWelcome) {
     return <WelcomeScreen onProceed={() => setShowWelcome(false)} />;
   }
 
   if (status === 'unregistered') return <DeviceRegistration />;
   if (status === 'Pending Approval') return <PendingApproval />;
   if (status === 'Rejected') return <RejectedScreen />;
+  if (status === 'suspended_notice') return <SuspendedNoticeScreen />;
 
   return <Outlet />;
 };
