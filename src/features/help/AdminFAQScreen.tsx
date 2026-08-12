@@ -15,8 +15,8 @@ const adminFaqData = [
         a: 'The employee\'s pending registration becomes approved/active according to the existing system, and the employee can access the dashboard.'
       },
       {
-        q: 'Can I delete an employee?',
-        a: 'Employee deletion is a Super Admin-only operation. Admin users should not have access to the destructive employee deletion functions.'
+        q: 'How do I manage an employee\'s profile?',
+        a: 'Open Employee Management and select the employee to view their profile, attendance, device information, tasks, leave and other available details.'
       }
     ]
   },
@@ -58,8 +58,8 @@ const adminFaqData = [
         a: 'Verify that the correction was saved to the authoritative backend and that the employee app has synchronized the updated attendance record.'
       },
       {
-        q: 'Are attendance corrections logged?',
-        a: 'Important administrative changes should appear in the Super Admin Audit Log with the administrator, timestamp, action and relevant before/after information.'
+        q: 'Where can I view administrative activity?',
+        a: 'Authorized administrative actions are recorded in the Audit Log, including important changes to employee records, attendance, devices and other administrative operations.'
       }
     ]
   },
@@ -82,23 +82,6 @@ const adminFaqData = [
       {
         q: 'Why is an employee\'s latest attendance not appearing?',
         a: 'Check:\n- backend record\n- sync status\n- employee account identity\n- network connectivity\n- last successful sync time\n\nDo not manually create duplicate attendance records as a workaround.'
-      }
-    ]
-  },
-  {
-    category: 'SUPER ADMIN',
-    questions: [
-      {
-        q: 'Who can view the Audit Log?',
-        a: 'Only Super Admin.'
-      },
-      {
-        q: 'Who can completely delete an employee?',
-        a: 'Only Super Admin.'
-      },
-      {
-        q: 'Can Admin modify Super Admin permissions?',
-        a: 'No. Super Admin-only permissions must remain protected by backend authorization.'
       }
     ]
   }
