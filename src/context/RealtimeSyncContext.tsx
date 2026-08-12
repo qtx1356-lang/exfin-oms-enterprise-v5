@@ -21,6 +21,7 @@ import { syncPendingExpenseRecords } from '../services/expenses/expenseSyncEngin
 import { syncPendingAttendanceRecords } from '../services/attendance/syncEngine';
 import { syncAllPendingRecords } from '../services/sync/globalSyncEngine';
 import { saveTaskRecord, getStoredTasks } from '../services/planner/taskStorage';
+import { isNotificationDeletedLocally } from '../services/notification/notificationStorage';
 import { saveLeaveRecord, getStoredLeaves } from '../services/leave/leaveStorage';
 import { saveExpenseRecord, getStoredExpenseRecords } from '../services/expenses/expenseStorage';
 import { saveAttendanceRecord, getStoredAttendanceRecords } from '../services/attendance/attendanceStorage';
@@ -268,40 +269,118 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     );
     activeUnsubsRef.current.push(unsubExpenses);
 
-    // 5. Notifications Listener (Identity isolated to recipientEmployeeCode)
-    const notifQ = query(
-      collection(db, 'notifications'),
-      where('recipientEmployeeCode', '==', empCode),
-      orderBy('timestamp', 'desc'),
-      limit(50)
-    );
+    // 5. Notifications Listener (Identity isolated to recipientEmployeeCode & recipientUserId)
+    const notifQueries = [];
+    if (empCode) {
+      notifQueries.push(
+        query(
+          collection(db, 'notifications'),
+          where('recipientEmployeeCode', '==', empCode)
+        )
+      );
+    }
+    const empId = employeeData?.id || '';
+    if (empId && empId !== empCode) {
+      notifQueries.push(
+        query(
+          collection(db, 'notifications'),
+          where('recipientUserId', '==', empId)
+        )
+      );
+    }
+    if (employeeData?.isTeamLeader) {
+      if (empId) {
+        notifQueries.push(
+          query(
+            collection(db, 'notifications'),
+            where('recipientTeamLeaderId', '==', empId)
+          )
+        );
+      }
+      if (empCode && empCode !== empId) {
+        notifQueries.push(
+          query(
+            collection(db, 'notifications'),
+            where('recipientTeamLeaderId', '==', empCode)
+          )
+        );
+      }
+    }
 
-    const unsubNotifications = onSnapshot(
-      notifQ,
-      (snapshot) => {
-        const notifList: NotificationRecord[] = [];
-        let unreadCount = 0;
+    const notifSnapshots: { [queryIndex: number]: NotificationRecord[] } = {};
 
-        snapshot.forEach((docSnap) => {
-          const notif = { id: docSnap.id, ...docSnap.data() } as NotificationRecord;
-          notifList.push(notif);
-          if (!notif.read) {
-            unreadCount++;
-          }
-          logSyncListenerUpdate('notifications', docSnap.id);
-        });
+    const unsubNotifsList = notifQueries.map((q, qIdx) => {
+      return onSnapshot(
+        q,
+        (snapshot) => {
+          const list: NotificationRecord[] = [];
+          snapshot.forEach((docSnap) => {
+            const d = docSnap.data() as any;
+            const deletedUserIds: string[] = d.deletedUserIds || [];
+            
+            // Check if deleted
+            const isDeleted =
+              d.deleted === true ||
+              deletedUserIds.includes(empId) ||
+              deletedUserIds.includes(empCode) ||
+              isNotificationDeletedLocally(docSnap.id);
 
-        setNotifications(notifList);
-        setUnreadNotificationCount(unreadCount);
-      },
-      (err) => console.warn('RealtimeSync: Notifications snapshot error:', err)
-    );
-    activeUnsubsRef.current.push(unsubNotifications);
+            if (isDeleted) {
+              return;
+            }
+
+            const canonicalTime = d.timestamp || d.createdAt || new Date().toISOString();
+            const record: NotificationRecord = {
+              id: d.id || docSnap.id,
+              type: d.type,
+              category: d.category || 'SYSTEM',
+              title: d.title || '',
+              message: d.message || '',
+              recipientUserId: d.recipientUserId || '',
+              recipientEmployeeCode: d.recipientEmployeeCode || '',
+              recipientRole: d.recipientRole || 'EMPLOYEE',
+              recipientTeamLeaderId: d.recipientTeamLeaderId || '',
+              priority: d.priority || 'NORMAL',
+              route: d.route || '',
+              entityId: d.entityId || '',
+              entityType: d.entityType || '',
+              read: d.read || false,
+              timestamp: canonicalTime,
+              createdAtDeviceTime: d.createdAtDeviceTime || canonicalTime,
+              updatedAtDeviceTime: d.updatedAtDeviceTime || canonicalTime,
+              serverSyncTime: d.serverSyncTime || '',
+              syncStatus: 'SYNCED',
+              deleted: d.deleted || false,
+              deletedUserIds: deletedUserIds,
+            };
+            list.push(record);
+          });
+
+          notifSnapshots[qIdx] = list;
+
+          // Merge all queries
+          const mergedMap = new Map<string, NotificationRecord>();
+          Object.values(notifSnapshots).forEach((arr) => {
+            arr.forEach((n) => mergedMap.set(n.id, n));
+          });
+
+          const finalNotifsList = Array.from(mergedMap.values()).sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+
+          setNotifications(finalNotifsList);
+          setUnreadNotificationCount(finalNotifsList.filter((n) => !n.read).length);
+        },
+        (err) => console.warn(`RealtimeSync: Notifications snapshot ${qIdx} error:`, err)
+      );
+    });
+
+    activeUnsubsRef.current.push(...unsubNotifsList);
 
     return () => {
       cleanupListeners();
     };
-  }, [empCode]);
+  }, [empCode, employeeData]);
 
   // OPTIMISTIC TASK UPDATE
   const updateTaskOptimistically = useCallback(

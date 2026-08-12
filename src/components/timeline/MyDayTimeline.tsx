@@ -67,6 +67,20 @@ const formatIsoToTimeStr = (isoStr?: string): string => {
   }
 };
 
+const getKolkataDateFromIso = (isoStr?: string | null): string => {
+  if (!isoStr) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(isoStr)) {
+    return isoStr;
+  }
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  } catch {
+    return '';
+  }
+};
+
 export const MyDayTimeline: React.FC = () => {
   const { employeeData } = useRegistration();
   const currentEmpCode = employeeData?.employeeCode || employeeData?.id || '';
@@ -83,19 +97,29 @@ export const MyDayTimeline: React.FC = () => {
   const isOnline = realtimeSync ? realtimeSync.isOnline : navigator.onLine;
 
   const [showFullDayModal, setShowFullDayModal] = useState<boolean>(false);
+  const [currentTimeTick, setCurrentTimeTick] = useState<number>(Date.now());
+
+  // Dynamic ticking to handle midnight transitions/clock ticking
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTimeTick(Date.now());
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Compute Today's events dynamically & reactively
   const { events, currentStatus } = useMemo(() => {
     const now = new Date();
-    const todayYmd = now.toISOString().split('T')[0];
-    const todayFormattedDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const todayKolkataYmd = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+    console.log('TIMELINE RE-EVALUATION AT:', now.toISOString(), 'KOLKATA DATE IS:', todayKolkataYmd);
 
     // 1. Fetch Today's Attendance for current employee
     const allAttendance = realtimeSync?.attendance?.length ? realtimeSync.attendance : getStoredAttendanceRecords();
     const todayRecord = allAttendance.find(
-      a => (a.date === todayYmd || a.date === todayFormattedDateStr) && 
+      a => a.date === todayKolkataYmd && 
            (a.employeeId === currentEmpCode || a.employeeId === currentEmpId)
-    ) || (currentEmpCode ? getTodayAttendanceRecord(currentEmpCode, todayYmd) : null);
+    ) || (currentEmpCode ? getTodayAttendanceRecord(currentEmpCode, todayKolkataYmd) : null);
 
     const compiledEvents: TimelineEventItem[] = [];
 
@@ -200,62 +224,73 @@ export const MyDayTimeline: React.FC = () => {
     myTasks.forEach(task => {
       // Task completed today
       if (task.status === 'COMPLETED') {
-        const completedIso = task.lastModifiedAt || (task as any).completedAt || task.startDate;
-        const timeStr = formatIsoToTimeStr(completedIso) || 'Today';
-        const timeMs = completedIso ? new Date(completedIso).getTime() : now.getTime();
+        const completedIso = task.completedAt || task.lastModifiedAt || task.startDate;
+        const completionDateKolkata = getKolkataDateFromIso(completedIso);
         
-        compiledEvents.push({
-          id: `task-comp-${task.id}`,
-          category: 'TASK',
-          timeStr,
-          timeMs,
-          title: '📋 Task Completed',
-          description: task.title,
-          badgeLabel: 'Completed',
-          badgeStyle: 'bg-[#7C3AED]/20 text-purple-200 border-purple-500/30',
-          icon: CheckSquare,
-          iconBg: 'bg-[#7C3AED]/30 text-purple-300 border-purple-500/30'
-        });
+        if (completionDateKolkata === todayKolkataYmd) {
+          const timeStr = formatIsoToTimeStr(completedIso) || 'Today';
+          const timeMs = completedIso ? new Date(completedIso).getTime() : now.getTime();
+          
+          compiledEvents.push({
+            id: `task-comp-${task.id}`,
+            category: 'TASK',
+            timeStr,
+            timeMs,
+            title: '📋 Task Completed',
+            description: task.title,
+            badgeLabel: 'Completed',
+            badgeStyle: 'bg-[#7C3AED]/20 text-purple-200 border-purple-500/30',
+            icon: CheckSquare,
+            iconBg: 'bg-[#7C3AED]/30 text-purple-300 border-purple-500/30'
+          });
+        }
       } else if (task.completionPercentage > 0 || task.status === 'IN_PROGRESS') {
         // Task progress updated today
         const updatedIso = task.lastModifiedAt || task.startDate;
-        const timeStr = formatIsoToTimeStr(updatedIso) || 'Today';
-        const timeMs = updatedIso ? new Date(updatedIso).getTime() : now.getTime() - 3600000;
+        const updatedDateKolkata = getKolkataDateFromIso(updatedIso);
 
-        compiledEvents.push({
-          id: `task-[#7C3AED]-${task.id}`,
-          category: 'TASK',
-          timeStr,
-          timeMs,
-          title: '📋 Task Updated',
-          description: `${task.title} (${task.completionPercentage || 50}% progress)`,
-          badgeLabel: 'In Progress',
-          badgeStyle: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-          icon: Briefcase,
-          iconBg: 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-        });
-      } else if (task.dueDate && task.dueDate.startsWith(todayYmd)) {
-        // Task due or assigned today
-        compiledEvents.push({
-          id: `task-due-${task.id}`,
-          category: 'TASK',
-          timeStr: task.dueTime || 'Today',
-          timeMs: parseTimeStringToMs(task.dueTime || '10:00 AM', now),
-          title: '📋 Task Due Today',
-          description: task.title,
-          badgeLabel: 'Assigned',
-          badgeStyle: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
-          icon: Briefcase,
-          iconBg: 'bg-purple-500/20 text-purple-300 border-purple-500/30'
-        });
+        if (updatedDateKolkata === todayKolkataYmd) {
+          const timeStr = formatIsoToTimeStr(updatedIso) || 'Today';
+          const timeMs = updatedIso ? new Date(updatedIso).getTime() : now.getTime() - 3600000;
+
+          compiledEvents.push({
+            id: `task-[#7C3AED]-${task.id}`,
+            category: 'TASK',
+            timeStr,
+            timeMs,
+            title: '📋 Task Updated',
+            description: `${task.title} (${task.completionPercentage || 50}% progress)`,
+            badgeLabel: 'In Progress',
+            badgeStyle: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+            icon: Briefcase,
+            iconBg: 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+          });
+        }
+      } else if (task.dueDate) {
+        // Task due today
+        const dueDateKolkata = getKolkataDateFromIso(task.dueDate);
+        if (dueDateKolkata === todayKolkataYmd) {
+          compiledEvents.push({
+            id: `task-due-${task.id}`,
+            category: 'TASK',
+            timeStr: task.dueTime || 'Today',
+            timeMs: parseTimeStringToMs(task.dueTime || '10:00 AM', now),
+            title: '📋 Task Due Today',
+            description: task.title,
+            badgeLabel: 'Assigned',
+            badgeStyle: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+            icon: Briefcase,
+            iconBg: 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+          });
+        }
       }
     });
 
     // --- NOTIFICATION EVENTS ---
     const allNotifications = realtimeSync?.notifications?.length ? realtimeSync.notifications : getStoredNotifications();
     allNotifications.forEach(notif => {
-      const notifDateStr = notif.timestamp ? notif.timestamp.split('T')[0] : '';
-      if (notifDateStr === todayYmd || notifDateStr === todayFormattedDateStr) {
+      const notifDateKolkata = getKolkataDateFromIso(notif.timestamp);
+      if (notifDateKolkata === todayKolkataYmd) {
         const timeStr = formatIsoToTimeStr(notif.timestamp) || 'Today';
         const timeMs = notif.timestamp ? new Date(notif.timestamp).getTime() : now.getTime();
 
@@ -282,7 +317,7 @@ export const MyDayTimeline: React.FC = () => {
     );
 
     myLeaves.forEach(leave => {
-      if (leave.startDate <= todayYmd && leave.endDate >= todayYmd) {
+      if (leave.startDate <= todayKolkataYmd && leave.endDate >= todayKolkataYmd) {
         compiledEvents.push({
           id: `leave-${leave.id}`,
           category: 'LEAVE',
@@ -306,7 +341,7 @@ export const MyDayTimeline: React.FC = () => {
     let statusSubtext = 'Workday hasn\'t started yet';
     let statusBadgeColor = 'bg-gray-500/15 text-gray-300 border-gray-500/30';
 
-    if (myLeaves.some(l => l.startDate <= todayYmd && l.endDate >= todayYmd && l.status === 'Approved')) {
+    if (myLeaves.some(l => l.startDate <= todayKolkataYmd && l.endDate >= todayKolkataYmd && l.status === 'Approved')) {
       statusText = 'On Leave';
       statusSubtext = 'Approved leave active today';
       statusBadgeColor = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
@@ -338,7 +373,7 @@ export const MyDayTimeline: React.FC = () => {
         badgeColor: statusBadgeColor
       }
     };
-  }, [realtimeSync, currentEmpCode, currentEmpId]);
+  }, [realtimeSync, currentEmpCode, currentEmpId, currentTimeTick]);
 
   const displayedEvents = events.slice(0, 5);
   const hasMore = events.length > 5;

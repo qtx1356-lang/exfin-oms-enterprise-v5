@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { useRegistration } from '../../context/RegistrationContext';
+import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { logStartupTag } from '../../services/startup/startupPerformanceLogger';
 import { Card } from '../../components/ui/Card';
 import { 
@@ -140,11 +141,25 @@ const CardError: React.FC<{ title: string; onRetry?: () => void }> = ({ title, o
   </div>
 );
 
+const getKolkataDateFromIso = (isoStr?: string | null): string => {
+  if (!isoStr) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(isoStr)) {
+    return isoStr;
+  }
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  } catch {
+    return '';
+  }
+};
+
 export const EmployeeDashboard: React.FC = () => {
   const { employeeData } = useRegistration();
   const navigate = useNavigate();
+  const { notifications, unreadNotificationCount } = useRealtimeSync();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
   const [leaveBalance, setLeaveBalance] = useState({ available: 24, pending: 0, used: 0 });
   const [hasPayslips, setHasPayslips] = useState<boolean | null>(null);
@@ -157,11 +172,24 @@ export const EmployeeDashboard: React.FC = () => {
   const [tasksError, setTasksError] = useState<string | null>(null);
   const [leavesLoading, setLeavesLoading] = useState(true);
   const [leavesError, setLeavesError] = useState<string | null>(null);
-  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
 
   // Personal Work Pulse States
   const [activeView, setActiveView] = useState<'dashboard' | 'workpulse'>('dashboard');
+  const [todayStr, setTodayStr] = useState<string>(getFormattedDateStr());
+
+  // Periodically verify if the IST date has changed (midnight rollover)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const nowStr = getFormattedDateStr();
+      if (nowStr !== todayStr) {
+        console.log('IST date changed from', todayStr, 'to', nowStr);
+        setTodayStr(nowStr);
+      }
+    }, 15000); // Check every 15s for high precision
+    return () => clearInterval(interval);
+  }, [todayStr]);
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
@@ -408,28 +436,8 @@ export const EmployeeDashboard: React.FC = () => {
       console.error('Error fetching announcements:', error);
     });
 
-    // Fetch notifications
-    const notificationsQ = query(
-      collection(db, 'notifications'),
-      where('recipientEmployeeCode', '==', employeeData.employeeCode)
-    );
-    const unsubNotifications = onSnapshot(notificationsQ, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Notification[];
-      const sorted = data.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
-      setNotifications(sorted);
-      setNotificationsLoading(false);
-    }, (error) => {
-      console.error('Error fetching notifications:', error);
-      setNotificationsError("Unable to load");
-      setNotificationsLoading(false);
-    });
-
     return () => {
       unsubAnnouncements();
-      unsubNotifications();
     };
   }, [employeeData]);
 
@@ -488,7 +496,6 @@ export const EmployeeDashboard: React.FC = () => {
   const greetingPrefix = currentHour < 12 ? 'GOOD MORNING!' : currentHour < 17 ? 'GOOD AFTERNOON!' : 'GOOD EVENING!';
 
   // Today's attendance status & details
-  const todayStr = getFormattedDateStr();
   const todayAttendanceRec = attendanceRecords.find(r => r.date === todayStr) || todayAttendance;
 
   const hasApprovedLeaveToday = allLeaves.some(l => 
@@ -538,8 +545,20 @@ export const EmployeeDashboard: React.FC = () => {
     (t.assignedToEmployeeIds && t.assignedToEmployeeIds.includes(employeeId))
   );
 
-  const assignedTaskCount = myTasks.length;
-  const completedTaskCount = myTasks.filter(t => t.status === 'COMPLETED').length;
+  // Strict date isolation for today's tasks status & work progress
+  const todayTasks = myTasks.filter(t => {
+    const isCompleted = t.status === 'COMPLETED';
+    if (isCompleted) {
+      const completionDate = getKolkataDateFromIso(t.completedAt || t.lastModifiedAt);
+      return completionDate === todayStr;
+    } else {
+      const dueKolkata = getKolkataDateFromIso(t.dueDate);
+      return dueKolkata === todayStr;
+    }
+  });
+
+  const assignedTaskCount = todayTasks.length;
+  const completedTaskCount = todayTasks.filter(t => t.status === 'COMPLETED').length;
   const taskProgressPercentage = assignedTaskCount > 0 
     ? Math.round((completedTaskCount / assignedTaskCount) * 100) 
     : 0;
@@ -568,9 +587,6 @@ export const EmployeeDashboard: React.FC = () => {
     .sort((a, b) => a.startDate.localeCompare(b.startDate));
 
   const nextUpcomingLeave = upcomingLeaves.length > 0 ? upcomingLeaves[0] : null;
-
-  // Unread Notifications Count
-  const unreadNotificationCount = notifications.filter(n => !n.read).length;
 
   // -------------------------------------------------------------------------
   // WORK PULSE CALCULATIONS

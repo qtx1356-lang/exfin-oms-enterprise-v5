@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import {
   getNotificationsForUser,
   markNotificationRead,
@@ -35,7 +36,15 @@ export const NotificationCenter: React.FC = () => {
   const { employeeData } = useRegistration();
   const { user: adminUser } = useAdminAuth();
 
-  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
+  let realtimeSync: any = null;
+  try {
+    realtimeSync = useRealtimeSync();
+  } catch (e) {
+    // Context is not available
+  }
+
+  const [localNotifications, setLocalNotifications] = useState<NotificationRecord[]>([]);
+  const notifications = realtimeSync ? realtimeSync.notifications : localNotifications;
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [activeTab, setActiveTab] = useState<'ALL' | 'UNREAD' | 'IMPORTANT' | 'SETTINGS'>('ALL');
@@ -57,6 +66,10 @@ export const NotificationCenter: React.FC = () => {
 
   const loadNotifications = async () => {
     if (!currentUser) return;
+    if (realtimeSync) {
+      setLoading(false);
+      return; // Already resolved reactively
+    }
     setLoading(true);
     try {
       const data = await getNotificationsForUser(currentUser);
@@ -64,7 +77,7 @@ export const NotificationCenter: React.FC = () => {
       const sorted = [...data].sort(
         (a, b) => new Date(b.timestamp || b.createdAt || b.createdAtDeviceTime).getTime() - new Date(a.timestamp || a.createdAt || a.createdAtDeviceTime).getTime()
       );
-      setNotifications(sorted);
+      setLocalNotifications(sorted);
     } catch (err) {
       console.error('Error loading notifications:', err);
     } finally {
@@ -73,13 +86,17 @@ export const NotificationCenter: React.FC = () => {
   };
 
   useEffect(() => {
+    if (realtimeSync) {
+      setLoading(false);
+      return;
+    }
     loadNotifications();
-    // Refresh periodically if on-screen
+    // Refresh periodically if on-screen and not using real-time sync
     const interval = setInterval(() => {
       loadNotifications();
     }, 15000);
     return () => clearInterval(interval);
-  }, [employeeData, adminUser]);
+  }, [employeeData, adminUser, realtimeSync]);
 
   const handleMarkAllRead = async () => {
     if (!currentUser) return;
@@ -95,10 +112,12 @@ export const NotificationCenter: React.FC = () => {
     try {
       if (!notif.read) {
         await markNotificationRead(notif.id);
-        // Instant local update
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
-        );
+        // Conditional local update if not using real-time sync
+        if (!realtimeSync) {
+          setLocalNotifications((prev) =>
+            prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
+          );
+        }
       }
       
       // Navigate to correct module deep-link if route is configured
@@ -138,7 +157,9 @@ export const NotificationCenter: React.FC = () => {
     e.stopPropagation();
     try {
       await deleteNotification(id, currentUser || undefined);
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      if (!realtimeSync) {
+        setLocalNotifications((prev) => prev.filter((n) => n.id !== id));
+      }
     } catch (err) {
       console.error('Error deleting notification:', err);
     }
