@@ -730,7 +730,10 @@ export const AdminDashboard: React.FC = () => {
         correctionHistory: updatedHistory,
         checkoutType: updatedCheckoutType,
         checkOutMode: updatedCheckoutMode,
-        manualRectified: true
+        manualRectified: true,
+        isAdminRectified: true,
+        updatedAt: new Date().toISOString(),
+        version: ((currentRecordData as any)?.version || 1) + 1
       };
 
       await updateDoc(targetDocRef, updatePayload);

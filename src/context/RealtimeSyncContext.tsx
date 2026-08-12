@@ -202,39 +202,110 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     );
     activeUnsubsRef.current.push(unsubLeaves);
 
-    // 3. Attendance Listener (Identity isolated to employeeId / employeeCode)
-    const attQ = query(
-      collection(db, 'attendance'),
-      where('employeeId', '==', empCode),
-      limit(30)
-    );
+    // 3. Attendance Listener (Robust identity isolation covering employeeId and employeeCode)
+    const attendanceQueries = [];
+    if (empCode) {
+      attendanceQueries.push(
+        query(collection(db, 'attendance'), where('employeeId', '==', empCode), limit(30))
+      );
+      attendanceQueries.push(
+        query(collection(db, 'attendance'), where('employeeCode', '==', empCode), limit(30))
+      );
+    }
+    const currentUserId = employeeData?.id || '';
+    if (currentUserId && currentUserId !== empCode) {
+      attendanceQueries.push(
+        query(collection(db, 'attendance'), where('employeeId', '==', currentUserId), limit(30))
+      );
+      attendanceQueries.push(
+        query(collection(db, 'attendance'), where('employeeCode', '==', currentUserId), limit(30))
+      );
+    }
 
-    const unsubAtt = onSnapshot(
-      attQ,
-      (snapshot) => {
-        const serverList: AttendanceRecord[] = [];
-        snapshot.forEach((docSnap) => {
-          const item = { id: docSnap.id, ...docSnap.data() } as AttendanceRecord;
-          serverList.push(item);
-          logSyncListenerUpdate('attendance', docSnap.id);
-        });
-
-        setAttendance((prevAtt) => {
-          const map = new Map<string, AttendanceRecord>();
-          serverList.forEach((sa) => map.set(sa.id || sa.docId, sa));
-
-          prevAtt.forEach((la) => {
-            if (la.syncStatus === 'Pending Sync' || la.syncStatus === 'Syncing...') {
-              map.set(la.id || la.docId, la);
-            }
+    attendanceQueries.forEach((attQ) => {
+      const unsubAtt = onSnapshot(
+        attQ,
+        (snapshot) => {
+          const serverList: AttendanceRecord[] = [];
+          snapshot.forEach((docSnap) => {
+            const item = { id: docSnap.id, ...docSnap.data() } as AttendanceRecord;
+            serverList.push(item);
+            logSyncListenerUpdate('attendance', docSnap.id);
           });
 
-          return Array.from(map.values());
-        });
-      },
-      (err) => console.warn('RealtimeSync: Attendance snapshot error:', err)
-    );
-    activeUnsubsRef.current.push(unsubAtt);
+          setAttendance((prevAtt) => {
+            const map = new Map<string, AttendanceRecord>();
+            const prevMap = new Map<string, AttendanceRecord>();
+            prevAtt.forEach(la => prevMap.set(la.id || la.docId || `${la.employeeId}_${la.date}`, la));
+
+            serverList.forEach((sa) => {
+              const key = sa.id || sa.docId || `${sa.employeeId}_${sa.date}`;
+              const localRec = prevMap.get(key);
+
+              let syncDecision = 'CREATED';
+              let finalRec = sa;
+
+              if (localRec) {
+                const localPending = localRec.syncStatus === 'Pending';
+                const serverUpdated = sa.updatedAt ? new Date(sa.updatedAt).getTime() : 0;
+                const localUpdated = localRec.updatedAt ? new Date(localRec.updatedAt).getTime() : 0;
+                const serverVersion = sa.version || 0;
+                const localVersion = localRec.version || 0;
+                const serverRectified = sa.manualRectified || sa.isAdminRectified || !!sa.correctedAt;
+                const localRectified = localRec.manualRectified || localRec.isAdminRectified || !!localRec.correctedAt;
+
+                if (localPending && !serverRectified) {
+                  syncDecision = 'LOCAL_PENDING';
+                  finalRec = localRec;
+                } else if (serverRectified || serverUpdated > localUpdated || serverVersion > localVersion || !localRectified) {
+                  syncDecision = 'SERVER_NEWER';
+                  finalRec = sa;
+                } else if (localUpdated > serverUpdated) {
+                  syncDecision = 'LOCAL_NEWER';
+                  finalRec = localRec;
+                } else {
+                  syncDecision = 'SAME';
+                  finalRec = sa;
+                }
+              } else {
+                syncDecision = 'CREATED_FROM_SERVER';
+                finalRec = sa;
+              }
+
+              // Diagnostic logging (Rule 20)
+              console.log('--- ATTENDANCE SYNC DIAGNOSTIC LOG ---');
+              console.log('CURRENT EMPLOYEE ID:', empCode, currentUserId);
+              console.log('ATTENDANCE DATE:', sa.date);
+              console.log('LOCAL ATTENDANCE:', localRec);
+              console.log('SERVER ATTENDANCE:', sa);
+              console.log('LOCAL UPDATED AT:', localRec?.updatedAt);
+              console.log('SERVER UPDATED AT:', sa.updatedAt);
+              console.log('LOCAL VERSION:', localRec?.version);
+              console.log('SERVER VERSION:', sa.version);
+              console.log('SYNC DECISION:', syncDecision);
+              console.log('FINAL LOCAL ATTENDANCE:', finalRec);
+              console.log('---------------------------------------');
+
+              map.set(key, finalRec);
+              saveAttendanceRecord(finalRec);
+            });
+
+            prevAtt.forEach((la) => {
+              const key = la.id || la.docId || `${la.employeeId}_${la.date}`;
+              if (!map.has(key)) {
+                if (la.syncStatus === 'Pending') {
+                  map.set(key, la);
+                }
+              }
+            });
+
+            return Array.from(map.values());
+          });
+        },
+        (err) => console.warn('RealtimeSync: Attendance snapshot error:', err)
+      );
+      activeUnsubsRef.current.push(unsubAtt);
+    });
 
     // 4. Expenses Listener (Identity isolated to employeeCode)
     const expQ = query(

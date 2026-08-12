@@ -404,7 +404,7 @@ export const trackSmartOfficeExit = (
   currentCoords?: { latitude: number; longitude: number },
   currentTownCity?: string
 ): AttendanceRecord => {
-  if (!record || record.checkOutTime || record.manualRectified) {
+  if (!record || record.checkOutTime || record.manualRectified || record.isAdminRectified || record.correctedAt) {
     return record;
   }
 
@@ -497,7 +497,7 @@ export const runAutoCheckoutFinalizer = (): void => {
   });
 
   records.forEach((rec) => {
-    if (rec.checkOutTime || rec.manualRectified) {
+    if (rec.checkOutTime || rec.manualRectified || rec.isAdminRectified || rec.correctedAt) {
       return;
     }
 

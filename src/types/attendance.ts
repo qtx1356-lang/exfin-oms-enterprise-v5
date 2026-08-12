@@ -114,6 +114,10 @@ export interface AttendanceRecord {
   checkoutSource?: string;
   checkoutFinalizedAt?: string;
   manualRectified?: boolean;
+  isAdminRectified?: boolean;
+  correctedAt?: string;
+  updatedAt?: string;
+  version?: number;
   checkoutDismissed?: boolean;
 
   // New fields requested for auto checkout alignment
