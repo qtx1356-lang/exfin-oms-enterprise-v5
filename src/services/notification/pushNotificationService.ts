@@ -252,53 +252,246 @@ export const invalidateEmployeeDeviceToken = async (
   }
 };
 
+// OS Notification Permission Granular States
+export type OSNotificationPermissionState =
+  | 'granted'
+  | 'prompt'
+  | 'denied'
+  | 'not_required';
+
+// Ensure Android 8+ Notification Channels are Created
+export const ensureNotificationChannelsCreated = async (): Promise<void> => {
+  if (
+    typeof window !== 'undefined' &&
+    (window as any).Capacitor &&
+    (window as any).Capacitor.isNativePlatform &&
+    (window as any).Capacitor.isNativePlatform()
+  ) {
+    try {
+      const { LocalNotifications } = await import(
+        '@capacitor/local-notifications'
+      );
+      await LocalNotifications.createChannel({
+        id: 'exfin_oms_important',
+        name: 'EXFIN OMS Urgent & High Priority Alerts',
+        description: 'Urgent tasks, leave approvals, and critical messages',
+        importance: 5,
+        visibility: 1,
+        sound: 'notification.wav',
+        vibration: true,
+      }).catch(() => {});
+
+      await LocalNotifications.createChannel({
+        id: 'exfin_oms_normal',
+        name: 'EXFIN OMS Standard Updates',
+        description: 'Task progress updates and routine team messages',
+        importance: 3,
+        visibility: 1,
+        vibration: false,
+      }).catch(() => {});
+    } catch (e) {
+      console.warn('Error creating notification channels:', e);
+    }
+  }
+};
+
+// Check Real-Time OS Notification Permission State
+export const checkOSNotificationPermission =
+  async (): Promise<OSNotificationPermissionState> => {
+    try {
+      // 1. Capacitor Native Environment (Android / iOS)
+      if (
+        typeof window !== 'undefined' &&
+        (window as any).Capacitor &&
+        (window as any).Capacitor.isNativePlatform &&
+        (window as any).Capacitor.isNativePlatform()
+      ) {
+        try {
+          const { PushNotifications } = await import(
+            '@capacitor/push-notifications'
+          );
+          const pushStatus = await PushNotifications.checkPermissions();
+          if (pushStatus.receive === 'granted') {
+            return 'granted';
+          } else if (pushStatus.receive === 'denied') {
+            return 'denied';
+          } else if (
+            pushStatus.receive === 'prompt' ||
+            pushStatus.receive === 'prompt-with-rationale'
+          ) {
+            return 'prompt';
+          }
+        } catch (e) {
+          // Fallback to LocalNotifications
+        }
+
+        try {
+          const { LocalNotifications } = await import(
+            '@capacitor/local-notifications'
+          );
+          const localStatus = await LocalNotifications.checkPermissions();
+          if (localStatus.display === 'granted') {
+            return 'granted';
+          } else if (localStatus.display === 'denied') {
+            return 'denied';
+          } else if (
+            localStatus.display === 'prompt' ||
+            localStatus.display === 'prompt-with-rationale'
+          ) {
+            return 'prompt';
+          }
+        } catch (e) {
+          console.warn('LocalNotifications check warning:', e);
+        }
+      }
+
+      // 2. Standard Web Notification API
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        const perm = Notification.permission;
+        if (perm === 'granted') return 'granted';
+        if (perm === 'denied') return 'denied';
+        if (perm === 'default') return 'prompt';
+      }
+    } catch (err) {
+      console.warn('Error checking OS notification permission:', err);
+    }
+    return 'prompt';
+  };
+
 // OS Notification Permission Request Flow
-export const requestOSNotificationPermission = async (): Promise<boolean> => {
+export const requestOSNotificationPermission =
+  async (): Promise<OSNotificationPermissionState> => {
+    try {
+      let granted = false;
+
+      // 1. Capacitor Native Push & Local Notifications
+      if (
+        typeof window !== 'undefined' &&
+        (window as any).Capacitor &&
+        (window as any).Capacitor.isNativePlatform &&
+        (window as any).Capacitor.isNativePlatform()
+      ) {
+        try {
+          const { PushNotifications } = await import(
+            '@capacitor/push-notifications'
+          );
+          const pushRes = await PushNotifications.requestPermissions();
+          if (pushRes.receive === 'granted') {
+            granted = true;
+            await PushNotifications.register().catch(() => {});
+          }
+        } catch (pushErr) {
+          console.warn('PushNotifications request warning:', pushErr);
+        }
+
+        try {
+          const { LocalNotifications } = await import(
+            '@capacitor/local-notifications'
+          );
+          const localRes = await LocalNotifications.requestPermissions();
+          if (localRes.display === 'granted') {
+            granted = true;
+          }
+        } catch (localErr) {
+          console.warn('LocalNotifications request warning:', localErr);
+        }
+
+        await ensureNotificationChannelsCreated();
+
+        if (granted) return 'granted';
+
+        return await checkOSNotificationPermission();
+      }
+
+      // 2. Standard Web Notification API
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        const result = await Notification.requestPermission();
+        if (result === 'granted') return 'granted';
+        if (result === 'denied') return 'denied';
+        return 'prompt';
+      }
+    } catch (err) {
+      console.warn('Error requesting OS notification permission:', err);
+    }
+    return 'denied';
+  };
+
+// Open App Notification Settings in Android Settings
+export const openAppNotificationSettings = async (): Promise<boolean> => {
   try {
-    // 1. Capacitor Native Push/Local Notifications
-    if (typeof window !== 'undefined' && (window as any).Capacitor) {
+    if (
+      typeof window !== 'undefined' &&
+      (window as any).Capacitor &&
+      (window as any).Capacitor.isNativePlatform &&
+      (window as any).Capacitor.isNativePlatform()
+    ) {
       try {
-        const { LocalNotifications } = await import(
-          '@capacitor/local-notifications'
-        );
-        const perm = await LocalNotifications.requestPermissions();
-        if (perm.display === 'granted') {
-          await LocalNotifications.createChannel({
-            id: 'exfin_oms_important',
-            name: 'EXFIN OMS Urgent & High Priority Alerts',
-            description:
-              'Urgent tasks, leave approvals, and critical messages',
-            importance: 4,
-            visibility: 1,
-            sound: 'notification.wav',
-            vibration: true,
-          }).catch(() => {});
-
-          await LocalNotifications.createChannel({
-            id: 'exfin_oms_normal',
-            name: 'EXFIN OMS Standard Updates',
-            description: 'Task progress updates and routine team messages',
-            importance: 3,
-            visibility: 1,
-            vibration: false,
-          }).catch(() => {});
-
+        const cap = (window as any).Capacitor;
+        if (
+          cap.Plugins &&
+          cap.Plugins.App &&
+          typeof cap.Plugins.App.openUrl === 'function'
+        ) {
+          await cap.Plugins.App.openUrl({ url: 'app-settings:' });
           return true;
         }
-      } catch (capErr) {
-        console.warn('Capacitor LocalNotifications request warning:', capErr);
+      } catch (appErr) {
+        console.warn('Capacitor openUrl settings warning:', appErr);
       }
     }
 
-    // 2. Web Notification API
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      const result = await Notification.requestPermission();
-      return result === 'granted';
-    }
+    alert(
+      'To enable notifications:\n1. Open Android Settings on your device.\n2. Go to Apps -> EXFIN OMS.\n3. Tap Notifications and toggle ON.'
+    );
+    return false;
   } catch (err) {
-    console.warn('Error requesting notification permission:', err);
+    console.warn('Failed to open app notification settings:', err);
+    alert('Please open Android Settings -> Apps -> EXFIN OMS -> Notifications.');
+    return false;
   }
-  return false;
+};
+
+// Send Local Test Push Notification
+export const sendLocalTestNotification = async (): Promise<{
+  success: boolean;
+  message: string;
+}> => {
+  const permState = await checkOSNotificationPermission();
+  if (permState !== 'granted') {
+    return {
+      success: false,
+      message:
+        'OS Notification permission is not granted. Please allow notifications first.',
+    };
+  }
+
+  const testRecord: NotificationRecord = {
+    id: `test_notif_${Date.now()}`,
+    title: 'EXFIN OMS Test Notification',
+    message: 'Push notifications are working correctly.',
+    recipientUserId: '',
+    recipientEmployeeCode: '',
+    recipientRole: 'EMPLOYEE',
+    type: 'SYSTEM_ALERT',
+    category: 'SYSTEM',
+    priority: 'HIGH',
+    route: '/notifications',
+    read: false,
+    timestamp: new Date().toISOString(),
+    createdAtDeviceTime: new Date().toISOString(),
+    updatedAtDeviceTime: new Date().toISOString(),
+    serverSyncTime: '',
+    syncStatus: 'SYNCED',
+  };
+
+  await triggerOSPushNotification(testRecord);
+  playNotificationChime('HIGH');
+  triggerNotificationVibration('HIGH');
+
+  return {
+    success: true,
+    message: 'Test notification delivered successfully!',
+  };
 };
 
 // Trigger Android / OS Background Push Notification
