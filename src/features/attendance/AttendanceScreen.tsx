@@ -715,18 +715,18 @@ export const AttendanceScreen: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#170B38] via-[#200D4B] to-[#2A145B] text-white p-3 sm:p-6 pb-32 max-w-5xl mx-auto space-y-4 font-sans">
+    <div className="min-h-screen bg-[#120722] text-white p-3 sm:p-6 pb-32 max-w-5xl mx-auto space-y-5 font-sans">
       
       {/* ==================================================== */}
       {/* CLEAN PAGE TITLE */}
       {/* ==================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-purple-500/20">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-teal-500/20">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Attendance
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2">
+            <Clock className="w-7 h-7 text-teal-400" /> Attendance
           </h1>
-          <p className="text-xs text-purple-200/80 font-medium mt-0.5 flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-purple-400" />
+          <p className="text-xs text-teal-200/80 font-medium mt-0.5 flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-teal-400" />
             {getFormattedDateLong()} • <strong className="text-white">{employeeName}</strong> ({employeeId})
           </p>
         </div>

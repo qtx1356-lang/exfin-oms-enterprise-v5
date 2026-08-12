@@ -290,16 +290,20 @@ export const PlannerScreen: React.FC = () => {
 
   const weekDays = getDaysOfWeek();
 
+  // Completion progress calculation
+  const totalAssignedTasks = tasks.length;
+  const overallProgressPct = totalAssignedTasks > 0 ? Math.round((completedCount / totalAssignedTasks) * 100) : 0;
+
   return (
-    <div className="flex flex-col gap-5 pb-12 text-white">
+    <div className="flex flex-col gap-5 pb-12 text-white max-w-5xl mx-auto">
       {/* Top Header */}
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex items-center justify-between pt-2 pb-2 border-b border-indigo-500/20">
         <div>
-          <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-            <Briefcase className="w-6 h-6 text-[#A78BFA]" /> Work Planner
+          <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+            <CheckSquare className="w-7 h-7 text-indigo-400" /> Work Planner
           </h1>
-          <p className="text-xs text-purple-300/80 font-medium mt-0.5">
-            Department & Employee task assignments for <span className="text-purple-200 font-bold">{empDept}</span>
+          <p className="text-xs text-indigo-200/80 font-medium mt-0.5">
+            Department & Employee task assignments for <span className="text-indigo-300 font-bold">{empDept}</span>
           </p>
         </div>
 
@@ -312,7 +316,7 @@ export const PlannerScreen: React.FC = () => {
             <button 
               onClick={handleTriggerSync}
               disabled={isSyncing}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/20 text-purple-200 border border-purple-500/30 hover:bg-purple-500/30 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-200 border border-indigo-500/30 hover:bg-indigo-500/30 transition-all"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} /> 
               {isSyncing ? 'Syncing...' : `${pendingSyncCount} Pending Sync`}
@@ -325,31 +329,69 @@ export const PlannerScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Feature Card: TODAY'S WORK */}
+      <Card className="p-5 bg-gradient-to-br from-[#121B36] via-[#18244A] to-[#10172E] border border-indigo-500/30 shadow-xl rounded-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+        
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
+              <Briefcase className="w-5 h-5 text-indigo-300" />
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Task Overview</span>
+              <h2 className="text-lg font-black text-white leading-none mt-0.5">TODAY'S WORK PROGRESS</h2>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-end">
+            <div className="text-right">
+              <p className="text-xs font-bold text-indigo-200">Completion Rate</p>
+              <p className="text-2xl font-black text-white font-mono">{overallProgressPct}%</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="space-y-1.5">
+          <div className="w-full bg-[#0F1629] h-3 rounded-full overflow-hidden border border-indigo-500/20 p-0.5">
+            <div 
+              className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 rounded-full transition-all duration-500"
+              style={{ width: `${overallProgressPct}%` }}
+            />
+          </div>
+          <div className="flex justify-between items-center text-[10px] font-bold text-indigo-300/80">
+            <span>{completedCount} of {totalAssignedTasks} tasks completed</span>
+            <span>{pendingCount + inProgressCount} remaining</span>
+          </div>
+        </div>
+      </Card>
+
+      {/* Summary Stat Grid */}
       <div className="grid grid-cols-5 gap-2">
-        <Card className="p-2.5 bg-[#2D1B5A] border border-purple-500/20 shadow-md flex flex-col justify-between text-center">
-          <p className="text-[9px] font-black uppercase text-purple-300/80">Today</p>
-          <p className="text-base font-black text-white mt-0.5">{todayTasks.length}</p>
+        <Card className="p-3 bg-[#18244A]/80 border border-indigo-500/30 shadow-md flex flex-col justify-between text-center rounded-xl">
+          <p className="text-[9px] font-black uppercase text-indigo-300/80">Today</p>
+          <p className="text-lg font-black text-white mt-0.5">{todayTasks.length}</p>
         </Card>
 
-        <Card className="p-2.5 bg-[#2D1B5A] border border-amber-500/30 shadow-md flex flex-col justify-between text-center">
+        <Card className="p-3 bg-[#18244A]/80 border border-amber-500/30 shadow-md flex flex-col justify-between text-center rounded-xl">
           <p className="text-[9px] font-black uppercase text-amber-300">Pending</p>
-          <p className="text-base font-black text-amber-300 mt-0.5">{pendingCount}</p>
+          <p className="text-lg font-black text-amber-300 mt-0.5">{pendingCount}</p>
         </Card>
 
-        <Card className="p-2.5 bg-[#2D1B5A] border border-blue-500/30 shadow-md flex flex-col justify-between text-center">
+        <Card className="p-3 bg-[#18244A]/80 border border-blue-500/30 shadow-md flex flex-col justify-between text-center rounded-xl">
           <p className="text-[9px] font-black uppercase text-blue-300">In Progress</p>
-          <p className="text-base font-black text-blue-300 mt-0.5">{inProgressCount}</p>
+          <p className="text-lg font-black text-blue-300 mt-0.5">{inProgressCount}</p>
         </Card>
 
-        <Card className="p-2.5 bg-[#2D1B5A] border border-emerald-500/30 shadow-md flex flex-col justify-between text-center">
+        <Card className="p-3 bg-[#18244A]/80 border border-emerald-500/30 shadow-md flex flex-col justify-between text-center rounded-xl">
           <p className="text-[9px] font-black uppercase text-emerald-300">Done</p>
-          <p className="text-base font-black text-emerald-400 mt-0.5">{completedCount}</p>
+          <p className="text-lg font-black text-emerald-400 mt-0.5">{completedCount}</p>
         </Card>
 
-        <Card className="p-2.5 bg-[#2D1B5A] border border-red-500/30 shadow-md flex flex-col justify-between text-center">
-          <p className="text-[9px] font-black uppercase text-red-300">Overdue</p>
-          <p className="text-base font-black text-red-400 mt-0.5">{overdueCount}</p>
+        <Card className="p-3 bg-[#18244A]/80 border border-rose-500/30 shadow-md flex flex-col justify-between text-center rounded-xl">
+          <p className="text-[9px] font-black uppercase text-rose-300">Overdue</p>
+          <p className="text-lg font-black text-rose-400 mt-0.5">{overdueCount}</p>
         </Card>
       </div>
 

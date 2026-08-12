@@ -235,15 +235,15 @@ export const ExpenseScreen: React.FC = () => {
   const pendingSyncCount = expenses.filter((e) => e.syncStatus === 'Pending Sync').length;
 
   return (
-    <div className="flex flex-col gap-5 pb-12 text-white">
+    <div className="flex flex-col gap-5 pb-12 text-white max-w-5xl mx-auto">
       {/* Top Bar with Offline/Sync Indicator */}
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex items-center justify-between pt-2 pb-2 border-b border-emerald-500/20">
         <div>
-          <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-            <Wallet className="w-6 h-6 text-[#A78BFA]" /> Expense Claims
+          <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+            <Wallet className="w-7 h-7 text-emerald-400" /> Expense Claims
           </h1>
-          <p className="text-xs text-purple-300/80 font-medium mt-0.5">
-            Submit & track enterprise reimbursement requests
+          <p className="text-xs text-emerald-200/80 font-medium mt-0.5">
+            Submit & track reimbursement requests in Indian Rupees (₹)
           </p>
         </div>
 
@@ -256,7 +256,7 @@ export const ExpenseScreen: React.FC = () => {
             <button 
               onClick={handleTriggerSync}
               disabled={isSyncing}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/20 text-purple-200 border border-purple-500/30 hover:bg-purple-500/30 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} /> 
               {isSyncing ? 'Syncing...' : `${pendingSyncCount} Pending Sync`}
@@ -271,29 +271,29 @@ export const ExpenseScreen: React.FC = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="p-3.5 bg-[#2D1B5A] border border-purple-500/20 shadow-lg flex flex-col justify-between">
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-purple-300/80">
+        <Card className="p-4 bg-gradient-to-br from-[#0F291E] to-[#123325] border border-emerald-500/30 shadow-lg flex flex-col justify-between rounded-2xl">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300/80">
             Total Submitted
           </p>
-          <p className="text-lg font-black text-white mt-1 tracking-tight">
+          <p className="text-xl font-black text-white mt-1 tracking-tight font-mono">
             ₹{totalSubmitted.toLocaleString('en-IN')}
           </p>
         </Card>
 
-        <Card className="p-3.5 bg-[#2D1B5A] border border-amber-500/30 shadow-lg flex flex-col justify-between">
+        <Card className="p-4 bg-gradient-to-br from-[#0F291E] to-[#123325] border border-amber-500/30 shadow-lg flex flex-col justify-between rounded-2xl">
           <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-300">
             Pending
           </p>
-          <p className="text-lg font-black text-amber-300 mt-1 tracking-tight">
+          <p className="text-xl font-black text-amber-300 mt-1 tracking-tight font-mono">
             ₹{totalPending.toLocaleString('en-IN')}
           </p>
         </Card>
 
-        <Card className="p-3.5 bg-[#2D1B5A] border border-emerald-500/30 shadow-lg flex flex-col justify-between">
+        <Card className="p-4 bg-gradient-to-br from-[#0F291E] to-[#123325] border border-emerald-500/30 shadow-lg flex flex-col justify-between rounded-2xl">
           <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">
             Approved
           </p>
-          <p className="text-lg font-black text-emerald-400 mt-1 tracking-tight">
+          <p className="text-xl font-black text-emerald-400 mt-1 tracking-tight font-mono">
             ₹{totalApproved.toLocaleString('en-IN')}
           </p>
         </Card>

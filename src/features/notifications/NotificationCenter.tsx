@@ -246,15 +246,15 @@ export const NotificationCenter: React.FC = () => {
   };
 
   return (
-    <div className="py-6 min-h-[calc(100vh-120px)] space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="py-6 min-h-[calc(100vh-120px)] space-y-6 max-w-5xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-rose-500/20">
         <div>
           <h1 className="text-2xl font-black text-white flex items-center gap-2">
-            <Bell className="w-6 h-6 text-purple-400" />
+            <Bell className="w-7 h-7 text-rose-400" />
             Notification Center
           </h1>
-          <p className="text-slate-400 text-sm">
-            Centralized notification feed and actionable alerts
+          <p className="text-rose-200/80 text-xs font-medium mt-0.5">
+            Centralized notification feed and actionable real-time alerts
           </p>
         </div>
 
@@ -262,9 +262,9 @@ export const NotificationCenter: React.FC = () => {
           <Button
             onClick={handleMarkAllRead}
             variant="outline"
-            className="border-purple-500/30 hover:bg-purple-500/10 text-white rounded-xl flex items-center gap-2"
+            className="border-rose-500/30 hover:bg-rose-500/10 text-white rounded-xl flex items-center gap-2 text-xs font-bold"
           >
-            <CheckCheck className="w-4 h-4" />
+            <CheckCheck className="w-4 h-4 text-rose-300" />
             Mark all read
           </Button>
         )}
