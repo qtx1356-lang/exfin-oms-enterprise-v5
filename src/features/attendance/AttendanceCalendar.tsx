@@ -383,46 +383,6 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       )}
 
       {/* ==================================================== */}
-      {/* MONTHLY SUMMARY CARDS & WORKING DAYS */}
-      {/* ==================================================== */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-        <div className="p-3 bg-purple-950/60 rounded-2xl border border-purple-500/20 text-center space-y-1">
-          <p className="text-[10px] font-extrabold text-purple-300 uppercase tracking-wider">Present</p>
-          <p className="text-xl font-black text-white">{monthlyStats.present}</p>
-        </div>
-
-        <div className="p-3 bg-emerald-950/40 rounded-2xl border border-emerald-500/30 text-center space-y-1">
-          <p className="text-[10px] font-extrabold text-emerald-300 uppercase tracking-wider">WFH</p>
-          <p className="text-xl font-black text-emerald-300">{monthlyStats.wfh}</p>
-        </div>
-
-        <div className="p-3 bg-amber-950/40 rounded-2xl border border-amber-500/30 text-center space-y-1">
-          <p className="text-[10px] font-extrabold text-amber-300 uppercase tracking-wider">Client Visit</p>
-          <p className="text-xl font-black text-amber-300">{monthlyStats.clientVisit}</p>
-        </div>
-
-        <div className="p-3 bg-cyan-950/40 rounded-2xl border border-cyan-500/30 text-center space-y-1">
-          <p className="text-[10px] font-extrabold text-cyan-300 uppercase tracking-wider">Leave</p>
-          <p className="text-xl font-black text-cyan-300">{monthlyStats.leave}</p>
-        </div>
-
-        <div className="p-3 bg-rose-950/40 rounded-2xl border border-rose-500/30 text-center space-y-1">
-          <p className="text-[10px] font-extrabold text-rose-300 uppercase tracking-wider">Absent</p>
-          <p className="text-xl font-black text-rose-300">{monthlyStats.absent}</p>
-        </div>
-
-        <div className="p-3 bg-[#7C3AED]/20 rounded-2xl border border-purple-400/30 text-center space-y-1 col-span-2 sm:col-span-1">
-          <p className="text-[10px] font-extrabold text-purple-200 uppercase tracking-wider">Attendance Rate</p>
-          <p className="text-xl font-black text-purple-200 font-mono">{attendanceRate}%</p>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between text-xs text-purple-300/80 bg-purple-950/40 px-3.5 py-2 rounded-xl border border-purple-500/20">
-        <span className="font-bold text-white">Working Days: {workingDaysInfo.elapsed} / {workingDaysInfo.totalInMonth}</span>
-        <span className="text-[11px] text-purple-300/60">Attendance Rate calculated from working days elapsed</span>
-      </div>
-
-      {/* ==================================================== */}
       {/* CALENDAR GRID */}
       {/* ==================================================== */}
       <div className="space-y-2">

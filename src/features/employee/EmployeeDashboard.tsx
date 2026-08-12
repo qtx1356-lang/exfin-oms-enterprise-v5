@@ -717,107 +717,122 @@ export const EmployeeDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* 1. TODAY AT A GLANCE (FEATURE 5 - SMART DAILY BRIEFING DASHBOARD) */}
-        <Card className="p-6 relative overflow-hidden bg-gradient-to-br from-[#2D1B5A] via-[#35206A] to-[#211044] border border-purple-500/30 shadow-2xl rounded-[28px]">
-          <div className="absolute -top-10 -right-10 w-44 h-44 bg-[#7C3AED]/20 rounded-full blur-3xl pointer-events-none" />
+        {/* Greeting Banner */}
+        <div className="text-left py-1">
+          <h2 className="text-2xl font-black text-[#A78BFA] tracking-tight uppercase">
+            {greetingPrefix}
+          </h2>
+        </div>
 
-          {/* Header Greeting */}
-          <div className="flex items-start justify-between mb-5 relative z-10 pb-3 border-b border-purple-500/20">
-            <div>
-              <p className="text-[10px] font-black text-amber-300 uppercase tracking-widest flex items-center gap-1.5 mb-1">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                {greetingPrefix}
-              </p>
-              <h1 className="text-xl font-black text-white tracking-tight">Today at a Glance</h1>
-            </div>
-            <span className="text-[10px] font-black px-3 py-1 rounded-full bg-[#211044]/90 border border-purple-500/30 text-purple-200 uppercase tracking-wider">
+        {/* TODAY SNAPSHOT */}
+        <Card className="p-5 bg-gradient-to-br from-[#2D1B5A]/90 to-[#211044]/90 border border-purple-500/30 shadow-xl rounded-2xl relative overflow-hidden animate-fade-in">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl pointer-events-none" />
+          <h3 className="text-xs font-extrabold text-purple-300 uppercase tracking-widest border-b border-purple-500/20 pb-2 mb-3.5 flex items-center justify-between">
+            <span className="flex items-center gap-2">📅 TODAY</span>
+            <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#211044]/90 border border-purple-500/30 text-purple-200 uppercase tracking-wider font-mono">
               {todayDate}
             </span>
-          </div>
-
-          {/* Metrics Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 relative z-10 mb-6">
-            <div className="p-3.5 bg-[#211044]/60 backdrop-blur-md rounded-2xl border border-purple-500/15 flex flex-col justify-between">
-              <span className="text-[10px] font-extrabold text-purple-300/80 uppercase tracking-wider">Attendance</span>
-              <span className={`text-sm font-black mt-1 leading-none ${
-                attendanceStatusLabel === 'Checked In' || attendanceStatusLabel === 'WFH' || attendanceStatusLabel === 'Client Visit' || attendanceStatusLabel === 'Outdoor Work'
-                  ? 'text-emerald-300'
-                  : 'text-purple-200'
-              }`}>{attendanceStatusLabel}</span>
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-bold text-purple-100">
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-purple-300/70 uppercase">Attendance</p>
+              <p className="text-sm font-black text-white">{attendanceStatusLabel}</p>
             </div>
-
-            <div className="p-3.5 bg-[#211044]/60 backdrop-blur-md rounded-2xl border border-purple-500/15 flex flex-col justify-between">
-              <span className="text-[10px] font-extrabold text-purple-300/80 uppercase tracking-wider">Working</span>
-              <span className="text-sm font-black text-amber-300 mt-1 leading-none">{workingDurationStr}</span>
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-purple-300/70 uppercase">Working Time</p>
+              <p className="text-sm font-black text-amber-300">{workingDurationStr}</p>
             </div>
-
-            <div className="p-3.5 bg-[#211044]/60 backdrop-blur-md rounded-2xl border border-purple-500/15 flex flex-col justify-between">
-              <span className="text-[10px] font-extrabold text-purple-300/80 uppercase tracking-wider">Tasks</span>
-              <span className="text-sm font-black text-white mt-1 leading-none">{completedTaskCount} / {assignedTaskCount}</span>
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-purple-300/70 uppercase">Tasks</p>
+              <p className="text-sm font-black text-white">{completedTaskCount} / {assignedTaskCount} completed</p>
             </div>
-
-            <div className="p-3.5 bg-[#211044]/60 backdrop-blur-md rounded-2xl border border-purple-500/15 flex flex-col justify-between">
-              <span className="text-[10px] font-extrabold text-purple-300/80 uppercase tracking-wider">Alerts</span>
-              <span className={`text-sm font-black mt-1 leading-none ${
-                (myTasks.filter(t => t.status !== 'COMPLETED' && t.dueDate === todayStr).length + (unreadNotificationCount > 0 ? 1 : 0)) > 0
-                  ? 'text-rose-400'
-                  : 'text-purple-300'
-              }`}>{(myTasks.filter(t => t.status !== 'COMPLETED' && t.dueDate === todayStr).length + (unreadNotificationCount > 0 ? 1 : 0))}</span>
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-purple-300/70 uppercase">Notifications</p>
+              <p className="text-sm font-black text-pink-400">{unreadNotificationCount} unread</p>
             </div>
           </div>
+        </Card>
 
-          {/* Action Required - only show if there are actual action items */}
-          {(myTasks.filter(t => t.status !== 'COMPLETED' && t.dueDate === todayStr).length + (unreadNotificationCount > 0 ? 1 : 0)) > 0 && (
-            <div className="relative z-10 mb-6 p-4 bg-[#451225]/40 rounded-2xl border border-rose-500/30 space-y-2">
-              <p className="text-[10px] font-black text-rose-300 uppercase tracking-wider flex items-center gap-1">
-                <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                ACTION REQUIRED
-              </p>
-              <div className="space-y-1.5 text-xs text-rose-200/90 font-medium">
-                {myTasks.filter(t => t.status !== 'COMPLETED' && t.dueDate === todayStr).map((task) => (
-                  <div key={task.id} className="flex items-center justify-between gap-2 bg-[#2D1B5A]/40 p-2 rounded-xl border border-rose-500/10">
-                    <span className="truncate">⚠️ Task due today: <strong>{task.title}</strong></span>
+        {/* ACTION REQUIRED */}
+        <Card className="p-5 bg-gradient-to-br from-[#2D1B5A]/90 to-[#211044]/90 border border-purple-500/30 shadow-xl rounded-2xl">
+          <h3 className="text-xs font-extrabold text-purple-300 uppercase tracking-widest border-b border-purple-500/20 pb-2 mb-3.5 flex items-center gap-2">
+            <span>⚠️</span> ACTION REQUIRED
+          </h3>
+          {(() => {
+            const dueTodayTasks = myTasks.filter(t => t.status !== 'COMPLETED' && t.dueDate === todayStr);
+            const importantAlertsCount = dueTodayTasks.length + unreadNotificationCount;
+            
+            if (importantAlertsCount === 0) {
+              return (
+                <div className="flex items-center gap-2.5 text-xs text-emerald-300/90 font-bold py-1">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>You're all caught up.</span>
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-2.5">
+                {dueTodayTasks.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between gap-3 bg-[#451225]/30 p-3 rounded-xl border border-rose-500/20 text-xs">
+                    <span className="truncate text-rose-200">⚠️ Task due today: <strong>{task.title}</strong></span>
                     <button 
                       onClick={() => navigate('/planner')} 
-                      className="text-[10px] font-black bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 px-2 py-0.5 rounded-full transition"
+                      className="text-[10px] font-black bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 px-3 py-1 rounded-full transition flex-shrink-0"
                     >
                       Start
                     </button>
                   </div>
                 ))}
                 {unreadNotificationCount > 0 && (
-                  <div className="flex items-center justify-between gap-2 bg-[#2D1B5A]/40 p-2 rounded-xl border border-rose-500/10">
-                    <span>🔔 You have <strong>{unreadNotificationCount} unread notification(s)</strong></span>
+                  <div className="flex items-center justify-between gap-3 bg-purple-950/40 p-3 rounded-xl border border-purple-500/10 text-xs">
+                    <span className="text-purple-200">🔔 You have <strong>{unreadNotificationCount} unread notification(s)</strong></span>
                     <button 
                       onClick={() => navigate('/notifications')} 
-                      className="text-[10px] font-black bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 px-2 py-0.5 rounded-full transition"
+                      className="text-[10px] font-black bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/30 px-3 py-1 rounded-full transition flex-shrink-0"
                     >
                       View
                     </button>
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            );
+          })()}
+        </Card>
 
-          {/* Today's Progress */}
-          <div className="relative z-10 bg-[#211044]/60 backdrop-blur-md p-4 rounded-2xl border border-purple-500/15">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-[10px] font-black text-purple-300 uppercase tracking-wider">Today's Progress</span>
-              <span className="text-xs font-black text-emerald-300">{taskProgressPercentage}%</span>
+        {/* TODAY'S PROGRESS */}
+        <Card className="p-5 bg-gradient-to-br from-[#2D1B5A]/90 to-[#211044]/90 border border-purple-500/30 shadow-xl rounded-2xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
+          <h3 className="text-xs font-extrabold text-purple-300 uppercase tracking-widest border-b border-purple-500/20 pb-2 mb-3.5 flex items-center justify-between">
+            <span className="flex items-center gap-2">📈 Today's Work</span>
+            <span className="text-emerald-300 font-mono text-xs">{taskProgressPercentage}%</span>
+          </h3>
+          
+          {/* Progress Bar */}
+          <div className="w-full bg-[#170B38] h-2.5 rounded-full overflow-hidden border border-purple-500/20 mb-4">
+            <div 
+              className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
+              style={{ width: `${taskProgressPercentage}%` }}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs font-semibold text-purple-200/90">
+            <div>
+              <span className="text-purple-300/70 text-[10px] uppercase block">Tasks Status</span>
+              <span className="text-white font-bold">{completedTaskCount} of {assignedTaskCount} completed</span>
             </div>
-            
-            {/* Elegant Progress Bar */}
-            <div className="w-full bg-[#170B38] h-3 rounded-full overflow-hidden border border-purple-500/20 mb-2">
-              <div 
-                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
-                style={{ width: `${taskProgressPercentage}%` }}
-              />
+            <div>
+              <span className="text-purple-300/70 text-[10px] uppercase block">Work Progress</span>
+              <span className="text-white font-bold">{taskProgressPercentage}% Completed</span>
             </div>
-            
-            <p className="text-[11px] text-purple-200/80 font-bold">
-              {completedTaskCount} of {assignedTaskCount} tasks completed today
-            </p>
+            <div>
+              <span className="text-purple-300/70 text-[10px] uppercase block">Today's Attendance</span>
+              <span className="text-white font-bold">{attendanceStatusLabel}</span>
+            </div>
+            <div>
+              <span className="text-purple-300/70 text-[10px] uppercase block">Working Duration</span>
+              <span className="text-white font-bold">{workingDurationStr}</span>
+            </div>
           </div>
         </Card>
 
@@ -832,7 +847,7 @@ export const EmployeeDashboard: React.FC = () => {
                 <Clock className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-xs font-extrabold text-white uppercase tracking-wider">My Day Timeline</h3>
+                <h3 className="text-xs font-extrabold text-white uppercase tracking-wider">TODAY'S TIMELINE</h3>
                 <p className="text-[10px] text-purple-300/80 font-semibold">
                   {isTimelineExpanded ? 'Interactive hourly agenda and activity log' : 'Click to expand agenda tracker'}
                 </p>
@@ -850,18 +865,6 @@ export const EmployeeDashboard: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* PERFORMANCE SNAPSHOT */}
-        <PerformanceSnapshot
-          employeeId={employeeData?.id || ''}
-          employeeCode={employeeData?.employeeCode || ''}
-          employeeName={employeeData?.name || 'Employee'}
-          department={employeeData?.department || employeeData?.office || 'Operations'}
-          tasks={tasks}
-          attendanceRecords={attendanceRecords}
-          leaves={allLeaves}
-          isOnline={navigator.onLine}
-        />
 
         {/* Quick Actions Grid */}
         <div>

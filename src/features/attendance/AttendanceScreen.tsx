@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { 
@@ -38,6 +38,7 @@ import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { AttendanceRecord, AttendanceType, OutdoorWorkTypeOption } from '../../types/attendance';
+import { getStoredLeaves } from '../../services/leave/leaveStorage';
 import {
   OFFICE_LOCATION,
   getDistanceFromLatLonInM,
@@ -569,6 +570,133 @@ export const AttendanceScreen: React.FC = () => {
     };
   };
 
+  // Compute monthly stats for summary
+  const monthlyStats = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const currentMonthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    let officeCount = 0;
+    let wfhCount = 0;
+    let clientVisitCount = 0;
+    let outdoorCount = 0;
+    let leaveCount = 0;
+    let absentCount = 0;
+
+    // Filter records for this month
+    const monthRecords = allRecords.filter(r => r.date && r.date.startsWith(currentMonthPrefix) && r.employeeId === employeeId);
+
+    // Filter leaves for this month
+    const allLeaves = getStoredLeaves();
+    const monthLeaves = allLeaves.filter(l => {
+      if (l.employeeId !== employeeId && l.employeeCode !== employeeId) return false;
+      if (l.status !== 'APPROVED') return false;
+      const startPrefix = l.startDate ? l.startDate.slice(0, 7) : '';
+      const endPrefix = l.endDate ? l.endDate.slice(0, 7) : '';
+      return startPrefix === currentMonthPrefix || endPrefix === currentMonthPrefix;
+    });
+
+    // Working days elapsed & total in month
+    let totalWorkingDaysInMonth = 0;
+    let workingDaysElapsed = 0;
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(currentYear, currentMonth, day);
+      const isSunday = d.getDay() === 0;
+      if (!isSunday) {
+        totalWorkingDaysInMonth++;
+        const mStr = String(currentMonth + 1).padStart(2, '0');
+        const dStr = String(day).padStart(2, '0');
+        const dateStr = `${currentYear}-${mStr}-${dStr}`;
+        if (dateStr <= todayStr) {
+          workingDaysElapsed++;
+        }
+      }
+    }
+
+    // Helper to determine status for each day
+    for (let day = 1; day <= daysInMonth; day++) {
+      const mStr = String(currentMonth + 1).padStart(2, '0');
+      const dStr = String(day).padStart(2, '0');
+      const dateStr = `${currentYear}-${mStr}-${dStr}`;
+
+      if (dateStr > todayStr) continue;
+
+      const rec = monthRecords.find(r => r.date === dateStr);
+      if (rec) {
+        if (rec.attendanceType === 'WFH') wfhCount++;
+        else if (rec.attendanceType === 'CLIENT_VISIT') clientVisitCount++;
+        else if (rec.attendanceType === 'OUTDOOR') outdoorCount++;
+        else officeCount++;
+      } else {
+        const targetTime = new Date(dateStr).getTime();
+        const hasLeave = monthLeaves.some(l => {
+          const s = new Date(l.startDate).getTime();
+          const e = new Date(l.endDate).getTime();
+          return targetTime >= s && targetTime <= e;
+        });
+
+        if (hasLeave) {
+          leaveCount++;
+        } else {
+          // If past today and not weekend, count as absent
+          const dObj = new Date(currentYear, currentMonth, day);
+          const dayOfWeek = dObj.getDay();
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            absentCount++;
+          }
+        }
+      }
+    }
+
+    const presentCount = officeCount + wfhCount + clientVisitCount + outdoorCount;
+    const totalValidDays = presentCount + leaveCount;
+    const rate = workingDaysElapsed > 0 ? Math.min(100, Math.round((totalValidDays / workingDaysElapsed) * 100)) : 100;
+
+    // Calculate Average Working Time
+    let totalMins = 0;
+    let daysWithHours = 0;
+    
+    monthRecords.forEach(rec => {
+      if (rec.workingHours) {
+        const hoursMatch = rec.workingHours.match(/(\d+)h/);
+        const minsMatch = rec.workingHours.match(/(\d+)m/);
+        let mins = 0;
+        if (hoursMatch) mins += parseInt(hoursMatch[1]) * 60;
+        if (minsMatch) mins += parseInt(minsMatch[1]);
+        if (mins > 0) {
+          totalMins += mins;
+          daysWithHours++;
+        }
+      }
+    });
+
+    let avgWorkingTimeStr = '0h 0m';
+    if (daysWithHours > 0) {
+      const avgMins = Math.round(totalMins / daysWithHours);
+      const h = Math.floor(avgMins / 60);
+      const m = avgMins % 60;
+      avgWorkingTimeStr = `${h}h ${m}m`;
+    }
+
+    return {
+      present: presentCount,
+      office: officeCount,
+      wfh: wfhCount,
+      clientVisit: clientVisitCount,
+      outdoor: outdoorCount,
+      leave: leaveCount,
+      absent: absentCount,
+      attendanceRate: isNaN(rate) ? 0 : rate,
+      avgWorkingTime: avgWorkingTimeStr,
+      workingDaysElapsed,
+      workingDaysTotal: totalWorkingDaysInMonth
+    };
+  }, [allRecords, employeeId]);
+
   const ribbonInfo = getRibbonInfo();
 
   // History filtering
@@ -625,15 +753,6 @@ export const AttendanceScreen: React.FC = () => {
           <button onClick={() => setActionFeedback(null)} className="text-purple-300 hover:text-white font-bold text-sm px-1">✕</button>
         </div>
       )}
-
-      {/* ==================================================== */}
-      {/* TODAY'S ATTENDANCE STATUS CARD */}
-      {/* ==================================================== */}
-      <TodayAttendanceCard 
-        todayRecord={todayRecord} 
-        isSyncing={isSyncing} 
-        isOnline={isOnline} 
-      />
 
       {/* ==================================================== */}
       {/* 1. TODAY'S ATTENDANCE ACTIONS */}
@@ -1089,9 +1208,50 @@ export const AttendanceScreen: React.FC = () => {
         </div>
       </div>
 
+      {/* ==================================================== */}
+      {/* 2. CURRENT ATTENDANCE STATUS */}
+      {/* ==================================================== */}
+      <TodayAttendanceCard 
+        todayRecord={todayRecord} 
+        isSyncing={isSyncing} 
+        isOnline={isOnline} 
+      />
 
       {/* ==================================================== */}
-      {/* 4 & 5 & 6. ATTENDANCE CALENDAR & MONTHLY SUMMARY */}
+      {/* 3. TODAY'S DETAILS */}
+      {/* ==================================================== */}
+      {todayRecord && ['WFH', 'CLIENT_VISIT', 'OUTDOOR'].includes(todayRecord.attendanceType || '') && (
+        <Card className="p-5 bg-purple-950/40 border border-purple-500/20 text-xs rounded-2xl space-y-3">
+          <h3 className="text-xs font-extrabold text-purple-300 uppercase tracking-widest border-b border-purple-500/15 pb-2">
+            📝 Today's Details
+          </h3>
+          {todayRecord.attendanceType === 'WFH' && (
+            <div className="space-y-1.5">
+              <p className="font-bold text-emerald-300">Work From Home (WFH)</p>
+              <p><span className="text-purple-300 font-bold">Reason:</span> {todayRecord.wfhReason || 'N/A'}</p>
+              <p><span className="text-purple-300 font-bold">Work Plan:</span> {todayRecord.workPlan || 'N/A'}</p>
+            </div>
+          )}
+          {todayRecord.attendanceType === 'CLIENT_VISIT' && (
+            <div className="space-y-1.5">
+              <p className="font-bold text-amber-300">Client Visit</p>
+              <p><span className="text-purple-300 font-bold">Client:</span> {todayRecord.clientName || 'N/A'}</p>
+              <p><span className="text-purple-300 font-bold">Location:</span> {todayRecord.clientLocation || 'N/A'}</p>
+              <p><span className="text-purple-300 font-bold">Purpose:</span> {todayRecord.purpose || 'N/A'}</p>
+            </div>
+          )}
+          {todayRecord.attendanceType === 'OUTDOOR' && (
+            <div className="space-y-1.5">
+              <p className="font-bold text-indigo-300">Outdoor Work</p>
+              <p><span className="text-purple-300 font-bold">Type:</span> {todayRecord.outdoorType || 'N/A'}</p>
+              <p><span className="text-purple-300 font-bold">Description:</span> {todayRecord.description || 'N/A'}</p>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* ==================================================== */}
+      {/* 4 & 5. ATTENDANCE CALENDAR & DAY DETAILS */}
       {/* ==================================================== */}
       <AttendanceCalendar 
         employeeId={employeeId}
@@ -1099,6 +1259,97 @@ export const AttendanceScreen: React.FC = () => {
         attendanceRecords={allRecords}
         onRefreshRecords={refreshRecords}
       />
+
+      {/* ==================================================== */}
+      {/* 6. MONTHLY SUMMARY */}
+      {/* ==================================================== */}
+      <Card className="p-5 bg-gradient-to-br from-[#2D1B5A]/90 to-[#211044]/90 border border-purple-500/30 shadow-xl rounded-2xl">
+        <h3 className="text-xs font-extrabold text-purple-300 uppercase tracking-widest border-b border-purple-500/20 pb-2 mb-4 flex items-center justify-between">
+          <span>📊 THIS MONTH</span>
+          <span className="text-[10px] text-purple-300/60 font-mono font-bold uppercase">SUMMARY</span>
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+          {/* Left: Compact Stats Table */}
+          <div className="space-y-2 border-b md:border-b-0 md:border-r border-purple-500/10 pb-4 md:pb-0 md:pr-6 text-xs">
+            <div className="flex justify-between font-semibold">
+              <span className="text-purple-300">Present</span>
+              <span className="text-white font-black">{monthlyStats.present}</span>
+            </div>
+            <div className="flex justify-between font-semibold">
+              <span className="text-purple-300 ml-3">🏢 Office</span>
+              <span className="text-white font-bold">{monthlyStats.office}</span>
+            </div>
+            <div className="flex justify-between font-semibold">
+              <span className="text-purple-300 ml-3">🏠 WFH</span>
+              <span className="text-emerald-300 font-bold">{monthlyStats.wfh}</span>
+            </div>
+            <div className="flex justify-between font-semibold">
+              <span className="text-purple-300 ml-3">🤝 Client Visit</span>
+              <span className="text-amber-300 font-bold">{monthlyStats.clientVisit}</span>
+            </div>
+            <div className="flex justify-between font-semibold">
+              <span className="text-purple-300 ml-3">🚗 Outdoor Work</span>
+              <span className="text-indigo-300 font-bold">{monthlyStats.outdoor}</span>
+            </div>
+            <div className="flex justify-between font-semibold">
+              <span className="text-purple-300">🏖 Leave</span>
+              <span className="text-cyan-300 font-black">{monthlyStats.leave}</span>
+            </div>
+            <div className="flex justify-between font-semibold">
+              <span className="text-purple-300">○ Absent</span>
+              <span className="text-rose-300 font-black">{monthlyStats.absent}</span>
+            </div>
+          </div>
+
+          {/* Middle: Attendance Rate Circle/Indicator */}
+          <div className="flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-purple-500/10 pb-4 md:pb-0 md:px-6">
+            <span className="text-[10px] text-purple-300 uppercase tracking-wider font-extrabold mb-2 text-center">
+              Attendance Rate
+            </span>
+            <div className="relative w-20 h-20 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <path
+                  className="text-purple-950/60"
+                  strokeWidth="3"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className="text-purple-400"
+                  strokeDasharray={`${monthlyStats.attendanceRate}, 100`}
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-sm font-black font-mono text-white">{monthlyStats.attendanceRate}%</span>
+              </div>
+            </div>
+            <span className="text-[10px] text-purple-300/60 mt-1.5 font-bold font-mono">
+              {monthlyStats.workingDaysElapsed} / {monthlyStats.workingDaysTotal} Days
+            </span>
+          </div>
+
+          {/* Right: Average Working Time */}
+          <div className="flex flex-col items-center md:items-end justify-center text-center md:text-right">
+            <span className="text-[10px] text-purple-300 uppercase tracking-wider font-extrabold mb-1">
+              Average Working Time
+            </span>
+            <span className="text-2xl font-black font-mono text-white tracking-tight">
+              {monthlyStats.avgWorkingTime}
+            </span>
+            <span className="text-[10px] text-purple-300/60 mt-1 font-bold">
+              Based on active sessions
+            </span>
+          </div>
+        </div>
+      </Card>
+
 
       {/* ==================================================== */}
       {/* 7. ATTENDANCE HISTORY LOGS */}
