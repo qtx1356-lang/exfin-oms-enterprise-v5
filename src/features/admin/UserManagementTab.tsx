@@ -4,6 +4,7 @@ import { useAdminAuth } from "../../context/AdminAuthContext";
 import { db } from "../../services/firebase/config";
 import { collection, onSnapshot, getDocs, doc, deleteDoc } from "firebase/firestore";
 import { ProfileEditModal } from "../../components/common/ProfileEditModal";
+import { DeleteEmployeeModal } from "./DeleteEmployeeModal";
 import { TeamManagementTab } from "./TeamManagementTab";
 import { ManagedUser } from "../../types/user";
 import { updateEmployeeProfile } from "../../services/admin/adminProfileService";
@@ -26,6 +27,7 @@ export const UserManagementTab: React.FC = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
+  const [deleteModalUser, setDeleteModalUser] = useState<ManagedUser | null>(null);
 
   useEffect(() => {
     if (!db) return;
@@ -346,6 +348,17 @@ export const UserManagementTab: React.FC = () => {
                         <Edit className="w-3.5 h-3.5 text-white" />
                         <span className="text-xs font-bold text-white">Edit</span>
                       </button>
+
+                      {role === 'SUPER_ADMIN' && (
+                        <button
+                          onClick={() => setDeleteModalUser(emp)}
+                          className="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 rounded-lg transition-all shadow-md flex items-center gap-1.5"
+                          title="Delete Employee"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                          <span className="text-xs font-bold">Delete</span>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -370,6 +383,23 @@ export const UserManagementTab: React.FC = () => {
           departments={departments}
           designations={designations}
           allUsers={employees}
+        />
+      )}
+
+      {deleteModalUser && (
+        <DeleteEmployeeModal
+          isOpen={!!deleteModalUser}
+          onClose={() => setDeleteModalUser(null)}
+          employee={deleteModalUser}
+          adminUser={{
+            uid: user?.uid || 'superadmin',
+            email: loginId || user?.email || 'superadmin@exfin.com',
+            displayName: user?.displayName || loginId || 'Super Admin',
+            role: role || 'SUPER_ADMIN',
+          }}
+          onSuccess={() => {
+            setDeleteModalUser(null);
+          }}
         />
       )}
         </>
