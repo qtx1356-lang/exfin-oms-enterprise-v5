@@ -31,6 +31,7 @@ import { ProfileScreen } from '../features/profile/ProfileScreen';
 import { SyncCenterScreen } from '../features/sync/SyncCenterScreen';
 import { PayslipScreen } from '../features/employee/PayslipScreen';
 import { ChatScreen } from '../features/employee/ChatScreen';
+import { EmployeeFAQScreen } from '../features/help/EmployeeFAQScreen';
 
 // Protects /admin/dashboard - accessible by ADMIN, HR, SUPER_ADMIN
 const AdminProtectedRoute = () => {
@@ -176,6 +177,7 @@ export const AppRouter: React.FC = () => {
             <Route path="profile" element={<ProfileScreen />} />
             <Route path="payslip" element={<PayslipScreen />} />
             <Route path="chat" element={<ChatScreen />} />
+            <Route path="faq" element={<EmployeeFAQScreen />} />
           </Route>
         </Route>
 

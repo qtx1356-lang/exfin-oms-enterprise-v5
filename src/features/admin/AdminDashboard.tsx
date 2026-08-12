@@ -51,6 +51,7 @@ import {
   LayoutDashboard,
   Brain,
   ShieldAlert,
+  HelpCircle,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -83,6 +84,7 @@ import { SmartDailyBrief } from './SmartDailyBrief';
 import { AuditLogTab } from './AuditLogTab';
 import { PendingDeviceApprovalsTab } from './PendingDeviceApprovalsTab';
 import { createAuditLog } from '../../services/audit/auditService';
+import { AdminFAQScreen } from '../help/AdminFAQScreen';
 
 export const safeStringify = (val: any): string => {
   if (val === null || val === undefined) return '';
@@ -157,6 +159,7 @@ type AdminTab =
   | 'chat'
   | 'announcements'
   | 'auditLog'
+  | 'faq'
   | 'pendingDeviceApprovals';
 
 export const AdminDashboard: React.FC = () => {
@@ -868,6 +871,12 @@ export const AdminDashboard: React.FC = () => {
         { id: 'announcements' as AdminTab, label: 'Announcements & Alerts', icon: Megaphone, visible: canSeeAnnouncements },
       ],
     },
+    {
+      title: 'SUPPORT',
+      items: [
+        { id: 'faq' as AdminTab, label: 'Admin Help & FAQ', icon: HelpCircle, visible: true },
+      ],
+    },
   ];
 
   const renderNavItems = () => (
@@ -1298,6 +1307,9 @@ export const AdminDashboard: React.FC = () => {
 
         {/* ANNOUNCEMENTS & ALERTS TAB */}
         {activeTab === 'announcements' && canSeeAnnouncements && <NotificationManagement />}
+
+        {/* FAQ TAB */}
+        {activeTab === 'faq' && <AdminFAQScreen />}
 
         {/* PENDING DEVICE APPROVALS TAB */}
         {activeTab === 'pendingDeviceApprovals' && canSeeRegistrations && <PendingDeviceApprovalsTab />}

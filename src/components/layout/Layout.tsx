@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
-import { Bell, ChevronRight, CheckCheck, Info, User, Home, MapPin, Trash2 } from 'lucide-react';
+import { Bell, ChevronRight, CheckCheck, Info, User, Home, MapPin, Trash2, HelpCircle } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useLocationContext } from '../../context/LocationContext';
@@ -297,21 +297,32 @@ export const Layout: React.FC = () => {
           {/* Right Header Navigation Controls: [Notification Bell] */}
           <div className="flex items-center gap-1.5 shrink-0">
             {currentUser && (
-              <div className="relative shrink-0 flex items-center" ref={dropdownRef}>
-                {/* Bell Button */}
-                <button
-                  onClick={handleBellClick}
-                  className="relative p-1.5 sm:p-2 rounded-xl bg-[#2D1B5A]/80 border border-purple-500/20 text-purple-300 hover:text-white hover:bg-purple-500/20 transition-all cursor-pointer"
-                  aria-label="Toggle notifications"
-                  id="notification-bell-btn"
-                >
-                  <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-red-500 text-[9px] sm:text-[10px] font-black text-white ring-2 ring-[#1D113B] animate-pulse">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </button>
+              <>
+                {!adminUser && (
+                  <button
+                    onClick={() => navigate('/faq')}
+                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#2D1B5A]/80 border border-purple-500/20 text-purple-300 hover:text-white hover:bg-purple-500/20 transition-all cursor-pointer"
+                    aria-label="Help & FAQ"
+                    title="Help & FAQ"
+                  >
+                    <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
+                )}
+                <div className="relative shrink-0 flex items-center" ref={dropdownRef}>
+                  {/* Bell Button */}
+                  <button
+                    onClick={handleBellClick}
+                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#2D1B5A]/80 border border-purple-500/20 text-purple-300 hover:text-white hover:bg-purple-500/20 transition-all cursor-pointer"
+                    aria-label="Toggle notifications"
+                    id="notification-bell-btn"
+                  >
+                    <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-red-500 text-[9px] sm:text-[10px] font-black text-white ring-2 ring-[#1D113B] animate-pulse">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
 
                 {/* Popover Dropdown */}
                 <AnimatePresence>
@@ -399,6 +410,7 @@ export const Layout: React.FC = () => {
                   )}
                 </AnimatePresence>
               </div>
+              </>
             )}
           </div>
         </div>
