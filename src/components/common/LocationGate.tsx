@@ -92,9 +92,9 @@ export const LocationGate: React.FC = () => {
             </h1>
 
             <p className="text-purple-200/90 text-sm font-semibold leading-relaxed px-2">
-              {showPermissionDenied && 'Exfin OMS requires your permission to access device location to use the application.'}
-              {showGpsOff && 'Please turn on Location Services to continue using Exfin OMS.'}
-              {showUnavailable && 'Exfin OMS requires your device location to be turned ON to use the application.'}
+              {showPermissionDenied && 'Exfin OMS requires your permission to access device location to use the Attendance features.'}
+              {showGpsOff && 'Please turn on Location Services to continue using Attendance features.'}
+              {showUnavailable && 'Exfin OMS requires your device location to be turned ON to use Attendance features.'}
             </p>
 
             <p className="text-purple-300/70 text-xs leading-relaxed px-4">

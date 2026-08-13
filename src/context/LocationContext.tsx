@@ -570,10 +570,38 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  // Keep track of active attendance mode via Ref to avoid event listener recreation
+  const activeAttendanceModeRef = useRef(activeAttendanceMode);
+  useEffect(() => {
+    activeAttendanceModeRef.current = activeAttendanceMode;
+  }, [activeAttendanceMode]);
+
+  // Handle active attendance mode tracking trigger
+  useEffect(() => {
+    if (activeAttendanceMode) {
+      startTracking();
+    } else {
+      // Deactivate active tracking
+      if (watchIdRef.current !== null) {
+        console.log('LOCATION_LISTENER_STOPPED', watchIdRef.current);
+        if (typeof watchIdRef.current === 'string') {
+          try { Geolocation.clearWatch({ id: watchIdRef.current }); } catch (e) {}
+        } else {
+          try { navigator.geolocation.clearWatch(watchIdRef.current); } catch (e) {}
+        }
+        watchIdRef.current = null;
+      }
+      clearErrors();
+      setLocationStatus('success');
+    }
+  }, [activeAttendanceMode]);
+
   // Fallback Location Health Monitoring Engine
   // watchPosition handles active location streaming.
   // This timer runs periodically to issue a fallback query ONLY if watchPosition hasn't received a fix for > 20s.
   useEffect(() => {
+    if (!activeAttendanceMode) return;
+
     if (adaptiveTimerRef.current) {
       clearTimeout(adaptiveTimerRef.current);
       adaptiveTimerRef.current = null;
@@ -619,14 +647,16 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         adaptiveTimerRef.current = null;
       }
     };
-  }, []);
+  }, [activeAttendanceMode, locationTimestamp]);
 
   useEffect(() => {
     const handleOnline = () => {
       if (liveLocation) {
         performReverseGeocode(liveLocation.latitude, liveLocation.longitude);
       } else {
-        startTracking();
+        if (activeAttendanceModeRef.current) {
+          startTracking();
+        }
       }
     };
 
@@ -641,15 +671,13 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setCurrentAddress('Offline');
     }
 
-    startTracking();
-
     // Register Capacitor App Active State Change Listener
     let appStateListener: any = null;
     if (Capacitor.isNativePlatform()) {
       try {
         appStateListener = CapApp.addListener('appStateChange', ({ isActive }) => {
           console.log('[Capacitor App State Change] Is Active?', isActive);
-          if (isActive) {
+          if (isActive && activeAttendanceModeRef.current) {
             console.log('[Lifecycle] App resumed. Re-validating Location Services...');
             forceRefreshLocation();
           }
@@ -664,14 +692,6 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       window.removeEventListener('offline', handleOffline);
       if (appStateListener && typeof appStateListener.remove === 'function') {
         appStateListener.remove();
-      }
-      if (watchIdRef.current !== null) {
-        console.log('LOCATION_LISTENER_STOPPED', watchIdRef.current);
-        if (typeof watchIdRef.current === 'string') {
-          Geolocation.clearWatch({ id: watchIdRef.current });
-        } else {
-          navigator.geolocation.clearWatch(watchIdRef.current);
-        }
       }
     };
   }, []);

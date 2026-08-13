@@ -90,10 +90,7 @@ export const Layout: React.FC = () => {
     formattedDistance, 
     isInsideGeofence, 
     currentAddress, 
-    locationStatus,
-    isGpsOff,
-    isPermissionDenied,
-    isLocationUnavailable
+    locationStatus
   } = useLocationContext();
 
   const [unreadCount, setUnreadCount] = useState(0);
