@@ -177,5 +177,15 @@ service cloud.firestore {
         allow update, delete: if false; // Messages are immutable
       }
     }
+
+    match /chat_attachments/{attachmentId} {
+      allow read, create, update: if true;
+      allow delete: if isAdmin();
+
+      match /chunks/{chunkId} {
+        allow read, create, update: if true;
+        allow delete: if isAdmin();
+      }
+    }
   }
 }

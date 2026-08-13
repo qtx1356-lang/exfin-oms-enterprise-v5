@@ -165,7 +165,115 @@ export function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// Upload an attachment to Firebase Storage with timeout protection, diagnostics & auto-retry
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const commaIdx = result.indexOf(',');
+      if (commaIdx !== -1) {
+        resolve(result.substring(commaIdx + 1));
+      } else {
+        resolve(result);
+      }
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+}
+
+const attachmentBlobCache = new Map<string, string>();
+const pendingAttachmentFetches = new Map<string, Promise<string>>();
+
+export async function getAttachmentBlobUrl(attachment: ChatAttachment): Promise<string> {
+  const attId = attachment.attachmentId || attachment.fileUrl;
+  
+  if (attachment.fileUrl && (attachment.fileUrl.startsWith('http://') || attachment.fileUrl.startsWith('https://') || attachment.fileUrl.startsWith('blob:'))) {
+    return attachment.fileUrl;
+  }
+
+  if (attachmentBlobCache.has(attId)) {
+    return attachmentBlobCache.get(attId)!;
+  }
+
+  if (pendingAttachmentFetches.has(attId)) {
+    return pendingAttachmentFetches.get(attId)!;
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      const attDocRef = doc(db, 'chat_attachments', attId);
+      const attSnap = await getDoc(attDocRef);
+
+      if (!attSnap.exists()) {
+        throw new Error('Attachment metadata not found in database.');
+      }
+
+      const meta = attSnap.data();
+      const totalChunks = meta.totalChunks || 1;
+
+      const chunkPromises = [];
+      for (let i = 0; i < totalChunks; i++) {
+        const chunkRef = doc(db, 'chat_attachments', attId, 'chunks', `chunk_${i}`);
+        chunkPromises.push(getDoc(chunkRef));
+      }
+
+      const chunkSnaps = await Promise.all(chunkPromises);
+      let fullBase64 = '';
+      for (const snap of chunkSnaps) {
+        if (snap.exists()) {
+          fullBase64 += snap.data().data;
+        }
+      }
+
+      if (!fullBase64) {
+        throw new Error('Failed to reconstruct attachment data.');
+      }
+
+      const byteCharacters = atob(fullBase64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const mime = meta.mimeType || attachment.mimeType || 'application/octet-stream';
+      const blob = new Blob([byteArray], { type: mime });
+
+      const blobUrl = URL.createObjectURL(blob);
+      attachmentBlobCache.set(attId, blobUrl);
+      pendingAttachmentFetches.delete(attId);
+      return blobUrl;
+    } catch (err) {
+      pendingAttachmentFetches.delete(attId);
+      console.error('Error fetching attachment blob:', err);
+      throw err;
+    }
+  })();
+
+  pendingAttachmentFetches.set(attId, fetchPromise);
+  return fetchPromise;
+}
+
+export async function downloadOrOpenAttachment(attachment: ChatAttachment, action: 'open' | 'download' = 'open'): Promise<void> {
+  try {
+    const blobUrl = await getAttachmentBlobUrl(attachment);
+    if (action === 'download') {
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = attachment.fileName || 'attachment';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      window.open(blobUrl, '_blank');
+    }
+  } catch (err) {
+    console.error('Failed to open/download attachment:', err);
+    alert('Unable to load attachment file. Please check your connection.');
+  }
+}
+
+// Upload an attachment using high-performance Firestore Chunked Storage engine
 export function uploadAttachment(
   file: File,
   conversationId: string,
@@ -173,128 +281,94 @@ export function uploadAttachment(
   onProgress: (progress: number) => void,
   onComplete: (downloadUrl: string) => void,
   onError: (error: Error) => void,
-  timeoutMs: number = 120000 // 120 seconds default
+  timeoutMs: number = 120000
 ): () => void {
-  let isFinished = false;
-  let timerId: any = null;
-  let activeTask: any = null;
   let isCancelled = false;
+  let timerId: any = null;
 
   console.log(`[CHAT_UPLOAD] UPLOAD_STARTED | FILE_NAME="${file.name}" | FILE_SIZE=${file.size} | MIME_TYPE="${file.type || 'unknown'}" | CONVERSATION="${conversationId}" | USER="${userId}"`);
 
-  const cleanup = () => {
-    isFinished = true;
-    if (timerId) {
-      clearTimeout(timerId);
-      timerId = null;
-    }
-  };
-
   const executeUpload = async () => {
     try {
-      if (!storage) {
-        throw new Error('Firebase Storage is not initialized.');
+      if (!navigator.onLine) {
+        throw new Error('No internet connection. Please check your network.');
       }
 
-      // 1. Ensure Auth identity for Firebase Storage
-      await ensureFirebaseAuth();
-
-      // 2. Validate attachment format & size
       const validation = validateAttachment(file);
       if (!validation.valid) {
-        throw new Error(validation.error || 'Invalid file.');
+        throw new Error(validation.error || 'Invalid file format or size.');
       }
 
-      const fileExtension = file.name.split('.').pop() || 'bin';
-      const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
-      const storagePath = `chat_attachments/${conversationId}/${safeName}`;
-      const storageRef = ref(storage, storagePath);
-
-      console.log(`[CHAT_UPLOAD] REQUEST_STARTED | STORAGE_PATH="${storagePath}" | METHOD="POST/PUT (Firebase Storage)"`);
-
-      const fileMetadata = {
-        contentType: file.type || 'application/octet-stream',
-        customMetadata: {
-          originalName: file.name,
-          uploadedBy: userId,
-          conversationId
-        }
-      };
-
-      // Set timeout timer
       timerId = setTimeout(() => {
-        if (!isFinished) {
-          console.error(`[CHAT_UPLOAD] UPLOAD_TIMEOUT | STORAGE_PATH="${storagePath}" | TIMEOUT_MS=${timeoutMs}`);
-          cleanup();
-          if (activeTask && typeof activeTask.cancel === 'function') {
-            try { activeTask.cancel(); } catch (_) {}
-          }
-          onError(new Error('Upload timed out. Please check your network connection and try again.'));
+        if (!isCancelled) {
+          isCancelled = true;
+          console.error(`[CHAT_UPLOAD] UPLOAD_TIMEOUT | FILE_NAME="${file.name}" | TIMEOUT_MS=${timeoutMs}`);
+          onError(new Error('Upload operation timed out. Please try again.'));
         }
       }, timeoutMs);
 
-      // Try upload via uploadBytesResumable
-      let uploadSuccess = false;
-      let downloadUrl = '';
+      onProgress(5);
 
-      try {
-        const resumableTask = uploadBytesResumable(storageRef, file, fileMetadata);
-        activeTask = resumableTask;
+      const base64Data = await fileToBase64(file);
+      if (isCancelled) return;
 
-        await new Promise<void>((resolve, reject) => {
-          resumableTask.on(
-            'state_changed',
-            (snapshot) => {
-              if (isFinished || isCancelled) return;
-              const progress = snapshot.totalBytes > 0 
-                ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100 
-                : 0;
-              console.log(`[CHAT_UPLOAD] UPLOAD_BYTES_SENT | TRANSFERRED=${snapshot.bytesTransferred}/${snapshot.totalBytes} (${progress.toFixed(1)}%)`);
-              onProgress(Math.min(100, Math.max(0, progress)));
-            },
-            (err) => {
-              reject(err);
-            },
-            async () => {
-              try {
-                downloadUrl = await getDownloadURL(resumableTask.snapshot.ref);
-                uploadSuccess = true;
-                resolve();
-              } catch (urlErr) {
-                reject(urlErr);
-              }
-            }
-          );
-        });
-      } catch (resumableErr: any) {
-        if (isCancelled || isFinished) return;
-        console.warn('[CHAT_UPLOAD] Resumable upload failed/interrupted, attempting direct atomic upload fallback...', resumableErr?.message || resumableErr);
+      onProgress(15);
 
-        // Fallback: Attempt direct uploadBytes (single request)
-        try {
-          console.log(`[CHAT_UPLOAD] ATTEMPTING_FALLBACK | STORAGE_PATH="${storagePath}" | METHOD="uploadBytes"`);
-          onProgress(50);
-          const uploadResult = await uploadBytes(storageRef, file, fileMetadata);
-          downloadUrl = await getDownloadURL(uploadResult.ref);
-          uploadSuccess = true;
-          onProgress(100);
-        } catch (fallbackErr: any) {
-          throw fallbackErr;
-        }
+      const attachmentId = 'att_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+      const CHUNK_SIZE = 500 * 1024; // 500 KB chunk
+      const totalChunks = Math.ceil(base64Data.length / CHUNK_SIZE);
+
+      console.log(`[CHAT_UPLOAD] REQUEST_STARTED | ATTACHMENT_ID="${attachmentId}" | TOTAL_CHUNKS=${totalChunks}`);
+
+      const attRef = doc(db, 'chat_attachments', attachmentId);
+      await setDoc(attRef, {
+        attachmentId,
+        conversationId,
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        fileSize: file.size,
+        uploadedBy: userId,
+        uploadedAt: new Date().toISOString(),
+        totalChunks,
+        status: 'uploading'
+      });
+
+      if (isCancelled) return;
+
+      for (let i = 0; i < totalChunks; i++) {
+        if (isCancelled) return;
+        const chunkSlice = base64Data.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+        const chunkRef = doc(db, 'chat_attachments', attachmentId, 'chunks', `chunk_${i}`);
+        
+        await setDoc(chunkRef, { index: i, data: chunkSlice });
+
+        const progressPercent = Math.round(15 + ((i + 1) / totalChunks) * 80);
+        console.log(`[CHAT_UPLOAD] UPLOAD_BYTES_SENT | CHUNK=${i + 1}/${totalChunks} (${progressPercent}%)`);
+        onProgress(Math.min(95, progressPercent));
       }
 
-      if (!isFinished && !isCancelled && uploadSuccess && downloadUrl) {
-        console.log(`[CHAT_UPLOAD] UPLOAD_COMPLETED | STORAGE_PATH="${storagePath}" | URL_GENERATED=true`);
-        cleanup();
-        onComplete(downloadUrl);
-      }
+      if (isCancelled) return;
+
+      console.log(`[CHAT_UPLOAD] VERIFYING_ATTACHMENT | ATTACHMENT_ID="${attachmentId}"`);
+      await updateDoc(attRef, { status: 'completed' });
+
+      onProgress(100);
+      if (timerId) clearTimeout(timerId);
+
+      // Cache local blob URL for immediate instant rendering
+      const localBlob = new Blob([file], { type: file.type || 'application/octet-stream' });
+      const localBlobUrl = URL.createObjectURL(localBlob);
+      attachmentBlobCache.set(attachmentId, localBlobUrl);
+
+      console.log(`[CHAT_UPLOAD] UPLOAD_COMPLETED | ATTACHMENT_ID="${attachmentId}"`);
+      onComplete(attachmentId);
     } catch (err: any) {
+      if (timerId) clearTimeout(timerId);
       if (isCancelled) {
         console.log('[CHAT_UPLOAD] UPLOAD_CANCELLED_BY_USER');
         return;
       }
       console.error(`[CHAT_UPLOAD] UPLOAD_FAILED | ERROR="${err?.message || String(err)}"`);
-      cleanup();
       onError(err instanceof Error ? err : new Error(String(err)));
     }
   };
@@ -303,13 +377,8 @@ export function uploadAttachment(
 
   return () => {
     isCancelled = true;
+    if (timerId) clearTimeout(timerId);
     console.log('[CHAT_UPLOAD] UPLOAD_CANCEL_REQUESTED');
-    cleanup();
-    if (activeTask && typeof activeTask.cancel === 'function') {
-      try {
-        activeTask.cancel();
-      } catch (_) {}
-    }
   };
 }
 

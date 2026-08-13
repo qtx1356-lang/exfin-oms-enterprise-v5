@@ -39,9 +39,117 @@ import {
   markAsRead,
   uploadAttachment,
   validateAttachment,
-  formatFileSize
+  formatFileSize,
+  getAttachmentBlobUrl,
+  downloadOrOpenAttachment
 } from '../../services/chat/chatService';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+
+const AttachmentViewer: React.FC<{ attachment: ChatAttachment }> = ({ attachment }) => {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<boolean>(false);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    setError(false);
+
+    getAttachmentBlobUrl(attachment)
+      .then(url => {
+        if (mounted) {
+          setBlobUrl(url);
+          setLoading(false);
+        }
+      })
+      .catch(err => {
+        console.error('AttachmentViewer error:', err);
+        if (mounted) {
+          setError(true);
+          setLoading(false);
+        }
+      });
+
+    return () => { mounted = false; };
+  }, [attachment]);
+
+  const isImage = attachment.mimeType?.startsWith('image/');
+
+  if (loading) {
+    return (
+      <div className="mb-2 bg-[#100525]/80 border border-purple-500/15 p-3 rounded-xl flex items-center justify-between gap-3 min-w-[220px]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+          <span className="text-xs text-purple-200/70 font-mono">Loading attachment...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !blobUrl) {
+    return (
+      <div className="mb-2 bg-[#100525]/80 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 min-w-[220px] text-rose-300">
+        <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+        <span className="text-xs truncate">{attachment.fileName} (Failed to load)</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-2 bg-[#100525]/80 border border-purple-500/15 p-2.5 rounded-xl flex flex-col gap-2 shadow-inner min-w-[220px]">
+      <div className="flex items-center gap-2.5">
+        {isImage ? (
+          <div className="relative group overflow-hidden rounded-lg border border-purple-500/10 max-h-48 w-full flex items-center justify-center bg-black/40">
+            <img
+              src={blobUrl}
+              alt={attachment.fileName}
+              className="max-h-44 object-contain rounded-md cursor-pointer hover:opacity-95 transition"
+              referrerPolicy="no-referrer"
+              onClick={() => window.open(blobUrl, '_blank', 'noopener,noreferrer')}
+            />
+          </div>
+        ) : (
+          <div className="w-10 h-10 rounded-lg bg-purple-500/15 border border-purple-500/20 flex items-center justify-center text-purple-300 shrink-0">
+            <FileText className="w-5 h-5" />
+          </div>
+        )}
+        {!isImage && (
+          <div className="text-left min-w-0 flex-1">
+            <p className="text-xs font-bold text-white truncate">{attachment.fileName}</p>
+            <p className="text-[9px] text-purple-300/60 uppercase font-bold">
+              {attachment.fileName.split('.').pop()?.toUpperCase() || 'FILE'} • {formatFileSize(attachment.fileSize)}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {isImage && (
+        <div className="text-left min-w-0">
+          <p className="text-xs font-bold text-white truncate">{attachment.fileName}</p>
+          <p className="text-[9px] text-purple-300/60 uppercase font-bold">
+            {formatFileSize(attachment.fileSize)}
+          </p>
+        </div>
+      )}
+
+      <div className="flex gap-2 justify-end pt-1.5 border-t border-purple-500/10">
+        <button
+          type="button"
+          onClick={() => downloadOrOpenAttachment(attachment, 'open')}
+          className="text-[10px] font-bold text-teal-300 hover:text-white bg-teal-500/15 border border-teal-500/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer"
+        >
+          <ExternalLink className="w-3 h-3" /> Open
+        </button>
+        <button
+          type="button"
+          onClick={() => downloadOrOpenAttachment(attachment, 'download')}
+          className="text-[10px] font-bold text-purple-200 hover:text-white bg-purple-500/15 border border-purple-500/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer"
+        >
+          <Download className="w-3 h-3" /> Download
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const pendingFilesMap = new Map<string, {
   file: File;
@@ -165,17 +273,21 @@ export const AdminChatTab: React.FC = () => {
     const syncOfflineMessages = async () => {
       for (const [tempId, data] of Array.from(pendingFilesMap.entries())) {
         try {
-          const fileExtension = data.file.name.split('.').pop() || '';
-          const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
-          const storageRef = ref(storage, `chat_attachments/${data.conversationId}/${safeName}`);
-          
-          const snapshot = await uploadBytesResumable(storageRef, data.file);
-          const downloadUrl = await getDownloadURL(snapshot.ref);
+          const downloadUrl = await new Promise<string>((resolve, reject) => {
+            uploadAttachment(
+              data.file,
+              data.conversationId,
+              data.senderId,
+              () => {},
+              (url) => resolve(url),
+              (err) => reject(err)
+            );
+          });
 
           const attachmentMeta: ChatAttachment = {
-            attachmentId: tempId,
+            attachmentId: downloadUrl,
             fileName: data.file.name,
-            mimeType: data.file.type,
+            mimeType: data.file.type || 'application/octet-stream',
             fileSize: data.file.size,
             fileUrl: downloadUrl,
             uploadedBy: data.senderId,
@@ -699,62 +811,7 @@ export const AdminChatTab: React.FC = () => {
                           }`}
                         >
                           {msg.attachment && (
-                            <div className="mb-2 bg-[#100525]/80 border border-purple-500/15 p-2.5 rounded-xl flex flex-col gap-2 shadow-inner min-w-[220px]">
-                              <div className="flex items-center gap-2.5">
-                                {msg.attachment.mimeType?.startsWith('image/') ? (
-                                  <div className="relative group overflow-hidden rounded-lg border border-purple-500/10 max-h-48 w-full flex items-center justify-center bg-black/40">
-                                    <img
-                                      src={msg.attachment.fileUrl}
-                                      alt={msg.attachment.fileName}
-                                      className="max-h-44 object-contain rounded-md cursor-pointer hover:opacity-95 transition"
-                                      referrerPolicy="no-referrer"
-                                      onClick={() => window.open(msg.attachment!.fileUrl, '_blank', 'noopener,noreferrer')}
-                                    />
-                                  </div>
-                                ) : (
-                                  <div className="w-10 h-10 rounded-lg bg-purple-500/15 border border-purple-500/20 flex items-center justify-center text-purple-300 shrink-0">
-                                    <FileText className="w-5 h-5" />
-                                  </div>
-                                )}
-                                {!msg.attachment.mimeType?.startsWith('image/') && (
-                                  <div className="text-left min-w-0 flex-1">
-                                    <p className="text-xs font-bold text-white truncate">{msg.attachment.fileName}</p>
-                                    <p className="text-[9px] text-purple-300/60 uppercase font-bold">
-                                      {msg.attachment.fileName.split('.').pop()?.toUpperCase() || 'FILE'} • {formatFileSize(msg.attachment.fileSize)}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-
-                              {msg.attachment.mimeType?.startsWith('image/') && (
-                                <div className="text-left min-w-0">
-                                  <p className="text-xs font-bold text-white truncate">{msg.attachment.fileName}</p>
-                                  <p className="text-[9px] text-purple-300/60 uppercase font-bold">
-                                    {formatFileSize(msg.attachment.fileSize)}
-                                  </p>
-                                </div>
-                              )}
-
-                              <div className="flex gap-2 justify-end pt-1.5 border-t border-purple-500/10">
-                                <a
-                                  href={msg.attachment.fileUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-[10px] font-bold text-teal-300 hover:text-white bg-teal-500/15 border border-teal-500/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1"
-                                >
-                                  <ExternalLink className="w-3 h-3" /> Open
-                                </a>
-                                <a
-                                  href={msg.attachment.fileUrl}
-                                  download={msg.attachment.fileName}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-[10px] font-bold text-purple-200 hover:text-white bg-purple-500/15 border border-purple-500/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1"
-                                >
-                                  <Download className="w-3 h-3" /> Download
-                                </a>
-                              </div>
-                            </div>
+                            <AttachmentViewer attachment={msg.attachment} />
                           )}
 
                           {msg.content && <p className="whitespace-pre-wrap break-words">{msg.content}</p>}
