@@ -457,7 +457,7 @@ export const Layout: React.FC = () => {
         </div>
       </header>
 
-      <main className="container mx-auto p-4 max-w-3xl">
+      <main className="container mx-auto p-4 max-w-3xl pb-28">
         <InAppNotificationToast
           toastData={activeToastNotif}
           onDismiss={() => setActiveToastNotif(null)}

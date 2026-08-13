@@ -1,19 +1,14 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, CalendarCheck, Briefcase, BarChart3, Users } from 'lucide-react';
-import { usePermission } from '../../context/PermissionContext';
+import { Home, CalendarCheck, Receipt, CalendarDays, User } from 'lucide-react';
 
 export const BottomNav: React.FC = () => {
-  const { hasFeatureAccess, isTeamLeader } = usePermission();
-
-  const showMyTeam = isTeamLeader() || hasFeatureAccess('myTeam');
-
   const navItems = [
     { icon: Home, label: 'Home', path: '/' },
     { icon: CalendarCheck, label: 'Attendance', path: '/attendance' },
-    { icon: Briefcase, label: 'Planner', path: '/planner' },
-    { icon: BarChart3, label: 'Efficiency', path: '/efficiency' },
-    ...(showMyTeam ? [{ icon: Users, label: 'My Team', path: '/my-team' }] : []),
+    { icon: Receipt, label: 'Expenses', path: '/expenses' },
+    { icon: CalendarDays, label: 'Leave', path: '/leave' },
+    { icon: User, label: 'Profile', path: '/profile' },
   ];
 
   return (
@@ -23,7 +18,7 @@ export const BottomNav: React.FC = () => {
           key={item.path}
           to={item.path}
           className={({ isActive }) => 
-            `flex flex-col items-center justify-center w-14 sm:w-16 h-12 rounded-full transition-all duration-300 ${
+            `flex flex-col items-center justify-center w-14 sm:w-16 h-12 rounded-full transition-all duration-300 touch-manipulation ${
               isActive ? 'text-white' : 'text-purple-300/60 hover:text-purple-200'
             }`
           }
@@ -49,3 +44,4 @@ export const BottomNav: React.FC = () => {
     </div>
   );
 };
+
