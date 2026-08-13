@@ -37,6 +37,7 @@ import { Capacitor } from '@capacitor/core';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
+import { LocationGate } from '../../components/common/LocationGate';
 import { AttendanceRecord, AttendanceType, OutdoorWorkTypeOption } from '../../types/attendance';
 import { getStoredLeaves } from '../../services/leave/leaveStorage';
 import {
@@ -94,6 +95,9 @@ export const AttendanceScreen: React.FC = () => {
     refreshLocation,
     locationState,
     setActiveAttendanceMode,
+    isGpsOff,
+    isPermissionDenied,
+    isLocationUnavailable,
   } = useLocationContext();
 
   // Trigger Active Attendance Mode on Mount for high-frequency location updates
@@ -656,6 +660,10 @@ export const AttendanceScreen: React.FC = () => {
       workingDaysTotal: totalWorkingDaysInMonth
     };
   }, [allRecords, employeeId]);
+
+  if (isPermissionDenied || isGpsOff || (locationStatus === 'error' && isLocationUnavailable)) {
+    return <LocationGate />;
+  }
 
   const ribbonInfo = getRibbonInfo();
 

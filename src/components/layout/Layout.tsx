@@ -6,7 +6,6 @@ import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { GlobalSyncStatus } from '../common/GlobalSyncStatus';
-import { LocationGate } from '../common/LocationGate';
 import {
   getUnreadNotificationCount,
   getNotificationsForUser,
@@ -121,12 +120,6 @@ export const Layout: React.FC = () => {
     }
     return null;
   }, [adminUser?.uid, employeeData?.id, employeeData?.employeeCode, employeeData?.isTeamLeader]);
-
-  const isGateActive = !adminUser && (isPermissionDenied || isGpsOff || (locationStatus === 'error' && isLocationUnavailable));
-
-  if (isGateActive) {
-    return <LocationGate />;
-  }
 
   const refreshNotificationCount = async () => {
     if (!currentUser) return;
