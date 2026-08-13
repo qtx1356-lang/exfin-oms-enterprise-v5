@@ -112,7 +112,7 @@ export const Layout: React.FC = () => {
   const refreshNotificationCount = async () => {
     if (!currentUser) return;
     try {
-      // 1. Get locally updated unread count
+      // 1. Get locally updated unread count (for immediate load)
       const count = getUnreadNotificationCount(currentUser);
       setUnreadCount(count);
 
@@ -125,6 +125,10 @@ export const Layout: React.FC = () => {
       // Get 3 most recent unread, or 3 most recent overall
       const recents = sorted.slice(0, 3);
       setRecentNotifs(recents);
+
+      // Get the fresh count from the updated local storage
+      const freshCount = getUnreadNotificationCount(currentUser);
+      setUnreadCount(freshCount);
 
       // 3. Baseline initialization or process incoming
       if (!baselineDoneRef.current) {
@@ -150,6 +154,17 @@ export const Layout: React.FC = () => {
 
     return () => clearInterval(timer);
   }, [employeeData, adminUser, location.pathname]);
+
+  // Handle cross-screen real-time notification updates
+  useEffect(() => {
+    const handleUpdate = () => {
+      refreshNotificationCount();
+    };
+    window.addEventListener('exfin-notifications-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('exfin-notifications-updated', handleUpdate);
+    };
+  }, [currentUser?.employeeCode, currentUser?.id]);
 
   // Handle visibility change / app resume from background
   useEffect(() => {
@@ -345,7 +360,7 @@ export const Layout: React.FC = () => {
                     <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                     {unreadCount > 0 && (
                       <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-red-500 text-[9px] sm:text-[10px] font-black text-white ring-2 ring-[#1D113B] animate-pulse">
-                        {unreadCount > 9 ? '9+' : unreadCount}
+                        {unreadCount}
                       </span>
                     )}
                   </button>

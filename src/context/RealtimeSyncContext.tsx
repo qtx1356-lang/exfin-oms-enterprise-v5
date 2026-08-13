@@ -21,7 +21,7 @@ import { syncPendingExpenseRecords } from '../services/expenses/expenseSyncEngin
 import { syncPendingAttendanceRecords } from '../services/attendance/syncEngine';
 import { syncAllPendingRecords } from '../services/sync/globalSyncEngine';
 import { saveTaskRecord, getStoredTasks } from '../services/planner/taskStorage';
-import { isNotificationDeletedLocally } from '../services/notification/notificationStorage';
+import { isNotificationDeletedLocally, saveMultipleNotificationsLocally } from '../services/notification/notificationStorage';
 import { saveLeaveRecord, getStoredLeaves } from '../services/leave/leaveStorage';
 import { saveExpenseRecord, getStoredExpenseRecords } from '../services/expenses/expenseStorage';
 import { saveAttendanceRecord, getStoredAttendanceRecords } from '../services/attendance/attendanceStorage';
@@ -441,6 +441,12 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
 
           setNotifications(finalNotifsList);
           setUnreadNotificationCount(finalNotifsList.filter((n) => !n.read).length);
+
+          // Save to local storage to keep it fully synchronized and dispatch update event
+          saveMultipleNotificationsLocally(finalNotifsList);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('exfin-notifications-updated'));
+          }
         },
         (err) => console.warn(`RealtimeSync: Notifications snapshot ${qIdx} error:`, err)
       );

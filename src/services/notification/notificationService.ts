@@ -25,6 +25,12 @@ import {
   getDeletedNotificationIds,
 } from './notificationStorage';
 
+const dispatchNotificationsUpdated = () => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('exfin-notifications-updated'));
+  }
+};
+
 enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
@@ -166,6 +172,7 @@ export const createNotification = async (
 
   // Save locally first so it shows up immediately
   saveNotificationLocally(newNotif);
+  dispatchNotificationsUpdated();
 
   if (isOnline()) {
     try {
@@ -345,6 +352,7 @@ export const getNotificationsForUser = async (user: {
     const serverNotifs = Array.from(fetchedMap.values());
     if (serverNotifs.length > 0) {
       saveMultipleNotificationsLocally(serverNotifs);
+      dispatchNotificationsUpdated();
     }
 
     // Sync local pending notifications to Firestore
@@ -371,6 +379,7 @@ export const markNotificationRead = async (id: string): Promise<void> => {
     local[index].updatedAtDeviceTime = nowIso;
     local[index].syncStatus = 'PENDING';
     saveNotificationLocally(local[index]);
+    dispatchNotificationsUpdated();
   }
 
   if (isOnline()) {
@@ -422,6 +431,7 @@ export const markAllNotificationsRead = async (user: {
   if (updatedNotifs.length === 0) return;
 
   saveMultipleNotificationsLocally(local);
+  dispatchNotificationsUpdated();
 
   if (isOnline()) {
     try {
@@ -499,6 +509,7 @@ export const deleteNotification = async (
   user?: { id?: string; employeeCode?: string }
 ): Promise<void> => {
   removeNotificationLocally(id);
+  dispatchNotificationsUpdated();
   if (isOnline()) {
     try {
       const docRef = doc(db, 'notifications', id);
