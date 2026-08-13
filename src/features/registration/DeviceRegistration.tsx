@@ -102,11 +102,11 @@ export const DeviceRegistration: React.FC = () => {
               <input
                 type="tel"
                 value={mobileNumber}
-                onChange={(e) => setMobileNumber(e.target.value)}
+                onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 placeholder="10-digit mobile number"
                 className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[#211044] text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED] text-sm"
                 required
-                pattern="[0-9]{10}"
+                maxLength={10}
               />
             </div>
 

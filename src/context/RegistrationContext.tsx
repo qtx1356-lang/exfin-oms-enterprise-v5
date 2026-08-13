@@ -141,7 +141,15 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             const regStatus = data.status || 'Pending Approval';
             
             // Check status restrictions
-            if (regStatus === 'Suspended' || regStatus === 'Blocked' || regStatus === 'INACTIVE' || regStatus === 'Rejected') {
+            if (regStatus === 'Rejected') {
+              if (isMounted) {
+                setStatus('Rejected');
+                setEmployeeData(data);
+              }
+              return;
+            }
+
+            if (regStatus === 'Suspended' || regStatus === 'Blocked' || regStatus === 'INACTIVE') {
               if (isMounted) {
                 setStatus('suspended_notice');
                 setRejectionReason(data.rejectionReason || `Account status is ${regStatus}. Please contact your administrator.`);
@@ -209,6 +217,9 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const verifyMobileForRecovery = async (mobile: string): Promise<boolean> => {
     if (!db) return false;
     const canonical = normalizeMobile(mobile);
+    
+    console.log(`[Verification] Start for: ${mobile} (Canonical: ${canonical})`);
+    
     if (!canonical || canonical.length < 10) {
       setRecoveryError('Please enter a valid 10-digit mobile number.');
       return false;
@@ -217,23 +228,37 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setRecoveryLoading(true);
     setRecoveryError(null);
 
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Verification timed out. Please try again.')), 15000)
+    );
+
     try {
       const regsRef = collection(db, 'registrations');
-      const snap = await getDocs(regsRef);
+      
+      // Step 1: Optimized query by canonicalMobile
+      const q = query(regsRef, where('canonicalMobile', '==', canonical));
+      
+      console.log(`[Verification] Querying Firestore for canonicalMobile: ${canonical}`);
+      const snap = await Promise.race([getDocs(q), timeoutPromise]) as any;
       
       let matchedReg: { id: string; data: any } | null = null;
       
-      snap.forEach(d => {
-        const data = d.data();
-        const regMobile = normalizeMobile(data.mobileNumber || '');
-        if (regMobile === canonical) {
-          matchedReg = { id: d.id, data };
+      if (!snap.empty) {
+        matchedReg = { id: snap.docs[0].id, data: snap.docs[0].data() };
+        console.log(`[Verification] Match found via canonicalMobile: ${snap.docs[0].id}`);
+      } else {
+        // Step 2: Fallback query by raw mobileNumber
+        console.log(`[Verification] No canonical match, trying raw mobileNumber query`);
+        const q2 = query(regsRef, where('mobileNumber', '==', mobile));
+        const snap2 = await Promise.race([getDocs(q2), timeoutPromise]) as any;
+        if (!snap2.empty) {
+          matchedReg = { id: snap2.docs[0].id, data: snap2.docs[0].data() };
+          console.log(`[Verification] Match found via raw mobileNumber: ${snap2.docs[0].id}`);
         }
-      });
+      }
 
       if (!matchedReg) {
-        // No match found -> Proceed to normal registration
-        setRecoveryLoading(false);
+        console.log(`[Verification] No existing employee found for ${canonical}. Proceeding to new registration.`);
         setStatus('unregistered');
         return false;
       }
@@ -241,20 +266,26 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const { id: regId, data: regData } = matchedReg as { id: string; data: any };
       const regStatus = regData.status || 'Pending Approval';
 
-      // Check if completely deleted (if marked deleted)
+      console.log(`[Verification] Existing employee found: ${regData.name}, Status: ${regStatus}`);
+
+      // Check if completely deleted
       if (regData.isDeleted || regStatus === 'Deleted') {
         setRecoveryError('This account was completely deleted. Please register as a new employee.');
-        setRecoveryLoading(false);
         setStatus('unregistered');
         return false;
       }
 
       // Check Status
-      if (regStatus === 'Suspended' || regStatus === 'Blocked' || regStatus === 'INACTIVE' || regStatus === 'Rejected') {
+      if (regStatus === 'Rejected') {
+        setStatus('Rejected');
+        setEmployeeData(regData);
+        return false;
+      }
+
+      if (regStatus === 'Suspended' || regStatus === 'Blocked' || regStatus === 'INACTIVE') {
         setStatus('suspended_notice');
         setRejectionReason(regData.rejectionReason || `Your account is currently ${regStatus}. Please contact your administrator.`);
         setEmployeeData(regData);
-        setRecoveryLoading(false);
         return false;
       }
 
@@ -263,7 +294,6 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setLocalRegId(regId);
         setEmployeeData(regData);
         setStatus('Pending Approval');
-        setRecoveryLoading(false);
         return true;
       }
 
@@ -271,13 +301,18 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const { deviceId, deviceModel } = await getDeviceInfo();
       const regDocRef = doc(db, 'registrations', regId);
       
-      // Update session and device association without changing identity key (Mobile Number)
-      await updateDoc(regDocRef, {
-        deviceId,
-        deviceModel,
-        lastSyncTime: new Date().toISOString(),
-        lastRestoredAt: new Date().toISOString()
-      });
+      console.log(`[Verification] Restoring account for ${regData.name} on device ${deviceId}`);
+
+      // Update session and device association
+      await Promise.race([
+        updateDoc(regDocRef, {
+          deviceId,
+          deviceModel,
+          lastSyncTime: new Date().toISOString(),
+          lastRestoredAt: new Date().toISOString()
+        }),
+        timeoutPromise
+      ]);
 
       localStorage.setItem('registrationId', regId);
       try {
@@ -310,101 +345,124 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         console.warn('Audit log creation failed:', auditErr);
       }
 
-      setRecoveryLoading(false);
       return true;
 
     } catch (err: any) {
-      console.error('Mobile recovery error:', err);
-      setRecoveryError(err.message || 'Failed to verify mobile number.');
-      setRecoveryLoading(false);
+      console.error('[Verification] Error:', err);
+      setRecoveryError(err.message || 'Unable to verify mobile number. Please check your internet connection and try again.');
       return false;
+    } finally {
+      setRecoveryLoading(false);
     }
   };
 
   const submitRegistration = async (name: string, mobileNumber: string, selfieBase64: string) => {
     if (!db) throw new Error('Firestore not initialized');
     
+    console.log(`[Registration] Submitting for ${name} (${mobileNumber})`);
+    
     let currentAuthUser = auth?.currentUser || null;
     if (!currentAuthUser && auth) {
       try {
         const credential = await signInAnonymously(auth);
         currentAuthUser = credential.user;
-      } catch (authErr: any) {}
+      } catch (authErr: any) {
+        console.warn('[Registration] Anonymous auth failed:', authErr);
+      }
     }
 
     const { deviceId, deviceModel, androidVersion, appVersion } = await getDeviceInfo();
     const canonical = normalizeMobile(mobileNumber);
     
-    // Check if mobile number already exists across registrations
-    const regsRef = collection(db, 'registrations');
-    const snap = await getDocs(regsRef);
-    let existingReg: { id: string; data: any } | null = null;
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Registration timed out. Please check your connection.')), 20000)
+    );
 
-    snap.forEach(d => {
-      const data = d.data();
-      if (normalizeMobile(data.mobileNumber || '') === canonical) {
-        existingReg = { id: d.id, data: d.data() };
-      }
-    });
+    try {
+      // Check if mobile number already exists across registrations
+      const regsRef = collection(db, 'registrations');
+      const q = query(regsRef, where('canonicalMobile', '==', canonical));
+      const snap = await Promise.race([getDocs(q), timeoutPromise]) as any;
+      
+      let existingReg: { id: string; data: any } | null = null;
 
-    let registrationId = '';
-    let existingData: any = null;
-    let finalEmployeeCode = '';
-
-    if (existingReg) {
-      registrationId = (existingReg as any).id;
-      existingData = (existingReg as any).data;
-      finalEmployeeCode = existingData.employeeCode || registrationId;
-    } else {
-      // Check for deviceId registration if mobile not found
-      const qDev = query(regsRef, where('deviceId', '==', deviceId));
-      const devSnap = await getDocs(qDev);
-      if (!devSnap.empty) {
-        registrationId = devSnap.docs[0].id;
-        existingData = devSnap.docs[0].data();
-        finalEmployeeCode = existingData.employeeCode || registrationId;
+      if (!snap.empty) {
+        existingReg = { id: snap.docs[0].id, data: snap.docs[0].data() };
+        console.log(`[Registration] Mobile found: ${existingReg.id}`);
       } else {
+        // Fallback check
+        const q2 = query(regsRef, where('mobileNumber', '==', mobileNumber));
+        const snap2 = await Promise.race([getDocs(q2), timeoutPromise]) as any;
+        if (!snap2.empty) {
+          existingReg = { id: snap2.docs[0].id, data: snap2.docs[0].data() };
+          console.log(`[Registration] Mobile found (raw): ${existingReg.id}`);
+        }
+      }
+
+      let registrationId = '';
+      let existingData: any = null;
+      let finalEmployeeCode = '';
+
+      if (existingReg) {
+        registrationId = (existingReg as any).id;
+        existingData = (existingReg as any).data;
+        finalEmployeeCode = existingData.employeeCode || registrationId;
+        console.log(`[Registration] Using existing ID: ${registrationId}`);
+      } else {
+        // DO NOT use deviceId for identity restoration as per user request
+        // Only use mobile number (handled above)
+        console.log(`[Registration] Creating new employee record`);
         const counterRef = doc(db, 'metadata', 'counters');
-        finalEmployeeCode = await runTransaction(db, async (transaction) => {
-          const counterDoc = await transaction.get(counterRef);
-          let newSeq = 1;
-          if (counterDoc.exists() && counterDoc.data().employeeCodeSequence) {
-            newSeq = counterDoc.data().employeeCodeSequence + 1;
-          }
-          transaction.set(counterRef, { employeeCodeSequence: newSeq }, { merge: true });
-          return `EXFRNG${newSeq.toString().padStart(3, '0')}`;
-        });
+        finalEmployeeCode = await Promise.race([
+          runTransaction(db, async (transaction) => {
+            const counterDoc = await transaction.get(counterRef);
+            let newSeq = 1;
+            if (counterDoc.exists() && counterDoc.data().employeeCodeSequence) {
+              newSeq = counterDoc.data().employeeCodeSequence + 1;
+            }
+            transaction.set(counterRef, { employeeCodeSequence: newSeq }, { merge: true });
+            return `EXFRNG${newSeq.toString().padStart(3, '0')}`;
+          }),
+          timeoutPromise
+        ]) as string;
         registrationId = currentAuthUser?.uid || finalEmployeeCode;
       }
+
+      const registrationData = {
+        employeeCode: finalEmployeeCode,
+        name,
+        mobileNumber,
+        canonicalMobile: canonical,
+        deviceId,
+        deviceModel,
+        androidVersion,
+        appVersion,
+        selfieUrl: selfieBase64,
+        registrationDate: existingData?.registrationDate || new Date().toISOString(),
+        lastUpdated: new Date().toISOString(),
+        status: existingData?.status || 'Pending Approval',
+        office: existingData?.office || 'Raniganj',
+        uid: currentAuthUser?.uid || registrationId
+      };
+
+      await Promise.race([
+        setDoc(doc(db, 'registrations', registrationId), registrationData, { merge: true }),
+        timeoutPromise
+      ]);
+
+      localStorage.setItem('registrationId', registrationId);
+      try {
+        localStorage.setItem('cached_registration_data', JSON.stringify(registrationData));
+      } catch (e) {}
+
+      setLocalRegId(registrationId);
+      setStatus(registrationData.status as RegistrationStatus);
+      setEmployeeData(registrationData);
+      console.log(`[Registration] Success. Status set to: ${registrationData.status}`);
+    } catch (err: any) {
+      console.error('[Registration] Fatal Error:', err);
+      throw err;
     }
-
-    const registrationData = {
-      employeeCode: finalEmployeeCode,
-      name,
-      mobileNumber,
-      canonicalMobile: canonical,
-      deviceId,
-      deviceModel,
-      androidVersion,
-      appVersion,
-      selfieUrl: selfieBase64,
-      registrationDate: existingData?.registrationDate || new Date().toISOString(),
-      lastUpdated: new Date().toISOString(),
-      status: existingData?.status || 'Pending Approval',
-      office: existingData?.office || 'Raniganj',
-      uid: currentAuthUser?.uid || registrationId
-    };
-
-    await setDoc(doc(db, 'registrations', registrationId), registrationData, { merge: true });
-
-    localStorage.setItem('registrationId', registrationId);
-    try {
-      localStorage.setItem('cached_registration_data', JSON.stringify(registrationData));
-    } catch (e) {}
-
-    setLocalRegId(registrationId);
-    setStatus(registrationData.status as RegistrationStatus);
-    setEmployeeData(registrationData);
   };
 
   const resetRegistration = () => {
