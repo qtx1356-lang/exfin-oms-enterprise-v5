@@ -107,7 +107,6 @@ export const AttendanceScreen: React.FC = () => {
   // Attendance state
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
-  const [autoCheckInCountdown, setAutoCheckInCountdown] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
@@ -136,8 +135,6 @@ export const AttendanceScreen: React.FC = () => {
   const [historySearchTerm, setHistorySearchTerm] = useState<string>('');
   const [historySyncFilter, setHistorySyncFilter] = useState<'ALL' | 'Synced' | 'Pending'>('ALL');
   const [isHistoryExpanded, setIsHistoryExpanded] = useState<boolean>(false);
-
-  const autoCheckInTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const employeeId = employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN';
   const employeeName = employeeData?.name || 'Employee';
@@ -207,7 +204,6 @@ export const AttendanceScreen: React.FC = () => {
       window.removeEventListener('online', handleOnlineStatus);
       window.removeEventListener('offline', handleOnlineStatus);
       clearInterval(periodicCheckTimer);
-      if (autoCheckInTimerRef.current) clearInterval(autoCheckInTimerRef.current);
     };
   }, [employeeId]);
 
@@ -215,58 +211,29 @@ export const AttendanceScreen: React.FC = () => {
     refreshRecords();
   }, [syncAttendance]);
 
-  // Auto Check-In timer trigger logic (OFFICE Mode ONLY)
-  const handleAutoCheckInCountdown = (inside: boolean, coords: { latitude: number; longitude: number }) => {
+  // Immediate Auto Check-In logic (OFFICE Mode ONLY)
+  const handleImmediateAutoCheckIn = (inside: boolean, coords: { latitude: number; longitude: number }) => {
     const todayStr = getFormattedDateStr();
     const currentToday = getTodayAttendanceRecord(employeeId, todayStr);
 
     if (currentToday) {
-      if (autoCheckInTimerRef.current) {
-        clearInterval(autoCheckInTimerRef.current);
-        autoCheckInTimerRef.current = null;
-      }
-      setAutoCheckInCountdown(null);
       return;
     }
 
     if (inside && activeMode === 'OFFICE') {
-      if (!autoCheckInTimerRef.current && autoCheckInCountdown === null) {
-        let count = 10;
-        setAutoCheckInCountdown(count);
-
-        autoCheckInTimerRef.current = setInterval(() => {
-          count -= 1;
-          if (count > 0) {
-            setAutoCheckInCountdown(count);
-          } else {
-            if (autoCheckInTimerRef.current) {
-              clearInterval(autoCheckInTimerRef.current);
-              autoCheckInTimerRef.current = null;
-            }
-            setAutoCheckInCountdown(null);
-
-            try {
-              const record = performCheckIn(
-                employeeId,
-                employeeName,
-                coords,
-                currentAddress || 'Raniganj HQ',
-                'AUTO'
-              );
-              refreshRecords();
-              setActionFeedback(`Auto Check-In Successful at ${record.checkInTime}!`);
-            } catch (err: any) {
-              console.error('Auto Check-In failed:', err);
-            }
-          }
-        }, 1000);
+      try {
+        const record = performCheckIn(
+          employeeId,
+          employeeName,
+          coords,
+          currentAddress || 'Raniganj HQ',
+          'AUTO'
+        );
+        refreshRecords();
+        setActionFeedback(`Auto Check-In Successful at ${record.checkInTime}!`);
+      } catch (err: any) {
+        console.error('Auto Check-In failed:', err);
       }
-    } else {
-      if (autoCheckInTimerRef.current) {
-        clearInterval(autoCheckInTimerRef.current);
-        autoCheckInTimerRef.current = null;
-      }
-      setAutoCheckInCountdown(null);
     }
   };
 
@@ -278,7 +245,7 @@ export const AttendanceScreen: React.FC = () => {
         const updated = trackSmartOfficeExit(activeRecord, distance);
         setTodayRecord(updated);
       }
-      handleAutoCheckInCountdown(locationState === 'INSIDE_OFFICE', liveLocation);
+      handleImmediateAutoCheckIn(locationState === 'INSIDE_OFFICE', liveLocation);
     }
   }, [liveLocation, distance, locationState, employeeId]);
 
@@ -543,13 +510,6 @@ export const AttendanceScreen: React.FC = () => {
       };
     }
     if (activeMode === 'OFFICE') {
-      if (autoCheckInCountdown !== null) {
-        return {
-          text: `AUTO CHECK-IN IN ${autoCheckInCountdown} SEC...`,
-          style: 'bg-purple-600/40 text-purple-200 border-purple-400/60 animate-pulse',
-          icon: <Radio className="w-4 h-4 text-purple-300 animate-spin" />
-        };
-      }
       if (isInsideGeofence) {
         return {
           text: 'ENTERING OFFICE... READY FOR AUTO CHECK-IN',
@@ -918,55 +878,37 @@ export const AttendanceScreen: React.FC = () => {
                 )}
               </div>
 
-              {/* AUTO CHECK-IN countdown */}
+              {/* AUTO CHECK-IN active status */}
               {!todayRecord && locationState === 'INSIDE_OFFICE' && (
                 <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-400/40 p-5 shadow-[0_0_25px_rgba(124,58,237,0.3)] text-center space-y-3">
                   <div className="flex items-center justify-center gap-2 text-purple-200 text-xs font-black uppercase tracking-wider">
                     <Radio className="w-4 h-4 text-[#7C3AED] animate-spin" /> Auto Check-In Active
                   </div>
-                  {autoCheckInCountdown !== null ? (
-                    <div className="space-y-2 py-1">
-                      <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
-                        <div className="absolute inset-0 rounded-full border-4 border-purple-500/20 animate-ping" />
-                        <div className="w-14 h-14 rounded-full bg-[#7C3AED] text-white flex items-center justify-center text-xl font-black shadow-lg">
-                          {autoCheckInCountdown}
-                        </div>
-                      </div>
-                      <p className="text-[11px] text-purple-200 font-semibold">
-                        Auto Check-In in <strong className="text-white">{autoCheckInCountdown} seconds</strong>... Stay within 25m.
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-purple-200 font-medium">
-                      Inside Office Geofence. Auto Check-in will trigger shortly.
-                    </p>
-                  )}
+                  <p className="text-[11px] text-purple-200 font-medium">
+                    Inside Office Geofence. Auto Check-in is executing immediately.
+                  </p>
                 </div>
               )}
 
               {/* Action Buttons */}
               {!todayRecord ? (
                 <div className="space-y-2">
-                  {autoCheckInCountdown === null && (
-                    <>
-                      <Button 
-                        onClick={handleManualCheckIn}
-                        disabled={locationStatus !== 'success' || distance === null || distance > 25}
-                        className={`w-full py-4 font-black text-sm rounded-2xl transition-all border ${
-                          locationStatus === 'success' && distance !== null && distance <= 25
-                            ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white border-purple-400/30 active:scale-95 shadow-lg'
-                            : 'bg-[#1D123C] text-purple-300/40 border-purple-950/40 opacity-40 cursor-not-allowed pointer-events-none shadow-none transform-none'
-                        }`}
-                      >
-                        <UserCheck className="w-5 h-5 mr-2" /> 
-                        {locationStatus === 'success' && distance !== null && distance <= 25 ? 'Manual Office Check-In' : 'Check-In Unavailable'}
-                      </Button>
-                      {(locationStatus !== 'success' || distance === null || distance > 25) && (
-                        <p className="text-[11px] text-rose-300 text-center font-bold">
-                          Move within 25 meters of office HQ to check in
-                        </p>
-                      )}
-                    </>
+                  <Button 
+                    onClick={handleManualCheckIn}
+                    disabled={locationStatus !== 'success' || distance === null || distance > 25}
+                    className={`w-full py-4 font-black text-sm rounded-2xl transition-all border ${
+                      locationStatus === 'success' && distance !== null && distance <= 25
+                        ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white border-purple-400/30 active:scale-95 shadow-lg'
+                        : 'bg-[#1D123C] text-purple-300/40 border-purple-950/40 opacity-40 cursor-not-allowed pointer-events-none shadow-none transform-none'
+                    }`}
+                  >
+                    <UserCheck className="w-5 h-5 mr-2" /> 
+                    {locationStatus === 'success' && distance !== null && distance <= 25 ? 'Manual Office Check-In' : 'Check-In Unavailable'}
+                  </Button>
+                  {(locationStatus !== 'success' || distance === null || distance > 25) && (
+                    <p className="text-[11px] text-rose-300 text-center font-bold">
+                      Move within 25 meters of office HQ to check in
+                    </p>
                   )}
                 </div>
               ) : (

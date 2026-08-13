@@ -4,9 +4,12 @@ export type SyncStatus = 'Pending' | 'Synced';
 export type AttendanceType = 'OFFICE' | 'WFH' | 'CLIENT_VISIT' | 'OUTDOOR';
 
 export type AttendanceState = 
-  | 'NO_ATTENDANCE'
+  | 'OUTSIDE'
+  | 'ENTERING'
   | 'CHECKED_IN'
   | 'PENDING_FINAL_EXIT'
+  | 'FINALIZED_CHECKOUT'
+  | 'NO_ATTENDANCE'
   | 'CHECKED_OUT';
 
 export type AttendanceEventType = 

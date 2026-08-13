@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
-import { OFFICE_LOCATION, getDistanceFromLatLonInM, processAttendanceStateTransition, runAutoCheckoutFinalizer, getFormattedDateStr } from './smartAttendanceEngine';
+import { AutomaticAttendanceEngine } from './automaticAttendanceEngine';
+import { OFFICE_LOCATION, getDistanceFromLatLonInM, runAutoCheckoutFinalizer, getFormattedDateStr } from './smartAttendanceEngine';
 import { getTodayAttendanceRecord } from './attendanceStorage';
 import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
@@ -75,65 +76,14 @@ export const handleLocationUpdateForAttendance = (
 
   ensureOfficeGeofenceRegistered();
 
-  const distance = getDistanceFromLatLonInM(
+  AutomaticAttendanceEngine.processLocationUpdate(
     latitude,
     longitude,
-    OFFICE_LOCATION.latitude,
-    OFFICE_LOCATION.longitude
+    employeeId,
+    employeeName,
+    townCity,
+    new Date()
   );
-
-  const isInside = distance <= OFFICE_LOCATION.radius;
-
-  const todayStr = getFormattedDateStr(new Date());
-  const record = getTodayAttendanceRecord(employeeId, todayStr);
-
-  // 1. AUTO CHECK-IN: Inside 25m geofence and no valid check-in today
-  if (isInside && (!record || !record.checkInTime)) {
-    logAttendanceEvent('GEOFENCE_ENTER', employeeId, `Entered 25m office geofence (distance: ${Math.round(distance)}m). Immediately triggering auto check-in.`);
-    processAttendanceStateTransition(
-      employeeId,
-      employeeName || 'Employee',
-      { latitude, longitude },
-      townCity || 'Raniganj HQ',
-      'CHECK_IN',
-      'AUTO_GEOFENCE',
-      new Date(),
-      'OFFICE'
-    );
-    return;
-  }
-
-  // 2. ACTIVE SESSION LOGIC
-  if (record && record.checkInTime && !record.checkOutTime && (record.attendanceType === 'OFFICE' || !record.attendanceType)) {
-    // Exited geofence (> 25m)
-    if (!isInside && record.currentState !== 'PENDING_FINAL_EXIT') {
-      logAttendanceEvent('GEOFENCE_EXIT', employeeId, `Exited 25m office geofence (distance: ${Math.round(distance)}m). Recording exit event.`);
-      processAttendanceStateTransition(
-        employeeId,
-        employeeName || record.employeeName,
-        { latitude, longitude },
-        townCity || record.townCity,
-        'GEOFENCE_EXIT',
-        'AUTO_GEOFENCE',
-        new Date(),
-        'OFFICE'
-      );
-    }
-    // Returned to geofence (<= 25m)
-    else if (isInside && (record.currentState === 'PENDING_FINAL_EXIT' || record.lastExitTime || record.exitTime)) {
-      logAttendanceEvent('RETURN_DETECTED', employeeId, `Returned inside 25m office geofence (distance: ${Math.round(distance)}m). Cancelling pending exit.`);
-      processAttendanceStateTransition(
-        employeeId,
-        employeeName || record.employeeName,
-        { latitude, longitude },
-        townCity || record.townCity,
-        'GEOFENCE_RETURN',
-        'AUTO_GEOFENCE',
-        new Date(),
-        'OFFICE'
-      );
-    }
-  }
 };
 
 /**
