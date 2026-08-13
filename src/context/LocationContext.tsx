@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 import { logStartupTag } from '../services/startup/startupPerformanceLogger';
-import { OFFICE_LOCATION, getDistanceFromLatLonInM } from '../services/attendance/smartAttendanceEngine';
+import { OFFICE_LOCATION, getDistanceFromLatLonInM, getFormattedDateStr } from '../services/attendance/smartAttendanceEngine';
 import { 
   handleLocationUpdateForAttendance, 
   initializeBackgroundAttendanceManager, 
@@ -25,6 +26,9 @@ export interface LocationContextType {
   locationState: 'UNKNOWN' | 'LOCATING' | 'INSIDE_OFFICE' | 'OUTSIDE_OFFICE' | 'STALE_LOCATION';
   activeAttendanceMode: boolean;
   setActiveAttendanceMode: (active: boolean) => void;
+  isGpsOff: boolean;
+  isPermissionDenied: boolean;
+  isLocationUnavailable: boolean;
 }
 
 
@@ -69,6 +73,59 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
   const [locationStatus, setLocationStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [isGpsOff, setIsGpsOff] = useState<boolean>(false);
+  const [isPermissionDenied, setIsPermissionDenied] = useState<boolean>(false);
+  const [isLocationUnavailable, setIsLocationUnavailable] = useState<boolean>(false);
+
+  const handleError = (err: any) => {
+    console.warn('[Location Error Logged]', err);
+    setLocationStatus('error');
+    
+    const message = err?.message || err || '';
+    const code = err?.code;
+
+    // Check Case 1: Permission Denied
+    if (code === 1 || /permission|denied/i.test(String(message))) {
+      setIsPermissionDenied(true);
+      setIsGpsOff(false);
+      setIsLocationUnavailable(false);
+      setErrorMessage('Location permission is required.');
+    }
+    // Check Case 2: Location Services/GPS OFF
+    else if (code === 2 || /disabled|settings|satisfied|provider/i.test(String(message))) {
+      setIsGpsOff(true);
+      setIsPermissionDenied(false);
+      setIsLocationUnavailable(false);
+      setErrorMessage('Location Services are OFF.');
+    }
+    // Check Case 3: Location Unavailable
+    else {
+      setIsLocationUnavailable(true);
+      setIsPermissionDenied(false);
+      setIsGpsOff(false);
+      setErrorMessage(String(message) || 'Unable to obtain your current location.');
+    }
+
+    // Set today_unavail cached tracking to flag End-Of-Day Location Unavailable later
+    try {
+      const cachedRaw = localStorage.getItem('cached_registration_data');
+      if (cachedRaw) {
+        const parsed = JSON.parse(cachedRaw);
+        const empId = parsed.employeeCode || parsed.uid || parsed.id;
+        if (empId) {
+          const todayStr = getFormattedDateStr();
+          localStorage.setItem(`loc_unavail_${empId}_${todayStr}`, 'true');
+        }
+      }
+    } catch (e) {}
+  };
+
+  const clearErrors = () => {
+    setIsPermissionDenied(false);
+    setIsGpsOff(false);
+    setIsLocationUnavailable(false);
+    setErrorMessage('');
+  };
   const [currentAddress, setCurrentAddress] = useState<string>(() => {
     try {
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -474,8 +531,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (Capacitor.isNativePlatform()) {
         const perm = await Geolocation.requestPermissions();
         if (perm.location !== 'granted') {
-          setLocationStatus('error');
-          setErrorMessage('Location permission is required.');
+          handleError({ code: 1, message: 'Location permission is required.' });
           return;
         }
       }
@@ -485,29 +541,28 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         (position, err) => {
           if (err || !position || !position.coords) {
             if (err) {
-              setLocationStatus('error');
-              setErrorMessage(err.message || 'Location unavailable.');
+              handleError(err);
             }
             return;
           }
+          clearErrors();
           processPosition(position.coords.latitude, position.coords.longitude, position.coords.accuracy, position.timestamp);
         }
       );
       console.log('LOCATION_LISTENER_STARTED', watchIdRef.current);
     } catch (err) {
       if (!navigator.geolocation) {
-        setLocationStatus('error');
-        setErrorMessage('Geolocation is not supported.');
+        handleError({ code: 2, message: 'Geolocation is not supported.' });
         return;
       }
 
       watchIdRef.current = navigator.geolocation.watchPosition(
         (position) => {
+          clearErrors();
           processPosition(position.coords.latitude, position.coords.longitude, position.coords.accuracy, position.timestamp);
         },
         (error) => {
-          setLocationStatus('error');
-          setErrorMessage('Unable to retrieve location.');
+          handleError(error);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
@@ -588,10 +643,30 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     startTracking();
 
+    // Register Capacitor App Active State Change Listener
+    let appStateListener: any = null;
+    if (Capacitor.isNativePlatform()) {
+      try {
+        appStateListener = CapApp.addListener('appStateChange', ({ isActive }) => {
+          console.log('[Capacitor App State Change] Is Active?', isActive);
+          if (isActive) {
+            console.log('[Lifecycle] App resumed. Re-validating Location Services...');
+            forceRefreshLocation();
+          }
+        });
+      } catch (err) {
+        console.warn('Failed to add Capacitor app state listener:', err);
+      }
+    }
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      if (appStateListener && typeof appStateListener.remove === 'function') {
+        appStateListener.remove();
+      }
       if (watchIdRef.current !== null) {
+        console.log('LOCATION_LISTENER_STOPPED', watchIdRef.current);
         if (typeof watchIdRef.current === 'string') {
           Geolocation.clearWatch({ id: watchIdRef.current });
         } else {
@@ -631,12 +706,11 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         maximumAge: 0
       });
       if (pos && pos.coords) {
+        clearErrors();
         await processPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, pos.timestamp);
       }
     } catch (err: any) {
-      console.warn('Force refresh error:', err);
-      setErrorMessage(err?.message || 'Unable to retrieve location.');
-      setLocationStatus('error');
+      handleError(err);
     }
   }, []);
 
@@ -654,7 +728,10 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       backgroundPermissionGranted,
       locationState,
       activeAttendanceMode,
-      setActiveAttendanceMode
+      setActiveAttendanceMode,
+      isGpsOff,
+      isPermissionDenied,
+      isLocationUnavailable
     }),
     [
       liveLocation,
@@ -669,7 +746,10 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       backgroundPermissionGranted,
       locationState,
       activeAttendanceMode,
-      setActiveAttendanceMode
+      setActiveAttendanceMode,
+      isGpsOff,
+      isPermissionDenied,
+      isLocationUnavailable
     ]
   );
 

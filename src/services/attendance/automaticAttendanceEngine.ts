@@ -572,6 +572,15 @@ export const AutomaticAttendanceEngine = {
     record.workingHours = workingHours;
     record.currentState = 'FINALIZED_CHECKOUT';
 
+    // Check if location was unavailable during the day
+    try {
+      const locUnavailKey = `loc_unavail_${employeeId}_${dateStr}`;
+      if (localStorage.getItem(locUnavailKey) === 'true') {
+        record.checkoutSource = "END_OF_DAY_LOCATION_UNAVAILABLE";
+        record.locationUnavailableDuringDay = true;
+      }
+    } catch (e) {}
+
     const eventId = generateIdempotentEventId(employeeId, dateStr, 'END_OF_DAY_CHECKOUT', checkoutTimeStr);
     record.processedEvents = Array.from(new Set([...(record.processedEvents || []), eventId]));
 

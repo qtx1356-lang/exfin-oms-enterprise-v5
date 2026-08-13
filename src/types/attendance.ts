@@ -126,6 +126,7 @@ export interface AttendanceRecord {
   // New fields requested for auto checkout alignment
   checkoutType?: 'AUTO_CHECKOUT' | 'MANUAL' | string;
   status?: 'completed' | 'active' | string;
+  locationUnavailableDuringDay?: boolean;
 
   // State Machine & Idempotency tracking
   currentState?: AttendanceState;

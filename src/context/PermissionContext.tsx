@@ -59,7 +59,10 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     let isMounted = true;
     let timerId: NodeJS.Timeout | null = null;
 
-    if (!db) {
+    console.log('PermissionContext useEffect: db is', db, 'type is', typeof db);
+
+    if (!db || typeof db !== 'object') {
+      console.warn('PermissionContext: db is not a valid object!', db);
       setLoading(false);
       return;
     }
@@ -85,30 +88,40 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setLoading(false);
     }, 5000);
 
-    const q = query(collection(db, 'roles'));
-    const unsub = onSnapshot(q, (snapshot) => {
-      if (!isMounted) return;
-      if (timerId) {
-        clearTimeout(timerId);
-        timerId = null;
-      }
-      const newRoles = { ...rolesCache };
-      snapshot.docs.forEach(doc => {
-        const data = doc.data() as RoleFeaturePermissions;
-        newRoles[data.roleId] = data;
+    let unsub = () => {};
+    try {
+      const q = query(collection(db, 'roles'));
+      unsub = onSnapshot(q, (snapshot) => {
+        if (!isMounted) return;
+        if (timerId) {
+          clearTimeout(timerId);
+          timerId = null;
+        }
+        const newRoles = { ...rolesCache };
+        snapshot.docs.forEach(doc => {
+          const data = doc.data() as RoleFeaturePermissions;
+          newRoles[data.roleId] = data;
+        });
+        setRolesCache(newRoles);
+        localStorage.setItem('roles_cache', JSON.stringify(newRoles));
+        setLoading(false);
+      }, (error) => {
+        if (!isMounted) return;
+        console.error('Error fetching roles:', error);
+        if (timerId) {
+          clearTimeout(timerId);
+          timerId = null;
+        }
+        setLoading(false);
       });
-      setRolesCache(newRoles);
-      localStorage.setItem('roles_cache', JSON.stringify(newRoles));
-      setLoading(false);
-    }, (error) => {
-      if (!isMounted) return;
-      console.error('Error fetching roles:', error);
+    } catch (error) {
+      console.error('Failed to initialize roles snapshot listener:', error);
       if (timerId) {
         clearTimeout(timerId);
         timerId = null;
       }
       setLoading(false);
-    });
+    }
 
     // Priority 5 FIX: Invalidate stale permission cache on network reconnection
     const handleOnline = () => {
