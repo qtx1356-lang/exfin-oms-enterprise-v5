@@ -27,6 +27,7 @@ import {
   Sparkles,
   Printer
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 import { TaskRecord } from '../../types/planner';
 import { AttendanceRecord } from '../../types/attendance';
 import { EfficiencyBreakdown, EfficiencyGrade, EfficiencySnapshot, EfficiencyWeightages, getEfficiencyGrade } from '../../types/efficiency';
@@ -68,6 +69,21 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   const [historicalSnapshots, setHistoricalSnapshots] = useState<EfficiencySnapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [offlineMode, setOfflineMode] = useState(false);
+
+  // Report generation state
+  const [reportState, setReportState] = useState<'idle' | 'preparing' | 'success' | 'failure'>('idle');
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [generatedPdfBlob, setGeneratedPdfBlob] = useState<Blob | null>(null);
+  const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
+
+  // Clean up object URLs on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (generatedPdfUrl) {
+        URL.revokeObjectURL(generatedPdfUrl);
+      }
+    };
+  }, [generatedPdfUrl]);
 
   // Period Selection: WEEKLY, MONTHLY, CUSTOM
   const [periodType, setPeriodType] = useState<'WEEKLY' | 'MONTHLY' | 'CUSTOM'>('MONTHLY');
@@ -310,6 +326,13 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
     }).sort((a, b) => b.score - a.score);
   }, [authorizedEmployees, startDate, endDate, tasks, attendance, weightages]);
 
+  // Find current selected employee's rank in the leaderboard
+  const currentRank = useMemo(() => {
+    if (!selectedEmployeeCode || !leaderboard) return null;
+    const idx = leaderboard.findIndex(item => item.employee.employeeCode === selectedEmployeeCode);
+    return idx !== -1 ? idx + 1 : null;
+  }, [leaderboard, selectedEmployeeCode]);
+
   // Save current score snapshot
   const handleSaveSnapshot = async () => {
     if (!currentCalculation || !selectedEmployeeCode) return;
@@ -400,8 +423,359 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   };
 
   // Print/Export Report Formatter
-  const handleExportReport = () => {
-    window.print();
+  const handleExportReport = async () => {
+    if (!currentCalculation || !selectedEmployeeCode) {
+      setReportError('No efficiency metrics data is computed. Please select an employee and period first.');
+      setReportState('failure');
+      return;
+    }
+
+    setReportState('preparing');
+    setReportError(null);
+
+    // Clean up any stale object URL
+    if (generatedPdfUrl) {
+      URL.revokeObjectURL(generatedPdfUrl);
+      setGeneratedPdfUrl(null);
+    }
+    setGeneratedPdfBlob(null);
+
+    // Run inside a small timeout to let the loader spin up beautifully
+    setTimeout(() => {
+      try {
+        const doc = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
+
+        const primaryColor = [33, 16, 68]; // #211044
+        const accentColor = [124, 58, 237]; // #7C3AED
+        const darkGray = [31, 41, 55]; // #1F2937
+        const lightGray = [107, 114, 128]; // #6B7280
+        const borderGray = [229, 231, 235]; // #E5E7EB
+        const lightBackground = [248, 249, 252]; // #F8F9FC
+
+        // 1. Top Solid Header Banner
+        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.rect(15, 15, 180, 26, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.text('EXFIN OMS', 22, 26);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(200, 180, 255);
+        doc.text('SMART EFFICIENCY & PERFORMANCE REPORT', 22, 33);
+
+        // Header Meta Info Block
+        doc.setFontSize(8);
+        doc.setTextColor(255, 255, 255);
+        doc.text(`Period: ${startDate} to ${endDate}`, 145, 26);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 145, 31);
+        doc.text(`Type: ${periodType}`, 145, 36);
+
+        // 2. Employee Info Grid Area
+        doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
+        doc.setLineWidth(0.4);
+        doc.line(15, 45, 195, 45);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text('EMPLOYEE DOSSIER', 15, 52);
+
+        // Grid Details Row 1
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+        doc.text('Name:', 15, 60);
+        doc.text('Designation:', 110, 60);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+        doc.text(selectedEmployee?.name || 'N/A', 45, 60);
+        doc.text(selectedEmployee?.designation || 'Executive', 142, 60);
+
+        // Grid Details Row 2
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+        doc.text('Employee Code:', 15, 66);
+        doc.text('Leader / Supervisor:', 110, 66);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+        doc.text(selectedEmployeeCode || 'N/A', 45, 66);
+        doc.text(selectedEmployee?.teamLeaderName || 'None', 142, 66);
+
+        // Grid Details Row 3
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+        doc.text('Department:', 15, 72);
+        doc.text('Office Location:', 110, 72);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+        doc.text(selectedEmployee?.department || 'Operations', 45, 72);
+        doc.text(selectedEmployee?.office || 'Default Office', 142, 72);
+
+        // Section Divider
+        doc.line(15, 78, 195, 78);
+
+        // 3. Overall Score Snapshot Block
+        doc.setFillColor(lightBackground[0], lightBackground[1], lightBackground[2]);
+        doc.roundedRect(15, 83, 180, 32, 2, 2, 'F');
+        doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
+        doc.roundedRect(15, 83, 180, 32, 2, 2, 'S');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
+        doc.text('OVERALL SCORE STANDING', 22, 91);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(28);
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text(`${currentCalculation.finalScore}`, 22, 107);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+        doc.text('/ 100', 44, 107);
+
+        // Progress Bar (Linear visual meter)
+        doc.setFillColor(235, 237, 243);
+        doc.rect(72, 97, 108, 4.5, 'F');
+        doc.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
+        const barFill = Math.max(0, Math.min(100, currentCalculation.finalScore));
+        const barWidth = (108 * barFill) / 100;
+        if (barWidth > 0) {
+          doc.rect(72, 97, barWidth, 4.5, 'F');
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text(`Grade Achieved: ${currentCalculation.grade}`, 72, 91);
+
+        // Leaderboard position description
+        if (currentRank) {
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(8.5);
+          doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+          doc.text(`Standing: Currently ranked #${currentRank} on the team leaderboard`, 72, 107);
+        } else {
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(8.5);
+          doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+          doc.text(`Standing: Performance evaluation finalized`, 72, 107);
+        }
+
+        // 4. Performance Metrics Table
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text('DETAILED PERFORMANCE BREAKDOWN', 15, 125);
+
+        const tableYStart = 130;
+        const rowHeight = 11;
+
+        // Table Header Fill
+        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.rect(15, tableYStart, 180, 8, 'F');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(255, 255, 255);
+        doc.text('Key Performance Metric', 18, tableYStart + 5.2);
+        doc.text('Metric Details / Progress Logs', 60, tableYStart + 5.2);
+        doc.text('Value', 125, tableYStart + 5.2);
+        doc.text('Weight', 145, tableYStart + 5.2);
+        doc.text('Weighted Score', 168, tableYStart + 5.2);
+
+        const bd = currentCalculation.breakdown;
+        const w = weightages;
+
+        const metricsList = [
+          {
+            name: 'Task Completion',
+            desc: `Completed ${bd.completedTasksCount} of ${bd.assignedTasksCount} assigned tasks`,
+            val: bd.taskCompletionScore === -1 ? 'N/A' : `${bd.taskCompletionScore}%`,
+            weight: `${w.taskCompletion}%`,
+            weighted: bd.taskCompletionScore === -1 ? '0.0 pts' : `${((bd.taskCompletionScore * w.taskCompletion) / 100).toFixed(1)} pts`
+          },
+          {
+            name: 'On-Time Completion',
+            desc: `${bd.onTimeTasksCount} tasks completed on or before deadline`,
+            val: bd.onTimeCompletionScore === -1 ? 'N/A' : `${bd.onTimeCompletionScore}%`,
+            weight: `${w.onTimeCompletion}%`,
+            weighted: bd.onTimeCompletionScore === -1 ? '0.0 pts' : `${((bd.onTimeCompletionScore * w.onTimeCompletion) / 100).toFixed(1)} pts`
+          },
+          {
+            name: 'Quality & Approvals',
+            desc: `${bd.approvedTasksCount} approved, ${bd.revisionRequiredTasksCount} revisions requested`,
+            val: bd.qualityScore === -1 ? 'N/A' : `${bd.qualityScore}%`,
+            weight: `${w.quality}%`,
+            weighted: bd.qualityScore === -1 ? '0.0 pts' : `${((bd.qualityScore * w.quality) / 100).toFixed(1)} pts`
+          },
+          {
+            name: 'Attendance Punctuality',
+            desc: `${bd.attendanceDaysCount} attendance logs, ${bd.lateArrivalsCount} late arrivals`,
+            val: bd.punctualityScore === -1 ? 'N/A' : `${bd.punctualityScore}%`,
+            weight: `${w.punctuality}%`,
+            weighted: bd.punctualityScore === -1 ? '0.0 pts' : `${((bd.punctualityScore * w.punctuality) / 100).toFixed(1)} pts`
+          },
+          {
+            name: 'Workload Capacity',
+            desc: `Normalized task workload density index`,
+            val: bd.workloadScore === -1 ? 'N/A' : `${bd.workloadScore}%`,
+            weight: `${w.workload}%`,
+            weighted: bd.workloadScore === -1 ? '0.0 pts' : `${((bd.workloadScore * w.workload) / 100).toFixed(1)} pts`
+          }
+        ];
+
+        metricsList.forEach((row, idx) => {
+          const rowY = tableYStart + 8 + (idx * rowHeight);
+          
+          // Zebra striping
+          if (idx % 2 === 1) {
+            doc.setFillColor(lightBackground[0], lightBackground[1], lightBackground[2]);
+            doc.rect(15, rowY, 180, rowHeight, 'F');
+          }
+
+          // Border
+          doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
+          doc.line(15, rowY + rowHeight, 195, rowY + rowHeight);
+
+          // Content
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+          doc.text(row.name, 18, rowY + 6.5);
+
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7.5);
+          doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+          doc.text(row.desc, 60, rowY + 6.5);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+          doc.text(row.val, 125, rowY + 6.5);
+          doc.text(row.weight, 145, rowY + 6.5);
+          doc.text(row.weighted, 168, rowY + 6.5);
+        });
+
+        // 5. Applied Penalties and Deductions Block
+        const penaltyYStart = tableYStart + 8 + (metricsList.length * rowHeight) + 12;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.text('PENALTIES & DEDUCTIONS LOGGED', 15, penaltyYStart);
+
+        // Penalty box 1 (Overdue)
+        doc.setFillColor(lightBackground[0], lightBackground[1], lightBackground[2]);
+        doc.roundedRect(15, penaltyYStart + 5, 85, 23, 1.5, 1.5, 'F');
+        doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
+        doc.roundedRect(15, penaltyYStart + 5, 85, 23, 1.5, 1.5, 'S');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(190, 40, 40);
+        doc.text('Overdue Tasks Impact', 20, penaltyYStart + 11.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+        doc.text(`-${bd.overduePenalty} points deduction`, 20, penaltyYStart + 16.5);
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(7.5);
+        doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+        doc.text(`(${bd.overdueTasksCount} overdue tasks identified)`, 20, penaltyYStart + 21.5);
+
+        // Penalty box 2 (Revisions)
+        doc.setFillColor(lightBackground[0], lightBackground[1], lightBackground[2]);
+        doc.roundedRect(110, penaltyYStart + 5, 85, 23, 1.5, 1.5, 'F');
+        doc.roundedRect(110, penaltyYStart + 5, 85, 23, 1.5, 1.5, 'S');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(190, 40, 40);
+        doc.text('Revision Request Iterations', 115, penaltyYStart + 11.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+        doc.text(`-${bd.revisionPenalty} points deduction`, 115, penaltyYStart + 16.5);
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(7.5);
+        doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+        doc.text(`(${bd.totalRevisionRequests} revision cycles logged)`, 115, penaltyYStart + 21.5);
+
+        // 6. Security & Official Footer
+        doc.setDrawColor(borderGray[0], borderGray[1], borderGray[2]);
+        doc.setLineWidth(0.3);
+        doc.line(15, 268, 195, 268);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+        doc.text('EXFIN OMS Smart Performance Engine — Verification Complete', 15, 274);
+        doc.text('Page 1 of 1', 178, 274);
+
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(7.2);
+        doc.text('This evaluation sheet is calculated natively in real-time. Unauthorized modification violates platform terms.', 15, 279);
+
+        // Output PDF
+        const blob = doc.output('blob');
+        const blobUrl = URL.createObjectURL(blob);
+
+        setGeneratedPdfBlob(blob);
+        setGeneratedPdfUrl(blobUrl);
+        setReportState('success');
+
+        // Automatically trigger print dialog on the iframe target
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = blobUrl;
+        document.body.appendChild(iframe);
+        iframe.onload = () => {
+          setTimeout(() => {
+            try {
+              iframe.contentWindow?.focus();
+              iframe.contentWindow?.print();
+            } catch (printErr) {
+              console.warn('Iframe printing blocked or failed:', printErr);
+            } finally {
+              setTimeout(() => {
+                try {
+                  document.body.removeChild(iframe);
+                } catch (e) {}
+              }, 5000);
+            }
+          }, 300);
+        };
+
+        // Automatically trigger download fallback for instant feedback
+        try {
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = `EXFIN_OMS_Report_${selectedEmployeeCode}_${startDate}_to_${endDate}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } catch (downloadErr) {
+          console.warn('Auto-download failed or was blocked:', downloadErr);
+        }
+
+      } catch (err) {
+        console.error('PDF Generation Error:', err);
+        setReportError(err instanceof Error ? err.message : 'An unexpected error occurred during PDF compiling.');
+        setReportState('failure');
+      }
+    }, 800);
   };
 
   if (loading) {
@@ -703,20 +1077,178 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
         <div className="flex gap-3 justify-end print:hidden">
           <button 
             onClick={handleExportReport}
-            className="flex items-center gap-1.5 px-4.5 py-2.5 rounded-xl border border-purple-500/30 bg-[#2D1B5A] text-purple-200 font-bold text-xs hover:bg-[#3B2673]"
+            disabled={reportState === 'preparing'}
+            className={`flex items-center gap-1.5 px-4.5 py-2.5 rounded-xl border font-bold text-xs transition-all duration-200 active:scale-[0.97] ${
+              reportState === 'preparing'
+                ? 'bg-[#2D1B5A]/50 border-purple-500/10 text-purple-300/60 cursor-not-allowed'
+                : reportState === 'success'
+                ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                : 'border-purple-500/30 bg-[#2D1B5A] text-purple-200 hover:bg-[#3B2673]'
+            }`}
           >
-            <Printer className="w-4 h-4" /> Print Report Sheet
+            {reportState === 'preparing' ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-purple-300 border-t-transparent rounded-full animate-spin" />
+                <span>Preparing Report…</span>
+              </>
+            ) : reportState === 'success' ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Report Ready</span>
+              </>
+            ) : (
+              <>
+                <Printer className="w-4 h-4" /> 
+                <span>Print Report Sheet</span>
+              </>
+            )}
           </button>
           
           {/* Allow SuperAdmin, Admin, or Team Leader to lock snapshot */}
           {(isAdmin || isTeamLeader) && (
             <button 
               onClick={handleSaveSnapshot}
-              className="flex items-center gap-1.5 px-4.5 py-2.5 rounded-xl bg-[#7C3AED] text-white font-black text-xs hover:bg-[#6D28D9] shadow-lg shadow-purple-500/20"
+              className="flex items-center gap-1.5 px-4.5 py-2.5 rounded-xl bg-[#7C3AED] text-white font-black text-xs hover:bg-[#6D28D9] shadow-lg shadow-purple-500/20 active:scale-[0.97] transition-all"
             >
               <Check className="w-4 h-4" /> Lock Historical Snapshot
             </button>
           )}
+        </div>
+      )}
+
+      {/* Report Generation Modal Overlay */}
+      {reportState !== 'idle' && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 print:hidden">
+          <div className="bg-[#211044] border border-purple-500/30 rounded-[28px] max-w-md w-full p-6 shadow-[0_20px_50px_rgba(0,0,0,0.6)] text-center space-y-5">
+            
+            {reportState === 'preparing' && (
+              <div className="py-6 space-y-4">
+                <div className="w-12 h-12 border-4 border-[#7C3AED] border-t-transparent rounded-full animate-spin mx-auto" />
+                <h3 className="text-base font-black text-white">Preparing Report Sheet...</h3>
+                <p className="text-xs text-purple-300/80 leading-relaxed max-w-xs mx-auto">
+                  Compiling real-time task logs, approvals, penalties, and punctuality indexes into an official EXFIN OMS PDF sheet.
+                </p>
+              </div>
+            )}
+
+            {reportState === 'success' && (
+              <div className="space-y-4">
+                <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto text-emerald-400">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <h3 className="text-base font-black text-white">Report Successfully Compiled!</h3>
+                <p className="text-xs text-purple-300/80 leading-relaxed">
+                  The efficiency evaluation sheet for <strong className="text-white">{selectedEmployee?.name || 'the employee'}</strong> has been generated offline.
+                </p>
+                
+                <div className="bg-[#2D1B5A]/60 rounded-xl p-3 text-left border border-purple-500/15">
+                  <div className="flex justify-between text-xs py-1">
+                    <span className="text-purple-300">Total Score:</span>
+                    <span className="font-black text-white">{currentCalculation?.finalScore} / 100</span>
+                  </div>
+                  <div className="flex justify-between text-xs py-1">
+                    <span className="text-purple-300">Grade Level:</span>
+                    <span className="font-bold text-[#A78BFA]">{currentCalculation?.grade}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <button
+                    onClick={() => {
+                      if (generatedPdfUrl) {
+                        // Re-trigger print preview
+                        const iframe = document.createElement('iframe');
+                        iframe.style.display = 'none';
+                        iframe.src = generatedPdfUrl;
+                        document.body.appendChild(iframe);
+                        iframe.onload = () => {
+                          setTimeout(() => {
+                            try {
+                              iframe.contentWindow?.focus();
+                              iframe.contentWindow?.print();
+                            } catch (printErr) {
+                              console.warn('Manual iframe printing blocked or failed:', printErr);
+                            } finally {
+                              setTimeout(() => {
+                                try {
+                                  document.body.removeChild(iframe);
+                                } catch (e) {}
+                              }, 5000);
+                            }
+                          }, 300);
+                        };
+                      }
+                    }}
+                    className="w-full py-3 px-4 rounded-xl bg-[#7C3AED] text-white font-black text-xs hover:bg-[#6D28D9] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-purple-500/20"
+                  >
+                    <Printer className="w-4 h-4" /> Open System Print Dialog
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      if (generatedPdfBlob) {
+                        // Standard offline anchor-trigger download
+                        const link = document.createElement('a');
+                        link.href = generatedPdfUrl || '';
+                        link.download = `EXFIN_OMS_Report_${selectedEmployeeCode}_${startDate}_to_${endDate}.pdf`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }
+                    }}
+                    className="w-full py-3 px-4 rounded-xl bg-[#2D1B5A] text-purple-200 border border-purple-500/20 font-bold text-xs hover:bg-[#3B2673] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Download className="w-4 h-4" /> Save / Download PDF Fallback
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setReportState('idle');
+                      setGeneratedPdfBlob(null);
+                      if (generatedPdfUrl) {
+                        URL.revokeObjectURL(generatedPdfUrl);
+                        setGeneratedPdfUrl(null);
+                      }
+                    }}
+                    className="w-full py-2.5 text-purple-300/70 hover:text-purple-200 font-bold text-xs transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {reportState === 'failure' && (
+              <div className="space-y-4">
+                <div className="w-14 h-14 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center justify-center mx-auto text-rose-400">
+                  <AlertCircle className="w-8 h-8" />
+                </div>
+                <h3 className="text-base font-black text-white">Report Compilation Failed</h3>
+                <p className="text-xs text-rose-300 leading-relaxed px-2">
+                  {reportError || 'The PDF engine was unable to compile the metrics layout.'}
+                </p>
+                
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setReportState('idle');
+                      setReportError(null);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-[#2D1B5A] text-purple-300 font-bold text-xs border border-purple-500/15 hover:bg-[#3B2673]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleExportReport}
+                    className="flex-1 py-2.5 rounded-xl bg-[#7C3AED] text-white font-black text-xs hover:bg-[#6D28D9]"
+                  >
+                    Retry Compile
+                  </button>
+                </div>
+              </div>
+            )}
+
+          </div>
         </div>
       )}
 

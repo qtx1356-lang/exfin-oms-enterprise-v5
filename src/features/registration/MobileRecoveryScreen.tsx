@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Phone, Shield, ArrowRight, AlertTriangle, Sparkles } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -13,8 +13,8 @@ export const MobileRecoveryScreen: React.FC = () => {
     recoveryLoading 
   } = useRegistration();
 
-  const [localMobile, setLocalMobile] = useState(recoveryMobileInput);
-  const [localError, setLocalError] = useState<string | null>(null);
+  const [localMobile, setLocalMobile] = React.useState(recoveryMobileInput || '');
+  const [localError, setLocalError] = React.useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
