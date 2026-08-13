@@ -275,7 +275,7 @@ export const EmployeeDashboard: React.FC = () => {
     });
     
     return () => unsub();
-  }, [employeeData]);
+  }, [employeeData?.employeeCode]);
 
   useEffect(() => {
     if (employeeData) {
@@ -291,7 +291,7 @@ export const EmployeeDashboard: React.FC = () => {
         used: bal.used,
       });
     }
-  }, [employeeData]);
+  }, [employeeData?.id, employeeData?.employeeCode, employeeData?.office]);
 
   useEffect(() => {
     if (employeeData) {
@@ -300,7 +300,7 @@ export const EmployeeDashboard: React.FC = () => {
       const rec = getTodayAttendanceRecord(empId, todayStr);
       setTodayAttendance(rec);
     }
-  }, [employeeData]);
+  }, [employeeData?.employeeCode, employeeData?.id]);
 
   useEffect(() => {
     if (!employeeData?.employeeCode) {
@@ -365,7 +365,7 @@ export const EmployeeDashboard: React.FC = () => {
     return () => {
       unsubAnnouncements();
     };
-  }, [employeeData]);
+  }, [employeeData?.employeeCode, employeeData?.department, employeeData?.office, employeeData?.designation, employeeData?.status, employeeData?.role]);
 
   if (!employeeData) {
     return (

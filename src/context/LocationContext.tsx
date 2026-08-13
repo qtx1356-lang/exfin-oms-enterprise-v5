@@ -461,6 +461,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setErrorMessage('');
 
     if (watchIdRef.current !== null) {
+      console.log('LOCATION_LISTENER_STOPPED', watchIdRef.current);
       if (typeof watchIdRef.current === 'string') {
         Geolocation.clearWatch({ id: watchIdRef.current });
       } else {
@@ -492,6 +493,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           processPosition(position.coords.latitude, position.coords.longitude, position.coords.accuracy, position.timestamp);
         }
       );
+      console.log('LOCATION_LISTENER_STARTED', watchIdRef.current);
     } catch (err) {
       if (!navigator.geolocation) {
         setLocationStatus('error');
@@ -509,10 +511,13 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
+      console.log('LOCATION_LISTENER_STARTED', watchIdRef.current);
     }
   };
 
-  // Adaptive Battery-Saving Polling Engine
+  // Fallback Location Health Monitoring Engine
+  // watchPosition handles active location streaming.
+  // This timer runs periodically to issue a fallback query ONLY if watchPosition hasn't received a fix for > 20s.
   useEffect(() => {
     if (adaptiveTimerRef.current) {
       clearTimeout(adaptiveTimerRef.current);
@@ -521,56 +526,45 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     let isRunning = true;
 
-    const queryPosition = async () => {
+    const checkLocationHealth = async () => {
       if (!isRunning) return;
 
-      const lastFixAge = Date.now() - (locationTimestamp || 0);
-      // Skip redundant getCurrentPosition calls if watchPosition provided fresh fix within 3s
-      if (lastFixAge > 3000) {
+      const now = Date.now();
+      const lastFixTime = locationTimestamp || 0;
+      const lastFixAge = now - lastFixTime;
+
+      // Only invoke fallback query if watchPosition has been silent for more than 20 seconds
+      if (lastFixTime > 0 && lastFixAge > 20000) {
+        console.warn(`[Location Engine] Stale location fix (${(lastFixAge / 1000).toFixed(1)}s old). Querying fallback position...`);
         try {
           const pos = await Geolocation.getCurrentPosition({
             enableHighAccuracy: true,
-            timeout: 4000,
+            timeout: 5000,
             maximumAge: 0
           });
-          if (pos && pos.coords) {
+          if (pos && pos.coords && isRunning) {
             processPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, pos.timestamp);
           }
         } catch (err) {
-          console.warn('Adaptive location poll error:', err);
+          console.warn('[Location Engine] Fallback position query error:', err);
         }
       }
 
-      scheduleNextPoll();
-    };
-
-    const scheduleNextPoll = () => {
-      if (!isRunning) return;
-
-      let delay = 30000; // Default background/passive delay: 30 seconds
-
-      const todayStr = new Date().toISOString().substring(0, 10);
-      const emp = getEmployeeInfo();
-      const hasCheckedInToday = emp ? !!getTodayAttendanceRecord(emp.id, todayStr) : false;
-
-      if (activeAttendanceMode) {
-        delay = 1500; // Active screen mode: 1.5s interval (fast first fix and active tracking)
-      } else if (distance !== null && distance <= 100 && !hasCheckedInToday) {
-        delay = 5000; // Approach mode un-checked-in: 5s interval to catch entry quickly
+      if (isRunning) {
+        adaptiveTimerRef.current = setTimeout(checkLocationHealth, 20000);
       }
-
-      adaptiveTimerRef.current = setTimeout(queryPosition, delay);
     };
 
-    scheduleNextPoll();
+    adaptiveTimerRef.current = setTimeout(checkLocationHealth, 20000);
 
     return () => {
       isRunning = false;
       if (adaptiveTimerRef.current) {
         clearTimeout(adaptiveTimerRef.current);
+        adaptiveTimerRef.current = null;
       }
     };
-  }, [activeAttendanceMode, distance]);
+  }, []);
 
   useEffect(() => {
     const handleOnline = () => {

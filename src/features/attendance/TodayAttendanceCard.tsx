@@ -69,7 +69,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [todayRecord]);
+  }, [todayRecord?.checkInTime, todayRecord?.checkOutTime]);
 
   // Determine current attendance state
   const isCheckedIn = !!todayRecord && !!todayRecord.checkInTime && todayRecord.checkInTime !== '--:--';

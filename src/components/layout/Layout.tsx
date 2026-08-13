@@ -153,13 +153,6 @@ export const Layout: React.FC = () => {
   useEffect(() => {
     if (!currentUser) return;
     refreshNotificationCount();
-    
-    // Refresh interval
-    const timer = setInterval(() => {
-      refreshNotificationCount();
-    }, 15000);
-
-    return () => clearInterval(timer);
   }, [userKey]);
 
   // Handle cross-screen real-time notification updates
