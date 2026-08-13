@@ -117,7 +117,7 @@ const EmployeeGuard = () => {
 const FeatureGuard: React.FC<{ feature: FeatureKey; children: React.ReactNode }> = ({ feature, children }) => {
   const { hasFeatureAccess, loading } = usePermission();
   
-  if (loading) return <LoadingScreen />;
+  if (loading) return <LoadingScreen fullScreen={false} />;
   
   if (!hasFeatureAccess(feature)) {
     return (
