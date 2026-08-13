@@ -114,44 +114,137 @@ export async function createConversation(
   }
 }
 
-// Upload an attachment to Firebase Storage
+export const ALLOWED_ATTACHMENT_EXTENSIONS = [
+  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'txt',
+  'jpg', 'jpeg', 'png', 'webp'
+];
+
+export const MAX_ATTACHMENT_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
+
+export function validateAttachment(file: File): { valid: boolean; error?: string } {
+  if (!file) {
+    return { valid: false, error: 'No file selected.' };
+  }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || '';
+  if (!ALLOWED_ATTACHMENT_EXTENSIONS.includes(ext)) {
+    return {
+      valid: false,
+      error: `File type .${ext || 'unknown'} is not supported. Supported types: PDF, DOC, XLS, TXT, PPT, JPG, PNG, WEBP.`
+    };
+  }
+
+  if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+    return {
+      valid: false,
+      error: `File size exceeds maximum limit of 20 MB. Selected file is ${(file.size / (1024 * 1024)).toFixed(1)} MB.`
+    };
+  }
+
+  return { valid: true };
+}
+
+export function formatFileSize(bytes: number): string {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Upload an attachment to Firebase Storage with timeout protection & cleanup
 export function uploadAttachment(
   file: File,
   conversationId: string,
   userId: string,
   onProgress: (progress: number) => void,
   onComplete: (downloadUrl: string) => void,
-  onError: (error: Error) => void
+  onError: (error: Error) => void,
+  timeoutMs: number = 60000
 ): () => void {
-  const fileExtension = file.name.split('.').pop() || '';
-  const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
-  const storagePath = `chat_attachments/${conversationId}/${safeName}`;
-  const storageRef = ref(storage, storagePath);
+  let isFinished = false;
+  let timerId: any = null;
+  let uploadTask: any = null;
 
-  const uploadTask = uploadBytesResumable(storageRef, file);
+  const cleanup = () => {
+    isFinished = true;
+    if (timerId) {
+      clearTimeout(timerId);
+      timerId = null;
+    }
+  };
 
-  uploadTask.on(
-    'state_changed',
-    (snapshot) => {
-      const progress = snapshot.totalBytes > 0 
-        ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100 
-        : 0;
-      onProgress(progress);
-    },
-    (error) => {
-      onError(error);
-    },
-    async () => {
-      try {
-        const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-        onComplete(downloadUrl);
-      } catch (err) {
-        onError(err instanceof Error ? err : new Error(String(err)));
+  try {
+    if (!storage) {
+      throw new Error('Firebase Storage is not initialized.');
+    }
+
+    const validation = validateAttachment(file);
+    if (!validation.valid) {
+      throw new Error(validation.error || 'Invalid file.');
+    }
+
+    const fileExtension = file.name.split('.').pop() || 'bin';
+    const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
+    const storagePath = `chat_attachments/${conversationId}/${safeName}`;
+    const storageRef = ref(storage, storagePath);
+
+    uploadTask = uploadBytesResumable(storageRef, file);
+
+    // Timeout protection: cancel task if taking longer than timeoutMs
+    timerId = setTimeout(() => {
+      if (!isFinished) {
+        cleanup();
+        if (uploadTask) {
+          try {
+            uploadTask.cancel();
+          } catch (_) {}
+        }
+        onError(new Error('Upload timed out. Please check your network connection and try again.'));
+      }
+    }, timeoutMs);
+
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        if (isFinished) return;
+        const progress = snapshot.totalBytes > 0 
+          ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100 
+          : 0;
+        onProgress(Math.min(100, Math.max(0, progress)));
+      },
+      (error) => {
+        if (isFinished) return;
+        cleanup();
+        onError(error instanceof Error ? error : new Error(String(error)));
+      },
+      async () => {
+        if (isFinished) return;
+        try {
+          const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+          cleanup();
+          onComplete(downloadUrl);
+        } catch (err) {
+          cleanup();
+          onError(err instanceof Error ? err : new Error(String(err)));
+        }
+      }
+    );
+  } catch (err) {
+    cleanup();
+    onError(err instanceof Error ? err : new Error(String(err)));
+  }
+
+  return () => {
+    if (!isFinished) {
+      cleanup();
+      if (uploadTask) {
+        try {
+          uploadTask.cancel();
+        } catch (_) {}
       }
     }
-  );
-
-  return () => uploadTask.cancel();
+  };
 }
 
 // Send a chat message in a conversation

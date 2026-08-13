@@ -23,7 +23,11 @@ import {
   Paperclip,
   FileText,
   X,
-  File
+  File,
+  ExternalLink,
+  Download,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -35,7 +39,9 @@ import {
   listenConversations,
   listenMessages,
   markAsRead,
-  uploadAttachment
+  uploadAttachment,
+  validateAttachment,
+  formatFileSize
 } from '../../services/chat/chatService';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
@@ -67,6 +73,8 @@ export const ChatScreen: React.FC = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const cancelUploadRef = useRef<(() => void) | null>(null);
 
   // New Chat Dialog State
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
@@ -86,6 +94,15 @@ export const ChatScreen: React.FC = () => {
   const currentUserName = employeeData?.name || 'Employee';
   const currentUserRole = employeeData?.isTeamLeader ? 'TEAM_LEADER' : 'EMPLOYEE';
 
+  // Cleanup previewUrl object URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   // Listen to Online/Offline state
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -102,34 +119,43 @@ export const ChatScreen: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+
+    const validation = validateAttachment(file);
+    if (!validation.valid) {
+      setUploadError(validation.error || 'File validation failed.');
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     setUploadError(null);
-    const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'txt', 'jpg', 'jpeg', 'png', 'webp'];
-    const MAX_SIZE_MB = 20;
-
-    const ext = file.name.split('.').pop()?.toLowerCase() || '';
-    if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      setUploadError('File type not supported.');
-      return;
-    }
-
-    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      setUploadError('File is too large. Maximum size is 20 MB.');
-      return;
-    }
-
+    setUploadProgress(null);
     setSelectedFile(file);
+
     if (file.type.startsWith('image/')) {
       setPreviewUrl(URL.createObjectURL(file));
-    } else {
-      setPreviewUrl(null);
     }
   };
 
   const handleRemoveFile = () => {
+    if (cancelUploadRef.current) {
+      cancelUploadRef.current();
+      cancelUploadRef.current = null;
+    }
+
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
     setSelectedFile(null);
     setPreviewUrl(null);
     setUploadError(null);
     setUploadProgress(null);
+    setIsUploading(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -253,62 +279,28 @@ export const ChatScreen: React.FC = () => {
 
   // Send message handler
   const handleSend = async () => {
+    if (isUploading) return;
     if (!inputText.trim() && !selectedFile) return;
     if (!activeConv) return;
     
     const textToSend = inputText.trim();
     const fileToSend = selectedFile;
     
-    setInputText('');
-    handleRemoveFile();
+    setUploadError(null);
 
-    const tempId = 'temp-' + Date.now();
+    const tempId = 'att-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
 
     if (fileToSend) {
       if (isOffline) {
-        // Offline attachment queueing
-        const localBlobUrl = fileToSend.type.startsWith('image/') 
-          ? URL.createObjectURL(fileToSend) 
-          : '';
-
-        const tempMsg: ChatMessage = {
-          id: tempId,
-          senderId: currentUserCode,
-          senderName: currentUserName,
-          senderRole: currentUserRole,
-          content: textToSend,
-          timestamp: new Date().toISOString(),
-          isPending: true,
-          attachment: {
-            attachmentId: tempId,
-            fileName: fileToSend.name,
-            mimeType: fileToSend.type,
-            fileSize: fileToSend.size,
-            fileUrl: localBlobUrl,
-            uploadedBy: currentUserCode,
-            uploadedAt: new Date().toISOString()
-          }
-        };
-
-        setMessages(prev => [...prev, tempMsg]);
-
-        pendingFilesMap.set(tempId, {
-          file: fileToSend,
-          conversationId: activeConv.id,
-          senderId: currentUserCode,
-          senderName: currentUserName,
-          senderRole: currentUserRole,
-          content: textToSend
-        });
-
-        setUploadError("Offline. Attachment queued and will send once connection is restored.");
+        setUploadError("No internet connection. Attachments cannot be sent while offline.");
         return;
       }
 
       // Online attachment uploading and sending
+      setIsUploading(true);
       setUploadProgress(1);
       
-      uploadAttachment(
+      const cancelFn = uploadAttachment(
         fileToSend,
         activeConv.id,
         currentUserCode,
@@ -316,12 +308,13 @@ export const ChatScreen: React.FC = () => {
           setUploadProgress(Math.round(progress));
         },
         async (downloadUrl) => {
-          setUploadProgress(null);
+          cancelUploadRef.current = null;
+          setUploadProgress(100);
           
           const attachmentMeta: ChatAttachment = {
             attachmentId: tempId,
             fileName: fileToSend.name,
-            mimeType: fileToSend.type,
+            mimeType: fileToSend.type || 'application/octet-stream',
             fileSize: fileToSend.size,
             fileUrl: downloadUrl,
             uploadedBy: currentUserCode,
@@ -337,21 +330,44 @@ export const ChatScreen: React.FC = () => {
               textToSend,
               attachmentMeta
             );
+
+            // Clean up state on success
+            setInputText('');
+            if (previewUrl) {
+              URL.revokeObjectURL(previewUrl);
+            }
+            setSelectedFile(null);
+            setPreviewUrl(null);
+            setUploadProgress(null);
+            setUploadError(null);
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
           } catch (err) {
             console.error('Failed to send attachment message:', err);
-            setUploadError('Failed to send message.');
+            setUploadError('Failed to send message with attachment. Tap Retry.');
+          } finally {
+            setIsUploading(false);
           }
         },
         (error) => {
+          cancelUploadRef.current = null;
           console.error('Upload failed:', error);
           setUploadProgress(null);
-          setUploadError('Unable to upload the document. Please try again.');
+          setUploadError(error.message || 'Unable to upload file. Please try again.');
+          setIsUploading(false);
         }
       );
+
+      cancelUploadRef.current = cancelFn;
     } else {
       // Normal text only message
+      setIsUploading(true);
+      setInputText('');
+
+      const textTempId = 'temp-' + Date.now();
       const optimisticMsg: ChatMessage = {
-        id: tempId,
+        id: textTempId,
         senderId: currentUserCode,
         senderName: currentUserName,
         senderRole: currentUserRole,
@@ -373,8 +389,10 @@ export const ChatScreen: React.FC = () => {
       } catch (err) {
         console.error('Failed to send message:', err);
         setMessages(prev =>
-          prev.map(m => m.id === tempId ? { ...m, isPending: false, isFailed: true } : m)
+          prev.map(m => m.id === textTempId ? { ...m, isPending: false, isFailed: true } : m)
         );
+      } finally {
+        setIsUploading(false);
       }
     }
   };
@@ -676,58 +694,59 @@ export const ChatScreen: React.FC = () => {
                           }`}
                         >
                           {msg.attachment && (
-                            <div className="mb-2 bg-[#100525]/80 border border-purple-500/15 p-2.5 rounded-xl flex flex-col gap-2 shadow-inner min-w-[200px]">
+                            <div className="mb-2 bg-[#100525]/80 border border-purple-500/15 p-2.5 rounded-xl flex flex-col gap-2 shadow-inner min-w-[220px]">
                               <div className="flex items-center gap-2.5">
-                                {msg.attachment.mimeType.startsWith('image/') ? (
-                                  <div className="relative group overflow-hidden rounded-lg border border-purple-500/10 max-h-40 w-full flex items-center justify-center bg-black/40">
+                                {msg.attachment.mimeType?.startsWith('image/') ? (
+                                  <div className="relative group overflow-hidden rounded-lg border border-purple-500/10 max-h-48 w-full flex items-center justify-center bg-black/40">
                                     <img
                                       src={msg.attachment.fileUrl}
                                       alt={msg.attachment.fileName}
-                                      className="max-h-36 object-contain rounded-md"
+                                      className="max-h-44 object-contain rounded-md cursor-pointer hover:opacity-95 transition"
                                       referrerPolicy="no-referrer"
+                                      onClick={() => window.open(msg.attachment!.fileUrl, '_blank', 'noopener,noreferrer')}
                                     />
                                   </div>
                                 ) : (
-                                  <div className="w-9 h-9 rounded-lg bg-purple-500/15 border border-purple-500/20 flex items-center justify-center text-purple-300 shrink-0">
+                                  <div className="w-10 h-10 rounded-lg bg-purple-500/15 border border-purple-500/20 flex items-center justify-center text-purple-300 shrink-0">
                                     <FileText className="w-5 h-5" />
                                   </div>
                                 )}
-                                {!msg.attachment.mimeType.startsWith('image/') && (
+                                {!msg.attachment.mimeType?.startsWith('image/') && (
                                   <div className="text-left min-w-0 flex-1">
                                     <p className="text-xs font-bold text-white truncate">{msg.attachment.fileName}</p>
                                     <p className="text-[9px] text-purple-300/60 uppercase font-bold">
-                                      {msg.attachment.fileName.split('.').pop()?.toUpperCase() || 'FILE'} • {(msg.attachment.fileSize / (1024 * 1024)).toFixed(2)} MB
+                                      {msg.attachment.fileName.split('.').pop()?.toUpperCase() || 'FILE'} • {formatFileSize(msg.attachment.fileSize)}
                                     </p>
                                   </div>
                                 )}
                               </div>
 
-                              {msg.attachment.mimeType.startsWith('image/') && (
+                              {msg.attachment.mimeType?.startsWith('image/') && (
                                 <div className="text-left min-w-0">
                                   <p className="text-xs font-bold text-white truncate">{msg.attachment.fileName}</p>
                                   <p className="text-[9px] text-purple-300/60 uppercase font-bold">
-                                    {(msg.attachment.fileSize / (1024 * 1024)).toFixed(2)} MB
+                                    {formatFileSize(msg.attachment.fileSize)}
                                   </p>
                                 </div>
                               )}
 
-                              <div className="flex gap-2 justify-end pt-1 border-t border-purple-500/5">
+                              <div className="flex gap-2 justify-end pt-1.5 border-t border-purple-500/10">
                                 <a
                                   href={msg.attachment.fileUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-[10px] font-bold text-teal-400 hover:text-teal-300 bg-teal-500/10 border border-teal-500/20 px-2.5 py-1 rounded-lg transition"
+                                  className="text-[10px] font-bold text-teal-300 hover:text-white bg-teal-500/15 border border-teal-500/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1"
                                 >
-                                  Open
+                                  <ExternalLink className="w-3 h-3" /> Open
                                 </a>
                                 <a
                                   href={msg.attachment.fileUrl}
                                   download={msg.attachment.fileName}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-[10px] font-bold text-purple-300 hover:text-purple-200 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-lg transition"
+                                  className="text-[10px] font-bold text-purple-200 hover:text-white bg-purple-500/15 border border-purple-500/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1"
                                 >
-                                  Download
+                                  <Download className="w-3 h-3" /> Download
                                 </a>
                               </div>
                             </div>
@@ -767,43 +786,59 @@ export const ChatScreen: React.FC = () => {
                   ref={fileInputRef}
                   className="hidden"
                   onChange={handleFileChange}
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.webp"
                 />
 
                 {/* Upload Error Display */}
                 {uploadError && (
-                  <div className="mb-2.5 p-2 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center justify-between text-xs text-rose-200">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{uploadError}</span>
+                  <div className="mb-2.5 p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center justify-between text-xs text-rose-200 gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                      <span className="truncate">{uploadError}</span>
                     </div>
-                    <button
-                      onClick={() => setUploadError(null)}
-                      className="text-rose-400 hover:text-rose-300 font-bold px-1"
-                    >
-                      ✕
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {selectedFile && !isUploading && (
+                        <button
+                          type="button"
+                          onClick={handleSend}
+                          className="text-xs font-bold bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 px-2 py-0.5 rounded-lg transition flex items-center gap-1"
+                        >
+                          <RefreshCw className="w-3 h-3" /> Retry
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setUploadError(null)}
+                        className="text-rose-400 hover:text-rose-300 font-bold px-1 py-0.5"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 )}
 
                 {/* Upload Progress Display */}
-                {uploadProgress !== null && (
+                {isUploading && uploadProgress !== null && (
                   <div className="mb-2.5 p-2.5 bg-purple-500/10 border border-purple-500/20 rounded-xl space-y-1.5 text-xs text-purple-200">
-                    <div className="flex justify-between font-bold text-[10px] uppercase tracking-wider">
-                      <span>Uploading document...</span>
-                      <span>{uploadProgress}%</span>
+                    <div className="flex justify-between items-center font-bold text-[10px] uppercase tracking-wider">
+                      <span className="flex items-center gap-1.5">
+                        <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
+                        Uploading attachment...
+                      </span>
+                      <span className="font-mono">{uploadProgress}%</span>
                     </div>
                     <div className="w-full h-1.5 bg-purple-950 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                      <div className="h-full bg-emerald-500 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
                     </div>
                   </div>
                 )}
 
                 {/* Pre-send Attachment Preview Card */}
                 {selectedFile && (
-                  <div className="mb-2.5 p-2 bg-[#1C0D39]/90 border border-purple-500/20 rounded-xl flex items-center justify-between">
+                  <div className="mb-2.5 p-2.5 bg-[#1C0D39]/90 border border-purple-500/20 rounded-xl flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       {previewUrl ? (
-                        <img src={previewUrl} className="w-10 h-10 object-cover rounded-lg border border-purple-500/30" />
+                        <img src={previewUrl} className="w-10 h-10 object-cover rounded-lg border border-purple-500/30 shrink-0" />
                       ) : (
                         <div className="w-10 h-10 rounded-lg bg-purple-500/15 border border-purple-500/20 flex items-center justify-center text-purple-300 shrink-0">
                           <FileText className="w-5 h-5" />
@@ -811,13 +846,14 @@ export const ChatScreen: React.FC = () => {
                       )}
                       <div className="text-left min-w-0">
                         <p className="text-xs font-bold text-white truncate max-w-[200px]">{selectedFile.name}</p>
-                        <p className="text-[10px] text-purple-300/60 font-mono">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                        <p className="text-[10px] text-purple-300/60 font-mono">{formatFileSize(selectedFile.size)}</p>
                       </div>
                     </div>
                     <button 
                       type="button"
                       onClick={handleRemoveFile}
                       className="p-1.5 rounded-full hover:bg-white/10 text-purple-300 transition shrink-0"
+                      title={isUploading ? "Cancel Upload" : "Remove Attachment"}
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -833,8 +869,14 @@ export const ChatScreen: React.FC = () => {
                 >
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2.5 rounded-xl bg-[#15092E] hover:bg-purple-600/30 border border-purple-500/20 text-purple-300 transition shrink-0"
+                    disabled={isUploading}
+                    onClick={() => {
+                      if (!isUploading) {
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                    className="p-2.5 rounded-xl bg-[#15092E] hover:bg-purple-600/30 border border-purple-500/20 text-purple-300 transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                     title="Attach document or image"
                   >
                     <Paperclip className="w-4.5 h-4.5" />
@@ -842,18 +884,19 @@ export const ChatScreen: React.FC = () => {
 
                   <input
                     type="text"
-                    placeholder={isOffline ? "Typing offline..." : "Write message..."}
+                    disabled={isUploading}
+                    placeholder={isOffline ? "Typing offline..." : isUploading ? "Uploading file..." : "Write message..."}
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    className="flex-1 bg-[#15092E] border border-purple-500/20 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-purple-300/40 focus:outline-none focus:border-purple-500/55"
+                    className="flex-1 bg-[#15092E] border border-purple-500/20 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-purple-300/40 focus:outline-none focus:border-purple-500/55 disabled:opacity-50"
                   />
 
                   <Button
                     type="submit"
-                    disabled={!inputText.trim() && !selectedFile}
-                    className="bg-purple-600 hover:bg-purple-500 shrink-0 px-4 rounded-2xl h-auto self-stretch flex items-center justify-center"
+                    disabled={isUploading || (!inputText.trim() && !selectedFile)}
+                    className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 shrink-0 px-4 rounded-2xl h-auto self-stretch flex items-center justify-center"
                   >
-                    <Send className="w-4 h-4" />
+                    {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </Button>
                 </form>
               </div>
