@@ -10,6 +10,7 @@ import { TeamManagementTab } from "./TeamManagementTab";
 import { ManagedUser } from "../../types/user";
 import { updateEmployeeProfile } from "../../services/admin/adminProfileService";
 import { updateUserRoleAndStatus } from "../../services/rbac/rbacService";
+import { executeEmployeeDeletion } from "../../services/admin/employeeDeletionService";
 
 export const UserManagementTab: React.FC = () => {
   const { user, role, loginId } = useAdminAuth();
@@ -123,7 +124,16 @@ export const UserManagementTab: React.FC = () => {
     }
     
     try {
-       await deleteDoc(doc(db, 'registrations', emp.id));
+       await executeEmployeeDeletion({
+         employee: emp,
+         deletionType: 'COMPLETE',
+         adminUser: {
+           uid: user?.uid || 'admin',
+           email: loginId || user?.email || 'admin@exfin.com',
+           displayName: user?.displayName || loginId || 'Admin',
+           role: role || 'ADMIN'
+         }
+       });
     } catch (err: any) {
        alert(err.message || "Failed to delete employee.");
     }

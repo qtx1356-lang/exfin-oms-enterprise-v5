@@ -244,6 +244,10 @@ export const AdminDashboard: React.FC = () => {
     return Array.from(map.values());
   }, [registrations]);
 
+  const activeEmpCodes = React.useMemo(() => {
+    return new Set(deduplicatedRegistrations.map((r) => r.employeeCode).filter(Boolean));
+  }, [deduplicatedRegistrations]);
+
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([]);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
@@ -1490,8 +1494,13 @@ export const AdminDashboard: React.FC = () => {
                                   }}
                                 >
                                   <td className="p-3 border-b border-purple-500/10">
-                                    <div className="font-bold text-white group-hover:text-amber-400 transition-colors">
+                                    <div className="font-bold text-white group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
                                       {safeStringify(rec.employeeName) || '—'}
+                                      {!activeEmpCodes.has(rec.employeeId || rec.employeeCode) && (
+                                        <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[9px] font-black uppercase rounded">
+                                          Deleted
+                                        </span>
+                                      )}
                                     </div>
                                   </td>
                                   <td className="p-3 border-b border-purple-500/10 font-mono text-purple-300 font-medium">
@@ -1623,7 +1632,14 @@ export const AdminDashboard: React.FC = () => {
                   ) : (
                     expenseRecords.map((exp) => (
                       <tr key={exp.id} className="hover:bg-white/[0.02]">
-                        <td className="p-3 font-bold text-white">{exp.employeeName} ({exp.employeeCode})</td>
+                        <td className="p-3 font-bold text-white flex items-center gap-1.5">
+                          <span>{exp.employeeName} ({exp.employeeCode})</span>
+                          {!activeEmpCodes.has(exp.employeeCode) && (
+                            <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[9px] font-black uppercase rounded">
+                              Deleted
+                            </span>
+                          )}
+                        </td>
                         <td className="p-3 text-purple-200">{exp.category}</td>
                         <td className="p-3 font-bold text-emerald-400">₹{exp.amount}</td>
                         <td className="p-3">
@@ -1649,7 +1665,7 @@ export const AdminDashboard: React.FC = () => {
 
         {/* LEAVES TAB */}
         {activeTab === 'leaves' && canSeeLeaves && (
-          <AdminLeaveManagementTab leaves={leaves} />
+          <AdminLeaveManagementTab leaves={leaves} activeEmpCodes={activeEmpCodes} />
         )}
 
         {/* DEVICE REGISTRATIONS TAB */}

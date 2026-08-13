@@ -174,6 +174,12 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                   setStatus(liveStatus === 'Approved' ? 'Approved' : liveStatus);
                 }
                 setEmployeeData(liveData);
+              } else {
+                localStorage.removeItem('registrationId');
+                localStorage.removeItem('cached_registration_data');
+                setLocalRegId(null);
+                setEmployeeData(null);
+                setStatus('unregistered');
               }
             });
             return;

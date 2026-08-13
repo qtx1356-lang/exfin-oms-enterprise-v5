@@ -25,9 +25,10 @@ import {
 
 interface AdminLeaveManagementTabProps {
   leaves: LeaveRecord[];
+  activeEmpCodes?: Set<string>;
 }
 
-export const AdminLeaveManagementTab: React.FC<AdminLeaveManagementTabProps> = ({ leaves }) => {
+export const AdminLeaveManagementTab: React.FC<AdminLeaveManagementTabProps> = ({ leaves, activeEmpCodes }) => {
   const { user, role = 'ADMIN', loginId } = useAdminAuth();
 
   // Filters & Search
@@ -447,6 +448,11 @@ export const AdminLeaveManagementTab: React.FC<AdminLeaveManagementTabProps> = (
                           <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
                             {leave.employeeCode}
                           </span>
+                          {activeEmpCodes && leave.employeeCode && !activeEmpCodes.has(leave.employeeCode) && (
+                            <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[9px] font-black uppercase rounded">
+                              Deleted
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-purple-300/70 mt-0.5">
                           <Building className="w-3 h-3 text-purple-400" />

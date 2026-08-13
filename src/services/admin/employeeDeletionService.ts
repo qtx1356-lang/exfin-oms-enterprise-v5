@@ -112,20 +112,27 @@ export async function executeEmployeeDeletion(params: {
 
   try {
     // 1. Fetch all records associated with employee
-    const [attSnap, expSnap, leaveSnap, taskSnap, effSnap, notifSnap] = await Promise.all([
+    const [attSnap1, attSnap2, expSnap1, expSnap2, leaveSnap1, leaveSnap2, taskSnap1, taskSnap2, taskSnap3, taskSnap4, effSnap, notifSnap1, notifSnap2] = await Promise.all([
       getDocs(query(collection(db, 'attendance'), where('employeeId', '==', empId))),
+      empCode ? getDocs(query(collection(db, 'attendance'), where('employeeId', '==', empCode))) : Promise.resolve({ docs: [] } as any),
       getDocs(query(collection(db, 'expenses'), where('employeeId', '==', empId))),
+      empCode ? getDocs(query(collection(db, 'expenses'), where('employeeId', '==', empCode))) : Promise.resolve({ docs: [] } as any),
       getDocs(query(collection(db, 'leaves'), where('employeeId', '==', empId))),
+      empCode ? getDocs(query(collection(db, 'leaves'), where('employeeId', '==', empCode))) : Promise.resolve({ docs: [] } as any),
       getDocs(query(collection(db, 'tasks'), where('assigneeId', '==', empId))),
+      empCode ? getDocs(query(collection(db, 'tasks'), where('assigneeCode', '==', empCode))) : Promise.resolve({ docs: [] } as any),
+      getDocs(query(collection(db, 'tasks'), where('assignedToEmployeeIds', 'array-contains', empId))),
+      empCode ? getDocs(query(collection(db, 'tasks'), where('assignedToEmployeeCodes', 'array-contains', empCode))) : Promise.resolve({ docs: [] } as any),
       empCode ? getDocs(query(collection(db, 'efficiency_snapshots'), where('employeeCode', '==', empCode))) : Promise.resolve({ docs: [] } as any),
-      empCode ? getDocs(query(collection(db, 'notifications'), where('recipientEmployeeCode', '==', empCode))) : Promise.resolve({ docs: [] } as any)
+      empCode ? getDocs(query(collection(db, 'notifications'), where('recipientEmployeeCode', '==', empCode))) : Promise.resolve({ docs: [] } as any),
+      getDocs(query(collection(db, 'notifications'), where('recipientId', '==', empId)))
     ]);
 
     // Also query by employeeCode if available
-    let allAttDocs = [...attSnap.docs];
-    let allExpDocs = [...expSnap.docs];
-    let allLeaveDocs = [...leaveSnap.docs];
-    let allTaskDocs = [...taskSnap.docs];
+    let allAttDocs = [...attSnap1.docs, ...attSnap2.docs];
+    let allExpDocs = [...expSnap1.docs, ...expSnap2.docs];
+    let allLeaveDocs = [...leaveSnap1.docs, ...leaveSnap2.docs];
+    let allTaskDocs = [...taskSnap1.docs, ...taskSnap2.docs, ...taskSnap3.docs, ...taskSnap4.docs];
 
     if (empCode && empCode !== empId) {
       const [attCodeSnap, expCodeSnap, leaveCodeSnap, taskCodeSnap] = await Promise.all([
@@ -155,6 +162,21 @@ export async function executeEmployeeDeletion(params: {
       taskCodeSnap.docs.forEach(d => taskMap.set(d.id, d));
       allTaskDocs = Array.from(taskMap.values());
     }
+
+    // Deduplicate all lists
+    const dedup = (docs: any[]) => {
+      const m = new Map();
+      docs.forEach(d => m.set(d.id, d));
+      return Array.from(m.values());
+    };
+
+    allAttDocs = dedup(allAttDocs);
+    allExpDocs = dedup(allExpDocs);
+    allLeaveDocs = dedup(allLeaveDocs);
+    allTaskDocs = dedup(allTaskDocs);
+
+    let allNotifDocs = [...notifSnap1.docs, ...notifSnap2.docs];
+    allNotifDocs = dedup(allNotifDocs);
 
     // Execute deletions in batches (max 500 per batch)
     let batch = writeBatch(db);
@@ -218,7 +240,7 @@ export async function executeEmployeeDeletion(params: {
     details.efficiency = true;
 
     // Delete Notifications
-    for (const d of notifSnap.docs) {
+    for (const d of allNotifDocs) {
       batch.delete(d.ref);
       operationCount++;
       await commitBatchIfNeeded();
