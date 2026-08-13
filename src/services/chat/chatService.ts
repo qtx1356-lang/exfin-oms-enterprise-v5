@@ -186,71 +186,109 @@ const attachmentBlobCache = new Map<string, string>();
 const pendingAttachmentFetches = new Map<string, Promise<string>>();
 
 export async function getAttachmentBlobUrl(attachment: ChatAttachment): Promise<string> {
-  const attId = attachment.attachmentId || attachment.fileUrl;
-  
   if (attachment.fileUrl && (attachment.fileUrl.startsWith('http://') || attachment.fileUrl.startsWith('https://') || attachment.fileUrl.startsWith('blob:'))) {
     return attachment.fileUrl;
   }
 
-  if (attachmentBlobCache.has(attId)) {
-    return attachmentBlobCache.get(attId)!;
+  // Build candidate document IDs (prioritizing att_ prefix if present)
+  const candidates: string[] = [];
+  if (attachment.fileUrl && attachment.fileUrl.startsWith('att_')) {
+    candidates.push(attachment.fileUrl);
+  }
+  if (attachment.attachmentId && attachment.attachmentId.startsWith('att_') && !candidates.includes(attachment.attachmentId)) {
+    candidates.push(attachment.attachmentId);
+  }
+  if (attachment.attachmentId && !candidates.includes(attachment.attachmentId)) {
+    candidates.push(attachment.attachmentId);
+  }
+  if (attachment.fileUrl && !candidates.includes(attachment.fileUrl)) {
+    candidates.push(attachment.fileUrl);
   }
 
-  if (pendingAttachmentFetches.has(attId)) {
-    return pendingAttachmentFetches.get(attId)!;
+  if (candidates.length === 0) {
+    throw new Error('No valid attachment ID specified.');
   }
+
+  // Check memory cache first for any candidate
+  for (const cid of candidates) {
+    if (attachmentBlobCache.has(cid)) {
+      return attachmentBlobCache.get(cid)!;
+    }
+  }
+
+  const primaryKey = candidates[0];
+  if (pendingAttachmentFetches.has(primaryKey)) {
+    return pendingAttachmentFetches.get(primaryKey)!;
+  }
+
+  console.log(`[ATTACHMENT_DOWNLOAD_START] FILE_NAME="${attachment.fileName}" | SIZE=${attachment.fileSize} | CANDIDATES=${JSON.stringify(candidates)}`);
 
   const fetchPromise = (async () => {
-    try {
-      const attDocRef = doc(db, 'chat_attachments', attId);
-      const attSnap = await getDoc(attDocRef);
+    let lastError: any = null;
 
-      if (!attSnap.exists()) {
-        throw new Error('Attachment metadata not found in database.');
-      }
+    for (const cid of candidates) {
+      try {
+        const attDocRef = doc(db, 'chat_attachments', cid);
+        const attSnap = await getDoc(attDocRef);
 
-      const meta = attSnap.data();
-      const totalChunks = meta.totalChunks || 1;
+        if (!attSnap.exists()) {
+          console.warn(`[ATTACHMENT_DOWNLOAD] METADATA_NOT_FOUND | ATTACHMENT_ID="${cid}"`);
+          continue;
+        }
 
-      const chunkPromises = [];
-      for (let i = 0; i < totalChunks; i++) {
-        const chunkRef = doc(db, 'chat_attachments', attId, 'chunks', `chunk_${i}`);
-        chunkPromises.push(getDoc(chunkRef));
-      }
+        const meta = attSnap.data();
+        const totalChunks = meta.totalChunks || 1;
 
-      const chunkSnaps = await Promise.all(chunkPromises);
-      let fullBase64 = '';
-      for (const snap of chunkSnaps) {
-        if (snap.exists()) {
+        const chunkPromises = [];
+        for (let i = 0; i < totalChunks; i++) {
+          const chunkRef = doc(db, 'chat_attachments', cid, 'chunks', `chunk_${i}`);
+          chunkPromises.push(getDoc(chunkRef));
+        }
+
+        const chunkSnaps = await Promise.all(chunkPromises);
+        let fullBase64 = '';
+        for (const snap of chunkSnaps) {
+          if (!snap.exists()) {
+            throw new Error(`Chunk missing at index ${snap.id}`);
+          }
           fullBase64 += snap.data().data;
         }
-      }
 
-      if (!fullBase64) {
-        throw new Error('Failed to reconstruct attachment data.');
-      }
+        if (!fullBase64) {
+          throw new Error('Attachment payload is empty.');
+        }
 
-      const byteCharacters = atob(fullBase64);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const mime = meta.mimeType || attachment.mimeType || 'application/octet-stream';
-      const blob = new Blob([byteArray], { type: mime });
+        const byteCharacters = atob(fullBase64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const mime = meta.mimeType || attachment.mimeType || 'application/octet-stream';
+        const blob = new Blob([byteArray], { type: mime });
 
-      const blobUrl = URL.createObjectURL(blob);
-      attachmentBlobCache.set(attId, blobUrl);
-      pendingAttachmentFetches.delete(attId);
-      return blobUrl;
-    } catch (err) {
-      pendingAttachmentFetches.delete(attId);
-      console.error('Error fetching attachment blob:', err);
-      throw err;
+        const blobUrl = URL.createObjectURL(blob);
+        
+        // Cache under all candidate IDs for fast future lookup
+        for (const key of candidates) {
+          attachmentBlobCache.set(key, blobUrl);
+        }
+
+        console.log(`[ATTACHMENT_DOWNLOAD_SUCCESS] ATTACHMENT_ID="${cid}" | FILE_NAME="${attachment.fileName}" | RECONSTRUCTED_BYTES=${blob.size}`);
+        pendingAttachmentFetches.delete(primaryKey);
+        return blobUrl;
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[ATTACHMENT_DOWNLOAD_RETRY] Candidate "${cid}" failed:`, err?.message || err);
+      }
     }
+
+    pendingAttachmentFetches.delete(primaryKey);
+    console.error(`[ATTACHMENT_DOWNLOAD_FAILED] FILE_NAME="${attachment.fileName}" | ERROR="${lastError?.message || String(lastError)}"`);
+    throw lastError || new Error('Attachment file could not be retrieved from database.');
   })();
 
-  pendingAttachmentFetches.set(attId, fetchPromise);
+  pendingAttachmentFetches.set(primaryKey, fetchPromise);
   return fetchPromise;
 }
 
@@ -349,7 +387,30 @@ export function uploadAttachment(
 
       if (isCancelled) return;
 
-      console.log(`[CHAT_UPLOAD] VERIFYING_ATTACHMENT | ATTACHMENT_ID="${attachmentId}"`);
+      console.log(`[ATTACHMENT_STORAGE_VERIFY] Verifying storage integrity for ATTACHMENT_ID="${attachmentId}"`);
+      
+      const verifyPromises = [];
+      for (let i = 0; i < totalChunks; i++) {
+        verifyPromises.push(getDoc(doc(db, 'chat_attachments', attachmentId, 'chunks', `chunk_${i}`)));
+      }
+      const verifySnaps = await Promise.all(verifyPromises);
+      let verifiedBase64 = '';
+      for (const snap of verifySnaps) {
+        if (!snap.exists() || !snap.data()?.data) {
+          console.error(`[ATTACHMENT_STORAGE_VERIFY_FAILED] ATTACHMENT_ID="${attachmentId}" | Chunk missing at index ${snap.id}`);
+          throw new Error(`Verification failed: Storage chunk missing.`);
+        }
+        verifiedBase64 += snap.data().data;
+      }
+
+      const decodedLength = atob(verifiedBase64).length;
+      if (decodedLength !== file.size) {
+        console.error(`[ATTACHMENT_STORAGE_VERIFY_FAILED] ATTACHMENT_ID="${attachmentId}" | Size mismatch: expected ${file.size}, got ${decodedLength}`);
+        throw new Error(`Verification failed: Corrupted payload size (${decodedLength} != ${file.size}).`);
+      }
+
+      console.log(`[ATTACHMENT_STORAGE_VERIFY_SUCCESS] ATTACHMENT_ID="${attachmentId}" | VERIFIED_FILE_SIZE=${decodedLength} | TOTAL_CHUNKS=${totalChunks}`);
+
       await updateDoc(attRef, { status: 'completed' });
 
       onProgress(100);
@@ -360,7 +421,7 @@ export function uploadAttachment(
       const localBlobUrl = URL.createObjectURL(localBlob);
       attachmentBlobCache.set(attachmentId, localBlobUrl);
 
-      console.log(`[CHAT_UPLOAD] UPLOAD_COMPLETED | ATTACHMENT_ID="${attachmentId}"`);
+      console.log(`[ATTACHMENT_UPLOAD_SUCCESS] ATTACHMENT_ID="${attachmentId}" | FILE_NAME="${file.name}" | SIZE=${file.size}`);
       onComplete(attachmentId);
     } catch (err: any) {
       if (timerId) clearTimeout(timerId);

@@ -48,6 +48,7 @@ const AttachmentViewer: React.FC<{ attachment: ChatAttachment }> = ({ attachment
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
+  const [retryCount, setRetryCount] = useState<number>(0);
 
   useEffect(() => {
     let mounted = true;
@@ -70,7 +71,7 @@ const AttachmentViewer: React.FC<{ attachment: ChatAttachment }> = ({ attachment
       });
 
     return () => { mounted = false; };
-  }, [attachment]);
+  }, [attachment, retryCount]);
 
   const isImage = attachment.mimeType?.startsWith('image/');
 
@@ -87,9 +88,18 @@ const AttachmentViewer: React.FC<{ attachment: ChatAttachment }> = ({ attachment
 
   if (error || !blobUrl) {
     return (
-      <div className="mb-2 bg-[#100525]/80 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 min-w-[220px] text-rose-300">
-        <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-        <span className="text-xs truncate">{attachment.fileName} (Failed to load)</span>
+      <div className="mb-2 bg-[#100525]/80 border border-rose-500/20 p-3 rounded-xl flex items-center justify-between gap-2 min-w-[220px] text-rose-300">
+        <div className="flex items-center gap-2 min-w-0">
+          <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+          <span className="text-xs truncate">{attachment.fileName} (Failed to load)</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setRetryCount(c => c + 1)}
+          className="text-[10px] font-bold text-rose-300 hover:text-white bg-rose-500/20 px-2 py-1 rounded cursor-pointer shrink-0"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -415,7 +425,7 @@ export const AdminChatTab: React.FC = () => {
           setUploadProgress(100);
           
           const attachmentMeta: ChatAttachment = {
-            attachmentId: tempId,
+            attachmentId: downloadUrl,
             fileName: fileToSend.name,
             mimeType: fileToSend.type || 'application/octet-stream',
             fileSize: fileToSend.size,
