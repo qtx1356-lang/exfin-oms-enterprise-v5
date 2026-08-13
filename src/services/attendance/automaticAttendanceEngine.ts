@@ -523,5 +523,76 @@ export const AutomaticAttendanceEngine = {
     }
 
     return null;
+  },
+
+  /**
+   * Settles unresolved sessions at the 23:59 deadline or during past-day recovery
+   */
+  settleUnresolvedSession(
+    employeeId: string,
+    dateStr: string,
+    timestamp: Date = new Date()
+  ): AttendanceRecord | null {
+    const record = getTodayAttendanceRecord(employeeId, dateStr);
+    if (!record || record.checkOutTime) {
+      return null;
+    }
+
+    let checkoutTimeStr = '11:59 PM';
+    let checkoutTypeStr = 'AUTO_CHECKOUT';
+    let checkOutModeStr: 'AUTO_SYSTEM' | 'MANUAL' = 'AUTO_SYSTEM';
+
+    if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
+      const hasExitEvent = !!(record.lastExitTime || record.exitTime);
+      if (hasExitEvent) {
+        checkoutTimeStr = record.lastExitTime || record.exitTime || '11:59 PM';
+        checkoutTypeStr = 'AUTO_CHECKOUT';
+        checkOutModeStr = 'AUTO_SYSTEM';
+        logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `Settling session for ${dateStr} using recovered final exit time: ${checkoutTimeStr}`);
+      } else {
+        checkoutTimeStr = '11:59 PM';
+        checkoutTypeStr = 'End-of-Day Settlement';
+        checkOutModeStr = 'AUTO_SYSTEM';
+        logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `No exit event found for ${dateStr}. Settling session with fallback 11:59 PM.`);
+      }
+    } else {
+      // WFH or CLIENT_VISIT
+      checkoutTimeStr = '11:59 PM';
+      checkoutTypeStr = 'AUTO_CHECKOUT';
+      checkOutModeStr = 'AUTO_SYSTEM';
+      logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `Settling WFH/CLIENT_VISIT session for ${dateStr} at 11:59 PM.`);
+    }
+
+    const workingHours = calculateWorkingHours(record.checkInTime, checkoutTimeStr);
+
+    record.checkOutTime = checkoutTimeStr;
+    record.checkOutMode = checkOutModeStr;
+    record.checkoutType = checkoutTypeStr;
+    record.status = 'completed';
+    record.workingHours = workingHours;
+    record.currentState = 'FINALIZED_CHECKOUT';
+
+    const eventId = generateIdempotentEventId(employeeId, dateStr, 'END_OF_DAY_CHECKOUT', checkoutTimeStr);
+    record.processedEvents = Array.from(new Set([...(record.processedEvents || []), eventId]));
+
+    saveAttendanceRecord(record);
+    markEventIdProcessed(eventId);
+
+    createNotification({
+      recipientEmployeeCode: employeeId,
+      type: 'ATTENDANCE_CHECK_OUT',
+      category: 'ATTENDANCE',
+      priority: 'LOW',
+      title: 'Attendance Session Settled',
+      message: `Your attendance session for ${dateStr} was settled at ${checkoutTimeStr} (${checkoutTypeStr}).`,
+      entityId: record.id,
+      entityType: 'ATTENDANCE'
+    }).catch((e) => console.warn('Notification error on settlement:', e));
+
+    if (navigator.onLine) {
+      syncPendingAttendanceRecords().catch((e) => console.warn('Sync error on settlement:', e));
+    }
+
+    return record;
   }
 };

@@ -267,47 +267,12 @@ export const runAutoCheckoutFinalizer = (): void => {
     const isToday = rec.date === todayStr;
 
     if (isPastDay) {
-      // Previous days (missed checkouts)
-      if (rec.attendanceType === 'WFH' || rec.attendanceType === 'CLIENT_VISIT') {
-        AutomaticAttendanceEngine.transitionState(
-          rec.employeeId,
-          rec.employeeName,
-          { latitude: rec.latitude, longitude: rec.longitude },
-          rec.townCity,
-          'END_OF_DAY_CHECKOUT',
-          'AUTO_SYSTEM_END_OF_DAY',
-          now,
-          rec.attendanceType
-        );
-      } else if (rec.attendanceType === 'OFFICE' || !rec.attendanceType) {
-        if (rec.currentState === 'PENDING_FINAL_EXIT' || rec.lastExitTime || rec.exitTime) {
-          AutomaticAttendanceEngine.finalizePendingExit(rec.employeeId, rec.date, now);
-        } else {
-          logAttendanceEvent('END_OF_DAY_PROCESSING', rec.employeeId, `Missed checkout from previous day (${rec.date}). Employee inside geofence. Remains checked in.`);
-        }
-      }
+      // Previous days (missed checkouts) - MUST be settled immediately under next-day protection
+      AutomaticAttendanceEngine.settleUnresolvedSession(rec.employeeId, rec.date, now);
     } else if (isToday) {
-      // Today's record
-      if (rec.attendanceType === 'OFFICE' || !rec.attendanceType) {
-        // App reopen / background recovery rule: if they have exited and are currently outside,
-        // we can finalize their exit as of the actual final exit time!
-        if (is1159PMOrLater || rec.currentState === 'PENDING_FINAL_EXIT' || rec.lastExitTime || rec.exitTime) {
-          AutomaticAttendanceEngine.finalizePendingExit(rec.employeeId, rec.date, now);
-        }
-      } else if (rec.attendanceType === 'WFH' || rec.attendanceType === 'CLIENT_VISIT') {
-        // WFH & Client Visit: only auto checkout at 11:59 PM
-        if (is1159PMOrLater) {
-          AutomaticAttendanceEngine.transitionState(
-            rec.employeeId,
-            rec.employeeName,
-            { latitude: rec.latitude, longitude: rec.longitude },
-            rec.townCity,
-            'END_OF_DAY_CHECKOUT',
-            'AUTO_SYSTEM_END_OF_DAY',
-            now,
-            rec.attendanceType
-          );
-        }
+      // Today's record - settled only at the end-of-day settlement deadline (23:59 IST / 11:59 PM)
+      if (is1159PMOrLater) {
+        AutomaticAttendanceEngine.settleUnresolvedSession(rec.employeeId, rec.date, now);
       }
     }
   });
@@ -332,16 +297,9 @@ export const checkAndTriggerAutoCheckout = (
   const minutes = now.getMinutes();
 
   const is1159PMOrLater = hours === 23 && minutes >= 59;
-  const isPendingExit = record.currentState === 'PENDING_FINAL_EXIT' || record.lastExitTime || record.exitTime;
 
-  if (is1159PMOrLater || isPendingExit) {
-    if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
-      if (!record.lastExitTime && !record.exitTime) {
-        return null;
-      }
-    }
-
-    return AutomaticAttendanceEngine.finalizePendingExit(employeeId, todayStr, now);
+  if (is1159PMOrLater) {
+    return AutomaticAttendanceEngine.settleUnresolvedSession(employeeId, todayStr, now);
   }
 
   return null;
