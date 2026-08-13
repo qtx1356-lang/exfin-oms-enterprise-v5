@@ -15,7 +15,20 @@ import {
 } from 'firebase/firestore';
 import { db, auth, storage } from '../firebase/config';
 import { ChatConversation, ChatMessage, ChatType, ChatAttachment } from '../../types/chat';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { signInAnonymously } from 'firebase/auth';
+
+export async function ensureFirebaseAuth(): Promise<void> {
+  if (!auth) return;
+  if (auth.currentUser) return;
+  try {
+    console.log('[CHAT_UPLOAD] Initializing anonymous auth session for attachment upload...');
+    await signInAnonymously(auth);
+    console.log('[CHAT_UPLOAD] Anonymous auth session established:', auth.currentUser?.uid);
+  } catch (err) {
+    console.warn('[CHAT_UPLOAD] Anonymous auth fallback failed (proceeding with request):', err);
+  }
+}
 
 export enum OperationType {
   CREATE = 'create',
@@ -152,7 +165,7 @@ export function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// Upload an attachment to Firebase Storage with timeout protection & cleanup
+// Upload an attachment to Firebase Storage with timeout protection, diagnostics & auto-retry
 export function uploadAttachment(
   file: File,
   conversationId: string,
@@ -160,11 +173,14 @@ export function uploadAttachment(
   onProgress: (progress: number) => void,
   onComplete: (downloadUrl: string) => void,
   onError: (error: Error) => void,
-  timeoutMs: number = 60000
+  timeoutMs: number = 120000 // 120 seconds default
 ): () => void {
   let isFinished = false;
   let timerId: any = null;
-  let uploadTask: any = null;
+  let activeTask: any = null;
+  let isCancelled = false;
+
+  console.log(`[CHAT_UPLOAD] UPLOAD_STARTED | FILE_NAME="${file.name}" | FILE_SIZE=${file.size} | MIME_TYPE="${file.type || 'unknown'}" | CONVERSATION="${conversationId}" | USER="${userId}"`);
 
   const cleanup = () => {
     isFinished = true;
@@ -174,75 +190,125 @@ export function uploadAttachment(
     }
   };
 
-  try {
-    if (!storage) {
-      throw new Error('Firebase Storage is not initialized.');
-    }
-
-    const validation = validateAttachment(file);
-    if (!validation.valid) {
-      throw new Error(validation.error || 'Invalid file.');
-    }
-
-    const fileExtension = file.name.split('.').pop() || 'bin';
-    const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
-    const storagePath = `chat_attachments/${conversationId}/${safeName}`;
-    const storageRef = ref(storage, storagePath);
-
-    uploadTask = uploadBytesResumable(storageRef, file);
-
-    // Timeout protection: cancel task if taking longer than timeoutMs
-    timerId = setTimeout(() => {
-      if (!isFinished) {
-        cleanup();
-        if (uploadTask) {
-          try {
-            uploadTask.cancel();
-          } catch (_) {}
-        }
-        onError(new Error('Upload timed out. Please check your network connection and try again.'));
+  const executeUpload = async () => {
+    try {
+      if (!storage) {
+        throw new Error('Firebase Storage is not initialized.');
       }
-    }, timeoutMs);
 
-    uploadTask.on(
-      'state_changed',
-      (snapshot) => {
-        if (isFinished) return;
-        const progress = snapshot.totalBytes > 0 
-          ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100 
-          : 0;
-        onProgress(Math.min(100, Math.max(0, progress)));
-      },
-      (error) => {
-        if (isFinished) return;
-        cleanup();
-        onError(error instanceof Error ? error : new Error(String(error)));
-      },
-      async () => {
-        if (isFinished) return;
+      // 1. Ensure Auth identity for Firebase Storage
+      await ensureFirebaseAuth();
+
+      // 2. Validate attachment format & size
+      const validation = validateAttachment(file);
+      if (!validation.valid) {
+        throw new Error(validation.error || 'Invalid file.');
+      }
+
+      const fileExtension = file.name.split('.').pop() || 'bin';
+      const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
+      const storagePath = `chat_attachments/${conversationId}/${safeName}`;
+      const storageRef = ref(storage, storagePath);
+
+      console.log(`[CHAT_UPLOAD] REQUEST_STARTED | STORAGE_PATH="${storagePath}" | METHOD="POST/PUT (Firebase Storage)"`);
+
+      const fileMetadata = {
+        contentType: file.type || 'application/octet-stream',
+        customMetadata: {
+          originalName: file.name,
+          uploadedBy: userId,
+          conversationId
+        }
+      };
+
+      // Set timeout timer
+      timerId = setTimeout(() => {
+        if (!isFinished) {
+          console.error(`[CHAT_UPLOAD] UPLOAD_TIMEOUT | STORAGE_PATH="${storagePath}" | TIMEOUT_MS=${timeoutMs}`);
+          cleanup();
+          if (activeTask && typeof activeTask.cancel === 'function') {
+            try { activeTask.cancel(); } catch (_) {}
+          }
+          onError(new Error('Upload timed out. Please check your network connection and try again.'));
+        }
+      }, timeoutMs);
+
+      // Try upload via uploadBytesResumable
+      let uploadSuccess = false;
+      let downloadUrl = '';
+
+      try {
+        const resumableTask = uploadBytesResumable(storageRef, file, fileMetadata);
+        activeTask = resumableTask;
+
+        await new Promise<void>((resolve, reject) => {
+          resumableTask.on(
+            'state_changed',
+            (snapshot) => {
+              if (isFinished || isCancelled) return;
+              const progress = snapshot.totalBytes > 0 
+                ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100 
+                : 0;
+              console.log(`[CHAT_UPLOAD] UPLOAD_BYTES_SENT | TRANSFERRED=${snapshot.bytesTransferred}/${snapshot.totalBytes} (${progress.toFixed(1)}%)`);
+              onProgress(Math.min(100, Math.max(0, progress)));
+            },
+            (err) => {
+              reject(err);
+            },
+            async () => {
+              try {
+                downloadUrl = await getDownloadURL(resumableTask.snapshot.ref);
+                uploadSuccess = true;
+                resolve();
+              } catch (urlErr) {
+                reject(urlErr);
+              }
+            }
+          );
+        });
+      } catch (resumableErr: any) {
+        if (isCancelled || isFinished) return;
+        console.warn('[CHAT_UPLOAD] Resumable upload failed/interrupted, attempting direct atomic upload fallback...', resumableErr?.message || resumableErr);
+
+        // Fallback: Attempt direct uploadBytes (single request)
         try {
-          const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-          cleanup();
-          onComplete(downloadUrl);
-        } catch (err) {
-          cleanup();
-          onError(err instanceof Error ? err : new Error(String(err)));
+          console.log(`[CHAT_UPLOAD] ATTEMPTING_FALLBACK | STORAGE_PATH="${storagePath}" | METHOD="uploadBytes"`);
+          onProgress(50);
+          const uploadResult = await uploadBytes(storageRef, file, fileMetadata);
+          downloadUrl = await getDownloadURL(uploadResult.ref);
+          uploadSuccess = true;
+          onProgress(100);
+        } catch (fallbackErr: any) {
+          throw fallbackErr;
         }
       }
-    );
-  } catch (err) {
-    cleanup();
-    onError(err instanceof Error ? err : new Error(String(err)));
-  }
+
+      if (!isFinished && !isCancelled && uploadSuccess && downloadUrl) {
+        console.log(`[CHAT_UPLOAD] UPLOAD_COMPLETED | STORAGE_PATH="${storagePath}" | URL_GENERATED=true`);
+        cleanup();
+        onComplete(downloadUrl);
+      }
+    } catch (err: any) {
+      if (isCancelled) {
+        console.log('[CHAT_UPLOAD] UPLOAD_CANCELLED_BY_USER');
+        return;
+      }
+      console.error(`[CHAT_UPLOAD] UPLOAD_FAILED | ERROR="${err?.message || String(err)}"`);
+      cleanup();
+      onError(err instanceof Error ? err : new Error(String(err)));
+    }
+  };
+
+  executeUpload();
 
   return () => {
-    if (!isFinished) {
-      cleanup();
-      if (uploadTask) {
-        try {
-          uploadTask.cancel();
-        } catch (_) {}
-      }
+    isCancelled = true;
+    console.log('[CHAT_UPLOAD] UPLOAD_CANCEL_REQUESTED');
+    cleanup();
+    if (activeTask && typeof activeTask.cancel === 'function') {
+      try {
+        activeTask.cancel();
+      } catch (_) {}
     }
   };
 }
