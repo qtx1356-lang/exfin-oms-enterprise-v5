@@ -131,10 +131,11 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
 
     cleanupListeners();
 
-    // 1. Tasks Listener (Identity isolated to assignedToEmployeeCodes)
+    // 1. Tasks Listener (Identity isolated to assignedToEmployeeCodes with limit bound)
     const tasksQ = query(
       collection(db, 'tasks'),
-      where('assignedToEmployeeCodes', 'array-contains', empCode)
+      where('assignedToEmployeeCodes', 'array-contains', empCode),
+      limit(100)
     );
 
     const unsubTasks = onSnapshot(
@@ -169,10 +170,11 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     );
     activeUnsubsRef.current.push(unsubTasks);
 
-    // 2. Leaves Listener (Identity isolated to employeeCode)
+    // 2. Leaves Listener (Identity isolated to employeeCode with limit bound)
     const leavesQ = query(
       collection(db, 'leaves'),
-      where('employeeCode', '==', empCode)
+      where('employeeCode', '==', empCode),
+      limit(100)
     );
 
     const unsubLeaves = onSnapshot(
@@ -307,10 +309,11 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       activeUnsubsRef.current.push(unsubAtt);
     });
 
-    // 4. Expenses Listener (Identity isolated to employeeCode)
+    // 4. Expenses Listener (Identity isolated to employeeCode with limit bound)
     const expQ = query(
       collection(db, 'expenses'),
-      where('employeeCode', '==', empCode)
+      where('employeeCode', '==', empCode),
+      limit(100)
     );
 
     const unsubExpenses = onSnapshot(
@@ -340,13 +343,14 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     );
     activeUnsubsRef.current.push(unsubExpenses);
 
-    // 5. Notifications Listener (Identity isolated to recipientEmployeeCode & recipientUserId)
+    // 5. Notifications Listener (Identity isolated to recipientEmployeeCode & recipientUserId with limit bounds)
     const notifQueries = [];
     if (empCode) {
       notifQueries.push(
         query(
           collection(db, 'notifications'),
-          where('recipientEmployeeCode', '==', empCode)
+          where('recipientEmployeeCode', '==', empCode),
+          limit(50)
         )
       );
     }
@@ -355,7 +359,8 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       notifQueries.push(
         query(
           collection(db, 'notifications'),
-          where('recipientUserId', '==', empId)
+          where('recipientUserId', '==', empId),
+          limit(50)
         )
       );
     }
@@ -364,7 +369,8 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
         notifQueries.push(
           query(
             collection(db, 'notifications'),
-            where('recipientTeamLeaderId', '==', empId)
+            where('recipientTeamLeaderId', '==', empId),
+            limit(50)
           )
         );
       }
@@ -372,7 +378,8 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
         notifQueries.push(
           query(
             collection(db, 'notifications'),
-            where('recipientTeamLeaderId', '==', empCode)
+            where('recipientTeamLeaderId', '==', empCode),
+            limit(50)
           )
         );
       }

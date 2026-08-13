@@ -6,6 +6,7 @@ import {
   query,
   where,
   orderBy,
+  limitToLast,
   onSnapshot,
   getDoc,
   getDocs,
@@ -272,16 +273,18 @@ export function listenPublicConversations(
   }
 }
 
-// Listen to messages within a conversation
+// Listen to recent messages within a conversation with pagination limit
 export function listenMessages(
   conversationId: string,
+  limitCount: number = 50,
   onUpdate: (messages: ChatMessage[]) => void
 ): () => void {
   const path = `chat_conversations/${conversationId}/messages`;
   try {
     const q = query(
       collection(db, path),
-      orderBy('timestamp', 'asc')
+      orderBy('timestamp', 'asc'),
+      limitToLast(limitCount)
     );
 
     return onSnapshot(q, (snap) => {

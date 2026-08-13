@@ -3,7 +3,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import { usePermission } from '../../context/PermissionContext';
 import { db } from '../../services/firebase/config';
 import { createNotification } from '../../services/notification/notificationService';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, where, getDocs, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, where, getDocs, getDoc, limit } from 'firebase/firestore';
 import {
   LogOut,
   Search,
@@ -495,8 +495,8 @@ export const AdminDashboard: React.FC = () => {
       }
     };
 
-    // Listen to registrations
-    const qRegs = query(collection(db, 'registrations'), orderBy('registrationDate', 'desc'));
+    // Listen to registrations with bounded limit
+    const qRegs = query(collection(db, 'registrations'), limit(300));
     const unsubRegs = onSnapshot(qRegs, (snapshot) => {
       const regs: Registration[] = [];
       snapshot.forEach((doc) => {
@@ -507,8 +507,8 @@ export const AdminDashboard: React.FC = () => {
       checkAllLoaded();
     }, () => { regsLoaded = true; checkAllLoaded(); });
 
-    // Listen to attendance
-    const qAttendance = query(collection(db, 'attendance'), orderBy('createdAtDeviceTime', 'desc'));
+    // Listen to attendance with bounded limit
+    const qAttendance = query(collection(db, 'attendance'), limit(300));
     const unsubAttendance = onSnapshot(qAttendance, (snapshot) => {
       const firestoreAtt: AttendanceRecord[] = [];
       snapshot.forEach((doc) => {
@@ -519,8 +519,8 @@ export const AdminDashboard: React.FC = () => {
       checkAllLoaded();
     }, () => { attendanceLoaded = true; checkAllLoaded(); });
 
-    // Listen to expenses
-    const qExpenses = query(collection(db, 'expenses'), orderBy('createdAtDeviceTime', 'desc'));
+    // Listen to expenses with bounded limit
+    const qExpenses = query(collection(db, 'expenses'), limit(300));
     const unsubExpenses = onSnapshot(qExpenses, (snapshot) => {
       const firestoreExp: ExpenseRecord[] = [];
       snapshot.forEach((doc) => {
@@ -531,8 +531,8 @@ export const AdminDashboard: React.FC = () => {
       checkAllLoaded();
     }, () => { expensesLoaded = true; checkAllLoaded(); });
 
-    // Listen to tasks
-    const qTasks = query(collection(db, 'tasks'), orderBy('createdAtDeviceTime', 'desc'));
+    // Listen to tasks with bounded limit
+    const qTasks = query(collection(db, 'tasks'), limit(300));
     const unsubTasks = onSnapshot(qTasks, (snapshot) => {
       const firestoreTasks: TaskRecord[] = [];
       snapshot.forEach((docSnap) => {
@@ -543,8 +543,9 @@ export const AdminDashboard: React.FC = () => {
       checkAllLoaded();
     }, () => { tasksLoaded = true; checkAllLoaded(); });
 
-    // Listen to leaves
-    const unsubLeaves = onSnapshot(collection(db, 'leaves'), (snapshot) => {
+    // Listen to leaves with bounded limit
+    const qLeaves = query(collection(db, 'leaves'), limit(300));
+    const unsubLeaves = onSnapshot(qLeaves, (snapshot) => {
       const firestoreLeaves: LeaveRecord[] = [];
       snapshot.forEach((doc) => {
         firestoreLeaves.push({ id: doc.id, ...doc.data() } as LeaveRecord);

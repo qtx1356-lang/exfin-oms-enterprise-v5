@@ -271,36 +271,36 @@ export const getNotificationsForUser = async (user: {
 
     // Query 1: Scoped directly by recipientEmployeeCode
     if (user.employeeCode) {
-      queries.push(query(notifCollection, where('recipientEmployeeCode', '==', user.employeeCode)));
+      queries.push(query(notifCollection, where('recipientEmployeeCode', '==', user.employeeCode), limit(50)));
     }
 
     // Query 2: Scoped directly by recipientUserId
     if (user.id) {
-      queries.push(query(notifCollection, where('recipientUserId', '==', user.id)));
+      queries.push(query(notifCollection, where('recipientUserId', '==', user.id), limit(50)));
     }
 
     // Query 3: Scoped by recipientRole SYSTEM/public - ONLY for ADMIN and SUPER_ADMIN
     if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
-      queries.push(query(notifCollection, where('recipientEmployeeCode', '==', 'SYSTEM')));
+      queries.push(query(notifCollection, where('recipientEmployeeCode', '==', 'SYSTEM'), limit(50)));
     }
 
     // Query 4: Team-specific notifications for Team Leaders
     if (user.role === 'TEAM_LEADER') {
-      queries.push(query(notifCollection, where('recipientTeamLeaderId', '==', user.id)));
+      queries.push(query(notifCollection, where('recipientTeamLeaderId', '==', user.id), limit(50)));
       if (user.employeeCode) {
-        queries.push(query(notifCollection, where('recipientTeamLeaderId', '==', user.employeeCode)));
+        queries.push(query(notifCollection, where('recipientTeamLeaderId', '==', user.employeeCode), limit(50)));
       }
     }
 
     // Role-based notifications for Admins
     if (user.role === 'ADMIN') {
-      queries.push(query(notifCollection, where('recipientRole', '==', 'ADMIN')));
+      queries.push(query(notifCollection, where('recipientRole', '==', 'ADMIN'), limit(50)));
     }
 
     // Role-based notifications for Super Admins
     if (user.role === 'SUPER_ADMIN') {
-      queries.push(query(notifCollection, where('recipientRole', '==', 'ADMIN')));
-      queries.push(query(notifCollection, where('recipientRole', '==', 'SUPER_ADMIN')));
+      queries.push(query(notifCollection, where('recipientRole', '==', 'ADMIN'), limit(50)));
+      queries.push(query(notifCollection, where('recipientRole', '==', 'SUPER_ADMIN'), limit(50)));
     }
 
     // Execute queries in parallel and merge

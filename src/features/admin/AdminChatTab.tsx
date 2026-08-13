@@ -193,7 +193,7 @@ export const AdminChatTab: React.FC = () => {
 
     markAsRead(activeConv.id, currentAdminId).catch(console.error);
 
-    const unsub = listenMessages(activeConv.id, (msgs) => {
+    const unsub = listenMessages(activeConv.id, 50, (msgs) => {
       setMessages(msgs);
     });
     return () => unsub();

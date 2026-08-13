@@ -197,7 +197,7 @@ export const ChatScreen: React.FC = () => {
     // Reset unread count immediately upon opening/receiving updates
     markAsRead(activeConv.id, currentUserCode).catch(console.error);
 
-    const unsub = listenMessages(activeConv.id, (msgs) => {
+    const unsub = listenMessages(activeConv.id, 50, (msgs) => {
       setMessages(msgs);
     });
     return () => unsub();

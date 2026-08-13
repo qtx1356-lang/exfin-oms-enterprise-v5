@@ -524,17 +524,21 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const queryPosition = async () => {
       if (!isRunning) return;
 
-      try {
-        const pos = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: true,
-          timeout: 4000,
-          maximumAge: 0
-        });
-        if (pos && pos.coords) {
-          processPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, pos.timestamp);
+      const lastFixAge = Date.now() - (locationTimestamp || 0);
+      // Skip redundant getCurrentPosition calls if watchPosition provided fresh fix within 3s
+      if (lastFixAge > 3000) {
+        try {
+          const pos = await Geolocation.getCurrentPosition({
+            enableHighAccuracy: true,
+            timeout: 4000,
+            maximumAge: 0
+          });
+          if (pos && pos.coords) {
+            processPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, pos.timestamp);
+          }
+        } catch (err) {
+          console.warn('Adaptive location poll error:', err);
         }
-      } catch (err) {
-        console.warn('Adaptive location poll error:', err);
       }
 
       scheduleNextPoll();

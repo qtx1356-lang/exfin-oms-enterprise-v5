@@ -165,18 +165,16 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       console.warn('Registrations subscription error:', err);
     });
 
-    // Priority 7 FIX: Use bounded queries for tasks and attendance to prevent scaling bottleneck
-    const prevStartDateStr = prevStartDate;
+    // Scope queries by selected employee code when available to avoid fetching unneeded company records
+    const targetCode = selectedEmployeeCode || activeEmployeeCode;
 
-    const tasksQuery = query(
-      collection(db, 'tasks'),
-      limit(500)
-    );
+    const tasksQuery = targetCode 
+      ? query(collection(db, 'tasks'), where('assignedToEmployeeCodes', 'array-contains', targetCode), limit(200))
+      : query(collection(db, 'tasks'), limit(200));
 
-    const attQuery = query(
-      collection(db, 'attendance'),
-      limit(500)
-    );
+    const attQuery = targetCode
+      ? query(collection(db, 'attendance'), where('employeeId', '==', targetCode), limit(200))
+      : query(collection(db, 'attendance'), limit(200));
 
     // Subscribe to tasks
     const unsubTasks = onSnapshot(tasksQuery, (snap) => {

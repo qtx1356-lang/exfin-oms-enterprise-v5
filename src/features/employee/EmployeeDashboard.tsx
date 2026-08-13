@@ -158,7 +158,7 @@ const getKolkataDateFromIso = (isoStr?: string | null): string => {
 export const EmployeeDashboard: React.FC = () => {
   const { employeeData } = useRegistration();
   const navigate = useNavigate();
-  const { notifications, unreadNotificationCount } = useRealtimeSync();
+  const { notifications, unreadNotificationCount, tasks: syncTasks, leaves: syncLeaves, attendance: syncAttendance, expenses: syncExpenses } = useRealtimeSync();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
   const [leaveBalance, setLeaveBalance] = useState({ available: 24, pending: 0, used: 0 });
@@ -166,11 +166,11 @@ export const EmployeeDashboard: React.FC = () => {
   const [showUnavailableMessage, setShowUnavailableMessage] = useState(false);
 
   // Section Loading & Error states
-  const [attendanceLoading, setAttendanceLoading] = useState(true);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceError, setAttendanceError] = useState<string | null>(null);
-  const [tasksLoading, setTasksLoading] = useState(true);
+  const [tasksLoading, setTasksLoading] = useState(false);
   const [tasksError, setTasksError] = useState<string | null>(null);
-  const [leavesLoading, setLeavesLoading] = useState(true);
+  const [leavesLoading, setLeavesLoading] = useState(false);
   const [leavesError, setLeavesError] = useState<string | null>(null);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
@@ -197,131 +197,57 @@ export const EmployeeDashboard: React.FC = () => {
   const [weightages, setWeightages] = useState<EfficiencyWeightages>(DEFAULT_WEIGHTAGES);
   const [allLeaves, setAllLeaves] = useState<any[]>([]);
 
-  // Initialize data from local storage
+  // Initialize data from local storage and keep in sync with RealtimeSyncContext
   useEffect(() => {
     logStartupTag('DASHBOARD_READY', 'Employee Dashboard fully mounted');
-    setAttendanceRecords(getStoredAttendanceRecords());
-    setTasks(getStoredTasks());
-    setExpenses(getStoredExpenseRecords());
-    setAllLeaves(getStoredLeaves());
   }, []);
 
-  // Real-time listener for Attendance
   useEffect(() => {
-    if (!employeeData?.employeeCode) {
-      setAttendanceLoading(false);
-      return;
+    if (syncAttendance && syncAttendance.length > 0) {
+      setAttendanceRecords(syncAttendance);
+    } else {
+      setAttendanceRecords(getStoredAttendanceRecords());
     }
-    setAttendanceLoading(true);
-    setAttendanceError(null);
+  }, [syncAttendance]);
 
-    if (!db) {
-      setAttendanceLoading(false);
-      return;
-    }
-
-    const q = query(
-      collection(db, 'attendance'),
-      where('employeeId', '==', employeeData.employeeCode)
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AttendanceRecord[];
-      setAttendanceRecords(list);
-      setAttendanceLoading(false);
-    }, (err) => {
-      console.warn("Attendance snapshot error:", err);
-      setAttendanceError("Unable to load");
-      setAttendanceLoading(false);
-    });
-    return () => unsub();
-  }, [employeeData]);
-
-  // Real-time listener for Tasks
   useEffect(() => {
-    if (!employeeData?.employeeCode) {
-      setTasksLoading(false);
-      return;
+    if (syncTasks && syncTasks.length > 0) {
+      setTasks(syncTasks);
+    } else {
+      setTasks(getStoredTasks());
     }
-    setTasksLoading(true);
-    setTasksError(null);
+  }, [syncTasks]);
 
-    if (!db) {
-      setTasksLoading(false);
-      return;
-    }
-
-    const q = query(
-      collection(db, 'tasks'),
-      where('assignedToEmployeeCodes', 'array-contains', employeeData.employeeCode)
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
-      setTasks(list);
-      setTasksLoading(false);
-    }, (err) => {
-      console.warn("Tasks snapshot error:", err);
-      setTasksError("Unable to load");
-      setTasksLoading(false);
-    });
-    return () => unsub();
-  }, [employeeData]);
-
-  // Real-time listener for Expenses
   useEffect(() => {
-    if (!db || !employeeData?.employeeCode) return;
-    const q = query(
-      collection(db, 'expenses'),
-      where('employeeCode', '==', employeeData.employeeCode)
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
-      setExpenses(list);
-    }, (err) => {
-      console.warn("Expenses snapshot error:", err);
-    });
-    return () => unsub();
-  }, [employeeData]);
+    if (syncExpenses && syncExpenses.length > 0) {
+      setExpenses(syncExpenses as ExpenseRecord[]);
+    } else {
+      setExpenses(getStoredExpenseRecords());
+    }
+  }, [syncExpenses]);
 
-  // Real-time listener for Leaves (to update leave summary dynamically)
   useEffect(() => {
-    if (!employeeData?.employeeCode) {
-      setLeavesLoading(false);
-      return;
+    if (syncLeaves && syncLeaves.length > 0) {
+      setAllLeaves(syncLeaves);
+    } else {
+      setAllLeaves(getStoredLeaves());
     }
-    setLeavesLoading(true);
-    setLeavesError(null);
+  }, [syncLeaves]);
 
-    if (!db) {
-      setLeavesLoading(false);
-      return;
-    }
-
-    const q = query(
-      collection(db, 'leaves'),
-      where('employeeCode', '==', employeeData.employeeCode)
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
-      setAllLeaves(list);
-      
-      const empId = employeeData.id || employeeData.employeeCode || '';
-      const dept = employeeData.office || 'Raniganj';
-      const localConfig = getStoredLeaveConfig();
-      const localAllowances = getStoredEmployeeAllowances();
-      const bal = calculateLeaveBalance(empId, dept, list, localConfig, localAllowances);
-      setLeaveBalance({
-        available: bal.available,
-        pending: bal.pending,
-        used: bal.used,
-      });
-      setLeavesLoading(false);
-    }, (err) => {
-      console.warn("Leaves snapshot error:", err);
-      setLeavesError("Unable to load");
-      setLeavesLoading(false);
+  // Recalculate leave balance whenever allLeaves changes
+  useEffect(() => {
+    if (!employeeData) return;
+    const empId = employeeData.id || employeeData.employeeCode || '';
+    const dept = employeeData.office || 'Raniganj';
+    const localConfig = getStoredLeaveConfig();
+    const localAllowances = getStoredEmployeeAllowances();
+    const bal = calculateLeaveBalance(empId, dept, allLeaves, localConfig, localAllowances);
+    setLeaveBalance({
+      available: bal.available,
+      pending: bal.pending,
+      used: bal.used,
     });
-    return () => unsub();
-  }, [employeeData]);
+  }, [allLeaves, employeeData]);
 
   // Fetch weightages
   useEffect(() => {
