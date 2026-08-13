@@ -117,6 +117,7 @@ export const safeStringify = (val: any): string => {
 import { LeaveRecord, LeaveConfig, EmployeeAllowance } from '../../types/leave';
 import { reviewLeaveRequest, adminOverrideLeave, updateLeaveConfig, updateEmployeeAllowance, calculateLeaveBalance } from '../../services/leave/leaveService';
 import { getStoredLeaves, getStoredLeaveConfig, getStoredEmployeeAllowances } from '../../services/leave/leaveStorage';
+import { AdminWorkHoursTab } from './AdminWorkHoursTab';
 
 type Registration = {
   id: string;
@@ -158,6 +159,7 @@ type AdminTab =
   | 'reports'
   | 'health'
   | 'sync'
+  | 'workHours'
   | 'chat'
   | 'announcements'
   | 'auditLog'
@@ -882,6 +884,7 @@ export const AdminDashboard: React.FC = () => {
       title: 'OPERATIONS',
       items: [
         { id: 'attendance' as AdminTab, label: 'Attendance', icon: Clock, visible: canSeeAttendance },
+        { id: 'workHours' as AdminTab, label: 'Work Hours', icon: Clock, visible: canSeeAttendance },
         { id: 'expenses' as AdminTab, label: 'Expenses', icon: Wallet, badge: pendingExpenseCount, visible: canSeeExpenses },
         { id: 'planner' as AdminTab, label: 'Work Planner', icon: CheckSquare, visible: canSeePlanner },
         { id: 'leaves' as AdminTab, label: 'Leave Portal', icon: Calendar, badge: pendingLeaveCount, visible: canSeeLeaves },
@@ -1067,6 +1070,7 @@ export const AdminDashboard: React.FC = () => {
                 {activeTab === 'rbac' && 'Roles & Permissions Matrix'}
                 {activeTab === 'registrations' && 'Device Registrations'}
                 {activeTab === 'attendance' && 'Attendance Logs'}
+                {activeTab === 'workHours' && 'Work Hours Analytics'}
                 {activeTab === 'expenses' && 'Expense Claims'}
                 {activeTab === 'planner' && 'Work Planner'}
                 {activeTab === 'leaves' && 'Leave Portal'}
@@ -1322,6 +1326,14 @@ export const AdminDashboard: React.FC = () => {
 
         {/* SYSTEM HEALTH TAB */}
         {activeTab === 'health' && canSeeHealth && <SystemHealthSection />}
+
+        {/* WORK HOURS TAB */}
+        {activeTab === 'workHours' && canSeeAttendance && (
+          <AdminWorkHoursTab
+            registrations={deduplicatedRegistrations}
+            attendanceRecords={attendanceRecords}
+          />
+        )}
 
         {/* EFFICIENCY TAB */}
         {activeTab === 'efficiency' && canSeeEfficiency && <EfficiencyDashboard />}

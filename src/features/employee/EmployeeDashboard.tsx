@@ -452,6 +452,12 @@ export const EmployeeDashboard: React.FC = () => {
       onClick: () => setActiveView('workpulse'), 
       bg: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30' 
     },
+    { 
+      icon: Clock, 
+      label: 'Work Hours', 
+      onClick: () => navigate('/work-hours'), 
+      bg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
+    },
   ];
 
   // -------------------------------------------------------------------------
