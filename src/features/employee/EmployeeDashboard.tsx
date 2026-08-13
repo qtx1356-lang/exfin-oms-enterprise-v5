@@ -30,7 +30,8 @@ import {
   Sun,
   Moon,
   RotateCcw,
-  CheckCircle2
+  CheckCircle2,
+  HelpCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getTodayAttendanceRecord, getStoredAttendanceRecords } from '../../services/attendance/attendanceStorage';
@@ -387,15 +388,18 @@ export const EmployeeDashboard: React.FC = () => {
   }).format(new Date());
 
   const quickActions = [
-    { icon: UserCheck, label: 'Attendance', onClick: () => navigate('/attendance'), bg: 'bg-[#7C3AED]/20 text-[#A78BFA] border-purple-500/30' },
-    { icon: Activity, label: 'Work Pulse', onClick: () => setActiveView('workpulse'), bg: 'bg-pink-500/20 text-pink-300 border-pink-500/30' },
-    { icon: Briefcase, label: 'Work Planner', onClick: () => navigate('/planner'), bg: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
-    ...(employeeData.isTeamLeader ? [
-      { icon: Users, label: 'My Team', onClick: () => navigate('/my-team'), bg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' }
-    ] : []),
-    { icon: BarChart3, label: 'Efficiency', onClick: () => navigate('/efficiency'), bg: 'bg-[#7C3AED]/20 text-purple-300 border-purple-500/30' },
-    { icon: Wallet, label: 'Expenses', onClick: () => navigate('/expenses'), bg: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
-    { icon: Calendar, label: 'Leave', onClick: () => navigate('/leave'), bg: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+    { 
+      icon: Calendar, 
+      label: 'Apply Leave', 
+      onClick: () => navigate('/leave'), 
+      bg: 'bg-purple-500/20 text-purple-300 border-purple-500/30' 
+    },
+    { 
+      icon: Wallet, 
+      label: 'Expenses', 
+      onClick: () => navigate('/expenses'), 
+      bg: 'bg-amber-500/20 text-amber-300 border-amber-500/30' 
+    },
     { 
       icon: FileText, 
       label: 'Payslip', 
@@ -409,10 +413,45 @@ export const EmployeeDashboard: React.FC = () => {
       }, 
       bg: hasPayslips === false 
         ? 'bg-rose-500/10 text-rose-300/40 border-rose-500/10 opacity-50 cursor-not-allowed' 
-        : 'bg-rose-500/20 text-rose-300 border-rose-500/30' 
+        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
     },
-    { icon: User, label: 'Profile', onClick: () => navigate('/profile'), bg: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
-    { icon: MessageSquare, label: 'Chat', onClick: () => navigate('/chat'), bg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+    { 
+      icon: MessageSquare, 
+      label: 'Chat', 
+      onClick: () => navigate('/chat'), 
+      bg: 'bg-pink-500/20 text-pink-300 border-pink-500/30' 
+    },
+    { 
+      icon: Bell, 
+      label: 'Notifications', 
+      badge: unreadNotificationCount > 0 ? unreadNotificationCount : null,
+      onClick: () => navigate('/notifications'), 
+      bg: 'bg-blue-500/20 text-blue-300 border-blue-500/30' 
+    },
+    { 
+      icon: HelpCircle, 
+      label: 'FAQ & Help', 
+      onClick: () => navigate('/faq'), 
+      bg: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' 
+    },
+    { 
+      icon: User, 
+      label: 'Profile', 
+      onClick: () => navigate('/profile'), 
+      bg: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' 
+    },
+    { 
+      icon: RotateCcw, 
+      label: 'Sync & Reports', 
+      onClick: () => navigate('/sync-center'), 
+      bg: 'bg-teal-500/20 text-teal-300 border-teal-500/30' 
+    },
+    { 
+      icon: Activity, 
+      label: 'Work Pulse', 
+      onClick: () => setActiveView('workpulse'), 
+      bg: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30' 
+    },
   ];
 
   // -------------------------------------------------------------------------
@@ -925,17 +964,22 @@ export const EmployeeDashboard: React.FC = () => {
           <h2 className="text-xs font-black text-purple-300/80 uppercase tracking-widest mb-3">
             QUICK ACTIONS
           </h2>
-          <div className="grid grid-cols-4 gap-2.5 sm:gap-3">
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
             {quickActions.map((action, idx) => (
               <button 
                 key={idx}
                 onClick={action.onClick}
-                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-gradient-to-br from-[#1C1036] to-[#140A2A] border border-purple-500/25 hover:border-purple-500/50 transition-all hover:scale-105 active:scale-95 shadow-lg group"
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-gradient-to-br from-[#1C1036] to-[#140A2A] border border-purple-500/25 hover:border-purple-500/50 transition-all hover:scale-105 active:scale-95 shadow-lg group relative"
               >
+                {action.badge && (
+                  <span className="absolute top-2 right-2 px-1.5 py-0.5 text-[9px] font-black bg-rose-500 text-white rounded-full shadow-md animate-pulse">
+                    {action.badge}
+                  </span>
+                )}
                 <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-2 border ${action.bg}`}>
                   <action.icon className="w-5 h-5 transition-transform group-hover:scale-110" />
                 </div>
-                <span className="text-[10px] sm:text-[11px] font-extrabold text-purple-100 text-center leading-tight">
+                <span className="text-[10.5px] sm:text-[11.5px] font-extrabold text-purple-100 text-center leading-tight">
                   {action.label}
                 </span>
               </button>
