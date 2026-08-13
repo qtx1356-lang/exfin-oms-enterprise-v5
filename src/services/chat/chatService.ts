@@ -12,8 +12,9 @@ import {
   updateDoc,
   Timestamp
 } from 'firebase/firestore';
-import { db, auth } from '../firebase/config';
-import { ChatConversation, ChatMessage, ChatType } from '../../types/chat';
+import { db, auth, storage } from '../firebase/config';
+import { ChatConversation, ChatMessage, ChatType, ChatAttachment } from '../../types/chat';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 export enum OperationType {
   CREATE = 'create',
@@ -112,13 +113,54 @@ export async function createConversation(
   }
 }
 
+// Upload an attachment to Firebase Storage
+export function uploadAttachment(
+  file: File,
+  conversationId: string,
+  userId: string,
+  onProgress: (progress: number) => void,
+  onComplete: (downloadUrl: string) => void,
+  onError: (error: Error) => void
+): () => void {
+  const fileExtension = file.name.split('.').pop() || '';
+  const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
+  const storagePath = `chat_attachments/${conversationId}/${safeName}`;
+  const storageRef = ref(storage, storagePath);
+
+  const uploadTask = uploadBytesResumable(storageRef, file);
+
+  uploadTask.on(
+    'state_changed',
+    (snapshot) => {
+      const progress = snapshot.totalBytes > 0 
+        ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100 
+        : 0;
+      onProgress(progress);
+    },
+    (error) => {
+      onError(error);
+    },
+    async () => {
+      try {
+        const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+        onComplete(downloadUrl);
+      } catch (err) {
+        onError(err instanceof Error ? err : new Error(String(err)));
+      }
+    }
+  );
+
+  return () => uploadTask.cancel();
+}
+
 // Send a chat message in a conversation
 export async function sendMessage(
   conversationId: string,
   senderId: string,
   senderName: string,
   senderRole: 'EMPLOYEE' | 'ADMIN' | 'HR' | 'TEAM_LEADER',
-  content: string
+  content: string,
+  attachment?: ChatAttachment
 ): Promise<string> {
   const conversationPath = `chat_conversations/${conversationId}`;
   const messagePath = `chat_conversations/${conversationId}/messages`;
@@ -140,7 +182,8 @@ export async function sendMessage(
       senderName,
       senderRole,
       content,
-      timestamp: timestampStr
+      timestamp: timestampStr,
+      ...(attachment ? { attachment } : {})
     };
 
     // 3. Write message
@@ -156,9 +199,11 @@ export async function sendMessage(
       }
     });
 
+    const lastMsgContent = content.trim() || (attachment ? `📄 ${attachment.fileName}` : 'Sent an attachment');
+
     await updateDoc(doc(db, 'chat_conversations', conversationId), {
       lastMessage: {
-        content,
+        content: lastMsgContent,
         senderId,
         senderName,
         timestamp: timestampStr

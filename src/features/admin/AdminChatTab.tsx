@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
-import { db } from '../../services/firebase/config';
+import { db, storage } from '../../services/firebase/config';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import {
   MessageSquare,
@@ -17,19 +17,34 @@ import {
   Clock,
   CheckCheck,
   AlertCircle,
-  WifiOff
+  WifiOff,
+  Paperclip,
+  FileText,
+  X,
+  File
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
-import { ChatConversation, ChatMessage, ChatParticipant } from '../../types/chat';
+import { ChatConversation, ChatMessage, ChatParticipant, ChatAttachment } from '../../types/chat';
 import {
   createConversation,
   sendMessage,
   listenConversations,
   listenMessages,
-  markAsRead
+  markAsRead,
+  uploadAttachment
 } from '../../services/chat/chatService';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+
+const pendingFilesMap = new Map<string, {
+  file: File;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: 'EMPLOYEE' | 'ADMIN' | 'HR' | 'TEAM_LEADER';
+  content: string;
+}>();
 
 export const AdminChatTab: React.FC = () => {
   const { loginId, role = 'ADMIN' } = useAdminAuth();
@@ -42,6 +57,13 @@ export const AdminChatTab: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  // Attachment State
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Start Chat Dialog State
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
@@ -72,6 +94,86 @@ export const AdminChatTab: React.FC = () => {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadError(null);
+    const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'txt', 'jpg', 'jpeg', 'png', 'webp'];
+    const MAX_SIZE_MB = 20;
+
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      setUploadError('File type not supported.');
+      return;
+    }
+
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      setUploadError('File is too large. Maximum size is 20 MB.');
+      return;
+    }
+
+    setSelectedFile(file);
+    if (file.type.startsWith('image/')) {
+      setPreviewUrl(URL.createObjectURL(file));
+    } else {
+      setPreviewUrl(null);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setUploadError(null);
+    setUploadProgress(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Synchronize offline messages when connection returns
+  useEffect(() => {
+    if (isOffline) return;
+
+    const syncOfflineMessages = async () => {
+      for (const [tempId, data] of Array.from(pendingFilesMap.entries())) {
+        try {
+          const fileExtension = data.file.name.split('.').pop() || '';
+          const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
+          const storageRef = ref(storage, `chat_attachments/${data.conversationId}/${safeName}`);
+          
+          const snapshot = await uploadBytesResumable(storageRef, data.file);
+          const downloadUrl = await getDownloadURL(snapshot.ref);
+
+          const attachmentMeta: ChatAttachment = {
+            attachmentId: tempId,
+            fileName: data.file.name,
+            mimeType: data.file.type,
+            fileSize: data.file.size,
+            fileUrl: downloadUrl,
+            uploadedBy: data.senderId,
+            uploadedAt: new Date().toISOString()
+          };
+
+          await sendMessage(
+            data.conversationId,
+            data.senderId,
+            data.senderName,
+            data.senderRole,
+            data.content,
+            attachmentMeta
+          );
+
+          pendingFilesMap.delete(tempId);
+        } catch (err) {
+          console.error("Failed to sync offline message:", err);
+        }
+      }
+    };
+
+    syncOfflineMessages();
+  }, [isOffline]);
 
   // Listen to admin conversations
   useEffect(() => {
@@ -142,36 +244,129 @@ export const AdminChatTab: React.FC = () => {
 
   // Send message
   const handleSend = async () => {
-    if (!inputText.trim() || !activeConv) return;
+    if (!inputText.trim() && !selectedFile) return;
+    if (!activeConv) return;
+    
     const textToSend = inputText.trim();
+    const fileToSend = selectedFile;
+    
     setInputText('');
+    handleRemoveFile();
 
     const tempId = 'temp-' + Date.now();
-    const optimisticMsg: ChatMessage = {
-      id: tempId,
-      senderId: currentAdminId,
-      senderName: currentAdminName,
-      senderRole: currentAdminRole,
-      content: textToSend,
-      timestamp: new Date().toISOString(),
-      isPending: true,
-    };
 
-    setMessages(prev => [...prev, optimisticMsg]);
+    if (fileToSend) {
+      if (isOffline) {
+        // Offline attachment queueing
+        const localBlobUrl = fileToSend.type.startsWith('image/') 
+          ? URL.createObjectURL(fileToSend) 
+          : '';
 
-    try {
-      await sendMessage(
+        const tempMsg: ChatMessage = {
+          id: tempId,
+          senderId: currentAdminId,
+          senderName: currentAdminName,
+          senderRole: currentAdminRole,
+          content: textToSend,
+          timestamp: new Date().toISOString(),
+          isPending: true,
+          attachment: {
+            attachmentId: tempId,
+            fileName: fileToSend.name,
+            mimeType: fileToSend.type,
+            fileSize: fileToSend.size,
+            fileUrl: localBlobUrl,
+            uploadedBy: currentAdminId,
+            uploadedAt: new Date().toISOString()
+          }
+        };
+
+        setMessages(prev => [...prev, tempMsg]);
+
+        pendingFilesMap.set(tempId, {
+          file: fileToSend,
+          conversationId: activeConv.id,
+          senderId: currentAdminId,
+          senderName: currentAdminName,
+          senderRole: currentAdminRole,
+          content: textToSend
+        });
+
+        setUploadError("Offline. Attachment queued and will send once connection is restored.");
+        return;
+      }
+
+      // Online attachment uploading and sending
+      setUploadProgress(1);
+      
+      uploadAttachment(
+        fileToSend,
         activeConv.id,
         currentAdminId,
-        currentAdminName,
-        currentAdminRole,
-        textToSend
+        (progress) => {
+          setUploadProgress(Math.round(progress));
+        },
+        async (downloadUrl) => {
+          setUploadProgress(null);
+          
+          const attachmentMeta: ChatAttachment = {
+            attachmentId: tempId,
+            fileName: fileToSend.name,
+            mimeType: fileToSend.type,
+            fileSize: fileToSend.size,
+            fileUrl: downloadUrl,
+            uploadedBy: currentAdminId,
+            uploadedAt: new Date().toISOString()
+          };
+
+          try {
+            await sendMessage(
+              activeConv.id,
+              currentAdminId,
+              currentAdminName,
+              currentAdminRole,
+              textToSend,
+              attachmentMeta
+            );
+          } catch (err) {
+            console.error('Failed to send admin attachment message:', err);
+            setUploadError('Failed to send message.');
+          }
+        },
+        (error) => {
+          console.error('Admin Upload failed:', error);
+          setUploadProgress(null);
+          setUploadError('Unable to upload the document. Please try again.');
+        }
       );
-    } catch (err) {
-      console.error('Failed to send admin message:', err);
-      setMessages(prev =>
-        prev.map(m => m.id === tempId ? { ...m, isPending: false, isFailed: true } : m)
-      );
+    } else {
+      // Normal text only message
+      const optimisticMsg: ChatMessage = {
+        id: tempId,
+        senderId: currentAdminId,
+        senderName: currentAdminName,
+        senderRole: currentAdminRole,
+        content: textToSend,
+        timestamp: new Date().toISOString(),
+        isPending: true,
+      };
+
+      setMessages(prev => [...prev, optimisticMsg]);
+
+      try {
+        await sendMessage(
+          activeConv.id,
+          currentAdminId,
+          currentAdminName,
+          currentAdminRole,
+          textToSend
+        );
+      } catch (err) {
+        console.error('Failed to send admin message:', err);
+        setMessages(prev =>
+          prev.map(m => m.id === tempId ? { ...m, isPending: false, isFailed: true } : m)
+        );
+      }
     }
   };
 
@@ -485,7 +680,65 @@ export const AdminChatTab: React.FC = () => {
                               : 'bg-[#1C0D39]/80 border-purple-500/15 text-purple-100 rounded-tl-none'
                           }`}
                         >
-                          <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                          {msg.attachment && (
+                            <div className="mb-2 bg-[#100525]/80 border border-purple-500/15 p-2.5 rounded-xl flex flex-col gap-2 shadow-inner min-w-[200px]">
+                              <div className="flex items-center gap-2.5">
+                                {msg.attachment.mimeType.startsWith('image/') ? (
+                                  <div className="relative group overflow-hidden rounded-lg border border-purple-500/10 max-h-40 w-full flex items-center justify-center bg-black/40">
+                                    <img
+                                      src={msg.attachment.fileUrl}
+                                      alt={msg.attachment.fileName}
+                                      className="max-h-36 object-contain rounded-md"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="w-9 h-9 rounded-lg bg-purple-500/15 border border-purple-500/20 flex items-center justify-center text-purple-300 shrink-0">
+                                    <FileText className="w-5 h-5" />
+                                  </div>
+                                )}
+                                {!msg.attachment.mimeType.startsWith('image/') && (
+                                  <div className="text-left min-w-0 flex-1">
+                                    <p className="text-xs font-bold text-white truncate">{msg.attachment.fileName}</p>
+                                    <p className="text-[9px] text-purple-300/60 uppercase font-bold">
+                                      {msg.attachment.fileName.split('.').pop()?.toUpperCase() || 'FILE'} • {(msg.attachment.fileSize / (1024 * 1024)).toFixed(2)} MB
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+
+                              {msg.attachment.mimeType.startsWith('image/') && (
+                                <div className="text-left min-w-0">
+                                  <p className="text-xs font-bold text-white truncate">{msg.attachment.fileName}</p>
+                                  <p className="text-[9px] text-purple-300/60 uppercase font-bold">
+                                    {(msg.attachment.fileSize / (1024 * 1024)).toFixed(2)} MB
+                                  </p>
+                                </div>
+                              )}
+
+                              <div className="flex gap-2 justify-end pt-1 border-t border-purple-500/5">
+                                <a
+                                  href={msg.attachment.fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] font-bold text-teal-400 hover:text-teal-300 bg-teal-500/10 border border-teal-500/20 px-2.5 py-1 rounded-lg transition"
+                                >
+                                  Open
+                                </a>
+                                <a
+                                  href={msg.attachment.fileUrl}
+                                  download={msg.attachment.fileName}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] font-bold text-purple-300 hover:text-purple-200 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-lg transition"
+                                >
+                                  Download
+                                </a>
+                              </div>
+                            </div>
+                          )}
+
+                          {msg.content && <p className="whitespace-pre-wrap break-words">{msg.content}</p>}
 
                           <div className="flex items-center justify-end gap-1 mt-1 text-[8px] text-white/40 font-mono">
                             <span>
@@ -513,13 +766,84 @@ export const AdminChatTab: React.FC = () => {
 
               {/* Input Area */}
               <div className="p-4 border-t border-purple-500/20 bg-[#1A0B36]/20 shrink-0">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+
+                {/* Upload Error Display */}
+                {uploadError && (
+                  <div className="mb-2.5 p-2 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center justify-between text-xs text-rose-200">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{uploadError}</span>
+                    </div>
+                    <button
+                      onClick={() => setUploadError(null)}
+                      className="text-rose-400 hover:text-rose-300 font-bold px-1"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
+                {/* Upload Progress Display */}
+                {uploadProgress !== null && (
+                  <div className="mb-2.5 p-2.5 bg-purple-500/10 border border-purple-500/20 rounded-xl space-y-1.5 text-xs text-purple-200">
+                    <div className="flex justify-between font-bold text-[10px] uppercase tracking-wider">
+                      <span>Uploading document...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-purple-950 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Pre-send Attachment Preview Card */}
+                {selectedFile && (
+                  <div className="mb-2.5 p-2 bg-[#1C0D39]/90 border border-purple-500/20 rounded-xl flex items-center justify-between">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {previewUrl ? (
+                        <img src={previewUrl} className="w-10 h-10 object-cover rounded-lg border border-purple-500/30" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-purple-500/15 border border-purple-500/20 flex items-center justify-center text-purple-300 shrink-0">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div className="text-left min-w-0">
+                        <p className="text-xs font-bold text-white truncate max-w-[200px]">{selectedFile.name}</p>
+                        <p className="text-[10px] text-purple-300/60 font-mono">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</p>
+                      </div>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={handleRemoveFile}
+                      className="p-1.5 rounded-full hover:bg-white/10 text-purple-300 transition shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
                     handleSend();
                   }}
-                  className="flex gap-2"
+                  className="flex gap-2 items-center"
                 >
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2.5 rounded-xl bg-[#15092E] hover:bg-purple-600/30 border border-purple-500/20 text-purple-300 transition shrink-0"
+                    title="Attach document or image"
+                  >
+                    <Paperclip className="w-4.5 h-4.5" />
+                  </button>
+
                   <input
                     type="text"
                     placeholder={isOffline ? "Typing offline..." : "Type a message..."}
@@ -527,10 +851,11 @@ export const AdminChatTab: React.FC = () => {
                     onChange={(e) => setInputText(e.target.value)}
                     className="flex-1 bg-[#15092E] border border-purple-500/20 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-purple-300/30 focus:outline-none focus:border-purple-500/45"
                   />
+
                   <Button
                     type="submit"
-                    disabled={!inputText.trim()}
-                    className="bg-purple-600 hover:bg-purple-500 shrink-0 px-4 rounded-2xl"
+                    disabled={!inputText.trim() && !selectedFile}
+                    className="bg-purple-600 hover:bg-purple-500 shrink-0 px-4 rounded-2xl h-auto self-stretch flex items-center justify-center"
                   >
                     <Send className="w-4 h-4" />
                   </Button>

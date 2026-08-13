@@ -24,6 +24,16 @@ export interface ChatConversation {
   unreadCounts: Record<string, number>; // Tracks unread count per participant
 }
 
+export interface ChatAttachment {
+  attachmentId: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  fileUrl: string;
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
 export interface ChatMessage {
   id: string;
   senderId: string; // employeeCode or admin loginId
@@ -33,4 +43,5 @@ export interface ChatMessage {
   timestamp: string;
   isPending?: boolean; // For offline support
   isFailed?: boolean;  // For offline support
+  attachment?: ChatAttachment; // Optional attachment metadata
 }
