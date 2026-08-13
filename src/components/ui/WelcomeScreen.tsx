@@ -126,10 +126,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             </span>
           </div>
 
-          {/* Grid Info */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Grid Info - 2x2 Unified Layout */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
             
-            {/* Location Status Column */}
+            {/* Row 1, Col 1: Location Status */}
             <div className="space-y-1">
               <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">
                 Location Status
@@ -139,27 +139,17 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
                   Locating...
                 </span>
               ) : isInsideGeofence ? (
-                <div className="space-y-0.5">
-                  <span className="text-sm font-black text-teal-400 flex items-center gap-1 drop-shadow-[0_0_8px_rgba(20,184,166,0.25)]">
-                    <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" /> INSIDE OFFICE
-                  </span>
-                  <span className="text-[10px] text-teal-300/80 font-medium block">
-                    ✓ Within 25 m of office
-                  </span>
-                </div>
+                <span className="text-sm font-black text-teal-400 flex items-center gap-1 drop-shadow-[0_0_8px_rgba(20,184,166,0.25)]">
+                  <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" /> INSIDE OFFICE
+                </span>
               ) : (
-                <div className="space-y-0.5">
-                  <span className="text-sm font-black text-pink-400 flex items-center gap-1 drop-shadow-[0_0_8px_rgba(236,72,153,0.25)]">
-                    <MapPin className="w-4 h-4 text-pink-400 shrink-0" /> OUTSIDE OFFICE
-                  </span>
-                  <span className="text-[10px] text-pink-300/80 font-medium block">
-                    {formattedDistance} from office
-                  </span>
-                </div>
+                <span className="text-sm font-black text-pink-400 flex items-center gap-1 drop-shadow-[0_0_8px_rgba(236,72,153,0.25)]">
+                  <MapPin className="w-4 h-4 text-pink-400 shrink-0" /> OUTSIDE OFFICE
+                </span>
               )}
             </div>
 
-            {/* Distance Column */}
+            {/* Row 1, Col 2: Distance */}
             <div className="space-y-1 border-l border-purple-500/10 pl-4">
               <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">
                 Distance
@@ -173,25 +163,42 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
                   Location unavailable
                 </span>
               ) : (
-                <div className="space-y-0.5">
-                  <span className="text-sm font-black text-purple-100 block">
-                    {formattedDistance}
-                  </span>
-                  <span className="text-[10px] text-purple-300/60 font-medium block">
-                    {isInsideGeofence ? 'Geofence active' : 'Outside radius'}
-                  </span>
-                </div>
+                <span className="text-sm font-black text-purple-100 block">
+                  {formattedDistance}
+                </span>
               )}
             </div>
 
-          </div>
+            {/* Row 2, Col 1: Office Radius */}
+            <div className="space-y-1 pt-2.5 border-t border-purple-500/10">
+              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">
+                Office Radius
+              </span>
+              <span className="text-sm font-black text-purple-100 block">
+                25 m
+              </span>
+            </div>
 
-          {/* Footer Metadata */}
-          <div className="mt-3.5 pt-2 border-t border-purple-500/10 flex items-center justify-between text-[9px] font-bold text-purple-400/80 uppercase tracking-wider">
-            <span>Office Radius: 25 m</span>
-            <span>
-              {isLocationLoading ? 'Awaiting GPS...' : isInsideGeofence ? '✓ Geofence Matched' : '● Out of Geofence'}
-            </span>
+            {/* Row 2, Col 2: Geofence */}
+            <div className="space-y-1 pt-2.5 border-t border-l border-purple-500/10 pl-4">
+              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">
+                Geofence
+              </span>
+              {isLocationLoading ? (
+                <span className="text-sm font-black text-purple-300 animate-pulse block">
+                  Checking...
+                </span>
+              ) : isInsideGeofence ? (
+                <span className="text-sm font-black text-teal-400 block drop-shadow-[0_0_8px_rgba(20,184,166,0.25)]">
+                  WITHIN GEOFENCE
+                </span>
+              ) : (
+                <span className="text-sm font-black text-pink-400 block drop-shadow-[0_0_8px_rgba(236,72,153,0.25)]">
+                  OUT OF GEOFENCE
+                </span>
+              )}
+            </div>
+
           </div>
         </div>
 
