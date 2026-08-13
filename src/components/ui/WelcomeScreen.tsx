@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { ShieldCheck, MapPin, ArrowRight, UserCheck, Sparkles, Building2, CheckCircle2, Zap, Shield, Clock, Target } from 'lucide-react';
+import { ShieldCheck, MapPin, ArrowRight, UserCheck, Sparkles, Building2, CheckCircle2, Zap, Shield, Clock, Target, Lock, Check } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { logStartupTag } from '../../services/startup/startupPerformanceLogger';
@@ -11,7 +11,7 @@ interface WelcomeScreenProps {
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const { status, employeeData } = useRegistration();
-  const { locationStatus } = useLocationContext();
+  const { locationStatus, distance, formattedDistance, isInsideGeofence, locationState } = useLocationContext();
 
   // Try reading cached employee data immediately from localStorage for 0ms render
   const [cachedName] = useState<string>(() => {
@@ -40,6 +40,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const displayName = employeeData?.name || cachedName;
   const isRegistered = status === 'Approved' || !!displayName;
 
+  // Derive Location & Distance display states dynamically
+  const isLocationLoading = locationStatus === 'loading';
+  const isLocationError = locationStatus === 'error' || distance === null;
+
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-[#12072B] via-[#1B0B3B] to-[#260E4E] flex flex-col items-center justify-between p-4 sm:p-6 z-40 text-white overflow-y-auto">
       {/* Background ambient lighting */}
@@ -47,7 +51,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       <div className="absolute bottom-1/3 left-1/2 -translate-x-1/2 w-80 h-80 bg-[#A855F7]/10 rounded-full blur-[90px] pointer-events-none" />
 
       {/* Main Content Container */}
-      <div className="w-full max-w-sm my-auto py-2 flex flex-col items-center text-center relative z-10 space-y-4">
+      <div className="w-full max-w-sm my-auto py-2 flex flex-col items-center text-center relative z-10 space-y-5">
         
         {/* Central Glowing Icon */}
         <motion.div 
@@ -95,81 +99,141 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
           </h1>
         </div>
 
-        {/* Automated Attendance Feature Message (Gold Highlight Pill) */}
-        <div className="w-full py-2.5 px-4 rounded-full bg-gradient-to-r from-[#2A174F] via-[#351B63] to-[#2A174F] border border-amber-400/40 shadow-[0_0_20px_rgba(245,158,11,0.2)] text-center transition-all">
+        {/* Improved Gold-Accent Automation Banner */}
+        <div className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-[#2A174F] via-[#351B63] to-[#2A174F] border border-amber-400/40 shadow-[0_0_15px_rgba(245,158,11,0.15)] text-center transition-all">
           <p className="text-xs sm:text-sm font-extrabold text-amber-300 tracking-wide flex items-center justify-center gap-1.5 leading-snug">
             <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span>Fully Automated Check-In & Check-out System</span>
-            <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span>✨ AUTOMATIC ATTENDANCE</span>
+          </p>
+          <p className="text-[10px] text-purple-200 mt-1 font-semibold">
+            Check-in & checkout handled automatically
           </p>
         </div>
 
-        {/* Clean Status Information Card */}
-        <div className="w-full bg-[#1A0C38]/80 backdrop-blur-md p-3.5 rounded-2xl border border-purple-500/25 shadow-xl space-y-2.5 text-left">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span className="font-semibold text-purple-100">Device Identity</span>
-            </div>
-            <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/15 px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Verified
+        {/* Compact Location & Attendance Status Card */}
+        <div className={`w-full bg-[#1A0C38]/95 backdrop-blur-md p-4.5 rounded-2xl border transition-all duration-300 text-left shadow-lg ${
+          isLocationLoading
+            ? 'border-purple-500/25 shadow-purple-500/5'
+            : isInsideGeofence
+              ? 'border-teal-500/40 shadow-[0_0_20px_rgba(20,184,166,0.15)]'
+              : 'border-pink-500/40 shadow-[0_0_20px_rgba(236,72,153,0.15)]'
+        }`}>
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-3.5 border-b border-purple-500/10 pb-2">
+            <MapPin className={`w-4 h-4 ${isLocationLoading ? 'text-purple-400 animate-pulse' : isInsideGeofence ? 'text-teal-400 animate-pulse' : 'text-pink-400'}`} />
+            <span className="text-xs font-black uppercase tracking-widest text-purple-200">
+              📍 Location & Attendance
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-purple-300 shrink-0" />
-              <span className="font-semibold text-purple-100">Office Attendance</span>
+          {/* Grid Info */}
+          <div className="grid grid-cols-2 gap-4">
+            
+            {/* Location Status Column */}
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">
+                Location Status
+              </span>
+              {isLocationLoading ? (
+                <span className="text-sm font-black text-purple-300 animate-pulse block">
+                  Locating...
+                </span>
+              ) : isInsideGeofence ? (
+                <div className="space-y-0.5">
+                  <span className="text-sm font-black text-teal-400 flex items-center gap-1 drop-shadow-[0_0_8px_rgba(20,184,166,0.25)]">
+                    <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" /> INSIDE OFFICE
+                  </span>
+                  <span className="text-[10px] text-teal-300/80 font-medium block">
+                    ✓ Within 25 m of office
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-0.5">
+                  <span className="text-sm font-black text-pink-400 flex items-center gap-1 drop-shadow-[0_0_8px_rgba(236,72,153,0.25)]">
+                    <MapPin className="w-4 h-4 text-pink-400 shrink-0" /> OUTSIDE OFFICE
+                  </span>
+                  <span className="text-[10px] text-pink-300/80 font-medium block">
+                    {formattedDistance} from office
+                  </span>
+                </div>
+              )}
             </div>
-            <span className="text-[10px] font-bold text-purple-200 bg-purple-500/15 px-2.5 py-0.5 rounded-full border border-purple-500/30">
-              {locationStatus === 'loading' ? 'Locating...' : 'Ready'}
-            </span>
+
+            {/* Distance Column */}
+            <div className="space-y-1 border-l border-purple-500/10 pl-4">
+              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">
+                Distance
+              </span>
+              {isLocationLoading ? (
+                <span className="text-sm font-black text-purple-300 animate-pulse block">
+                  Locating...
+                </span>
+              ) : isLocationError ? (
+                <span className="text-sm font-black text-rose-400 block leading-tight">
+                  Location unavailable
+                </span>
+              ) : (
+                <div className="space-y-0.5">
+                  <span className="text-sm font-black text-purple-100 block">
+                    {formattedDistance}
+                  </span>
+                  <span className="text-[10px] text-purple-300/60 font-medium block">
+                    {isInsideGeofence ? 'Geofence active' : 'Outside radius'}
+                  </span>
+                </div>
+              )}
+            </div>
+
           </div>
 
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-amber-400 shrink-0" />
-              <span className="font-semibold text-purple-100">System Status</span>
-            </div>
-            <span className="text-[10px] font-bold text-amber-300 bg-amber-500/15 px-2.5 py-0.5 rounded-full border border-amber-500/30">
-              Active
+          {/* Footer Metadata */}
+          <div className="mt-3.5 pt-2 border-t border-purple-500/10 flex items-center justify-between text-[9px] font-bold text-purple-400/80 uppercase tracking-wider">
+            <span>Office Radius: 25 m</span>
+            <span>
+              {isLocationLoading ? 'Awaiting GPS...' : isInsideGeofence ? '✓ Geofence Matched' : '● Out of Geofence'}
             </span>
           </div>
         </div>
 
-        {/* Feature Highlights Grid (4 Columns) */}
-        <div className="w-full bg-[#180A34]/60 p-3 rounded-2xl border border-purple-500/15 grid grid-cols-4 gap-1.5 text-center">
+        {/* Feature Highlights Grid (Pink/Violet Gradient Border) */}
+        <div className="w-full bg-[#180A34]/60 backdrop-blur-md p-3 rounded-2xl border border-pink-500/25 shadow-[0_0_15px_rgba(236,72,153,0.08)] grid grid-cols-4 gap-1.5 text-center">
+          
+          {/* Secure Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center mb-1 text-emerald-400 border border-emerald-500/20">
-              <Shield className="w-3.5 h-3.5" />
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-1 border border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.1)]">
+              <Lock className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-bold text-white block leading-tight">Secure</span>
-            <span className="text-[8px] text-purple-300/70 block leading-tight mt-0.5">Protected data</span>
+            <span className="text-[10px] font-black text-white block leading-tight">🔒 Secure</span>
+            <span className="text-[8px] text-purple-300/70 block leading-tight mt-0.5 whitespace-nowrap">Protected data</span>
           </div>
 
+          {/* Smart Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-7 h-7 rounded-lg bg-purple-500/15 flex items-center justify-center mb-1 text-purple-300 border border-purple-500/20">
-              <Clock className="w-3.5 h-3.5" />
+            <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-300 flex items-center justify-center mb-1 border border-purple-500/20 shadow-[0_0_8px_rgba(168,85,247,0.1)]">
+              <Zap className="w-4 h-4 text-purple-400" />
             </div>
-            <span className="text-[10px] font-bold text-white block leading-tight">Smart</span>
-            <span className="text-[8px] text-purple-300/70 block leading-tight mt-0.5">Automated</span>
+            <span className="text-[10px] font-black text-white block leading-tight">⚡ Smart</span>
+            <span className="text-[8px] text-purple-300/70 block leading-tight mt-0.5 whitespace-nowrap">Auto attendance</span>
           </div>
 
+          {/* Accurate Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-7 h-7 rounded-lg bg-indigo-500/15 flex items-center justify-center mb-1 text-indigo-300 border border-indigo-500/20">
-              <Target className="w-3.5 h-3.5" />
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-300 flex items-center justify-center mb-1 border border-indigo-500/20 shadow-[0_0_8px_rgba(99,102,241,0.1)]">
+              <Target className="w-4 h-4 text-indigo-400" />
             </div>
-            <span className="text-[10px] font-bold text-white block leading-tight">Accurate</span>
-            <span className="text-[8px] text-purple-300/70 block leading-tight mt-0.5">Precision</span>
+            <span className="text-[10px] font-black text-white block leading-tight">🎯 Accurate</span>
+            <span className="text-[8px] text-purple-300/70 block leading-tight mt-0.5 whitespace-nowrap">Precise location</span>
           </div>
 
+          {/* Reliable Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center mb-1 text-amber-400 border border-amber-500/20">
-              <Zap className="w-3.5 h-3.5" />
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-1 border border-amber-500/20 shadow-[0_0_8px_rgba(245,158,11,0.1)]">
+              <Check className="w-4 h-4 text-amber-400" />
             </div>
-            <span className="text-[10px] font-bold text-white block leading-tight">Reliable</span>
-            <span className="text-[8px] text-purple-300/70 block leading-tight mt-0.5">Seamless</span>
+            <span className="text-[10px] font-black text-white block leading-tight">✓ Reliable</span>
+            <span className="text-[8px] text-purple-300/70 block leading-tight mt-0.5 whitespace-nowrap">Always synced</span>
           </div>
+
         </div>
 
       </div>
@@ -178,7 +242,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       <div className="w-full max-w-sm pt-2 pb-2 relative z-10">
         <button
           onClick={onProceed}
-          className="w-full py-3.5 px-5 bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#A78BFA] hover:from-[#6D28D9] hover:to-[#7C3AED] text-white font-extrabold text-sm sm:text-base rounded-2xl shadow-[0_0_25px_rgba(124,58,237,0.5)] flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer border border-purple-400/30"
+          className="w-full py-4 px-6 bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#A78BFA] hover:from-[#6D28D9] hover:to-[#7C3AED] text-white font-black uppercase tracking-wider text-sm sm:text-base rounded-2xl shadow-[0_0_25px_rgba(124,58,237,0.4)] flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] cursor-pointer border border-purple-400/30"
         >
           <span>{status === 'unregistered' ? 'Continue to Registration' : 'Enter Dashboard'}</span>
           <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -187,5 +251,3 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     </div>
   );
 };
-
-
