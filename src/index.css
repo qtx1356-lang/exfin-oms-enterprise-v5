@@ -33,6 +33,12 @@ body {
   min-height: 100vh;
 }
 
+/* Touch optimization for instant button feedback */
+button, a, input, select, textarea, [role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Custom scrollbar for deep purple theme */
 ::-webkit-scrollbar {
   width: 6px;

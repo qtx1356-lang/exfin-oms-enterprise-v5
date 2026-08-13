@@ -95,19 +95,23 @@ export const Layout: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const baselineDoneRef = useRef(false);
 
-  const currentUser = adminUser
-    ? {
+  const currentUser = React.useMemo(() => {
+    if (adminUser) {
+      return {
         id: adminUser.uid,
         employeeCode: 'ADMIN',
         role: 'ADMIN',
-      }
-    : employeeData
-    ? {
+      };
+    }
+    if (employeeData) {
+      return {
         id: employeeData.id || '',
         employeeCode: employeeData.employeeCode || '',
         role: employeeData.isTeamLeader ? 'TEAM_LEADER' : 'EMPLOYEE',
-      }
-    : null;
+      };
+    }
+    return null;
+  }, [adminUser?.uid, employeeData?.id, employeeData?.employeeCode, employeeData?.isTeamLeader]);
 
   const refreshNotificationCount = async () => {
     if (!currentUser) return;
@@ -144,7 +148,10 @@ export const Layout: React.FC = () => {
     }
   };
 
+  const userKey = `${currentUser?.id}_${currentUser?.employeeCode}`;
+
   useEffect(() => {
+    if (!currentUser) return;
     refreshNotificationCount();
     
     // Refresh interval
@@ -153,7 +160,7 @@ export const Layout: React.FC = () => {
     }, 15000);
 
     return () => clearInterval(timer);
-  }, [employeeData, adminUser, location.pathname]);
+  }, [userKey]);
 
   // Handle cross-screen real-time notification updates
   useEffect(() => {

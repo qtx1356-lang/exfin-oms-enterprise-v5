@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, CalendarCheck, Receipt, CalendarDays, User } from 'lucide-react';
 
-export const BottomNav: React.FC = () => {
+export const BottomNav: React.FC = React.memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -22,10 +22,13 @@ export const BottomNav: React.FC = () => {
           <button
             key={item.path}
             type="button"
-            onClick={() => {
-              navigate(item.path);
+            onClick={(e) => {
+              e.preventDefault();
+              if (location.pathname !== item.path) {
+                navigate(item.path);
+              }
             }}
-            className={`flex flex-col items-center justify-center w-14 sm:w-16 h-12 rounded-full transition-all duration-75 touch-manipulation cursor-pointer active:scale-95 ${
+            className={`flex flex-col items-center justify-center w-14 sm:w-16 h-12 rounded-full transition-all duration-75 touch-manipulation cursor-pointer active:scale-90 active:bg-purple-600/30 ${
               isActive ? 'text-white' : 'text-purple-300/60 hover:text-purple-200'
             }`}
           >
@@ -46,6 +49,7 @@ export const BottomNav: React.FC = () => {
       })}
     </nav>
   );
-};
+});
+BottomNav.displayName = 'BottomNav';
 
 

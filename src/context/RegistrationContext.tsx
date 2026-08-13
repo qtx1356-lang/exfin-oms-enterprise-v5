@@ -480,20 +480,34 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setRecoveryMobileInput('');
   };
 
-  return (
-    <RegistrationContext.Provider value={{ 
-      status, 
-      rejectionReason, 
-      employeeData, 
-      submitRegistration, 
+  const contextValue = React.useMemo(
+    () => ({
+      status,
+      rejectionReason,
+      employeeData,
+      submitRegistration,
       verifyMobileForRecovery,
-      resetRegistration, 
+      resetRegistration,
       authUser,
       recoveryMobileInput,
       setRecoveryMobileInput,
       recoveryError,
       recoveryLoading
-    }}>
+    }),
+    [
+      status,
+      rejectionReason,
+      employeeData,
+      verifyMobileForRecovery,
+      authUser,
+      recoveryMobileInput,
+      recoveryError,
+      recoveryLoading
+    ]
+  );
+
+  return (
+    <RegistrationContext.Provider value={contextValue}>
       {children}
     </RegistrationContext.Provider>
   );

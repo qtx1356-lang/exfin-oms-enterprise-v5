@@ -464,7 +464,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       cleanupListeners();
     };
-  }, [empCode, employeeData]);
+  }, [empCode]);
 
   // OPTIMISTIC TASK UPDATE
   const updateTaskOptimistically = useCallback(
@@ -597,24 +597,41 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     setSyncState('SYNCED');
   }, []);
 
+  const contextValue = React.useMemo(
+    () => ({
+      isOnline,
+      syncState,
+      tasks,
+      leaves,
+      attendance,
+      expenses,
+      notifications,
+      unreadNotificationCount,
+      updateTaskOptimistically,
+      updateLeaveOptimistically,
+      updateExpenseOptimistically,
+      updateAttendanceOptimistically,
+      triggerManualSync,
+    }),
+    [
+      isOnline,
+      syncState,
+      tasks,
+      leaves,
+      attendance,
+      expenses,
+      notifications,
+      unreadNotificationCount,
+      updateTaskOptimistically,
+      updateLeaveOptimistically,
+      updateExpenseOptimistically,
+      updateAttendanceOptimistically,
+      triggerManualSync,
+    ]
+  );
+
   return (
-    <RealtimeSyncContext.Provider
-      value={{
-        isOnline,
-        syncState,
-        tasks,
-        leaves,
-        attendance,
-        expenses,
-        notifications,
-        unreadNotificationCount,
-        updateTaskOptimistically,
-        updateLeaveOptimistically,
-        updateExpenseOptimistically,
-        updateAttendanceOptimistically,
-        triggerManualSync,
-      }}
-    >
+    <RealtimeSyncContext.Provider value={contextValue}>
       {children}
     </RealtimeSyncContext.Provider>
   );

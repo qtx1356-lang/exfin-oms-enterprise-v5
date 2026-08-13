@@ -150,22 +150,22 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const hasFeatureAccess = hasPermission;
 
-  const hasRole = (role: AppRole | AppRole[]): boolean => {
+  const hasRole = React.useCallback((role: AppRole | AppRole[]): boolean => {
     if (!currentRole) return false;
     if (Array.isArray(role)) {
       return role.includes(currentRole);
     }
     return currentRole === role;
-  };
+  }, [currentRole]);
 
-  const isSuperAdmin = () => currentRole === 'SUPER_ADMIN';
-  const isAdmin = () => currentRole === 'ADMIN' || currentRole === 'SUPER_ADMIN'; // Usually Super Admin inherits Admin
-  const isHR = () => currentRole === 'HR';
-  const isTeamLeader = () => currentRole === 'TEAM_LEADER' || currentRole === 'SUPER_ADMIN';
-  const isEmployee = () => currentRole === 'EMPLOYEE' || currentRole === 'TEAM_LEADER';
+  const isSuperAdmin = React.useCallback(() => currentRole === 'SUPER_ADMIN', [currentRole]);
+  const isAdmin = React.useCallback(() => currentRole === 'ADMIN' || currentRole === 'SUPER_ADMIN', [currentRole]);
+  const isHR = React.useCallback(() => currentRole === 'HR', [currentRole]);
+  const isTeamLeader = React.useCallback(() => currentRole === 'TEAM_LEADER' || currentRole === 'SUPER_ADMIN', [currentRole]);
+  const isEmployee = React.useCallback(() => currentRole === 'EMPLOYEE' || currentRole === 'TEAM_LEADER', [currentRole]);
 
-  return (
-    <PermissionContext.Provider value={{
+  const contextValue = useMemo(
+    () => ({
       roles: rolesCache,
       currentRole,
       loading: (loading || (adminUser ? adminLoading : false)) && !rolesCache['EMPLOYEE'],
@@ -177,7 +177,26 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       isHR,
       isTeamLeader,
       isEmployee
-    }}>
+    }),
+    [
+      rolesCache,
+      currentRole,
+      loading,
+      adminUser,
+      adminLoading,
+      hasPermission,
+      hasFeatureAccess,
+      hasRole,
+      isSuperAdmin,
+      isAdmin,
+      isHR,
+      isTeamLeader,
+      isEmployee
+    ]
+  );
+
+  return (
+    <PermissionContext.Provider value={contextValue}>
       {children}
     </PermissionContext.Provider>
   );

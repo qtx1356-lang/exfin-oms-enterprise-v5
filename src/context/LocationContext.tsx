@@ -346,11 +346,11 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, []);
 
-  const handleRequestBgPermission = async (): Promise<boolean> => {
+  const handleRequestBgPermission = React.useCallback(async (): Promise<boolean> => {
     const granted = await requestBackgroundLocationPermission();
     setBackgroundPermissionGranted(granted);
     return granted;
-  };
+  }, []);
 
   const processPosition = async (latitude: number, longitude: number, accuracy?: number, timestamp?: number) => {
     const now = Date.now();
@@ -628,7 +628,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [locationStatus, stableInsideOffice, locationTimestamp]);
 
-  const forceRefreshLocation = async () => {
+  const forceRefreshLocation = React.useCallback(async () => {
     setLocationStatus('loading');
     try {
       const pos = await Geolocation.getCurrentPosition({
@@ -644,26 +644,43 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setErrorMessage(err?.message || 'Unable to retrieve location.');
       setLocationStatus('error');
     }
-  };
+  }, []);
+
+  const contextValue = React.useMemo(
+    () => ({
+      liveLocation,
+      distance,
+      formattedDistance,
+      isInsideGeofence,
+      locationStatus,
+      errorMessage,
+      currentAddress,
+      refreshLocation: forceRefreshLocation,
+      requestBackgroundPermission: handleRequestBgPermission,
+      backgroundPermissionGranted,
+      locationState,
+      activeAttendanceMode,
+      setActiveAttendanceMode
+    }),
+    [
+      liveLocation,
+      distance,
+      formattedDistance,
+      isInsideGeofence,
+      locationStatus,
+      errorMessage,
+      currentAddress,
+      forceRefreshLocation,
+      handleRequestBgPermission,
+      backgroundPermissionGranted,
+      locationState,
+      activeAttendanceMode,
+      setActiveAttendanceMode
+    ]
+  );
 
   return (
-    <LocationContext.Provider
-      value={{
-        liveLocation,
-        distance,
-        formattedDistance,
-        isInsideGeofence,
-        locationStatus,
-        errorMessage,
-        currentAddress,
-        refreshLocation: forceRefreshLocation,
-        requestBackgroundPermission: handleRequestBgPermission,
-        backgroundPermissionGranted,
-        locationState,
-        activeAttendanceMode,
-        setActiveAttendanceMode
-      }}
-    >
+    <LocationContext.Provider value={contextValue}>
       {children}
     </LocationContext.Provider>
   );
