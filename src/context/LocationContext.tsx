@@ -38,9 +38,9 @@ export interface LocationContextType {
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
 
-export const formatOfficeDistance = (meters: number | null): string => {
-  if (meters === null || meters === undefined || isNaN(meters)) {
-    return '—';
+export const formatOfficeDistance = (meters: number | null, isStaleOrUpdating: boolean = false): string => {
+  if (isStaleOrUpdating || meters === null || meters === undefined || isNaN(meters)) {
+    return 'Location updating…';
   }
   if (meters < 1000) {
     return `${Math.round(meters)} m`;
@@ -50,31 +50,10 @@ export const formatOfficeDistance = (meters: number | null): string => {
 };
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [liveLocation, setLiveLocation] = useState<{ latitude: number; longitude: number } | null>(() => {
-    try {
-      const cached = localStorage.getItem('lastKnownLocation');
-      return cached ? JSON.parse(cached) : null;
-    } catch (e) {
-      return null;
-    }
-  });
-  const [distance, setDistance] = useState<number | null>(() => {
-    try {
-      const cached = localStorage.getItem('lastKnownDistance');
-      return cached ? Number(cached) : null;
-    } catch (e) {
-      return null;
-    }
-  });
-  const [stableInsideOffice, setStableInsideOffice] = useState<boolean | null>(() => {
-    try {
-      const cachedDist = localStorage.getItem('lastKnownDistance');
-      if (cachedDist !== null) {
-        return Number(cachedDist) <= OFFICE_LOCATION.radius;
-      }
-    } catch (e) {}
-    return null;
-  });
+  const [liveLocation, setLiveLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [distance, setDistance] = useState<number | null>(null);
+  const [isFreshFixReceived, setIsFreshFixReceived] = useState<boolean>(false);
+  const [stableInsideOffice, setStableInsideOffice] = useState<boolean | null>(null);
   const [locationStatus, setLocationStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isGpsOff, setIsGpsOff] = useState<boolean>(false);
@@ -151,8 +130,20 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const lastGeocodedCoordsRef = useRef<{ lat: number; lon: number; time: number } | null>(null);
   const adaptiveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const isInsideGeofence = distance !== null && distance <= OFFICE_LOCATION.radius;
-  const formattedDistance = formatOfficeDistance(distance);
+  const isStale = React.useMemo(() => {
+    if (!isFreshFixReceived || !locationTimestamp) return true;
+    const ageMs = Date.now() - locationTimestamp;
+    return ageMs > 45000;
+  }, [isFreshFixReceived, locationTimestamp]);
+
+  const formattedDistance = React.useMemo(() => {
+    if (locationStatus === 'loading' || isStale || distance === null) {
+      return 'Location updating…';
+    }
+    return formatOfficeDistance(distance, false);
+  }, [locationStatus, isStale, distance]);
+
+  const isInsideGeofence = distance !== null && !isStale && distance <= OFFICE_LOCATION.radius;
 
   const getEmployeeInfo = () => {
     try {
@@ -417,49 +408,68 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const processPosition = async (latitude: number, longitude: number, accuracy?: number, timestamp?: number) => {
     const now = Date.now();
     const fixTime = timestamp || now;
-    const ageMs = now - fixTime;
-    const ageSec = ageMs / 1000;
 
-    // Filter out location if it is extremely old (e.g. > 60 seconds) to avoid false calculations
+    // Requirement 7: Prevent stale-location overwrite by rejecting older asynchronous updates
+    if (locationTimestampRef.current && fixTime < locationTimestampRef.current) {
+      console.log(`[Location] Rejected older out-of-order fix: ${fixTime} < ${locationTimestampRef.current}`);
+      return;
+    }
+
+    // Requirement 3: Reject fixes older than 60 seconds
+    const ageMs = Math.max(0, now - fixTime);
+    const ageSec = ageMs / 1000;
     if (ageSec > 60) {
       console.log(`[Location] Rejected stale fix: ${ageSec.toFixed(1)}s old`);
       return;
     }
 
-    // Accept location if accuracy is reasonable (e.g. <= 35m) to avoid discarding good-enough fixes
-    const isReliable = !accuracy || accuracy <= 35;
-    if (!isReliable) {
+    // Requirement 4: Discard extremely poor accuracy fixes (> 150m) for distance display
+    if (accuracy && accuracy > 150) {
       console.log(`[Location] Discarded low-accuracy fix: ${accuracy}m`);
       return;
     }
 
-    setLiveLocation({ latitude, longitude });
-    setLocationTimestamp(fixTime);
-    locationTimestampRef.current = fixTime;
-
+    // Requirement 1 & 5: Haversine distance calculated directly from authoritative GPS latitude & longitude against OFFICE_LOCATION
     const calculatedDistance = getDistanceFromLatLonInM(
       latitude,
       longitude,
       OFFICE_LOCATION.latitude,
       OFFICE_LOCATION.longitude
     );
-    setDistance(calculatedDistance);
 
-    // Save to cache immediately
+    setLiveLocation({ latitude, longitude });
+    setDistance(calculatedDistance);
+    setLocationTimestamp(fixTime);
+    locationTimestampRef.current = fixTime;
+    setIsFreshFixReceived(true);
+    setLocationStatus('success');
+
+    // Save to cache for offline backup
     try {
       localStorage.setItem('lastKnownLocation', JSON.stringify({ latitude, longitude }));
       localStorage.setItem('lastKnownDistance', String(calculatedDistance));
     } catch (e) {}
 
+    // Requirement 10: Development Diagnostic Log
+    const displayDist = formatOfficeDistance(calculatedDistance, false);
+    console.log(`[GPS Diagnostic]
+GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} (Accuracy: ${accuracy ? Math.round(accuracy) + 'm' : 'N/A'}, Timestamp: ${new Date(fixTime).toISOString()})
+Office: ${OFFICE_LOCATION.latitude}, ${OFFICE_LOCATION.longitude}
+Distance: ${Math.round(calculatedDistance)} m
+Display: ${displayDist}`);
+
     // Dynamic state determination with Hysteresis / Border Stability
+    // Attendance geofence transition strictly requires high accuracy (<= 35m)
     let nextInside = stableInsideOffice;
-    if (calculatedDistance <= 23) {
+    const isHighAccuracyForGeofence = !accuracy || accuracy <= 35;
+
+    if (calculatedDistance <= 23 && isHighAccuracyForGeofence) {
       nextInside = true;
     } else if (calculatedDistance >= 27) {
       nextInside = false;
     } else {
       if (stableInsideOffice === null || stableInsideOffice === undefined) {
-        nextInside = calculatedDistance <= OFFICE_LOCATION.radius;
+        nextInside = calculatedDistance <= OFFICE_LOCATION.radius && isHighAccuracyForGeofence;
       } else {
         nextInside = stableInsideOffice;
       }
@@ -522,6 +532,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     logStartupTag('LOCATION_INIT_START', 'Starting Geolocation tracking & adaptive polling');
     setLocationStatus('loading');
     setErrorMessage('');
+    setIsFreshFixReceived(false);
 
     if (watchIdRef.current !== null) {
       const oldId = String(watchIdRef.current);
@@ -759,6 +770,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const forceRefreshLocation = React.useCallback(async () => {
     setLocationStatus('loading');
+    setIsFreshFixReceived(false);
     try {
       const pos = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
