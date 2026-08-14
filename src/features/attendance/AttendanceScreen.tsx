@@ -1126,10 +1126,11 @@ export const AttendanceScreen: React.FC = () => {
                   <div>
                     <p className="font-extrabold text-white">Office Location Status</p>
                     <p className="text-[11px] text-purple-300/90 mt-0.5">
-                      {locationStatus === 'loading' ? 'Acquiring high-accuracy GPS satellite lock...' :
-                       locationStatus === 'error' ? `GPS lock error: ${errorMessage}` :
-                       distance !== null && distance <= 25 ? `Inside Office HQ geofence (${formattedDistance})` :
-                       `Outside Office HQ geofence (${formattedDistance})`}
+                      {distance === null
+                        ? (locationStatus === 'error' ? `GPS lock error: ${errorMessage}` : 'Acquiring high-accuracy GPS satellite lock...')
+                        : distance <= 25
+                          ? `Inside Office HQ geofence (${formattedDistance})`
+                          : `Outside Office HQ geofence (${formattedDistance})`}
                     </p>
                   </div>
                 </div>

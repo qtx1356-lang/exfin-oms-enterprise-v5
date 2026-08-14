@@ -131,19 +131,30 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const adaptiveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const isStale = React.useMemo(() => {
-    if (!isFreshFixReceived || !locationTimestamp) return true;
+    if (!isFreshFixReceived || !locationTimestamp) return false;
     const ageMs = Date.now() - locationTimestamp;
     return ageMs > 45000;
   }, [isFreshFixReceived, locationTimestamp]);
 
   const formattedDistance = React.useMemo(() => {
-    if (locationStatus === 'loading' || isStale || distance === null) {
-      return 'Location updating…';
+    if (distance !== null) {
+      if (isStale) {
+        return 'Updating…';
+      }
+      return formatOfficeDistance(distance, false);
     }
-    return formatOfficeDistance(distance, false);
-  }, [locationStatus, isStale, distance]);
+    if (locationStatus === 'loading') {
+      return 'Locating…';
+    }
+    if (isGpsOff || isPermissionDenied) {
+      return 'GPS unavailable';
+    }
+    return 'Location unavailable';
+  }, [distance, isStale, locationStatus, isGpsOff, isPermissionDenied]);
 
-  const isInsideGeofence = distance !== null && !isStale && distance <= OFFICE_LOCATION.radius;
+  const isInsideGeofence = React.useMemo(() => {
+    return distance !== null && !isStale && distance <= OFFICE_LOCATION.radius;
+  }, [distance, isStale]);
 
   const getEmployeeInfo = () => {
     try {
@@ -450,13 +461,34 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       localStorage.setItem('lastKnownDistance', String(calculatedDistance));
     } catch (e) {}
 
-    // Requirement 10: Development Diagnostic Log
+    // Requirement 11: Diagnostic Logs
     const displayDist = formatOfficeDistance(calculatedDistance, false);
-    console.log(`[GPS Diagnostic]
-GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)} (Accuracy: ${accuracy ? Math.round(accuracy) + 'm' : 'N/A'}, Timestamp: ${new Date(fixTime).toISOString()})
-Office: ${OFFICE_LOCATION.latitude}, ${OFFICE_LOCATION.longitude}
-Distance: ${Math.round(calculatedDistance)} m
-Display: ${displayDist}`);
+    const insideOutStr = calculatedDistance <= OFFICE_LOCATION.radius ? 'INSIDE' : 'OUTSIDE';
+    const ageSecInt = Math.round(ageSec);
+
+    console.log(`[LOCATION UPDATE]
+latitude: ${latitude}
+longitude: ${longitude}
+accuracy: ${accuracy ? Math.round(accuracy) + 'm' : 'N/A'}
+timestamp: ${fixTime} (${new Date(fixTime).toISOString()})
+age: ${ageSecInt}s
+distance: ${Math.round(calculatedDistance)}m
+geofence: ${insideOutStr}
+permission: ${isPermissionDenied ? 'DENIED' : 'GRANTED'}
+provider: ${Capacitor.isNativePlatform() ? 'Capacitor Geolocation' : 'Web Geolocation'}
+source: WATCH_POSITION`);
+
+    console.log(`[GEOFENCE UPDATE]
+latitude: ${latitude}
+longitude: ${longitude}
+distance: ${Math.round(calculatedDistance)}m
+inside/outside: ${insideOutStr}`);
+
+    console.log(`[UI LOCATION STATE]
+latitude: ${latitude}
+longitude: ${longitude}
+distance: ${Math.round(calculatedDistance)}m
+display state: ${displayDist}`);
 
     // Dynamic state determination with Hysteresis / Border Stability
     // Attendance geofence transition strictly requires high accuracy (<= 35m)
@@ -601,26 +633,9 @@ Display: ${displayDist}`);
     activeAttendanceModeRef.current = activeAttendanceMode;
   }, [activeAttendanceMode]);
 
-  // Handle active attendance mode tracking trigger
+  // Auto-start single authoritative location stream on Provider mount
   useEffect(() => {
-    if (activeAttendanceMode) {
-      startTracking();
-    } else {
-      // Deactivate active tracking
-      if (watchIdRef.current !== null) {
-        const watchStr = String(watchIdRef.current);
-        console.log('LOCATION_WATCH_STOPPED', watchStr);
-        trackResourceCleaned('LOCATION_WATCH', watchStr);
-        if (typeof watchIdRef.current === 'string') {
-          try { Geolocation.clearWatch({ id: watchIdRef.current }); } catch (e) {}
-        } else {
-          try { navigator.geolocation.clearWatch(watchIdRef.current); } catch (e) {}
-        }
-        watchIdRef.current = null;
-      }
-      clearErrors();
-      setLocationStatus('success');
-    }
+    startTracking();
 
     return () => {
       if (watchIdRef.current !== null) {
@@ -635,7 +650,7 @@ Display: ${displayDist}`);
         watchIdRef.current = null;
       }
     };
-  }, [activeAttendanceMode]);
+  }, []);
 
   // Fallback Location Health Monitoring Engine
   // watchPosition handles active location streaming.
