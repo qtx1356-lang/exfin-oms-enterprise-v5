@@ -151,41 +151,61 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
 
   // --- DERIVE THE AUTHORITATIVE TODAY STATES ---
   const activeEmployees = useMemo(() => {
-    return registrations.filter(emp => emp.status === 'Approved');
+    const safeRegs = Array.isArray(registrations) ? registrations : [];
+    const approved = safeRegs.filter(emp => emp && emp.status === 'Approved');
+
+    // Deduplicate by employeeCode (or id) to ensure 1 authoritative entry per employee
+    const seenCodes = new Set<string>();
+    const uniqueApproved: typeof approved = [];
+
+    approved.forEach(emp => {
+      const codeKey = (emp.employeeCode || emp.id || '').trim();
+      if (codeKey && !seenCodes.has(codeKey)) {
+        seenCodes.add(codeKey);
+        uniqueApproved.push(emp);
+      } else if (!codeKey) {
+        uniqueApproved.push(emp);
+      }
+    });
+
+    return uniqueApproved;
   }, [registrations]);
 
   const rawWorkforceList = useMemo(() => {
+    const safeAttendance = Array.isArray(attendanceRecords) ? attendanceRecords : [];
+    const safeLeaves = Array.isArray(leaves) ? leaves : [];
+
     return activeEmployees.map(emp => {
-      // Find today's record
-      const todayRecord = attendanceRecords.find(rec => 
-        rec.date === todayDateStr && (
-          rec.employeeId === emp.employeeCode ||
-          rec.employeeId === emp.id ||
-          rec.employeeCode === emp.employeeCode ||
-          rec.employeeCode === emp.id
+      const empCode = (emp.employeeCode || emp.id || '').trim();
+      const empId = (emp.id || '').trim();
+
+      // Find today's record (defensive check matching employeeCode or id)
+      const todayRecord = safeAttendance.find(rec => 
+        rec && rec.date === todayDateStr && (
+          (rec.employeeId && (rec.employeeId === empCode || rec.employeeId === empId)) ||
+          (rec.employeeCode && (rec.employeeCode === empCode || rec.employeeCode === empId))
         )
       );
 
       // Find yesterday's record for comparison
-      const yesterdayRecord = attendanceRecords.find(rec => 
-        rec.date === yesterdayDateStr && (
-          rec.employeeId === emp.employeeCode ||
-          rec.employeeId === emp.id ||
-          rec.employeeCode === emp.employeeCode ||
-          rec.employeeCode === emp.id
+      const yesterdayRecord = safeAttendance.find(rec => 
+        rec && rec.date === yesterdayDateStr && (
+          (rec.employeeId && (rec.employeeId === empCode || rec.employeeId === empId)) ||
+          (rec.employeeCode && (rec.employeeCode === empCode || rec.employeeCode === empId))
         )
       );
 
       // Find approved leave today
-      const todayApprovedLeave = leaves.find(req => 
-        req.status === 'APPROVED' && 
-        (req.employeeId === emp.id || req.employeeCode === emp.employeeCode) &&
+      const todayApprovedLeave = safeLeaves.find(req => 
+        req && req.status === 'APPROVED' && 
+        ((req.employeeId && (req.employeeId === empId || req.employeeId === empCode)) ||
+         (req.employeeCode && (req.employeeCode === empCode || req.employeeCode === empId))) &&
         todayDateStr >= req.startDate &&
         todayDateStr <= req.endDate
       );
 
-      let status: 'Present' | 'Not Checked In' | 'Absent' = 'Not Checked In';
-      let mode: 'Office' | 'WFH' | 'Client Visit' | 'Outdoor Work' | 'Leave' | 'Sunday/Holiday' | 'Not Checked In' | 'Absent' = 'Not Checked In';
+      let status: 'Present' | 'Not Checked In' = 'Not Checked In';
+      let mode: 'Office' | 'WFH' | 'Client Visit' | 'Outdoor Work' | 'Leave' | 'Sunday/Holiday' | 'Not Checked In' = 'Not Checked In';
       let isLate = false;
 
       if (todayRecord) {
@@ -206,13 +226,8 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
         status = 'Present';
         mode = 'Sunday/Holiday';
       } else {
-        if (isPastCheckInCutoff) {
-          status = 'Absent';
-          mode = 'Absent';
-        } else {
-          status = 'Not Checked In';
-          mode = 'Not Checked In';
-        }
+        status = 'Not Checked In';
+        mode = 'Not Checked In';
       }
 
       return {
@@ -225,7 +240,7 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
         todayApprovedLeave
       };
     });
-  }, [activeEmployees, attendanceRecords, leaves, todayDateStr, yesterdayDateStr, isTodaySunday, isPastCheckInCutoff]);
+  }, [activeEmployees, attendanceRecords, leaves, todayDateStr, yesterdayDateStr, isTodaySunday]);
 
   // Security filtered workforce list
   const securityFilteredWorkforce = useMemo(() => {
@@ -237,27 +252,26 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
     });
   }, [rawWorkforceList, role, authorizedOffice]);
 
-  // Today metrics summary
+  // Today metrics summary - Authoritative Expected Staff / Present Today / Not Checked In Calculation
   const todaySummary = useMemo(() => {
-    const total = securityFilteredWorkforce.length;
-    let present = 0;
+    const expectedStaff = securityFilteredWorkforce.length;
+    const presentUniqueEmployeeCodes = new Set<string>();
+
     let wfh = 0;
     let client = 0;
     let outdoor = 0;
     let late = 0;
-    let notCheckedIn = 0;
-    let absent = 0;
 
     securityFilteredWorkforce.forEach(emp => {
+      const codeKey = (emp.employeeCode || emp.id || '').trim();
+
       if (emp.todayStatus === 'Present') {
-        present++;
+        if (codeKey) {
+          presentUniqueEmployeeCodes.add(codeKey);
+        }
         if (emp.todayMode === 'WFH') wfh++;
         else if (emp.todayMode === 'Client Visit') client++;
         else if (emp.todayMode === 'Outdoor Work') outdoor++;
-      } else if (emp.todayStatus === 'Not Checked In') {
-        notCheckedIn++;
-      } else if (emp.todayStatus === 'Absent') {
-        absent++;
       }
 
       if (emp.isLate) {
@@ -265,9 +279,31 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
       }
     });
 
-    const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+    const presentToday = presentUniqueEmployeeCodes.size;
+    const notCheckedIn = Math.max(0, expectedStaff - presentToday);
+    const rate = expectedStaff > 0 ? Math.round((presentToday / expectedStaff) * 100) : 0;
 
-    return { total, present, wfh, client, outdoor, late, notCheckedIn, absent, rate };
+    // Diagnostic logging in development mode showing required calculation metrics
+    if (typeof window !== 'undefined') {
+      console.log('[Admin Dashboard Calculation Diagnostic]', {
+        expectedStaff,
+        presentUniqueEmployeeCodes: Array.from(presentUniqueEmployeeCodes),
+        presentToday,
+        notCheckedIn
+      });
+    }
+
+    return {
+      total: expectedStaff,
+      present: presentToday,
+      wfh,
+      client,
+      outdoor,
+      late,
+      notCheckedIn,
+      absent: notCheckedIn,
+      rate
+    };
   }, [securityFilteredWorkforce]);
 
   // Yesterday statistics for comparison

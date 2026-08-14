@@ -105,30 +105,48 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
 
   // 2. MAP EMPLOYEES TO THEIR DETAILED TODAY WORKFORCE STATE
   const rawWorkforceList = useMemo(() => {
-    // Expected workforce consists only of Approved employees
-    const activeEmployees = registrations.filter(emp => emp.status === 'Approved');
+    const safeRegs = Array.isArray(registrations) ? registrations : [];
+    const safeAttendance = Array.isArray(attendanceRecords) ? attendanceRecords : [];
+    const safeLeaves = Array.isArray(leaves) ? leaves : [];
+
+    // Expected workforce consists only of Approved employees (deduplicated by employeeCode)
+    const approved = safeRegs.filter(emp => emp && emp.status === 'Approved');
+    const seenCodes = new Set<string>();
+    const activeEmployees: typeof approved = [];
+
+    approved.forEach(emp => {
+      const codeKey = (emp.employeeCode || emp.id || '').trim();
+      if (codeKey && !seenCodes.has(codeKey)) {
+        seenCodes.add(codeKey);
+        activeEmployees.push(emp);
+      } else if (!codeKey) {
+        activeEmployees.push(emp);
+      }
+    });
 
     return activeEmployees.map(emp => {
-      // Find today's attendance record
-      const todayRecord = attendanceRecords.find(rec => 
-        rec.date === todayDateStr && (
-          rec.employeeId === emp.employeeCode ||
-          rec.employeeId === emp.id ||
-          rec.employeeCode === emp.employeeCode ||
-          rec.employeeCode === emp.id
+      const empCode = (emp.employeeCode || emp.id || '').trim();
+      const empId = (emp.id || '').trim();
+
+      // Find today's attendance record (defensive check matching employeeCode or id)
+      const todayRecord = safeAttendance.find(rec => 
+        rec && rec.date === todayDateStr && (
+          (rec.employeeId && (rec.employeeId === empCode || rec.employeeId === empId)) ||
+          (rec.employeeCode && (rec.employeeCode === empCode || rec.employeeCode === empId))
         )
       );
 
       // Find approved leave requests covering today
-      const todayApprovedLeave = leaves.find(req => 
-        req.status === 'APPROVED' && 
-        (req.employeeId === emp.id || req.employeeCode === emp.employeeCode) &&
+      const todayApprovedLeave = safeLeaves.find(req => 
+        req && req.status === 'APPROVED' && 
+        ((req.employeeId && (req.employeeId === empId || req.employeeId === empCode)) ||
+         (req.employeeCode && (req.employeeCode === empCode || req.employeeCode === empId))) &&
         todayDateStr >= req.startDate &&
         todayDateStr <= req.endDate
       );
 
-      let status: 'Present' | 'Not Checked In' | 'Absent' = 'Not Checked In';
-      let mode: 'Office' | 'WFH' | 'Client Visit' | 'Outdoor Work' | 'Leave' | 'Sunday/Holiday' | 'Not Checked In' | 'Absent' = 'Not Checked In';
+      let status: 'Present' | 'Not Checked In' = 'Not Checked In';
+      let mode: 'Office' | 'WFH' | 'Client Visit' | 'Outdoor Work' | 'Leave' | 'Sunday/Holiday' | 'Not Checked In' = 'Not Checked In';
       let isLate = false;
       let checkInTime = todayRecord?.checkInTime || null;
       let checkInMode = todayRecord?.checkInMode || null;
@@ -158,14 +176,8 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
         status = 'Present'; // Sunday counts as Present under Rule 2
         mode = 'Sunday/Holiday';
       } else {
-        // No attendance, no leave, not Sunday
-        if (isPastCheckInCutoff) {
-          status = 'Absent';
-          mode = 'Absent';
-        } else {
-          status = 'Not Checked In';
-          mode = 'Not Checked In';
-        }
+        status = 'Not Checked In';
+        mode = 'Not Checked In';
       }
 
       return {
@@ -181,7 +193,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
         checkOutMode
       };
     });
-  }, [registrations, attendanceRecords, leaves, todayDateStr, isTodaySunday, isPastCheckInCutoff]);
+  }, [registrations, attendanceRecords, leaves, todayDateStr, isTodaySunday]);
 
   // 3. APPLY SECURITY VISIBILITY & FILTER CONTROLS
   const securityFilteredWorkforce = useMemo(() => {
@@ -196,25 +208,24 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
 
   // 4. GENERATE SUMMARY AGGREGATIONS FOR METRIC CARDS
   const stats = useMemo(() => {
-    let total = securityFilteredWorkforce.length;
-    let present = 0;
+    const expectedStaff = securityFilteredWorkforce.length;
+    const presentUniqueEmployeeCodes = new Set<string>();
+
     let wfh = 0;
     let client = 0;
     let outdoor = 0;
     let late = 0;
-    let notCheckedIn = 0;
-    let absent = 0;
 
     securityFilteredWorkforce.forEach(emp => {
+      const codeKey = (emp.employeeCode || emp.id || '').trim();
+
       if (emp.todayStatus === 'Present') {
-        present++;
+        if (codeKey) {
+          presentUniqueEmployeeCodes.add(codeKey);
+        }
         if (emp.todayMode === 'WFH') wfh++;
         else if (emp.todayMode === 'Client Visit') client++;
         else if (emp.todayMode === 'Outdoor Work') outdoor++;
-      } else if (emp.todayStatus === 'Not Checked In') {
-        notCheckedIn++;
-      } else if (emp.todayStatus === 'Absent') {
-        absent++;
       }
 
       if (emp.isLate) {
@@ -222,7 +233,30 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
       }
     });
 
-    return { total, present, wfh, client, outdoor, late, notCheckedIn, absent };
+    const presentToday = presentUniqueEmployeeCodes.size;
+    const notCheckedIn = Math.max(0, expectedStaff - presentToday);
+    const absent = notCheckedIn;
+
+    // Diagnostic logging in development mode
+    if (typeof window !== 'undefined') {
+      console.log('[Office Pulse Calculation Diagnostic]', {
+        expectedStaff,
+        presentUniqueEmployeeCodes: Array.from(presentUniqueEmployeeCodes),
+        presentToday,
+        notCheckedIn
+      });
+    }
+
+    return {
+      total: expectedStaff,
+      present: presentToday,
+      wfh,
+      client,
+      outdoor,
+      late,
+      notCheckedIn,
+      absent
+    };
   }, [securityFilteredWorkforce]);
 
   // 5. FILTER & SEARCH EMPLOYEES LIST FOR THE TABLE
@@ -244,7 +278,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
         if (statusFilter === 'OUTDOOR' && emp.todayMode !== 'Outdoor Work') return false;
         if (statusFilter === 'LATE' && !emp.isLate) return false;
         if (statusFilter === 'NOT_CHECKED_IN' && emp.todayStatus !== 'Not Checked In') return false;
-        if (statusFilter === 'ABSENT' && emp.todayStatus !== 'Absent') return false;
+        if (statusFilter === 'ABSENT' && emp.todayStatus !== 'Not Checked In' && (emp.todayStatus as any) !== 'Absent') return false;
       }
 
       return true;
