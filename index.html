@@ -10,11 +10,10 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <!-- 
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js')
+          navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
             .then((registration) => {
               // Ensure we check for updates on load
               registration.update().catch(() => {});
@@ -23,6 +22,5 @@
         });
       }
     </script>
-    -->
   </body>
 </html>

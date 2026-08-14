@@ -1,4 +1,4 @@
-const CACHE_NAME = 'exfin-v13';
+const CACHE_NAME = 'exfin-v14';
 
 // Assets to cache on install (optional/default shell assets)
 const PRECACHE_ASSETS = [
@@ -7,10 +7,14 @@ const PRECACHE_ASSETS = [
   '/manifest.json'
 ];
 
+// Offline fallback page or just use index.html as the shell
+const OFFLINE_URL = '/index.html';
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
+      console.log('ServiceWorker: Pre-caching app shell');
       return cache.addAll(PRECACHE_ASSETS);
     })
   );
@@ -23,26 +27,29 @@ self.addEventListener('activate', (event) => {
         cacheNames.map((cacheName) => {
           // Keep only the current cache version, delete other exfin caches
           if (cacheName.startsWith('exfin-') && cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
+            console.log('ServiceWorker: Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => {
+      console.log('ServiceWorker: Activated and claiming clients');
+      return self.clients.claim();
+    })
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  const request = event.request;
+  const { request } = event;
   
-  // Only handle GET requests
+  // 1. Only handle GET requests
   if (request.method !== 'GET') {
     return;
   }
 
   const url = new URL(request.url);
 
-  // Bypass service worker for dev server internal requests or hot reloads
+  // 2. Bypass service worker for dev server internal requests or hot reloads
   if (
     url.pathname.startsWith('/src/') ||
     url.pathname.startsWith('/@') ||
@@ -52,26 +59,26 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Exclude Firebase, Firestore, API, auth, and dynamic user-specific data from caching
+  // 3. EXCLUSIONS (NEVER CACHE)
   if (
     url.pathname.includes('/api/') ||
     url.hostname.includes('firebase') ||
     url.hostname.includes('googleapis') ||
     url.hostname.includes('securetoken') ||
-    url.pathname.includes('identitytoolkit')
+    url.hostname.includes('identitytoolkit') ||
+    url.pathname.includes('identitytoolkit') ||
+    url.pathname.includes('/auth/')
   ) {
     return;
   }
 
-  // Determine if it is a navigation request or requesting index.html / root / navigation fallback
-  const isNavigation = 
-    request.mode === 'navigate' || 
-    url.pathname === '/' || 
-    url.pathname === '/index.html' ||
-    url.pathname === '/navigation';
+  // 4. NAVIGATION REQUESTS (index.html / App Shell)
+  // Strategy: Network-First, Fallback to Cache
+  const isNavigation = request.mode === 'navigate' || 
+                       url.pathname === '/' || 
+                       url.pathname === '/index.html';
 
   if (isNavigation) {
-    // NETWORK-FIRST Strategy
     event.respondWith(
       fetch(request)
         .then((response) => {
@@ -82,24 +89,25 @@ self.addEventListener('fetch', (event) => {
               // Cache both the exact request and '/' and '/index.html' to ensure availability
               cache.put('/', responseToCache.clone());
               cache.put('/index.html', responseToCache.clone());
-              if (url.pathname !== '/' && url.pathname !== '/index.html') {
-                cache.put(request, responseToCache);
-              }
             });
+            return response;
           }
-          return response;
+          // If not 200 (e.g. error page from server), try cache
+          return caches.match(OFFLINE_URL);
         })
-        .catch(() => {
+        .catch((err) => {
+          console.log('ServiceWorker: Navigation fetch failed, serving offline shell', err);
           // Fallback to cached index.html or root
-          return caches.match('/').then((cachedResponse) => {
-            return cachedResponse || caches.match('/index.html');
+          return caches.match(OFFLINE_URL).then((cachedResponse) => {
+            return cachedResponse || caches.match('/');
           });
         })
     );
     return;
   }
 
-  // Static assets matching versioned Vite assets, images, icons, fonts
+  // 5. STATIC ASSETS (Vite assets, images, icons, fonts, etc.)
+  // Strategy: Cache-First, Fallback to Network (and then cache)
   const isStaticAsset = 
     url.pathname.startsWith('/assets/') ||
     url.pathname.startsWith('/images/') ||
@@ -117,26 +125,38 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.json');
 
   if (isStaticAsset) {
-    // NETWORK-FIRST Strategy for CSS/JS static assets
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response && response.status === 200) {
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        // Not in cache, fetch from network
+        return fetch(request)
+          .then((response) => {
+            // Check if we received a valid response
+            if (!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+
             const responseToCache = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(request, responseToCache);
             });
-          }
-          return response;
-        })
-        .catch(() => {
-          return caches.match(request);
-        })
+
+            return response;
+          })
+          .catch((err) => {
+            console.error('ServiceWorker: Static asset fetch failed', err);
+            // Just return whatever fetch would have returned (the error)
+            return null;
+          });
+      })
     );
     return;
   }
 
-  // Default: bypass cache, go directly to network
+  // 6. DEFAULT: Go directly to network (no caching)
 });
 
 // Push notification event handler for Android & Web Push
