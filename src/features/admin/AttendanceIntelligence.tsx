@@ -9,6 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ManagedUser } from '../../types/user';
 import { AttendanceRecord, AttendanceCorrection } from '../../types/attendance';
+import { isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { exportToCSV } from '../../services/reports/exportService';
 import { fetchDepartments } from '../../services/organization/organizationService';
@@ -276,8 +277,11 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
       const isToday = record.date === todayDateStr;
 
       // 0. UNRESOLVED / PENDING ADMIN REVIEW DETECTION
-      if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
-        const isPendingReview = record.checkoutStatus === 'PENDING_ADMIN_REVIEW';
+      const effectiveStatus = record.checkoutStatus === 'PENDING_ADMIN_REVIEW' ? 'PENDING_ADMIN_REVIEW' : 
+                              isAttendanceCheckoutUnresolved(record) ? 'UNRESOLVED' : record.checkoutStatus;
+
+      if (effectiveStatus === 'UNRESOLVED' || effectiveStatus === 'PENDING_ADMIN_REVIEW') {
+        const isPendingReview = effectiveStatus === 'PENDING_ADMIN_REVIEW';
         unresolvedCheckoutsList.push({
           employee: emp,
           record,
@@ -290,17 +294,21 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
           checkIn: record.checkInTime,
           checkOut: isPendingReview ? `Proposed: ${record.employeeProposedCheckoutTime}` : 'UNRESOLVED',
           proposedTime: record.employeeProposedCheckoutTime,
-          status: record.checkoutStatus
+          status: effectiveStatus
         });
       }
 
       // 1. MISSING CHECKOUT DETECTION
       let isMissingCo = false;
       if (record.checkInTime && !record.checkOutTime) {
-        isMissingCo = true;
-        
-        // Exclusions
-        if (isToday) {
+        // If already classified as unresolved, don't double count in missing
+        if (effectiveStatus === 'UNRESOLVED' || effectiveStatus === 'PENDING_ADMIN_REVIEW') {
+          isMissingCo = false;
+        } else {
+          isMissingCo = true;
+          
+          // Exclusions
+          if (isToday) {
           // WFH before 6 PM
           if (type === 'WFH' && currentLocalHour < 18) {
             isMissingCo = false;
@@ -316,6 +324,7 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
               isMissingCo = false;
             }
           }
+        }
         }
         
         // Outdoor legitimately does not require checkout

@@ -1,5 +1,6 @@
 import { AttendanceRecord, AttendanceType } from '../types/attendance';
 import { calculateWorkingHours } from '../services/attendance/smartAttendanceEngine';
+import { isAttendanceCheckoutUnresolved } from './attendanceUtils';
 
 // Get current date string in Asia/Kolkata timezone (format: YYYY-MM-DD)
 export const getKolkataDateStr = (dateInput: Date = new Date()): string => {
@@ -47,7 +48,7 @@ export const getRecordWorkingMinutes = (record: AttendanceRecord): number => {
   if (!record.checkInTime) return 0;
   
   // Unresolved or Pending Review records have NO fake duration
-  if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+  if (isAttendanceCheckoutUnresolved(record) || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
     return 0;
   }
   
@@ -73,7 +74,7 @@ export const getRecordWorkingHoursDisplay = (record: AttendanceRecord): { displa
   if (record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
     return { display: 'PENDING REVIEW', status: 'PENDING_REVIEW' };
   }
-  if (record.checkoutStatus === 'UNRESOLVED') {
+  if (isAttendanceCheckoutUnresolved(record)) {
     return { display: 'UNRESOLVED', status: 'UNRESOLVED' };
   }
   if (record.checkOutTime && record.checkOutTime !== '--:--') {

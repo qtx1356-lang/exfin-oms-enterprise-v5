@@ -60,6 +60,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord, AttendanceCorrection } from '../../types/attendance';
+import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus } from '../../utils/attendanceUtils';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { ExpenseRecord } from '../../types/expense';
@@ -275,6 +276,13 @@ export const AdminDashboard: React.FC = () => {
 
     if (attendanceFilter === 'MISSING_CHECKOUT') {
       records = records.filter((rec) => {
+        // Authoritative check using helper for historical unresolved
+        if (isAttendanceCheckoutUnresolved(rec)) return true;
+
+        // Explicit statuses
+        if (rec.checkoutStatus === 'UNRESOLVED' || rec.checkoutStatus === 'PENDING_ADMIN_REVIEW') return true;
+
+        // Today's active records
         if (rec.checkInTime && !rec.checkOutTime) {
           const type = (rec.attendanceType || 'OFFICE').toUpperCase();
           if (type === 'OUTDOOR') return false;
@@ -288,17 +296,17 @@ export const AdminDashboard: React.FC = () => {
           }
           const isToday = rec.date === todayStr;
           
-          let curHour = new Date().getHours();
-          try {
-            const kolHour = new Intl.DateTimeFormat('en-US', {
-              timeZone: 'Asia/Kolkata',
-              hour: 'numeric',
-              hour12: false
-            }).format(new Date());
-            curHour = parseInt(kolHour, 10);
-          } catch {}
-
           if (isToday) {
+            let curHour = new Date().getHours();
+            try {
+              const kolHour = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Kolkata',
+                hour: 'numeric',
+                hour12: false
+              }).format(new Date());
+              curHour = parseInt(kolHour, 10);
+            } catch {}
+
             if ((type === 'WFH' || type === 'CLIENT_VISIT') && curHour < 18) {
               return false;
             }
@@ -855,12 +863,7 @@ export const AdminDashboard: React.FC = () => {
   const pendingLeaveCount = leaves.filter((l) => l.status === 'PENDING').length;
 
   const unresolvedAttendanceCount = attendanceRecords.filter((r) => {
-    if (r.checkoutStatus === 'UNRESOLVED' || r.checkoutStatus === 'PENDING_ADMIN_REVIEW') return true;
-    const today = new Date().toISOString().split('T')[0];
-    if (r.date >= today) return false;
-    const hasCheckout = !!(r.checkOutTime && r.checkOutTime !== '--:--');
-    const isRectified = !!(r.manualRectified || r.isAdminRectified || r.correctedAt);
-    return !hasCheckout && !isRectified && r.checkoutStatus !== 'COMPLETED';
+    return isAttendanceCheckoutUnresolved(r) || r.checkoutStatus === 'PENDING_ADMIN_REVIEW';
   }).length;
 
   const consoleTitle = role === 'SUPER_ADMIN' ? 'Super Admin Console' : role === 'HR' ? 'HR Management Console' : 'Admin Operations Console';
@@ -1123,6 +1126,29 @@ export const AdminDashboard: React.FC = () => {
         {/* OVERVIEW TAB */}
         {activeTab === 'overview' && canSeeOverview && (
           <div className="space-y-6">
+            {unresolvedAttendanceCount > 0 && canSeeAttendance && (
+              <div 
+                onClick={() => {
+                  setActiveTab('attendance');
+                  setAttendanceFilter('MISSING_CHECKOUT');
+                }}
+                className="p-4 bg-gradient-to-r from-rose-500/20 via-purple-600/20 to-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center justify-between cursor-pointer hover:border-rose-500/50 transition-all shadow-lg mb-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-rose-500/20 rounded-xl text-rose-300">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">Attention: Unresolved Attendance Found</h4>
+                    <p className="text-xs text-rose-200/80">{unresolvedAttendanceCount} {unresolvedAttendanceCount === 1 ? 'record has' : 'records have'} unresolved checkout times requiring review.</p>
+                  </div>
+                </div>
+                <Button className="bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs pointer-events-none px-4 py-1.5 rounded-lg shadow-lg">
+                  View Unresolved →
+                </Button>
+              </div>
+            )}
+
             {pendingRegCount > 0 && canSeeRegistrations && (
               <div 
                 onClick={() => setActiveTab('pendingDeviceApprovals')}
@@ -1560,13 +1586,13 @@ export const AdminDashboard: React.FC = () => {
                                     }`}>
                                       {rec.checkInMode === 'AUTO' ? 'Auto' : 'Manual'}
                                     </span>
-                                  </td>
-                                  <td className="p-3 border-b border-purple-500/10 whitespace-nowrap">
-                                    {rec.checkoutStatus === 'UNRESOLVED' ? (
+                                   </td>
+                                   <td className="p-3 border-b border-purple-500/10 whitespace-nowrap">
+                                    {getEffectiveCheckoutStatus(rec) === 'UNRESOLVED' ? (
                                       <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30">
                                         UNRESOLVED
                                       </span>
-                                    ) : rec.checkoutStatus === 'PENDING_ADMIN_REVIEW' ? (
+                                    ) : getEffectiveCheckoutStatus(rec) === 'PENDING_ADMIN_REVIEW' ? (
                                       <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
                                         {rec.employeeProposedCheckoutTime ? `Review (${rec.employeeProposedCheckoutTime})` : 'Pending Review'}
                                       </span>
@@ -1587,7 +1613,7 @@ export const AdminDashboard: React.FC = () => {
                                     </span>
                                   </td>
                                   <td className="p-3 border-b border-purple-500/10 font-bold text-white">
-                                    {safeStringify(rec.workingHours) || '—'}
+                                    {getEffectiveCheckoutStatus(rec) === "UNRESOLVED" ? ( <span className="text-rose-400 font-bold">UNRESOLVED</span> ) : getEffectiveCheckoutStatus(rec) === "PENDING_ADMIN_REVIEW" ? ( <span className="text-amber-400 font-bold text-xs uppercase tracking-tighter">Pending</span> ) : ( safeStringify(rec.workingHours) || "—" )}
                                   </td>
                                   <td className="p-3 border-b border-purple-500/10 text-purple-300 font-mono">
                                     {typeof rec.distance === 'number' && !isNaN(rec.distance) ? `${(rec.distance / 1000).toFixed(2)}km` : (rec.distance ? `${safeStringify(rec.distance)}m` : '—')}

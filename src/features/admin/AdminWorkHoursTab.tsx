@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { AttendanceRecord, AttendanceType } from '../../types/attendance';
+import { isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
 import { Card } from '../../components/ui/Card';
 import {
   getKolkataDateStr,
@@ -153,11 +154,15 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
       if (!matchesMode) return false;
 
       // 4. Status filter
-      const isCompleted = !!(rec.checkOutTime && rec.checkOutTime !== '--:--');
+      const isUnresolved = isAttendanceCheckoutUnresolved(rec);
+      const isPendingReview = rec.checkoutStatus === 'PENDING_ADMIN_REVIEW';
+      const isCompleted = !!(rec.checkOutTime && rec.checkOutTime !== '--:--' && !isUnresolved && !isPendingReview);
+
       const matchesStatus =
         selectedStatus === 'ALL' ||
         (selectedStatus === 'Completed' && isCompleted) ||
-        (selectedStatus === 'In Progress' && !isCompleted);
+        (selectedStatus === 'In Progress' && !isCompleted && !isUnresolved && !isPendingReview) ||
+        (selectedStatus === 'Unresolved' && (isUnresolved || isPendingReview));
       if (!matchesStatus) return false;
 
       return true;
@@ -444,16 +449,18 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
   };
 
   const getRecordStatusDetails = (rec: AttendanceRecord) => {
-    const isCompleted = !!(rec.checkOutTime && rec.checkOutTime !== '--:--' && rec.checkoutStatus === 'COMPLETED');
+    const isUnresolved = isAttendanceCheckoutUnresolved(rec);
+    const isPendingReview = rec.checkoutStatus === 'PENDING_ADMIN_REVIEW';
+    const isCompleted = !!(rec.checkOutTime && rec.checkOutTime !== '--:--' && !isUnresolved && !isPendingReview);
     const isToday = rec.date === todayStr;
 
-    if (rec.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+    if (isPendingReview) {
       return {
         label: 'Pending Review',
         colorClass: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
         duration: 'PENDING REVIEW',
       };
-    } else if (rec.checkoutStatus === 'UNRESOLVED' || (!isCompleted && !isToday)) {
+    } else if (isUnresolved) {
       return {
         label: 'Unresolved',
         colorClass: 'text-rose-400 bg-rose-500/10 border-rose-500/20',

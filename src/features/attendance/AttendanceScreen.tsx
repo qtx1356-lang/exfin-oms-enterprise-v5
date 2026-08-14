@@ -39,6 +39,7 @@ import { useLocationContext } from '../../context/LocationContext';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { LocationGate } from '../../components/common/LocationGate';
 import { AttendanceRecord, AttendanceType, OutdoorWorkTypeOption } from '../../types/attendance';
+import { isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
 import { getStoredLeaves } from '../../services/leave/leaveStorage';
 import { createNotification } from '../../services/notification/notificationService';
 import {
@@ -159,19 +160,12 @@ export const AttendanceScreen: React.FC = () => {
       .filter((r) => {
         const empCode = r.employeeId || r.employeeCode;
         if (empCode !== employeeId) return false;
-        if (r.date >= todayStr) return false; // Past days only
-        if (r.checkoutStatus === 'UNRESOLVED' || r.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
-          return true;
-        }
-        const hasCheckout = !!(r.checkOutTime && r.checkOutTime !== '--:--');
-        const isRectified = !!(r.manualRectified || r.isAdminRectified || r.correctedAt);
-        if (!hasCheckout && !isRectified && r.checkoutStatus !== 'COMPLETED') {
-          return true;
-        }
-        return false;
+        
+        // Use authoritative helper
+        return isAttendanceCheckoutUnresolved(r) || r.checkoutStatus === 'PENDING_ADMIN_REVIEW';
       })
       .sort((a, b) => a.date.localeCompare(b.date)); // Oldest first
-  }, [allRecords, employeeId, todayStr]);
+  }, [allRecords, employeeId]);
 
   const activeUnresolvedRecord = unresolvedPastRecords.length > 0 ? unresolvedPastRecords[0] : null;
 
