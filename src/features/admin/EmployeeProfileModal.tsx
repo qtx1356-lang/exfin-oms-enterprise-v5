@@ -11,12 +11,13 @@ import { collection, query, where, getDocs, doc, updateDoc, onSnapshot } from 'f
 import { ManagedUser } from '../../types/user';
 import { createAuditLog } from '../../services/audit/auditService';
 import { calculateLeaveBalance } from '../../services/leave/leaveService';
+import { getStoredLeaveConfig, getStoredEmployeeAllowances } from '../../services/leave/leaveStorage';
 
 interface EmployeeProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  employee: ManagedUser;
-  adminUser: { uid: string; email?: string; displayName?: string; role?: string };
+  employee?: ManagedUser | null;
+  adminUser?: { uid?: string; email?: string; displayName?: string; role?: string };
   onUpdate?: () => void;
 }
 
@@ -38,16 +39,19 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   const [loadingData, setLoadingData] = useState<boolean>(true);
 
   // Status and Device Action State
-  const [currentStatus, setCurrentStatus] = useState<string>(employee.status || 'Active');
-  const [deviceStatus, setDeviceStatus] = useState<string>(employee.status || employee.deviceStatus || 'Pending');
+  const [currentStatus, setCurrentStatus] = useState<string>(employee?.status || 'Active');
+  const [deviceStatus, setDeviceStatus] = useState<string>(employee?.status || (employee as any)?.deviceStatus || 'Pending');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const empCode = employee.employeeCode || employee.id;
-  const empId = employee.id;
+  const empCode = employee?.employeeCode || employee?.id || '';
+  const empId = employee?.id || '';
 
   useEffect(() => {
-    if (!isOpen || !db) return;
+    if (!isOpen || !db || !empCode) {
+      setLoadingData(false);
+      return;
+    }
     setLoadingData(true);
 
     const unsubAtt = onSnapshot(
@@ -55,6 +59,9 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       (snap) => {
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setAttendanceRecords(list);
+      },
+      (err) => {
+        console.warn('Attendance listener error in Profile Modal:', err);
       }
     );
 
@@ -63,6 +70,9 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       (snap) => {
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setTasks(list);
+      },
+      (err) => {
+        console.warn('Tasks listener error in Profile Modal:', err);
       }
     );
 
@@ -71,6 +81,9 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       (snap) => {
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setLeaves(list);
+      },
+      (err) => {
+        console.warn('Leaves listener error in Profile Modal:', err);
       }
     );
 
@@ -79,6 +92,9 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       (snap) => {
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setExpenses(list);
+      },
+      (err) => {
+        console.warn('Expenses listener error in Profile Modal:', err);
       }
     );
 
@@ -88,6 +104,10 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         list.sort((a: any, b: any) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
         setAuditLogs(list);
+        setLoadingData(false);
+      },
+      (err) => {
+        console.warn('Audit logs listener error in Profile Modal:', err);
         setLoadingData(false);
       }
     );
@@ -103,34 +123,69 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Compute Today Attendance
+  if (!employee) {
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+        <div className="bg-[#1F103F] border border-purple-500/30 rounded-3xl p-6 max-w-md w-full text-center space-y-4 shadow-2xl">
+          <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto" />
+          <h3 className="text-lg font-bold text-white">Profile Unavailable</h3>
+          <p className="text-xs text-purple-200">Profile information is temporarily unavailable.</p>
+          <Button onClick={onClose} className="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold">
+            Close
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const safeAttendance = Array.isArray(attendanceRecords) ? attendanceRecords : [];
+  const safeTasks = Array.isArray(tasks) ? tasks : [];
+  const safeLeaves = Array.isArray(leaves) ? leaves : [];
+  const safeExpenses = Array.isArray(expenses) ? expenses : [];
+  const safeAuditLogs = Array.isArray(auditLogs) ? auditLogs : [];
+
+  // Compute Today Attendance safely
   const todayStr = new Date().toISOString().split('T')[0];
-  const todayAttendance = attendanceRecords.find((r: any) => (r.date || '').includes(todayStr) || (r.timestamp || '').includes(todayStr));
+  const todayAttendance = safeAttendance.find(
+    (r: any) => r && ((r.date || '').includes(todayStr) || (r.timestamp || '').includes(todayStr) || (r.createdAtDeviceTime || '').includes(todayStr))
+  );
 
-  // Compute This Month Attendance Summary
+  // Compute This Month Attendance Summary safely
   const currentMonthPrefix = new Date().toISOString().slice(0, 7); // YYYY-MM
-  const monthAttendance = attendanceRecords.filter((r: any) => (r.date || r.timestamp || '').includes(currentMonthPrefix));
-  const presentCount = monthAttendance.filter((r: any) => r.status === 'Present' || r.type === 'Office').length;
-  const wfhCount = monthAttendance.filter((r: any) => r.type === 'WFH' || r.isWFH).length;
-  const clientVisitCount = monthAttendance.filter((r: any) => r.type === 'Client Visit' || r.isClientVisit).length;
-  const absentCount = monthAttendance.filter((r: any) => r.status === 'Absent').length;
-  const leaveCount = leaves.filter((l: any) => l.status === 'APPROVED' && (l.fromDate || '').includes(currentMonthPrefix)).length;
+  const monthAttendance = safeAttendance.filter(
+    (r: any) => r && ((r.date || r.timestamp || r.createdAtDeviceTime || '').includes(currentMonthPrefix))
+  );
+  const presentCount = monthAttendance.filter((r: any) => r && (r.status === 'Present' || r.type === 'Office')).length;
+  const wfhCount = monthAttendance.filter((r: any) => r && (r.type === 'WFH' || r.isWFH)).length;
+  const clientVisitCount = monthAttendance.filter((r: any) => r && (r.type === 'Client Visit' || r.isClientVisit)).length;
+  const absentCount = monthAttendance.filter((r: any) => r && r.status === 'Absent').length;
+  const leaveCount = safeLeaves.filter(
+    (l: any) => l && l.status === 'APPROVED' && (l.fromDate || l.startDate || '').includes(currentMonthPrefix)
+  ).length;
 
-  // Task Summary
-  const assignedTasksCount = tasks.length;
-  const completedTasksCount = tasks.filter((t: any) => t.status === 'Completed' || t.completed).length;
-  const pendingTasksCount = tasks.filter((t: any) => t.status === 'Pending' || t.status === 'In Progress' || !t.completed).length;
-  const overdueTasksCount = tasks.filter((t: any) => {
-    if (t.completed || t.status === 'Completed') return false;
+  // Task Summary safely
+  const assignedTasksCount = safeTasks.length;
+  const completedTasksCount = safeTasks.filter((t: any) => t && (t.status === 'Completed' || t.completed)).length;
+  const pendingTasksCount = safeTasks.filter((t: any) => t && (t.status === 'Pending' || t.status === 'In Progress' || !t.completed)).length;
+  const overdueTasksCount = safeTasks.filter((t: any) => {
+    if (!t || t.completed || t.status === 'Completed') return false;
     if (!t.dueDate) return false;
     return new Date(t.dueDate).getTime() < Date.now();
   }).length;
 
-  // Leave Balance (April 1 – March 31 leave year)
-  const leaveBal = calculateLeaveBalance(empId, employee.office || 'Raniganj', leaves, undefined, undefined);
+  // Leave Balance (April 1 – March 31 leave year) with stored fallbacks
+  const storedConfig = getStoredLeaveConfig();
+  const storedAllowances = getStoredEmployeeAllowances();
+  const leaveBal = calculateLeaveBalance(
+    empId,
+    employee.office || employee.department || 'Raniganj',
+    safeLeaves,
+    storedConfig,
+    storedAllowances
+  );
 
-  // Last Sync Time formatting
-  const lastSyncIso = employee.lastSyncTime || employee.lastSeen || employee.updatedAt;
+  // Last Sync Time formatting safely
+  const lastSyncIso = employee.lastSyncTime || (employee as any).lastSeen || employee.updatedAt;
   const lastSyncFormatted = lastSyncIso ? new Date(lastSyncIso).toLocaleString('en-IN', {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true
   }) + ' IST' : 'Never synced';

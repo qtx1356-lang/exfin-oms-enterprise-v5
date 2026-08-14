@@ -203,6 +203,22 @@ export const ProfileScreen: React.FC = () => {
     );
   }
 
+  if (!profile && !employeeData) {
+    return (
+      <div className="py-16 text-center space-y-4 max-w-md mx-auto">
+        <div className="p-4 bg-[#2D1B5A] rounded-2xl border border-purple-500/20 text-white space-y-3 shadow-lg">
+          <p className="text-sm font-bold text-purple-200">Profile information is temporarily unavailable.</p>
+          <Button
+            onClick={() => window.location.reload()}
+            className="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold py-2 rounded-xl"
+          >
+            Retry / Refresh
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-24 max-w-4xl mx-auto">
       {/* 1. Header Card */}

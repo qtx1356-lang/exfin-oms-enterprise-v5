@@ -70,8 +70,10 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   }, [user]);
 
   // List of candidate Team Leaders (excluding the user being edited)
-  const candidateTeamLeaders = allUsers.filter(
+  const safeAllUsers = Array.isArray(allUsers) ? allUsers : [];
+  const candidateTeamLeaders = safeAllUsers.filter(
     (u) =>
+      u &&
       u.id !== user?.id &&
       u.status === 'Approved' &&
       (u.isTeamLeader || u.role === 'TEAM_LEADER')
@@ -102,7 +104,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
 
     setIsSaving(true);
     try {
-      const selectedTl = candidateTeamLeaders.find((tl) => tl.id === formData.assignedTeamLeaderId);
+      const selectedTl = candidateTeamLeaders.find((tl) => tl && tl.id === formData.assignedTeamLeaderId);
 
       const payload: Record<string, any> = {
         name: formData.name.trim(),

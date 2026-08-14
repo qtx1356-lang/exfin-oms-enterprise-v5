@@ -94,30 +94,36 @@ export const checkLeaveOverlap = (
 // 3. Balance calculations
 export const calculateLeaveBalance = (
   employeeId: string,
-  department: string,
-  allLeaves: LeaveRecord[],
-  config: LeaveConfig,
-  employeeAllowances: EmployeeAllowance[]
+  department: string = '',
+  allLeaves: LeaveRecord[] = [],
+  config?: LeaveConfig | null,
+  employeeAllowances?: EmployeeAllowance[] | null
 ): LeaveBalance => {
-  // Find custom allowance
-  const empOverride = employeeAllowances.find((a) => a.id === employeeId || a.employeeId === employeeId);
-  let annualAllowance = config.defaultAnnualAllowance;
+  const safeLeaves = Array.isArray(allLeaves) ? allLeaves : [];
+  const safeAllowances = Array.isArray(employeeAllowances) ? employeeAllowances : getStoredEmployeeAllowances();
+  const safeConfig = config || getStoredLeaveConfig();
 
-  if (empOverride) {
+  // Find custom allowance safely
+  const empOverride = (safeAllowances || []).find(
+    (a) => a && (a.id === employeeId || a.employeeId === employeeId || (a.employeeCode && a.employeeCode === employeeId))
+  );
+  let annualAllowance = safeConfig?.defaultAnnualAllowance ?? 24;
+
+  if (empOverride && typeof empOverride.allowance === 'number') {
     annualAllowance = empOverride.allowance;
-  } else if (config.departmentAllowances && config.departmentAllowances[department] !== undefined) {
-    annualAllowance = config.departmentAllowances[department];
+  } else if (safeConfig?.departmentAllowances && department && safeConfig.departmentAllowances[department] !== undefined) {
+    annualAllowance = safeConfig.departmentAllowances[department];
   }
 
-  // Calculate used and pending days
-  const empLeaves = allLeaves.filter((l) => l.employeeId === employeeId);
+  // Calculate used and pending days safely
+  const empLeaves = safeLeaves.filter((l) => l && (l.employeeId === employeeId || l.employeeCode === employeeId));
   const used = empLeaves
-    .filter((l) => l.status === 'APPROVED')
-    .reduce((sum, l) => sum + l.totalDays, 0);
+    .filter((l) => l && l.status === 'APPROVED')
+    .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
 
   const pending = empLeaves
-    .filter((l) => l.status === 'PENDING')
-    .reduce((sum, l) => sum + l.totalDays, 0);
+    .filter((l) => l && l.status === 'PENDING')
+    .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
 
   const available = annualAllowance - used - pending;
 
@@ -127,10 +133,10 @@ export const calculateLeaveBalance = (
   const employeeName = firstLeave?.employeeName || '';
 
   return {
-    employeeId,
+    employeeId: employeeId || '',
     employeeCode,
     employeeName,
-    department,
+    department: department || '',
     annualAllowance,
     used,
     pending,
