@@ -18,6 +18,12 @@ import {
   logSyncServerConfirm,
   logSyncComplete,
 } from '../sync/syncPerformanceLogger';
+import {
+  trackResourceCreated,
+  trackResourceCleaned,
+} from '../monitoring/performanceDiagnostics';
+
+let isAttendanceSyncInProgress = false;
 
 function sanitizeFirestorePayload<T extends Record<string, any>>(obj: T): T {
   const clean: Record<string, any> = {};
@@ -39,10 +45,21 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
     return { syncedCount: 0, errorsCount: 0 };
   }
 
+  if (isAttendanceSyncInProgress) {
+    console.log('Sync Engine: Attendance sync already running, skipping overlapping execution.');
+    return { syncedCount: 0, errorsCount: 0 };
+  }
+
   if (!db) {
     console.warn('Sync Engine: Firestore db instance unavailable.');
     return { syncedCount: 0, errorsCount: 0 };
   }
+
+  isAttendanceSyncInProgress = true;
+  let syncedCount = 0;
+  let errorsCount = 0;
+
+  try {
 
   // 1. Sync Pending Events Queue first
   const pendingEvents = getPendingEventsFromQueue();
@@ -136,6 +153,9 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
       }
     }
   }
+  } finally {
+    isAttendanceSyncInProgress = false;
+  }
 
   return { syncedCount, errorsCount };
 };
@@ -153,6 +173,9 @@ export const startAutoSyncEngine = (): (() => void) => {
     }
   };
 
+  const onlineListenerId = `att_autosync_online_${Date.now()}`;
+  trackResourceCreated('ONLINE_LISTENER', onlineListenerId, 'attendance_autosync');
+
   window.addEventListener('online', handleOnline);
   document.addEventListener('visibilitychange', handleVisibility);
 
@@ -161,6 +184,7 @@ export const startAutoSyncEngine = (): (() => void) => {
   }
 
   return () => {
+    trackResourceCleaned('ONLINE_LISTENER', onlineListenerId);
     window.removeEventListener('online', handleOnline);
     document.removeEventListener('visibilitychange', handleVisibility);
   };

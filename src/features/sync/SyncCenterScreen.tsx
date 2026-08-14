@@ -55,8 +55,23 @@ export const SyncCenterScreen: React.FC = () => {
 
   useEffect(() => {
     refreshData();
-    const timer = setInterval(refreshData, 5000);
-    return () => clearInterval(timer);
+    const handleSyncEvent = () => refreshData();
+    const handleOnlineStatus = () => refreshData();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') refreshData();
+    };
+
+    window.addEventListener('exfin-sync-summary-updated', handleSyncEvent);
+    window.addEventListener('online', handleOnlineStatus);
+    window.addEventListener('offline', handleOnlineStatus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('exfin-sync-summary-updated', handleSyncEvent);
+      window.removeEventListener('online', handleOnlineStatus);
+      window.removeEventListener('offline', handleOnlineStatus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   const handleRetryOne = async (record: SyncRecordItem) => {

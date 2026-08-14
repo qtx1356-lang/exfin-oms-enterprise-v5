@@ -11,6 +11,10 @@ import {
   requestBackgroundLocationPermission 
 } from '../services/attendance/backgroundAttendanceManager';
 import { getTodayAttendanceRecord } from '../services/attendance/attendanceStorage';
+import {
+  trackResourceCreated,
+  trackResourceCleaned,
+} from '../services/monitoring/performanceDiagnostics';
 
 export interface LocationContextType {
   liveLocation: { latitude: number; longitude: number } | null;
@@ -141,6 +145,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [locationState, setLocationState] = useState<'UNKNOWN' | 'LOCATING' | 'INSIDE_OFFICE' | 'OUTSIDE_OFFICE' | 'STALE_LOCATION'>('UNKNOWN');
   const [activeAttendanceMode, setActiveAttendanceMode] = useState<boolean>(false);
   const [locationTimestamp, setLocationTimestamp] = useState<number | null>(null);
+  const locationTimestampRef = useRef<number | null>(null);
 
   const watchIdRef = useRef<string | number | null>(null);
   const lastGeocodedCoordsRef = useRef<{ lat: number; lon: number; time: number } | null>(null);
@@ -430,6 +435,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     setLiveLocation({ latitude, longitude });
     setLocationTimestamp(fixTime);
+    locationTimestampRef.current = fixTime;
 
     const calculatedDistance = getDistanceFromLatLonInM(
       latitude,
@@ -518,7 +524,9 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setErrorMessage('');
 
     if (watchIdRef.current !== null) {
-      console.log('LOCATION_LISTENER_STOPPED', watchIdRef.current);
+      const oldId = String(watchIdRef.current);
+      console.log('LOCATION_WATCH_STOPPED', oldId);
+      trackResourceCleaned('LOCATION_WATCH', oldId);
       if (typeof watchIdRef.current === 'string') {
         Geolocation.clearWatch({ id: watchIdRef.current });
       } else {
@@ -536,7 +544,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       }
 
-      watchIdRef.current = await Geolocation.watchPosition(
+      const id = await Geolocation.watchPosition(
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
         (position, err) => {
           if (err || !position || !position.coords) {
@@ -549,14 +557,17 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           processPosition(position.coords.latitude, position.coords.longitude, position.coords.accuracy, position.timestamp);
         }
       );
-      console.log('LOCATION_LISTENER_STARTED', watchIdRef.current);
+      watchIdRef.current = id;
+      const watchStr = String(id);
+      console.log('LOCATION_WATCH_STARTED', watchStr);
+      trackResourceCreated('LOCATION_WATCH', watchStr, 'capacitor_geolocation');
     } catch (err) {
       if (!navigator.geolocation) {
         handleError({ code: 2, message: 'Geolocation is not supported.' });
         return;
       }
 
-      watchIdRef.current = navigator.geolocation.watchPosition(
+      const navId = navigator.geolocation.watchPosition(
         (position) => {
           clearErrors();
           processPosition(position.coords.latitude, position.coords.longitude, position.coords.accuracy, position.timestamp);
@@ -566,7 +577,10 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
-      console.log('LOCATION_LISTENER_STARTED', watchIdRef.current);
+      watchIdRef.current = navId;
+      const navStr = String(navId);
+      console.log('LOCATION_WATCH_STARTED', navStr);
+      trackResourceCreated('LOCATION_WATCH', navStr, 'navigator_geolocation');
     }
   };
 
@@ -583,7 +597,9 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } else {
       // Deactivate active tracking
       if (watchIdRef.current !== null) {
-        console.log('LOCATION_LISTENER_STOPPED', watchIdRef.current);
+        const watchStr = String(watchIdRef.current);
+        console.log('LOCATION_WATCH_STOPPED', watchStr);
+        trackResourceCleaned('LOCATION_WATCH', watchStr);
         if (typeof watchIdRef.current === 'string') {
           try { Geolocation.clearWatch({ id: watchIdRef.current }); } catch (e) {}
         } else {
@@ -594,6 +610,20 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       clearErrors();
       setLocationStatus('success');
     }
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        const watchStr = String(watchIdRef.current);
+        console.log('LOCATION_WATCH_STOPPED', watchStr);
+        trackResourceCleaned('LOCATION_WATCH', watchStr);
+        if (typeof watchIdRef.current === 'string') {
+          try { Geolocation.clearWatch({ id: watchIdRef.current }); } catch (e) {}
+        } else {
+          try { navigator.geolocation.clearWatch(watchIdRef.current); } catch (e) {}
+        }
+        watchIdRef.current = null;
+      }
+    };
   }, [activeAttendanceMode]);
 
   // Fallback Location Health Monitoring Engine
@@ -608,12 +638,14 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     let isRunning = true;
+    const timerId = `loc_health_${Date.now()}`;
+    trackResourceCreated('SYNC_TIMER', timerId, 'location_health_monitor');
 
     const checkLocationHealth = async () => {
       if (!isRunning) return;
 
       const now = Date.now();
-      const lastFixTime = locationTimestamp || 0;
+      const lastFixTime = locationTimestampRef.current || 0;
       const lastFixAge = now - lastFixTime;
 
       // Only invoke fallback query if watchPosition has been silent for more than 20 seconds
@@ -642,12 +674,13 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     return () => {
       isRunning = false;
+      trackResourceCleaned('SYNC_TIMER', timerId);
       if (adaptiveTimerRef.current) {
         clearTimeout(adaptiveTimerRef.current);
         adaptiveTimerRef.current = null;
       }
     };
-  }, [activeAttendanceMode, locationTimestamp]);
+  }, [activeAttendanceMode]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -663,6 +696,11 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const handleOffline = () => {
       setCurrentAddress('Offline');
     };
+
+    const onlineListenerId = 'location_online_listener';
+    const offlineListenerId = 'location_offline_listener';
+    trackResourceCreated('ONLINE_LISTENER', onlineListenerId);
+    trackResourceCreated('OFFLINE_LISTENER', offlineListenerId);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -688,6 +726,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     return () => {
+      trackResourceCleaned('ONLINE_LISTENER', onlineListenerId);
+      trackResourceCleaned('OFFLINE_LISTENER', offlineListenerId);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       if (appStateListener && typeof appStateListener.remove === 'function') {

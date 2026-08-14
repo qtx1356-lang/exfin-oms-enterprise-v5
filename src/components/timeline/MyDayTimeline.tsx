@@ -103,16 +103,25 @@ export const MyDayTimeline: React.FC = () => {
   React.useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTimeTick(Date.now());
-    }, 30000);
-    return () => clearInterval(interval);
+    }, 60000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        setCurrentTimeTick(Date.now());
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   // Compute Today's events dynamically & reactively
   const { events, currentStatus } = useMemo(() => {
     const now = new Date();
     const todayKolkataYmd = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-
-    console.log('TIMELINE RE-EVALUATION AT:', now.toISOString(), 'KOLKATA DATE IS:', todayKolkataYmd);
 
     // 1. Fetch Today's Attendance for current employee
     const allAttendance = realtimeSync?.attendance?.length ? realtimeSync.attendance : getStoredAttendanceRecords();

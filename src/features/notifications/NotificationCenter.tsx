@@ -85,18 +85,33 @@ export const NotificationCenter: React.FC = () => {
     }
   };
 
+  const userId = adminUser?.uid || employeeData?.employeeCode || employeeData?.id;
+
   useEffect(() => {
     if (realtimeSync) {
       setLoading(false);
       return;
     }
     loadNotifications();
-    // Refresh periodically if on-screen and not using real-time sync
-    const interval = setInterval(() => {
+
+    const handleUpdate = () => {
       loadNotifications();
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [employeeData, adminUser, realtimeSync]);
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadNotifications();
+      }
+    };
+
+    window.addEventListener('exfin-notifications-updated', handleUpdate);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('exfin-notifications-updated', handleUpdate);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [userId, realtimeSync]);
 
   const handleMarkAllRead = async () => {
     if (!currentUser) return;

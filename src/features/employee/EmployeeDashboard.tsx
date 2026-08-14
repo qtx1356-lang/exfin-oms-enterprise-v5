@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
@@ -181,16 +181,34 @@ export const EmployeeDashboard: React.FC = () => {
   const [todayStr, setTodayStr] = useState<string>(getFormattedDateStr());
 
   // Periodically verify if the IST date has changed (midnight rollover)
+  const todayStrRef = useRef<string>(todayStr);
   useEffect(() => {
-    const interval = setInterval(() => {
+    todayStrRef.current = todayStr;
+  }, [todayStr]);
+
+  useEffect(() => {
+    const checkDateRollover = () => {
       const nowStr = getFormattedDateStr();
-      if (nowStr !== todayStr) {
-        console.log('IST date changed from', todayStr, 'to', nowStr);
+      if (nowStr !== todayStrRef.current) {
+        console.log('IST date changed from', todayStrRef.current, 'to', nowStr);
+        todayStrRef.current = nowStr;
         setTodayStr(nowStr);
       }
-    }, 15000); // Check every 15s for high precision
-    return () => clearInterval(interval);
-  }, [todayStr]);
+    };
+
+    const interval = setInterval(checkDateRollover, 60000);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkDateRollover();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);

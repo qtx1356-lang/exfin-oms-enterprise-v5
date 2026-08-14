@@ -20,6 +20,7 @@ import { Button } from '../../components/ui/Button';
 import { APP_VERSION, SERVICE_WORKER_VERSION } from '../../config/version';
 import { getSyncSummary } from '../../services/sync/syncFailureService';
 import { getRecentErrors, getLastError, clearErrorLogs, ErrorLogEntry } from '../../services/monitoring/errorLogger';
+import { getResourceSnapshot, ResourceSnapshot } from '../../services/monitoring/performanceDiagnostics';
 import { SyncSummary } from '../../types/sync';
 import { db } from '../../services/firebase/config';
 import { usePermission } from '../../context/PermissionContext';
@@ -36,6 +37,7 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
   const [summary, setSummary] = useState<SyncSummary>(getSyncSummary());
   const [lastErr, setLastErr] = useState<ErrorLogEntry | null>(getLastError());
   const [allErrors, setAllErrors] = useState<ErrorLogEntry[]>(getRecentErrors());
+  const [resources, setResources] = useState<ResourceSnapshot>(getResourceSnapshot());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const refreshHealth = () => {
@@ -43,6 +45,7 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
     setSummary(getSyncSummary());
     setLastErr(getLastError());
     setAllErrors(getRecentErrors());
+    setResources(getResourceSnapshot());
     setTimeout(() => setIsRefreshing(false), 400);
   };
 
@@ -212,6 +215,42 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
                 </div>
               );
             })}
+          </div>
+
+          {/* Resource Lifecycle & Anti-Leak Diagnostics */}
+          <div className="p-5 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px] space-y-4 shadow-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-purple-200 flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-emerald-400" /> Resource Lifecycle & Memory Diagnostics
+                </h4>
+                <p className="text-[11px] text-purple-300/70">
+                  Real-time active listener, timer, and sync-lock monitoring.
+                </p>
+              </div>
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${resources.isSyncEngineLocked ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'}`}>
+                {resources.isSyncEngineLocked ? 'Sync Active' : 'Idle & Healthy'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 bg-[#211044] border border-purple-500/15 rounded-xl text-center">
+                <span className="text-[10px] font-bold text-purple-300/70 block uppercase">Active Watchers</span>
+                <span className="text-lg font-black text-purple-200">{resources.locationWatchers}</span>
+              </div>
+              <div className="p-3 bg-[#211044] border border-purple-500/15 rounded-xl text-center">
+                <span className="text-[10px] font-bold text-purple-300/70 block uppercase">Network Listeners</span>
+                <span className="text-lg font-black text-purple-200">{resources.onlineListeners + resources.offlineListeners}</span>
+              </div>
+              <div className="p-3 bg-[#211044] border border-purple-500/15 rounded-xl text-center">
+                <span className="text-[10px] font-bold text-purple-300/70 block uppercase">Active Timers</span>
+                <span className="text-lg font-black text-purple-200">{resources.syncTimers}</span>
+              </div>
+              <div className="p-3 bg-[#211044] border border-purple-500/15 rounded-xl text-center">
+                <span className="text-[10px] font-bold text-purple-300/70 block uppercase">Sync Concurrency</span>
+                <span className="text-lg font-black text-purple-200">{resources.isSyncEngineLocked ? '1 (Locked)' : '0 (Unlocked)'}</span>
+              </div>
+            </div>
           </div>
 
           {/* Error Logs Telemetry */}

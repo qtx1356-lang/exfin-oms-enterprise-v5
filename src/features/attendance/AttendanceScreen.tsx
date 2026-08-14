@@ -68,6 +68,10 @@ import {
   startAutoSyncEngine,
   syncPendingAttendanceRecords
 } from '../../services/attendance/syncEngine';
+import {
+  trackResourceCreated,
+  trackResourceCleaned,
+} from '../../services/monitoring/performanceDiagnostics';
 import { TodayAttendanceCard } from './TodayAttendanceCard';
 import { AttendanceCalendar } from './AttendanceCalendar';
 
@@ -271,6 +275,11 @@ export const AttendanceScreen: React.FC = () => {
     }
   };
 
+  const liveLocationRef = useRef(liveLocation);
+  useEffect(() => {
+    liveLocationRef.current = liveLocation;
+  }, [liveLocation]);
+
   useEffect(() => {
     refreshRecords();
 
@@ -278,13 +287,21 @@ export const AttendanceScreen: React.FC = () => {
     const stopSync = startAutoSyncEngine();
 
     const handleOnlineStatus = () => setIsOnline(navigator.onLine);
+    const onlineListenerId = 'attendance_screen_online';
+    const offlineListenerId = 'attendance_screen_offline';
+    const timerId = `attendance_auto_checkout_${Date.now()}`;
+
+    trackResourceCreated('ONLINE_LISTENER', onlineListenerId);
+    trackResourceCreated('OFFLINE_LISTENER', offlineListenerId);
+    trackResourceCreated('SYNC_TIMER', timerId, 'attendance_screen_auto_checkout');
+
     window.addEventListener('online', handleOnlineStatus);
     window.addEventListener('offline', handleOnlineStatus);
 
     // Periodic check for auto-checkout (at 11:59 PM) and reminders
     const periodicCheckTimer = setInterval(() => {
       if (employeeId) {
-        const autoCheckedOut = checkAndTriggerAutoCheckout(employeeId, liveLocation || undefined);
+        const autoCheckedOut = checkAndTriggerAutoCheckout(employeeId, liveLocationRef.current || undefined);
         if (autoCheckedOut) {
           refreshRecords();
           setActionFeedback(`Auto System Checkout triggered (Reason: ${autoCheckedOut.reason})`);
@@ -294,6 +311,9 @@ export const AttendanceScreen: React.FC = () => {
 
     return () => {
       stopSync();
+      trackResourceCleaned('ONLINE_LISTENER', onlineListenerId);
+      trackResourceCleaned('OFFLINE_LISTENER', offlineListenerId);
+      trackResourceCleaned('SYNC_TIMER', timerId);
       window.removeEventListener('online', handleOnlineStatus);
       window.removeEventListener('offline', handleOnlineStatus);
       clearInterval(periodicCheckTimer);
