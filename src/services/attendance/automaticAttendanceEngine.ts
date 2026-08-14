@@ -161,18 +161,47 @@ export const AutomaticAttendanceEngine = {
         );
       }
 
-      if (currentState === 'PENDING_FINAL_EXIT' && isInside) {
-        // RETURN DETECTED: PENDING_FINAL_EXIT -> CHECKED_IN
-        logAttendanceEvent('RETURN_DETECTED', employeeId, `Returned to office geofence (${Math.round(distance)}m). Cancelling pending exit.`);
-        return this.transitionState(
-          employeeId,
-          employeeName,
-          { latitude, longitude },
-          townCity,
-          'GEOFENCE_RETURN',
-          'AUTO_GEOFENCE',
-          timestamp
-        );
+      if (currentState === 'PENDING_FINAL_EXIT') {
+        if (distance <= 23) {
+          let currentCount = 0;
+          try {
+            const countKey = `consecutive_return_${employeeId}_${dateStr}`;
+            currentCount = parseInt(localStorage.getItem(countKey) || '0', 10);
+            const newCount = currentCount + 1;
+            localStorage.setItem(countKey, String(newCount));
+            
+            if (newCount >= 3) {
+              localStorage.removeItem(countKey);
+              logAttendanceEvent('RETURN_DETECTED', employeeId, `Returned to office geofence stably (${Math.round(distance)}m) after 3 consecutive readings. Cancelling pending exit.`);
+              return this.transitionState(
+                employeeId,
+                employeeName,
+                { latitude, longitude },
+                townCity,
+                'GEOFENCE_RETURN',
+                'AUTO_GEOFENCE',
+                timestamp
+              );
+            } else {
+              console.log(`[AttendanceEngine] Return candidate detected at ${Math.round(distance)}m (count: ${newCount}/3). Preserving exit candidate.`);
+            }
+          } catch (e) {
+            logAttendanceEvent('RETURN_DETECTED', employeeId, `Returned to office geofence (${Math.round(distance)}m). Cancelling pending exit.`);
+            return this.transitionState(
+              employeeId,
+              employeeName,
+              { latitude, longitude },
+              townCity,
+              'GEOFENCE_RETURN',
+              'AUTO_GEOFENCE',
+              timestamp
+            );
+          }
+        } else {
+          try {
+            localStorage.removeItem(`consecutive_return_${employeeId}_${dateStr}`);
+          } catch (e) {}
+        }
       }
     }
 

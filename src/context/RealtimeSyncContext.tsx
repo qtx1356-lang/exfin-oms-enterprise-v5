@@ -253,10 +253,30 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                 const localUpdated = localRec.updatedAt ? new Date(localRec.updatedAt).getTime() : 0;
                 const serverVersion = sa.version || 0;
                 const localVersion = localRec.version || 0;
-                const serverRectified = sa.manualRectified || sa.isAdminRectified || !!sa.correctedAt;
-                const localRectified = localRec.manualRectified || localRec.isAdminRectified || !!localRec.correctedAt;
+                const serverRectified = sa.manualRectified || sa.isAdminRectified || !!sa.correctedAt || sa.checkOutMode === 'MANUAL' || sa.checkoutType === 'MANUAL';
+                const localRectified = localRec.manualRectified || localRec.isAdminRectified || !!localRec.correctedAt || localRec.checkOutMode === 'MANUAL' || localRec.checkoutType === 'MANUAL';
 
-                if (localPending && !serverRectified) {
+                // Check for Server 11:59 PM EOD Fallback vs Local Precise Exit Candidate
+                const isServerEodFallback = 
+                  sa.checkOutTime === '11:59 PM' && 
+                  (sa.checkoutType === 'End-of-Day Settlement' || sa.checkOutMode === 'AUTO_SYSTEM' || !serverRectified);
+
+                const hasLocalPreciseExit = 
+                  !!(localRec.lastExitTime || localRec.exitTime || (localRec.checkOutTime && localRec.checkOutTime !== '11:59 PM'));
+
+                if (isServerEodFallback && hasLocalPreciseExit && !serverRectified) {
+                  syncDecision = 'LOCAL_PRECISE_EXIT_WINS';
+                  finalRec = {
+                    ...sa,
+                    currentState: localRec.currentState || 'PENDING_FINAL_EXIT',
+                    lastExitTime: localRec.lastExitTime || sa.lastExitTime,
+                    exitTime: localRec.exitTime || sa.exitTime,
+                    checkOutTime: (localRec.checkOutTime && localRec.checkOutTime !== '11:59 PM') ? localRec.checkOutTime : sa.checkOutTime,
+                    checkOutMode: (localRec.checkOutTime && localRec.checkOutTime !== '11:59 PM') ? localRec.checkOutMode : sa.checkOutMode,
+                    checkoutType: (localRec.checkOutTime && localRec.checkOutTime !== '11:59 PM') ? localRec.checkoutType : sa.checkoutType,
+                    syncStatus: 'Pending' // Keep it pending so the local precise candidate is synced back to the server
+                  };
+                } else if (localPending && !serverRectified) {
                   syncDecision = 'LOCAL_PENDING';
                   finalRec = localRec;
                 } else if (serverRectified || serverUpdated > localUpdated || serverVersion > localVersion || !localRectified) {
