@@ -7,6 +7,7 @@ import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { logStartupTag } from '../startup/startupPerformanceLogger';
 import { registerNativeOfficeGeofence, initNativeGeofenceListener, reconcileNativeGeofenceEvents } from './nativeGeofenceBridge';
+import { isMedianApp, initializeMedianBackgroundLocation, startMedianBackgroundLocation } from './medianBackgroundLocation';
 
 const GEOFENCE_REGISTERED_KEY = 'exfin_office_geofence_25m';
 
@@ -136,6 +137,13 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
   ensureOfficeGeofenceRegistered();
   registerNativeOfficeGeofence();
 
+  // If running inside Median native app, start Median Background Location
+  let cleanupMedian: (() => void) | null = null;
+  if (isMedianApp()) {
+    logStartupTag('MEDIAN_INIT', 'Initializing Median native background location');
+    cleanupMedian = initializeMedianBackgroundLocation(getEmployeeInfo);
+  }
+
   // Run initial end-of-day finalizer check
   runAutoCheckoutFinalizer();
 
@@ -160,6 +168,9 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
       const info = getEmployeeInfo();
       if (info?.id) {
         reconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ');
+        if (isMedianApp()) {
+          startMedianBackgroundLocation(getEmployeeInfo);
+        }
       }
 
       if (navigator.onLine) {
@@ -178,6 +189,7 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
   return () => {
     clearInterval(intervalId);
     if (cleanupNativeListener) cleanupNativeListener();
+    if (cleanupMedian) cleanupMedian();
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     window.removeEventListener('online', syncPendingAttendanceRecords);
   };
