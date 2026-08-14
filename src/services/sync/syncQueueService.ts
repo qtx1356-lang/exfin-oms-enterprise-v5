@@ -1,4 +1,10 @@
 import { SyncModule } from '../../types/sync';
+import { 
+  saveOfflineOperationToDB, 
+  removeOfflineOperationFromDB, 
+  updateOfflineOperationStatusInDB,
+  OfflineOperation 
+} from '../storage/indexedDBService';
 
 export type { SyncModule };
 
@@ -87,6 +93,21 @@ export const recordSyncFailure = (
   }
 
   saveDeadLetterQueue(queue);
+
+  // Asynchronously persist to IndexedDB
+  saveOfflineOperationToDB({
+    id: itemId,
+    operationType: module,
+    createdAt: item.lastAttemptAt,
+    createdAtDeviceTime: item.createdAtDeviceTime || item.lastAttemptAt,
+    employeeCode: employeeId,
+    payload,
+    status: item.status,
+    retryCount: attemptCount,
+    lastAttemptAt: item.lastAttemptAt,
+    lastError: reason,
+  }).catch(() => {});
+
   return item;
 };
 
@@ -95,6 +116,7 @@ export const recordSyncSuccess = (module: SyncModule, recordId: string): void =>
   const itemId = `${module}_${recordId}`;
   const filtered = queue.filter((i) => i.id !== itemId);
   saveDeadLetterQueue(filtered);
+  removeOfflineOperationFromDB(itemId).catch(() => {});
 };
 
 export const retryDeadLetterItem = (id: string): void => {
@@ -105,6 +127,7 @@ export const retryDeadLetterItem = (id: string): void => {
     item.status = 'pending';
     item.nextRetryAt = new Date().toISOString();
     saveDeadLetterQueue(queue);
+    updateOfflineOperationStatusInDB(id, 'pending').catch(() => {});
   }
 };
 
@@ -112,6 +135,7 @@ export const removeDeadLetterItem = (id: string): void => {
   const queue = getDeadLetterQueue();
   const filtered = queue.filter((i) => i.id !== id);
   saveDeadLetterQueue(filtered);
+  removeOfflineOperationFromDB(id).catch(() => {});
 };
 
 export const clearDeadLetterQueue = (): void => {

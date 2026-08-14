@@ -133,13 +133,52 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const savedRegId = localStorage.getItem('registrationId');
         
         if (savedRegId) {
-          // Verify saved registration
+          // Pre-populate with locally cached registration data if available
+          const cachedDataRaw = localStorage.getItem('cached_registration_data');
+          if (cachedDataRaw) {
+            try {
+              const cachedData = JSON.parse(cachedDataRaw);
+              if (cachedData && isMounted) {
+                setLocalRegId(savedRegId);
+                setEmployeeData(cachedData);
+                const regStatus = cachedData.status || 'Approved';
+                if (regStatus === 'Suspended' || regStatus === 'Blocked' || regStatus === 'INACTIVE') {
+                  setStatus('suspended_notice');
+                  setRejectionReason(cachedData.rejectionReason || `Account status is ${regStatus}.`);
+                } else if (regStatus === 'Rejected') {
+                  setStatus('Rejected');
+                } else {
+                  setStatus(regStatus === 'Approved' ? 'Approved' : regStatus);
+                }
+              }
+            } catch (e) {
+              console.warn('Failed to parse cached_registration_data:', e);
+            }
+          }
+
+          // If offline, preserve the local cached session without throwing network errors
+          if (!navigator.onLine) {
+            if (isMounted) {
+              setLocalRegId(savedRegId);
+              if (!cachedDataRaw) {
+                setStatus('Approved');
+              }
+            }
+            return;
+          }
+
+          // Verify saved registration with Firestore
           const regDocRef = doc(db, 'registrations', savedRegId);
           const regSnap = await getDoc(regDocRef);
           if (regSnap.exists()) {
             const data = regSnap.data();
             const regStatus = data.status || 'Pending Approval';
             
+            // Cache latest data
+            try {
+              localStorage.setItem('cached_registration_data', JSON.stringify({ ...data, id: savedRegId }));
+            } catch (e) {}
+
             // Check status restrictions
             if (regStatus === 'Rejected') {
               if (isMounted) {
@@ -175,6 +214,9 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               if (docSnap.exists()) {
                 const liveData = docSnap.data();
                 const liveStatus = liveData.status || 'Pending Approval';
+                try {
+                  localStorage.setItem('cached_registration_data', JSON.stringify({ ...liveData, id: savedRegId }));
+                } catch (e) {}
                 if (liveStatus === 'Suspended' || liveStatus === 'Blocked' || liveStatus === 'INACTIVE' || liveStatus === 'Rejected') {
                   setStatus('suspended_notice');
                   setRejectionReason(liveData.rejectionReason || `Account status is ${liveStatus}.`);
@@ -199,8 +241,24 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           setStatus('mobile_recovery');
         }
 
-      } catch (err) {
+      } catch (err: any) {
         console.error('Registration init error:', err);
+        // Fallback for offline / network timeout: preserve local session if registration ID exists
+        const savedRegId = localStorage.getItem('registrationId');
+        if (savedRegId && isMounted) {
+          setLocalRegId(savedRegId);
+          const cachedDataRaw = localStorage.getItem('cached_registration_data');
+          if (cachedDataRaw) {
+            try {
+              const cachedData = JSON.parse(cachedDataRaw);
+              setEmployeeData(cachedData);
+              setStatus(cachedData.status || 'Approved');
+              return;
+            } catch (e) {}
+          }
+          setStatus('Approved');
+          return;
+        }
         if (isMounted) setStatus('mobile_recovery');
       }
     };

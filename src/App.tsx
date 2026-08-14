@@ -7,6 +7,7 @@ import { RegistrationProvider } from './context/RegistrationContext';
 import { RealtimeSyncProvider } from './context/RealtimeSyncContext';
 import { PermissionProvider } from './context/PermissionContext';
 import { LocationProvider } from './context/LocationContext';
+import { ConnectivityIndicator } from './components/common/ConnectivityIndicator';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <RealtimeSyncProvider>
             <PermissionProvider>
               <LocationProvider>
+                <ConnectivityIndicator />
                 <AppRouter />
               </LocationProvider>
             </PermissionProvider>

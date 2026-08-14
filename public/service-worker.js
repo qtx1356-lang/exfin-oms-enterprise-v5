@@ -1,6 +1,6 @@
-const CACHE_NAME = 'exfin-v15';
+const CACHE_NAME = 'exfin-oms-shell-v16';
 
-// Assets to cache on install (critical shell assets)
+// Core Application Shell Assets
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -8,14 +8,13 @@ const PRECACHE_ASSETS = [
   '/favicon.ico',
 ];
 
-// Self-contained offline fallback page if the shell isn't in cache
-const OFFLINE_FALLBACK_HTML = `
-<!DOCTYPE html>
+// Fallback HTML if both network and cache are completely empty
+const OFFLINE_FALLBACK_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exfin OMS Offline</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EXFIN OMS — Offline</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -28,86 +27,143 @@ const OFFLINE_FALLBACK_HTML = `
             background-color: #0f172a;
             color: #f8fafc;
             text-align: center;
-            padding: 20px;
+            padding: 24px;
+            box-sizing: border-box;
+        }
+        .card {
+            background-color: #1e293b;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 20px;
+            padding: 32px 24px;
+            max-width: 360px;
+            width: 100%;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
         }
         .icon {
-            font-size: 48px;
-            margin-bottom: 24px;
+            font-size: 44px;
+            margin-bottom: 16px;
         }
         h1 {
-            font-size: 24px;
-            margin-bottom: 12px;
-            font-weight: 600;
+            font-size: 20px;
+            margin: 0 0 10px;
+            font-weight: 700;
+            color: #ffffff;
         }
         p {
-            font-size: 16px;
+            font-size: 14px;
             color: #94a3b8;
-            max-width: 300px;
             line-height: 1.5;
+            margin: 0 0 24px;
         }
-        .retry-btn {
-            margin-top: 32px;
-            background-color: #8b5cf6;
-            color: white;
+        .btn {
+            background-color: #7c3aed;
+            color: #ffffff;
             border: none;
             padding: 12px 24px;
-            border-radius: 8px;
+            border-radius: 12px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: background-color 0.2s;
+            width: 100%;
         }
-        .retry-btn:hover {
-            background-color: #7c3aed;
+        .btn:active {
+            background-color: #6d28d9;
         }
     </style>
 </head>
 <body>
-    <div class="icon">📡</div>
-    <h1>Exfin OMS is temporarily offline.</h1>
-    <p>Please reconnect to the internet and try again. Your application data is safe.</p>
-    <button class="retry-btn" onclick="window.location.reload()">Retry Connection</button>
+    <div class="card">
+        <div class="icon">📡</div>
+        <h1>EXFIN OMS is offline</h1>
+        <p>Your session and data are safely saved on this device. Reconnect to sync with the server.</p>
+        <button class="btn" onclick="window.location.reload()">Retry Connection</button>
+    </div>
 </body>
-</html>
-`;
+</html>`;
 
+// Install Event: Precache Application Shell & Extract Bundle Assets
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('ServiceWorker: Pre-caching app shell');
-      return cache.addAll(PRECACHE_ASSETS);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      console.log('[SW] Pre-caching core application shell:', CACHE_NAME);
+      try {
+        await cache.addAll(PRECACHE_ASSETS);
+      } catch (err) {
+        console.warn('[SW] Initial precache addAll warning:', err);
+      }
+
+      // Pre-cache runtime bundle assets by fetching index.html and parsing script & link tags
+      try {
+        const response = await fetch('/index.html');
+        if (response && response.status === 200) {
+          const htmlText = await response.clone().text();
+          await cache.put('/index.html', response.clone());
+          await cache.put('/', response);
+
+          const assetUrls = new Set();
+          const scriptMatches = htmlText.matchAll(/src=["'](\/assets\/[^"']+)["']/g);
+          for (const match of scriptMatches) {
+            assetUrls.add(match[1]);
+          }
+          const cssMatches = htmlText.matchAll(/href=["'](\/assets\/[^"']+)["']/g);
+          for (const match of cssMatches) {
+            assetUrls.add(match[1]);
+          }
+
+          if (assetUrls.size > 0) {
+            console.log(`[SW] Pre-caching ${assetUrls.size} discovered bundle assets`);
+            await Promise.allSettled(
+              Array.from(assetUrls).map(async (url) => {
+                try {
+                  const assetRes = await fetch(url);
+                  if (assetRes && assetRes.status === 200) {
+                    await cache.put(url, assetRes);
+                  }
+                } catch (e) {
+                  console.warn('[SW] Failed to precache asset:', url, e);
+                }
+              })
+            );
+          }
+        }
+      } catch (err) {
+        console.warn('[SW] Runtime asset discovery warning:', err);
+      }
     })
   );
 });
 
+// Activate Event: Clean up outdated shell caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName.startsWith('exfin-') && cacheName !== CACHE_NAME) {
-            console.log('ServiceWorker: Deleting old cache:', cacheName);
+          if ((cacheName.startsWith('exfin-') || cacheName.startsWith('exfin-oms-')) && cacheName !== CACHE_NAME) {
+            console.log('[SW] Deleting obsolete cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     }).then(() => {
-      console.log('ServiceWorker: Activated and claiming clients');
+      console.log('[SW] Activated & claiming clients for', CACHE_NAME);
       return self.clients.claim();
     })
   );
 });
 
+// Fetch Event: Routing & Caching Strategy
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  
+
   if (request.method !== 'GET') {
     return;
   }
 
   const url = new URL(request.url);
 
-  // Bypass for internal/dev requests
+  // Exclude internal dev requests
   if (
     url.pathname.startsWith('/src/') ||
     url.pathname.startsWith('/@') ||
@@ -117,7 +173,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // EXCLUSIONS (NEVER CACHE)
+  // EXCLUSIONS — NEVER CACHE SENSITIVE API / FIRESTORE / AUTH DATA
   if (
     url.pathname.includes('/api/') ||
     url.hostname.includes('firebase') ||
@@ -130,8 +186,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // NAVIGATION REQUESTS
-  if (request.mode === 'navigate') {
+  // NAVIGATION REQUESTS (SPA Routes: /, /attendance, /planner, /employee, etc.)
+  if (request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
     event.respondWith(
       fetch(request)
         .then((response) => {
@@ -139,17 +195,21 @@ self.addEventListener('fetch', (event) => {
             const responseToCache = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put('/index.html', responseToCache);
+              cache.put('/', responseToCache.clone());
             });
             return response;
           }
-          return caches.match('/index.html');
+          return caches.match('/index.html').then((cached) => cached || response);
         })
         .catch(() => {
           return caches.match('/index.html').then((cachedResponse) => {
             if (cachedResponse) return cachedResponse;
-            // If even the shell is missing, return the hardcoded fallback
-            return new Response(OFFLINE_FALLBACK_HTML, {
-              headers: { 'Content-Type': 'text/html' }
+            return caches.match('/').then((rootResponse) => {
+              if (rootResponse) return rootResponse;
+              return new Response(OFFLINE_FALLBACK_HTML, {
+                status: 200,
+                headers: { 'Content-Type': 'text/html; charset=utf-8' },
+              });
             });
           });
         })
@@ -157,8 +217,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // STATIC ASSETS
-  const isStaticAsset = 
+  // STATIC APPLICATION ASSETS (JS chunks, CSS, images, icons, fonts)
+  const isStaticAsset =
     url.pathname.startsWith('/assets/') ||
     url.pathname.startsWith('/images/') ||
     url.pathname.endsWith('.js') ||
@@ -168,7 +228,8 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.jpeg') ||
     url.pathname.endsWith('.svg') ||
     url.pathname.endsWith('.ico') ||
-    url.pathname.endsWith('.woff2');
+    url.pathname.endsWith('.woff2') ||
+    url.pathname === '/manifest.json';
 
   if (isStaticAsset) {
     event.respondWith(
@@ -179,7 +240,7 @@ self.addEventListener('fetch', (event) => {
 
         return fetch(request)
           .then((response) => {
-            if (!response || response.status !== 200 || response.type !== 'basic') {
+            if (!response || response.status !== 200) {
               return response;
             }
 
@@ -190,14 +251,17 @@ self.addEventListener('fetch', (event) => {
 
             return response;
           })
-          .catch(() => null);
+          .catch(() => {
+            // Return cached version if query parameter differences exist
+            return caches.match(url.pathname);
+          });
       })
     );
     return;
   }
 });
 
-// Push notification handling
+// Push Notification Handling
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   try {
@@ -205,8 +269,8 @@ self.addEventListener('push', (event) => {
     const title = payload.title || 'EXFIN OMS';
     const options = {
       body: payload.message || payload.body || '',
-      icon: '/manifest-icon-192.png',
-      badge: '/manifest-icon-192.png',
+      icon: '/manifest.json',
+      badge: '/manifest.json',
       data: {
         route: payload.route || '/notifications',
         id: payload.id,
@@ -215,7 +279,7 @@ self.addEventListener('push', (event) => {
     };
     event.waitUntil(self.registration.showNotification(title, options));
   } catch (err) {
-    console.error('Push error:', err);
+    console.error('[SW] Push notification error:', err);
   }
 });
 
@@ -233,4 +297,3 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
-

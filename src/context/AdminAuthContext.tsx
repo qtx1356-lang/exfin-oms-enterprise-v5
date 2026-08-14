@@ -33,6 +33,25 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u && db) {
+        // Check for cached admin profile for instant / offline boot
+        const cachedAdminRaw = localStorage.getItem(`cached_admin_profile_${u.uid}`);
+        if (cachedAdminRaw) {
+          try {
+            const cachedAdmin = JSON.parse(cachedAdminRaw);
+            if (cachedAdmin && cachedAdmin.role) {
+              setRole(cachedAdmin.role as AppRole);
+              setAuthorizedOffice(cachedAdmin.authorizedOffice || 'ALL');
+              setLoginId(cachedAdmin.loginId || '');
+              setAdminProfileError(null);
+            }
+          } catch (e) {}
+        }
+
+        if (!navigator.onLine) {
+          setLoading(false);
+          return;
+        }
+
         try {
           const adminDoc = await getDoc(doc(db, 'admin_users', u.uid));
 
@@ -46,6 +65,13 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               setAuthorizedOffice(data.authorizedOffice || 'ALL');
               setLoginId(data.loginId || '');
               setAdminProfileError(null);
+              try {
+                localStorage.setItem(`cached_admin_profile_${u.uid}`, JSON.stringify({
+                  role: userRole,
+                  authorizedOffice: data.authorizedOffice || 'ALL',
+                  loginId: data.loginId || '',
+                }));
+              } catch (e) {}
             } else if (!isActive) {
               setRole('EMPLOYEE');
               setAuthorizedOffice('');
@@ -66,6 +92,20 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           }
         } catch (err: any) {
           console.error("Error fetching admin role:", err);
+          // If offline or network error and we have cached admin role, preserve it
+          if (cachedAdminRaw) {
+            try {
+              const cachedAdmin = JSON.parse(cachedAdminRaw);
+              if (cachedAdmin && cachedAdmin.role) {
+                setRole(cachedAdmin.role as AppRole);
+                setAuthorizedOffice(cachedAdmin.authorizedOffice || 'ALL');
+                setLoginId(cachedAdmin.loginId || '');
+                setAdminProfileError(null);
+                setLoading(false);
+                return;
+              }
+            } catch (e) {}
+          }
           setRole('EMPLOYEE');
           setAuthorizedOffice('');
           setAdminProfileError('Error validating Admin profile: ' + (err.message || 'Unknown error'));

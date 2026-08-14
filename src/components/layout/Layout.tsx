@@ -306,7 +306,6 @@ export const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <ConnectivityIndicator />
       {/* Dynamic Header Bar with [Distance] [Office Status] [Location Address] [Bell] */}
       <header className="sticky top-0 z-50 bg-[#1D113B]/90 backdrop-blur-md border-b border-purple-500/10">
         <div className="container mx-auto px-2.5 sm:px-4 py-2 max-w-3xl flex items-center justify-between gap-1.5 sm:gap-2">

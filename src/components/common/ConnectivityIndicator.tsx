@@ -13,7 +13,7 @@ export const ConnectivityIndicator: React.FC = () => {
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -50, opacity: 0 }}
-          className={`fixed top-0 left-0 right-0 z-[9999] flex items-center justify-center py-1.5 px-4 text-xs font-bold transition-colors duration-500 shadow-lg ${
+          className={`fixed top-0 left-0 right-0 z-[9999] pointer-events-none flex items-center justify-center py-1.5 px-4 text-xs font-bold transition-colors duration-500 shadow-lg ${
             isOnline ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
           }`}
         >
