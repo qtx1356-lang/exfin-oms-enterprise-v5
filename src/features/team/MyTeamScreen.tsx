@@ -32,7 +32,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { LeaveRecord } from '../../types/leave';
 import { reviewLeaveRequest } from '../../services/leave/leaveService';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { TaskRecord, TaskPriority, TaskApprovalStatus, AssignmentType, getEffectiveTaskStatus } from '../../types/planner';
+import { TaskRecord, TaskPriority, TaskApprovalStatus, AssignmentType, getEffectiveTaskStatus, TaskRevision } from '../../types/planner';
 import { getStoredTasks, saveTaskRecord } from '../../services/planner/taskStorage';
 import { EfficiencyDashboard } from '../efficiency/EfficiencyDashboard';
 
@@ -220,26 +220,31 @@ export const MyTeamScreen: React.FC = () => {
   }
 
   // Statistics Calculations
+  const isCompletedTask = (t: TaskRecord) => getEffectiveTaskStatus(t) === 'Completed' || (t.status || '').toUpperCase() === 'COMPLETED' || t.approvalStatus === 'APPROVED';
+  const isOverdueTask = (t: TaskRecord) => getEffectiveTaskStatus(t) === 'Overdue' || (t.status || '').toUpperCase() === 'OVERDUE';
+  const isPendingTask = (t: TaskRecord) => getEffectiveTaskStatus(t) === 'Assigned' || (t.status || '').toUpperCase() === 'PENDING';
+  const isInProgressTask = (t: TaskRecord) => getEffectiveTaskStatus(t) === 'In Progress' || (t.status || '').toUpperCase() === 'IN_PROGRESS';
+
   const totalTeamMembers = teamMembers.length;
-  const pendingApprovalsCount = teamTasks.filter((t) => t.approvalStatus === 'PENDING_REVIEW').length;
-  const pendingTasksCount = teamTasks.filter((t) => getEffectiveTaskStatus(t) === 'PENDING').length;
-  const inProgressTasksCount = teamTasks.filter((t) => getEffectiveTaskStatus(t) === 'IN_PROGRESS').length;
-  const completedTasksCount = teamTasks.filter((t) => getEffectiveTaskStatus(t) === 'COMPLETED').length;
-  const overdueTasksCount = teamTasks.filter((t) => getEffectiveTaskStatus(t) === 'OVERDUE').length;
+  const pendingApprovalsCount = teamTasks.filter((t) => t.approvalStatus === 'PENDING_REVIEW' || getEffectiveTaskStatus(t) === 'Submitted').length;
+  const pendingTasksCount = teamTasks.filter(isPendingTask).length;
+  const inProgressTasksCount = teamTasks.filter(isInProgressTask).length;
+  const completedTasksCount = teamTasks.filter(isCompletedTask).length;
+  const overdueTasksCount = teamTasks.filter(isOverdueTask).length;
   const activeTasksCount = pendingTasksCount + inProgressTasksCount + overdueTasksCount;
 
   const teamCompletionPct = teamTasks.length > 0 ? Math.round((completedTasksCount / teamTasks.length) * 100) : 0;
 
   // On-time completion rate
   const onTimeCompleted = teamTasks.filter((t) => {
-    if (getEffectiveTaskStatus(t) !== 'COMPLETED') return false;
+    if (!isCompletedTask(t)) return false;
     if (!t.completedAt || !t.dueDate) return true;
     return new Date(t.completedAt).getTime() <= new Date(t.dueDate).getTime();
   }).length;
   const onTimePct = completedTasksCount > 0 ? Math.round((onTimeCompleted / completedTasksCount) * 100) : 100;
 
   // Revision count
-  const revisionRequiredCount = teamTasks.filter((t) => t.approvalStatus === 'REVISION_REQUIRED').length;
+  const revisionRequiredCount = teamTasks.filter((t) => t.approvalStatus === 'REVISION_REQUIRED' || getEffectiveTaskStatus(t) === 'Revision Requested').length;
 
   // Pending leaves count for current Team Leader
   const pendingTeamLeavesCount = teamLeaves.filter((l) => l.status === 'PENDING' && l.currentApproverRole === 'TEAM_LEADER').length;
@@ -278,7 +283,7 @@ export const MyTeamScreen: React.FC = () => {
       createdBy: currentLeaderId,
       createdByName: `${employeeData?.name || 'Team Leader'} (Team Leader)`,
       priority: taskPriority,
-      status: 'PENDING',
+      status: 'Assigned',
       approvalStatus: 'NOT_REQUIRED',
       completionPercentage: 0,
       startDate: taskStartDate,
@@ -288,6 +293,16 @@ export const MyTeamScreen: React.FC = () => {
       updatedAtDeviceTime: nowIso,
       syncStatus: 'Synced',
       comments: [],
+      revisions: [],
+      revisionCount: 0,
+      history: [{
+        id: `hist_${Date.now()}`,
+        action: 'CREATED',
+        performedBy: currentLeaderCode,
+        performedByName: employeeData?.name || 'Team Leader',
+        timestamp: nowIso,
+        details: `Created and assigned task by Team Leader`
+      }],
       managerRemarks: taskRemark.trim() || null,
       assignedTime: nowIso,
     };
@@ -304,7 +319,7 @@ export const MyTeamScreen: React.FC = () => {
             recipientEmployeeCode: code,
             type: 'TASK_ASSIGNED',
             category: 'PLANNER',
-            priority: taskPriority === 'HIGH' ? 'HIGH' : taskPriority === 'URGENT' ? 'URGENT' : 'NORMAL',
+            priority: taskPriority === 'HIGH' || taskPriority === 'CRITICAL' || taskPriority === 'URGENT' ? 'HIGH' : 'NORMAL',
             title: 'New Team Task Assigned',
             message: `Team Leader ${employeeData?.name} assigned you task "${taskTitle}" (${taskPriority} Priority) due on ${taskDueDate}.`,
             entityId: taskId,
@@ -329,12 +344,25 @@ export const MyTeamScreen: React.FC = () => {
 
     const updatedTask: TaskRecord = {
       ...task,
-      status: 'COMPLETED',
+      status: 'Completed',
       approvalStatus: 'APPROVED',
       approvedBy: currentLeaderId,
       approvedByName: employeeData?.name || 'Team Leader',
       approvedAtDeviceTime: nowIso,
+      completedAt: task.completedAt || nowIso,
+      completedBy: task.completedBy || employeeData?.name || 'Team Leader',
       completionPercentage: 100,
+      history: [
+        ...(task.history || []),
+        {
+          id: `hist_${Date.now()}`,
+          action: 'COMPLETED',
+          performedBy: currentLeaderCode,
+          performedByName: employeeData?.name || 'Team Leader',
+          timestamp: nowIso,
+          details: 'Approved and marked completed by Team Leader'
+        }
+      ],
       updatedAtDeviceTime: nowIso,
       syncStatus: 'Synced',
     };
@@ -344,12 +372,15 @@ export const MyTeamScreen: React.FC = () => {
     if (db) {
       try {
         await updateDoc(doc(db, 'tasks', task.id), {
-          status: 'COMPLETED',
+          status: 'Completed',
           approvalStatus: 'APPROVED',
           approvedBy: currentLeaderId,
           approvedByName: employeeData?.name || 'Team Leader',
           approvedAtDeviceTime: nowIso,
+          completedAt: updatedTask.completedAt,
+          completedBy: updatedTask.completedBy,
           completionPercentage: 100,
+          history: updatedTask.history,
           updatedAtDeviceTime: nowIso,
         });
 
@@ -379,15 +410,38 @@ export const MyTeamScreen: React.FC = () => {
     if (!selectedTaskForReview || !revisionRemarkInput.trim()) return;
 
     const nowIso = new Date().toISOString();
+    const currentRevisions = selectedTaskForReview.revisions || [];
+    const newRevNum = currentRevisions.length + 1;
+
+    const newRevItem: TaskRevision = {
+      revisionNumber: newRevNum,
+      reason: revisionRemarkInput.trim(),
+      requestedBy: currentLeaderId,
+      requestedByName: `${employeeData?.name || 'Team Leader'} (TL)`,
+      requestedAt: nowIso,
+    };
 
     const updatedTask: TaskRecord = {
       ...selectedTaskForReview,
-      status: 'IN_PROGRESS',
+      status: 'Revision Requested',
       approvalStatus: 'REVISION_REQUIRED',
       reviewedBy: employeeData?.name || 'Team Leader',
       reviewedAtDeviceTime: nowIso,
       reviewRemark: revisionRemarkInput.trim(),
-      revisionCount: (selectedTaskForReview.revisionCount || 0) + 1,
+      currentRevisionReason: revisionRemarkInput.trim(),
+      revisionCount: newRevNum,
+      revisions: [...currentRevisions, newRevItem],
+      history: [
+        ...(selectedTaskForReview.history || []),
+        {
+          id: `hist_${Date.now()}`,
+          action: 'REVISION_REQUESTED',
+          performedBy: currentLeaderCode,
+          performedByName: employeeData?.name || 'Team Leader',
+          timestamp: nowIso,
+          details: `Revision #${newRevNum} requested: "${revisionRemarkInput.trim()}"`
+        }
+      ],
       updatedAtDeviceTime: nowIso,
       syncStatus: 'Synced',
       comments: [
@@ -408,12 +462,15 @@ export const MyTeamScreen: React.FC = () => {
     if (db) {
       try {
         await updateDoc(doc(db, 'tasks', selectedTaskForReview.id), {
-          status: 'IN_PROGRESS',
+          status: 'Revision Requested',
           approvalStatus: 'REVISION_REQUIRED',
           reviewedBy: employeeData?.name || 'Team Leader',
           reviewedAtDeviceTime: nowIso,
           reviewRemark: revisionRemarkInput.trim(),
+          currentRevisionReason: revisionRemarkInput.trim(),
           revisionCount: updatedTask.revisionCount,
+          revisions: updatedTask.revisions,
+          history: updatedTask.history,
           updatedAtDeviceTime: nowIso,
           comments: updatedTask.comments,
         });
@@ -647,8 +704,8 @@ export const MyTeamScreen: React.FC = () => {
                     (t.assignedToEmployeeIds || []).includes(member.id) ||
                     (t.assignedToEmployeeCodes || []).includes(member.employeeCode)
                   );
-                  const mCompleted = mTasks.filter((t) => getEffectiveTaskStatus(t) === 'COMPLETED').length;
-                  const mOverdue = mTasks.filter((t) => getEffectiveTaskStatus(t) === 'OVERDUE').length;
+                  const mCompleted = mTasks.filter(isCompletedTask).length;
+                  const mOverdue = mTasks.filter(isOverdueTask).length;
                   const mActive = mTasks.length - mCompleted;
                   const mPct = mTasks.length > 0 ? Math.round((mCompleted / mTasks.length) * 100) : 0;
 
@@ -694,8 +751,8 @@ export const MyTeamScreen: React.FC = () => {
                 (t.assignedToEmployeeIds || []).includes(member.id) ||
                 (t.assignedToEmployeeCodes || []).includes(member.employeeCode)
               );
-              const mCompleted = mTasks.filter((t) => getEffectiveTaskStatus(t) === 'COMPLETED').length;
-              const mOverdue = mTasks.filter((t) => getEffectiveTaskStatus(t) === 'OVERDUE').length;
+              const mCompleted = mTasks.filter(isCompletedTask).length;
+              const mOverdue = mTasks.filter(isOverdueTask).length;
               const mActive = mTasks.length - mCompleted;
               const mPct = mTasks.length > 0 ? Math.round((mCompleted / mTasks.length) * 100) : 0;
 
@@ -820,8 +877,8 @@ export const MyTeamScreen: React.FC = () => {
 
                     <div className="flex flex-col items-end gap-1">
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
-                        effStatus === 'COMPLETED' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
-                        effStatus === 'OVERDUE' ? 'bg-red-600/30 text-red-300 border-red-500/40 animate-pulse' :
+                        effStatus === 'Completed' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                        effStatus === 'Overdue' ? 'bg-red-600/30 text-red-300 border-red-500/40 animate-pulse' :
                         t.approvalStatus === 'PENDING_REVIEW' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse' :
                         'bg-blue-500/20 text-blue-300 border-blue-500/30'
                       }`}>
@@ -1403,10 +1460,10 @@ export const MyTeamScreen: React.FC = () => {
             (t.assignedToEmployeeIds || []).includes(selectedMemberForReport.id) ||
             (t.assignedToEmployeeCodes || []).includes(selectedMemberForReport.employeeCode)
           );
-          const mCompleted = mTasks.filter((t) => getEffectiveTaskStatus(t) === 'COMPLETED').length;
-          const mOverdue = mTasks.filter((t) => getEffectiveTaskStatus(t) === 'OVERDUE').length;
-          const mPending = mTasks.filter((t) => getEffectiveTaskStatus(t) === 'PENDING').length;
-          const mInProgress = mTasks.filter((t) => getEffectiveTaskStatus(t) === 'IN_PROGRESS').length;
+          const mCompleted = mTasks.filter(isCompletedTask).length;
+          const mOverdue = mTasks.filter(isOverdueTask).length;
+          const mPending = mTasks.filter(isPendingTask).length;
+          const mInProgress = mTasks.filter(isInProgressTask).length;
           const mPct = mTasks.length > 0 ? Math.round((mCompleted / mTasks.length) * 100) : 0;
 
           return (

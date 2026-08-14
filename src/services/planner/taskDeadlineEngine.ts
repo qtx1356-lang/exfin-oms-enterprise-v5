@@ -45,7 +45,8 @@ export const getTaskDueMs = (task: TaskRecord): number | null => {
 };
 
 export const isTaskCompleted = (task: TaskRecord): boolean => {
-  if (task.status === 'COMPLETED') return true;
+  const s = (task.status || '').toUpperCase().trim();
+  if (s === 'COMPLETED' || s === 'CANCELLED' || s === 'CANCEL') return true;
   if (task.completedAt) return true;
   if (task.approvalStatus === 'APPROVED') return true;
   return false;

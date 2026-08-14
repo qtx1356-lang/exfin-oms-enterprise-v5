@@ -168,9 +168,9 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
   // ----------------------------------------------------
   const taskStats = useMemo(() => {
     const assigned = monthTasks.length;
-    const completed = monthTasks.filter(t => t.status === 'COMPLETED').length;
-    const inProgress = monthTasks.filter(t => t.status === 'IN_PROGRESS').length;
-    const overdue = monthTasks.filter(t => getEffectiveTaskStatus(t) === 'OVERDUE').length;
+    const completed = monthTasks.filter(t => getEffectiveTaskStatus(t) === 'Completed' || (t.status || '').toUpperCase() === 'COMPLETED').length;
+    const inProgress = monthTasks.filter(t => getEffectiveTaskStatus(t) === 'In Progress' || (t.status || '').toUpperCase() === 'IN_PROGRESS').length;
+    const overdue = monthTasks.filter(t => getEffectiveTaskStatus(t) === 'Overdue' || (t.status || '').toUpperCase() === 'OVERDUE').length;
     
     const completionRate = assigned > 0 
       ? Math.round((completed / assigned) * 100) 

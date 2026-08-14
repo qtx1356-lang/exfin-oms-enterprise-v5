@@ -109,13 +109,25 @@ export const calculateEfficiency = (
   const uniqueTasks = Array.from(dedupedTasksMap.values());
 
   // Filter out cancelled status if any exists
-  const validTasks = uniqueTasks.filter(t => (t.status as string) !== 'CANCELLED');
+  const validTasks = uniqueTasks.filter(t => {
+    const s = (t.status || '').toUpperCase().trim();
+    return s !== 'CANCELLED' && s !== 'CANCEL';
+  });
+
+  const isCompletedTask = (t: TaskRecord): boolean => {
+    const s = (t.status || '').toUpperCase().trim();
+    return s === 'COMPLETED' || t.approvalStatus === 'APPROVED' || getEffectiveTaskStatus(t) === 'Completed';
+  };
+
+  const isOverdueTask = (t: TaskRecord): boolean => {
+    return getEffectiveTaskStatus(t) === 'Overdue';
+  };
 
   // ----------------------------------------------------
   // 2. TASK COMPLETION SCORE
   // ----------------------------------------------------
   const assignedTasksCount = validTasks.length;
-  const completedTasksCount = validTasks.filter(t => t.status === 'COMPLETED').length;
+  const completedTasksCount = validTasks.filter(isCompletedTask).length;
   
   const taskCompletionScore = assignedTasksCount > 0 
     ? Math.round((completedTasksCount / assignedTasksCount) * 100) 
@@ -124,7 +136,7 @@ export const calculateEfficiency = (
   // ----------------------------------------------------
   // 3. ON-TIME COMPLETION SCORE
   // ----------------------------------------------------
-  const completedTasks = validTasks.filter(t => t.status === 'COMPLETED');
+  const completedTasks = validTasks.filter(isCompletedTask);
   
   let onTimeTasksCount = 0;
   completedTasks.forEach(task => {
@@ -134,9 +146,9 @@ export const calculateEfficiency = (
         onTimeTasksCount++;
       }
     } else {
-      // Fallback: check if effective status is not OVERDUE or if overdue flag is not set
+      // Fallback: check if effective status is not Overdue
       const effective = getEffectiveTaskStatus(task);
-      if (effective === 'COMPLETED') {
+      if (effective === 'Completed') {
         onTimeTasksCount++;
       }
     }
@@ -149,14 +161,16 @@ export const calculateEfficiency = (
   // ----------------------------------------------------
   // 4. QUALITY / APPROVAL SCORE
   // ----------------------------------------------------
-  // Filter completed tasks that have been reviewed (APPROVED or REVISION_REQUIRED)
+  // Filter completed tasks that have been reviewed (APPROVED or REVISION_REQUIRED / Revision Requested)
   const reviewedTasks = completedTasks.filter(t => 
-    t.approvalStatus === 'APPROVED' || t.approvalStatus === 'REVISION_REQUIRED'
+    t.approvalStatus === 'APPROVED' || 
+    t.approvalStatus === 'REVISION_REQUIRED' ||
+    (t.revisions && t.revisions.length > 0)
   );
   
-  const approvedTasksCount = completedTasks.filter(t => t.approvalStatus === 'APPROVED').length;
-  const revisionRequiredTasksCount = completedTasks.filter(t => t.approvalStatus === 'REVISION_REQUIRED').length;
-  const totalRevisionRequests = completedTasks.reduce((sum, t) => sum + (t.revisionCount || 0), 0);
+  const approvedTasksCount = completedTasks.filter(t => t.approvalStatus === 'APPROVED' || (!t.revisionCount && (!t.revisions || t.revisions.length === 0))).length;
+  const revisionRequiredTasksCount = completedTasks.filter(t => t.approvalStatus === 'REVISION_REQUIRED' || (t.revisions && t.revisions.length > 0)).length;
+  const totalRevisionRequests = completedTasks.reduce((sum, t) => sum + (t.revisionCount || t.revisions?.length || 0), 0);
 
   let qualityScore = -1; // Default to NO DATA
   
@@ -167,7 +181,7 @@ export const calculateEfficiency = (
       // Calculate progressive penalty for repeated revisions on each task
       let progressiveRevPenalty = 0;
       completedTasks.forEach(task => {
-        const revs = task.revisionCount || 0;
+        const revs = task.revisionCount || task.revisions?.length || 0;
         if (revs === 1) {
           progressiveRevPenalty += 10;
         } else if (revs === 2) {
@@ -200,8 +214,6 @@ export const calculateEfficiency = (
     rec.checkoutStatus !== 'PENDING_ADMIN_REVIEW'
   ).length;
   const lateArrivalsCount = periodAttendance.filter(rec => {
-    // Check-in mode: WFH, CLIENT_VISIT, OUTDOOR are not penalized for being physically absent, 
-    // but we can parse late arrival if they checked in late (e.g. after 9:30 AM).
     return isLateCheckIn(rec.checkInTime);
   }).length;
 
@@ -225,11 +237,11 @@ export const calculateEfficiency = (
   // 6. WORKLOAD SCORE
   // ----------------------------------------------------
   let workloadScore = -1; // Default to NO DATA
-  const overdueTasksCount = validTasks.filter(t => getEffectiveTaskStatus(t) === 'OVERDUE').length;
+  const overdueTasksCount = validTasks.filter(isOverdueTask).length;
 
   if (assignedTasksCount > 0) {
     // Average completion percentage of non-completed (active) tasks
-    const activeTasks = validTasks.filter(t => t.status !== 'COMPLETED');
+    const activeTasks = validTasks.filter(t => !isCompletedTask(t));
     const activeCompletionSum = activeTasks.reduce((sum, t) => sum + (t.completionPercentage || 0), 0);
     const averageActiveCompletion = activeTasks.length > 0 ? activeCompletionSum / activeTasks.length : 0;
     

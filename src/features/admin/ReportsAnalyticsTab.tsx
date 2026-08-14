@@ -3,9 +3,15 @@ import { Card } from '../../components/ui/Card';
 import { 
   BarChart3, FileText, Download, Printer, Calendar, Users, Filter, 
   TrendingUp, Coins, Clock, MapPin, CheckCircle2, XCircle, AlertCircle, 
-  Shield, Compass, Building, Star, ClipboardList, Briefcase, RefreshCw
+  Shield, Compass, Building, Star, ClipboardList, Briefcase, RefreshCw,
+  Search, Award, Layers, SearchCode
 } from 'lucide-react';
 import { exportToCSV, exportToXLSX, printReport } from '../../services/reports/exportService';
+import { calculateEfficiency } from '../../services/efficiency/efficiencyCalculator';
+import { DEFAULT_WEIGHTAGES } from '../../services/efficiency/efficiencyService';
+import { getRecordWorkingMinutes, formatMinutesToDuration } from '../../utils/workHoursCalc';
+import { getEffectiveTaskStatus } from '../../types/planner';
+import { isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
 
 // Define core prop types
 interface ReportsAnalyticsTabProps {
@@ -56,6 +62,9 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
     isSuperAdmin ? 'ALL' : authorizedOffice
   );
   const [selectedEmployeeCode, setSelectedEmployeeCode] = useState<string>('ALL');
+  const [selectedTeamLeaderCode, setSelectedTeamLeaderCode] = useState<string>('ALL');
+  const [searchCode, setSearchCode] = useState<string>('');
+  const [performanceRange, setPerformanceRange] = useState<'ALL' | 'HIGH' | 'AVERAGE' | 'NEEDS_ATTENTION'>('ALL');
   
   // Date range presets: Default to last 30 days
   const today = new Date();
@@ -84,6 +93,10 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
     return [authorizedOffice];
   }, [registrations, isSuperAdmin, authorizedOffice]);
 
+  const teamLeadersList = useMemo(() => {
+    return registrations.filter(r => r.status === 'Approved' && (r.isTeamLeader || r.role === 'TEAM_LEADER'));
+  }, [registrations]);
+
   const activeEmployeesList = useMemo(() => {
     return registrations.filter(emp => {
       if (emp.status !== 'Approved') return false;
@@ -91,6 +104,114 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
       return true;
     });
   }, [registrations, selectedOffice]);
+
+  // Employee Performance Evaluation Matrix for Admin Report
+  const employeePerformanceList = useMemo(() => {
+    const employeesToEvaluate = registrations.filter(emp => {
+      if (emp.status !== 'Approved') return false;
+      if (selectedOffice !== 'ALL' && emp.office !== selectedOffice && emp.department !== selectedOffice) return false;
+      if (selectedEmployeeCode !== 'ALL' && emp.employeeCode !== selectedEmployeeCode) return false;
+      if (selectedTeamLeaderCode !== 'ALL' && emp.teamLeaderCode !== selectedTeamLeaderCode && emp.teamLeaderId !== selectedTeamLeaderCode) return false;
+      if (searchCode.trim()) {
+        const q = searchCode.toLowerCase();
+        const matchesName = (emp.name || '').toLowerCase().includes(q);
+        const matchesCode = (emp.employeeCode || '').toLowerCase().includes(q);
+        if (!matchesName && !matchesCode) return false;
+      }
+      return true;
+    });
+
+    const evaluated = employeesToEvaluate.map(emp => {
+      const eCode = emp.employeeCode;
+
+      const calc = calculateEfficiency(
+        emp.id || eCode,
+        eCode,
+        emp.name || 'Employee',
+        emp.department || emp.office || 'Operations',
+        emp.teamLeaderId || null,
+        startDate,
+        endDate,
+        tasks,
+        attendanceRecords,
+        DEFAULT_WEIGHTAGES
+      );
+
+      const empAtt = attendanceRecords.filter(r => (r.employeeId === eCode || r.employeeCode === eCode) && (r.createdAtDeviceTime || r.date || '').split('T')[0] >= startDate && (r.createdAtDeviceTime || r.date || '').split('T')[0] <= endDate);
+      let workMins = 0;
+      let lateCount = 0;
+      let unresolvedCount = 0;
+
+      empAtt.forEach(r => {
+        if (isAttendanceCheckoutUnresolved(r)) {
+          unresolvedCount++;
+        } else {
+          workMins += getRecordWorkingMinutes(r);
+        }
+        if (r.checkInTime) {
+          const parts = r.checkInTime.split(' ');
+          if (parts.length >= 2) {
+            const [h, m] = parts[0].split(':').map(Number);
+            const isPM = parts[1].toUpperCase() === 'PM';
+            let hour = h;
+            if (isPM && hour < 12) hour += 12;
+            if (!isPM && hour === 12) hour = 0;
+            if (hour * 60 + m > 9 * 60 + 30) lateCount++;
+          }
+        }
+      });
+
+      const totalDays = empAtt.length;
+      const punctualityPct = totalDays > 0 ? Math.round(((totalDays - lateCount) / totalDays) * 100) : 100;
+
+      const empTasks = tasks.filter(t => {
+        const isAssigned = (t.assignedToEmployeeCodes && t.assignedToEmployeeCodes.includes(eCode)) ||
+                           (t.assignedToEmployeeIds && t.assignedToEmployeeIds.includes(eCode)) ||
+                           t.assigneeCode === eCode;
+        if (!isAssigned) return false;
+        const d = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : (t.createdAtDeviceTime || t.date || '').substring(0, 10));
+        return d >= startDate && d <= endDate;
+      });
+
+      const completedTasks = empTasks.filter(t => getEffectiveTaskStatus(t) === 'Completed').length;
+      const overdueTasks = empTasks.filter(t => getEffectiveTaskStatus(t) === 'Overdue').length;
+      const revisionsCount = empTasks.reduce((s, t) => s + (t.revisionCount || t.revisions?.length || 0), 0);
+
+      return {
+        emp,
+        eCode,
+        name: emp.name || eCode,
+        department: emp.department || emp.office || 'Operations',
+        workMins,
+        workHoursFormatted: formatMinutesToDuration(workMins),
+        unresolvedCount,
+        punctualityPct,
+        tasksAssigned: empTasks.length,
+        completedTasks,
+        overdueTasks,
+        revisionsCount,
+        efficiencyScore: calc.finalScore,
+        grade: calc.grade
+      };
+    });
+
+    evaluated.sort((a, b) => b.efficiencyScore - a.efficiencyScore);
+
+    const ranked = evaluated.map((item, index) => ({
+      ...item,
+      rank: index + 1
+    }));
+
+    if (performanceRange === 'HIGH') {
+      return ranked.filter(r => r.efficiencyScore >= 80);
+    } else if (performanceRange === 'AVERAGE') {
+      return ranked.filter(r => r.efficiencyScore >= 60 && r.efficiencyScore < 80);
+    } else if (performanceRange === 'NEEDS_ATTENTION') {
+      return ranked.filter(r => r.efficiencyScore < 60);
+    }
+
+    return ranked;
+  }, [registrations, selectedOffice, selectedEmployeeCode, selectedTeamLeaderCode, searchCode, startDate, endDate, tasks, attendanceRecords, performanceRange]);
 
   // 3. FILTER DATASETS GRACEFULLY
   const filteredAttendance = useMemo(() => {
@@ -304,7 +425,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
   }, [trendData]);
 
   // 7. SECURE BULK EXPORTS
-  const handleExport = (type: 'attendance' | 'expenses' | 'planner' | 'leaves') => {
+  const handleExport = (type: 'attendance' | 'expenses' | 'planner' | 'leaves' | 'performance') => {
     const sheetTitle = `${type.toUpperCase()} Secure Report`;
     const periodStr = `${startDate} to ${endDate}`;
     const filterDesc = {
@@ -405,6 +526,31 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
       exportToCSV(`Leaves_Report_${startDate}_${endDate}`, headers, rows);
       exportToXLSX(`Leaves_Report_${startDate}_${endDate}`, sheetTitle, periodStr, filterDesc, summary, headers, rows);
     }
+    else if (type === 'performance') {
+      const headers = ['Rank', 'Employee Name', 'Employee Code', 'Department', 'Work Hours', 'Punctuality (%)', 'Completed Tasks', 'Assigned Tasks', 'Overdue Tasks', 'Revisions', 'Efficiency Score (%)', 'Grade'];
+      const rows = employeePerformanceList.map(r => [
+        r.rank,
+        r.name,
+        r.eCode,
+        r.department,
+        r.workHoursFormatted,
+        `${r.punctualityPct}%`,
+        r.completedTasks,
+        r.tasksAssigned,
+        r.overdueTasks,
+        r.revisionsCount,
+        `${r.efficiencyScore}%`,
+        r.grade
+      ]);
+      const summary = [
+        { label: 'Employees Evaluated', value: employeePerformanceList.length },
+        { label: 'Avg Efficiency Score', value: `${employeePerformanceList.length > 0 ? Math.round(employeePerformanceList.reduce((s, r) => s + r.efficiencyScore, 0) / employeePerformanceList.length) : 0}%` },
+        { label: 'High Performers (≥80%)', value: employeePerformanceList.filter(r => r.efficiencyScore >= 80).length }
+      ];
+
+      exportToCSV(`Employee_Performance_Report_${startDate}_${endDate}`, headers, rows);
+      exportToXLSX(`Employee_Performance_Report_${startDate}_${endDate}`, sheetTitle, periodStr, filterDesc, summary, headers, rows);
+    }
   };
 
   const handlePrintSecurePDF = () => {
@@ -477,7 +623,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
           <h3 className="text-xs font-black uppercase tracking-wider text-purple-200">Analytical Filter System</h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs font-bold">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 text-xs font-bold">
           
           {/* Department Selector */}
           <div className="space-y-1.5">
@@ -499,6 +645,25 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
             </select>
           </div>
 
+          {/* Team Leader Filter */}
+          <div className="space-y-1.5">
+            <label className="text-purple-300 flex items-center gap-1">
+              <Users className="w-3.5 h-3.5" /> Team / Leader
+            </label>
+            <select
+              value={selectedTeamLeaderCode}
+              onChange={(e) => setSelectedTeamLeaderCode(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl bg-[#211044] border border-purple-500/30 text-white focus:ring-2 focus:ring-[#7C3AED] focus:outline-none"
+            >
+              <option value="ALL">All Teams ({teamLeadersList.length} Leaders)</option>
+              {teamLeadersList.map(tl => (
+                <option key={tl.id} value={tl.employeeCode}>
+                  {tl.name} ({tl.employeeCode})
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Employee Selector */}
           <div className="space-y-1.5">
             <label className="text-purple-300 flex items-center gap-1">
@@ -509,13 +674,27 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
               onChange={(e) => setSelectedEmployeeCode(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl bg-[#211044] border border-purple-500/30 text-white focus:ring-2 focus:ring-[#7C3AED] focus:outline-none"
             >
-              <option value="ALL">All Authorized Personnel ({activeEmployeesList.length})</option>
+              <option value="ALL">All Personnel ({activeEmployeesList.length})</option>
               {activeEmployeesList.map(emp => (
                 <option key={emp.id} value={emp.employeeCode}>
                   {emp.name} ({emp.employeeCode})
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Search Employee Code or Name */}
+          <div className="space-y-1.5">
+            <label className="text-purple-300 flex items-center gap-1">
+              <Search className="w-3.5 h-3.5" /> Code / Name
+            </label>
+            <input
+              type="text"
+              placeholder="Filter by code..."
+              value={searchCode}
+              onChange={(e) => setSearchCode(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl bg-[#211044] border border-purple-500/30 text-white focus:ring-2 focus:ring-[#7C3AED] focus:outline-none placeholder-purple-300/40"
+            />
           </div>
 
           {/* Start Date */}
@@ -614,6 +793,17 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
               </div>
               <Star className="w-4 h-4 text-purple-400" />
             </button>
+
+            <button
+              onClick={() => handleExport('performance')}
+              className="col-span-2 flex items-center justify-between p-3 rounded-xl bg-purple-900/60 hover:bg-purple-800/80 border border-purple-400/30 text-purple-100 transition text-left"
+            >
+              <div>
+                <p className="font-black text-amber-300">Employee Performance Report</p>
+                <p className="text-[9px] text-purple-200/80 font-medium">CSV & XLSX Full Audit Matrix</p>
+              </div>
+              <Award className="w-4 h-4 text-amber-400" />
+            </button>
           </div>
         </Card>
 
@@ -639,6 +829,111 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
         </Card>
 
       </div>
+
+      {/* SECTION 3.5: EMPLOYEE PERFORMANCE AUDIT REPORT TABLE */}
+      <Card className="p-5 bg-[#2D1B5A] border border-purple-500/30 space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-purple-500/20 pb-3">
+          <div className="flex items-center gap-2">
+            <Award className="w-5 h-5 text-amber-400" />
+            <div>
+              <h3 className="text-sm font-black text-white uppercase tracking-wider">
+                Employee Performance Audit Report
+              </h3>
+              <p className="text-xs text-purple-300">
+                Filtered Scope: {employeePerformanceList.length} Personnel Evaluated ({startDate} to {endDate})
+              </p>
+            </div>
+          </div>
+
+          {/* Performance Range Filter */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-purple-300 font-bold">Range Filter:</span>
+            <select
+              value={performanceRange}
+              onChange={(e: any) => setPerformanceRange(e.target.value)}
+              className="px-3 py-1.5 rounded-xl bg-[#211044] border border-purple-500/30 text-white font-bold focus:outline-none"
+            >
+              <option value="ALL">All Scores</option>
+              <option value="HIGH">High Performers (≥80%)</option>
+              <option value="AVERAGE">Average (60% - 79%)</option>
+              <option value="NEEDS_ATTENTION">Needs Attention (&lt;60%)</option>
+            </select>
+
+            <button
+              onClick={() => handleExport('performance')}
+              className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs flex items-center gap-1 shadow transition"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export Report</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-purple-500/30 text-purple-300 font-black uppercase text-[10px] tracking-wider">
+                <th className="py-2.5 px-3">Rank</th>
+                <th className="py-2.5 px-3">Employee</th>
+                <th className="py-2.5 px-3">Code</th>
+                <th className="py-2.5 px-3">Department</th>
+                <th className="py-2.5 px-3">Work Hours</th>
+                <th className="py-2.5 px-3">Punctuality</th>
+                <th className="py-2.5 px-3">Tasks Done</th>
+                <th className="py-2.5 px-3">Overdue</th>
+                <th className="py-2.5 px-3">Revisions</th>
+                <th className="py-2.5 px-3 text-right">Efficiency Score</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-purple-500/10 font-bold text-purple-100">
+              {employeePerformanceList.map((row) => (
+                <tr key={row.eCode} className="hover:bg-purple-500/10 transition">
+                  <td className="py-3 px-3 font-mono text-purple-300">
+                    #{row.rank}
+                  </td>
+                  <td className="py-3 px-3 font-black text-white">
+                    {row.name}
+                  </td>
+                  <td className="py-3 px-3 font-mono text-purple-300">
+                    {row.eCode}
+                  </td>
+                  <td className="py-3 px-3 text-purple-200">
+                    {row.department}
+                  </td>
+                  <td className="py-3 px-3 text-white">
+                    {row.workHoursFormatted}
+                    {row.unresolvedCount > 0 && (
+                      <span className="block text-[9px] text-rose-300">({row.unresolvedCount} unresolved)</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-3 text-cyan-300">
+                    {row.punctualityPct}%
+                  </td>
+                  <td className="py-3 px-3 text-emerald-300">
+                    {row.completedTasks} / {row.tasksAssigned}
+                  </td>
+                  <td className="py-3 px-3 text-rose-300">
+                    {row.overdueTasks}
+                  </td>
+                  <td className="py-3 px-3 text-amber-300">
+                    {row.revisionsCount}
+                  </td>
+                  <td className="py-3 px-3 text-right font-black text-amber-300 text-sm">
+                    {row.efficiencyScore}% ({row.grade})
+                  </td>
+                </tr>
+              ))}
+              {employeePerformanceList.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="py-8 text-center text-purple-300/60 font-medium">
+                    No employee performance records match the selected filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
       {/* SECTION 4: ANALYTICS METRIC SUMMARY CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
