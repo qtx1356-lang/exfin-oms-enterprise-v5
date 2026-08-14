@@ -57,6 +57,10 @@ export const DeviceRegistration: React.FC = () => {
       setError('Please fill in all fields and take a selfie.');
       return;
     }
+    if (!navigator.onLine) {
+      setError('Internet connection is required to submit device registration to the server. Please reconnect and try again.');
+      return;
+    }
     setError(null);
     setLoading(true);
     try {

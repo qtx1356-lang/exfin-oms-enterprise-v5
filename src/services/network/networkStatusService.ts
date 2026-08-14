@@ -3,6 +3,8 @@
  * Provides clean online/offline event tracking and network error classification.
  */
 
+import { logStartupTag } from '../startup/startupPerformanceLogger';
+
 export type NetworkErrorType = 
   | 'NETWORK_OFFLINE' 
   | 'NETWORK_TIMEOUT' 
@@ -38,11 +40,13 @@ class NetworkStatusManager {
   private handleOnline = () => {
     this.isOnline = true;
     this.lastOnlineAt = new Date().toISOString();
+    logStartupTag('NETWORK_ONLINE', 'Device connection restored');
     this.notify();
   };
 
   private handleOffline = () => {
     this.isOnline = false;
+    logStartupTag('NETWORK_OFFLINE', 'Device connection lost / switched to offline');
     this.notify();
   };
 

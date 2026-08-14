@@ -6,6 +6,7 @@ import { syncPendingProfileChanges } from '../profile/profileService';
 import { syncPendingNotifications } from '../notification/notificationService';
 import { getDeadLetterQueue, retryDeadLetterItem } from './syncQueueService';
 import { setLastSyncTime } from './syncFailureService';
+import { logStartupTag } from '../startup/startupPerformanceLogger';
 
 export const syncAllPendingRecords = async (): Promise<{
   totalSynced: number;
@@ -14,6 +15,8 @@ export const syncAllPendingRecords = async (): Promise<{
   if (!navigator.onLine) {
     return { totalSynced: 0, totalErrors: 0 };
   }
+
+  logStartupTag('SYNC_STARTED', 'Starting synchronization of all pending offline records');
 
   // Retry any failed dead-letter queue items
   const queue = getDeadLetterQueue();
@@ -32,6 +35,7 @@ export const syncAllPendingRecords = async (): Promise<{
     totalErrors += attRes.errorsCount;
   } catch (e) {
     console.error('Global Sync: Error syncing attendance:', e);
+    totalErrors += 1;
   }
 
   try {
@@ -40,6 +44,7 @@ export const syncAllPendingRecords = async (): Promise<{
     totalErrors += expRes.errorsCount;
   } catch (e) {
     console.error('Global Sync: Error syncing expenses:', e);
+    totalErrors += 1;
   }
 
   try {
@@ -48,6 +53,7 @@ export const syncAllPendingRecords = async (): Promise<{
     totalErrors += taskRes.errorsCount;
   } catch (e) {
     console.error('Global Sync: Error syncing tasks:', e);
+    totalErrors += 1;
   }
 
   try {
@@ -56,6 +62,7 @@ export const syncAllPendingRecords = async (): Promise<{
     totalErrors += leaveRes.errorsCount;
   } catch (e) {
     console.error('Global Sync: Error syncing leaves:', e);
+    totalErrors += 1;
   }
 
   try {
@@ -64,6 +71,7 @@ export const syncAllPendingRecords = async (): Promise<{
     totalErrors += profileRes.errorsCount;
   } catch (e) {
     console.error('Global Sync: Error syncing profile changes:', e);
+    totalErrors += 1;
   }
 
   try {
@@ -74,6 +82,12 @@ export const syncAllPendingRecords = async (): Promise<{
 
   if (totalSynced > 0) {
     setLastSyncTime();
+  }
+
+  if (totalErrors > 0 && totalSynced === 0) {
+    logStartupTag('SYNC_FAILED', `Sync failed with ${totalErrors} errors`);
+  } else {
+    logStartupTag('SYNC_COMPLETED', `Sync completed. Synced: ${totalSynced}, Errors: ${totalErrors}`);
   }
 
   return { totalSynced, totalErrors };

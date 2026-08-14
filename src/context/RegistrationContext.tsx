@@ -39,10 +39,32 @@ const normalizeMobile = (num: string): string => {
 };
 
 export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [status, setStatus] = useState<RegistrationStatus>('loading');
+  const [localRegId, setLocalRegId] = useState<string | null>(() => localStorage.getItem('registrationId'));
+  const [employeeData, setEmployeeData] = useState<any>(() => {
+    try {
+      const raw = localStorage.getItem('cached_registration_data');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [status, setStatus] = useState<RegistrationStatus>(() => {
+    const savedRegId = localStorage.getItem('registrationId');
+    if (!savedRegId) return 'mobile_recovery';
+    try {
+      const raw = localStorage.getItem('cached_registration_data');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.status === 'Suspended' || parsed.status === 'Blocked' || parsed.status === 'INACTIVE') {
+          return 'suspended_notice';
+        }
+        if (parsed.status === 'Rejected') return 'Rejected';
+        return parsed.status || 'Approved';
+      }
+    } catch {}
+    return 'Approved';
+  });
   const [rejectionReason, setRejectionReason] = useState<string>();
-  const [employeeData, setEmployeeData] = useState<any>(null);
-  const [localRegId, setLocalRegId] = useState<string | null>(localStorage.getItem('registrationId'));
   const [authUser, setAuthUser] = useState<User | null>(null);
 
   const [recoveryMobileInput, setRecoveryMobileInput] = useState<string>('');

@@ -9,39 +9,31 @@
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      // Startup Offline Fallback
-      window.addEventListener('DOMContentLoaded', () => {
-        if (!navigator.onLine) {
-          const root = document.getElementById('root');
-          if (root && root.innerHTML === '') {
-            // If after 500ms still empty and offline, maybe SW hasn't loaded or shell failed
-            setTimeout(() => {
-              if (root.innerHTML === '') {
-                root.innerHTML = `
-                  <div style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #0f172a; color: white; text-align: center; padding: 20px;">
-                    <div style="font-size: 48px; margin-bottom: 24px;">📡</div>
-                    <h1 style="font-size: 24px; margin-bottom: 12px;">Exfin OMS is temporarily offline.</h1>
-                    <p style="color: #94a3b8;">Please reconnect to the internet and try again.</p>
-                    <button onclick="window.location.reload()" style="margin-top: 32px; background-color: #8b5cf6; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer;">Retry Connection</button>
-                  </div>
-                `;
-              }
-            }, 1000);
-          }
-        }
-      });
-    </script>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
             .then((registration) => {
-              // Ensure we check for updates on load
+              if (registration.active) {
+                console.log('[STARTUP_PERF] [PWA_CACHE_READY] Service worker active and cache ready');
+              }
+              registration.onupdatefound = () => {
+                const installingWorker = registration.installing;
+                if (installingWorker) {
+                  installingWorker.onstatechange = () => {
+                    if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                      console.log('[STARTUP_PERF] [SERVICE_WORKER_UPDATED] New service worker version installed');
+                    }
+                  };
+                }
+              };
+              // Check for updates periodically and upon foregrounding
               registration.update().catch(() => {});
             })
-            .catch(() => {});
+            .catch((err) => {
+              console.warn('Service worker registration failed:', err);
+            });
         });
       }
     </script>

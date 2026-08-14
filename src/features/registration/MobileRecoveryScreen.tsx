@@ -22,6 +22,10 @@ export const MobileRecoveryScreen: React.FC = () => {
       setLocalError('Please enter a valid 10-digit mobile number.');
       return;
     }
+    if (!navigator.onLine) {
+      setLocalError('Internet connection is required to verify your mobile number with the server. Please reconnect.');
+      return;
+    }
     setLocalError(null);
     setRecoveryMobileInput(localMobile);
     await verifyMobileForRecovery(localMobile);

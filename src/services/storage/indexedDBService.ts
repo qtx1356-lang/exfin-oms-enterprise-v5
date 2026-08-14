@@ -1,6 +1,6 @@
 /**
  * IndexedDB Service for Exfin OMS
- * Provides durable client-side persistence for the offline operations queue.
+ * Provides durable client-side persistence for the offline operations queue and device session state.
  */
 
 export interface OfflineOperation {
@@ -17,9 +17,21 @@ export interface OfflineOperation {
   lastError?: string;
 }
 
+export interface PersistentDeviceSession {
+  deviceId: string;
+  registrationId: string;
+  employeeCode?: string;
+  employeeName?: string;
+  registrationStatus: string;
+  cachedProfile?: any;
+  lastSyncTime?: string;
+  appVersion?: string;
+}
+
 const DB_NAME = 'exfin_oms_offline_db';
-const DB_VERSION = 1;
-const STORE_NAME = 'offline_operations';
+const DB_VERSION = 2;
+const STORE_OPERATIONS = 'offline_operations';
+const STORE_SESSION = 'device_session';
 
 function isIndexedDBSupported(): boolean {
   return typeof window !== 'undefined' && 'indexedDB' in window;
@@ -35,11 +47,16 @@ function openDB(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      
+      if (!db.objectStoreNames.contains(STORE_OPERATIONS)) {
+        const store = db.createObjectStore(STORE_OPERATIONS, { keyPath: 'id' });
         store.createIndex('status', 'status', { unique: false });
         store.createIndex('operationType', 'operationType', { unique: false });
         store.createIndex('createdAtDeviceTime', 'createdAtDeviceTime', { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains(STORE_SESSION)) {
+        db.createObjectStore(STORE_SESSION, { keyPath: 'id' });
       }
     };
 
@@ -48,12 +65,16 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
+// ---------------------------------------------
+// Offline Operations Queue Persistence
+// ---------------------------------------------
+
 export const saveOfflineOperationToDB = async (operation: OfflineOperation): Promise<void> => {
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
+      const tx = db.transaction(STORE_OPERATIONS, 'readwrite');
+      const store = tx.objectStore(STORE_OPERATIONS);
       const req = store.put(operation);
 
       req.onsuccess = () => resolve();
@@ -68,8 +89,8 @@ export const getPendingOfflineOperationsFromDB = async (): Promise<OfflineOperat
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
+      const tx = db.transaction(STORE_OPERATIONS, 'readonly');
+      const store = tx.objectStore(STORE_OPERATIONS);
       const index = store.index('status');
       const req = index.getAll('pending');
 
@@ -86,8 +107,8 @@ export const getAllOfflineOperationsFromDB = async (): Promise<OfflineOperation[
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
+      const tx = db.transaction(STORE_OPERATIONS, 'readonly');
+      const store = tx.objectStore(STORE_OPERATIONS);
       const req = store.getAll();
 
       req.onsuccess = () => resolve(req.result || []);
@@ -103,8 +124,8 @@ export const removeOfflineOperationFromDB = async (id: string): Promise<void> =>
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
+      const tx = db.transaction(STORE_OPERATIONS, 'readwrite');
+      const store = tx.objectStore(STORE_OPERATIONS);
       const req = store.delete(id);
 
       req.onsuccess = () => resolve();
@@ -123,8 +144,8 @@ export const updateOfflineOperationStatusInDB = async (
   try {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readwrite');
-      const store = tx.objectStore(STORE_NAME);
+      const tx = db.transaction(STORE_OPERATIONS, 'readwrite');
+      const store = tx.objectStore(STORE_OPERATIONS);
       const getReq = store.get(id);
 
       getReq.onsuccess = () => {
@@ -142,5 +163,65 @@ export const updateOfflineOperationStatusInDB = async (
     });
   } catch (err) {
     console.warn('IndexedDB updateOfflineOperationStatus failed:', err);
+  }
+};
+
+// ---------------------------------------------
+// Persistent Device Session Store
+// ---------------------------------------------
+
+export const saveDeviceSessionToDB = async (session: PersistentDeviceSession): Promise<void> => {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_SESSION, 'readwrite');
+      const store = tx.objectStore(STORE_SESSION);
+      const req = store.put({ id: 'current_session', ...session });
+
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('IndexedDB saveDeviceSession failed:', err);
+  }
+};
+
+export const getDeviceSessionFromDB = async (): Promise<PersistentDeviceSession | null> => {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_SESSION, 'readonly');
+      const store = tx.objectStore(STORE_SESSION);
+      const req = store.get('current_session');
+
+      req.onsuccess = () => {
+        if (req.result) {
+          const { id, ...sessionData } = req.result;
+          resolve(sessionData as PersistentDeviceSession);
+        } else {
+          resolve(null);
+        }
+      };
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('IndexedDB getDeviceSession failed:', err);
+    return null;
+  }
+};
+
+export const clearDeviceSessionFromDB = async (): Promise<void> => {
+  try {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_SESSION, 'readwrite');
+      const store = tx.objectStore(STORE_SESSION);
+      const req = store.delete('current_session');
+
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('IndexedDB clearDeviceSession failed:', err);
   }
 };
