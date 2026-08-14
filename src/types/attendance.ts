@@ -10,14 +10,16 @@ export type AttendanceState =
   | 'PENDING_FINAL_EXIT'
   | 'FINALIZED_CHECKOUT'
   | 'NO_ATTENDANCE'
-  | 'CHECKED_OUT';
+  | 'CHECKED_OUT'
+  | 'UNRESOLVED';
 
 export type AttendanceEventType = 
   | 'CHECK_IN' 
   | 'GEOFENCE_EXIT' 
   | 'GEOFENCE_RETURN' 
   | 'CHECK_OUT' 
-  | 'END_OF_DAY_CHECKOUT';
+  | 'END_OF_DAY_CHECKOUT'
+  | 'END_OF_DAY_UNRESOLVED';
 
 export type AttendanceLogCategory =
   | 'GEOFENCE_ENTER'
@@ -122,6 +124,19 @@ export interface AttendanceRecord {
   updatedAt?: string;
   version?: number;
   checkoutDismissed?: boolean;
+
+  // Unresolved Checkout & Mandatory Resolution fields
+  checkoutStatus?: 'COMPLETED' | 'UNRESOLVED' | 'PENDING_ADMIN_REVIEW';
+  employeeProposedCheckoutTime?: string | null;
+  employeeResolutionReason?: string | null;
+  previousStatus?: string | null;
+  previousCheckoutTime?: string | null;
+  previousCheckoutStatus?: string | null;
+  resolutionReason?: string | null;
+  migratedAt?: string | null;
+  checkoutResolvedBy?: string | null;
+  checkoutResolvedAt?: string | null;
+  resolutionSource?: 'ADMIN_CORRECTION' | 'EMPLOYEE_PROPOSED' | 'AUTO_GEOFENCE' | 'AUTO_SYSTEM' | 'MANUAL' | string | null;
 
   // New fields requested for auto checkout alignment
   checkoutType?: 'AUTO_CHECKOUT' | 'MANUAL' | string;

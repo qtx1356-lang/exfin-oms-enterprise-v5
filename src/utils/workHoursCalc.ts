@@ -46,6 +46,11 @@ export const formatMinutesToDuration = (minutes: number): string => {
 export const getRecordWorkingMinutes = (record: AttendanceRecord): number => {
   if (!record.checkInTime) return 0;
   
+  // Unresolved or Pending Review records have NO fake duration
+  if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+    return 0;
+  }
+  
   // Completed attendance
   if (record.checkOutTime && record.checkOutTime !== '--:--') {
     const hoursStr = calculateWorkingHours(record.checkInTime, record.checkOutTime);
@@ -61,6 +66,26 @@ export const getRecordWorkingMinutes = (record: AttendanceRecord): number => {
   }
   
   return 0;
+};
+
+// Helper for UI display of work hours adhering to Unresolved Checkout protection
+export const getRecordWorkingHoursDisplay = (record: AttendanceRecord): { display: string; status: 'COMPLETED' | 'IN_PROGRESS' | 'UNRESOLVED' | 'PENDING_REVIEW' } => {
+  if (record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+    return { display: 'PENDING REVIEW', status: 'PENDING_REVIEW' };
+  }
+  if (record.checkoutStatus === 'UNRESOLVED') {
+    return { display: 'UNRESOLVED', status: 'UNRESOLVED' };
+  }
+  if (record.checkOutTime && record.checkOutTime !== '--:--') {
+    const mins = getRecordWorkingMinutes(record);
+    return { display: record.workingHours || formatMinutesToDuration(mins), status: 'COMPLETED' };
+  }
+  const todayStr = getKolkataDateStr();
+  if (record.date === todayStr && record.checkInTime) {
+    const mins = getRecordWorkingMinutes(record);
+    return { display: formatMinutesToDuration(mins), status: 'IN_PROGRESS' };
+  }
+  return { display: 'UNRESOLVED', status: 'UNRESOLVED' };
 };
 
 export interface WorkHoursSummary {

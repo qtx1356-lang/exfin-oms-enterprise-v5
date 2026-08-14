@@ -3,7 +3,7 @@ import {
   Brain, Sparkles, AlertTriangle, TrendingUp, TrendingDown, Filter, 
   Download, User, Clock, ArrowUpRight, Activity, Building2, Users, 
   CheckCircle, Calendar, WifiOff, FileText, ChevronRight, Info, 
-  ShieldCheck, ArrowRight, Eye, ShieldAlert, HeartHandshake, ListCollapse
+  ShieldCheck, ArrowRight, Eye, ShieldAlert, HeartHandshake, ListCollapse, CheckSquare
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -251,6 +251,7 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
   // INTELLIGENCE ENGINE: ANALYZE DATA & COMPILE ISSUES
   // ----------------------------------------------------
   const intelligenceData = useMemo(() => {
+    const unresolvedCheckoutsList: any[] = [];
     const missingCheckoutsList: any[] = [];
     const lateArrivalsList: any[] = [];
     const anomaliesList: any[] = [];
@@ -273,6 +274,25 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
 
       const type = record.attendanceType || 'OFFICE';
       const isToday = record.date === todayDateStr;
+
+      // 0. UNRESOLVED / PENDING ADMIN REVIEW DETECTION
+      if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+        const isPendingReview = record.checkoutStatus === 'PENDING_ADMIN_REVIEW';
+        unresolvedCheckoutsList.push({
+          employee: emp,
+          record,
+          issueType: isPendingReview ? 'Pending Review' : 'Unresolved Checkout',
+          description: isPendingReview
+            ? `Employee submitted proposed checkout: ${record.employeeProposedCheckoutTime || '—'}. Admin review required.`
+            : `No reliable exit candidate detected on ${record.date}. Status: UNRESOLVED.`,
+          severity: 'CRITICAL',
+          date: record.date,
+          checkIn: record.checkInTime,
+          checkOut: isPendingReview ? `Proposed: ${record.employeeProposedCheckoutTime}` : 'UNRESOLVED',
+          proposedTime: record.employeeProposedCheckoutTime,
+          status: record.checkoutStatus
+        });
+      }
 
       // 1. MISSING CHECKOUT DETECTION
       let isMissingCo = false;
@@ -440,6 +460,7 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
 
     // Combine all issues
     const allIssues = [
+      ...unresolvedCheckoutsList,
       ...anomaliesList,
       ...missingCheckoutsList,
       ...lateArrivalsList,
@@ -448,6 +469,7 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
     ];
 
     return {
+      unresolvedCheckouts: unresolvedCheckoutsList,
       missingCheckouts: missingCheckoutsList,
       lateArrivals: lateArrivalsList,
       anomalies: anomaliesList,
@@ -843,16 +865,16 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
         </div>
 
         {/* Metric 2 */}
-        <div className="p-3.5 rounded-2xl border border-yellow-500/20 bg-gradient-to-b from-yellow-500/5 to-transparent flex flex-col justify-between h-24">
+        <div className="p-3.5 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-amber-500/5 to-transparent flex flex-col justify-between h-24">
           <div className="flex justify-between items-center">
-            <span className="text-[10px] font-bold text-yellow-300/80 uppercase">Missing Out</span>
-            <div className="w-5 h-5 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-400">
+            <span className="text-[10px] font-bold text-amber-300/80 uppercase">Unresolved Out</span>
+            <div className="w-5 h-5 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-400">
               <AlertTriangle className="w-3.5 h-3.5" />
             </div>
           </div>
           <div>
-            <div className="text-xl font-black text-white">{intelligenceData.missingCheckouts.length}</div>
-            <div className="text-[9px] text-yellow-400 font-medium">Unresolved Shifts</div>
+            <div className="text-xl font-black text-white">{intelligenceData.unresolvedCheckouts.length}</div>
+            <div className="text-[9px] text-amber-400 font-medium">Action Required</div>
           </div>
         </div>
 
@@ -1082,7 +1104,11 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
                     <td className="py-3 px-3 font-medium text-purple-200">{issue.date}</td>
                     <td className="py-3 px-3">
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border ${
-                        issue.issueType === 'Attendance Anomaly' 
+                        issue.issueType === 'Pending Review'
+                          ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                          : issue.issueType === 'Unresolved Checkout'
+                          ? 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                          : issue.issueType === 'Attendance Anomaly' 
                           ? 'bg-red-500/10 text-red-300 border-red-500/30' 
                           : issue.issueType === 'Missing Checkout'
                           ? 'bg-yellow-500/10 text-yellow-300 border-yellow-500/30'
@@ -1113,6 +1139,16 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
                     </td>
                     <td className="py-3 px-3 text-right">
                       <div className="flex justify-end gap-1.5">
+                        {(issue.issueType === 'Pending Review' || issue.issueType === 'Unresolved Checkout' || issue.issueType === 'Missing Checkout') ? (
+                          <Button
+                            onClick={() => {
+                              onRectifyAttendance(issue.record);
+                            }}
+                            className="bg-amber-500 hover:bg-amber-400 text-black text-[10px] py-1 px-2.5 rounded-lg flex items-center gap-1 font-black shadow-sm"
+                          >
+                            <CheckSquare className="w-3 h-3" /> REVIEW
+                          </Button>
+                        ) : null}
                         <Button
                           onClick={() => {
                             setSelectedIssue(issue);
@@ -1141,7 +1177,11 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
                       <div className="text-[10px] text-purple-300/70 font-mono mt-0.5">{issue.employee.employeeCode || issue.employee.id || '—'}</div>
                     </div>
                     <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold border ${
-                      issue.issueType === 'Attendance Anomaly' 
+                      issue.issueType === 'Pending Review'
+                        ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                        : issue.issueType === 'Unresolved Checkout'
+                        ? 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+                        : issue.issueType === 'Attendance Anomaly' 
                         ? 'bg-red-500/10 text-red-300 border-red-500/30' 
                         : issue.issueType === 'Missing Checkout'
                         ? 'bg-yellow-500/10 text-yellow-300 border-yellow-500/30'
@@ -1268,6 +1308,13 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
                     {selectedIssue.checkOut || '—'}
                   </span>
                 </div>
+
+                {selectedIssue.proposedTime && (
+                  <div className="grid grid-cols-2 text-xs pt-2 border-t border-purple-500/5 bg-amber-500/10 p-2 rounded-xl">
+                    <span className="text-amber-300 font-bold">Proposed by Employee:</span>
+                    <span className="text-amber-200 font-mono font-extrabold text-right">{selectedIssue.proposedTime}</span>
+                  </div>
+                )}
 
                 {selectedIssue.minutesLate !== undefined && selectedIssue.minutesLate > 0 && (
                   <div className="grid grid-cols-2 text-xs pt-2 border-t border-purple-500/5">

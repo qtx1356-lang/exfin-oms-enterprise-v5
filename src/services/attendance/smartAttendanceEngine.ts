@@ -259,7 +259,14 @@ export const runAutoCheckoutFinalizer = (): void => {
   });
 
   records.forEach((rec) => {
-    if (rec.checkOutTime || rec.manualRectified || rec.isAdminRectified || rec.correctedAt) {
+    if (
+      (rec.checkOutTime && rec.checkoutStatus === 'COMPLETED') ||
+      rec.checkoutStatus === 'UNRESOLVED' ||
+      rec.checkoutStatus === 'PENDING_ADMIN_REVIEW' ||
+      rec.manualRectified ||
+      rec.isAdminRectified ||
+      rec.correctedAt
+    ) {
       return;
     }
 

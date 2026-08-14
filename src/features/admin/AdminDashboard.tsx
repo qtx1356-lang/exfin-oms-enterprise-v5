@@ -738,6 +738,7 @@ export const AdminDashboard: React.FC = () => {
       // Determine updated checkout properties
       // Rule 12: For automatic checkout correction, Checkout Type should remain: Automatic Checkout. Do not label it: Day-End Automatic
       const isProposedAutoCheckout = proposedOut && proposedOut === (currentRecordData.lastExitTime || currentRecordData.exitTime);
+      const isProposedTimeMatches = currentRecordData.employeeProposedCheckoutTime && proposedOut === currentRecordData.employeeProposedCheckoutTime;
       const updatedCheckoutType = isProposedAutoCheckout ? 'AUTO_CHECKOUT' : (proposedOut ? 'MANUAL' : 'N/A');
       const updatedCheckoutMode = isProposedAutoCheckout ? 'AUTO_SYSTEM' : (proposedOut ? 'MANUAL' : 'N/A');
 
@@ -748,6 +749,12 @@ export const AdminDashboard: React.FC = () => {
         correctionHistory: updatedHistory,
         checkoutType: updatedCheckoutType,
         checkOutMode: updatedCheckoutMode,
+        checkoutStatus: proposedOut ? 'COMPLETED' : 'UNRESOLVED',
+        checkoutResolvedBy: adminUser?.displayName || loginId || 'Admin',
+        checkoutResolvedAt: new Date().toISOString(),
+        resolutionSource: isProposedTimeMatches ? 'EMPLOYEE_PROPOSED' : 'ADMIN_CORRECTION',
+        previousStatus: currentRecordData.checkoutStatus || currentRecordData.status,
+        status: proposedOut ? 'completed' : 'UNRESOLVED',
         manualRectified: true,
         isAdminRectified: true,
         updatedAt: new Date().toISOString(),
@@ -847,6 +854,15 @@ export const AdminDashboard: React.FC = () => {
   const pendingExpenseCount = expenseRecords.filter((e) => e.status === 'PENDING').length;
   const pendingLeaveCount = leaves.filter((l) => l.status === 'PENDING').length;
 
+  const unresolvedAttendanceCount = attendanceRecords.filter((r) => {
+    if (r.checkoutStatus === 'UNRESOLVED' || r.checkoutStatus === 'PENDING_ADMIN_REVIEW') return true;
+    const today = new Date().toISOString().split('T')[0];
+    if (r.date >= today) return false;
+    const hasCheckout = !!(r.checkOutTime && r.checkOutTime !== '--:--');
+    const isRectified = !!(r.manualRectified || r.isAdminRectified || r.correctedAt);
+    return !hasCheckout && !isRectified && r.checkoutStatus !== 'COMPLETED';
+  }).length;
+
   const consoleTitle = role === 'SUPER_ADMIN' ? 'Super Admin Console' : role === 'HR' ? 'HR Management Console' : 'Admin Operations Console';
 
   const navGroups = [
@@ -855,7 +871,7 @@ export const AdminDashboard: React.FC = () => {
       items: [
         { id: 'overview' as AdminTab, label: 'Overview', icon: LayoutDashboard, visible: canSeeOverview },
         { id: 'officePulse' as AdminTab, label: 'Office Pulse', icon: Sparkles, visible: canSeeOverview },
-        { id: 'attendanceIntelligence' as AdminTab, label: 'Attendance Intelligence', icon: Brain, visible: canSeeOverview },
+        { id: 'attendanceIntelligence' as AdminTab, label: 'Attendance Intelligence', icon: Brain, badge: unresolvedAttendanceCount, visible: canSeeOverview },
         { id: 'reports' as AdminTab, label: 'Analytics', icon: Activity, visible: canSeeReports },
         { id: 'health' as AdminTab, label: 'System Health', icon: Wifi, visible: canSeeHealth },
       ],
@@ -883,7 +899,7 @@ export const AdminDashboard: React.FC = () => {
     {
       title: 'OPERATIONS',
       items: [
-        { id: 'attendance' as AdminTab, label: 'Attendance', icon: Clock, visible: canSeeAttendance },
+        { id: 'attendance' as AdminTab, label: 'Attendance', icon: Clock, badge: unresolvedAttendanceCount, visible: canSeeAttendance },
         { id: 'workHours' as AdminTab, label: 'Work Hours', icon: Clock, visible: canSeeAttendance },
         { id: 'expenses' as AdminTab, label: 'Expenses', icon: Wallet, badge: pendingExpenseCount, visible: canSeeExpenses },
         { id: 'planner' as AdminTab, label: 'Work Planner', icon: CheckSquare, visible: canSeePlanner },
@@ -1545,8 +1561,20 @@ export const AdminDashboard: React.FC = () => {
                                       {rec.checkInMode === 'AUTO' ? 'Auto' : 'Manual'}
                                     </span>
                                   </td>
-                                  <td className="p-3 border-b border-purple-500/10 text-purple-200 whitespace-nowrap">
-                                    {safeStringify(rec.checkOutTime) || '--:--'}
+                                  <td className="p-3 border-b border-purple-500/10 whitespace-nowrap">
+                                    {rec.checkoutStatus === 'UNRESOLVED' ? (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                        UNRESOLVED
+                                      </span>
+                                    ) : rec.checkoutStatus === 'PENDING_ADMIN_REVIEW' ? (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                        {rec.employeeProposedCheckoutTime ? `Review (${rec.employeeProposedCheckoutTime})` : 'Pending Review'}
+                                      </span>
+                                    ) : (
+                                      <span className="text-purple-200 font-mono font-medium">
+                                        {safeStringify(rec.checkOutTime) || '--:--'}
+                                      </span>
+                                    )}
                                   </td>
                                   <td className="p-3 border-b border-purple-500/10">
                                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
@@ -1976,6 +2004,29 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
+            {selectedForRectify.employeeProposedCheckoutTime && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <div className="text-[10px] font-bold text-amber-300 uppercase tracking-wider">Employee Proposed Checkout Time</div>
+                  <div className="font-mono text-sm font-black text-amber-400">{selectedForRectify.employeeProposedCheckoutTime}</div>
+                  {selectedForRectify.employeeResolutionReason && (
+                    <div className="text-[11px] text-amber-200/80 italic mt-0.5">&quot;{selectedForRectify.employeeResolutionReason}&quot;</div>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    setRectifyCheckOut(selectedForRectify.employeeProposedCheckoutTime || '');
+                    setRectifyReason(`Approved employee proposed checkout (${selectedForRectify.employeeProposedCheckoutTime})`);
+                  }}
+                  className="bg-amber-500 hover:bg-amber-400 text-black text-xs font-black py-1 px-3 shrink-0"
+                >
+                  Use Proposed Time
+                </Button>
+              </div>
+            )}
+
             {rectifyError && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
@@ -1995,12 +2046,24 @@ export const AdminDashboard: React.FC = () => {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-purple-300">Check-Out Time</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-purple-300">Check-Out Time</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRectifyCheckOut('');
+                      setRectifyReason('Kept unresolved by administrator');
+                    }}
+                    className="text-[10px] text-rose-400 hover:text-rose-300 underline"
+                  >
+                    Clear (Unresolved)
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={rectifyCheckOut}
                   onChange={(e) => setRectifyCheckOut(e.target.value)}
-                  placeholder="e.g. 06:00 PM"
+                  placeholder="e.g. 06:00 PM (or empty for UNRESOLVED)"
                   className="w-full px-3 py-2 bg-[#1B0D38] border border-purple-500/30 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-purple-400"
                 />
               </div>

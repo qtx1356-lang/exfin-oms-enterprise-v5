@@ -86,10 +86,26 @@ export const WorkHoursScreen: React.FC = () => {
 
   // Helper to determine record status & details
   const getRecordStatusDetails = (rec: AttendanceRecord) => {
-    const isCompleted = !!(rec.checkOutTime && rec.checkOutTime !== '--:--');
+    const isCompleted = !!(rec.checkOutTime && rec.checkOutTime !== '--:--' && rec.checkoutStatus === 'COMPLETED');
     const isToday = rec.date === todayStr;
     
-    if (isCompleted) {
+    if (rec.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+      return {
+        label: 'Pending Review',
+        colorClass: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+        dotClass: 'bg-amber-400',
+        checkoutText: `Proposed: ${rec.employeeProposedCheckoutTime || 'Pending'}`,
+        duration: 'PENDING REVIEW',
+      };
+    } else if (rec.checkoutStatus === 'UNRESOLVED' || (!isCompleted && !isToday)) {
+      return {
+        label: 'Unresolved',
+        colorClass: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
+        dotClass: 'bg-rose-400',
+        checkoutText: 'UNRESOLVED',
+        duration: 'UNRESOLVED',
+      };
+    } else if (isCompleted) {
       return {
         label: 'Completed',
         colorClass: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
@@ -108,11 +124,11 @@ export const WorkHoursScreen: React.FC = () => {
       };
     } else {
       return {
-        label: 'Missing Checkout',
+        label: 'Unresolved',
         colorClass: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
         dotClass: 'bg-rose-400',
-        checkoutText: 'Awaiting',
-        duration: '--:--',
+        checkoutText: 'UNRESOLVED',
+        duration: 'UNRESOLVED',
       };
     }
   };

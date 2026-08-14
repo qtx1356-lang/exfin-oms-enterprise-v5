@@ -40,6 +40,7 @@ import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { LocationGate } from '../../components/common/LocationGate';
 import { AttendanceRecord, AttendanceType, OutdoorWorkTypeOption } from '../../types/attendance';
 import { getStoredLeaves } from '../../services/leave/leaveStorage';
+import { createNotification } from '../../services/notification/notificationService';
 import {
   OFFICE_LOCATION,
   getDistanceFromLatLonInM,
@@ -140,8 +141,102 @@ export const AttendanceScreen: React.FC = () => {
   const [historySyncFilter, setHistorySyncFilter] = useState<'ALL' | 'Synced' | 'Pending'>('ALL');
   const [isHistoryExpanded, setIsHistoryExpanded] = useState<boolean>(false);
 
+  // Unresolved Checkout Resolution State
+  const [proposedTimeInput, setProposedTimeInput] = useState<string>('');
+  const [resolutionRemarks, setResolutionRemarks] = useState<string>('');
+  const [isSubmittingProposal, setIsSubmittingProposal] = useState<boolean>(false);
+  const [proposalError, setProposalError] = useState<string | null>(null);
+  const [isEditingProposal, setIsEditingProposal] = useState<boolean>(false);
+
   const employeeId = employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN';
   const employeeName = employeeData?.name || 'Employee';
+
+  const todayStr = getFormattedDateStr();
+
+  // Find unresolved records from past days (strictly before today)
+  const unresolvedPastRecords = useMemo(() => {
+    return allRecords
+      .filter((r) => {
+        const empCode = r.employeeId || r.employeeCode;
+        if (empCode !== employeeId) return false;
+        if (r.date >= todayStr) return false; // Past days only
+        if (r.checkoutStatus === 'UNRESOLVED' || r.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+          return true;
+        }
+        const hasCheckout = !!(r.checkOutTime && r.checkOutTime !== '--:--');
+        const isRectified = !!(r.manualRectified || r.isAdminRectified || r.correctedAt);
+        if (!hasCheckout && !isRectified && r.checkoutStatus !== 'COMPLETED') {
+          return true;
+        }
+        return false;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date)); // Oldest first
+  }, [allRecords, employeeId, todayStr]);
+
+  const activeUnresolvedRecord = unresolvedPastRecords.length > 0 ? unresolvedPastRecords[0] : null;
+
+  // Handle employee submitting or updating proposed checkout time
+  const handleSubmitProposedTime = async () => {
+    if (!activeUnresolvedRecord) return;
+    setProposalError(null);
+
+    const rawTime = proposedTimeInput.trim();
+    if (!rawTime) {
+      setProposalError('Please enter or select your actual checkout time.');
+      return;
+    }
+
+    // Standardize to "hh:mm AM/PM" format
+    let formattedTime = rawTime;
+    if (/^\d{1,2}:\d{2}$/.test(formattedTime)) {
+      const [hStr, mStr] = formattedTime.split(':');
+      let h = parseInt(hStr, 10);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12;
+      if (h === 0) h = 12;
+      formattedTime = `${String(h).padStart(2, '0')}:${mStr} ${ampm}`;
+    }
+
+    setIsSubmittingProposal(true);
+    try {
+      const updatedRecord: AttendanceRecord = {
+        ...activeUnresolvedRecord,
+        checkoutStatus: 'PENDING_ADMIN_REVIEW',
+        employeeProposedCheckoutTime: formattedTime,
+        status: 'PENDING_ADMIN_REVIEW',
+        syncStatus: 'Pending',
+        updatedAt: new Date().toISOString(),
+        version: (activeUnresolvedRecord.version || 1) + 1,
+      };
+
+      saveAttendanceRecord(updatedRecord);
+      updateAttendanceOptimistically(updatedRecord);
+      refreshRecords();
+      setIsEditingProposal(false);
+      setActionFeedback(`Proposed checkout (${formattedTime}) submitted for Admin verification.`);
+
+      // Send actionable notification to Admin
+      createNotification({
+        recipientEmployeeCode: 'ADMIN',
+        type: 'ATTENDANCE_UNRESOLVED',
+        category: 'ATTENDANCE',
+        priority: 'HIGH',
+        title: 'Checkout Resolution Proposed',
+        message: `${employeeName} (${employeeId}) proposed checkout ${formattedTime} for ${activeUnresolvedRecord.date}.`,
+        entityId: updatedRecord.id,
+        entityType: 'ATTENDANCE',
+        idempotencyKey: `proposal_${employeeId}_${activeUnresolvedRecord.date}_${Date.now()}`
+      }).catch((e) => console.warn('Admin notification error:', e));
+
+      if (navigator.onLine) {
+        syncPendingAttendanceRecords().catch((e) => console.warn('Sync error on proposal:', e));
+      }
+    } catch (err: any) {
+      setProposalError(err.message || 'Failed to submit proposed checkout time.');
+    } finally {
+      setIsSubmittingProposal(false);
+    }
+  };
 
   const getFormattedDateLong = () => {
     return new Date().toLocaleDateString('en-US', {
@@ -722,6 +817,164 @@ export const AttendanceScreen: React.FC = () => {
         </div>
       )}
 
+      {/* ==================================================== */}
+      {/* MANDATORY UNRESOLVED CHECKOUT ACCESS LOCK & RESOLUTION */}
+      {/* ==================================================== */}
+      {activeUnresolvedRecord ? (
+        <div className="space-y-5 animate-fade-in">
+          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-[#2D1B5A] via-[#1E113E] to-[#120722] border-2 border-amber-500/40 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-amber-500/20">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 flex-shrink-0">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase font-black tracking-widest px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      ⚠️ CHECKOUT REQUIRES RESOLUTION
+                    </span>
+                    {unresolvedPastRecords.length > 1 && (
+                      <span className="text-[10px] font-bold text-amber-400">
+                        ({unresolvedPastRecords.length} sessions need resolution)
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="text-xl font-black text-white mt-1">
+                    CHECKOUT REQUIRES RESOLUTION
+                  </h2>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs sm:text-sm text-purple-200/90 leading-relaxed font-medium">
+              {activeUnresolvedRecord.date === new Date(Date.now() - 86400000).toISOString().split('T')[0]
+                ? "Yesterday's checkout time could not be reliably determined."
+                : `Previous checkout time for ${activeUnresolvedRecord.date} could not be reliably determined.`}
+              {' '}Attendance section controls are temporarily locked until your actual checkout time is submitted and verified by an Administrator.
+            </p>
+
+            {/* Session Details */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-black/40 rounded-2xl border border-purple-500/20 text-xs">
+              <div>
+                <span className="text-[10px] text-purple-400 font-bold uppercase block tracking-wider">Date</span>
+                <span className="text-white font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-purple-400 font-bold uppercase block tracking-wider">Check-in</span>
+                <span className="text-emerald-400 font-mono font-extrabold text-sm">{activeUnresolvedRecord.checkInTime || '--:--'}</span>
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <span className="text-[10px] text-purple-400 font-bold uppercase block tracking-wider">Checkout</span>
+                <span className={`font-extrabold text-sm ${activeUnresolvedRecord.checkoutStatus === 'PENDING_ADMIN_REVIEW' ? 'text-amber-400' : 'text-rose-400'}`}>
+                  {activeUnresolvedRecord.checkoutStatus === 'PENDING_ADMIN_REVIEW' ? 'PENDING ADMIN REVIEW' : 'UNRESOLVED'}
+                </span>
+              </div>
+            </div>
+
+            {/* Resolution Form / Pending State */}
+            {activeUnresolvedRecord.checkoutStatus === 'PENDING_ADMIN_REVIEW' && !isEditingProposal ? (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-amber-300 text-xs font-black">
+                    <Clock className="w-4 h-4" />
+                    <span>Proposed Checkout: {activeUnresolvedRecord.employeeProposedCheckoutTime || 'Submitted'}</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    PENDING ADMIN REVIEW
+                  </span>
+                </div>
+                <p className="text-xs text-amber-200/80 leading-relaxed">
+                  Your proposed checkout time has been submitted to Admin for verification. The Admin will review your attendance logs and finalize the record. Once finalized, full attendance access will be automatically unlocked.
+                </p>
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingProposal(true);
+                      setProposedTimeInput(activeUnresolvedRecord.employeeProposedCheckoutTime || '');
+                    }}
+                    className="px-3 py-1.5 bg-black/40 hover:bg-black/60 text-amber-300 text-xs font-bold rounded-xl border border-amber-500/30 transition-all"
+                  >
+                    Edit Proposed Time
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 p-4 rounded-2xl bg-black/30 border border-purple-500/20">
+                <label className="text-xs font-bold text-white block">
+                  Select or enter your actual checkout time for {activeUnresolvedRecord.date}:
+                </label>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="time"
+                    value={proposedTimeInput}
+                    onChange={(e) => setProposedTimeInput(e.target.value)}
+                    className="flex-1 px-3.5 py-2.5 bg-purple-950/40 border border-purple-500/30 text-white rounded-xl text-xs focus:ring-2 focus:ring-teal-400 focus:outline-none"
+                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    {['17:30', '18:00', '18:10', '18:30', '19:00', '19:30'].map((preset) => {
+                      const [hStr, mStr] = preset.split(':');
+                      const h = parseInt(hStr, 10);
+                      const label = `${h > 12 ? h - 12 : h}:${mStr} ${h >= 12 ? 'PM' : 'AM'}`;
+                      return (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setProposedTimeInput(preset)}
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
+                            proposedTimeInput === preset
+                              ? 'bg-teal-500 text-black border-teal-400'
+                              : 'bg-purple-950/40 text-purple-200 border-purple-500/20 hover:bg-purple-900/40'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {proposalError && (
+                  <div className="text-xs text-rose-400 font-bold flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{proposalError}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  {isEditingProposal && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingProposal(false)}
+                      className="px-4 py-2 bg-black/40 hover:bg-black/60 text-purple-300 text-xs font-bold rounded-xl border border-purple-500/20 transition-all"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <Button
+                    onClick={handleSubmitProposedTime}
+                    disabled={isSubmittingProposal}
+                    className="bg-amber-500 hover:bg-amber-400 text-black text-xs font-black px-6 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2"
+                  >
+                    <Check className="w-4 h-4" />
+                    {isSubmittingProposal ? 'SUBMITTING...' : 'RESOLVE CHECKOUT'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Continuous Tracking Notice */}
+            <div className="flex items-center gap-2 p-3 bg-purple-950/30 rounded-xl border border-purple-500/15 text-[11px] text-purple-300/80">
+              <Activity className="w-3.5 h-3.5 text-teal-400 flex-shrink-0" />
+              <span>
+                <strong>Independent Daily Engine:</strong> Today&apos;s automatic check-in & geofence tracking continues working normally in the background.
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* ==================================================== */}
       {/* 1. TODAY'S ATTENDANCE ACTIONS */}
       {/* ==================================================== */}
@@ -1422,6 +1675,8 @@ export const AttendanceScreen: React.FC = () => {
           </div>
         )}
       </div>
+      </>
+      )}
 
     </div>
   );
