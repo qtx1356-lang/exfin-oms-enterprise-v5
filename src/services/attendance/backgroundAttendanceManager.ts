@@ -6,6 +6,7 @@ import { getTodayAttendanceRecord } from './attendanceStorage';
 import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { logStartupTag } from '../startup/startupPerformanceLogger';
+import { registerNativeOfficeGeofence, initNativeGeofenceListener, reconcileNativeGeofenceEvents } from './nativeGeofenceBridge';
 
 const GEOFENCE_REGISTERED_KEY = 'exfin_office_geofence_25m';
 
@@ -130,12 +131,19 @@ export const requestBackgroundLocationPermission = async (): Promise<boolean> =>
 /**
  * Initializes global background lifecycle listeners
  */
-export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { id: string; name: string } | null): (() => void) => {
+export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { id: string; name: string; townCity?: string } | null): (() => void) => {
   logStartupTag('ATTENDANCE_INIT_START', 'Initializing background attendance manager');
   ensureOfficeGeofenceRegistered();
+  registerNativeOfficeGeofence();
 
   // Run initial end-of-day finalizer check
   runAutoCheckoutFinalizer();
+
+  // Initialize native geofence event listener & reconcile any unconsumed events
+  let cleanupNativeListener: (() => void) | null = null;
+  initNativeGeofenceListener(getEmployeeInfo).then((cleanup) => {
+    cleanupNativeListener = cleanup;
+  });
 
   const intervalId = setInterval(() => {
     runAutoCheckoutFinalizer();
@@ -148,6 +156,12 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
     if (document.visibilityState === 'visible') {
       logAttendanceEvent('GEOFENCE_ENTER', 'SYSTEM', 'App brought to foreground. Refreshing attendance state.');
       runAutoCheckoutFinalizer();
+      
+      const info = getEmployeeInfo();
+      if (info?.id) {
+        reconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ');
+      }
+
       if (navigator.onLine) {
         syncPendingAttendanceRecords().catch(() => {});
       }
@@ -163,6 +177,7 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
 
   return () => {
     clearInterval(intervalId);
+    if (cleanupNativeListener) cleanupNativeListener();
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     window.removeEventListener('online', syncPendingAttendanceRecords);
   };

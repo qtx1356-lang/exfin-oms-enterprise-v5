@@ -193,7 +193,12 @@ export const calculateEfficiency = (
   const attendanceDaysCount = periodAttendance.length;
   
   const validCheckInsCount = periodAttendance.filter(rec => rec.checkInTime).length;
-  const validCheckOutsCount = periodAttendance.filter(rec => rec.checkOutTime && rec.checkOutTime !== 'N/A').length;
+  const validCheckOutsCount = periodAttendance.filter(rec => 
+    rec.checkOutTime && 
+    rec.checkOutTime !== 'N/A' && 
+    rec.checkoutStatus !== 'UNRESOLVED' && 
+    rec.checkoutStatus !== 'PENDING_ADMIN_REVIEW'
+  ).length;
   const lateArrivalsCount = periodAttendance.filter(rec => {
     // Check-in mode: WFH, CLIENT_VISIT, OUTDOOR are not penalized for being physically absent, 
     // but we can parse late arrival if they checked in late (e.g. after 9:30 AM).
