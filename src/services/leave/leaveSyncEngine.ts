@@ -91,7 +91,9 @@ export const syncPendingLeaves = async (): Promise<{ syncedCount: number; errors
             'Leave',
             leave.id,
             err?.message || 'Leave sync failed',
-            `Leave ${leave.startDate} to ${leave.endDate}`
+            `Leave ${leave.startDate} to ${leave.endDate}`,
+            leave.employeeCode,
+            leave
           );
           markLeaveSyncFailed(leave.id);
           errorsCount++;

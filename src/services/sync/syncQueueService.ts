@@ -3,15 +3,17 @@ import { SyncModule } from '../../types/sync';
 export type { SyncModule };
 
 export interface DeadLetterItem {
-  id: string;
-  module: SyncModule;
+  id: string; // unique operation ID
+  module: SyncModule; // operation type
   recordId: string;
+  employeeId?: string; // employee ID
   failureReason: string;
-  attemptCount: number;
-  lastAttemptAt: string;
+  attemptCount: number; // retry count
+  lastAttemptAt: string; // timestamp
   nextRetryAt: string;
-  status: 'pending' | 'syncing' | 'failed' | 'resolved';
+  status: 'pending' | 'syncing' | 'failed' | 'resolved'; // sync status
   payloadSummary?: string;
+  payload?: any; // payload
   createdAtDeviceTime?: string;
 }
 
@@ -39,7 +41,9 @@ export const recordSyncFailure = (
   module: SyncModule,
   recordId: string,
   reason: string,
-  payloadSummary?: string
+  payloadSummary?: string,
+  employeeId?: string,
+  payload?: any
 ): DeadLetterItem => {
   const queue = getDeadLetterQueue();
   const itemId = `${module}_${recordId}`;
@@ -47,9 +51,11 @@ export const recordSyncFailure = (
 
   const now = new Date();
   let attemptCount = 1;
+  let createdAtDeviceTime = now.toISOString();
 
   if (existingIndex >= 0) {
     attemptCount = queue[existingIndex].attemptCount + 1;
+    createdAtDeviceTime = queue[existingIndex].createdAtDeviceTime || createdAtDeviceTime;
   }
 
   // Exponential backoff: min 300 seconds, 2^attempt * 10
@@ -63,12 +69,15 @@ export const recordSyncFailure = (
     id: itemId,
     module,
     recordId,
+    employeeId,
     failureReason: reason,
     attemptCount,
     lastAttemptAt: now.toISOString(),
     nextRetryAt: nextRetry,
     status: isDeadLetter ? 'failed' : 'pending',
     payloadSummary: payloadSummary || `${module} record ${recordId}`,
+    payload,
+    createdAtDeviceTime,
   };
 
   if (existingIndex >= 0) {

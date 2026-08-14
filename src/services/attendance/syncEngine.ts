@@ -130,7 +130,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           await new Promise((res) => setTimeout(res, backoffMs));
         } else {
           logAttendanceEvent('SYNC_FAILED', record.employeeId, `Failed to sync attendance record ${record.docId}: ${err?.message}`);
-          recordSyncFailure('Attendance', record.id, err?.message || 'Attendance sync failed', `Attendance for ${record.date}`);
+          recordSyncFailure('Attendance', record.id, err?.message || 'Attendance sync failed', `Attendance for ${record.date}`, record.employeeId, record);
           errorsCount++;
         }
       }

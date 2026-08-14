@@ -36,6 +36,9 @@ export type SyncStateIndicator =
 
 interface RealtimeSyncContextType {
   isOnline: boolean;
+  isOffline: boolean;
+  lastOnlineTime: string;
+  showStatusIndicator: boolean;
   syncState: SyncStateIndicator;
   tasks: TaskRecord[];
   leaves: LeaveRecord[];
@@ -63,6 +66,8 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
   const empCode = employeeData?.employeeCode || employeeData?.id || '';
 
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  const [lastOnlineTime, setLastOnlineTime] = useState<string>(new Date().toISOString());
+  const [showStatusIndicator, setShowStatusIndicator] = useState<boolean>(false);
   const [syncState, setSyncState] = useState<SyncStateIndicator>(
     navigator.onLine ? 'SYNCED' : 'OFFLINE — SAVED LOCALLY'
   );
@@ -90,16 +95,22 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
+      setLastOnlineTime(new Date().toISOString());
       setSyncState('SYNCING');
+      setShowStatusIndicator(true);
+      
       console.log('RealtimeSync: Internet restored. Synchronizing pending operations...');
       syncAllPendingRecords().then(() => {
         setSyncState('SYNCED');
+        // Keep "Back Online" visible for a bit
+        setTimeout(() => setShowStatusIndicator(false), 3000);
       });
     };
 
     const handleOffline = () => {
       setIsOnline(false);
       setSyncState('OFFLINE — SAVED LOCALLY');
+      setShowStatusIndicator(true);
       console.log('RealtimeSync: Device offline. Operations will be queued locally.');
     };
 
@@ -631,6 +642,9 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
   const contextValue = React.useMemo(
     () => ({
       isOnline,
+      isOffline: !isOnline,
+      lastOnlineTime,
+      showStatusIndicator,
       syncState,
       tasks,
       leaves,
@@ -646,6 +660,8 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     }),
     [
       isOnline,
+      lastOnlineTime,
+      showStatusIndicator,
       syncState,
       tasks,
       leaves,

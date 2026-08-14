@@ -1,14 +1,74 @@
-const CACHE_NAME = 'exfin-v14';
+const CACHE_NAME = 'exfin-v15';
 
-// Assets to cache on install (optional/default shell assets)
+// Assets to cache on install (critical shell assets)
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  '/favicon.ico',
 ];
 
-// Offline fallback page or just use index.html as the shell
-const OFFLINE_URL = '/index.html';
+// Self-contained offline fallback page if the shell isn't in cache
+const OFFLINE_FALLBACK_HTML = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exfin OMS Offline</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #0f172a;
+            color: #f8fafc;
+            text-align: center;
+            padding: 20px;
+        }
+        .icon {
+            font-size: 48px;
+            margin-bottom: 24px;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        p {
+            font-size: 16px;
+            color: #94a3b8;
+            max-width: 300px;
+            line-height: 1.5;
+        }
+        .retry-btn {
+            margin-top: 32px;
+            background-color: #8b5cf6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .retry-btn:hover {
+            background-color: #7c3aed;
+        }
+    </style>
+</head>
+<body>
+    <div class="icon">📡</div>
+    <h1>Exfin OMS is temporarily offline.</h1>
+    <p>Please reconnect to the internet and try again. Your application data is safe.</p>
+    <button class="retry-btn" onclick="window.location.reload()">Retry Connection</button>
+</body>
+</html>
+`;
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -25,7 +85,6 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          // Keep only the current cache version, delete other exfin caches
           if (cacheName.startsWith('exfin-') && cacheName !== CACHE_NAME) {
             console.log('ServiceWorker: Deleting old cache:', cacheName);
             return caches.delete(cacheName);
@@ -42,14 +101,13 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   
-  // 1. Only handle GET requests
   if (request.method !== 'GET') {
     return;
   }
 
   const url = new URL(request.url);
 
-  // 2. Bypass service worker for dev server internal requests or hot reloads
+  // Bypass for internal/dev requests
   if (
     url.pathname.startsWith('/src/') ||
     url.pathname.startsWith('/@') ||
@@ -59,55 +117,47 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. EXCLUSIONS (NEVER CACHE)
+  // EXCLUSIONS (NEVER CACHE)
   if (
     url.pathname.includes('/api/') ||
     url.hostname.includes('firebase') ||
+    url.hostname.includes('firestore') ||
     url.hostname.includes('googleapis') ||
     url.hostname.includes('securetoken') ||
     url.hostname.includes('identitytoolkit') ||
-    url.pathname.includes('identitytoolkit') ||
     url.pathname.includes('/auth/')
   ) {
     return;
   }
 
-  // 4. NAVIGATION REQUESTS (index.html / App Shell)
-  // Strategy: Network-First, Fallback to Cache
-  const isNavigation = request.mode === 'navigate' || 
-                       url.pathname === '/' || 
-                       url.pathname === '/index.html';
-
-  if (isNavigation) {
+  // NAVIGATION REQUESTS
+  if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          // If successful (status 200), cache it and return
           if (response && response.status === 200) {
             const responseToCache = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
-              // Cache both the exact request and '/' and '/index.html' to ensure availability
-              cache.put('/', responseToCache.clone());
-              cache.put('/index.html', responseToCache.clone());
+              cache.put('/index.html', responseToCache);
             });
             return response;
           }
-          // If not 200 (e.g. error page from server), try cache
-          return caches.match(OFFLINE_URL);
+          return caches.match('/index.html');
         })
-        .catch((err) => {
-          console.log('ServiceWorker: Navigation fetch failed, serving offline shell', err);
-          // Fallback to cached index.html or root
-          return caches.match(OFFLINE_URL).then((cachedResponse) => {
-            return cachedResponse || caches.match('/');
+        .catch(() => {
+          return caches.match('/index.html').then((cachedResponse) => {
+            if (cachedResponse) return cachedResponse;
+            // If even the shell is missing, return the hardcoded fallback
+            return new Response(OFFLINE_FALLBACK_HTML, {
+              headers: { 'Content-Type': 'text/html' }
+            });
           });
         })
     );
     return;
   }
 
-  // 5. STATIC ASSETS (Vite assets, images, icons, fonts, etc.)
-  // Strategy: Cache-First, Fallback to Network (and then cache)
+  // STATIC ASSETS
   const isStaticAsset = 
     url.pathname.startsWith('/assets/') ||
     url.pathname.startsWith('/images/') ||
@@ -116,13 +166,9 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.png') ||
     url.pathname.endsWith('.jpg') ||
     url.pathname.endsWith('.jpeg') ||
-    url.pathname.endsWith('.gif') ||
     url.pathname.endsWith('.svg') ||
     url.pathname.endsWith('.ico') ||
-    url.pathname.endsWith('.woff') ||
-    url.pathname.endsWith('.woff2') ||
-    url.pathname.endsWith('.ttf') ||
-    url.pathname.endsWith('.json');
+    url.pathname.endsWith('.woff2');
 
   if (isStaticAsset) {
     event.respondWith(
@@ -131,10 +177,8 @@ self.addEventListener('fetch', (event) => {
           return cachedResponse;
         }
 
-        // Not in cache, fetch from network
         return fetch(request)
           .then((response) => {
-            // Check if we received a valid response
             if (!response || response.status !== 200 || response.type !== 'basic') {
               return response;
             }
@@ -146,20 +190,14 @@ self.addEventListener('fetch', (event) => {
 
             return response;
           })
-          .catch((err) => {
-            console.error('ServiceWorker: Static asset fetch failed', err);
-            // Just return whatever fetch would have returned (the error)
-            return null;
-          });
+          .catch(() => null);
       })
     );
     return;
   }
-
-  // 6. DEFAULT: Go directly to network (no caching)
 });
 
-// Push notification event handler for Android & Web Push
+// Push notification handling
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   try {
@@ -171,37 +209,28 @@ self.addEventListener('push', (event) => {
       badge: '/manifest-icon-192.png',
       data: {
         route: payload.route || '/notifications',
-        entityType: payload.entityType,
-        entityId: payload.entityId,
-        notifId: payload.id,
+        id: payload.id,
       },
-      tag: payload.id || 'exfin_push_' + Date.now(),
-      renotify: false,
-      vibrate: [200, 100, 200, 100, 200],
+      tag: payload.id || 'exfin_push',
     };
     event.waitUntil(self.registration.showNotification(title, options));
   } catch (err) {
-    console.error('ServiceWorker push event error:', err);
+    console.error('Push error:', err);
   }
 });
 
-// Notification click router handler
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const notifData = event.notification.data || {};
-  const targetRoute = notifData.route || '/notifications';
-
+  const route = event.notification.data?.route || '/notifications';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if ('focus' in client) {
-          client.navigate(targetRoute);
+        if (client.url.includes(route) && 'focus' in client) {
           return client.focus();
         }
       }
-      if (clients.openWindow) {
-        return clients.openWindow(targetRoute);
-      }
+      if (clients.openWindow) return clients.openWindow(route);
     })
   );
 });
+

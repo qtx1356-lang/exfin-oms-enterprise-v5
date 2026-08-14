@@ -111,7 +111,9 @@ export const syncPendingTasks = async (): Promise<{ syncedCount: number; errorsC
             'WorkPlanner',
             task.id,
             err?.message || 'Task sync failed',
-            `Task "${task.title}"`
+            `Task "${task.title}"`,
+            task.assignedToEmployeeCodes?.[0] || 'Unknown',
+            task
           );
           markTaskSyncFailedInLocal(task.id);
           errorsCount++;

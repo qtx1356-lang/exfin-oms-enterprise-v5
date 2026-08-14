@@ -67,7 +67,7 @@ export const syncPendingExpenseRecords = async (): Promise<{ syncedCount: number
             receiptDownloadUrl = await getDownloadURL(storageRef);
           } catch (uploadErr: any) {
             console.error(`Expense Sync Engine: Receipt upload failed for ${record.id}:`, uploadErr);
-            recordSyncFailure('Expenses', record.id, uploadErr?.message || 'Receipt storage upload failed', `Expense ₹${record.amount} (${record.category})`);
+            recordSyncFailure('Expenses', record.id, uploadErr?.message || 'Receipt storage upload failed', `Expense ₹${record.amount} (${record.category})`, record.employeeCode, { ...record, localReceiptData: '[IMAGE_DATA]' });
             markExpenseSyncFailedInLocal(record.id);
             errorsCount++;
             break;
@@ -113,7 +113,7 @@ export const syncPendingExpenseRecords = async (): Promise<{ syncedCount: number
           const backoffMs = attempt === 1 ? 300 : attempt === 2 ? 800 : 1500;
           await new Promise((res) => setTimeout(res, backoffMs));
         } else {
-          recordSyncFailure('Expenses', record.id, err?.message || 'Expense sync failed', `Expense ₹${record.amount} (${record.category})`);
+          recordSyncFailure('Expenses', record.id, err?.message || 'Expense sync failed', `Expense ₹${record.amount} (${record.category})`, record.employeeCode, { ...record, localReceiptData: '[IMAGE_DATA]' });
           markExpenseSyncFailedInLocal(record.id);
           errorsCount++;
         }
