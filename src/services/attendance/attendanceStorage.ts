@@ -1,7 +1,9 @@
 import { AttendanceRecord } from '../../types/attendance';
+import { calculateWorkingHours } from './smartAttendanceEngine';
 
 const STORAGE_KEY = 'exfin_attendance_records_v1';
 const MIGRATION_FLAG_KEY = 'exfin_unresolved_migration_v1_executed';
+const WORKING_HOURS_REPAIR_FLAG_KEY = 'exfin_working_hours_repair_v1_executed';
 
 export interface MigrationReport {
   migratedCount: number;
@@ -10,6 +12,52 @@ export interface MigrationReport {
   skippedDocIds: string[];
   timestamp: string;
 }
+
+/**
+ * Safe, idempotent repair for completed attendance records with stale workingHours strings.
+ */
+export const runSafeWorkingHoursNormalization = (): number => {
+  const records = getStoredAttendanceRecords();
+  if (!records || records.length === 0) return 0;
+  
+  let changedCount = 0;
+  const updated = records.map((rec) => {
+    if (rec.checkoutStatus === 'UNRESOLVED' || rec.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+      if (rec.workingHours !== null) {
+        changedCount++;
+        return { ...rec, workingHours: null };
+      }
+      return rec;
+    }
+    
+    if (
+      rec.checkInTime &&
+      rec.checkOutTime &&
+      rec.checkOutTime !== '--:--' &&
+      rec.checkOutTime !== 'Pending' &&
+      rec.checkOutTime !== 'N/A' &&
+      rec.checkOutTime !== 'UNRESOLVED'
+    ) {
+      const calculated = calculateWorkingHours(rec.checkInTime, rec.checkOutTime);
+      if (rec.workingHours !== calculated) {
+        changedCount++;
+        return { ...rec, workingHours: calculated };
+      }
+    }
+    return rec;
+  });
+  
+  if (changedCount > 0) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(WORKING_HOURS_REPAIR_FLAG_KEY, new Date().toISOString());
+      console.log(`[WORKING_HOURS_REPAIR] Safely normalized ${changedCount} attendance records with authoritative working hours.`);
+    } catch (e) {
+      console.error('[WORKING_HOURS_REPAIR] Failed to persist repaired records:', e);
+    }
+  }
+  return changedCount;
+};
 
 /**
  * Performs a safe, idempotent one-time migration of historical records
@@ -121,6 +169,20 @@ export const getStoredAttendanceRecords = (): AttendanceRecord[] => {
 
 export const saveAttendanceRecord = (record: AttendanceRecord): void => {
   try {
+    // Authoritatively calculate workingHours when valid check-in and check-out exist
+    if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+      record.workingHours = null;
+    } else if (
+      record.checkInTime &&
+      record.checkOutTime &&
+      record.checkOutTime !== '--:--' &&
+      record.checkOutTime !== 'Pending' &&
+      record.checkOutTime !== 'N/A' &&
+      record.checkOutTime !== 'UNRESOLVED'
+    ) {
+      record.workingHours = calculateWorkingHours(record.checkInTime, record.checkOutTime);
+    }
+
     const records = getStoredAttendanceRecords();
     const existingIndex = records.findIndex(
       (r) => r.id === record.id || (r.docId && r.docId === record.docId)

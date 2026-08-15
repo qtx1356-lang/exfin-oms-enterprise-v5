@@ -12,6 +12,7 @@ import { ManagedUser } from '../../types/user';
 import { createAuditLog } from '../../services/audit/auditService';
 import { calculateLeaveBalance } from '../../services/leave/leaveService';
 import { getStoredLeaveConfig, getStoredEmployeeAllowances } from '../../services/leave/leaveStorage';
+import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 
 interface EmployeeProfileModalProps {
   isOpen: boolean;
@@ -399,7 +400,20 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                       <div className="flex justify-between"><span className="text-purple-300/70">Status:</span> <span className="font-bold text-emerald-400">{todayAttendance.status || 'Present'}</span></div>
                       <div className="flex justify-between"><span className="text-purple-300/70">Check-in:</span> <span className="font-bold text-white">{todayAttendance.checkInTime || todayAttendance.checkIn || 'N/A'}</span></div>
                       <div className="flex justify-between"><span className="text-purple-300/70">Check-out:</span> <span className="font-bold text-white">{todayAttendance.checkOutTime || todayAttendance.checkOut || 'Active'}</span></div>
-                      <div className="flex justify-between"><span className="text-purple-300/70">Working Hours:</span> <span className="font-bold text-amber-300">{todayAttendance.workingHours || 'In Progress'}</span></div>
+                      <div className="flex justify-between">
+                        <span className="text-purple-300/70">Working Hours:</span> 
+                        <span className="font-bold text-amber-300">
+                          {(() => {
+                            const cIn = todayAttendance.checkInTime || todayAttendance.checkIn;
+                            const cOut = todayAttendance.checkOutTime || todayAttendance.checkOut;
+                            if (cIn && cOut && cOut !== 'Active' && cOut !== '--:--' && cOut !== 'Pending' && cOut !== 'N/A' && cOut !== 'UNRESOLVED') {
+                              const calc = calculateWorkingHours(cIn, cOut);
+                              return calc || '—';
+                            }
+                            return cIn ? 'In Progress' : 'N/A';
+                          })()}
+                        </span>
+                      </div>
                     </div>
                   ) : (
                     <div className="py-4 text-center text-xs text-purple-300/60 italic">No attendance recorded for today yet.</div>
@@ -486,7 +500,17 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                             <td className="p-3 text-emerald-300">{att.checkInTime || att.checkIn || 'N/A'}</td>
                             <td className="p-3 text-amber-300">{att.checkOutTime || att.checkOut || 'Active'}</td>
                             <td className="p-3"><span className="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-200 text-[10px]">{att.type || 'Office'}</span></td>
-                            <td className="p-3 font-mono text-white">{att.workingHours || '6h 34m'}</td>
+                            <td className="p-3 font-mono text-white">
+                              {(() => {
+                                const cIn = att.checkInTime || att.checkIn;
+                                const cOut = att.checkOutTime || att.checkOut;
+                                if (cIn && cOut && cOut !== 'Active' && cOut !== '--:--' && cOut !== 'Pending' && cOut !== 'N/A' && cOut !== 'UNRESOLVED') {
+                                  const calc = calculateWorkingHours(cIn, cOut);
+                                  return calc || '—';
+                                }
+                                return '—';
+                              })()}
+                            </td>
                             <td className="p-3 text-purple-300/70">{att.source || 'Automatic'}</td>
                           </tr>
                         ))
@@ -528,7 +552,17 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                           <td className="p-3 text-emerald-300">{att.checkInTime || att.checkIn || 'N/A'}</td>
                           <td className="p-3 text-amber-300">{att.checkOutTime || att.checkOut || 'N/A'}</td>
                           <td className="p-3">{att.type || 'Office'}</td>
-                          <td className="p-3 font-mono text-white">{att.workingHours || 'N/A'}</td>
+                          <td className="p-3 font-mono text-white">
+                            {(() => {
+                              const cIn = att.checkInTime || att.checkIn;
+                              const cOut = att.checkOutTime || att.checkOut;
+                              if (cIn && cOut && cOut !== 'Active' && cOut !== '--:--' && cOut !== 'Pending' && cOut !== 'N/A' && cOut !== 'UNRESOLVED') {
+                                const calc = calculateWorkingHours(cIn, cOut);
+                                return calc || '—';
+                              }
+                              return '—';
+                            })()}
+                          </td>
                         </tr>
                       ))
                     ) : (

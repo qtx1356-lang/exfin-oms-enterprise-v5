@@ -21,6 +21,7 @@ import {
 import { AttendanceRecord, AttendanceType } from '../../types/attendance';
 import { LeaveRecord } from '../../types/leave';
 import { getStoredLeaves } from '../../services/leave/leaveStorage';
+import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 
 interface AttendanceCalendarProps {
   employeeId: string;
@@ -597,7 +598,28 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                 <div className="p-3.5 bg-purple-950/60 rounded-2xl border border-purple-500/20 flex justify-between items-center text-xs">
                   <span className="font-bold text-purple-300">Working Time</span>
                   <span className="font-black text-emerald-300 text-sm font-mono">
-                    {selectedDayDetail.attendanceRecord.workingHours || (selectedDayDetail.attendanceRecord.checkInTime ? 'In Progress' : '--')}
+                    {(() => {
+                      const rec = selectedDayDetail.attendanceRecord;
+                      if (!rec) return '--';
+                      if (rec.checkoutStatus === 'UNRESOLVED') {
+                        return <span className="text-rose-400">UNRESOLVED</span>;
+                      }
+                      const hasCheckout = !!(
+                        rec.checkOutTime &&
+                        rec.checkOutTime !== '--:--' &&
+                        rec.checkOutTime !== 'Pending' &&
+                        rec.checkOutTime !== 'N/A' &&
+                        rec.checkOutTime !== 'UNRESOLVED'
+                      );
+                      if (hasCheckout && rec.checkInTime && rec.checkInTime !== '--:--') {
+                        const calculated = calculateWorkingHours(rec.checkInTime, rec.checkOutTime);
+                        return calculated || '—';
+                      }
+                      if (rec.checkInTime && rec.checkInTime !== '--:--') {
+                        return selectedDayDetail.isToday ? 'In Progress' : <span className="text-rose-400">UNRESOLVED</span>;
+                      }
+                      return '--';
+                    })()}
                   </span>
                 </div>
 

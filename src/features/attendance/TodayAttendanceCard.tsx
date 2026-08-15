@@ -16,6 +16,7 @@ import {
 import { AttendanceRecord, LiveEmployeeLocation } from '../../types/attendance';
 import { Card } from '../../components/ui/Card';
 import { getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails } from '../../utils/attendanceUtils';
+import { calculateWorkingHours, parseAttendanceTimeToMinutes } from '../../services/attendance/smartAttendanceEngine';
 
 interface TodayAttendanceCardProps {
   todayRecord: AttendanceRecord | null;
@@ -81,20 +82,19 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
 
   // Compute working time duration
   let workingTimeStr = '--';
-  let totalSeconds = 0;
 
-  if (isCheckedIn) {
-    const checkInDate = parseTimeString(todayRecord.checkInTime);
-    if (checkInDate) {
-      if (isCheckedOut) {
-        const checkOutDate = parseTimeString(todayRecord.checkOutTime);
-        if (checkOutDate) {
-          totalSeconds = Math.max(0, Math.floor((checkOutDate.getTime() - checkInDate.getTime()) / 1000));
-        }
-      } else {
-        totalSeconds = Math.max(0, Math.floor((now.getTime() - checkInDate.getTime()) / 1000));
+  if (isCheckedIn && todayRecord?.checkInTime) {
+    if (isCheckedOut && todayRecord.checkOutTime) {
+      const calculated = calculateWorkingHours(todayRecord.checkInTime, todayRecord.checkOutTime);
+      workingTimeStr = calculated || '--';
+    } else {
+      const checkInMins = parseAttendanceTimeToMinutes(todayRecord.checkInTime);
+      if (checkInMins !== null) {
+        const nowMins = now.getHours() * 60 + now.getMinutes();
+        const nowSecs = now.getSeconds();
+        const totalElapsedSecs = Math.max(0, (nowMins - checkInMins) * 60 + nowSecs);
+        workingTimeStr = formatDuration(totalElapsedSecs);
       }
-      workingTimeStr = formatDuration(totalSeconds);
     }
   }
 

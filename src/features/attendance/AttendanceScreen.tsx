@@ -57,7 +57,8 @@ import {
   performClientVisitAttendance,
   performOutdoorAttendance,
   runAutoCheckoutFinalizer,
-  calculateWorkingHours
+  calculateWorkingHours,
+  parseAttendanceTimeToMinutes
 } from '../../services/attendance/smartAttendanceEngine';
 import {
   getStoredAttendanceRecords,
@@ -734,14 +735,14 @@ export const AttendanceScreen: React.FC = () => {
     let daysWithHours = 0;
     
     monthRecords.forEach(rec => {
-      if (rec.workingHours) {
-        const hoursMatch = rec.workingHours.match(/(\d+)h/);
-        const minsMatch = rec.workingHours.match(/(\d+)m/);
-        let mins = 0;
-        if (hoursMatch) mins += parseInt(hoursMatch[1]) * 60;
-        if (minsMatch) mins += parseInt(minsMatch[1]);
-        if (mins > 0) {
-          totalMins += mins;
+      if (isAttendanceCheckoutUnresolved(rec) || rec.checkoutStatus === 'UNRESOLVED' || rec.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+        return;
+      }
+      if (rec.checkInTime && rec.checkOutTime && rec.checkOutTime !== '--:--' && rec.checkOutTime !== 'Pending' && rec.checkOutTime !== 'N/A' && rec.checkOutTime !== 'UNRESOLVED') {
+        const inMins = parseAttendanceTimeToMinutes(rec.checkInTime);
+        const outMins = parseAttendanceTimeToMinutes(rec.checkOutTime);
+        if (inMins !== null && outMins !== null && outMins >= inMins) {
+          totalMins += (outMins - inMins);
           daysWithHours++;
         }
       }
@@ -1679,11 +1680,19 @@ export const AttendanceScreen: React.FC = () => {
                             {(rec.attendanceType || 'OFFICE') === 'WFH' ? '🏠 WFH' : (rec.attendanceType || 'OFFICE') === 'CLIENT_VISIT' ? '🤝 Client Visit' : (rec.attendanceType || 'OFFICE') === 'OUTDOOR' ? '🚗 Outdoor Work' : '🏢 Office'}
                           </span>
                           <span className="font-bold text-white">{rec.date}</span>
-                          {rec.workingHours && (
-                            <span className="text-[11px] text-purple-200/90 font-mono font-bold bg-purple-900/50 px-2 py-0.5 rounded-md border border-purple-500/20">
-                              ⏱️ {rec.workingHours}
-                            </span>
-                          )}
+                          {(() => {
+                            if (rec.checkInTime && rec.checkOutTime && rec.checkOutTime !== '--:--' && rec.checkOutTime !== 'Pending' && rec.checkOutTime !== 'N/A' && rec.checkOutTime !== 'UNRESOLVED') {
+                              const calculated = calculateWorkingHours(rec.checkInTime, rec.checkOutTime);
+                              if (calculated) {
+                                return (
+                                  <span className="text-[11px] text-purple-200/90 font-mono font-bold bg-purple-900/50 px-2 py-0.5 rounded-md border border-purple-500/20">
+                                    ⏱️ {calculated}
+                                  </span>
+                                );
+                              }
+                            }
+                            return null;
+                          })()}
                         </div>
 
                         <div className="flex items-center gap-2">

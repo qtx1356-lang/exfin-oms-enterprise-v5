@@ -24,7 +24,7 @@ import { saveTaskRecord, getStoredTasks } from '../services/planner/taskStorage'
 import { isNotificationDeletedLocally, saveMultipleNotificationsLocally } from '../services/notification/notificationStorage';
 import { saveLeaveRecord, getStoredLeaves } from '../services/leave/leaveStorage';
 import { saveExpenseRecord, getStoredExpenseRecords } from '../services/expenses/expenseStorage';
-import { saveAttendanceRecord, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration } from '../services/attendance/attendanceStorage';
+import { saveAttendanceRecord, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration, runSafeWorkingHoursNormalization } from '../services/attendance/attendanceStorage';
 import { logSyncListenerUpdate } from '../services/sync/syncPerformanceLogger';
 
 export type SyncStateIndicator =
@@ -77,8 +77,9 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => {
     try {
       runSafeUnresolvedHistoricalMigration();
+      runSafeWorkingHoursNormalization();
     } catch (e) {
-      console.warn('Migration run error:', e);
+      console.warn('Migration / Normalization run error:', e);
     }
     return getStoredAttendanceRecords();
   });
