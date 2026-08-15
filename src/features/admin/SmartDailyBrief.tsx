@@ -25,6 +25,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { exportToCSV } from '../../services/reports/exportService';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
+import { hasActualCheckIn } from '../../utils/attendanceUtils';
 
 interface SmartDailyBriefProps {
   registrations: any[];
@@ -204,11 +205,11 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
         todayDateStr <= req.endDate
       );
 
-      let status: 'Present' | 'Not Checked In' = 'Not Checked In';
+      let status: 'Present' | 'On Leave' | 'Not Checked In' = 'Not Checked In';
       let mode: 'Office' | 'WFH' | 'Client Visit' | 'Outdoor Work' | 'Leave' | 'Sunday/Holiday' | 'Not Checked In' = 'Not Checked In';
       let isLate = false;
 
-      if (todayRecord) {
+      if (todayRecord && hasActualCheckIn(todayRecord)) {
         status = 'Present';
         const type = (todayRecord.attendanceType || 'OFFICE').toUpperCase();
         if (type === 'WFH') mode = 'WFH';
@@ -220,10 +221,10 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
           isLate = true;
         }
       } else if (todayApprovedLeave) {
-        status = 'Present';
+        status = 'On Leave';
         mode = 'Leave';
       } else if (isTodaySunday) {
-        status = 'Present';
+        status = 'Not Checked In';
         mode = 'Sunday/Holiday';
       } else {
         status = 'Not Checked In';
@@ -261,11 +262,25 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
     let client = 0;
     let outdoor = 0;
     let late = 0;
+    let approvedLeave = 0;
+    let recordsToday = 0;
+    let recordsWithActualCheckIn = 0;
 
     securityFilteredWorkforce.forEach(emp => {
       const codeKey = (emp.employeeCode || emp.id || '').trim();
 
-      if (emp.todayStatus === 'Present') {
+      if (emp.todayRecord) {
+        recordsToday++;
+        if (hasActualCheckIn(emp.todayRecord)) {
+          recordsWithActualCheckIn++;
+        }
+      }
+
+      if (emp.todayApprovedLeave) {
+        approvedLeave++;
+      }
+
+      if (emp.todayStatus === 'Present' && emp.todayRecord && hasActualCheckIn(emp.todayRecord)) {
         if (codeKey) {
           presentUniqueEmployeeCodes.add(codeKey);
         }
@@ -280,15 +295,23 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
     });
 
     const presentToday = presentUniqueEmployeeCodes.size;
-    const notCheckedIn = Math.max(0, expectedStaff - presentToday);
+    // notCheckedIn = expectedStaff - physicalPresentCount - employeesOnApprovedLeave
+    const notCheckedIn = Math.max(0, expectedStaff - presentToday - approvedLeave);
     const rate = expectedStaff > 0 ? Math.round((presentToday / expectedStaff) * 100) : 0;
 
-    // Diagnostic logging in development mode showing required calculation metrics
+    // Diagnostic logging as requested by specification:
+    // [ADMIN TODAY PRESENCE]
     if (typeof window !== 'undefined') {
-      console.log('[Admin Dashboard Calculation Diagnostic]', {
+      console.log('[ADMIN TODAY PRESENCE]', {
+        todayDateStr,
         expectedStaff,
-        presentUniqueEmployeeCodes: Array.from(presentUniqueEmployeeCodes),
-        presentToday,
+        recordsToday,
+        recordsWithActualCheckIn,
+        physicalPresentEmployees: presentToday,
+        wfh,
+        client,
+        outdoor,
+        approvedLeave,
         notCheckedIn
       });
     }
@@ -300,40 +323,27 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
       client,
       outdoor,
       late,
+      approvedLeave,
       notCheckedIn,
       absent: notCheckedIn,
       rate
     };
-  }, [securityFilteredWorkforce]);
+  }, [securityFilteredWorkforce, todayDateStr]);
 
   // Yesterday statistics for comparison
   const yesterdaySummary = useMemo(() => {
     const total = securityFilteredWorkforce.length;
     let present = 0;
     securityFilteredWorkforce.forEach(emp => {
-      // If employee had yesterday record, or was on leave, or yesterday was Sunday
       const yesterdayRecord = emp.yesterdayRecord;
-      const wasLeave = leaves.some(req => 
-        req.status === 'APPROVED' && 
-        (req.employeeId === emp.id || req.employeeCode === emp.employeeCode) &&
-        yesterdayDateStr >= req.startDate &&
-        yesterdayDateStr <= req.endDate
-      );
-
-      // Check if yesterday was Sunday
-      let wasSunday = false;
-      try {
-        wasSunday = new Date(yesterdayDateStr).getDay() === 0;
-      } catch {}
-
-      if (yesterdayRecord || wasLeave || wasSunday) {
+      if (yesterdayRecord && hasActualCheckIn(yesterdayRecord)) {
         present++;
       }
     });
 
     const rate = total > 0 ? Math.round((present / total) * 100) : 0;
     return { rate, present };
-  }, [securityFilteredWorkforce, leaves, yesterdayDateStr]);
+  }, [securityFilteredWorkforce]);
 
   // --- ATTENTION SUMMARY CALCULATION (ATTENDANCE INTELLIGENCE REUSE) ---
   const attentionItems = useMemo(() => {
@@ -345,8 +355,8 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
     securityFilteredWorkforce.forEach(emp => {
       const rec = emp.todayRecord;
 
-      // 1. Missing checkouts
-      if (rec && rec.checkInTime && !rec.checkOutTime) {
+      // 1. Missing checkouts (only for employees with actual check-in)
+      if (rec && hasActualCheckIn(rec) && !rec.checkOutTime) {
         const type = (rec.attendanceType || 'OFFICE').toUpperCase();
         // Exclude OUTDOOR
         if (type !== 'OUTDOOR') {
@@ -371,7 +381,7 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
       }
 
       // 2. Late arrivals
-      if (emp.isLate && rec) {
+      if (emp.isLate && rec && hasActualCheckIn(rec)) {
         lateList.push({
           employee: emp,
           record: rec,
@@ -438,16 +448,7 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
             )
           );
 
-          const hasLeave = leaves.some(req => 
-            req.status === 'APPROVED' && 
-            (req.employeeId === emp.id || req.employeeCode === emp.employeeCode) &&
-            dateStr >= req.startDate &&
-            dateStr <= req.endDate
-          );
-
-          const isSunday = new Date(dateStr).getDay() === 0;
-
-          if (rec || hasLeave || isSunday) {
+          if (rec && hasActualCheckIn(rec)) {
             presentCount++;
           }
         });
@@ -460,7 +461,7 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
     }
 
     return last5Days;
-  }, [securityFilteredWorkforce, attendanceRecords, leaves]);
+  }, [securityFilteredWorkforce, attendanceRecords]);
 
   // --- DYNAMIC TEXT INSIGHTS ---
   const smartInsights = useMemo(() => {
@@ -622,7 +623,7 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
           </div>
           <div>
             <div className="text-2xl font-black text-emerald-400">{todaySummary.present}</div>
-            <div className="text-[10px] text-purple-300/50">Incl. Leaves & Sundays</div>
+            <div className="text-[10px] text-purple-300/50">Active Checked In</div>
           </div>
         </div>
 
@@ -650,7 +651,7 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
           </div>
           <div>
             <div className="text-2xl font-black text-amber-300">{todaySummary.notCheckedIn}</div>
-            <div className="text-[10px] text-purple-300/50">Awaiting Logins</div>
+            <div className="text-[10px] text-purple-300/50">{todaySummary.approvedLeave > 0 ? `${todaySummary.approvedLeave} on leave • Awaiting logins` : 'Awaiting Logins'}</div>
           </div>
         </div>
 

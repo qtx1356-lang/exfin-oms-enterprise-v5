@@ -8,6 +8,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ManagedUser } from '../../types/user';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
+import { hasActualCheckIn } from '../../utils/attendanceUtils';
 
 interface OfficePulseProps {
   registrations: ManagedUser[];
@@ -145,7 +146,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
         todayDateStr <= req.endDate
       );
 
-      let status: 'Present' | 'Not Checked In' = 'Not Checked In';
+      let status: 'Present' | 'On Leave' | 'Not Checked In' = 'Not Checked In';
       let mode: 'Office' | 'WFH' | 'Client Visit' | 'Outdoor Work' | 'Leave' | 'Sunday/Holiday' | 'Not Checked In' = 'Not Checked In';
       let isLate = false;
       let checkInTime = todayRecord?.checkInTime || null;
@@ -153,7 +154,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
       let checkOutTime = todayRecord?.checkOutTime || null;
       let checkOutMode = todayRecord?.checkOutMode || null;
 
-      if (todayRecord) {
+      if (todayRecord && hasActualCheckIn(todayRecord)) {
         status = 'Present';
         const type = (todayRecord.attendanceType || 'OFFICE').toUpperCase();
         if (type === 'WFH') {
@@ -170,10 +171,10 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
           isLate = true;
         }
       } else if (todayApprovedLeave) {
-        status = 'Present'; // Paid leave counts as Present under salary/attendance rules
+        status = 'On Leave';
         mode = 'Leave';
       } else if (isTodaySunday) {
-        status = 'Present'; // Sunday counts as Present under Rule 2
+        status = 'Not Checked In';
         mode = 'Sunday/Holiday';
       } else {
         status = 'Not Checked In';
@@ -215,11 +216,16 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
     let client = 0;
     let outdoor = 0;
     let late = 0;
+    let approvedLeave = 0;
 
     securityFilteredWorkforce.forEach(emp => {
       const codeKey = (emp.employeeCode || emp.id || '').trim();
 
-      if (emp.todayStatus === 'Present') {
+      if (emp.todayApprovedLeave) {
+        approvedLeave++;
+      }
+
+      if (emp.todayStatus === 'Present' && emp.todayRecord && hasActualCheckIn(emp.todayRecord)) {
         if (codeKey) {
           presentUniqueEmployeeCodes.add(codeKey);
         }
@@ -234,7 +240,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
     });
 
     const presentToday = presentUniqueEmployeeCodes.size;
-    const notCheckedIn = Math.max(0, expectedStaff - presentToday);
+    const notCheckedIn = Math.max(0, expectedStaff - presentToday - approvedLeave);
     const absent = notCheckedIn;
 
     // Diagnostic logging in development mode
@@ -243,6 +249,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
         expectedStaff,
         presentUniqueEmployeeCodes: Array.from(presentUniqueEmployeeCodes),
         presentToday,
+        approvedLeave,
         notCheckedIn
       });
     }
@@ -254,6 +261,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
       client,
       outdoor,
       late,
+      approvedLeave,
       notCheckedIn,
       absent
     };

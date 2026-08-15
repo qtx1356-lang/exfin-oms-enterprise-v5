@@ -2,6 +2,32 @@ import { AttendanceRecord, LiveEmployeeLocation } from '../types/attendance';
 import { OFFICE_LOCATION, getDistanceFromLatLonInM } from '../services/attendance/smartAttendanceEngine';
 
 /**
+ * Authoritative helper to determine if an attendance record represents an actual check-in.
+ * 
+ * An attendance record counts as physically present ONLY when:
+ * 1. The record exists and is an object.
+ * 2. The record.checkInTime is a valid non-empty attendance time string (e.g. "10:15 AM", "10:00").
+ * 
+ * It returns FALSE if:
+ * - record is null / undefined
+ * - checkInTime is missing, null, undefined, empty, or placeholder ("--:--", "Pending", "N/A", "UNRESOLVED", etc.)
+ * 
+ * DO NOT use Boolean(record), record.status === 'PRESENT', or record.workingHours.
+ */
+export const hasActualCheckIn = (record: AttendanceRecord | any | null | undefined): boolean => {
+  if (!record || typeof record !== 'object') return false;
+  if (!record.checkInTime || typeof record.checkInTime !== 'string') return false;
+
+  const timeVal = record.checkInTime.trim();
+  if (!timeVal) return false;
+
+  const invalidValues = ['--:--', '--:-- --', 'Pending', 'pending', 'N/A', 'n/a', 'UNRESOLVED', 'unresolved', 'null', 'undefined', '—', '-'];
+  if (invalidValues.includes(timeVal)) return false;
+
+  return true;
+};
+
+/**
  * Authoritative helper to determine if an attendance record has an unresolved checkout.
  * 
  * A record is UNRESOLVED when:

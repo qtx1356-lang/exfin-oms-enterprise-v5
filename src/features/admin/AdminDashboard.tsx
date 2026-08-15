@@ -60,7 +60,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord, AttendanceCorrection, LiveEmployeeLocation } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn } from '../../utils/attendanceUtils';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { ExpenseRecord } from '../../types/expense';
@@ -386,11 +386,13 @@ export const AdminDashboard: React.FC = () => {
       let outdoorCount = 0;
 
       records.forEach((r) => {
-        const t = (r.attendanceType || 'OFFICE').toUpperCase();
-        if (t === 'OFFICE') presentCount++;
-        else if (t === 'WFH') wfhCount++;
-        else if (t === 'CLIENT_VISIT') clientVisitCount++;
-        else if (t === 'OUTDOOR') outdoorCount++;
+        if (hasActualCheckIn(r)) {
+          const t = (r.attendanceType || 'OFFICE').toUpperCase();
+          if (t === 'OFFICE') presentCount++;
+          else if (t === 'WFH') wfhCount++;
+          else if (t === 'CLIENT_VISIT') clientVisitCount++;
+          else if (t === 'OUTDOOR') outdoorCount++;
+        }
       });
 
       let formattedDateLabel = dateStr;
