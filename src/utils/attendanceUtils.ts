@@ -107,7 +107,7 @@ export const getCheckInLocationDetails = (record: AttendanceRecord): {
     : (typeof record.distance === 'number' ? record.distance : null);
   const distance = formatDistanceDisplay(rawDist);
 
-  let location = 'Historical location unavailable';
+  let location = 'Location unavailable';
   if (record.checkInTownCity && record.checkInTownCity.trim()) {
     location = record.checkInTownCity.trim();
   } else if (record.checkInLatitude !== undefined && record.checkInLatitude !== null) {
@@ -156,11 +156,132 @@ export const getCheckoutLocationDetails = (record: AttendanceRecord): {
   } else if (unresolved) {
     location = 'Location unavailable';
   } else if (record.checkOutTime && record.checkOutTime !== 'Pending' && record.checkOutTime !== 'N/A') {
-    // Completed checkout but without separate checkout coordinates captured previously
-    location = 'Historical location unavailable/ambiguous';
+    location = 'Location unavailable';
   } else {
     location = 'Pending checkout';
   }
 
   return { time, location, distance, rawDistance: rawDist, isUnresolved: unresolved };
+};
+
+/**
+ * Get Current (Live) Location details for UI display.
+ */
+export const getCurrentLocationDetails = (record: AttendanceRecord | null): {
+  time: string | null;
+  location: string;
+  distance: string | null;
+  rawDistance: number | null;
+  status: 'LIVE' | 'RECENT' | 'STALE' | 'UNAVAILABLE';
+  statusText: string;
+  isAvailable: boolean;
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+} => {
+  if (!record) {
+    return {
+      time: null,
+      location: 'Location unavailable',
+      distance: null,
+      rawDistance: null,
+      status: 'UNAVAILABLE',
+      statusText: 'Location unavailable',
+      isAvailable: false
+    };
+  }
+
+  const hasCurrentCoords = typeof record.currentLatitude === 'number' && typeof record.currentLongitude === 'number';
+  const hasFallbackCoords = typeof record.latitude === 'number' && typeof record.longitude === 'number';
+
+  if (!hasCurrentCoords && !hasFallbackCoords) {
+    return {
+      time: null,
+      location: 'Location unavailable',
+      distance: null,
+      rawDistance: null,
+      status: 'UNAVAILABLE',
+      statusText: 'Location unavailable',
+      isAvailable: false
+    };
+  }
+
+  const lat = hasCurrentCoords ? record.currentLatitude : record.latitude;
+  const lon = hasCurrentCoords ? record.currentLongitude : record.longitude;
+  const rawDist = typeof record.currentDistance === 'number'
+    ? record.currentDistance
+    : (typeof record.distance === 'number' ? record.distance : null);
+  const distance = formatDistanceDisplay(rawDist);
+  const accuracy = record.currentAccuracy;
+
+  let locationName = 'Location name unavailable';
+  if (record.currentTownCity && record.currentTownCity.trim()) {
+    locationName = record.currentTownCity.trim();
+  } else if (record.townCity && record.townCity.trim()) {
+    locationName = record.townCity.trim();
+  } else if (lat !== undefined && lon !== undefined) {
+    locationName = 'Location name unavailable';
+  } else {
+    locationName = 'Location unavailable';
+  }
+
+  const timestampIso = record.currentLocationTimestamp || record.createdAtDeviceTime || record.updatedAt;
+  if (!timestampIso) {
+    return {
+      time: null,
+      location: locationName,
+      distance,
+      rawDistance: rawDist,
+      status: 'UNAVAILABLE',
+      statusText: 'Location unavailable',
+      isAvailable: false,
+      latitude: lat,
+      longitude: lon,
+      accuracy
+    };
+  }
+
+  const timestampDate = new Date(timestampIso);
+  const timeStr = isNaN(timestampDate.getTime()) ? null : timestampDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+  const ageMs = Math.max(0, Date.now() - timestampDate.getTime());
+  const ageSec = Math.floor(ageMs / 1000);
+  const ageMin = Math.floor(ageMs / 60000);
+  const ageHr = Math.floor(ageMs / 3600000);
+
+  let status: 'LIVE' | 'RECENT' | 'STALE' | 'UNAVAILABLE' = 'UNAVAILABLE';
+  let statusText = '';
+
+  if (isNaN(ageMs)) {
+    status = 'UNAVAILABLE';
+    statusText = 'Location unavailable';
+  } else if (ageMin < 2) {
+    status = 'LIVE';
+    statusText = ageSec < 15 ? 'Live · Updated just now' : `Live · Updated ${ageSec} sec ago`;
+  } else if (ageMin < 15) {
+    status = 'RECENT';
+    statusText = `Last updated ${ageMin} min ago`;
+  } else {
+    status = 'STALE';
+    if (ageHr < 1) {
+      statusText = `Last updated ${ageMin} min ago`;
+    } else if (ageHr < 24) {
+      statusText = `Last updated ${ageHr} hr ago`;
+    } else {
+      statusText = `Last updated ${Math.floor(ageHr / 24)} d ago`;
+    }
+  }
+
+  return {
+    time: timeStr,
+    location: locationName,
+    distance,
+    rawDistance: rawDist,
+    status,
+    statusText,
+    isAvailable: true,
+    latitude: lat,
+    longitude: lon,
+    accuracy
+  };
 };

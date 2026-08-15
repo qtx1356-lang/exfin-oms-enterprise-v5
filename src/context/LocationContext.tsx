@@ -526,7 +526,8 @@ display state: ${displayDist}`);
             longitude,
             empId,
             empName,
-            currentAddress || 'Raniganj HQ'
+            currentAddress || 'Raniganj HQ',
+            accuracy
           );
         }
       }

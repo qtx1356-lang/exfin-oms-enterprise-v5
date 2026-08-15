@@ -60,7 +60,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord, AttendanceCorrection } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails } from '../../utils/attendanceUtils';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { ExpenseRecord } from '../../types/expense';
@@ -1530,6 +1530,8 @@ export const AdminDashboard: React.FC = () => {
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-rose-400">Check Out</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-rose-300">Checkout Location</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-rose-300">Checkout Distance</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-cyan-300">Current Location</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-cyan-300">Current Distance</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Hours</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Client/Outdoor</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Sync</th>
@@ -1541,6 +1543,7 @@ export const AdminDashboard: React.FC = () => {
                               {group.records.map((rec) => {
                                 const checkInLoc = getCheckInLocationDetails(rec);
                                 const checkoutLoc = getCheckoutLocationDetails(rec);
+                                const currentLoc = getCurrentLocationDetails(rec);
 
                                 return (
                                 <tr
@@ -1616,6 +1619,24 @@ export const AdminDashboard: React.FC = () => {
                                   {/* Checkout Distance */}
                                   <td className="p-3 border-b border-purple-500/10 text-rose-300 font-mono whitespace-nowrap">
                                     {checkoutLoc.distance || '—'}
+                                  </td>
+                                  {/* Current Location */}
+                                  <td className="p-3 border-b border-purple-500/10 truncate max-w-[150px]" title={currentLoc.location}>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase shrink-0 ${
+                                        currentLoc.status === 'LIVE' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse' :
+                                        currentLoc.status === 'RECENT' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                                        currentLoc.status === 'STALE' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                                        'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                      }`}>
+                                        {currentLoc.status}
+                                      </span>
+                                      <span className="text-purple-200 truncate">{currentLoc.location}</span>
+                                    </div>
+                                  </td>
+                                  {/* Current Distance */}
+                                  <td className="p-3 border-b border-purple-500/10 text-cyan-300 font-mono whitespace-nowrap">
+                                    {currentLoc.distance || '—'}
                                   </td>
                                   {/* Working Hours */}
                                   <td className="p-3 border-b border-purple-500/10 font-bold text-white whitespace-nowrap">
@@ -1844,9 +1865,10 @@ export const AdminDashboard: React.FC = () => {
                   {(() => {
                     const checkInLoc = getCheckInLocationDetails(selectedAttendance);
                     const checkoutLoc = getCheckoutLocationDetails(selectedAttendance);
+                    const currentLoc = getCurrentLocationDetails(selectedAttendance);
 
                     return (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         {/* Check-In Location */}
                         <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-1">
                           <div className="flex justify-between items-center">
@@ -1877,6 +1899,33 @@ export const AdminDashboard: React.FC = () => {
                           {selectedAttendance.checkoutLatitude !== undefined && (
                             <div className="text-[9px] text-purple-300/40 font-mono pt-1">
                               {selectedAttendance.checkoutLatitude}, {selectedAttendance.checkoutLongitude}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Current Location */}
+                        <div className="p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-xl space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] text-cyan-300 font-bold">Current Location</span>
+                            <span className={`px-1 py-0.2 rounded text-[8px] font-black uppercase ${
+                              currentLoc.status === 'LIVE' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse' :
+                              currentLoc.status === 'RECENT' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                              currentLoc.status === 'STALE' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                              'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                            }`}>
+                              {currentLoc.status}
+                            </span>
+                          </div>
+                          <div className="text-xs text-white font-medium">{currentLoc.location}</div>
+                          {currentLoc.distance && (
+                            <div className="text-[10px] text-cyan-300/70 font-mono">Distance: {currentLoc.distance}</div>
+                          )}
+                          {currentLoc.statusText && (
+                            <div className="text-[9px] text-cyan-200/80 font-mono">⏱ {currentLoc.statusText}</div>
+                          )}
+                          {currentLoc.latitude !== undefined && (
+                            <div className="text-[9px] text-purple-300/40 font-mono pt-1">
+                              {currentLoc.latitude}, {currentLoc.longitude}
                             </div>
                           )}
                         </div>

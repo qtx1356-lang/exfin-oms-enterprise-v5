@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { AttendanceRecord } from '../../types/attendance';
 import { Card } from '../../components/ui/Card';
-import { getCheckInLocationDetails, getCheckoutLocationDetails } from '../../utils/attendanceUtils';
+import { getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails } from '../../utils/attendanceUtils';
 
 interface TodayAttendanceCardProps {
   todayRecord: AttendanceRecord | null;
@@ -261,13 +261,15 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
         </div>
       </div>
 
-      {/* Separate Check-in Location and Checkout Location Display */}
+      {/* Separate Check-in, Checkout, and Current Location Display */}
       {todayRecord && isCheckedIn && (() => {
         const checkIn = getCheckInLocationDetails(todayRecord);
         const checkout = getCheckoutLocationDetails(todayRecord);
+        const currentLoc = getCurrentLocationDetails(todayRecord);
 
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 pt-3 border-t border-white/10 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 pt-3 border-t border-white/10 text-xs">
+            {/* Check-in Location */}
             <div className="bg-black/30 p-2.5 rounded-xl border border-white/10 space-y-0.5">
               <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
                 <span>Check-in Location</span>
@@ -283,6 +285,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
               )}
             </div>
 
+            {/* Checkout Location */}
             <div className="bg-black/30 p-2.5 rounded-xl border border-white/10 space-y-0.5">
               <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider flex items-center justify-between">
                 <span>Checkout Location</span>
@@ -294,6 +297,34 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
               {checkout.distance && (
                 <div className="text-[10px] text-white/70 font-mono">
                   {checkout.distance}
+                </div>
+              )}
+            </div>
+
+            {/* Current (Live) Location */}
+            <div className="bg-black/30 p-2.5 rounded-xl border border-white/10 space-y-0.5">
+              <div className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider flex items-center justify-between">
+                <span>Current Location</span>
+                <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
+                  currentLoc.status === 'LIVE' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse' :
+                  currentLoc.status === 'RECENT' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                  currentLoc.status === 'STALE' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                  'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                }`}>
+                  {currentLoc.status}
+                </span>
+              </div>
+              <div className="text-white font-medium truncate flex items-center gap-1" title={currentLoc.location}>
+                <span className="text-cyan-400">📍</span> {currentLoc.location}
+              </div>
+              {currentLoc.distance && (
+                <div className="text-[10px] text-white/70 font-mono">
+                  Distance: {currentLoc.distance}
+                </div>
+              )}
+              {currentLoc.statusText && (
+                <div className="text-[9px] text-cyan-200/80 font-mono flex items-center gap-1">
+                  <span>⏱</span> {currentLoc.statusText}
                 </div>
               )}
             </div>

@@ -72,7 +72,8 @@ export const handleLocationUpdateForAttendance = (
   longitude: number,
   employeeId: string,
   employeeName: string,
-  townCity: string
+  townCity: string,
+  accuracy?: number
 ): void => {
   if (!employeeId) return;
 
@@ -84,7 +85,8 @@ export const handleLocationUpdateForAttendance = (
     employeeId,
     employeeName,
     townCity,
-    new Date()
+    new Date(),
+    accuracy
   );
 };
 

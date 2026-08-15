@@ -152,6 +152,15 @@ export interface AttendanceRecord {
   checkoutDistance?: number;
   checkoutTownCity?: string;
 
+  // Separate Current (Live) Location fields
+  currentLatitude?: number;
+  currentLongitude?: number;
+  currentAccuracy?: number;
+  currentDistance?: number;
+  currentTownCity?: string;
+  currentLocationTimestamp?: string;
+  currentLocationStatus?: 'LIVE' | 'RECENT' | 'STALE' | 'UNAVAILABLE' | string;
+
   // New fields requested for auto checkout alignment
   checkoutType?: 'AUTO_CHECKOUT' | 'MANUAL' | string;
   status?: 'completed' | 'active' | string;

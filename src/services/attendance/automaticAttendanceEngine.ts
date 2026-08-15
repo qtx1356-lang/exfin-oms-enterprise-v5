@@ -108,7 +108,8 @@ export const AutomaticAttendanceEngine = {
     employeeId: string,
     employeeName: string,
     townCity: string,
-    timestamp: Date = new Date()
+    timestamp: Date = new Date(),
+    accuracy?: number
   ): AttendanceRecord | null {
     if (!employeeId) return null;
 
@@ -124,6 +125,24 @@ export const AutomaticAttendanceEngine = {
     // Check if check-in exists for today
     const dateStr = getFormattedDateStr(timestamp);
     const record = getTodayAttendanceRecord(employeeId, dateStr);
+
+    // Dynamic Current Location update on existing record
+    if (record) {
+      record.currentLatitude = latitude;
+      record.currentLongitude = longitude;
+      if (typeof accuracy === 'number') {
+        record.currentAccuracy = accuracy;
+      }
+      record.currentDistance = distance;
+      record.currentTownCity = (townCity && townCity.trim()) ? townCity.trim() : 'Location name unavailable';
+      record.currentLocationTimestamp = timestamp.toISOString();
+      record.currentLocationStatus = 'LIVE';
+      record.syncStatus = 'Pending';
+      saveAttendanceRecord(record);
+      if (navigator.onLine) {
+        syncPendingAttendanceRecords().catch(() => {});
+      }
+    }
 
     // Initial state setup if record doesn't exist
     const currentState = record 
@@ -330,7 +349,15 @@ export const AutomaticAttendanceEngine = {
           checkInLatitude: coords.latitude,
           checkInLongitude: coords.longitude,
           checkInDistance: distance,
-          checkInTownCity: townCity || 'Raniganj HQ'
+          checkInTownCity: townCity || 'Raniganj HQ',
+
+          // Dynamic Current Location
+          currentLatitude: coords.latitude,
+          currentLongitude: coords.longitude,
+          currentDistance: distance,
+          currentTownCity: townCity || 'Raniganj HQ',
+          currentLocationTimestamp: eventIso,
+          currentLocationStatus: 'LIVE'
         };
 
         saveAttendanceRecord(record);

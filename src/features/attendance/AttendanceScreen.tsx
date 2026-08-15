@@ -39,7 +39,7 @@ import { useLocationContext } from '../../context/LocationContext';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { LocationGate } from '../../components/common/LocationGate';
 import { AttendanceRecord, AttendanceType, OutdoorWorkTypeOption } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails } from '../../utils/attendanceUtils';
 import { getStoredLeaves } from '../../services/leave/leaveStorage';
 import { createNotification } from '../../services/notification/notificationService';
 import {
@@ -74,7 +74,6 @@ import {
 } from '../../services/monitoring/performanceDiagnostics';
 import { TodayAttendanceCard } from './TodayAttendanceCard';
 import { AttendanceCalendar } from './AttendanceCalendar';
-import { getCheckInLocationDetails, getCheckoutLocationDetails } from '../../utils/attendanceUtils';
 
 const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
   'Market Visit',
@@ -1642,6 +1641,7 @@ export const AttendanceScreen: React.FC = () => {
                 {filteredHistoryRecords.map((rec) => {
                   const checkInLoc = getCheckInLocationDetails(rec);
                   const checkoutLoc = getCheckoutLocationDetails(rec);
+                  const currentLoc = getCurrentLocationDetails(rec);
 
                   return (
                     <div 
@@ -1688,8 +1688,8 @@ export const AttendanceScreen: React.FC = () => {
                         <p className="text-[11px] text-indigo-300">Outdoor: {rec.outdoorType} - {rec.description}</p>
                       )}
 
-                      {/* Separate Check-in Location & Checkout Location */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1 pt-2 border-t border-purple-500/15">
+                      {/* Separate Check-in, Checkout & Current Location */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1 pt-2 border-t border-purple-500/15">
                         {/* Check-In Block */}
                         <div className="bg-purple-950/80 p-2.5 rounded-xl border border-purple-500/20 space-y-0.5">
                           <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
@@ -1718,6 +1718,34 @@ export const AttendanceScreen: React.FC = () => {
                           {checkoutLoc.distance && (
                             <div className="text-[10px] text-purple-300/80 font-mono">
                               Distance: {checkoutLoc.distance}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Current Location Block */}
+                        <div className="bg-purple-950/80 p-2.5 rounded-xl border border-purple-500/20 space-y-0.5">
+                          <div className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider flex items-center justify-between">
+                            <span>Current Location</span>
+                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
+                              currentLoc.status === 'LIVE' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse' :
+                              currentLoc.status === 'RECENT' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                              currentLoc.status === 'STALE' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                              'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                            }`}>
+                              {currentLoc.status}
+                            </span>
+                          </div>
+                          <div className="text-white font-medium truncate flex items-center gap-1" title={currentLoc.location}>
+                            <span className="text-cyan-400">📍</span> {currentLoc.location}
+                          </div>
+                          {currentLoc.distance && (
+                            <div className="text-[10px] text-purple-300/80 font-mono">
+                              Distance: {currentLoc.distance}
+                            </div>
+                          )}
+                          {currentLoc.statusText && (
+                            <div className="text-[9px] text-cyan-200/80 font-mono flex items-center gap-1">
+                              <span>⏱</span> {currentLoc.statusText}
                             </div>
                           )}
                         </div>
