@@ -527,6 +527,21 @@ display state: ${displayDist}`);
       }
     }
 
+    console.log('[EXFIN_CURRENT_GPS]', {
+      latitude,
+      longitude,
+      accuracy,
+      timestamp: new Date(fixTime).toISOString()
+    });
+
+    console.log('[EXFIN_CURRENT_DISTANCE]', {
+      currentLatitude: latitude,
+      currentLongitude: longitude,
+      officeLatitude: OFFICE_LOCATION.latitude,
+      officeLongitude: OFFICE_LOCATION.longitude,
+      calculatedDistanceMeters: calculatedDistance
+    });
+
     if (nextInside !== stableInsideOffice) {
       console.log(`[Location] State transition via hysteresis: distance=${calculatedDistance.toFixed(1)}m, accuracy=${accuracy || 'N/A'}m, insideOffice=${nextInside}`);
     }

@@ -332,6 +332,16 @@ export const getCurrentLocationDetails = (record: AttendanceRecord | null): {
     distanceMeters: rawDist
   });
 
+  console.log('[EXFIN_ADMIN_CURRENT_LOCATION]', {
+    recordId: record.id || record.docId,
+    employeeId: record.employeeId,
+    currentLatitude: lat,
+    currentLongitude: lon,
+    storedCurrentDistance: record.currentDistance,
+    recalculatedDistance: rawDist,
+    currentLocationTimestamp: timestampIso
+  });
+
   return {
     time: timeStr,
     location: locationName,

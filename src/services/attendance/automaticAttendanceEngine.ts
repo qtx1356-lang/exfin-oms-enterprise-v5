@@ -58,26 +58,61 @@ export const getFormattedDateStr = (date: Date = new Date()): string => {
   }
 };
 
-export const calculateWorkingHours = (checkInTimeStr: string, checkOutTimeStr: string | null): string | null => {
+export const calculateWorkingHours = (checkInTimeStr: string | null | undefined, checkOutTimeStr: string | null | undefined): string | null => {
   if (!checkInTimeStr || !checkOutTimeStr) return null;
 
+  const checkInClean = checkInTimeStr.trim();
+  const checkOutClean = checkOutTimeStr.trim();
+
+  if (
+    !checkInClean ||
+    !checkOutClean ||
+    checkOutClean === 'Pending' ||
+    checkOutClean === 'N/A' ||
+    checkOutClean === 'UNRESOLVED' ||
+    checkOutClean === '--:--'
+  ) {
+    return null;
+  }
+
   try {
-    const parseTime = (timeStr: string): Date => {
+    const parseTime = (timeStr: string): Date | null => {
+      const parts = timeStr.trim().split(' ');
+      if (parts.length < 2) return null;
+      const [time, modifier] = parts;
+      const timeParts = time.split(':');
+      if (timeParts.length < 2) return null;
+      let hours = parseInt(timeParts[0], 10);
+      let minutes = parseInt(timeParts[1], 10);
+
+      if (isNaN(hours) || isNaN(minutes)) return null;
+
+      const mod = modifier.toUpperCase();
+      if (mod === 'PM' && hours < 12) hours += 12;
+      if (mod === 'AM' && hours === 12) hours = 0;
+
       const d = new Date();
-      const [time, modifier] = timeStr.trim().split(' ');
-      let [hours, minutes] = time.split(':').map(Number);
-      if (modifier === 'PM' && hours < 12) hours += 12;
-      if (modifier === 'AM' && hours === 12) hours = 0;
       d.setHours(hours, minutes, 0, 0);
       return d;
     };
 
-    const inTime = parseTime(checkInTimeStr);
-    const outTime = parseTime(checkOutTimeStr);
+    const inTime = parseTime(checkInClean);
+    const outTime = parseTime(checkOutClean);
 
-    let diffMs = outTime.getTime() - inTime.getTime();
+    if (!inTime || !outTime) return null;
+
+    const diffMs = outTime.getTime() - inTime.getTime();
+
+    // EXFIN OFFICE BUSINESS RULE:
+    // Office attendance is strictly same-day (10:00 AM -> 6:00 PM).
+    // If checkout time is earlier than check-in time, treat as INVALID data.
+    // DO NOT add 24 hours to create an artificial 19-hour shift.
     if (diffMs < 0) {
-      diffMs += 24 * 60 * 60 * 1000;
+      console.error('[INVALID_WORKING_HOURS] Checkout time is earlier than check-in time:', {
+        checkInTimeStr,
+        checkOutTimeStr
+      });
+      return null;
     }
 
     const totalMins = Math.floor(diffMs / (1000 * 60));
@@ -157,6 +192,21 @@ export const AutomaticAttendanceEngine = {
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         syncPendingAttendanceRecords().catch(() => {});
       }
+
+      console.log('[EXFIN_CURRENT_GPS]', {
+        latitude,
+        longitude,
+        accuracy,
+        timestamp: timestamp.toISOString()
+      });
+
+      console.log('[EXFIN_CURRENT_DISTANCE]', {
+        currentLatitude: latitude,
+        currentLongitude: longitude,
+        officeLatitude: OFFICE_LOCATION.latitude,
+        officeLongitude: OFFICE_LOCATION.longitude,
+        calculatedDistanceMeters: distance
+      });
 
       console.log('[CURRENT_LOCATION_UPDATE]', {
         latitude,
