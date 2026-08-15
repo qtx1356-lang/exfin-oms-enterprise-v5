@@ -324,7 +324,13 @@ export const AutomaticAttendanceEngine = {
           isOffline: !navigator.onLine,
           reminderCount: 0,
           currentState: 'CHECKED_IN',
-          processedEvents
+          processedEvents,
+
+          // Permanent Check-In Location
+          checkInLatitude: coords.latitude,
+          checkInLongitude: coords.longitude,
+          checkInDistance: distance,
+          checkInTownCity: townCity || 'Raniganj HQ'
         };
 
         saveAttendanceRecord(record);
@@ -376,6 +382,13 @@ export const AutomaticAttendanceEngine = {
           record.exitTime = record.exitTime || timeStr;
           record.currentState = 'PENDING_FINAL_EXIT';
           record.syncStatus = 'Pending';
+
+          if (coords) {
+            record.checkoutLatitude = coords.latitude;
+            record.checkoutLongitude = coords.longitude;
+            record.checkoutDistance = distance;
+            record.checkoutTownCity = townCity || 'Raniganj HQ';
+          }
           modified = true;
 
           console.log('[AUTO_EXIT_SAVED]', {
@@ -404,6 +417,11 @@ export const AutomaticAttendanceEngine = {
           record.lastExitTime = null;
           record.exitTime = null;
           record.currentState = 'CHECKED_IN';
+          // Clear candidate exit checkout location
+          delete record.checkoutLatitude;
+          delete record.checkoutLongitude;
+          delete record.checkoutDistance;
+          delete record.checkoutTownCity;
           modified = true;
 
           logAttendanceEvent('RETURN_DETECTED', employeeId, `Return to office geofence detected at ${timeStr}. Pending exit cleared.`, {
@@ -433,8 +451,19 @@ export const AutomaticAttendanceEngine = {
         record.checkOutMode = source === 'MANUAL' ? 'MANUAL' : 'AUTO_SYSTEM';
         record.checkoutType = source === 'MANUAL' ? 'MANUAL' : 'AUTO_CHECKOUT';
         record.status = 'completed';
+        record.checkoutStatus = 'COMPLETED';
         record.workingHours = workingHours;
         record.currentState = 'FINALIZED_CHECKOUT';
+
+        if (coords && coords.latitude && coords.longitude) {
+          record.checkoutLatitude = coords.latitude;
+          record.checkoutLongitude = coords.longitude;
+          record.checkoutDistance = distance;
+          record.checkoutTownCity = townCity || 'Raniganj HQ';
+        } else if (!record.checkoutLatitude && !record.checkoutTownCity) {
+          record.checkoutTownCity = 'Location unavailable';
+        }
+
         modified = true;
 
         logAttendanceEvent('CHECKOUT_CREATED', employeeId, `Check-out finalized at ${checkoutTimeStr} (${source})`, {
@@ -663,6 +692,10 @@ export const AutomaticAttendanceEngine = {
         // DO NOT automatically use 11:59 PM. Mark as UNRESOLVED.
         record.checkOutTime = null;
         record.checkoutStatus = 'UNRESOLVED';
+        record.checkoutTownCity = 'Location unavailable';
+        delete record.checkoutLatitude;
+        delete record.checkoutLongitude;
+        delete record.checkoutDistance;
         record.checkOutMode = 'AUTO_SYSTEM';
         record.checkoutType = 'UNRESOLVED';
         record.status = 'UNRESOLVED';

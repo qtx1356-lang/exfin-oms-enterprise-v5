@@ -60,7 +60,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord, AttendanceCorrection } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails } from '../../utils/attendanceUtils';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { ExpenseRecord } from '../../types/expense';
@@ -1519,18 +1519,18 @@ export const AdminDashboard: React.FC = () => {
                         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-purple-500/20 scrollbar-track-transparent">
                           <table className="w-full text-left text-xs border-separate border-spacing-0">
                             <thead>
-                              <tr className="bg-[#1A0B36]/80 text-purple-300 uppercase font-bold sticky top-0 z-10">
+                              <tr className="bg-[#1A0B36]/80 text-purple-300 uppercase font-bold sticky top-0 z-10 text-[11px]">
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Employee</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Code</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Date</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Mode</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-emerald-400">Check In</th>
-                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">CI Mode</th>
-                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-purple-200">Check Out</th>
-                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">CO Mode</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-emerald-300">Check-In Location</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-emerald-300">Check-In Distance</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-rose-400">Check Out</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-rose-300">Checkout Location</th>
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-rose-300">Checkout Distance</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Hours</th>
-                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Distance</th>
-                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Town/City</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Client/Outdoor</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Sync</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Conn</th>
@@ -1538,7 +1538,11 @@ export const AdminDashboard: React.FC = () => {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-purple-500/10">
-                              {group.records.map((rec) => (
+                              {group.records.map((rec) => {
+                                const checkInLoc = getCheckInLocationDetails(rec);
+                                const checkoutLoc = getCheckoutLocationDetails(rec);
+
+                                return (
                                 <tr
                                   key={rec.id || Math.random().toString()}
                                   className="hover:bg-white/[0.05] cursor-pointer transition-colors group"
@@ -1577,18 +1581,21 @@ export const AdminDashboard: React.FC = () => {
                                        'Outdoor'}
                                     </span>
                                   </td>
+                                  {/* Check-In Time */}
                                   <td className="p-3 border-b border-purple-500/10 text-emerald-400 font-bold whitespace-nowrap">
-                                    {safeStringify(rec.checkInTime) || '—'}
+                                    {checkInLoc.time} <span className="text-[10px] text-purple-300/60 font-normal">({rec.checkInMode === 'AUTO' ? 'Auto' : 'Manual'})</span>
                                   </td>
-                                  <td className="p-3 border-b border-purple-500/10">
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                      rec.checkInMode === 'AUTO' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-purple-500/10 text-purple-300'
-                                    }`}>
-                                      {rec.checkInMode === 'AUTO' ? 'Auto' : 'Manual'}
-                                    </span>
-                                   </td>
-                                   <td className="p-3 border-b border-purple-500/10 whitespace-nowrap">
-                                    {getEffectiveCheckoutStatus(rec) === 'UNRESOLVED' ? (
+                                  {/* Check-In Location */}
+                                  <td className="p-3 border-b border-purple-500/10 text-purple-200 truncate max-w-[130px]" title={checkInLoc.location}>
+                                    {checkInLoc.location}
+                                  </td>
+                                  {/* Check-In Distance */}
+                                  <td className="p-3 border-b border-purple-500/10 text-emerald-300 font-mono whitespace-nowrap">
+                                    {checkInLoc.distance || '—'}
+                                  </td>
+                                  {/* Check-Out Time */}
+                                  <td className="p-3 border-b border-purple-500/10 whitespace-nowrap">
+                                    {checkoutLoc.isUnresolved ? (
                                       <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30">
                                         UNRESOLVED
                                       </span>
@@ -1598,28 +1605,21 @@ export const AdminDashboard: React.FC = () => {
                                       </span>
                                     ) : (
                                       <span className="text-purple-200 font-mono font-medium">
-                                        {safeStringify(rec.checkOutTime) || '--:--'}
+                                        {checkoutLoc.time} <span className="text-[10px] text-purple-300/60 font-normal">({rec.checkOutMode === 'AUTO_SYSTEM' ? 'System' : rec.checkOutMode === 'MANUAL' ? 'Manual' : 'N/A'})</span>
                                       </span>
                                     )}
                                   </td>
-                                  <td className="p-3 border-b border-purple-500/10">
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                      rec.checkOutMode === 'MANUAL' ? 'bg-purple-500/10 text-purple-300' : 
-                                      rec.checkOutMode === 'AUTO_SYSTEM' ? 'bg-amber-500/10 text-amber-300' :
-                                      'bg-white/5 text-white/40'
-                                    }`}>
-                                      {rec.checkOutMode === 'MANUAL' ? 'Manual' : 
-                                       rec.checkOutMode === 'AUTO_SYSTEM' ? 'System' : 'N/A'}
-                                    </span>
+                                  {/* Checkout Location */}
+                                  <td className={`p-3 border-b border-purple-500/10 truncate max-w-[130px] ${checkoutLoc.isUnresolved ? 'text-amber-300 font-bold' : 'text-purple-200'}`} title={checkoutLoc.location}>
+                                    {checkoutLoc.location}
                                   </td>
-                                  <td className="p-3 border-b border-purple-500/10 font-bold text-white">
-                                    {getEffectiveCheckoutStatus(rec) === "UNRESOLVED" ? ( <span className="text-rose-400 font-bold">UNRESOLVED</span> ) : getEffectiveCheckoutStatus(rec) === "PENDING_ADMIN_REVIEW" ? ( <span className="text-amber-400 font-bold text-xs uppercase tracking-tighter">Pending</span> ) : ( safeStringify(rec.workingHours) || "—" )}
+                                  {/* Checkout Distance */}
+                                  <td className="p-3 border-b border-purple-500/10 text-rose-300 font-mono whitespace-nowrap">
+                                    {checkoutLoc.distance || '—'}
                                   </td>
-                                  <td className="p-3 border-b border-purple-500/10 text-purple-300 font-mono">
-                                    {typeof rec.distance === 'number' && !isNaN(rec.distance) ? `${(rec.distance / 1000).toFixed(2)}km` : (rec.distance ? `${safeStringify(rec.distance)}m` : '—')}
-                                  </td>
-                                  <td className="p-3 border-b border-purple-500/10 text-purple-200 truncate max-w-[120px]" title={safeStringify(rec.townCity)}>
-                                    {safeStringify(rec.townCity) || '—'}
+                                  {/* Working Hours */}
+                                  <td className="p-3 border-b border-purple-500/10 font-bold text-white whitespace-nowrap">
+                                    {checkoutLoc.isUnresolved ? ( <span className="text-rose-400 font-bold">UNRESOLVED</span> ) : getEffectiveCheckoutStatus(rec) === "PENDING_ADMIN_REVIEW" ? ( <span className="text-amber-400 font-bold text-xs uppercase tracking-tighter">Pending</span> ) : ( safeStringify(rec.workingHours) || "—" )}
                                   </td>
                                   <td className="p-3 border-b border-purple-500/10">
                                     {rec.attendanceType === 'CLIENT_VISIT' ? (
@@ -1662,7 +1662,8 @@ export const AdminDashboard: React.FC = () => {
                                     </Button>
                                   </td>
                                 </tr>
-                              ))}
+                              );
+                            })}
                             </tbody>
                           </table>
                         </div>
@@ -1840,20 +1841,48 @@ export const AdminDashboard: React.FC = () => {
                   <MapPin className="w-3 h-3" /> Geo-Forensics
                 </h5>
                 <div className="space-y-2">
-                  <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-[11px] text-amber-300 font-bold">Location</span>
-                      <span className="text-[10px] text-amber-300/60 font-mono uppercase">
-                        {typeof selectedAttendance.distance === 'number' && !isNaN(selectedAttendance.distance)
-                          ? `${selectedAttendance.distance.toFixed(0)}m from HQ`
-                          : (selectedAttendance.distance ? `${safeStringify(selectedAttendance.distance)}m from HQ` : '—')}
-                      </span>
-                    </div>
-                    <div className="text-xs text-white font-medium mb-2">{safeStringify(selectedAttendance.townCity) || 'Unknown Location'}</div>
-                    <div className="text-[9px] text-purple-300/40 font-mono">
-                      {safeStringify(selectedAttendance.latitude) || '—'}, {safeStringify(selectedAttendance.longitude) || '—'}
-                    </div>
-                  </div>
+                  {(() => {
+                    const checkInLoc = getCheckInLocationDetails(selectedAttendance);
+                    const checkoutLoc = getCheckoutLocationDetails(selectedAttendance);
+
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {/* Check-In Location */}
+                        <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] text-emerald-300 font-bold">Check-in Location</span>
+                            <span className="text-[10px] text-emerald-300/80 font-mono">{checkInLoc.time}</span>
+                          </div>
+                          <div className="text-xs text-white font-medium">{checkInLoc.location}</div>
+                          {checkInLoc.distance && (
+                            <div className="text-[10px] text-emerald-300/70 font-mono">Distance: {checkInLoc.distance}</div>
+                          )}
+                          {(selectedAttendance.checkInLatitude !== undefined || selectedAttendance.latitude !== undefined) && (
+                            <div className="text-[9px] text-purple-300/40 font-mono pt-1">
+                              {selectedAttendance.checkInLatitude ?? selectedAttendance.latitude}, {selectedAttendance.checkInLongitude ?? selectedAttendance.longitude}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Checkout Location */}
+                        <div className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-xl space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] text-purple-300 font-bold">Checkout Location</span>
+                            <span className="text-[10px] text-rose-300/80 font-mono">{checkoutLoc.time}</span>
+                          </div>
+                          <div className={`text-xs font-medium ${checkoutLoc.isUnresolved ? 'text-amber-300 font-bold' : 'text-white'}`}>{checkoutLoc.location}</div>
+                          {checkoutLoc.distance && (
+                            <div className="text-[10px] text-purple-300/70 font-mono">Distance: {checkoutLoc.distance}</div>
+                          )}
+                          {selectedAttendance.checkoutLatitude !== undefined && (
+                            <div className="text-[9px] text-purple-300/40 font-mono pt-1">
+                              {selectedAttendance.checkoutLatitude}, {selectedAttendance.checkoutLongitude}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   
                   {/* Geo-Fencing Logs */}
                   {(selectedAttendance.exitTime || selectedAttendance.returnTime) && (

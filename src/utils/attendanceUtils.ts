@@ -75,3 +75,92 @@ export const getEffectiveCheckoutStatus = (record: AttendanceRecord): 'COMPLETED
   
   return record.checkoutStatus;
 };
+
+/**
+ * Format distance in meters or kilometers from office.
+ * Displays meters below 1 km, and kilometers at 1 km or greater.
+ */
+export const formatDistanceDisplay = (meters: number | null | undefined): string | null => {
+  if (typeof meters !== 'number' || isNaN(meters)) return null;
+  if (meters < 1000) {
+    return `${Math.round(meters)} m from office`;
+  }
+  return `${(meters / 1000).toFixed(2)} km from office`;
+};
+
+/**
+ * Get Check-in location details for UI display.
+ */
+export const getCheckInLocationDetails = (record: AttendanceRecord): {
+  time: string;
+  location: string;
+  distance: string | null;
+  rawDistance: number | null;
+} => {
+  if (!record) {
+    return { time: '--:--', location: 'Location unavailable', distance: null, rawDistance: null };
+  }
+
+  const time = record.checkInTime || '--:--';
+  const rawDist = typeof record.checkInDistance === 'number' 
+    ? record.checkInDistance 
+    : (typeof record.distance === 'number' ? record.distance : null);
+  const distance = formatDistanceDisplay(rawDist);
+
+  let location = 'Historical location unavailable';
+  if (record.checkInTownCity && record.checkInTownCity.trim()) {
+    location = record.checkInTownCity.trim();
+  } else if (record.checkInLatitude !== undefined && record.checkInLatitude !== null) {
+    location = record.townCity?.trim() || 'Location name unavailable';
+  } else if (record.townCity && record.townCity.trim()) {
+    location = record.townCity.trim();
+  }
+
+  return { time, location, distance, rawDistance: rawDist };
+};
+
+/**
+ * Get Checkout location details for UI display.
+ */
+export const getCheckoutLocationDetails = (record: AttendanceRecord): {
+  time: string;
+  location: string;
+  distance: string | null;
+  rawDistance: number | null;
+  isUnresolved: boolean;
+} => {
+  if (!record) {
+    return { time: '--:--', location: 'Location unavailable', distance: null, rawDistance: null, isUnresolved: false };
+  }
+
+  const unresolved = isAttendanceCheckoutUnresolved(record) || record.checkoutStatus === 'UNRESOLVED';
+  let time = '--:--';
+  
+  if (record.checkOutTime && record.checkOutTime !== 'Pending' && record.checkOutTime !== 'N/A') {
+    time = record.checkOutTime;
+  } else if (unresolved) {
+    time = 'UNRESOLVED';
+  } else {
+    time = 'Pending';
+  }
+
+  const rawDist = typeof record.checkoutDistance === 'number' ? record.checkoutDistance : null;
+  const distance = formatDistanceDisplay(rawDist);
+
+  let location = 'Location unavailable';
+
+  if (record.checkoutTownCity && record.checkoutTownCity.trim()) {
+    location = record.checkoutTownCity.trim();
+  } else if (record.checkoutLatitude !== undefined && record.checkoutLatitude !== null) {
+    location = 'Location name unavailable';
+  } else if (unresolved) {
+    location = 'Location unavailable';
+  } else if (record.checkOutTime && record.checkOutTime !== 'Pending' && record.checkOutTime !== 'N/A') {
+    // Completed checkout but without separate checkout coordinates captured previously
+    location = 'Historical location unavailable/ambiguous';
+  } else {
+    location = 'Pending checkout';
+  }
+
+  return { time, location, distance, rawDistance: rawDist, isUnresolved: unresolved };
+};

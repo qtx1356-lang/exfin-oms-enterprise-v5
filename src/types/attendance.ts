@@ -138,6 +138,20 @@ export interface AttendanceRecord {
   checkoutResolvedAt?: string | null;
   resolutionSource?: 'ADMIN_CORRECTION' | 'EMPLOYEE_PROPOSED' | 'AUTO_GEOFENCE' | 'AUTO_SYSTEM' | 'MANUAL' | string | null;
 
+  // Separate Check-In Location fields
+  checkInLatitude?: number;
+  checkInLongitude?: number;
+  checkInAccuracy?: number;
+  checkInDistance?: number;
+  checkInTownCity?: string;
+
+  // Separate Checkout Location fields
+  checkoutLatitude?: number;
+  checkoutLongitude?: number;
+  checkoutAccuracy?: number;
+  checkoutDistance?: number;
+  checkoutTownCity?: string;
+
   // New fields requested for auto checkout alignment
   checkoutType?: 'AUTO_CHECKOUT' | 'MANUAL' | string;
   status?: 'completed' | 'active' | string;

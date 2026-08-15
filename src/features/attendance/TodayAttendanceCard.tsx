@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { AttendanceRecord } from '../../types/attendance';
 import { Card } from '../../components/ui/Card';
+import { getCheckInLocationDetails, getCheckoutLocationDetails } from '../../utils/attendanceUtils';
 
 interface TodayAttendanceCardProps {
   todayRecord: AttendanceRecord | null;
@@ -259,6 +260,46 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
           <span>{todayRecord?.checkOutTime || (isCheckedIn ? 'Now' : '--:--')}</span>
         </div>
       </div>
+
+      {/* Separate Check-in Location and Checkout Location Display */}
+      {todayRecord && isCheckedIn && (() => {
+        const checkIn = getCheckInLocationDetails(todayRecord);
+        const checkout = getCheckoutLocationDetails(todayRecord);
+
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 pt-3 border-t border-white/10 text-xs">
+            <div className="bg-black/30 p-2.5 rounded-xl border border-white/10 space-y-0.5">
+              <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
+                <span>Check-in Location</span>
+                <span className="font-mono text-emerald-300">{checkIn.time}</span>
+              </div>
+              <div className="text-white font-medium truncate flex items-center gap-1" title={checkIn.location}>
+                <span className="text-emerald-400">📍</span> {checkIn.location}
+              </div>
+              {checkIn.distance && (
+                <div className="text-[10px] text-white/70 font-mono">
+                  {checkIn.distance}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-black/30 p-2.5 rounded-xl border border-white/10 space-y-0.5">
+              <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider flex items-center justify-between">
+                <span>Checkout Location</span>
+                <span className="font-mono text-purple-200">{checkout.time}</span>
+              </div>
+              <div className={`font-medium truncate flex items-center gap-1 ${checkout.isUnresolved ? 'text-amber-300 font-bold' : 'text-white'}`} title={checkout.location}>
+                <span className={checkout.isUnresolved ? 'text-amber-400' : 'text-purple-400'}>📍</span> {checkout.location}
+              </div>
+              {checkout.distance && (
+                <div className="text-[10px] text-white/70 font-mono">
+                  {checkout.distance}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </Card>
   );
 };

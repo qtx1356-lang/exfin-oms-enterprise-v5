@@ -74,6 +74,7 @@ import {
 } from '../../services/monitoring/performanceDiagnostics';
 import { TodayAttendanceCard } from './TodayAttendanceCard';
 import { AttendanceCalendar } from './AttendanceCalendar';
+import { getCheckInLocationDetails, getCheckoutLocationDetails } from '../../utils/attendanceUtils';
 
 const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
   'Market Visit',
@@ -1638,31 +1639,43 @@ export const AttendanceScreen: React.FC = () => {
               <p className="text-xs text-purple-300/60 italic text-center py-6">No matching attendance records found.</p>
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                {filteredHistoryRecords.map((rec) => (
-                  <div 
-                    key={rec.id} 
-                    className="p-4 bg-purple-950/60 rounded-2xl border border-purple-500/20 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-purple-400/40 transition-all"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
-                          (rec.attendanceType || 'OFFICE') === 'WFH'
-                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                            : (rec.attendanceType || 'OFFICE') === 'CLIENT_VISIT'
-                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                            : (rec.attendanceType || 'OFFICE') === 'OUTDOOR'
-                            ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
-                            : 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                        }`}>
-                          {(rec.attendanceType || 'OFFICE') === 'WFH' ? '🏠 WFH' : (rec.attendanceType || 'OFFICE') === 'CLIENT_VISIT' ? '🤝 Client Visit' : (rec.attendanceType || 'OFFICE') === 'OUTDOOR' ? '🚗 Outdoor Work' : '🏢 Office'}
-                        </span>
-                        <span className="font-bold text-white">{rec.date}</span>
-                      </div>
+                {filteredHistoryRecords.map((rec) => {
+                  const checkInLoc = getCheckInLocationDetails(rec);
+                  const checkoutLoc = getCheckoutLocationDetails(rec);
 
-                      <div className="text-purple-300/80 text-[11px] flex flex-wrap gap-x-3">
-                        <span>Check-In: <strong className="text-emerald-300">{rec.checkInTime}</strong> ({rec.checkInMode})</span>
-                        <span>Check-Out: <strong className="text-rose-300">{rec.checkOutTime || 'Pending'}</strong></span>
-                        {rec.workingHours && <span>Hours: <strong className="text-purple-200">{rec.workingHours}</strong></span>}
+                  return (
+                    <div 
+                      key={rec.id} 
+                      className="p-4 bg-purple-950/60 rounded-2xl border border-purple-500/20 text-xs flex flex-col gap-3 hover:border-purple-400/40 transition-all"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+                            (rec.attendanceType || 'OFFICE') === 'WFH'
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              : (rec.attendanceType || 'OFFICE') === 'CLIENT_VISIT'
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              : (rec.attendanceType || 'OFFICE') === 'OUTDOOR'
+                              ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                              : 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                          }`}>
+                            {(rec.attendanceType || 'OFFICE') === 'WFH' ? '🏠 WFH' : (rec.attendanceType || 'OFFICE') === 'CLIENT_VISIT' ? '🤝 Client Visit' : (rec.attendanceType || 'OFFICE') === 'OUTDOOR' ? '🚗 Outdoor Work' : '🏢 Office'}
+                          </span>
+                          <span className="font-bold text-white">{rec.date}</span>
+                          {rec.workingHours && (
+                            <span className="text-[11px] text-purple-200/90 font-mono font-bold bg-purple-900/50 px-2 py-0.5 rounded-md border border-purple-500/20">
+                              ⏱️ {rec.workingHours}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                            rec.syncStatus === 'Synced' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          }`}>
+                            {rec.syncStatus}
+                          </span>
+                        </div>
                       </div>
 
                       {rec.clientName && (
@@ -1674,17 +1687,44 @@ export const AttendanceScreen: React.FC = () => {
                       {rec.outdoorType && (
                         <p className="text-[11px] text-indigo-300">Outdoor: {rec.outdoorType} - {rec.description}</p>
                       )}
-                    </div>
 
-                    <div className="self-end sm:self-center flex items-center gap-2">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                        rec.syncStatus === 'Synced' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                      }`}>
-                        {rec.syncStatus}
-                      </span>
+                      {/* Separate Check-in Location & Checkout Location */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1 pt-2 border-t border-purple-500/15">
+                        {/* Check-In Block */}
+                        <div className="bg-purple-950/80 p-2.5 rounded-xl border border-purple-500/20 space-y-0.5">
+                          <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
+                            <span>Check-in Location</span>
+                            <span className="font-mono text-emerald-300">{checkInLoc.time}</span>
+                          </div>
+                          <div className="text-white font-medium truncate flex items-center gap-1" title={checkInLoc.location}>
+                            <span className="text-emerald-400">📍</span> {checkInLoc.location}
+                          </div>
+                          {checkInLoc.distance && (
+                            <div className="text-[10px] text-purple-300/80 font-mono">
+                              Distance: {checkInLoc.distance}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Checkout Block */}
+                        <div className="bg-purple-950/80 p-2.5 rounded-xl border border-purple-500/20 space-y-0.5">
+                          <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider flex items-center justify-between">
+                            <span>Checkout Location</span>
+                            <span className="font-mono text-rose-300">{checkoutLoc.time}</span>
+                          </div>
+                          <div className={`font-medium truncate flex items-center gap-1 ${checkoutLoc.isUnresolved ? 'text-amber-300 font-bold' : 'text-white'}`} title={checkoutLoc.location}>
+                            <span className={checkoutLoc.isUnresolved ? 'text-amber-400' : 'text-rose-400'}>📍</span> {checkoutLoc.location}
+                          </div>
+                          {checkoutLoc.distance && (
+                            <div className="text-[10px] text-purple-300/80 font-mono">
+                              Distance: {checkoutLoc.distance}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
