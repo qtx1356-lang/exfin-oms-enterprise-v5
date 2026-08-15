@@ -113,6 +113,21 @@ export const AutomaticAttendanceEngine = {
   ): AttendanceRecord | null {
     if (!employeeId) return null;
 
+    if (
+      typeof latitude !== 'number' ||
+      typeof longitude !== 'number' ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) ||
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180 ||
+      (latitude === 0 && longitude === 0)
+    ) {
+      console.warn('[processLocationUpdate] Ignored invalid GPS coordinates:', { latitude, longitude });
+      return null;
+    }
+
     const distance = getDistanceFromLatLonInM(
       latitude,
       longitude,
@@ -130,7 +145,7 @@ export const AutomaticAttendanceEngine = {
     if (record) {
       record.currentLatitude = latitude;
       record.currentLongitude = longitude;
-      if (typeof accuracy === 'number') {
+      if (typeof accuracy === 'number' && Number.isFinite(accuracy)) {
         record.currentAccuracy = accuracy;
       }
       record.currentDistance = distance;
@@ -139,9 +154,25 @@ export const AutomaticAttendanceEngine = {
       record.currentLocationStatus = 'LIVE';
       record.syncStatus = 'Pending';
       saveAttendanceRecord(record);
-      if (navigator.onLine) {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
         syncPendingAttendanceRecords().catch(() => {});
       }
+
+      console.log('[CURRENT_LOCATION_UPDATE]', {
+        latitude,
+        longitude,
+        accuracy,
+        calculatedDistance: distance,
+        timestamp: timestamp.toISOString()
+      });
+
+      console.log('[CURRENT_DISTANCE_CALCULATION]', {
+        currentLatitude: latitude,
+        currentLongitude: longitude,
+        officeLatitude: OFFICE_LOCATION.latitude,
+        officeLongitude: OFFICE_LOCATION.longitude,
+        distanceMeters: distance
+      });
     }
 
     // Initial state setup if record doesn't exist

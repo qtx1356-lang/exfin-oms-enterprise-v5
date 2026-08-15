@@ -372,6 +372,25 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       try {
         localStorage.setItem('lastKnownAddress', cleanAddress);
       } catch (e) {}
+
+      // Requirement 6: Ensure address is associated with the exact coordinates that generated it
+      try {
+        const cachedRaw = localStorage.getItem('cached_registration_data');
+        if (cachedRaw) {
+          const parsed = JSON.parse(cachedRaw);
+          const empId = parsed.employeeCode || parsed.uid || parsed.id;
+          const empName = parsed.name || 'Employee';
+          if (empId) {
+            handleLocationUpdateForAttendance(
+              latitude,
+              longitude,
+              empId,
+              empName,
+              cleanAddress
+            );
+          }
+        }
+      } catch (err) {}
     } else {
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         setCurrentAddress('Offline');
