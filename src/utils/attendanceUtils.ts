@@ -1,4 +1,4 @@
-import { AttendanceRecord } from '../types/attendance';
+import { AttendanceRecord, LiveEmployeeLocation } from '../types/attendance';
 import { OFFICE_LOCATION, getDistanceFromLatLonInM } from '../services/attendance/smartAttendanceEngine';
 
 /**
@@ -186,11 +186,18 @@ const isValidCoordinatePair = (lat: any, lon: any): boolean => {
  * Get Current (Live) Location details for UI display.
  * 
  * CRITICAL DATA-INTEGRITY RULE:
- * Distance is ALWAYS mathematically recalculated from current GPS coordinates
- * (currentLatitude, currentLongitude) against OFFICE_LOCATION (23.616227, 87.117063).
- * Stored `currentDistance` is NEVER blindly trusted.
+ * 1. Current location is obtained from the authoritative LiveEmployeeLocation object
+ *    (live_locations collection in Firestore) or record.currentLatitude/Longitude.
+ * 2. Distance is ALWAYS mathematically recalculated from live GPS coordinates
+ *    against OFFICE_LOCATION (23.616227, 87.117063) using Haversine formula.
+ * 3. Stored `distanceFromOffice` or `currentDistance` is NEVER blindly trusted.
+ * 4. NEVER falls back to check-in coordinates (checkInLatitude / checkInLongitude)
+ *    for Current Location.
  */
-export const getCurrentLocationDetails = (record: AttendanceRecord | null): {
+export const getCurrentLocationDetails = (
+  record: AttendanceRecord | null,
+  liveLocation?: LiveEmployeeLocation | null
+): {
   time: string | null;
   location: string;
   distance: string | null;
@@ -200,96 +207,45 @@ export const getCurrentLocationDetails = (record: AttendanceRecord | null): {
   isAvailable: boolean;
   latitude?: number;
   longitude?: number;
-  accuracy?: number;
+  accuracy?: number | null;
 } => {
-  if (!record) {
-    return {
-      time: null,
-      location: 'Location unavailable',
-      distance: null,
-      rawDistance: null,
-      status: 'UNAVAILABLE',
-      statusText: 'Location unavailable',
-      isAvailable: false
-    };
-  }
+  // 1. Check if authoritative liveLocation is provided
+  if (liveLocation && isValidCoordinatePair(liveLocation.latitude, liveLocation.longitude)) {
+    const lat = liveLocation.latitude;
+    const lon = liveLocation.longitude;
 
-  // 1. Select coordinates: Prefer current coordinates, fall back to check-in coordinates if unavailable
-  let lat: number | undefined;
-  let lon: number | undefined;
-  let isFromCurrent = false;
+    // Recalculate distance dynamically against OFFICE_LOCATION (23.616227, 87.117063)
+    const calculatedMeters = getDistanceFromLatLonInM(
+      lat,
+      lon,
+      OFFICE_LOCATION.latitude,
+      OFFICE_LOCATION.longitude
+    );
 
-  if (isValidCoordinatePair(record.currentLatitude, record.currentLongitude)) {
-    lat = record.currentLatitude!;
-    lon = record.currentLongitude!;
-    isFromCurrent = true;
-  } else if (isValidCoordinatePair(record.checkInLatitude, record.checkInLongitude)) {
-    lat = record.checkInLatitude!;
-    lon = record.checkInLongitude!;
-    isFromCurrent = false;
-  } else if (isValidCoordinatePair(record.latitude, record.longitude)) {
-    lat = record.latitude!;
-    lon = record.longitude!;
-    isFromCurrent = false;
-  }
+    const rawDist = (typeof calculatedMeters === 'number' && Number.isFinite(calculatedMeters) && calculatedMeters >= 0)
+      ? calculatedMeters
+      : null;
 
-  // If no valid coordinates exist, return UNAVAILABLE (never fabricated 0 m)
-  if (lat === undefined || lon === undefined || !isValidCoordinatePair(lat, lon)) {
-    return {
-      time: null,
-      location: 'Location unavailable',
-      distance: null,
-      rawDistance: null,
-      status: 'UNAVAILABLE',
-      statusText: 'Location unavailable',
-      isAvailable: false
-    };
-  }
+    const distanceFormatted = formatDistanceDisplay(rawDist);
+    const locationName = (liveLocation.townCity && liveLocation.townCity.trim())
+      ? liveLocation.townCity.trim()
+      : 'Location name unavailable';
 
-  // 2. Authoritative Distance Calculation from GPS coordinates
-  const calculatedMeters = getDistanceFromLatLonInM(
-    lat,
-    lon,
-    OFFICE_LOCATION.latitude,
-    OFFICE_LOCATION.longitude
-  );
+    // Freshness rules based on liveLocation.timestamp
+    let timeStr: string | null = null;
+    let status: 'LIVE' | 'RECENT' | 'STALE' | 'UNAVAILABLE' = 'UNAVAILABLE';
+    let statusText = 'Location unavailable';
 
-  const rawDist = (typeof calculatedMeters === 'number' && Number.isFinite(calculatedMeters) && calculatedMeters >= 0)
-    ? calculatedMeters
-    : null;
+    if (liveLocation.timestamp) {
+      const timestampDate = new Date(liveLocation.timestamp);
+      if (!isNaN(timestampDate.getTime())) {
+        timeStr = timestampDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-  const distanceFormatted = formatDistanceDisplay(rawDist);
+        const ageMs = Math.max(0, Date.now() - timestampDate.getTime());
+        const ageSec = Math.floor(ageMs / 1000);
+        const ageMin = Math.floor(ageMs / 60000);
+        const ageHr = Math.floor(ageMs / 3600000);
 
-  // 3. Location name corresponding to selected coordinate fix
-  let locationName = 'Location name unavailable';
-  if (isFromCurrent && record.currentTownCity && record.currentTownCity.trim()) {
-    locationName = record.currentTownCity.trim();
-  } else if (record.checkInTownCity && record.checkInTownCity.trim()) {
-    locationName = record.checkInTownCity.trim();
-  } else if (record.townCity && record.townCity.trim()) {
-    locationName = record.townCity.trim();
-  } else {
-    locationName = 'Location name unavailable';
-  }
-
-  // 4. Timestamp & Freshness evaluation
-  const timestampIso = (isFromCurrent ? record.currentLocationTimestamp : null) || record.createdAtDeviceTime || record.updatedAt;
-
-  let timeStr: string | null = null;
-  let status: 'LIVE' | 'RECENT' | 'STALE' | 'UNAVAILABLE' = 'UNAVAILABLE';
-  let statusText = 'Location unavailable';
-
-  if (timestampIso) {
-    const timestampDate = new Date(timestampIso);
-    if (!isNaN(timestampDate.getTime())) {
-      timeStr = timestampDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-
-      const ageMs = Math.max(0, Date.now() - timestampDate.getTime());
-      const ageSec = Math.floor(ageMs / 1000);
-      const ageMin = Math.floor(ageMs / 60000);
-      const ageHr = Math.floor(ageMs / 3600000);
-
-      if (isFromCurrent) {
         if (ageMin < 2) {
           status = 'LIVE';
           statusText = ageSec < 15 ? 'Live · Updated just now' : `Live · Updated ${ageSec} sec ago`;
@@ -306,52 +262,120 @@ export const getCurrentLocationDetails = (record: AttendanceRecord | null): {
             statusText = `Last updated ${Math.floor(ageHr / 24)} d ago`;
           }
         }
-      } else {
-        status = 'STALE';
-        statusText = `From check-in (${timeStr})`;
       }
     }
-  }
 
-  // 5. Diagnostic logging as required by specification
-  if (isFromCurrent) {
     console.log('[CURRENT_LOCATION_UPDATE]', {
+      employeeId: liveLocation.employeeId,
       latitude: lat,
       longitude: lon,
-      accuracy: record.currentAccuracy,
+      accuracy: liveLocation.accuracy,
       calculatedDistance: rawDist,
-      timestamp: timestampIso
+      timestamp: liveLocation.timestamp,
+      freshness: status
     });
+
+    console.log('[CURRENT_DISTANCE_CALCULATION]', {
+      employeeId: liveLocation.employeeId,
+      currentLatitude: lat,
+      currentLongitude: lon,
+      officeLatitude: OFFICE_LOCATION.latitude,
+      officeLongitude: OFFICE_LOCATION.longitude,
+      distanceMeters: rawDist
+    });
+
+    return {
+      time: timeStr,
+      location: locationName,
+      distance: distanceFormatted,
+      rawDistance: rawDist,
+      status,
+      statusText,
+      isAvailable: true,
+      latitude: lat,
+      longitude: lon,
+      accuracy: liveLocation.accuracy
+    };
   }
 
-  console.log('[CURRENT_DISTANCE_CALCULATION]', {
-    currentLatitude: lat,
-    currentLongitude: lon,
-    officeLatitude: OFFICE_LOCATION.latitude,
-    officeLongitude: OFFICE_LOCATION.longitude,
-    distanceMeters: rawDist
-  });
+  // 2. If no LiveEmployeeLocation object, check if record explicitly has currentLatitude/currentLongitude
+  if (record && isValidCoordinatePair(record.currentLatitude, record.currentLongitude)) {
+    const lat = record.currentLatitude!;
+    const lon = record.currentLongitude!;
 
-  console.log('[EXFIN_ADMIN_CURRENT_LOCATION]', {
-    recordId: record.id || record.docId,
-    employeeId: record.employeeId,
-    currentLatitude: lat,
-    currentLongitude: lon,
-    storedCurrentDistance: record.currentDistance,
-    recalculatedDistance: rawDist,
-    currentLocationTimestamp: timestampIso
-  });
+    const calculatedMeters = getDistanceFromLatLonInM(
+      lat,
+      lon,
+      OFFICE_LOCATION.latitude,
+      OFFICE_LOCATION.longitude
+    );
 
+    const rawDist = (typeof calculatedMeters === 'number' && Number.isFinite(calculatedMeters) && calculatedMeters >= 0)
+      ? calculatedMeters
+      : null;
+
+    const distanceFormatted = formatDistanceDisplay(rawDist);
+    const locationName = (record.currentTownCity && record.currentTownCity.trim())
+      ? record.currentTownCity.trim()
+      : 'Location name unavailable';
+
+    const timestampIso = record.currentLocationTimestamp;
+    let timeStr: string | null = null;
+    let status: 'LIVE' | 'RECENT' | 'STALE' | 'UNAVAILABLE' = 'UNAVAILABLE';
+    let statusText = 'Location unavailable';
+
+    if (timestampIso) {
+      const timestampDate = new Date(timestampIso);
+      if (!isNaN(timestampDate.getTime())) {
+        timeStr = timestampDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+        const ageMs = Math.max(0, Date.now() - timestampDate.getTime());
+        const ageSec = Math.floor(ageMs / 1000);
+        const ageMin = Math.floor(ageMs / 60000);
+        const ageHr = Math.floor(ageMs / 3600000);
+
+        if (ageMin < 2) {
+          status = 'LIVE';
+          statusText = ageSec < 15 ? 'Live · Updated just now' : `Live · Updated ${ageSec} sec ago`;
+        } else if (ageMin < 15) {
+          status = 'RECENT';
+          statusText = `Last updated ${ageMin} min ago`;
+        } else {
+          status = 'STALE';
+          if (ageHr < 1) {
+            statusText = `Last updated ${ageMin} min ago`;
+          } else if (ageHr < 24) {
+            statusText = `Last updated ${ageHr} hr ago`;
+          } else {
+            statusText = `Last updated ${Math.floor(ageHr / 24)} d ago`;
+          }
+        }
+      }
+    }
+
+    return {
+      time: timeStr,
+      location: locationName,
+      distance: distanceFormatted,
+      rawDistance: rawDist,
+      status,
+      statusText,
+      isAvailable: true,
+      latitude: lat,
+      longitude: lon,
+      accuracy: record.currentAccuracy
+    };
+  }
+
+  // 3. If no live location is available, return UNAVAILABLE.
+  // CRITICAL: NEVER fall back to historical check-in coordinates for current location!
   return {
-    time: timeStr,
-    location: locationName,
-    distance: distanceFormatted,
-    rawDistance: rawDist,
-    status,
-    statusText,
-    isAvailable: true,
-    latitude: lat,
-    longitude: lon,
-    accuracy: record.currentAccuracy
+    time: null,
+    location: 'Location unavailable',
+    distance: null,
+    rawDistance: null,
+    status: 'UNAVAILABLE',
+    statusText: 'Location unavailable',
+    isAvailable: false
   };
 };

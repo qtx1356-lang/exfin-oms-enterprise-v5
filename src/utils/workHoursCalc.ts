@@ -74,17 +74,22 @@ export const getRecordWorkingHoursDisplay = (record: AttendanceRecord): { displa
   if (record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
     return { display: 'PENDING REVIEW', status: 'PENDING_REVIEW' };
   }
-  if (isAttendanceCheckoutUnresolved(record)) {
+  if (isAttendanceCheckoutUnresolved(record) || record.checkoutStatus === 'UNRESOLVED') {
     return { display: 'UNRESOLVED', status: 'UNRESOLVED' };
   }
-  if (record.checkOutTime && record.checkOutTime !== '--:--') {
-    const mins = getRecordWorkingMinutes(record);
-    return { display: record.workingHours || formatMinutesToDuration(mins), status: 'COMPLETED' };
+  if (record.checkOutTime && record.checkOutTime !== '--:--' && record.checkOutTime !== 'Pending' && record.checkOutTime !== 'N/A') {
+    const recalculated = calculateWorkingHours(record.checkInTime, record.checkOutTime);
+    if (recalculated) {
+      return { display: recalculated, status: 'COMPLETED' };
+    }
+    // If calculateWorkingHours returned null (e.g. invalid time sequence like 10 AM -> 5 AM), do NOT show old 19h
+    return { display: '—', status: 'COMPLETED' };
   }
   const todayStr = getKolkataDateStr();
-  if (record.date === todayStr && record.checkInTime) {
-    const mins = getRecordWorkingMinutes(record);
-    return { display: formatMinutesToDuration(mins), status: 'IN_PROGRESS' };
+  if (record.date === todayStr && record.checkInTime && record.checkInTime !== '--:--') {
+    const currentTimeStr = getKolkataTimeStr();
+    const liveCalculated = calculateWorkingHours(record.checkInTime, currentTimeStr);
+    return { display: liveCalculated || '—', status: 'IN_PROGRESS' };
   }
   return { display: 'UNRESOLVED', status: 'UNRESOLVED' };
 };

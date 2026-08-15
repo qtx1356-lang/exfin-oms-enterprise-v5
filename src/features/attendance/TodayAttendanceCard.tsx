@@ -13,7 +13,7 @@ import {
   Activity,
   AlertCircle
 } from 'lucide-react';
-import { AttendanceRecord } from '../../types/attendance';
+import { AttendanceRecord, LiveEmployeeLocation } from '../../types/attendance';
 import { Card } from '../../components/ui/Card';
 import { getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails } from '../../utils/attendanceUtils';
 
@@ -21,6 +21,7 @@ interface TodayAttendanceCardProps {
   todayRecord: AttendanceRecord | null;
   isSyncing?: boolean;
   isOnline?: boolean;
+  liveLocationData?: LiveEmployeeLocation | null;
 }
 
 const parseTimeString = (timeStr?: string): Date | null => {
@@ -58,7 +59,8 @@ const formatDuration = (seconds: number): string => {
 export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   todayRecord,
   isSyncing = false,
-  isOnline = true
+  isOnline = true,
+  liveLocationData = null
 }) => {
   const [now, setNow] = useState<Date>(new Date());
 
@@ -265,7 +267,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
       {todayRecord && isCheckedIn && (() => {
         const checkIn = getCheckInLocationDetails(todayRecord);
         const checkout = getCheckoutLocationDetails(todayRecord);
-        const currentLoc = getCurrentLocationDetails(todayRecord);
+        const currentLoc = getCurrentLocationDetails(todayRecord, liveLocationData);
 
         return (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 pt-3 border-t border-white/10 text-xs">

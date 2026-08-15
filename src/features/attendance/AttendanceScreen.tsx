@@ -38,7 +38,7 @@ import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { LocationGate } from '../../components/common/LocationGate';
-import { AttendanceRecord, AttendanceType, OutdoorWorkTypeOption } from '../../types/attendance';
+import { AttendanceRecord, AttendanceType, OutdoorWorkTypeOption, LiveEmployeeLocation } from '../../types/attendance';
 import { isAttendanceCheckoutUnresolved, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails } from '../../utils/attendanceUtils';
 import { getStoredLeaves } from '../../services/leave/leaveStorage';
 import { createNotification } from '../../services/notification/notificationService';
@@ -1429,11 +1429,28 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {/* 2. CURRENT ATTENDANCE STATUS */}
       {/* ==================================================== */}
-      <TodayAttendanceCard 
-        todayRecord={todayRecord} 
-        isSyncing={isSyncing} 
-        isOnline={isOnline} 
-      />
+      {(() => {
+        const liveLocationData: LiveEmployeeLocation | null = liveLocation ? {
+          employeeId: employeeData?.employeeCode || employeeData?.uid || '',
+          employeeName: employeeData?.name || '',
+          latitude: liveLocation.latitude,
+          longitude: liveLocation.longitude,
+          accuracy: liveLocation.accuracy,
+          distanceFromOffice: distance ?? 0,
+          townCity: currentAddress || 'Raniganj HQ',
+          timestamp: liveLocation.timestamp ? new Date(liveLocation.timestamp).toISOString() : new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        } : null;
+
+        return (
+          <TodayAttendanceCard 
+            todayRecord={todayRecord} 
+            isSyncing={isSyncing} 
+            isOnline={isOnline}
+            liveLocationData={liveLocationData}
+          />
+        );
+      })()}
 
       {/* ==================================================== */}
       {/* 3. TODAY'S DETAILS */}

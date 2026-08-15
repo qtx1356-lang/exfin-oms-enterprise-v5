@@ -67,6 +67,11 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
+    match /live_locations/{employeeId} {
+      allow read, create, update: if true;
+      allow delete: if isSuperAdmin();
+    }
+
     match /expenses/{expenseId} {
       allow read, create, update: if true;
       allow delete: if isSuperAdmin();

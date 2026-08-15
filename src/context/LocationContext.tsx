@@ -10,6 +10,7 @@ import {
   checkBackgroundPermissionStatus, 
   requestBackgroundLocationPermission 
 } from '../services/attendance/backgroundAttendanceManager';
+import { updateLiveEmployeeLocation } from '../services/location/liveLocationService';
 import { getTodayAttendanceRecord } from '../services/attendance/attendanceStorage';
 import {
   trackResourceCreated,
@@ -381,6 +382,15 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const empId = parsed.employeeCode || parsed.uid || parsed.id;
           const empName = parsed.name || 'Employee';
           if (empId) {
+            updateLiveEmployeeLocation({
+              employeeId: empId,
+              employeeName: empName,
+              latitude,
+              longitude,
+              townCity: cleanAddress,
+              timestamp: new Date().toISOString()
+            }).catch(() => {});
+
             handleLocationUpdateForAttendance(
               latitude,
               longitude,
@@ -547,7 +557,7 @@ display state: ${displayDist}`);
     }
     setStableInsideOffice(nextInside);
 
-    // Evaluate automatic background geofence state transition
+    // Update live_locations independent of attendance record
     try {
       const cachedRaw = localStorage.getItem('cached_registration_data');
       if (cachedRaw) {
@@ -555,6 +565,18 @@ display state: ${displayDist}`);
         const empId = parsed.employeeCode || parsed.uid || parsed.id;
         const empName = parsed.name || 'Employee';
         if (empId) {
+          updateLiveEmployeeLocation({
+            employeeId: empId,
+            employeeName: empName,
+            latitude,
+            longitude,
+            accuracy,
+            distanceFromOffice: calculatedDistance,
+            townCity: currentAddress || 'Raniganj HQ',
+            timestamp: new Date(fixTime).toISOString()
+          }).catch((err) => console.warn('Error updating live_locations:', err));
+
+          // Evaluate automatic background geofence state transition
           handleLocationUpdateForAttendance(
             latitude,
             longitude,
@@ -566,7 +588,7 @@ display state: ${displayDist}`);
         }
       }
     } catch (err) {
-      console.warn('Error evaluating location update for attendance:', err);
+      console.warn('Error evaluating location update for attendance / live location:', err);
     }
 
     // Offline mode support: complete location state immediately without network/reverse geocoding

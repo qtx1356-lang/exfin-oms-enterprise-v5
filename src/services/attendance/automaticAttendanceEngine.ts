@@ -15,6 +15,7 @@ import {
 import { logAttendanceEvent } from './attendanceLogger';
 import { createNotification } from '../notification/notificationService';
 import { syncPendingAttendanceRecords } from './syncEngine';
+import { updateLiveEmployeeLocation } from '../location/liveLocationService';
 
 export const OFFICE_LOCATION = {
   name: 'EXFIN OFFICE',
@@ -171,6 +172,18 @@ export const AutomaticAttendanceEngine = {
     );
 
     const isInside = distance <= OFFICE_LOCATION.radius;
+
+    // Independent Live Location persistence in live_locations/{employeeId}
+    updateLiveEmployeeLocation({
+      employeeId,
+      employeeName,
+      latitude,
+      longitude,
+      accuracy,
+      distanceFromOffice: distance,
+      townCity: (townCity && townCity.trim()) ? townCity.trim() : 'Raniganj HQ',
+      timestamp
+    }).catch((e) => console.warn('[processLocationUpdate] Failed to write live location:', e));
 
     // Check if check-in exists for today
     const dateStr = getFormattedDateStr(timestamp);

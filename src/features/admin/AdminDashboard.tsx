@@ -59,7 +59,7 @@ import { Card } from '../../components/ui/Card';
 import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
-import { AttendanceRecord, AttendanceCorrection } from '../../types/attendance';
+import { AttendanceRecord, AttendanceCorrection, LiveEmployeeLocation } from '../../types/attendance';
 import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails } from '../../utils/attendanceUtils';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
@@ -252,12 +252,26 @@ export const AdminDashboard: React.FC = () => {
   }, [deduplicatedRegistrations]);
 
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [liveLocations, setLiveLocations] = useState<LiveEmployeeLocation[]>([]);
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([]);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [leaves, setLeaves] = useState<LeaveRecord[]>([]);
   const [leaveConfig, setLeaveConfig] = useState<LeaveConfig | null>(null);
   const [employeeAllowances, setEmployeeAllowances] = useState<EmployeeAllowance[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
+
+  // Map of authoritative live employee locations (from live_locations collection)
+  const liveLocationByEmployee = React.useMemo(() => {
+    const map = new Map<string, LiveEmployeeLocation>();
+    liveLocations.forEach((loc) => {
+      if (loc.employeeId) {
+        const idTrim = loc.employeeId.trim();
+        map.set(idTrim, loc);
+        map.set(idTrim.toLowerCase(), loc);
+      }
+    });
+    return map;
+  }, [liveLocations]);
 
   const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'MISSING_CHECKOUT' | 'LATE'>('ALL');
   const [attendanceSearch, setAttendanceSearch] = useState('');
@@ -565,12 +579,25 @@ export const AdminDashboard: React.FC = () => {
       checkAllLoaded();
     }, () => { leavesLoaded = true; checkAllLoaded(); });
 
+    // Listen to live_locations in real-time
+    const qLiveLocations = query(collection(db, 'live_locations'), limit(500));
+    const unsubLiveLocations = onSnapshot(qLiveLocations, (snapshot) => {
+      const locs: LiveEmployeeLocation[] = [];
+      snapshot.forEach((docSnap) => {
+        locs.push({ id: docSnap.id, ...(docSnap.data() as any) } as LiveEmployeeLocation);
+      });
+      setLiveLocations(locs);
+    }, (err) => {
+      console.warn('Failed to listen to live_locations:', err);
+    });
+
     return () => {
       unsubRegs();
       unsubAttendance();
       unsubExpenses();
       unsubTasks();
       unsubLeaves();
+      unsubLiveLocations();
     };
   }, []);
 
@@ -1543,7 +1570,9 @@ export const AdminDashboard: React.FC = () => {
                               {group.records.map((rec) => {
                                 const checkInLoc = getCheckInLocationDetails(rec);
                                 const checkoutLoc = getCheckoutLocationDetails(rec);
-                                const currentLoc = getCurrentLocationDetails(rec);
+                                const empCode = (rec.employeeId || rec.employeeCode || '').trim();
+                                const empLiveLoc = liveLocationByEmployee.get(empCode) || liveLocationByEmployee.get(empCode.toLowerCase());
+                                const currentLoc = getCurrentLocationDetails(rec, empLiveLoc);
 
                                 return (
                                 <tr
@@ -1640,7 +1669,20 @@ export const AdminDashboard: React.FC = () => {
                                   </td>
                                   {/* Working Hours */}
                                   <td className="p-3 border-b border-purple-500/10 font-bold text-white whitespace-nowrap">
-                                    {checkoutLoc.isUnresolved ? ( <span className="text-rose-400 font-bold">UNRESOLVED</span> ) : getEffectiveCheckoutStatus(rec) === "PENDING_ADMIN_REVIEW" ? ( <span className="text-amber-400 font-bold text-xs uppercase tracking-tighter">Pending</span> ) : ( safeStringify(rec.workingHours) || "—" )}
+                                    {checkoutLoc.isUnresolved ? (
+                                      <span className="text-rose-400 font-bold">UNRESOLVED</span>
+                                    ) : getEffectiveCheckoutStatus(rec) === "PENDING_ADMIN_REVIEW" ? (
+                                      <span className="text-amber-400 font-bold text-xs uppercase tracking-tighter">Pending</span>
+                                    ) : (() => {
+                                      if (rec.checkInTime && rec.checkOutTime && rec.checkOutTime !== '--:--' && rec.checkOutTime !== 'Pending' && rec.checkOutTime !== 'N/A') {
+                                        const calculated = calculateWorkingHours(rec.checkInTime, rec.checkOutTime);
+                                        if (calculated) {
+                                          return <span className="text-white font-mono font-bold">{calculated}</span>;
+                                        }
+                                        return <span>—</span>;
+                                      }
+                                      return <span>{safeStringify(rec.workingHours) || '—'}</span>;
+                                    })()}
                                   </td>
                                   <td className="p-3 border-b border-purple-500/10">
                                     {rec.attendanceType === 'CLIENT_VISIT' ? (
@@ -1851,7 +1893,20 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                   <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex justify-between items-center">
                     <span className="text-[11px] text-white/70 font-bold">Total Duration</span>
-                    <span className="text-sm font-black text-white">{safeStringify(selectedAttendance.workingHours) || '—'}</span>
+                    <span className="text-sm font-black text-white">
+                      {(() => {
+                        if (isAttendanceCheckoutUnresolved(selectedAttendance) || selectedAttendance.checkoutStatus === 'UNRESOLVED') {
+                          return <span className="text-rose-400 font-bold">UNRESOLVED</span>;
+                        }
+                        if (selectedAttendance.checkInTime && selectedAttendance.checkOutTime && selectedAttendance.checkOutTime !== '--:--' && selectedAttendance.checkOutTime !== 'Pending' && selectedAttendance.checkOutTime !== 'N/A') {
+                          const calculated = calculateWorkingHours(selectedAttendance.checkInTime, selectedAttendance.checkOutTime);
+                          if (calculated) {
+                            return calculated;
+                          }
+                        }
+                        return safeStringify(selectedAttendance.workingHours) || '—';
+                      })()}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1865,7 +1920,9 @@ export const AdminDashboard: React.FC = () => {
                   {(() => {
                     const checkInLoc = getCheckInLocationDetails(selectedAttendance);
                     const checkoutLoc = getCheckoutLocationDetails(selectedAttendance);
-                    const currentLoc = getCurrentLocationDetails(selectedAttendance);
+                    const empCode = (selectedAttendance.employeeId || selectedAttendance.employeeCode || '').trim();
+                    const empLiveLoc = liveLocationByEmployee.get(empCode) || liveLocationByEmployee.get(empCode.toLowerCase());
+                    const currentLoc = getCurrentLocationDetails(selectedAttendance, empLiveLoc);
 
                     return (
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

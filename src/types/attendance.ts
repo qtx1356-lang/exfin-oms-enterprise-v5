@@ -185,4 +185,17 @@ export interface AttendanceRecord {
   description?: string | null;
 }
 
+export interface LiveEmployeeLocation {
+  id?: string;
+  employeeId: string;
+  employeeName?: string;
+  latitude: number;
+  longitude: number;
+  accuracy?: number | null;
+  distanceFromOffice: number; // Distance in meters from office (23.616227, 87.117063)
+  townCity: string;
+  timestamp: string; // ISO string of GPS fix time
+  updatedAt: string; // ISO string of write time
+}
+
 
