@@ -163,7 +163,6 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
   const handleVisibilityChange = () => {
     if (document.visibilityState === 'visible') {
       logAttendanceEvent('GEOFENCE_ENTER', 'SYSTEM', 'App brought to foreground. Refreshing attendance state.');
-      runAutoCheckoutFinalizer();
       
       const info = getEmployeeInfo();
       if (info?.id) {
@@ -171,7 +170,42 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
         if (isMedianApp()) {
           startMedianBackgroundLocation(getEmployeeInfo);
         }
+
+        // Trigger immediate high-accuracy location check on app resume
+        try {
+          if (Capacitor.isNativePlatform()) {
+            Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000 }).then((pos) => {
+              if (pos?.coords) {
+                handleLocationUpdateForAttendance(
+                  pos.coords.latitude,
+                  pos.coords.longitude,
+                  info.id,
+                  info.name,
+                  info.townCity || 'Raniganj HQ'
+                );
+              }
+            }).catch((e) => console.warn('Resume GPS fetch error:', e));
+          } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                handleLocationUpdateForAttendance(
+                  pos.coords.latitude,
+                  pos.coords.longitude,
+                  info.id,
+                  info.name,
+                  info.townCity || 'Raniganj HQ'
+                );
+              },
+              (err) => console.warn('Resume Web GPS error:', err),
+              { enableHighAccuracy: true, timeout: 5000 }
+            );
+          }
+        } catch (err) {
+          console.warn('App resume location update error:', err);
+        }
       }
+
+      runAutoCheckoutFinalizer();
 
       if (navigator.onLine) {
         syncPendingAttendanceRecords().catch(() => {});

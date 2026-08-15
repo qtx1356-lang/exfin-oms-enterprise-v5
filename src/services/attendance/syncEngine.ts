@@ -137,6 +137,17 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
         markRecordSyncedInLocal(record.id, localServerSyncTime);
         logSyncComplete('Attendance', record.id);
 
+        if (record.exitTime || record.lastExitTime) {
+          console.log('[ATTENDANCE_EXIT_SYNCED]', {
+            employeeId: record.employeeId,
+            date: record.date,
+            distance: record.distance || 0,
+            timestamp: new Date().toISOString(),
+            source: record.checkInMode || 'AUTO'
+          });
+          logAttendanceEvent('SYNC_SUCCESS', record.employeeId, `[ATTENDANCE_EXIT_SYNCED] Synced attendance exit state for ${record.date}`);
+        }
+
         syncedCount++;
         success = true;
       } catch (err: any) {

@@ -147,9 +147,17 @@ export const AutomaticAttendanceEngine = {
     }
 
     if (record && !record.checkOutTime && (record.attendanceType === 'OFFICE' || !record.attendanceType)) {
-      if (currentState === 'CHECKED_IN' && !isInside) {
+      if ((currentState === 'CHECKED_IN' || currentState === 'ENTERING') && !isInside) {
         // EXIT GEOFENCE: CHECKED_IN -> PENDING_FINAL_EXIT
-        logAttendanceEvent('GEOFENCE_EXIT', employeeId, `Exited office geofence (${Math.round(distance)}m). Transitioning to PENDING_FINAL_EXIT.`);
+        console.log('[AUTO_EXIT_DETECTED]', {
+          employeeId,
+          date: dateStr,
+          distance: Math.round(distance),
+          timestamp: timestamp.toISOString(),
+          source: 'FOREGROUND_GPS'
+        });
+        logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[AUTO_EXIT_DETECTED] Exited office geofence (${Math.round(distance)}m). Transitioning to PENDING_FINAL_EXIT.`);
+
         return this.transitionState(
           employeeId,
           employeeName,
@@ -172,7 +180,14 @@ export const AutomaticAttendanceEngine = {
             
             if (newCount >= 3) {
               localStorage.removeItem(countKey);
-              logAttendanceEvent('RETURN_DETECTED', employeeId, `Returned to office geofence stably (${Math.round(distance)}m) after 3 consecutive readings. Cancelling pending exit.`);
+              console.log('[AUTO_EXIT_RETURNED]', {
+                employeeId,
+                date: dateStr,
+                distance: Math.round(distance),
+                timestamp: timestamp.toISOString(),
+                source: 'FOREGROUND_GPS'
+              });
+              logAttendanceEvent('RETURN_DETECTED', employeeId, `[AUTO_EXIT_RETURNED] Returned to office geofence stably (${Math.round(distance)}m) after 3 consecutive readings. Cancelling pending exit.`);
               return this.transitionState(
                 employeeId,
                 employeeName,
@@ -186,7 +201,14 @@ export const AutomaticAttendanceEngine = {
               console.log(`[AttendanceEngine] Return candidate detected at ${Math.round(distance)}m (count: ${newCount}/3). Preserving exit candidate.`);
             }
           } catch (e) {
-            logAttendanceEvent('RETURN_DETECTED', employeeId, `Returned to office geofence (${Math.round(distance)}m). Cancelling pending exit.`);
+            console.log('[AUTO_EXIT_RETURNED]', {
+              employeeId,
+              date: dateStr,
+              distance: Math.round(distance),
+              timestamp: timestamp.toISOString(),
+              source: 'FOREGROUND_GPS'
+            });
+            logAttendanceEvent('RETURN_DETECTED', employeeId, `[AUTO_EXIT_RETURNED] Returned to office geofence (${Math.round(distance)}m). Cancelling pending exit.`);
             return this.transitionState(
               employeeId,
               employeeName,
@@ -201,6 +223,17 @@ export const AutomaticAttendanceEngine = {
           try {
             localStorage.removeItem(`consecutive_return_${employeeId}_${dateStr}`);
           } catch (e) {}
+
+          // Preserve and update last valid exit time while employee remains outside geofence
+          const timeStr = getFormattedTimeStr(timestamp);
+          if (record.lastExitTime !== timeStr) {
+            record.lastExitTime = timeStr;
+            record.syncStatus = 'Pending';
+            saveAttendanceRecord(record);
+            if (navigator.onLine) {
+              syncPendingAttendanceRecords().catch(() => {});
+            }
+          }
         }
       }
     }
@@ -342,11 +375,24 @@ export const AutomaticAttendanceEngine = {
           record.lastExitTime = timeStr;
           record.exitTime = record.exitTime || timeStr;
           record.currentState = 'PENDING_FINAL_EXIT';
+          record.syncStatus = 'Pending';
           modified = true;
 
-          logAttendanceEvent('GEOFENCE_EXIT', employeeId, `Office geofence exit detected at ${timeStr}`, {
+          console.log('[AUTO_EXIT_SAVED]', {
+            employeeId,
+            date: dateStr,
+            distance: Math.round(distance),
+            timestamp: eventIso,
+            source
+          });
+
+          logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[AUTO_EXIT_SAVED] Office geofence exit recorded and saved at ${timeStr}`, {
             eventId,
-            eventTimestamp: eventIso
+            eventTimestamp: eventIso,
+            metadata: {
+              distance: Math.round(distance),
+              source
+            }
           });
         }
         break;
@@ -581,7 +627,14 @@ export const AutomaticAttendanceEngine = {
         record.workingHours = workingHours;
         record.currentState = 'FINALIZED_CHECKOUT';
         record.resolutionSource = 'AUTO_GEOFENCE';
-        logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `Settling session for ${dateStr} using recovered final exit time: ${checkoutTimeStr}`);
+        console.log('[AUTO_CHECKOUT_FINALIZED]', {
+          employeeId,
+          date: dateStr,
+          distance: record.distance || 0,
+          timestamp: new Date().toISOString(),
+          source: 'AUTO_SYSTEM_FINALIZER'
+        });
+        logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `[AUTO_CHECKOUT_FINALIZED] Settling session for ${dateStr} using recovered final exit time: ${checkoutTimeStr}`);
 
         const eventId = generateIdempotentEventId(employeeId, dateStr, 'END_OF_DAY_CHECKOUT', checkoutTimeStr);
         record.processedEvents = Array.from(new Set([...(record.processedEvents || []), eventId]));

@@ -75,6 +75,14 @@ export const reconcileNativeGeofenceEvents = async (
     for (const evt of events) {
       const eventDate = new Date(evt.timestamp || Date.now());
       if (evt.transition === 'EXIT') {
+        console.log('[NATIVE_GEOFENCE_EXIT_RECONCILED]', {
+          employeeId,
+          date: eventDate.toISOString().split('T')[0],
+          distance: Math.round(AutomaticAttendanceEngine ? 25 : 0),
+          timestamp: eventDate.toISOString(),
+          source: 'NATIVE_GEOFENCE'
+        });
+        logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[NATIVE_GEOFENCE_EXIT_RECONCILED] Reconciled native exit event at ${eventDate.toISOString()}`);
         AutomaticAttendanceEngine.processGeofenceExit(
           employeeId,
           employeeName,

@@ -355,7 +355,7 @@ export const AttendanceScreen: React.FC = () => {
       const todayStr = getFormattedDateStr();
       const activeRecord = getTodayAttendanceRecord(employeeId, todayStr);
       if (activeRecord && (activeRecord.attendanceType === 'OFFICE' || !activeRecord.attendanceType)) {
-        const updated = trackSmartOfficeExit(activeRecord, distance);
+        const updated = trackSmartOfficeExit(activeRecord, distance, liveLocation, currentAddress);
         setTodayRecord(updated);
       }
       handleImmediateAutoCheckIn(locationState === 'INSIDE_OFFICE', liveLocation);

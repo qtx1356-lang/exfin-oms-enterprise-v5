@@ -194,8 +194,12 @@ export const trackSmartOfficeExit = (
     return record;
   }
 
-  const coords = currentCoords || { latitude: record.latitude, longitude: record.longitude };
-  const town = currentTownCity || record.townCity;
+  const coords = currentCoords || (record.latitude && record.longitude ? { latitude: record.latitude, longitude: record.longitude } : null);
+  if (!coords) {
+    return record;
+  }
+
+  const town = currentTownCity || record.townCity || 'Raniganj HQ';
 
   const result = AutomaticAttendanceEngine.processLocationUpdate(
     coords.latitude,

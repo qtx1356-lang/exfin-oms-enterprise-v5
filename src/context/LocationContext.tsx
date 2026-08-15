@@ -162,8 +162,9 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (raw) {
         const parsed = JSON.parse(raw);
         return {
-          id: parsed.employeeCode || parsed.uid || parsed.id || '',
-          name: parsed.name || 'Employee'
+          id: parsed.employeeCode || parsed.uid || parsed.id || parsed.employeeId || '',
+          name: parsed.name || parsed.employeeName || 'Employee',
+          townCity: parsed.townCity || parsed.city || 'Raniganj HQ'
         };
       }
     } catch (e) {}
