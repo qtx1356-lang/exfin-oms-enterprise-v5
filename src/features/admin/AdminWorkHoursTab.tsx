@@ -470,7 +470,7 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
       return {
         label: 'Completed',
         colorClass: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-        duration: rec.workingHours || formatMinutesToDuration(getRecordWorkingMinutes(rec)),
+        duration: formatMinutesToDuration(getRecordWorkingMinutes(rec)),
       };
     } else if (isToday) {
       return {

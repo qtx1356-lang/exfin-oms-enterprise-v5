@@ -1,5 +1,5 @@
 import { AttendanceRecord, AttendanceType } from '../types/attendance';
-import { calculateWorkingHours } from '../services/attendance/smartAttendanceEngine';
+import { calculateWorkingHours, parseAttendanceTimeToMinutes } from '../services/attendance/smartAttendanceEngine';
 import { isAttendanceCheckoutUnresolved } from './attendanceUtils';
 
 // Get current date string in Asia/Kolkata timezone (format: YYYY-MM-DD)
@@ -43,27 +43,45 @@ export const formatMinutesToDuration = (minutes: number): string => {
   return `${h}h ${m}m`;
 };
 
-// Calculate working hours between checkIn and checkOut or fallback
+// Calculate working hours in minutes between checkIn and checkOut using authoritative minutes-from-midnight
 export const getRecordWorkingMinutes = (record: AttendanceRecord): number => {
   if (!record.checkInTime) return 0;
   
-  // Unresolved or Pending Review records have NO fake duration
-  if (isAttendanceCheckoutUnresolved(record) || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+  // Unresolved or Pending Review records have NO completed duration
+  if (
+    isAttendanceCheckoutUnresolved(record) ||
+    record.checkoutStatus === 'UNRESOLVED' ||
+    record.checkoutStatus === 'PENDING_ADMIN_REVIEW'
+  ) {
     return 0;
   }
   
-  // Completed attendance
-  if (record.checkOutTime && record.checkOutTime !== '--:--') {
-    const hoursStr = calculateWorkingHours(record.checkInTime, record.checkOutTime);
-    return parseDurationToMinutes(hoursStr);
+  // Completed attendance: calculate from checkInTime and checkOutTime directly
+  if (
+    record.checkOutTime &&
+    record.checkOutTime !== '--:--' &&
+    record.checkOutTime !== 'Pending' &&
+    record.checkOutTime !== 'N/A' &&
+    record.checkOutTime !== 'UNRESOLVED'
+  ) {
+    const inMins = parseAttendanceTimeToMinutes(record.checkInTime);
+    const outMins = parseAttendanceTimeToMinutes(record.checkOutTime);
+    if (inMins !== null && outMins !== null && outMins >= inMins) {
+      return outMins - inMins;
+    }
+    return 0;
   }
   
   // Live in progress attendance (only if today)
   const todayStr = getKolkataDateStr();
-  if (record.date === todayStr) {
+  if (record.date === todayStr && record.checkInTime && record.checkInTime !== '--:--') {
     const currentTimeStr = getKolkataTimeStr();
-    const hoursStr = calculateWorkingHours(record.checkInTime, currentTimeStr);
-    return parseDurationToMinutes(hoursStr);
+    const inMins = parseAttendanceTimeToMinutes(record.checkInTime);
+    const currentMins = parseAttendanceTimeToMinutes(currentTimeStr);
+    if (inMins !== null && currentMins !== null && currentMins >= inMins) {
+      return currentMins - inMins;
+    }
+    return 0;
   }
   
   return 0;
@@ -77,10 +95,20 @@ export const getRecordWorkingHoursDisplay = (record: AttendanceRecord): { displa
   if (isAttendanceCheckoutUnresolved(record) || record.checkoutStatus === 'UNRESOLVED') {
     return { display: 'UNRESOLVED', status: 'UNRESOLVED' };
   }
-  if (record.checkOutTime && record.checkOutTime !== '--:--' && record.checkOutTime !== 'Pending' && record.checkOutTime !== 'N/A') {
-    const recalculated = calculateWorkingHours(record.checkInTime, record.checkOutTime);
-    if (recalculated) {
-      return { display: recalculated, status: 'COMPLETED' };
+  if (
+    record.checkOutTime &&
+    record.checkOutTime !== '--:--' &&
+    record.checkOutTime !== 'Pending' &&
+    record.checkOutTime !== 'N/A' &&
+    record.checkOutTime !== 'UNRESOLVED'
+  ) {
+    const inMins = parseAttendanceTimeToMinutes(record.checkInTime);
+    const outMins = parseAttendanceTimeToMinutes(record.checkOutTime);
+    if (inMins !== null && outMins !== null && outMins >= inMins) {
+      const diff = outMins - inMins;
+      const h = Math.floor(diff / 60);
+      const m = diff % 60;
+      return { display: `${h}h ${m}m`, status: 'COMPLETED' };
     }
     // If calculateWorkingHours returned null (e.g. invalid time sequence like 10 AM -> 5 AM), do NOT show old 19h
     return { display: '—', status: 'COMPLETED' };
@@ -88,8 +116,15 @@ export const getRecordWorkingHoursDisplay = (record: AttendanceRecord): { displa
   const todayStr = getKolkataDateStr();
   if (record.date === todayStr && record.checkInTime && record.checkInTime !== '--:--') {
     const currentTimeStr = getKolkataTimeStr();
-    const liveCalculated = calculateWorkingHours(record.checkInTime, currentTimeStr);
-    return { display: liveCalculated || '—', status: 'IN_PROGRESS' };
+    const inMins = parseAttendanceTimeToMinutes(record.checkInTime);
+    const currentMins = parseAttendanceTimeToMinutes(currentTimeStr);
+    if (inMins !== null && currentMins !== null && currentMins >= inMins) {
+      const diff = currentMins - inMins;
+      const h = Math.floor(diff / 60);
+      const m = diff % 60;
+      return { display: `${h}h ${m}m`, status: 'IN_PROGRESS' };
+    }
+    return { display: '—', status: 'IN_PROGRESS' };
   }
   return { display: 'UNRESOLVED', status: 'UNRESOLVED' };
 };
@@ -115,10 +150,12 @@ export const calculateMonthlySummary = (
   records: AttendanceRecord[],
   monthYYYYMM: string
 ): WorkHoursSummary => {
-  const filtered = records.filter((r) => r.date.startsWith(monthYYYYMM));
+  const filtered = records.filter((r) => r.date && r.date.startsWith(monthYYYYMM));
   
   let totalMinutes = 0;
   let workingDays = 0;
+  let completedCount = 0;
+  let unresolvedCount = 0;
   
   let officeMinutes = 0;
   let officeDays = 0;
@@ -128,38 +165,82 @@ export const calculateMonthlySummary = (
   let clientDays = 0;
   let outdoorMinutes = 0;
   let outdoorDays = 0;
+
+  const todayStr = getKolkataDateStr();
   
   filtered.forEach((r) => {
-    // Only count completed days for final summaries, unless it is today and checked-in
-    const isCompleted = !!(r.checkOutTime && r.checkOutTime !== '--:--');
-    const isTodayActive = r.date === getKolkataDateStr() && !isCompleted;
-    
-    if (isCompleted || isTodayActive) {
-      const mins = getRecordWorkingMinutes(r);
-      if (mins > 0) {
-        totalMinutes += mins;
-        workingDays += 1;
-        
-        switch (r.attendanceType) {
-          case 'OFFICE':
-            officeMinutes += mins;
-            officeDays += 1;
-            break;
-          case 'WFH':
-            wfhMinutes += mins;
-            wfhDays += 1;
-            break;
-          case 'CLIENT_VISIT':
-            clientMinutes += mins;
-            clientDays += 1;
-            break;
-          case 'OUTDOOR':
-            outdoorMinutes += mins;
-            outdoorDays += 1;
-            break;
-        }
+    const isUnresolved = isAttendanceCheckoutUnresolved(r) || r.checkoutStatus === 'UNRESOLVED';
+    const isPendingReview = r.checkoutStatus === 'PENDING_ADMIN_REVIEW';
+    const hasCheckout = !!(
+      r.checkOutTime &&
+      r.checkOutTime !== '--:--' &&
+      r.checkOutTime !== 'Pending' &&
+      r.checkOutTime !== 'N/A' &&
+      r.checkOutTime !== 'UNRESOLVED'
+    );
+    const isToday = r.date === todayStr;
+
+    if (isUnresolved || isPendingReview) {
+      unresolvedCount += 1;
+    }
+
+    const calculatedMinutes = getRecordWorkingMinutes(r);
+
+    // Diagnostic logging per record as requested
+    console.log('[WORK_HOURS_RECORD]', {
+      date: r.date,
+      employeeId: r.employeeId,
+      employeeCode: r.employeeCode,
+      checkInTime: r.checkInTime,
+      checkOutTime: r.checkOutTime,
+      checkoutStatus: r.checkoutStatus,
+      attendanceType: r.attendanceType,
+      calculatedMinutes,
+      storedWorkingHours: r.workingHours
+    });
+
+    if (calculatedMinutes > 0) {
+      if (hasCheckout && !isUnresolved && !isPendingReview) {
+        completedCount += 1;
+      }
+      totalMinutes += calculatedMinutes;
+      workingDays += 1;
+      
+      const mode = (r.attendanceType || 'OFFICE').toUpperCase();
+      switch (mode) {
+        case 'OFFICE':
+          officeMinutes += calculatedMinutes;
+          officeDays += 1;
+          break;
+        case 'WFH':
+          wfhMinutes += calculatedMinutes;
+          wfhDays += 1;
+          break;
+        case 'CLIENT_VISIT':
+        case 'CLIENT':
+          clientMinutes += calculatedMinutes;
+          clientDays += 1;
+          break;
+        case 'OUTDOOR':
+          outdoorMinutes += calculatedMinutes;
+          outdoorDays += 1;
+          break;
+        default:
+          officeMinutes += calculatedMinutes;
+          officeDays += 1;
+          break;
       }
     }
+  });
+
+  // Diagnostic summary logging as requested
+  console.log('[WORK_HOURS_SUMMARY]', {
+    selectedMonth: monthYYYYMM,
+    recordCount: filtered.length,
+    completedCount,
+    unresolvedCount,
+    totalMinutes,
+    workingDays
   });
   
   return {
@@ -176,3 +257,4 @@ export const calculateMonthlySummary = (
     outdoorDays,
   };
 };
+

@@ -91,6 +91,7 @@ export interface AttendanceRecord {
   id: string; // UUID
   docId: string; // Key: ${employeeId}_${date} e.g. EMP101_2026-08-07
   employeeId: string;
+  employeeCode?: string;
   employeeName: string;
   date: string; // YYYY-MM-DD
   attendanceType: AttendanceType;

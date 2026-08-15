@@ -72,72 +72,117 @@ export const getFormattedDateStr = (date: Date = new Date()): string => {
   }
 };
 
-export const calculateWorkingHours = (checkInTimeStr: string | null | undefined, checkOutTimeStr: string | null | undefined): string | null => {
-  if (!checkInTimeStr || !checkOutTimeStr) return null;
-
-  const checkInClean = checkInTimeStr.trim();
-  const checkOutClean = checkOutTimeStr.trim();
-
+/**
+ * Internal/helper parser: parseAttendanceTimeToMinutes()
+ * Returns minutes from midnight (0 to 1439).
+ * 
+ * Rules:
+ * "10:00 AM" -> 600
+ * "6:00 PM" -> 1080
+ * "10:00" -> 600
+ * "18:00" -> 1080
+ * "00:30" -> 30
+ * "23:59" -> 1439
+ * "12:00 AM" -> 0
+ * "12:00 PM" -> 720
+ * 
+ * Validate:
+ * hours: 0–23 for 24-hour format; 1–12 for AM/PM format
+ * minutes: 0–59
+ * Invalid strings return null.
+ * 
+ * DO NOT USE new Date() FOR THIS.
+ * Do not depend on browser timezone.
+ * Do not parse date using UTC.
+ * Working hours is a simple same-day attendance calculation using minutes-from-midnight.
+ */
+export const parseAttendanceTimeToMinutes = (timeStr: string | null | undefined): number | null => {
+  if (!timeStr) return null;
+  const clean = timeStr.trim();
   if (
-    !checkInClean ||
-    !checkOutClean ||
-    checkOutClean === 'Pending' ||
-    checkOutClean === 'N/A' ||
-    checkOutClean === 'UNRESOLVED' ||
-    checkOutClean === '--:--'
+    !clean ||
+    clean === 'Pending' ||
+    clean === 'N/A' ||
+    clean === 'UNRESOLVED' ||
+    clean === '--:--'
   ) {
     return null;
   }
 
-  try {
-    const parseTime = (timeStr: string): Date | null => {
-      const parts = timeStr.trim().split(' ');
-      if (parts.length < 2) return null;
-      const [time, modifier] = parts;
-      const timeParts = time.split(':');
-      if (timeParts.length < 2) return null;
-      let hours = parseInt(timeParts[0], 10);
-      let minutes = parseInt(timeParts[1], 10);
+  // 1. 12-hour format: hh:mm AM/PM or h:mm AM/PM (with optional seconds, optional whitespace)
+  const match12 = clean.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([aApP][mM])$/);
+  if (match12) {
+    let hours = parseInt(match12[1], 10);
+    const minutes = parseInt(match12[2], 10);
+    const meridian = match12[3].toUpperCase();
 
-      if (isNaN(hours) || isNaN(minutes)) return null;
-
-      const mod = modifier.toUpperCase();
-      if (mod === 'PM' && hours < 12) hours += 12;
-      if (mod === 'AM' && hours === 12) hours = 0;
-
-      const d = new Date();
-      d.setHours(hours, minutes, 0, 0);
-      return d;
-    };
-
-    const inTime = parseTime(checkInClean);
-    const outTime = parseTime(checkOutClean);
-
-    if (!inTime || !outTime) return null;
-
-    const diffMs = outTime.getTime() - inTime.getTime();
-
-    // EXFIN OFFICE BUSINESS RULE:
-    // Office attendance is strictly same-day (10:00 AM -> 6:00 PM).
-    // If checkout time is earlier than check-in time, treat as INVALID data.
-    // DO NOT add 24 hours to create an artificial 19-hour shift.
-    if (diffMs < 0) {
-      console.error('[INVALID_WORKING_HOURS] Checkout time is earlier than check-in time:', {
-        checkInTimeStr,
-        checkOutTimeStr
-      });
+    if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) {
       return null;
     }
 
-    const totalMins = Math.floor(diffMs / (1000 * 60));
-    const h = Math.floor(totalMins / 60);
-    const m = totalMins % 60;
+    if (meridian === 'AM') {
+      if (hours === 12) hours = 0;
+    } else if (meridian === 'PM') {
+      if (hours < 12) hours += 12;
+    }
 
-    return `${h}h ${m}m`;
-  } catch (err) {
-    console.warn('Error calculating working hours:', err);
+    return hours * 60 + minutes;
+  }
+
+  // 2. 24-hour format: HH:mm or H:mm (with optional seconds)
+  const match24 = clean.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (match24) {
+    const hours = parseInt(match24[1], 10);
+    const minutes = parseInt(match24[2], 10);
+
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+      return null;
+    }
+
+    return hours * 60 + minutes;
+  }
+
+  // 3. Fallback for ISO strings: e.g. "2026-08-15T18:00:00.000Z"
+  if (clean.includes('T')) {
+    const timePart = clean.split('T')[1];
+    if (timePart) {
+      const sub = timePart.split('.')[0].substring(0, 5); // "18:00"
+      return parseAttendanceTimeToMinutes(sub);
+    }
+  }
+
+  return null;
+};
+
+export const calculateWorkingHours = (checkInTimeStr: string | null | undefined, checkOutTimeStr: string | null | undefined): string | null => {
+  if (!checkInTimeStr || !checkOutTimeStr) return null;
+
+  const inMins = parseAttendanceTimeToMinutes(checkInTimeStr);
+  const outMins = parseAttendanceTimeToMinutes(checkOutTimeStr);
+
+  if (inMins === null || outMins === null) {
     return null;
   }
+
+  // EXFIN OFFICE BUSINESS RULE:
+  // Office attendance is strictly same-day (10:00 AM -> 6:00 PM).
+  // If checkout time is earlier than check-in time (outMins < inMins),
+  // treat as INVALID data. DO NOT add 24 hours (1440 mins).
+  if (outMins < inMins) {
+    console.error('[INVALID_WORKING_HOURS] Checkout time is earlier than check-in time:', {
+      checkInTimeStr,
+      checkOutTimeStr,
+      inMins,
+      outMins
+    });
+    return null;
+  }
+
+  const diffMins = outMins - inMins;
+  const h = Math.floor(diffMins / 60);
+  const m = diffMins % 60;
+
+  return `${h}h ${m}m`;
 };
 
 /**

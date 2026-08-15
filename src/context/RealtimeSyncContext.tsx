@@ -224,19 +224,19 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     const attendanceQueries = [];
     if (empCode) {
       attendanceQueries.push(
-        query(collection(db, 'attendance'), where('employeeId', '==', empCode), limit(30))
+        query(collection(db, 'attendance'), where('employeeId', '==', empCode), limit(365))
       );
       attendanceQueries.push(
-        query(collection(db, 'attendance'), where('employeeCode', '==', empCode), limit(30))
+        query(collection(db, 'attendance'), where('employeeCode', '==', empCode), limit(365))
       );
     }
     const currentUserId = employeeData?.id || '';
     if (currentUserId && currentUserId !== empCode) {
       attendanceQueries.push(
-        query(collection(db, 'attendance'), where('employeeId', '==', currentUserId), limit(30))
+        query(collection(db, 'attendance'), where('employeeId', '==', currentUserId), limit(365))
       );
       attendanceQueries.push(
-        query(collection(db, 'attendance'), where('employeeCode', '==', currentUserId), limit(30))
+        query(collection(db, 'attendance'), where('employeeCode', '==', currentUserId), limit(365))
       );
     }
 
@@ -254,10 +254,14 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
           setAttendance((prevAtt) => {
             const map = new Map<string, AttendanceRecord>();
             const prevMap = new Map<string, AttendanceRecord>();
-            prevAtt.forEach(la => prevMap.set(la.id || la.docId || `${la.employeeId}_${la.date}`, la));
+            prevAtt.forEach(la => {
+              const k = la.id || la.docId || `${la.employeeId || la.employeeCode}_${la.date}`;
+              prevMap.set(k, la);
+              map.set(k, la);
+            });
 
             serverList.forEach((sa) => {
-              const key = sa.id || sa.docId || `${sa.employeeId}_${sa.date}`;
+              const key = sa.id || sa.docId || `${sa.employeeId || sa.employeeCode}_${sa.date}`;
               const localRec = prevMap.get(key);
 
               let syncDecision = 'CREATED';
@@ -332,15 +336,6 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
 
               map.set(key, finalRec);
               saveAttendanceRecord(finalRec);
-            });
-
-            prevAtt.forEach((la) => {
-              const key = la.id || la.docId || `${la.employeeId}_${la.date}`;
-              if (!map.has(key)) {
-                if (la.syncStatus === 'Pending') {
-                  map.set(key, la);
-                }
-              }
             });
 
             return Array.from(map.values());

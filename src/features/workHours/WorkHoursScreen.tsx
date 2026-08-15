@@ -86,8 +86,16 @@ export const WorkHoursScreen: React.FC = () => {
 
   // Helper to determine record status & details
   const getRecordStatusDetails = (rec: AttendanceRecord) => {
-    const isCompleted = !!(rec.checkOutTime && rec.checkOutTime !== '--:--' && rec.checkoutStatus === 'COMPLETED');
+    const hasCheckout = !!(
+      rec.checkOutTime &&
+      rec.checkOutTime !== '--:--' &&
+      rec.checkOutTime !== 'Pending' &&
+      rec.checkOutTime !== 'N/A' &&
+      rec.checkOutTime !== 'UNRESOLVED'
+    );
+    const isCompleted = hasCheckout && rec.checkoutStatus !== 'UNRESOLVED' && rec.checkoutStatus !== 'PENDING_ADMIN_REVIEW';
     const isToday = rec.date === todayStr;
+    const calcMins = getRecordWorkingMinutes(rec);
     
     if (rec.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
       return {
@@ -111,16 +119,15 @@ export const WorkHoursScreen: React.FC = () => {
         colorClass: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
         dotClass: 'bg-emerald-400',
         checkoutText: rec.checkOutTime,
-        duration: rec.workingHours || formatMinutesToDuration(getRecordWorkingMinutes(rec)),
+        duration: formatMinutesToDuration(calcMins),
       };
     } else if (isToday) {
-      const mins = getRecordWorkingMinutes(rec);
       return {
         label: 'In Progress',
         colorClass: 'text-amber-400 bg-amber-500/10 border-amber-500/20 animate-pulse',
         dotClass: 'bg-amber-400',
         checkoutText: 'In Progress',
-        duration: formatMinutesToDuration(mins),
+        duration: formatMinutesToDuration(calcMins),
       };
     } else {
       return {
