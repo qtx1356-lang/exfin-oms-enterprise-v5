@@ -23,12 +23,18 @@ import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { createNotification } from '../notification/notificationService';
 
+import { OFFICE_GEOFENCE_RADIUS_METERS } from '../../core/coreFeatureLocks';
+
+// CORE FEATURE LOCK — DO NOT MODIFY WITHOUT EXPLICIT AUTHORIZATION
+// 25M OFFICE GEOFENCE
+// CORE FEATURE LOCK — DO NOT MODIFY WITHOUT EXPLICIT AUTHORIZATION
+// LOCATION ACCURACY / VALIDATION
 export const OFFICE_LOCATION = {
   name: 'EXFIN OFFICE',
   latitude: 23.616227,
   longitude: 87.117063,
-  radius: 25, // 25 meters office geofence
-  autoCheckoutDistanceThreshold: 25
+  radius: OFFICE_GEOFENCE_RADIUS_METERS, // 25 meters office geofence
+  autoCheckoutDistanceThreshold: OFFICE_GEOFENCE_RADIUS_METERS
 };
 
 export function getDistanceFromLatLonInM(lat1: number, lon1: number, lat2: number, lon2: number): number {

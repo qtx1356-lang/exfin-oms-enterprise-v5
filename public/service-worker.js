@@ -1,3 +1,5 @@
+// CORE FEATURE LOCK — DO NOT MODIFY WITHOUT EXPLICIT AUTHORIZATION
+// OFFLINE-FIRST STARTUP
 const CACHE_NAME = 'exfin-oms-v5-cache-v5';
 const DYNAMIC_CACHE_NAME = 'exfin-oms-v5-dynamic-v5';
 

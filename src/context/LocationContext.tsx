@@ -421,6 +421,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return granted;
   }, []);
 
+  // CORE FEATURE LOCK — DO NOT MODIFY WITHOUT EXPLICIT AUTHORIZATION
+  // LOCATION ACCURACY / VALIDATION
   const processPosition = async (latitude: number, longitude: number, accuracy?: number, timestamp?: number) => {
     const now = Date.now();
     const fixTime = timestamp || now;

@@ -34,6 +34,8 @@ export type DiagnosticTag =
 
 type StateListener = (state: StartupState) => void;
 
+// CORE FEATURE LOCK — DO NOT MODIFY WITHOUT EXPLICIT AUTHORIZATION
+// OFFLINE-FIRST STARTUP
 class StartupCoordinator {
   private currentState: StartupState = 'BOOTING';
   private listeners: Set<StateListener> = new Set();
