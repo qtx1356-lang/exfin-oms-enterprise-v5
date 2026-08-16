@@ -7,6 +7,7 @@
 import { logStartupTag } from './startupPerformanceLogger';
 import { networkStatusService } from '../network/networkStatusService';
 import { getDeviceSessionFromDB, saveDeviceSessionToDB, PersistentDeviceSession } from '../storage/indexedDBService';
+import { getOfflineConfig } from '../../core/offline/offlineConfig';
 
 export type StartupState =
   | 'BOOTING'
@@ -44,6 +45,12 @@ class StartupCoordinator {
 
   constructor() {
     this.emitDiagnostic('APP_BOOT_START', `Initial boot initiated (online=${typeof navigator !== 'undefined' ? navigator.onLine : 'unknown'})`);
+    
+    // Architecturally enforce OFFLINE-FIRST protection rules at boot
+    const offlineConfig = getOfflineConfig();
+    if (!offlineConfig.isOfflineFirstStartupEnabled || !offlineConfig.isOfflineFirstLocked) {
+      console.warn('CRITICAL: OFFLINE-FIRST STARTUP ARCHITECTURE HAS BEEN TAMPERED WITH.');
+    }
   }
 
   public emitDiagnostic(tag: DiagnosticTag, details?: string): void {
