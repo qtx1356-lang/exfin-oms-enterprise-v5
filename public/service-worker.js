@@ -178,19 +178,20 @@ self.addEventListener('activate', (event) => {
 // Fetch Event: Routing & Caching Strategy
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-
   if (request.method !== 'GET') {
     return;
   }
 
   const url = new URL(request.url);
 
-  // Exclude internal dev requests
+  // Exclude internal dev requests, but DO NOT exclude navigation requests
   if (
-    url.pathname.startsWith('/src/') ||
-    url.pathname.startsWith('/@') ||
-    url.search.includes('t=') ||
-    url.search.includes('v=')
+    request.mode !== 'navigate' && (
+      url.pathname.startsWith('/src/') ||
+      url.pathname.startsWith('/@') ||
+      url.search.includes('t=') ||
+      url.search.includes('v=')
+    )
   ) {
     return;
   }
@@ -214,18 +215,32 @@ self.addEventListener('fetch', (event) => {
       caches.match('/index.html')
         .then((cachedResponse) => {
           if (cachedResponse) {
-            // Background update
-            fetch(request).then((networkResponse) => {
-              if (networkResponse && networkResponse.status === 200) {
-                caches.open(CACHE_NAME).then((cache) => {
-                  cache.put('/index.html', networkResponse.clone());
-                  cache.put('/', networkResponse);
-                });
-              }
-            }).catch(() => {});
+            // Background update — wrapped in try/catch to prevent sync throws (like only-if-cached) from breaking the promise chain
+            try {
+              fetch(request.url).then((networkResponse) => {
+                if (networkResponse && networkResponse.ok) {
+                  caches.open(CACHE_NAME).then((cache) => {
+                    cache.put('/index.html', networkResponse.clone());
+                    cache.put('/', networkResponse);
+                  });
+                }
+              }).catch(() => {});
+            } catch (err) {
+              // Ignore synchronous fetch errors in background
+            }
             return cachedResponse;
           }
-          return fetch(request)
+
+          // Not in cache, fetch from network safely
+          let fetchPromise;
+          try {
+            // Chrome sometimes throws synchronously here if offline and cache is 'only-if-cached'
+            fetchPromise = fetch(request);
+          } catch (err) {
+            fetchPromise = Promise.reject(err);
+          }
+
+          return fetchPromise
             .then((response) => {
               if (response && response.status === 200) {
                 const responseToCache = response.clone();
@@ -235,23 +250,30 @@ self.addEventListener('fetch', (event) => {
                 });
                 return response;
               }
+              // If network returns 404/500, fallback to root if available
               return caches.match('/').then((rootResponse) => {
-                if (rootResponse) return rootResponse;
-                return new Response(OFFLINE_FALLBACK_HTML, {
+                return rootResponse || new Response(OFFLINE_FALLBACK_HTML, {
                   status: 200,
                   headers: { 'Content-Type': 'text/html; charset=utf-8' },
                 });
               });
             })
             .catch(() => {
+              // Network failed (offline), fallback to root or fallback HTML
               return caches.match('/').then((rootResponse) => {
-                if (rootResponse) return rootResponse;
-                return new Response(OFFLINE_FALLBACK_HTML, {
+                return rootResponse || new Response(OFFLINE_FALLBACK_HTML, {
                   status: 200,
                   headers: { 'Content-Type': 'text/html; charset=utf-8' },
                 });
               });
             });
+        })
+        .catch(() => {
+          // Absolute worst-case scenario (e.g. caches.match throws)
+          return new Response(OFFLINE_FALLBACK_HTML, {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          });
         })
     );
     return;
@@ -278,7 +300,14 @@ self.addEventListener('fetch', (event) => {
           return cachedResponse;
         }
 
-        return fetch(request)
+        let fetchPromise;
+        try {
+          fetchPromise = fetch(request);
+        } catch (err) {
+          fetchPromise = Promise.reject(err);
+        }
+
+        return fetchPromise
           .then((response) => {
             if (!response || response.status !== 200) {
               return response;
@@ -293,8 +322,14 @@ self.addEventListener('fetch', (event) => {
           })
           .catch(() => {
             // Return cached version if query parameter differences exist
-            return caches.match(url.pathname);
+            return caches.match(url.pathname).then((res) => {
+              // NEVER return undefined to event.respondWith as it causes net::ERR_FAILED
+              return res || new Response('', { status: 503, statusText: 'Service Unavailable' });
+            });
           });
+      }).catch(() => {
+        // Fallback for cache errors
+        return new Response('', { status: 503, statusText: 'Service Unavailable' });
       })
     );
     return;
