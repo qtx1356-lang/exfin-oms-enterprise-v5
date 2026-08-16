@@ -5,6 +5,7 @@ import { OFFICE_LOCATION, getDistanceFromLatLonInM, runAutoCheckoutFinalizer, ge
 import { getTodayAttendanceRecord } from './attendanceStorage';
 import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
+import { logStartupTag } from '../startup/startupPerformanceLogger';
 import {
   trackResourceCreated,
   trackResourceCleaned,
