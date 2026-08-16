@@ -12,29 +12,27 @@
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-            .then((registration) => {
-              if (registration.active) {
-                console.log('[STARTUP_PERF] [PWA_CACHE_READY] Service worker active and cache ready');
+        navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+          .then((registration) => {
+            if (registration.active) {
+              console.log('[STARTUP_PERF] [PWA_CACHE_READY] Service worker active and cache ready');
+            }
+            registration.onupdatefound = () => {
+              const installingWorker = registration.installing;
+              if (installingWorker) {
+                installingWorker.onstatechange = () => {
+                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    console.log('[STARTUP_PERF] [SERVICE_WORKER_UPDATED] New service worker version installed');
+                  }
+                };
               }
-              registration.onupdatefound = () => {
-                const installingWorker = registration.installing;
-                if (installingWorker) {
-                  installingWorker.onstatechange = () => {
-                    if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                      console.log('[STARTUP_PERF] [SERVICE_WORKER_UPDATED] New service worker version installed');
-                    }
-                  };
-                }
-              };
-              // Check for updates periodically and upon foregrounding
-              registration.update().catch(() => {});
-            })
-            .catch((err) => {
-              console.warn('Service worker registration failed:', err);
-            });
-        });
+            };
+            // Check for updates periodically and upon foregrounding
+            registration.update().catch(() => {});
+          })
+          .catch((err) => {
+            console.warn('Service worker registration failed:', err);
+          });
       }
     </script>
   </body>

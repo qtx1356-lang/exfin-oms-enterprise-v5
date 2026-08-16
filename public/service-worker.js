@@ -1,4 +1,5 @@
-const CACHE_NAME = 'exfin-oms-shell-v16';
+const CACHE_NAME = 'exfin-oms-v5-cache-v5';
+const DYNAMIC_CACHE_NAME = 'exfin-oms-v5-dynamic-v5';
 
 // Core Application Shell Assets
 const PRECACHE_ASSETS = [
@@ -87,11 +88,20 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
       console.log('[SW] Pre-caching core application shell:', CACHE_NAME);
-      try {
-        await cache.addAll(PRECACHE_ASSETS);
-      } catch (err) {
-        console.warn('[SW] Initial precache addAll warning:', err);
-      }
+      await Promise.allSettled(
+        PRECACHE_ASSETS.map(async (assetUrl) => {
+          try {
+            const response = await fetch(assetUrl);
+            if (response && response.ok) {
+              await cache.put(assetUrl, response);
+            } else {
+              console.warn('[SW] Failed to fetch for precache:', assetUrl, response?.status);
+            }
+          } catch (e) {
+            console.warn('[SW] Failed to precache asset:', assetUrl, e);
+          }
+        })
+      );
 
       // Pre-cache runtime bundle assets by fetching index.html and parsing script & link tags
       try {
@@ -137,19 +147,29 @@ self.addEventListener('install', (event) => {
 // Activate Event: Clean up outdated shell caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if ((cacheName.startsWith('exfin-') || cacheName.startsWith('exfin-oms-')) && cacheName !== CACHE_NAME) {
-            console.log('[SW] Deleting obsolete cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => {
-      console.log('[SW] Activated & claiming clients for', CACHE_NAME);
-      return self.clients.claim();
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.match('/index.html'))
+      .then((indexResponse) => {
+        const isNewCacheValid = !!indexResponse;
+        return caches.keys().then((cacheNames) => {
+          return Promise.all(
+            cacheNames.map((cacheName) => {
+              if (cacheName !== CACHE_NAME && cacheName !== DYNAMIC_CACHE_NAME) {
+                // Only delete old caches if the new cache has a valid index.html
+                if (isNewCacheValid) {
+                  console.log('[SW] Deleting obsolete cache:', cacheName);
+                  return caches.delete(cacheName);
+                } else {
+                  console.warn('[SW] Preserving obsolete cache due to invalid new cache:', cacheName);
+                }
+              }
+            })
+          );
+        });
+      })
+      .then(() => {
+        console.log('[SW] Activated & claiming clients for', CACHE_NAME);
+        return self.clients.claim();
+      })
   );
 });
 
@@ -189,29 +209,47 @@ self.addEventListener('fetch', (event) => {
   // NAVIGATION REQUESTS (SPA Routes: /, /attendance, /planner, /employee, etc.)
   if (request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put('/index.html', responseToCache);
-              cache.put('/', responseToCache.clone());
-            });
-            return response;
+      caches.match('/index.html')
+        .then((cachedResponse) => {
+          if (cachedResponse) {
+            // Background update
+            fetch(request).then((networkResponse) => {
+              if (networkResponse && networkResponse.status === 200) {
+                caches.open(CACHE_NAME).then((cache) => {
+                  cache.put('/index.html', networkResponse.clone());
+                  cache.put('/', networkResponse);
+                });
+              }
+            }).catch(() => {});
+            return cachedResponse;
           }
-          return caches.match('/index.html').then((cached) => cached || response);
-        })
-        .catch(() => {
-          return caches.match('/index.html').then((cachedResponse) => {
-            if (cachedResponse) return cachedResponse;
-            return caches.match('/').then((rootResponse) => {
-              if (rootResponse) return rootResponse;
-              return new Response(OFFLINE_FALLBACK_HTML, {
-                status: 200,
-                headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          return fetch(request)
+            .then((response) => {
+              if (response && response.status === 200) {
+                const responseToCache = response.clone();
+                caches.open(CACHE_NAME).then((cache) => {
+                  cache.put('/index.html', responseToCache);
+                  cache.put('/', responseToCache.clone());
+                });
+                return response;
+              }
+              return caches.match('/').then((rootResponse) => {
+                if (rootResponse) return rootResponse;
+                return new Response(OFFLINE_FALLBACK_HTML, {
+                  status: 200,
+                  headers: { 'Content-Type': 'text/html; charset=utf-8' },
+                });
+              });
+            })
+            .catch(() => {
+              return caches.match('/').then((rootResponse) => {
+                if (rootResponse) return rootResponse;
+                return new Response(OFFLINE_FALLBACK_HTML, {
+                  status: 200,
+                  headers: { 'Content-Type': 'text/html; charset=utf-8' },
+                });
               });
             });
-          });
         })
     );
     return;
