@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { NotificationRecord, NotificationPriority } from '../../types/notification';
 import { getNotificationSettings } from './notificationSettings';
+import { initializeAlertBaseline } from './alertDeduplication';
 
 // Keys for persistence
 const PROCESSED_NOTIFS_KEY = 'exfin_processed_push_notif_ids';
@@ -150,6 +151,7 @@ export const initializeNotificationBaseline = (
   notifications: NotificationRecord[]
 ): void => {
   if (!notifications || notifications.length === 0) return;
+  initializeAlertBaseline(notifications);
   notifications.forEach((n) => {
     if (n.id) {
       markNotificationProcessed(n.id);
@@ -175,21 +177,28 @@ export const processIncomingNotifications = (
 
   if (unprocessed.length === 0) return;
 
+  // Trigger Real-Time Alert Popup for each new incoming alert
+  unprocessed.forEach((item) => {
+    markNotificationProcessed(item.id);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('exfin-trigger-alert-popup', {
+          detail: item,
+        })
+      );
+    }
+  });
+
   if (unprocessed.length === 1) {
     const item = unprocessed[0];
-    markNotificationProcessed(item.id);
 
     onToast({
       mode: 'SINGLE',
       notification: item,
     });
-
-    playNotificationChime(item.priority || 'NORMAL');
-    triggerNotificationVibration(item.priority || 'NORMAL');
   } else {
     // 2 or more new unread notifications arrived together (e.g. app resume or batch sync)
-    unprocessed.forEach((item) => markNotificationProcessed(item.id));
-
     const count = unprocessed.length;
     const hasCritical = unprocessed.some(
       (n) => n.priority === 'URGENT' || n.priority === 'HIGH'
@@ -205,9 +214,6 @@ export const processIncomingNotifications = (
       route: '/notifications',
       priority: summaryPriority,
     });
-
-    playNotificationChime(summaryPriority);
-    triggerNotificationVibration(summaryPriority);
   }
 };
 
@@ -359,6 +365,40 @@ export const ensureNotificationChannelsCreated = async (): Promise<void> => {
         visibility: 1,
         vibration: false,
       }).catch(() => {});
+
+      // Add listener to open AlertPopup when native Android notification is tapped
+      try {
+        LocalNotifications.removeAllListeners().catch(() => {});
+        LocalNotifications.addListener(
+          'localNotificationActionPerformed',
+          (action) => {
+            const extra = action.notification?.extra;
+            if (extra && extra.notifId) {
+              const record: NotificationRecord = {
+                id: extra.notifId,
+                title: action.notification.title || 'Important Notice',
+                message: action.notification.body || '',
+                priority: extra.priority || 'HIGH',
+                category: extra.category || 'SYSTEM',
+                type: extra.entityType || 'SYSTEM_ALERT',
+                route: extra.route || '',
+                read: false,
+                timestamp: new Date().toISOString(),
+                recipientUserId: '',
+                recipientEmployeeCode: '',
+                recipientRole: 'EMPLOYEE',
+                createdAtDeviceTime: new Date().toISOString(),
+                updatedAtDeviceTime: new Date().toISOString(),
+                serverSyncTime: '',
+                syncStatus: 'SYNCED',
+              };
+              window.dispatchEvent(
+                new CustomEvent('exfin-trigger-alert-popup', { detail: record })
+              );
+            }
+          }
+        ).catch(() => {});
+      } catch (listenerErr) {}
     } catch (e) {
       console.warn('Error creating notification channels:', e);
     }
