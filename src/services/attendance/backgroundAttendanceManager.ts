@@ -5,7 +5,10 @@ import { OFFICE_LOCATION, getDistanceFromLatLonInM, runAutoCheckoutFinalizer, ge
 import { getTodayAttendanceRecord } from './attendanceStorage';
 import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
-import { logStartupTag } from '../startup/startupPerformanceLogger';
+import {
+  trackResourceCreated,
+  trackResourceCleaned,
+} from '../monitoring/performanceDiagnostics';
 import { registerNativeOfficeGeofence, initNativeGeofenceListener, reconcileNativeGeofenceEvents } from './nativeGeofenceBridge';
 import { isMedianApp, initializeMedianBackgroundLocation, startMedianBackgroundLocation } from './medianBackgroundLocation';
 
@@ -155,6 +158,9 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
     cleanupNativeListener = cleanup;
   });
 
+  const timerKey = `bg_att_timer_${Date.now()}`;
+  trackResourceCreated('SYNC_TIMER', timerKey, 'bg_attendance_manager');
+
   const intervalId = setInterval(() => {
     runAutoCheckoutFinalizer();
     if (navigator.onLine) {
@@ -223,6 +229,7 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
   logStartupTag('AUTO_ATTENDANCE_READY', 'Background attendance monitoring and automatic check-in listener ready');
 
   return () => {
+    trackResourceCleaned('SYNC_TIMER', timerKey);
     clearInterval(intervalId);
     if (cleanupNativeListener) cleanupNativeListener();
     if (cleanupMedian) cleanupMedian();

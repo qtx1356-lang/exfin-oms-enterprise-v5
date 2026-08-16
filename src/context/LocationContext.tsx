@@ -15,6 +15,7 @@ import { getTodayAttendanceRecord } from '../services/attendance/attendanceStora
 import {
   trackResourceCreated,
   trackResourceCleaned,
+  getResourceSnapshot
 } from '../services/monitoring/performanceDiagnostics';
 
 export interface LocationContextType {
@@ -130,6 +131,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const watchIdRef = useRef<string | number | null>(null);
   const lastGeocodedCoordsRef = useRef<{ lat: number; lon: number; time: number } | null>(null);
   const adaptiveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastUiUpdateRef = useRef<number>(0);
+  const rawLocationRef = useRef<{ latitude: number; longitude: number; accuracy?: number; timestamp: number } | null>(null);
 
   const isStale = React.useMemo(() => {
     if (!isFreshFixReceived || !locationTimestamp) return false;
@@ -373,34 +376,6 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       try {
         localStorage.setItem('lastKnownAddress', cleanAddress);
       } catch (e) {}
-
-      // Requirement 6: Ensure address is associated with the exact coordinates that generated it
-      try {
-        const cachedRaw = localStorage.getItem('cached_registration_data');
-        if (cachedRaw) {
-          const parsed = JSON.parse(cachedRaw);
-          const empId = parsed.employeeCode || parsed.uid || parsed.id;
-          const empName = parsed.name || 'Employee';
-          if (empId) {
-            updateLiveEmployeeLocation({
-              employeeId: empId,
-              employeeName: empName,
-              latitude,
-              longitude,
-              townCity: cleanAddress,
-              timestamp: new Date().toISOString()
-            }).catch(() => {});
-
-            handleLocationUpdateForAttendance(
-              latitude,
-              longitude,
-              empId,
-              empName,
-              cleanAddress
-            );
-          }
-        }
-      } catch (err) {}
     } else {
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         setCurrentAddress('Offline');
@@ -478,50 +453,11 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       OFFICE_LOCATION.longitude
     );
 
-    setLiveLocation({ latitude, longitude });
-    setDistance(calculatedDistance);
-    setLocationTimestamp(fixTime);
+    // Always keep latest raw coordinate in ref for non-UI workers
+    rawLocationRef.current = { latitude, longitude, accuracy, timestamp: fixTime };
     locationTimestampRef.current = fixTime;
-    setIsFreshFixReceived(true);
-    setLocationStatus('success');
 
-    // Save to cache for offline backup
-    try {
-      localStorage.setItem('lastKnownLocation', JSON.stringify({ latitude, longitude }));
-      localStorage.setItem('lastKnownDistance', String(calculatedDistance));
-    } catch (e) {}
-
-    // Requirement 11: Diagnostic Logs
-    const displayDist = formatOfficeDistance(calculatedDistance, false);
-    const insideOutStr = calculatedDistance <= OFFICE_LOCATION.radius ? 'INSIDE' : 'OUTSIDE';
-    const ageSecInt = Math.round(ageSec);
-
-    console.log(`[LOCATION UPDATE]
-latitude: ${latitude}
-longitude: ${longitude}
-accuracy: ${accuracy ? Math.round(accuracy) + 'm' : 'N/A'}
-timestamp: ${fixTime} (${new Date(fixTime).toISOString()})
-age: ${ageSecInt}s
-distance: ${Math.round(calculatedDistance)}m
-geofence: ${insideOutStr}
-permission: ${isPermissionDenied ? 'DENIED' : 'GRANTED'}
-provider: ${Capacitor.isNativePlatform() ? 'Capacitor Geolocation' : 'Web Geolocation'}
-source: WATCH_POSITION`);
-
-    console.log(`[GEOFENCE UPDATE]
-latitude: ${latitude}
-longitude: ${longitude}
-distance: ${Math.round(calculatedDistance)}m
-inside/outside: ${insideOutStr}`);
-
-    console.log(`[UI LOCATION STATE]
-latitude: ${latitude}
-longitude: ${longitude}
-distance: ${Math.round(calculatedDistance)}m
-display state: ${displayDist}`);
-
-    // Dynamic state determination with Hysteresis / Border Stability
-    // Attendance geofence transition strictly requires high accuracy (<= 35m)
+    // Determine Hysteresis Geofence State
     let nextInside = stableInsideOffice;
     const isHighAccuracyForGeofence = !accuracy || accuracy <= 35;
 
@@ -537,27 +473,28 @@ display state: ${displayDist}`);
       }
     }
 
-    console.log('[EXFIN_CURRENT_GPS]', {
-      latitude,
-      longitude,
-      accuracy,
-      timestamp: new Date(fixTime).toISOString()
-    });
+    // Throttle React UI State Updates: Update UI state every 15 seconds OR immediately when geofence state transitions
+    const geofenceStateChanged = (stableInsideOffice !== null && stableInsideOffice !== nextInside);
+    const timeSinceLastUiUpdate = now - lastUiUpdateRef.current;
+    const shouldUpdateUi = lastUiUpdateRef.current === 0 || geofenceStateChanged || timeSinceLastUiUpdate >= 15000;
 
-    console.log('[EXFIN_CURRENT_DISTANCE]', {
-      currentLatitude: latitude,
-      currentLongitude: longitude,
-      officeLatitude: OFFICE_LOCATION.latitude,
-      officeLongitude: OFFICE_LOCATION.longitude,
-      calculatedDistanceMeters: calculatedDistance
-    });
-
-    if (nextInside !== stableInsideOffice) {
-      console.log(`[Location] State transition via hysteresis: distance=${calculatedDistance.toFixed(1)}m, accuracy=${accuracy || 'N/A'}m, insideOffice=${nextInside}`);
+    if (shouldUpdateUi) {
+      lastUiUpdateRef.current = now;
+      setLiveLocation({ latitude, longitude });
+      setDistance(calculatedDistance);
+      setLocationTimestamp(fixTime);
+      setIsFreshFixReceived(true);
+      setLocationStatus('success');
+      setStableInsideOffice(nextInside);
     }
-    setStableInsideOffice(nextInside);
 
-    // Update live_locations independent of attendance record
+    // Save to cache for offline backup
+    try {
+      localStorage.setItem('lastKnownLocation', JSON.stringify({ latitude, longitude }));
+      localStorage.setItem('lastKnownDistance', String(calculatedDistance));
+    } catch (e) {}
+
+    // Evaluate automatic background geofence state transition & live location write
     try {
       const cachedRaw = localStorage.getItem('cached_registration_data');
       if (cachedRaw) {
@@ -576,7 +513,6 @@ display state: ${displayDist}`);
             timestamp: new Date(fixTime).toISOString()
           }).catch((err) => console.warn('Error updating live_locations:', err));
 
-          // Evaluate automatic background geofence state transition
           handleLocationUpdateForAttendance(
             latitude,
             longitude,
@@ -591,14 +527,14 @@ display state: ${displayDist}`);
       console.warn('Error evaluating location update for attendance / live location:', err);
     }
 
-    // Offline mode support: complete location state immediately without network/reverse geocoding
+    // Offline mode support
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       setCurrentAddress('Offline');
       setLocationStatus('success');
       return;
     }
 
-    // Debounce reverse-geocoding calls: only re-geocode if moved >= 50m or >= 3 minutes elapsed
+    // Debounce reverse-geocoding calls: only re-geocode if moved >= 200m or >= 10 minutes elapsed
     const last = lastGeocodedCoordsRef.current;
     let shouldGeocode = false;
 
@@ -607,7 +543,7 @@ display state: ${displayDist}`);
     } else {
       const distMoved = getDistanceFromLatLonInM(latitude, longitude, last.lat, last.lon);
       const timeElapsed = now - last.time;
-      if (distMoved >= 50 || timeElapsed >= 180000) {
+      if (distMoved >= 200 || timeElapsed >= 600000) {
         shouldGeocode = true;
       }
     }
@@ -690,6 +626,20 @@ display state: ${displayDist}`);
   useEffect(() => {
     activeAttendanceModeRef.current = activeAttendanceMode;
   }, [activeAttendanceMode]);
+
+  // Periodic 30-second performance diagnostics auditor
+  useEffect(() => {
+    const diagInterval = setInterval(() => {
+      const snap = getResourceSnapshot();
+      console.log(`[EXFIN PERFORMANCE]
+ACTIVE GPS WATCHERS: ${snap.locationWatchers}
+ACTIVE FIRESTORE LISTENERS: ${snap.firestoreListeners}
+ACTIVE TIMERS: ${snap.syncTimers}
+SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
+    }, 30000);
+
+    return () => clearInterval(diagInterval);
+  }, []);
 
   // Auto-start single authoritative location stream on Provider mount
   useEffect(() => {

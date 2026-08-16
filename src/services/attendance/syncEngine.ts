@@ -21,6 +21,8 @@ import {
 import {
   trackResourceCreated,
   trackResourceCleaned,
+  setSyncRunningState,
+  logPerfSyncEvent
 } from '../monitoring/performanceDiagnostics';
 
 let isAttendanceSyncInProgress = false;
@@ -56,6 +58,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
   }
 
   isAttendanceSyncInProgress = true;
+  setSyncRunningState(true);
   let syncedCount = 0;
   let errorsCount = 0;
 
@@ -91,12 +94,10 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
   // 2. Sync Pending Attendance Records
   const pendingRecords = getPendingAttendanceRecords();
   if (pendingRecords.length === 0) {
-    return { syncedCount: 0, errorsCount: 0 };
+    return { syncedCount, errorsCount };
   }
 
   console.log(`Sync Engine: Found ${pendingRecords.length} pending attendance records to sync.`);
-  let syncedCount = 0;
-  let errorsCount = 0;
 
   for (const record of pendingRecords) {
     let attempt = 0;
@@ -166,6 +167,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
   }
   } finally {
     isAttendanceSyncInProgress = false;
+    setSyncRunningState(false);
   }
 
   return { syncedCount, errorsCount };

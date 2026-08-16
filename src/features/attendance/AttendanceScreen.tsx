@@ -308,7 +308,7 @@ export const AttendanceScreen: React.FC = () => {
           setActionFeedback(`Auto System Checkout triggered (Reason: ${autoCheckedOut.reason})`);
         }
       }
-    }, 15000);
+    }, 60000);
 
     return () => {
       stopSync();

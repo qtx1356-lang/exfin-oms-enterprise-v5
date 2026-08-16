@@ -70,7 +70,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
     if (todayRecord && todayRecord.checkInTime && !todayRecord.checkOutTime) {
       const timer = setInterval(() => {
         setNow(new Date());
-      }, 1000);
+      }, 10000);
       return () => clearInterval(timer);
     }
   }, [todayRecord?.checkInTime, todayRecord?.checkOutTime]);

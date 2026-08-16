@@ -229,21 +229,27 @@ export const AutomaticAttendanceEngine = {
     const dateStr = getFormattedDateStr(timestamp);
     const record = getTodayAttendanceRecord(employeeId, dateStr);
 
-    // Dynamic Current Location update on existing record
+    // Dynamic Current Location update on existing record (throttled to once per 30s for passive updates)
     if (record) {
-      record.currentLatitude = latitude;
-      record.currentLongitude = longitude;
-      if (typeof accuracy === 'number' && Number.isFinite(accuracy)) {
-        record.currentAccuracy = accuracy;
-      }
-      record.currentDistance = distance;
-      record.currentTownCity = (townCity && townCity.trim()) ? townCity.trim() : 'Location name unavailable';
-      record.currentLocationTimestamp = timestamp.toISOString();
-      record.currentLocationStatus = 'LIVE';
-      record.syncStatus = 'Pending';
-      saveAttendanceRecord(record);
-      if (typeof navigator !== 'undefined' && navigator.onLine) {
-        syncPendingAttendanceRecords().catch(() => {});
+      const lastLocTime = record.currentLocationTimestamp ? new Date(record.currentLocationTimestamp).getTime() : 0;
+      const nowMs = timestamp.getTime();
+      const shouldUpdateRecordLoc = lastLocTime === 0 || (nowMs - lastLocTime >= 30000);
+
+      if (shouldUpdateRecordLoc) {
+        record.currentLatitude = latitude;
+        record.currentLongitude = longitude;
+        if (typeof accuracy === 'number' && Number.isFinite(accuracy)) {
+          record.currentAccuracy = accuracy;
+        }
+        record.currentDistance = distance;
+        record.currentTownCity = (townCity && townCity.trim()) ? townCity.trim() : 'Location name unavailable';
+        record.currentLocationTimestamp = timestamp.toISOString();
+        record.currentLocationStatus = 'LIVE';
+        record.syncStatus = 'Pending';
+        saveAttendanceRecord(record);
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          syncPendingAttendanceRecords().catch(() => {});
+        }
       }
 
       console.log('[EXFIN_CURRENT_GPS]', {
