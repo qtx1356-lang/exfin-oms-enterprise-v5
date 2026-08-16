@@ -198,7 +198,8 @@ const executeLiveLocationWrite = async (params: UpdateLiveLocationParams): Promi
     distanceFromOffice: calculatedDistance,
     townCity: cleanTownCity,
     timestamp: fixTimestampIso,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
+    source: 'watchPosition'
   };
 
   try {

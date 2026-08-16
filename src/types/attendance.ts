@@ -197,6 +197,7 @@ export interface LiveEmployeeLocation {
   townCity: string;
   timestamp: string; // ISO string of GPS fix time
   updatedAt: string; // ISO string of write time
+  source?: string; // Optional source, e.g., watchPosition
 }
 
 
