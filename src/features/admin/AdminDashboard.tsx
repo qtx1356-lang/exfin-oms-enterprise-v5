@@ -61,6 +61,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord, AttendanceCorrection, LiveEmployeeLocation } from '../../types/attendance';
 import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn } from '../../utils/attendanceUtils';
+import { subscribeToAddressCacheUpdates } from '../../utils/addressFormatter';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { ExpenseRecord } from '../../types/expense';
@@ -260,6 +261,14 @@ export const AdminDashboard: React.FC = () => {
   const [leaveConfig, setLeaveConfig] = useState<LeaveConfig | null>(null);
   const [employeeAllowances, setEmployeeAllowances] = useState<EmployeeAllowance[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
+  const [, setAddressCacheVersion] = useState(0);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToAddressCacheUpdates(() => {
+      setAddressCacheVersion((v) => v + 1);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Map of authoritative live employee locations (from live_locations collection)
   const liveLocationByEmployee = React.useMemo(() => {

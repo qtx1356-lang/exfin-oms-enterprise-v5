@@ -225,7 +225,7 @@ export const AutomaticAttendanceEngine = {
       longitude,
       accuracy,
       distanceFromOffice: distance,
-      townCity: (townCity && townCity.trim()) ? townCity.trim() : 'Raniganj HQ',
+      townCity: (townCity && townCity.trim()) ? townCity.trim() : 'Location name unavailable',
       timestamp
     }).catch((e) => console.warn('[processLocationUpdate] Failed to write live location:', e));
 
@@ -475,7 +475,7 @@ export const AutomaticAttendanceEngine = {
           latitude: coords.latitude,
           longitude: coords.longitude,
           distance,
-          townCity: townCity || 'Raniganj HQ',
+          townCity: (townCity && townCity.trim()) ? townCity.trim() : 'Location name unavailable',
           checkInMode: source === 'AUTO_GEOFENCE' ? 'AUTO' : 'MANUAL',
           checkOutMode: 'N/A',
           exitTime: null,
@@ -493,13 +493,13 @@ export const AutomaticAttendanceEngine = {
           checkInLatitude: coords.latitude,
           checkInLongitude: coords.longitude,
           checkInDistance: distance,
-          checkInTownCity: townCity || 'Raniganj HQ',
+          checkInTownCity: (townCity && townCity.trim()) ? townCity.trim() : 'Location name unavailable',
 
           // Dynamic Current Location
           currentLatitude: coords.latitude,
           currentLongitude: coords.longitude,
           currentDistance: distance,
-          currentTownCity: townCity || 'Raniganj HQ',
+          currentTownCity: (townCity && townCity.trim()) ? townCity.trim() : 'Location name unavailable',
           currentLocationTimestamp: eventIso,
           currentLocationStatus: 'LIVE'
         };
@@ -558,7 +558,7 @@ export const AutomaticAttendanceEngine = {
             record.checkoutLatitude = coords.latitude;
             record.checkoutLongitude = coords.longitude;
             record.checkoutDistance = distance;
-            record.checkoutTownCity = townCity || 'Raniganj HQ';
+            record.checkoutTownCity = (townCity && townCity.trim()) ? townCity.trim() : 'Location name unavailable';
           }
           modified = true;
 
@@ -630,7 +630,7 @@ export const AutomaticAttendanceEngine = {
           record.checkoutLatitude = coords.latitude;
           record.checkoutLongitude = coords.longitude;
           record.checkoutDistance = distance;
-          record.checkoutTownCity = townCity || 'Raniganj HQ';
+          record.checkoutTownCity = (townCity && townCity.trim()) ? townCity.trim() : 'Location name unavailable';
         } else if (!record.checkoutLatitude && !record.checkoutTownCity) {
           record.checkoutTownCity = 'Location unavailable';
         }

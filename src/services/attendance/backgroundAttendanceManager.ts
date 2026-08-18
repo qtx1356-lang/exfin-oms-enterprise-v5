@@ -175,7 +175,7 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
       
       const info = getEmployeeInfo();
       if (info?.id) {
-        reconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ');
+        reconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Location name unavailable');
         if (isMedianApp()) {
           startMedianBackgroundLocation(getEmployeeInfo);
         }
@@ -190,7 +190,7 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
                   pos.coords.longitude,
                   info.id,
                   info.name,
-                  info.townCity || 'Raniganj HQ'
+                  info.townCity || 'Location name unavailable'
                 );
               }
             }).catch((e) => console.warn('Resume GPS fetch error:', e));
@@ -202,7 +202,7 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
                   pos.coords.longitude,
                   info.id,
                   info.name,
-                  info.townCity || 'Raniganj HQ'
+                  info.townCity || 'Location name unavailable'
                 );
               },
               (err) => console.warn('Resume Web GPS error:', err),

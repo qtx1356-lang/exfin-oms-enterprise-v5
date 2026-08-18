@@ -13,6 +13,12 @@ import {
 import { updateLiveEmployeeLocation } from '../services/location/liveLocationService';
 import { getTodayAttendanceRecord } from '../services/attendance/attendanceStorage';
 import {
+  formatPreciseAddress,
+  getAdminCachedAddress,
+  setAdminCachedAddress,
+  isGenericFallbackAddress
+} from '../utils/addressFormatter';
+import {
   trackResourceCreated,
   trackResourceCleaned,
   getResourceSnapshot
@@ -302,12 +308,25 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const geocodeRequestIdRef = useRef<number>(0);
 
-  const performReverseGeocode = async (latitude: number, longitude: number) => {
+  const performReverseGeocode = async (latitude: number, longitude: number): Promise<string | null> => {
     const reqId = ++geocodeRequestIdRef.current;
+
+    // Check coordinate-based cache
+    const cached = getAdminCachedAddress(latitude, longitude);
+    if (cached) {
+      if (reqId === geocodeRequestIdRef.current) {
+        setCurrentAddress(cached);
+        setLocationStatus('success');
+      }
+      return cached;
+    }
+
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      setCurrentAddress('Offline');
-      setLocationStatus('success');
-      return;
+      if (reqId === geocodeRequestIdRef.current) {
+        setCurrentAddress('Offline');
+        setLocationStatus('success');
+      }
+      return 'Offline';
     }
 
     let resolvedAddress: string | null = null;
@@ -316,18 +335,18 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
         if (win.AndroidGeocoder && typeof win.AndroidGeocoder.getFromLocation === 'function') {
           const raw = await win.AndroidGeocoder.getFromLocation(latitude, longitude);
-          resolvedAddress = extractBestLocation(raw);
+          resolvedAddress = formatPreciseAddress(raw);
         } else if (win.Capacitor?.Plugins?.NativeGeocoder) {
           const res = await win.Capacitor.Plugins.NativeGeocoder.reverseGeocode({ latitude, longitude });
           if (res && res.addresses && res.addresses.length > 0) {
-            resolvedAddress = extractBestLocation(res.addresses[0]);
+            resolvedAddress = formatPreciseAddress(res.addresses[0]);
           } else if (res && res.address) {
-            resolvedAddress = extractBestLocation(res.address);
+            resolvedAddress = formatPreciseAddress(res.address);
           }
         } else if (win.Capacitor?.Plugins?.Geocoder) {
           const res = await win.Capacitor.Plugins.Geocoder.reverseGeocode({ latitude, longitude });
           if (res && res.addresses && res.addresses.length > 0) {
-            resolvedAddress = extractBestLocation(res.addresses[0]);
+            resolvedAddress = formatPreciseAddress(res.addresses[0]);
           }
         }
       }
@@ -336,7 +355,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         // Try OpenStreetMap Nominatim first for high-precision address
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          const timeoutId = setTimeout(() => controller.abort(), 3500);
           const resp = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
             { signal: controller.signal }
@@ -344,15 +363,14 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           clearTimeout(timeoutId);
           if (resp.ok) {
             const data = await resp.json();
-            if (data && data.address) {
-              resolvedAddress = extractBestLocation(data.address);
-            } else if (data && data.display_name) {
-              resolvedAddress = extractBestLocation(data.display_name);
-            }
+            resolvedAddress = formatPreciseAddress(data);
           }
         } catch (e) {
           console.warn('OSM Nominatim reverse geocode error:', e);
         }
+
+        // Token check before fallback call
+        if (reqId !== geocodeRequestIdRef.current) return null;
 
         // Fallback to BigDataCloud
         if (!resolvedAddress) {
@@ -362,7 +380,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             );
             if (resp.ok) {
               const data = await resp.json();
-              resolvedAddress = extractBestLocation(data);
+              resolvedAddress = formatPreciseAddress(data);
             }
           } catch (e) {
             console.warn('BigDataCloud reverse geocode error:', e);
@@ -373,25 +391,52 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.warn('Geocoder error:', e);
     }
 
-    if (reqId !== geocodeRequestIdRef.current) return;
+    // Strict Versioning / Freshness Check: Only update if this request is still the newest!
+    if (reqId !== geocodeRequestIdRef.current) return null;
 
     if (resolvedAddress && typeof resolvedAddress === 'string' && resolvedAddress.trim()) {
       const cleanAddress = resolvedAddress.trim();
+      setAdminCachedAddress(latitude, longitude, cleanAddress);
       setCurrentAddress(cleanAddress);
-      try {
-        localStorage.setItem('lastKnownAddress', cleanAddress);
-      } catch (e) {}
+
+      // Re-trigger location update for attendance / live location with authoritative address
+      const info = getEmployeeInfo();
+      if (info && info.id) {
+        const calculatedDistance = getDistanceFromLatLonInM(
+          latitude,
+          longitude,
+          OFFICE_LOCATION.latitude,
+          OFFICE_LOCATION.longitude
+        );
+        updateLiveEmployeeLocation({
+          employeeId: info.id,
+          employeeName: info.name,
+          latitude,
+          longitude,
+          accuracy: rawLocationRef.current?.accuracy,
+          distanceFromOffice: calculatedDistance,
+          townCity: cleanAddress,
+          timestamp: new Date().toISOString()
+        }).catch((err) => console.warn('Error updating live_locations with fresh address:', err));
+
+        handleLocationUpdateForAttendance(
+          latitude,
+          longitude,
+          info.id,
+          info.name,
+          cleanAddress,
+          rawLocationRef.current?.accuracy || null
+        );
+      }
     } else {
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         setCurrentAddress('Offline');
       } else {
-        const cachedAddress = getValidCachedAddress();
-        if (cachedAddress) {
-          setCurrentAddress(cachedAddress);
-        }
+        setCurrentAddress('Location name unavailable');
       }
     }
     setLocationStatus('success');
+    return resolvedAddress;
   };
 
   const [backgroundPermissionGranted, setBackgroundPermissionGranted] = useState<boolean>(false);
@@ -516,7 +561,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             longitude,
             accuracy,
             distanceFromOffice: calculatedDistance,
-            townCity: currentAddress || 'Raniganj HQ',
+            townCity: currentAddress || 'Location name unavailable',
             timestamp: new Date(fixTime).toISOString()
           }).catch((err) => console.warn('Error updating live_locations:', err));
 
@@ -525,7 +570,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             longitude,
             empId,
             empName,
-            currentAddress || 'Raniganj HQ',
+            currentAddress || 'Location name unavailable',
             accuracy
           );
         }

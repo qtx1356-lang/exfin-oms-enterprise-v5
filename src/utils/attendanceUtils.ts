@@ -1,5 +1,11 @@
 import { AttendanceRecord, LiveEmployeeLocation } from '../types/attendance';
 import { OFFICE_LOCATION, getDistanceFromLatLonInM } from '../services/attendance/smartAttendanceEngine';
+import {
+  formatPreciseAddress,
+  getAdminCachedAddress,
+  fetchAndCacheAddressForCoords,
+  isGenericFallbackAddress
+} from './addressFormatter';
 
 /**
  * Authoritative helper to determine if an attendance record represents an actual check-in.
@@ -134,24 +140,33 @@ export const getCheckInLocationDetails = (record: AttendanceRecord): {
   const lat = record.checkInLatitude !== undefined && record.checkInLatitude !== null ? record.checkInLatitude : record.latitude;
   const lon = record.checkInLongitude !== undefined && record.checkInLongitude !== null ? record.checkInLongitude : record.longitude;
 
+  let location = 'Location unavailable';
+
   if (isValidCoordinatePair(lat, lon)) {
-    const calculatedDist = getDistanceFromLatLonInM(Number(lat), Number(lon), OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude);
+    const numLat = Number(lat);
+    const numLon = Number(lon);
+    const calculatedDist = getDistanceFromLatLonInM(numLat, numLon, OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude);
     if (typeof calculatedDist === 'number' && Number.isFinite(calculatedDist) && calculatedDist >= 0) {
       rawDist = calculatedDist;
     }
+
+    const storedTown = record.checkInTownCity || record.townCity;
+    const formattedStored = storedTown ? formatPreciseAddress(storedTown) : null;
+    const cachedAddress = getAdminCachedAddress(numLat, numLon);
+
+    if (cachedAddress) {
+      location = cachedAddress;
+    } else if (formattedStored && !isGenericFallbackAddress(formattedStored)) {
+      location = formattedStored;
+    } else {
+      fetchAndCacheAddressForCoords(numLat, numLon);
+      location = formattedStored || 'Location name unavailable';
+    }
+  } else {
+    location = 'Location unavailable';
   }
 
   const distance = formatDistanceDisplay(rawDist);
-
-  let location = 'Location unavailable';
-  if (record.checkInTownCity && record.checkInTownCity.trim()) {
-    location = record.checkInTownCity.trim();
-  } else if (record.checkInLatitude !== undefined && record.checkInLatitude !== null) {
-    location = record.townCity?.trim() || 'Location name unavailable';
-  } else if (record.townCity && record.townCity.trim()) {
-    location = record.townCity.trim();
-  }
-
   return { time, location, distance, rawDistance: rawDist };
 };
 
@@ -181,28 +196,39 @@ export const getCheckoutLocationDetails = (record: AttendanceRecord): {
   }
 
   let rawDist: number | null = null;
+  let location = 'Location unavailable';
+
   if (isValidCoordinatePair(record.checkoutLatitude, record.checkoutLongitude)) {
-    const calculatedDist = getDistanceFromLatLonInM(Number(record.checkoutLatitude), Number(record.checkoutLongitude), OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude);
+    const numLat = Number(record.checkoutLatitude);
+    const numLon = Number(record.checkoutLongitude);
+    const calculatedDist = getDistanceFromLatLonInM(numLat, numLon, OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude);
     if (typeof calculatedDist === 'number' && Number.isFinite(calculatedDist) && calculatedDist >= 0) {
       rawDist = calculatedDist;
     }
-  }
-  const distance = formatDistanceDisplay(rawDist);
 
-  let location = 'Location unavailable';
+    const storedTown = record.checkoutTownCity;
+    const formattedStored = storedTown ? formatPreciseAddress(storedTown) : null;
+    const cachedAddress = getAdminCachedAddress(numLat, numLon);
 
-  if (record.checkoutTownCity && record.checkoutTownCity.trim()) {
-    location = record.checkoutTownCity.trim();
-  } else if (record.checkoutLatitude !== undefined && record.checkoutLatitude !== null) {
-    location = 'Location name unavailable';
-  } else if (unresolved) {
-    location = 'Location unavailable';
-  } else if (record.checkOutTime && record.checkOutTime !== 'Pending' && record.checkOutTime !== 'N/A') {
-    location = 'Location unavailable';
+    if (cachedAddress) {
+      location = cachedAddress;
+    } else if (formattedStored && !isGenericFallbackAddress(formattedStored)) {
+      location = formattedStored;
+    } else {
+      fetchAndCacheAddressForCoords(numLat, numLon);
+      location = formattedStored || 'Location name unavailable';
+    }
   } else {
-    location = 'Pending checkout';
+    if (unresolved) {
+      location = 'Location unavailable';
+    } else if (record.checkOutTime && record.checkOutTime !== 'Pending' && record.checkOutTime !== 'N/A') {
+      location = 'Location unavailable';
+    } else {
+      location = 'Pending checkout';
+    }
   }
 
+  const distance = formatDistanceDisplay(rawDist);
   return { time, location, distance, rawDistance: rawDist, isUnresolved: unresolved };
 };
 
@@ -270,9 +296,20 @@ export const getCurrentLocationDetails = (
       : null;
 
     const distanceFormatted = formatDistanceDisplay(rawDist);
-    const locationName = (liveLocation.townCity && liveLocation.townCity.trim())
-      ? liveLocation.townCity.trim()
-      : 'Location name unavailable';
+    
+    const storedTown = liveLocation.townCity;
+    const formattedStored = storedTown ? formatPreciseAddress(storedTown) : null;
+    const cachedAddress = getAdminCachedAddress(lat, lon);
+
+    let locationName = 'Location name unavailable';
+    if (cachedAddress) {
+      locationName = cachedAddress;
+    } else if (formattedStored && !isGenericFallbackAddress(formattedStored)) {
+      locationName = formattedStored;
+    } else {
+      fetchAndCacheAddressForCoords(lat, lon);
+      locationName = formattedStored || 'Location name unavailable';
+    }
 
     // Freshness rules based on liveLocation.timestamp
     let timeStr: string | null = null;
@@ -308,25 +345,6 @@ export const getCurrentLocationDetails = (
       }
     }
 
-    console.log('[CURRENT_LOCATION_UPDATE]', {
-      employeeId: liveLocation.employeeId,
-      latitude: lat,
-      longitude: lon,
-      accuracy: liveLocation.accuracy,
-      calculatedDistance: rawDist,
-      timestamp: liveLocation.timestamp,
-      freshness: status
-    });
-
-    console.log('[CURRENT_DISTANCE_CALCULATION]', {
-      employeeId: liveLocation.employeeId,
-      currentLatitude: lat,
-      currentLongitude: lon,
-      officeLatitude: OFFICE_LOCATION.latitude,
-      officeLongitude: OFFICE_LOCATION.longitude,
-      distanceMeters: rawDist
-    });
-
     return {
       time: timeStr,
       location: locationName,
@@ -358,9 +376,19 @@ export const getCurrentLocationDetails = (
       : null;
 
     const distanceFormatted = formatDistanceDisplay(rawDist);
-    const locationName = (record.currentTownCity && record.currentTownCity.trim())
-      ? record.currentTownCity.trim()
-      : 'Location name unavailable';
+    const storedTown = record.currentTownCity;
+    const formattedStored = storedTown ? formatPreciseAddress(storedTown) : null;
+    const cachedAddress = getAdminCachedAddress(lat, lon);
+
+    let locationName = 'Location name unavailable';
+    if (cachedAddress) {
+      locationName = cachedAddress;
+    } else if (formattedStored && !isGenericFallbackAddress(formattedStored)) {
+      locationName = formattedStored;
+    } else {
+      fetchAndCacheAddressForCoords(lat, lon);
+      locationName = formattedStored || 'Location name unavailable';
+    }
 
     const timestampIso = record.currentLocationTimestamp;
     let timeStr: string | null = null;

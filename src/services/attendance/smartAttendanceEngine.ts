@@ -285,7 +285,7 @@ export const trackSmartOfficeExit = (
     return record;
   }
 
-  const town = currentTownCity || record.townCity || 'Raniganj HQ';
+  const town = currentTownCity || record.townCity || 'Location name unavailable';
 
   const result = AutomaticAttendanceEngine.processLocationUpdate(
     coords.latitude,

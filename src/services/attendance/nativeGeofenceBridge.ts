@@ -87,7 +87,7 @@ export const reconcileNativeGeofenceEvents = async (
           employeeId,
           employeeName,
           { latitude: evt.latitude || 23.616227, longitude: evt.longitude || 87.117063 },
-          townCity || 'Raniganj HQ',
+          townCity || 'Location name unavailable',
           eventDate
         );
       } else if (evt.transition === 'ENTER') {
@@ -95,7 +95,7 @@ export const reconcileNativeGeofenceEvents = async (
           employeeId,
           employeeName,
           { latitude: evt.latitude || 23.616227, longitude: evt.longitude || 87.117063 },
-          townCity || 'Raniganj HQ',
+          townCity || 'Location name unavailable',
           eventDate
         );
       }
@@ -122,7 +122,7 @@ export const initNativeGeofenceListener = async (
     // Reconcile any past unconsumed events right away
     const info = getEmployeeInfo();
     if (info?.id) {
-      await reconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ');
+      await reconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Location name unavailable');
     }
 
     if (activeListenerHandle) {
@@ -147,7 +147,7 @@ export const initNativeGeofenceListener = async (
           currentEmp.id,
           currentEmp.name,
           { latitude: data.latitude, longitude: data.longitude },
-          currentEmp.townCity || 'Raniganj HQ',
+          currentEmp.townCity || 'Location name unavailable',
           eventDate
         );
       } else if (data.transition === 'ENTER') {
@@ -155,7 +155,7 @@ export const initNativeGeofenceListener = async (
           currentEmp.id,
           currentEmp.name,
           { latitude: data.latitude, longitude: data.longitude },
-          currentEmp.townCity || 'Raniganj HQ',
+          currentEmp.townCity || 'Location name unavailable',
           eventDate
         );
       }

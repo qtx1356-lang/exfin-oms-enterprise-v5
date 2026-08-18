@@ -340,7 +340,7 @@ export const AttendanceScreen: React.FC = () => {
           employeeId,
           employeeName,
           coords,
-          currentAddress || 'Raniganj HQ',
+          currentAddress || 'Location name unavailable',
           'AUTO'
         );
         refreshRecords();
@@ -417,7 +417,7 @@ export const AttendanceScreen: React.FC = () => {
         employeeId,
         employeeName,
         finalCoords,
-        currentAddress || 'Raniganj HQ',
+        currentAddress || 'Location name unavailable',
         'MANUAL'
       );
       updateAttendanceOptimistically(record);
@@ -453,7 +453,7 @@ export const AttendanceScreen: React.FC = () => {
       const updated = performCheckOut(
         todayRecord,
         liveLocation,
-        currentAddress || 'Raniganj HQ'
+        currentAddress || 'Location name unavailable'
       );
       updateAttendanceOptimistically(updated);
       refreshRecords();
@@ -1438,7 +1438,7 @@ export const AttendanceScreen: React.FC = () => {
           longitude: liveLocation.longitude,
           accuracy: liveLocation.accuracy,
           distanceFromOffice: distance ?? 0,
-          townCity: currentAddress || 'Raniganj HQ',
+          townCity: currentAddress || 'Location name unavailable',
           timestamp: liveLocation.timestamp ? new Date(liveLocation.timestamp).toISOString() : new Date().toISOString(),
           updatedAt: new Date().toISOString()
         } : null;

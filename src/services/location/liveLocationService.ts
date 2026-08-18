@@ -187,7 +187,7 @@ const executeLiveLocationWrite = async (params: UpdateLiveLocationParams): Promi
     fixTimestampIso = new Date().toISOString();
   }
 
-  const cleanTownCity = (townCity && townCity.trim()) ? townCity.trim() : 'Raniganj HQ';
+  const cleanTownCity = (townCity && townCity.trim()) ? townCity.trim() : 'Location name unavailable';
 
   const liveDocPayload: LiveEmployeeLocation = {
     employeeId: employeeId.trim(),
