@@ -161,8 +161,7 @@ export const EmployeeDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { notifications, unreadNotificationCount, tasks: syncTasks, leaves: syncLeaves, attendance: syncAttendance, expenses: syncExpenses } = useRealtimeSync();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
-  const [leaveBalance, setLeaveBalance] = useState({ available: 24, pending: 0, used: 0 });
+  const [weightages, setWeightages] = useState<EfficiencyWeightages>(DEFAULT_WEIGHTAGES);
   const [hasPayslips, setHasPayslips] = useState<boolean | null>(null);
   const [showUnavailableMessage, setShowUnavailableMessage] = useState(false);
 
@@ -210,63 +209,49 @@ export const EmployeeDashboard: React.FC = () => {
     };
   }, []);
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [tasks, setTasks] = useState<TaskRecord[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
-  const [weightages, setWeightages] = useState<EfficiencyWeightages>(DEFAULT_WEIGHTAGES);
-  const [allLeaves, setAllLeaves] = useState<any[]>([]);
-
-  // Initialize data from local storage and keep in sync with RealtimeSyncContext
-  useEffect(() => {
-    logStartupTag('DASHBOARD_READY', 'Employee Dashboard fully mounted');
-  }, []);
-
-  useEffect(() => {
-    if (syncAttendance && syncAttendance.length > 0) {
-      setAttendanceRecords(syncAttendance);
-    } else {
-      setAttendanceRecords(getStoredAttendanceRecords());
-    }
+  // Synchronized data from RealtimeSyncContext or Local Storage
+  const attendanceRecords = useMemo(() => {
+    return syncAttendance && syncAttendance.length > 0 ? syncAttendance : getStoredAttendanceRecords();
   }, [syncAttendance]);
 
-  useEffect(() => {
-    if (syncTasks && syncTasks.length > 0) {
-      setTasks(syncTasks);
-    } else {
-      setTasks(getStoredTasks());
-    }
+  const tasks = useMemo(() => {
+    return syncTasks && syncTasks.length > 0 ? syncTasks : getStoredTasks();
   }, [syncTasks]);
 
-  useEffect(() => {
-    if (syncExpenses && syncExpenses.length > 0) {
-      setExpenses(syncExpenses as ExpenseRecord[]);
-    } else {
-      setExpenses(getStoredExpenseRecords());
-    }
+  const expenses = useMemo(() => {
+    return syncExpenses && syncExpenses.length > 0 ? (syncExpenses as ExpenseRecord[]) : getStoredExpenseRecords();
   }, [syncExpenses]);
 
-  useEffect(() => {
-    if (syncLeaves && syncLeaves.length > 0) {
-      setAllLeaves(syncLeaves);
-    } else {
-      setAllLeaves(getStoredLeaves());
-    }
+  const allLeaves = useMemo(() => {
+    return syncLeaves && syncLeaves.length > 0 ? syncLeaves : getStoredLeaves();
   }, [syncLeaves]);
 
-  // Recalculate leave balance whenever allLeaves changes
-  useEffect(() => {
-    if (!employeeData) return;
+  // Derived Leave Balance
+  const leaveBalance = useMemo(() => {
+    if (!employeeData) return { available: 24, pending: 0, used: 0 };
     const empId = employeeData.id || employeeData.employeeCode || '';
     const dept = employeeData.office || 'Raniganj';
     const localConfig = getStoredLeaveConfig();
     const localAllowances = getStoredEmployeeAllowances();
     const bal = calculateLeaveBalance(empId, dept, allLeaves, localConfig, localAllowances);
-    setLeaveBalance({
+    return {
       available: bal.available,
       pending: bal.pending,
       used: bal.used,
-    });
+    };
   }, [allLeaves, employeeData]);
+
+  // Derived Today Attendance Record
+  const todayAttendance = useMemo(() => {
+    if (!employeeData) return null;
+    const empId = employeeData.employeeCode || employeeData.id || 'EMP-UNKNOWN';
+    return getTodayAttendanceRecord(empId, todayStr);
+  }, [employeeData, todayStr, attendanceRecords]);
+
+  // Initialize startup log
+  useEffect(() => {
+    logStartupTag('DASHBOARD_READY', 'Employee Dashboard fully mounted');
+  }, []);
 
   // Fetch weightages
   useEffect(() => {
@@ -295,31 +280,6 @@ export const EmployeeDashboard: React.FC = () => {
     
     return () => unsub();
   }, [employeeData?.employeeCode]);
-
-  useEffect(() => {
-    if (employeeData) {
-      const empId = employeeData.id || employeeData.employeeCode || '';
-      const dept = employeeData.office || 'Raniganj';
-      const localLeaves = getStoredLeaves();
-      const localConfig = getStoredLeaveConfig();
-      const localAllowances = getStoredEmployeeAllowances();
-      const bal = calculateLeaveBalance(empId, dept, localLeaves, localConfig, localAllowances);
-      setLeaveBalance({
-        available: bal.available,
-        pending: bal.pending,
-        used: bal.used,
-      });
-    }
-  }, [employeeData?.id, employeeData?.employeeCode, employeeData?.office]);
-
-  useEffect(() => {
-    if (employeeData) {
-      const empId = employeeData.employeeCode || employeeData.id || 'EMP-UNKNOWN';
-      const todayStr = getFormattedDateStr();
-      const rec = getTodayAttendanceRecord(empId, todayStr);
-      setTodayAttendance(rec);
-    }
-  }, [employeeData?.employeeCode, employeeData?.id]);
 
   useEffect(() => {
     if (!employeeData?.employeeCode) {
@@ -398,14 +358,14 @@ export const EmployeeDashboard: React.FC = () => {
     );
   }
 
-  const todayDate = new Intl.DateTimeFormat('en-US', {
+  const todayDate = useMemo(() => new Intl.DateTimeFormat('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric'
-  }).format(new Date());
+  }).format(new Date()), []);
 
-  const quickActions = [
+  const quickActions = useMemo(() => [
     { 
       icon: Calendar, 
       label: 'Apply Leave', 
@@ -476,7 +436,7 @@ export const EmployeeDashboard: React.FC = () => {
       onClick: () => navigate('/work-hours'), 
       bg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
     },
-  ];
+  ], [hasPayslips, unreadNotificationCount, navigate]);
 
   // -------------------------------------------------------------------------
   // SMART DAILY BRIEFING CALCULATIONS (FEATURE 5)
@@ -485,13 +445,17 @@ export const EmployeeDashboard: React.FC = () => {
   const greetingPrefix = currentHour < 12 ? 'GOOD MORNING!' : currentHour < 17 ? 'GOOD AFTERNOON!' : 'GOOD EVENING!';
 
   // Today's attendance status & details
-  const todayAttendanceRec = attendanceRecords.find(r => r.date === todayStr) || todayAttendance;
+  const todayAttendanceRec = useMemo(() => {
+    return attendanceRecords.find(r => r.date === todayStr) || todayAttendance;
+  }, [attendanceRecords, todayStr, todayAttendance]);
 
-  const hasApprovedLeaveToday = allLeaves.some(l => 
-    l.status === 'APPROVED' && 
-    todayStr >= l.startDate && 
-    todayStr <= l.endDate
-  );
+  const hasApprovedLeaveToday = useMemo(() => {
+    return allLeaves.some(l => 
+      l.status === 'APPROVED' && 
+      todayStr >= l.startDate && 
+      todayStr <= l.endDate
+    );
+  }, [allLeaves, todayStr]);
 
   let attendanceStatusLabel = 'Not Checked In';
   let attendanceBadgeColor = 'bg-[#211044] text-purple-200 border-purple-500/20';
@@ -521,42 +485,47 @@ export const EmployeeDashboard: React.FC = () => {
   // Working Time duration
   const checkInTimeStr = todayAttendanceRec?.checkInTime;
   const checkOutTimeStr = todayAttendanceRec?.checkOutTime;
-  const workingDurationStr = checkInTimeStr && checkInTimeStr !== '--:--'
-    ? getWorkingDuration(checkInTimeStr, checkOutTimeStr)
-    : (attendanceStatusLabel === 'WFH' || attendanceStatusLabel === 'Client Visit' ? 'Active Shift' : '0h 0m');
+  const workingDurationStr = useMemo(() => {
+    return checkInTimeStr && checkInTimeStr !== '--:--'
+      ? getWorkingDuration(checkInTimeStr, checkOutTimeStr)
+      : (attendanceStatusLabel === 'WFH' || attendanceStatusLabel === 'Client Visit' ? 'Active Shift' : '0h 0m');
+  }, [checkInTimeStr, checkOutTimeStr, attendanceStatusLabel]);
 
   // Tasks Filtered for CURRENT Employee ONLY
   const employeeId = employeeData.id || employeeData.employeeCode || '';
   const employeeCode = employeeData.employeeCode || '';
 
-  const myTasks = tasks.filter(t => 
-    (t.assignedToEmployeeCodes && t.assignedToEmployeeCodes.includes(employeeCode)) ||
-    (t.assignedToEmployeeIds && t.assignedToEmployeeIds.includes(employeeId))
-  );
+  const myTasks = useMemo(() => {
+    return tasks.filter(t => 
+      (t.assignedToEmployeeCodes && t.assignedToEmployeeCodes.includes(employeeCode)) ||
+      (t.assignedToEmployeeIds && t.assignedToEmployeeIds.includes(employeeId))
+    );
+  }, [tasks, employeeCode, employeeId]);
 
   // Strict date isolation for today's tasks status & work progress
-  const todayTasks = myTasks.filter(t => {
-    const isCompleted = t.status === 'COMPLETED';
-    if (isCompleted) {
-      const completionDate = getKolkataDateFromIso(t.completedAt || t.lastModifiedAt);
-      return completionDate === todayStr;
-    } else {
-      const dueKolkata = getKolkataDateFromIso(t.dueDate);
-      return dueKolkata === todayStr;
-    }
-  });
+  const todayTasks = useMemo(() => {
+    return myTasks.filter(t => {
+      const isCompleted = t.status === 'COMPLETED';
+      if (isCompleted) {
+        const completionDate = getKolkataDateFromIso(t.completedAt || t.lastModifiedAt);
+        return completionDate === todayStr;
+      } else {
+        const dueKolkata = getKolkataDateFromIso(t.dueDate);
+        return dueKolkata === todayStr;
+      }
+    });
+  }, [myTasks, todayStr]);
 
   const assignedTaskCount = todayTasks.length;
-  const completedTaskCount = todayTasks.filter(t => t.status === 'COMPLETED').length;
+  const completedTaskCount = useMemo(() => todayTasks.filter(t => t.status === 'COMPLETED').length, [todayTasks]);
   const taskProgressPercentage = assignedTaskCount > 0 
     ? Math.round((completedTaskCount / assignedTaskCount) * 100) 
     : 0;
 
   // Next Task Selection
-  const incompleteTasks = myTasks.filter(t => t.status !== 'COMPLETED');
-  let nextTask: TaskRecord | null = null;
-
-  if (incompleteTasks.length > 0) {
+  const incompleteTasks = useMemo(() => myTasks.filter(t => t.status !== 'COMPLETED'), [myTasks]);
+  const nextTask = useMemo(() => {
+    if (incompleteTasks.length === 0) return null;
     const sortedIncomplete = [...incompleteTasks].sort((a, b) => {
       const dateA = a.dueDate || '9999-99-99';
       const dateB = b.dueDate || '9999-99-99';
@@ -567,13 +536,15 @@ export const EmployeeDashboard: React.FC = () => {
       if (pB !== pA) return pB - pA;
       return (a.createdAtDeviceTime || '').localeCompare(b.createdAtDeviceTime || '');
     });
-    nextTask = sortedIncomplete[0];
-  }
+    return sortedIncomplete[0];
+  }, [incompleteTasks]);
 
   // Upcoming Leave Selection
-  const upcomingLeaves = allLeaves
-    .filter(l => l.status === 'APPROVED' && (l.endDate >= todayStr))
-    .sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const upcomingLeaves = useMemo(() => {
+    return allLeaves
+      .filter(l => l.status === 'APPROVED' && (l.endDate >= todayStr))
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+  }, [allLeaves, todayStr]);
 
   const nextUpcomingLeave = upcomingLeaves.length > 0 ? upcomingLeaves[0] : null;
 
@@ -642,73 +613,108 @@ export const EmployeeDashboard: React.FC = () => {
     }
   }
 
-  // Monthly Attendance Metrics
-  const currentMonthRecords = attendanceRecords.filter(r => r.date.startsWith(currentMonthStr));
-  const presentRecords = currentMonthRecords.filter(r => ['OFFICE', 'WFH', 'CLIENT_VISIT', 'OUTDOOR'].includes(r.attendanceType || 'OFFICE'));
-  const presentDaysCount = presentRecords.length;
+  // Monthly Metrics memoized
+  const {
+    presentDaysCount,
+    lateDaysCount,
+    wfhDaysCount,
+    clientVisitDaysCount,
+    outdoorDaysCount,
+    expectedWorkingDays,
+    actualAbsentDays,
+    attendancePercentage,
+    assignedTasksCount,
+    completedTasksCount,
+    totalApprovedAmount,
+    totalPendingAmount,
+    totalExpenseAmount,
+    efficiencyResult
+  } = useMemo(() => {
+    const currentMonthRecords = attendanceRecords.filter(r => r.date.startsWith(currentMonthStr));
+    const presentRecords = currentMonthRecords.filter(r => ['OFFICE', 'WFH', 'CLIENT_VISIT', 'OUTDOOR'].includes(r.attendanceType || 'OFFICE'));
+    const presentCount = presentRecords.length;
 
-  const lateDaysCount = currentMonthRecords.filter(r => r.checkInTime && isSalaryLateCheckIn(r.checkInTime)).length;
-  const wfhDaysCount = currentMonthRecords.filter(r => r.attendanceType === 'WFH').length;
-  const clientVisitDaysCount = currentMonthRecords.filter(r => r.attendanceType === 'CLIENT_VISIT').length;
-  const outdoorDaysCount = currentMonthRecords.filter(r => r.attendanceType === 'OUTDOOR').length;
+    const lateCount = currentMonthRecords.filter(r => r.checkInTime && isSalaryLateCheckIn(r.checkInTime)).length;
+    const wfhCount = currentMonthRecords.filter(r => r.attendanceType === 'WFH').length;
+    const clientVisitCount = currentMonthRecords.filter(r => r.attendanceType === 'CLIENT_VISIT').length;
+    const outdoorCount = currentMonthRecords.filter(r => r.attendanceType === 'OUTDOOR').length;
 
-  let expectedWorkingDays = 0;
-  let actualAbsentDays = 0;
+    let expectedDays = 0;
+    let absentDays = 0;
+    const dNow = new Date();
 
-  for (let d = 1; d <= now.getDate(); d++) {
-    const dateObj = new Date(currentYear, currentMonth, d);
-    const dayOfWeek = dateObj.getDay();
-    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      expectedWorkingDays++;
+    for (let d = 1; d <= dNow.getDate(); d++) {
+      const dateObj = new Date(currentYear, currentMonth, d);
+      const dayOfWeek = dateObj.getDay();
+      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       
-      const hasAtt = currentMonthRecords.some(r => r.date === dateStr);
-      if (!hasAtt) {
-        const hasLeave = allLeaves.some(l => 
-          l.status === 'APPROVED' && 
-          dateStr >= l.startDate && 
-          dateStr <= l.endDate
-        );
-        if (!hasLeave) {
-          actualAbsentDays++;
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        expectedDays++;
+        
+        const hasAtt = currentMonthRecords.some(r => r.date === dateStr);
+        if (!hasAtt) {
+          const hasLeave = allLeaves.some(l => 
+            l.status === 'APPROVED' && 
+            dateStr >= l.startDate && 
+            dateStr <= l.endDate
+          );
+          if (!hasLeave) {
+            absentDays++;
+          }
         }
       }
     }
-  }
 
-  const attendancePercentage = expectedWorkingDays > 0 
-    ? Math.min(100, Math.max(0, Math.round((presentDaysCount / expectedWorkingDays) * 100)))
-    : 100;
+    const attPct = expectedDays > 0 
+      ? Math.min(100, Math.max(0, Math.round((presentCount / expectedDays) * 100)))
+      : 100;
 
-  const currentMonthTasks = myTasks.filter(t => {
-    const taskDate = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime.substring(0, 10));
-    return taskDate.startsWith(currentMonthStr);
-  });
-  
-  const assignedTasksCount = currentMonthTasks.length;
-  const completedTasksCount = currentMonthTasks.filter(t => t.status === 'COMPLETED').length;
+    const currentMonthTasks = myTasks.filter(t => {
+      const taskDate = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime.substring(0, 10));
+      return taskDate.startsWith(currentMonthStr);
+    });
+    
+    const assignedTCount = currentMonthTasks.length;
+    const completedTCount = currentMonthTasks.filter(t => t.status === 'COMPLETED').length;
 
-  const currentMonthExpenses = expenses.filter(e => e.date && e.date.startsWith(currentMonthStr));
-  const totalApprovedAmount = currentMonthExpenses.filter(e => e.status === 'APPROVED').reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const totalPendingAmount = currentMonthExpenses.filter(e => e.status === 'PENDING').reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const totalExpenseAmount = totalApprovedAmount + totalPendingAmount;
+    const currentMonthExpenses = expenses.filter(e => e.date && e.date.startsWith(currentMonthStr));
+    const totalApproved = currentMonthExpenses.filter(e => e.status === 'APPROVED').reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const totalPending = currentMonthExpenses.filter(e => e.status === 'PENDING').reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const totalExp = totalApproved + totalPending;
 
-  const startDateStr = `${currentMonthStr}-01`;
-  const endDateStr = `${currentMonthStr}-${String(new Date(currentYear, currentMonth + 1, 0).getDate()).padStart(2, '0')}`;
-  
-  const efficiencyResult = calculateEfficiency(
-    employeeId,
-    employeeCode,
-    employeeData.name || 'Employee',
-    employeeData.department || employeeData.office || 'Operations',
-    employeeData.teamLeaderId || null,
-    startDateStr,
-    endDateStr,
-    tasks,
-    attendanceRecords,
-    weightages
-  );
+    const startDateStr = `${currentMonthStr}-01`;
+    const endDateStr = `${currentMonthStr}-${String(new Date(currentYear, currentMonth + 1, 0).getDate()).padStart(2, '0')}`;
+    
+    const effResult = calculateEfficiency(
+      employeeId,
+      employeeCode,
+      employeeData?.name || 'Employee',
+      employeeData?.department || employeeData?.office || 'Operations',
+      employeeData?.teamLeaderId || null,
+      startDateStr,
+      endDateStr,
+      tasks,
+      attendanceRecords,
+      weightages
+    );
+
+    return {
+      presentDaysCount: presentCount,
+      lateDaysCount: lateCount,
+      wfhDaysCount: wfhCount,
+      clientVisitDaysCount: clientVisitCount,
+      outdoorDaysCount: outdoorCount,
+      expectedWorkingDays: expectedDays,
+      actualAbsentDays: absentDays,
+      attendancePercentage: attPct,
+      assignedTasksCount: assignedTCount,
+      completedTasksCount: completedTCount,
+      totalApprovedAmount: totalApproved,
+      totalPendingAmount: totalPending,
+      totalExpenseAmount: totalExp,
+      efficiencyResult: effResult
+    };
+  }, [attendanceRecords, currentMonthStr, currentYear, currentMonth, allLeaves, myTasks, expenses, employeeId, employeeCode, employeeData, tasks, weightages]);
 
   return (
     <>

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { 
@@ -47,9 +47,11 @@ export const ExpenseScreen: React.FC = () => {
   const empName = employeeData?.name || 'Employee';
 
   // Expense Data for current employee
-  const expenses = realtimeExpenses.filter(
-    (r) => r.employeeCode === empCode || r.employeeId === empCode
-  );
+  const expenses = useMemo(() => {
+    return realtimeExpenses.filter(
+      (r) => r.employeeCode === empCode || r.employeeId === empCode
+    );
+  }, [realtimeExpenses, empCode]);
   
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('All');
@@ -195,23 +197,28 @@ export const ExpenseScreen: React.FC = () => {
   };
 
   // Calculate Totals
-  const totalSubmitted = expenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
-  const totalPending = expenses
-    .filter((e) => (e.status || '').toUpperCase() === 'PENDING')
-    .reduce((acc, curr) => acc + (curr.amount || 0), 0);
-  const totalApproved = expenses
-    .filter((e) => (e.status || '').toUpperCase() === 'APPROVED')
-    .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+  const { totalSubmitted, totalPending, totalApproved } = useMemo(() => {
+    const submitted = expenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    const pending = expenses
+      .filter((e) => (e.status || '').toUpperCase() === 'PENDING')
+      .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    const approved = expenses
+      .filter((e) => (e.status || '').toUpperCase() === 'APPROVED')
+      .reduce((acc, curr) => acc + (curr.amount || 0), 0);
+    return { totalSubmitted: submitted, totalPending: pending, totalApproved: approved };
+  }, [expenses]);
 
   // Filtered Expenses
-  const filteredExpenses = expenses.filter((e) => {
-    const rawStatus = (e.status || '').toUpperCase();
-    const filterUpper = statusFilter.toUpperCase();
-    const matchesStatus = filterUpper === 'ALL' || rawStatus === filterUpper;
-    const matchesCategory = categoryFilter === 'All' || e.category === categoryFilter;
-    const matchesDate = !dateFilter || e.date.includes(dateFilter);
-    return matchesStatus && matchesCategory && matchesDate;
-  });
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((e) => {
+      const rawStatus = (e.status || '').toUpperCase();
+      const filterUpper = statusFilter.toUpperCase();
+      const matchesStatus = filterUpper === 'ALL' || rawStatus === filterUpper;
+      const matchesCategory = categoryFilter === 'All' || e.category === categoryFilter;
+      const matchesDate = !dateFilter || e.date.includes(dateFilter);
+      return matchesStatus && matchesCategory && matchesDate;
+    });
+  }, [expenses, statusFilter, categoryFilter, dateFilter]);
 
   const getCategoryIcon = (cat: ExpenseCategory) => {
     switch (cat) {

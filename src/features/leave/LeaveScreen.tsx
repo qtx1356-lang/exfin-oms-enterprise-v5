@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { LeaveRecord, LeaveBalance, LeaveConfig, EmployeeAllowance } from '../../types/leave';
@@ -50,12 +50,17 @@ export const LeaveScreen: React.FC = () => {
 
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  // Leave Data
-  const config = getStoredLeaveConfig();
-  const allowances = getStoredEmployeeAllowances();
+  // Leave Data memoized
+  const config = useMemo(() => getStoredLeaveConfig(), []);
+  const allowances = useMemo(() => getStoredEmployeeAllowances(), []);
 
-  const leaves = realtimeLeaves.filter((l) => l.employeeId === empId || l.employeeCode === empCode);
-  const balance = calculateLeaveBalance(empId, empDept, leaves, config, allowances);
+  const leaves = useMemo(() => {
+    return realtimeLeaves.filter((l) => l.employeeId === empId || l.employeeCode === empCode);
+  }, [realtimeLeaves, empId, empCode]);
+
+  const balance = useMemo(() => {
+    return calculateLeaveBalance(empId, empDept, leaves, config, allowances);
+  }, [empId, empDept, leaves, config, allowances]);
 
   // Filter Status
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'>('ALL');
@@ -221,22 +226,25 @@ export const LeaveScreen: React.FC = () => {
   const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   // Construct calendar cells
-  const calendarCells = [];
-  // Empty slots for padding
-  for (let i = 0; i < firstDayIndex; i++) {
-    calendarCells.push(null);
-  }
-  // Days of month
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    calendarCells.push(dateStr);
-  }
+  const calendarCells = useMemo(() => {
+    const cells = [];
+    for (let i = 0; i < firstDayIndex; i++) {
+      cells.push(null);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      cells.push(dateStr);
+    }
+    return cells;
+  }, [firstDayIndex, daysInMonth, calendarYear, calendarMonth]);
 
   // Filter history leaves
-  const filteredLeaves = leaves.filter((l) => {
-    if (statusFilter === 'ALL') return true;
-    return l.status === statusFilter;
-  });
+  const filteredLeaves = useMemo(() => {
+    return leaves.filter((l) => {
+      if (statusFilter === 'ALL') return true;
+      return l.status === statusFilter;
+    });
+  }, [leaves, statusFilter]);
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {

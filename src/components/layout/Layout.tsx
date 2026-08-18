@@ -119,7 +119,9 @@ export const Layout: React.FC = () => {
     return null;
   }, [adminUser?.uid, employeeData?.id, employeeData?.employeeCode, employeeData?.isTeamLeader]);
 
-  const refreshNotificationCount = async () => {
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const refreshNotificationCount = React.useCallback(async () => {
     if (!currentUser) return;
     try {
       // 1. Get locally updated unread count (for immediate load)
@@ -152,36 +154,50 @@ export const Layout: React.FC = () => {
     } catch (err) {
       console.warn('Failed to refresh notification count:', err);
     }
-  };
+  }, [currentUser]);
+
+  const debouncedRefreshNotificationCount = React.useCallback(() => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+    refreshTimeoutRef.current = setTimeout(() => {
+      refreshNotificationCount();
+    }, 100);
+  }, [refreshNotificationCount]);
 
   const userKey = `${currentUser?.id}_${currentUser?.employeeCode}`;
 
   useEffect(() => {
     if (!currentUser) return;
     refreshNotificationCount();
-  }, [userKey]);
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, [userKey, refreshNotificationCount]);
 
   // Handle cross-screen real-time notification updates
   useEffect(() => {
     const handleUpdate = () => {
-      refreshNotificationCount();
+      debouncedRefreshNotificationCount();
     };
     window.addEventListener('exfin-notifications-updated', handleUpdate);
     return () => {
       window.removeEventListener('exfin-notifications-updated', handleUpdate);
     };
-  }, [currentUser?.employeeCode, currentUser?.id]);
+  }, [debouncedRefreshNotificationCount]);
 
   // Handle visibility change / app resume from background
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        refreshNotificationCount();
+        debouncedRefreshNotificationCount();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [currentUser?.employeeCode, currentUser?.id]);
+  }, [debouncedRefreshNotificationCount]);
 
   // Real-time Push Notification Engine Listener for current employee
   useEffect(() => {
