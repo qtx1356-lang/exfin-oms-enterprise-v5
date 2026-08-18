@@ -3,6 +3,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import { usePermission } from '../../context/PermissionContext';
 import { db } from '../../services/firebase/config';
 import { createNotification } from '../../services/notification/notificationService';
+import { sanitizeFirestorePayload } from '../../utils/firestoreUtils';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, where, getDocs, getDoc, limit } from 'firebase/firestore';
 import {
   LogOut,
@@ -789,7 +790,10 @@ export const AdminDashboard: React.FC = () => {
       const updatedCheckoutType = isProposedAutoCheckout ? 'AUTO_CHECKOUT' : (proposedOut ? 'MANUAL' : 'N/A');
       const updatedCheckoutMode = isProposedAutoCheckout ? 'AUTO_SYSTEM' : (proposedOut ? 'MANUAL' : 'N/A');
 
-      const updatePayload: Partial<AttendanceRecord> = {
+      // Determine existing status prior to correction from valid status fields
+      const existingPreviousStatus = currentRecordData.checkoutStatus || currentRecordData.currentState || currentRecordData.status;
+
+      const rawUpdatePayload: Record<string, any> = {
         checkInTime: proposedIn,
         checkOutTime: proposedOut ? proposedOut : null,
         workingHours: newWorkingHours,
@@ -800,13 +804,18 @@ export const AdminDashboard: React.FC = () => {
         checkoutResolvedBy: adminUser?.displayName || loginId || 'Admin',
         checkoutResolvedAt: new Date().toISOString(),
         resolutionSource: isProposedTimeMatches ? 'EMPLOYEE_PROPOSED' : 'ADMIN_CORRECTION',
-        previousStatus: currentRecordData.checkoutStatus || currentRecordData.status,
         status: proposedOut ? 'completed' : 'UNRESOLVED',
         manualRectified: true,
         isAdminRectified: true,
         updatedAt: new Date().toISOString(),
         version: ((currentRecordData as any)?.version || 1) + 1
       };
+
+      if (existingPreviousStatus !== undefined) {
+        rawUpdatePayload.previousStatus = existingPreviousStatus;
+      }
+
+      const updatePayload = sanitizeFirestorePayload(rawUpdatePayload);
 
       await updateDoc(targetDocRef, updatePayload);
 

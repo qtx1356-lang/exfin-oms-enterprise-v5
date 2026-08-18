@@ -25,21 +25,10 @@ import {
   logPerfSyncEvent
 } from '../monitoring/performanceDiagnostics';
 
-let isAttendanceSyncInProgress = false;
+import { sanitizeFirestorePayload } from '../../utils/firestoreUtils';
+export { sanitizeFirestorePayload };
 
-function sanitizeFirestorePayload<T extends Record<string, any>>(obj: T): T {
-  const clean: Record<string, any> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (value !== undefined) {
-      if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
-        clean[key] = sanitizeFirestorePayload(value);
-      } else {
-        clean[key] = value;
-      }
-    }
-  }
-  return clean as T;
-}
+let isAttendanceSyncInProgress = false;
 
 export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: number; errorsCount: number }> => {
   if (!navigator.onLine) {
