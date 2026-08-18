@@ -17,7 +17,7 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
   'Miscellaneous',
 ];
 
-export type ExpenseStatus = 'Pending' | 'Approved' | 'Rejected';
+export type ExpenseStatus = 'Pending' | 'Approved' | 'Rejected' | 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export type ExpenseSyncStatus = 'Pending Sync' | 'Synced' | 'Sync Failed';
 
@@ -38,6 +38,15 @@ export interface ExpenseRecord {
   receiptSize?: number | null;
   status: ExpenseStatus;
   rejectionReason?: string | null;
+  adminRemark?: string | null;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  approvedByName?: string | null;
+  rejectedAt?: string | null;
+  rejectedBy?: string | null;
+  rejectedByName?: string | null;
+  actionedAt?: string | null;
+  actionedBy?: string | null;
   syncStatus: ExpenseSyncStatus;
   createdAtDeviceTime: string;
   serverSyncTime?: string | null;

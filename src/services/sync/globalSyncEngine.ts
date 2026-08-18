@@ -126,6 +126,15 @@ export const syncAllPendingRecords = async (): Promise<{
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('exfin-sync-summary-updated'));
     }
+
+    if (totalErrors > 0 && navigator.onLine) {
+      console.log('Global Sync: Errors encountered, scheduling controlled background retry in 30 seconds...');
+      setTimeout(() => {
+        if (navigator.onLine && !isGlobalSyncInProgress()) {
+          syncAllPendingRecords();
+        }
+      }, 30000);
+    }
   }
 
   return { totalSynced, totalErrors };

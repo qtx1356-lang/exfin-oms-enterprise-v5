@@ -1638,18 +1638,6 @@ export const AttendanceScreen: React.FC = () => {
                   <option value="OUTDOOR">🚗 Outdoor Work</option>
                 </select>
               </div>
-
-              <div>
-                <select
-                  value={historySyncFilter}
-                  onChange={(e) => setHistorySyncFilter(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-purple-950/80 border border-purple-500/25 rounded-xl text-xs text-white focus:outline-none"
-                >
-                  <option value="ALL">All Sync States</option>
-                  <option value="Synced">Synced Only</option>
-                  <option value="Pending">Pending Sync</option>
-                </select>
-              </div>
             </div>
 
             {filteredHistoryRecords.length === 0 ? (
@@ -1693,14 +1681,6 @@ export const AttendanceScreen: React.FC = () => {
                             }
                             return null;
                           })()}
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                            rec.syncStatus === 'Synced' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                          }`}>
-                            {rec.syncStatus}
-                          </span>
                         </div>
                       </div>
 

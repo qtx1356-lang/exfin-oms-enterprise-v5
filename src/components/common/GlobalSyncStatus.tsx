@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { syncAllPendingRecords } from '../../services/sync/globalSyncEngine';
 import { getSyncSummary } from '../../services/sync/syncFailureService';
 import { SyncSummary } from '../../types/sync';
+import { useAdminAuth } from '../../context/AdminAuthContext';
 import {
   trackResourceCreated,
   trackResourceCleaned,
@@ -11,6 +12,7 @@ import {
 
 export const GlobalSyncStatus: React.FC = () => {
   const navigate = useNavigate();
+  const { user: adminUser } = useAdminAuth();
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [summary, setSummary] = useState<SyncSummary>(getSyncSummary());
@@ -78,6 +80,11 @@ export const GlobalSyncStatus: React.FC = () => {
   const handleGoToSyncCenter = () => {
     navigate('/sync-center');
   };
+
+  // Only show manual sync controls for Admin users.
+  if (!adminUser) {
+    return null;
+  }
 
   return (
     <div className="flex items-center gap-2">

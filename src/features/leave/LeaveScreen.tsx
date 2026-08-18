@@ -262,7 +262,7 @@ export const LeaveScreen: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Network & Sync Banner */}
+      {/* Connectivity Indicator */}
       <div className="flex items-center justify-between p-3.5 bg-[#25144A] rounded-2xl border border-purple-500/20">
         <div className="flex items-center gap-2">
           {isOnline ? (
@@ -271,24 +271,9 @@ export const LeaveScreen: React.FC = () => {
             </span>
           ) : (
             <span className="flex items-center gap-1.5 text-xs font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
-              <WifiOff className="w-3.5 h-3.5" /> Offline Mode (Saved locally)
+              <WifiOff className="w-3.5 h-3.5" /> Offline Mode
             </span>
           )}
-        </div>
-        <div className="flex items-center gap-2.5">
-          {leaves.some((l) => l.syncStatus === 'Pending Sync') && (
-            <span className="text-[10px] text-amber-300 font-extrabold uppercase animate-pulse">
-              Pending Sync
-            </span>
-          )}
-          <button
-            onClick={handleManualSync}
-            disabled={!isOnline || isSyncing}
-            className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition shadow-lg shadow-purple-900/30"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            Sync Now
-          </button>
         </div>
       </div>
 
@@ -765,9 +750,6 @@ export const LeaveScreen: React.FC = () => {
                       <span className="text-sm font-black text-purple-200">
                         {leave.totalDays} Day{leave.totalDays > 1 ? 's' : ''}
                       </span>
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${getSyncBadgeClass(leave.syncStatus)}`}>
-                        {leave.syncStatus}
-                      </span>
                     </div>
                   </div>
                 ))
@@ -870,7 +852,6 @@ export const LeaveScreen: React.FC = () => {
             {/* Sync Metadata */}
             <div className="flex justify-between items-center text-[10px] text-purple-300/40 px-1 pt-1">
               <span>Device Created: {new Date(selectedLeave.createdAtDeviceTime).toLocaleString()}</span>
-              <span>Sync: {selectedLeave.syncStatus}</span>
             </div>
 
             {/* Cancel Button */}

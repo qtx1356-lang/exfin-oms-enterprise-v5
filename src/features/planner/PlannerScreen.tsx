@@ -24,6 +24,7 @@ import {
   Clock, 
   CheckCircle2, 
   AlertCircle, 
+  Wifi,
   WifiOff, 
   RefreshCw, 
   MessageSquare, 
@@ -499,20 +500,11 @@ export const PlannerScreen: React.FC = () => {
         <div className="flex items-center gap-2">
           {!isOnline ? (
             <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-              <WifiOff className="w-3.5 h-3.5" /> OFFLINE
+              <WifiOff className="w-3.5 h-3.5" /> Offline Mode
             </span>
-          ) : pendingSyncCount > 0 ? (
-            <button 
-              onClick={handleTriggerSync}
-              disabled={isSyncing}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-200 border border-indigo-500/30 hover:bg-indigo-500/30 transition-all"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} /> 
-              {isSyncing ? 'Syncing...' : `${pendingSyncCount} Pending Sync`}
-            </button>
           ) : (
             <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Synced
+              <Wifi className="w-3.5 h-3.5" /> Online Mode
             </span>
           )}
         </div>

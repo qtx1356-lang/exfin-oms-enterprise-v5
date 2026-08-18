@@ -4,7 +4,6 @@ import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { 
   ExpenseRecord, 
   ExpenseCategory, 
-  ExpenseStatus, 
   EXPENSE_CATEGORIES 
 } from '../../types/expense';
 
@@ -21,13 +20,12 @@ import {
   Paperclip, 
   WifiOff, 
   Wifi, 
-  RefreshCw, 
-  CheckCircle2, 
+  AlertCircle,
+  CheckCircle2,
   XCircle, 
   Clock, 
   Eye, 
   X, 
-  ZoomIn, 
   Car, 
   Utensils, 
   Briefcase, 
@@ -37,19 +35,18 @@ import {
   MoreHorizontal,
   Calendar,
   IndianRupee,
-  Receipt
+  Receipt,
+  FileText
 } from 'lucide-react';
 
 export const ExpenseScreen: React.FC = () => {
   const { employeeData } = useRegistration();
-  const { expenses: realtimeExpenses, isOnline, syncState, updateExpenseOptimistically, triggerManualSync } = useRealtimeSync();
+  const { expenses: realtimeExpenses, isOnline, updateExpenseOptimistically } = useRealtimeSync();
 
   const empCode = employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN';
   const empName = employeeData?.name || 'Employee';
 
-  const [isSyncing, setIsSyncing] = useState<boolean>(false);
-
-  // Expense Data
+  // Expense Data for current employee
   const expenses = realtimeExpenses.filter(
     (r) => r.employeeCode === empCode || r.employeeId === empCode
   );
@@ -80,13 +77,6 @@ export const ExpenseScreen: React.FC = () => {
   const [zoomScale, setZoomScale] = useState<number>(1);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Handle Manual Sync
-  const handleTriggerSync = async () => {
-    setIsSyncing(true);
-    await triggerManualSync();
-    setIsSyncing(false);
-  };
 
   // Capture & Compress Image
   const handleReceiptCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,6 +122,7 @@ export const ExpenseScreen: React.FC = () => {
   // Submit Expense Form
   const handleSubmitExpense = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setFormError(null);
 
     const numAmount = parseFloat(amount);
@@ -168,7 +159,7 @@ export const ExpenseScreen: React.FC = () => {
         category,
         date,
         description: description.trim(),
-        receiptUrl: null, // Don't put Base64 in receiptUrl (saved for Storage download URL)
+        receiptUrl: null, // Saved for Storage download URL
         localReceiptData: receiptUrl || null, // Keep Base64 locally for preview & pending upload
         receiptFileName: receiptUrl ? `receipt_${expenseId}.jpg` : null,
         receiptContentType: receiptUrl ? 'image/jpeg' : null,
@@ -182,7 +173,7 @@ export const ExpenseScreen: React.FC = () => {
         gstAmount: scannedGstAmount,
       };
 
-      // Optimistically update central state and queue background sync
+      // Optimistically update central state and queue automatic background sync
       await updateExpenseOptimistically(newRecord);
 
       // Reset form & state
@@ -204,17 +195,19 @@ export const ExpenseScreen: React.FC = () => {
   };
 
   // Calculate Totals
-  const totalSubmitted = expenses.reduce((acc, curr) => acc + curr.amount, 0);
+  const totalSubmitted = expenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
   const totalPending = expenses
-    .filter((e) => e.status === 'Pending')
-    .reduce((acc, curr) => acc + curr.amount, 0);
+    .filter((e) => (e.status || '').toUpperCase() === 'PENDING')
+    .reduce((acc, curr) => acc + (curr.amount || 0), 0);
   const totalApproved = expenses
-    .filter((e) => e.status === 'Approved')
-    .reduce((acc, curr) => acc + curr.amount, 0);
+    .filter((e) => (e.status || '').toUpperCase() === 'APPROVED')
+    .reduce((acc, curr) => acc + (curr.amount || 0), 0);
 
   // Filtered Expenses
   const filteredExpenses = expenses.filter((e) => {
-    const matchesStatus = statusFilter === 'All' || e.status === statusFilter;
+    const rawStatus = (e.status || '').toUpperCase();
+    const filterUpper = statusFilter.toUpperCase();
+    const matchesStatus = filterUpper === 'ALL' || rawStatus === filterUpper;
     const matchesCategory = categoryFilter === 'All' || e.category === categoryFilter;
     const matchesDate = !dateFilter || e.date.includes(dateFilter);
     return matchesStatus && matchesCategory && matchesDate;
@@ -232,11 +225,9 @@ export const ExpenseScreen: React.FC = () => {
     }
   };
 
-  const pendingSyncCount = expenses.filter((e) => e.syncStatus === 'Pending Sync').length;
-
   return (
     <div className="flex flex-col gap-5 pb-12 text-white max-w-5xl mx-auto">
-      {/* Top Bar with Offline/Sync Indicator */}
+      {/* Top Bar with Clean Connectivity Indicator */}
       <div className="flex items-center justify-between pt-2 pb-2 border-b border-emerald-500/20">
         <div>
           <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
@@ -250,20 +241,11 @@ export const ExpenseScreen: React.FC = () => {
         <div className="flex items-center gap-2">
           {!isOnline ? (
             <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-              <WifiOff className="w-3.5 h-3.5" /> OFFLINE
+              <WifiOff className="w-3.5 h-3.5" /> Offline Mode
             </span>
-          ) : pendingSyncCount > 0 ? (
-            <button 
-              onClick={handleTriggerSync}
-              disabled={isSyncing}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} /> 
-              {isSyncing ? 'Syncing...' : `${pendingSyncCount} Pending Sync`}
-            </button>
           ) : (
             <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Synced
+              <Wifi className="w-3.5 h-3.5" /> Online Mode
             </span>
           )}
         </div>
@@ -382,6 +364,10 @@ export const ExpenseScreen: React.FC = () => {
         {filteredExpenses.length > 0 ? (
           filteredExpenses.map((expense) => {
             const CategoryIcon = getCategoryIcon(expense.category);
+            const statusUpper = (expense.status || 'PENDING').toUpperCase();
+            const isApproved = statusUpper === 'APPROVED';
+            const isRejected = statusUpper === 'REJECTED';
+            const isPending = !isApproved && !isRejected;
 
             return (
               <Card 
@@ -402,10 +388,10 @@ export const ExpenseScreen: React.FC = () => {
                               setPreviewReceipt((expense.receiptUrl || expense.localReceiptData)!);
                               setZoomScale(1);
                             }}
-                            className="p-1 rounded-md bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors"
+                            className="p-1 rounded-md bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors flex items-center gap-1 text-[11px] font-semibold"
                             title="View Attached Receipt"
                           >
-                            <Paperclip className="w-3.5 h-3.5" />
+                            <Paperclip className="w-3.5 h-3.5" /> Receipt
                           </button>
                         )}
                       </div>
@@ -416,28 +402,25 @@ export const ExpenseScreen: React.FC = () => {
                   </div>
 
                   <div className="text-right">
-                    <p className="text-base font-black text-white">
+                    <p className="text-base font-black text-white font-mono">
                       ₹{expense.amount.toLocaleString('en-IN')}
                     </p>
                     <div className="flex items-center justify-end gap-1.5 mt-1">
                       {/* Status Chip */}
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
-                        expense.status === 'Approved'
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border flex items-center gap-1 ${
+                        isApproved
                           ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                          : expense.status === 'Rejected'
+                          : isRejected
                           ? 'bg-red-500/20 text-red-300 border-red-500/30'
                           : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                       }`}>
-                        {expense.status}
-                      </span>
-
-                      {/* Sync Status Chip */}
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border ${
-                        expense.syncStatus === 'Synced'
-                          ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                          : 'bg-purple-500/20 text-purple-200 border-purple-500/30'
-                      }`}>
-                        {expense.syncStatus === 'Pending Sync' ? 'Saved Offline' : expense.syncStatus}
+                        {isApproved ? (
+                          <><CheckCircle2 className="w-3 h-3" /> Approved</>
+                        ) : isRejected ? (
+                          <><XCircle className="w-3 h-3" /> Rejected</>
+                        ) : (
+                          <><Clock className="w-3 h-3" /> Pending</>
+                        )}
                       </span>
                     </div>
                   </div>
@@ -448,10 +431,22 @@ export const ExpenseScreen: React.FC = () => {
                 </div>
 
                 {/* Rejection Reason Alert if Rejected */}
-                {expense.status === 'Rejected' && expense.rejectionReason && (
-                  <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-xs text-red-200">
-                    <span className="font-bold text-red-300">Rejected Reason: </span>
-                    {expense.rejectionReason}
+                {isRejected && expense.rejectionReason && (
+                  <div className="p-3 bg-red-500/15 border border-red-500/30 rounded-xl text-xs text-red-200 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-red-300">Rejection Reason: </span>
+                      <span>{expense.rejectionReason}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Approval Info */}
+                {isApproved && (expense.approvedByName || expense.actionedBy) && (
+                  <div className="text-[11px] text-emerald-300/70 flex items-center gap-1 px-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    Approved by {expense.approvedByName || expense.actionedBy}
+                    {expense.approvedAt && ` on ${new Date(expense.approvedAt).toLocaleDateString()}`}
                   </div>
                 )}
               </Card>
@@ -523,7 +518,7 @@ export const ExpenseScreen: React.FC = () => {
 
           <div className="space-y-1">
             <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
-              Description
+              <FileText className="w-3.5 h-3.5 text-[#A78BFA]" /> Description
             </label>
             <textarea
               value={description}
@@ -536,8 +531,19 @@ export const ExpenseScreen: React.FC = () => {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
-              <Camera className="w-3.5 h-3.5 text-[#A78BFA]" /> Receipt Image (Optional)
+            <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-[#A78BFA]" /> Attached Receipt
+              </span>
+              {receiptUrl && (
+                <button
+                  type="button"
+                  onClick={() => setIsScannerOpen(true)}
+                  className="text-[11px] text-purple-300 hover:text-purple-100 font-semibold"
+                >
+                  Retake Photo
+                </button>
+              )}
             </label>
             
             <input
@@ -549,22 +555,38 @@ export const ExpenseScreen: React.FC = () => {
             />
 
             {!receiptUrl ? (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full border-2 border-dashed border-purple-500/30 bg-[#211044]/60 hover:bg-[#211044] rounded-2xl p-4 flex items-center justify-center gap-2 text-xs font-semibold text-purple-200 transition-colors"
-              >
-                <Camera className="w-4 h-4 text-[#A78BFA]" /> Tap to attach camera or gallery receipt
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsScannerOpen(true)}
+                  className="border-2 border-dashed border-pink-500/40 bg-pink-500/10 hover:bg-pink-500/20 rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-xs font-semibold text-pink-200 transition-colors"
+                >
+                  <Camera className="w-5 h-5 text-pink-400" />
+                  <span>Scan via Camera</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-purple-500/30 bg-[#211044]/60 hover:bg-[#211044] rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-xs font-semibold text-purple-200 transition-colors"
+                >
+                  <Paperclip className="w-5 h-5 text-[#A78BFA]" />
+                  <span>Attach File</span>
+                </button>
+              </div>
             ) : (
-              <div className="relative rounded-2xl overflow-hidden border border-purple-500/30 h-32 bg-black/40">
+              <div className="relative rounded-2xl overflow-hidden border border-emerald-500/40 h-36 bg-black/60 flex items-center justify-center">
                 <img src={receiptUrl} alt="Receipt Preview" className="w-full h-full object-contain" />
+                <div className="absolute top-2 left-2 bg-emerald-500/90 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow">
+                  Receipt Attached
+                </div>
                 <button
                   type="button"
                   onClick={() => setReceiptUrl(null)}
-                  className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                  className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                  title="Remove Receipt"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             )}
@@ -591,7 +613,7 @@ export const ExpenseScreen: React.FC = () => {
               disabled={isSubmitting} 
               className="flex-1 py-3 bg-[#7C3AED] hover:bg-[#6D28D9] font-bold rounded-2xl"
             >
-              {isSubmitting ? 'Saving Claim...' : 'Submit Claim'}
+              {isSubmitting ? 'Submitting Claim...' : 'Submit Claim'}
             </Button>
           </div>
         </form>
@@ -602,14 +624,14 @@ export const ExpenseScreen: React.FC = () => {
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
         existingExpenses={expenses}
-        onConfirm={({ amount, category, date, merchant, receiptNumber, gstAmount, localReceiptData }) => {
-          setAmount(String(amount));
-          setCategory(category);
-          setDate(date);
-          setScannedMerchant(merchant);
-          setScannedReceiptNum(receiptNumber);
-          setScannedGstAmount(gstAmount);
-          setReceiptUrl(localReceiptData);
+        onConfirm={({ amount: scanAmt, category: scanCat, date: scanDate, merchant, receiptNumber, gstAmount, localReceiptData }) => {
+          if (scanAmt > 0) setAmount(String(scanAmt));
+          if (scanCat) setCategory(scanCat);
+          if (scanDate) setDate(scanDate);
+          if (merchant) setScannedMerchant(merchant);
+          if (receiptNumber) setScannedReceiptNum(receiptNumber);
+          if (gstAmount) setScannedGstAmount(gstAmount);
+          if (localReceiptData) setReceiptUrl(localReceiptData);
           setIsScannerOpen(false);
           setIsModalOpen(true);
         }}
@@ -658,3 +680,4 @@ export const ExpenseScreen: React.FC = () => {
     </div>
   );
 };
+
