@@ -28,6 +28,7 @@ import {
   Circle,
   Clock,
   Settings,
+  MessageSquare,
 } from 'lucide-react';
 import { NotificationSettingsCard } from '../../components/common/NotificationSettingsCard';
 
@@ -138,6 +139,12 @@ export const NotificationCenter: React.FC = () => {
       // Navigate to correct module deep-link if route is configured
       if (notif.route) {
         navigate(notif.route);
+      } else if (
+        notif.category === 'CHAT' ||
+        notif.entityType === 'CHAT' ||
+        (typeof notif.type === 'string' && notif.type.startsWith('CHAT_'))
+      ) {
+        navigate(notif.entityId ? `/chat?convId=${notif.entityId}` : '/chat');
       } else {
         // Fallback mapping based on category or type
         switch (notif.category) {
@@ -206,6 +213,8 @@ export const NotificationCenter: React.FC = () => {
         return <Smartphone className="w-4 h-4 text-purple-400" />;
       case 'EFFICIENCY':
         return <TrendingUp className="w-4 h-4 text-pink-400" />;
+      case 'CHAT':
+        return <MessageSquare className="w-4 h-4 text-purple-400" />;
       default:
         return <Info className="w-4 h-4 text-cyan-400" />;
     }
@@ -314,6 +323,7 @@ export const NotificationCenter: React.FC = () => {
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
             {[
               { key: 'ALL', label: 'All Modules' },
+              { key: 'CHAT', label: 'Chat & Messages' },
               { key: 'ATTENDANCE', label: 'Attendance' },
               { key: 'PLANNER', label: 'Planner' },
               { key: 'LEAVE', label: 'Leave' },

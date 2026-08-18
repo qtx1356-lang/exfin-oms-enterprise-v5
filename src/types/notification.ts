@@ -32,6 +32,12 @@ export type NotificationType =
   | 'DEVICE_REJECTED'
   | 'DEVICE_REVISION_REQUIRED'
   | 'EFFICIENCY_UPDATED'
+  | 'CHAT_MESSAGE'
+  | 'CHAT_DIRECT_MESSAGE'
+  | 'CHAT_GROUP_MESSAGE'
+  | 'CHAT_ADMIN_MESSAGE'
+  | 'CHAT_BROADCAST_MESSAGE'
+  | 'CHAT_ALERT'
   | 'SYSTEM_ALERT';
 
 export type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
@@ -46,6 +52,7 @@ export type NotificationCategory =
   | 'TEAM'
   | 'ACCOUNT'
   | 'ADMINISTRATIVE'
+  | 'CHAT'
   | 'SYSTEM';
 
 export type NotificationRecipientType = 'EMPLOYEE' | 'TEAM_LEADER' | 'ADMIN' | 'SUPER_ADMIN' | 'SYSTEM';

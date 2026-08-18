@@ -15,6 +15,8 @@ import {
 } from 'firebase/firestore';
 import { db, auth, storage } from '../firebase/config';
 import { ChatConversation, ChatMessage, ChatType, ChatAttachment } from '../../types/chat';
+import { NotificationRecord } from '../../types/notification';
+import { markChatNotificationsRead } from '../notification/notificationService';
 import { ref, uploadBytesResumable, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signInAnonymously } from 'firebase/auth';
 
@@ -502,6 +504,99 @@ export async function sendMessage(
       updatedAt: timestampStr
     });
 
+    // 5. Create notifications for all recipients (Identity Isolated)
+    try {
+      const recipientIds = new Set<string>();
+      if (convData.type === 'ALL_EMPLOYEES') {
+        if (convData.participantIds && convData.participantIds.length > 1) {
+          convData.participantIds.forEach(pid => {
+            if (pid !== senderId) recipientIds.add(pid);
+          });
+        } else {
+          try {
+            const regSnap = await getDocs(collection(db, 'registrations'));
+            regSnap.forEach(d => {
+              const data = d.data();
+              const code = data.employeeCode || d.id;
+              if (code && code !== senderId && data.status === 'APPROVED') {
+                recipientIds.add(code);
+              }
+            });
+          } catch (e) {
+            console.warn('Failed to resolve all employees for broadcast notification:', e);
+          }
+        }
+      } else {
+        convData.participantIds.forEach(pid => {
+          if (pid !== senderId) {
+            recipientIds.add(pid);
+          }
+        });
+      }
+
+      const notifType =
+        convData.type === 'ALL_EMPLOYEES'
+          ? 'CHAT_BROADCAST_MESSAGE'
+          : convData.type === 'GROUP'
+          ? 'CHAT_GROUP_MESSAGE'
+          : senderRole === 'ADMIN' || senderRole === 'HR'
+          ? 'CHAT_ADMIN_MESSAGE'
+          : 'CHAT_DIRECT_MESSAGE';
+
+      const notifTitle =
+        convData.type === 'ALL_EMPLOYEES'
+          ? `📢 Broadcast: ${convData.title || 'All Staff'}`
+          : convData.type === 'GROUP'
+          ? `💬 ${convData.title || 'Group'}: ${senderName}`
+          : `💬 Message from ${senderName}`;
+
+      const notifPriority =
+        senderRole === 'ADMIN' || senderRole === 'HR' ? 'HIGH' : 'NORMAL';
+
+      for (const recipientCode of Array.from(recipientIds)) {
+        const notifId = `notif_chat_${messageId}_${recipientCode}`.replace(/[^a-zA-Z0-9_]/g, '_');
+        const idempotencyKey = `chat_${messageId}_${recipientCode}`.replace(/[^a-zA-Z0-9_]/g, '_');
+
+        const notifRecord: NotificationRecord = {
+          id: notifId,
+          notificationId: notifId,
+          type: notifType,
+          category: 'CHAT',
+          title: notifTitle,
+          message: lastMsgContent,
+          recipientUserId: recipientCode,
+          recipientEmployeeCode: recipientCode,
+          recipientRole: 'EMPLOYEE',
+          priority: notifPriority,
+          route: `/chat?convId=${conversationId}`,
+          entityId: conversationId,
+          relatedRecordId: messageId,
+          entityType: 'CHAT',
+          read: false,
+          isRead: false,
+          timestamp: timestampStr,
+          createdAtDeviceTime: timestampStr,
+          updatedAtDeviceTime: timestampStr,
+          serverSyncTime: timestampStr,
+          syncStatus: 'SYNCED',
+          channels: ['IN_APP', 'PUSH'],
+          inAppStatus: 'DELIVERED',
+          emailStatus: 'NOT_REQUIRED',
+          smsStatus: 'NOT_REQUIRED',
+          pushStatus: 'SENT',
+          source: 'CHAT',
+          idempotencyKey,
+        };
+
+        // Write notification to Firestore
+        setDoc(doc(db, 'notifications', notifId), notifRecord).catch(err => {
+          console.warn(`Failed to write chat notification for ${recipientCode}:`, err);
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Non-blocking chat notification creation error:', notifErr);
+    }
+
     return messageId;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, messagePath);
@@ -590,10 +685,15 @@ export function listenMessages(
   }
 }
 
-// Mark a conversation as read (resets unreadCount for the participant)
+// Mark a conversation as read (resets unreadCount for the participant and clears unread chat notifications)
 export async function markAsRead(conversationId: string, participantId: string): Promise<void> {
   const path = `chat_conversations/${conversationId}`;
   try {
+    // Clear chat notifications from notification bell
+    markChatNotificationsRead(conversationId, participantId).catch(err => {
+      console.warn('Failed to mark chat notifications read:', err);
+    });
+
     const docRef = doc(db, 'chat_conversations', conversationId);
     const snap = await getDoc(docRef);
     if (!snap.exists()) return;

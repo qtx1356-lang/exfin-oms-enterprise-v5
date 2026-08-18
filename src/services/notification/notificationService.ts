@@ -368,6 +368,77 @@ export const getNotificationsForUser = async (user: {
 };
 
 /**
+ * Mark all notifications for a specific chat conversation as read for the user
+ */
+export const markChatNotificationsRead = async (
+  conversationId: string,
+  userCodeOrId: string
+): Promise<void> => {
+  if (!conversationId || !userCodeOrId) return;
+
+  const nowIso = new Date().toISOString();
+  const local = getStoredNotifications();
+  let updatedAny = false;
+  const toSyncIds: string[] = [];
+
+  local.forEach((n) => {
+    if (n.deleted || isNotificationDeletedLocally(n.id)) return;
+    const isTargetUser =
+      n.recipientEmployeeCode === userCodeOrId ||
+      n.recipientUserId === userCodeOrId ||
+      (userCodeOrId === 'ADMIN' && n.recipientRole === 'ADMIN');
+    const isTargetConv =
+      n.entityId === conversationId ||
+      (n.route && n.route.includes(conversationId)) ||
+      (n.relatedRecordId && n.relatedRecordId.includes(conversationId));
+    const isChatType =
+      n.category === 'CHAT' ||
+      (typeof n.type === 'string' && n.type.startsWith('CHAT_')) ||
+      n.entityType === 'CHAT';
+
+    if (!n.read && isTargetUser && isChatType && isTargetConv) {
+      n.read = true;
+      n.isRead = true;
+      n.updatedAtDeviceTime = nowIso;
+      n.syncStatus = 'PENDING';
+      updatedAny = true;
+      toSyncIds.push(n.id);
+    }
+  });
+
+  if (updatedAny) {
+    saveMultipleNotificationsLocally(local);
+    dispatchNotificationsUpdated();
+  }
+
+  if (isOnline() && toSyncIds.length > 0) {
+    try {
+      const batch = writeBatch(db);
+      toSyncIds.forEach((id) => {
+        const ref = doc(db, 'notifications', id);
+        batch.set(
+          ref,
+          {
+            read: true,
+            isRead: true,
+            updatedAtDeviceTime: nowIso,
+            syncStatus: 'SYNCED',
+            serverSyncTime: nowIso,
+          },
+          { merge: true }
+        );
+      });
+      await batch.commit();
+      toSyncIds.forEach((id) => {
+        markNotificationSyncedLocally(id, nowIso);
+      });
+    } catch (err) {
+      console.warn('Failed to sync mark-read for chat notifications:', err);
+    }
+  }
+};
+
+/**
  * Mark a single notification as read
  */
 export const markNotificationRead = async (id: string): Promise<void> => {

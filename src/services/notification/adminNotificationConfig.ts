@@ -135,6 +135,25 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     sms: false,
     push: true,
   },
+  {
+    eventType: 'CHAT_MESSAGE',
+    label: 'Chat Message & Discussion Alert',
+    category: 'CHAT',
+    inApp: true,
+    email: false,
+    sms: false,
+    push: true,
+  },
+  {
+    eventType: 'CHAT_ADMIN_MESSAGE',
+    label: 'Admin Chat & Broadcast Alert',
+    category: 'CHAT',
+    inApp: true,
+    email: true,
+    sms: false,
+    push: true,
+    isMandatory: true,
+  },
 ];
 
 const CONFIG_DOC_PATH = 'notification_settings/admin_matrix_config';

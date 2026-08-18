@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
-import { Bell, ChevronRight, CheckCheck, Info, User, Home, MapPin, Trash2, HelpCircle } from 'lucide-react';
+import { Bell, ChevronRight, CheckCheck, Info, User, Home, MapPin, Trash2, HelpCircle, MessageSquare } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useLocationContext } from '../../context/LocationContext';
@@ -279,6 +279,12 @@ export const Layout: React.FC = () => {
       
       if (notif.route) {
         navigate(notif.route);
+      } else if (
+        notif.category === 'CHAT' ||
+        notif.entityType === 'CHAT' ||
+        (typeof notif.type === 'string' && notif.type.startsWith('CHAT_'))
+      ) {
+        navigate(notif.entityId ? `/chat?convId=${notif.entityId}` : '/chat');
       } else {
         // Fallback category mapping
         switch (notif.category) {
@@ -435,7 +441,11 @@ export const Layout: React.FC = () => {
                               }`}
                             >
                               <div className="mt-1">
-                                <Info className={`w-4 h-4 ${notif.read ? 'text-slate-400' : 'text-purple-400'}`} />
+                                {notif.category === 'CHAT' || (typeof notif.type === 'string' && notif.type.startsWith('CHAT_')) ? (
+                                  <MessageSquare className={`w-4 h-4 ${notif.read ? 'text-slate-400' : 'text-purple-400'}`} />
+                                ) : (
+                                  <Info className={`w-4 h-4 ${notif.read ? 'text-slate-400' : 'text-purple-400'}`} />
+                                )}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className={`text-xs font-bold ${notif.read ? 'text-slate-300' : 'text-white'}`}>

@@ -18,6 +18,7 @@ import {
   Loader2,
   Info,
   XCircle,
+  MessageSquare,
 } from 'lucide-react';
 import {
   getNotificationSettings,
@@ -446,6 +447,19 @@ export const NotificationSettingsCard: React.FC = () => {
               type="checkbox"
               checked={settings.attendanceNotifs}
               onChange={() => handleToggle('attendanceNotifs')}
+              className="accent-purple-500 w-4 h-4 rounded cursor-pointer"
+            />
+          </div>
+
+          <div className="flex items-center justify-between bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-3.5 h-3.5 text-purple-400" />
+              <span className="font-bold text-white">Chat & Messages</span>
+            </div>
+            <input
+              type="checkbox"
+              checked={settings.chatNotifs}
+              onChange={() => handleToggle('chatNotifs')}
               className="accent-purple-500 w-4 h-4 rounded cursor-pointer"
             />
           </div>

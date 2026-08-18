@@ -253,6 +253,8 @@ export const isCategoryEnabled = (category?: string): boolean => {
       return settings.leaveNotifs;
     case 'ATTENDANCE':
       return settings.attendanceNotifs;
+    case 'CHAT':
+      return settings.chatNotifs !== false;
     default:
       return settings.teamNotifs;
   }

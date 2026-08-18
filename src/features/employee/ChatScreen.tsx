@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useRegistration } from '../../context/RegistrationContext';
 import { db, storage } from '../../services/firebase/config';
-import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import {
   MessageSquare,
   Send,
@@ -175,6 +175,8 @@ const pendingFilesMap = new Map<string, {
 export const ChatScreen: React.FC = () => {
   const { employeeData } = useRegistration();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Core State
@@ -334,6 +336,30 @@ export const ChatScreen: React.FC = () => {
     });
     return () => unsub();
   }, [currentUserCode]);
+
+  // Deep-link auto-selection from Notification / URL param (?convId=...)
+  useEffect(() => {
+    const targetConvId = searchParams.get('convId') || searchParams.get('id') || (location.state as any)?.conversationId;
+    if (!targetConvId || !currentUserCode) return;
+
+    // Check if already in conversations
+    const matched = conversations.find((c) => c.id === targetConvId);
+    if (matched) {
+      setActiveConv(matched);
+      markAsRead(matched.id, currentUserCode).catch(console.error);
+    } else if (db) {
+      // Fetch directly if not in list yet
+      getDoc(doc(db, 'chat_conversations', targetConvId))
+        .then((snap) => {
+          if (snap.exists()) {
+            const data = { id: snap.id, ...snap.data() } as ChatConversation;
+            setActiveConv(data);
+            markAsRead(data.id, currentUserCode).catch(console.error);
+          }
+        })
+        .catch((err) => console.warn('Failed to load deep-linked chat conversation:', err));
+    }
+  }, [searchParams, location.state, conversations, currentUserCode]);
 
   // Listen to active conversation messages
   useEffect(() => {
