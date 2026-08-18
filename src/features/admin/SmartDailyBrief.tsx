@@ -153,9 +153,10 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
   // --- DERIVE THE AUTHORITATIVE TODAY STATES ---
   const activeEmployees = useMemo(() => {
     const safeRegs = Array.isArray(registrations) ? registrations : [];
-    const approved = safeRegs.filter(emp => emp && emp.status === 'Approved');
+    // Filter for approved employees only, excluding pending/rejected/suspended/deleted
+    const approved = safeRegs.filter(emp => emp && emp.status === 'Approved' && (emp as any).isDeleted !== true);
 
-    // Deduplicate by employeeCode (or id) to ensure 1 authoritative entry per employee
+    // Deduplicate by employeeCode (or id) to ensure exactly 1 authoritative entry per employee
     const seenCodes = new Set<string>();
     const uniqueApproved: typeof approved = [];
 
@@ -205,37 +206,67 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
         todayDateStr <= req.endDate
       );
 
-      let status: 'Present' | 'On Leave' | 'Not Checked In' = 'Not Checked In';
-      let mode: 'Office' | 'WFH' | 'Client Visit' | 'Outdoor Work' | 'Leave' | 'Sunday/Holiday' | 'Not Checked In' = 'Not Checked In';
+      // MUTUALLY EXCLUSIVE PRIMARY DAILY STATUS
+      // Priority order:
+      // 1. PRESENT (Office Present Today)
+      // 2. REMOTE (WFH / Client Visit / Outdoor Work)
+      // 3. ON LEAVE (Approved leave today)
+      // 4. NOT CHECKED IN / ABSENT (Remaining expected staff)
+      let primaryStatus: 'PRESENT' | 'REMOTE' | 'ON_LEAVE' | 'NOT_CHECKED_IN' = 'NOT_CHECKED_IN';
+      let todayMode: 'Office' | 'WFH' | 'Client Visit' | 'Outdoor Work' | 'Leave' | 'Sunday/Holiday' | 'Not Checked In' = 'Not Checked In';
+      let remoteSubType: 'WFH' | 'CLIENT_VISIT' | 'OUTDOOR' | null = null;
       let isLate = false;
+      let isActiveCheckedIn = false;
 
       if (todayRecord && hasActualCheckIn(todayRecord)) {
-        status = 'Present';
         const type = (todayRecord.attendanceType || 'OFFICE').toUpperCase();
-        if (type === 'WFH') mode = 'WFH';
-        else if (type === 'CLIENT_VISIT') mode = 'Client Visit';
-        else if (type === 'OUTDOOR') mode = 'Outdoor Work';
-        else mode = 'Office';
+        if (type === 'WFH' || type === 'CLIENT_VISIT' || type === 'OUTDOOR') {
+          primaryStatus = 'REMOTE';
+          if (type === 'WFH') {
+            todayMode = 'WFH';
+            remoteSubType = 'WFH';
+          } else if (type === 'CLIENT_VISIT') {
+            todayMode = 'Client Visit';
+            remoteSubType = 'CLIENT_VISIT';
+          } else {
+            todayMode = 'Outdoor Work';
+            remoteSubType = 'OUTDOOR';
+          }
+        } else {
+          primaryStatus = 'PRESENT';
+          todayMode = 'Office';
+        }
+
+        // Check if currently active checked in (has actual check-in and checkout not done)
+        const checkOutVal = (todayRecord.checkOutTime || '').trim();
+        const isCheckOutDone = checkOutVal && 
+                               checkOutVal !== '--:--' && 
+                               checkOutVal !== '--:-- --' && 
+                               checkOutVal !== 'Pending' && 
+                               checkOutVal !== 'N/A';
+        if (!isCheckOutDone) {
+          isActiveCheckedIn = true;
+        }
 
         if (todayRecord.checkInTime && isSalaryLateCheckIn(todayRecord.checkInTime)) {
           isLate = true;
         }
       } else if (todayApprovedLeave) {
-        status = 'On Leave';
-        mode = 'Leave';
-      } else if (isTodaySunday) {
-        status = 'Not Checked In';
-        mode = 'Sunday/Holiday';
+        primaryStatus = 'ON_LEAVE';
+        todayMode = 'Leave';
       } else {
-        status = 'Not Checked In';
-        mode = 'Not Checked In';
+        primaryStatus = 'NOT_CHECKED_IN';
+        todayMode = isTodaySunday ? 'Sunday/Holiday' : 'Not Checked In';
       }
 
       return {
         ...emp,
-        todayStatus: status,
-        todayMode: mode,
+        primaryStatus,
+        todayStatus: primaryStatus === 'ON_LEAVE' ? 'On Leave' : (primaryStatus === 'PRESENT' || primaryStatus === 'REMOTE') ? 'Present' : 'Not Checked In',
+        todayMode,
+        remoteSubType,
         isLate,
+        isActiveCheckedIn,
         todayRecord,
         yesterdayRecord,
         todayApprovedLeave
@@ -253,22 +284,23 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
     });
   }, [rawWorkforceList, role, authorizedOffice]);
 
-  // Today metrics summary - Authoritative Expected Staff / Present Today / Not Checked In Calculation
+  // Today metrics summary - Authoritative Mutually Exclusive Staff Breakdown
   const todaySummary = useMemo(() => {
     const expectedStaff = securityFilteredWorkforce.length;
-    const presentUniqueEmployeeCodes = new Set<string>();
 
+    let presentOffice = 0;
+    let remoteTotal = 0;
     let wfh = 0;
     let client = 0;
     let outdoor = 0;
+    let onLeave = 0;
+    let notCheckedIn = 0;
+    let activeCheckedIn = 0;
     let late = 0;
-    let approvedLeave = 0;
     let recordsToday = 0;
     let recordsWithActualCheckIn = 0;
 
     securityFilteredWorkforce.forEach(emp => {
-      const codeKey = (emp.employeeCode || emp.id || '').trim();
-
       if (emp.todayRecord) {
         recordsToday++;
         if (hasActualCheckIn(emp.todayRecord)) {
@@ -276,57 +308,90 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
         }
       }
 
-      if (emp.todayApprovedLeave) {
-        approvedLeave++;
-      }
-
-      if (emp.todayStatus === 'Present' && emp.todayRecord && hasActualCheckIn(emp.todayRecord)) {
-        if (codeKey) {
-          presentUniqueEmployeeCodes.add(codeKey);
-        }
-        if (emp.todayMode === 'WFH') wfh++;
-        else if (emp.todayMode === 'Client Visit') client++;
-        else if (emp.todayMode === 'Outdoor Work') outdoor++;
-      }
-
       if (emp.isLate) {
         late++;
       }
+
+      if (emp.isActiveCheckedIn) {
+        activeCheckedIn++;
+      }
+
+      // Mutually exclusive category assignment
+      switch (emp.primaryStatus) {
+        case 'PRESENT':
+          presentOffice++;
+          break;
+        case 'REMOTE':
+          remoteTotal++;
+          if (emp.remoteSubType === 'WFH') wfh++;
+          else if (emp.remoteSubType === 'CLIENT_VISIT') client++;
+          else if (emp.remoteSubType === 'OUTDOOR') outdoor++;
+          break;
+        case 'ON_LEAVE':
+          onLeave++;
+          break;
+        case 'NOT_CHECKED_IN':
+        default:
+          notCheckedIn++;
+          break;
+      }
     });
 
-    const presentToday = presentUniqueEmployeeCodes.size;
-    // notCheckedIn = expectedStaff - physicalPresentCount - employeesOnApprovedLeave
-    const notCheckedIn = Math.max(0, expectedStaff - presentToday - approvedLeave);
-    const rate = expectedStaff > 0 ? Math.round((presentToday / expectedStaff) * 100) : 0;
+    const totalPresentWorking = presentOffice + remoteTotal;
+    const rate = expectedStaff > 0 ? Math.round((totalPresentWorking / expectedStaff) * 100) : 0;
+    const isReconciled = expectedStaff === (presentOffice + remoteTotal + onLeave + notCheckedIn);
+
+    // Subtle internal admin reconciliation validation
+    if (!isReconciled && typeof window !== 'undefined') {
+      console.warn('[STAFF RECONCILIATION MISMATCH]', {
+        todayDateStr,
+        expectedStaff,
+        sum: presentOffice + remoteTotal + onLeave + notCheckedIn,
+        breakdown: { presentOffice, remoteTotal, onLeave, notCheckedIn },
+        activeCheckedIn
+      });
+    }
 
     // Diagnostic logging as requested by specification:
-    // [ADMIN TODAY PRESENCE]
+    // [ADMIN TODAY PRESENCE RECONCILIATION]
     if (typeof window !== 'undefined') {
-      console.log('[ADMIN TODAY PRESENCE]', {
+      console.log('[ADMIN TODAY PRESENCE RECONCILIATION]', {
         todayDateStr,
         expectedStaff,
         recordsToday,
         recordsWithActualCheckIn,
-        physicalPresentEmployees: presentToday,
+        presentOffice,
+        remoteTotal,
         wfh,
         client,
         outdoor,
-        approvedLeave,
-        notCheckedIn
+        onLeave,
+        notCheckedIn,
+        activeCheckedIn,
+        totalPresentWorking,
+        isReconciled,
+        rate: `${rate}%`
       });
     }
 
     return {
       total: expectedStaff,
-      present: presentToday,
+      expectedStaff,
+      present: presentOffice,
+      presentOffice,
+      remote: remoteTotal,
       wfh,
       client,
       outdoor,
-      late,
-      approvedLeave,
+      onLeave,
+      approvedLeave: onLeave,
       notCheckedIn,
       absent: notCheckedIn,
-      rate
+      activeCheckedIn,
+      totalPresentWorking,
+      late,
+      rate,
+      isReconciled
     };
   }, [securityFilteredWorkforce, todayDateStr]);
 
@@ -597,69 +662,115 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
         </div>
       </div>
 
-      {/* CORE STATS GRID */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Expected */}
-        <div className="p-4 bg-[#23154C] border border-purple-500/20 rounded-xl flex flex-col justify-between space-y-3">
+      {/* RECONCILIATION MISMATCH WARNING BANNER (ADMIN ONLY) */}
+      {!todaySummary.isReconciled && (
+        <div className="p-3.5 bg-rose-500/15 border border-rose-500/30 rounded-xl flex items-center justify-between gap-3 text-xs text-rose-300">
+          <div className="flex items-center gap-2 font-medium">
+            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 animate-bounce" />
+            <span>Staff count reconciliation issue — please refresh.</span>
+          </div>
+          <button 
+            onClick={handleRefresh}
+            className="px-3 py-1 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 rounded-lg text-[11px] font-bold text-white transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
+      )}
+
+      {/* CORE STATS GRID (Reconciles Expected Staff = Present Today + Remote + On Leave + Not Checked In) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3.5">
+        {/* 1. Expected Staff */}
+        <div className="p-3.5 bg-[#23154C] border border-purple-500/20 rounded-xl flex flex-col justify-between space-y-2">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] text-purple-300/80 font-bold uppercase tracking-wider">Expected Staff</span>
+            <span className="text-[10px] text-purple-300/80 font-black uppercase tracking-wider">Expected Staff</span>
             <div className="p-1.5 bg-purple-500/10 rounded-lg text-purple-300">
-              <Users className="w-4 h-4" />
+              <Users className="w-3.5 h-3.5" />
             </div>
           </div>
           <div>
-            <div className="text-2xl font-black text-white">{todaySummary.total}</div>
-            <div className="text-[10px] text-purple-300/50">Approved Registrations</div>
+            <div className="text-2xl font-black text-white">{todaySummary.expectedStaff}</div>
+            <div className="text-[10px] text-purple-300/50">Approved Workforce</div>
           </div>
         </div>
 
-        {/* Present */}
-        <div className="p-4 bg-[#23154C] border border-purple-500/20 rounded-xl flex flex-col justify-between space-y-3">
+        {/* 2. Present Today (Office On-Site) */}
+        <div className="p-3.5 bg-[#23154C] border border-purple-500/20 rounded-xl flex flex-col justify-between space-y-2">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] text-purple-300/80 font-bold uppercase tracking-wider">Present Today</span>
+            <span className="text-[10px] text-emerald-400/90 font-black uppercase tracking-wider">Present Today</span>
             <div className="p-1.5 bg-emerald-500/10 rounded-lg text-emerald-300">
-              <UserCheck className="w-4 h-4" />
+              <UserCheck className="w-3.5 h-3.5" />
             </div>
           </div>
           <div>
-            <div className="text-2xl font-black text-emerald-400">{todaySummary.present}</div>
-            <div className="text-[10px] text-purple-300/50">Active Checked In</div>
+            <div className="text-2xl font-black text-emerald-400">{todaySummary.presentOffice}</div>
+            <div className="text-[10px] text-purple-300/50">Office On-Site</div>
           </div>
         </div>
 
-        {/* Remote (WFH) */}
-        <div className="p-4 bg-[#23154C] border border-purple-500/20 rounded-xl flex flex-col justify-between space-y-3">
+        {/* 3. Active Checked In (In Session) */}
+        <div className="p-3.5 bg-[#23154C] border border-purple-500/20 rounded-xl flex flex-col justify-between space-y-2">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] text-purple-300/80 font-bold uppercase tracking-wider">Remote (WFH)</span>
+            <span className="text-[10px] text-teal-400/90 font-black uppercase tracking-wider">Active Checked In</span>
+            <div className="p-1.5 bg-teal-500/10 rounded-lg text-teal-300">
+              <Activity className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl font-black text-teal-300">{todaySummary.activeCheckedIn}</div>
+            <div className="text-[10px] text-purple-300/50">Currently In Session</div>
+          </div>
+        </div>
+
+        {/* 4. Remote (WFH / Client Visit / Outdoor) */}
+        <div className="p-3.5 bg-[#23154C] border border-purple-500/20 rounded-xl flex flex-col justify-between space-y-2">
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] text-blue-400/90 font-black uppercase tracking-wider">Remote (WFH)</span>
             <div className="p-1.5 bg-blue-500/10 rounded-lg text-blue-300">
-              <Activity className="w-4 h-4" />
+              <Activity className="w-3.5 h-3.5" />
             </div>
           </div>
           <div>
-            <div className="text-2xl font-black text-blue-300">{todaySummary.wfh}</div>
-            <div className="text-[10px] text-purple-300/50">Working Remotely</div>
+            <div className="text-2xl font-black text-blue-300">{todaySummary.remote}</div>
+            <div className="text-[10px] text-purple-300/50 truncate" title={`WFH: ${todaySummary.wfh} • Client: ${todaySummary.client} • Outdoor: ${todaySummary.outdoor}`}>
+              {todaySummary.remote > 0 ? `WFH: ${todaySummary.wfh} • Client: ${todaySummary.client} • Out: ${todaySummary.outdoor}` : 'WFH & Field Work'}
+            </div>
           </div>
         </div>
 
-        {/* Not Checked In */}
-        <div className="p-4 bg-[#23154C] border border-purple-500/20 rounded-xl flex flex-col justify-between space-y-3">
+        {/* 5. On Leave */}
+        <div className="p-3.5 bg-[#23154C] border border-purple-500/20 rounded-xl flex flex-col justify-between space-y-2">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] text-purple-300/80 font-bold uppercase tracking-wider">Not Checked In</span>
+            <span className="text-[10px] text-purple-300 font-black uppercase tracking-wider">On Leave</span>
+            <div className="p-1.5 bg-purple-500/15 rounded-lg text-purple-300">
+              <Calendar className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl font-black text-purple-300">{todaySummary.onLeave}</div>
+            <div className="text-[10px] text-purple-300/50">Approved Leaves</div>
+          </div>
+        </div>
+
+        {/* 6. Not Checked In / Absent */}
+        <div className="p-3.5 bg-[#23154C] border border-purple-500/20 rounded-xl flex flex-col justify-between space-y-2">
+          <div className="flex justify-between items-start">
+            <span className="text-[10px] text-amber-400/90 font-black uppercase tracking-wider">Not Checked In</span>
             <div className="p-1.5 bg-amber-500/10 rounded-lg text-amber-300">
-              <Clock className="w-4 h-4" />
+              <Clock className="w-3.5 h-3.5" />
             </div>
           </div>
           <div>
             <div className="text-2xl font-black text-amber-300">{todaySummary.notCheckedIn}</div>
-            <div className="text-[10px] text-purple-300/50">{todaySummary.approvedLeave > 0 ? `${todaySummary.approvedLeave} on leave • Awaiting logins` : 'Awaiting Logins'}</div>
+            <div className="text-[10px] text-purple-300/50">Awaiting Logins</div>
           </div>
         </div>
 
-        {/* Attendance % & Mini Trend Sparkline */}
-        <div className="p-4 bg-[#23154C] border border-purple-500/20 rounded-xl flex flex-col justify-between space-y-2">
+        {/* 7. Attendance Rate & Mini Trend */}
+        <div className="p-3.5 bg-[#23154C] border border-purple-500/20 rounded-xl flex flex-col justify-between space-y-2 col-span-2 sm:col-span-1">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] text-purple-300/80 font-bold uppercase tracking-wider">Attendance Rate</span>
-            <div className="flex items-center gap-1">
+            <span className="text-[10px] text-purple-300/80 font-black uppercase tracking-wider">Attendance Rate</span>
+            <div className="flex items-center gap-0.5">
               {rateDiff >= 0 ? (
                 <span className="text-[10px] font-bold text-emerald-400 flex items-center">
                   <TrendingUp className="w-3 h-3 mr-0.5" /> +{rateDiff}%
@@ -679,13 +790,13 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
             </div>
 
             {/* Sparkline Visual SVG */}
-            <div className="w-16 h-8 flex items-end">
+            <div className="w-14 h-7 flex items-end">
               <svg className="w-full h-full overflow-visible" viewBox="0 0 60 30">
                 <path
                   d={`M ${weeklyMiniTrend.map((day, idx) => `${idx * 15},${30 - (day.rate * 0.25)}`).join(' L ')}`}
                   fill="none"
                   stroke="#A855F7"
-                  strokeWidth="2.5"
+                  strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
@@ -694,13 +805,36 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
                     key={idx}
                     cx={idx * 15}
                     cy={30 - (day.rate * 0.25)}
-                    r="2.5"
+                    r="2"
                     fill="#F59E0B"
                   />
                 ))}
               </svg>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* RECONCILIATION SUMMARY BAR */}
+      <div className="px-4 py-2.5 bg-[#1B0B33] border border-purple-500/15 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2 text-purple-200/80 font-mono text-[11px]">
+          <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            Reconciliation:
+          </span>
+          <span>
+            <strong className="text-white">{todaySummary.expectedStaff}</strong> Expected ={' '}
+            <strong className="text-emerald-400">{todaySummary.presentOffice}</strong> Present +{' '}
+            <strong className="text-blue-300">{todaySummary.remote}</strong> Remote +{' '}
+            <strong className="text-purple-300">{todaySummary.onLeave}</strong> Leave +{' '}
+            <strong className="text-amber-300">{todaySummary.notCheckedIn}</strong> Not Checked In
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3 text-[11px] text-purple-300/60 font-mono">
+          <span>Active in Session: <strong className="text-teal-300">{todaySummary.activeCheckedIn}</strong></span>
+          <span>•</span>
+          <span>Working Attendance: <strong className="text-white">{todaySummary.totalPresentWorking}</strong> / {todaySummary.expectedStaff}</span>
         </div>
       </div>
 
