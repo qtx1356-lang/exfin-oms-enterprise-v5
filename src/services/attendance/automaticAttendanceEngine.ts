@@ -607,9 +607,9 @@ export const AutomaticAttendanceEngine = {
         // State Transition: (CHECKED_IN or PENDING_FINAL_EXIT) -> FINALIZED_CHECKOUT
         let checkoutTimeStr = timeStr;
 
-        if (source === 'AUTO_SYSTEM_END_OF_DAY') {
+        if (source === 'AUTO_SYSTEM_END_OF_DAY' || record.currentState === 'PENDING_FINAL_EXIT' || record.lastExitTime || record.exitTime) {
           if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
-            // Final exit rule: check out at actual final exit timestamp
+            // Final exit rule: check out at actual final exit timestamp if recorded
             checkoutTimeStr = record.lastExitTime || record.exitTime || timeStr;
           } else {
             checkoutTimeStr = timeStr;
@@ -630,7 +630,7 @@ export const AutomaticAttendanceEngine = {
           record.checkoutLatitude = coords.latitude;
           record.checkoutLongitude = coords.longitude;
           record.checkoutDistance = distance;
-          record.checkoutTownCity = (townCity && townCity.trim()) ? townCity.trim() : 'Location name unavailable';
+          record.checkoutTownCity = (townCity && townCity.trim()) ? townCity.trim() : (record.checkoutTownCity || 'Location name unavailable');
         } else if (!record.checkoutLatitude && !record.checkoutTownCity) {
           record.checkoutTownCity = 'Location unavailable';
         }
@@ -682,6 +682,8 @@ export const AutomaticAttendanceEngine = {
       return record;
     }
 
+    const hasRecordedExit = record.currentState === 'PENDING_FINAL_EXIT' || !!record.lastExitTime || !!record.exitTime;
+
     const distance = getDistanceFromLatLonInM(
       coords.latitude,
       coords.longitude,
@@ -689,16 +691,24 @@ export const AutomaticAttendanceEngine = {
       OFFICE_LOCATION.longitude
     );
 
-    // Reject manual checkout if they are outside geofence (25m) according to manual checkout rules
-    if (distance > OFFICE_LOCATION.radius) {
+    // Reject manual checkout if they are outside geofence (25m) UNLESS they have a recorded geofence exit (PENDING_FINAL_EXIT)
+    if (!hasRecordedExit && distance > OFFICE_LOCATION.radius) {
       throw new Error(`Manual Check-Out is allowed ONLY within ${OFFICE_LOCATION.radius} meters of the office.`);
     }
+
+    // Use recorded exit coordinates/town if present, otherwise provided coords
+    const finalCoords = (hasRecordedExit && record.checkoutLatitude && record.checkoutLongitude)
+      ? { latitude: record.checkoutLatitude, longitude: record.checkoutLongitude }
+      : coords;
+    const finalTown = (hasRecordedExit && record.checkoutTownCity && record.checkoutTownCity !== 'Location name unavailable' && record.checkoutTownCity !== 'Location unavailable')
+      ? record.checkoutTownCity
+      : townCity;
 
     return this.transitionState(
       record.employeeId,
       record.employeeName,
-      coords,
-      townCity,
+      finalCoords,
+      finalTown,
       'CHECK_OUT',
       'MANUAL',
       new Date(),
