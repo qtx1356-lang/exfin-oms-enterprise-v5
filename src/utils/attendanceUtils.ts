@@ -129,9 +129,22 @@ export const getCheckInLocationDetails = (record: AttendanceRecord): {
   }
 
   const time = record.checkInTime || '--:--';
-  const rawDist = typeof record.checkInDistance === 'number' 
-    ? record.checkInDistance 
-    : (typeof record.distance === 'number' ? record.distance : null);
+
+  let rawDist: number | null = null;
+  const lat = record.checkInLatitude !== undefined && record.checkInLatitude !== null ? record.checkInLatitude : record.latitude;
+  const lon = record.checkInLongitude !== undefined && record.checkInLongitude !== null ? record.checkInLongitude : record.longitude;
+
+  if (isValidCoordinatePair(lat, lon)) {
+    const calculatedDist = getDistanceFromLatLonInM(Number(lat), Number(lon), OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude);
+    if (typeof calculatedDist === 'number' && Number.isFinite(calculatedDist) && calculatedDist >= 0) {
+      rawDist = calculatedDist;
+    }
+  } else {
+    rawDist = typeof record.checkInDistance === 'number' 
+      ? record.checkInDistance 
+      : (typeof record.distance === 'number' ? record.distance : null);
+  }
+
   const distance = formatDistanceDisplay(rawDist);
 
   let location = 'Location unavailable';
@@ -171,7 +184,15 @@ export const getCheckoutLocationDetails = (record: AttendanceRecord): {
     time = 'Pending';
   }
 
-  const rawDist = typeof record.checkoutDistance === 'number' ? record.checkoutDistance : null;
+  let rawDist: number | null = null;
+  if (isValidCoordinatePair(record.checkoutLatitude, record.checkoutLongitude)) {
+    const calculatedDist = getDistanceFromLatLonInM(Number(record.checkoutLatitude), Number(record.checkoutLongitude), OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude);
+    if (typeof calculatedDist === 'number' && Number.isFinite(calculatedDist) && calculatedDist >= 0) {
+      rawDist = calculatedDist;
+    }
+  } else {
+    rawDist = typeof record.checkoutDistance === 'number' ? record.checkoutDistance : null;
+  }
   const distance = formatDistanceDisplay(rawDist);
 
   let location = 'Location unavailable';
@@ -194,17 +215,19 @@ export const getCheckoutLocationDetails = (record: AttendanceRecord): {
 /**
  * Defensive coordinate pair validator
  */
-const isValidCoordinatePair = (lat: any, lon: any): boolean => {
+export const isValidCoordinatePair = (lat: any, lon: any): boolean => {
+  const numLat = Number(lat);
+  const numLon = Number(lon);
   return (
-    typeof lat === 'number' &&
-    typeof lon === 'number' &&
-    Number.isFinite(lat) &&
-    Number.isFinite(lon) &&
-    lat >= -90 &&
-    lat <= 90 &&
-    lon >= -180 &&
-    lon <= 180 &&
-    !(lat === 0 && lon === 0)
+    !isNaN(numLat) &&
+    !isNaN(numLon) &&
+    Number.isFinite(numLat) &&
+    Number.isFinite(numLon) &&
+    numLat >= -90 &&
+    numLat <= 90 &&
+    numLon >= -180 &&
+    numLon <= 180 &&
+    !(numLat === 0 && numLon === 0)
   );
 };
 
@@ -237,8 +260,8 @@ export const getCurrentLocationDetails = (
 } => {
   // 1. Check if authoritative liveLocation is provided
   if (liveLocation && isValidCoordinatePair(liveLocation.latitude, liveLocation.longitude)) {
-    const lat = liveLocation.latitude;
-    const lon = liveLocation.longitude;
+    const lat = Number(liveLocation.latitude);
+    const lon = Number(liveLocation.longitude);
 
     // Recalculate distance dynamically against OFFICE_LOCATION (23.616227, 87.117063)
     const calculatedMeters = getDistanceFromLatLonInM(
@@ -326,8 +349,8 @@ export const getCurrentLocationDetails = (
 
   // 2. If no LiveEmployeeLocation object, check if record explicitly has currentLatitude/currentLongitude
   if (record && isValidCoordinatePair(record.currentLatitude, record.currentLongitude)) {
-    const lat = record.currentLatitude!;
-    const lon = record.currentLongitude!;
+    const lat = Number(record.currentLatitude);
+    const lon = Number(record.currentLongitude);
 
     const calculatedMeters = getDistanceFromLatLonInM(
       lat,
