@@ -19,7 +19,7 @@ import {
 } from '../services/monitoring/performanceDiagnostics';
 
 export interface LocationContextType {
-  liveLocation: { latitude: number; longitude: number } | null;
+  liveLocation: { latitude: number; longitude: number; timestamp?: number; accuracy?: number } | null;
   distance: number | null; // Distance in meters from OFFICE_LOCATION
   formattedDistance: string; // e.g., "20.34 km", "476 m", "25 m", or "—"
   isInsideGeofence: boolean; // distance !== null && distance <= OFFICE_LOCATION.radius
@@ -52,7 +52,7 @@ export const formatOfficeDistance = (meters: number | null, isStaleOrUpdating: b
 };
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [liveLocation, setLiveLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [liveLocation, setLiveLocation] = useState<{ latitude: number; longitude: number; timestamp?: number; accuracy?: number } | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
   const [isFreshFixReceived, setIsFreshFixReceived] = useState<boolean>(false);
   const [stableInsideOffice, setStableInsideOffice] = useState<boolean | null>(null);
@@ -300,7 +300,10 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return null;
   };
 
+  const geocodeRequestIdRef = useRef<number>(0);
+
   const performReverseGeocode = async (latitude: number, longitude: number) => {
+    const reqId = ++geocodeRequestIdRef.current;
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       setCurrentAddress('Offline');
       setLocationStatus('success');
@@ -369,6 +372,8 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (e: any) {
       console.warn('Geocoder error:', e);
     }
+
+    if (reqId !== geocodeRequestIdRef.current) return;
 
     if (resolvedAddress && typeof resolvedAddress === 'string' && resolvedAddress.trim()) {
       const cleanAddress = resolvedAddress.trim();
@@ -482,7 +487,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     if (shouldUpdateUi) {
       lastUiUpdateRef.current = now;
-      setLiveLocation({ latitude, longitude });
+      setLiveLocation({ latitude, longitude, accuracy, timestamp: fixTime });
       setDistance(calculatedDistance);
       setLocationTimestamp(fixTime);
       setIsFreshFixReceived(true);
@@ -536,7 +541,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return;
     }
 
-    // Debounce reverse-geocoding calls: only re-geocode if moved >= 200m or >= 10 minutes elapsed
+    // Debounce reverse-geocoding calls: only re-geocode if moved >= 20m or >= 1 minute elapsed
     const last = lastGeocodedCoordsRef.current;
     let shouldGeocode = false;
 
@@ -545,7 +550,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } else {
       const distMoved = getDistanceFromLatLonInM(latitude, longitude, last.lat, last.lon);
       const timeElapsed = now - last.time;
-      if (distMoved >= 200 || timeElapsed >= 600000) {
+      if (distMoved >= 20 || timeElapsed >= 60000) {
         shouldGeocode = true;
       }
     }
