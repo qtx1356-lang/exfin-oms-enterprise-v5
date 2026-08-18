@@ -139,10 +139,6 @@ export const getCheckInLocationDetails = (record: AttendanceRecord): {
     if (typeof calculatedDist === 'number' && Number.isFinite(calculatedDist) && calculatedDist >= 0) {
       rawDist = calculatedDist;
     }
-  } else {
-    rawDist = typeof record.checkInDistance === 'number' 
-      ? record.checkInDistance 
-      : (typeof record.distance === 'number' ? record.distance : null);
   }
 
   const distance = formatDistanceDisplay(rawDist);
@@ -190,8 +186,6 @@ export const getCheckoutLocationDetails = (record: AttendanceRecord): {
     if (typeof calculatedDist === 'number' && Number.isFinite(calculatedDist) && calculatedDist >= 0) {
       rawDist = calculatedDist;
     }
-  } else {
-    rawDist = typeof record.checkoutDistance === 'number' ? record.checkoutDistance : null;
   }
   const distance = formatDistanceDisplay(rawDist);
 
