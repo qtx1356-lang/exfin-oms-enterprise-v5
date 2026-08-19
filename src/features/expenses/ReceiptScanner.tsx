@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ExpenseRecord, ExpenseCategory } from '../../types/expense';
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
+import { Capacitor } from '@capacitor/core';
+import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { 
   Camera, 
   RotateCcw, 
@@ -75,6 +77,12 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
   const startCamera = useCallback(async () => {
     if (!isOpen) return;
 
+    if (Capacitor.isNativePlatform()) {
+      setCameraState('STREAMING');
+      setErrorMessage(null);
+      return;
+    }
+
     stopCamera();
     setCameraState('INITIALIZING');
     setErrorMessage(null);
@@ -145,8 +153,104 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
     };
   }, [isOpen, startCamera, stopCamera]);
 
-  // Capture frame from video element to high-quality compressed JPEG
-  const handleCapturePhoto = () => {
+  // Request native permission
+  const requestNativeCameraPermission = async (): Promise<boolean> => {
+    try {
+      const status = await CapCamera.checkPermissions();
+      if (status.camera === 'granted') {
+        return true;
+      }
+      const request = await CapCamera.requestPermissions({ permissions: ['camera'] });
+      return request.camera === 'granted';
+    } catch (err) {
+      console.error('Error checking native camera permission:', err);
+      return false;
+    }
+  };
+
+  // Native camera capture
+  const handleNativeCameraCapture = async () => {
+    try {
+      setErrorMessage(null);
+      const isGranted = await requestNativeCameraPermission();
+      if (!isGranted) {
+        setCameraState('PERMISSION_DENIED');
+        setErrorMessage('Camera permission was denied. Please enable camera permission in your Android settings to capture receipt photos.');
+        return;
+      }
+
+      const photo = await CapCamera.getPhoto({
+        quality: 85,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+      });
+
+      if (photo && photo.dataUrl) {
+        setCapturedImageData(photo.dataUrl);
+        setCameraState('CAPTURED');
+      } else {
+        setCameraState('STREAMING');
+      }
+    } catch (err: any) {
+      console.warn('Native camera capture error or cancellation:', err);
+      if (err?.message?.includes('cancelled') || err?.message?.includes('Cancel') || err?.message?.includes('user cancelled')) {
+        setCameraState('STREAMING');
+      } else {
+        setCameraState('UNAVAILABLE');
+        setErrorMessage(err?.message || 'Failed to capture image from device camera.');
+      }
+    }
+  };
+
+  // Native gallery picker
+  const handleNativeGalleryPick = async () => {
+    try {
+      setErrorMessage(null);
+      const photo = await CapCamera.getPhoto({
+        quality: 85,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Photos,
+      });
+
+      if (photo && photo.dataUrl) {
+        setCapturedImageData(photo.dataUrl);
+        setCameraState('CAPTURED');
+      } else {
+        setCameraState('STREAMING');
+      }
+    } catch (err: any) {
+      console.warn('Native gallery pick error or cancellation:', err);
+      if (err?.message?.includes('cancelled') || err?.message?.includes('Cancel') || err?.message?.includes('user cancelled')) {
+        setCameraState('STREAMING');
+      } else {
+        setCameraState('UNAVAILABLE');
+        setErrorMessage(err?.message || 'Failed to select image from gallery.');
+      }
+    }
+  };
+
+  // Trigger gallery pick based on platform
+  const handleGalleryClick = async () => {
+    if (Capacitor.isNativePlatform()) {
+      await handleNativeGalleryPick();
+    } else {
+      fileInputRef.current?.click();
+    }
+  };
+
+  // Trigger camera capture based on platform
+  const handleCapturePhoto = async () => {
+    if (Capacitor.isNativePlatform()) {
+      await handleNativeCameraCapture();
+    } else {
+      handleWebCapturePhoto();
+    }
+  };
+
+  // Web capture photo from video element
+  const handleWebCapturePhoto = () => {
     if (!videoRef.current) return;
 
     try {
@@ -294,23 +398,48 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
           {/* Active Streaming Video */}
           {cameraState === 'STREAMING' && (
             <>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
+              {Capacitor.isNativePlatform() ? (
+                <div className="flex flex-col items-center justify-center text-center p-6 space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-purple-500/10 text-purple-300 flex items-center justify-center border border-purple-500/20 animate-pulse">
+                    <Camera className="w-8 h-8 text-purple-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">Native Receipt Capture</p>
+                    <p className="text-xs text-purple-200/60 mt-1 max-w-xs leading-relaxed">
+                      Tap "Capture Photo" below to open your device camera, or "Gallery" to select a saved receipt.
+                    </p>
+                  </div>
+                  {/* Scanning Overlay Reticle */}
+                  <div className="absolute inset-4 border-2 border-dashed border-emerald-400/40 rounded-xl pointer-events-none flex flex-col justify-between p-3">
+                    <div className="flex justify-between items-center text-[11px] font-bold text-emerald-300 bg-black/60 px-2 py-0.5 rounded-md backdrop-blur-sm self-center">
+                      <Sparkles className="w-3.5 h-3.5 mr-1 animate-spin" /> Ready to capture
+                    </div>
+                    <div className="text-[10px] text-center text-white/50 bg-black/50 py-0.5 rounded backdrop-blur-sm">
+                      Align receipt within frame
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
 
-              {/* Scanning Overlay Reticle */}
-              <div className="absolute inset-4 border-2 border-dashed border-emerald-400/70 rounded-xl pointer-events-none flex flex-col justify-between p-3">
-                <div className="flex justify-between items-center text-[11px] font-bold text-emerald-300 bg-black/60 px-2 py-0.5 rounded-md backdrop-blur-sm self-center">
-                  <Sparkles className="w-3.5 h-3.5 mr-1 animate-spin" /> Align receipt within frame
-                </div>
-                <div className="text-[10px] text-center text-white/70 bg-black/50 py-0.5 rounded backdrop-blur-sm">
-                  Ensure amount and date are clearly visible
-                </div>
-              </div>
+                  {/* Scanning Overlay Reticle */}
+                  <div className="absolute inset-4 border-2 border-dashed border-emerald-400/70 rounded-xl pointer-events-none flex flex-col justify-between p-3">
+                    <div className="flex justify-between items-center text-[11px] font-bold text-emerald-300 bg-black/60 px-2 py-0.5 rounded-md backdrop-blur-sm self-center">
+                      <Sparkles className="w-3.5 h-3.5 mr-1 animate-spin" /> Align receipt within frame
+                    </div>
+                    <div className="text-[10px] text-center text-white/70 bg-black/50 py-0.5 rounded backdrop-blur-sm">
+                      Ensure amount and date are clearly visible
+                    </div>
+                  </div>
+                </>
+              )}
             </>
           )}
 
@@ -353,7 +482,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
               <div className="flex flex-wrap gap-2 justify-center pt-1">
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={handleGalleryClick}
                   className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md"
                 >
                   <Upload className="w-4 h-4" /> Upload from Files
@@ -376,7 +505,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
             <>
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={handleGalleryClick}
                 className="px-3 py-2.5 rounded-xl bg-[#211044] hover:bg-[#2D1B5A] text-purple-300 border border-purple-500/30 text-xs font-bold flex items-center gap-1.5"
                 title="Upload from device storage"
               >
