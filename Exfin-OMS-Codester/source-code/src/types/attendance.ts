@@ -119,6 +119,8 @@ export interface AttendanceRecord {
   checkoutFinalized?: boolean;
   checkoutSource?: string;
   checkoutFinalizedAt?: string;
+  checkoutConfirmedAt?: string | null;
+  checkoutConfirmationTime?: string | null;
   manualRectified?: boolean;
   isAdminRectified?: boolean;
   correctedAt?: string;

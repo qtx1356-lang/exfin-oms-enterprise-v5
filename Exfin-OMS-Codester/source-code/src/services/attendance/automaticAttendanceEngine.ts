@@ -387,10 +387,10 @@ export const AutomaticAttendanceEngine = {
             localStorage.removeItem(`consecutive_return_${employeeId}_${dateStr}`);
           } catch (e) {}
 
-          // Preserve and update last valid exit time while employee remains outside geofence
-          const timeStr = getFormattedTimeStr(timestamp);
-          if (record.lastExitTime !== timeStr) {
-            record.lastExitTime = timeStr;
+          // Preserve recorded geofence exit time while employee remains outside geofence.
+          // Do NOT overwrite lastExitTime with subsequent clock times.
+          if (!record.lastExitTime && record.exitTime) {
+            record.lastExitTime = record.exitTime;
             record.syncStatus = 'Pending';
             saveAttendanceRecord(record);
             if (navigator.onLine) {
@@ -549,7 +549,8 @@ export const AutomaticAttendanceEngine = {
       case 'GEOFENCE_EXIT':
         if (record.currentState === 'CHECKED_IN' || record.currentState === 'ENTERING' || !record.currentState) {
           // State Transition: CHECKED_IN -> PENDING_FINAL_EXIT
-          record.lastExitTime = timeStr;
+          // Authoritative geofence exit time: record the exact timestamp when the employee crossed outside the 25m boundary
+          record.lastExitTime = record.lastExitTime || timeStr;
           record.exitTime = record.exitTime || timeStr;
           record.currentState = 'PENDING_FINAL_EXIT';
           record.syncStatus = 'Pending';
@@ -607,12 +608,25 @@ export const AutomaticAttendanceEngine = {
         // State Transition: (CHECKED_IN or PENDING_FINAL_EXIT) -> FINALIZED_CHECKOUT
         let checkoutTimeStr = timeStr;
 
-        if (source === 'AUTO_SYSTEM_END_OF_DAY' || record.currentState === 'PENDING_FINAL_EXIT' || record.lastExitTime || record.exitTime) {
-          if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
-            // Final exit rule: check out at actual final exit timestamp if recorded
-            checkoutTimeStr = record.lastExitTime || record.exitTime || timeStr;
-          } else {
-            checkoutTimeStr = timeStr;
+        // Authoritative geofence exit timestamp hierarchy:
+        // 1. lastExitTime
+        // 2. exitTime
+        // 3. Fallback to timeStr if no exit event was recorded
+        const authoritativeExitTime = (record.lastExitTime && record.lastExitTime !== 'Pending' && record.lastExitTime !== 'N/A' && record.lastExitTime !== '--:--')
+          ? record.lastExitTime
+          : (record.exitTime && record.exitTime !== 'Pending' && record.exitTime !== 'N/A' && record.exitTime !== '--:--')
+          ? record.exitTime
+          : null;
+
+        if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
+          // CORE ATTENDANCE RULE:
+          // For OFFICE attendance with a recorded geofence exit (PENDING_FINAL_EXIT or recorded exit timestamp):
+          // GEOFENCE EXIT TIME = ACTUAL CHECKOUT TIME
+          // The confirmation time (when the employee taps "Confirm Check-Out" or app opens later) is confirmation metadata ONLY.
+          if (record.currentState === 'PENDING_FINAL_EXIT' || authoritativeExitTime) {
+            if (authoritativeExitTime) {
+              checkoutTimeStr = authoritativeExitTime;
+            }
           }
         }
 
@@ -625,6 +639,9 @@ export const AutomaticAttendanceEngine = {
         record.checkoutStatus = 'COMPLETED';
         record.workingHours = workingHours;
         record.currentState = 'FINALIZED_CHECKOUT';
+        record.checkoutConfirmedAt = timeStr;
+        record.checkoutConfirmationTime = timeStr;
+        record.checkoutFinalizedAt = eventIso;
 
         if (coords && coords.latitude && coords.longitude) {
           record.checkoutLatitude = coords.latitude;
