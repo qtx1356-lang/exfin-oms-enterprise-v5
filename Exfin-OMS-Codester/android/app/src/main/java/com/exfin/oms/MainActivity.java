@@ -54,7 +54,11 @@ public class MainActivity extends BridgeActivity {
 
                 @Override
                 public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                    view.loadDataWithBaseURL(null, OFFLINE_HTML, "text/html", "UTF-8", null);
+                    if (failingUrl != null && (failingUrl.equals("https://localhost") || failingUrl.equals("https://localhost/") || failingUrl.endsWith("/index.html"))) {
+                        view.loadDataWithBaseURL(null, OFFLINE_HTML, "text/html", "UTF-8", null);
+                    } else if (originalClient != null) {
+                        originalClient.onReceivedError(view, errorCode, description, failingUrl);
+                    }
                 }
 
                 @Override
@@ -71,7 +75,9 @@ public class MainActivity extends BridgeActivity {
                     if (handler != null) {
                         handler.cancel();
                     }
-                    view.loadDataWithBaseURL(null, OFFLINE_HTML, "text/html", "UTF-8", null);
+                    if (error != null && error.getUrl() != null && (error.getUrl().equals("https://localhost") || error.getUrl().equals("https://localhost/") || error.getUrl().endsWith("/index.html"))) {
+                        view.loadDataWithBaseURL(null, OFFLINE_HTML, "text/html", "UTF-8", null);
+                    }
                 }
 
                 @Override
