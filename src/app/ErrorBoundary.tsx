@@ -29,13 +29,15 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      const errMsg = (this.state.error?.message || '').toLowerCase();
       const isOffline = typeof navigator !== 'undefined' && (!navigator.onLine || 
         (this.state.error && (
-          this.state.error.message.toLowerCase().includes('fetch') ||
-          this.state.error.message.toLowerCase().includes('network') ||
-          this.state.error.message.toLowerCase().includes('offline') ||
-          this.state.error.message.toLowerCase().includes('chunk') ||
-          this.state.error.message.toLowerCase().includes('import')
+          errMsg.includes('fetch') ||
+          errMsg.includes('network') ||
+          errMsg.includes('offline') ||
+          errMsg.includes('chunk') ||
+          errMsg.includes('import') ||
+          errMsg.includes('failed to load')
         )));
 
       if (isOffline) {

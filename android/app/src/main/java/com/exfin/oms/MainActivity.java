@@ -58,11 +58,36 @@ public class MainActivity extends BridgeActivity {
                 }
 
                 @Override
+                public void onReceivedHttpError(WebView view, WebResourceRequest request, android.webkit.WebResourceResponse errorResponse) {
+                    if (request != null && request.isForMainFrame()) {
+                        view.loadDataWithBaseURL(null, OFFLINE_HTML, "text/html", "UTF-8", null);
+                    } else if (originalClient != null) {
+                        originalClient.onReceivedHttpError(view, request, errorResponse);
+                    }
+                }
+
+                @Override
+                public void onReceivedSslError(WebView view, android.webkit.SslErrorHandler handler, android.net.http.SslError error) {
+                    if (handler != null) {
+                        handler.cancel();
+                    }
+                    view.loadDataWithBaseURL(null, OFFLINE_HTML, "text/html", "UTF-8", null);
+                }
+
+                @Override
                 public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                     if (originalClient != null) {
                         return originalClient.shouldOverrideUrlLoading(view, request);
                     }
                     return super.shouldOverrideUrlLoading(view, request);
+                }
+
+                @Override
+                public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                    if (originalClient != null) {
+                        return originalClient.shouldOverrideUrlLoading(view, url);
+                    }
+                    return super.shouldOverrideUrlLoading(view, url);
                 }
             });
         }
