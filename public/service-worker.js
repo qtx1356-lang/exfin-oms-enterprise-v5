@@ -1,7 +1,7 @@
 // CORE FEATURE LOCK — DO NOT MODIFY WITHOUT EXPLICIT AUTHORIZATION
 // OFFLINE-FIRST STARTUP
-const CACHE_NAME = 'exfin-oms-v5-cache-v5';
-const DYNAMIC_CACHE_NAME = 'exfin-oms-v5-dynamic-v5';
+const CACHE_NAME = 'exfin-oms-v5-cache-v6';
+const DYNAMIC_CACHE_NAME = 'exfin-oms-v5-dynamic-v6';
 
 // Core Application Shell Assets
 const PRECACHE_ASSETS = [
@@ -10,79 +10,6 @@ const PRECACHE_ASSETS = [
   '/manifest.json',
   '/favicon.ico',
 ];
-
-// Fallback HTML if both network and cache are completely empty
-const OFFLINE_FALLBACK_HTML = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>You're offline</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #0f172a;
-            color: #f8fafc;
-            text-align: center;
-            padding: 24px;
-            box-sizing: border-box;
-        }
-        .card {
-            background-color: #1e293b;
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            border-radius: 20px;
-            padding: 32px 24px;
-            max-width: 360px;
-            width: 100%;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-        }
-        .icon {
-            font-size: 44px;
-            margin-bottom: 16px;
-        }
-        h1 {
-            font-size: 20px;
-            margin: 0 0 10px;
-            font-weight: 700;
-            color: #ffffff;
-        }
-        p {
-            font-size: 14px;
-            color: #94a3b8;
-            line-height: 1.5;
-            margin: 0 0 24px;
-        }
-        .btn {
-            background-color: #7c3aed;
-            color: #ffffff;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-        }
-        .btn:active {
-            background-color: #6d28d9;
-        }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <div class="icon">📡</div>
-        <h1>You're offline</h1>
-        <p>Check your internet connection and try again.</p>
-        <button class="btn" onclick="window.location.reload()">Retry</button>
-    </div>
-</body>
-</html>`;
 
 // Install Event: Precache Application Shell & Extract Bundle Assets
 self.addEventListener('install', (event) => {
@@ -146,7 +73,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate Event: Clean up outdated shell caches
+// Activate Event: Clean up outdated shell caches safely
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.match('/index.html'))
@@ -210,69 +137,42 @@ self.addEventListener('fetch', (event) => {
   }
 
   // NAVIGATION REQUESTS (SPA Routes: /, /attendance, /planner, /employee, etc.)
+  // Strategy:
+  // 1. Network first: fetch latest index.html to avoid stale bundles after deployment
+  // 2. Network failure (offline): return cached /index.html or /
+  // 3. Both fail: do NOT manufacture an offline HTML page
   if (request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
     event.respondWith(
-      caches.match('/index.html')
-        .then((cachedResponse) => {
-          if (cachedResponse) {
-            // Background update — wrapped in try/catch to prevent sync throws (like only-if-cached) from breaking the promise chain
-            try {
-              fetch(request.url).then((networkResponse) => {
-                if (networkResponse && networkResponse.ok) {
-                  caches.open(CACHE_NAME).then((cache) => {
-                    cache.put('/index.html', networkResponse.clone());
-                    cache.put('/', networkResponse);
-                  });
-                }
-              }).catch(() => {});
-            } catch (err) {
-              // Ignore synchronous fetch errors in background
-            }
-            return cachedResponse;
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put('/index.html', responseToCache);
+              cache.put('/', responseToCache.clone());
+            }).catch(() => {});
+            return networkResponse;
           }
-
-          // Not in cache, fetch from network safely
-          let fetchPromise;
-          try {
-            // Chrome sometimes throws synchronously here if offline and cache is 'only-if-cached'
-            fetchPromise = fetch(request);
-          } catch (err) {
-            fetchPromise = Promise.reject(err);
-          }
-
-          return fetchPromise
-            .then((response) => {
-              if (response && response.status === 200) {
-                const responseToCache = response.clone();
-                caches.open(CACHE_NAME).then((cache) => {
-                  cache.put('/index.html', responseToCache);
-                  cache.put('/', responseToCache.clone());
-                });
-                return response;
-              }
-              // If network returns 404/500, fallback to root if available
-              return caches.match('/').then((rootResponse) => {
-                return rootResponse || new Response(OFFLINE_FALLBACK_HTML, {
-                  status: 200,
-                  headers: { 'Content-Type': 'text/html; charset=utf-8' },
-                });
-              });
-            })
-            .catch(() => {
-              // Network failed (offline), fallback to root or fallback HTML
-              return caches.match('/').then((rootResponse) => {
-                return rootResponse || new Response(OFFLINE_FALLBACK_HTML, {
-                  status: 200,
-                  headers: { 'Content-Type': 'text/html; charset=utf-8' },
-                });
-              });
+          // If network returned non-200, fallback to cached index
+          return caches.match('/index.html').then((cachedIndex) => {
+            return cachedIndex || caches.match('/').then((cachedRoot) => {
+              return cachedRoot || networkResponse;
             });
+          });
         })
         .catch(() => {
-          // Absolute worst-case scenario (e.g. caches.match throws)
-          return new Response(OFFLINE_FALLBACK_HTML, {
-            status: 200,
-            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          // Network offline -> return cached application shell
+          return caches.match('/index.html').then((cachedIndex) => {
+            if (cachedIndex) {
+              return cachedIndex;
+            }
+            return caches.match('/').then((cachedRoot) => {
+              if (cachedRoot) {
+                return cachedRoot;
+              }
+              // Both network and cache unavailable: let browser handle normally
+              return Promise.reject(new Error('Network unavailable and no cached application shell found'));
+            });
           });
         })
     );
@@ -300,14 +200,7 @@ self.addEventListener('fetch', (event) => {
           return cachedResponse;
         }
 
-        let fetchPromise;
-        try {
-          fetchPromise = fetch(request);
-        } catch (err) {
-          fetchPromise = Promise.reject(err);
-        }
-
-        return fetchPromise
+        return fetch(request)
           .then((response) => {
             if (!response || response.status !== 200) {
               return response;
@@ -316,20 +209,14 @@ self.addEventListener('fetch', (event) => {
             const responseToCache = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(request, responseToCache);
-            });
+            }).catch(() => {});
 
             return response;
           })
           .catch(() => {
             // Return cached version if query parameter differences exist
-            return caches.match(url.pathname).then((res) => {
-              // NEVER return undefined to event.respondWith as it causes net::ERR_FAILED
-              return res || new Response('', { status: 503, statusText: 'Service Unavailable' });
-            });
+            return caches.match(url.pathname);
           });
-      }).catch(() => {
-        // Fallback for cache errors
-        return new Response('', { status: 503, statusText: 'Service Unavailable' });
       })
     );
     return;

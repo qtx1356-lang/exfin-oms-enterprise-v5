@@ -36,7 +36,7 @@ runCheck('Capacitor Config: No server.url redirects', () => {
   }
 });
 
-// 2. Verify MainActivity.java main-frame error protection
+// 2. Verify MainActivity.java does not contain native OFFLINE_HTML or loadDataWithBaseURL replacement
 const mainActivityPaths = [
   path.join(ROOT_DIR, 'android/app/src/main/java/com/exfin/oms/MainActivity.java'),
   path.join(ROOT_DIR, 'Exfin-OMS-Codester/android/app/src/main/java/com/exfin/oms/MainActivity.java')
@@ -44,14 +44,17 @@ const mainActivityPaths = [
 
 mainActivityPaths.forEach((maPath, idx) => {
   const label = idx === 0 ? 'Primary' : 'Codester Backup';
-  runCheck(`MainActivity (${label}): Main-frame subresource protection checks`, () => {
+  runCheck(`MainActivity (${label}): Zero native OFFLINE_HTML replacement checks`, () => {
     if (fs.existsSync(maPath)) {
       const content = fs.readFileSync(maPath, 'utf8');
-      if (!content.includes('failingUrl.equals("https://localhost")') || !content.includes('endsWith("/index.html")')) {
-        throw new Error(`MainActivity is missing the mandatory check to ensure subresource errors do not wipe out the React page. Check path: ${maPath}`);
+      if (content.includes('OFFLINE_HTML')) {
+        throw new Error(`MainActivity contains hardcoded OFFLINE_HTML which could replace the React app on error. Check path: ${maPath}`);
       }
-      if (!content.includes('onReceivedSslError') || !content.includes('error.getUrl()')) {
-        throw new Error('MainActivity is missing SSL error frame checking, which could allow external resource SSL errors to trigger a false offline page.');
+      if (content.includes('loadDataWithBaseURL')) {
+        throw new Error(`MainActivity contains loadDataWithBaseURL call which could destroy the loaded React app. Check path: ${maPath}`);
+      }
+      if (!content.includes('BridgeActivity') || !content.includes('GeofencePlugin.class')) {
+        throw new Error(`MainActivity is missing required BridgeActivity or GeofencePlugin initialization: ${maPath}`);
       }
     } else {
       console.log(`  (MainActivity not found at ${maPath}, skipping)`);
@@ -84,7 +87,7 @@ boundaryPaths.forEach((ebPath, idx) => {
   });
 });
 
-// 4. Verify public/service-worker.js OFFLINE_FALLBACK_HTML doesn't contain URLs
+// 4. Verify public/service-worker.js does not contain OFFLINE_FALLBACK_HTML or manufactured offline pages
 const swPaths = [
   path.join(ROOT_DIR, 'public/service-worker.js'),
   path.join(ROOT_DIR, 'Exfin-OMS-Codester/source-code/public/service-worker.js')
@@ -92,15 +95,14 @@ const swPaths = [
 
 swPaths.forEach((swPath, idx) => {
   const label = idx === 0 ? 'Primary' : 'Codester Backup';
-  runCheck(`Service Worker (${label}): Check zero URL exposure in OFFLINE_FALLBACK_HTML`, () => {
+  runCheck(`Service Worker (${label}): Check zero OFFLINE_FALLBACK_HTML and valid shell caching`, () => {
     if (fs.existsSync(swPath)) {
       const content = fs.readFileSync(swPath, 'utf8');
-      const match = content.match(/const OFFLINE_FALLBACK_HTML = `([\s\S]*?)`;/);
-      if (match) {
-        const fallbackHtml = match[1];
-        if (fallbackHtml.includes('http://') || fallbackHtml.includes('https://') || fallbackHtml.includes('localhost')) {
-          throw new Error(`OFFLINE_FALLBACK_HTML in ${swPath} contains exposed URL endpoints or localhost keywords in UI.`);
-        }
+      if (content.includes('OFFLINE_FALLBACK_HTML')) {
+        throw new Error(`Service Worker at ${swPath} contains OFFLINE_FALLBACK_HTML which generates a full-screen offline page.`);
+      }
+      if (!content.includes('/index.html')) {
+        throw new Error(`Service Worker at ${swPath} is missing required application shell /index.html caching.`);
       }
     } else {
       console.log(`  (Service worker not found at ${swPath}, skipping)`);

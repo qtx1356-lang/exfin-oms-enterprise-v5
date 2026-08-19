@@ -30,7 +30,6 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       const errMsg = (this.state.error?.message || '').toLowerCase();
-      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
       // Check if this is a transient chunk/import/fetch error
       const isTransientError = 
@@ -38,8 +37,7 @@ export class ErrorBoundary extends Component<Props, State> {
         errMsg.includes('import') ||
         errMsg.includes('failed to load') ||
         errMsg.includes('fetch') ||
-        errMsg.includes('network') ||
-        errMsg.includes('offline');
+        errMsg.includes('network');
 
       // If the device is online but we encountered a transient fetch/chunk/network error,
       // attempt an internal automatic recovery (reload) once to restore startup state
@@ -56,26 +54,6 @@ export class ErrorBoundary extends Component<Props, State> {
         } catch (e) {
           console.error('Failed to perform automatic recovery:', e);
         }
-      }
-
-      if (isOffline) {
-        return (
-          <div className="min-h-screen bg-[#0f172a] text-[#f8fafc] flex flex-col items-center justify-center p-6 box-border font-sans">
-            <div className="bg-[#1e293b] border border-purple-500/30 rounded-[20px] p-8 max-w-[360px] w-full text-center shadow-2xl">
-              <div className="text-4xl mb-4">📡</div>
-              <h1 className="text-xl font-bold text-white mb-2">You're offline</h1>
-              <p className="text-sm text-slate-400 mb-6 leading-relaxed">
-                Check your internet connection and try again.
-              </p>
-              <button 
-                onClick={this.handleRetry}
-                className="w-full bg-[#7c3aed] hover:bg-[#6d28d9] text-white py-3 px-6 rounded-xl text-sm font-semibold transition-colors shadow-md cursor-pointer"
-              >
-                Retry
-              </button>
-            </div>
-          </div>
-        );
       }
 
       return (
