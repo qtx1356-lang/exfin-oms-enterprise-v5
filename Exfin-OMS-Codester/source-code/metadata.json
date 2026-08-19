@@ -1,0 +1,6 @@
+{
+  "name": "EXFIN OMS ENTERPRISE v6.0",
+  "description": "Enterprise Operations & Order Management System with Smart Attendance, Expense Claims, and Device Registrations",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
