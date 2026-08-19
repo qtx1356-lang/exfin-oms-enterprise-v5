@@ -307,38 +307,10 @@ export const AdminDashboard: React.FC = () => {
         // Explicit statuses
         if (rec.checkoutStatus === 'UNRESOLVED' || rec.checkoutStatus === 'PENDING_ADMIN_REVIEW') return true;
 
-        // Today's active records
-        if (rec.checkInTime && !rec.checkOutTime) {
+        // Active open session or missing checkout session
+        if (rec.checkInTime && (!rec.checkOutTime || rec.checkOutTime === '--:--' || rec.checkOutTime === 'Pending' || rec.checkOutTime === 'N/A' || rec.checkOutTime === 'UNRESOLVED')) {
           const type = (rec.attendanceType || 'OFFICE').toUpperCase();
           if (type === 'OUTDOOR') return false;
-          
-          let todayStr = '';
-          try {
-            todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-          } catch {
-            const now = new Date();
-            todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-          }
-          const isToday = rec.date === todayStr;
-          
-          if (isToday) {
-            let curHour = new Date().getHours();
-            try {
-              const kolHour = new Intl.DateTimeFormat('en-US', {
-                timeZone: 'Asia/Kolkata',
-                hour: 'numeric',
-                hour12: false
-              }).format(new Date());
-              curHour = parseInt(kolHour, 10);
-            } catch {}
-
-            if ((type === 'WFH' || type === 'CLIENT_VISIT') && curHour < 18) {
-              return false;
-            }
-            if (type === 'OFFICE' && !(rec.exitTime || rec.lastExitTime || rec.currentState === 'PENDING_FINAL_EXIT')) {
-              return false;
-            }
-          }
           return true;
         }
         return false;
@@ -544,8 +516,8 @@ export const AdminDashboard: React.FC = () => {
       checkAllLoaded();
     }, () => { regsLoaded = true; checkAllLoaded(); });
 
-    // Listen to attendance with bounded limit
-    const qAttendance = query(collection(db, 'attendance'), limit(300));
+    // Listen to attendance ordered by date desc with bounded limit
+    const qAttendance = query(collection(db, 'attendance'), orderBy('date', 'desc'), limit(300));
     const unsubAttendance = onSnapshot(qAttendance, (snapshot) => {
       const firestoreAtt: AttendanceRecord[] = [];
       snapshot.forEach((doc) => {
