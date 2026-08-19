@@ -61,7 +61,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord, AttendanceCorrection, LiveEmployeeLocation } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn, isValidCoordinatePair } from '../../utils/attendanceUtils';
 import { subscribeToAddressCacheUpdates } from '../../utils/addressFormatter';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
@@ -1567,6 +1567,36 @@ export const AdminDashboard: React.FC = () => {
                                 const empLiveLoc = liveLocationByEmployee.get(empCode) || liveLocationByEmployee.get(empCode.toLowerCase());
                                 const currentLoc = getCurrentLocationDetails(rec, empLiveLoc);
 
+                                const isCompleted = 
+                                  rec.checkoutStatus === 'COMPLETED' || 
+                                  (!!rec.checkOutTime && rec.checkOutTime !== 'Pending' && rec.checkOutTime !== 'N/A' && rec.checkOutTime !== 'UNRESOLVED');
+
+                                const hasExit = 
+                                  rec.currentState === 'PENDING_FINAL_EXIT' || 
+                                  !!rec.exitTime || 
+                                  !!rec.lastExitTime;
+
+                                const hasValidExit = isValidCoordinatePair(rec.checkoutLatitude, rec.checkoutLongitude);
+
+                                let tableLocText = '';
+                                let tableDistText = '';
+
+                                if (isCompleted) {
+                                  tableLocText = checkoutLoc.location;
+                                  tableDistText = checkoutLoc.distance || '—';
+                                } else if (hasExit) {
+                                  if (hasValidExit) {
+                                    tableLocText = `Exit detected — ${checkoutLoc.location}`;
+                                    tableDistText = `Exit distance — ${checkoutLoc.distance || '—'}`;
+                                  } else {
+                                    tableLocText = 'Location unavailable';
+                                    tableDistText = '—';
+                                  }
+                                } else {
+                                  tableLocText = 'Pending checkout';
+                                  tableDistText = '—';
+                                }
+
                                 return (
                                 <tr
                                   key={rec.id || Math.random().toString()}
@@ -1634,13 +1664,26 @@ export const AdminDashboard: React.FC = () => {
                                       </span>
                                     )}
                                   </td>
-                                  {/* Checkout Location */}
-                                  <td className={`p-3 border-b border-purple-500/10 truncate max-w-[130px] ${checkoutLoc.isUnresolved ? 'text-amber-300 font-bold' : 'text-purple-200'}`} title={checkoutLoc.location}>
-                                    {checkoutLoc.location}
+                                  {/* Checkout / Exit Location */}
+                                  <td 
+                                    className={`p-3 border-b border-purple-500/10 truncate max-w-[130px] ${checkoutLoc.isUnresolved ? 'text-amber-300 font-bold' : 'text-purple-200'}`} 
+                                    title={isCompleted ? `Checkout Location: ${tableLocText}` : hasExit ? `Exit Location: ${tableLocText}` : `Checkout Location: ${tableLocText}`}
+                                  >
+                                    <div className="flex flex-col">
+                                      <span className="text-[9px] text-purple-300/40 uppercase font-bold tracking-wider block">
+                                        {isCompleted ? 'Checkout' : hasExit ? 'Exit' : 'Checkout'}
+                                      </span>
+                                      <span className="truncate">{tableLocText}</span>
+                                    </div>
                                   </td>
-                                  {/* Checkout Distance */}
+                                  {/* Checkout / Exit Distance */}
                                   <td className="p-3 border-b border-purple-500/10 text-rose-300 font-mono whitespace-nowrap">
-                                    {checkoutLoc.distance || '—'}
+                                    <div className="flex flex-col">
+                                      <span className="text-[9px] text-rose-400/40 uppercase font-bold tracking-wider block">
+                                        {isCompleted ? 'Checkout' : hasExit ? 'Exit' : 'Checkout'}
+                                      </span>
+                                      <span>{tableDistText}</span>
+                                    </div>
                                   </td>
                                   {/* Current Location */}
                                   <td className="p-3 border-b border-purple-500/10 truncate max-w-[150px]" title={currentLoc.location}>
@@ -1894,22 +1937,60 @@ export const AdminDashboard: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Checkout Location */}
-                        <div className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-xl space-y-1">
-                          <div className="flex justify-between items-center">
-                            <span className="text-[11px] text-purple-300 font-bold">Checkout Location</span>
-                            <span className="text-[10px] text-rose-300/80 font-mono">{checkoutLoc.time}</span>
-                          </div>
-                          <div className={`text-xs font-medium ${checkoutLoc.isUnresolved ? 'text-amber-300 font-bold' : 'text-white'}`}>{checkoutLoc.location}</div>
-                          {checkoutLoc.distance && (
-                            <div className="text-[10px] text-purple-300/70 font-mono">Distance: {checkoutLoc.distance}</div>
-                          )}
-                          {selectedAttendance.checkoutLatitude !== undefined && (
-                            <div className="text-[9px] text-purple-300/40 font-mono pt-1">
-                              {selectedAttendance.checkoutLatitude}, {selectedAttendance.checkoutLongitude}
+                        {/* Checkout / Exit Location */}
+                        {(() => {
+                          const isCompletedVal = 
+                            selectedAttendance.checkoutStatus === 'COMPLETED' || 
+                            (!!selectedAttendance.checkOutTime && selectedAttendance.checkOutTime !== 'Pending' && selectedAttendance.checkOutTime !== 'N/A' && selectedAttendance.checkOutTime !== 'UNRESOLVED');
+
+                          const hasExitVal = 
+                            selectedAttendance.currentState === 'PENDING_FINAL_EXIT' || 
+                            !!selectedAttendance.exitTime || 
+                            !!selectedAttendance.lastExitTime;
+
+                          const hasValidExitVal = isValidCoordinatePair(selectedAttendance.checkoutLatitude, selectedAttendance.checkoutLongitude);
+
+                          let modalLabel = 'Checkout Location';
+                          let modalLocText = '';
+                          let modalDistText = '';
+
+                          if (isCompletedVal) {
+                            modalLabel = 'Checkout Location';
+                            modalLocText = checkoutLoc.location;
+                            modalDistText = checkoutLoc.distance ? `Distance: ${checkoutLoc.distance}` : '';
+                          } else if (hasExitVal) {
+                            modalLabel = 'Exit Location';
+                            if (hasValidExitVal) {
+                              modalLocText = `Exit detected — ${checkoutLoc.location}`;
+                              modalDistText = checkoutLoc.distance ? `Exit distance — ${checkoutLoc.distance}` : '';
+                            } else {
+                              modalLocText = 'Location unavailable';
+                              modalDistText = '';
+                            }
+                          } else {
+                            modalLabel = 'Checkout Location';
+                            modalLocText = 'Pending checkout';
+                            modalDistText = '';
+                          }
+
+                          return (
+                            <div className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-xl space-y-1">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[11px] text-purple-300 font-bold">{modalLabel}</span>
+                                <span className="text-[10px] text-rose-300/80 font-mono">{checkoutLoc.time}</span>
+                              </div>
+                              <div className={`text-xs font-medium ${checkoutLoc.isUnresolved ? 'text-amber-300 font-bold' : 'text-white'}`}>{modalLocText}</div>
+                              {modalDistText && (
+                                <div className="text-[10px] text-purple-300/70 font-mono">{modalDistText}</div>
+                              )}
+                              {hasValidExitVal && selectedAttendance.checkoutLatitude !== undefined && (
+                                <div className="text-[9px] text-purple-300/40 font-mono pt-1">
+                                  {selectedAttendance.checkoutLatitude}, {selectedAttendance.checkoutLongitude}
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
+                          );
+                        })()}
 
                         {/* Current Location */}
                         <div className="p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-xl space-y-1">
