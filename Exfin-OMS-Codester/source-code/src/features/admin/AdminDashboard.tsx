@@ -275,10 +275,17 @@ export const AdminDashboard: React.FC = () => {
   const liveLocationByEmployee = React.useMemo(() => {
     const map = new Map<string, LiveEmployeeLocation>();
     liveLocations.forEach((loc) => {
-      if (loc.employeeId) {
+      // 1. Index by loc.employeeId (normalized)
+      if (loc.employeeId && typeof loc.employeeId === 'string' && loc.employeeId.trim()) {
         const idTrim = loc.employeeId.trim();
         map.set(idTrim, loc);
         map.set(idTrim.toLowerCase(), loc);
+      }
+      // 2. Index by Firestore document ID / loc.id (normalized)
+      if (loc.id && typeof loc.id === 'string' && loc.id.trim()) {
+        const docIdTrim = loc.id.trim();
+        map.set(docIdTrim, loc);
+        map.set(docIdTrim.toLowerCase(), loc);
       }
     });
     return map;

@@ -16,19 +16,24 @@ export interface UpdateLiveLocationParams {
 }
 
 /**
- * Defensive coordinate validation
+ * Defensive coordinate validation: accepts numeric values and numeric strings safely
  */
 export const isValidGpsCoordinate = (lat: any, lon: any): boolean => {
+  if (lat === null || lat === undefined || lat === '' || lon === null || lon === undefined || lon === '') {
+    return false;
+  }
+  const numLat = Number(lat);
+  const numLon = Number(lon);
   return (
-    typeof lat === 'number' &&
-    typeof lon === 'number' &&
-    Number.isFinite(lat) &&
-    Number.isFinite(lon) &&
-    lat >= -90 &&
-    lat <= 90 &&
-    lon >= -180 &&
-    lon <= 180 &&
-    !(lat === 0 && lon === 0)
+    !isNaN(numLat) &&
+    !isNaN(numLon) &&
+    Number.isFinite(numLat) &&
+    Number.isFinite(numLon) &&
+    numLat >= -90 &&
+    numLat <= 90 &&
+    numLon >= -180 &&
+    numLon <= 180 &&
+    !(numLat === 0 && numLon === 0)
   );
 };
 
@@ -121,15 +126,8 @@ export const extractLiveEmployeeDetails = (liveLoc?: LiveEmployeeLocation | null
     };
   }
 
-  // Recalculate distance dynamically using Haversine against authoritative office coordinates
-  const recalculatedDistance = getDistanceFromLatLonInM(
-    liveLoc.latitude,
-    liveLoc.longitude,
-    OFFICE_LOCATION.latitude,
-    OFFICE_LOCATION.longitude
-  );
-
-  const formattedDistance = formatLiveDistance(recalculatedDistance);
+  const lat = Number(liveLoc.latitude);
+  const lon = Number(liveLoc.longitude);
   const freshness = getLiveLocationFreshness(liveLoc.timestamp);
 
   let timeStr: string | null = null;
@@ -140,17 +138,40 @@ export const extractLiveEmployeeDetails = (liveLoc?: LiveEmployeeLocation | null
     }
   }
 
+  // Only fresh fixes (< 15 min: LIVE or RECENT) have valid current location & distance
+  if (freshness.status === 'LIVE' || freshness.status === 'RECENT') {
+    const recalculatedDistance = getDistanceFromLatLonInM(
+      lat,
+      lon,
+      OFFICE_LOCATION.latitude,
+      OFFICE_LOCATION.longitude
+    );
+
+    const formattedDistance = formatLiveDistance(recalculatedDistance);
+
+    return {
+      time: timeStr,
+      location: (liveLoc.townCity && liveLoc.townCity.trim()) ? liveLoc.townCity.trim() : 'Location name unavailable',
+      distance: formattedDistance,
+      rawDistance: recalculatedDistance,
+      status: freshness.status,
+      statusText: freshness.statusText,
+      isAvailable: true,
+      latitude: lat,
+      longitude: lon,
+      accuracy: (typeof liveLoc.accuracy === 'number' && Number.isFinite(liveLoc.accuracy)) ? liveLoc.accuracy : null,
+    };
+  }
+
+  // Stale or expired (age >= 15 min)
   return {
     time: timeStr,
-    location: (liveLoc.townCity && liveLoc.townCity.trim()) ? liveLoc.townCity.trim() : 'Location name unavailable',
-    distance: formattedDistance,
-    rawDistance: recalculatedDistance,
+    location: 'Location unavailable',
+    distance: null,
+    rawDistance: null,
     status: freshness.status,
     statusText: freshness.statusText,
-    isAvailable: true,
-    latitude: liveLoc.latitude,
-    longitude: liveLoc.longitude,
-    accuracy: liveLoc.accuracy,
+    isAvailable: false,
   };
 };
 
