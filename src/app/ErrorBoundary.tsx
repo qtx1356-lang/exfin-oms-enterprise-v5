@@ -30,15 +30,33 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       const errMsg = (this.state.error?.message || '').toLowerCase();
-      const isOffline = typeof navigator !== 'undefined' && (!navigator.onLine || 
-        (this.state.error && (
-          errMsg.includes('fetch') ||
-          errMsg.includes('network') ||
-          errMsg.includes('offline') ||
-          errMsg.includes('chunk') ||
-          errMsg.includes('import') ||
-          errMsg.includes('failed to load')
-        )));
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+      // Check if this is a transient chunk/import/fetch error
+      const isTransientError = 
+        errMsg.includes('chunk') ||
+        errMsg.includes('import') ||
+        errMsg.includes('failed to load') ||
+        errMsg.includes('fetch') ||
+        errMsg.includes('network') ||
+        errMsg.includes('offline');
+
+      // If the device is online but we encountered a transient fetch/chunk/network error,
+      // attempt an internal automatic recovery (reload) once to restore startup state
+      if (typeof navigator !== 'undefined' && navigator.onLine && isTransientError) {
+        try {
+          const lastReload = sessionStorage.getItem('last_transient_error_reload');
+          const now = Date.now();
+          if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+            sessionStorage.setItem('last_transient_error_reload', now.toString());
+            console.warn('ErrorBoundary: Caught transient fetch/chunk error while online. Retrying/recovering internally...', this.state.error);
+            window.location.reload();
+            return null; // Render nothing while the page reloads
+          }
+        } catch (e) {
+          console.error('Failed to perform automatic recovery:', e);
+        }
+      }
 
       if (isOffline) {
         return (
