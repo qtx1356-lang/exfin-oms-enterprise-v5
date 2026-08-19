@@ -449,6 +449,21 @@ export const EmployeeDashboard: React.FC = () => {
     return attendanceRecords.find(r => r.date === todayStr) || todayAttendance;
   }, [attendanceRecords, todayStr, todayAttendance]);
 
+  // Live ticking state for working hours
+  const [nowTick, setNowTick] = useState(new Date());
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    const isCurrentlyCheckedIn = todayAttendanceRec && (!todayAttendanceRec.checkOutTime || todayAttendanceRec.checkOutTime === '--:--' || todayAttendanceRec.checkOutTime === 'Pending');
+    if (isCurrentlyCheckedIn) {
+      interval = setInterval(() => {
+        setNowTick(new Date());
+      }, 60000); // tick every minute
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [todayAttendanceRec]);
+
   const hasApprovedLeaveToday = useMemo(() => {
     return allLeaves.some(l => 
       l.status === 'APPROVED' && 
@@ -489,7 +504,7 @@ export const EmployeeDashboard: React.FC = () => {
     return checkInTimeStr && checkInTimeStr !== '--:--'
       ? getWorkingDuration(checkInTimeStr, checkOutTimeStr)
       : (attendanceStatusLabel === 'WFH' || attendanceStatusLabel === 'Client Visit' ? 'Active Shift' : '0h 0m');
-  }, [checkInTimeStr, checkOutTimeStr, attendanceStatusLabel]);
+  }, [checkInTimeStr, checkOutTimeStr, attendanceStatusLabel, nowTick]);
 
   // Tasks Filtered for CURRENT Employee ONLY
   const employeeId = employeeData.id || employeeData.employeeCode || '';

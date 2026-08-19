@@ -133,6 +133,18 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
+  // Listen to local storage writes to immediately refresh the reactive state
+  useEffect(() => {
+    const handleLocalUpdate = () => {
+      console.log('RealtimeSync: Detected local attendance storage update event.');
+      setAttendance(getStoredAttendanceRecords());
+    };
+    window.addEventListener('exfin_attendance_updated', handleLocalUpdate);
+    return () => {
+      window.removeEventListener('exfin_attendance_updated', handleLocalUpdate);
+    };
+  }, []);
+
   // Clean up previous listeners when employee changes
   const cleanupListeners = () => {
     activeUnsubsRef.current.forEach((unsub) => unsub());
