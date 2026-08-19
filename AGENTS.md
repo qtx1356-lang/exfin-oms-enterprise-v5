@@ -12,12 +12,15 @@ The following three features are CORE and PROTECTED features of EXFIN OMS:
 - Do not replace the location provider, alter location validation logic, change accuracy requirements, or bypass location checks.
 - Do not modify the location behavior merely to fix unrelated UI, performance, networking, or background-processing issues.
 
-### 3. Offline-first startup
+### 3. Offline-first startup & Zero URL Exposure
 - The application must remain capable of starting and functioning from its cached application shell when there is no internet connection.
 - Offline startup must not depend on Firebase, APIs, Google services, or any network request.
 - Do not re-enable a blocking offline page.
 - Do not change the service-worker offline-first architecture in a way that can break offline startup.
 - Existing offline storage, queued operations, and synchronization behavior must remain intact.
+- **ZERO URL EXPOSURE**: Under no circumstances may the app display any deployment URL, webpage URL, domain name, Firebase/API endpoint, raw error stack, or Chromium network error page to the employee.
+- **Strict Fallback Requirements**: If a fallback screen is unavoidable, it must only show the `📡` icon, "You're offline" heading, "Check your internet connection and try again" message, and a "Retry" button. No debug or technical info can be displayed.
+- **Static Regression Check**: The `/scripts/check_offline_policy.cjs` script is integrated into the `"lint"` command. Any modification to `capacitor.config.*`, `MainActivity.java`, `public/service-worker.js`, or `ErrorBoundary.tsx` must fully pass this script's checks before being accepted.
 
 ## ABSOLUTE CHANGE CONTROL
 These three features must NOT be changed under any circumstances unless the user explicitly requests and authorizes the specific change.
