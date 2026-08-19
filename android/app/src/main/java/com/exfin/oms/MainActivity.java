@@ -44,6 +44,40 @@ public class MainActivity extends BridgeActivity {
 
             webView.setWebViewClient(new WebViewClient() {
                 @Override
+                public android.webkit.WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                    if (originalClient != null) {
+                        return originalClient.shouldInterceptRequest(view, request);
+                    }
+                    return super.shouldInterceptRequest(view, request);
+                }
+
+                @Override
+                public android.webkit.WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+                    if (originalClient != null) {
+                        return originalClient.shouldInterceptRequest(view, url);
+                    }
+                    return super.shouldInterceptRequest(view, url);
+                }
+
+                @Override
+                public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                    if (originalClient != null) {
+                        originalClient.onPageStarted(view, url, favicon);
+                    } else {
+                        super.onPageStarted(view, url, favicon);
+                    }
+                }
+
+                @Override
+                public void onPageFinished(WebView view, String url) {
+                    if (originalClient != null) {
+                        originalClient.onPageFinished(view, url);
+                    } else {
+                        super.onPageFinished(view, url);
+                    }
+                }
+
+                @Override
                 public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                     if (request != null && request.isForMainFrame()) {
                         view.loadDataWithBaseURL(null, OFFLINE_HTML, "text/html", "UTF-8", null);
