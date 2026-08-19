@@ -16,6 +16,7 @@ import { logAttendanceEvent } from './attendanceLogger';
 import { createNotification } from '../notification/notificationService';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { updateLiveEmployeeLocation } from '../location/liveLocationService';
+import { startNativeBackgroundLocation, stopNativeBackgroundLocation } from './nativeBackgroundLocationBridge';
 
 import { OFFICE_GEOFENCE_RADIUS_METERS } from '../../core/coreFeatureLocks';
 
@@ -528,6 +529,9 @@ export const AutomaticAttendanceEngine = {
           syncPendingAttendanceRecords().catch((e) => console.warn('Sync error:', e));
         }
 
+        // Start native Android background location tracking for active attendance session
+        startNativeBackgroundLocation(employeeId, employeeName).catch((e) => console.warn('Native bg location start error:', e));
+
         return record;
       } else {
         throw new Error(`Cannot process event ${eventType} when status is OUTSIDE (no active check-in).`);
@@ -680,6 +684,10 @@ export const AutomaticAttendanceEngine = {
 
       if (navigator.onLine) {
         syncPendingAttendanceRecords().catch((e) => console.warn('Sync error:', e));
+      }
+
+      if (eventType === 'CHECK_OUT') {
+        stopNativeBackgroundLocation().catch((e) => console.warn('Native bg location stop error:', e));
       }
     }
 

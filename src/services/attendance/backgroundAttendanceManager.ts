@@ -11,6 +11,7 @@ import {
   trackResourceCleaned,
 } from '../monitoring/performanceDiagnostics';
 import { registerNativeOfficeGeofence, initNativeGeofenceListener, reconcileNativeGeofenceEvents } from './nativeGeofenceBridge';
+import { startNativeBackgroundLocation, stopNativeBackgroundLocation } from './nativeBackgroundLocationBridge';
 import { isMedianApp, initializeMedianBackgroundLocation, startMedianBackgroundLocation } from './medianBackgroundLocation';
 
 const GEOFENCE_REGISTERED_KEY = 'exfin_office_geofence_25m';
@@ -153,6 +154,22 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
   // Run initial end-of-day finalizer check
   runAutoCheckoutFinalizer();
 
+  // Sync native background location tracking based on active check-in status
+  try {
+    const info = getEmployeeInfo();
+    if (info?.id) {
+      const todayStr = getFormattedDateStr();
+      const todayRec = getTodayAttendanceRecord(info.id, todayStr);
+      if (todayRec && todayRec.checkInTime && !todayRec.checkOutTime) {
+        startNativeBackgroundLocation(info.id, info.name).catch(() => {});
+      } else if (todayRec && todayRec.checkOutTime) {
+        stopNativeBackgroundLocation().catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.warn('Error checking initial background location status:', err);
+  }
+
   // Initialize native geofence event listener & reconcile any unconsumed events
   let cleanupNativeListener: (() => void) | null = null;
   initNativeGeofenceListener(getEmployeeInfo).then((cleanup) => {
@@ -175,6 +192,15 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
       
       const info = getEmployeeInfo();
       if (info?.id) {
+        // Sync native background location tracking state
+        const todayStr = getFormattedDateStr();
+        const todayRec = getTodayAttendanceRecord(info.id, todayStr);
+        if (todayRec && todayRec.checkInTime && !todayRec.checkOutTime) {
+          startNativeBackgroundLocation(info.id, info.name).catch(() => {});
+        } else if (todayRec && todayRec.checkOutTime) {
+          stopNativeBackgroundLocation().catch(() => {});
+        }
+
         reconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Location name unavailable');
         if (isMedianApp()) {
           startMedianBackgroundLocation(getEmployeeInfo);
