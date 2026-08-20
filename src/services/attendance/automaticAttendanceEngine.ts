@@ -18,6 +18,7 @@ import { createNotification } from '../notification/notificationService';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { updateLiveEmployeeLocation } from '../location/liveLocationService';
 import { startNativeBackgroundLocation, stopNativeBackgroundLocation } from './nativeBackgroundLocationBridge';
+import { getNativeLastUnresolvedExit, clearNativeUnresolvedExit } from './nativeGeofenceBridge';
 
 import { OFFICE_GEOFENCE_RADIUS_METERS } from '../../core/coreFeatureLocks';
 
@@ -855,7 +856,6 @@ export const AutomaticAttendanceEngine = {
 
       if (!hasExitEvent) {
         try {
-          const { getNativeLastUnresolvedExit, clearNativeUnresolvedExit } = await import('./nativeGeofenceBridge');
           const nativeExit = await getNativeLastUnresolvedExit();
           if (nativeExit.hasUnresolvedExit && nativeExit.date === dateStr && nativeExit.time) {
             hasExitEvent = true;

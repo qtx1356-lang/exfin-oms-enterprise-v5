@@ -41,18 +41,40 @@ export class ErrorBoundary extends Component<Props, State> {
 
       // If the device is online but we encountered a transient fetch/chunk/network error,
       // attempt an internal automatic recovery (reload) once to restore startup state
-      if (typeof navigator !== 'undefined' && navigator.onLine && isTransientError) {
-        try {
-          const lastReload = sessionStorage.getItem('last_transient_error_reload');
-          const now = Date.now();
-          if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
-            sessionStorage.setItem('last_transient_error_reload', now.toString());
-            console.warn('ErrorBoundary: Caught transient fetch/chunk error while online. Retrying/recovering internally...', this.state.error);
-            window.location.reload();
-            return null; // Render nothing while the page reloads
+      if (typeof navigator !== 'undefined' && isTransientError) {
+        if (navigator.onLine) {
+          try {
+            const lastReload = sessionStorage.getItem('last_transient_error_reload');
+            const now = Date.now();
+            if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+              sessionStorage.setItem('last_transient_error_reload', now.toString());
+              console.warn('ErrorBoundary: Caught transient fetch/chunk error while online. Retrying/recovering internally...', this.state.error);
+              window.location.reload();
+              return null; // Render nothing while the page reloads
+            }
+          } catch (e) {
+            console.error('Failed to perform automatic recovery:', e);
           }
-        } catch (e) {
-          console.error('Failed to perform automatic recovery:', e);
+        } else {
+          // OFFLINE CHUNK/MODULE LOAD ERROR
+          // Do not crash the entire application for a missing feature chunk.
+          return (
+            <div className="min-h-screen bg-[#0f172a] text-[#f8fafc] flex flex-col items-center justify-center p-6 box-border font-sans">
+              <div className="bg-[#1e293b] border border-purple-500/30 rounded-[20px] p-8 max-w-[360px] w-full text-center shadow-2xl">
+                <div className="text-4xl mb-4">📡</div>
+                <h1 className="text-xl font-bold text-white mb-2">You're offline</h1>
+                <p className="text-sm text-slate-400 mb-6 leading-relaxed">
+                  Some features require an internet connection and are currently unavailable. Check your internet connection and try again.
+                </p>
+                <button 
+                  onClick={this.handleRetry}
+                  className="w-full bg-[#7c3aed] hover:bg-[#6d28d9] text-white py-3 px-6 rounded-xl text-sm font-semibold transition-colors shadow-md cursor-pointer"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          );
         }
       }
 
