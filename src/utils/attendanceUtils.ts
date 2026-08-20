@@ -304,7 +304,7 @@ export const getCurrentLocationDetails = (
           status = 'LIVE';
           statusText = ageSec < 15 ? 'Live · Updated just now' : `Live · Updated ${ageSec} sec ago`;
           isFresh = true;
-        } else if (ageMin < 15) {
+        } else if (ageMin < 3) {
           status = 'RECENT';
           statusText = `Last updated ${ageMin} min ago`;
           isFresh = true;
@@ -322,7 +322,7 @@ export const getCurrentLocationDetails = (
       }
     }
 
-    // If live location is fresh (< 15 min), calculate distance and format address
+    // If live location is fresh (< 3 min), calculate distance and format address
     if (isFresh) {
       const calculatedMeters = getDistanceFromLatLonInM(
         lat,
