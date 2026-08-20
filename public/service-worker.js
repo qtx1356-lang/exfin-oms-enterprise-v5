@@ -99,7 +99,7 @@ self.addEventListener('fetch', (event) => {
   // Strategy:
   // 1. Network-First: Prefer fresh HTML from network so clients never receive obsolete JS hash references while online.
   // 2. Cache on Success: Update /index.html in CACHE_NAME.
-  // 3. Fallback to Cache: If offline/network fails, serve the cached /index.html application shell.
+  // 3. Fallback to Cache: If offline/network fails, serve the cached /index.html application shell from CACHE_NAME ignoring query strings.
   if (request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
     event.respondWith(
       fetch(request)
@@ -113,18 +113,26 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          return caches.open(CACHE_NAME).then((cache) => {
-            return cache.match('/index.html').then((cachedResponse) => {
-              if (cachedResponse) {
-                return cachedResponse;
-              }
-              return cache.match('/').then((cachedRoot) => {
-                if (cachedRoot) {
-                  return cachedRoot;
-                }
-                return Promise.reject(new Error('Network unavailable and no cached application shell found'));
-              });
-            });
+          return caches.open(CACHE_NAME).then(async (cache) => {
+            // First try matching the specific request path (ignoring search params)
+            let cachedResponse = await cache.match(request, { ignoreSearch: true });
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+
+            // Next try exact /index.html (ignoring search params)
+            cachedResponse = await cache.match('/index.html', { ignoreSearch: true });
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+
+            // Next try root /
+            const cachedRoot = await cache.match('/', { ignoreSearch: true });
+            if (cachedRoot) {
+              return cachedRoot;
+            }
+
+            return Promise.reject(new Error('Network unavailable and no cached application shell found'));
           });
         })
     );
@@ -148,26 +156,33 @@ self.addEventListener('fetch', (event) => {
   if (isStaticAsset) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) => {
-        return cache.match(request).then((cachedResponse) => {
+        return cache.match(request, { ignoreSearch: true }).then((cachedResponse) => {
           if (cachedResponse) {
             return cachedResponse;
           }
 
-          return fetch(request)
-            .then((response) => {
-              if (!response || response.status !== 200) {
+          // Also check by pathname in case request URL had search or origin differences
+          return cache.match(url.pathname, { ignoreSearch: true }).then((cachedByPath) => {
+            if (cachedByPath) {
+              return cachedByPath;
+            }
+
+            return fetch(request)
+              .then((response) => {
+                if (!response || response.status !== 200) {
+                  return response;
+                }
+
+                const responseToCache = response.clone();
+                cache.put(request, responseToCache).catch(() => {});
+
                 return response;
-              }
-
-              const responseToCache = response.clone();
-              cache.put(request, responseToCache).catch(() => {});
-
-              return response;
-            })
-            .catch(() => {
-              // Return cached version if query parameter differences exist
-              return cache.match(url.pathname);
-            });
+              })
+              .catch(() => {
+                // Return cached version if query parameter differences exist
+                return cache.match(url.pathname, { ignoreSearch: true });
+              });
+          });
         });
       })
     );
