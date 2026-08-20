@@ -154,6 +154,44 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
   // Run initial end-of-day finalizer check
   runAutoCheckoutFinalizer();
 
+  // Perform immediate initial GPS check on startup to evaluate geofence presence
+  try {
+    const info = getEmployeeInfo();
+    if (info?.id) {
+      if (Capacitor.isNativePlatform()) {
+        Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000 }).then((pos) => {
+          if (pos?.coords) {
+            handleLocationUpdateForAttendance(
+              pos.coords.latitude,
+              pos.coords.longitude,
+              info.id,
+              info.name,
+              info.townCity || 'Location name unavailable',
+              pos.coords.accuracy
+            );
+          }
+        }).catch((e) => console.warn('Initial background manager GPS fetch error:', e));
+      } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            handleLocationUpdateForAttendance(
+              pos.coords.latitude,
+              pos.coords.longitude,
+              info.id,
+              info.name,
+              info.townCity || 'Location name unavailable',
+              pos.coords.accuracy
+            );
+          },
+          (err) => console.warn('Initial background manager Web GPS error:', err),
+          { enableHighAccuracy: true, timeout: 5000 }
+        );
+      }
+    }
+  } catch (err) {
+    console.warn('Initial startup location update error:', err);
+  }
+
   // Sync native background location tracking based on active check-in status
   try {
     const info = getEmployeeInfo();
