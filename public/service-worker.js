@@ -101,14 +101,16 @@ self.addEventListener('fetch', (event) => {
   // 2. Network fallback (if cache missing)
   if (request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
     event.respondWith(
-      caches.match('/index.html').then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        return fetch(request).catch(() => {
-          return caches.match('/').then((cachedRoot) => {
-            if (cachedRoot) return cachedRoot;
-            return Promise.reject(new Error('Network unavailable and no cached application shell found'));
+      caches.open(CACHE_NAME).then((cache) => {
+        return cache.match('/index.html').then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          return fetch(request).catch(() => {
+            return cache.match('/').then((cachedRoot) => {
+              if (cachedRoot) return cachedRoot;
+              return Promise.reject(new Error('Network unavailable and no cached application shell found'));
+            });
           });
         });
       })
@@ -132,28 +134,28 @@ self.addEventListener('fetch', (event) => {
 
   if (isStaticAsset) {
     event.respondWith(
-      caches.match(request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
+      caches.open(CACHE_NAME).then((cache) => {
+        return cache.match(request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
 
-        return fetch(request)
-          .then((response) => {
-            if (!response || response.status !== 200) {
+          return fetch(request)
+            .then((response) => {
+              if (!response || response.status !== 200) {
+                return response;
+              }
+
+              const responseToCache = response.clone();
+              cache.put(request, responseToCache).catch(() => {});
+
               return response;
-            }
-
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseToCache);
-            }).catch(() => {});
-
-            return response;
-          })
-          .catch(() => {
-            // Return cached version if query parameter differences exist
-            return caches.match(url.pathname);
-          });
+            })
+            .catch(() => {
+              // Return cached version if query parameter differences exist
+              return cache.match(url.pathname);
+            });
+        });
       })
     );
     return;
