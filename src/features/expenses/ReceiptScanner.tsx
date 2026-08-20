@@ -31,6 +31,15 @@ interface ReceiptScannerProps {
   }) => void;
 }
 
+const isMobileOrMedian = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const win = window as any;
+  const isMedian = Boolean(win.median || win.gonative || /median|gonative/i.test(ua));
+  const isMobile = /android|iphone|ipad|ipod/i.test(ua) || ('ontouchstart' in window && window.innerWidth < 1024);
+  return isMedian || isMobile;
+};
+
 export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
   isOpen,
   onClose,
@@ -39,6 +48,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [hasMultipleCameras, setHasMultipleCameras] = useState<boolean>(false);
@@ -77,7 +87,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
   const startCamera = useCallback(async () => {
     if (!isOpen) return;
 
-    if (Capacitor.isNativePlatform()) {
+    if (Capacitor.isNativePlatform() || isMobileOrMedian()) {
       setCameraState('STREAMING');
       setErrorMessage(null);
       return;
@@ -244,8 +254,14 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
   const handleCapturePhoto = async () => {
     if (Capacitor.isNativePlatform()) {
       await handleNativeCameraCapture();
+    } else if (isMobileOrMedian()) {
+      cameraInputRef.current?.click();
     } else {
-      handleWebCapturePhoto();
+      if (videoRef.current && videoRef.current.videoWidth > 0) {
+        handleWebCapturePhoto();
+      } else {
+        cameraInputRef.current?.click();
+      }
     }
   };
 
@@ -352,6 +368,9 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
       setErrorMessage('Failed to process selected file.');
     };
     reader.readAsDataURL(file);
+    // Reset file input values so selecting same file or retaking works immediately
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
   // Accept and confirm receipt
@@ -393,18 +412,28 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
           className="hidden"
         />
 
+        {/* Hidden file input with capture="environment" for direct mobile/Median camera capture */}
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          ref={cameraInputRef}
+          onChange={handleFileUpload}
+          className="hidden"
+        />
+
         {/* Viewfinder / Captured Preview Area */}
         <div className="relative w-full aspect-[4/3] bg-black/90 rounded-2xl overflow-hidden border border-purple-500/30 flex items-center justify-center shadow-inner">
           {/* Active Streaming Video */}
           {cameraState === 'STREAMING' && (
             <>
-              {Capacitor.isNativePlatform() ? (
+              {Capacitor.isNativePlatform() || isMobileOrMedian() ? (
                 <div className="flex flex-col items-center justify-center text-center p-6 space-y-3">
                   <div className="w-16 h-16 rounded-full bg-purple-500/10 text-purple-300 flex items-center justify-center border border-purple-500/20 animate-pulse">
                     <Camera className="w-8 h-8 text-purple-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-white">Native Receipt Capture</p>
+                    <p className="text-sm font-bold text-white">Receipt Camera Capture</p>
                     <p className="text-xs text-purple-200/60 mt-1 max-w-xs leading-relaxed">
                       Tap "Capture Photo" below to open your device camera, or "Gallery" to select a saved receipt.
                     </p>
@@ -520,7 +549,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                 <Camera className="w-5 h-5" /> Capture Photo
               </button>
 
-              {hasMultipleCameras && (
+              {hasMultipleCameras && !Capacitor.isNativePlatform() && !isMobileOrMedian() && (
                 <button
                   type="button"
                   onClick={handleToggleCamera}
