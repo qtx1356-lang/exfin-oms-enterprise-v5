@@ -26,7 +26,7 @@ public class DayEndBroadcastReceiver extends BroadcastReceiver {
         sdf.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
         String timeStr = sdf.format(new Date());
 
-        Log.i(TAG, "=== 6:00 PM IST DAY-END ALARM TRIGGERED AT " + timeStr + " IST ===");
+        Log.i(TAG, "=== 11:59 PM IST DAY-END ALARM TRIGGERED AT " + timeStr + " IST ===");
 
         try {
             // Check if active background location tracking is running
@@ -35,13 +35,13 @@ public class DayEndBroadcastReceiver extends BroadcastReceiver {
             String empId = locPrefs.getString(BackgroundLocationService.KEY_EMPLOYEE_ID, "");
 
             if (isTracking && !empId.isEmpty()) {
-                Log.i(TAG, "Active background location tracking detected for " + empId + " at 6 PM. Checking if finalization is required.");
+                Log.i(TAG, "Active background location tracking detected for " + empId + " at 11:59 PM. Checking if finalization is required.");
 
                 // Run native finalization
                 DayEndFinalizer.finalizeAttendance(context, empId, timeStr);
             }
 
-            // Reschedule for next day 18:00 IST
+            // Reschedule for next day 23:59 IST
             DayEndAlarmScheduler.scheduleDayEndAlarm(context);
         } catch (Exception e) {
             Log.e(TAG, "Error executing day-end receiver: " + e.getMessage(), e);

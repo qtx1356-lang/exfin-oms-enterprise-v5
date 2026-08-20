@@ -14,6 +14,7 @@ export interface IndiaTimeParts {
   dateStr: string; // "YYYY-MM-DD"
   time12Str: string; // "hh:mm AM/PM"
   is18OrLater: boolean; // true if IST hour >= 18 (6:00 PM IST or later)
+  isEndOfDayOrLater: boolean; // true if IST hour === 23 && minute >= 59 (11:59 PM IST or later)
 }
 
 /**
@@ -63,7 +64,8 @@ export const getIndiaTimeParts = (inputDate: Date = new Date()): IndiaTimeParts 
     second,
     dateStr,
     time12Str,
-    is18OrLater: hour >= 18 // 6:00 PM IST or later
+    is18OrLater: hour >= 18, // 6:00 PM IST or later
+    isEndOfDayOrLater: hour === 23 && minute >= 59 // 11:59 PM IST or later
   };
 };
 
@@ -82,8 +84,8 @@ export const getIndiaFormattedTimeStr = (inputDate: Date = new Date()): string =
 };
 
 /**
- * Checks whether current Asia/Kolkata time is at or after 6:00 PM (18:00 IST).
+ * Checks whether current Asia/Kolkata time is at or after 11:59 PM (23:59 IST).
  */
 export const isIndiaBusinessDayEnded = (inputDate: Date = new Date()): boolean => {
-  return getIndiaTimeParts(inputDate).is18OrLater;
+  return getIndiaTimeParts(inputDate).isEndOfDayOrLater;
 };

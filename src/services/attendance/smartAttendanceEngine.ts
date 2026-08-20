@@ -364,7 +364,7 @@ export const runAutoCheckoutFinalizer = async (): Promise<void> => {
       // Previous days (missed checkouts) - MUST be settled immediately under next-day protection
       await AutomaticAttendanceEngine.settleUnresolvedSession(rec.employeeId, rec.date, now);
     } else if (isToday) {
-      // Today's record - settled when business day ends (6:00 PM IST or later)
+      // Today's record - settled when business day ends (11:59 PM IST or later)
       if (isBusinessDayEnded) {
         await AutomaticAttendanceEngine.settleUnresolvedSession(rec.employeeId, rec.date, now);
       }

@@ -36,10 +36,10 @@ public class DayEndAlarmScheduler {
 
             PendingIntent pendingIntent = PendingIntent.getBroadcast(context, ALARM_REQUEST_CODE, intent, flags);
 
-            // Compute next 18:00 (6:00 PM) IST in Asia/Kolkata
+            // Compute next 23:59 (11:59 PM) IST in Asia/Kolkata
             Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Kolkata"));
-            cal.set(Calendar.HOUR_OF_DAY, 18);
-            cal.set(Calendar.MINUTE, 0);
+            cal.set(Calendar.HOUR_OF_DAY, 23);
+            cal.set(Calendar.MINUTE, 59);
             cal.set(Calendar.SECOND, 0);
             cal.set(Calendar.MILLISECOND, 0);
 
@@ -47,14 +47,14 @@ public class DayEndAlarmScheduler {
             long nowMs = System.currentTimeMillis();
 
             if (nowMs >= targetTimeMs) {
-                // Already passed 18:00 today, schedule for tomorrow 18:00 IST
+                // Already passed 23:59 today, schedule for tomorrow 23:59 IST
                 cal.add(Calendar.DAY_OF_YEAR, 1);
                 targetTimeMs = cal.getTimeInMillis();
             }
 
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US);
             sdf.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
-            Log.i(TAG, "Scheduling 6:00 PM IST Day-End Alarm for: " + sdf.format(new Date(targetTimeMs)) + " IST");
+            Log.i(TAG, "Scheduling 11:59 PM IST Day-End Alarm for: " + sdf.format(new Date(targetTimeMs)) + " IST");
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, targetTimeMs, pendingIntent);
