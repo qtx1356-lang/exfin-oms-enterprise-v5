@@ -95,25 +95,38 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // NAVIGATION REQUESTS (SPA Routes: /, /attendance, /planner, /employee, etc.)
+  // NAVIGATION REQUESTS (SPA Routes: /, /attendance, /planner, /employee, /admin-portal/login, /x7Kp9/login, etc.)
   // Strategy:
-  // 1. Cache first: ensure atomic versioning by serving the HTML that matches the precached JS chunks.
-  // 2. Network fallback (if cache missing)
+  // 1. Network-First: Prefer fresh HTML from network so clients never receive obsolete JS hash references while online.
+  // 2. Cache on Success: Update /index.html in CACHE_NAME.
+  // 3. Fallback to Cache: If offline/network fails, serve the cached /index.html application shell.
   if (request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
     event.respondWith(
-      caches.open(CACHE_NAME).then((cache) => {
-        return cache.match('/index.html').then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put('/index.html', responseToCache).catch(() => {});
+            }).catch(() => {});
           }
-          return fetch(request).catch(() => {
-            return cache.match('/').then((cachedRoot) => {
-              if (cachedRoot) return cachedRoot;
-              return Promise.reject(new Error('Network unavailable and no cached application shell found'));
+          return response;
+        })
+        .catch(() => {
+          return caches.open(CACHE_NAME).then((cache) => {
+            return cache.match('/index.html').then((cachedResponse) => {
+              if (cachedResponse) {
+                return cachedResponse;
+              }
+              return cache.match('/').then((cachedRoot) => {
+                if (cachedRoot) {
+                  return cachedRoot;
+                }
+                return Promise.reject(new Error('Network unavailable and no cached application shell found'));
+              });
             });
           });
-        });
-      })
+        })
     );
     return;
   }
