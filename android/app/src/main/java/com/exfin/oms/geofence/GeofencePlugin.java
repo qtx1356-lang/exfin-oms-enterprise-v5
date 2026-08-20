@@ -59,6 +59,14 @@ public class GeofencePlugin extends Plugin {
     public void registerOfficeGeofence(PluginCall call) {
         try {
             Context context = getContext();
+
+            String employeeId = call.getString("employeeId");
+            String employeeName = call.getString("employeeName");
+            String townCity = call.getString("townCity");
+            if (employeeId != null && !employeeId.trim().isEmpty()) {
+                OfficeGeofenceHelper.setEmployeeInfo(context, employeeId.trim(), employeeName, townCity);
+            }
+
             OfficeGeofenceHelper.registerOfficeGeofence(context);
 
             JSObject ret = new JSObject();
@@ -70,6 +78,27 @@ public class GeofencePlugin extends Plugin {
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Failed to register office geofence: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void setEmployeeIdentity(PluginCall call) {
+        try {
+            Context context = getContext();
+            String employeeId = call.getString("employeeId");
+            String employeeName = call.getString("employeeName", "Employee");
+            String townCity = call.getString("townCity", "Raniganj HQ");
+
+            if (employeeId != null && !employeeId.trim().isEmpty()) {
+                OfficeGeofenceHelper.setEmployeeInfo(context, employeeId.trim(), employeeName, townCity);
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            ret.put("employeeId", employeeId);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to set employee identity: " + e.getMessage(), e);
         }
     }
 

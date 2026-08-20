@@ -45,6 +45,7 @@ import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import com.exfin.oms.geofence.OfficeGeofenceHelper;
 import com.exfin.oms.scheduler.DayEndAlarmScheduler;
 
 public class BackgroundLocationService extends Service {
@@ -138,6 +139,7 @@ public class BackgroundLocationService extends Service {
 
         startLocationUpdates();
         DayEndAlarmScheduler.scheduleDayEndAlarm(this);
+        OfficeGeofenceHelper.retryPendingNativeCheckIn(this);
         return START_STICKY;
     }
 
@@ -355,6 +357,7 @@ public class BackgroundLocationService extends Service {
                 int responseCode = conn.getResponseCode();
                 if (responseCode >= 200 && responseCode < 300) {
                     Log.i(TAG, "Firestore live location updated for " + empId + " at (" + latitude + ", " + longitude + ")");
+                    OfficeGeofenceHelper.retryPendingNativeCheckIn(BackgroundLocationService.this);
                 } else {
                     Log.w(TAG, "Firestore update returned HTTP " + responseCode + " for " + empId);
                 }

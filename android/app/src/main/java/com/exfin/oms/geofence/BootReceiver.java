@@ -18,5 +18,6 @@ public class BootReceiver extends BroadcastReceiver {
         
         OfficeGeofenceHelper.registerOfficeGeofence(context);
         DayEndAlarmScheduler.scheduleDayEndAlarm(context);
+        OfficeGeofenceHelper.retryPendingNativeCheckIn(context);
     }
 }

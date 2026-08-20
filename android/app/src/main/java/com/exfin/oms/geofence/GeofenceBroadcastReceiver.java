@@ -51,6 +51,7 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
             Log.i(TAG, "=== NATIVE OFFICE GEOFENCE ENTER EVENT DELIVERED ===");
             OfficeGeofenceHelper.recordNativeGeofenceEvent(context, "ENTER", lat, lng);
             GeofencePlugin.notifyNativeTransition("ENTER", lat, lng);
+            OfficeGeofenceHelper.handleNativeAutoCheckIn(context, lat, lng);
         } else {
             Log.w(TAG, "Unhandled geofence transition type: " + transitionType);
         }
