@@ -1,306 +1,179 @@
-import { AttendanceRecord, LiveEmployeeLocation } from '../types/attendance';
-import { OFFICE_LOCATION, getDistanceFromLatLonInM } from '../services/attendance/smartAttendanceEngine';
-import {
-  formatPreciseAddress,
-  getAdminCachedAddress,
-  fetchAndCacheAddressForCoords,
-  isGenericFallbackAddress
-} from './addressFormatter';
+import { formatInTimeZone } from 'date-fns-tz';
 
-/**
- * Authoritative helper to determine if an attendance record represents an actual check-in.
- * 
- * An attendance record counts as physically present ONLY when:
- * 1. The record exists and is an object.
- * 2. The record.checkInTime is a valid non-empty attendance time string (e.g. "10:15 AM", "10:00").
- * 
- * It returns FALSE if:
- * - record is null / undefined
- * - checkInTime is missing, null, undefined, empty, or placeholder ("--:--", "Pending", "N/A", "UNRESOLVED", etc.)
- * 
- * DO NOT use Boolean(record), record.status === 'PRESENT', or record.workingHours.
- */
-export const hasActualCheckIn = (record: AttendanceRecord | any | null | undefined): boolean => {
-  if (!record || typeof record !== 'object') return false;
-  if (!record.checkInTime || typeof record.checkInTime !== 'string') return false;
+export interface LocationDetail {
+  time: string;
+  location: string;
+  distance: string;
+  isUnresolved?: boolean;
+}
 
-  const timeVal = record.checkInTime.trim();
-  if (!timeVal) return false;
+export interface CurrentLocationDetail {
+  status: 'LIVE' | 'RECENT' | 'STALE' | 'Location unavailable';
+  location: string;
+  distance: string;
+  updatedAt?: string;
+}
 
-  const invalidValues = ['--:--', '--:-- --', 'Pending', 'pending', 'N/A', 'n/a', 'UNRESOLVED', 'unresolved', 'null', 'undefined', '—', '-'];
-  if (invalidValues.includes(timeVal)) return false;
-
-  return true;
+export const AUTHORIZED_OFFICE = {
+  latitude: 23.616227,
+  longitude: 87.117063,
+  radius: 25 // meters
 };
 
 /**
- * Authoritative helper to determine if an attendance record has an unresolved checkout.
- * 
- * A record is UNRESOLVED when:
- * 1. Attendance date is before today's date in IST.
- * 2. A valid check-in exists.
- * 3. Checkout is missing (null, undefined, empty, "--:--", etc.).
- * 4. The record has NOT already been manually corrected by Admin or explicitly marked COMPLETED.
- * 5. It is an attendance type for which checkout is expected.
+ * Calculates Haversine distance in meters between two coordinates.
  */
-export const isAttendanceCheckoutUnresolved = (record: AttendanceRecord): boolean => {
-  if (!record) return false;
+export function getDistanceFromLatLonInM(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371000; // Radius of the Earth in m
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) *
+      Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
-  // 1. Get today's date in IST (matching engine logic)
-  let todayStr: string;
+function deg2rad(deg: number): number {
+  return deg * (Math.PI / 180);
+}
+
+/**
+ * Utility to convert raw dates to Asia/Kolkata ISO string.
+ */
+export function toKolkataString(date: Date | string | number): string {
   try {
-    todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-  } catch (e) {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    todayStr = `${year}-${month}-${day}`;
+    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '';
+    return formatInTimeZone(d, 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+  } catch {
+    return '';
   }
-
-  // Attendance date is today or in the future? Not unresolved yet.
-  if (record.date >= todayStr) return false;
-
-  // 2. Check-in exists
-  const hasCheckIn = !!(record.checkInTime && record.checkInTime !== '--:--');
-  if (!hasCheckIn) return false;
-
-  // 3. Checkout is missing
-  // Treat all of these as missing checkout: null, undefined, "", " ", "--:--", "--:-- --", "Pending"
-  const checkOutValue = (record.checkOutTime || '').trim();
-  const isCheckOutMissing = !checkOutValue || 
-                            checkOutValue === '--:--' || 
-                            checkOutValue === '--:-- --' ||
-                            checkOutValue === 'Pending' ||
-                            checkOutValue === 'N/A';
-
-  if (!isCheckOutMissing) return false;
-
-  // 4. Admin Correction / Manual Rectification / Explicit Completion
-  // If record is already corrected or explicitly completed, it's not unresolved
-  if (record.manualRectified || record.isAdminRectified || record.correctedAt || record.checkoutStatus === 'COMPLETED') {
-    return false;
-  }
-  
-  // Also check resolutionSource if it exists
-  if (record.resolutionSource === 'ADMIN_CORRECTION') {
-    return false;
-  }
-
-  // 5. Attendance type check (Checkout expected for OFFICE, WFH, CLIENT_VISIT)
-  // OUTDOOR might have different rules but usually also expects checkout.
-  // The user said: "It is an attendance type for which checkout is expected."
-  // Most types expect checkout.
-  
-  return true;
-};
+}
 
 /**
- * Get the effective checkout status for UI display.
+ * Formats check-in location forensics
  */
-export const getEffectiveCheckoutStatus = (record: AttendanceRecord): 'COMPLETED' | 'UNRESOLVED' | 'PENDING_ADMIN_REVIEW' | undefined => {
-  if (record.checkoutStatus === 'COMPLETED') return 'COMPLETED';
-  if (record.checkoutStatus === 'PENDING_ADMIN_REVIEW') return 'PENDING_ADMIN_REVIEW';
-  
-  if (isAttendanceCheckoutUnresolved(record)) {
-    return 'UNRESOLVED';
-  }
-  
-  return record.checkoutStatus;
-};
-
-/**
- * Format distance in meters or kilometers from office.
- * Displays meters below 1 km, and kilometers at 1 km or greater.
- */
-export const formatDistanceDisplay = (meters: number | null | undefined): string | null => {
-  if (typeof meters !== 'number' || isNaN(meters)) return null;
-  if (meters < 1000) {
-    return `${Math.round(meters)} m from office`;
-  }
-  return `${(meters / 1000).toFixed(2)} km from office`;
-};
-
-/**
- * Get Check-in location details for UI display.
- */
-export const getCheckInLocationDetails = (record: AttendanceRecord): {
-  time: string;
-  location: string;
-  distance: string | null;
-  rawDistance: number | null;
-} => {
+export function getCheckInLocationDetails(record: any): LocationDetail {
   if (!record) {
-    return { time: '--:--', location: 'Location unavailable', distance: null, rawDistance: null };
+    return { time: 'Pending', location: 'Location unavailable', distance: '—' };
+  }
+  const time = record.checkInTime || 'Pending';
+  const lat = record.checkInLatitude ?? record.latitude;
+  const lon = record.checkInLongitude ?? record.longitude;
+
+  if (lat === undefined || lon === undefined || lat === 0 || lon === 0) {
+    return { time, location: record.townCity || 'Location unavailable', distance: '—' };
   }
 
-  const time = record.checkInTime || '--:--';
-
-  let rawDist: number | null = null;
-  const lat = record.checkInLatitude !== undefined && record.checkInLatitude !== null ? record.checkInLatitude : record.latitude;
-  const lon = record.checkInLongitude !== undefined && record.checkInLongitude !== null ? record.checkInLongitude : record.longitude;
-
-  let location = 'Location unavailable';
-
-  if (isValidCoordinatePair(lat, lon)) {
-    const numLat = Number(lat);
-    const numLon = Number(lon);
-    const calculatedDist = getDistanceFromLatLonInM(numLat, numLon, OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude);
-    if (typeof calculatedDist === 'number' && Number.isFinite(calculatedDist) && calculatedDist >= 0) {
-      rawDist = calculatedDist;
-    }
-
-    const storedTown = record.checkInTownCity || record.townCity;
-    const formattedStored = storedTown ? formatPreciseAddress(storedTown) : null;
-    const cachedAddress = getAdminCachedAddress(numLat, numLon);
-
-    if (cachedAddress) {
-      location = cachedAddress;
-    } else if (formattedStored && !isGenericFallbackAddress(formattedStored)) {
-      location = formattedStored;
-    } else {
-      fetchAndCacheAddressForCoords(numLat, numLon);
-      location = formattedStored || 'Location name unavailable';
-    }
-  } else {
-    location = 'Location unavailable';
-  }
-
-  const distance = formatDistanceDisplay(rawDist);
-  return { time, location, distance, rawDistance: rawDist };
-};
-
-/**
- * Get Checkout location details for UI display.
- */
-export const getCheckoutLocationDetails = (record: AttendanceRecord): {
-  time: string;
-  location: string;
-  distance: string | null;
-  rawDistance: number | null;
-  isUnresolved: boolean;
-} => {
-  if (!record) {
-    return { time: '--:--', location: 'Location unavailable', distance: null, rawDistance: null, isUnresolved: false };
-  }
-
-  const unresolved = isAttendanceCheckoutUnresolved(record) || record.checkoutStatus === 'UNRESOLVED';
-  let time = '--:--';
-  
-  if (record.checkOutTime && record.checkOutTime !== 'Pending' && record.checkOutTime !== 'N/A') {
-    time = record.checkOutTime;
-  } else if (unresolved) {
-    time = 'UNRESOLVED';
-  } else {
-    time = 'Pending';
-  }
-
-  let rawDist: number | null = null;
-  let location = 'Location unavailable';
-
-  if (isValidCoordinatePair(record.checkoutLatitude, record.checkoutLongitude)) {
-    const numLat = Number(record.checkoutLatitude);
-    const numLon = Number(record.checkoutLongitude);
-    const calculatedDist = getDistanceFromLatLonInM(numLat, numLon, OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude);
-    if (typeof calculatedDist === 'number' && Number.isFinite(calculatedDist) && calculatedDist >= 0) {
-      rawDist = calculatedDist;
-    }
-
-    const storedTown = record.checkoutTownCity;
-    const formattedStored = storedTown ? formatPreciseAddress(storedTown) : null;
-    const cachedAddress = getAdminCachedAddress(numLat, numLon);
-
-    if (cachedAddress) {
-      location = cachedAddress;
-    } else if (formattedStored && !isGenericFallbackAddress(formattedStored)) {
-      location = formattedStored;
-    } else {
-      fetchAndCacheAddressForCoords(numLat, numLon);
-      location = formattedStored || 'Location name unavailable';
-    }
-  } else {
-    if (unresolved) {
-      location = 'Location unavailable';
-    } else if (record.checkOutTime && record.checkOutTime !== 'Pending' && record.checkOutTime !== 'N/A') {
-      location = 'Location unavailable';
-    } else {
-      location = 'Pending checkout';
-    }
-  }
-
-  const distance = formatDistanceDisplay(rawDist);
-  return { time, location, distance, rawDistance: rawDist, isUnresolved: unresolved };
-};
-
-/**
- * Defensive coordinate pair validator
- */
-export const isValidCoordinatePair = (lat: any, lon: any): boolean => {
-  const numLat = Number(lat);
-  const numLon = Number(lon);
-  return (
-    !isNaN(numLat) &&
-    !isNaN(numLon) &&
-    Number.isFinite(numLat) &&
-    Number.isFinite(numLon) &&
-    numLat >= -90 &&
-    numLat <= 90 &&
-    numLon >= -180 &&
-    numLon <= 180 &&
-    !(numLat === 0 && numLon === 0)
+  const dist = getDistanceFromLatLonInM(
+    lat,
+    lon,
+    AUTHORIZED_OFFICE.latitude,
+    AUTHORIZED_OFFICE.longitude
   );
-};
+
+  return {
+    time,
+    location: record.townCity || `${lat.toFixed(5)}, ${lon.toFixed(5)}`,
+    distance: dist <= AUTHORIZED_OFFICE.radius ? 'Within office radius' : `${Math.round(dist)}m from office`
+  };
+}
 
 /**
- * Get Current (Live) Location details for UI display.
- * 
- * CRITICAL DATA-INTEGRITY RULE:
- * 1. Current location and current distance MUST come ONLY from an active, fresh LiveEmployeeLocation fix
- *    (live_locations collection in Firestore).
- * 2. Distance is ALWAYS mathematically recalculated from live GPS coordinates
- *    against OFFICE_LOCATION (23.616227, 87.117063) using Haversine formula.
- * 3. Stored `distanceFromOffice` or `currentDistance` is NEVER blindly trusted.
- * 4. NEVER falls back to check-in coordinates (checkInLatitude / checkInLongitude)
- *    or historical attendance records (record.currentLatitude / record.currentLongitude)
- *    for Current Location.
- * 5. If live location is missing, invalid, or stale (age >= 15 min), returns "Location unavailable" and distance null ("—").
+ * Formats check-out location forensics
  */
-export const getCurrentLocationDetails = (
-  record: AttendanceRecord | null,
-  liveLocation?: LiveEmployeeLocation | null
-): {
-  time: string | null;
-  location: string;
-  distance: string | null;
-  rawDistance: number | null;
-  status: 'LIVE' | 'RECENT' | 'STALE' | 'UNAVAILABLE';
-  statusText: string;
-  isAvailable: boolean;
-  latitude?: number;
-  longitude?: number;
-  accuracy?: number | null;
-} => {
-  // 1. Check if authoritative liveLocation is provided with valid coordinates
-  if (liveLocation && isValidCoordinatePair(liveLocation.latitude, liveLocation.longitude)) {
-    const lat = Number(liveLocation.latitude);
-    const lon = Number(liveLocation.longitude);
+export function getCheckoutLocationDetails(record: any): LocationDetail {
+  if (!record) {
+    return { time: 'Pending', location: 'Location unavailable', distance: '—' };
+  }
 
-    let timeStr: string | null = null;
-    let status: 'LIVE' | 'RECENT' | 'STALE' | 'UNAVAILABLE' = 'UNAVAILABLE';
-    let statusText = 'Location unavailable';
-    let isFresh = false;
+  const isUnresolved =
+    record.checkoutStatus === 'UNRESOLVED' ||
+    record.checkOutTime === 'UNRESOLVED';
 
-    if (liveLocation.timestamp) {
-      const timestampDate = new Date(liveLocation.timestamp);
-      if (!isNaN(timestampDate.getTime())) {
-        timeStr = timestampDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const time = isUnresolved
+    ? 'UNRESOLVED'
+    : record.checkOutTime || record.lastExitTime || record.exitTime || 'Pending';
 
-        const ageMs = Math.max(0, Date.now() - timestampDate.getTime());
-        const ageSec = Math.floor(ageMs / 1000);
-        const ageMin = Math.floor(ageMs / 60000);
-        const ageHr = Math.floor(ageMs / 3600000);
+  const lat = record.checkoutLatitude;
+  const lon = record.checkoutLongitude;
 
-        if (ageMin < 2) {
+  if (lat === undefined || lon === undefined || lat === 0 || lon === 0) {
+    return {
+      time,
+      location: record.checkoutTownCity || 'Location unavailable',
+      distance: '—',
+      isUnresolved
+    };
+  }
+
+  const dist = getDistanceFromLatLonInM(
+    lat,
+    lon,
+    AUTHORIZED_OFFICE.latitude,
+    AUTHORIZED_OFFICE.longitude
+  );
+
+  return {
+    time,
+    location: record.checkoutTownCity || `${lat.toFixed(5)}, ${lon.toFixed(5)}`,
+    distance: dist <= AUTHORIZED_OFFICE.radius ? 'Within office radius' : `${Math.round(dist)}m from office`,
+    isUnresolved
+  };
+}
+
+/**
+ * Formats and evaluates the active live background coordinate update status
+ */
+export function getCurrentLocationDetails(record: any, liveLocDoc: any): CurrentLocationDetail {
+  if (!record) {
+    return { status: 'Location unavailable', location: 'Location unavailable', distance: '—' };
+  }
+
+  // Attendance completed or resolved: no longer live-tracked
+  const isCompleted =
+    record.checkoutStatus === 'COMPLETED' ||
+    (!!record.checkOutTime &&
+      record.checkOutTime !== 'Pending' &&
+      record.checkOutTime !== 'N/A' &&
+      record.checkOutTime !== 'UNRESOLVED');
+
+  if (isCompleted) {
+    return { status: 'Location unavailable', location: 'Session completed', distance: '—' };
+  }
+
+  const targetDoc = liveLocDoc || record;
+  const lat = targetDoc.latitude ?? targetDoc.currentLatitude;
+  const lon = targetDoc.longitude ?? targetDoc.currentLongitude;
+
+  if (lat === undefined || lon === undefined || lat === 0 || lon === 0) {
+    return { status: 'Location unavailable', location: 'No GPS signal received', distance: '—' };
+  }
+
+  const updateTime = targetDoc.updatedAt || targetDoc.timestamp;
+  let status: 'LIVE' | 'RECENT' | 'STALE' | 'Location unavailable' = 'STALE';
+  let statusText = 'STALE';
+  let isFresh = false;
+
+  if (updateTime) {
+    try {
+      const now = new Date();
+      const lastUpdate = new Date(updateTime);
+      const diffMs = now.getTime() - lastUpdate.getTime();
+      const ageSec = Math.floor(diffMs / 1000);
+      const ageMin = Math.floor(diffMs / 60000);
+
+      if (diffMs > 0) {
+        if (ageSec < 60) {
           status = 'LIVE';
           statusText = ageSec < 15 ? 'Live · Updated just now' : `Live · Updated ${ageSec} sec ago`;
           isFresh = true;
@@ -310,83 +183,91 @@ export const getCurrentLocationDetails = (
           isFresh = true;
         } else {
           status = 'STALE';
-          if (ageHr < 1) {
-            statusText = `Last updated ${ageMin} min ago`;
-          } else if (ageHr < 24) {
-            statusText = `Last updated ${ageHr} hr ago`;
-          } else {
-            statusText = `Last updated ${Math.floor(ageHr / 24)} d ago`;
-          }
-          isFresh = false;
+          statusText = `Stale · Last seen ${ageMin} min ago`;
         }
       }
-    }
-
-    // If live location is fresh (< 3 min), calculate distance and format address
-    if (isFresh) {
-      const calculatedMeters = getDistanceFromLatLonInM(
-        lat,
-        lon,
-        OFFICE_LOCATION.latitude,
-        OFFICE_LOCATION.longitude
-      );
-
-      const rawDist = (typeof calculatedMeters === 'number' && Number.isFinite(calculatedMeters) && calculatedMeters >= 0)
-        ? calculatedMeters
-        : null;
-
-      const distanceFormatted = formatDistanceDisplay(rawDist);
-      
-      const storedTown = liveLocation.townCity;
-      const formattedStored = storedTown ? formatPreciseAddress(storedTown) : null;
-      const cachedAddress = getAdminCachedAddress(lat, lon);
-
-      let locationName = 'Location name unavailable';
-      if (cachedAddress) {
-        locationName = cachedAddress;
-      } else if (formattedStored && !isGenericFallbackAddress(formattedStored)) {
-        locationName = formattedStored;
-      } else {
-        fetchAndCacheAddressForCoords(lat, lon);
-        locationName = formattedStored || 'Location name unavailable';
-      }
-
-      return {
-        time: timeStr,
-        location: locationName,
-        distance: distanceFormatted,
-        rawDistance: rawDist,
-        status,
-        statusText,
-        isAvailable: true,
-        latitude: lat,
-        longitude: lon,
-        accuracy: liveLocation.accuracy
-      };
-    } else {
-      // Stale or expired live coordinate (>= 15 min old).
-      // Per rule: Stale coordinate is NOT a current coordinate. Do NOT calculate distance.
-      return {
-        time: timeStr,
-        location: 'Location unavailable',
-        distance: null,
-        rawDistance: null,
-        status,
-        statusText,
-        isAvailable: false
-      };
+    } catch {
+      status = 'STALE';
+      statusText = 'Stale';
     }
   }
 
-  // 2. If no valid and fresh liveLocation is available, return UNAVAILABLE.
-  // CRITICAL: NEVER fall back to historical check-in coordinates or attendance record coordinates for Current Location!
+  // Only calculate current distance and geocode name if state is fresh (< 3 mins)
+  if (isFresh) {
+    const calculatedMeters = getDistanceFromLatLonInM(
+      lat,
+      lon,
+      AUTHORIZED_OFFICE.latitude,
+      AUTHORIZED_OFFICE.longitude
+    );
+
+    return {
+      status,
+      location: targetDoc.townCity || `${lat.toFixed(5)}, ${lon.toFixed(5)} (${statusText})`,
+      distance: calculatedMeters <= AUTHORIZED_OFFICE.radius ? 'Within office radius' : `${Math.round(calculatedMeters)}m from office`,
+      updatedAt: updateTime
+    };
+  }
+
   return {
-    time: null,
-    location: 'Location unavailable',
-    distance: null,
-    rawDistance: null,
-    status: 'UNAVAILABLE',
-    statusText: 'Location unavailable',
-    isAvailable: false
+    status: 'STALE',
+    location: targetDoc.townCity || `${lat.toFixed(5)}, ${lon.toFixed(5)} (Stale)`,
+    distance: '—',
+    updatedAt: updateTime
   };
-};
+}
+
+export function isValidCoordinatePair(lat: any, lon: any): boolean {
+  if (lat === undefined || lon === undefined || lat === null || lon === null) return false;
+  const numLat = Number(lat);
+  const numLon = Number(lon);
+  if (isNaN(numLat) || isNaN(numLon)) return false;
+  return numLat >= -90 && numLat <= 90 && numLon >= -180 && numLon <= 180 && !(numLat === 0 && numLon === 0);
+}
+
+export function isAttendanceCheckoutUnresolved(record: any): boolean {
+  if (!record) return false;
+  return (
+    record.checkoutStatus === 'UNRESOLVED' ||
+    record.checkOutTime === 'UNRESOLVED'
+  );
+}
+
+export function getEffectiveCheckoutStatus(record: any): string {
+  if (!record) return 'PENDING';
+  if (record.checkoutStatus) return record.checkoutStatus;
+  if (record.checkOutTime && record.checkOutTime !== 'Pending' && record.checkOutTime !== 'N/A' && record.checkOutTime !== 'UNRESOLVED') {
+    return 'COMPLETED';
+  }
+  return 'PENDING';
+}
+
+export function calculateWorkingHours(checkIn: string, checkOut: string): string | null {
+  if (!checkIn || !checkOut || checkOut === 'Pending' || checkOut === 'N/A' || checkOut === 'UNRESOLVED') return null;
+  try {
+    const parseTime = (tStr: string) => {
+      const parts = tStr.split(':');
+      if (parts.length < 2) return null;
+      let hh = parseInt(parts[0], 10);
+      let mm = parseInt(parts[1], 10);
+      const isPm = tStr.toLowerCase().includes('pm');
+      const isAm = tStr.toLowerCase().includes('am');
+      if (isPm && hh < 12) hh += 12;
+      if (isAm && hh === 12) hh = 0;
+      return hh * 60 + mm;
+    };
+
+    const inMins = parseTime(checkIn);
+    const outMins = parseTime(checkOut);
+    if (inMins === null || outMins === null) return null;
+
+    let diff = outMins - inMins;
+    if (diff < 0) diff += 24 * 60; // Next-day boundary handling
+
+    const hrs = Math.floor(diff / 60);
+    const mins = diff % 60;
+    return `${hrs}h ${mins}m`;
+  } catch {
+    return null;
+  }
+}
