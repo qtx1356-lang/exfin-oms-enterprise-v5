@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import {defineConfig, Plugin} from 'vite';
 
 function swPrecachePlugin(): Plugin {
@@ -30,8 +31,14 @@ function swPrecachePlugin(): Plugin {
             `const PRECACHE_ASSETS = ${precacheArrayStr};`
           );
 
+          const buildHash = crypto.createHash('md5').update(precacheArrayStr).digest('hex').substring(0, 8);
+          swContent = swContent.replace(
+            /const CACHE_NAME = 'exfin-oms-v5-cache-.*?';/,
+            `const CACHE_NAME = 'exfin-oms-v5-cache-${buildHash}';`
+          );
+
           fs.writeFileSync(swPath, swContent, 'utf-8');
-          console.log(`[SW Plugin] Injected ${assetPaths.length} build assets into dist/service-worker.js precache`);
+          console.log(`[SW Plugin] Injected ${assetPaths.length} build assets into dist/service-worker.js precache (Build ID: ${buildHash})`);
         }
       } catch (err) {
         console.warn('[SW Plugin] Error injecting precache assets:', err);
