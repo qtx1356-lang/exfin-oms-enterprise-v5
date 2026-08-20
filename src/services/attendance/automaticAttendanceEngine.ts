@@ -1,6 +1,7 @@
 // CORE BUSINESS RULE — DO NOT MODIFY WITHOUT ATTENDANCE ENGINE REVIEW
 
 import { AttendanceRecord, AttendanceEventType, AttendanceType } from '../../types/attendance';
+import { getIndiaTimeParts } from '../../utils/indiaTime';
 import { 
   getTodayAttendanceRecord, 
   saveAttendanceRecord, 
@@ -911,7 +912,14 @@ export const AutomaticAttendanceEngine = {
         return record;
       } else {
         // CASE 3: No reliable checkout exists (GPS stopped before exit, missing location updates, etc.)
-        // DO NOT automatically use 11:59 PM. Mark as UNRESOLVED.
+        // DO NOT automatically use 11:59 PM.
+        const isToday = dateStr === getIndiaTimeParts().dateStr;
+        if (isToday) {
+            logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `Employee still inside office on ${dateStr} (past 6 PM). Not finalizing.`);
+            return null;
+        }
+
+        // Past day - Mark as UNRESOLVED
         record.checkOutTime = null;
         record.checkoutStatus = 'UNRESOLVED';
         record.checkoutTownCity = 'Location unavailable';

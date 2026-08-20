@@ -35,10 +35,7 @@ public class DayEndBroadcastReceiver extends BroadcastReceiver {
             String empId = locPrefs.getString(BackgroundLocationService.KEY_EMPLOYEE_ID, "");
 
             if (isTracking && !empId.isEmpty()) {
-                Log.i(TAG, "Active background location tracking detected for " + empId + " at 6 PM. Halting background location service.");
-                Intent stopIntent = new Intent(context, BackgroundLocationService.class);
-                stopIntent.setAction(BackgroundLocationService.ACTION_STOP);
-                context.startService(stopIntent);
+                Log.i(TAG, "Active background location tracking detected for " + empId + " at 6 PM. Checking if finalization is required.");
 
                 // Run native finalization
                 DayEndFinalizer.finalizeAttendance(context, empId, timeStr);

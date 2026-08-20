@@ -148,10 +148,13 @@ public class DayEndFinalizer {
                     patchFields.put("currentState", new JSONObject().put("stringValue", "FINALIZED_CHECKOUT"));
                     patchFields.put("resolutionSource", new JSONObject().put("stringValue", "AUTO_GEOFENCE"));
                 } else {
-                    patchFields.put("checkoutStatus", new JSONObject().put("stringValue", "UNRESOLVED"));
-                    patchFields.put("checkOutMode", new JSONObject().put("stringValue", "AUTO_SYSTEM"));
-                    patchFields.put("checkoutType", new JSONObject().put("stringValue", "UNRESOLVED"));
-                    patchFields.put("currentState", new JSONObject().put("stringValue", "UNRESOLVED"));
+                    Log.i(TAG, "Employee still in office (no valid exit). Keeping session active for tracking.");
+                    
+                    // Do NOT mark as UNRESOLVED for today. Just return and do nothing.
+                    if (conn != null) {
+                        conn.disconnect();
+                    }
+                    return;
                 }
 
                 JSONObject payload = new JSONObject();
