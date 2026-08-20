@@ -7,12 +7,33 @@ export interface NativeGeofencePluginInterface {
   getGeofenceStatus(): Promise<{ isRegistered: boolean; geofenceId: string; radius: number; latitude: number; longitude: number }>;
   getUnconsumedNativeEvents(): Promise<{ events: Array<{ transition: 'EXIT' | 'ENTER'; time: string; date: string; latitude: number; longitude: number; timestamp: number }> }>;
   removeOfficeGeofence(): Promise<{ success: boolean }>;
+  getLastUnresolvedExit(): Promise<{ hasUnresolvedExit: boolean; time?: string; date?: string }>;
+  clearUnresolvedExit(): Promise<{ success: boolean }>;
   addListener(eventName: 'geofenceTransition', listenerFunc: (data: { transition: 'EXIT' | 'ENTER'; time: string; date: string; latitude: number; longitude: number; timestamp: number }) => void): Promise<PluginListenerHandle>;
 }
 
 export const NativeGeofencePlugin = registerPlugin<NativeGeofencePluginInterface>('ExfinGeofence');
 
 let activeListenerHandle: PluginListenerHandle | null = null;
+
+export const getNativeLastUnresolvedExit = async (): Promise<{ hasUnresolvedExit: boolean; time?: string; date?: string }> => {
+  if (!Capacitor.isNativePlatform()) return { hasUnresolvedExit: false };
+  try {
+    return await NativeGeofencePlugin.getLastUnresolvedExit();
+  } catch (err) {
+    return { hasUnresolvedExit: false };
+  }
+};
+
+export const clearNativeUnresolvedExit = async (): Promise<boolean> => {
+  if (!Capacitor.isNativePlatform()) return false;
+  try {
+    const res = await NativeGeofencePlugin.clearUnresolvedExit();
+    return res.success;
+  } catch (err) {
+    return false;
+  }
+};
 
 /**
  * Registers the native Android geofence (25-meter office radius)

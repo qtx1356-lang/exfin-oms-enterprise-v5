@@ -301,13 +301,17 @@ export const AttendanceScreen: React.FC = () => {
     window.addEventListener('online', handleOnlineStatus);
     window.addEventListener('offline', handleOnlineStatus);
 
-    // Periodic check for auto-checkout (at 11:59 PM) and reminders
-    const periodicCheckTimer = setInterval(() => {
+    // Periodic check for auto-checkout and reminders
+    const periodicCheckTimer = setInterval(async () => {
       if (employeeId) {
-        const autoCheckedOut = checkAndTriggerAutoCheckout(employeeId, liveLocationRef.current || undefined);
-        if (autoCheckedOut) {
-          refreshRecords();
-          setActionFeedback(`Auto System Checkout triggered (Reason: ${autoCheckedOut.reason})`);
+        try {
+          const autoCheckedOut = await checkAndTriggerAutoCheckout(employeeId, liveLocationRef.current || undefined);
+          if (autoCheckedOut) {
+            refreshRecords();
+            setActionFeedback(`Auto System Checkout triggered`);
+          }
+        } catch (e) {
+          console.warn('Auto checkout check failed', e);
         }
       }
     }, 60000);

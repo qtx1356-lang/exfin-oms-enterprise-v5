@@ -323,32 +323,29 @@ export const timeStrToMinutes = (timeStr: string): number => {
 
 
 
+import { getIndiaTimeParts, isIndiaBusinessDayEnded } from '../../utils/indiaTime';
+
 /**
- * End-of-day attendance checkout finalizer (WFH/Client Visit -> 11:59 PM, Office -> last exit or NO checkout if still inside at 6:00 PM IST or later)
+ * End-of-day attendance checkout finalizer (WFH/Client Visit -> 06:00 PM, Office -> last exit)
  */
-export const runAutoCheckoutFinalizer = (): void => {
-  const now = getIndiaTime();
+export const runAutoCheckoutFinalizer = async (): Promise<void> => {
+  const indiaParts = getIndiaTimeParts();
+  const todayStr = indiaParts.dateStr;
+  const now = new Date(); // Passing to settleUnresolvedSession for logging if needed
+  const isBusinessDayEnded = isIndiaBusinessDayEnded();
+
   const records = getStoredAttendanceRecords();
-  let todayStr = getFormattedDateStr(now);
-  try {
-    todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-  } catch (e) {
-    console.warn('Failed to calculate Kolkata date string:', e);
-  }
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const is1159PMOrLater = hours === 23 && minutes >= 59;
 
   logAttendanceEvent('END_OF_DAY_PROCESSING', 'SYSTEM', 'Running end-of-day attendance checkout finalizer...', {
     eventTimestamp: now.toISOString(),
     metadata: {
-      hours,
-      minutes,
+      hours: indiaParts.hour,
+      minutes: indiaParts.minute,
       todayStr
     }
   });
 
-  records.forEach((rec) => {
+  for (const rec of records) {
     if (
       (rec.checkOutTime && rec.checkoutStatus === 'COMPLETED') ||
       rec.checkoutStatus === 'UNRESOLVED' ||
@@ -357,7 +354,7 @@ export const runAutoCheckoutFinalizer = (): void => {
       rec.isAdminRectified ||
       rec.correctedAt
     ) {
-      return;
+      continue;
     }
 
     const isPastDay = rec.date < todayStr;
@@ -365,24 +362,24 @@ export const runAutoCheckoutFinalizer = (): void => {
 
     if (isPastDay) {
       // Previous days (missed checkouts) - MUST be settled immediately under next-day protection
-      AutomaticAttendanceEngine.settleUnresolvedSession(rec.employeeId, rec.date, now);
+      await AutomaticAttendanceEngine.settleUnresolvedSession(rec.employeeId, rec.date, now);
     } else if (isToday) {
-      // Today's record - settled only at the end-of-day settlement deadline (23:59 IST / 11:59 PM)
-      if (is1159PMOrLater) {
-        AutomaticAttendanceEngine.settleUnresolvedSession(rec.employeeId, rec.date, now);
+      // Today's record - settled when business day ends (6:00 PM IST or later)
+      if (isBusinessDayEnded) {
+        await AutomaticAttendanceEngine.settleUnresolvedSession(rec.employeeId, rec.date, now);
       }
     }
-  });
+  }
 };
 
 /**
- * Checks and triggers Auto System Checkout at 11:59 PM if employee forgot checkout & is > 25m away with recorded exit
+ * Checks and triggers Auto System Checkout if business day ended
  */
-export const checkAndTriggerAutoCheckout = (
+export const checkAndTriggerAutoCheckout = async (
   employeeId: string,
   currentCoords?: { latitude: number; longitude: number }
-): AttendanceRecord | null => {
-  const todayStr = getFormattedDateStr();
+): Promise<AttendanceRecord | null> => {
+  const todayStr = getIndiaTimeParts().dateStr;
   const record = getTodayAttendanceRecord(employeeId, todayStr);
 
   if (!record || record.checkOutTime) {
@@ -390,13 +387,9 @@ export const checkAndTriggerAutoCheckout = (
   }
 
   const now = new Date();
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-
-  const is1159PMOrLater = hours === 23 && minutes >= 59;
-
-  if (is1159PMOrLater) {
-    return AutomaticAttendanceEngine.settleUnresolvedSession(employeeId, todayStr, now);
+  
+  if (isIndiaBusinessDayEnded()) {
+    return await AutomaticAttendanceEngine.settleUnresolvedSession(employeeId, todayStr, now);
   }
 
   return null;

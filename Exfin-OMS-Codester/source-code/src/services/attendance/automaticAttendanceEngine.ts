@@ -836,23 +836,39 @@ export const AutomaticAttendanceEngine = {
   },
 
   /**
-   * Settles unresolved sessions at the 23:59 deadline or during past-day recovery
+   * Settles unresolved sessions at the 6:00 PM deadline or during past-day recovery
    */
-  settleUnresolvedSession(
+  async settleUnresolvedSession(
     employeeId: string,
     dateStr: string,
     timestamp: Date = new Date()
-  ): AttendanceRecord | null {
+  ): Promise<AttendanceRecord | null> {
     const record = getTodayAttendanceRecord(employeeId, dateStr);
     if (!record || (record.checkOutTime && record.checkoutStatus === 'COMPLETED')) {
       return null;
     }
 
     if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
-      const hasExitEvent = !!(record.lastExitTime || record.exitTime);
+      let hasExitEvent = !!(record.lastExitTime || record.exitTime);
+      let checkoutTimeStr = record.lastExitTime || record.exitTime || '';
+
+      if (!hasExitEvent) {
+        try {
+          const { getNativeLastUnresolvedExit, clearNativeUnresolvedExit } = await import('./nativeGeofenceBridge');
+          const nativeExit = await getNativeLastUnresolvedExit();
+          if (nativeExit.hasUnresolvedExit && nativeExit.date === dateStr && nativeExit.time) {
+            hasExitEvent = true;
+            checkoutTimeStr = nativeExit.time;
+            await clearNativeUnresolvedExit();
+            logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `Recovered native exit event for ${dateStr}: ${checkoutTimeStr}`);
+          }
+        } catch (err) {
+          console.warn('Failed to retrieve native unresolved exit:', err);
+        }
+      }
+
       if (hasExitEvent) {
         // CASE 1: Valid final exit exists
-        const checkoutTimeStr = record.lastExitTime || record.exitTime || '11:59 PM';
         const workingHours = calculateWorkingHours(record.checkInTime, checkoutTimeStr);
         record.checkOutTime = checkoutTimeStr;
         record.checkoutStatus = 'COMPLETED';
@@ -956,11 +972,11 @@ export const AutomaticAttendanceEngine = {
         return record;
       }
     } else {
-      // CASE 2: WFH / CLIENT_VISIT / OUTDOOR legit 11:59 PM EOD completion
-      const checkoutTimeStr = '11:59 PM';
+      // CASE 2: WFH / CLIENT_VISIT / OUTDOOR legit 06:00 PM EOD completion
+      const checkoutTimeStr = '06:00 PM';
       const checkoutTypeStr = 'AUTO_CHECKOUT';
       const checkOutModeStr: 'AUTO_SYSTEM' | 'MANUAL' = 'AUTO_SYSTEM';
-      logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `Settling WFH/CLIENT_VISIT session for ${dateStr} at 11:59 PM.`);
+      logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `Settling WFH/CLIENT_VISIT session for ${dateStr} at 06:00 PM.`);
 
       const workingHours = calculateWorkingHours(record.checkInTime, checkoutTimeStr);
 
