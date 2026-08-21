@@ -164,24 +164,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
           </div>
         </div>
 
-        {/* Sync / Offline Status Indicator */}
-        <div className="flex items-center gap-2">
-          {isSyncing && (
-            <span className="text-[9px] font-extrabold text-blue-300 bg-blue-500/20 px-2.5 py-0.5 rounded-full border border-blue-500/30 flex items-center gap-1 animate-pulse">
-              <RotateCw className="w-2.5 h-2.5 animate-spin" /> Syncing...
-            </span>
-          )}
-          {!isOnline && (
-            <span className="text-[9px] font-extrabold text-amber-300 bg-amber-500/20 px-2.5 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
-              <WifiOff className="w-2.5 h-2.5" /> Saved locally
-            </span>
-          )}
-          {todayRecord?.syncStatus === 'Pending' && isOnline && !isSyncing && (
-            <span className="text-[9px] font-extrabold text-amber-300 bg-amber-500/20 px-2.5 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
-              <AlertCircle className="w-2.5 h-2.5" /> Sync Pending
-            </span>
-          )}
-        </div>
+        {/* Sync / Offline Status Indicator Removed */}
       </div>
 
       {/* Main Status & Details Grid */}

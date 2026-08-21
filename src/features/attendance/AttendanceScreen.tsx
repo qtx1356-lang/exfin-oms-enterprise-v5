@@ -616,13 +616,6 @@ export const AttendanceScreen: React.FC = () => {
         icon: <CheckCircle className="w-4 h-4 text-emerald-400" />
       };
     }
-    if (pendingCount > 0) {
-      return {
-        text: 'OFFLINE ATTENDANCE SAVED – SYNC PENDING',
-        style: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-        icon: <Clock className="w-4 h-4 text-amber-400" />
-      };
-    }
     if (activeMode === 'OFFICE') {
       if (isInsideGeofence) {
         return {
@@ -1639,17 +1632,7 @@ export const AttendanceScreen: React.FC = () => {
                 </select>
               </div>
 
-              <div>
-                <select
-                  value={historySyncFilter}
-                  onChange={(e) => setHistorySyncFilter(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-purple-950/80 border border-purple-500/25 rounded-xl text-xs text-white focus:outline-none"
-                >
-                  <option value="ALL">All Sync States</option>
-                  <option value="Synced">Synced Only</option>
-                  <option value="Pending">Pending Sync</option>
-                </select>
-              </div>
+              {/* Sync States Filter Dropdown Removed */}
             </div>
 
             {filteredHistoryRecords.length === 0 ? (
@@ -1695,13 +1678,7 @@ export const AttendanceScreen: React.FC = () => {
                           })()}
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                            rec.syncStatus === 'Synced' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                          }`}>
-                            {rec.syncStatus}
-                          </span>
-                        </div>
+                        {/* Sync Badge Removed */}
                       </div>
 
                       {rec.clientName && (

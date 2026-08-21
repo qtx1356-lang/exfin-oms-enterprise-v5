@@ -248,24 +248,6 @@ export const ExpenseScreen: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          {!isOnline ? (
-            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-              <WifiOff className="w-3.5 h-3.5" /> OFFLINE
-            </span>
-          ) : pendingSyncCount > 0 ? (
-            <button 
-              onClick={handleTriggerSync}
-              disabled={isSyncing}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} /> 
-              {isSyncing ? 'Syncing...' : `${pendingSyncCount} Pending Sync`}
-            </button>
-          ) : (
-            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Synced
-            </span>
-          )}
         </div>
       </div>
 
@@ -431,14 +413,7 @@ export const ExpenseScreen: React.FC = () => {
                         {expense.status}
                       </span>
 
-                      {/* Sync Status Chip */}
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold border ${
-                        expense.syncStatus === 'Synced'
-                          ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                          : 'bg-purple-500/20 text-purple-200 border-purple-500/30'
-                      }`}>
-                        {expense.syncStatus === 'Pending Sync' ? 'Saved Offline' : expense.syncStatus}
-                      </span>
+                      {/* Sync Status Chip Removed */}
                     </div>
                   </div>
                 </div>

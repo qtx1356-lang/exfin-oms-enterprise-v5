@@ -122,11 +122,21 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     };
 
+    // 30-second background auto-synchronization timer
+    const autoSyncInterval = setInterval(() => {
+      if (navigator.onLine) {
+        syncAllPendingRecords().catch((err) => {
+          console.warn('RealtimeSync: Automatic periodic sync background check error:', err);
+        });
+      }
+    }, 30000);
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
+      clearInterval(autoSyncInterval);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       document.removeEventListener('visibilitychange', handleVisibility);
