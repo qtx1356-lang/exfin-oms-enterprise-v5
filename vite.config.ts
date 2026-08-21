@@ -12,11 +12,16 @@ function swPrecachePlugin(): Plugin {
         const distDir = path.resolve(__dirname, 'dist');
         const assetsDir = path.resolve(distDir, 'assets');
         const swPath = path.resolve(distDir, 'service-worker.js');
-        if (fs.existsSync(assetsDir) && fs.existsSync(swPath)) {
-          const files = fs.readdirSync(assetsDir);
-          const assetPaths = files
-            .filter((f) => !f.endsWith('.map'))
-            .map((f) => `/assets/${f}`);
+        const indexHtmlPath = path.resolve(distDir, 'index.html');
+
+        if (fs.existsSync(swPath)) {
+          let assetPaths: string[] = [];
+          if (fs.existsSync(assetsDir)) {
+            const files = fs.readdirSync(assetsDir);
+            assetPaths = files
+              .filter((f) => !f.endsWith('.map'))
+              .map((f) => `/assets/${f}`);
+          }
 
           let swContent = fs.readFileSync(swPath, 'utf-8');
           const precacheArrayStr = JSON.stringify(
@@ -30,8 +35,16 @@ function swPrecachePlugin(): Plugin {
             `const PRECACHE_ASSETS = ${precacheArrayStr};`
           );
 
+          if (fs.existsSync(indexHtmlPath)) {
+            const indexHtmlContent = fs.readFileSync(indexHtmlPath, 'utf-8');
+            swContent = swContent.replace(
+              /let fallbackAppShellText = '';/,
+              `let fallbackAppShellText = ${JSON.stringify(indexHtmlContent)};`
+            );
+          }
+
           fs.writeFileSync(swPath, swContent, 'utf-8');
-          console.log(`[SW Plugin] Injected ${assetPaths.length} build assets into dist/service-worker.js precache`);
+          console.log(`[SW Plugin] Injected ${assetPaths.length} build assets & embedded fallback app shell into dist/service-worker.js`);
         }
       } catch (err) {
         console.warn('[SW Plugin] Error injecting precache assets:', err);

@@ -6,34 +6,33 @@
     <meta name="theme-color" content="#6750A4" />
     <link rel="manifest" href="/manifest.json" />
     <title>EXFIN OMS ENTERPRISE v6.0</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-          .then((registration) => {
+          .then(function (registration) {
             if (registration.active) {
               console.log('[STARTUP_PERF] [PWA_CACHE_READY] Service worker active and cache ready');
             }
-            registration.onupdatefound = () => {
-              const installingWorker = registration.installing;
+            registration.onupdatefound = function () {
+              var installingWorker = registration.installing;
               if (installingWorker) {
-                installingWorker.onstatechange = () => {
+                installingWorker.onstatechange = function () {
                   if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
                     console.log('[STARTUP_PERF] [SERVICE_WORKER_UPDATED] New service worker version installed');
                   }
                 };
               }
             };
-            // Check for updates periodically and upon foregrounding
-            registration.update().catch(() => {});
+            registration.update().catch(function () {});
           })
-          .catch((err) => {
+          .catch(function (err) {
             console.warn('Service worker registration failed:', err);
           });
       }
     </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

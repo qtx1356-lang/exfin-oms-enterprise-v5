@@ -3,7 +3,7 @@
 const CACHE_NAME = 'exfin-oms-v8-cache-v8';
 const DYNAMIC_CACHE_NAME = 'exfin-oms-v8-dynamic-v8';
 
-// Core Application Shell Assets
+// Core Application Shell Assets (Injected during build by Vite plugin)
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -11,19 +11,43 @@ const PRECACHE_ASSETS = [
   '/favicon.ico',
 ];
 
+// Fallback Embedded App Shell HTML (Injected during build by Vite plugin)
 let fallbackAppShellText = '';
 
-// Install Event: Precache Application Shell & Extract Bundle Assets
+// Helper to create synthetic HTML response
+function createSyntheticAppShellResponse(htmlText) {
+  return new Response(htmlText || '<!doctype html><html><head><meta charset="utf-8"/><title>EXFIN OMS</title></head><body><div id="root"></div></body></html>', {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'X-App-Shell-Source': 'ServiceWorker-Embedded',
+    },
+  });
+}
+
+// Install Event: Precache Application Shell & Assets safely before activating
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then(async (cache) => {
+    (async () => {
       console.log('[SW] Pre-caching core application shell:', CACHE_NAME);
+      const cache = await caches.open(CACHE_NAME);
+
+      // If embedded fallback HTML is available, seed / and /index.html immediately
+      if (fallbackAppShellText) {
+        try {
+          await cache.put('/index.html', createSyntheticAppShellResponse(fallbackAppShellText));
+          await cache.put('/', createSyntheticAppShellResponse(fallbackAppShellText));
+        } catch (seedErr) {
+          console.warn('[SW] Could not seed embedded app shell:', seedErr);
+        }
+      }
+
+      // Precache all defined build assets
       await Promise.allSettled(
         PRECACHE_ASSETS.map(async (assetUrl) => {
           try {
-            const response = await fetch(assetUrl);
-            if (response && response.ok) {
+            const response = await fetch(assetUrl, { cache: 'no-cache' });
+            if (response && (response.status === 200 || response.status === 304)) {
               await cache.put(assetUrl, response);
             }
           } catch (e) {
@@ -32,26 +56,28 @@ self.addEventListener('install', (event) => {
         })
       );
 
-      // Pre-cache runtime bundle assets by fetching index.html and parsing script & link tags
+      // Extract and cache any discovered assets from runtime index.html if possible
       try {
-        const response = await fetch('/index.html');
+        const response = await fetch('/index.html', { cache: 'no-cache' });
         if (response && (response.status === 200 || response.status === 304)) {
-          fallbackAppShellText = await response.clone().text();
+          const indexHtmlText = await response.clone().text();
+          if (indexHtmlText) {
+            fallbackAppShellText = indexHtmlText;
+          }
           await cache.put('/index.html', response.clone());
           await cache.put('/', response);
 
           const assetUrls = new Set();
-          const scriptMatches = fallbackAppShellText.matchAll(/src=["'](\/assets\/[^"']+)["']/g);
+          const scriptMatches = indexHtmlText.matchAll(/src=["'](\/assets\/[^"']+)["']/g);
           for (const match of scriptMatches) {
             assetUrls.add(match[1]);
           }
-          const cssMatches = fallbackAppShellText.matchAll(/href=["'](\/assets\/[^"']+)["']/g);
+          const cssMatches = indexHtmlText.matchAll(/href=["'](\/assets\/[^"']+)["']/g);
           for (const match of cssMatches) {
             assetUrls.add(match[1]);
           }
 
           if (assetUrls.size > 0) {
-            console.log(`[SW] Pre-caching ${assetUrls.size} discovered bundle assets`);
             await Promise.allSettled(
               Array.from(assetUrls).map(async (url) => {
                 try {
@@ -59,9 +85,7 @@ self.addEventListener('install', (event) => {
                   if (assetRes && assetRes.status === 200) {
                     await cache.put(url, assetRes);
                   }
-                } catch (e) {
-                  console.warn('[SW] Failed to precache asset:', url, e);
-                }
+                } catch (e) {}
               })
             );
           }
@@ -69,27 +93,29 @@ self.addEventListener('install', (event) => {
       } catch (err) {
         console.warn('[SW] Runtime asset discovery warning:', err);
       }
-    })
+
+      // Safe skipWaiting: Only after cache population is completed
+      await self.skipWaiting();
+    })()
   );
 });
 
-// Activate Event: Unconditionally clean up all outdated shell caches and claim clients
+// Activate Event: Maintain usable caches and claim clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
+    (async () => {
+      const cacheNames = await caches.keys();
+      await Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME && cacheName !== DYNAMIC_CACHE_NAME) {
-            console.log('[SW] Deleting obsolete cache:', cacheName);
+          if (cacheName !== CACHE_NAME && cacheName !== DYNAMIC_CACHE_NAME && cacheName.startsWith('exfin-oms-')) {
+            console.log('[SW] Safely retiring obsolete cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
-    })
-    .then(() => {
       console.log('[SW] Activated & claiming clients for', CACHE_NAME);
       return self.clients.claim();
-    })
+    })()
   );
 });
 
@@ -129,8 +155,10 @@ self.addEventListener('fetch', (event) => {
   // Network-First with Instant Offline Fallback to Cached index.html
   if (request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
     event.respondWith(
-      fetch(request)
-        .then((networkResponse) => {
+      (async () => {
+        try {
+          // Attempt network fetch
+          const networkResponse = await fetch(request);
           if (networkResponse && (networkResponse.status === 200 || networkResponse.status === 304)) {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
@@ -139,44 +167,39 @@ self.addEventListener('fetch', (event) => {
             }).catch(() => {});
             return networkResponse;
           }
-          // On non-200/304 server response (e.g. 404 for deep SPA subpaths on some hosts), fall back to cached index.html
-          return caches.match('/index.html', { ignoreSearch: true }).then((cachedIndex) => {
-            if (cachedIndex) return cachedIndex;
-            return caches.match('/', { ignoreSearch: true }).then((cachedRoot) => {
-              if (cachedRoot) return cachedRoot;
-              return networkResponse;
-            });
-          });
-        })
-        .catch(async () => {
-          // Network request failed (offline / network error / disconnected) -> ALWAYS return cached application shell
+
+          // If server returns 404/500 for SPA subroute, fallback to cached index.html
           const cachedIndex = await caches.match('/index.html', { ignoreSearch: true });
           if (cachedIndex) return cachedIndex;
           const cachedRoot = await caches.match('/', { ignoreSearch: true });
           if (cachedRoot) return cachedRoot;
+          return networkResponse;
+        } catch (networkErr) {
+          // Network failed (offline / network error / disconnected) -> ALWAYS return cached application shell
+          const cachedIndex = await caches.match('/index.html', { ignoreSearch: true });
+          if (cachedIndex) return cachedIndex;
 
+          const cachedRoot = await caches.match('/', { ignoreSearch: true });
+          if (cachedRoot) return cachedRoot;
+
+          // Search across all existing caches for any index.html
+          const cacheKeys = await caches.keys();
+          for (const cName of cacheKeys) {
+            const c = await caches.open(cName);
+            const matchIndex = await c.match('/index.html', { ignoreSearch: true });
+            if (matchIndex) return matchIndex;
+            const matchRoot = await c.match('/', { ignoreSearch: true });
+            if (matchRoot) return matchRoot;
+          }
+
+          // Use pre-embedded fallback HTML from bundle build
           if (fallbackAppShellText) {
-            return new Response(fallbackAppShellText, {
-              status: 200,
-              headers: { 'Content-Type': 'text/html; charset=utf-8' },
-            });
+            return createSyntheticAppShellResponse(fallbackAppShellText);
           }
 
-          // Search any HTML cache entry
-          const cache = await caches.open(CACHE_NAME);
-          const keys = await cache.keys();
-          for (const key of keys) {
-            if (key.url.endsWith('.html') || key.url.endsWith('/')) {
-              const res = await cache.match(key);
-              if (res) return res;
-            }
-          }
-
-          return new Response('<!doctype html><html><head><meta charset="utf-8"/><title>EXFIN OMS</title></head><body><div id="root"></div></body></html>', {
-            status: 200,
-            headers: { 'Content-Type': 'text/html; charset=utf-8' },
-          });
-        })
+          return createSyntheticAppShellResponse('');
+        }
+      })()
     );
     return;
   }
@@ -198,29 +221,32 @@ self.addEventListener('fetch', (event) => {
 
   if (isStaticAsset) {
     event.respondWith(
-      caches.match(request, { ignoreSearch: true }).then((cachedResponse) => {
+      (async () => {
+        // 1. Try cache match first across all caches
+        const cachedResponse = await caches.match(request, { ignoreSearch: true });
         if (cachedResponse) {
           return cachedResponse;
         }
 
-        return fetch(request)
-          .then((response) => {
-            if (!response || response.status !== 200) {
-              return response;
-            }
-
+        // 2. Fetch from network
+        try {
+          const response = await fetch(request);
+          if (response && response.status === 200) {
             const responseToCache = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(request, responseToCache);
             }).catch(() => {});
-
-            return response;
-          })
-          .catch(() => {
-            // Return cached version matching pathname if query parameter differences exist
-            return caches.match(url.pathname, { ignoreSearch: true });
-          });
-      })
+          }
+          return response;
+        } catch (fetchErr) {
+          // 3. Fallback: match by pathname without query params
+          const pathnameMatch = await caches.match(url.pathname, { ignoreSearch: true });
+          if (pathnameMatch) {
+            return pathnameMatch;
+          }
+          throw fetchErr;
+        }
+      })()
     );
     return;
   }
