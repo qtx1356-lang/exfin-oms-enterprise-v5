@@ -290,9 +290,9 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
     const outdoor = filteredAttendance.filter(r => r.attendanceType === 'OUTDOOR').length;
 
     const totalClaimsCount = filteredExpenses.length;
-    const approvedClaims = filteredExpenses.filter(r => r.status === 'APPROVED');
+    const approvedClaims = filteredExpenses.filter(r => r.status === 'APPROVED' || r.status === 'Approved');
     const totalExpensesApprovedAmount = approvedClaims.reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
-    const pendingClaims = filteredExpenses.filter(r => r.status === 'PENDING').length;
+    const pendingClaims = filteredExpenses.filter(r => !r.status || r.status === 'PENDING' || r.status === 'Pending').length;
 
     const totalTasksCount = filteredTasks.length;
     const completedTasks = filteredTasks.filter(r => r.status === 'COMPLETED').length;
@@ -343,7 +343,8 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
 
       const officeExpenses = expenseRecords.filter(r => {
         const recDate = (r.createdAtDeviceTime || r.date || '').split('T')[0];
-        return recDate >= startDate && recDate <= endDate && officeEmpCodes.includes(r.employeeCode || r.employeeId) && r.status === 'APPROVED';
+        const isAppr = r.status === 'APPROVED' || r.status === 'Approved';
+        return recDate >= startDate && recDate <= endDate && officeEmpCodes.includes(r.employeeCode || r.employeeId) && isAppr;
       });
       const totalExpense = officeExpenses.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
 
@@ -397,7 +398,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
       }).length;
 
       const exp = filteredExpenses
-        .filter(r => r.status === 'APPROVED' && (r.createdAtDeviceTime || r.date || '').split('T')[0] >= startStr && (r.createdAtDeviceTime || r.date || '').split('T')[0] < endStr)
+        .filter(r => (r.status === 'APPROVED' || r.status === 'Approved') && (r.createdAtDeviceTime || r.date || '').split('T')[0] >= startStr && (r.createdAtDeviceTime || r.date || '').split('T')[0] < endStr)
         .reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
 
       const tsk = filteredTasks.filter(r => {

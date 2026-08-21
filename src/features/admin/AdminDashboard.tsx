@@ -88,6 +88,7 @@ import { PendingDeviceApprovalsTab } from './PendingDeviceApprovalsTab';
 import { createAuditLog } from '../../services/audit/auditService';
 import { AdminFAQScreen } from '../help/AdminFAQScreen';
 import { AdminLeaveManagementTab } from './AdminLeaveManagementTab';
+import { AdminExpensesTab } from './AdminExpensesTab';
 
 export const safeStringify = (val: any): string => {
   if (val === null || val === undefined) return '';
@@ -888,7 +889,7 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const pendingRegCount = deduplicatedRegistrations.filter((r) => r.status === 'Pending Approval').length;
-  const pendingExpenseCount = expenseRecords.filter((e) => e.status === 'PENDING').length;
+  const pendingExpenseCount = expenseRecords.filter((e) => !e.status || e.status.toUpperCase() === 'PENDING' || e.status === 'Pending').length;
   const pendingLeaveCount = leaves.filter((l) => l.status === 'PENDING').length;
 
   const unresolvedAttendanceCount = attendanceRecords.filter((r) => {
@@ -1306,12 +1307,24 @@ export const AdminDashboard: React.FC = () => {
                     </span>
                     <span className="font-bold text-amber-400">{pendingRegCount}</span>
                   </div>
-                  <div className="p-3 bg-[#1A0B36] rounded-xl flex justify-between items-center border border-purple-500/20">
-                    <span className="text-purple-200 font-medium">Pending Expense Claims</span>
+                  <div 
+                    onClick={() => setActiveTab('expenses')}
+                    className="p-3 bg-[#1A0B36] rounded-xl flex justify-between items-center border border-purple-500/20 cursor-pointer hover:border-amber-400/50 transition-all"
+                  >
+                    <span className="text-purple-200 font-medium flex items-center gap-2">
+                      Pending Expense Claims
+                      <span className="text-[10px] text-amber-400 font-bold underline">Review →</span>
+                    </span>
                     <span className="font-bold text-amber-400">{pendingExpenseCount}</span>
                   </div>
-                  <div className="p-3 bg-[#1A0B36] rounded-xl flex justify-between items-center border border-purple-500/20">
-                    <span className="text-purple-200 font-medium">Pending Leave Requests</span>
+                  <div 
+                    onClick={() => setActiveTab('leavePortal')}
+                    className="p-3 bg-[#1A0B36] rounded-xl flex justify-between items-center border border-purple-500/20 cursor-pointer hover:border-amber-400/50 transition-all"
+                  >
+                    <span className="text-purple-200 font-medium flex items-center gap-2">
+                      Pending Leave Requests
+                      <span className="text-[10px] text-amber-400 font-bold underline">Review →</span>
+                    </span>
                     <span className="font-bold text-amber-400">{pendingLeaveCount}</span>
                   </div>
                 </div>
@@ -1743,52 +1756,10 @@ export const AdminDashboard: React.FC = () => {
 
         {/* EXPENSES TAB */}
         {activeTab === 'expenses' && canSeeExpenses && (
-          <Card className="p-6 bg-[#250F4C] border border-purple-500/20 space-y-4">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-emerald-400" /> Expense Claims Audit
-            </h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-[#1A0B36] text-purple-300 uppercase font-bold border-b border-purple-500/20">
-                    <th className="p-3">Employee</th>
-                    <th className="p-3">Category</th>
-                    <th className="p-3">Amount</th>
-                    <th className="p-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-purple-500/10">
-                  {expenseRecords.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="p-6 text-center text-purple-300/60">No expense claims found.</td>
-                    </tr>
-                  ) : (
-                    expenseRecords.map((exp) => (
-                      <tr key={exp.id} className="hover:bg-white/[0.02]">
-                        <td className="p-3 font-bold text-white flex items-center gap-1.5">
-                          <span>{exp.employeeName} ({exp.employeeCode})</span>
-                          {!activeEmpCodes.has(exp.employeeCode) && (
-                            <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[9px] font-black uppercase rounded">
-                              Deleted
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3 text-purple-200">{exp.category}</td>
-                        <td className="p-3 font-bold text-emerald-400">₹{exp.amount}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            exp.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
-                          }`}>
-                            {exp.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          <AdminExpensesTab
+            expenseRecords={expenseRecords}
+            activeEmpCodes={activeEmpCodes}
+          />
         )}
 
         {/* PLANNER TAB */}

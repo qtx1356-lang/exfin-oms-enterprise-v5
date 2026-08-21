@@ -44,4 +44,8 @@ export interface ExpenseRecord {
   merchant?: string | null;
   receiptNumber?: string | null;
   gstAmount?: number | null;
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  rejectedAt?: string | null;
+  rejectedBy?: string | null;
 }

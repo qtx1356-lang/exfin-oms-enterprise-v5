@@ -13,6 +13,7 @@ import { createAuditLog } from '../../services/audit/auditService';
 import { calculateLeaveBalance } from '../../services/leave/leaveService';
 import { getStoredLeaveConfig, getStoredEmployeeAllowances } from '../../services/leave/leaveStorage';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
+import { approveExpenseClaim, isExpenseApproved, isExpensePending } from '../../services/expenses/expenseService';
 
 interface EmployeeProfileModalProps {
   isOpen: boolean;
@@ -43,6 +44,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   const [currentStatus, setCurrentStatus] = useState<string>(employee?.status || 'Active');
   const [deviceStatus, setDeviceStatus] = useState<string>(employee?.status || (employee as any)?.deviceStatus || 'Pending');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
+  const [approvingExpenseId, setApprovingExpenseId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const empCode = employee?.employeeCode || employee?.id || '';
@@ -665,28 +667,71 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                       <th className="p-3">Date</th>
                       <th className="p-3">Status</th>
                       <th className="p-3">Description</th>
+                      <th className="p-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-purple-500/10">
                     {expenses.length > 0 ? (
-                      expenses.map((exp: any) => (
-                        <tr key={exp.id} className="hover:bg-purple-900/10">
-                          <td className="p-3 font-bold text-white">{exp.category || exp.title}</td>
-                          <td className="p-3 font-mono text-emerald-400">₹{exp.amount || 0}</td>
-                          <td className="p-3 text-purple-200">{exp.date || exp.createdAt?.split('T')[0]}</td>
-                          <td className="p-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              exp.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
-                            }`}>
-                              {exp.status || 'Pending'}
-                            </span>
-                          </td>
-                          <td className="p-3 text-purple-300/80">{exp.description || 'N/A'}</td>
-                        </tr>
-                      ))
+                      expenses.map((exp: any) => {
+                        const isPending = isExpensePending(exp.status);
+                        const isApproved = isExpenseApproved(exp.status);
+                        const isApproving = approvingExpenseId === exp.id;
+
+                        return (
+                          <tr key={exp.id} className="hover:bg-purple-900/10">
+                            <td className="p-3 font-bold text-white">{exp.category || exp.title}</td>
+                            <td className="p-3 font-mono text-emerald-400">₹{exp.amount || 0}</td>
+                            <td className="p-3 text-purple-200">{exp.date || exp.createdAt?.split('T')[0]}</td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                isApproved ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                              }`}>
+                                {isApproved ? 'Approved' : exp.status || 'Pending'}
+                              </span>
+                            </td>
+                            <td className="p-3 text-purple-300/80">{exp.description || 'N/A'}</td>
+                            <td className="p-3 text-right whitespace-nowrap">
+                              {isPending ? (
+                                <button
+                                  type="button"
+                                  disabled={isApproving}
+                                  onClick={async () => {
+                                    setApprovingExpenseId(exp.id);
+                                    try {
+                                      await approveExpenseClaim(exp.id, {
+                                        id: adminUser?.uid,
+                                        name: adminUser?.displayName || adminUser?.email || 'Admin',
+                                        role: adminUser?.role || 'ADMIN',
+                                      });
+                                      setActionMessage({ type: 'success', text: `Approved expense claim ₹${exp.amount}` });
+                                      setTimeout(() => setActionMessage(null), 4000);
+                                    } catch (err: any) {
+                                      setActionMessage({ type: 'error', text: err.message || 'Failed to approve expense' });
+                                    } finally {
+                                      setApprovingExpenseId(null);
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-[11px] rounded-lg border border-emerald-400/40 transition-all cursor-pointer inline-flex items-center gap-1"
+                                >
+                                  <Check className="w-3 h-3" />
+                                  <span>{isApproving ? 'Saving...' : 'Approve'}</span>
+                                </button>
+                              ) : isApproved ? (
+                                <span className="text-[10px] text-emerald-400 font-semibold inline-flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3" /> Approved
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-rose-400 font-semibold">
+                                  {exp.status}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
-                        <td colSpan={5} className="p-8 text-center text-purple-300/60 italic">No expense records found.</td>
+                        <td colSpan={6} className="p-8 text-center text-purple-300/60 italic">No expense records found.</td>
                       </tr>
                     )}
                   </tbody>
