@@ -178,7 +178,11 @@ export const startMedianBackgroundLocation = async (
     } else {
       // Fallback bridge URL scheme for Median container
       const jsonParam = encodeURIComponent(JSON.stringify(config));
-      window.location.href = `median://backgroundLocation/start?data=${jsonParam}`;
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = `median://backgroundLocation/start?data=${jsonParam}`;
+      document.body.appendChild(iframe);
+      setTimeout(() => document.body.removeChild(iframe), 500);
     }
 
     isMedianServiceRunning = true;
@@ -205,7 +209,11 @@ export const stopMedianBackgroundLocation = (): void => {
     } else if (median?.backgroundLocation?.stop) {
       median.backgroundLocation.stop();
     } else {
-      window.location.href = 'median://backgroundLocation/stop';
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = 'median://backgroundLocation/stop';
+      document.body.appendChild(iframe);
+      setTimeout(() => document.body.removeChild(iframe), 500);
     }
     isMedianServiceRunning = false;
     logAttendanceEvent('GEOFENCE_EXIT', 'SYSTEM', 'Median Native Background Location stopped.');
