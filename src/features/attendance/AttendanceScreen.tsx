@@ -1436,10 +1436,10 @@ export const AttendanceScreen: React.FC = () => {
           employeeName: employeeData?.name || '',
           latitude: liveLocation.latitude,
           longitude: liveLocation.longitude,
-          accuracy: liveLocation.accuracy,
+          accuracy: (liveLocation as any).accuracy,
           distanceFromOffice: distance ?? 0,
           townCity: currentAddress || 'Raniganj HQ',
-          timestamp: liveLocation.timestamp ? new Date(liveLocation.timestamp).toISOString() : new Date().toISOString(),
+          timestamp: (liveLocation as any).timestamp ? new Date((liveLocation as any).timestamp).toISOString() : new Date().toISOString(),
           updatedAt: new Date().toISOString()
         } : null;
 

@@ -41,7 +41,7 @@ import { NotificationSettingsCard } from '../../components/common/NotificationSe
 
 export const ProfileScreen: React.FC = () => {
   const { employeeData, authUser } = useRegistration();
-  const { role, hasFeatureAccess, permissions } = usePermission();
+  const { currentRole, hasFeatureAccess } = usePermission();
 
   const [profile, setProfile] = useState<EmployeeProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,7 +112,7 @@ export const ProfileScreen: React.FC = () => {
 
   // 3. Team Leader Scope: Fetch Team Members
   useEffect(() => {
-    if (!db || !profile?.isTeamLeader && role !== 'TEAM_LEADER') return;
+    if (!db || (!(profile as any)?.isTeamLeader && currentRole !== 'TEAM_LEADER')) return;
 
     const dept = profile?.department || employeeData?.office || 'Raniganj';
     const qTeam = query(
@@ -457,7 +457,7 @@ export const ProfileScreen: React.FC = () => {
       </Card>
 
       {/* 5. Team Leader View: My Team Members Scope */}
-      {(profile?.isTeamLeader || role === 'TEAM_LEADER') && (
+      {((profile as any)?.isTeamLeader || currentRole === 'TEAM_LEADER') && (
         <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px] space-y-4 shadow-xl">
           <div className="flex justify-between items-center border-b border-purple-500/10 pb-3">
             <h2 className="text-xs font-black uppercase text-purple-300 tracking-wider flex items-center gap-2">
