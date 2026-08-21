@@ -200,17 +200,16 @@ self.addEventListener('fetch', (event) => {
         // If we have cached HTML, return it IMMEDIATELY and revalidate in background if online
         if (cachedHtml) {
           // Background revalidation (non-blocking)
-          if (navigator.onLine) {
-            fetch('/index.html', { cache: 'no-cache' })
-              .then(async (netRes) => {
-                if (netRes && (netRes.status === 200 || netRes.status === 304)) {
-                  const cache = await caches.open(CACHE_NAME);
-                  await cache.put('/index.html', netRes.clone());
-                  await cache.put('/', netRes);
-                }
-              })
-              .catch(() => {});
-          }
+          // Always attempt network fetch for index.html to ensure we get the latest build
+          fetch('/index.html', { cache: 'no-cache' })
+            .then(async (netRes) => {
+              if (netRes && (netRes.status === 200 || netRes.status === 304)) {
+                const cache = await caches.open(CACHE_NAME);
+                await cache.put('/index.html', netRes.clone());
+                await cache.put('/', netRes);
+              }
+            })
+            .catch(() => {});
           return cachedHtml;
         }
 
@@ -270,6 +269,15 @@ self.addEventListener('fetch', (event) => {
         try {
           const response = await fetch(request);
           if (response && response.status === 200) {
+            // STRICT MIME TYPE CHECKING: DO NOT CACHE HTML FALLBACKS AS JS/CSS
+            const contentType = response.headers.get('content-type');
+            if (url.pathname.endsWith('.js') && contentType && contentType.includes('text/html')) {
+              throw new Error('Cloudflare SPA fallback intercepted for JS request');
+            }
+            if (url.pathname.endsWith('.css') && contentType && contentType.includes('text/html')) {
+              throw new Error('Cloudflare SPA fallback intercepted for CSS request');
+            }
+            
             const responseToCache = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(request, responseToCache);
