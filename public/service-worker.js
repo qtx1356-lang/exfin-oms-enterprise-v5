@@ -9,77 +9,20 @@ const PRECACHE_ASSETS = [
   '/favicon.ico',
 ];
 
-// Fallback HTML if both network and cache are completely empty
-const OFFLINE_FALLBACK_HTML = `<!DOCTYPE html>
+// Fallback HTML application shell when network and cache missed
+const OFFLINE_FALLBACK_SHELL = `<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EXFIN OMS — Offline</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #0f172a;
-            color: #f8fafc;
-            text-align: center;
-            padding: 24px;
-            box-sizing: border-box;
-        }
-        .card {
-            background-color: #1e293b;
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            border-radius: 20px;
-            padding: 32px 24px;
-            max-width: 360px;
-            width: 100%;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-        }
-        .icon {
-            font-size: 44px;
-            margin-bottom: 16px;
-        }
-        h1 {
-            font-size: 20px;
-            margin: 0 0 10px;
-            font-weight: 700;
-            color: #ffffff;
-        }
-        p {
-            font-size: 14px;
-            color: #94a3b8;
-            line-height: 1.5;
-            margin: 0 0 24px;
-        }
-        .btn {
-            background-color: #7c3aed;
-            color: #ffffff;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-        }
-        .btn:active {
-            background-color: #6d28d9;
-        }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <div class="icon">📡</div>
-        <h1>EXFIN OMS is offline</h1>
-        <p>Your session and data are safely saved on this device. Reconnect to sync with the server.</p>
-        <button class="btn" onclick="window.location.reload()">Retry Connection</button>
-    </div>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#6750A4" />
+    <link rel="manifest" href="/manifest.json" />
+    <title>EXFIN OMS ENTERPRISE v6.0</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>`;
 
 // Install Event: Precache Application Shell & Extract Bundle Assets
@@ -212,44 +155,55 @@ self.addEventListener('fetch', (event) => {
       caches.match('/index.html')
         .then((cachedResponse) => {
           if (cachedResponse) {
-            // Background update
-            fetch(request).then((networkResponse) => {
-              if (networkResponse && networkResponse.status === 200) {
-                caches.open(CACHE_NAME).then((cache) => {
-                  cache.put('/index.html', networkResponse.clone());
-                  cache.put('/', networkResponse);
-                });
-              }
-            }).catch(() => {});
+            // Background update when online
+            if (self.navigator && self.navigator.onLine) {
+              fetch(request).then((networkResponse) => {
+                if (networkResponse && networkResponse.status === 200) {
+                  caches.open(CACHE_NAME).then((cache) => {
+                    cache.put('/index.html', networkResponse.clone());
+                    cache.put('/', networkResponse.clone());
+                  });
+                }
+              }).catch(() => {});
+            }
             return cachedResponse;
           }
-          return fetch(request)
-            .then((response) => {
-              if (response && response.status === 200) {
-                const responseToCache = response.clone();
-                caches.open(CACHE_NAME).then((cache) => {
-                  cache.put('/index.html', responseToCache);
-                  cache.put('/', responseToCache.clone());
+          return caches.match('/').then((rootResponse) => {
+            if (rootResponse) return rootResponse;
+            return fetch(request)
+              .then((response) => {
+                if (response && response.status === 200) {
+                  const responseToCache = response.clone();
+                  caches.open(CACHE_NAME).then((cache) => {
+                    cache.put('/index.html', responseToCache.clone());
+                    cache.put('/', responseToCache.clone());
+                  });
+                  return response;
+                }
+                return caches.match('/index.html').then((res) => {
+                  if (res) return res;
+                  return caches.match('/').then((rootRes) => {
+                    if (rootRes) return rootRes;
+                    return new Response(OFFLINE_FALLBACK_SHELL, {
+                      status: 200,
+                      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+                    });
+                  });
                 });
-                return response;
-              }
-              return caches.match('/').then((rootResponse) => {
-                if (rootResponse) return rootResponse;
-                return new Response(OFFLINE_FALLBACK_HTML, {
-                  status: 200,
-                  headers: { 'Content-Type': 'text/html; charset=utf-8' },
+              })
+              .catch(() => {
+                return caches.match('/index.html').then((res) => {
+                  if (res) return res;
+                  return caches.match('/').then((rootRes) => {
+                    if (rootRes) return rootRes;
+                    return new Response(OFFLINE_FALLBACK_SHELL, {
+                      status: 200,
+                      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+                    });
+                  });
                 });
               });
-            })
-            .catch(() => {
-              return caches.match('/').then((rootResponse) => {
-                if (rootResponse) return rootResponse;
-                return new Response(OFFLINE_FALLBACK_HTML, {
-                  status: 200,
-                  headers: { 'Content-Type': 'text/html; charset=utf-8' },
-                });
-              });
-            });
+          });
         })
     );
     return;

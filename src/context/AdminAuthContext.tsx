@@ -106,6 +106,11 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               }
             } catch (e) {}
           }
+          if (!navigator.onLine || err?.message?.toLowerCase().includes('offline') || err?.code === 'unavailable') {
+            setAdminProfileError(null);
+            setLoading(false);
+            return;
+          }
           setRole('EMPLOYEE');
           setAuthorizedOffice('');
           setAdminProfileError('Error validating Admin profile: ' + (err.message || 'Unknown error'));

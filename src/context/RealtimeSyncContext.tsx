@@ -67,7 +67,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [lastOnlineTime, setLastOnlineTime] = useState<string>(new Date().toISOString());
-  const [showStatusIndicator, setShowStatusIndicator] = useState<boolean>(false);
+  const [showStatusIndicator, setShowStatusIndicator] = useState<boolean>(!navigator.onLine);
   const [syncState, setSyncState] = useState<SyncStateIndicator>(
     navigator.onLine ? 'SYNCED' : 'OFFLINE — SAVED LOCALLY'
   );
