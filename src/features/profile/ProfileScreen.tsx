@@ -130,7 +130,7 @@ export const ProfileScreen: React.FC = () => {
       });
       setTeamMembers(members);
     });
-  }, [profile, role, employeeData]);
+  }, [profile, currentRole, employeeData]);
 
   // Open Edit Request Modal
   const openEditModal = (field: 'mobileNumber' | 'email' | 'emergencyContact', label: string, val: string) => {
@@ -257,7 +257,7 @@ export const ProfileScreen: React.FC = () => {
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
               <span className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-purple-500/20 text-purple-200 border border-purple-500/30 flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-purple-300" />
-                Role: {getRoleDisplayName(profile?.role || role)}
+                Role: {getRoleDisplayName(profile?.role || currentRole)}
               </span>
 
               <span className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">

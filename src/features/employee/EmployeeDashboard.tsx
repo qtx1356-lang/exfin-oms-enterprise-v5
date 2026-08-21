@@ -459,12 +459,6 @@ export const EmployeeDashboard: React.FC = () => {
       bg: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' 
     },
     { 
-      icon: RotateCcw, 
-      label: 'Sync & Reports', 
-      onClick: () => navigate('/sync-center'), 
-      bg: 'bg-teal-500/20 text-teal-300 border-teal-500/30' 
-    },
-    { 
       icon: Activity, 
       label: 'Work Pulse', 
       onClick: () => setActiveView('workpulse'), 
