@@ -25,6 +25,8 @@ const OFFLINE_FALLBACK_SHELL = `<!doctype html>
   </body>
 </html>`;
 
+let fallbackAppShellText = '';
+
 // Install Event: Precache Application Shell & Extract Bundle Assets
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -50,16 +52,16 @@ self.addEventListener('install', (event) => {
       try {
         const response = await fetch('/index.html');
         if (response && response.status === 200) {
-          const htmlText = await response.clone().text();
+          fallbackAppShellText = await response.clone().text();
           await cache.put('/index.html', response.clone());
           await cache.put('/', response);
 
           const assetUrls = new Set();
-          const scriptMatches = htmlText.matchAll(/src=["'](\/assets\/[^"']+)["']/g);
+          const scriptMatches = fallbackAppShellText.matchAll(/src=["'](\/assets\/[^"']+)["']/g);
           for (const match of scriptMatches) {
             assetUrls.add(match[1]);
           }
-          const cssMatches = htmlText.matchAll(/href=["'](\/assets\/[^"']+)["']/g);
+          const cssMatches = fallbackAppShellText.matchAll(/href=["'](\/assets\/[^"']+)["']/g);
           for (const match of cssMatches) {
             assetUrls.add(match[1]);
           }
@@ -152,15 +154,26 @@ self.addEventListener('fetch', (event) => {
               cache.put('/index.html', responseToCache.clone());
               cache.put('/', responseToCache);
             }).catch(() => {});
+            return networkResponse;
           }
-          return networkResponse;
+          // On non-200/304 server response (e.g. 404/5xx for deep SPA subpaths), fall back to cached index.html
+          return caches.match('/index.html', { ignoreSearch: true }).then((cachedIndex) => {
+            if (cachedIndex) return cachedIndex;
+            return networkResponse;
+          });
         })
         .catch(() => {
           // Network request failed (offline / network error) -> Fall back to cached app shell
-          return caches.match('/index.html').then((cachedIndex) => {
+          return caches.match('/index.html', { ignoreSearch: true }).then((cachedIndex) => {
             if (cachedIndex) return cachedIndex;
-            return caches.match('/').then((cachedRoot) => {
+            return caches.match('/', { ignoreSearch: true }).then((cachedRoot) => {
               if (cachedRoot) return cachedRoot;
+              if (fallbackAppShellText) {
+                return new Response(fallbackAppShellText, {
+                  status: 200,
+                  headers: { 'Content-Type': 'text/html; charset=utf-8' },
+                });
+              }
               return new Response(OFFLINE_FALLBACK_SHELL, {
                 status: 200,
                 headers: { 'Content-Type': 'text/html; charset=utf-8' },
@@ -188,7 +201,7 @@ self.addEventListener('fetch', (event) => {
 
   if (isStaticAsset) {
     event.respondWith(
-      caches.match(request).then((cachedResponse) => {
+      caches.match(request, { ignoreSearch: true }).then((cachedResponse) => {
         if (cachedResponse) {
           return cachedResponse;
         }
@@ -208,7 +221,7 @@ self.addEventListener('fetch', (event) => {
           })
           .catch(() => {
             // Return cached version if query parameter differences exist
-            return caches.match(url.pathname);
+            return caches.match(url.pathname, { ignoreSearch: true });
           });
       })
     );
