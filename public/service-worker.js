@@ -1,7 +1,7 @@
 // OFFLINE-FIRST CORE REQUIREMENT: APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. NETWORK FAILURE MUST NEVER REDIRECT TO OR REPLACE THE NORMAL APPLICATION SHELL WITH AN OFFLINE PAGE.
 
-const CACHE_NAME = 'exfin-oms-v9-core-v9';
-const DYNAMIC_CACHE_NAME = 'exfin-oms-v9-dynamic-v9';
+const CACHE_NAME = 'exfin-oms-v11-core-v11';
+const DYNAMIC_CACHE_NAME = 'exfin-oms-v11-dynamic-v11';
 
 // Core Application Shell Assets (Injected during build by Vite plugin)
 const PRECACHE_ASSETS = [
@@ -56,6 +56,80 @@ async function matchAcrossAllCaches(requestOrUrl) {
   }
 
   return null;
+}
+
+// Helper to validate if index.html is a valid app shell
+async function isValidAppShell(response) {
+  if (!response || (response.status !== 200 && response.status !== 304)) {
+    return false;
+  }
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('text/html')) {
+    return false;
+  }
+  try {
+    const clone = response.clone();
+    const text = await clone.text();
+    // A valid app shell must contain id="root" or id='root'
+    if (!text.includes('id="root"') && !text.includes("id='root'")) {
+      return false;
+    }
+    // Do not cache Cloudflare error pages or other standard error pages
+    if (text.includes('cf-error-details') || text.includes('Cloudflare') || text.includes('error-code') || text.includes('Attention Required!')) {
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[SW] Error validating app shell:', err);
+    return false;
+  }
+}
+
+// Helper to handle recovery when a critical hashed JS asset fails to load
+async function handleCriticalAssetFailure() {
+  console.warn('[SW] Critical JS asset missing or corrupt. Initiating recovery...');
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    // 1. Invalidate stale cache
+    await cache.delete('/index.html');
+    await cache.delete('/');
+    
+    // 2. Try to fetch the newest index.html from network
+    const netRes = await fetch('/index.html', { cache: 'no-cache' });
+    if (netRes && (netRes.status === 200 || netRes.status === 304)) {
+      const isValid = await isValidAppShell(netRes);
+      if (isValid) {
+        // Cache the new valid shell
+        await cache.put('/index.html', netRes.clone());
+        await cache.put('/', netRes);
+        console.log('[SW] Successfully fetched and cached new application shell during recovery.');
+      }
+    }
+  } catch (err) {
+    console.error('[SW] Failed to fetch new application shell during recovery:', err);
+  }
+  
+  // Return a controlled recovery script that reloads the app at most once.
+  const recoveryJs = `
+    (function() {
+      console.warn('[EXFIN recovery] Stale JS asset detected. Initiating single-time recovery reload...');
+      try {
+        var attempts = parseInt(window.sessionStorage.getItem('exfin_recovery_attempts') || '0', 10);
+        if (attempts < 1) {
+          window.sessionStorage.setItem('exfin_recovery_attempts', (attempts + 1).toString());
+          window.location.reload();
+        } else {
+          console.error('[EXFIN recovery] Recovery reload already attempted once. Aborting to prevent infinite loop.');
+        }
+      } catch (e) {
+        console.error('[EXFIN recovery] Error during recovery check:', e);
+      }
+    })();
+  `;
+  return new Response(recoveryJs, {
+    status: 200,
+    headers: { 'Content-Type': 'application/javascript; charset=utf-8' }
+  });
 }
 
 // Install Event: Precache Application Shell & Assets safely before activating
@@ -190,45 +264,33 @@ self.addEventListener('fetch', (event) => {
   }
 
   // NAVIGATION REQUESTS (SPA Routes: /, /attendance, /planner, /expenses, /leave, /profile, /admin-portal, /x7Kp9, etc.)
-  // CACHE-FIRST WITH BACKGROUND REVALIDATION FOR INSTANT 0MS BOOT
   if (request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
     event.respondWith(
       (async () => {
-        // 1. Try to serve cached index.html immediately from any cache
+        // ONLINE: Try the network first to fetch current index.html
+        try {
+          const networkResponse = await fetch(request);
+          if (networkResponse) {
+            const isValid = await isValidAppShell(networkResponse);
+            if (isValid) {
+              const responseToCache = networkResponse.clone();
+              const cache = await caches.open(CACHE_NAME);
+              await cache.put('/index.html', responseToCache.clone());
+              await cache.put('/', responseToCache);
+              return networkResponse;
+            }
+          }
+        } catch (networkErr) {
+          console.warn('[SW] Navigation network fetch failed, falling back to cached shell:', networkErr);
+        }
+
+        // OFFLINE: If network fails, serve last known-good cached index.html
         const cachedHtml = await matchAcrossAllCaches('/index.html') || await matchAcrossAllCaches('/');
-        
-        // If we have cached HTML, return it IMMEDIATELY and revalidate in background if online
         if (cachedHtml) {
-          // Background revalidation (non-blocking)
-          // Always attempt network fetch for index.html to ensure we get the latest build
-          fetch('/index.html', { cache: 'no-cache' })
-            .then(async (netRes) => {
-              if (netRes && (netRes.status === 200 || netRes.status === 304)) {
-                const cache = await caches.open(CACHE_NAME);
-                await cache.put('/index.html', netRes.clone());
-                await cache.put('/', netRes);
-              }
-            })
-            .catch(() => {});
           return cachedHtml;
         }
 
-        // 2. If no cache yet (first online load), fetch from network
-        try {
-          const networkResponse = await fetch(request);
-          if (networkResponse && (networkResponse.status === 200 || networkResponse.status === 304)) {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put('/index.html', responseToCache.clone());
-              cache.put('/', responseToCache);
-            }).catch(() => {});
-            return networkResponse;
-          }
-        } catch (networkErr) {
-          console.warn('[SW] Navigation network fetch failed:', networkErr);
-        }
-
-        // 3. Absolute Fallback: Embedded application shell (NEVER fail or throw)
+        // Absolute Fallback: Embedded application shell (NEVER fail or throw)
         if (fallbackAppShellText) {
           return createSyntheticAppShellResponse(fallbackAppShellText);
         }
@@ -268,23 +330,31 @@ self.addEventListener('fetch', (event) => {
         // 2. Fetch from network if not in cache
         try {
           const response = await fetch(request);
-          if (response && response.status === 200) {
-            // STRICT MIME TYPE CHECKING: DO NOT CACHE HTML FALLBACKS AS JS/CSS
-            const contentType = response.headers.get('content-type');
-            if (url.pathname.endsWith('.js') && contentType && contentType.includes('text/html')) {
-              throw new Error('Cloudflare SPA fallback intercepted for JS request');
+          if (response) {
+            const contentType = response.headers.get('content-type') || '';
+            const isHtmlForJsCss = (url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) && contentType.includes('text/html');
+
+            if (response.status === 200 && !isHtmlForJsCss) {
+              const responseToCache = response.clone();
+              const cache = await caches.open(CACHE_NAME);
+              await cache.put(request, responseToCache);
+              return response;
             }
-            if (url.pathname.endsWith('.css') && contentType && contentType.includes('text/html')) {
-              throw new Error('Cloudflare SPA fallback intercepted for CSS request');
+
+            // Treat 404 or HTML content for JS/CSS as a missing/stale asset
+            if (response.status === 404 || isHtmlForJsCss) {
+              if (url.pathname.endsWith('.js')) {
+                return await handleCriticalAssetFailure();
+              }
             }
-            
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseToCache);
-            }).catch(() => {});
           }
           return response;
         } catch (fetchErr) {
+          // If network fetch failed (offline) and we don't have the asset cached
+          if (url.pathname.endsWith('.js')) {
+            return await handleCriticalAssetFailure();
+          }
+
           // 3. Fallback: match by pathname without query params
           const pathnameMatch = await matchAcrossAllCaches(url.pathname);
           if (pathnameMatch) {

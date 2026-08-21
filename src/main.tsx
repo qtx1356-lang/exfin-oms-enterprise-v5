@@ -5,6 +5,15 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
+// Clear SW single-recovery marker upon successful startup
+if (typeof window !== 'undefined' && window.sessionStorage) {
+  try {
+    window.sessionStorage.removeItem('exfin_recovery_attempts');
+  } catch (e) {
+    console.error('Failed to clear recovery attempts:', e);
+  }
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
