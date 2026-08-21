@@ -100,6 +100,23 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
   console.log(`Sync Engine: Found ${pendingRecords.length} pending attendance records to sync.`);
 
   for (const record of pendingRecords) {
+    // Security check: Verify employee is authorized and approved before writing to Firestore
+    let isApproved = true;
+    try {
+      const rawReg = typeof localStorage !== 'undefined' ? localStorage.getItem('cached_registration_data') : null;
+      if (rawReg) {
+        const parsed = JSON.parse(rawReg);
+        if (parsed.status && parsed.status !== 'Approved') {
+          isApproved = false;
+        }
+      }
+    } catch (e) {}
+
+    if (!isApproved) {
+      console.warn(`[SyncEngine] Blocked sync for unapproved/suspended employee record: ${record.employeeId}`);
+      continue;
+    }
+
     let attempt = 0;
     let success = false;
     const maxAttempts = 3;

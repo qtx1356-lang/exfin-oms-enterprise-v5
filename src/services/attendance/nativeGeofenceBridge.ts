@@ -1,6 +1,7 @@
 import { registerPlugin, Capacitor, PluginListenerHandle } from '@capacitor/core';
 import { AutomaticAttendanceEngine } from './automaticAttendanceEngine';
 import { logAttendanceEvent } from './attendanceLogger';
+import { syncPendingAttendanceRecords } from './syncEngine';
 
 export interface NativeGeofencePluginInterface {
   registerOfficeGeofence(): Promise<{ success: boolean; geofenceId: string; radius: number; latitude: number; longitude: number }>;
@@ -91,6 +92,14 @@ export const reconcileNativeGeofenceEvents = async (
           eventDate
         );
       } else if (evt.transition === 'ENTER') {
+        console.log('[NATIVE_GEOFENCE_ENTER_RECONCILED]', {
+          employeeId,
+          date: eventDate.toISOString().split('T')[0],
+          distance: 25,
+          timestamp: eventDate.toISOString(),
+          source: 'NATIVE_GEOFENCE'
+        });
+        logAttendanceEvent('GEOFENCE_ENTER', employeeId, `[NATIVE_GEOFENCE_ENTER_RECONCILED] Reconciled native enter event at ${eventDate.toISOString()}`);
         AutomaticAttendanceEngine.processGeofenceEntry(
           employeeId,
           employeeName,
@@ -99,6 +108,11 @@ export const reconcileNativeGeofenceEvents = async (
           eventDate
         );
       }
+    }
+
+    // Trigger sync if online
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      syncPendingAttendanceRecords().catch(() => {});
     }
   } catch (err: any) {
     console.warn('[NativeGeofenceBridge] Error reconciling native events:', err);

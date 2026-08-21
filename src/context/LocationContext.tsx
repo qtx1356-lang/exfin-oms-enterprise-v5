@@ -160,11 +160,15 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return distance !== null && !isStale && distance <= OFFICE_LOCATION.radius;
   }, [distance, isStale]);
 
-  const getEmployeeInfo = () => {
+  const getEmployeeInfo = React.useCallback(() => {
     try {
       const raw = localStorage.getItem('cached_registration_data');
       if (raw) {
         const parsed = JSON.parse(raw);
+        // Security requirement: Only approved employees are permitted to record attendance
+        if (parsed.status !== 'Approved') {
+          return null;
+        }
         return {
           id: parsed.employeeCode || parsed.uid || parsed.id || parsed.employeeId || '',
           name: parsed.name || parsed.employeeName || 'Employee',
@@ -173,7 +177,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     } catch (e) {}
     return null;
-  };
+  }, []);
 
   const getValidCachedAddress = (): string | null => {
     try {
@@ -396,19 +400,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setBackgroundPermissionGranted(res.isBackgroundGranted);
     });
 
-    const cleanupBg = initializeBackgroundAttendanceManager(() => {
-      try {
-        const raw = localStorage.getItem('cached_registration_data');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          return {
-            id: parsed.employeeCode || parsed.uid || parsed.id || '',
-            name: parsed.name || 'Employee'
-          };
-        }
-      } catch (e) {}
-      return null;
-    });
+    const cleanupBg = initializeBackgroundAttendanceManager(getEmployeeInfo);
 
     return () => {
       cleanupBg();

@@ -163,11 +163,15 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
   trackResourceCreated('SYNC_TIMER', timerKey, 'bg_attendance_manager');
 
   const intervalId = setInterval(() => {
+    const info = getEmployeeInfo();
+    if (info?.id) {
+      reconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ');
+    }
     runAutoCheckoutFinalizer();
     if (navigator.onLine) {
       syncPendingAttendanceRecords().catch(() => {});
     }
-  }, 60000); // Check every minute
+  }, 30000); // Check every 30 seconds
 
   const handleVisibilityChange = () => {
     if (document.visibilityState === 'visible') {

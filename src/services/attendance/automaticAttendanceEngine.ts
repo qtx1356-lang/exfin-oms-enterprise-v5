@@ -174,6 +174,21 @@ export const generateUUID = (): string => {
   return 'att_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
 };
 
+export function isEmployeeApprovedLocally(employeeId: string): boolean {
+  if (!employeeId || employeeId === 'ANONYMOUS' || employeeId === 'SYSTEM') return false;
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('cached_registration_data') : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const activeId = parsed.employeeCode || parsed.uid || parsed.id || parsed.employeeId;
+      if (activeId === employeeId && parsed.status === 'Approved') {
+        return true;
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+
 export const AutomaticAttendanceEngine = {
   /**
    * Evaluates location update, transitions states accordingly
@@ -187,7 +202,12 @@ export const AutomaticAttendanceEngine = {
     timestamp: Date = new Date(),
     accuracy?: number
   ): AttendanceRecord | null {
-    if (!employeeId) return null;
+    if (!employeeId || !isEmployeeApprovedLocally(employeeId)) {
+      if (employeeId && employeeId !== 'ANONYMOUS' && employeeId !== 'SYSTEM') {
+        console.warn(`[AutomaticAttendanceEngine] Ignored location update for unapproved/unknown employee: ${employeeId}`);
+      }
+      return null;
+    }
 
     if (
       typeof latitude !== 'number' ||
@@ -712,6 +732,13 @@ export const AutomaticAttendanceEngine = {
     townCity: string,
     timestamp: Date = new Date()
   ): AttendanceRecord {
+    if (!employeeId || !isEmployeeApprovedLocally(employeeId)) {
+      if (employeeId && employeeId !== 'ANONYMOUS' && employeeId !== 'SYSTEM') {
+        console.warn(`[AutomaticAttendanceEngine] Ignored geofence entry for unapproved/unknown employee: ${employeeId}`);
+      }
+      return null as any;
+    }
+
     const dateStr = getFormattedDateStr(timestamp);
     const record = getTodayAttendanceRecord(employeeId, dateStr);
 
@@ -749,6 +776,13 @@ export const AutomaticAttendanceEngine = {
     townCity: string,
     timestamp: Date = new Date()
   ): AttendanceRecord {
+    if (!employeeId || !isEmployeeApprovedLocally(employeeId)) {
+      if (employeeId && employeeId !== 'ANONYMOUS' && employeeId !== 'SYSTEM') {
+        console.warn(`[AutomaticAttendanceEngine] Ignored geofence exit for unapproved/unknown employee: ${employeeId}`);
+      }
+      return null as any;
+    }
+
     const dateStr = getFormattedDateStr(timestamp);
     const record = getTodayAttendanceRecord(employeeId, dateStr);
 
