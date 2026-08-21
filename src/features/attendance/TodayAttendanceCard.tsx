@@ -131,11 +131,19 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
       badgeStyle = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
       StateIcon = Briefcase;
     } else {
-      statusTitle = 'CHECKED IN';
-      statusBadgeText = todayRecord.checkInMode === 'AUTO' ? 'Auto Check-In' : 'Office Attendance';
-      statusColor = 'from-[#162C22] via-[#1B362A] to-[#12241C] border-emerald-500/40 text-emerald-300';
-      badgeStyle = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
-      StateIcon = CheckCircle2;
+      if (todayRecord.returningToOffice) {
+        statusTitle = 'CHECKED IN (AWAY)';
+        statusBadgeText = 'Returning to Office';
+        statusColor = 'from-[#281545] via-[#2F1752] to-[#22113B] border-purple-500/40 text-purple-300';
+        badgeStyle = 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+        StateIcon = MapPin;
+      } else {
+        statusTitle = 'CHECKED IN';
+        statusBadgeText = todayRecord.checkInMode === 'AUTO' ? 'Auto Check-In' : 'Office Attendance';
+        statusColor = 'from-[#162C22] via-[#1B362A] to-[#12241C] border-emerald-500/40 text-emerald-300';
+        badgeStyle = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+        StateIcon = CheckCircle2;
+      }
     }
   }
 

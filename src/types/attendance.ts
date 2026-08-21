@@ -8,6 +8,8 @@ export type AttendanceState =
   | 'ENTERING'
   | 'CHECKED_IN'
   | 'PENDING_FINAL_EXIT'
+  | 'PENDING_EXIT_CONFIRMATION'
+  | 'RETURNING_TO_OFFICE'
   | 'FINALIZED_CHECKOUT'
   | 'NO_ATTENDANCE'
   | 'CHECKED_OUT'
@@ -114,7 +116,10 @@ export interface AttendanceRecord {
   isOffline: boolean;
   correctionHistory?: AttendanceCorrection[];
   lastExitTime?: string | null;
+  geofenceExitTime?: string | null;
+  geofenceExitTimestamp?: string | null;
   pendingCheckoutConfirmation?: boolean;
+  returningToOffice?: boolean;
   checkoutConfirmed?: boolean;
   checkoutFinalized?: boolean;
   checkoutSource?: string;
