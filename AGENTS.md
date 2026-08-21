@@ -13,6 +13,7 @@ The following three features are CORE and PROTECTED features of EXFIN OMS:
 - Do not modify the location behavior merely to fix unrelated UI, performance, networking, or background-processing issues.
 
 ### 3. Offline-first startup
+- OFFLINE-FIRST CORE REQUIREMENT: APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. NETWORK FAILURE MUST NEVER REDIRECT TO OR REPLACE THE NORMAL APPLICATION SHELL WITH AN OFFLINE PAGE.
 - APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. OFFLINE MUST BOOT THE NORMAL APPLICATION SHELL.
 - The application must remain capable of starting and functioning from its cached application shell when there is no internet connection.
 - Offline startup must not depend on Firebase, APIs, Google services, or any network request.
