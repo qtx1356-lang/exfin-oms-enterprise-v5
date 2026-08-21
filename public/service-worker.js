@@ -1,5 +1,7 @@
-const CACHE_NAME = 'exfin-oms-v7-cache-v7';
-const DYNAMIC_CACHE_NAME = 'exfin-oms-v7-dynamic-v7';
+// APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. OFFLINE MUST BOOT THE NORMAL APPLICATION SHELL.
+
+const CACHE_NAME = 'exfin-oms-v8-cache-v8';
+const DYNAMIC_CACHE_NAME = 'exfin-oms-v8-dynamic-v8';
 
 // Core Application Shell Assets
 const PRECACHE_ASSETS = [
@@ -8,22 +10,6 @@ const PRECACHE_ASSETS = [
   '/manifest.json',
   '/favicon.ico',
 ];
-
-// Fallback HTML application shell when network and cache missed
-const OFFLINE_FALLBACK_SHELL = `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#6750A4" />
-    <link rel="manifest" href="/manifest.json" />
-    <title>EXFIN OMS ENTERPRISE v6.0</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>`;
 
 let fallbackAppShellText = '';
 
@@ -39,8 +25,6 @@ self.addEventListener('install', (event) => {
             const response = await fetch(assetUrl);
             if (response && response.ok) {
               await cache.put(assetUrl, response);
-            } else {
-              console.warn('[SW] Failed to fetch for precache:', assetUrl, response?.status);
             }
           } catch (e) {
             console.warn('[SW] Failed to precache asset:', assetUrl, e);
@@ -51,7 +35,7 @@ self.addEventListener('install', (event) => {
       // Pre-cache runtime bundle assets by fetching index.html and parsing script & link tags
       try {
         const response = await fetch('/index.html');
-        if (response && response.status === 200) {
+        if (response && (response.status === 200 || response.status === 304)) {
           fallbackAppShellText = await response.clone().text();
           await cache.put('/index.html', response.clone());
           await cache.put('/', response);
@@ -89,7 +73,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate Event: Unconditionally clean up all outdated shell caches
+// Activate Event: Unconditionally clean up all outdated shell caches and claim clients
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -123,13 +107,12 @@ self.addEventListener('fetch', (event) => {
   if (
     url.pathname.startsWith('/src/') ||
     url.pathname.startsWith('/@') ||
-    url.search.includes('t=') ||
-    url.search.includes('v=')
+    url.search.includes('t=')
   ) {
     return;
   }
 
-  // EXCLUSIONS — NEVER CACHE SENSITIVE API / FIRESTORE / AUTH DATA
+  // EXCLUSIONS — NEVER INTERFERE WITH SENSITIVE API / FIRESTORE / AUTH DATA
   if (
     url.pathname.includes('/api/') ||
     url.hostname.includes('firebase') ||
@@ -143,7 +126,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // NAVIGATION REQUESTS (SPA Routes: /, /attendance, /planner, /employee, /admin-portal, etc.)
-  // Network-First Strategy: Fetch live page from server when online; fall back to cached index.html when offline
+  // Network-First with Instant Offline Fallback to Cached index.html
   if (request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
     event.respondWith(
       fetch(request)
@@ -156,29 +139,42 @@ self.addEventListener('fetch', (event) => {
             }).catch(() => {});
             return networkResponse;
           }
-          // On non-200/304 server response (e.g. 404/5xx for deep SPA subpaths), fall back to cached index.html
-          return caches.match('/index.html', { ignoreSearch: true }).then((cachedIndex) => {
-            if (cachedIndex) return cachedIndex;
-            return networkResponse;
-          });
-        })
-        .catch(() => {
-          // Network request failed (offline / network error) -> Fall back to cached app shell
+          // On non-200/304 server response (e.g. 404 for deep SPA subpaths on some hosts), fall back to cached index.html
           return caches.match('/index.html', { ignoreSearch: true }).then((cachedIndex) => {
             if (cachedIndex) return cachedIndex;
             return caches.match('/', { ignoreSearch: true }).then((cachedRoot) => {
               if (cachedRoot) return cachedRoot;
-              if (fallbackAppShellText) {
-                return new Response(fallbackAppShellText, {
-                  status: 200,
-                  headers: { 'Content-Type': 'text/html; charset=utf-8' },
-                });
-              }
-              return new Response(OFFLINE_FALLBACK_SHELL, {
-                status: 200,
-                headers: { 'Content-Type': 'text/html; charset=utf-8' },
-              });
+              return networkResponse;
             });
+          });
+        })
+        .catch(async () => {
+          // Network request failed (offline / network error / disconnected) -> ALWAYS return cached application shell
+          const cachedIndex = await caches.match('/index.html', { ignoreSearch: true });
+          if (cachedIndex) return cachedIndex;
+          const cachedRoot = await caches.match('/', { ignoreSearch: true });
+          if (cachedRoot) return cachedRoot;
+
+          if (fallbackAppShellText) {
+            return new Response(fallbackAppShellText, {
+              status: 200,
+              headers: { 'Content-Type': 'text/html; charset=utf-8' },
+            });
+          }
+
+          // Search any HTML cache entry
+          const cache = await caches.open(CACHE_NAME);
+          const keys = await cache.keys();
+          for (const key of keys) {
+            if (key.url.endsWith('.html') || key.url.endsWith('/')) {
+              const res = await cache.match(key);
+              if (res) return res;
+            }
+          }
+
+          return new Response('<!doctype html><html><head><meta charset="utf-8"/><title>EXFIN OMS</title></head><body><div id="root"></div></body></html>', {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
           });
         })
     );
@@ -186,6 +182,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // STATIC APPLICATION ASSETS (JS chunks, CSS, images, icons, fonts)
+  // Cache-First with Dynamic Cache Fallback
   const isStaticAsset =
     url.pathname.startsWith('/assets/') ||
     url.pathname.startsWith('/images/') ||
@@ -215,12 +212,12 @@ self.addEventListener('fetch', (event) => {
             const responseToCache = response.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(request, responseToCache);
-            });
+            }).catch(() => {});
 
             return response;
           })
           .catch(() => {
-            // Return cached version if query parameter differences exist
+            // Return cached version matching pathname if query parameter differences exist
             return caches.match(url.pathname, { ignoreSearch: true });
           });
       })

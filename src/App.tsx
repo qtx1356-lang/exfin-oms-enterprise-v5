@@ -1,3 +1,4 @@
+// APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. OFFLINE MUST BOOT THE NORMAL APPLICATION SHELL.
 import React from 'react';
 import './services/startup/startupPerformanceLogger';
 import { ErrorBoundary } from './app/ErrorBoundary';

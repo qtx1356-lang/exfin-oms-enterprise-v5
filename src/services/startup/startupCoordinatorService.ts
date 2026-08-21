@@ -1,3 +1,5 @@
+// APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. OFFLINE MUST BOOT THE NORMAL APPLICATION SHELL.
+
 /**
  * EXFIN OMS Centralized Startup Coordinator & State Machine
  * Coordinates deterministic offline-first startup flow:
