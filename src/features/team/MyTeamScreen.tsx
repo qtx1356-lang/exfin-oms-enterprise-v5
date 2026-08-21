@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { db } from '../../services/firebase/config';
 import { createNotification } from '../../services/notification/notificationService';
@@ -59,7 +59,7 @@ export const MyTeamScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'tasks' | 'approvals' | 'reports' | 'leaves'>('overview');
 
   // Team Leaves states
-  const [teamLeaves, setTeamLeaves] = useState<LeaveRecord[]>([]);
+  const [rawLeaves, setRawLeaves] = useState<LeaveRecord[]>([]);
   const [leaveStatusFilter, setLeaveStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
   const [selectedLeaveForReview, setSelectedLeaveForReview] = useState<LeaveRecord | null>(null);
   const [leaveReviewRemark, setLeaveReviewRemark] = useState('');
@@ -182,20 +182,10 @@ export const MyTeamScreen: React.FC = () => {
     const qLeaves = query(collection(db, 'leaves'), limit(200));
     const unsub = onSnapshot(qLeaves, (snapshot) => {
       const fetchedLeaves: LeaveRecord[] = [];
-      const memberIds = new Set(teamMembers.map((m) => m.id));
-      const memberCodes = new Set(teamMembers.map((m) => m.employeeCode));
-
       snapshot.forEach((docSnap) => {
-        const l = docSnap.data() as LeaveRecord;
-        const isMember = memberIds.has(l.employeeId) || memberCodes.has(l.employeeCode);
-        const matchesLeader = l.teamLeaderId === currentLeaderId || (l as any).teamLeaderCode === currentLeaderCode;
-        if (isMember || matchesLeader) {
-          fetchedLeaves.push(l);
-        }
+        fetchedLeaves.push(docSnap.data() as LeaveRecord);
       });
-
-      fetchedLeaves.sort((a, b) => new Date(b.createdAtDeviceTime).getTime() - new Date(a.createdAtDeviceTime).getTime());
-      setTeamLeaves(fetchedLeaves);
+      setRawLeaves(fetchedLeaves);
     }, (err) => {
       console.warn('Error listening to team leaves:', err);
     });
@@ -203,7 +193,21 @@ export const MyTeamScreen: React.FC = () => {
     return () => {
       unsub();
     };
-  }, [db, isTeamLeader, currentLeaderCode, currentLeaderId, teamMembers]);
+  }, [db, isTeamLeader]);
+
+  // Team Leaves computed via useMemo to avoid tearing down the snapshot listener on every teamMembers update
+  const teamLeaves = useMemo(() => {
+    const memberIds = new Set(teamMembers.map((m) => m.id));
+    const memberCodes = new Set(teamMembers.map((m) => m.employeeCode));
+
+    const filtered = rawLeaves.filter((l) => {
+      const isMember = memberIds.has(l.employeeId) || memberCodes.has(l.employeeCode);
+      const matchesLeader = l.teamLeaderId === currentLeaderId || (l as any).teamLeaderCode === currentLeaderCode;
+      return isMember || matchesLeader;
+    });
+
+    return [...filtered].sort((a, b) => new Date(b.createdAtDeviceTime || 0).getTime() - new Date(a.createdAtDeviceTime || 0).getTime());
+  }, [rawLeaves, teamMembers, currentLeaderId, currentLeaderCode]);
 
   if (!isTeamLeader) {
     return (

@@ -232,29 +232,35 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             }
 
             // Realtime listener
-            unsubSnapshot = onSnapshot(regDocRef, (docSnap) => {
-              if (!isMounted) return;
-              if (docSnap.exists()) {
-                const liveData = docSnap.data();
-                const liveStatus = liveData.status || 'Pending Approval';
-                try {
-                  localStorage.setItem('cached_registration_data', JSON.stringify({ ...liveData, id: savedRegId }));
-                } catch (e) {}
-                if (liveStatus === 'Suspended' || liveStatus === 'Blocked' || liveStatus === 'INACTIVE' || liveStatus === 'Rejected') {
-                  setStatus('suspended_notice');
-                  setRejectionReason(liveData.rejectionReason || `Account status is ${liveStatus}.`);
-                } else {
-                  setStatus(liveStatus === 'Approved' ? 'Approved' : liveStatus);
+            if (isMounted) {
+              const unsub = onSnapshot(regDocRef, (docSnap) => {
+                if (!isMounted) {
+                  unsub();
+                  return;
                 }
-                setEmployeeData(liveData);
-              } else {
-                localStorage.removeItem('registrationId');
-                localStorage.removeItem('cached_registration_data');
-                setLocalRegId(null);
-                setEmployeeData(null);
-                setStatus('unregistered');
-              }
-            });
+                if (docSnap.exists()) {
+                  const liveData = docSnap.data();
+                  const liveStatus = liveData.status || 'Pending Approval';
+                  try {
+                    localStorage.setItem('cached_registration_data', JSON.stringify({ ...liveData, id: savedRegId }));
+                  } catch (e) {}
+                  if (liveStatus === 'Suspended' || liveStatus === 'Blocked' || liveStatus === 'INACTIVE' || liveStatus === 'Rejected') {
+                    setStatus('suspended_notice');
+                    setRejectionReason(liveData.rejectionReason || `Account status is ${liveStatus}.`);
+                  } else {
+                    setStatus(liveStatus === 'Approved' ? 'Approved' : liveStatus);
+                  }
+                  setEmployeeData(liveData);
+                } else {
+                  localStorage.removeItem('registrationId');
+                  localStorage.removeItem('cached_registration_data');
+                  setLocalRegId(null);
+                  setEmployeeData(null);
+                  setStatus('unregistered');
+                }
+              });
+              unsubSnapshot = unsub;
+            }
             return;
           }
         }
