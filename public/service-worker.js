@@ -1,5 +1,5 @@
-const CACHE_NAME = 'exfin-oms-v5-cache-v5';
-const DYNAMIC_CACHE_NAME = 'exfin-oms-v5-dynamic-v5';
+const CACHE_NAME = 'exfin-oms-v7-cache-v7';
+const DYNAMIC_CACHE_NAME = 'exfin-oms-v7-dynamic-v7';
 
 // Core Application Shell Assets
 const PRECACHE_ASSETS = [
@@ -87,32 +87,23 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate Event: Clean up outdated shell caches
+// Activate Event: Unconditionally clean up all outdated shell caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.match('/index.html'))
-      .then((indexResponse) => {
-        const isNewCacheValid = !!indexResponse;
-        return caches.keys().then((cacheNames) => {
-          return Promise.all(
-            cacheNames.map((cacheName) => {
-              if (cacheName !== CACHE_NAME && cacheName !== DYNAMIC_CACHE_NAME) {
-                // Only delete old caches if the new cache has a valid index.html
-                if (isNewCacheValid) {
-                  console.log('[SW] Deleting obsolete cache:', cacheName);
-                  return caches.delete(cacheName);
-                } else {
-                  console.warn('[SW] Preserving obsolete cache due to invalid new cache:', cacheName);
-                }
-              }
-            })
-          );
-        });
-      })
-      .then(() => {
-        console.log('[SW] Activated & claiming clients for', CACHE_NAME);
-        return self.clients.claim();
-      })
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME && cacheName !== DYNAMIC_CACHE_NAME) {
+            console.log('[SW] Deleting obsolete cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+    .then(() => {
+      console.log('[SW] Activated & claiming clients for', CACHE_NAME);
+      return self.clients.claim();
+    })
   );
 });
 
@@ -149,60 +140,32 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // NAVIGATION REQUESTS (SPA Routes: /, /attendance, /planner, /employee, etc.)
+  // NAVIGATION REQUESTS (SPA Routes: /, /attendance, /planner, /employee, /admin-portal, etc.)
+  // Network-First Strategy: Fetch live page from server when online; fall back to cached index.html when offline
   if (request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
     event.respondWith(
-      caches.match('/index.html')
-        .then((cachedResponse) => {
-          if (cachedResponse) {
-            // Background update when online
-            if (self.navigator && self.navigator.onLine) {
-              fetch(request).then((networkResponse) => {
-                if (networkResponse && networkResponse.status === 200) {
-                  caches.open(CACHE_NAME).then((cache) => {
-                    cache.put('/index.html', networkResponse.clone());
-                    cache.put('/', networkResponse.clone());
-                  });
-                }
-              }).catch(() => {});
-            }
-            return cachedResponse;
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && (networkResponse.status === 200 || networkResponse.status === 304)) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put('/index.html', responseToCache.clone());
+              cache.put('/', responseToCache);
+            }).catch(() => {});
           }
-          return caches.match('/').then((rootResponse) => {
-            if (rootResponse) return rootResponse;
-            return fetch(request)
-              .then((response) => {
-                if (response && response.status === 200) {
-                  const responseToCache = response.clone();
-                  caches.open(CACHE_NAME).then((cache) => {
-                    cache.put('/index.html', responseToCache.clone());
-                    cache.put('/', responseToCache.clone());
-                  });
-                  return response;
-                }
-                return caches.match('/index.html').then((res) => {
-                  if (res) return res;
-                  return caches.match('/').then((rootRes) => {
-                    if (rootRes) return rootRes;
-                    return new Response(OFFLINE_FALLBACK_SHELL, {
-                      status: 200,
-                      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-                    });
-                  });
-                });
-              })
-              .catch(() => {
-                return caches.match('/index.html').then((res) => {
-                  if (res) return res;
-                  return caches.match('/').then((rootRes) => {
-                    if (rootRes) return rootRes;
-                    return new Response(OFFLINE_FALLBACK_SHELL, {
-                      status: 200,
-                      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-                    });
-                  });
-                });
+          return networkResponse;
+        })
+        .catch(() => {
+          // Network request failed (offline / network error) -> Fall back to cached app shell
+          return caches.match('/index.html').then((cachedIndex) => {
+            if (cachedIndex) return cachedIndex;
+            return caches.match('/').then((cachedRoot) => {
+              if (cachedRoot) return cachedRoot;
+              return new Response(OFFLINE_FALLBACK_SHELL, {
+                status: 200,
+                headers: { 'Content-Type': 'text/html; charset=utf-8' },
               });
+            });
           });
         })
     );
