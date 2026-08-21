@@ -535,9 +535,44 @@ export const ExpenseScreen: React.FC = () => {
             />
           </div>
 
+          {/* Scanned metadata details preview if present */}
+          {(scannedMerchant || scannedReceiptNum || scannedGstAmount) && (
+            <div className="p-2.5 bg-[#170930] rounded-xl border border-purple-500/20 text-[11px] space-y-1">
+              <div className="font-bold text-emerald-300 flex items-center justify-between">
+                <span>Scanned Receipt Details</span>
+                <span className="text-[10px] text-purple-300/70 font-normal">Verified via Scanner</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-purple-200/90 pt-1">
+                {scannedMerchant && (
+                  <div><span className="text-purple-400 font-semibold">Vendor:</span> {scannedMerchant}</div>
+                )}
+                {scannedReceiptNum && (
+                  <div><span className="text-purple-400 font-semibold">Bill #:</span> {scannedReceiptNum}</div>
+                )}
+                {scannedGstAmount !== null && scannedGstAmount !== undefined && (
+                  <div><span className="text-purple-400 font-semibold">GST:</span> ₹{scannedGstAmount}</div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-1">
-            <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
-              <Camera className="w-3.5 h-3.5 text-[#A78BFA]" /> Receipt Image (Optional)
+            <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-[#A78BFA]" /> Receipt Image {receiptUrl ? '(Attached)' : '(Optional)'}
+              </span>
+              {receiptUrl && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setIsScannerOpen(true);
+                  }}
+                  className="text-[11px] font-bold text-purple-300 hover:text-white underline cursor-pointer"
+                >
+                  Rescan with Camera
+                </button>
+              )}
             </label>
             
             <input
@@ -549,20 +584,40 @@ export const ExpenseScreen: React.FC = () => {
             />
 
             {!receiptUrl ? (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full border-2 border-dashed border-purple-500/30 bg-[#211044]/60 hover:bg-[#211044] rounded-2xl p-4 flex items-center justify-center gap-2 text-xs font-semibold text-purple-200 transition-colors"
-              >
-                <Camera className="w-4 h-4 text-[#A78BFA]" /> Tap to attach camera or gallery receipt
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setIsScannerOpen(true);
+                  }}
+                  className="border-2 border-dashed border-purple-500/40 bg-purple-950/30 hover:bg-purple-900/40 rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-xs font-semibold text-purple-200 transition-colors cursor-pointer"
+                >
+                  <Camera className="w-4 h-4 text-emerald-400" />
+                  <span className="text-[11px] font-bold text-white">Scan with Camera</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-purple-500/30 bg-[#211044]/60 hover:bg-[#211044] rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-xs font-semibold text-purple-200 transition-colors cursor-pointer"
+                >
+                  <Paperclip className="w-4 h-4 text-purple-300" />
+                  <span className="text-[11px] font-bold text-white">Upload File / Photo</span>
+                </button>
+              </div>
             ) : (
               <div className="relative rounded-2xl overflow-hidden border border-purple-500/30 h-32 bg-black/40">
                 <img src={receiptUrl} alt="Receipt Preview" className="w-full h-full object-contain" />
                 <button
                   type="button"
-                  onClick={() => setReceiptUrl(null)}
-                  className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                  onClick={() => {
+                    setReceiptUrl(null);
+                    setScannedMerchant(null);
+                    setScannedReceiptNum(null);
+                    setScannedGstAmount(null);
+                  }}
+                  className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full shadow-lg hover:bg-red-600 transition-colors cursor-pointer"
+                  title="Remove Attached Receipt"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -610,6 +665,9 @@ export const ExpenseScreen: React.FC = () => {
           setScannedReceiptNum(receiptNumber);
           setScannedGstAmount(gstAmount);
           setReceiptUrl(localReceiptData);
+          if (!description.trim()) {
+            setDescription(merchant ? `${category} - ${merchant}` : `${category} claim with scanned receipt`);
+          }
           setIsScannerOpen(false);
           setIsModalOpen(true);
         }}
