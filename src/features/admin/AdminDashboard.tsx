@@ -3,7 +3,6 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import { usePermission } from '../../context/PermissionContext';
 import { db } from '../../services/firebase/config';
 import { createNotification } from '../../services/notification/notificationService';
-import { sanitizeFirestorePayload } from '../../utils/firestoreUtils';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, where, getDocs, getDoc, limit } from 'firebase/firestore';
 import {
   LogOut,
@@ -61,8 +60,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord, AttendanceCorrection, LiveEmployeeLocation } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn, isValidCoordinatePair } from '../../utils/attendanceUtils';
-import { subscribeToAddressCacheUpdates } from '../../utils/addressFormatter';
+import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn } from '../../utils/attendanceUtils';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { ExpenseRecord } from '../../types/expense';
@@ -90,7 +88,6 @@ import { PendingDeviceApprovalsTab } from './PendingDeviceApprovalsTab';
 import { createAuditLog } from '../../services/audit/auditService';
 import { AdminFAQScreen } from '../help/AdminFAQScreen';
 import { AdminLeaveManagementTab } from './AdminLeaveManagementTab';
-import { AdminExpenseManagementTab } from './AdminExpenseManagementTab';
 
 export const safeStringify = (val: any): string => {
   if (val === null || val === undefined) return '';
@@ -262,30 +259,15 @@ export const AdminDashboard: React.FC = () => {
   const [leaveConfig, setLeaveConfig] = useState<LeaveConfig | null>(null);
   const [employeeAllowances, setEmployeeAllowances] = useState<EmployeeAllowance[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
-  const [, setAddressCacheVersion] = useState(0);
-
-  useEffect(() => {
-    const unsubscribe = subscribeToAddressCacheUpdates(() => {
-      setAddressCacheVersion((v) => v + 1);
-    });
-    return () => unsubscribe();
-  }, []);
 
   // Map of authoritative live employee locations (from live_locations collection)
   const liveLocationByEmployee = React.useMemo(() => {
     const map = new Map<string, LiveEmployeeLocation>();
     liveLocations.forEach((loc) => {
-      // 1. Index by loc.employeeId (normalized)
-      if (loc.employeeId && typeof loc.employeeId === 'string' && loc.employeeId.trim()) {
+      if (loc.employeeId) {
         const idTrim = loc.employeeId.trim();
         map.set(idTrim, loc);
         map.set(idTrim.toLowerCase(), loc);
-      }
-      // 2. Index by Firestore document ID / loc.id (normalized)
-      if (loc.id && typeof loc.id === 'string' && loc.id.trim()) {
-        const docIdTrim = loc.id.trim();
-        map.set(docIdTrim, loc);
-        map.set(docIdTrim.toLowerCase(), loc);
       }
     });
     return map;
@@ -314,10 +296,38 @@ export const AdminDashboard: React.FC = () => {
         // Explicit statuses
         if (rec.checkoutStatus === 'UNRESOLVED' || rec.checkoutStatus === 'PENDING_ADMIN_REVIEW') return true;
 
-        // Active open session or missing checkout session
-        if (rec.checkInTime && (!rec.checkOutTime || rec.checkOutTime === '--:--' || rec.checkOutTime === 'Pending' || rec.checkOutTime === 'N/A' || rec.checkOutTime === 'UNRESOLVED')) {
+        // Today's active records
+        if (rec.checkInTime && !rec.checkOutTime) {
           const type = (rec.attendanceType || 'OFFICE').toUpperCase();
           if (type === 'OUTDOOR') return false;
+          
+          let todayStr = '';
+          try {
+            todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+          } catch {
+            const now = new Date();
+            todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+          }
+          const isToday = rec.date === todayStr;
+          
+          if (isToday) {
+            let curHour = new Date().getHours();
+            try {
+              const kolHour = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Kolkata',
+                hour: 'numeric',
+                hour12: false
+              }).format(new Date());
+              curHour = parseInt(kolHour, 10);
+            } catch {}
+
+            if ((type === 'WFH' || type === 'CLIENT_VISIT') && curHour < 18) {
+              return false;
+            }
+            if (type === 'OFFICE' && !(rec.exitTime || rec.lastExitTime || rec.currentState === 'PENDING_FINAL_EXIT')) {
+              return false;
+            }
+          }
           return true;
         }
         return false;
@@ -523,8 +533,8 @@ export const AdminDashboard: React.FC = () => {
       checkAllLoaded();
     }, () => { regsLoaded = true; checkAllLoaded(); });
 
-    // Listen to attendance ordered by date desc with bounded limit
-    const qAttendance = query(collection(db, 'attendance'), orderBy('date', 'desc'), limit(300));
+    // Listen to attendance with bounded limit
+    const qAttendance = query(collection(db, 'attendance'), limit(300));
     const unsubAttendance = onSnapshot(qAttendance, (snapshot) => {
       const firestoreAtt: AttendanceRecord[] = [];
       snapshot.forEach((doc) => {
@@ -769,10 +779,7 @@ export const AdminDashboard: React.FC = () => {
       const updatedCheckoutType = isProposedAutoCheckout ? 'AUTO_CHECKOUT' : (proposedOut ? 'MANUAL' : 'N/A');
       const updatedCheckoutMode = isProposedAutoCheckout ? 'AUTO_SYSTEM' : (proposedOut ? 'MANUAL' : 'N/A');
 
-      // Determine existing status prior to correction from valid status fields
-      const existingPreviousStatus = currentRecordData.checkoutStatus || currentRecordData.currentState || currentRecordData.status;
-
-      const rawUpdatePayload: Record<string, any> = {
+      const updatePayload: Partial<AttendanceRecord> = {
         checkInTime: proposedIn,
         checkOutTime: proposedOut ? proposedOut : null,
         workingHours: newWorkingHours,
@@ -783,18 +790,13 @@ export const AdminDashboard: React.FC = () => {
         checkoutResolvedBy: adminUser?.displayName || loginId || 'Admin',
         checkoutResolvedAt: new Date().toISOString(),
         resolutionSource: isProposedTimeMatches ? 'EMPLOYEE_PROPOSED' : 'ADMIN_CORRECTION',
+        previousStatus: currentRecordData.checkoutStatus || currentRecordData.status,
         status: proposedOut ? 'completed' : 'UNRESOLVED',
         manualRectified: true,
         isAdminRectified: true,
         updatedAt: new Date().toISOString(),
         version: ((currentRecordData as any)?.version || 1) + 1
       };
-
-      if (existingPreviousStatus !== undefined) {
-        rawUpdatePayload.previousStatus = existingPreviousStatus;
-      }
-
-      const updatePayload = sanitizeFirestorePayload(rawUpdatePayload);
 
       await updateDoc(targetDocRef, updatePayload);
 
@@ -1125,7 +1127,7 @@ export const AdminDashboard: React.FC = () => {
                 {activeTab === 'announcements' && 'Announcements & Alerts'}
               </h2>
               <p className="text-[10px] text-purple-300/70 font-medium truncate hidden sm:block">
-                Exfin OMS Enterprise
+                EXFIN OMS Enterprise Governance Portal v6.0
               </p>
             </div>
           </div>
@@ -1574,36 +1576,6 @@ export const AdminDashboard: React.FC = () => {
                                 const empLiveLoc = liveLocationByEmployee.get(empCode) || liveLocationByEmployee.get(empCode.toLowerCase());
                                 const currentLoc = getCurrentLocationDetails(rec, empLiveLoc);
 
-                                const isCompleted = 
-                                  rec.checkoutStatus === 'COMPLETED' || 
-                                  (!!rec.checkOutTime && rec.checkOutTime !== 'Pending' && rec.checkOutTime !== 'N/A' && rec.checkOutTime !== 'UNRESOLVED');
-
-                                const hasExit = 
-                                  rec.currentState === 'PENDING_FINAL_EXIT' || 
-                                  !!rec.exitTime || 
-                                  !!rec.lastExitTime;
-
-                                const hasValidExit = isValidCoordinatePair(rec.checkoutLatitude, rec.checkoutLongitude);
-
-                                let tableLocText = '';
-                                let tableDistText = '';
-
-                                if (isCompleted) {
-                                  tableLocText = checkoutLoc.location;
-                                  tableDistText = checkoutLoc.distance || '—';
-                                } else if (hasExit) {
-                                  if (hasValidExit) {
-                                    tableLocText = `Exit detected — ${checkoutLoc.location}`;
-                                    tableDistText = `Exit distance — ${checkoutLoc.distance || '—'}`;
-                                  } else {
-                                    tableLocText = 'Location unavailable';
-                                    tableDistText = '—';
-                                  }
-                                } else {
-                                  tableLocText = 'Pending checkout';
-                                  tableDistText = '—';
-                                }
-
                                 return (
                                 <tr
                                   key={rec.id || Math.random().toString()}
@@ -1671,26 +1643,13 @@ export const AdminDashboard: React.FC = () => {
                                       </span>
                                     )}
                                   </td>
-                                  {/* Checkout / Exit Location */}
-                                  <td 
-                                    className={`p-3 border-b border-purple-500/10 truncate max-w-[130px] ${checkoutLoc.isUnresolved ? 'text-amber-300 font-bold' : 'text-purple-200'}`} 
-                                    title={isCompleted ? `Checkout Location: ${tableLocText}` : hasExit ? `Exit Location: ${tableLocText}` : `Checkout Location: ${tableLocText}`}
-                                  >
-                                    <div className="flex flex-col">
-                                      <span className="text-[9px] text-purple-300/40 uppercase font-bold tracking-wider block">
-                                        {isCompleted ? 'Checkout' : hasExit ? 'Exit' : 'Checkout'}
-                                      </span>
-                                      <span className="truncate">{tableLocText}</span>
-                                    </div>
+                                  {/* Checkout Location */}
+                                  <td className={`p-3 border-b border-purple-500/10 truncate max-w-[130px] ${checkoutLoc.isUnresolved ? 'text-amber-300 font-bold' : 'text-purple-200'}`} title={checkoutLoc.location}>
+                                    {checkoutLoc.location}
                                   </td>
-                                  {/* Checkout / Exit Distance */}
+                                  {/* Checkout Distance */}
                                   <td className="p-3 border-b border-purple-500/10 text-rose-300 font-mono whitespace-nowrap">
-                                    <div className="flex flex-col">
-                                      <span className="text-[9px] text-rose-400/40 uppercase font-bold tracking-wider block">
-                                        {isCompleted ? 'Checkout' : hasExit ? 'Exit' : 'Checkout'}
-                                      </span>
-                                      <span>{tableDistText}</span>
-                                    </div>
+                                    {checkoutLoc.distance || '—'}
                                   </td>
                                   {/* Current Location */}
                                   <td className="p-3 border-b border-purple-500/10 truncate max-w-[150px]" title={currentLoc.location}>
@@ -1784,10 +1743,52 @@ export const AdminDashboard: React.FC = () => {
 
         {/* EXPENSES TAB */}
         {activeTab === 'expenses' && canSeeExpenses && (
-          <AdminExpenseManagementTab
-            expenseRecords={expenseRecords}
-            activeEmpCodes={activeEmpCodes}
-          />
+          <Card className="p-6 bg-[#250F4C] border border-purple-500/20 space-y-4">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-emerald-400" /> Expense Claims Audit
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-[#1A0B36] text-purple-300 uppercase font-bold border-b border-purple-500/20">
+                    <th className="p-3">Employee</th>
+                    <th className="p-3">Category</th>
+                    <th className="p-3">Amount</th>
+                    <th className="p-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-purple-500/10">
+                  {expenseRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-6 text-center text-purple-300/60">No expense claims found.</td>
+                    </tr>
+                  ) : (
+                    expenseRecords.map((exp) => (
+                      <tr key={exp.id} className="hover:bg-white/[0.02]">
+                        <td className="p-3 font-bold text-white flex items-center gap-1.5">
+                          <span>{exp.employeeName} ({exp.employeeCode})</span>
+                          {!activeEmpCodes.has(exp.employeeCode) && (
+                            <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[9px] font-black uppercase rounded">
+                              Deleted
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-purple-200">{exp.category}</td>
+                        <td className="p-3 font-bold text-emerald-400">₹{exp.amount}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            exp.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                          }`}>
+                            {exp.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         )}
 
         {/* PLANNER TAB */}
@@ -1944,60 +1945,22 @@ export const AdminDashboard: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Checkout / Exit Location */}
-                        {(() => {
-                          const isCompletedVal = 
-                            selectedAttendance.checkoutStatus === 'COMPLETED' || 
-                            (!!selectedAttendance.checkOutTime && selectedAttendance.checkOutTime !== 'Pending' && selectedAttendance.checkOutTime !== 'N/A' && selectedAttendance.checkOutTime !== 'UNRESOLVED');
-
-                          const hasExitVal = 
-                            selectedAttendance.currentState === 'PENDING_FINAL_EXIT' || 
-                            !!selectedAttendance.exitTime || 
-                            !!selectedAttendance.lastExitTime;
-
-                          const hasValidExitVal = isValidCoordinatePair(selectedAttendance.checkoutLatitude, selectedAttendance.checkoutLongitude);
-
-                          let modalLabel = 'Checkout Location';
-                          let modalLocText = '';
-                          let modalDistText = '';
-
-                          if (isCompletedVal) {
-                            modalLabel = 'Checkout Location';
-                            modalLocText = checkoutLoc.location;
-                            modalDistText = checkoutLoc.distance ? `Distance: ${checkoutLoc.distance}` : '';
-                          } else if (hasExitVal) {
-                            modalLabel = 'Exit Location';
-                            if (hasValidExitVal) {
-                              modalLocText = `Exit detected — ${checkoutLoc.location}`;
-                              modalDistText = checkoutLoc.distance ? `Exit distance — ${checkoutLoc.distance}` : '';
-                            } else {
-                              modalLocText = 'Location unavailable';
-                              modalDistText = '';
-                            }
-                          } else {
-                            modalLabel = 'Checkout Location';
-                            modalLocText = 'Pending checkout';
-                            modalDistText = '';
-                          }
-
-                          return (
-                            <div className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-xl space-y-1">
-                              <div className="flex justify-between items-center">
-                                <span className="text-[11px] text-purple-300 font-bold">{modalLabel}</span>
-                                <span className="text-[10px] text-rose-300/80 font-mono">{checkoutLoc.time}</span>
-                              </div>
-                              <div className={`text-xs font-medium ${checkoutLoc.isUnresolved ? 'text-amber-300 font-bold' : 'text-white'}`}>{modalLocText}</div>
-                              {modalDistText && (
-                                <div className="text-[10px] text-purple-300/70 font-mono">{modalDistText}</div>
-                              )}
-                              {hasValidExitVal && selectedAttendance.checkoutLatitude !== undefined && (
-                                <div className="text-[9px] text-purple-300/40 font-mono pt-1">
-                                  {selectedAttendance.checkoutLatitude}, {selectedAttendance.checkoutLongitude}
-                                </div>
-                              )}
+                        {/* Checkout Location */}
+                        <div className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-xl space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] text-purple-300 font-bold">Checkout Location</span>
+                            <span className="text-[10px] text-rose-300/80 font-mono">{checkoutLoc.time}</span>
+                          </div>
+                          <div className={`text-xs font-medium ${checkoutLoc.isUnresolved ? 'text-amber-300 font-bold' : 'text-white'}`}>{checkoutLoc.location}</div>
+                          {checkoutLoc.distance && (
+                            <div className="text-[10px] text-purple-300/70 font-mono">Distance: {checkoutLoc.distance}</div>
+                          )}
+                          {selectedAttendance.checkoutLatitude !== undefined && (
+                            <div className="text-[9px] text-purple-300/40 font-mono pt-1">
+                              {selectedAttendance.checkoutLatitude}, {selectedAttendance.checkoutLongitude}
                             </div>
-                          );
-                        })()}
+                          )}
+                        </div>
 
                         {/* Current Location */}
                         <div className="p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-xl space-y-1">

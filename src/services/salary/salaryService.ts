@@ -1,7 +1,8 @@
-import { AttendanceRecord, AttendanceType } from '../../types/attendance';
+import { db } from '../firebase/config';
+import { collection, doc, setDoc, getDocs, deleteDoc, query, where } from 'firebase/firestore';
 
 export interface SalaryRecord {
-  id: string;
+  id: string; // ${employeeCode}_${year}_${month}
   employeeCode: string;
   employeeName: string;
   month: number;
@@ -19,17 +20,17 @@ export interface SalaryRecord {
   lateDays: number;
   lateFine: number;
   salaryBeforeDeductions: number;
-  salaryBeforeAdvance: number;
+  salaryBeforeAdvance: number; // for compatibility
   finalSalary: number;
   generationTimestamp: string;
-  allocatedPaidLeaves: number;
-  usedPaidLeaves: number;
-  remainingPaidLeaves: number;
-  attendanceCutOffDate: string;
+  allocatedPaidLeaves?: number;
+  usedPaidLeaves?: number;
+  remainingPaidLeaves?: number;
+  attendanceCutOffDate?: string;
 }
 
 export interface SalaryEmployeeConfig {
-  id: string;
+  id: string; // ${employeeCode}_${leaveYear}
   employeeCode: string;
   leaveYear: string;
   baseSalary: number;
@@ -37,15 +38,25 @@ export interface SalaryEmployeeConfig {
 }
 
 export interface SalaryLeaveAudit {
-  id: string;
+  id: string; // ${employeeCode}_${date}
   employeeCode: string;
   employeeName: string;
-  date: string;
+  date: string; // YYYY-MM-DD
   month: number;
   year: number;
   leaveYear: string;
   daysConsumed: number;
   reason: string;
+}
+
+/**
+ * Calculates the Leave Year string for a given month and year
+ * 1 April -> 31 March
+ */
+export function getLeaveYear(month: number, year: number): string {
+  const startYear = month < 4 ? year - 1 : year;
+  const endYear = startYear + 1;
+  return `${startYear}-${endYear}`;
 }
 
 export interface PresentDaysResult {
@@ -56,88 +67,61 @@ export interface PresentDaysResult {
   paidLeaveDays: number;
   sundayHolidayDays: number;
   totalPresentDays: number;
-  lateDays: number;
-  cutOffDateStr: string;
   datesConvertedToPaidLeave: string[];
   datesRemovedFromPaidLeave: string[];
+  cutOffDateStr: string;
+  lateDays: number;
 }
 
 /**
- * Self-contained helper to parse time strings like "10:15 AM" or "18:00" into minutes from midnight.
+ * Checks if a check-in time string (e.g. "10:31 AM") is late (10:31 AM or later)
  */
-export const parseAttendanceTimeToMinutes = (timeStr: string | null | undefined): number | null => {
-  if (!timeStr) return null;
-  const clean = timeStr.trim();
-  if (
-    !clean ||
-    clean === 'Pending' ||
-    clean === 'N/A' ||
-    clean === 'UNRESOLVED' ||
-    clean === '--:--' ||
-    clean === '--:-- --'
-  ) {
-    return null;
-  }
-
-  // Support 12-hour AM/PM format (e.g., "10:15 AM" or "09:30 PM")
-  const ampmMatch = clean.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
-  if (ampmMatch) {
-    let hour = parseInt(ampmMatch[1], 10);
-    const min = parseInt(ampmMatch[2], 10);
-    const ampm = ampmMatch[3].toUpperCase();
-    if (ampm === 'PM' && hour < 12) hour += 12;
-    if (ampm === 'AM' && hour === 12) hour = 0;
-    return hour * 60 + min;
-  }
-
-  // Support 24-hour format (e.g., "10:15" or "18:30")
-  const h24Match = clean.match(/^(\d+):(\d+)$/);
-  if (h24Match) {
-    const hour = parseInt(h24Match[1], 10);
-    const min = parseInt(h24Match[2], 10);
-    return hour * 60 + min;
-  }
-
-  return null;
-};
-
-/**
- * Determines if a check-in time counts as a late check-in (after 10:15 AM).
- */
-export function isSalaryLateCheckIn(checkInTimeStr: string | null | undefined): boolean {
+export function isSalaryLateCheckIn(checkInTimeStr: string): boolean {
   if (!checkInTimeStr) return false;
-  const mins = parseAttendanceTimeToMinutes(checkInTimeStr);
-  if (mins === null) return false;
-  // Late if check-in is strictly after 10:15 AM (10 * 60 + 15 = 615 minutes from midnight)
-  return mins > 615;
-}
-
-/**
- * Calculates the Leave Year string based on Indian Financial Year starting in April.
- */
-export function getLeaveYear(month: number, year: number): string {
-  if (month >= 4) {
-    return `${year}-${year + 1}`;
-  } else {
-    return `${year - 1}-${year}`;
+  try {
+    const trimmed = checkInTimeStr.trim().toUpperCase();
+    const match = trimmed.match(/^(\d+):(\d+)(?::\d+)?\s*(AM|PM)?/);
+    if (!match) return false;
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const ampm = match[3];
+    if (ampm === 'PM' && hours < 12) {
+      hours += 12;
+    } else if (ampm === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    const totalMinutes = hours * 60 + minutes;
+    const threshold = 10 * 60 + 30; // 10:30 AM is 630 minutes
+    return totalMinutes > threshold; // 10:31 AM or later is > 630 mins
+  } catch (err) {
+    return false;
   }
 }
 
 /**
- * Business logic to calculate present days, leaves, Sundays and late days for salary processing.
+ * Core presenter engine for salary calculation
  */
 export function calculatePresentDays(
   employeeCode: string,
   month: number,
   year: number,
   allocatedPaidLeaves: number,
-  attendanceRecords: any[],
-  approvedLeaveRequests: any[],
-  leaveAudits: SalaryLeaveAudit[]
+  attendanceRecords: any[], // Attendance records of this employee for this month
+  approvedLeaveRequests: any[], // Approved leave requests covering this month
+  allLeaveAuditsForYear: SalaryLeaveAudit[] // All leave audits for this employee in the leave year
 ): PresentDaysResult {
-  const padZero = (n: number) => String(n).padStart(2, '0');
   const daysInMonth = new Date(year, month, 0).getDate();
+  const leaveYear = getLeaveYear(month, year);
+
+  // 1. Calculate Cut-off date Str (YYYY-MM-DD)
+  const now = new Date();
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  const padZero = (n: number) => String(n).padStart(2, '0');
+  const yesterdayStr = `${yesterday.getFullYear()}-${padZero(yesterday.getMonth() + 1)}-${padZero(yesterday.getDate())}`;
   
+  const lastDayOfSelectedMonthStr = `${year}-${padZero(month)}-${padZero(daysInMonth)}`;
+  const cutOffDateStr = lastDayOfSelectedMonthStr < yesterdayStr ? lastDayOfSelectedMonthStr : yesterdayStr;
+
   let officeDays = 0;
   let wfhDays = 0;
   let clientVisitDays = 0;
@@ -146,119 +130,107 @@ export function calculatePresentDays(
   let sundayHolidayDays = 0;
   let lateDays = 0;
 
+  // Track audits that already exist for other months in this leave year
+  const auditsOtherMonths = allLeaveAuditsForYear.filter(
+    (audit) => audit.leaveYear === leaveYear && audit.month !== month
+  );
+  const usedLeavesOtherMonths = auditsOtherMonths.length;
+
+  // Track audits that already exist for THIS month
+  const auditsThisMonth = allLeaveAuditsForYear.filter(
+    (audit) => audit.leaveYear === leaveYear && audit.month === month
+  );
+
   const datesConvertedToPaidLeave: string[] = [];
   const datesRemovedFromPaidLeave: string[] = [];
 
-  // Map attendance records by date string "YYYY-MM-DD"
-  const attMap = new Map<string, any>();
+  // Index attendance records by date (YYYY-MM-DD)
+  const attendanceMap = new Map<string, any>();
   attendanceRecords.forEach((rec) => {
-    if (rec && rec.date) {
-      attMap.set(rec.date, rec);
+    if (rec.date) {
+      attendanceMap.set(rec.date, rec);
     }
   });
 
-  // Keep track of which dates in this month already have paid leave audits registered
-  const existingAuditDates = new Set<string>();
-  leaveAudits.forEach((audit) => {
-    if (audit.month === month && audit.year === year && audit.date) {
-      existingAuditDates.add(audit.date);
+  // Keep track of which existing audits for this month are actually used
+  const usedAuditsThisMonth = new Set<string>();
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dayStr = day < 10 ? `0${day}` : `${day}`;
+    const monthStr = month < 10 ? `0${month}` : `${month}`;
+    const dateStr = `${year}-${monthStr}-${dayStr}`;
+
+    // Skip entirely if date is after the cut-off date
+    if (dateStr > cutOffDateStr) {
+      continue;
     }
-  });
 
-  // Count leaves consumed in OTHER months of the same leave year
-  const leaveYear = getLeaveYear(month, year);
-  const otherMonthsAuditCount = leaveAudits.filter(
-    (audit) => audit.leaveYear === leaveYear && (audit.month !== month || audit.year !== year)
-  ).length;
+    const attendance = attendanceMap.get(dateStr);
 
-  const maxAllowedInMonth = Math.max(0, allocatedPaidLeaves - otherMonthsAuditCount);
-  let paidLeavesAwardedThisMonth = 0;
-
-  // Generate date cutoff string (yesterday or last day of selected month)
-  const now = new Date();
-  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-  const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-  const lastDayOfSelectedMonthStr = `${year}-${padZero(month)}-${padZero(daysInMonth)}`;
-  const cutOffDateStr = lastDayOfSelectedMonthStr < yesterdayStr ? lastDayOfSelectedMonthStr : yesterdayStr;
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateStr = `${year}-${padZero(month)}-${padZero(d)}`;
-    const dateObj = new Date(year, month - 1, d);
-    const isSunday = dateObj.getDay() === 0;
-
-    const record = attMap.get(dateStr);
-    const isPresent = !!(
-      record &&
-      record.checkInTime &&
-      !['--:--', '--:-- --', 'Pending', 'pending', 'N/A', 'n/a', 'UNRESOLVED', 'unresolved'].includes(record.checkInTime.trim())
-    );
-
-    if (isPresent) {
-      // Employee was present
-      const mode = (record.attendanceType || 'OFFICE').toUpperCase();
-      switch (mode) {
-        case 'OFFICE':
-          officeDays++;
-          break;
-        case 'WFH':
-          wfhDays++;
-          break;
-        case 'CLIENT_VISIT':
-        case 'CLIENT':
-          clientVisitDays++;
-          break;
-        case 'OUTDOOR':
-          outdoorDays++;
-          break;
-        default:
-          officeDays++;
-          break;
-      }
-
-      if (record.checkInTime && isSalaryLateCheckIn(record.checkInTime)) {
+    if (attendance) {
+      // Check for late check-in
+      if (attendance.checkInTime && isSalaryLateCheckIn(attendance.checkInTime)) {
         lateDays++;
       }
 
-      // If they were present but previously had a paid leave audit registered on this date, remove it
-      if (existingAuditDates.has(dateStr)) {
-        datesRemovedFromPaidLeave.push(dateStr);
+      // Rule 1: Attendance modes count as PRESENT
+      const type = (attendance.attendanceType || '').toUpperCase();
+      if (type === 'OFFICE') {
+        officeDays++;
+      } else if (type === 'WFH') {
+        wfhDays++;
+      } else if (type === 'CLIENT_VISIT') {
+        clientVisitDays++;
+      } else if (type === 'OUTDOOR') {
+        outdoorDays++;
+      } else {
+        // Fallback if there's any unknown type but marked present
+        officeDays++;
       }
     } else {
-      // Employee was absent / not checked in
-      // Check for approved leave covering this day
-      const hasApprovedLeave = approvedLeaveRequests.some((leave) => {
-        const matchesCode = leave.employeeCode === employeeCode || leave.employeeId === employeeCode;
-        const isApproved = leave.status === 'APPROVED' || leave.status === 'Approved' || leave.approvalStatus === 'APPROVED';
-        return matchesCode && isApproved && dateStr >= leave.startDate && dateStr <= leave.endDate;
+      // No attendance marked.
+      // Is the employee absent on an approved leave?
+      const isAbsentOnLeave = approvedLeaveRequests.some((req) => {
+        const start = req.startDate || '';
+        const end = req.endDate || '';
+        return (
+          req.status === 'APPROVED' &&
+          dateStr >= start &&
+          dateStr <= end
+        );
       });
 
-      if (hasApprovedLeave) {
-        if (paidLeavesAwardedThisMonth < maxAllowedInMonth) {
+      if (isAbsentOnLeave) {
+        // Rule 3: ABSENT + PAID LEAVE AVAILABLE
+        // First check if a paid leave audit already exists for this date
+        const existingAudit = auditsThisMonth.find((a) => a.date === dateStr);
+
+        if (existingAudit) {
           paidLeaveDays++;
-          paidLeavesAwardedThisMonth++;
-          // If this is a newly converted paid leave, record it
-          if (!existingAuditDates.has(dateStr)) {
-            datesConvertedToPaidLeave.push(dateStr);
-          }
+          usedAuditsThisMonth.add(dateStr);
         } else {
-          // Ran out of paid leave balance: counts as unpaid absent day
-          if (existingAuditDates.has(dateStr)) {
-            datesRemovedFromPaidLeave.push(dateStr);
+          // Check if we have remaining balance
+          const totalPaidLeavesUsedSoFar = usedLeavesOtherMonths + paidLeaveDays;
+          if (totalPaidLeavesUsedSoFar < allocatedPaidLeaves) {
+            paidLeaveDays++;
+            datesConvertedToPaidLeave.push(dateStr);
+          } else {
+            // No paid leaves available, counts as 0 PRESENT days (absent without paid leave)
           }
         }
       } else {
-        // No approved leave
-        if (isSunday) {
-          sundayHolidayDays++;
-        }
-        
-        // Ensure any legacy/incorrect paid leave audits on this day are removed
-        if (existingAuditDates.has(dateStr)) {
-          datesRemovedFromPaidLeave.push(dateStr);
-        }
+        // Rule 2: NO ATTENDANCE MARKED -> Treat as Sunday/Holiday and count as PRESENT
+        sundayHolidayDays++;
       }
     }
   }
+
+  // Any existing audits for this month that were NOT used in this calculation should be removed
+  auditsThisMonth.forEach((audit) => {
+    if (!usedAuditsThisMonth.has(audit.date)) {
+      datesRemovedFromPaidLeave.push(audit.date);
+    }
+  });
 
   const totalPresentDays = officeDays + wfhDays + clientVisitDays + outdoorDays + paidLeaveDays + sundayHolidayDays;
 
@@ -270,9 +242,9 @@ export function calculatePresentDays(
     paidLeaveDays,
     sundayHolidayDays,
     totalPresentDays,
-    lateDays,
-    cutOffDateStr,
     datesConvertedToPaidLeave,
     datesRemovedFromPaidLeave,
+    cutOffDateStr,
+    lateDays,
   };
 }

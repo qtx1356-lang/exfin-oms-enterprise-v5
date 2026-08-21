@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { LeaveRecord, LeaveBalance, LeaveConfig, EmployeeAllowance } from '../../types/leave';
@@ -50,17 +50,12 @@ export const LeaveScreen: React.FC = () => {
 
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
-  // Leave Data memoized
-  const config = useMemo(() => getStoredLeaveConfig(), []);
-  const allowances = useMemo(() => getStoredEmployeeAllowances(), []);
+  // Leave Data
+  const config = getStoredLeaveConfig();
+  const allowances = getStoredEmployeeAllowances();
 
-  const leaves = useMemo(() => {
-    return realtimeLeaves.filter((l) => l.employeeId === empId || l.employeeCode === empCode);
-  }, [realtimeLeaves, empId, empCode]);
-
-  const balance = useMemo(() => {
-    return calculateLeaveBalance(empId, empDept, leaves, config, allowances);
-  }, [empId, empDept, leaves, config, allowances]);
+  const leaves = realtimeLeaves.filter((l) => l.employeeId === empId || l.employeeCode === empCode);
+  const balance = calculateLeaveBalance(empId, empDept, leaves, config, allowances);
 
   // Filter Status
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'>('ALL');
@@ -226,25 +221,22 @@ export const LeaveScreen: React.FC = () => {
   const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   // Construct calendar cells
-  const calendarCells = useMemo(() => {
-    const cells = [];
-    for (let i = 0; i < firstDayIndex; i++) {
-      cells.push(null);
-    }
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      cells.push(dateStr);
-    }
-    return cells;
-  }, [firstDayIndex, daysInMonth, calendarYear, calendarMonth]);
+  const calendarCells = [];
+  // Empty slots for padding
+  for (let i = 0; i < firstDayIndex; i++) {
+    calendarCells.push(null);
+  }
+  // Days of month
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    calendarCells.push(dateStr);
+  }
 
   // Filter history leaves
-  const filteredLeaves = useMemo(() => {
-    return leaves.filter((l) => {
-      if (statusFilter === 'ALL') return true;
-      return l.status === statusFilter;
-    });
-  }, [leaves, statusFilter]);
+  const filteredLeaves = leaves.filter((l) => {
+    if (statusFilter === 'ALL') return true;
+    return l.status === statusFilter;
+  });
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
@@ -270,7 +262,7 @@ export const LeaveScreen: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Connectivity Indicator */}
+      {/* Network & Sync Banner */}
       <div className="flex items-center justify-between p-3.5 bg-[#25144A] rounded-2xl border border-purple-500/20">
         <div className="flex items-center gap-2">
           {isOnline ? (
@@ -279,9 +271,24 @@ export const LeaveScreen: React.FC = () => {
             </span>
           ) : (
             <span className="flex items-center gap-1.5 text-xs font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
-              <WifiOff className="w-3.5 h-3.5" /> Offline Mode
+              <WifiOff className="w-3.5 h-3.5" /> Offline Mode (Saved locally)
             </span>
           )}
+        </div>
+        <div className="flex items-center gap-2.5">
+          {leaves.some((l) => l.syncStatus === 'Pending Sync') && (
+            <span className="text-[10px] text-amber-300 font-extrabold uppercase animate-pulse">
+              Pending Sync
+            </span>
+          )}
+          <button
+            onClick={handleManualSync}
+            disabled={!isOnline || isSyncing}
+            className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition shadow-lg shadow-purple-900/30"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            Sync Now
+          </button>
         </div>
       </div>
 
@@ -758,6 +765,9 @@ export const LeaveScreen: React.FC = () => {
                       <span className="text-sm font-black text-purple-200">
                         {leave.totalDays} Day{leave.totalDays > 1 ? 's' : ''}
                       </span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${getSyncBadgeClass(leave.syncStatus)}`}>
+                        {leave.syncStatus}
+                      </span>
                     </div>
                   </div>
                 ))
@@ -860,6 +870,7 @@ export const LeaveScreen: React.FC = () => {
             {/* Sync Metadata */}
             <div className="flex justify-between items-center text-[10px] text-purple-300/40 px-1 pt-1">
               <span>Device Created: {new Date(selectedLeave.createdAtDeviceTime).toLocaleString()}</span>
+              <span>Sync: {selectedLeave.syncStatus}</span>
             </div>
 
             {/* Cancel Button */}

@@ -9,7 +9,6 @@ import {
   invalidateEmployeeDeviceToken,
 } from '../services/notification/pushNotificationService';
 import { createAuditLog } from '../services/audit/auditService';
-import { stopNativeBackgroundLocation } from '../services/attendance/nativeBackgroundLocationBridge';
 
 type RegistrationStatus = 'unregistered' | 'Pending Approval' | 'Approved' | 'Rejected' | 'loading' | 'mobile_recovery' | 'suspended_notice';
 
@@ -547,7 +546,6 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const resetRegistration = () => {
-    stopNativeBackgroundLocation().catch(() => {});
     const empCode = employeeData?.employeeCode || '';
     const devId = localStorage.getItem('deviceId') || '';
     if (devId) {

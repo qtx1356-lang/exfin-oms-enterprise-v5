@@ -16,7 +16,6 @@ import {
 import { AttendanceRecord, LiveEmployeeLocation } from '../../types/attendance';
 import { Card } from '../../components/ui/Card';
 import { getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails } from '../../utils/attendanceUtils';
-import { subscribeToAddressCacheUpdates } from '../../utils/addressFormatter';
 import { calculateWorkingHours, parseAttendanceTimeToMinutes } from '../../services/attendance/smartAttendanceEngine';
 
 interface TodayAttendanceCardProps {
@@ -65,14 +64,6 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   liveLocationData = null
 }) => {
   const [now, setNow] = useState<Date>(new Date());
-  const [, setAddressCacheVersion] = useState<number>(0);
-
-  useEffect(() => {
-    const unsubscribe = subscribeToAddressCacheUpdates(() => {
-      setAddressCacheVersion((v) => v + 1);
-    });
-    return () => unsubscribe();
-  }, []);
 
   // Update real-time counter if checked in
   useEffect(() => {

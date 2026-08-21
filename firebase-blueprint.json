@@ -1,0 +1,321 @@
+{
+  "entities": {
+    "Registration": {
+      "title": "Registration",
+      "description": "Employee device registration record",
+      "type": "object",
+      "properties": {
+        "employeeCode": { "type": "string" },
+        "name": { "type": "string" },
+        "mobileNumber": { "type": "string" },
+        "deviceId": { "type": "string" },
+        "deviceModel": { "type": "string" },
+        "androidVersion": { "type": "string" },
+        "appVersion": { "type": "string" },
+        "selfieUrl": { "type": "string" },
+        "registrationDate": { "type": "string" },
+        "status": { "type": "string" },
+        "rejectionReason": { "type": "string" },
+        "office": { "type": "string" },
+        "baseSalary": { "type": "number" }
+      },
+      "required": ["employeeCode", "name", "deviceId", "registrationDate", "status"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Smart Attendance Record with offline support and sync tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "date": { "type": "string" },
+        "checkInTime": { "type": "string" },
+        "checkOutTime": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "distance": { "type": "number" },
+        "townCity": { "type": "string" },
+        "checkInMode": { "type": "string", "enum": ["AUTO", "MANUAL"] },
+        "checkOutMode": { "type": "string", "enum": ["MANUAL", "AUTO_SYSTEM", "N/A"] },
+        "reason": { "type": "string" },
+        "createdAtDeviceTime": { "type": "string" },
+        "syncStatus": { "type": "string", "enum": ["Pending", "Synced"] },
+        "serverSyncTime": { "type": "string" },
+        "isOffline": { "type": "boolean" },
+        "reminderCount": { "type": "number" }
+      },
+      "required": ["id", "employeeId", "date", "checkInTime", "checkInMode", "createdAtDeviceTime"]
+    },
+    "SystemSettings": {
+      "title": "SystemSettings",
+      "description": "Configurable system-wide settings including efficiency score weights",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "efficiencyTaskCompletionWeight": { "type": "number" },
+        "efficiencyOnTimeWeight": { "type": "number" },
+        "efficiencyQualityWeight": { "type": "number" },
+        "efficiencyPunctualityWeight": { "type": "number" },
+        "efficiencyWorkloadWeight": { "type": "number" },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedByName": { "type": "string" }
+      },
+      "required": ["id", "efficiencyTaskCompletionWeight", "efficiencyOnTimeWeight", "efficiencyQualityWeight", "efficiencyPunctualityWeight", "efficiencyWorkloadWeight"]
+    },
+    "EfficiencySnapshot": {
+      "title": "EfficiencySnapshot",
+      "description": "Saved period-based efficiency metrics snapshot for historical reporting",
+      "type": "object",
+      "properties": {
+        "employeeId": { "type": "string" },
+        "employeeCode": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "department": { "type": "string" },
+        "teamLeaderId": { "type": "string" },
+        "periodStart": { "type": "string" },
+        "periodEnd": { "type": "string" },
+        "periodType": { "type": "string" },
+        "taskCompletionScore": { "type": "number" },
+        "onTimeCompletionScore": { "type": "number" },
+        "qualityScore": { "type": "number" },
+        "punctualityScore": { "type": "number" },
+        "workloadScore": { "type": "number" },
+        "overduePenalty": { "type": "number" },
+        "revisionPenalty": { "type": "number" },
+        "finalScore": { "type": "number" },
+        "grade": { "type": "string" },
+        "calculatedAtDeviceTime": { "type": "string" },
+        "serverSyncTime": { "type": "string" }
+      },
+      "required": ["employeeId", "employeeCode", "employeeName", "periodStart", "periodEnd", "periodType", "finalScore", "grade", "calculatedAtDeviceTime"]
+    },
+    "NotificationRecord": {
+      "title": "NotificationRecord",
+      "description": "Secure, centralized, offline-first notification record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "category": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "recipientUserId": { "type": "string" },
+        "recipientEmployeeCode": { "type": "string" },
+        "recipientRole": { "type": "string" },
+        "recipientTeamLeaderId": { "type": "string" },
+        "priority": { "type": "string" },
+        "route": { "type": "string" },
+        "entityId": { "type": "string" },
+        "entityType": { "type": "string" },
+        "read": { "type": "boolean" },
+        "timestamp": { "type": "string" },
+        "createdAtDeviceTime": { "type": "string" },
+        "updatedAtDeviceTime": { "type": "string" },
+        "serverSyncTime": { "type": "string" },
+        "syncStatus": { "type": "string" }
+      },
+      "required": ["id", "type", "category", "title", "message", "recipientEmployeeCode", "recipientRole", "read", "timestamp"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Administrative user metadata with associated loginId",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "loginId": { "type": "string" },
+        "role": { "type": "string" },
+        "active": { "type": "boolean" },
+        "email": { "type": "string" },
+        "authorizedOffice": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "loginId", "role"]
+    },
+    "LoginId": {
+      "title": "LoginId",
+      "description": "Globally unique login ID reference matching a known email address",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "uid": { "type": "string" }
+      },
+      "required": ["email", "uid"]
+    },
+    "SalaryRecord": {
+      "title": "SalaryRecord",
+      "description": "Persistent salary generation record for an employee",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeCode": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "month": { "type": "number" },
+        "year": { "type": "number" },
+        "baseSalary": { "type": "number" },
+        "daysInMonth": { "type": "number" },
+        "officePresentDays": { "type": "number" },
+        "wfhDays": { "type": "number" },
+        "clientVisitDays": { "type": "number" },
+        "outdoorDays": { "type": "number" },
+        "paidLeaveDays": { "type": "number" },
+        "sundayHolidayDays": { "type": "number" },
+        "totalPresentDays": { "type": "number" },
+        "advance": { "type": "number" },
+        "salaryBeforeAdvance": { "type": "number" },
+        "finalSalary": { "type": "number" },
+        "generationTimestamp": { "type": "string" }
+      },
+      "required": ["id", "employeeCode", "employeeName", "month", "year", "baseSalary", "daysInMonth", "officePresentDays", "wfhDays", "clientVisitDays", "outdoorDays", "paidLeaveDays", "sundayHolidayDays", "totalPresentDays", "advance", "salaryBeforeAdvance", "finalSalary", "generationTimestamp"]
+    },
+    "SalaryEmployeeConfig": {
+      "title": "SalaryEmployeeConfig",
+      "description": "One-time configuration of base salary and leave allocation for an employee",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeCode": { "type": "string" },
+        "leaveYear": { "type": "string" },
+        "baseSalary": { "type": "number" },
+        "allocatedPaidLeaves": { "type": "number" }
+      },
+      "required": ["id", "employeeCode", "leaveYear", "baseSalary", "allocatedPaidLeaves"]
+    },
+    "SalaryLeaveAudit": {
+      "title": "SalaryLeaveAudit",
+      "description": "Persistent record of dates that consumed paid leave",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeCode": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "date": { "type": "string" },
+        "month": { "type": "number" },
+        "year": { "type": "number" },
+        "leaveYear": { "type": "string" },
+        "daysConsumed": { "type": "number" },
+        "reason": { "type": "string" }
+      },
+      "required": ["id", "employeeCode", "employeeName", "date", "month", "year", "leaveYear", "daysConsumed", "reason"]
+    },
+    "ChatConversation": {
+      "title": "ChatConversation",
+      "description": "Internal communication conversation thread",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["DIRECT", "GROUP", "ALL_EMPLOYEES"] },
+        "title": { "type": "string" },
+        "participantIds": { "type": "array" },
+        "participantNames": { "type": "object" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "lastMessage": { "type": "object" },
+        "unreadCounts": { "type": "object" }
+      },
+      "required": ["id", "type", "participantIds", "participantNames", "createdAt", "updatedAt", "unreadCounts"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A single message within a chat conversation thread",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderRole": { "type": "string", "enum": ["EMPLOYEE", "ADMIN", "HR", "TEAM_LEADER"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "senderId", "senderName", "senderRole", "content", "timestamp"]
+    },
+    "Department": {
+      "title": "Department",
+      "description": "Company specific department master record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "active", "createdAt", "updatedAt"]
+    },
+    "Designation": {
+      "title": "Designation",
+      "description": "Company specific designation master record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "active", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/departments/{departmentId}": {
+      "schema": "Department",
+      "description": "Company departments master list"
+    },
+    "/designations/{designationId}": {
+      "schema": "Designation",
+      "description": "Company designations master list"
+    },
+    "/registrations/{registrationId}": {
+      "schema": "Registration",
+      "description": "Device registrations for employee approval"
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "AttendanceRecord",
+      "description": "Smart attendance logs and sync data"
+    },
+    "/system_settings/{settingsId}": {
+      "schema": "SystemSettings",
+      "description": "System configuration parameters"
+    },
+    "/efficiency_snapshots/{snapshotId}": {
+      "schema": "EfficiencySnapshot",
+      "description": "Historical employee efficiency ratings"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "NotificationRecord",
+      "description": "Central notification collection"
+    },
+    "/admin_users/{userId}": {
+      "schema": "AdminUser",
+      "description": "Administrative user mapping collection"
+    },
+    "/login_ids/{loginId}": {
+      "schema": "LoginId",
+      "description": "Mapping from unique login ID to Firebase Auth identity details"
+    },
+    "/salaries/{salaryId}": {
+      "schema": "SalaryRecord",
+      "description": "Persistent employee salary generation records"
+    },
+    "/salary_employee_configs/{configId}": {
+      "schema": "SalaryEmployeeConfig",
+      "description": "One-time employee base salary and leave configs per leave year"
+    },
+    "/salary_leave_audits/{auditId}": {
+      "schema": "SalaryLeaveAudit",
+      "description": "Persistent records of dates that consumed paid leave"
+    },
+    "/chat_conversations/{conversationId}": {
+      "schema": "ChatConversation",
+      "description": "Internal communication conversation threads"
+    },
+    "/chat_conversations/{conversationId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Messages within a conversation thread"
+    }
+  }
+}

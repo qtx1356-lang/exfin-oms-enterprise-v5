@@ -5,7 +5,6 @@ import {
   AlertCircle, 
   AlertTriangle,
   CheckCircle, 
-  CheckCircle2,
   ChevronDown, 
   ChevronUp, 
   Clock, 
@@ -33,7 +32,6 @@ import {
   Compass,
   Radio
 } from 'lucide-react';
-import { AutomaticAttendanceEngine } from '../../services/attendance/automaticAttendanceEngine';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import { useRegistration } from '../../context/RegistrationContext';
@@ -301,17 +299,13 @@ export const AttendanceScreen: React.FC = () => {
     window.addEventListener('online', handleOnlineStatus);
     window.addEventListener('offline', handleOnlineStatus);
 
-    // Periodic check for auto-checkout and reminders
-    const periodicCheckTimer = setInterval(async () => {
+    // Periodic check for auto-checkout (at 11:59 PM) and reminders
+    const periodicCheckTimer = setInterval(() => {
       if (employeeId) {
-        try {
-          const autoCheckedOut = await checkAndTriggerAutoCheckout(employeeId, liveLocationRef.current || undefined);
-          if (autoCheckedOut) {
-            refreshRecords();
-            setActionFeedback(`Auto System Checkout triggered`);
-          }
-        } catch (e) {
-          console.warn('Auto checkout check failed', e);
+        const autoCheckedOut = checkAndTriggerAutoCheckout(employeeId, liveLocationRef.current || undefined);
+        if (autoCheckedOut) {
+          refreshRecords();
+          setActionFeedback(`Auto System Checkout triggered (Reason: ${autoCheckedOut.reason})`);
         }
       }
     }, 60000);
@@ -346,7 +340,7 @@ export const AttendanceScreen: React.FC = () => {
           employeeId,
           employeeName,
           coords,
-          currentAddress || 'Location name unavailable',
+          currentAddress || 'Raniganj HQ',
           'AUTO'
         );
         refreshRecords();
@@ -423,7 +417,7 @@ export const AttendanceScreen: React.FC = () => {
         employeeId,
         employeeName,
         finalCoords,
-        currentAddress || 'Location name unavailable',
+        currentAddress || 'Raniganj HQ',
         'MANUAL'
       );
       updateAttendanceOptimistically(record);
@@ -437,96 +431,35 @@ export const AttendanceScreen: React.FC = () => {
   // Office Check-Out Handler
   const handleManualCheckOut = () => {
     if (!todayRecord) return;
+    if (!liveLocation) {
+      setActionFeedback('Live GPS location required for check-out.');
+      return;
+    }
 
-    const hasRecordedExit = todayRecord.currentState === 'PENDING_FINAL_EXIT' || !!todayRecord.lastExitTime || !!todayRecord.exitTime;
+    // FINAL GEOLOCATION VERIFICATION FOR RACE CONDITIONS
+    const currentDistance = getDistanceFromLatLonInM(
+      liveLocation.latitude,
+      liveLocation.longitude,
+      OFFICE_LOCATION.latitude,
+      OFFICE_LOCATION.longitude
+    );
 
-    if (!hasRecordedExit) {
-      if (!liveLocation) {
-        setActionFeedback('Live GPS location required for check-out.');
-        return;
-      }
-
-      // FINAL GEOLOCATION VERIFICATION FOR RACE CONDITIONS
-      const currentDistance = getDistanceFromLatLonInM(
-        liveLocation.latitude,
-        liveLocation.longitude,
-        OFFICE_LOCATION.latitude,
-        OFFICE_LOCATION.longitude
-      );
-
-      if (currentDistance > 25) {
-        setActionFeedback('Checkout is only available inside the office premises.');
-        return;
-      }
+    if (currentDistance > 25) {
+      setActionFeedback('Checkout is only available inside the office premises.');
+      return;
     }
 
     try {
-      const checkoutCoords = (hasRecordedExit && todayRecord.checkoutLatitude && todayRecord.checkoutLongitude)
-        ? { latitude: todayRecord.checkoutLatitude, longitude: todayRecord.checkoutLongitude }
-        : (liveLocation || { latitude: todayRecord.latitude, longitude: todayRecord.longitude });
-
-      const checkoutTown = (hasRecordedExit && todayRecord.checkoutTownCity)
-        ? todayRecord.checkoutTownCity
-        : (currentAddress || 'Location name unavailable');
-
       const updated = performCheckOut(
         todayRecord,
-        checkoutCoords,
-        checkoutTown
+        liveLocation,
+        currentAddress || 'Raniganj HQ'
       );
       updateAttendanceOptimistically(updated);
       refreshRecords();
       setActionFeedback(`Manual Check-Out Successful at ${updated.checkOutTime}`);
     } catch (err: any) {
       setActionFeedback(`Check-Out Error: ${err.message}`);
-    }
-  };
-
-  // Confirm Exit Check-Out Handler (for recorded geofence exit outside 25m)
-  const handleConfirmExitCheckOut = () => {
-    if (!todayRecord) return;
-
-    try {
-      const exitCoords = (todayRecord.checkoutLatitude && todayRecord.checkoutLongitude)
-        ? { latitude: todayRecord.checkoutLatitude, longitude: todayRecord.checkoutLongitude }
-        : (liveLocation || { latitude: todayRecord.latitude, longitude: todayRecord.longitude });
-
-      const exitTown = todayRecord.checkoutTownCity || currentAddress || 'Location name unavailable';
-
-      const updated = performCheckOut(
-        todayRecord,
-        exitCoords,
-        exitTown
-      );
-      updateAttendanceOptimistically(updated);
-      refreshRecords();
-      setActionFeedback(`Check-Out Confirmed at ${updated.checkOutTime}`);
-    } catch (err: any) {
-      setActionFeedback(`Check-Out Error: ${err.message}`);
-    }
-  };
-
-  // Cancel Exit & Return Handler
-  const handleCancelExitAndReturn = () => {
-    if (!todayRecord) return;
-
-    try {
-      const coords = liveLocation || { latitude: todayRecord.latitude, longitude: todayRecord.longitude };
-      const town = currentAddress || todayRecord.townCity || 'Location name unavailable';
-
-      const updated = AutomaticAttendanceEngine.processGeofenceEntry(
-        employeeId,
-        employeeName,
-        coords,
-        town,
-        new Date()
-      );
-      setTodayRecord(updated);
-      updateAttendanceOptimistically(updated);
-      refreshRecords();
-      setActionFeedback('Pending exit cancelled. You remain checked in.');
-    } catch (err: any) {
-      setActionFeedback(`Error cancelling exit: ${err.message}`);
     }
   };
 
@@ -1256,73 +1189,24 @@ export const AttendanceScreen: React.FC = () => {
                   )}
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {!todayRecord.checkOutTime && (
                     <>
-                      {(todayRecord.currentState === 'PENDING_FINAL_EXIT' || todayRecord.lastExitTime || todayRecord.exitTime) ? (
-                        /* PENDING EXIT CHECKOUT CONFIRMATION UI */
-                        <div className="bg-gradient-to-br from-amber-950/90 via-amber-900/80 to-amber-950/90 rounded-[22px] border border-amber-500/40 p-5 shadow-2xl space-y-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
-                              <LogOut className="w-5 h-5 text-amber-300" />
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-black text-amber-200 uppercase tracking-wide">
-                                You're Outside the Office
-                              </h3>
-                              <p className="text-xs text-amber-300/80 font-medium">
-                                Checkout detected at your exit ({todayRecord.lastExitTime || todayRecord.exitTime || 'Exit Recorded'}).
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="text-xs text-amber-200/90 bg-black/30 p-3 rounded-xl border border-amber-500/20 space-y-1">
-                            <p className="font-bold text-amber-300">Confirm Check-Out</p>
-                            {todayRecord.checkoutTownCity && (
-                              <p className="text-[11px] text-amber-200/80 truncate">
-                                📍 Exit Location: {todayRecord.checkoutTownCity}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                            <Button
-                              onClick={handleConfirmExitCheckOut}
-                              className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-95 text-black font-black text-xs rounded-xl shadow-lg border border-amber-400/40 transition-all flex items-center justify-center gap-2"
-                            >
-                              <CheckCircle2 className="w-4 h-4" />
-                              Confirm Check-Out
-                            </Button>
-
-                            <Button
-                              onClick={handleCancelExitAndReturn}
-                              variant="outline"
-                              className="w-full py-3.5 bg-amber-950/40 hover:bg-amber-900/50 text-amber-200 border-amber-500/30 font-extrabold text-xs rounded-xl transition-all flex items-center justify-center gap-2"
-                            >
-                              <RotateCw className="w-4 h-4" />
-                              I'm Returning
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <Button 
-                            onClick={handleManualCheckOut} 
-                            disabled={!isInsideGeofence}
-                            className={`w-full py-4 font-black text-sm rounded-2xl transition-all shadow-lg ${
-                              isInsideGeofence 
-                                ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-400/30 active:scale-95' 
-                                : 'bg-purple-950/60 text-purple-400 border border-purple-500/20 cursor-not-allowed'
-                            }`}
-                          >
-                            <LogOut className="w-5 h-5 mr-2" /> Manual Check-Out (Inside Geofence Only)
-                          </Button>
-                          {!isInsideGeofence && (
-                            <p className="text-[11px] text-rose-300 text-center font-bold">
-                              Manual Check-Out is allowed ONLY inside the 25m office geofence.
-                            </p>
-                          )}
-                        </>
+                      <Button 
+                        onClick={handleManualCheckOut} 
+                        disabled={!isInsideGeofence}
+                        className={`w-full py-4 font-black text-sm rounded-2xl transition-all shadow-lg ${
+                          isInsideGeofence 
+                            ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-400/30 active:scale-95' 
+                            : 'bg-purple-950/60 text-purple-400 border border-purple-500/20 cursor-not-allowed'
+                        }`}
+                      >
+                        <LogOut className="w-5 h-5 mr-2" /> Manual Check-Out (Inside Geofence Only)
+                      </Button>
+                      {!isInsideGeofence && (
+                        <p className="text-[11px] text-rose-300 text-center font-bold">
+                          Manual Check-Out is allowed ONLY inside the 25m office geofence.
+                        </p>
                       )}
                     </>
                   )}
@@ -1554,7 +1438,7 @@ export const AttendanceScreen: React.FC = () => {
           longitude: liveLocation.longitude,
           accuracy: liveLocation.accuracy,
           distanceFromOffice: distance ?? 0,
-          townCity: currentAddress || 'Location name unavailable',
+          townCity: currentAddress || 'Raniganj HQ',
           timestamp: liveLocation.timestamp ? new Date(liveLocation.timestamp).toISOString() : new Date().toISOString(),
           updatedAt: new Date().toISOString()
         } : null;
@@ -1754,6 +1638,18 @@ export const AttendanceScreen: React.FC = () => {
                   <option value="OUTDOOR">🚗 Outdoor Work</option>
                 </select>
               </div>
+
+              <div>
+                <select
+                  value={historySyncFilter}
+                  onChange={(e) => setHistorySyncFilter(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-purple-950/80 border border-purple-500/25 rounded-xl text-xs text-white focus:outline-none"
+                >
+                  <option value="ALL">All Sync States</option>
+                  <option value="Synced">Synced Only</option>
+                  <option value="Pending">Pending Sync</option>
+                </select>
+              </div>
             </div>
 
             {filteredHistoryRecords.length === 0 ? (
@@ -1797,6 +1693,14 @@ export const AttendanceScreen: React.FC = () => {
                             }
                             return null;
                           })()}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                            rec.syncStatus === 'Synced' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          }`}>
+                            {rec.syncStatus}
+                          </span>
                         </div>
                       </div>
 

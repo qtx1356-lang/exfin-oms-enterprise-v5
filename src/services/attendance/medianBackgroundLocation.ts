@@ -110,7 +110,7 @@ export const processMedianLocationEvent = (
     location.longitude,
     employee.id,
     employee.name,
-    employee.townCity || 'Location name unavailable',
+    employee.townCity || 'Raniganj HQ',
     eventTimestamp
   );
 

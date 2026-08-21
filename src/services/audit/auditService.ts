@@ -1,7 +1,6 @@
 import { db } from '../firebase/config';
 import { collection, doc, setDoc, query, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 import { AuditLogRecord, DeviceInfo, AuditActionCategory, AuditSource, AuditResult } from '../../types/audit';
-import { sanitizeFirestorePayload } from '../../utils/firestoreUtils';
 
 export const getClientDeviceInfo = (): DeviceInfo => {
   const ua = navigator.userAgent || '';
@@ -85,7 +84,7 @@ export const createAuditLog = async (params: CreateAuditLogParams): Promise<void
     };
 
     if (db) {
-      await setDoc(doc(db, 'audit_logs', id), sanitizeFirestorePayload(record));
+      await setDoc(doc(db, 'audit_logs', id), record);
     }
 
     // Also keep local fallback cache in localStorage for immediate inspection / offline robustness

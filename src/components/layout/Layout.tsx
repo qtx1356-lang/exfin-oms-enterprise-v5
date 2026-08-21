@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
-import { Bell, ChevronRight, CheckCheck, Info, User, Home, MapPin, Trash2, HelpCircle, MessageSquare } from 'lucide-react';
+import { Bell, ChevronRight, CheckCheck, Info, User, Home, MapPin, Trash2, HelpCircle } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useLocationContext } from '../../context/LocationContext';
@@ -119,9 +119,7 @@ export const Layout: React.FC = () => {
     return null;
   }, [adminUser?.uid, employeeData?.id, employeeData?.employeeCode, employeeData?.isTeamLeader]);
 
-  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const refreshNotificationCount = React.useCallback(async () => {
+  const refreshNotificationCount = async () => {
     if (!currentUser) return;
     try {
       // 1. Get locally updated unread count (for immediate load)
@@ -154,50 +152,36 @@ export const Layout: React.FC = () => {
     } catch (err) {
       console.warn('Failed to refresh notification count:', err);
     }
-  }, [currentUser]);
-
-  const debouncedRefreshNotificationCount = React.useCallback(() => {
-    if (refreshTimeoutRef.current) {
-      clearTimeout(refreshTimeoutRef.current);
-    }
-    refreshTimeoutRef.current = setTimeout(() => {
-      refreshNotificationCount();
-    }, 100);
-  }, [refreshNotificationCount]);
+  };
 
   const userKey = `${currentUser?.id}_${currentUser?.employeeCode}`;
 
   useEffect(() => {
     if (!currentUser) return;
     refreshNotificationCount();
-    return () => {
-      if (refreshTimeoutRef.current) {
-        clearTimeout(refreshTimeoutRef.current);
-      }
-    };
-  }, [userKey, refreshNotificationCount]);
+  }, [userKey]);
 
   // Handle cross-screen real-time notification updates
   useEffect(() => {
     const handleUpdate = () => {
-      debouncedRefreshNotificationCount();
+      refreshNotificationCount();
     };
     window.addEventListener('exfin-notifications-updated', handleUpdate);
     return () => {
       window.removeEventListener('exfin-notifications-updated', handleUpdate);
     };
-  }, [debouncedRefreshNotificationCount]);
+  }, [currentUser?.employeeCode, currentUser?.id]);
 
   // Handle visibility change / app resume from background
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        debouncedRefreshNotificationCount();
+        refreshNotificationCount();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [debouncedRefreshNotificationCount]);
+  }, [currentUser?.employeeCode, currentUser?.id]);
 
   // Real-time Push Notification Engine Listener for current employee
   useEffect(() => {
@@ -279,12 +263,6 @@ export const Layout: React.FC = () => {
       
       if (notif.route) {
         navigate(notif.route);
-      } else if (
-        notif.category === 'CHAT' ||
-        notif.entityType === 'CHAT' ||
-        (typeof notif.type === 'string' && notif.type.startsWith('CHAT_'))
-      ) {
-        navigate(notif.entityId ? `/chat?convId=${notif.entityId}` : '/chat');
       } else {
         // Fallback category mapping
         switch (notif.category) {
@@ -441,11 +419,7 @@ export const Layout: React.FC = () => {
                               }`}
                             >
                               <div className="mt-1">
-                                {notif.category === 'CHAT' || (typeof notif.type === 'string' && notif.type.startsWith('CHAT_')) ? (
-                                  <MessageSquare className={`w-4 h-4 ${notif.read ? 'text-slate-400' : 'text-purple-400'}`} />
-                                ) : (
-                                  <Info className={`w-4 h-4 ${notif.read ? 'text-slate-400' : 'text-purple-400'}`} />
-                                )}
+                                <Info className={`w-4 h-4 ${notif.read ? 'text-slate-400' : 'text-purple-400'}`} />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className={`text-xs font-bold ${notif.read ? 'text-slate-300' : 'text-white'}`}>

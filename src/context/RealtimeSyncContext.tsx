@@ -133,18 +133,6 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
-  // Listen to local storage writes to immediately refresh the reactive state
-  useEffect(() => {
-    const handleLocalUpdate = () => {
-      console.log('RealtimeSync: Detected local attendance storage update event.');
-      setAttendance(getStoredAttendanceRecords());
-    };
-    window.addEventListener('exfin_attendance_updated', handleLocalUpdate);
-    return () => {
-      window.removeEventListener('exfin_attendance_updated', handleLocalUpdate);
-    };
-  }, []);
-
   // Clean up previous listeners when employee changes
   const cleanupListeners = () => {
     activeUnsubsRef.current.forEach((unsub) => unsub());
@@ -435,7 +423,6 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     }
 
-    const notifTimerRef = { current: null as NodeJS.Timeout | null };
     const notifSnapshots: { [queryIndex: number]: NotificationRecord[] } = {};
 
     const unsubNotifsList = notifQueries.map((q, qIdx) => {
@@ -487,30 +474,24 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
 
           notifSnapshots[qIdx] = list;
 
-          if (notifTimerRef.current) {
-            clearTimeout(notifTimerRef.current);
+          // Merge all queries
+          const mergedMap = new Map<string, NotificationRecord>();
+          Object.values(notifSnapshots).forEach((arr) => {
+            arr.forEach((n) => mergedMap.set(n.id, n));
+          });
+
+          const finalNotifsList = Array.from(mergedMap.values()).sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+
+          setNotifications(finalNotifsList);
+          setUnreadNotificationCount(finalNotifsList.filter((n) => !n.read).length);
+
+          // Save to local storage to keep it fully synchronized and dispatch update event
+          saveMultipleNotificationsLocally(finalNotifsList);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('exfin-notifications-updated'));
           }
-
-          notifTimerRef.current = setTimeout(() => {
-            // Merge all queries
-            const mergedMap = new Map<string, NotificationRecord>();
-            Object.values(notifSnapshots).forEach((arr) => {
-              arr.forEach((n) => mergedMap.set(n.id, n));
-            });
-
-            const finalNotifsList = Array.from(mergedMap.values()).sort(
-              (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-            );
-
-            setNotifications(finalNotifsList);
-            setUnreadNotificationCount(finalNotifsList.filter((n) => !n.read).length);
-
-            // Save to local storage to keep it fully synchronized and dispatch update event
-            saveMultipleNotificationsLocally(finalNotifsList);
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('exfin-notifications-updated'));
-            }
-          }, 150);
         },
         (err) => console.warn(`RealtimeSync: Notifications snapshot ${qIdx} error:`, err)
       );
@@ -519,10 +500,6 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     activeUnsubsRef.current.push(...unsubNotifsList);
 
     return () => {
-      if (notifTimerRef.current) {
-        clearTimeout(notifTimerRef.current);
-        notifTimerRef.current = null;
-      }
       cleanupListeners();
     };
   }, [empCode]);

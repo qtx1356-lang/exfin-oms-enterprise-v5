@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  Users, CheckCircle, CheckCircle2, Smartphone, UserCheck, Calendar, Clock, AlertTriangle, 
+  Users, CheckCircle, Smartphone, UserCheck, Calendar, Clock, AlertTriangle, 
   Search, Filter, Download, ArrowRight, MapPin, Mail, Phone, Building2, 
   Briefcase, CalendarX, Lock, ShieldCheck, ChevronRight
 } from 'lucide-react';
@@ -111,7 +111,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
     const safeLeaves = Array.isArray(leaves) ? leaves : [];
 
     // Expected workforce consists only of Approved employees (deduplicated by employeeCode)
-    const approved = safeRegs.filter(emp => emp && emp.status === 'Approved' && (emp as any).isDeleted !== true);
+    const approved = safeRegs.filter(emp => emp && emp.status === 'Approved');
     const seenCodes = new Set<string>();
     const activeEmployees: typeof approved = [];
 
@@ -146,70 +146,46 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
         todayDateStr <= req.endDate
       );
 
-      // MUTUALLY EXCLUSIVE PRIMARY DAILY STATUS
-      // Priority order:
-      // 1. PRESENT (Office Present Today)
-      // 2. REMOTE (WFH / Client Visit / Outdoor Work)
-      // 3. ON LEAVE (Approved leave today)
-      // 4. NOT CHECKED IN / ABSENT (Remaining expected staff)
-      let primaryStatus: 'PRESENT' | 'REMOTE' | 'ON_LEAVE' | 'NOT_CHECKED_IN' = 'NOT_CHECKED_IN';
-      let todayMode: 'Office' | 'WFH' | 'Client Visit' | 'Outdoor Work' | 'Leave' | 'Sunday/Holiday' | 'Not Checked In' = 'Not Checked In';
-      let remoteSubType: 'WFH' | 'CLIENT_VISIT' | 'OUTDOOR' | null = null;
+      let status: 'Present' | 'On Leave' | 'Not Checked In' = 'Not Checked In';
+      let mode: 'Office' | 'WFH' | 'Client Visit' | 'Outdoor Work' | 'Leave' | 'Sunday/Holiday' | 'Not Checked In' = 'Not Checked In';
       let isLate = false;
-      let isActiveCheckedIn = false;
       let checkInTime = todayRecord?.checkInTime || null;
       let checkInMode = todayRecord?.checkInMode || null;
       let checkOutTime = todayRecord?.checkOutTime || null;
       let checkOutMode = todayRecord?.checkOutMode || null;
 
       if (todayRecord && hasActualCheckIn(todayRecord)) {
+        status = 'Present';
         const type = (todayRecord.attendanceType || 'OFFICE').toUpperCase();
-        if (type === 'WFH' || type === 'CLIENT_VISIT' || type === 'OUTDOOR') {
-          primaryStatus = 'REMOTE';
-          if (type === 'WFH') {
-            todayMode = 'WFH';
-            remoteSubType = 'WFH';
-          } else if (type === 'CLIENT_VISIT') {
-            todayMode = 'Client Visit';
-            remoteSubType = 'CLIENT_VISIT';
-          } else {
-            todayMode = 'Outdoor Work';
-            remoteSubType = 'OUTDOOR';
-          }
+        if (type === 'WFH') {
+          mode = 'WFH';
+        } else if (type === 'CLIENT_VISIT') {
+          mode = 'Client Visit';
+        } else if (type === 'OUTDOOR') {
+          mode = 'Outdoor Work';
         } else {
-          primaryStatus = 'PRESENT';
-          todayMode = 'Office';
+          mode = 'Office';
         }
         
-        const checkOutVal = (todayRecord.checkOutTime || '').trim();
-        const isCheckOutDone = checkOutVal && 
-                               checkOutVal !== '--:--' && 
-                               checkOutVal !== '--:-- --' && 
-                               checkOutVal !== 'Pending' && 
-                               checkOutVal !== 'N/A';
-        if (!isCheckOutDone) {
-          isActiveCheckedIn = true;
-        }
-
         if (todayRecord.checkInTime && isSalaryLateCheckIn(todayRecord.checkInTime)) {
           isLate = true;
         }
       } else if (todayApprovedLeave) {
-        primaryStatus = 'ON_LEAVE';
-        todayMode = 'Leave';
+        status = 'On Leave';
+        mode = 'Leave';
+      } else if (isTodaySunday) {
+        status = 'Not Checked In';
+        mode = 'Sunday/Holiday';
       } else {
-        primaryStatus = 'NOT_CHECKED_IN';
-        todayMode = isTodaySunday ? 'Sunday/Holiday' : 'Not Checked In';
+        status = 'Not Checked In';
+        mode = 'Not Checked In';
       }
 
       return {
         ...emp,
-        primaryStatus,
-        todayStatus: primaryStatus === 'ON_LEAVE' ? 'On Leave' : (primaryStatus === 'PRESENT' || primaryStatus === 'REMOTE') ? 'Present' : 'Not Checked In',
-        todayMode,
-        remoteSubType,
+        todayStatus: status,
+        todayMode: mode,
         isLate,
-        isActiveCheckedIn,
         todayRecord,
         todayApprovedLeave,
         checkInTime,
@@ -234,80 +210,60 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
   // 4. GENERATE SUMMARY AGGREGATIONS FOR METRIC CARDS
   const stats = useMemo(() => {
     const expectedStaff = securityFilteredWorkforce.length;
+    const presentUniqueEmployeeCodes = new Set<string>();
 
-    let presentOffice = 0;
-    let remoteTotal = 0;
     let wfh = 0;
     let client = 0;
     let outdoor = 0;
-    let onLeave = 0;
-    let notCheckedIn = 0;
-    let activeCheckedIn = 0;
     let late = 0;
+    let approvedLeave = 0;
 
     securityFilteredWorkforce.forEach(emp => {
+      const codeKey = (emp.employeeCode || emp.id || '').trim();
+
+      if (emp.todayApprovedLeave) {
+        approvedLeave++;
+      }
+
+      if (emp.todayStatus === 'Present' && emp.todayRecord && hasActualCheckIn(emp.todayRecord)) {
+        if (codeKey) {
+          presentUniqueEmployeeCodes.add(codeKey);
+        }
+        if (emp.todayMode === 'WFH') wfh++;
+        else if (emp.todayMode === 'Client Visit') client++;
+        else if (emp.todayMode === 'Outdoor Work') outdoor++;
+      }
+
       if (emp.isLate) {
         late++;
       }
-
-      if (emp.isActiveCheckedIn) {
-        activeCheckedIn++;
-      }
-
-      switch (emp.primaryStatus) {
-        case 'PRESENT':
-          presentOffice++;
-          break;
-        case 'REMOTE':
-          remoteTotal++;
-          if (emp.remoteSubType === 'WFH') wfh++;
-          else if (emp.remoteSubType === 'CLIENT_VISIT') client++;
-          else if (emp.remoteSubType === 'OUTDOOR') outdoor++;
-          break;
-        case 'ON_LEAVE':
-          onLeave++;
-          break;
-        case 'NOT_CHECKED_IN':
-        default:
-          notCheckedIn++;
-          break;
-      }
     });
 
-    const isReconciled = expectedStaff === (presentOffice + remoteTotal + onLeave + notCheckedIn);
+    const presentToday = presentUniqueEmployeeCodes.size;
+    const notCheckedIn = Math.max(0, expectedStaff - presentToday - approvedLeave);
+    const absent = notCheckedIn;
 
     // Diagnostic logging in development mode
     if (typeof window !== 'undefined') {
       console.log('[Office Pulse Calculation Diagnostic]', {
         expectedStaff,
-        presentOffice,
-        remoteTotal,
-        wfh,
-        client,
-        outdoor,
-        onLeave,
-        notCheckedIn,
-        activeCheckedIn,
-        isReconciled
+        presentUniqueEmployeeCodes: Array.from(presentUniqueEmployeeCodes),
+        presentToday,
+        approvedLeave,
+        notCheckedIn
       });
     }
 
     return {
       total: expectedStaff,
-      expectedStaff,
-      present: presentOffice,
-      presentOffice,
-      remote: remoteTotal,
+      present: presentToday,
       wfh,
       client,
       outdoor,
       late,
-      onLeave,
-      approvedLeave: onLeave,
+      approvedLeave,
       notCheckedIn,
-      absent: notCheckedIn,
-      activeCheckedIn,
-      isReconciled
+      absent
     };
   }, [securityFilteredWorkforce]);
 
@@ -328,7 +284,6 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
         if (statusFilter === 'WFH' && emp.todayMode !== 'WFH') return false;
         if (statusFilter === 'CLIENT' && emp.todayMode !== 'Client Visit') return false;
         if (statusFilter === 'OUTDOOR' && emp.todayMode !== 'Outdoor Work') return false;
-        if (statusFilter === 'LEAVE' && emp.todayStatus !== 'On Leave') return false;
         if (statusFilter === 'LATE' && !emp.isLate) return false;
         if (statusFilter === 'NOT_CHECKED_IN' && emp.todayStatus !== 'Not Checked In') return false;
         if (statusFilter === 'ABSENT' && emp.todayStatus !== 'Not Checked In' && (emp.todayStatus as any) !== 'Absent') return false;
@@ -449,9 +404,9 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
         </div>
       </div>
 
-      {/* METRIC CARD GRID (Sophisticated, mutually exclusive reconciliation) */}
+      {/* METRIC CARD GRID (Sophisticated, no side borders, mathematical corner nesting) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-        {/* Present (Office) Card */}
+        {/* Present Card */}
         <button
           onClick={() => setStatusFilter(statusFilter === 'PRESENT' ? 'ALL' : 'PRESENT')}
           className={`text-left transition-all duration-300 focus:outline-none rounded-[20px] p-4 border flex flex-col justify-between h-28 ${
@@ -467,8 +422,8 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
             </div>
           </div>
           <div>
-            <div className="text-2xl font-black text-white">{stats.presentOffice}</div>
-            <div className="text-[9px] text-purple-200/50">Office On-Site</div>
+            <div className="text-2xl font-black text-white">{stats.present}</div>
+            <div className="text-[9px] text-purple-200/50">Total Checked In / Leave</div>
           </div>
         </button>
 
@@ -535,27 +490,6 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
           </div>
         </button>
 
-        {/* On Leave Card */}
-        <button
-          onClick={() => setStatusFilter(statusFilter === 'LEAVE' ? 'ALL' : 'LEAVE')}
-          className={`text-left transition-all duration-300 focus:outline-none rounded-[20px] p-4 border flex flex-col justify-between h-28 ${
-            statusFilter === 'LEAVE'
-              ? 'bg-purple-500/20 border-purple-400/50 shadow-[0_4px_20px_rgba(168,85,247,0.2)]'
-              : 'bg-[#2D1B5A] border-purple-500/20 hover:border-purple-400/30 hover:bg-purple-500/5'
-          }`}
-        >
-          <div className="flex items-center justify-between w-full">
-            <span className="text-[10px] uppercase font-black text-purple-300 tracking-wider">On Leave</span>
-            <div className="p-1.5 bg-purple-500/20 rounded-lg text-purple-300">
-              <CalendarX className="w-4 h-4" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl font-black text-purple-300">{stats.onLeave}</div>
-            <div className="text-[9px] text-purple-200/50">Approved Leaves</div>
-          </div>
-        </button>
-
         {/* Late Card */}
         <button
           onClick={() => setStatusFilter(statusFilter === 'LATE' ? 'ALL' : 'LATE')}
@@ -594,30 +528,30 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
           </div>
           <div>
             <div className="text-2xl font-black text-zinc-300">{stats.notCheckedIn}</div>
-            <div className="text-[9px] text-purple-200/50">Awaiting Logins</div>
+            <div className="text-[9px] text-purple-200/50">Expected today, pending</div>
           </div>
         </button>
-      </div>
 
-      {/* RECONCILIATION SUMMARY BAR */}
-      <div className="px-4 py-2.5 bg-[#1B0B33] border border-purple-500/15 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2 text-purple-200/80 font-mono text-[11px]">
-          <span className="flex items-center gap-1.5 text-emerald-400 font-bold">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            Reconciliation:
-          </span>
-          <span>
-            <strong className="text-white">{stats.expectedStaff}</strong> Expected ={' '}
-            <strong className="text-emerald-400">{stats.presentOffice}</strong> Present +{' '}
-            <strong className="text-sky-300">{stats.remote}</strong> Remote +{' '}
-            <strong className="text-purple-300">{stats.onLeave}</strong> Leave +{' '}
-            <strong className="text-amber-300">{stats.notCheckedIn}</strong> Not Marked
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3 text-[11px] text-purple-300/60 font-mono">
-          <span>Active in Session: <strong className="text-teal-300">{stats.activeCheckedIn}</strong></span>
-        </div>
+        {/* Absent Card */}
+        <button
+          onClick={() => setStatusFilter(statusFilter === 'ABSENT' ? 'ALL' : 'ABSENT')}
+          className={`text-left transition-all duration-300 focus:outline-none rounded-[20px] p-4 border flex flex-col justify-between h-28 ${
+            statusFilter === 'ABSENT'
+              ? 'bg-rose-500/15 border-rose-500/50 shadow-[0_4px_20px_rgba(244,63,94,0.2)]'
+              : 'bg-[#2D1B5A] border-purple-500/20 hover:border-rose-500/30 hover:bg-rose-500/5'
+          }`}
+        >
+          <div className="flex items-center justify-between w-full">
+            <span className="text-[10px] uppercase font-black text-rose-400 tracking-wider">Absent</span>
+            <div className="p-1.5 bg-rose-500/20 rounded-lg text-rose-400">
+              <CalendarX className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <div className="text-2xl font-black text-rose-400">{stats.absent}</div>
+            <div className="text-[9px] text-purple-200/50">Missed check-in cutoff</div>
+          </div>
+        </button>
       </div>
 
       {/* Main Table & search segment */}
