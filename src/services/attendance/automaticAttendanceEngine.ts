@@ -569,9 +569,15 @@ export const AutomaticAttendanceEngine = {
           // State Transition: CHECKED_IN / RETURNING_TO_OFFICE -> PENDING_EXIT_CONFIRMATION
           record.lastExitTime = timeStr;
           record.exitTime = record.exitTime || timeStr;
-          if (record.currentState === 'RETURNING_TO_OFFICE' || !record.geofenceExitTime) {
+
+          const newTimestampMs = eventTimestamp.getTime();
+          const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
+
+          if (record.currentState === 'RETURNING_TO_OFFICE' || !record.geofenceExitTime || newTimestampMs < existingTimestampMs) {
             record.geofenceExitTime = timeStr;
             record.geofenceExitTimestamp = eventIso;
+            record.lastExitTime = timeStr;
+            record.exitTime = record.exitTime || timeStr;
           }
           record.pendingCheckoutConfirmation = true;
           record.returningToOffice = false;
@@ -811,7 +817,8 @@ export const AutomaticAttendanceEngine = {
     employeeName: string,
     coords: { latitude: number; longitude: number },
     townCity: string,
-    timestamp: Date = new Date()
+    timestamp: Date = new Date(),
+    isNativeEvent: boolean = false
   ): AttendanceRecord {
     if (!employeeId || !isEmployeeApprovedLocally(employeeId)) {
       if (employeeId && employeeId !== 'ANONYMOUS' && employeeId !== 'SYSTEM') {
@@ -826,10 +833,31 @@ export const AutomaticAttendanceEngine = {
     if (
       record &&
       record.checkInTime &&
-      !record.checkOutTime &&
-      record.currentState !== 'PENDING_FINAL_EXIT' &&
-      record.currentState !== 'PENDING_EXIT_CONFIRMATION'
+      !record.checkOutTime
     ) {
+      if (record.currentState === 'PENDING_FINAL_EXIT' || record.currentState === 'PENDING_EXIT_CONFIRMATION') {
+        const timeStr = getFormattedTimeStr(timestamp);
+        const eventIso = timestamp.toISOString();
+        const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
+        const newTimestampMs = timestamp.getTime();
+
+        if (isNativeEvent || newTimestampMs < existingTimestampMs || !record.geofenceExitTime) {
+          record.geofenceExitTime = timeStr;
+          record.geofenceExitTimestamp = eventIso;
+          record.lastExitTime = timeStr;
+          record.exitTime = record.exitTime || timeStr;
+          record.pendingCheckoutConfirmation = true;
+          saveAttendanceRecord(record);
+          console.log('[AUTO_EXIT_AUTHORITATIVE_TIMESTAMP_UPDATED]', {
+            employeeId,
+            geofenceExitTime: timeStr,
+            geofenceExitTimestamp: eventIso,
+            isNativeEvent
+          });
+        }
+        return record;
+      }
+
       return this.transitionState(
         employeeId,
         employeeName,

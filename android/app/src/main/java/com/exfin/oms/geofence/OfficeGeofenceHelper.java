@@ -109,25 +109,39 @@ public class OfficeGeofenceHelper {
     }
 
     public static void recordNativeGeofenceEvent(Context context, String transitionType, double lat, double lng) {
+        recordNativeGeofenceEvent(context, transitionType, lat, lng, System.currentTimeMillis());
+    }
+
+    public static void recordNativeGeofenceEvent(Context context, String transitionType, double lat, double lng, long eventTimestamp) {
         if (context == null) return;
         try {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             String existingEventsJson = prefs.getString(KEY_EVENTS, "[]");
             JSONArray events = new JSONArray(existingEventsJson);
 
+            Date eventDate = new Date(eventTimestamp);
             SimpleDateFormat sdf = new SimpleDateFormat("hh:mm a", Locale.US);
             sdf.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
-            String timeStr = sdf.format(new Date());
+            String timeStr = sdf.format(eventDate);
 
             SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
             sdfDate.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
-            String dateStr = sdfDate.format(new Date());
+            String dateStr = sdfDate.format(eventDate);
+
+            String employeeId = prefs.getString("employee_id", "");
+            String eventId = "evt_native_" + transitionType + "_" + (employeeId != null ? employeeId : "") + "_" + eventTimestamp;
 
             JSONObject evt = new JSONObject();
+            evt.put("eventId", eventId);
+            evt.put("employeeId", employeeId);
+            evt.put("eventType", transitionType);
             evt.put("transition", transitionType);
             evt.put("time", timeStr);
             evt.put("date", dateStr);
-            evt.put("timestamp", System.currentTimeMillis());
+            evt.put("timestamp", eventTimestamp);
+            evt.put("exitTimestamp", eventTimestamp);
+            evt.put("createdAt", System.currentTimeMillis());
+            evt.put("distance", 25.0);
             evt.put("latitude", lat);
             evt.put("longitude", lng);
 
@@ -140,7 +154,7 @@ public class OfficeGeofenceHelper {
             }
             editor.apply();
 
-            Log.i(TAG, "Recorded native geofence event: " + transitionType + " at " + timeStr);
+            Log.i(TAG, "Recorded native geofence event: " + transitionType + " at " + timeStr + " (timestamp=" + eventTimestamp + ")");
         } catch (Exception e) {
             Log.e(TAG, "Failed to record native geofence event: " + e.getMessage(), e);
         }

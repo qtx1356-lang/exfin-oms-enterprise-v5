@@ -17,6 +17,7 @@ import {
 import { NotificationRecord } from '../../types/notification';
 import { motion, AnimatePresence } from 'motion/react';
 import { InAppNotificationToast, ToastPayload } from '../common/InAppNotificationToast';
+import { CheckoutConfirmationModal } from '../attendance/CheckoutConfirmationModal';
 import {
   initRealtimePushListener,
   initializeNotificationBaseline,
@@ -468,6 +469,7 @@ export const Layout: React.FC = () => {
           toastData={activeToastNotif}
           onDismiss={() => setActiveToastNotif(null)}
         />
+        <CheckoutConfirmationModal />
         <Outlet />
       </main>
       <BottomNav />

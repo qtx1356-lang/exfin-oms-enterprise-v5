@@ -10,7 +10,6 @@ import { PermissionProvider } from './context/PermissionContext';
 import { LocationProvider } from './context/LocationContext';
 import { AlertPopupProvider } from './context/AlertPopupContext';
 import { ConnectivityIndicator } from './components/common/ConnectivityIndicator';
-import { CheckoutConfirmationModal } from './components/attendance/CheckoutConfirmationModal';
 
 export default function App() {
   return (
@@ -22,7 +21,6 @@ export default function App() {
               <LocationProvider>
                 <AlertPopupProvider>
                   <ConnectivityIndicator />
-                  <CheckoutConfirmationModal />
                   <AppRouter />
                 </AlertPopupProvider>
               </LocationProvider>

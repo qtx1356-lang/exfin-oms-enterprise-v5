@@ -33,6 +33,7 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
 
         int transitionType = geofencingEvent.getGeofenceTransition();
         Location triggerLocation = geofencingEvent.getTriggeringLocation();
+        long eventTimestamp = (triggerLocation != null && triggerLocation.getTime() > 0) ? triggerLocation.getTime() : System.currentTimeMillis();
         double lat = triggerLocation != null ? triggerLocation.getLatitude() : OfficeGeofenceHelper.OFFICE_LAT;
         double lng = triggerLocation != null ? triggerLocation.getLongitude() : OfficeGeofenceHelper.OFFICE_LNG;
 
@@ -45,12 +46,12 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
 
         if (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT) {
             Log.i(TAG, "=== NATIVE OFFICE GEOFENCE EXIT EVENT DELIVERED ===");
-            OfficeGeofenceHelper.recordNativeGeofenceEvent(context, "EXIT", lat, lng);
-            GeofencePlugin.notifyNativeTransition("EXIT", lat, lng);
+            OfficeGeofenceHelper.recordNativeGeofenceEvent(context, "EXIT", lat, lng, eventTimestamp);
+            GeofencePlugin.notifyNativeTransition("EXIT", lat, lng, eventTimestamp);
         } else if (transitionType == Geofence.GEOFENCE_TRANSITION_ENTER) {
             Log.i(TAG, "=== NATIVE OFFICE GEOFENCE ENTER EVENT DELIVERED ===");
-            OfficeGeofenceHelper.recordNativeGeofenceEvent(context, "ENTER", lat, lng);
-            GeofencePlugin.notifyNativeTransition("ENTER", lat, lng);
+            OfficeGeofenceHelper.recordNativeGeofenceEvent(context, "ENTER", lat, lng, eventTimestamp);
+            GeofencePlugin.notifyNativeTransition("ENTER", lat, lng, eventTimestamp);
         } else {
             Log.w(TAG, "Unhandled geofence transition type: " + transitionType);
         }

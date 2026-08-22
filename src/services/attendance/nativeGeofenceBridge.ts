@@ -90,7 +90,8 @@ export const reconcileNativeGeofenceEvents = async (
           employeeName,
           { latitude: evt.latitude || 23.616227, longitude: evt.longitude || 87.117063 },
           townCity || 'Raniganj HQ',
-          eventDate
+          eventDate,
+          true
         );
       } else if (evt.transition === 'ENTER') {
         console.log('[NATIVE_GEOFENCE_ENTER_RECONCILED]', {
@@ -175,7 +176,8 @@ export const initNativeGeofenceListener = async (
           currentEmp.name,
           { latitude: data.latitude, longitude: data.longitude },
           currentEmp.townCity || 'Raniganj HQ',
-          eventDate
+          eventDate,
+          true
         );
       } else if (data.transition === 'ENTER') {
         AutomaticAttendanceEngine.processGeofenceEntry(

@@ -30,15 +30,20 @@ public class GeofencePlugin extends Plugin {
     }
 
     public static void notifyNativeTransition(String transition, double lat, double lng) {
+        notifyNativeTransition(transition, lat, lng, System.currentTimeMillis());
+    }
+
+    public static void notifyNativeTransition(String transition, double lat, double lng, long eventTimestamp) {
         if (instance != null) {
             try {
+                Date eventDate = new Date(eventTimestamp);
                 SimpleDateFormat sdf = new SimpleDateFormat("hh:mm a", Locale.US);
                 sdf.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
-                String timeStr = sdf.format(new Date());
+                String timeStr = sdf.format(eventDate);
 
                 SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
                 sdfDate.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
-                String dateStr = sdfDate.format(new Date());
+                String dateStr = sdfDate.format(eventDate);
 
                 JSObject ret = new JSObject();
                 ret.put("transition", transition);
@@ -46,7 +51,8 @@ public class GeofencePlugin extends Plugin {
                 ret.put("date", dateStr);
                 ret.put("latitude", lat);
                 ret.put("longitude", lng);
-                ret.put("timestamp", System.currentTimeMillis());
+                ret.put("timestamp", eventTimestamp);
+                ret.put("exitTimestamp", eventTimestamp);
 
                 instance.notifyListeners("geofenceTransition", ret, true);
             } catch (Exception e) {
@@ -102,12 +108,18 @@ public class GeofencePlugin extends Plugin {
             for (int i = 0; i < events.length(); i++) {
                 JSONObject obj = events.getJSONObject(i);
                 JSObject item = new JSObject();
+                item.put("eventId", obj.optString("eventId"));
+                item.put("employeeId", obj.optString("employeeId"));
+                item.put("eventType", obj.optString("eventType", obj.optString("transition")));
                 item.put("transition", obj.optString("transition"));
                 item.put("time", obj.optString("time"));
                 item.put("date", obj.optString("date"));
                 item.put("latitude", obj.optDouble("latitude"));
                 item.put("longitude", obj.optDouble("longitude"));
                 item.put("timestamp", obj.optLong("timestamp"));
+                item.put("exitTimestamp", obj.optLong("exitTimestamp", obj.optLong("timestamp")));
+                item.put("createdAt", obj.optLong("createdAt", obj.optLong("timestamp")));
+                item.put("distance", obj.optDouble("distance", 25.0));
                 arr.put(item);
             }
             ret.put("events", arr);
