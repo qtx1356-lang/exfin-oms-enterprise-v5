@@ -47,10 +47,18 @@ interface EfficiencyDashboardProps {
   embedded?: boolean; // True when showing inside Admin/TL panels
 }
 
+let effDashMountCount = 0;
+let effDashRenderCount = 0;
+let effDashEffectCount = 0;
+let activeListeners = 0;
+
 export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({ 
   customEmployeeCode,
   embedded = false
 }) => {
+  const mountTimeRef = React.useRef(performance.now());
+  effDashRenderCount++;
+
   const { employeeData } = useRegistration();
   const { user: adminUser } = useAdminAuth();
 
@@ -62,6 +70,11 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
   // Selected Employee Code
   const [selectedEmployeeCode, setSelectedEmployeeCode] = useState<string>(customEmployeeCode || activeEmployeeCode);
+
+  useEffect(() => {
+    effDashMountCount++;
+    console.log(`[EFFICIENCY_PERF_START] Component mount #${effDashMountCount} embedded=${embedded} activeEmpCode="${activeEmployeeCode}" activeEmpId="${activeEmployeeId}" isAdmin=${isAdmin} isTeamLeader=${isTeamLeader} selectedEmpCode="${selectedEmployeeCode}"`);
+  }, []);
 
   useEffect(() => {
     if (customEmployeeCode) {
@@ -186,6 +199,17 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
   // Firestore Subscriptions
   useEffect(() => {
+    effDashEffectCount++;
+    activeListeners++;
+    const effectId = effDashEffectCount;
+    const effectStartTime = performance.now();
+
+    if (activeListeners > 1) {
+      console.warn(`[EFFICIENCY_LISTENER_DUPLICATE_WARNING] Concurrent active subscription effect count = ${activeListeners}. Possible duplicate listener detected!`);
+    }
+
+    console.log(`[EFFICIENCY_FIRESTORE_START] Effect #${effectId} initializing subscriptions. DB initialized=${Boolean(db)}`);
+
     if (!db) {
       setOfflineMode(true);
       setLoading(false);
@@ -197,34 +221,76 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       setAdminWeights(w);
     });
 
+    // 1. REGISTRATIONS LISTENER
+    const regsStartTime = performance.now();
+    console.log(`[EFFICIENCY_FIRESTORE_START] path=registrations operation=onSnapshot filters=none dateRange=N/A`);
+    const regsPendingTimer = setTimeout(() => {
+      console.warn(`[EFFICIENCY_FIRESTORE_WARNING >5000ms] Listener path=registrations still pending after 5000ms!`);
+    }, 5000);
+
+    let regsCallCount = 0;
     const unsubRegs = onSnapshot(collection(db, 'registrations'), (snap) => {
+      clearTimeout(regsPendingTimer);
+      regsCallCount++;
+      const elapsedMs = Math.round((performance.now() - regsStartTime) * 100) / 100;
+      console.log(`[EFFICIENCY_FIRESTORE_END] path=registrations docsReturned=${snap.docs.length} elapsedMs=${elapsedMs}ms emitCount=${regsCallCount}`);
       const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAllEmployees(list);
     }, (err) => {
-      console.warn('Registrations subscription notice:', err);
+      clearTimeout(regsPendingTimer);
+      console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=registrations notice:', err);
     });
 
-    // Query tasks and attendance
-    const tasksQuery = query(collection(db, 'tasks'), limit(500));
-    const attQuery = query(collection(db, 'attendance'), limit(500));
+    // 2. TASKS LISTENER
+    const tasksStartTime = performance.now();
+    console.log(`[EFFICIENCY_FIRESTORE_START] path=tasks operation=onSnapshot filters=limit(500) dateRange=N/A`);
+    const tasksPendingTimer = setTimeout(() => {
+      console.warn(`[EFFICIENCY_FIRESTORE_WARNING >5000ms] Listener path=tasks still pending after 5000ms!`);
+    }, 5000);
 
+    let tasksCallCount = 0;
+    const tasksQuery = query(collection(db, 'tasks'), limit(500));
     const unsubTasks = onSnapshot(tasksQuery, (snap) => {
+      clearTimeout(tasksPendingTimer);
+      tasksCallCount++;
+      const elapsedMs = Math.round((performance.now() - tasksStartTime) * 100) / 100;
+      console.log(`[EFFICIENCY_FIRESTORE_END] path=tasks docsReturned=${snap.docs.length} elapsedMs=${elapsedMs}ms emitCount=${tasksCallCount}`);
       const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as TaskRecord[];
       setTasks(list);
     }, (err) => {
-      console.warn('Tasks subscription notice:', err);
+      clearTimeout(tasksPendingTimer);
+      console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks notice:', err);
     });
 
+    // 3. ATTENDANCE LISTENER
+    const attStartTime = performance.now();
+    console.log(`[EFFICIENCY_FIRESTORE_START] path=attendance operation=onSnapshot filters=limit(500) dateRange=N/A`);
+    const attPendingTimer = setTimeout(() => {
+      console.warn(`[EFFICIENCY_FIRESTORE_WARNING >5000ms] Listener path=attendance still pending after 5000ms!`);
+    }, 5000);
+
+    let attCallCount = 0;
+    const attQuery = query(collection(db, 'attendance'), limit(500));
     const unsubAtt = onSnapshot(attQuery, (snap) => {
+      clearTimeout(attPendingTimer);
+      attCallCount++;
+      const elapsedMs = Math.round((performance.now() - attStartTime) * 100) / 100;
+      console.log(`[EFFICIENCY_FIRESTORE_END] path=attendance docsReturned=${snap.docs.length} elapsedMs=${elapsedMs}ms emitCount=${attCallCount}`);
       const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AttendanceRecord[];
       setAttendance(list);
       setLoading(false);
     }, (err) => {
-      console.warn('Attendance subscription notice:', err);
+      clearTimeout(attPendingTimer);
+      console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance notice:', err);
       setLoading(false);
     });
 
     return () => {
+      activeListeners--;
+      clearTimeout(regsPendingTimer);
+      clearTimeout(tasksPendingTimer);
+      clearTimeout(attPendingTimer);
+      console.log(`[EFFICIENCY_FIRESTORE_CLEANUP] Unsubscribing subscriptions for Effect #${effectId}. Remaining active listeners = ${activeListeners}`);
       unsubRegs();
       unsubTasks();
       unsubAtt();
@@ -710,6 +776,9 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   }
 
   const bd = currentCalculation ? currentCalculation.breakdown : null;
+
+  const renderElapsedMs = Math.round((performance.now() - mountTimeRef.current) * 100) / 100;
+  console.log(`[EFFICIENCY_RENDER] #${effDashRenderCount} elapsedSinceMount=${renderElapsedMs}ms loading=${loading} tasksCount=${tasks.length} attCount=${attendance.length} empsCount=${allEmployees.length} viewMode=${viewMode} period=${periodFilter} selectedEmp=${selectedEmployeeCode}`);
 
   return (
     <div className="space-y-6 font-sans text-white pb-12 max-w-7xl mx-auto">

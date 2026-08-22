@@ -61,6 +61,8 @@ export const calculateExpectedWorkingDays = (startDateStr: string, endDateStr: s
   }
 };
 
+let calcInvocationCount = 0;
+
 /**
  * Pure function to calculate efficiency breakdown and final score.
  */
@@ -76,6 +78,11 @@ export const calculateEfficiency = (
   attendanceRecords: AttendanceRecord[],
   weightages: EfficiencyWeightages
 ): { finalScore: number; grade: EfficiencyGrade; breakdown: EfficiencyBreakdown } => {
+  calcInvocationCount++;
+  const calcId = calcInvocationCount;
+  const startTime = performance.now();
+
+  console.log(`[EFFICIENCY_CALC_START] #${calcId} for employee=${employeeCode || employeeId} (${employeeName}) period=${startDateStr}..${endDateStr} inputTasks=${tasks.length} inputAtt=${attendanceRecords.length}`);
   
   // ----------------------------------------------------
   // 1. FILTER RELEVANT RECORDS FOR THE PERIOD
@@ -337,6 +344,9 @@ export const calculateEfficiency = (
     overduePenalty,
     revisionPenalty
   };
+
+  const durationMs = Math.round((performance.now() - startTime) * 100) / 100;
+  console.log(`[EFFICIENCY_CALC_END] #${calcId} employee=${employeeCode || employeeId} finalScore=${finalScore}% grade=${grade} elapsedMs=${durationMs}ms (totalCalculationsTotal=${calcInvocationCount})`);
 
   return {
     finalScore,

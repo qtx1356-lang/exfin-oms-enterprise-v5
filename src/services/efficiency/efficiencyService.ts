@@ -43,10 +43,20 @@ export const getSavedWeightages = async (): Promise<EfficiencyWeightages> => {
     return cached || DEFAULT_WEIGHTAGES;
   }
 
+  const reqId = Math.floor(Math.random() * 10000);
+  const startTime = performance.now();
+  console.log(`[EFFICIENCY_FIRESTORE_START] reqId=${reqId} path=system_settings/efficiency_config operation=getDoc filters=docRef("system_settings/efficiency_config") dateRange=N/A`);
+
+  const pendingTimer = setTimeout(() => {
+    console.warn(`[EFFICIENCY_FIRESTORE_WARNING >5000ms] reqId=${reqId} path=system_settings/efficiency_config still pending after 5000ms`);
+  }, 5000);
+
   try {
     // 2. Fetch from Firestore
     const docRef = doc(db, 'system_settings', 'efficiency_config');
     const snap = await getDoc(docRef);
+    clearTimeout(pendingTimer);
+    const elapsedMs = Math.round((performance.now() - startTime) * 100) / 100;
     
     if (snap.exists()) {
       const data = snap.data() as SystemSettings;
@@ -58,12 +68,17 @@ export const getSavedWeightages = async (): Promise<EfficiencyWeightages> => {
         workload: data.efficiencyWorkloadWeight ?? DEFAULT_WEIGHTAGES.workload
       };
       
+      console.log(`[EFFICIENCY_FIRESTORE_END] reqId=${reqId} path=system_settings/efficiency_config docsReturned=1 elapsedMs=${elapsedMs}ms source=remote`);
       // Update local storage
       localStorage.setItem(WEIGHTS_LOCAL_KEY, JSON.stringify(weightages));
       return weightages;
+    } else {
+      console.log(`[EFFICIENCY_FIRESTORE_END] reqId=${reqId} path=system_settings/efficiency_config docsReturned=0 (doc not found) elapsedMs=${elapsedMs}ms source=remote`);
     }
   } catch (error) {
-    console.warn('Failed to fetch weightages from Firestore (offline?), using cache:', error);
+    clearTimeout(pendingTimer);
+    const elapsedMs = Math.round((performance.now() - startTime) * 100) / 100;
+    console.warn(`[EFFICIENCY_FIRESTORE_END_ERROR] reqId=${reqId} path=system_settings/efficiency_config elapsedMs=${elapsedMs}ms error=`, error);
   }
 
   return cached || DEFAULT_WEIGHTAGES;
@@ -201,6 +216,15 @@ export const getEfficiencySnapshots = async (employeeCode?: string): Promise<Eff
     return filteredLocal;
   }
 
+  const reqId = Math.floor(Math.random() * 10000);
+  const startTime = performance.now();
+  const filtersLabel = employeeCode ? `where('employeeCode', '==', '${employeeCode}')` : 'none (all snapshots)';
+  console.log(`[EFFICIENCY_FIRESTORE_START] reqId=${reqId} path=efficiency_snapshots operation=getDocs filters=${filtersLabel} dateRange=N/A`);
+
+  const pendingTimer = setTimeout(() => {
+    console.warn(`[EFFICIENCY_FIRESTORE_WARNING >5000ms] reqId=${reqId} path=efficiency_snapshots still pending after 5000ms`);
+  }, 5000);
+
   try {
     const snapshotsCol = collection(db, 'efficiency_snapshots');
     let q = snapshotsCol;
@@ -209,6 +233,10 @@ export const getEfficiencySnapshots = async (employeeCode?: string): Promise<Eff
     }
     
     const querySnap = await getDocs(q);
+    clearTimeout(pendingTimer);
+    const elapsedMs = Math.round((performance.now() - startTime) * 100) / 100;
+    console.log(`[EFFICIENCY_FIRESTORE_END] reqId=${reqId} path=efficiency_snapshots docsReturned=${querySnap.size} elapsedMs=${elapsedMs}ms`);
+
     const remoteSnapshots: EfficiencySnapshot[] = [];
     querySnap.forEach(docSnap => {
       remoteSnapshots.push({
@@ -238,7 +266,9 @@ export const getEfficiencySnapshots = async (employeeCode?: string): Promise<Eff
     result.sort((a, b) => b.periodEnd.localeCompare(a.periodEnd));
     return result;
   } catch (err) {
-    console.warn('Failed to fetch snapshots from Firestore, returning local cache:', err);
+    clearTimeout(pendingTimer);
+    const elapsedMs = Math.round((performance.now() - startTime) * 100) / 100;
+    console.warn(`[EFFICIENCY_FIRESTORE_END_ERROR] reqId=${reqId} path=efficiency_snapshots elapsedMs=${elapsedMs}ms error=`, err);
     return filteredLocal.sort((a, b) => b.periodEnd.localeCompare(a.periodEnd));
   }
 };
