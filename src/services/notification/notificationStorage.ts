@@ -1,11 +1,78 @@
-import { NotificationRecord } from '../../types/notification';
+import { NotificationRecord, parseTimestamp } from '../../types/notification';
 
 const getStorageKeys = () => {
   const currentUserId = localStorage.getItem('registrationId') || localStorage.getItem('deviceId') || 'default';
   return {
+    currentUserId,
     notificationsKey: `exfin_notifications_${currentUserId}_v1`,
-    deletedNotificationsKey: `exfin_deleted_notifications_${currentUserId}_v1`
+    deletedNotificationsKey: `exfin_deleted_notifications_${currentUserId}_v1`,
+    pendingDeletesKey: `exfin_pending_deletes_${currentUserId}_v1`,
+    pendingReadsKey: `exfin_pending_reads_${currentUserId}_v1`
   };
+};
+
+export const getPendingDeletes = (): string[] => {
+  try {
+    const data = localStorage.getItem(getStorageKeys().pendingDeletesKey);
+    return data ? JSON.parse(data) : [];
+  } catch (err) {
+    console.error('Failed to parse pending deletes:', err);
+    return [];
+  }
+};
+
+export const addPendingDelete = (id: string): void => {
+  try {
+    const pending = getPendingDeletes();
+    if (!pending.includes(id)) {
+      pending.push(id);
+      localStorage.setItem(getStorageKeys().pendingDeletesKey, JSON.stringify(pending));
+    }
+  } catch (err) {
+    console.error('Failed to save pending delete:', err);
+  }
+};
+
+export const removePendingDelete = (id: string): void => {
+  try {
+    const pending = getPendingDeletes();
+    const updated = pending.filter((x) => x !== id);
+    localStorage.setItem(getStorageKeys().pendingDeletesKey, JSON.stringify(updated));
+  } catch (err) {
+    console.error('Failed to remove pending delete:', err);
+  }
+};
+
+export const getPendingReads = (): string[] => {
+  try {
+    const data = localStorage.getItem(getStorageKeys().pendingReadsKey);
+    return data ? JSON.parse(data) : [];
+  } catch (err) {
+    console.error('Failed to parse pending reads:', err);
+    return [];
+  }
+};
+
+export const addPendingRead = (id: string): void => {
+  try {
+    const pending = getPendingReads();
+    if (!pending.includes(id)) {
+      pending.push(id);
+      localStorage.setItem(getStorageKeys().pendingReadsKey, JSON.stringify(pending));
+    }
+  } catch (err) {
+    console.error('Failed to save pending read:', err);
+  }
+};
+
+export const removePendingRead = (id: string): void => {
+  try {
+    const pending = getPendingReads();
+    const updated = pending.filter((x) => x !== id);
+    localStorage.setItem(getStorageKeys().pendingReadsKey, JSON.stringify(updated));
+  } catch (err) {
+    console.error('Failed to remove pending read:', err);
+  }
 };
 
 export const getDeletedNotificationIds = (): string[] => {
@@ -102,9 +169,13 @@ export const saveMultipleNotificationsLocally = (newNotifs: NotificationRecord[]
 
     const mergedList = Array.from(map.values())
       .filter((n) => !deletedIds.includes(n.id) && !n.deleted)
-      .sort(
-        (a, b) => new Date(b.timestamp || b.createdAt || b.createdAtDeviceTime).getTime() - new Date(a.timestamp || a.createdAt || a.createdAtDeviceTime).getTime()
-      );
+      .sort((a, b) => {
+        const dateA = parseTimestamp(a.timestamp || a.createdAt || a.createdAtDeviceTime);
+        const dateB = parseTimestamp(b.timestamp || b.createdAt || b.createdAtDeviceTime);
+        const timeA = dateA ? dateA.getTime() : 0;
+        const timeB = dateB ? dateB.getTime() : 0;
+        return timeB - timeA;
+      });
 
     localStorage.setItem(getStorageKeys().notificationsKey, JSON.stringify(mergedList));
   } catch (err) {

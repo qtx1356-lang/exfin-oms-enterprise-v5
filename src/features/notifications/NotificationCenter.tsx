@@ -9,7 +9,7 @@ import {
   markAllNotificationsRead,
   deleteNotification,
 } from '../../services/notification/notificationService';
-import { NotificationRecord, NotificationCategory, NotificationPriority } from '../../types/notification';
+import { NotificationRecord, NotificationCategory, NotificationPriority, parseTimestamp } from '../../types/notification';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -212,9 +212,10 @@ export const NotificationCenter: React.FC = () => {
   };
 
   const formatTime = (timeStr: string) => {
-    if (!timeStr) return '';
+    if (!timeStr) return 'Time unavailable';
     try {
-      const date = new Date(timeStr);
+      const date = parseTimestamp(timeStr);
+      if (!date) return 'Time unavailable';
       const now = new Date();
       const diffMs = now.getTime() - date.getTime();
       const diffMins = Math.floor(diffMs / 60000);
@@ -230,7 +231,7 @@ export const NotificationCenter: React.FC = () => {
         minute: '2-digit',
       });
     } catch {
-      return '';
+      return 'Time unavailable';
     }
   };
 

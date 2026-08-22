@@ -99,3 +99,57 @@ export interface NotificationRecord {
   idempotencyKey?: string;
   expiresAt?: string;
 }
+
+export const parseTimestamp = (ts: any): Date | null => {
+  if (!ts) return null;
+  
+  // If it's already a JS Date
+  if (ts instanceof Date) {
+    return isNaN(ts.getTime()) ? null : ts;
+  }
+  
+  // If it's a Firestore Timestamp object with toDate()
+  if (typeof ts === 'object' && typeof ts.toDate === 'function') {
+    try {
+      const d = ts.toDate();
+      return isNaN(d.getTime()) ? null : d;
+    } catch {
+      // fallback
+    }
+  }
+  
+  // If it's an object with {seconds, nanoseconds}
+  if (typeof ts === 'object' && ts !== null && 'seconds' in ts) {
+    try {
+      const seconds = Number((ts as any).seconds);
+      const nanoseconds = 'nanoseconds' in ts ? Number((ts as any).nanoseconds) : 0;
+      const d = new Date(seconds * 1000 + Math.floor(nanoseconds / 1000000));
+      return isNaN(d.getTime()) ? null : d;
+    } catch {
+      // fallback
+    }
+  }
+  
+  // If it's a number (Unix timestamp or milliseconds)
+  if (typeof ts === 'number') {
+    // If it's in seconds (e.g. 10 digits instead of 13), convert to ms
+    const ms = ts < 9999999999 ? ts * 1000 : ts;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  
+  // If it's a string, try parsing it
+  if (typeof ts === 'string') {
+    // Check if it's a numeric string
+    if (/^\d+$/.test(ts)) {
+      const num = Number(ts);
+      const ms = num < 9999999999 ? num * 1000 : num;
+      const d = new Date(ms);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const d = new Date(ts);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  
+  return null;
+};

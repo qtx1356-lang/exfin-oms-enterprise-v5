@@ -13,7 +13,7 @@ import { TaskRecord } from '../types/planner';
 import { LeaveRecord } from '../types/leave';
 import { AttendanceRecord } from '../types/attendance';
 import { ExpenseRecord } from '../types/expense';
-import { NotificationRecord } from '../types/notification';
+import { NotificationRecord, parseTimestamp } from '../types/notification';
 
 import { queueTaskSync, syncPendingTasks } from '../services/planner/taskSyncEngine';
 import { syncPendingLeaves } from '../services/leave/leaveSyncEngine';
@@ -21,7 +21,7 @@ import { syncPendingExpenseRecords } from '../services/expenses/expenseSyncEngin
 import { syncPendingAttendanceRecords } from '../services/attendance/syncEngine';
 import { syncAllPendingRecords } from '../services/sync/globalSyncEngine';
 import { saveTaskRecord, getStoredTasks } from '../services/planner/taskStorage';
-import { isNotificationDeletedLocally, saveMultipleNotificationsLocally } from '../services/notification/notificationStorage';
+import { isNotificationDeletedLocally, saveMultipleNotificationsLocally, getPendingDeletes, getPendingReads } from '../services/notification/notificationStorage';
 import { saveLeaveRecord, getStoredLeaves } from '../services/leave/leaveStorage';
 import { saveExpenseRecord, getStoredExpenseRecords } from '../services/expenses/expenseStorage';
 import { saveAttendanceRecord, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration, runSafeWorkingHoursNormalization } from '../services/attendance/attendanceStorage';
@@ -449,13 +449,18 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
               d.deleted === true ||
               deletedUserIds.includes(empId) ||
               deletedUserIds.includes(empCode) ||
-              isNotificationDeletedLocally(docSnap.id);
+              isNotificationDeletedLocally(docSnap.id) ||
+              getPendingDeletes().includes(docSnap.id);
 
             if (isDeleted) {
               return;
             }
 
-            const canonicalTime = d.timestamp || d.createdAt || new Date().toISOString();
+            const isReadPending = getPendingReads().includes(docSnap.id);
+            const recordRead = isReadPending ? true : (d.read || false);
+
+            const parsedDate = parseTimestamp(d.timestamp || d.createdAt || d.createdAtDeviceTime);
+            const canonicalTime = parsedDate ? parsedDate.toISOString() : '';
             const record: NotificationRecord = {
               id: d.id || docSnap.id,
               type: d.type,
@@ -470,7 +475,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
               route: d.route || '',
               entityId: d.entityId || '',
               entityType: d.entityType || '',
-              read: d.read || false,
+              read: recordRead,
               timestamp: canonicalTime,
               createdAtDeviceTime: d.createdAtDeviceTime || canonicalTime,
               updatedAtDeviceTime: d.updatedAtDeviceTime || canonicalTime,
@@ -490,9 +495,13 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             arr.forEach((n) => mergedMap.set(n.id, n));
           });
 
-          const finalNotifsList = Array.from(mergedMap.values()).sort(
-            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          );
+          const finalNotifsList = Array.from(mergedMap.values()).sort((a, b) => {
+            const dateA = parseTimestamp(a.timestamp || a.createdAt || a.createdAtDeviceTime);
+            const dateB = parseTimestamp(b.timestamp || b.createdAt || b.createdAtDeviceTime);
+            const timeA = dateA ? dateA.getTime() : 0;
+            const timeB = dateB ? dateB.getTime() : 0;
+            return timeB - timeA;
+          });
 
           setNotifications(finalNotifsList);
           setUnreadNotificationCount(finalNotifsList.filter((n) => !n.read).length);

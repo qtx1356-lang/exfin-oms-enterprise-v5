@@ -13,7 +13,7 @@ import {
   arrayUnion,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
-import { NotificationRecord, NotificationType, NotificationCategory, NotificationPriority } from '../../types/notification';
+import { NotificationRecord, NotificationType, NotificationCategory, NotificationPriority, parseTimestamp } from '../../types/notification';
 import {
   getStoredNotifications,
   saveNotificationLocally,
@@ -23,6 +23,12 @@ import {
   removeNotificationLocally,
   isNotificationDeletedLocally,
   getDeletedNotificationIds,
+  getPendingDeletes,
+  addPendingDelete,
+  removePendingDelete,
+  getPendingReads,
+  addPendingRead,
+  removePendingRead,
 } from './notificationStorage';
 
 const dispatchNotificationsUpdated = () => {
@@ -314,14 +320,19 @@ export const getNotificationsForUser = async (user: {
           d.deleted === true ||
           deletedUserIds.includes(user.id) ||
           deletedUserIds.includes(user.employeeCode) ||
-          isNotificationDeletedLocally(docSnap.id);
+          isNotificationDeletedLocally(docSnap.id) ||
+          getPendingDeletes().includes(docSnap.id);
 
         if (isDeletedForUser) {
           return;
         }
 
-        // Support backward compatibility (timestamp || createdAt)
-        const canonicalTime = d.timestamp || d.createdAt || nowIsoString();
+        const isReadPending = getPendingReads().includes(docSnap.id);
+        const recordRead = isReadPending ? true : (d.read || false);
+
+        // Support backward compatibility (timestamp || createdAt) using parseTimestamp helper
+        const parsedDate = parseTimestamp(d.timestamp || d.createdAt || d.createdAtDeviceTime);
+        const canonicalTime = parsedDate ? parsedDate.toISOString() : '';
         const record: NotificationRecord = {
           id: d.id || docSnap.id,
           type: d.type,
@@ -336,7 +347,7 @@ export const getNotificationsForUser = async (user: {
           route: d.route || '',
           entityId: d.entityId || '',
           entityType: d.entityType || '',
-          read: d.read || false,
+          read: recordRead,
           timestamp: canonicalTime,
           createdAtDeviceTime: d.createdAtDeviceTime || canonicalTime,
           updatedAtDeviceTime: d.updatedAtDeviceTime || canonicalTime,
@@ -382,6 +393,8 @@ export const markNotificationRead = async (id: string): Promise<void> => {
     dispatchNotificationsUpdated();
   }
 
+  addPendingRead(id);
+
   if (isOnline()) {
     try {
       const docRef = doc(db, 'notifications', id);
@@ -392,8 +405,9 @@ export const markNotificationRead = async (id: string): Promise<void> => {
         serverSyncTime: nowIso,
       }, { merge: true });
       markNotificationSyncedLocally(id, nowIso);
+      removePendingRead(id);
     } catch (err) {
-      console.warn('Failed to mark read on server, retained locally:', err);
+      console.warn('Failed to mark read on server, retained locally (queued for retry):', err);
     }
   }
 };
@@ -412,7 +426,7 @@ export const markAllNotificationsRead = async (user: {
   const updatedNotifs: NotificationRecord[] = [];
   
   local.forEach((n) => {
-    if (n.deleted || isNotificationDeletedLocally(n.id)) return;
+    if (n.deleted || isNotificationDeletedLocally(n.id) || getPendingDeletes().includes(n.id)) return;
 
     const isOwn = n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
     const isTLMgmt = user.role === 'TEAM_LEADER' && (n.recipientTeamLeaderId === user.id || n.recipientTeamLeaderId === user.employeeCode);
@@ -425,6 +439,7 @@ export const markAllNotificationsRead = async (user: {
       n.updatedAtDeviceTime = nowIso;
       n.syncStatus = 'PENDING';
       updatedNotifs.push(n);
+      addPendingRead(n.id);
     }
   });
 
@@ -448,9 +463,10 @@ export const markAllNotificationsRead = async (user: {
       await batch.commit();
       updatedNotifs.forEach((n) => {
         markNotificationSyncedLocally(n.id, nowIso);
+        removePendingRead(n.id);
       });
     } catch (err) {
-      console.warn('Failed to batch mark all read on server:', err);
+      console.warn('Failed to batch mark all read on server (queued for retry):', err);
     }
   }
 };
@@ -468,8 +484,8 @@ export const getUnreadNotificationCount = (user: {
   }
   const local = getStoredNotifications();
   return local.filter((n) => {
-    if (n.read) return false;
-    if (n.deleted || isNotificationDeletedLocally(n.id)) return false;
+    if (n.read || getPendingReads().includes(n.id)) return false;
+    if (n.deleted || isNotificationDeletedLocally(n.id) || getPendingDeletes().includes(n.id)) return false;
     
     if (n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM') {
       return user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
@@ -509,7 +525,9 @@ export const deleteNotification = async (
   user?: { id?: string; employeeCode?: string }
 ): Promise<void> => {
   removeNotificationLocally(id);
+  addPendingDelete(id);
   dispatchNotificationsUpdated();
+
   if (isOnline()) {
     try {
       const docRef = doc(db, 'notifications', id);
@@ -532,8 +550,9 @@ export const deleteNotification = async (
       } catch {
         // Soft delete in Firestore recorded successfully
       }
+      removePendingDelete(id);
     } catch (err) {
-      console.warn('Failed to delete notification on server (retained deleted locally):', err);
+      console.warn('Failed to delete notification on server (queued for retry):', err);
     }
   }
 };
@@ -542,30 +561,98 @@ export const deleteNotification = async (
  * Synchronize any pending offline notifications
  */
 export const syncPendingNotifications = async (): Promise<void> => {
-  const pending = getPendingNotifications();
-  if (pending.length === 0) return;
+  if (!isOnline()) return;
 
-  try {
-    const batch = writeBatch(db);
-    const nowIso = new Date().toISOString();
-    
-    pending.forEach((n) => {
-      const ref = doc(db, 'notifications', n.id);
-      batch.set(ref, {
-        ...n,
-        syncStatus: 'SYNCED',
-        serverSyncTime: nowIso,
+  const nowIso = new Date().toISOString();
+
+  // 1. Sync pending deletes
+  const pendingDeletes = getPendingDeletes();
+  if (pendingDeletes.length > 0) {
+    try {
+      const batch = writeBatch(db);
+      const userIdOrCode = auth.currentUser?.uid || 'USER';
+      pendingDeletes.forEach((id) => {
+        const ref = doc(db, 'notifications', id);
+        batch.set(
+          ref,
+          {
+            deleted: true,
+            deletedUserIds: arrayUnion(userIdOrCode),
+            updatedAtDeviceTime: nowIso,
+            serverSyncTime: nowIso,
+          },
+          { merge: true }
+        );
       });
-    });
+      await batch.commit();
 
-    await batch.commit();
+      for (const id of pendingDeletes) {
+        try {
+          await deleteDoc(doc(db, 'notifications', id));
+        } catch {
+          // ignore
+        }
+        removePendingDelete(id);
+      }
+      console.log(`Synced ${pendingDeletes.length} pending delete(s) successfully.`);
+    } catch (err) {
+      console.warn('Failed to sync pending deletes:', err);
+    }
+  }
 
-    pending.forEach((n) => {
-      markNotificationSyncedLocally(n.id, nowIso);
-    });
-    console.log(`Synced ${pending.length} pending notification(s) successfully.`);
-  } catch (err) {
-    console.warn('Failed to sync pending notifications:', err);
+  // 2. Sync pending reads
+  const pendingReads = getPendingReads();
+  if (pendingReads.length > 0) {
+    try {
+      const batch = writeBatch(db);
+      pendingReads.forEach((id) => {
+        const ref = doc(db, 'notifications', id);
+        batch.set(
+          ref,
+          {
+            read: true,
+            updatedAtDeviceTime: nowIso,
+            syncStatus: 'SYNCED',
+            serverSyncTime: nowIso,
+          },
+          { merge: true }
+        );
+      });
+      await batch.commit();
+
+      pendingReads.forEach((id) => {
+        markNotificationSyncedLocally(id, nowIso);
+        removePendingRead(id);
+      });
+      console.log(`Synced ${pendingReads.length} pending read(s) successfully.`);
+    } catch (err) {
+      console.warn('Failed to sync pending reads:', err);
+    }
+  }
+
+  // 3. Sync pending creations
+  const pending = getPendingNotifications();
+  if (pending.length > 0) {
+    try {
+      const batch = writeBatch(db);
+      pending.forEach((n) => {
+        const ref = doc(db, 'notifications', n.id);
+        batch.set(ref, {
+          ...n,
+          syncStatus: 'SYNCED',
+          serverSyncTime: nowIso,
+        });
+      });
+
+      await batch.commit();
+
+      pending.forEach((n) => {
+        markNotificationSyncedLocally(n.id, nowIso);
+      });
+      console.log(`Synced ${pending.length} pending creation(s) successfully.`);
+    } catch (err) {
+      console.warn('Failed to sync pending creations:', err);
+    }
   }
 };
 
