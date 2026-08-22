@@ -378,6 +378,42 @@ export const getNotificationsForUser = async (user: {
   }
 };
 
+export const isNotificationForUser = (
+  n: NotificationRecord,
+  user: { id?: string; employeeCode?: string; role?: string } | null | undefined
+): boolean => {
+  if (!user) return false;
+  const userId = user.id || '';
+  const empCode = user.employeeCode || '';
+  const userRole = user.role || 'EMPLOYEE';
+
+  if (n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM') {
+    return userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+  }
+
+  if (n.recipientEmployeeCode === 'ALL' || n.recipientUserId === 'ALL' || n.recipientRole === 'ALL') {
+    return true;
+  }
+
+  if ((userId && n.recipientUserId === userId) || (empCode && n.recipientEmployeeCode === empCode)) {
+    return true;
+  }
+
+  if (userRole === 'TEAM_LEADER' && ((userId && n.recipientTeamLeaderId === userId) || (empCode && n.recipientTeamLeaderId === empCode))) {
+    return true;
+  }
+
+  if ((userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') && (n.recipientRole === 'ADMIN' || n.recipientRole === 'SUPER_ADMIN')) {
+    return true;
+  }
+
+  if (userRole === 'EMPLOYEE' && n.recipientRole === 'EMPLOYEE') {
+    return true;
+  }
+
+  return false;
+};
+
 /**
  * Mark a single notification as read
  */
@@ -387,6 +423,7 @@ export const markNotificationRead = async (id: string): Promise<void> => {
   const index = local.findIndex((n) => n.id === id);
   if (index >= 0) {
     local[index].read = true;
+    (local[index] as any).isRead = true;
     local[index].updatedAtDeviceTime = nowIso;
     local[index].syncStatus = 'PENDING';
     saveNotificationLocally(local[index]);
@@ -400,6 +437,7 @@ export const markNotificationRead = async (id: string): Promise<void> => {
       const docRef = doc(db, 'notifications', id);
       await setDoc(docRef, {
         read: true,
+        isRead: true,
         updatedAtDeviceTime: nowIso,
         syncStatus: 'SYNCED',
         serverSyncTime: nowIso,
@@ -416,9 +454,9 @@ export const markNotificationRead = async (id: string): Promise<void> => {
  * Mark all notifications as read for current user
  */
 export const markAllNotificationsRead = async (user: {
-  id: string;
-  employeeCode: string;
-  role: string;
+  id?: string;
+  employeeCode?: string;
+  role?: string;
 }): Promise<void> => {
   const nowIso = new Date().toISOString();
   const local = getStoredNotifications();
@@ -428,14 +466,9 @@ export const markAllNotificationsRead = async (user: {
   local.forEach((n) => {
     if (n.deleted || isNotificationDeletedLocally(n.id) || getPendingDeletes().includes(n.id)) return;
 
-    const isOwn = n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
-    const isTLMgmt = user.role === 'TEAM_LEADER' && (n.recipientTeamLeaderId === user.id || n.recipientTeamLeaderId === user.employeeCode);
-    const isAdminType = user.role === 'ADMIN' && n.recipientRole === 'ADMIN';
-    const isSuperAdminType = user.role === 'SUPER_ADMIN' && (n.recipientRole === 'ADMIN' || n.recipientRole === 'SUPER_ADMIN');
-    const isSystem = (n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM') && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN');
-    
-    if (!n.read && (isOwn || isTLMgmt || isAdminType || isSuperAdminType || isSystem)) {
+    if ((!n.read && !(n as any).isRead) && isNotificationForUser(n, user)) {
       n.read = true;
+      (n as any).isRead = true;
       n.updatedAtDeviceTime = nowIso;
       n.syncStatus = 'PENDING';
       updatedNotifs.push(n);
@@ -455,6 +488,7 @@ export const markAllNotificationsRead = async (user: {
         const ref = doc(db, 'notifications', n.id);
         batch.set(ref, {
           read: true,
+          isRead: true,
           updatedAtDeviceTime: nowIso,
           syncStatus: 'SYNCED',
           serverSyncTime: nowIso,
@@ -475,45 +509,18 @@ export const markAllNotificationsRead = async (user: {
  * Get count of unread notifications locally
  */
 export const getUnreadNotificationCount = (user: {
-  id: string;
-  employeeCode: string;
-  role: string;
+  id?: string;
+  employeeCode?: string;
+  role?: string;
 } | null | undefined): number => {
   if (!user || (!user.id && !user.employeeCode)) {
     return 0;
   }
   const local = getStoredNotifications();
   return local.filter((n) => {
-    if (n.read || getPendingReads().includes(n.id)) return false;
+    if (n.read || (n as any).isRead || getPendingReads().includes(n.id)) return false;
     if (n.deleted || isNotificationDeletedLocally(n.id) || getPendingDeletes().includes(n.id)) return false;
-    
-    if (n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM') {
-      return user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
-    }
-    
-    if (user.role === 'EMPLOYEE') {
-      return n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
-    }
-
-    if (user.role === 'TEAM_LEADER') {
-      const isOwn = n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
-      const isTeamMgmt = n.recipientTeamLeaderId === user.id || n.recipientTeamLeaderId === user.employeeCode;
-      return isOwn || isTeamMgmt;
-    }
-
-    if (user.role === 'ADMIN') {
-      const isOwn = n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
-      const isAdminType = n.recipientRole === 'ADMIN';
-      return isOwn || isAdminType;
-    }
-
-    if (user.role === 'SUPER_ADMIN') {
-      const isOwn = n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
-      const isAdminType = n.recipientRole === 'ADMIN' || n.recipientRole === 'SUPER_ADMIN';
-      return isOwn || isAdminType;
-    }
-
-    return false;
+    return isNotificationForUser(n, user);
   }).length;
 };
 

@@ -125,12 +125,12 @@ export const NotificationCenter: React.FC = () => {
 
   const handleNotificationClick = async (notif: NotificationRecord) => {
     try {
-      if (!notif.read) {
+      if (!notif.read && !(notif as any).isRead) {
         await markNotificationRead(notif.id);
         // Conditional local update if not using real-time sync
         if (!realtimeSync) {
           setLocalNotifications((prev) =>
-            prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n))
+            prev.map((n) => (n.id === notif.id ? { ...n, read: true, isRead: true } : n))
           );
         }
       }
@@ -180,11 +180,16 @@ export const NotificationCenter: React.FC = () => {
     }
   };
 
+  const isImportantNotification = (n: NotificationRecord) => {
+    const p = String(n.priority || '').toUpperCase();
+    return p === 'HIGH' || p === 'URGENT' || p === 'CRITICAL' || p === 'IMPORTANT';
+  };
+
   // Filter based on tab and category
   const filteredNotifications = notifications.filter((n) => {
     // 1. Filter by Tab (ALL, UNREAD, IMPORTANT)
-    if (activeTab === 'UNREAD' && n.read) return false;
-    if (activeTab === 'IMPORTANT' && n.priority !== 'HIGH' && n.priority !== 'URGENT') return false;
+    if (activeTab === 'UNREAD' && (n.read || (n as any).isRead)) return false;
+    if (activeTab === 'IMPORTANT' && !isImportantNotification(n)) return false;
 
     // 2. Filter by Category
     if (activeCategory !== 'ALL' && n.category !== activeCategory) return false;
@@ -274,7 +279,7 @@ export const NotificationCenter: React.FC = () => {
           </p>
         </div>
 
-        {filteredNotifications.some((n) => !n.read) && (
+        {notifications.some((n) => !n.read && !(n as any).isRead) && (
           <Button
             onClick={handleMarkAllRead}
             variant="outline"

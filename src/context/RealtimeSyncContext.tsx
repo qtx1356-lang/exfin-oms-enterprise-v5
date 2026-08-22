@@ -21,7 +21,7 @@ import { syncPendingExpenseRecords } from '../services/expenses/expenseSyncEngin
 import { syncPendingAttendanceRecords } from '../services/attendance/syncEngine';
 import { syncAllPendingRecords } from '../services/sync/globalSyncEngine';
 import { saveTaskRecord, getStoredTasks } from '../services/planner/taskStorage';
-import { isNotificationDeletedLocally, saveMultipleNotificationsLocally, getPendingDeletes, getPendingReads } from '../services/notification/notificationStorage';
+import { isNotificationDeletedLocally, saveMultipleNotificationsLocally, getPendingDeletes, getPendingReads, getStoredNotifications } from '../services/notification/notificationStorage';
 import { saveLeaveRecord, getStoredLeaves } from '../services/leave/leaveStorage';
 import { saveExpenseRecord, getStoredExpenseRecords } from '../services/expenses/expenseStorage';
 import { saveAttendanceRecord, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration, runSafeWorkingHoursNormalization } from '../services/attendance/attendanceStorage';
@@ -135,11 +135,22 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     window.addEventListener('offline', handleOffline);
     document.addEventListener('visibilitychange', handleVisibility);
 
+    const handleNotificationsUpdated = () => {
+      const stored = getStoredNotifications();
+      const filtered = stored.filter((n) => !n.deleted && !isNotificationDeletedLocally(n.id) && !getPendingDeletes().includes(n.id));
+      setNotifications(filtered);
+      setUnreadNotificationCount(filtered.filter((n) => !n.read && !(n as any).isRead).length);
+    };
+
+    handleNotificationsUpdated();
+    window.addEventListener('exfin-notifications-updated', handleNotificationsUpdated);
+
     return () => {
       clearInterval(autoSyncInterval);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('exfin-notifications-updated', handleNotificationsUpdated);
     };
   }, []);
 
@@ -457,7 +468,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             }
 
             const isReadPending = getPendingReads().includes(docSnap.id);
-            const recordRead = isReadPending ? true : (d.read || false);
+            const recordRead = isReadPending ? true : (d.read || d.isRead || false);
 
             const parsedDate = parseTimestamp(d.timestamp || d.createdAt || d.createdAtDeviceTime);
             const canonicalTime = parsedDate ? parsedDate.toISOString() : '';
@@ -476,6 +487,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
               entityId: d.entityId || '',
               entityType: d.entityType || '',
               read: recordRead,
+              isRead: recordRead,
               timestamp: canonicalTime,
               createdAtDeviceTime: d.createdAtDeviceTime || canonicalTime,
               updatedAtDeviceTime: d.updatedAtDeviceTime || canonicalTime,
@@ -492,7 +504,11 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
           // Merge all queries
           const mergedMap = new Map<string, NotificationRecord>();
           Object.values(notifSnapshots).forEach((arr) => {
-            arr.forEach((n) => mergedMap.set(n.id, n));
+            arr.forEach((n) => {
+              const pendingReads = getPendingReads();
+              const isRead = n.read || (n as any).isRead || pendingReads.includes(n.id);
+              mergedMap.set(n.id, { ...n, read: isRead, isRead: isRead });
+            });
           });
 
           const finalNotifsList = Array.from(mergedMap.values()).sort((a, b) => {
@@ -504,7 +520,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
           });
 
           setNotifications(finalNotifsList);
-          setUnreadNotificationCount(finalNotifsList.filter((n) => !n.read).length);
+          setUnreadNotificationCount(finalNotifsList.filter((n) => !n.read && !(n as any).isRead).length);
 
           // Save to local storage to keep it fully synchronized and dispatch update event
           saveMultipleNotificationsLocally(finalNotifsList);
