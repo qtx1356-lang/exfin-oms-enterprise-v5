@@ -60,7 +60,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord, AttendanceCorrection, LiveEmployeeLocation } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn, sanitizeFirestorePayload } from '../../utils/attendanceUtils';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { ExpenseRecord } from '../../types/expense';
@@ -749,21 +749,21 @@ export const AdminDashboard: React.FC = () => {
       // Build updated data & audit logs
       const correctionItem: AttendanceCorrection = {
         id: `corr_${Date.now()}`,
-        originalCheckIn: currentRecordData.checkInTime,
+        originalCheckIn: currentRecordData.checkInTime || 'N/A',
         correctedCheckIn: proposedIn,
         originalCheckOut: currentRecordData.checkOutTime || null,
         correctedCheckOut: proposedOut ? proposedOut : null,
         reason: reasonText.trim(),
         correctedBy: loginId || adminUser?.email || 'admin',
-        correctedByRole: role,
+        correctedByRole: role || 'ADMIN',
         correctedAt: new Date().toISOString()
       };
 
       // Add other requested fields to the audit trail object
       const fullAuditRecord = {
         ...correctionItem,
-        employeeName: currentRecordData.employeeName || targetRecord.employeeName,
-        employeeCode: currentEmpId,
+        employeeName: currentRecordData.employeeName || targetRecord.employeeName || 'Unknown',
+        employeeCode: currentEmpId || targetEmpId || 'Unknown',
         attendanceDate: currentRecordData.date,
         previousCheckoutType: currentRecordData.checkoutType || currentRecordData.checkOutMode || 'N/A',
         newCheckoutType: proposedOut ? (proposedOut === (currentRecordData.lastExitTime || currentRecordData.exitTime) ? 'Automatic Checkout' : 'Manual Checkout') : 'Pending',
@@ -780,7 +780,9 @@ export const AdminDashboard: React.FC = () => {
       const updatedCheckoutType = isProposedAutoCheckout ? 'AUTO_CHECKOUT' : (proposedOut ? 'MANUAL' : 'N/A');
       const updatedCheckoutMode = isProposedAutoCheckout ? 'AUTO_SYSTEM' : (proposedOut ? 'MANUAL' : 'N/A');
 
-      const updatePayload: Partial<AttendanceRecord> = {
+      const rawPrevStatus = currentRecordData.checkoutStatus || currentRecordData.status;
+
+      const updatePayload: Record<string, any> = {
         checkInTime: proposedIn,
         checkOutTime: proposedOut ? proposedOut : null,
         workingHours: newWorkingHours,
@@ -791,7 +793,6 @@ export const AdminDashboard: React.FC = () => {
         checkoutResolvedBy: adminUser?.displayName || loginId || 'Admin',
         checkoutResolvedAt: new Date().toISOString(),
         resolutionSource: isProposedTimeMatches ? 'EMPLOYEE_PROPOSED' : 'ADMIN_CORRECTION',
-        previousStatus: currentRecordData.checkoutStatus || currentRecordData.status,
         status: proposedOut ? 'completed' : 'UNRESOLVED',
         manualRectified: true,
         isAdminRectified: true,
@@ -799,7 +800,13 @@ export const AdminDashboard: React.FC = () => {
         version: ((currentRecordData as any)?.version || 1) + 1
       };
 
-      await updateDoc(targetDocRef, updatePayload);
+      if (rawPrevStatus !== undefined && rawPrevStatus !== null && rawPrevStatus !== '') {
+        updatePayload.previousStatus = rawPrevStatus;
+      }
+
+      const sanitizedPayload = sanitizeFirestorePayload(updatePayload);
+
+      await updateDoc(targetDocRef, sanitizedPayload);
 
       // Re-fetch to display the finalized corrected record in the success state
       const finalSnap = await getDoc(targetDocRef);
@@ -810,22 +817,22 @@ export const AdminDashboard: React.FC = () => {
       setCorrectionMessage('Correction completed');
 
       try {
-        await createAuditLog({
+        await createAuditLog(sanitizeFirestorePayload({
           action: 'Attendance Correction',
           actionCategory: 'Attendance',
           performedByUserId: adminUser?.uid || loginId || 'admin',
           performedByName: adminUser?.displayName || loginId || 'Admin',
-          performedByRole: role,
-          employeeCode: currentRecordData.employeeId,
-          targetUserId: currentRecordData.employeeId,
-          targetUserName: currentRecordData.employeeName,
+          performedByRole: role || 'ADMIN',
+          employeeCode: currentRecordData.employeeId || 'Unknown',
+          targetUserId: currentRecordData.employeeId || 'Unknown',
+          targetUserName: currentRecordData.employeeName || 'Unknown',
           targetRecordId: targetRecord.id,
-          description: `Admin corrected attendance record for ${currentRecordData.employeeName} (${currentRecordData.employeeId}).`,
-          oldValue: { checkInTime: currentRecordData.checkInTime, checkOutTime: currentRecordData.checkOutTime },
-          newValue: { checkInTime: proposedIn, checkOutTime: proposedOut },
+          description: `Admin corrected attendance record for ${currentRecordData.employeeName || 'employee'} (${currentRecordData.employeeId || ''}).`,
+          oldValue: { checkInTime: currentRecordData.checkInTime || null, checkOutTime: currentRecordData.checkOutTime || null },
+          newValue: { checkInTime: proposedIn, checkOutTime: proposedOut || null },
           result: 'SUCCESS',
           source: 'ADMIN_PANEL'
-        });
+        }));
       } catch (auditErr) {
         console.error('Audit log error:', auditErr);
       }

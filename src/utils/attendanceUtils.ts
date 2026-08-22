@@ -7,6 +7,39 @@ import { OFFICE_LOCATION, getDistanceFromLatLonInM, parseAttendanceTimeToMinutes
 export { parseAttendanceTimeToMinutes };
 
 /**
+ * Recursively removes any keys with undefined values from an object/array
+ * to prevent Firestore "Unsupported field value: undefined" errors.
+ */
+export function sanitizeFirestorePayload<T extends Record<string, any>>(obj: T): T {
+  if (!obj || typeof obj !== 'object') return obj;
+
+  if (Array.isArray(obj)) {
+    return obj
+      .map((item) => {
+        if (item !== null && typeof item === 'object' && !(item instanceof Date)) {
+          return sanitizeFirestorePayload(item);
+        }
+        return item;
+      })
+      .filter((item) => item !== undefined) as unknown as T;
+  }
+
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      if (value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+        clean[key] = sanitizeFirestorePayload(value);
+      } else if (Array.isArray(value)) {
+        clean[key] = sanitizeFirestorePayload(value as any);
+      } else {
+        clean[key] = value;
+      }
+    }
+  }
+  return clean as T;
+}
+
+/**
  * Returns the earliest valid check-in time string between two candidates.
  */
 export const getEarliestCheckInTime = (timeA: string | null | undefined, timeB: string | null | undefined): string | null => {
