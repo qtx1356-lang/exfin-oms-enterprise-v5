@@ -110,20 +110,27 @@ async function startServer() {
         return res.status(400).json({ error: "Missing or invalid employee identity" });
       }
 
+      const eventTypeParam = payload.eventType || (payload.transition === "EXIT" ? "EXIT" : payload.transition === "ENTER" ? "ENTER" : null);
+      const isLocationUnavailable = !!payload.locationUnavailable || (typeof latitude !== "number" || isNaN(latitude) || (latitude === 0 && longitude === 0));
+
       // 2. Validate coordinates bounds & values
-      if (
-        typeof latitude !== "number" ||
-        typeof longitude !== "number" ||
-        isNaN(latitude) ||
-        isNaN(longitude) ||
-        latitude < -90 ||
-        latitude > 90 ||
-        longitude < -180 ||
-        longitude > 180 ||
-        (latitude === 0 && longitude === 0)
-      ) {
-        console.warn(`[Median Backend] Rejected invalid coordinates from ${employeeId}: lat=${latitude}, lng=${longitude}`);
-        return res.status(400).json({ error: "Invalid coordinates provided" });
+      if (isLocationUnavailable && eventTypeParam) {
+        // Legitimate transition but location is unavailable. This is acceptable under fallback requirements.
+      } else {
+        if (
+          typeof latitude !== "number" ||
+          typeof longitude !== "number" ||
+          isNaN(latitude) ||
+          isNaN(longitude) ||
+          latitude < -90 ||
+          latitude > 90 ||
+          longitude < -180 ||
+          longitude > 180 ||
+          (latitude === 0 && longitude === 0)
+        ) {
+          console.warn(`[Median Backend] Rejected invalid coordinates from ${employeeId}: lat=${latitude}, lng=${longitude}`);
+          return res.status(400).json({ error: "Invalid coordinates provided" });
+        }
       }
 
       // 3. Validate timestamp sanity
@@ -180,21 +187,29 @@ async function startServer() {
       const townCity = empData.townCity || "Raniganj HQ";
 
       // Calculate distance to office
-      const distance = calculateDistanceInMeters(latitude, longitude, OFFICE_LAT, OFFICE_LNG);
-      const isInside = distance <= GEOFENCE_RADIUS_METERS;
-      const isExit = distance > GEOFENCE_RADIUS_METERS;
+      const distance = isLocationUnavailable ? null : calculateDistanceInMeters(latitude, longitude, OFFICE_LAT, OFFICE_LNG);
+      
+      let isInside = false;
+      let isExit = false;
+      if (isLocationUnavailable && eventTypeParam) {
+        isInside = (eventTypeParam === "ENTER" || eventTypeParam === "GEOFENCE_RETURN");
+        isExit = (eventTypeParam === "EXIT" || eventTypeParam === "GEOFENCE_EXIT");
+      } else {
+        isInside = distance !== null && distance <= GEOFENCE_RADIUS_METERS;
+        isExit = distance !== null && distance > GEOFENCE_RADIUS_METERS;
+      }
 
-      console.log(`[Median Backend] Location payload validated for ${employeeName} (${employeeId}): (${latitude.toFixed(6)}, ${longitude.toFixed(6)}) - Distance: ${Math.round(distance)}m - Inside: ${isInside}`);
+      console.log(`[Median Backend] Location payload validated for ${employeeName} (${employeeId}): Lat/Lng=${isLocationUnavailable ? "Unavailable" : `(${latitude.toFixed(6)}, ${longitude.toFixed(6)})`} - Distance: ${distance !== null ? `${Math.round(distance)}m` : "Unavailable"} - Inside: ${isInside}`);
 
       // 5. Persist to live_locations/{employeeId}
       const liveDocRef = db.collection("live_locations").doc(employeeId);
       await liveDocRef.set({
         employeeId,
         employeeName,
-        latitude,
-        longitude,
+        latitude: isLocationUnavailable ? null : latitude,
+        longitude: isLocationUnavailable ? null : longitude,
         accuracy: typeof accuracy === "number" && Number.isFinite(accuracy) ? accuracy : null,
-        distanceFromOffice: distance,
+        distanceFromOffice: isLocationUnavailable ? "location unavailable" : distance,
         townCity,
         timestamp: tsDate.toISOString(),
         updatedAt: new Date().toISOString()
@@ -229,7 +244,7 @@ async function startServer() {
 
         // Idempotency: Create a unique event ID based on type and timestamp to prevent duplicates
         const eventType = isInside ? "GEOFENCE_RETURN" : "GEOFENCE_EXIT";
-        const eventId = `evt_${employeeId}_${dateStr}_${eventType}_${timeStr.replace(/\s+/g, "_")}`;
+        const eventId = payload.eventId || `evt_${employeeId}_${dateStr}_${eventType}_${timeStr.replace(/\s+/g, "_")}`;
 
         if (record.processedEvents?.includes(eventId)) {
           // Already processed this background transition
@@ -250,9 +265,14 @@ async function startServer() {
             record.returningToOffice = false;
             record.currentState = "PENDING_EXIT_CONFIRMATION";
             
-            record.checkoutLatitude = latitude;
-            record.checkoutLongitude = longitude;
-            record.checkoutDistance = distance;
+            if (!isLocationUnavailable) {
+              record.checkoutLatitude = latitude;
+              record.checkoutLongitude = longitude;
+              record.checkoutDistance = distance;
+            } else {
+              record.checkoutLocationUnavailable = true;
+              record.checkoutDistance = "location unavailable";
+            }
             record.checkoutTownCity = townCity;
 
             record.processedEvents = updatedProcessedEvents;
@@ -315,10 +335,10 @@ async function startServer() {
             eventType,
             eventTime: timeStr,
             location: {
-              latitude,
-              longitude,
+              latitude: isLocationUnavailable ? null : latitude,
+              longitude: isLocationUnavailable ? null : longitude,
               townCity,
-              distance
+              distance: isLocationUnavailable ? "location unavailable" : distance
             },
             attendanceMode: record.attendanceType || "OFFICE",
             source: "AUTO_GEOFENCE",
@@ -330,7 +350,7 @@ async function startServer() {
       });
 
       if (transitionRecorded) {
-        console.log(`[Median Backend] Transition successful for ${employeeName} to state: ${targetState} (Distance: ${Math.round(distance)}m)`);
+        console.log(`[Median Backend] Transition successful for ${employeeName} to state: ${targetState} (Distance: ${isLocationUnavailable ? "unavailable" : `${Math.round(distance!)}m`})`);
       }
 
       return res.json({
@@ -338,7 +358,7 @@ async function startServer() {
         processed: true,
         employeeId,
         employeeName,
-        distanceMeters: Math.round(distance),
+        distanceMeters: isLocationUnavailable ? null : Math.round(distance!),
         isInsideGeofence: isInside,
         isExitCandidate: isExit,
         geofenceRadius: GEOFENCE_RADIUS_METERS,

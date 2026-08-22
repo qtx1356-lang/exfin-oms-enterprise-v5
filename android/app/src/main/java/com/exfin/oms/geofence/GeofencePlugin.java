@@ -130,4 +130,38 @@ public class GeofencePlugin extends Plugin {
             call.reject("Failed to remove office geofence: " + e.getMessage(), e);
         }
     }
+
+    @PluginMethod
+    public void setEmployeeIdentity(PluginCall call) {
+        try {
+            Context context = getContext();
+            String id = call.getString("id");
+            String name = call.getString("name");
+            String townCity = call.getString("townCity", "Raniganj HQ");
+            String serverUrl = call.getString("serverUrl");
+
+            if (id != null && !id.trim().isEmpty()) {
+                android.content.SharedPreferences prefs = context.getSharedPreferences("exfin_native_geofence_prefs", Context.MODE_PRIVATE);
+                android.content.SharedPreferences.Editor editor = prefs.edit();
+                editor.putString("employee_id", id);
+                editor.putString("employee_name", name);
+                editor.putString("town_city", townCity);
+                if (serverUrl != null && !serverUrl.trim().isEmpty()) {
+                    editor.putString("server_url", serverUrl);
+                }
+                editor.apply();
+                Log.i(TAG, "Native employee identity set: " + id + " (" + name + ") - Server URL: " + serverUrl);
+                
+                // Immediately trigger background sync check on connectivity in case we have failed queued events
+                OfficeGeofenceHelper.registerNetworkCallbackIfNecessary(context);
+                OfficeGeofenceHelper.triggerBackgroundSync(context);
+                
+                call.resolve();
+            } else {
+                call.reject("Invalid employee ID");
+            }
+        } catch (Exception e) {
+            call.reject("Failed to set employee identity: " + e.getMessage(), e);
+        }
+    }
 }

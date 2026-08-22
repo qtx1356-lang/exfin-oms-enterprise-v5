@@ -8,6 +8,7 @@ export interface NativeGeofencePluginInterface {
   getGeofenceStatus(): Promise<{ isRegistered: boolean; geofenceId: string; radius: number; latitude: number; longitude: number }>;
   getUnconsumedNativeEvents(): Promise<{ events: Array<{ transition: 'EXIT' | 'ENTER'; time: string; date: string; latitude: number; longitude: number; timestamp: number }> }>;
   removeOfficeGeofence(): Promise<{ success: boolean }>;
+  setEmployeeIdentity(identity: { id: string; name: string; townCity: string; serverUrl: string }): Promise<void>;
   addListener(eventName: 'geofenceTransition', listenerFunc: (data: { transition: 'EXIT' | 'ENTER'; time: string; date: string; latitude: number; longitude: number; timestamp: number }) => void): Promise<PluginListenerHandle>;
 }
 
@@ -136,6 +137,18 @@ export const initNativeGeofenceListener = async (
     // Reconcile any past unconsumed events right away
     const info = getEmployeeInfo();
     if (info?.id) {
+      try {
+        const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://exfin-oms-enterprise-v5.pages.dev';
+        await NativeGeofencePlugin.setEmployeeIdentity({
+          id: info.id,
+          name: info.name,
+          townCity: info.townCity || 'Raniganj HQ',
+          serverUrl: originUrl
+        });
+        console.log('[NativeGeofenceBridge] Configured native employee identity on init.');
+      } catch (err) {
+        console.warn('[NativeGeofenceBridge] Failed to set native employee identity:', err);
+      }
       await reconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ');
     }
 

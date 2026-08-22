@@ -144,6 +144,286 @@ public class OfficeGeofenceHelper {
         } catch (Exception e) {
             Log.e(TAG, "Failed to record native geofence event: " + e.getMessage(), e);
         }
+
+        // Trigger Fallback Location Check & Background Synchronization
+        getFallbackLocationAndProcess(context, transitionType, lat, lng);
+    }
+
+    private static final String KEY_SYNC_QUEUE = "native_geofence_sync_queue";
+    private static final java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+    private static boolean isSyncRunning = false;
+    private static boolean isNetworkCallbackRegistered = false;
+
+    public static void registerNetworkCallbackIfNecessary(Context context) {
+        if (context == null || isNetworkCallbackRegistered) return;
+        try {
+            android.net.ConnectivityManager connectivityManager = 
+                (android.net.ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (connectivityManager != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    connectivityManager.registerDefaultNetworkCallback(new android.net.ConnectivityManager.NetworkCallback() {
+                        @Override
+                        public void onAvailable(android.net.Network network) {
+                            Log.i(TAG, "Native Network Available! Retrying background sync for queued geofence events...");
+                            triggerBackgroundSync(context);
+                        }
+                    });
+                    isNetworkCallbackRegistered = true;
+                    Log.i(TAG, "Default network callback registered for background geofence sync retry.");
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to register default network callback: " + e.getMessage(), e);
+        }
+    }
+
+    private static void getFallbackLocationAndProcess(Context context, String transitionType, double inputLat, double inputLng) {
+        // If input coordinates are valid and not exactly the office center (which indicates a default fallback)
+        boolean hasValidLocation = (inputLat != 0.0 && inputLng != 0.0 && 
+                                    (Math.abs(inputLat - OFFICE_LAT) > 0.000001 || Math.abs(inputLng - OFFICE_LNG) > 0.000001));
+
+        if (hasValidLocation) {
+            queueAndSyncEvent(context, transitionType, inputLat, inputLng, 10.0f);
+        } else {
+            // Try to fetch background location via FusedLocationProviderClient
+            try {
+                com.google.android.gms.location.FusedLocationProviderClient fusedClient = 
+                    com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context);
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    fusedClient.getLastLocation().addOnSuccessListener(location -> {
+                        if (location != null) {
+                            queueAndSyncEvent(context, transitionType, location.getLatitude(), location.getLongitude(), location.getAccuracy());
+                        } else {
+                            // Try system LocationManager as secondary fallback
+                            try {
+                                android.location.LocationManager lm = (android.location.LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+                                android.location.Location loc = null;
+                                if (lm != null) {
+                                    if (lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)) {
+                                        loc = lm.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER);
+                                    }
+                                    if (loc == null && lm.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)) {
+                                        loc = lm.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER);
+                                    }
+                                }
+                                if (loc != null) {
+                                    queueAndSyncEvent(context, transitionType, loc.getLatitude(), loc.getLongitude(), loc.getAccuracy());
+                                } else {
+                                    // Persistent with location_unavailable
+                                    queueAndSyncEventLocationUnavailable(context, transitionType);
+                                }
+                            } catch (Exception ex) {
+                                Log.e(TAG, "Error getting location from LocationManager", ex);
+                                queueAndSyncEventLocationUnavailable(context, transitionType);
+                            }
+                        }
+                    }).addOnFailureListener(e -> {
+                        queueAndSyncEventLocationUnavailable(context, transitionType);
+                    });
+                } else {
+                    queueAndSyncEventLocationUnavailable(context, transitionType);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error getting FusedLocationProvider location", e);
+                queueAndSyncEventLocationUnavailable(context, transitionType);
+            }
+        }
+    }
+
+    private static void queueAndSyncEvent(Context context, String transitionType, double lat, double lng, float accuracy) {
+        saveEventToQueue(context, transitionType, lat, lng, accuracy, false);
+        triggerBackgroundSync(context);
+    }
+
+    private static void queueAndSyncEventLocationUnavailable(Context context, String transitionType) {
+        saveEventToQueue(context, transitionType, 0, 0, 0, true);
+        triggerBackgroundSync(context);
+    }
+
+    private static synchronized void saveEventToQueue(Context context, String transitionType, double lat, double lng, float accuracy, boolean locationUnavailable) {
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            String employeeId = prefs.getString("employee_id", null);
+            String employeeName = prefs.getString("employee_name", null);
+            String townCity = prefs.getString("town_city", "Raniganj HQ");
+            String deviceId = android.provider.Settings.Secure.getString(context.getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+
+            if (employeeId == null || employeeId.trim().isEmpty()) {
+                Log.w(TAG, "Skipping saving event to queue: employee_id is not set yet in native preferences.");
+                return;
+            }
+
+            long timestamp = System.currentTimeMillis();
+            String eventId = "evt_native_" + transitionType + "_" + employeeId + "_" + timestamp;
+
+            JSONObject event = new JSONObject();
+            event.put("eventId", eventId);
+            event.put("employeeId", employeeId);
+            event.put("employeeName", employeeName);
+            event.put("townCity", townCity);
+            event.put("deviceId", deviceId);
+            event.put("eventType", transitionType);
+            event.put("eventTimestamp", timestamp);
+            event.put("createdAt", timestamp);
+            event.put("retryCount", 0);
+            event.put("syncStatus", "PENDING");
+
+            if (!locationUnavailable) {
+                event.put("latitude", lat);
+                event.put("longitude", lng);
+                event.put("accuracy", accuracy);
+            } else {
+                event.put("locationUnavailable", true);
+            }
+
+            String existingQueueStr = prefs.getString(KEY_SYNC_QUEUE, "[]");
+            JSONArray queue = new JSONArray(existingQueueStr);
+            queue.put(event);
+
+            prefs.edit().putString(KEY_SYNC_QUEUE, queue.toString()).apply();
+            Log.i(TAG, "Successfully queued native background geofence event: " + eventId + " (Type: " + transitionType + ")");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to save event to queue: " + e.getMessage(), e);
+        }
+    }
+
+    public static void triggerBackgroundSync(Context context) {
+        if (context == null) return;
+        registerNetworkCallbackIfNecessary(context);
+        
+        executor.execute(() -> {
+            synchronized (OfficeGeofenceHelper.class) {
+                if (isSyncRunning) return;
+                isSyncRunning = true;
+            }
+            try {
+                performBackgroundSync(context);
+            } catch (Exception e) {
+                Log.e(TAG, "Exception during background sync task:", e);
+            } finally {
+                synchronized (OfficeGeofenceHelper.class) {
+                    isSyncRunning = false;
+                }
+            }
+        });
+    }
+
+    private static void performBackgroundSync(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String serverUrl = prefs.getString("server_url", null);
+        if (serverUrl == null || serverUrl.trim().isEmpty()) {
+            Log.w(TAG, "Cannot background sync: server_url is not configured yet in SharedPreferences.");
+            return;
+        }
+
+        String queueStr = prefs.getString(KEY_SYNC_QUEUE, "[]");
+        JSONArray queue;
+        try {
+            queue = new JSONArray(queueStr);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to parse sync queue SharedPreferences content:", e);
+            return;
+        }
+
+        if (queue.length() == 0) {
+            return;
+        }
+
+        Log.i(TAG, "Starting background synchronization for " + queue.length() + " queued native events...");
+        JSONArray updatedQueue = new JSONArray();
+
+        for (int i = 0; i < queue.length(); i++) {
+            JSONObject event = queue.optJSONObject(i);
+            if (event == null) continue;
+
+            String status = event.optString("syncStatus", "PENDING");
+            if ("SYNCED".equals(status)) {
+                continue;
+            }
+
+            int retryCount = event.optInt("retryCount", 0);
+            String eventId = event.optString("eventId");
+            String employeeId = event.optString("employeeId");
+            String eventType = event.optString("eventType");
+            long eventTimestamp = event.optLong("eventTimestamp");
+
+            try {
+                event.put("syncStatus", "SYNCING");
+            } catch (Exception ex) {
+                Log.e(TAG, "Failed to update event status to SYNCING", ex);
+            }
+
+            // Format JSON payload for backend
+            JSONObject payload = new JSONObject();
+            try {
+                payload.put("employeeId", employeeId);
+                payload.put("employeeName", event.optString("employeeName"));
+                payload.put("townCity", event.optString("townCity"));
+                payload.put("deviceId", event.optString("deviceId"));
+                payload.put("eventId", eventId);
+                payload.put("eventType", eventType);
+                payload.put("source", "NATIVE_GEOFENCE_" + eventType);
+
+                if (event.optBoolean("locationUnavailable", false)) {
+                    payload.put("locationUnavailable", true);
+                } else {
+                    payload.put("latitude", event.optDouble("latitude"));
+                    payload.put("longitude", event.optDouble("longitude"));
+                    payload.put("accuracy", event.optDouble("accuracy"));
+                }
+
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+                sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+                String isoTimestamp = sdf.format(new Date(eventTimestamp));
+                payload.put("timestamp", isoTimestamp);
+
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to build sync request payload", e);
+                updatedQueue.put(event);
+                continue;
+            }
+
+            // Perform HTTP request
+            boolean success = false;
+            try {
+                java.net.URL url = new java.net.URL(serverUrl + "/api/median-background-location");
+                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(10000);
+
+                java.io.OutputStream os = conn.getOutputStream();
+                os.write(payload.toString().getBytes("UTF-8"));
+                os.close();
+
+                int code = conn.getResponseCode();
+                if (code == 200 || code == 201) {
+                    success = true;
+                    Log.i(TAG, "Successfully synced native background event " + eventId + " to backend. HTTP " + code);
+                } else {
+                    Log.w(TAG, "Server rejected background geofence event " + eventId + ". HTTP response: " + code);
+                }
+                conn.disconnect();
+            } catch (Exception e) {
+                Log.w(TAG, "Network connection error while syncing background geofence event " + eventId + ": " + e.getMessage());
+            }
+
+            if (success) {
+                // Event synced, do not put back into the updated queue.
+            } else {
+                try {
+                    event.put("syncStatus", "FAILED");
+                    event.put("retryCount", retryCount + 1);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error updating event retry state", e);
+                }
+                updatedQueue.put(event);
+            }
+        }
+
+        prefs.edit().putString(KEY_SYNC_QUEUE, updatedQueue.toString()).apply();
     }
 
     public static JSONArray getAndClearUnconsumedEvents(Context context) {
