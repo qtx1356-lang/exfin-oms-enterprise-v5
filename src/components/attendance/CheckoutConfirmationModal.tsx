@@ -74,11 +74,31 @@ export const CheckoutConfirmationModal: React.FC = () => {
   useEffect(() => {
     if (activeRecord) {
       document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
     } else {
       document.body.style.overflow = 'unset';
+      document.body.style.touchAction = 'auto';
     }
     return () => {
       document.body.style.overflow = 'unset';
+      document.body.style.touchAction = 'auto';
+    };
+  }, [activeRecord]);
+
+  // Trap Android / Browser Back button navigation to prevent bypassing or closing modal
+  useEffect(() => {
+    if (!activeRecord) return;
+
+    window.history.pushState({ checkoutModal: true }, '', window.location.href);
+
+    const handlePopState = (e: PopStateEvent) => {
+      e.preventDefault();
+      window.history.pushState({ checkoutModal: true }, '', window.location.href);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
     };
   }, [activeRecord]);
 

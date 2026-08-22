@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, CalendarCheck, Briefcase, BarChart3, Users } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { usePermission } from '../../context/PermissionContext';
+import { getTodayAttendanceRecord } from '../../services/attendance/attendanceStorage';
+import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEngine';
 
 export const BottomNav: React.FC = React.memo(() => {
   const navigate = useNavigate();
@@ -20,6 +22,34 @@ export const BottomNav: React.FC = React.memo(() => {
     ...(isTL ? [{ icon: Users, label: 'My Team', path: '/my-team' }] : []),
   ];
 
+  const handleNavClick = (e: React.MouseEvent, path: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Prevent navigation if checkout confirmation is pending
+    if (employeeData) {
+      const empCode = employeeData.employeeCode || employeeData.employeeId;
+      if (empCode) {
+        const todayStr = getFormattedDateStr();
+        const rec = getTodayAttendanceRecord(empCode, todayStr);
+        if (
+          rec &&
+          rec.checkInTime &&
+          rec.checkInTime !== '--:--' &&
+          (!rec.checkOutTime || rec.checkoutStatus !== 'COMPLETED') &&
+          (rec.pendingCheckoutConfirmation === true || rec.currentState === 'PENDING_EXIT_CONFIRMATION')
+        ) {
+          // Navigation blocked while modal is active
+          return;
+        }
+      }
+    }
+
+    if (location.pathname !== path) {
+      navigate(path);
+    }
+  };
+
   return (
     <nav aria-label="Bottom Navigation" className="fixed bottom-3 left-2 right-2 max-w-md mx-auto h-16 bg-[#2D1B5A]/95 backdrop-blur-2xl border border-purple-500/30 rounded-full flex items-center justify-around px-1.5 z-[100] shadow-[0_10px_35px_rgba(0,0,0,0.5)] pointer-events-auto">
       {navItems.map((item) => {
@@ -28,12 +58,7 @@ export const BottomNav: React.FC = React.memo(() => {
           <button
             key={item.path}
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              if (location.pathname !== item.path) {
-                navigate(item.path);
-              }
-            }}
+            onClick={(e) => handleNavClick(e, item.path)}
             className={`flex flex-col items-center justify-center flex-1 min-w-0 h-12 rounded-full transition-all duration-75 touch-manipulation cursor-pointer active:scale-95 ${
               isActive ? 'text-white' : 'text-purple-300/60 hover:text-purple-200'
             }`}

@@ -326,7 +326,7 @@ export const AutomaticAttendanceEngine = {
     }
 
     if (record && !record.checkOutTime && (record.attendanceType === 'OFFICE' || !record.attendanceType)) {
-      if ((currentState === 'CHECKED_IN' || currentState === 'ENTERING') && !isInside) {
+      if ((currentState === 'CHECKED_IN' || currentState === 'ENTERING' || currentState === 'RETURNING_TO_OFFICE') && !isInside) {
         // EXIT GEOFENCE: CHECKED_IN -> PENDING_EXIT_CONFIRMATION
         console.log('[AUTO_EXIT_DETECTED]', {
           employeeId,
@@ -565,12 +565,14 @@ export const AutomaticAttendanceEngine = {
         break;
 
       case 'GEOFENCE_EXIT':
-        if (record.currentState === 'CHECKED_IN' || record.currentState === 'ENTERING' || !record.currentState) {
-          // State Transition: CHECKED_IN -> PENDING_EXIT_CONFIRMATION
+        if (record.currentState === 'CHECKED_IN' || record.currentState === 'ENTERING' || record.currentState === 'RETURNING_TO_OFFICE' || !record.currentState) {
+          // State Transition: CHECKED_IN / RETURNING_TO_OFFICE -> PENDING_EXIT_CONFIRMATION
           record.lastExitTime = timeStr;
           record.exitTime = record.exitTime || timeStr;
-          record.geofenceExitTime = record.geofenceExitTime || timeStr;
-          record.geofenceExitTimestamp = record.geofenceExitTimestamp || eventIso;
+          if (record.currentState === 'RETURNING_TO_OFFICE' || !record.geofenceExitTime) {
+            record.geofenceExitTime = timeStr;
+            record.geofenceExitTimestamp = eventIso;
+          }
           record.pendingCheckoutConfirmation = true;
           record.returningToOffice = false;
           record.currentState = 'PENDING_EXIT_CONFIRMATION';
