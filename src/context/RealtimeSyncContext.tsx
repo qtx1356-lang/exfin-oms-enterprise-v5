@@ -25,6 +25,7 @@ import { isNotificationDeletedLocally, saveMultipleNotificationsLocally, getPend
 import { saveLeaveRecord, getStoredLeaves } from '../services/leave/leaveStorage';
 import { saveExpenseRecord, getStoredExpenseRecords } from '../services/expenses/expenseStorage';
 import { saveAttendanceRecord, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration, runSafeWorkingHoursNormalization } from '../services/attendance/attendanceStorage';
+import { hasActualCheckIn, getEarliestCheckInTime } from '../utils/attendanceUtils';
 import { logSyncListenerUpdate } from '../services/sync/syncPerformanceLogger';
 
 export type SyncStateIndicator =
@@ -336,6 +337,23 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                 } else {
                   syncDecision = 'SAME';
                   finalRec = sa;
+                }
+
+                // WRITE-ONCE CHECK-IN TIME SAFEGUARD:
+                // If either localRec or sa has a valid check-in time, ensure the EARLIEST valid check-in time is strictly preserved.
+                if ((hasActualCheckIn(localRec) || hasActualCheckIn(sa)) && !sa.isAdminRectified && !sa.manualRectified) {
+                  const earliestIn = getEarliestCheckInTime(localRec?.checkInTime, sa?.checkInTime);
+                  if (earliestIn) {
+                    finalRec = { ...finalRec, checkInTime: earliestIn };
+                    if (localRec && localRec.checkInTime === earliestIn) {
+                      finalRec.createdAtDeviceTime = localRec.createdAtDeviceTime || finalRec.createdAtDeviceTime;
+                      finalRec.checkInLatitude = localRec.checkInLatitude ?? finalRec.checkInLatitude;
+                      finalRec.checkInLongitude = localRec.checkInLongitude ?? finalRec.checkInLongitude;
+                      finalRec.checkInDistance = localRec.checkInDistance ?? finalRec.checkInDistance;
+                      finalRec.checkInTownCity = localRec.checkInTownCity || finalRec.checkInTownCity;
+                      finalRec.checkInMode = localRec.checkInMode || finalRec.checkInMode;
+                    }
+                  }
                 }
               } else {
                 syncDecision = 'CREATED_FROM_SERVER';

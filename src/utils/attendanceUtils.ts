@@ -1,5 +1,25 @@
 import { AttendanceRecord, LiveEmployeeLocation } from '../types/attendance';
-import { OFFICE_LOCATION, getDistanceFromLatLonInM } from '../services/attendance/smartAttendanceEngine';
+import { OFFICE_LOCATION, getDistanceFromLatLonInM, parseAttendanceTimeToMinutes } from '../services/attendance/smartAttendanceEngine';
+
+/**
+ * Parses attendance time string to minutes from midnight.
+ */
+export { parseAttendanceTimeToMinutes };
+
+/**
+ * Returns the earliest valid check-in time string between two candidates.
+ */
+export const getEarliestCheckInTime = (timeA: string | null | undefined, timeB: string | null | undefined): string | null => {
+  const minsA = parseAttendanceTimeToMinutes(timeA);
+  const minsB = parseAttendanceTimeToMinutes(timeB);
+
+  if (minsA !== null && minsB !== null) {
+    return minsA <= minsB ? (timeA as string) : (timeB as string);
+  }
+  if (minsA !== null) return timeA as string;
+  if (minsB !== null) return timeB as string;
+  return null;
+};
 
 /**
  * Authoritative helper to determine if an attendance record represents an actual check-in.
