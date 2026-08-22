@@ -3,6 +3,7 @@ import { collection, onSnapshot, query, where, limit } from 'firebase/firestore'
 import { db } from '../../services/firebase/config';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { Card } from '../../components/ui/Card';
 import { 
   TrendingUp, 
@@ -88,13 +89,31 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   });
 
   // Main UI State
-  const [tasks, setTasks] = useState<TaskRecord[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
-  const [allEmployees, setAllEmployees] = useState<any[]>([]);
+  const { tasks: syncTasks = [], attendance: syncAttendance = [] } = useRealtimeSync();
+
+  const [tasks, setTasks] = useState<TaskRecord[]>(() => {
+    return (!customEmployeeCode || customEmployeeCode === activeEmployeeCode) ? syncTasks : [];
+  });
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => {
+    return (!customEmployeeCode || customEmployeeCode === activeEmployeeCode) ? syncAttendance : [];
+  });
+  const [allEmployees, setAllEmployees] = useState<any[]>(() => employeeData ? [employeeData] : []);
   const [weightages, setWeightages] = useState<EfficiencyWeightages>(DEFAULT_WEIGHTAGES);
   const [historicalSnapshots, setHistoricalSnapshots] = useState<EfficiencySnapshot[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [offlineMode, setOfflineMode] = useState(false);
+
+  // Sync with cached realtime sync data when active employee is selected
+  useEffect(() => {
+    if (!selectedEmployeeCode || selectedEmployeeCode === activeEmployeeCode) {
+      if (syncTasks.length > 0 && tasks.length === 0) {
+        setTasks(syncTasks);
+      }
+      if (syncAttendance.length > 0 && attendance.length === 0) {
+        setAttendance(syncAttendance);
+      }
+    }
+  }, [syncTasks, syncAttendance, selectedEmployeeCode, activeEmployeeCode, tasks.length, attendance.length]);
 
   // Report generation state
   const [reportState, setReportState] = useState<'idle' | 'preparing' | 'success' | 'failure'>('idle');
@@ -202,13 +221,6 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
     effDashEffectCount++;
     activeListeners++;
     const effectId = effDashEffectCount;
-    const effectStartTime = performance.now();
-
-    if (activeListeners > 1) {
-      console.warn(`[EFFICIENCY_LISTENER_DUPLICATE_WARNING] Concurrent active subscription effect count = ${activeListeners}. Possible duplicate listener detected!`);
-    }
-
-    console.log(`[EFFICIENCY_FIRESTORE_START] Effect #${effectId} initializing subscriptions. DB initialized=${Boolean(db)}`);
 
     if (!db) {
       setOfflineMode(true);
@@ -221,81 +233,112 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       setAdminWeights(w);
     });
 
-    // 1. REGISTRATIONS LISTENER
-    const regsStartTime = performance.now();
-    console.log(`[EFFICIENCY_FIRESTORE_START] path=registrations operation=onSnapshot filters=none dateRange=N/A`);
-    const regsPendingTimer = setTimeout(() => {
-      console.warn(`[EFFICIENCY_FIRESTORE_WARNING >5000ms] Listener path=registrations still pending after 5000ms!`);
-    }, 5000);
+    const targetCode = selectedEmployeeCode || activeEmployeeCode;
+    const targetId = activeEmployeeId;
 
-    let regsCallCount = 0;
-    const unsubRegs = onSnapshot(collection(db, 'registrations'), (snap) => {
-      clearTimeout(regsPendingTimer);
-      regsCallCount++;
-      const elapsedMs = Math.round((performance.now() - regsStartTime) * 100) / 100;
-      console.log(`[EFFICIENCY_FIRESTORE_END] path=registrations docsReturned=${snap.docs.length} elapsedMs=${elapsedMs}ms emitCount=${regsCallCount}`);
-      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setAllEmployees(list);
-    }, (err) => {
-      clearTimeout(regsPendingTimer);
-      console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=registrations notice:', err);
-    });
+    if (!targetCode) {
+      setLoading(false);
+      return;
+    }
 
-    // 2. TASKS LISTENER
-    const tasksStartTime = performance.now();
-    console.log(`[EFFICIENCY_FIRESTORE_START] path=tasks operation=onSnapshot filters=limit(500) dateRange=N/A`);
-    const tasksPendingTimer = setTimeout(() => {
-      console.warn(`[EFFICIENCY_FIRESTORE_WARNING >5000ms] Listener path=tasks still pending after 5000ms!`);
-    }, 5000);
+    const unsubs: (() => void)[] = [];
 
-    let tasksCallCount = 0;
-    const tasksQuery = query(collection(db, 'tasks'), limit(500));
-    const unsubTasks = onSnapshot(tasksQuery, (snap) => {
-      clearTimeout(tasksPendingTimer);
-      tasksCallCount++;
-      const elapsedMs = Math.round((performance.now() - tasksStartTime) * 100) / 100;
-      console.log(`[EFFICIENCY_FIRESTORE_END] path=tasks docsReturned=${snap.docs.length} elapsedMs=${elapsedMs}ms emitCount=${tasksCallCount}`);
+    // 1. REGISTRATIONS LISTENER (Background view for Admin / Team Leader only, non-blocking)
+    if (isAdmin || isTeamLeader) {
+      const unsubRegs = onSnapshot(collection(db, 'registrations'), (snap) => {
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setAllEmployees(list);
+      }, (err) => {
+        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=registrations notice:', err);
+      });
+      unsubs.push(unsubRegs);
+    } else if (employeeData) {
+      setAllEmployees([employeeData]);
+    }
+
+    // 2. TARGETED TASKS LISTENER (Employee-specific)
+    const qTasksCode = query(
+      collection(db, 'tasks'),
+      where('assignedToEmployeeCodes', 'array-contains', targetCode),
+      limit(200)
+    );
+    const unsubTasksCode = onSnapshot(qTasksCode, (snap) => {
       const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as TaskRecord[];
-      setTasks(list);
+      setTasks(prev => {
+        const map = new Map<string, TaskRecord>();
+        prev.forEach(t => map.set(t.id, t));
+        list.forEach(t => map.set(t.id, t));
+        return Array.from(map.values());
+      });
     }, (err) => {
-      clearTimeout(tasksPendingTimer);
       console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks notice:', err);
     });
+    unsubs.push(unsubTasksCode);
 
-    // 3. ATTENDANCE LISTENER
-    const attStartTime = performance.now();
-    console.log(`[EFFICIENCY_FIRESTORE_START] path=attendance operation=onSnapshot filters=limit(500) dateRange=N/A`);
-    const attPendingTimer = setTimeout(() => {
-      console.warn(`[EFFICIENCY_FIRESTORE_WARNING >5000ms] Listener path=attendance still pending after 5000ms!`);
-    }, 5000);
+    if (targetId && targetId !== targetCode) {
+      const qTasksId = query(
+        collection(db, 'tasks'),
+        where('assignedToEmployeeIds', 'array-contains', targetId),
+        limit(200)
+      );
+      const unsubTasksId = onSnapshot(qTasksId, (snap) => {
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as TaskRecord[];
+        setTasks(prev => {
+          const map = new Map<string, TaskRecord>();
+          prev.forEach(t => map.set(t.id, t));
+          list.forEach(t => map.set(t.id, t));
+          return Array.from(map.values());
+        });
+      }, (err) => {
+        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks(id) notice:', err);
+      });
+      unsubs.push(unsubTasksId);
+    }
 
-    let attCallCount = 0;
-    const attQuery = query(collection(db, 'attendance'), limit(500));
-    const unsubAtt = onSnapshot(attQuery, (snap) => {
-      clearTimeout(attPendingTimer);
-      attCallCount++;
-      const elapsedMs = Math.round((performance.now() - attStartTime) * 100) / 100;
-      console.log(`[EFFICIENCY_FIRESTORE_END] path=attendance docsReturned=${snap.docs.length} elapsedMs=${elapsedMs}ms emitCount=${attCallCount}`);
+    // 3. TARGETED ATTENDANCE LISTENER (Employee-specific)
+    const qAttCode = query(
+      collection(db, 'attendance'),
+      where('employeeCode', '==', targetCode),
+      limit(365)
+    );
+    const unsubAttCode = onSnapshot(qAttCode, (snap) => {
       const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AttendanceRecord[];
-      setAttendance(list);
-      setLoading(false);
+      setAttendance(prev => {
+        const map = new Map<string, AttendanceRecord>();
+        prev.forEach(a => map.set(a.id, a));
+        list.forEach(a => map.set(a.id, a));
+        return Array.from(map.values());
+      });
     }, (err) => {
-      clearTimeout(attPendingTimer);
       console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance notice:', err);
-      setLoading(false);
     });
+    unsubs.push(unsubAttCode);
+
+    if (targetId && targetId !== targetCode) {
+      const qAttId = query(
+        collection(db, 'attendance'),
+        where('employeeId', '==', targetId),
+        limit(365)
+      );
+      const unsubAttId = onSnapshot(qAttId, (snap) => {
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AttendanceRecord[];
+        setAttendance(prev => {
+          const map = new Map<string, AttendanceRecord>();
+          prev.forEach(a => map.set(a.id, a));
+          list.forEach(a => map.set(a.id, a));
+          return Array.from(map.values());
+        });
+      }, (err) => {
+        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance(id) notice:', err);
+      });
+      unsubs.push(unsubAttId);
+    }
 
     return () => {
       activeListeners--;
-      clearTimeout(regsPendingTimer);
-      clearTimeout(tasksPendingTimer);
-      clearTimeout(attPendingTimer);
-      console.log(`[EFFICIENCY_FIRESTORE_CLEANUP] Unsubscribing subscriptions for Effect #${effectId}. Remaining active listeners = ${activeListeners}`);
-      unsubRegs();
-      unsubTasks();
-      unsubAtt();
+      unsubs.forEach(unsub => unsub());
     };
-  }, []);
+  }, [selectedEmployeeCode, activeEmployeeCode, activeEmployeeId, isAdmin, isTeamLeader]);
 
   // Fetch snapshots
   useEffect(() => {
