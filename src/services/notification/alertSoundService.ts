@@ -246,7 +246,7 @@ export const triggerNewNotificationSound = (
   console.log(`[NotificationSound] PLAY_ATTEMPT ${notif.id}`);
 
   // 5. Play sound and vibration
-  playAlertSound(notif.priority || 'NORMAL', notif.id);
+  playAlertSound(notif.priority || 'NORMAL', notif.id, notif.title, notif.message);
   triggerAlertVibration(notif.priority || 'NORMAL');
 
   return true;
@@ -257,7 +257,9 @@ export const triggerNewNotificationSound = (
  */
 export const playAlertSound = (
   priority: NotificationPriority = 'NORMAL',
-  notifId: string = 'direct'
+  notifId: string = 'direct',
+  title?: string,
+  message?: string
 ): void => {
   try {
     const settings = getNotificationSettings();
@@ -274,7 +276,49 @@ export const playAlertSound = (
 
     if (typeof window === 'undefined') return;
 
-    // 1. Try playing bundled local audio element
+    // Capacitor Native Android Route (Bypasses Web Audio stream limitations)
+    if ((window as any).Capacitor && (window as any).Capacitor.isNativePlatform()) {
+      import('@capacitor/local-notifications').then(({ LocalNotifications }) => {
+        console.log(`[NotificationSound] NATIVE_SOUND_REQUEST ${notifId}`);
+        const channelId = 'exfin_oms_employee_alerts';
+        
+        LocalNotifications.createChannel({
+          id: channelId,
+          name: 'Employee Notifications',
+          description: 'Employee Alerts and Updates',
+          importance: 5, // IMPORTANCE_HIGH for audible sound and heads-up
+          visibility: 1,
+          sound: 'alert.wav',
+          vibration: true,
+        }).then(() => {
+          // Schedule a Local Notification instantly to trigger the native sound
+          return LocalNotifications.schedule({
+            notifications: [
+              {
+                id: Math.floor(Math.random() * 2147483647), // Must be a 32-bit int
+                title: title || 'EXFIN OMS Alert', 
+                body: message || 'You have a new update.',
+                schedule: { at: new Date(Date.now() + 100) }, // Immediate
+                channelId: channelId,
+                sound: 'alert.wav',
+                smallIcon: 'ic_stat_onesignal_default',
+                iconColor: '#7C3AED',
+                extra: { notifId }
+              }
+            ]
+          });
+        }).then(() => {
+          console.log(`[NotificationSound] NATIVE_SOUND_SUCCESS ${notifId}`);
+        }).catch((err) => {
+          console.warn(`[NotificationSound] NATIVE_SOUND_FAILED ${notifId}`, err);
+        });
+      }).catch(err => {
+        console.warn(`[NotificationSound] Failed to import LocalNotifications`, err);
+      });
+      return;
+    }
+
+    // 1. Browser/PWA Fallback: Try playing bundled local audio element
     const audio = getOrCreateAudioElement();
     if (audio) {
       audio.currentTime = 0;
