@@ -30,6 +30,7 @@ const MONTH_NAMES = [
 
 export const PayslipScreen: React.FC = () => {
   const { employeeData } = useRegistration();
+  const employeeCode = employeeData?.employeeCode;
   const navigate = useNavigate();
   const [payslips, setPayslips] = useState<SalaryRecord[]>([]);
   const [selectedPayslip, setSelectedPayslip] = useState<SalaryRecord | null>(null);
@@ -37,17 +38,51 @@ export const PayslipScreen: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
-    if (!db || !employeeData?.employeeCode) {
+    if (!employeeCode) {
       setLoading(false);
       return;
     }
 
+    const cacheKey = `cached_payslips_${employeeCode}`;
+
+    // 1. Check employee-specific cache for instant 0ms rendering
+    let hasCachedData = false;
+    try {
+      const cachedRaw = localStorage.getItem(cacheKey);
+      if (cachedRaw) {
+        const parsed = JSON.parse(cachedRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Validate records belong strictly to the current employee
+          const validRecords = parsed.filter((r: SalaryRecord) => r && r.employeeCode === employeeCode);
+          if (validRecords.length > 0) {
+            setPayslips(validRecords);
+            setSelectedPayslip((prev) => {
+              if (prev && validRecords.some((r) => r.id === prev.id)) {
+                return prev;
+              }
+              return validRecords[0];
+            });
+            setLoading(false);
+            hasCachedData = true;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse cached payslips:', e);
+    }
+
+    // Only show full-screen loading spinner if no cached data exists
+    if (!hasCachedData) {
+      setLoading(true);
+    }
+
+    // 2. Silently refresh latest payslips from Firestore in background
     const fetchPayslips = async () => {
+      if (!db) return;
       try {
-        setLoading(true);
         const q = query(
           collection(db, 'salaries'),
-          where('employeeCode', '==', employeeData.employeeCode)
+          where('employeeCode', '==', employeeCode)
         );
         const querySnapshot = await getDocs(q);
         const list: SalaryRecord[] = [];
@@ -65,7 +100,22 @@ export const PayslipScreen: React.FC = () => {
 
         setPayslips(list);
         if (list.length > 0) {
-          setSelectedPayslip(list[0]);
+          setSelectedPayslip((prev) => {
+            if (prev) {
+              const existing = list.find((p) => p.id === prev.id || (p.month === prev.month && p.year === prev.year));
+              if (existing) return existing;
+            }
+            return list[0];
+          });
+        } else {
+          setSelectedPayslip(null);
+        }
+
+        // Cache exclusively for this employee
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(list));
+        } catch (e) {
+          console.warn('Failed to cache employee payslips:', e);
         }
       } catch (err) {
         console.error('Error fetching employee payslips:', err);
@@ -75,7 +125,7 @@ export const PayslipScreen: React.FC = () => {
     };
 
     fetchPayslips();
-  }, [employeeData]);
+  }, [employeeCode]);
 
   if (loading) {
     return (
