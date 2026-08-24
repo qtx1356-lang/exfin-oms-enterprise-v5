@@ -846,7 +846,7 @@ export const AutomaticAttendanceEngine = {
         const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
         const newTimestampMs = timestamp.getTime();
 
-        if (isNativeEvent || newTimestampMs < existingTimestampMs || !record.geofenceExitTime) {
+        if (!record.geofenceExitTime || newTimestampMs < existingTimestampMs) {
           record.geofenceExitTime = timeStr;
           record.geofenceExitTimestamp = eventIso;
           record.lastExitTime = timeStr;

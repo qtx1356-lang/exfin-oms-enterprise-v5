@@ -108,12 +108,29 @@ public class OfficeGeofenceHelper {
         return geofencePendingIntent;
     }
 
+    public static double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final int R = 6371000; // Earth radius in meters
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                   Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                   Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
     public static void recordNativeGeofenceEvent(Context context, String transitionType, double lat, double lng) {
         recordNativeGeofenceEvent(context, transitionType, lat, lng, System.currentTimeMillis());
     }
 
     public static void recordNativeGeofenceEvent(Context context, String transitionType, double lat, double lng, long eventTimestamp) {
         if (context == null) return;
+        double distance = 25.0;
+        boolean hasCoords = (lat != 0.0 && lng != 0.0);
+        if (hasCoords) {
+            distance = calculateDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
+        }
+
         try {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             String existingEventsJson = prefs.getString(KEY_EVENTS, "[]");
@@ -141,7 +158,7 @@ public class OfficeGeofenceHelper {
             evt.put("timestamp", eventTimestamp);
             evt.put("exitTimestamp", eventTimestamp);
             evt.put("createdAt", System.currentTimeMillis());
-            evt.put("distance", 25.0);
+            evt.put("distance", distance);
             evt.put("latitude", lat);
             evt.put("longitude", lng);
 
@@ -154,13 +171,13 @@ public class OfficeGeofenceHelper {
             }
             editor.apply();
 
-            Log.i(TAG, "Recorded native geofence event: " + transitionType + " at " + timeStr + " (timestamp=" + eventTimestamp + ")");
+            Log.i(TAG, "Recorded native geofence event: " + transitionType + " at " + timeStr + " (timestamp=" + eventTimestamp + ", dist=" + Math.round(distance) + "m)");
         } catch (Exception e) {
             Log.e(TAG, "Failed to record native geofence event: " + e.getMessage(), e);
         }
 
-        // Trigger Fallback Location Check & Background Synchronization
-        getFallbackLocationAndProcess(context, transitionType, lat, lng);
+        // Trigger Fallback Location Check & Background Synchronization with exact event timestamp and distance
+        getFallbackLocationAndProcess(context, transitionType, lat, lng, eventTimestamp, distance);
     }
 
     private static final String KEY_SYNC_QUEUE = "native_geofence_sync_queue";
@@ -191,13 +208,13 @@ public class OfficeGeofenceHelper {
         }
     }
 
-    private static void getFallbackLocationAndProcess(Context context, String transitionType, double inputLat, double inputLng) {
+    private static void getFallbackLocationAndProcess(Context context, String transitionType, double inputLat, double inputLng, long eventTimestamp, double calculatedDistance) {
         // If input coordinates are valid and not exactly the office center (which indicates a default fallback)
         boolean hasValidLocation = (inputLat != 0.0 && inputLng != 0.0 && 
                                     (Math.abs(inputLat - OFFICE_LAT) > 0.000001 || Math.abs(inputLng - OFFICE_LNG) > 0.000001));
 
         if (hasValidLocation) {
-            queueAndSyncEvent(context, transitionType, inputLat, inputLng, 10.0f);
+            queueAndSyncEvent(context, transitionType, inputLat, inputLng, 10.0f, eventTimestamp, calculatedDistance);
         } else {
             // Try to fetch background location via FusedLocationProviderClient
             try {
@@ -206,7 +223,8 @@ public class OfficeGeofenceHelper {
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                     fusedClient.getLastLocation().addOnSuccessListener(location -> {
                         if (location != null) {
-                            queueAndSyncEvent(context, transitionType, location.getLatitude(), location.getLongitude(), location.getAccuracy());
+                            double dist = calculateDistance(location.getLatitude(), location.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+                            queueAndSyncEvent(context, transitionType, location.getLatitude(), location.getLongitude(), location.getAccuracy(), eventTimestamp, dist);
                         } else {
                             // Try system LocationManager as secondary fallback
                             try {
@@ -221,40 +239,41 @@ public class OfficeGeofenceHelper {
                                     }
                                 }
                                 if (loc != null) {
-                                    queueAndSyncEvent(context, transitionType, loc.getLatitude(), loc.getLongitude(), loc.getAccuracy());
+                                    double dist = calculateDistance(loc.getLatitude(), loc.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+                                    queueAndSyncEvent(context, transitionType, loc.getLatitude(), loc.getLongitude(), loc.getAccuracy(), eventTimestamp, dist);
                                 } else {
                                     // Persistent with location_unavailable
-                                    queueAndSyncEventLocationUnavailable(context, transitionType);
+                                    queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp);
                                 }
                             } catch (Exception ex) {
                                 Log.e(TAG, "Error getting location from LocationManager", ex);
-                                queueAndSyncEventLocationUnavailable(context, transitionType);
+                                queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp);
                             }
                         }
                     }).addOnFailureListener(e -> {
-                        queueAndSyncEventLocationUnavailable(context, transitionType);
+                        queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp);
                     });
                 } else {
-                    queueAndSyncEventLocationUnavailable(context, transitionType);
+                    queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp);
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error getting FusedLocationProvider location", e);
-                queueAndSyncEventLocationUnavailable(context, transitionType);
+                queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp);
             }
         }
     }
 
-    private static void queueAndSyncEvent(Context context, String transitionType, double lat, double lng, float accuracy) {
-        saveEventToQueue(context, transitionType, lat, lng, accuracy, false);
+    private static void queueAndSyncEvent(Context context, String transitionType, double lat, double lng, float accuracy, long eventTimestamp, double distance) {
+        saveEventToQueue(context, transitionType, lat, lng, accuracy, false, eventTimestamp, distance);
         triggerBackgroundSync(context);
     }
 
-    private static void queueAndSyncEventLocationUnavailable(Context context, String transitionType) {
-        saveEventToQueue(context, transitionType, 0, 0, 0, true);
+    private static void queueAndSyncEventLocationUnavailable(Context context, String transitionType, long eventTimestamp) {
+        saveEventToQueue(context, transitionType, 0, 0, 0, true, eventTimestamp, 25.0);
         triggerBackgroundSync(context);
     }
 
-    private static synchronized void saveEventToQueue(Context context, String transitionType, double lat, double lng, float accuracy, boolean locationUnavailable) {
+    private static synchronized void saveEventToQueue(Context context, String transitionType, double lat, double lng, float accuracy, boolean locationUnavailable, long eventTimestamp, double distance) {
         try {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             String employeeId = prefs.getString("employee_id", null);
@@ -267,7 +286,7 @@ public class OfficeGeofenceHelper {
                 return;
             }
 
-            long timestamp = System.currentTimeMillis();
+            long timestamp = (eventTimestamp > 0) ? eventTimestamp : System.currentTimeMillis();
             String eventId = "evt_native_" + transitionType + "_" + employeeId + "_" + timestamp;
 
             JSONObject event = new JSONObject();
@@ -277,10 +296,12 @@ public class OfficeGeofenceHelper {
             event.put("townCity", townCity);
             event.put("deviceId", deviceId);
             event.put("eventType", transitionType);
+            event.put("transition", transitionType);
             event.put("eventTimestamp", timestamp);
-            event.put("createdAt", timestamp);
+            event.put("createdAt", System.currentTimeMillis());
             event.put("retryCount", 0);
             event.put("syncStatus", "PENDING");
+            event.put("distance", distance);
 
             if (!locationUnavailable) {
                 event.put("latitude", lat);
@@ -295,7 +316,7 @@ public class OfficeGeofenceHelper {
             queue.put(event);
 
             prefs.edit().putString(KEY_SYNC_QUEUE, queue.toString()).apply();
-            Log.i(TAG, "Successfully queued native background geofence event: " + eventId + " (Type: " + transitionType + ")");
+            Log.i(TAG, "Successfully queued native background geofence event: " + eventId + " (Type: " + transitionType + ", Timestamp: " + timestamp + ")");
         } catch (Exception e) {
             Log.e(TAG, "Failed to save event to queue: " + e.getMessage(), e);
         }
@@ -376,6 +397,8 @@ public class OfficeGeofenceHelper {
                 payload.put("deviceId", event.optString("deviceId"));
                 payload.put("eventId", eventId);
                 payload.put("eventType", eventType);
+                payload.put("transition", eventType);
+                payload.put("distance", event.optDouble("distance", 25.0));
                 payload.put("source", "NATIVE_GEOFENCE_" + eventType);
 
                 if (event.optBoolean("locationUnavailable", false)) {

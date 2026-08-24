@@ -399,19 +399,25 @@ async function startServer() {
       const townCity = empData.townCity || "Raniganj HQ";
 
       // Calculate distance to office
-      const distance = isLocationUnavailable ? null : calculateDistanceInMeters(latitude, longitude, OFFICE_LAT, OFFICE_LNG);
+      const distance = isLocationUnavailable ? null : (payload.distance !== undefined && typeof payload.distance === "number" ? payload.distance : calculateDistanceInMeters(latitude, longitude, OFFICE_LAT, OFFICE_LNG));
       
       let isInside = false;
       let isExit = false;
-      if (isLocationUnavailable && eventTypeParam) {
-        isInside = (eventTypeParam === "ENTER" || eventTypeParam === "GEOFENCE_RETURN");
-        isExit = (eventTypeParam === "EXIT" || eventTypeParam === "GEOFENCE_EXIT");
+      if (eventTypeParam === "EXIT" || eventTypeParam === "GEOFENCE_EXIT") {
+        isInside = false;
+        isExit = true;
+      } else if (eventTypeParam === "ENTER" || eventTypeParam === "GEOFENCE_RETURN") {
+        isInside = true;
+        isExit = false;
+      } else if (isLocationUnavailable) {
+        isInside = false;
+        isExit = false;
       } else {
         isInside = distance !== null && distance <= GEOFENCE_RADIUS_METERS;
         isExit = distance !== null && distance > GEOFENCE_RADIUS_METERS;
       }
 
-      console.log(`[Median Backend] Location payload validated for ${employeeName} (${employeeId}): Lat/Lng=${isLocationUnavailable ? "Unavailable" : `(${latitude.toFixed(6)}, ${longitude.toFixed(6)})`} - Distance: ${distance !== null ? `${Math.round(distance)}m` : "Unavailable"} - Inside: ${isInside}`);
+      console.log(`[Median Backend] Location payload validated for ${employeeName} (${employeeId}): Lat/Lng=${isLocationUnavailable ? "Unavailable" : `(${latitude.toFixed(6)}, ${longitude.toFixed(6)})`} - Distance: ${distance !== null ? `${Math.round(distance)}m` : "Unavailable"} - Inside: ${isInside} - EventType: ${eventTypeParam || "PERIODIC"}`);
 
       // 5. Persist to live_locations/{employeeId}
       const liveDocRef = db.collection("live_locations").doc(employeeId);
@@ -468,11 +474,16 @@ async function startServer() {
 
         if (!isInside) {
           // Geofence exit transition (INSIDE -> OUTSIDE)
-          if (currentState === "CHECKED_IN" || currentState === "ENTERING") {
-            record.lastExitTime = timeStr;
-            record.exitTime = record.exitTime || timeStr;
-            record.geofenceExitTime = record.geofenceExitTime || timeStr;
-            record.geofenceExitTimestamp = record.geofenceExitTimestamp || eventIso;
+          if (currentState === "CHECKED_IN" || currentState === "ENTERING" || currentState === "RETURNING_TO_OFFICE") {
+            const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
+            const newTimestampMs = tsDate.getTime();
+
+            if (!record.geofenceExitTime || newTimestampMs < existingTimestampMs || currentState === "RETURNING_TO_OFFICE") {
+              record.lastExitTime = timeStr;
+              record.exitTime = record.exitTime || timeStr;
+              record.geofenceExitTime = timeStr;
+              record.geofenceExitTimestamp = eventIso;
+            }
             record.pendingCheckoutConfirmation = true;
             record.returningToOffice = false;
             record.currentState = "PENDING_EXIT_CONFIRMATION";
