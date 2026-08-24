@@ -15,6 +15,54 @@ import {
 import { createNotification } from '../notification/notificationService';
 import { recordSyncFailure, recordSyncSuccess } from '../sync/syncQueueService';
 
+export const buildProfileFromEmployeeData = (data: any, uid: string): EmployeeProfile => {
+  return {
+    id: data.id || uid,
+    uid: data.uid || uid,
+    employeeCode: data.employeeCode || 'EXFRNG000',
+    name: data.name || 'Employee',
+    mobileNumber: data.mobileNumber || '',
+    email: data.email || `${(data.employeeCode || 'employee').toLowerCase()}@company.internal`,
+    department: data.department || data.departmentName || data.office || 'Operations',
+    designation: data.designation || (data.isTeamLeader ? 'Team Leader' : 'Executive'),
+    teamLeaderCode: data.teamLeaderCode || null,
+    teamLeaderName: data.teamLeaderName || null,
+    joiningDate: data.registrationDate ? new Date(data.registrationDate).toLocaleDateString() : 'N/A',
+    employmentStatus: data.status === 'Approved' ? 'Active' : data.status || 'Active',
+    profilePhotoUrl: data.profilePhotoUrl || data.selfieUrl || null,
+    officeLocation: data.officeLocation || data.workLocation || 'Raniganj HQ',
+    reportingManager: data.teamLeaderName || 'Branch Admin',
+    workLocation: data.workLocation || data.officeLocation || 'Raniganj HQ',
+    emergencyContact: data.emergencyContact || 'Not Provided',
+    role: data.role || (data.isTeamLeader ? 'TEAM_LEADER' : 'EMPLOYEE'),
+    baseSalary: data.baseSalary !== undefined ? data.baseSalary : undefined,
+    createdAt: data.registrationDate,
+    updatedAt: new Date().toISOString(),
+  };
+};
+
+export const getInstantProfile = (uid: string, employeeData?: any): EmployeeProfile | null => {
+  if (employeeData && (employeeData.name || employeeData.employeeCode)) {
+    return buildProfileFromEmployeeData(employeeData, uid);
+  }
+  if (uid) {
+    const cached = getCachedProfile(uid);
+    if (cached) return cached;
+  }
+  try {
+    const raw = localStorage.getItem('cached_registration_data');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && (parsed.name || parsed.employeeCode)) {
+        return buildProfileFromEmployeeData(parsed, uid || parsed.uid || parsed.id || '');
+      }
+    }
+  } catch {
+    // Ignore error
+  }
+  return null;
+};
+
 export const loadProfile = async (uid: string, employeeCode?: string): Promise<EmployeeProfile | null> => {
   if (!uid) return null;
 

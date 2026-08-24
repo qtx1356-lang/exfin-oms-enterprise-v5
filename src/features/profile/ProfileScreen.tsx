@@ -30,6 +30,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { EmployeeProfile, ProfileChangeRequest } from '../../types/profile';
 import {
   loadProfile,
+  getInstantProfile,
   uploadProfilePhoto,
   submitProfileChangeRequest,
 } from '../../services/profile/profileService';
@@ -43,8 +44,17 @@ export const ProfileScreen: React.FC = () => {
   const { employeeData, authUser } = useRegistration();
   const { currentRole, hasFeatureAccess } = usePermission();
 
-  const [profile, setProfile] = useState<EmployeeProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const uid = authUser?.uid || localStorage.getItem('registrationId') || '';
+  const employeeCode = employeeData?.employeeCode || '';
+
+  // Synchronous cache-first state initialization
+  const [profile, setProfile] = useState<EmployeeProfile | null>(() => {
+    return getInstantProfile(uid, employeeData);
+  });
+  const [loading, setLoading] = useState<boolean>(() => {
+    const initial = getInstantProfile(uid, employeeData);
+    return !initial;
+  });
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [changeRequests, setChangeRequests] = useState<ProfileChangeRequest[]>([]);
 
@@ -60,32 +70,55 @@ export const ProfileScreen: React.FC = () => {
   const [reason, setReason] = useState('');
   const [submittingRequest, setSubmittingRequest] = useState(false);
 
-  const uid = authUser?.uid || localStorage.getItem('registrationId') || '';
-
-  // 1. Fetch Profile
+  // 1. Fetch Profile (Cache-First Hydration + Background Revalidation)
   useEffect(() => {
     if (!uid) {
       setLoading(false);
       return;
     }
 
-    const fetchProfile = async () => {
-      setLoading(true);
-      const data = await loadProfile(uid, employeeData?.employeeCode);
-      setProfile(data);
+    // Immediately hydrate from local memory/cache if state is empty
+    const instant = getInstantProfile(uid, employeeData);
+    if (instant) {
+      setProfile((prev) => prev || instant);
       setLoading(false);
-    };
+    }
 
-    fetchProfile();
-  }, [uid, employeeData]);
+    let isMounted = true;
+
+    // Background Firestore Revalidation without blocking the rendered UI
+    loadProfile(uid, employeeCode)
+      .then((data) => {
+        if (isMounted && data) {
+          setProfile(data);
+        }
+      })
+      .catch((err) => {
+        console.warn('Background profile revalidation error:', err);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [uid, employeeCode]);
+
+  // Derived stable identifiers for listeners
+  const profileEmpCode = profile?.employeeCode || employeeCode;
+  const isTeamLeader = (profile as any)?.isTeamLeader || currentRole === 'TEAM_LEADER';
+  const officeDept = profile?.department || employeeData?.office || 'Raniganj';
 
   // 2. Real-time Listen to User's Change Requests
   useEffect(() => {
-    if (!db || !profile?.employeeCode) return;
+    if (!db || !profileEmpCode) return;
 
     const q = query(
       collection(db, 'profile_change_requests'),
-      where('employeeCode', '==', profile.employeeCode)
+      where('employeeCode', '==', profileEmpCode)
     );
 
     const unsub = onSnapshot(
@@ -108,29 +141,38 @@ export const ProfileScreen: React.FC = () => {
     );
 
     return () => unsub();
-  }, [profile?.employeeCode]);
+  }, [profileEmpCode]);
 
-  // 3. Team Leader Scope: Fetch Team Members
+  // 3. Team Leader Scope: Fetch Team Members (Stabilized Dependencies)
   useEffect(() => {
-    if (!db || (!(profile as any)?.isTeamLeader && currentRole !== 'TEAM_LEADER')) return;
+    if (!db || !isTeamLeader) return;
 
-    const dept = profile?.department || employeeData?.office || 'Raniganj';
+    let isMounted = true;
     const qTeam = query(
       collection(db, 'registrations'),
-      where('office', '==', dept)
+      where('office', '==', officeDept)
     );
 
-    getDocs(qTeam).then((snap) => {
-      const members: any[] = [];
-      snap.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (data.employeeCode !== profile?.employeeCode) {
-          members.push({ id: docSnap.id, ...data });
-        }
+    getDocs(qTeam)
+      .then((snap) => {
+        if (!isMounted) return;
+        const members: any[] = [];
+        snap.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.employeeCode !== profileEmpCode) {
+            members.push({ id: docSnap.id, ...data });
+          }
+        });
+        setTeamMembers(members);
+      })
+      .catch((err) => {
+        console.warn('Error fetching team members:', err);
       });
-      setTeamMembers(members);
-    });
-  }, [profile, currentRole, employeeData]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isTeamLeader, officeDept, profileEmpCode]);
 
   // Open Edit Request Modal
   const openEditModal = (field: 'mobileNumber' | 'email' | 'emergencyContact', label: string, val: string) => {
