@@ -4,7 +4,26 @@ import { isAttendanceCheckoutUnresolved } from './attendanceUtils';
 
 // Get current date string in Asia/Kolkata timezone (format: YYYY-MM-DD)
 export const getKolkataDateStr = (dateInput: Date = new Date()): string => {
-  return dateInput.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  try {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const parts = formatter.formatToParts(dateInput);
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    if (year && month && day) {
+      return `${year}-${month}-${day}`;
+    }
+  } catch (e) {}
+  
+  const year = dateInput.getFullYear();
+  const month = String(dateInput.getMonth() + 1).padStart(2, '0');
+  const day = String(dateInput.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // Get current time string in Asia/Kolkata timezone (format: hh:mm AM/PM)

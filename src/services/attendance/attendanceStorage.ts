@@ -3,6 +3,8 @@ import { calculateWorkingHours } from './smartAttendanceEngine';
 import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic } from '../../utils/attendanceUtils';
 
 const STORAGE_KEY = 'exfin_attendance_records_v1';
+import { getFormattedDateStr } from './automaticAttendanceEngine';
+
 const MIGRATION_FLAG_KEY = 'exfin_unresolved_migration_v1_executed';
 const WORKING_HOURS_REPAIR_FLAG_KEY = 'exfin_working_hours_repair_v1_executed';
 
@@ -70,7 +72,7 @@ export const runSafeUnresolvedHistoricalMigration = (): MigrationReport => {
     return { migratedCount: 0, skippedCount: 0, migratedDocIds: [], skippedDocIds: [], timestamp: new Date().toISOString() };
   }
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getFormattedDateStr();
   let hasChanges = false;
   const migratedDocIds: string[] = [];
   const skippedDocIds: string[] = [];

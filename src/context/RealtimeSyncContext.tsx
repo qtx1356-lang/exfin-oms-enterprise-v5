@@ -27,7 +27,7 @@ import { initializeNotificationSoundBaseline, triggerNewNotificationSound } from
 import { saveLeaveRecord, getStoredLeaves } from '../services/leave/leaveStorage';
 import { saveExpenseRecord, getStoredExpenseRecords } from '../services/expenses/expenseStorage';
 import { saveAttendanceRecord, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration, runSafeWorkingHoursNormalization } from '../services/attendance/attendanceStorage';
-import { hasActualCheckIn, getEarliestCheckInTime } from '../utils/attendanceUtils';
+import { hasActualCheckIn, getEarliestCheckInTime, getAttendanceCanonicalKey } from '../utils/attendanceUtils';
 import { logSyncListenerUpdate } from '../services/sync/syncPerformanceLogger';
 
 export type SyncStateIndicator =
@@ -307,13 +307,16 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             const map = new Map<string, AttendanceRecord>();
             const prevMap = new Map<string, AttendanceRecord>();
             prevAtt.forEach(la => {
-              const k = la.id || la.docId || `${la.employeeId || la.employeeCode}_${la.date}`;
-              prevMap.set(k, la);
-              map.set(k, la);
+              const k = getAttendanceCanonicalKey(la);
+              if (k) {
+                prevMap.set(k, la);
+                map.set(k, la);
+              }
             });
 
             serverList.forEach((sa) => {
-              const key = sa.id || sa.docId || `${sa.employeeId || sa.employeeCode}_${sa.date}`;
+              const key = getAttendanceCanonicalKey(sa);
+              if (!key) return;
               const localRec = prevMap.get(key);
 
               let syncDecision = 'CREATED';
@@ -391,6 +394,18 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
 
               map.set(key, finalRec);
               saveAttendanceRecord(finalRec);
+
+              console.log('[AttendanceSync] EMPLOYEE_RECORD', {
+                employeeCode: finalRec.employeeId || (finalRec as any).employeeCode,
+                date: finalRec.date,
+                id: finalRec.id,
+                docId: finalRec.docId || key,
+                checkInTime: finalRec.checkInTime,
+                checkOutTime: finalRec.checkOutTime,
+                attendanceMode: finalRec.attendanceType || finalRec.checkInMode,
+                status: finalRec.checkoutStatus || finalRec.status,
+                syncStatus: finalRec.syncStatus
+              });
             });
 
             return Array.from(map.values());
@@ -695,14 +710,27 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       };
 
       saveAttendanceRecord(optimisticRecord);
+      const targetKey = getAttendanceCanonicalKey(optimisticRecord);
+
+      console.log('[AttendanceSync] EMPLOYEE_RECORD', {
+        employeeCode: optimisticRecord.employeeId || (optimisticRecord as any).employeeCode,
+        date: optimisticRecord.date,
+        id: optimisticRecord.id,
+        docId: optimisticRecord.docId || targetKey,
+        checkInTime: optimisticRecord.checkInTime,
+        checkOutTime: optimisticRecord.checkOutTime,
+        attendanceMode: optimisticRecord.attendanceType || optimisticRecord.checkInMode,
+        status: optimisticRecord.checkoutStatus || optimisticRecord.status,
+        syncStatus: optimisticRecord.syncStatus
+      });
+
       setAttendance((prev) => {
-        const idToMatch = optimisticRecord.id || optimisticRecord.docId;
         const exists = prev.some(
-          (a) => (a.id || a.docId) === idToMatch
+          (a) => getAttendanceCanonicalKey(a) === targetKey
         );
         if (exists) {
           return prev.map((a) =>
-            (a.id || a.docId) === idToMatch ? optimisticRecord : a
+            getAttendanceCanonicalKey(a) === targetKey ? optimisticRecord : a
           );
         }
         return [optimisticRecord, ...prev];

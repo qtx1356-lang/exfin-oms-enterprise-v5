@@ -125,10 +125,24 @@ export const hasActualCheckIn = (record: AttendanceRecord | any | null | undefin
 export const isAttendanceCheckoutUnresolved = (record: AttendanceRecord): boolean => {
   if (!record) return false;
 
-  // 1. Get today's date in IST (matching engine logic)
+  // 1. Get today's date in IST (matching engine logic) robustly as YYYY-MM-DD
   let todayStr: string;
   try {
-    todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const parts = formatter.formatToParts(new Date());
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    if (year && month && day) {
+      todayStr = `${year}-${month}-${day}`;
+    } else {
+      throw new Error('Failed to parse parts');
+    }
   } catch (e) {
     const d = new Date();
     const year = d.getFullYear();
@@ -489,4 +503,19 @@ export const getCurrentLocationDetails = (
     statusText: 'Location unavailable',
     isAvailable: false
   };
+};
+
+/**
+ * Resolves canonical key for an attendance record based on employee identity and date.
+ * Ensures consistent matching across local storage and Firestore.
+ */
+export const getAttendanceCanonicalKey = (rec: Partial<AttendanceRecord> | null | undefined): string => {
+  if (!rec) return '';
+  const empId = (rec.employeeId || (rec as any).employeeCode || rec.id || '').trim().toLowerCase();
+  const date = (rec.date || '').trim();
+  const docId = (rec.docId || '').trim().toLowerCase();
+
+  if (docId) return docId;
+  if (empId && date) return `${empId}_${date}`;
+  return (rec.id || '').trim().toLowerCase();
 };

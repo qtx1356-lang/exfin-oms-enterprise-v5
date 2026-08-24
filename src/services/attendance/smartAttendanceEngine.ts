@@ -63,7 +63,20 @@ export const getFormattedTimeStr = (date: Date = new Date()): string => {
 
 export const getFormattedDateStr = (date: Date = new Date()): string => {
   try {
-    return date.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    const parts = formatter.formatToParts(date);
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    if (year && month && day) {
+      return `${year}-${month}-${day}`;
+    }
+    throw new Error('Failed to parse parts');
   } catch (e) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -324,11 +337,6 @@ export const runAutoCheckoutFinalizer = (): void => {
   const now = getIndiaTime();
   const records = getStoredAttendanceRecords();
   let todayStr = getFormattedDateStr(now);
-  try {
-    todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-  } catch (e) {
-    console.warn('Failed to calculate Kolkata date string:', e);
-  }
   const hours = now.getHours();
   const minutes = now.getMinutes();
   const is1159PMOrLater = hours === 23 && minutes >= 59;

@@ -60,7 +60,8 @@ import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord, AttendanceCorrection, LiveEmployeeLocation } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn, sanitizeFirestorePayload, logAttendanceWriteDiagnostic } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn, sanitizeFirestorePayload, logAttendanceWriteDiagnostic, getAttendanceCanonicalKey } from '../../utils/attendanceUtils';
+import { getStoredAttendanceRecords } from '../../services/attendance/attendanceStorage';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { ExpenseRecord } from '../../types/expense';
@@ -117,6 +118,78 @@ export const safeStringify = (val: any): string => {
     }
   }
   return String(val);
+};
+
+export const processAdminAttendanceRecords = (
+  firestoreRecords: AttendanceRecord[]
+): AttendanceRecord[] => {
+  const localRecords = getStoredAttendanceRecords();
+  const map = new Map<string, AttendanceRecord>();
+
+  // Process server records first
+  firestoreRecords.forEach((rec) => {
+    if (!rec) return;
+    const key = getAttendanceCanonicalKey(rec);
+    if (!key) return;
+
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, rec);
+    } else {
+      const existingHasCheckout = !!(existing.checkOutTime && existing.checkOutTime !== '--:--' && existing.checkOutTime !== 'Pending' && existing.checkOutTime !== 'N/A' && existing.checkOutTime !== 'UNRESOLVED');
+      const recHasCheckout = !!(rec.checkOutTime && rec.checkOutTime !== '--:--' && rec.checkOutTime !== 'Pending' && rec.checkOutTime !== 'N/A' && rec.checkOutTime !== 'UNRESOLVED');
+
+      if (recHasCheckout && !existingHasCheckout) {
+        map.set(key, rec);
+      } else if (recHasCheckout && existingHasCheckout) {
+        const recTime = rec.updatedAt ? new Date(rec.updatedAt).getTime() : (rec.serverSyncTime ? new Date(rec.serverSyncTime).getTime() : 0);
+        const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : (existing.serverSyncTime ? new Date(existing.serverSyncTime).getTime() : 0);
+        if (recTime >= existingTime) {
+          map.set(key, rec);
+        }
+      }
+    }
+  });
+
+  // Merge local records (especially pending local checkouts on same device)
+  localRecords.forEach((localRec) => {
+    if (!localRec) return;
+    const key = getAttendanceCanonicalKey(localRec);
+    if (!key) return;
+
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, localRec);
+    } else {
+      const localHasCheckout = !!(localRec.checkOutTime && localRec.checkOutTime !== '--:--' && localRec.checkOutTime !== 'Pending' && localRec.checkOutTime !== 'N/A' && localRec.checkOutTime !== 'UNRESOLVED');
+      const existingHasCheckout = !!(existing.checkOutTime && existing.checkOutTime !== '--:--' && existing.checkOutTime !== 'Pending' && existing.checkOutTime !== 'N/A' && existing.checkOutTime !== 'UNRESOLVED');
+
+      if (localHasCheckout && !existingHasCheckout) {
+        map.set(key, { ...existing, ...localRec });
+      } else if (localRec.syncStatus === 'Pending' && localHasCheckout) {
+        map.set(key, { ...existing, ...localRec });
+      }
+    }
+  });
+
+  const result = Array.from(map.values());
+
+  // Trace Log: [AttendanceSync] ADMIN_RECORD
+  result.forEach((record) => {
+    console.log('[AttendanceSync] ADMIN_RECORD', {
+      employeeCode: record.employeeId || (record as any).employeeCode,
+      date: record.date,
+      id: record.id,
+      docId: record.docId || getAttendanceCanonicalKey(record),
+      checkInTime: record.checkInTime,
+      checkOutTime: record.checkOutTime,
+      attendanceMode: record.attendanceType || record.checkInMode,
+      status: record.checkoutStatus || record.status,
+      syncStatus: record.syncStatus
+    });
+  });
+
+  return result;
 };
 import { LeaveRecord, LeaveConfig, EmployeeAllowance } from '../../types/leave';
 import { reviewLeaveRequest, adminOverrideLeave, updateLeaveConfig, updateEmployeeAllowance, calculateLeaveBalance } from '../../services/leave/leaveService';
@@ -308,7 +381,21 @@ export const AdminDashboard: React.FC = () => {
           
           let todayStr = '';
           try {
-            todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+            const formatter = new Intl.DateTimeFormat('en-GB', {
+              timeZone: 'Asia/Kolkata',
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit'
+            });
+            const parts = formatter.formatToParts(new Date());
+            const year = parts.find(p => p.type === 'year')?.value;
+            const month = parts.find(p => p.type === 'month')?.value;
+            const day = parts.find(p => p.type === 'day')?.value;
+            if (year && month && day) {
+              todayStr = `${year}-${month}-${day}`;
+            } else {
+              throw new Error('Failed to parse');
+            }
           } catch {
             const now = new Date();
             todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -545,7 +632,8 @@ export const AdminDashboard: React.FC = () => {
       snapshot.forEach((doc) => {
         firestoreAtt.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
       });
-      setAttendanceRecords(firestoreAtt);
+      const mergedAtt = processAdminAttendanceRecords(firestoreAtt);
+      setAttendanceRecords(mergedAtt);
       attendanceLoaded = true;
       checkAllLoaded();
     }, () => { attendanceLoaded = true; checkAllLoaded(); });
