@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Edit, Search, Filter, User, CheckCircle2, ShieldCheck, Mail, Phone, Building2, Briefcase, Trash2, Users, Eye } from "lucide-react";
+import { Edit, Search, Filter, User, CheckCircle2, ShieldCheck, Mail, Phone, Building2, Briefcase, Trash2, Users, Eye, KeyRound } from "lucide-react";
 import { useAdminAuth } from "../../context/AdminAuthContext";
 import { db } from "../../services/firebase/config";
 import { collection, onSnapshot, getDocs, doc, deleteDoc } from "firebase/firestore";
@@ -7,7 +7,10 @@ import { ProfileEditModal } from "../../components/common/ProfileEditModal";
 import { DeleteEmployeeModal } from "./DeleteEmployeeModal";
 import { EmployeeProfileModal } from "./EmployeeProfileModal";
 import { TeamManagementTab } from "./TeamManagementTab";
+import { AdminSecurityTab } from "./AdminSecurityTab";
+import { AdminPasswordManagementModal } from "./AdminPasswordManagementModal";
 import { ManagedUser } from "../../types/user";
+import { AdminSecurityUser } from "../../types/adminSecurity";
 import { updateEmployeeProfile } from "../../services/admin/adminProfileService";
 import { updateUserRoleAndStatus } from "../../services/rbac/rbacService";
 import { executeEmployeeDeletion } from "../../services/admin/employeeDeletionService";
@@ -20,7 +23,7 @@ export const UserManagementTab: React.FC = () => {
   const [designations, setDesignations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [activeSubTab, setActiveSubTab] = useState<'directory' | 'teamManagement'>('directory');
+  const [activeSubTab, setActiveSubTab] = useState<'directory' | 'teamManagement' | 'adminSecurity'>('directory');
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDept, setFilterDept] = useState("ALL");
   const [filterDesig, setFilterDesig] = useState("ALL");
@@ -31,6 +34,7 @@ export const UserManagementTab: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
   const [deleteModalUser, setDeleteModalUser] = useState<ManagedUser | null>(null);
   const [profileModalEmp, setProfileModalEmp] = useState<ManagedUser | null>(null);
+  const [passwordResetAdmin, setPasswordResetAdmin] = useState<AdminSecurityUser | null>(null);
 
   useEffect(() => {
     if (!db) return;
@@ -174,7 +178,7 @@ export const UserManagementTab: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Sub-tab Navigation Bar */}
-      <div className="flex items-center gap-2 bg-[#1A0B36] p-1.5 rounded-2xl border border-purple-500/20 w-fit">
+      <div className="flex items-center gap-2 bg-[#1A0B36] p-1.5 rounded-2xl border border-purple-500/20 w-fit flex-wrap">
         <button
           onClick={() => setActiveSubTab('directory')}
           className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
@@ -197,10 +201,25 @@ export const UserManagementTab: React.FC = () => {
           <Users className="w-4 h-4" />
           Team Management
         </button>
+        {role === 'SUPER_ADMIN' && (
+          <button
+            onClick={() => setActiveSubTab('adminSecurity')}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+              activeSubTab === 'adminSecurity'
+                ? 'bg-amber-500 text-black shadow-lg'
+                : 'text-purple-300 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <KeyRound className="w-4 h-4 text-amber-400" />
+            Admin Passwords & Security
+          </button>
+        )}
       </div>
 
       {activeSubTab === 'teamManagement' ? (
         <TeamManagementTab />
+      ) : activeSubTab === 'adminSecurity' ? (
+        <AdminSecurityTab />
       ) : (
         <>
           {/* Search and Filters */}
@@ -370,6 +389,28 @@ export const UserManagementTab: React.FC = () => {
                         <span className="text-xs font-bold text-white">Edit</span>
                       </button>
 
+                      {role === 'SUPER_ADMIN' && (emp.role === 'ADMIN' || emp.role === 'SUPER_ADMIN' || emp.role === 'HR') && (
+                        <button
+                          onClick={() => {
+                            setPasswordResetAdmin({
+                              uid: emp.id,
+                              loginId: emp.employeeCode || emp.id,
+                              email: emp.email || '',
+                              displayName: emp.name || emp.employeeCode || '',
+                              role: emp.role as any || 'ADMIN',
+                              active: emp.status !== 'Rejected',
+                              status: emp.status,
+                              authorizedOffice: emp.office || 'ALL',
+                            });
+                          }}
+                          className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg transition-all shadow-md flex items-center gap-1.5"
+                          title="Reset Administrator Password"
+                        >
+                          <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                          <span className="text-xs font-bold">Password</span>
+                        </button>
+                      )}
+
                       {role === 'SUPER_ADMIN' && (
                         <button
                           onClick={() => setDeleteModalUser(emp)}
@@ -394,6 +435,14 @@ export const UserManagementTab: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {passwordResetAdmin && (
+        <AdminPasswordManagementModal
+          isOpen={!!passwordResetAdmin}
+          onClose={() => setPasswordResetAdmin(null)}
+          targetAdmin={passwordResetAdmin}
+        />
+      )}
 
       {profileModalEmp && (
         <EmployeeProfileModal

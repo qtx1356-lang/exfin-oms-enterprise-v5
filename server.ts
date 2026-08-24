@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore, FieldValue, Firestore } from "firebase-admin/firestore";
+import { getAuth, Auth } from "firebase-admin/auth";
 import { createServer as createViteServer } from "vite";
 
 const OFFICE_LAT = 23.616227;
@@ -11,6 +12,7 @@ const GEOFENCE_RADIUS_METERS = 25.0;
 
 // Initialize Firebase Admin
 let db: Firestore | null = null;
+let authAdmin: Auth | null = null;
 try {
   const configPath = path.join(process.cwd(), "firebase-applet-config.json");
   if (fs.existsSync(configPath)) {
@@ -26,7 +28,8 @@ try {
     }
   }
   db = getFirestore();
-  console.log("[Median Backend] Firebase Admin Firestore initialized successfully.");
+  authAdmin = getAuth();
+  console.log("[Median Backend] Firebase Admin Firestore & Auth initialized successfully.");
 } catch (error) {
   console.error("[Median Backend] Failed to initialize Firebase Admin:", error);
 }
@@ -88,8 +91,217 @@ async function startServer() {
       status: "ok",
       service: "exfin-oms-backend",
       firebaseAdminInitialized: !!db,
+      firebaseAuthInitialized: !!authAdmin,
       timestamp: new Date().toISOString()
     });
+  });
+
+  // Helper to extract and verify Firebase Admin ID token
+  async function verifyAdminCaller(req: express.Request): Promise<{ uid: string; email?: string; role?: string; loginId?: string } | null> {
+    if (!authAdmin || !db) return null;
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+    const token = authHeader.split("Bearer ")[1].trim();
+    try {
+      const decoded = await authAdmin.verifyIdToken(token);
+      const uid = decoded.uid;
+      const adminSnap = await db.collection("admin_users").doc(uid).get();
+      if (!adminSnap.exists) {
+        return { uid, email: decoded.email };
+      }
+      const data = adminSnap.data() || {};
+      return {
+        uid,
+        email: data.email || decoded.email,
+        role: data.role || "EMPLOYEE",
+        loginId: data.loginId || "",
+      };
+    } catch (err) {
+      console.error("[Admin Backend] Token verification failed:", err);
+      return null;
+    }
+  }
+
+  // 1. Super-Admin Reset / Generate Temporary Password for Administrator
+  app.post("/api/admin/super-admin/reset-password", async (req, res) => {
+    try {
+      if (!authAdmin || !db) {
+        return res.status(503).json({ error: "Firebase backend services not ready." });
+      }
+
+      const caller = await verifyAdminCaller(req);
+      if (!caller || caller.role !== "SUPER_ADMIN") {
+        return res.status(403).json({ error: "Unauthorized. Super-Admin authorization is required." });
+      }
+
+      const { targetUid, temporaryPassword, mustChangePassword } = req.body || {};
+      if (!targetUid || typeof targetUid !== "string") {
+        return res.status(400).json({ error: "Missing or invalid targetUid." });
+      }
+
+      // Check target admin user in Firestore or Auth
+      const targetDocRef = db.collection("admin_users").doc(targetUid);
+      const targetDoc = await targetDocRef.get();
+
+      // Generate or sanitize temporary password
+      let finalTempPassword = typeof temporaryPassword === "string" && temporaryPassword.trim().length >= 8
+        ? temporaryPassword.trim()
+        : null;
+
+      if (!finalTempPassword) {
+        // Auto-generate strong 10-char temporary password
+        const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        const lower = "abcdefghijkmnopqrstuvwxyz";
+        const digits = "23456789";
+        const special = "!@#$%&*";
+        let pass = "";
+        pass += upper.charAt(Math.floor(Math.random() * upper.length));
+        pass += lower.charAt(Math.floor(Math.random() * lower.length));
+        pass += digits.charAt(Math.floor(Math.random() * digits.length));
+        pass += special.charAt(Math.floor(Math.random() * special.length));
+        const allChars = upper + lower + digits + special;
+        for (let i = 0; i < 6; i++) {
+          pass += allChars.charAt(Math.floor(Math.random() * allChars.length));
+        }
+        finalTempPassword = pass.split("").sort(() => 0.5 - Math.random()).join("");
+      }
+
+      // Update password in Firebase Auth
+      await authAdmin.updateUser(targetUid, {
+        password: finalTempPassword,
+      });
+
+      const nowIso = new Date().toISOString();
+      const targetData = targetDoc.exists ? targetDoc.data() || {} : {};
+
+      // Update admin_users document in Firestore
+      await targetDocRef.set({
+        mustChangePassword: mustChangePassword !== false,
+        passwordResetAt: nowIso,
+        passwordResetBy: caller.loginId || caller.email || caller.uid,
+        temporaryPasswordAssignedAt: nowIso,
+        updatedAt: nowIso,
+        updatedBy: caller.loginId || caller.email || caller.uid,
+      }, { merge: true });
+
+      // Record in audit logs
+      await db.collection("audit_logs").add({
+        actorEmail: caller.email || caller.loginId || "super_admin",
+        actorUid: caller.uid,
+        action: "ADMIN_PASSWORD_RESET_BY_SUPER_ADMIN",
+        targetType: "USER",
+        targetId: targetUid,
+        newValue: {
+          targetLoginId: targetData.loginId || targetUid,
+          targetEmail: targetData.email || "",
+          mustChangePassword: mustChangePassword !== false,
+          resetAt: nowIso,
+        },
+        timestamp: nowIso,
+        createdAtServer: FieldValue.serverTimestamp(),
+      });
+
+      console.log(`[Admin Backend] Password reset executed by Super-Admin ${caller.loginId || caller.uid} for target ${targetData.loginId || targetUid}`);
+
+      return res.json({
+        success: true,
+        temporaryPassword: finalTempPassword,
+        targetUid,
+        targetLoginId: targetData.loginId || "",
+        targetEmail: targetData.email || "",
+        mustChangePassword: mustChangePassword !== false,
+        message: "Administrator password reset successfully."
+      });
+    } catch (err: any) {
+      console.error("[Admin Backend] Error resetting admin password:", err);
+      return res.status(500).json({ error: err.message || "Failed to reset administrator password." });
+    }
+  });
+
+  // 2. Super-Admin List of Administrator Accounts with Security Status
+  app.get("/api/admin/super-admin/admin-users", async (req, res) => {
+    try {
+      if (!authAdmin || !db) {
+        return res.status(503).json({ error: "Firebase backend services not ready." });
+      }
+
+      const caller = await verifyAdminCaller(req);
+      if (!caller || caller.role !== "SUPER_ADMIN") {
+        return res.status(403).json({ error: "Unauthorized. Super-Admin authorization is required." });
+      }
+
+      const snap = await db.collection("admin_users").get();
+      const adminUsers = snap.docs.map(doc => {
+        const data = doc.data();
+        return {
+          uid: doc.id,
+          loginId: data.loginId || doc.id,
+          email: data.email || "",
+          displayName: data.displayName || data.name || data.loginId || "",
+          role: data.role || "ADMIN",
+          active: data.active !== false && data.status !== "Suspended",
+          status: data.status || (data.active !== false ? "Approved" : "Suspended"),
+          authorizedOffice: data.authorizedOffice || "ALL",
+          mustChangePassword: !!data.mustChangePassword,
+          passwordChangedAt: data.passwordChangedAt || null,
+          passwordResetAt: data.passwordResetAt || null,
+          passwordResetBy: data.passwordResetBy || null,
+          temporaryPasswordAssignedAt: data.temporaryPasswordAssignedAt || null,
+          updatedAt: data.updatedAt,
+          updatedBy: data.updatedBy,
+        };
+      });
+
+      return res.json({
+        success: true,
+        adminUsers,
+      });
+    } catch (err: any) {
+      console.error("[Admin Backend] Error fetching admin users list:", err);
+      return res.status(500).json({ error: err.message || "Failed to fetch admin users list." });
+    }
+  });
+
+  // 3. Admin Self Password Changed Notification
+  app.post("/api/admin/password-changed", async (req, res) => {
+    try {
+      if (!authAdmin || !db) {
+        return res.status(503).json({ error: "Firebase backend services not ready." });
+      }
+
+      const caller = await verifyAdminCaller(req);
+      if (!caller) {
+        return res.status(401).json({ error: "Unauthorized. Please sign in." });
+      }
+
+      const nowIso = new Date().toISOString();
+      const targetDocRef = db.collection("admin_users").doc(caller.uid);
+      await targetDocRef.set({
+        mustChangePassword: false,
+        passwordChangedAt: nowIso,
+        updatedAt: nowIso,
+        updatedBy: caller.loginId || caller.email || caller.uid,
+      }, { merge: true });
+
+      await db.collection("audit_logs").add({
+        actorEmail: caller.email || caller.loginId || "admin",
+        actorUid: caller.uid,
+        action: "ADMIN_PASSWORD_CHANGED_BY_USER",
+        targetType: "USER",
+        targetId: caller.uid,
+        newValue: {
+          mustChangePassword: false,
+          passwordChangedAt: nowIso,
+        },
+        timestamp: nowIso,
+        createdAtServer: FieldValue.serverTimestamp(),
+      });
+
+      return res.json({ success: true, message: "Password status updated successfully." });
+    } catch (err: any) {
+      console.error("[Admin Backend] Error updating password status:", err);
+      return res.status(500).json({ error: err.message || "Failed to update password status." });
+    }
   });
 
   // Secure Median Background Location POST endpoint

@@ -89,6 +89,8 @@ import { createAuditLog } from '../../services/audit/auditService';
 import { AdminFAQScreen } from '../help/AdminFAQScreen';
 import { AdminLeaveManagementTab } from './AdminLeaveManagementTab';
 import { AdminExpensesTab } from './AdminExpensesTab';
+import { AdminSecurityTab } from './AdminSecurityTab';
+import { ChangePasswordModal } from '../../components/admin/ChangePasswordModal';
 
 export const safeStringify = (val: any): string => {
   if (val === null || val === undefined) return '';
@@ -157,6 +159,7 @@ type AdminTab =
   | 'leaves'
   | 'efficiency'
   | 'rbac'
+  | 'adminSecurity'
   | 'registrations'
   | 'reports'
   | 'health'
@@ -169,11 +172,12 @@ type AdminTab =
   | 'pendingDeviceApprovals';
 
 export const AdminDashboard: React.FC = () => {
-  const { logout, user: adminUser, role = 'ADMIN', authorizedOffice = 'ALL', loginId } = useAdminAuth();
+  const { logout, user: adminUser, role = 'ADMIN', authorizedOffice = 'ALL', loginId, mustChangePassword } = useAdminAuth();
   const navigate = useNavigate();
   const { hasFeatureAccess, isSuperAdmin } = usePermission();
 
   const [totalUnreadChatCount, setTotalUnreadChatCount] = useState(0);
+  const [showSelfChangePasswordModal, setShowSelfChangePasswordModal] = useState(false);
 
   useEffect(() => {
     if (!db || !loginId) return;
@@ -939,6 +943,7 @@ export const AdminDashboard: React.FC = () => {
       title: 'SECURITY & RBAC',
       items: [
         { id: 'rbac' as AdminTab, label: 'Roles & Permissions Matrix', icon: KeyRound, visible: canSeeRbac },
+        { id: 'adminSecurity' as AdminTab, label: 'Admin Passwords & Security', icon: ShieldCheck, visible: isSuperAdmin() },
         { id: 'pendingDeviceApprovals' as AdminTab, label: 'Pending Device Approvals', icon: Smartphone, badge: pendingRegCount, visible: canSeeRegistrations },
         { id: 'registrations' as AdminTab, label: 'Device Registrations', icon: Smartphone, visible: canSeeRegistrations },
         { id: 'auditLog' as AdminTab, label: 'Audit Log', icon: ShieldCheck, visible: isSuperAdmin() },
@@ -1041,14 +1046,24 @@ export const AdminDashboard: React.FC = () => {
               <p className="text-xs font-extrabold text-white truncate">{loginId || adminUser?.email?.split('@')[0] || 'Admin'}</p>
               <p className="text-[10px] text-amber-400 font-mono truncate">{role === 'SUPER_ADMIN' ? 'SUPER ADMIN' : role} • {authorizedOffice}</p>
             </div>
-            <Button
-              onClick={handleLogout}
-              variant="secondary"
-              className="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs shrink-0"
-              title="Sign Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button
+                onClick={() => setShowSelfChangePasswordModal(true)}
+                variant="secondary"
+                className="p-2 bg-purple-900/40 hover:bg-purple-900/60 text-purple-200 border border-purple-500/30 text-xs"
+                title="Change My Password"
+              >
+                <KeyRound className="w-4 h-4 text-amber-400" />
+              </Button>
+              <Button
+                onClick={handleLogout}
+                variant="secondary"
+                className="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </aside>
@@ -1095,14 +1110,27 @@ export const AdminDashboard: React.FC = () => {
               <p className="text-xs font-extrabold text-white truncate">{loginId || adminUser?.email?.split('@')[0] || 'Admin'}</p>
               <p className="text-[10px] text-amber-400 font-mono truncate">{role === 'SUPER_ADMIN' ? 'SUPER ADMIN' : role} • {authorizedOffice}</p>
             </div>
-            <Button
-              onClick={handleLogout}
-              variant="secondary"
-              className="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs shrink-0"
-              title="Sign Out"
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button
+                onClick={() => {
+                  setIsMobileSidebarOpen(false);
+                  setShowSelfChangePasswordModal(true);
+                }}
+                variant="secondary"
+                className="p-2 bg-purple-900/40 hover:bg-purple-900/60 text-purple-200 border border-purple-500/30 text-xs"
+                title="Change My Password"
+              >
+                <KeyRound className="w-4 h-4 text-amber-400" />
+              </Button>
+              <Button
+                onClick={handleLogout}
+                variant="secondary"
+                className="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </aside>
@@ -1132,6 +1160,7 @@ export const AdminDashboard: React.FC = () => {
                 {activeTab === 'hr' && 'HR Management'}
                 {activeTab === 'salaries' && 'Salary Generation'}
                 {activeTab === 'rbac' && 'Roles & Permissions Matrix'}
+                {activeTab === 'adminSecurity' && 'Admin Passwords & Security'}
                 {activeTab === 'registrations' && 'Device Registrations'}
                 {activeTab === 'attendance' && 'Attendance Logs'}
                 {activeTab === 'workHours' && 'Work Hours Analytics'}
@@ -1155,6 +1184,15 @@ export const AdminDashboard: React.FC = () => {
                 {role === 'SUPER_ADMIN' ? 'SUPER ADMIN' : role} • {authorizedOffice}
               </div>
             </div>
+            <Button
+              onClick={() => setShowSelfChangePasswordModal(true)}
+              variant="secondary"
+              className="gap-1.5 bg-purple-900/40 hover:bg-purple-900/60 text-purple-200 border border-purple-500/30 text-xs px-2.5 py-1.5"
+              title="Change My Password"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Password</span>
+            </Button>
             <Button
               onClick={handleLogout}
               variant="secondary"
@@ -1408,6 +1446,19 @@ export const AdminDashboard: React.FC = () => {
 
         {/* ROLES & PERMISSIONS MATRIX TAB */}
         {activeTab === 'rbac' && canSeeRbac && <RBACTab />}
+
+        {/* ADMIN PASSWORDS & SECURITY TAB (SUPER ADMIN ONLY) */}
+        {activeTab === 'adminSecurity' && (
+          isSuperAdmin() ? (
+            <AdminSecurityTab />
+          ) : (
+            <Card className="p-8 bg-[#2D1B5A] border border-rose-500/30 text-center space-y-4">
+              <ShieldAlert className="w-12 h-12 text-rose-400 mx-auto" />
+              <h2 className="text-lg font-bold text-white">Access Denied</h2>
+              <p className="text-xs text-purple-200">Password management is restricted exclusively to Super Administrators.</p>
+            </Card>
+          )
+        )}
 
         {/* REPORTS & ANALYTICS TAB */}
         {activeTab === 'reports' && canSeeReports && (
@@ -2388,6 +2439,13 @@ export const AdminDashboard: React.FC = () => {
           </div>
         )}
       </Dialog>
+
+      {/* Admin Self Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={showSelfChangePasswordModal || !!mustChangePassword}
+        onClose={() => setShowSelfChangePasswordModal(false)}
+        isMandatory={!!mustChangePassword}
+      />
 
       </div>
     </div>
