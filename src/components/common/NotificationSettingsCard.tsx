@@ -162,7 +162,7 @@ export const NotificationSettingsCard: React.FC = () => {
                 ✓ Android Notifications Enabled
               </p>
               <p className="text-purple-200/80 text-[11px] mt-0.5">
-                EXFIN OMS notifications are allowed and real-time push alerts are
+                Office Management System notifications are allowed and real-time push alerts are
                 active on this device.
               </p>
             </div>
@@ -336,7 +336,7 @@ export const NotificationSettingsCard: React.FC = () => {
               <div>
                 <p className="text-xs font-bold text-white">Notification Sound</p>
                 <p className="text-[10px] text-purple-300/70">
-                  Play EXFIN OMS audio chime for new alerts
+                  Play audio chime for new alerts
                 </p>
               </div>
             </div>
@@ -359,7 +359,7 @@ export const NotificationSettingsCard: React.FC = () => {
             <Info className="w-3 h-3 text-purple-400 shrink-0 mt-0.5" />
             <span>
               OS permission allows Android to show alert popups. Notification Sound
-              controls EXFIN OMS audio chime preferences. System channel settings
+              controls app audio chime preferences. System channel settings
               in Android Settings may also control sound.
             </span>
           </div>

@@ -92,9 +92,9 @@ export const LocationGate: React.FC = () => {
             </h1>
 
             <p className="text-purple-200/90 text-sm font-semibold leading-relaxed px-2">
-              {showPermissionDenied && 'Exfin OMS requires your permission to access device location to use the Attendance features.'}
+              {showPermissionDenied && 'Office Management System requires your permission to access device location to use the Attendance features.'}
               {showGpsOff && 'Please turn on Location Services to continue using Attendance features.'}
-              {showUnavailable && 'Exfin OMS requires your device location to be turned ON to use Attendance features.'}
+              {showUnavailable && 'Office Management System requires your device location to be turned ON to use Attendance features.'}
             </p>
 
             <p className="text-purple-300/70 text-xs leading-relaxed px-4">
@@ -105,7 +105,7 @@ export const LocationGate: React.FC = () => {
           {/* Explanatory Message / Warning */}
           <div className="bg-[#1D113B]/50 border border-purple-500/20 p-3.5 rounded-2xl">
             <p className="text-[11px] text-purple-200/70 leading-normal">
-              {showPermissionDenied && 'Without permission, Exfin cannot track your geofence status or process automatic check-ins.'}
+              {showPermissionDenied && 'Without permission, the app cannot track your geofence status or process automatic check-ins.'}
               {showGpsOff && 'Your attendance cannot be processed until Location Services are enabled on your device.'}
               {showUnavailable && 'We are currently unable to obtain your current location. Please check your GPS signal strength.'}
             </p>
@@ -134,7 +134,7 @@ export const LocationGate: React.FC = () => {
 
             {/* Subtle Fallback Info */}
             <p className="text-[10px] text-purple-300/40">
-              Exfin OMS Version 2.4.0 • GPS Geofenced Verification
+              Office Management System • GPS Geofenced Verification
             </p>
           </div>
         </Card>

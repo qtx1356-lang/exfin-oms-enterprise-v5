@@ -1,6 +1,6 @@
 import { AttendanceRecord } from '../../types/attendance';
 import { calculateWorkingHours } from './smartAttendanceEngine';
-import { hasActualCheckIn, getEarliestCheckInTime } from '../../utils/attendanceUtils';
+import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic } from '../../utils/attendanceUtils';
 
 const STORAGE_KEY = 'exfin_attendance_records_v1';
 const MIGRATION_FLAG_KEY = 'exfin_unresolved_migration_v1_executed';
@@ -238,6 +238,13 @@ export const saveAttendanceRecord = (record: AttendanceRecord): void => {
     }
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+
+    logAttendanceWriteDiagnostic(
+      record.isAdminRectified || record.manualRectified ? 'ADMIN_ATTENDANCE_CORRECTION' : ((record as any).source || record.checkInMode || 'LocalStorage'),
+      record.employeeId,
+      record.checkInTime,
+      existingIndex >= 0 ? 'LOCAL_STORAGE_UPDATE' : 'LOCAL_STORAGE_CREATE'
+    );
   } catch (err) {
     console.error('Failed to save attendance record locally:', err);
   }

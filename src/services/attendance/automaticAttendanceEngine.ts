@@ -16,6 +16,7 @@ import { logAttendanceEvent } from './attendanceLogger';
 import { createNotification } from '../notification/notificationService';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { updateLiveEmployeeLocation } from '../location/liveLocationService';
+import { isAdminContextActive, logAttendanceWriteDiagnostic } from '../../utils/attendanceUtils';
 
 export const OFFICE_LOCATION = {
   name: 'EXFIN OFFICE',
@@ -202,6 +203,10 @@ export const AutomaticAttendanceEngine = {
     timestamp: Date = new Date(),
     accuracy?: number
   ): AttendanceRecord | null {
+    if (isAdminContextActive()) {
+      return null;
+    }
+
     if (!employeeId || !isEmployeeApprovedLocally(employeeId)) {
       if (employeeId && employeeId !== 'ANONYMOUS' && employeeId !== 'SYSTEM') {
         console.warn(`[AutomaticAttendanceEngine] Ignored location update for unapproved/unknown employee: ${employeeId}`);

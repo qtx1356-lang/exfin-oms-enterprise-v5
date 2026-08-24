@@ -1,0 +1,1 @@
+employee management, attendance system, gps attendance, geofence, expense management, leave management, hrms, workforce management, employee portal, admin dashboard, firebase, firestore, react, typescript, android, median, payroll, efficiency, work planner

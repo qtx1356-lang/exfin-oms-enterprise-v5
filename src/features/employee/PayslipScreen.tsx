@@ -206,8 +206,8 @@ export const PayslipScreen: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-purple-500/15 gap-4">
               <div>
                 <span className="text-[9px] font-black uppercase text-purple-400 tracking-wider">OFFICIAL SALARY SLIP</span>
-                <h2 className="text-xl font-black text-white tracking-tight mt-0.5">EXFIN OMS</h2>
-                <p className="text-[10px] text-purple-200/70 font-bold font-mono">Exfin Online Management System</p>
+                <h2 className="text-xl font-black text-white tracking-tight mt-0.5">Office Management System</h2>
+                <p className="text-[10px] text-purple-200/70 font-bold font-mono">Enterprise Operations & Workforce Portal</p>
               </div>
               <div className="text-right sm:text-right flex flex-col sm:items-end">
                 <span className="px-3 py-1 rounded-full text-[10px] font-black bg-purple-500/25 border border-purple-500/30 text-[#A78BFA] uppercase tracking-wide">
@@ -390,7 +390,7 @@ export const PayslipScreen: React.FC = () => {
             {/* Professional Legal Footnote */}
             <div className="text-center pt-2 border-t border-purple-500/10">
               <p className="text-[9px] text-purple-300/45 font-medium leading-relaxed">
-                This is a secure, computer-generated document processed by Exfin OMS. No signature is required. For discrepancies or queries, please submit a profile change request or reach out directly to the HR department.
+                This is a secure, computer-generated document processed by Office Management System. No signature is required. For discrepancies or queries, please submit a profile change request or reach out directly to the HR department.
               </p>
             </div>
 

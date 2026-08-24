@@ -12,6 +12,7 @@ import {
 } from '../services/attendance/backgroundAttendanceManager';
 import { updateLiveEmployeeLocation } from '../services/location/liveLocationService';
 import { getTodayAttendanceRecord } from '../services/attendance/attendanceStorage';
+import { isAdminContextActive } from '../utils/attendanceUtils';
 import {
   trackResourceCreated,
   trackResourceCleaned,
@@ -487,36 +488,39 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (e) {}
 
     // Evaluate automatic background geofence state transition & live location write
-    try {
-      const cachedRaw = localStorage.getItem('cached_registration_data');
-      if (cachedRaw) {
-        const parsed = JSON.parse(cachedRaw);
-        const empId = parsed.employeeCode || parsed.uid || parsed.id;
-        const empName = parsed.name || 'Employee';
-        if (empId) {
-          updateLiveEmployeeLocation({
-            employeeId: empId,
-            employeeName: empName,
-            latitude,
-            longitude,
-            accuracy,
-            distanceFromOffice: calculatedDistance,
-            townCity: currentAddress || 'Raniganj HQ',
-            timestamp: new Date(fixTime).toISOString()
-          }).catch((err) => console.warn('Error updating live_locations:', err));
+    // Strictly isolate the Admin Panel: never trigger employee attendance checks or writes in Admin context
+    if (!isAdminContextActive()) {
+      try {
+        const cachedRaw = localStorage.getItem('cached_registration_data');
+        if (cachedRaw) {
+          const parsed = JSON.parse(cachedRaw);
+          const empId = parsed.employeeCode || parsed.uid || parsed.id;
+          const empName = parsed.name || 'Employee';
+          if (empId) {
+            updateLiveEmployeeLocation({
+              employeeId: empId,
+              employeeName: empName,
+              latitude,
+              longitude,
+              accuracy,
+              distanceFromOffice: calculatedDistance,
+              townCity: currentAddress || 'Raniganj HQ',
+              timestamp: new Date(fixTime).toISOString()
+            }).catch((err) => console.warn('Error updating live_locations:', err));
 
-          handleLocationUpdateForAttendance(
-            latitude,
-            longitude,
-            empId,
-            empName,
-            currentAddress || 'Raniganj HQ',
-            accuracy
-          );
+            handleLocationUpdateForAttendance(
+              latitude,
+              longitude,
+              empId,
+              empName,
+              currentAddress || 'Raniganj HQ',
+              accuracy
+            );
+          }
         }
+      } catch (err) {
+        console.warn('Error evaluating location update for attendance / live location:', err);
       }
-    } catch (err) {
-      console.warn('Error evaluating location update for attendance / live location:', err);
     }
 
     // Offline mode support

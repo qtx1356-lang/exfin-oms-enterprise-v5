@@ -186,7 +186,7 @@ export const AuditLogTab: React.FC = () => {
             Audit Log
           </h1>
           <p className="text-xs text-purple-300/70 mt-1">
-            Complete immutable record of security, administrative, operational, and system activity across EXFIN OMS
+            Complete immutable record of security, administrative, operational, and system activity across Office Management System
           </p>
         </div>
         <div className="flex items-center gap-2">

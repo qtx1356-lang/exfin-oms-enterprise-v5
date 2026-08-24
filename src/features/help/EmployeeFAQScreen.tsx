@@ -8,7 +8,7 @@ const employeeFaqData = [
     category: 'GETTING STARTED',
     questions: [
       {
-        q: 'How do I start using EXFIN OMS?',
+        q: 'How do I start using Office Management System?',
         a: 'Register your mobile number/device when required. Once your registration is approved, the app will automatically restore your employee account and open the dashboard.'
       },
       {
@@ -76,7 +76,7 @@ const employeeFaqData = [
       },
       {
         q: 'Does the geofence affect manual checkout?',
-        a: 'Follow the current EXFIN OMS attendance rules shown in the app. The geofence is primarily used for automatic attendance detection and the configured checkout rules.'
+        a: 'Follow the current Office Management System attendance rules shown in the app. The geofence is primarily used for automatic attendance detection and the configured checkout rules.'
       }
     ]
   },
@@ -107,7 +107,7 @@ const employeeFaqData = [
     questions: [
       {
         q: 'How many leaves are available?',
-        a: 'EXFIN OMS uses the configured company leave policy. The current system uses the leave year from 1 April to 31 March.'
+        a: 'Office Management System uses the configured company leave policy. The current system uses the leave year from 1 April to 31 March.'
       },
       {
         q: 'Where can I apply for leave?',
@@ -124,7 +124,7 @@ const employeeFaqData = [
       },
       {
         q: 'What currency is used?',
-        a: 'EXFIN OMS uses Indian Rupees (₹) where applicable.'
+        a: 'Office Management System uses Indian Rupees (₹) where applicable.'
       }
     ]
   },
@@ -141,7 +141,7 @@ const employeeFaqData = [
       },
       {
         q: 'Why did I receive a notification immediately?',
-        a: 'EXFIN OMS can provide push notifications and notification alerts so important updates can be noticed promptly.'
+        a: 'Office Management System can provide push notifications and notification alerts so important updates can be noticed promptly.'
       }
     ]
   },
@@ -224,7 +224,7 @@ export const EmployeeFAQScreen: React.FC = () => {
           </button>
           <div className="flex-1">
             <h1 className="text-sm font-black text-white">Help & FAQ</h1>
-            <p className="text-[10px] text-purple-300">Find quick answers about using EXFIN OMS</p>
+            <p className="text-[10px] text-purple-300">Find quick answers about using Office Management System</p>
           </div>
         </div>
       </div>

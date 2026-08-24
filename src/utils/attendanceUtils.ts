@@ -40,6 +40,38 @@ export function sanitizeFirestorePayload<T extends Record<string, any>>(obj: T):
 }
 
 /**
+ * Checks if the current session or window context is within the Admin Panel or Admin Portal.
+ * Used to strictly isolate the Admin Panel from automatic employee attendance check-ins and writes.
+ */
+export const isAdminContextActive = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const path = window.location.pathname.toLowerCase();
+    if (path.includes('/x7kp9') || path.includes('/admin-portal') || path.includes('/admin')) {
+      return true;
+    }
+  } catch (e) {}
+  return false;
+};
+
+/**
+ * Standardized diagnostic logger for all attendance write operations.
+ * Produces structured diagnostic logs for auditing and regression prevention.
+ */
+export const logAttendanceWriteDiagnostic = (
+  source: string,
+  employeeId: string,
+  checkInTime: string | null | undefined,
+  operation: string,
+  extra?: Record<string, any>
+): void => {
+  console.log(
+    `[ATTENDANCE WRITE] source=${source} employee=${employeeId || 'UNKNOWN'} checkInTime=${checkInTime || 'NONE'} operation=${operation}`,
+    extra || ''
+  );
+};
+
+/**
  * Returns the earliest valid check-in time string between two candidates.
  */
 export const getEarliestCheckInTime = (timeA: string | null | undefined, timeB: string | null | undefined): string | null => {

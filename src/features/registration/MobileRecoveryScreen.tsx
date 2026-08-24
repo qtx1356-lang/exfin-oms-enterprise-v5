@@ -88,7 +88,7 @@ export const MobileRecoveryScreen: React.FC = () => {
 
         <div className="text-center">
           <p className="text-[11px] text-purple-300/60 flex items-center justify-center gap-1">
-            <Sparkles className="w-3 h-3 text-amber-400" /> EXFIN OMS Secure Mobile Identity System
+            <Sparkles className="w-3 h-3 text-amber-400" /> Office Management System Secure Mobile Identity System
           </p>
         </div>
 

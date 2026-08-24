@@ -388,45 +388,7 @@ self.addEventListener('push', (event) => {
   if (!event.data) return;
   try {
     const payload = event.data.json();
-    const title = payload.title || 'EXFIN OMS';
-    const options = {
-      body: payload.message || payload.body || '',
-      icon: '/manifest.json',
-      badge: '/manifest.json',
-      data: {
-        route: payload.route || '/notifications',
-        id: payload.id,
-      },
-      tag: payload.id || 'exfin_push',
-    };
-    event.waitUntil(self.registration.showNotification(title, options));
-  } catch (err) {
-    console.error('[SW] Push notification error:', err);
-  }
-});
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const route = event.notification.data?.route || '/notifications';
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url.includes(route) && 'focus' in client) {
-          return client.focus();
-        }
-      }
-      if (clients.openWindow) return clients.openWindow(route);
-    })
-  );
-});
-
-
-// Push Notification Handling
-self.addEventListener('push', (event) => {
-  if (!event.data) return;
-  try {
-    const payload = event.data.json();
-    const title = payload.title || 'EXFIN OMS';
+    const title = payload.title || 'Office Management System';
     const options = {
       body: payload.message || payload.body || '',
       icon: '/manifest.json',

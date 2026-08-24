@@ -1,6 +1,6 @@
-# EXFIN OMS — Protected Core Features Policy
+# Office Management System — Protected Core Features Policy
 
-The following three features are CORE and PROTECTED features of EXFIN OMS:
+The following three features are CORE and PROTECTED features of Office Management System:
 
 ### 1. 25-meter office geofence
 - The existing 25-meter radius must remain unchanged.
@@ -37,7 +37,7 @@ Before making ANY code change anywhere in the project:
 For every future feature request, preserve these three protected features exactly as they currently work.
 
 If an implementation would require modifying one of them, STOP and report:
-`"This change would affect one of EXFIN OMS's three protected core features. I will not modify it without explicit authorization."`
+`"This change would affect one of Office Management System's three protected core features. I will not modify it without explicit authorization."`
 
 Do not proceed with that portion of the task.
 

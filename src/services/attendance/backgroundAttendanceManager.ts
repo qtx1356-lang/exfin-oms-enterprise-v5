@@ -12,6 +12,7 @@ import {
 } from '../monitoring/performanceDiagnostics';
 import { registerNativeOfficeGeofence, initNativeGeofenceListener, reconcileNativeGeofenceEvents } from './nativeGeofenceBridge';
 import { isMedianApp, initializeMedianBackgroundLocation, startMedianBackgroundLocation } from './medianBackgroundLocation';
+import { isAdminContextActive } from '../../utils/attendanceUtils';
 
 const GEOFENCE_REGISTERED_KEY = 'exfin_office_geofence_25m';
 
@@ -79,7 +80,7 @@ export const handleLocationUpdateForAttendance = (
   townCity: string,
   accuracy?: number
 ): void => {
-  if (!employeeId) return;
+  if (!employeeId || isAdminContextActive()) return;
 
   ensureOfficeGeofenceRegistered();
 

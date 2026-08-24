@@ -111,7 +111,7 @@ export function exportToXLSX(
     </head>
     <body>
       <div style="padding:24px;">
-        <h1 style="color:#2D1B5A;font-size:22px;font-weight:900;margin:0 0 2px 0;letter-spacing:-0.5px;">EXFIN OMS ENTERPRISE</h1>
+        <h1 style="color:#2D1B5A;font-size:22px;font-weight:900;margin:0 0 2px 0;letter-spacing:-0.5px;">Office Management System</h1>
         <span style="color:#7C3AED;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:12px;">Enterprise Management System</span>
         
         <h2 style="color:#5B21B6;font-size:16px;font-weight:800;margin:0 0 4px 0;">${title}</h2>
@@ -196,7 +196,7 @@ export function printReport(
   printWindow.document.write(`
     <html>
       <head>
-        <title>EXFIN OMS - ${title}</title>
+        <title>Office Management System - ${title}</title>
         <style>
           @page {
             size: A4 portrait;
@@ -335,7 +335,7 @@ export function printReport(
       <body>
         <div class="header">
           <div class="logo-area">
-            <h1>EXFIN OMS</h1>
+            <h1>Office Management System</h1>
             <span>Enterprise System v6.0</span>
           </div>
           <div class="report-info">
@@ -369,7 +369,7 @@ export function printReport(
         </table>
 
         <div class="footer-section">
-          <div>© ${new Date().getFullYear()} EXFIN OMS ENTERPRISE. All Rights Reserved.</div>
+          <div>© ${new Date().getFullYear()} Office Management System. All Rights Reserved.</div>
           <div>Page 1 of 1 (Secure Print)</div>
         </div>
 

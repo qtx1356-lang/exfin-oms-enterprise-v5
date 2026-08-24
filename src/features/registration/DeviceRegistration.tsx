@@ -79,7 +79,7 @@ export const DeviceRegistration: React.FC = () => {
             <Shield className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white">Register Device</h1>
-          <p className="text-purple-300/80 text-xs">Register your phone to access Exfin OMS Enterprise v6.0</p>
+          <p className="text-purple-300/80 text-xs">Register your phone to access Office Management System v6.0</p>
         </div>
 
         <Card className="p-6 bg-[#2D1B5A] border border-purple-500/30 shadow-2xl rounded-[28px]">

@@ -151,7 +151,7 @@ export const NotificationManagement: React.FC = () => {
   const [empSearch, setEmpSearch] = useState('');
   const [campaignSearch, setCampaignSearch] = useState('');
 
-  const adminEmail = loginId || adminUser?.email || 'admin@exfin.internal';
+  const adminEmail = loginId || adminUser?.email || 'admin@company.internal';
 
   // 1. Fetch registrations, departments, designations, campaigns
   useEffect(() => {

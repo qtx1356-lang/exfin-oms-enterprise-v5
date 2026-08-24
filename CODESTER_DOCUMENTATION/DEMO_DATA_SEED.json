@@ -1,0 +1,57 @@
+{
+  "version": "1.0.0",
+  "product": "Office Management System",
+  "environment": "DEMO_FICTIONAL_ONLY",
+  "departments": [
+    { "id": "DEPT001", "name": "Engineering", "code": "ENG" },
+    { "id": "DEPT002", "name": "Operations", "code": "OPS" },
+    { "id": "DEPT003", "name": "Human Resources", "code": "HR" },
+    { "id": "DEPT004", "name": "Finance & Accounting", "code": "FIN" },
+    { "id": "DEPT005", "name": "Marketing & Sales", "code": "MKT" }
+  ],
+  "designations": [
+    { "id": "DESG001", "name": "Senior Software Engineer", "department": "ENG" },
+    { "id": "DESG002", "name": "Operations Lead", "department": "OPS" },
+    { "id": "DESG003", "name": "HR Specialist", "department": "HR" },
+    { "id": "DESG004", "name": "Finance Executive", "department": "FIN" },
+    { "id": "DESG005", "name": "Marketing Specialist", "department": "MKT" }
+  ],
+  "sampleEmployees": [
+    {
+      "employeeCode": "EMP101",
+      "name": "Alex Mercer",
+      "email": "alex.mercer@example.com",
+      "department": "Engineering",
+      "designation": "Senior Software Engineer",
+      "role": "EMPLOYEE",
+      "status": "APPROVED",
+      "joiningDate": "2024-01-15"
+    },
+    {
+      "employeeCode": "EMP102",
+      "name": "Jordan Taylor",
+      "email": "jordan.taylor@example.com",
+      "department": "Operations",
+      "designation": "Operations Lead",
+      "role": "TEAM_LEAD",
+      "status": "APPROVED",
+      "joiningDate": "2023-11-01"
+    },
+    {
+      "employeeCode": "EMP103",
+      "name": "Sam Rivera",
+      "email": "sam.rivera@example.com",
+      "department": "Human Resources",
+      "designation": "HR Specialist",
+      "role": "HR_MANAGER",
+      "status": "APPROVED",
+      "joiningDate": "2023-08-20"
+    }
+  ],
+  "officeGeofence": {
+    "latitude": 12.9715987,
+    "longitude": 77.5945627,
+    "radiusMeters": 25,
+    "locationName": "Headquarters Main Campus"
+  }
+}

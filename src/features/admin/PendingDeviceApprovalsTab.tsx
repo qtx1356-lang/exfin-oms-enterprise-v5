@@ -206,7 +206,7 @@ export const PendingDeviceApprovalsTab: React.FC = () => {
             Pending Device Approvals
           </h1>
           <p className="text-xs text-purple-300/70 mt-1">
-            Review and authorize newly registered employee devices seeking access to EXFIN OMS
+            Review and authorize newly registered employee devices seeking access to Office Management System
           </p>
         </div>
         <div className="px-4 py-2 bg-[#250F4C] border border-purple-500/30 rounded-xl flex items-center gap-2">

@@ -120,7 +120,7 @@ export const IdentityDiagnosticScreen: React.FC = () => {
               <Terminal className="w-6 h-6 text-rose-400" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-white">EXFIN OMS — FINAL IDENTITY DIAGNOSTIC</h1>
+              <h1 className="text-xl font-bold tracking-tight text-white">Office Management System — FINAL IDENTITY DIAGNOSTIC</h1>
               <p className="text-xs text-slate-400 mt-1">Strict Device-Isolation & Startup Identity Diagnostic Mode</p>
             </div>
           </div>

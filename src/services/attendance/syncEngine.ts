@@ -1,6 +1,7 @@
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { AttendanceRecord } from '../../types/attendance';
+import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic } from '../../utils/attendanceUtils';
 import {
   getPendingAttendanceRecords,
   markRecordSyncedInLocal
@@ -133,14 +134,52 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
 
         logSyncServerWrite('Attendance', record.id);
 
+        // DEFENSIVE CHECK-IN PRESERVATION:
+        // Before writing, if Firestore already has a valid check-in time and this is not an explicit admin correction,
+        // protect and retain the existing server check-in time and check-in origin details.
+        let finalCheckInTime = record.checkInTime;
+        let finalCreatedAtDeviceTime = record.createdAtDeviceTime;
+        let finalCheckInLatitude = record.checkInLatitude;
+        let finalCheckInLongitude = record.checkInLongitude;
+        let finalCheckInDistance = record.checkInDistance;
+        let finalCheckInTownCity = record.checkInTownCity;
+        let finalCheckInMode = record.checkInMode;
+
+        const isExplicitAdminCorrection = record.isAdminRectified || record.manualRectified;
+        if (!isExplicitAdminCorrection) {
+          try {
+            const serverSnap = await getDoc(docRef);
+            if (serverSnap.exists()) {
+              const serverData = serverSnap.data();
+              if (hasActualCheckIn(serverData)) {
+                const earliest = getEarliestCheckInTime(serverData.checkInTime, finalCheckInTime) || serverData.checkInTime;
+                finalCheckInTime = earliest;
+                finalCreatedAtDeviceTime = serverData.createdAtDeviceTime || finalCreatedAtDeviceTime;
+                finalCheckInLatitude = serverData.checkInLatitude ?? finalCheckInLatitude;
+                finalCheckInLongitude = serverData.checkInLongitude ?? finalCheckInLongitude;
+                finalCheckInDistance = serverData.checkInDistance ?? finalCheckInDistance;
+                finalCheckInTownCity = serverData.checkInTownCity || finalCheckInTownCity;
+                finalCheckInMode = serverData.checkInMode || finalCheckInMode;
+              }
+            }
+          } catch (readErr) {
+            console.warn('[SyncEngine] Non-fatal check on existing server checkInTime:', readErr);
+          }
+        }
+
         const sanitizedRecord = sanitizeFirestorePayload({
           ...record,
           docId: documentKey,
           syncStatus: 'Synced',
           serverSyncTime: localServerSyncTime,
           serverSyncTimestamp: serverTimestamp(),
-          createdAtDeviceTime: record.createdAtDeviceTime,
-          checkInTime: record.checkInTime,
+          createdAtDeviceTime: finalCreatedAtDeviceTime,
+          checkInTime: finalCheckInTime,
+          checkInLatitude: finalCheckInLatitude,
+          checkInLongitude: finalCheckInLongitude,
+          checkInDistance: finalCheckInDistance,
+          checkInTownCity: finalCheckInTownCity,
+          checkInMode: finalCheckInMode,
           checkOutTime: record.checkOutTime,
           lastExitTime: record.lastExitTime || null,
           exitTime: record.exitTime || null,
@@ -149,6 +188,14 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
         });
 
         await setDoc(docRef, sanitizedRecord, { merge: true });
+
+        logAttendanceWriteDiagnostic(
+          isExplicitAdminCorrection ? 'ADMIN_ATTENDANCE_CORRECTION' : 'SyncEngine',
+          record.employeeId,
+          finalCheckInTime,
+          'FIRESTORE_WRITE',
+          { docId: documentKey, isCorrection: !!isExplicitAdminCorrection }
+        );
 
         logSyncServerConfirm('Attendance', record.id);
         recordSyncSuccess('Attendance', record.id);

@@ -44,7 +44,7 @@ export const AdminPortalLogin: React.FC = () => {
           <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_0_25px_rgba(245,158,11,0.4)]">
             <ShieldCheck className="w-9 h-9 text-white" />
           </div>
-          <h1 className="text-2xl font-black text-white tracking-tight">EXFIN Admin Portal</h1>
+          <h1 className="text-2xl font-black text-white tracking-tight">Admin Portal</h1>
           <p className="text-purple-300/80 text-xs mt-1.5 font-medium">Enterprise Management System v6.0</p>
         </div>
 

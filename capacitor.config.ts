@@ -1,6 +1,6 @@
 const config = {
   appId: 'com.exfin.oms',
-  appName: 'EXFIN OMS',
+  appName: 'Office Management System',
   webDir: 'dist',
   server: {
     androidScheme: 'https'

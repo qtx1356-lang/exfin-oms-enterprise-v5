@@ -129,7 +129,7 @@ export const UserManagementTab: React.FC = () => {
          deletionType: 'COMPLETE',
          adminUser: {
            uid: user?.uid || 'admin',
-           email: loginId || user?.email || 'admin@exfin.com',
+           email: loginId || user?.email || 'admin@company.internal',
            displayName: user?.displayName || loginId || 'Admin',
            role: role || 'ADMIN'
          }
@@ -402,7 +402,7 @@ export const UserManagementTab: React.FC = () => {
           employee={profileModalEmp}
           adminUser={{
             uid: user?.uid || 'admin',
-            email: loginId || user?.email || 'admin@exfin.com',
+            email: loginId || user?.email || 'admin@company.internal',
             displayName: user?.displayName || loginId || 'Admin',
             role: role || 'ADMIN'
           }}
@@ -428,7 +428,7 @@ export const UserManagementTab: React.FC = () => {
           employee={deleteModalUser}
           adminUser={{
             uid: user?.uid || 'superadmin',
-            email: loginId || user?.email || 'superadmin@exfin.com',
+            email: loginId || user?.email || 'superadmin@company.internal',
             displayName: user?.displayName || loginId || 'Super Admin',
             role: role || 'SUPER_ADMIN',
           }}

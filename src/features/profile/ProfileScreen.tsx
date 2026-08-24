@@ -492,7 +492,7 @@ export const ProfileScreen: React.FC = () => {
       <Card className="p-4 bg-[#2D1B5A]/60 border border-purple-500/15 text-white rounded-[22px] flex flex-wrap items-center justify-between gap-3 shadow-md">
         <div className="flex items-center gap-2">
           <Info className="w-4 h-4 text-purple-400" />
-          <span className="text-xs font-bold text-purple-200">EXFIN OMS ENTERPRISE</span>
+          <span className="text-xs font-bold text-purple-200">OFFICE MANAGEMENT SYSTEM</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30">

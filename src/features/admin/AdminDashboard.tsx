@@ -60,7 +60,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord, AttendanceCorrection, LiveEmployeeLocation } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn, sanitizeFirestorePayload } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn, sanitizeFirestorePayload, logAttendanceWriteDiagnostic } from '../../utils/attendanceUtils';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { ExpenseRecord } from '../../types/expense';
@@ -808,6 +808,14 @@ export const AdminDashboard: React.FC = () => {
 
       await updateDoc(targetDocRef, sanitizedPayload);
 
+      logAttendanceWriteDiagnostic(
+        'ADMIN_ATTENDANCE_CORRECTION',
+        currentEmpId,
+        proposedIn,
+        'ADMIN_MANUAL_RECTIFY',
+        { docId: targetDocRef.id, correctedCheckOut: proposedOut }
+      );
+
       // Re-fetch to display the finalized corrected record in the success state
       const finalSnap = await getDoc(targetDocRef);
       const finalRecord = { id: finalSnap.id, ...(finalSnap.data() as any) } as AttendanceRecord;
@@ -1016,7 +1024,7 @@ export const AdminDashboard: React.FC = () => {
             <ShieldCheck className="w-6 h-6 text-white" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-sm font-black text-white tracking-wider truncate">EXFIN OMS</h1>
+            <h1 className="text-sm font-black text-white tracking-wider truncate">Office Management System</h1>
             <p className="text-[10px] text-amber-400 font-bold uppercase truncate">{consoleTitle}</p>
           </div>
         </div>
@@ -1065,7 +1073,7 @@ export const AdminDashboard: React.FC = () => {
               <ShieldCheck className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-black text-white tracking-wider">EXFIN OMS</h1>
+              <h1 className="text-sm font-black text-white tracking-wider">Office Management System</h1>
               <p className="text-[10px] text-amber-400 font-bold uppercase">{consoleTitle}</p>
             </div>
           </div>
@@ -1135,7 +1143,7 @@ export const AdminDashboard: React.FC = () => {
                 {activeTab === 'announcements' && 'Announcements & Alerts'}
               </h2>
               <p className="text-[10px] text-purple-300/70 font-medium truncate hidden sm:block">
-                EXFIN OMS Enterprise Governance Portal v6.0
+                Office Management System Governance Portal v6.0
               </p>
             </div>
           </div>

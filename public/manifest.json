@@ -1,6 +1,6 @@
 {
-  "name": "EXFIN OMS ENTERPRISE v6.0",
-  "short_name": "EXFIN OMS",
+  "name": "Office Management System",
+  "short_name": "Office Management System",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FEF7FF",

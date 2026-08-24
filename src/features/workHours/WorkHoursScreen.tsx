@@ -207,7 +207,7 @@ export const WorkHoursScreen: React.FC = () => {
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(20);
-      doc.text('EXFIN OMS', 22, 26);
+      doc.text('Office Management System', 22, 26);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
@@ -284,7 +284,7 @@ export const WorkHoursScreen: React.FC = () => {
           doc.rect(15, 10, 180, 10, 'F');
           doc.setTextColor(255, 255, 255);
           doc.setFontSize(10);
-          doc.text(`EXFIN OMS Work Hours Log — Page 2`, 20, 16.5);
+          doc.text(`Office Management System Work Hours Log — Page 2`, 20, 16.5);
           yPos = 30;
         }
 

@@ -374,6 +374,10 @@ async function startServer() {
     }
   });
 
+  // Serve Codester final download packages
+  const downloadsPath = path.join(process.cwd(), "public", "downloads");
+  app.use("/downloads", express.static(downloadsPath));
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -390,7 +394,7 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`EXFIN OMS Server running on http://0.0.0.0:${PORT}`);
+    console.log(`Office Management System Server running on http://0.0.0.0:${PORT}`);
   });
 }
 

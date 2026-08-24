@@ -777,7 +777,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
         doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(16);
-        doc.text('EXFIN OMS', 22, 26);
+        doc.text('Office Management System', 22, 26);
 
         doc.setFontSize(8);
         doc.setTextColor(200, 180, 255);
@@ -838,7 +838,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
             </h1>
           </div>
           <p className="text-xs text-purple-300/80 mt-1 font-medium">
-            Exfin OMS Real-time Efficiency & Work Analytics Engine
+            Office Management System Real-time Efficiency & Work Analytics Engine
           </p>
         </div>
 

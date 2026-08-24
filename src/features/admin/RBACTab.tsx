@@ -81,7 +81,7 @@ export const RBACTab: React.FC = () => {
     setMessage(null);
 
     try {
-      const actorEmail = loginId || adminUser?.email || 'super_admin@exfin.internal';
+      const actorEmail = loginId || adminUser?.email || 'super_admin@company.internal';
       const actorUid = adminUser?.uid || 'SUPER_ADMIN_UID';
 
       for (const role of ROLES) {

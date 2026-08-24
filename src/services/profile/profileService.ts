@@ -32,7 +32,7 @@ export const loadProfile = async (uid: string, employeeCode?: string): Promise<E
           employeeCode: data.employeeCode || employeeCode || 'EXFRNG000',
           name: data.name || 'Employee',
           mobileNumber: data.mobileNumber || '',
-          email: data.email || `${(data.employeeCode || 'employee').toLowerCase()}@exfin.com`,
+          email: data.email || `${(data.employeeCode || 'employee').toLowerCase()}@company.internal`,
           department: data.department || data.departmentName || data.office || 'Operations',
           designation: data.designation || (data.isTeamLeader ? 'Team Leader' : 'Executive'),
           teamLeaderCode: data.teamLeaderCode || null,

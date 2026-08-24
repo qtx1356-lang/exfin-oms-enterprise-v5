@@ -364,7 +364,7 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement('a');
       link.setAttribute('href', encodedUri);
-      link.setAttribute('download', `Exfin_OMS_Work_Hours_${selectedMonth}.csv`);
+      link.setAttribute('download', `Office_Management_System_Work_Hours_${selectedMonth}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -388,7 +388,7 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
-      doc.text('EXFIN OMS — COMPANY WORK HOURS REPORT', 22, 24);
+      doc.text('OFFICE MANAGEMENT SYSTEM — COMPANY WORK HOURS REPORT', 22, 24);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
@@ -417,7 +417,7 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
           doc.setFillColor(37, 15, 76);
           doc.rect(15, 10, 267, 8, 'F');
           doc.setTextColor(255, 255, 255);
-          doc.text('EXFIN OMS — COMPANY WORK HOURS REPORT (CONTINUED)', 20, 15);
+          doc.text('OFFICE MANAGEMENT SYSTEM — COMPANY WORK HOURS REPORT (CONTINUED)', 20, 15);
           yPos = 25;
         }
 
@@ -437,7 +437,7 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
         yPos += 6;
       });
 
-      doc.save(`Exfin_OMS_Work_Hours_${selectedMonth}.pdf`);
+      doc.save(`Office_Management_System_Work_Hours_${selectedMonth}.pdf`);
     } catch (e) {
       console.error('PDF export failed:', e);
     }

@@ -333,7 +333,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', `Exfin_OMS_OfficePulse_${todayDateStr}.csv`);
+      link.setAttribute('download', `Office_Management_System_OfficePulse_${todayDateStr}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
