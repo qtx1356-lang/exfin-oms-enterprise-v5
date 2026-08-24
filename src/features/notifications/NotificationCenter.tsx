@@ -8,6 +8,7 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
   deleteNotification,
+  isNotificationForUser,
 } from '../../services/notification/notificationService';
 import { NotificationRecord, NotificationCategory, NotificationPriority, parseTimestamp } from '../../types/notification';
 import { Card } from '../../components/ui/Card';
@@ -126,7 +127,7 @@ export const NotificationCenter: React.FC = () => {
   const handleNotificationClick = async (notif: NotificationRecord) => {
     try {
       if (!notif.read && !(notif as any).isRead) {
-        await markNotificationRead(notif.id);
+        await markNotificationRead(notif.id, currentUser || undefined);
         // Conditional local update if not using real-time sync
         if (!realtimeSync) {
           setLocalNotifications((prev) =>
@@ -185,8 +186,11 @@ export const NotificationCenter: React.FC = () => {
     return p === 'HIGH' || p === 'URGENT' || p === 'CRITICAL' || p === 'IMPORTANT';
   };
 
-  // Filter based on tab and category
+  // Filter based on tab, category, and strict user isolation
   const filteredNotifications = notifications.filter((n) => {
+    // 0. Strict user isolation
+    if (!isNotificationForUser(n, currentUser)) return false;
+
     // 1. Filter by Tab (ALL, UNREAD, IMPORTANT)
     if (activeTab === 'UNREAD' && (n.read || (n as any).isRead)) return false;
     if (activeTab === 'IMPORTANT' && !isImportantNotification(n)) return false;

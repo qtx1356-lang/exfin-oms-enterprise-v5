@@ -9,6 +9,7 @@ import {
   registerEmployeeDeviceToken,
   invalidateEmployeeDeviceToken,
 } from '../services/notification/pushNotificationService';
+import { clearNotificationStorageForUser, dispatchNotificationsUpdated } from '../services/notification/notificationStorage';
 import { createAuditLog } from '../services/audit/auditService';
 
 type RegistrationStatus = 'unregistered' | 'Pending Approval' | 'Approved' | 'Rejected' | 'loading' | 'mobile_recovery' | 'suspended_notice';
@@ -554,10 +555,13 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const resetRegistration = () => {
     const empCode = employeeData?.employeeCode || '';
+    const empId = employeeData?.id || '';
     const devId = localStorage.getItem('deviceId') || '';
     if (devId) {
       invalidateEmployeeDeviceToken(empCode, devId);
     }
+    clearNotificationStorageForUser(empCode || empId);
+    dispatchNotificationsUpdated();
     localStorage.removeItem('registrationId');
     localStorage.removeItem('cached_registration_data');
     setLocalRegId(null);

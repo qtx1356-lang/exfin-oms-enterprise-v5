@@ -221,48 +221,18 @@ export const getNotificationsForUser = async (user: {
   employeeCode: string;
   role: string;
   teamLeaderId?: string;
+  isTeamLeader?: boolean;
 } | null | undefined): Promise<NotificationRecord[]> => {
   if (!user || (!user.id && !user.employeeCode)) {
     return [];
   }
-  // First, fetch whatever is stored locally
-  const localNotifications = getStoredNotifications();
+  const userScopeKey = user.employeeCode || user.id;
+
+  // First, fetch whatever is stored locally in this user's isolated storage
+  const localNotifications = getStoredNotifications(userScopeKey);
   
-  // Filter local based on permissions
-  const filterAllowedLocal = (n: NotificationRecord) => {
-    // SYSTEM alerts are visible only to ADMIN and SUPER_ADMIN
-    if (n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM') {
-      return user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
-    }
-    
-    // Employee can only see own notifications
-    if (user.role === 'EMPLOYEE') {
-      return n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
-    }
-
-    // Team Leader can see own notifications AND team-management notifications for their team
-    if (user.role === 'TEAM_LEADER') {
-      const isOwn = n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
-      const isTeamMgmt = n.recipientTeamLeaderId === user.id || n.recipientTeamLeaderId === user.employeeCode;
-      return isOwn || isTeamMgmt;
-    }
-
-    // Admins can see ADMIN alerts or system alerts
-    if (user.role === 'ADMIN') {
-      const isOwn = n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
-      const isAdminType = n.recipientRole === 'ADMIN';
-      return isOwn || isAdminType;
-    }
-
-    // Super Admins can see ADMIN/SUPER_ADMIN alerts or system alerts
-    if (user.role === 'SUPER_ADMIN') {
-      const isOwn = n.recipientUserId === user.id || n.recipientEmployeeCode === user.employeeCode;
-      const isAdminType = n.recipientRole === 'ADMIN' || n.recipientRole === 'SUPER_ADMIN';
-      return isOwn || isAdminType;
-    }
-
-    return false;
-  };
+  // Filter local based on strict identity permissions
+  const filterAllowedLocal = (n: NotificationRecord) => isNotificationForUser(n, user);
 
   const localFiltered = localNotifications.filter(filterAllowedLocal);
 
@@ -281,32 +251,27 @@ export const getNotificationsForUser = async (user: {
     }
 
     // Query 2: Scoped directly by recipientUserId
-    if (user.id) {
+    if (user.id && user.id !== user.employeeCode) {
       queries.push(query(notifCollection, where('recipientUserId', '==', user.id), limit(50)));
     }
 
-    // Query 3: Scoped by recipientRole SYSTEM/public - ONLY for ADMIN and SUPER_ADMIN
-    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
-      queries.push(query(notifCollection, where('recipientEmployeeCode', '==', 'SYSTEM'), limit(50)));
-    }
-
-    // Query 4: Team-specific notifications for Team Leaders
-    if (user.role === 'TEAM_LEADER') {
-      queries.push(query(notifCollection, where('recipientTeamLeaderId', '==', user.id), limit(50)));
-      if (user.employeeCode) {
+    // Query 3: Team-specific notifications for Team Leaders
+    if (user.role === 'TEAM_LEADER' || user.isTeamLeader) {
+      if (user.id) {
+        queries.push(query(notifCollection, where('recipientTeamLeaderId', '==', user.id), limit(50)));
+      }
+      if (user.employeeCode && user.employeeCode !== user.id) {
         queries.push(query(notifCollection, where('recipientTeamLeaderId', '==', user.employeeCode), limit(50)));
       }
     }
 
-    // Role-based notifications for Admins
-    if (user.role === 'ADMIN') {
+    // Query 4: Role-based notifications ONLY for Admins and Super Admins
+    if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+      queries.push(query(notifCollection, where('recipientEmployeeCode', '==', 'SYSTEM'), limit(50)));
       queries.push(query(notifCollection, where('recipientRole', '==', 'ADMIN'), limit(50)));
-    }
-
-    // Role-based notifications for Super Admins
-    if (user.role === 'SUPER_ADMIN') {
-      queries.push(query(notifCollection, where('recipientRole', '==', 'ADMIN'), limit(50)));
-      queries.push(query(notifCollection, where('recipientRole', '==', 'SUPER_ADMIN'), limit(50)));
+      if (user.role === 'SUPER_ADMIN') {
+        queries.push(query(notifCollection, where('recipientRole', '==', 'SUPER_ADMIN'), limit(50)));
+      }
     }
 
     // Execute queries in parallel and merge
@@ -320,14 +285,14 @@ export const getNotificationsForUser = async (user: {
           d.deleted === true ||
           deletedUserIds.includes(user.id) ||
           deletedUserIds.includes(user.employeeCode) ||
-          isNotificationDeletedLocally(docSnap.id) ||
-          getPendingDeletes().includes(docSnap.id);
+          isNotificationDeletedLocally(docSnap.id, userScopeKey) ||
+          getPendingDeletes(userScopeKey).includes(docSnap.id);
 
         if (isDeletedForUser) {
           return;
         }
 
-        const isReadPending = getPendingReads().includes(docSnap.id);
+        const isReadPending = getPendingReads(userScopeKey).includes(docSnap.id);
         const recordRead = isReadPending ? true : (d.read || false);
 
         // Support backward compatibility (timestamp || createdAt) using parseTimestamp helper
@@ -356,21 +321,25 @@ export const getNotificationsForUser = async (user: {
           deleted: d.deleted || false,
           deletedUserIds: deletedUserIds,
         };
-        fetchedMap.set(record.id, record);
+
+        // Strict post-query isolation check
+        if (isNotificationForUser(record, user)) {
+          fetchedMap.set(record.id, record);
+        }
       });
     });
 
     const serverNotifs = Array.from(fetchedMap.values());
     if (serverNotifs.length > 0) {
-      saveMultipleNotificationsLocally(serverNotifs);
+      saveMultipleNotificationsLocally(serverNotifs, userScopeKey);
       dispatchNotificationsUpdated();
     }
 
     // Sync local pending notifications to Firestore
-    await syncPendingNotifications();
+    await syncPendingNotifications(userScopeKey);
 
-    // Re-load fully merged list
-    const finalLocal = getStoredNotifications();
+    // Re-load fully merged list from isolated storage
+    const finalLocal = getStoredNotifications(userScopeKey);
     return finalLocal.filter(filterAllowedLocal);
   } catch (err) {
     console.error('Error fetching notifications from server:', err);
@@ -380,34 +349,32 @@ export const getNotificationsForUser = async (user: {
 
 export const isNotificationForUser = (
   n: NotificationRecord,
-  user: { id?: string; employeeCode?: string; role?: string } | null | undefined
+  user: { id?: string; employeeCode?: string; role?: string; isTeamLeader?: boolean } | null | undefined
 ): boolean => {
   if (!user) return false;
   const userId = user.id || '';
   const empCode = user.employeeCode || '';
   const userRole = user.role || 'EMPLOYEE';
+  const isTeamLeader = Boolean(user.isTeamLeader || userRole === 'TEAM_LEADER');
 
-  if (n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM') {
+  // System & Admin alerts: visible ONLY to Admins / Super Admins
+  if (n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM' || n.recipientRole === 'ADMIN' || n.recipientRole === 'SUPER_ADMIN') {
     return userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
   }
 
-  if (n.recipientEmployeeCode === 'ALL' || n.recipientUserId === 'ALL' || n.recipientRole === 'ALL') {
+  // Explicit recipient match (Identity Isolation):
+  // Direct match to employeeCode or direct match to userId
+  if ((empCode && n.recipientEmployeeCode === empCode) || (userId && n.recipientUserId === userId)) {
     return true;
   }
 
-  if ((userId && n.recipientUserId === userId) || (empCode && n.recipientEmployeeCode === empCode)) {
+  // Team Leader specific delegation
+  if (isTeamLeader && ((userId && n.recipientTeamLeaderId === userId) || (empCode && n.recipientTeamLeaderId === empCode))) {
     return true;
   }
 
-  if (userRole === 'TEAM_LEADER' && ((userId && n.recipientTeamLeaderId === userId) || (empCode && n.recipientTeamLeaderId === empCode))) {
-    return true;
-  }
-
-  if ((userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') && (n.recipientRole === 'ADMIN' || n.recipientRole === 'SUPER_ADMIN')) {
-    return true;
-  }
-
-  if (userRole === 'EMPLOYEE' && n.recipientRole === 'EMPLOYEE') {
+  // Administrators can view direct assignments
+  if ((userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') && ((userId && n.recipientUserId === userId) || (empCode && n.recipientEmployeeCode === empCode))) {
     return true;
   }
 
@@ -417,20 +384,21 @@ export const isNotificationForUser = (
 /**
  * Mark a single notification as read
  */
-export const markNotificationRead = async (id: string): Promise<void> => {
+export const markNotificationRead = async (id: string, user?: { id?: string; employeeCode?: string }): Promise<void> => {
+  const userScopeKey = user ? (user.employeeCode || user.id) : undefined;
   const nowIso = new Date().toISOString();
-  const local = getStoredNotifications();
+  const local = getStoredNotifications(userScopeKey);
   const index = local.findIndex((n) => n.id === id);
   if (index >= 0) {
     local[index].read = true;
     (local[index] as any).isRead = true;
     local[index].updatedAtDeviceTime = nowIso;
     local[index].syncStatus = 'PENDING';
-    saveNotificationLocally(local[index]);
+    saveNotificationLocally(local[index], userScopeKey);
     dispatchNotificationsUpdated();
   }
 
-  addPendingRead(id);
+  addPendingRead(id, userScopeKey);
 
   if (isOnline()) {
     try {
@@ -442,8 +410,8 @@ export const markNotificationRead = async (id: string): Promise<void> => {
         syncStatus: 'SYNCED',
         serverSyncTime: nowIso,
       }, { merge: true });
-      markNotificationSyncedLocally(id, nowIso);
-      removePendingRead(id);
+      markNotificationSyncedLocally(id, nowIso, userScopeKey);
+      removePendingRead(id, userScopeKey);
     } catch (err) {
       console.warn('Failed to mark read on server, retained locally (queued for retry):', err);
     }
@@ -457,14 +425,16 @@ export const markAllNotificationsRead = async (user: {
   id?: string;
   employeeCode?: string;
   role?: string;
+  isTeamLeader?: boolean;
 }): Promise<void> => {
+  const userScopeKey = user.employeeCode || user.id;
   const nowIso = new Date().toISOString();
-  const local = getStoredNotifications();
+  const local = getStoredNotifications(userScopeKey);
   
   const updatedNotifs: NotificationRecord[] = [];
   
   local.forEach((n) => {
-    if (n.deleted || isNotificationDeletedLocally(n.id) || getPendingDeletes().includes(n.id)) return;
+    if (n.deleted || isNotificationDeletedLocally(n.id, userScopeKey) || getPendingDeletes(userScopeKey).includes(n.id)) return;
 
     if ((!n.read && !(n as any).isRead) && isNotificationForUser(n, user)) {
       n.read = true;
@@ -472,13 +442,13 @@ export const markAllNotificationsRead = async (user: {
       n.updatedAtDeviceTime = nowIso;
       n.syncStatus = 'PENDING';
       updatedNotifs.push(n);
-      addPendingRead(n.id);
+      addPendingRead(n.id, userScopeKey);
     }
   });
 
   if (updatedNotifs.length === 0) return;
 
-  saveMultipleNotificationsLocally(local);
+  saveMultipleNotificationsLocally(local, userScopeKey);
   dispatchNotificationsUpdated();
 
   if (isOnline()) {
@@ -496,8 +466,8 @@ export const markAllNotificationsRead = async (user: {
       });
       await batch.commit();
       updatedNotifs.forEach((n) => {
-        markNotificationSyncedLocally(n.id, nowIso);
-        removePendingRead(n.id);
+        markNotificationSyncedLocally(n.id, nowIso, userScopeKey);
+        removePendingRead(n.id, userScopeKey);
       });
     } catch (err) {
       console.warn('Failed to batch mark all read on server (queued for retry):', err);
@@ -512,14 +482,16 @@ export const getUnreadNotificationCount = (user: {
   id?: string;
   employeeCode?: string;
   role?: string;
+  isTeamLeader?: boolean;
 } | null | undefined): number => {
   if (!user || (!user.id && !user.employeeCode)) {
     return 0;
   }
-  const local = getStoredNotifications();
+  const userScopeKey = user.employeeCode || user.id;
+  const local = getStoredNotifications(userScopeKey);
   return local.filter((n) => {
-    if (n.read || (n as any).isRead || getPendingReads().includes(n.id)) return false;
-    if (n.deleted || isNotificationDeletedLocally(n.id) || getPendingDeletes().includes(n.id)) return false;
+    if (n.read || (n as any).isRead || getPendingReads(userScopeKey).includes(n.id)) return false;
+    if (n.deleted || isNotificationDeletedLocally(n.id, userScopeKey) || getPendingDeletes(userScopeKey).includes(n.id)) return false;
     return isNotificationForUser(n, user);
   }).length;
 };
@@ -531,8 +503,9 @@ export const deleteNotification = async (
   id: string,
   user?: { id?: string; employeeCode?: string }
 ): Promise<void> => {
-  removeNotificationLocally(id);
-  addPendingDelete(id);
+  const userScopeKey = user ? (user.employeeCode || user.id) : undefined;
+  removeNotificationLocally(id, userScopeKey);
+  addPendingDelete(id, userScopeKey);
   dispatchNotificationsUpdated();
 
   if (isOnline()) {
@@ -557,7 +530,7 @@ export const deleteNotification = async (
       } catch {
         // Soft delete in Firestore recorded successfully
       }
-      removePendingDelete(id);
+      removePendingDelete(id, userScopeKey);
     } catch (err) {
       console.warn('Failed to delete notification on server (queued for retry):', err);
     }
@@ -567,17 +540,17 @@ export const deleteNotification = async (
 /**
  * Synchronize any pending offline notifications
  */
-export const syncPendingNotifications = async (): Promise<void> => {
+export const syncPendingNotifications = async (userId?: string): Promise<void> => {
   if (!isOnline()) return;
 
   const nowIso = new Date().toISOString();
 
   // 1. Sync pending deletes
-  const pendingDeletes = getPendingDeletes();
+  const pendingDeletes = getPendingDeletes(userId);
   if (pendingDeletes.length > 0) {
     try {
       const batch = writeBatch(db);
-      const userIdOrCode = auth.currentUser?.uid || 'USER';
+      const userIdOrCode = auth.currentUser?.uid || userId || 'USER';
       pendingDeletes.forEach((id) => {
         const ref = doc(db, 'notifications', id);
         batch.set(
@@ -599,7 +572,7 @@ export const syncPendingNotifications = async (): Promise<void> => {
         } catch {
           // ignore
         }
-        removePendingDelete(id);
+        removePendingDelete(id, userId);
       }
       console.log(`Synced ${pendingDeletes.length} pending delete(s) successfully.`);
     } catch (err) {
@@ -608,7 +581,7 @@ export const syncPendingNotifications = async (): Promise<void> => {
   }
 
   // 2. Sync pending reads
-  const pendingReads = getPendingReads();
+  const pendingReads = getPendingReads(userId);
   if (pendingReads.length > 0) {
     try {
       const batch = writeBatch(db);
@@ -628,8 +601,8 @@ export const syncPendingNotifications = async (): Promise<void> => {
       await batch.commit();
 
       pendingReads.forEach((id) => {
-        markNotificationSyncedLocally(id, nowIso);
-        removePendingRead(id);
+        markNotificationSyncedLocally(id, nowIso, userId);
+        removePendingRead(id, userId);
       });
       console.log(`Synced ${pendingReads.length} pending read(s) successfully.`);
     } catch (err) {
@@ -638,7 +611,7 @@ export const syncPendingNotifications = async (): Promise<void> => {
   }
 
   // 3. Sync pending creations
-  const pending = getPendingNotifications();
+  const pending = getPendingNotifications(userId);
   if (pending.length > 0) {
     try {
       const batch = writeBatch(db);
@@ -654,7 +627,7 @@ export const syncPendingNotifications = async (): Promise<void> => {
       await batch.commit();
 
       pending.forEach((n) => {
-        markNotificationSyncedLocally(n.id, nowIso);
+        markNotificationSyncedLocally(n.id, nowIso, userId);
       });
       console.log(`Synced ${pending.length} pending creation(s) successfully.`);
     } catch (err) {

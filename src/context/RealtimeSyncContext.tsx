@@ -22,6 +22,7 @@ import { syncPendingAttendanceRecords } from '../services/attendance/syncEngine'
 import { syncAllPendingRecords } from '../services/sync/globalSyncEngine';
 import { saveTaskRecord, getStoredTasks } from '../services/planner/taskStorage';
 import { isNotificationDeletedLocally, saveMultipleNotificationsLocally, getPendingDeletes, getPendingReads, getStoredNotifications } from '../services/notification/notificationStorage';
+import { isNotificationForUser } from '../services/notification/notificationService';
 import { saveLeaveRecord, getStoredLeaves } from '../services/leave/leaveStorage';
 import { saveExpenseRecord, getStoredExpenseRecords } from '../services/expenses/expenseStorage';
 import { saveAttendanceRecord, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration, runSafeWorkingHoursNormalization } from '../services/attendance/attendanceStorage';
@@ -137,8 +138,15 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     document.addEventListener('visibilitychange', handleVisibility);
 
     const handleNotificationsUpdated = () => {
-      const stored = getStoredNotifications();
-      const filtered = stored.filter((n) => !n.deleted && !isNotificationDeletedLocally(n.id) && !getPendingDeletes().includes(n.id));
+      const userScopeKey = empCode || employeeData?.id || undefined;
+      const stored = getStoredNotifications(userScopeKey);
+      const filtered = stored.filter(
+        (n) =>
+          !n.deleted &&
+          !isNotificationDeletedLocally(n.id, userScopeKey) &&
+          !getPendingDeletes(userScopeKey).includes(n.id) &&
+          isNotificationForUser(n, employeeData)
+      );
       setNotifications(filtered);
       setUnreadNotificationCount(filtered.filter((n) => !n.read && !(n as any).isRead).length);
     };
@@ -153,7 +161,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('exfin-notifications-updated', handleNotificationsUpdated);
     };
-  }, []);
+  }, [empCode, employeeData]);
 
   // Clean up previous listeners when employee changes
   const cleanupListeners = () => {
@@ -165,6 +173,8 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     if (!empCode || !db) {
       cleanupListeners();
+      setNotifications([]);
+      setUnreadNotificationCount(0);
       return;
     }
 
@@ -463,6 +473,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     const notifSnapshots: { [queryIndex: number]: NotificationRecord[] } = {};
+    const userScopeKey = empCode || empId;
 
     const unsubNotifsList = notifQueries.map((q, qIdx) => {
       return onSnapshot(
@@ -478,14 +489,14 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
               d.deleted === true ||
               deletedUserIds.includes(empId) ||
               deletedUserIds.includes(empCode) ||
-              isNotificationDeletedLocally(docSnap.id) ||
-              getPendingDeletes().includes(docSnap.id);
+              isNotificationDeletedLocally(docSnap.id, userScopeKey) ||
+              getPendingDeletes(userScopeKey).includes(docSnap.id);
 
             if (isDeleted) {
               return;
             }
 
-            const isReadPending = getPendingReads().includes(docSnap.id);
+            const isReadPending = getPendingReads(userScopeKey).includes(docSnap.id);
             const recordRead = isReadPending ? true : (d.read || d.isRead || false);
 
             const parsedDate = parseTimestamp(d.timestamp || d.createdAt || d.createdAtDeviceTime);
@@ -514,7 +525,11 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
               deleted: d.deleted || false,
               deletedUserIds: deletedUserIds,
             };
-            list.push(record);
+
+            // Strict privacy and isolation enforcement
+            if (isNotificationForUser(record, employeeData)) {
+              list.push(record);
+            }
           });
 
           notifSnapshots[qIdx] = list;
@@ -523,7 +538,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
           const mergedMap = new Map<string, NotificationRecord>();
           Object.values(notifSnapshots).forEach((arr) => {
             arr.forEach((n) => {
-              const pendingReads = getPendingReads();
+              const pendingReads = getPendingReads(userScopeKey);
               const isRead = n.read || (n as any).isRead || pendingReads.includes(n.id);
               mergedMap.set(n.id, { ...n, read: isRead, isRead: isRead });
             });
@@ -541,7 +556,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
           setUnreadNotificationCount(finalNotifsList.filter((n) => !n.read && !(n as any).isRead).length);
 
           // Save to local storage to keep it fully synchronized and dispatch update event
-          saveMultipleNotificationsLocally(finalNotifsList);
+          saveMultipleNotificationsLocally(finalNotifsList, userScopeKey);
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('exfin-notifications-updated'));
           }
@@ -555,7 +570,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       cleanupListeners();
     };
-  }, [empCode]);
+  }, [empCode, employeeData]);
 
   // OPTIMISTIC TASK UPDATE
   const updateTaskOptimistically = useCallback(

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase/config';
+import { clearNotificationStorageForUser, dispatchNotificationsUpdated } from '../services/notification/notificationStorage';
 import { AppRole } from '../types/roles';
 
 interface AdminAuthContextType {
@@ -204,6 +205,11 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const logout = async () => {
     if (!auth) throw new Error('Firebase Auth not initialized');
+    if (user?.uid) {
+      clearNotificationStorageForUser(user.uid);
+    }
+    clearNotificationStorageForUser('ADMIN');
+    dispatchNotificationsUpdated();
     await signOut(auth);
     setUser(null);
     setRole('EMPLOYEE');
