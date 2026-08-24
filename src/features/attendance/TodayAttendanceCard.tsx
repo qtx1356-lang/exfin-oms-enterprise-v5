@@ -65,13 +65,45 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
 }) => {
   const [now, setNow] = useState<Date>(new Date());
 
-  // Update real-time counter if checked in
+  // Update real-time counter if checked in, paused when hidden to save CPU/battery
   useEffect(() => {
     if (todayRecord && todayRecord.checkInTime && !todayRecord.checkOutTime) {
-      const timer = setInterval(() => {
-        setNow(new Date());
-      }, 10000);
-      return () => clearInterval(timer);
+      let timer: NodeJS.Timeout | null = null;
+
+      const startTimer = () => {
+        if (!timer) {
+          setNow(new Date());
+          timer = setInterval(() => {
+            setNow(new Date());
+          }, 15000);
+        }
+      };
+
+      const stopTimer = () => {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+      };
+
+      if (document.visibilityState === 'visible') {
+        startTimer();
+      }
+
+      const handleVisibility = () => {
+        if (document.visibilityState === 'visible') {
+          startTimer();
+        } else {
+          stopTimer();
+        }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibility);
+
+      return () => {
+        stopTimer();
+        document.removeEventListener('visibilitychange', handleVisibility);
+      };
     }
   }, [todayRecord?.checkInTime, todayRecord?.checkOutTime]);
 

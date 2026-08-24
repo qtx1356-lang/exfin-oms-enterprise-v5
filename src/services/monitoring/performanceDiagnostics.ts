@@ -34,6 +34,7 @@ const counters: PerfCounters = {
   syncCurrentlyRunning: false,
 };
 
+const MAX_TRACKED_RESOURCES = 200;
 const activeResourceMap = new Map<string, { type: PerfResourceType; createdAt: number; label?: string }>();
 
 export const trackResourceCreated = (type: PerfResourceType, id: string, label?: string): void => {
@@ -59,6 +60,14 @@ export const trackResourceCreated = (type: PerfResourceType, id: string, label?:
     case 'SERVICE_WORKER_HANDLER':
       counters.serviceWorkerHandlers++;
       break;
+  }
+
+  // Bounded retention: remove oldest entries if exceeding limit
+  if (activeResourceMap.size >= MAX_TRACKED_RESOURCES) {
+    const oldestKey = activeResourceMap.keys().next().value;
+    if (oldestKey) {
+      activeResourceMap.delete(oldestKey);
+    }
   }
 
   activeResourceMap.set(id, { type, createdAt: Date.now(), label });

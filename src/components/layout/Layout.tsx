@@ -5,6 +5,7 @@ import { Bell, ChevronRight, CheckCheck, Info, User, Home, MapPin, Trash2, HelpC
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useLocationContext } from '../../context/LocationContext';
+import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { GlobalSyncStatus } from '../common/GlobalSyncStatus';
 import { ConnectivityIndicator } from '../common/ConnectivityIndicator';
 import {
@@ -95,8 +96,10 @@ export const Layout: React.FC = () => {
     locationStatus
   } = useLocationContext();
 
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [recentNotifs, setRecentNotifs] = useState<NotificationRecord[]>([]);
+  const realtimeSync = useRealtimeSync();
+  const syncNotifs = realtimeSync?.notifications || [];
+  const syncUnreadCount = realtimeSync?.unreadNotificationCount ?? 0;
+
   const [activeToastNotif, setActiveToastNotif] = useState<ToastPayload | NotificationRecord | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -120,76 +123,30 @@ export const Layout: React.FC = () => {
     return null;
   }, [adminUser?.uid, employeeData?.id, employeeData?.employeeCode, employeeData?.isTeamLeader]);
 
-  const refreshNotificationCount = async () => {
-    if (!currentUser) return;
-    try {
-      // 1. Get locally updated unread count (for immediate load)
-      const count = getUnreadNotificationCount(currentUser);
-      setUnreadCount(count);
+  // Derive unreadCount and recents directly from synchronized state (0 Firestore overhead)
+  const unreadCount = syncUnreadCount;
+  const recentNotifs = React.useMemo(() => {
+    return syncNotifs.slice(0, 3);
+  }, [syncNotifs]);
 
-      // 2. Fetch notifications to get fresh recent list
-      const data = await getNotificationsForUser(currentUser);
-      const sorted = [...data].sort(
-        (a, b) => new Date(b.timestamp || b.createdAt || b.createdAtDeviceTime).getTime() - new Date(a.timestamp || a.createdAt || a.createdAtDeviceTime).getTime()
-      );
-      
-      // Get 3 most recent unread, or 3 most recent overall
-      const recents = sorted.slice(0, 3);
-      setRecentNotifs(recents);
-
-      // Get the fresh count from the updated local storage
-      const freshCount = getUnreadNotificationCount(currentUser);
-      setUnreadCount(freshCount);
-
-      // 3. Baseline initialization or process incoming
-      if (!baselineDoneRef.current) {
-        initializeNotificationBaseline(sorted);
-        baselineDoneRef.current = true;
-      } else {
-        processIncomingNotifications(sorted, (toastData) => {
-          setActiveToastNotif(toastData);
-        });
-      }
-    } catch (err) {
-      console.warn('Failed to refresh notification count:', err);
+  // Baseline notification initialization & incoming toast notifications
+  useEffect(() => {
+    if (!currentUser || syncNotifs.length === 0) return;
+    if (!baselineDoneRef.current) {
+      initializeNotificationBaseline(syncNotifs);
+      baselineDoneRef.current = true;
+    } else {
+      processIncomingNotifications(syncNotifs, (toastData) => {
+        setActiveToastNotif(toastData);
+      });
     }
-  };
-
-  const userKey = `${currentUser?.id}_${currentUser?.employeeCode}`;
-
-  useEffect(() => {
-    if (!currentUser) return;
-    refreshNotificationCount();
-  }, [userKey]);
-
-  // Handle cross-screen real-time notification updates
-  useEffect(() => {
-    const handleUpdate = () => {
-      refreshNotificationCount();
-    };
-    window.addEventListener('exfin-notifications-updated', handleUpdate);
-    return () => {
-      window.removeEventListener('exfin-notifications-updated', handleUpdate);
-    };
-  }, [currentUser?.employeeCode, currentUser?.id]);
-
-  // Handle visibility change / app resume from background
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        refreshNotificationCount();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [currentUser?.employeeCode, currentUser?.id]);
+  }, [currentUser, syncNotifs]);
 
   // Real-time Push Notification Engine Listener for current employee
   useEffect(() => {
     if (!currentUser) return;
     const unsubPush = initRealtimePushListener(currentUser, (incomingToast) => {
       setActiveToastNotif(incomingToast);
-      refreshNotificationCount();
     });
 
     const empCode = currentUser.employeeCode;
@@ -238,7 +195,6 @@ export const Layout: React.FC = () => {
     if (!currentUser) return;
     try {
       await markAllNotificationsRead(currentUser);
-      await refreshNotificationCount();
     } catch (err) {
       console.error('Failed to mark all notifications read:', err);
     }
@@ -248,7 +204,6 @@ export const Layout: React.FC = () => {
     e.stopPropagation();
     try {
       await deleteNotification(id, currentUser || undefined);
-      await refreshNotificationCount();
     } catch (err) {
       console.error('Failed to delete notification:', err);
     }
@@ -259,7 +214,6 @@ export const Layout: React.FC = () => {
     try {
       if (!notif.read) {
         await markNotificationRead(notif.id);
-        refreshNotificationCount();
       }
       
       if (notif.route) {

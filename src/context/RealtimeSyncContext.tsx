@@ -370,20 +370,6 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                 finalRec = sa;
               }
 
-              // Diagnostic logging (Rule 20)
-              console.log('--- ATTENDANCE SYNC DIAGNOSTIC LOG ---');
-              console.log('CURRENT EMPLOYEE ID:', empCode, currentUserId);
-              console.log('ATTENDANCE DATE:', sa.date);
-              console.log('LOCAL ATTENDANCE:', localRec);
-              console.log('SERVER ATTENDANCE:', sa);
-              console.log('LOCAL UPDATED AT:', localRec?.updatedAt);
-              console.log('SERVER UPDATED AT:', sa.updatedAt);
-              console.log('LOCAL VERSION:', localRec?.version);
-              console.log('SERVER VERSION:', sa.version);
-              console.log('SYNC DECISION:', syncDecision);
-              console.log('FINAL LOCAL ATTENDANCE:', finalRec);
-              console.log('---------------------------------------');
-
               map.set(key, finalRec);
               saveAttendanceRecord(finalRec);
             });

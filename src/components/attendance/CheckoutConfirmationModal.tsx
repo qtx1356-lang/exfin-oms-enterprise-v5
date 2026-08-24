@@ -43,8 +43,9 @@ export const CheckoutConfirmationModal: React.FC = () => {
   useEffect(() => {
     checkPendingConfirmation();
 
-    // Check periodically (every 1.5s) to guarantee responsiveness across background/foreground changes
-    const interval = setInterval(checkPendingConfirmation, 1500);
+    // Event-driven check on mount and on relevant custom events/visibility changes
+    // A relaxed heartbeat (10s) acts as a safety net without saturating the CPU
+    const interval = setInterval(checkPendingConfirmation, 10000);
 
     const handleAttendanceUpdated = () => checkPendingConfirmation();
     const handleVisibilityChange = () => {

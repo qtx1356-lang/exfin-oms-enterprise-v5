@@ -106,14 +106,10 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   // Sync with cached realtime sync data when active employee is selected
   useEffect(() => {
     if (!selectedEmployeeCode || selectedEmployeeCode === activeEmployeeCode) {
-      if (syncTasks.length > 0 && tasks.length === 0) {
-        setTasks(syncTasks);
-      }
-      if (syncAttendance.length > 0 && attendance.length === 0) {
-        setAttendance(syncAttendance);
-      }
+      setTasks(syncTasks);
+      setAttendance(syncAttendance);
     }
-  }, [syncTasks, syncAttendance, selectedEmployeeCode, activeEmployeeCode, tasks.length, attendance.length]);
+  }, [syncTasks, syncAttendance, selectedEmployeeCode, activeEmployeeCode]);
 
   // Report generation state
   const [reportState, setReportState] = useState<'idle' | 'preparing' | 'success' | 'failure'>('idle');
@@ -256,32 +252,15 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       setAllEmployees([employeeData]);
     }
 
-    // 2. TARGETED TASKS LISTENER (Employee-specific)
-    const qTasksCode = query(
-      collection(db, 'tasks'),
-      where('assignedToEmployeeCodes', 'array-contains', targetCode),
-      limit(200)
-    );
-    const unsubTasksCode = onSnapshot(qTasksCode, (snap) => {
-      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as TaskRecord[];
-      setTasks(prev => {
-        const map = new Map<string, TaskRecord>();
-        prev.forEach(t => map.set(t.id, t));
-        list.forEach(t => map.set(t.id, t));
-        return Array.from(map.values());
-      });
-    }, (err) => {
-      console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks notice:', err);
-    });
-    unsubs.push(unsubTasksCode);
-
-    if (targetId && targetId !== targetCode) {
-      const qTasksId = query(
+    // 2. TARGETED TASKS & ATTENDANCE LISTENERS (Only needed if inspecting a different employee)
+    // If inspecting current employee, realtimeSync already provides stream with zero overhead.
+    if (targetCode !== activeEmployeeCode) {
+      const qTasksCode = query(
         collection(db, 'tasks'),
-        where('assignedToEmployeeIds', 'array-contains', targetId),
+        where('assignedToEmployeeCodes', 'array-contains', targetCode),
         limit(200)
       );
-      const unsubTasksId = onSnapshot(qTasksId, (snap) => {
+      const unsubTasksCode = onSnapshot(qTasksCode, (snap) => {
         const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as TaskRecord[];
         setTasks(prev => {
           const map = new Map<string, TaskRecord>();
@@ -290,37 +269,37 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
           return Array.from(map.values());
         });
       }, (err) => {
-        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks(id) notice:', err);
+        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks notice:', err);
       });
-      unsubs.push(unsubTasksId);
-    }
+      unsubs.push(unsubTasksCode);
 
-    // 3. TARGETED ATTENDANCE LISTENER (Employee-specific)
-    const qAttCode = query(
-      collection(db, 'attendance'),
-      where('employeeCode', '==', targetCode),
-      limit(365)
-    );
-    const unsubAttCode = onSnapshot(qAttCode, (snap) => {
-      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AttendanceRecord[];
-      setAttendance(prev => {
-        const map = new Map<string, AttendanceRecord>();
-        prev.forEach(a => map.set(a.id, a));
-        list.forEach(a => map.set(a.id, a));
-        return Array.from(map.values());
-      });
-    }, (err) => {
-      console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance notice:', err);
-    });
-    unsubs.push(unsubAttCode);
+      if (targetId && targetId !== targetCode) {
+        const qTasksId = query(
+          collection(db, 'tasks'),
+          where('assignedToEmployeeIds', 'array-contains', targetId),
+          limit(200)
+        );
+        const unsubTasksId = onSnapshot(qTasksId, (snap) => {
+          const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as TaskRecord[];
+          setTasks(prev => {
+            const map = new Map<string, TaskRecord>();
+            prev.forEach(t => map.set(t.id, t));
+            list.forEach(t => map.set(t.id, t));
+            return Array.from(map.values());
+          });
+        }, (err) => {
+          console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks(id) notice:', err);
+        });
+        unsubs.push(unsubTasksId);
+      }
 
-    if (targetId && targetId !== targetCode) {
-      const qAttId = query(
+      // 3. TARGETED ATTENDANCE LISTENER (Employee-specific)
+      const qAttCode = query(
         collection(db, 'attendance'),
-        where('employeeId', '==', targetId),
+        where('employeeCode', '==', targetCode),
         limit(365)
       );
-      const unsubAttId = onSnapshot(qAttId, (snap) => {
+      const unsubAttCode = onSnapshot(qAttCode, (snap) => {
         const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AttendanceRecord[];
         setAttendance(prev => {
           const map = new Map<string, AttendanceRecord>();
@@ -329,9 +308,29 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
           return Array.from(map.values());
         });
       }, (err) => {
-        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance(id) notice:', err);
+        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance notice:', err);
       });
-      unsubs.push(unsubAttId);
+      unsubs.push(unsubAttCode);
+
+      if (targetId && targetId !== targetCode) {
+        const qAttId = query(
+          collection(db, 'attendance'),
+          where('employeeId', '==', targetId),
+          limit(365)
+        );
+        const unsubAttId = onSnapshot(qAttId, (snap) => {
+          const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AttendanceRecord[];
+          setAttendance(prev => {
+            const map = new Map<string, AttendanceRecord>();
+            prev.forEach(a => map.set(a.id, a));
+            list.forEach(a => map.set(a.id, a));
+            return Array.from(map.values());
+          });
+        }, (err) => {
+          console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance(id) notice:', err);
+        });
+        unsubs.push(unsubAttId);
+      }
     }
 
     return () => {
