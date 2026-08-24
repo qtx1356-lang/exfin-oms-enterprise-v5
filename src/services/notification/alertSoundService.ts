@@ -1,7 +1,154 @@
 import { getNotificationSettings } from './notificationSettings';
-import { NotificationPriority } from '../../types/notification';
+import { NotificationPriority, NotificationRecord } from '../../types/notification';
 
 let alertAudioInstance: HTMLAudioElement | null = null;
+let sharedAudioContext: AudioContext | null = null;
+let audioUnlocked = false;
+
+const PLAYED_SOUND_IDS_KEY = 'exfin_played_notification_sound_ids';
+const playedNotificationSoundIds = new Set<string>();
+let isBaselineInitialized = false;
+
+// Load persisted sound alert IDs from storage
+const loadPersistedSoundIds = () => {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const raw = localStorage.getItem(PLAYED_SOUND_IDS_KEY);
+    if (raw) {
+      const arr: string[] = JSON.parse(raw);
+      arr.slice(-300).forEach((id) => playedNotificationSoundIds.add(id));
+    }
+  } catch (err) {
+    // Graceful error handling
+  }
+};
+
+loadPersistedSoundIds();
+
+const persistSoundIds = () => {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    const arr = Array.from(playedNotificationSoundIds).slice(-300);
+    localStorage.setItem(PLAYED_SOUND_IDS_KEY, JSON.stringify(arr));
+  } catch (err) {}
+};
+
+/**
+ * Unlock and pre-warm audio context/element on first legitimate user interaction
+ */
+export const setupAudioAutoplayUnlock = (): void => {
+  if (typeof window === 'undefined' || audioUnlocked) return;
+
+  const unlock = () => {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+
+    try {
+      if (!alertAudioInstance) {
+        alertAudioInstance = new Audio('/sounds/alert.mp3');
+        alertAudioInstance.preload = 'auto';
+      }
+
+      const AudioContextClass =
+        window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        if (!sharedAudioContext) {
+          sharedAudioContext = new AudioContextClass();
+        }
+        if (sharedAudioContext.state === 'suspended') {
+          sharedAudioContext.resume().catch(() => {});
+        }
+      }
+    } catch (e) {
+      // Ignore
+    }
+
+    const events = ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'];
+    events.forEach((evt) => {
+      window.removeEventListener(evt, unlock);
+    });
+  };
+
+  const events = ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'];
+  events.forEach((evt) => {
+    window.addEventListener(evt, unlock, { once: true, passive: true });
+  });
+};
+
+// Automatically attach unlock listener when running in browser
+if (typeof window !== 'undefined') {
+  setupAudioAutoplayUnlock();
+}
+
+/**
+ * Initialize baseline so old/cached notifications on startup never trigger a sound
+ */
+export const initializeNotificationSoundBaseline = (
+  notifications: (NotificationRecord | string)[]
+): void => {
+  if (!notifications) return;
+  notifications.forEach((item) => {
+    const id = typeof item === 'string' ? item : item.id;
+    if (id) {
+      playedNotificationSoundIds.add(id);
+    }
+  });
+  persistSoundIds();
+  isBaselineInitialized = true;
+};
+
+/**
+ * Check if a sound alert has already been played for this notification ID
+ */
+export const hasNotificationSoundPlayed = (notifId: string): boolean => {
+  if (!notifId) return true;
+  return playedNotificationSoundIds.has(notifId);
+};
+
+/**
+ * Mark a notification ID as having played its sound alert
+ */
+export const markNotificationSoundPlayed = (notifId: string): void => {
+  if (!notifId) return;
+  playedNotificationSoundIds.add(notifId);
+  persistSoundIds();
+};
+
+/**
+ * Trigger sound for a newly arrived notification belonging to authenticated employee
+ */
+export const triggerNewNotificationSound = (
+  notif: NotificationRecord,
+  isEmployee: boolean = true
+): boolean => {
+  if (!isEmployee || !notif || !notif.id) return false;
+
+  // 1. If notification is already read, do NOT play sound
+  if (notif.read || (notif as any).isRead) {
+    markNotificationSoundPlayed(notif.id);
+    return false;
+  }
+
+  // 2. If sound already played for this ID, do NOT play again (idempotent)
+  if (hasNotificationSoundPlayed(notif.id)) {
+    return false;
+  }
+
+  // 3. If baseline has not been initialized yet, treat as baseline
+  if (!isBaselineInitialized) {
+    markNotificationSoundPlayed(notif.id);
+    return false;
+  }
+
+  // 4. Mark as played BEFORE playing to prevent race conditions
+  markNotificationSoundPlayed(notif.id);
+
+  // 5. Play sound and vibration
+  playAlertSound(notif.priority || 'NORMAL');
+  triggerAlertVibration(notif.priority || 'NORMAL');
+
+  return true;
+};
 
 /**
  * Play local alert sound for new incoming notification
@@ -27,7 +174,7 @@ export const playAlertSound = (
         alertAudioInstance.currentTime = 0;
         const playPromise = alertAudioInstance.play();
         if (playPromise !== undefined) {
-          playPromise.catch((err) => {
+          playPromise.catch((_err) => {
             // Autoplay policy prevented playback or format not supported in current WebView, fall back to Web Audio API
             playSynthesizedChime(priority);
           });
@@ -52,7 +199,10 @@ function playSynthesizedChime(priority: NotificationPriority) {
       window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
 
-    const ctx = new AudioContextClass();
+    if (!sharedAudioContext) {
+      sharedAudioContext = new AudioContextClass();
+    }
+    const ctx = sharedAudioContext;
     if (ctx.state === 'suspended') {
       ctx.resume().catch(() => {});
     }

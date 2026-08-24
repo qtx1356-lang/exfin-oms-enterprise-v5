@@ -23,6 +23,7 @@ import { syncAllPendingRecords } from '../services/sync/globalSyncEngine';
 import { saveTaskRecord, getStoredTasks } from '../services/planner/taskStorage';
 import { isNotificationDeletedLocally, saveMultipleNotificationsLocally, getPendingDeletes, getPendingReads, getStoredNotifications } from '../services/notification/notificationStorage';
 import { isNotificationForUser } from '../services/notification/notificationService';
+import { initializeNotificationSoundBaseline, triggerNewNotificationSound } from '../services/notification/alertSoundService';
 import { saveLeaveRecord, getStoredLeaves } from '../services/leave/leaveStorage';
 import { saveExpenseRecord, getStoredExpenseRecords } from '../services/expenses/expenseStorage';
 import { saveAttendanceRecord, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration, runSafeWorkingHoursNormalization } from '../services/attendance/attendanceStorage';
@@ -93,6 +94,8 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Active snapshot unsubscriptions
   const activeUnsubsRef = useRef<(() => void)[]>([]);
+  const localNotifBaselineDoneRef = useRef<boolean>(false);
+  const initialQuerySnapshotSeenRef = useRef<{ [qIdx: number]: boolean }>({});
 
   // Monitor network connectivity
   useEffect(() => {
@@ -147,6 +150,21 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
           !getPendingDeletes(userScopeKey).includes(n.id) &&
           isNotificationForUser(n, employeeData)
       );
+
+      // On startup, baseline all cached notifications so old items never trigger sounds
+      if (!localNotifBaselineDoneRef.current) {
+        initializeNotificationSoundBaseline(filtered);
+        localNotifBaselineDoneRef.current = true;
+      } else {
+        // Trigger sound for newly created local unread notifications
+        const isEmployee = Boolean(employeeData?.employeeCode);
+        filtered.forEach((n) => {
+          if (!n.read && !(n as any).isRead) {
+            triggerNewNotificationSound(n, isEmployee);
+          }
+        });
+      }
+
       setNotifications(filtered);
       setUnreadNotificationCount(filtered.filter((n) => !n.read && !(n as any).isRead).length);
     };
@@ -167,6 +185,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
   const cleanupListeners = () => {
     activeUnsubsRef.current.forEach((unsub) => unsub());
     activeUnsubsRef.current = [];
+    initialQuerySnapshotSeenRef.current = {};
   };
 
   // Setup real-time listeners for current employee identity strictly
@@ -519,6 +538,22 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
           });
 
           notifSnapshots[qIdx] = list;
+
+          // Check if this query is seen for the first time in this session
+          const isFirstSnapshotForQuery = !initialQuerySnapshotSeenRef.current[qIdx];
+          if (isFirstSnapshotForQuery) {
+            initialQuerySnapshotSeenRef.current[qIdx] = true;
+            // Baseline initial query records so historical notifications never chime
+            initializeNotificationSoundBaseline(list);
+          } else {
+            // Subsequent snapshot: trigger sound for newly arrived unread employee notifications
+            const isEmployee = Boolean(employeeData?.employeeCode);
+            list.forEach((record) => {
+              if (!record.read && !(record as any).isRead) {
+                triggerNewNotificationSound(record, isEmployee);
+              }
+            });
+          }
 
           // Merge all queries
           const mergedMap = new Map<string, NotificationRecord>();

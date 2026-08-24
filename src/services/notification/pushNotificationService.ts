@@ -12,6 +12,7 @@ import {
 import { NotificationRecord, NotificationPriority } from '../../types/notification';
 import { getNotificationSettings } from './notificationSettings';
 import { initializeAlertBaseline } from './alertDeduplication';
+import { playAlertSound } from './alertSoundService';
 
 // Keys for persistence
 const PROCESSED_NOTIFS_KEY = 'exfin_processed_push_notif_ids';
@@ -60,66 +61,7 @@ export const playNotificationChime = (
   priority: 'HIGH' | 'URGENT' | 'NORMAL' | 'LOW' = 'NORMAL'
 ): void => {
   try {
-    const settings = getNotificationSettings();
-    if (!settings.soundEnabled) return;
-
-    // LOW priority is strictly silent
-    if (priority === 'LOW') return;
-
-    const AudioContextClass =
-      window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
-
-    const ctx = new AudioContextClass();
-    if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
-
-    const now = ctx.currentTime;
-
-    if (priority === 'HIGH' || priority === 'URGENT') {
-      // Two-tone bright chime for HIGH/URGENT (C5 -> G5 -> C6)
-      const osc1 = ctx.createOscillator();
-      const osc2 = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(523.25, now); // C5
-      osc1.frequency.exponentialRampToValueAtTime(783.99, now + 0.12); // G5
-
-      osc2.type = 'triangle';
-      osc2.frequency.setValueAtTime(1046.5, now + 0.12); // C6
-
-      gain.gain.setValueAtTime(0.01, now);
-      gain.gain.linearRampToValueAtTime(0.25, now + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-
-      osc1.connect(gain);
-      osc2.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc1.start(now);
-      osc1.stop(now + 0.45);
-      osc2.start(now + 0.12);
-      osc2.stop(now + 0.45);
-    } else {
-      // Soft single subtle tone for NORMAL
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(659.25, now); // E5
-
-      gain.gain.setValueAtTime(0.01, now);
-      gain.gain.linearRampToValueAtTime(0.12, now + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start(now);
-      osc.stop(now + 0.2);
-    }
+    playAlertSound(priority);
   } catch (err) {
     // Silent catch
   }
