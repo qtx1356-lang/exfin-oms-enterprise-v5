@@ -71,8 +71,14 @@ export const setupAudioAutoplayUnlock = (): void => {
     try {
       console.log('[NotificationSound] USER_GESTURE_AUDIO_INIT');
       
-      const AudioContextClass =
-        window.AudioContext || (window as any).webkitAudioContext;
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      
+      console.log('[NotificationSound] DIAGNOSTIC_SYSTEM_STATE:');
+      console.log('navigator.userAgent:', navigator.userAgent);
+      console.log('AudioContext available:', !!AudioContextClass);
+      console.log('HTMLAudioElement available:', typeof Audio !== 'undefined');
+      console.log('document.visibilityState:', document.visibilityState);
+      
       if (AudioContextClass) {
         if (!sharedAudioContext) {
           sharedAudioContext = new AudioContextClass();
@@ -83,7 +89,8 @@ export const setupAudioAutoplayUnlock = (): void => {
         
         console.log(`[NotificationSound] AUDIO_CONTEXT_STATE ${sharedAudioContext.state}`);
 
-        console.log('[NotificationSound] AUDIO_TEST_STARTED');
+        // TEST 1: Web Audio
+        console.log('[NotificationSound] AUDIO_TEST_1_REQUEST');
         try {
           const ctx = sharedAudioContext;
           const osc = ctx.createOscillator();
@@ -93,25 +100,56 @@ export const setupAudioAutoplayUnlock = (): void => {
           osc.frequency.setValueAtTime(880, ctx.currentTime);
           
           gain.gain.setValueAtTime(0, ctx.currentTime);
-          gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.01);
-          gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.08);
+          gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.02);
+          gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
           
           osc.connect(gain);
           gain.connect(ctx.destination);
           
           osc.start(ctx.currentTime);
-          osc.stop(ctx.currentTime + 0.08);
+          osc.stop(ctx.currentTime + 0.15);
           
-          console.log('[NotificationSound] AUDIO_TEST_COMPLETED');
+          console.log('[NotificationSound] AUDIO_TEST_1_RESULT success');
         } catch (e) {
-          console.warn('[NotificationSound] AUDIO_TEST_FAILED', e);
+          console.warn('[NotificationSound] AUDIO_TEST_1_RESULT failed', e);
         }
       }
 
-      const audio = getOrCreateAudioElement();
-      if (audio) {
-        audio.load();
+      // TEST 2: HTMLAudioElement -> local WAV
+      console.log('[NotificationSound] AUDIO_TEST_2_REQUEST');
+      try {
+        const audio2 = new Audio('/sounds/alert.wav');
+        audio2.preload = 'auto';
+        audio2.volume = 1.0;
+        console.log('Audio2 readyState before play:', audio2.readyState, 'paused:', audio2.paused, 'src:', audio2.src);
+        try {
+          await audio2.play();
+          console.log('[NotificationSound] AUDIO_TEST_2_RESULT success', 'readyState:', audio2.readyState, 'paused:', audio2.paused);
+          await new Promise(r => setTimeout(r, 600)); // Sleep briefly before next test
+        } catch (e) {
+          console.warn('[NotificationSound] AUDIO_TEST_2_RESULT failed', e, 'error:', audio2.error);
+        }
+      } catch (e) {
+        console.warn('[NotificationSound] AUDIO_TEST_2_RESULT failed', e);
       }
+
+      // TEST 3: HTMLAudioElement -> embedded Data URI
+      console.log('[NotificationSound] AUDIO_TEST_3_REQUEST');
+      try {
+        const audio3 = new Audio(NOTIFICATION_SOUND_DATA_URI);
+        audio3.preload = 'auto';
+        audio3.volume = 1.0;
+        console.log('Audio3 readyState before play:', audio3.readyState, 'paused:', audio3.paused, 'src type:', audio3.src.substring(0, 30) + '...');
+        try {
+          await audio3.play();
+          console.log('[NotificationSound] AUDIO_TEST_3_RESULT success', 'readyState:', audio3.readyState, 'paused:', audio3.paused);
+        } catch (e) {
+          console.warn('[NotificationSound] AUDIO_TEST_3_RESULT failed', e, 'error:', audio3.error);
+        }
+      } catch (e) {
+        console.warn('[NotificationSound] AUDIO_TEST_3_RESULT failed', e);
+      }
+
     } catch (e) {
       console.warn('[NotificationSound] Audio unlock warning:', e);
     }
