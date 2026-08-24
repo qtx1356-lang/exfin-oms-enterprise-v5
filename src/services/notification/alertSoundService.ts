@@ -1,5 +1,6 @@
 import { getNotificationSettings } from './notificationSettings';
 import { NotificationPriority, NotificationRecord } from '../../types/notification';
+import { NOTIFICATION_SOUND_DATA_URI } from './alertSoundAsset';
 
 let alertAudioInstance: HTMLAudioElement | null = null;
 let sharedAudioContext: AudioContext | null = null;
@@ -16,7 +17,7 @@ const loadPersistedSoundIds = () => {
     const raw = localStorage.getItem(PLAYED_SOUND_IDS_KEY);
     if (raw) {
       const arr: string[] = JSON.parse(raw);
-      arr.slice(-300).forEach((id) => playedNotificationSoundIds.add(id));
+      arr.slice(-500).forEach((id) => playedNotificationSoundIds.add(id));
     }
   } catch (err) {
     // Graceful error handling
@@ -28,9 +29,33 @@ loadPersistedSoundIds();
 const persistSoundIds = () => {
   try {
     if (typeof localStorage === 'undefined') return;
-    const arr = Array.from(playedNotificationSoundIds).slice(-300);
+    const arr = Array.from(playedNotificationSoundIds).slice(-500);
     localStorage.setItem(PLAYED_SOUND_IDS_KEY, JSON.stringify(arr));
   } catch (err) {}
+};
+
+/**
+ * Get or create the reusable HTMLAudioElement using embedded data URI to guarantee 100% offline & deployment reliability
+ */
+const getOrCreateAudioElement = (): HTMLAudioElement | null => {
+  if (typeof window === 'undefined') return null;
+  if (!alertAudioInstance) {
+    try {
+      // Primary: embedded clean WAV data URI (never fails to resolve, 0ms network latency, immune to 404s)
+      alertAudioInstance = new Audio(NOTIFICATION_SOUND_DATA_URI);
+      alertAudioInstance.preload = 'auto';
+      alertAudioInstance.volume = 0.75;
+    } catch (e) {
+      try {
+        alertAudioInstance = new Audio('/sounds/alert.wav');
+        alertAudioInstance.preload = 'auto';
+        alertAudioInstance.volume = 0.75;
+      } catch (e2) {
+        // Fallback handled in playAlertSound
+      }
+    }
+  }
+  return alertAudioInstance;
 };
 
 /**
@@ -44,11 +69,23 @@ export const setupAudioAutoplayUnlock = (): void => {
     audioUnlocked = true;
 
     try {
-      if (!alertAudioInstance) {
-        alertAudioInstance = new Audio('/sounds/alert.mp3');
-        alertAudioInstance.preload = 'auto';
+      // 1. Initialize Audio Element
+      const audio = getOrCreateAudioElement();
+      if (audio) {
+        audio.volume = 0; // Silent for unlock
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            audio.pause();
+            audio.currentTime = 0;
+            audio.volume = 0.75; // Restore volume
+          }).catch(() => {
+            // Ignore unlock errors
+          });
+        }
       }
 
+      // 2. Pre-warm and unlock Web Audio AudioContext (standard for Android WebView/iOS Safari)
       const AudioContextClass =
         window.AudioContext || (window as any).webkitAudioContext;
       if (AudioContextClass) {
@@ -58,20 +95,35 @@ export const setupAudioAutoplayUnlock = (): void => {
         if (sharedAudioContext.state === 'suspended') {
           sharedAudioContext.resume().catch(() => {});
         }
+
+        // Play a microscopic 1ms silent buffer to thoroughly prime the hardware audio output pipeline
+        try {
+          const silentBuffer = sharedAudioContext.createBuffer(1, 1, 22050);
+          const source = sharedAudioContext.createBufferSource();
+          source.buffer = silentBuffer;
+          source.connect(sharedAudioContext.destination);
+          source.start(0);
+        } catch (e) {
+          // Silent catch
+        }
       }
+
+      console.log('[NotificationSound] AUDIO_UNLOCKED - Audio pipeline primed and ready');
     } catch (e) {
-      // Ignore
+      console.warn('[NotificationSound] Audio unlock warning:', e);
     }
 
     const events = ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'];
     events.forEach((evt) => {
       window.removeEventListener(evt, unlock);
+      document.removeEventListener(evt, unlock);
     });
   };
 
   const events = ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'];
   events.forEach((evt) => {
     window.addEventListener(evt, unlock, { once: true, passive: true });
+    document.addEventListener(evt, unlock, { once: true, passive: true });
   });
 };
 
@@ -87,14 +139,17 @@ export const initializeNotificationSoundBaseline = (
   notifications: (NotificationRecord | string)[]
 ): void => {
   if (!notifications) return;
+  let count = 0;
   notifications.forEach((item) => {
     const id = typeof item === 'string' ? item : item.id;
     if (id) {
       playedNotificationSoundIds.add(id);
+      count++;
     }
   });
   persistSoundIds();
   isBaselineInitialized = true;
+  console.log(`[NotificationSound] BASELINE_INITIALIZED ${count} existing notification(s) baselined`);
 };
 
 /**
@@ -131,20 +186,26 @@ export const triggerNewNotificationSound = (
 
   // 2. If sound already played for this ID, do NOT play again (idempotent)
   if (hasNotificationSoundPlayed(notif.id)) {
+    console.log(`[NotificationSound] DUPLICATE_SUPPRESSED ${notif.id}`);
     return false;
   }
 
   // 3. If baseline has not been initialized yet, treat as baseline
   if (!isBaselineInitialized) {
     markNotificationSoundPlayed(notif.id);
+    console.log(`[NotificationSound] BASELINE_INITIALIZED (auto on initial record ${notif.id})`);
     return false;
   }
 
-  // 4. Mark as played BEFORE playing to prevent race conditions
+  console.log(`[NotificationSound] NEW_NOTIFICATION_DETECTED ${notif.id}`);
+
+  // 4. Mark as played BEFORE playing to prevent race conditions across parallel snapshot updates
   markNotificationSoundPlayed(notif.id);
 
+  console.log(`[NotificationSound] PLAY_ATTEMPT ${notif.id}`);
+
   // 5. Play sound and vibration
-  playAlertSound(notif.priority || 'NORMAL');
+  playAlertSound(notif.priority || 'NORMAL', notif.id);
   triggerAlertVibration(notif.priority || 'NORMAL');
 
   return true;
@@ -154,57 +215,78 @@ export const triggerNewNotificationSound = (
  * Play local alert sound for new incoming notification
  */
 export const playAlertSound = (
-  priority: NotificationPriority = 'NORMAL'
+  priority: NotificationPriority = 'NORMAL',
+  notifId: string = 'direct'
 ): void => {
   try {
     const settings = getNotificationSettings();
-    if (!settings.soundEnabled) return;
+    if (!settings.soundEnabled) {
+      console.log(`[NotificationSound] Sound disabled in settings for ${notifId}`);
+      return;
+    }
 
     // LOW priority is strictly silent
-    if (priority === 'LOW') return;
+    if (priority === 'LOW') {
+      console.log(`[NotificationSound] LOW priority notification ${notifId} is silent`);
+      return;
+    }
 
-    // 1. Try playing bundled local audio file (public/sounds/alert.mp3 or alert.wav)
-    if (typeof window !== 'undefined') {
-      try {
-        if (!alertAudioInstance) {
-          alertAudioInstance = new Audio('/sounds/alert.mp3');
-          alertAudioInstance.preload = 'auto';
-        }
-        
-        alertAudioInstance.currentTime = 0;
-        const playPromise = alertAudioInstance.play();
-        if (playPromise !== undefined) {
-          playPromise.catch((_err) => {
-            // Autoplay policy prevented playback or format not supported in current WebView, fall back to Web Audio API
-            playSynthesizedChime(priority);
+    if (typeof window === 'undefined') return;
+
+    // 1. Try playing bundled local audio element
+    const audio = getOrCreateAudioElement();
+    if (audio) {
+      audio.currentTime = 0;
+      audio.volume = priority === 'URGENT' ? 0.9 : priority === 'HIGH' ? 0.8 : 0.75;
+      
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log(`[NotificationSound] PLAY_SUCCESS ${notifId} (AudioElement)`);
+          })
+          .catch((err) => {
+            console.warn(`[NotificationSound] PLAY_FAILED ${notifId} AudioElement error:`, err);
+            // Autoplay policy prevented playback or audio format issue, fall back to Web Audio API
+            playSynthesizedChime(priority, notifId);
           });
-        }
         return;
-      } catch (audioErr) {
-        // Fallback to Web Audio API
-        playSynthesizedChime(priority);
       }
     }
+
+    // If audio element is null, fall back to Web Audio API
+    playSynthesizedChime(priority, notifId);
   } catch (err) {
-    // Graceful silent recovery, never crash
+    console.warn(`[NotificationSound] PLAY_FAILED ${notifId} Unexpected exception:`, err);
+    playSynthesizedChime(priority, notifId);
   }
 };
 
 /**
  * Web Audio API synthesized chime fallback
  */
-function playSynthesizedChime(priority: NotificationPriority) {
+function playSynthesizedChime(priority: NotificationPriority, notifId: string = 'fallback') {
   try {
     const AudioContextClass =
       window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
+    if (!AudioContextClass) {
+      console.warn(`[NotificationSound] AUDIO_BLOCKED (Web Audio API not supported in this browser)`);
+      return;
+    }
 
     if (!sharedAudioContext) {
       sharedAudioContext = new AudioContextClass();
     }
     const ctx = sharedAudioContext;
+
     if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
+      ctx.resume().catch((err) => {
+        console.warn(`[NotificationSound] AUDIO_BLOCKED (AudioContext suspended and resume rejected):`, err);
+      });
+    }
+
+    if (ctx.state === 'suspended') {
+      console.warn(`[NotificationSound] AUDIO_BLOCKED (AudioContext is suspended, awaiting user interaction)`);
     }
 
     const now = ctx.currentTime;
@@ -253,8 +335,10 @@ function playSynthesizedChime(priority: NotificationPriority) {
       osc.start(now);
       osc.stop(now + 0.3);
     }
+
+    console.log(`[NotificationSound] PLAY_SUCCESS ${notifId} (Web Audio Synthesized)`);
   } catch (synthErr) {
-    // Ignore audio context errors
+    console.warn(`[NotificationSound] PLAY_FAILED ${notifId} Synthesizer error:`, synthErr);
   }
 }
 
