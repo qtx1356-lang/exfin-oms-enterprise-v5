@@ -518,7 +518,10 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // Offline mode support
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      setCurrentAddress('Offline');
+      const cached = getValidCachedAddress();
+      if (cached) {
+        setCurrentAddress((prev) => (prev && !prev.toLowerCase().includes('unavailable') && !prev.toLowerCase().includes('offline') ? prev : cached));
+      }
       setLocationStatus('success');
       return;
     }
