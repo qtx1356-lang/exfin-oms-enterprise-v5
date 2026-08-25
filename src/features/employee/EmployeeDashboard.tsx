@@ -169,6 +169,23 @@ const getStoredAnnouncements = (empCode?: string): Announcement[] => {
   return [];
 };
 
+const getInitialHasPayslips = (empCode?: string): boolean | null => {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      if (empCode) {
+        const cached = localStorage.getItem(`exfin_cached_has_payslips_${empCode}`);
+        if (cached !== null) return cached === 'true';
+      }
+      const globalCached = localStorage.getItem('exfin_cached_has_payslips');
+      if (globalCached !== null) return globalCached === 'true';
+    }
+  } catch {}
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return false;
+  }
+  return null;
+};
+
 export const EmployeeDashboard: React.FC = () => {
   const { employeeData } = useRegistration();
   const navigate = useNavigate();
@@ -176,7 +193,7 @@ export const EmployeeDashboard: React.FC = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => getStoredAnnouncements(employeeData?.employeeCode));
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
   const [leaveBalance, setLeaveBalance] = useState({ available: 24, pending: 0, used: 0 });
-  const [hasPayslips, setHasPayslips] = useState<boolean | null>(null);
+  const [hasPayslips, setHasPayslips] = useState<boolean | null>(() => getInitialHasPayslips(employeeData?.employeeCode));
   const [showUnavailableMessage, setShowUnavailableMessage] = useState(false);
 
   // Section Loading & Error states
@@ -369,10 +386,19 @@ export const EmployeeDashboard: React.FC = () => {
     );
     
     const unsub = onSnapshot(q, (snap) => {
-      setHasPayslips(!snap.empty);
+      const exists = !snap.empty;
+      setHasPayslips(exists);
+      try {
+        if (typeof localStorage !== 'undefined' && employeeData.employeeCode) {
+          localStorage.setItem(`exfin_cached_has_payslips_${employeeData.employeeCode}`, String(exists));
+          localStorage.setItem('exfin_cached_has_payslips', String(exists));
+        }
+      } catch {}
     }, (err) => {
       console.error("Error checking payslips availability:", err);
-      setHasPayslips(false);
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        setHasPayslips(false);
+      }
     });
     
     return () => unsub();

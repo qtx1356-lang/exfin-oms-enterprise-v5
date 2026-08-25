@@ -78,7 +78,9 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return 'loading';
   });
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [isGpsOff, setIsGpsOff] = useState<boolean>(false);
+  const [isGpsOff, setIsGpsOff] = useState<boolean>(() =>
+    typeof navigator !== 'undefined' && !navigator.onLine && getInitialCachedDistance() === null
+  );
   const [isPermissionDenied, setIsPermissionDenied] = useState<boolean>(false);
   const [isLocationUnavailable, setIsLocationUnavailable] = useState<boolean>(() =>
     typeof navigator !== 'undefined' && !navigator.onLine && getInitialCachedDistance() === null

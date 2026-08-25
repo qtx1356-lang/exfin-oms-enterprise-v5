@@ -11,7 +11,7 @@ interface WelcomeScreenProps {
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const { status, employeeData } = useRegistration();
-  const { locationStatus, distance, formattedDistance, isInsideGeofence, locationState, isGpsOff, isPermissionDenied } = useLocationContext();
+  const { locationStatus, distance, formattedDistance, isInsideGeofence, locationState, isGpsOff, isPermissionDenied, isLocationUnavailable } = useLocationContext();
 
   // Try reading cached employee data immediately from localStorage for 0ms render
   const [cachedName] = useState<string>(() => {
@@ -41,8 +41,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const isRegistered = status === 'Approved' || !!displayName;
 
   // Derive Location & Distance display states dynamically
-  const isLocationLoading = locationStatus === 'loading' && distance === null;
-  const isLocationError = (locationStatus === 'error' || isPermissionDenied || isGpsOff) && distance === null;
+  const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+  const isLocationLoading = locationStatus === 'loading' && distance === null && !isOffline;
+  const isLocationError = (locationStatus === 'error' || isPermissionDenied || isGpsOff || isLocationUnavailable || isOffline) && distance === null;
 
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-[#12072B] via-[#1B0B3B] to-[#260E4E] flex flex-col items-center justify-between p-4 sm:p-6 z-40 text-white overflow-y-auto">
@@ -134,13 +135,13 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
               <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">
                 Location Status
               </span>
-              {isLocationLoading || (locationStatus === 'loading' && distance === null) ? (
+              {isLocationLoading ? (
                 <span className="text-sm font-black text-purple-300 animate-pulse block">
                   Locating...
                 </span>
               ) : distance === null ? (
                 <span className="text-sm font-black text-purple-300 block">
-                  {isGpsOff || isPermissionDenied ? 'GPS Unavailable' : 'Locating...'}
+                  {isGpsOff || isPermissionDenied || isLocationError ? 'GPS Unavailable' : 'Locating...'}
                 </span>
               ) : isInsideGeofence ? (
                 <span className="text-sm font-black text-teal-400 flex items-center gap-1 drop-shadow-[0_0_8px_rgba(20,184,166,0.25)]">
@@ -166,7 +167,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
                 <span className="text-sm font-black text-purple-300 animate-pulse block">
                   Locating...
                 </span>
-              ) : isGpsOff || isPermissionDenied ? (
+              ) : isGpsOff || isPermissionDenied || isLocationError ? (
                 <span className="text-sm font-black text-amber-400 block leading-tight">
                   GPS unavailable
                 </span>
@@ -195,6 +196,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
               {isLocationLoading ? (
                 <span className="text-sm font-black text-purple-300 animate-pulse block">
                   Checking...
+                </span>
+              ) : distance === null ? (
+                <span className="text-sm font-black text-rose-400 block drop-shadow-[0_0_8px_rgba(244,63,94,0.25)]">
+                  UNAVAILABLE
                 </span>
               ) : isInsideGeofence ? (
                 <span className="text-sm font-black text-teal-400 block drop-shadow-[0_0_8px_rgba(20,184,166,0.25)]">

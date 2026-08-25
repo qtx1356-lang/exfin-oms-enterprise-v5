@@ -35,6 +35,29 @@ interface PerformanceSnapshotProps {
   isOnline?: boolean;
 }
 
+const getInitialWeightages = (): EfficiencyWeightages => {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const local = localStorage.getItem('exfin_efficiency_weights');
+      if (local) return JSON.parse(local);
+    }
+  } catch {}
+  return DEFAULT_WEIGHTAGES;
+};
+
+const getInitialHistoricalSnapshots = (employeeCode?: string): EfficiencySnapshot[] => {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const local = localStorage.getItem('exfin_efficiency_snapshots');
+      if (local) {
+        const parsed: EfficiencySnapshot[] = JSON.parse(local);
+        return employeeCode ? parsed.filter(s => s.employeeCode === employeeCode) : parsed;
+      }
+    }
+  } catch {}
+  return [];
+};
+
 export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
   employeeId,
   employeeCode,
@@ -49,13 +72,19 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
   const [showDetailModal, setShowDetailModal] = useState(false);
 
   // Weightages and Snapshots
-  const [weightages, setWeightages] = useState<EfficiencyWeightages>(DEFAULT_WEIGHTAGES);
-  const [historicalSnapshots, setHistoricalSnapshots] = useState<EfficiencySnapshot[]>([]);
+  const [weightages, setWeightages] = useState<EfficiencyWeightages>(getInitialWeightages);
+  const [historicalSnapshots, setHistoricalSnapshots] = useState<EfficiencySnapshot[]>(() => 
+    getInitialHistoricalSnapshots(employeeCode)
+  );
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string>('');
 
   // Async load weightages & historical snapshots after main dashboard mounts
   useEffect(() => {
     let isMounted = true;
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return;
+    }
 
     const loadPerformanceData = async () => {
       try {
