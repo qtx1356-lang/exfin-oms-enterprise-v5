@@ -83,6 +83,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           return 'suspended_notice';
         }
         if (parsed.status === 'Rejected') return 'Rejected';
+        if (parsed.status === 'Pending Approval') return 'Pending Approval';
         return parsed.status || 'Approved';
       }
     } catch {}
@@ -176,7 +177,6 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
 
       try {
-        const { deviceId } = await getDeviceInfo();
         const savedRegId = localStorage.getItem('registrationId');
         
         if (savedRegId) {
@@ -194,25 +194,26 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                   setRejectionReason(cachedData.rejectionReason || `Account status is ${regStatus}.`);
                 } else if (regStatus === 'Rejected') {
                   setStatus('Rejected');
+                } else if (regStatus === 'Pending Approval') {
+                  setStatus('Pending Approval');
                 } else {
-                  setStatus(regStatus === 'Approved' ? 'Approved' : regStatus);
+                  setStatus('Approved');
                 }
               }
             } catch (e) {
               console.warn('Failed to parse cached_registration_data:', e);
             }
+          } else if (isMounted) {
+            setLocalRegId(savedRegId);
+            setStatus('Approved');
           }
 
           // If offline, preserve the local cached session without throwing network errors
           if (!navigator.onLine) {
-            if (isMounted) {
-              setLocalRegId(savedRegId);
-              if (!cachedDataRaw) {
-                setStatus('Approved');
-              }
-            }
             return;
           }
+
+          const { deviceId } = await getDeviceInfo();
 
           // Verify saved registration with Firestore
           try {
@@ -306,6 +307,25 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             console.warn('Firestore registration check failed (retaining cached session):', netErr);
             if (isMounted) {
               setLocalRegId(savedRegId);
+              if (cachedDataRaw) {
+                try {
+                  const cachedData = JSON.parse(cachedDataRaw);
+                  const regStatus = cachedData.status || 'Approved';
+                  if (regStatus === 'Suspended' || regStatus === 'Blocked' || regStatus === 'INACTIVE') {
+                    setStatus('suspended_notice');
+                  } else if (regStatus === 'Rejected') {
+                    setStatus('Rejected');
+                  } else if (regStatus === 'Pending Approval') {
+                    setStatus('Pending Approval');
+                  } else {
+                    setStatus('Approved');
+                  }
+                } catch (e) {
+                  setStatus('Approved');
+                }
+              } else {
+                setStatus('Approved');
+              }
             }
             return;
           }
@@ -327,7 +347,16 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             try {
               const cachedData = JSON.parse(cachedDataRaw);
               setEmployeeDataIfChanged(cachedData);
-              setStatus(cachedData.status || 'Approved');
+              const regStatus = cachedData.status || 'Approved';
+              if (regStatus === 'Suspended' || regStatus === 'Blocked' || regStatus === 'INACTIVE') {
+                setStatus('suspended_notice');
+              } else if (regStatus === 'Rejected') {
+                setStatus('Rejected');
+              } else if (regStatus === 'Pending Approval') {
+                setStatus('Pending Approval');
+              } else {
+                setStatus('Approved');
+              }
               return;
             } catch (e) {}
           }
