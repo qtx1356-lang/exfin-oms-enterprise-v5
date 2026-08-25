@@ -443,12 +443,102 @@ async function startServer() {
 
       await db.runTransaction(async (transaction) => {
         const attSnap = await transaction.get(attDocRef);
+        const timeStr = getFormattedTimeStr(tsDate);
+        const eventIso = tsDate.toISOString();
+
         if (!attSnap.exists) {
-          // If no daily attendance record exists yet, we do NOT automatically create one.
-          // Check-ins are initiated locally/foreground first.
+          // Background Auto Check-In Path: If no daily attendance record exists yet,
+          // create canonical check-in document if this is a valid native ENTRY event inside the 25m office geofence.
+          const isEntryEvent = isInside || eventTypeParam === "ENTER" || eventTypeParam === "GEOFENCE_TRANSITION_ENTER" || eventTypeParam === "GEOFENCE_RETURN";
+          const isWithinBoundary = isInside || (distance !== null && distance <= GEOFENCE_RADIUS_METERS);
+
+          if (isEntryEvent && isWithinBoundary) {
+            console.log(`[BackgroundAttendance] GEOFENCE_ENTRY detected for ${employeeName} (${employeeId})`);
+            console.log(`[BackgroundAttendance] VALIDATED entry location: Lat=${latitude}, Lng=${longitude}, Dist=${distance !== null ? `${Math.round(distance)}m` : "N/A"}`);
+
+            const eventId = payload.eventId || `evt_bg_CHECK_IN_${employeeId}_${dateStr}_${timeStr.replace(/\s+/g, "_")}`;
+            const attUuid = payload.id || `att_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+            console.log(`[BackgroundAttendance] CHECKIN_REQUEST processing for canonical document ${attDocId}`);
+
+            const newRecord: any = {
+              id: attUuid,
+              docId: attDocId,
+              employeeId: employeeId,
+              employeeName: employeeName,
+              date: dateStr,
+              attendanceType: "OFFICE",
+              checkInTime: timeStr,
+              checkOutTime: null,
+              workingHours: null,
+              latitude: isLocationUnavailable ? null : latitude,
+              longitude: isLocationUnavailable ? null : longitude,
+              distance: isLocationUnavailable ? "location unavailable" : distance,
+              townCity: townCity,
+              checkInMode: "AUTO",
+              checkOutMode: "N/A",
+              exitTime: null,
+              returnTime: null,
+              reason: null,
+              createdAtDeviceTime: eventIso,
+              syncStatus: "Synced",
+              serverSyncTime: new Date().toISOString(),
+              serverSyncTimestamp: FieldValue.serverTimestamp(),
+              updatedAt: new Date().toISOString(),
+              isOffline: false,
+              reminderCount: 0,
+              currentState: "CHECKED_IN",
+              processedEvents: [eventId],
+
+              // Permanent Check-In Location
+              checkInLatitude: isLocationUnavailable ? null : latitude,
+              checkInLongitude: isLocationUnavailable ? null : longitude,
+              checkInDistance: isLocationUnavailable ? "location unavailable" : distance,
+              checkInTownCity: townCity,
+
+              // Dynamic Current Location
+              currentLatitude: isLocationUnavailable ? null : latitude,
+              currentLongitude: isLocationUnavailable ? null : longitude,
+              currentDistance: isLocationUnavailable ? "location unavailable" : distance,
+              currentTownCity: townCity,
+              currentLocationTimestamp: eventIso,
+              currentLocationStatus: "LIVE"
+            };
+
+            transaction.set(attDocRef, newRecord);
+
+            // Write audit event to attendance_events tracking collection
+            const eventRef = db!.collection("attendance_events").doc(eventId);
+            transaction.set(eventRef, {
+              eventId,
+              employeeId,
+              attendanceDate: dateStr,
+              eventType: "CHECK_IN",
+              eventTime: timeStr,
+              location: {
+                latitude: isLocationUnavailable ? null : latitude,
+                longitude: isLocationUnavailable ? null : longitude,
+                townCity,
+                distance: isLocationUnavailable ? "location unavailable" : distance
+              },
+              attendanceMode: "OFFICE",
+              source: source || "NATIVE_GEOFENCE_ENTER",
+              syncStatus: "Synced",
+              syncedAt: new Date().toISOString(),
+              serverSyncTime: FieldValue.serverTimestamp()
+            }, { merge: true });
+
+            console.log(`[BackgroundAttendance] CHECKIN_CREATED: Daily attendance document ${attDocId} created with checkInTime ${timeStr}`);
+            console.log(`[BackgroundAttendance] CHECKIN_SYNCED: Synced to Firestore for employee ${employeeId}`);
+            transitionRecorded = true;
+            targetState = "CHECKED_IN";
+          } else {
+            console.log(`[BackgroundAttendance] No existing attendance for ${employeeId} on ${dateStr}, payload is not an entry event inside geofence (isInside: ${isInside}, distance: ${distance}m). Skipping.`);
+          }
           return;
         }
 
+        console.log(`[BackgroundAttendance] CHECKIN_ALREADY_EXISTS for ${employeeId} on ${dateStr}`);
         const record = attSnap.data() || {};
 
         // If the record has already been finalized/checked out, do not perform automatic transitions.
@@ -457,15 +547,13 @@ async function startServer() {
         }
 
         const currentState = record.currentState || "CHECKED_IN";
-        const timeStr = getFormattedTimeStr(tsDate);
-        const eventIso = tsDate.toISOString();
 
         // Idempotency: Create a unique event ID based on type and timestamp to prevent duplicates
         const eventType = isInside ? "GEOFENCE_RETURN" : "GEOFENCE_EXIT";
         const eventId = payload.eventId || `evt_${employeeId}_${dateStr}_${eventType}_${timeStr.replace(/\s+/g, "_")}`;
 
         if (record.processedEvents?.includes(eventId)) {
-          // Already processed this background transition
+          console.log(`[BackgroundAttendance] DUPLICATE_SUPPRESSED: Event ${eventId} already processed for ${attDocId}`);
           return;
         }
 
@@ -473,6 +561,7 @@ async function startServer() {
         let modified = false;
 
         if (!isInside) {
+          console.log(`[BackgroundAttendance] GEOFENCE_EXIT detected for ${employeeId} on ${dateStr}`);
           // Geofence exit transition (INSIDE -> OUTSIDE)
           if (currentState === "CHECKED_IN" || currentState === "ENTERING" || currentState === "RETURNING_TO_OFFICE") {
             const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
@@ -507,6 +596,7 @@ async function startServer() {
             modified = true;
             targetState = "PENDING_EXIT_CONFIRMATION";
             transitionRecorded = true;
+            console.log(`[BackgroundAttendance] EXIT_SYNCED: Recorded geofence exit for ${employeeId} at ${timeStr}`);
           }
         } else {
           // Return to office transition (OUTSIDE -> INSIDE)
