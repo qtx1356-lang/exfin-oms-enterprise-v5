@@ -11,7 +11,7 @@ import { calculateEfficiency } from '../../services/efficiency/efficiencyCalcula
 import { DEFAULT_WEIGHTAGES } from '../../services/efficiency/efficiencyService';
 import { getRecordWorkingMinutes, formatMinutesToDuration } from '../../utils/workHoursCalc';
 import { getEffectiveTaskStatus } from '../../types/planner';
-import { isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, isSameEmployee } from '../../utils/attendanceUtils';
 
 // Define core prop types
 interface ReportsAnalyticsTabProps {
@@ -137,7 +137,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
         DEFAULT_WEIGHTAGES
       );
 
-      const empAtt = attendanceRecords.filter(r => (r.employeeId === eCode || r.employeeCode === eCode) && (r.createdAtDeviceTime || r.date || '').split('T')[0] >= startDate && (r.createdAtDeviceTime || r.date || '').split('T')[0] <= endDate);
+      const empAtt = attendanceRecords.filter(r => (isSameEmployee(r.employeeId, eCode) || isSameEmployee(r.employeeCode, eCode) || isSameEmployee(r.employeeId, emp.id) || isSameEmployee(r.employeeCode, emp.id)) && (r.createdAtDeviceTime || r.date || '').split('T')[0] >= startDate && (r.createdAtDeviceTime || r.date || '').split('T')[0] <= endDate);
       let workMins = 0;
       let lateCount = 0;
       let unresolvedCount = 0;

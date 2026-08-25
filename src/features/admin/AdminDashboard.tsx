@@ -126,6 +126,12 @@ export const processAdminAttendanceRecords = (
   const localRecords = getStoredAttendanceRecords();
   const map = new Map<string, AttendanceRecord>();
 
+  const recordHasCheckout = (rec: AttendanceRecord) => {
+    if (!rec || !rec.checkOutTime) return false;
+    const val = rec.checkOutTime.trim();
+    return !!(val && val !== '--:--' && val !== 'Pending' && val !== 'N/A' && val !== 'UNRESOLVED');
+  };
+
   // Process server records first
   firestoreRecords.forEach((rec) => {
     if (!rec) return;
@@ -136,16 +142,28 @@ export const processAdminAttendanceRecords = (
     if (!existing) {
       map.set(key, rec);
     } else {
-      const existingHasCheckout = !!(existing.checkOutTime && existing.checkOutTime !== '--:--' && existing.checkOutTime !== 'Pending' && existing.checkOutTime !== 'N/A' && existing.checkOutTime !== 'UNRESOLVED');
-      const recHasCheckout = !!(rec.checkOutTime && rec.checkOutTime !== '--:--' && rec.checkOutTime !== 'Pending' && rec.checkOutTime !== 'N/A' && rec.checkOutTime !== 'UNRESOLVED');
+      const existingCheckIn = hasActualCheckIn(existing);
+      const recCheckIn = hasActualCheckIn(rec);
 
-      if (recHasCheckout && !existingHasCheckout) {
+      const existingCheckout = recordHasCheckout(existing);
+      const recCheckout = recordHasCheckout(rec);
+
+      // Rule 1: Record with actual check-in always replaces record without check-in
+      if (recCheckIn && !existingCheckIn) {
         map.set(key, rec);
-      } else if (recHasCheckout && existingHasCheckout) {
+      }
+      // Rule 2: Record with checkout replaces record without checkout (preserving earliest check-in)
+      else if (recCheckout && !existingCheckout) {
+        const earliestIn = getEarliestCheckInTime(existing.checkInTime, rec.checkInTime);
+        map.set(key, { ...existing, ...rec, checkInTime: earliestIn || rec.checkInTime || existing.checkInTime });
+      }
+      // Rule 3: Both have check-in or both have checkout - prefer newer timestamp or server update
+      else {
         const recTime = rec.updatedAt ? new Date(rec.updatedAt).getTime() : (rec.serverSyncTime ? new Date(rec.serverSyncTime).getTime() : 0);
         const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : (existing.serverSyncTime ? new Date(existing.serverSyncTime).getTime() : 0);
-        if (recTime >= existingTime) {
-          map.set(key, rec);
+        if (recTime >= existingTime || (recCheckIn && !existingCheckIn)) {
+          const earliestIn = getEarliestCheckInTime(existing.checkInTime, rec.checkInTime);
+          map.set(key, { ...existing, ...rec, checkInTime: earliestIn || rec.checkInTime || existing.checkInTime });
         }
       }
     }
@@ -161,13 +179,18 @@ export const processAdminAttendanceRecords = (
     if (!existing) {
       map.set(key, localRec);
     } else {
-      const localHasCheckout = !!(localRec.checkOutTime && localRec.checkOutTime !== '--:--' && localRec.checkOutTime !== 'Pending' && localRec.checkOutTime !== 'N/A' && localRec.checkOutTime !== 'UNRESOLVED');
-      const existingHasCheckout = !!(existing.checkOutTime && existing.checkOutTime !== '--:--' && existing.checkOutTime !== 'Pending' && existing.checkOutTime !== 'N/A' && existing.checkOutTime !== 'UNRESOLVED');
+      const localCheckIn = hasActualCheckIn(localRec);
+      const existingCheckIn = hasActualCheckIn(existing);
+      const localCheckout = recordHasCheckout(localRec);
+      const existingCheckout = recordHasCheckout(existing);
 
-      if (localHasCheckout && !existingHasCheckout) {
+      if (localCheckIn && !existingCheckIn) {
         map.set(key, { ...existing, ...localRec });
-      } else if (localRec.syncStatus === 'Pending' && localHasCheckout) {
+      } else if (localCheckout && !existingCheckout) {
         map.set(key, { ...existing, ...localRec });
+      } else if (localRec.syncStatus === 'Pending') {
+        const earliestIn = getEarliestCheckInTime(existing.checkInTime, localRec.checkInTime);
+        map.set(key, { ...existing, ...localRec, checkInTime: earliestIn || localRec.checkInTime || existing.checkInTime });
       }
     }
   });
@@ -626,7 +649,7 @@ export const AdminDashboard: React.FC = () => {
     }, () => { regsLoaded = true; checkAllLoaded(); });
 
     // Listen to attendance with bounded limit
-    const qAttendance = query(collection(db, 'attendance'), limit(300));
+    const qAttendance = query(collection(db, 'attendance'), limit(1000));
     const unsubAttendance = onSnapshot(qAttendance, (snapshot) => {
       const firestoreAtt: AttendanceRecord[] = [];
       snapshot.forEach((doc) => {

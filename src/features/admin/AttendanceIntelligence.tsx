@@ -9,7 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ManagedUser } from '../../types/user';
 import { AttendanceRecord, AttendanceCorrection } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, isSameEmployee } from '../../utils/attendanceUtils';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { exportToCSV } from '../../services/reports/exportService';
 import { fetchDepartments } from '../../services/organization/organizationService';
@@ -552,7 +552,7 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
             // Check approved leave
             const isLeave = leaves.some(l => 
               l.status === 'APPROVED' && 
-              (l.employeeId === emp.id || l.employeeCode === emp.employeeCode) &&
+              (isSameEmployee(l.employeeId, emp.id) || isSameEmployee(l.employeeId, emp.employeeCode) || isSameEmployee(l.employeeCode, emp.employeeCode) || isSameEmployee(l.employeeCode, emp.id)) &&
               d >= l.startDate && d <= l.endDate
             );
 
@@ -670,7 +670,7 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
         if (!deptStats[dept]) deptStats[dept] = { total: 0, present: 0 };
         deptStats[dept].total++;
 
-        const rec = attendanceRecords.find(r => r.date === d && r.employeeId === emp.employeeCode);
+        const rec = attendanceRecords.find(r => r.date === d && (isSameEmployee(r.employeeId, emp.employeeCode) || isSameEmployee(r.employeeId, emp.id) || isSameEmployee(r.employeeCode, emp.employeeCode) || isSameEmployee(r.employeeCode, emp.id)));
         if (rec) {
           deptStats[dept].present++;
         }

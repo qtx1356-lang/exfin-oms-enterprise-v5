@@ -25,7 +25,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { exportToCSV } from '../../services/reports/exportService';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
-import { hasActualCheckIn } from '../../utils/attendanceUtils';
+import { hasActualCheckIn, isSameEmployee } from '../../utils/attendanceUtils';
 
 interface SmartDailyBriefProps {
   registrations: any[];
@@ -183,24 +183,30 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
       // Find today's record (defensive check matching employeeCode or id)
       const todayRecord = safeAttendance.find(rec => 
         rec && rec.date === todayDateStr && (
-          (rec.employeeId && (rec.employeeId === empCode || rec.employeeId === empId)) ||
-          (rec.employeeCode && (rec.employeeCode === empCode || rec.employeeCode === empId))
+          isSameEmployee(rec.employeeId, empCode) ||
+          isSameEmployee(rec.employeeId, empId) ||
+          isSameEmployee(rec.employeeCode, empCode) ||
+          isSameEmployee(rec.employeeCode, empId)
         )
       );
 
       // Find yesterday's record for comparison
       const yesterdayRecord = safeAttendance.find(rec => 
         rec && rec.date === yesterdayDateStr && (
-          (rec.employeeId && (rec.employeeId === empCode || rec.employeeId === empId)) ||
-          (rec.employeeCode && (rec.employeeCode === empCode || rec.employeeCode === empId))
+          isSameEmployee(rec.employeeId, empCode) ||
+          isSameEmployee(rec.employeeId, empId) ||
+          isSameEmployee(rec.employeeCode, empCode) ||
+          isSameEmployee(rec.employeeCode, empId)
         )
       );
 
       // Find approved leave today
       const todayApprovedLeave = safeLeaves.find(req => 
         req && req.status === 'APPROVED' && 
-        ((req.employeeId && (req.employeeId === empId || req.employeeId === empCode)) ||
-         (req.employeeCode && (req.employeeCode === empCode || req.employeeCode === empId))) &&
+        (isSameEmployee(req.employeeId, empId) ||
+         isSameEmployee(req.employeeId, empCode) ||
+         isSameEmployee(req.employeeCode, empCode) ||
+         isSameEmployee(req.employeeCode, empId)) &&
         todayDateStr >= req.startDate &&
         todayDateStr <= req.endDate
       );
@@ -393,10 +399,10 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
       // Check for duplicate today logs
       const dayLogs = attendanceRecords.filter(r => 
         r.date === todayDateStr && (
-          r.employeeId === emp.employeeCode ||
-          r.employeeId === emp.id ||
-          r.employeeCode === emp.employeeCode ||
-          r.employeeCode === emp.id
+          isSameEmployee(r.employeeId, emp.employeeCode) ||
+          isSameEmployee(r.employeeId, emp.id) ||
+          isSameEmployee(r.employeeCode, emp.employeeCode) ||
+          isSameEmployee(r.employeeCode, emp.id)
         )
       );
       if (dayLogs.length > 1) {
@@ -441,10 +447,10 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
         securityFilteredWorkforce.forEach(emp => {
           const rec = attendanceRecords.find(r => 
             r.date === dateStr && (
-              r.employeeId === emp.employeeCode ||
-              r.employeeId === emp.id ||
-              r.employeeCode === emp.employeeCode ||
-              r.employeeCode === emp.id
+              isSameEmployee(r.employeeId, emp.employeeCode) ||
+              isSameEmployee(r.employeeId, emp.id) ||
+              isSameEmployee(r.employeeCode, emp.employeeCode) ||
+              isSameEmployee(r.employeeCode, emp.id)
             )
           );
 

@@ -506,16 +506,24 @@ export const getCurrentLocationDetails = (
 };
 
 /**
+ * Case-insensitive, trim-safe helper to check if two employee IDs or codes match.
+ */
+export const isSameEmployee = (idA: string | null | undefined, idB: string | null | undefined): boolean => {
+  if (!idA || !idB) return false;
+  return idA.trim().toLowerCase() === idB.trim().toLowerCase();
+};
+
+/**
  * Resolves canonical key for an attendance record based on employee identity and date.
  * Ensures consistent matching across local storage and Firestore.
  */
 export const getAttendanceCanonicalKey = (rec: Partial<AttendanceRecord> | null | undefined): string => {
   if (!rec) return '';
-  const empId = (rec.employeeId || (rec as any).employeeCode || rec.id || '').trim().toLowerCase();
+  const empId = (rec.employeeId || (rec as any).employeeCode || '').trim().toLowerCase();
   const date = (rec.date || '').trim();
-  const docId = (rec.docId || '').trim().toLowerCase();
 
-  if (docId) return docId;
   if (empId && date) return `${empId}_${date}`;
+  const docId = (rec.docId || '').trim().toLowerCase();
+  if (docId) return docId;
   return (rec.id || '').trim().toLowerCase();
 };

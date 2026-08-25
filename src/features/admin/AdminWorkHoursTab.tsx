@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { AttendanceRecord, AttendanceType } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, isSameEmployee } from '../../utils/attendanceUtils';
 import { Card } from '../../components/ui/Card';
 import {
   getKolkataDateStr,
@@ -119,8 +119,15 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
   const employeeMap = useMemo(() => {
     const map = new Map<string, any>();
     registrations.forEach((r) => {
-      const code = r.employeeCode || r.id;
-      if (code) map.set(code, r);
+      const keys = [r.employeeCode, r.id, r.employeeId].filter(Boolean);
+      keys.forEach((k) => {
+        const str = String(k).trim();
+        if (str) {
+          map.set(str, r);
+          map.set(str.toLowerCase(), r);
+          map.set(str.toUpperCase(), r);
+        }
+      });
     });
     return map;
   }, [registrations]);
@@ -133,8 +140,8 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
       if (!matchesPeriod) return false;
 
       // 2. Employee filter (must exist in our filtered employees set)
-      const empCode = rec.employeeId || rec.employeeCode;
-      const emp = employeeMap.get(empCode);
+      const empCode = (rec.employeeId || rec.employeeCode || '').trim();
+      const emp = employeeMap.get(empCode) || employeeMap.get(empCode.toLowerCase()) || employeeMap.get(empCode.toUpperCase());
       if (!emp) return false;
       
       const name = (emp.name || '').toLowerCase();
@@ -242,9 +249,9 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
 
     // Initialize all filtered employees to ensure 0-hour entries show up beautifully
     filteredEmployees.forEach((emp) => {
-      const code = emp.employeeCode || emp.id;
-      empDataMap.set(code, {
-        code,
+      const mainCode = emp.employeeCode || emp.id;
+      const dataObj = {
+        code: mainCode,
         name: emp.name || 'N/A',
         department: emp.department || emp.office || 'N/A',
         teamLeader: emp.teamLeaderName || 'N/A',
@@ -254,13 +261,22 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
         wfhMins: 0,
         clientMins: 0,
         outdoorMins: 0,
+      };
+      const keys = [emp.employeeCode, emp.id, emp.employeeId].filter(Boolean);
+      keys.forEach((k) => {
+        const str = String(k).trim();
+        if (str) {
+          empDataMap.set(str, dataObj);
+          empDataMap.set(str.toLowerCase(), dataObj);
+          empDataMap.set(str.toUpperCase(), dataObj);
+        }
       });
     });
 
     // Populate actual logs
     filteredRecords.forEach((rec) => {
-      const empCode = rec.employeeId || rec.employeeCode;
-      const item = empDataMap.get(empCode);
+      const rawCode = (rec.employeeId || rec.employeeCode || '').trim();
+      const item = empDataMap.get(rawCode) || empDataMap.get(rawCode.toLowerCase()) || empDataMap.get(rawCode.toUpperCase());
       if (item) {
         const isCompleted = !!(rec.checkOutTime && rec.checkOutTime !== '--:--');
         const isTodayActive = rec.date === todayStr && !isCompleted;
@@ -290,22 +306,31 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
       }
     });
 
-    return Array.from(empDataMap.values()).sort((a, b) => b.totalMins - a.totalMins);
+    // Deduplicate unique employee objects for final table
+    const uniqueItems = Array.from(new Set(empDataMap.values()));
+    return uniqueItems.sort((a, b) => b.totalMins - a.totalMins);
   }, [filteredEmployees, filteredRecords, todayStr]);
+
+  // Helper to check if a record belongs to the selected employee
+  const isSelectedEmpRecord = (r: AttendanceRecord) => {
+    if (!selectedEmp) return false;
+    return isSameEmployee(r.employeeId, selectedEmp.employeeCode) ||
+           isSameEmployee(r.employeeId, selectedEmp.id) ||
+           isSameEmployee(r.employeeCode, selectedEmp.employeeCode) ||
+           isSameEmployee(r.employeeCode, selectedEmp.id);
+  };
 
   // Individual Employee Calendar view logs
   const selectedEmpRecords = useMemo(() => {
     if (!selectedEmp) return [];
-    const empCode = selectedEmp.employeeCode || selectedEmp.id;
     return attendanceRecords
-      .filter((r) => (r.employeeId === empCode || r.employeeCode === empCode) && r.date.startsWith(selectedMonth))
+      .filter((r) => isSelectedEmpRecord(r) && r.date.startsWith(selectedMonth))
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [selectedEmp, attendanceRecords, selectedMonth]);
 
   const selectedEmpStats = useMemo(() => {
     if (!selectedEmp) return null;
-    const empCode = selectedEmp.employeeCode || selectedEmp.id;
-    const filtered = attendanceRecords.filter((r) => r.employeeId === empCode || r.employeeCode === empCode);
+    const filtered = attendanceRecords.filter((r) => isSelectedEmpRecord(r));
     return calculateMonthlySummary(filtered, selectedMonth);
   }, [selectedEmp, attendanceRecords, selectedMonth]);
 
@@ -325,8 +350,7 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
       daysArray.push(null);
     }
 
-    const empCode = selectedEmp.employeeCode || selectedEmp.id;
-    const empRecords = attendanceRecords.filter((r) => r.employeeId === empCode || r.employeeCode === empCode);
+    const empRecords = attendanceRecords.filter((r) => isSelectedEmpRecord(r));
 
     for (let day = 1; day <= totalDays; day++) {
       const dateStr = `${selectedMonth}-${String(day).padStart(2, '0')}`;

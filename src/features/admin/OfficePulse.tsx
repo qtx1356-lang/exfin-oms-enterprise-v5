@@ -8,7 +8,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ManagedUser } from '../../types/user';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
-import { hasActualCheckIn } from '../../utils/attendanceUtils';
+import { isSameEmployee, hasActualCheckIn } from '../../utils/attendanceUtils';
 
 interface OfficePulseProps {
   registrations: ManagedUser[];
@@ -132,16 +132,20 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
       // Find today's attendance record (defensive check matching employeeCode or id)
       const todayRecord = safeAttendance.find(rec => 
         rec && rec.date === todayDateStr && (
-          (rec.employeeId && (rec.employeeId === empCode || rec.employeeId === empId)) ||
-          (rec.employeeCode && (rec.employeeCode === empCode || rec.employeeCode === empId))
+          isSameEmployee(rec.employeeId, empCode) ||
+          isSameEmployee(rec.employeeId, empId) ||
+          isSameEmployee(rec.employeeCode, empCode) ||
+          isSameEmployee(rec.employeeCode, empId)
         )
       );
 
       // Find approved leave requests covering today
       const todayApprovedLeave = safeLeaves.find(req => 
         req && req.status === 'APPROVED' && 
-        ((req.employeeId && (req.employeeId === empId || req.employeeId === empCode)) ||
-         (req.employeeCode && (req.employeeCode === empCode || req.employeeCode === empId))) &&
+        (isSameEmployee(req.employeeId, empId) ||
+         isSameEmployee(req.employeeId, empCode) ||
+         isSameEmployee(req.employeeCode, empCode) ||
+         isSameEmployee(req.employeeCode, empId)) &&
         todayDateStr >= req.startDate &&
         todayDateStr <= req.endDate
       );
