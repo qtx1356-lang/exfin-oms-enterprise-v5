@@ -80,7 +80,13 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   );
 
   const handleRoleChange = (newRole: string) => {
-    const isTL = newRole === 'TEAM_LEADER' || formData.isTeamLeader;
+    let isTL = formData.isTeamLeader;
+    if (newRole === 'TEAM_LEADER') {
+      isTL = true;
+    } else if (newRole === 'EMPLOYEE') {
+      isTL = false;
+    }
+    console.log('[TeamLeaderSync] FORM_VALUE', { isTeamLeader: isTL, role: newRole });
     setFormData((prev) => ({
       ...prev,
       role: newRole,
@@ -90,12 +96,18 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   };
 
   const handleTeamLeaderToggle = (checked: boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      isTeamLeader: checked,
-      role: checked && prev.role === 'EMPLOYEE' ? 'TEAM_LEADER' : prev.role,
-      assignedTeamLeaderId: checked ? '' : prev.assignedTeamLeaderId,
-    }));
+    console.log('[TeamLeaderSync] FORM_VALUE', { isTeamLeader: checked });
+    setFormData((prev) => {
+      const nextRole = checked
+        ? (prev.role === 'EMPLOYEE' ? 'TEAM_LEADER' : prev.role)
+        : (prev.role === 'TEAM_LEADER' ? 'EMPLOYEE' : prev.role);
+      return {
+        ...prev,
+        isTeamLeader: checked,
+        role: nextRole,
+        assignedTeamLeaderId: checked ? '' : prev.assignedTeamLeaderId,
+      };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -106,20 +118,25 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
     try {
       const selectedTl = candidateTeamLeaders.find((tl) => tl && tl.id === formData.assignedTeamLeaderId);
 
+      const finalIsTeamLeader = Boolean(formData.isTeamLeader);
+      const finalRole = !finalIsTeamLeader && formData.role === 'TEAM_LEADER' ? 'EMPLOYEE' : formData.role;
+
       const payload: Record<string, any> = {
         name: formData.name.trim(),
         mobileNumber: formData.mobileNumber.trim(),
         email: formData.email.trim(),
         office: formData.office,
         designation: formData.designation,
-        role: formData.role,
+        role: finalRole,
         status: formData.status,
-        isTeamLeader: formData.isTeamLeader || formData.role === 'TEAM_LEADER',
+        isTeamLeader: finalIsTeamLeader,
         assignedTeamLeaderId: formData.assignedTeamLeaderId || null,
         assignedTeamLeaderName: selectedTl ? selectedTl.name : null,
         assignedTeamLeaderCode: selectedTl ? selectedTl.employeeCode : null,
         profilePhotoUrl: photoUrl,
       };
+
+      console.log('[TeamLeaderSync] SAVE_REQUEST', { isTeamLeader: payload.isTeamLeader, role: payload.role });
 
       await onSave(user.id, payload, user);
     } catch (error) {

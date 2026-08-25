@@ -104,6 +104,9 @@ export const UserManagementTab: React.FC = () => {
         actorUid: actor.uid,
       });
 
+      console.log('[TeamLeaderSync] SAVE_RESPONSE', { isTeamLeader: data.isTeamLeader, role: data.role });
+      console.log('[TeamLeaderSync] UI_STATE_UPDATED', { isTeamLeader: data.isTeamLeader, role: data.role });
+
       // Update basic details (name, phone, email, photo)
       const extraFields: Record<string, any> = {};
       if (data.name !== undefined) extraFields.name = data.name;

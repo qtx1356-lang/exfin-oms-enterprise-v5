@@ -126,10 +126,26 @@ export const updateUserRoleAndStatus = async (params: {
   const targetName = targetData.name || 'Employee';
   const targetCode = targetData.employeeCode || employeeCode || userId;
 
-  const effectiveIsTeamLeader = (isTeamLeader !== undefined ? isTeamLeader : (targetData.isTeamLeader || false)) || newRole === 'TEAM_LEADER';
+  let effectiveIsTeamLeader: boolean;
+  if (isTeamLeader !== undefined) {
+    effectiveIsTeamLeader = Boolean(isTeamLeader);
+  } else if (newRole === 'TEAM_LEADER') {
+    effectiveIsTeamLeader = true;
+  } else if (newRole === 'EMPLOYEE') {
+    effectiveIsTeamLeader = false;
+  } else {
+    effectiveIsTeamLeader = Boolean(targetData.isTeamLeader);
+  }
+
+  let finalRole = newRole;
+  if (!effectiveIsTeamLeader && finalRole === 'TEAM_LEADER') {
+    finalRole = 'EMPLOYEE';
+  } else if (effectiveIsTeamLeader && finalRole === 'EMPLOYEE') {
+    finalRole = 'TEAM_LEADER';
+  }
 
   const updateData: any = {
-    role: newRole,
+    role: finalRole,
     updatedAt: nowIso,
     updatedBy: actorEmail,
   };
@@ -138,6 +154,8 @@ export const updateUserRoleAndStatus = async (params: {
   if (department !== undefined) updateData.office = department;
   if (designation !== undefined) updateData.designation = designation;
   updateData.isTeamLeader = effectiveIsTeamLeader;
+
+  console.log('[TeamLeaderSync] BACKEND_VALUE', { isTeamLeader: effectiveIsTeamLeader, role: finalRole });
 
   if (assignedTeamLeaderId !== undefined) {
     const prevTlId = targetData.assignedTeamLeaderId || targetData.teamLeaderUid || targetData.teamLeaderId;
