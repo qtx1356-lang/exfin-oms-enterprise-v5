@@ -39,10 +39,17 @@ const isAdminContext = (): boolean => {
   return path.startsWith('/x7Kp9') || path.startsWith('/admin-portal');
 };
 
+export const getActiveAuth = () => isAdminContext() ? adminAuth : employeeAuth;
+export const getActiveDb = () => isAdminContext() ? adminDb : employeeDb;
+export const getActiveStorage = () => isAdminContext() ? adminStorage : employeeStorage;
+
 // 4. Robust JS Proxies for auth, db, and storage
 export const auth = new Proxy({}, {
   get(target, prop, receiver) {
     const activeTarget = isAdminContext() ? adminAuth : employeeAuth;
+    if (prop === 'concrete' || prop === '_concrete') {
+      return activeTarget;
+    }
     const value = Reflect.get(activeTarget, prop);
     if (typeof value === 'function') {
       return value.bind(activeTarget);
@@ -64,6 +71,9 @@ export const auth = new Proxy({}, {
 export const db = new Proxy({}, {
   get(target, prop, receiver) {
     const activeTarget = isAdminContext() ? adminDb : employeeDb;
+    if (prop === 'concrete' || prop === '_concrete') {
+      return activeTarget;
+    }
     const value = Reflect.get(activeTarget, prop);
     if (typeof value === 'function') {
       return value.bind(activeTarget);
@@ -85,6 +95,9 @@ export const db = new Proxy({}, {
 export const storage = new Proxy({}, {
   get(target, prop, receiver) {
     const activeTarget = isAdminContext() ? adminStorage : employeeStorage;
+    if (prop === 'concrete' || prop === '_concrete') {
+      return activeTarget;
+    }
     const value = Reflect.get(activeTarget, prop);
     if (typeof value === 'function') {
       return value.bind(activeTarget);

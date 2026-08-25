@@ -43,6 +43,8 @@ function sanitizeFirestorePayload<T extends Record<string, any>>(obj: T): T {
 }
 
 export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: number; errorsCount: number }> => {
+  const activeDb = db.concrete || db;
+
   if (!navigator.onLine) {
     console.log('Sync Engine: Device is offline. Changes saved locally.');
     return { syncedCount: 0, errorsCount: 0 };
@@ -53,7 +55,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
     return { syncedCount: 0, errorsCount: 0 };
   }
 
-  if (!db) {
+  if (!activeDb) {
     console.warn('Sync Engine: Firestore db instance unavailable.');
     return { syncedCount: 0, errorsCount: 0 };
   }
@@ -75,7 +77,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
         logSyncLocalUpdate('AttendanceEvent', evt.eventId);
         logSyncServerWrite('AttendanceEvent', evt.eventId);
 
-        const evtRef = doc(db, 'attendance_events', evt.eventId);
+        const evtRef = doc(activeDb, 'attendance_events', evt.eventId);
         await setDoc(evtRef, sanitizeFirestorePayload({
           ...evt,
           syncStatus: 'Synced',
@@ -129,7 +131,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
       attempt++;
       try {
         const documentKey = record.docId || `${record.employeeId}_${record.date}` || record.id;
-        const docRef = doc(db, 'attendance', documentKey);
+        const docRef = doc(activeDb, 'attendance', documentKey);
         const localServerSyncTime = new Date().toISOString();
 
         logSyncServerWrite('Attendance', record.id);

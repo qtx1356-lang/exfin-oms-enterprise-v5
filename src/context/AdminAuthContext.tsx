@@ -36,10 +36,11 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [passwordResetAt, setPasswordResetAt] = useState<string | null>(null);
 
   const fetchAdminProfile = useCallback(async (u: User) => {
-    if (!db) return;
+    const activeDb = db.concrete || db;
+    if (!activeDb) return;
 
     try {
-      const adminDoc = await getDoc(doc(db, 'admin_users', u.uid));
+      const adminDoc = await getDoc(doc(activeDb, 'admin_users', u.uid));
 
       if (adminDoc.exists()) {
         const data = adminDoc.data();
@@ -106,7 +107,8 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      if (u && db) {
+      const activeDb = db.concrete || db;
+      if (u && activeDb) {
         // Check for cached admin profile for instant / offline boot
         const cachedAdminRaw = localStorage.getItem(`cached_admin_profile_${u.uid}`);
         if (cachedAdminRaw) {
@@ -172,7 +174,9 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const login = async (emailOrLoginId: string, password: string) => {
-    if (!auth || !db) throw new Error('Firebase services not initialized');
+    const activeAuth = auth.concrete || auth;
+    const activeDb = db.concrete || db;
+    if (!activeAuth || !activeDb) throw new Error('Firebase services not initialized');
     
     const inputCleaned = emailOrLoginId.trim();
     const normalizedLoginId = inputCleaned.toLowerCase().replace(/\s+/g, '');
@@ -182,7 +186,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // Always attempt to resolve Login ID first for security and mapping consistency
     try {
-      const loginDoc = await getDoc(doc(db, 'login_ids', normalizedLoginId));
+      const loginDoc = await getDoc(doc(activeDb, 'login_ids', normalizedLoginId));
       if (loginDoc.exists()) {
         const mappingData = loginDoc.data();
         emailToAuth = mappingData?.email || '';
@@ -205,7 +209,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Attempt Firebase Authentication
     let userCredential;
     try {
-      userCredential = await signInWithEmailAndPassword(auth, emailToAuth, password);
+      userCredential = await signInWithEmailAndPassword(activeAuth, emailToAuth, password);
     } catch (err: any) {
       // Provide user-friendly errors for common auth failures
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
@@ -217,45 +221,46 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Security Verification: Check if authenticated UID matches the expected UID from mapping
     const u = userCredential.user;
     if (expectedUid && u.uid !== expectedUid) {
-      await signOut(auth);
+      await signOut(activeAuth);
       throw new Error('Security violation: Authenticated user does not match the mapped Login ID profile.');
     }
 
     // Verify Active State and Admin Profile in admin_users
     try {
-      const adminDoc = await getDoc(doc(db, 'admin_users', u.uid));
+      const adminDoc = await getDoc(doc(activeDb, 'admin_users', u.uid));
 
       if (adminDoc.exists()) {
         const data = adminDoc.data();
         const isActive = data.active !== false && data.status !== 'Suspended';
         if (!isActive) {
-          await signOut(auth);
+          await signOut(activeAuth);
           throw new Error('Your account is inactive. Please contact the administrator.');
         }
         setMustChangePassword(!!data.mustChangePassword);
         setPasswordChangedAt(data.passwordChangedAt || null);
         setPasswordResetAt(data.passwordResetAt || null);
       } else {
-        await signOut(auth);
+        await signOut(activeAuth);
         throw new Error('Admin profile not found. Access denied.');
       }
     } catch (err: any) {
       if (err.message.includes('inactive') || err.message.includes('not found') || err.message.includes('denied')) {
         throw err;
       }
-      await signOut(auth);
+      await signOut(activeAuth);
       throw new Error(`Profile verification failed: ${err.message}`);
     }
   };
 
   const logout = async () => {
-    if (!auth) throw new Error('Firebase Auth not initialized');
+    const activeAuth = auth.concrete || auth;
+    if (!activeAuth) throw new Error('Firebase Auth not initialized');
     if (user?.uid) {
       clearNotificationStorageForUser(user.uid);
     }
     clearNotificationStorageForUser('ADMIN');
     dispatchNotificationsUpdated();
-    await signOut(auth);
+    await signOut(activeAuth);
     setUser(null);
     setRole('EMPLOYEE');
     setAuthorizedOffice('');

@@ -145,9 +145,10 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     let unsubSnapshot: (() => void) | null = null;
 
     const initializeRegistration = async () => {
+      const activeDb = db.concrete || db;
       logStartupTag('REGISTRATION_CHECK_START', 'Checking registration via local session / mobile recovery');
 
-      if (!db) {
+      if (!activeDb) {
         if (isMounted) setStatus('unregistered');
         return;
       }
@@ -192,7 +193,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           }
 
           // Verify saved registration with Firestore
-          const regDocRef = doc(db, 'registrations', savedRegId);
+          const regDocRef = doc(activeDb, 'registrations', savedRegId);
           const regSnap = await getDoc(regDocRef);
           if (regSnap.exists()) {
             const data = regSnap.data();
@@ -303,7 +304,8 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Verify mobile number for reinstall recovery
   const verifyMobileForRecovery = async (mobile: string): Promise<boolean> => {
-    if (!db) return false;
+    const activeDb = db.concrete || db;
+    if (!activeDb) return false;
     const canonical = normalizeMobile(mobile);
     
     console.log(`[Verification] Start for: ${mobile} (Canonical: ${canonical})`);
@@ -321,7 +323,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     );
 
     try {
-      const regsRef = collection(db, 'registrations');
+      const regsRef = collection(activeDb, 'registrations');
       
       // Step 1: Optimized query by canonicalMobile
       const q = query(regsRef, where('canonicalMobile', '==', canonical));
@@ -387,7 +389,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       // APPROVED RECOVERY SUCCESS!
       const { deviceId, deviceModel } = await getDeviceInfo();
-      const regDocRef = doc(db, 'registrations', regId);
+      const regDocRef = doc(activeDb, 'registrations', regId);
       
       console.log(`[Verification] Restoring account for ${regData.name} on device ${deviceId}`);
 
@@ -445,14 +447,16 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const submitRegistration = async (name: string, mobileNumber: string, selfieBase64: string) => {
-    if (!db) throw new Error('Firestore not initialized');
+    const activeDb = db.concrete || db;
+    const activeAuth = auth.concrete || auth;
+    if (!activeDb) throw new Error('Firestore not initialized');
     
     console.log(`[Registration] Submitting for ${name} (${mobileNumber})`);
     
-    let currentAuthUser = auth?.currentUser || null;
-    if (!currentAuthUser && auth) {
+    let currentAuthUser = activeAuth?.currentUser || null;
+    if (!currentAuthUser && activeAuth) {
       try {
-        const credential = await signInAnonymously(auth);
+        const credential = await signInAnonymously(activeAuth);
         currentAuthUser = credential.user;
       } catch (authErr: any) {
         console.warn('[Registration] Anonymous auth failed:', authErr);
@@ -468,7 +472,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     try {
       // Check if mobile number already exists across registrations
-      const regsRef = collection(db, 'registrations');
+      const regsRef = collection(activeDb, 'registrations');
       const q = query(regsRef, where('canonicalMobile', '==', canonical));
       const snap = await Promise.race([getDocs(q), timeoutPromise]) as any;
       
@@ -500,9 +504,9 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // DO NOT use deviceId for identity restoration as per user request
         // Only use mobile number (handled above)
         console.log(`[Registration] Creating new employee record`);
-        const counterRef = doc(db, 'metadata', 'counters');
+        const counterRef = doc(activeDb, 'metadata', 'counters');
         finalEmployeeCode = await Promise.race([
-          runTransaction(db, async (transaction) => {
+          runTransaction(activeDb, async (transaction) => {
             const counterDoc = await transaction.get(counterRef);
             let newSeq = 1;
             if (counterDoc.exists() && counterDoc.data().employeeCodeSequence) {
@@ -534,7 +538,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       };
 
       await Promise.race([
-        setDoc(doc(db, 'registrations', registrationId), registrationData, { merge: true }),
+        setDoc(doc(activeDb, 'registrations', registrationId), registrationData, { merge: true }),
         timeoutPromise
       ]);
 
