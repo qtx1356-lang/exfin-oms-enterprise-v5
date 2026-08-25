@@ -52,12 +52,31 @@ export const formatOfficeDistance = (meters: number | null, isStaleOrUpdating: b
   return `${km.toFixed(2)} km`;
 };
 
+const getInitialCachedDistance = (): number | null => {
+  try {
+    const cached = localStorage.getItem('lastKnownDistance');
+    if (!cached) return null;
+
+    const value = Number(cached);
+
+    return Number.isFinite(value) && value >= 0
+      ? value
+      : null;
+  } catch {
+    return null;
+  }
+};
+
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [liveLocation, setLiveLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [distance, setDistance] = useState<number | null>(null);
+  const [distance, setDistance] = useState<number | null>(getInitialCachedDistance);
   const [isFreshFixReceived, setIsFreshFixReceived] = useState<boolean>(false);
   const [stableInsideOffice, setStableInsideOffice] = useState<boolean | null>(null);
-  const [locationStatus, setLocationStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [locationStatus, setLocationStatus] = useState<'loading' | 'success' | 'error'>(() =>
+    getInitialCachedDistance() !== null
+      ? 'success'
+      : 'loading'
+  );
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isGpsOff, setIsGpsOff] = useState<boolean>(false);
   const [isPermissionDenied, setIsPermissionDenied] = useState<boolean>(false);

@@ -267,13 +267,12 @@ export const Layout: React.FC = () => {
   };
 
   const rawAddress = (typeof currentAddress === 'string' ? currentAddress.trim() : '');
-  const displayAddress = (!isOnline || rawAddress === 'Offline')
-    ? 'Offline'
-    : (rawAddress && rawAddress !== 'Location unavailable')
-      ? rawAddress
-      : locationStatus === 'error'
-        ? 'Location unavailable'
-        : 'Locating…';
+  const displayAddress =
+    rawAddress && !rawAddress.toLowerCase().includes('unavailable')
+      ? (rawAddress.length > 28
+          ? rawAddress.substring(0, 26) + '...'
+          : rawAddress)
+      : (!isOnline ? 'Offline' : 'Raniganj HQ');
 
   return (
     <div className="min-h-screen bg-background pb-20">
