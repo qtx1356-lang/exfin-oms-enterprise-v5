@@ -210,11 +210,23 @@ export const EmployeeDashboard: React.FC = () => {
     };
   }, []);
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [tasks, setTasks] = useState<TaskRecord[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>(() => {
+    if (syncAttendance && syncAttendance.length > 0) return syncAttendance;
+    return getStoredAttendanceRecords();
+  });
+  const [tasks, setTasks] = useState<TaskRecord[]>(() => {
+    if (syncTasks && syncTasks.length > 0) return syncTasks;
+    return getStoredTasks();
+  });
+  const [expenses, setExpenses] = useState<ExpenseRecord[]>(() => {
+    if (syncExpenses && syncExpenses.length > 0) return syncExpenses as ExpenseRecord[];
+    return getStoredExpenseRecords();
+  });
   const [weightages, setWeightages] = useState<EfficiencyWeightages>(DEFAULT_WEIGHTAGES);
-  const [allLeaves, setAllLeaves] = useState<any[]>([]);
+  const [allLeaves, setAllLeaves] = useState<any[]>(() => {
+    if (syncLeaves && syncLeaves.length > 0) return syncLeaves;
+    return getStoredLeaves();
+  });
 
   // Initialize data from local storage and keep in sync with RealtimeSyncContext
   useEffect(() => {
@@ -223,33 +235,90 @@ export const EmployeeDashboard: React.FC = () => {
 
   useEffect(() => {
     if (syncAttendance && syncAttendance.length > 0) {
-      setAttendanceRecords(syncAttendance);
+      setAttendanceRecords(prev => {
+        if (prev === syncAttendance) return prev;
+        if (prev.length === syncAttendance.length && prev[0]?.id === syncAttendance[0]?.id && prev[0]?.updatedAt === syncAttendance[0]?.updatedAt && prev[0]?.checkInTime === syncAttendance[0]?.checkInTime && prev[0]?.checkOutTime === syncAttendance[0]?.checkOutTime) {
+          return prev;
+        }
+        return syncAttendance;
+      });
     } else {
-      setAttendanceRecords(getStoredAttendanceRecords());
+      const stored = getStoredAttendanceRecords();
+      setAttendanceRecords(prev => {
+        if (prev.length > 0 && stored.length === 0) return prev;
+        if (prev === stored) return prev;
+        if (prev.length === stored.length && prev[0]?.id === stored[0]?.id && prev[0]?.updatedAt === stored[0]?.updatedAt && prev[0]?.checkInTime === stored[0]?.checkInTime && prev[0]?.checkOutTime === stored[0]?.checkOutTime) {
+          return prev;
+        }
+        return stored;
+      });
     }
   }, [syncAttendance]);
 
   useEffect(() => {
     if (syncTasks && syncTasks.length > 0) {
-      setTasks(syncTasks);
+      setTasks(prev => {
+        if (prev === syncTasks) return prev;
+        if (prev.length === syncTasks.length && prev[0]?.id === syncTasks[0]?.id && prev[0]?.status === syncTasks[0]?.status) {
+          return prev;
+        }
+        return syncTasks;
+      });
     } else {
-      setTasks(getStoredTasks());
+      const stored = getStoredTasks();
+      setTasks(prev => {
+        if (prev.length > 0 && stored.length === 0) return prev;
+        if (prev === stored) return prev;
+        if (prev.length === stored.length && prev[0]?.id === stored[0]?.id && prev[0]?.status === stored[0]?.status) {
+          return prev;
+        }
+        return stored;
+      });
     }
   }, [syncTasks]);
 
   useEffect(() => {
     if (syncExpenses && syncExpenses.length > 0) {
-      setExpenses(syncExpenses as ExpenseRecord[]);
+      const syncExp = syncExpenses as ExpenseRecord[];
+      setExpenses(prev => {
+        if (prev === syncExp) return prev;
+        if (prev.length === syncExp.length && prev[0]?.id === syncExp[0]?.id && prev[0]?.status === syncExp[0]?.status) {
+          return prev;
+        }
+        return syncExp;
+      });
     } else {
-      setExpenses(getStoredExpenseRecords());
+      const stored = getStoredExpenseRecords();
+      setExpenses(prev => {
+        if (prev.length > 0 && stored.length === 0) return prev;
+        if (prev === stored) return prev;
+        if (prev.length === stored.length && prev[0]?.id === stored[0]?.id && prev[0]?.status === stored[0]?.status) {
+          return prev;
+        }
+        return stored;
+      });
     }
   }, [syncExpenses]);
 
   useEffect(() => {
     if (syncLeaves && syncLeaves.length > 0) {
-      setAllLeaves(syncLeaves);
+      setAllLeaves(prev => {
+        if (prev === syncLeaves) return prev;
+        if (prev.length === syncLeaves.length && prev[0]?.id === syncLeaves[0]?.id && prev[0]?.status === syncLeaves[0]?.status) {
+          return prev;
+        }
+        return syncLeaves;
+      });
     } else {
-      setAllLeaves(getStoredLeaves());
+      const stored = getStoredLeaves();
+      setAllLeaves(prev => {
+        if (prev.length > 0 && stored.length === 0) return prev;
+        if (prev === stored) return prev;
+        if (prev.length === stored.length && prev[0]?.id === stored[0]?.id && prev[0]?.status === stored[0]?.status) {
+          return prev;
+        }
+        return stored;
+      });
     }
   }, [syncLeaves]);
 

@@ -48,6 +48,8 @@ export const checkNativeGeofenceStatus = async (): Promise<boolean> => {
   }
 };
 
+let isReconciling = false;
+
 /**
  * Reconciles any unconsumed background geofence events that occurred while the app
  * was closed, removed from Recent Apps, or backgrounded.
@@ -57,9 +59,10 @@ export const reconcileNativeGeofenceEvents = async (
   employeeName: string,
   townCity: string
 ): Promise<void> => {
-  if (!employeeId || !Capacitor.isNativePlatform()) {
+  if (!employeeId || !Capacitor.isNativePlatform() || isReconciling) {
     return;
   }
+  isReconciling = true;
 
   try {
     const res = await NativeGeofencePlugin.getUnconsumedNativeEvents();
@@ -121,6 +124,8 @@ export const reconcileNativeGeofenceEvents = async (
     }
   } catch (err: any) {
     console.warn('[NativeGeofenceBridge] Error reconciling native events:', err);
+  } finally {
+    isReconciling = false;
   }
 };
 

@@ -114,9 +114,6 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
   const [currentAddress, setCurrentAddress] = useState<string>(() => {
     try {
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        return 'Offline';
-      }
       const cached = localStorage.getItem('lastKnownAddress');
       if (cached && typeof cached === 'string' && !cached.toLowerCase().includes('unavailable') && !cached.toLowerCase().includes('offline')) {
         return cached.trim();
@@ -182,9 +179,6 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const getValidCachedAddress = (): string | null => {
     try {
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        return null;
-      }
       const cached = localStorage.getItem('lastKnownAddress');
       if (cached && typeof cached === 'string' && !cached.toLowerCase().includes('unavailable') && !cached.toLowerCase().includes('offline')) {
         return cached.trim();
@@ -307,7 +301,10 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const performReverseGeocode = async (latitude: number, longitude: number) => {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      setCurrentAddress('Offline');
+      const cached = getValidCachedAddress();
+      if (cached) {
+        setCurrentAddress(cached);
+      }
       setLocationStatus('success');
       return;
     }
@@ -382,13 +379,9 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         localStorage.setItem('lastKnownAddress', cleanAddress);
       } catch (e) {}
     } else {
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        setCurrentAddress('Offline');
-      } else {
-        const cachedAddress = getValidCachedAddress();
-        if (cachedAddress) {
-          setCurrentAddress(cachedAddress);
-        }
+      const cachedAddress = getValidCachedAddress();
+      if (cachedAddress) {
+        setCurrentAddress(cachedAddress);
       }
     }
     setLocationStatus('success');
@@ -724,7 +717,7 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
     };
 
     const handleOffline = () => {
-      setCurrentAddress('Offline');
+      // Retain last known cached address rather than setting 'Offline'
     };
 
     const onlineListenerId = 'location_online_listener';
@@ -734,10 +727,6 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      setCurrentAddress('Offline');
-    }
 
     // Register Capacitor App Active State Change Listener
     let appStateListener: any = null;

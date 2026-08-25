@@ -89,7 +89,7 @@ const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
 
 export const AttendanceScreen: React.FC = () => {
   const { employeeData } = useRegistration();
-  const { attendance: syncAttendance, updateAttendanceOptimistically, triggerManualSync } = useRealtimeSync();
+  const { attendance: syncAttendance, updateAttendanceOptimistically, triggerManualSync, isOnline } = useRealtimeSync();
 
   const {
     liveLocation,
@@ -118,7 +118,6 @@ export const AttendanceScreen: React.FC = () => {
   // Attendance state
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
@@ -287,17 +286,8 @@ export const AttendanceScreen: React.FC = () => {
     // Start sync engine listener
     const stopSync = startAutoSyncEngine();
 
-    const handleOnlineStatus = () => setIsOnline(navigator.onLine);
-    const onlineListenerId = 'attendance_screen_online';
-    const offlineListenerId = 'attendance_screen_offline';
     const timerId = `attendance_auto_checkout_${Date.now()}`;
-
-    trackResourceCreated('ONLINE_LISTENER', onlineListenerId);
-    trackResourceCreated('OFFLINE_LISTENER', offlineListenerId);
     trackResourceCreated('SYNC_TIMER', timerId, 'attendance_screen_auto_checkout');
-
-    window.addEventListener('online', handleOnlineStatus);
-    window.addEventListener('offline', handleOnlineStatus);
 
     // Periodic check for auto-checkout (at 11:59 PM) and reminders
     const periodicCheckTimer = setInterval(() => {
@@ -312,11 +302,7 @@ export const AttendanceScreen: React.FC = () => {
 
     return () => {
       stopSync();
-      trackResourceCleaned('ONLINE_LISTENER', onlineListenerId);
-      trackResourceCleaned('OFFLINE_LISTENER', offlineListenerId);
       trackResourceCleaned('SYNC_TIMER', timerId);
-      window.removeEventListener('online', handleOnlineStatus);
-      window.removeEventListener('offline', handleOnlineStatus);
       clearInterval(periodicCheckTimer);
     };
   }, [employeeId]);

@@ -50,6 +50,28 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       return null;
     }
   });
+
+  const setEmployeeDataIfChanged = React.useCallback((newData: any) => {
+    setEmployeeData((prev: any) => {
+      if (!prev) return newData;
+      if (!newData) return null;
+      if (
+        prev.id === newData.id &&
+        prev.employeeCode === newData.employeeCode &&
+        prev.status === newData.status &&
+        prev.role === newData.role &&
+        prev.name === newData.name &&
+        prev.office === newData.office &&
+        prev.townCity === newData.townCity &&
+        prev.designation === newData.designation &&
+        prev.phone === newData.phone &&
+        prev.mobileNumber === newData.mobileNumber
+      ) {
+        return prev;
+      }
+      return { ...prev, ...newData };
+    });
+  }, []);
   const [status, setStatus] = useState<RegistrationStatus>(() => {
     const savedRegId = localStorage.getItem('registrationId');
     if (!savedRegId) return 'mobile_recovery';
@@ -165,7 +187,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               const cachedData = JSON.parse(cachedDataRaw);
               if (cachedData && isMounted) {
                 setLocalRegId(savedRegId);
-                setEmployeeData(cachedData);
+                setEmployeeDataIfChanged(cachedData);
                 const regStatus = cachedData.status || 'Approved';
                 if (regStatus === 'Suspended' || regStatus === 'Blocked' || regStatus === 'INACTIVE') {
                   setStatus('suspended_notice');
@@ -208,7 +230,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             if (regStatus === 'Rejected') {
               if (isMounted) {
                 setStatus('Rejected');
-                setEmployeeData(data);
+                setEmployeeDataIfChanged(data);
               }
               return;
             }
@@ -217,7 +239,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               if (isMounted) {
                 setStatus('suspended_notice');
                 setRejectionReason(data.rejectionReason || `Account status is ${regStatus}. Please contact your administrator.`);
-                setEmployeeData(data);
+                setEmployeeDataIfChanged(data);
               }
               return;
             }
@@ -229,7 +251,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             if (isMounted) {
               setLocalRegId(savedRegId);
-              setEmployeeData(data);
+              setEmployeeDataIfChanged(data);
               setStatus(regStatus === 'Approved' ? 'Approved' : regStatus);
             }
 
@@ -252,7 +274,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                   } else {
                     setStatus(liveStatus === 'Approved' ? 'Approved' : liveStatus);
                   }
-                  setEmployeeData(liveData);
+                  setEmployeeDataIfChanged(liveData);
                 } else {
                   localStorage.removeItem('registrationId');
                   localStorage.removeItem('cached_registration_data');
@@ -282,7 +304,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           if (cachedDataRaw) {
             try {
               const cachedData = JSON.parse(cachedDataRaw);
-              setEmployeeData(cachedData);
+              setEmployeeDataIfChanged(cachedData);
               setStatus(cachedData.status || 'Approved');
               return;
             } catch (e) {}
