@@ -72,18 +72,24 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [distance, setDistance] = useState<number | null>(getInitialCachedDistance);
   const [isFreshFixReceived, setIsFreshFixReceived] = useState<boolean>(false);
   const [stableInsideOffice, setStableInsideOffice] = useState<boolean | null>(null);
-  const [locationStatus, setLocationStatus] = useState<'loading' | 'success' | 'error'>(() =>
-    getInitialCachedDistance() !== null
-      ? 'success'
-      : 'loading'
-  );
+  const [locationStatus, setLocationStatus] = useState<'loading' | 'success' | 'error'>(() => {
+    if (getInitialCachedDistance() !== null) return 'success';
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return 'error';
+    return 'loading';
+  });
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isGpsOff, setIsGpsOff] = useState<boolean>(false);
   const [isPermissionDenied, setIsPermissionDenied] = useState<boolean>(false);
-  const [isLocationUnavailable, setIsLocationUnavailable] = useState<boolean>(false);
+  const [isLocationUnavailable, setIsLocationUnavailable] = useState<boolean>(() =>
+    typeof navigator !== 'undefined' && !navigator.onLine && getInitialCachedDistance() === null
+  );
 
   const handleError = (err: any) => {
     console.warn('[Location Error Logged]', err);
+    if (typeof navigator !== 'undefined' && !navigator.onLine && (distance !== null || getInitialCachedDistance() !== null)) {
+      setLocationStatus('success');
+      return;
+    }
     setLocationStatus('error');
     
     const message = err?.message || err || '';

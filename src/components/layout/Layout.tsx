@@ -31,8 +31,14 @@ const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
   const [overflowDistance, setOverflowDistance] = useState(0);
+  const isInitialOfflineRef = useRef(typeof navigator !== 'undefined' && !navigator.onLine);
 
   useEffect(() => {
+    if (isInitialOfflineRef.current) {
+      setOverflowDistance(0);
+      return;
+    }
+
     const checkOverflow = () => {
       if (containerRef.current && textRef.current) {
         const containerWidth = containerRef.current.clientWidth;
