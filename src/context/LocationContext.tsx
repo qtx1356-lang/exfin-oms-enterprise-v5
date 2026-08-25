@@ -575,7 +575,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const startTracking = async () => {
     logStartupTag('LOCATION_INIT_START', 'Starting Geolocation tracking & adaptive polling');
-    if (distance === null) {
+    if (distance === null && (typeof navigator === 'undefined' || navigator.onLine)) {
       setLocationStatus('loading');
     }
     setErrorMessage('');

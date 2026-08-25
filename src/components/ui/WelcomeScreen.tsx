@@ -56,9 +56,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         
         {/* Central Glowing Icon */}
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={false}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3 }}
           className="relative flex items-center justify-center my-1"
         >
           {/* Layered Glow Rings */}
