@@ -2,7 +2,37 @@ import { AttendanceRecord } from '../../types/attendance';
 import { calculateWorkingHours } from './smartAttendanceEngine';
 import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic } from '../../utils/attendanceUtils';
 
-const STORAGE_KEY = 'exfin_attendance_records_v1';
+export const isAdminContext = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname;
+  return path.startsWith('/x7Kp9') || path.startsWith('/admin-portal');
+};
+
+export const getStorageKey = (): string => {
+  return isAdminContext() ? 'exfin_admin_attendance_records_v1' : 'exfin_employee_attendance_records_v1';
+};
+
+// Safe, idempotent one-time migration of existing records from old shared key to isolated employee key
+if (typeof window !== 'undefined') {
+  try {
+    const path = window.location.pathname;
+    const isAdmin = path.startsWith('/x7Kp9') || path.startsWith('/admin-portal');
+    if (!isAdmin) {
+      const oldKey = 'exfin_attendance_records_v1';
+      const newKey = 'exfin_employee_attendance_records_v1';
+      const oldData = localStorage.getItem(oldKey);
+      const newData = localStorage.getItem(newKey);
+      
+      if (oldData && !newData) {
+        localStorage.setItem(newKey, oldData);
+        console.log('[Migration] Successfully migrated existing local attendance records to employee namespace.');
+      }
+    }
+  } catch (e) {
+    console.error('[Migration] Failed to migrate local attendance records:', e);
+  }
+}
+
 import { getFormattedDateStr } from './automaticAttendanceEngine';
 
 const MIGRATION_FLAG_KEY = 'exfin_unresolved_migration_v1_executed';
@@ -52,7 +82,7 @@ export const runSafeWorkingHoursNormalization = (): number => {
   
   if (changedCount > 0) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(getStorageKey(), JSON.stringify(updated));
       localStorage.setItem(WORKING_HOURS_REPAIR_FLAG_KEY, new Date().toISOString());
       console.log(`[WORKING_HOURS_REPAIR] Safely normalized ${changedCount} attendance records with authoritative working hours.`);
     } catch (e) {
@@ -143,7 +173,7 @@ export const runSafeUnresolvedHistoricalMigration = (): MigrationReport => {
 
   if (hasChanges) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedRecords));
+      localStorage.setItem(getStorageKey(), JSON.stringify(updatedRecords));
       localStorage.setItem(MIGRATION_FLAG_KEY, new Date().toISOString());
       console.log(`[Historical Migration] Safely migrated ${migratedDocIds.length} fallback records to UNRESOLVED.`);
     } catch (e) {
@@ -160,16 +190,17 @@ export const runSafeUnresolvedHistoricalMigration = (): MigrationReport => {
   };
 };
 
-let cachedRecordsMemory: AttendanceRecord[] | null = null;
+let cachedRecordsMemory: { [key: string]: AttendanceRecord[] } = {};
 
 export const getStoredAttendanceRecords = (): AttendanceRecord[] => {
-  if (cachedRecordsMemory !== null) {
-    return cachedRecordsMemory;
+  const key = getStorageKey();
+  if (cachedRecordsMemory[key]) {
+    return cachedRecordsMemory[key];
   }
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    cachedRecordsMemory = data ? JSON.parse(data) : [];
-    return cachedRecordsMemory!;
+    const data = localStorage.getItem(key);
+    cachedRecordsMemory[key] = data ? JSON.parse(data) : [];
+    return cachedRecordsMemory[key];
   } catch (err) {
     console.error('Failed to parse local attendance records:', err);
     return [];
@@ -248,8 +279,8 @@ export const saveAttendanceRecord = (record: AttendanceRecord): void => {
   try {
     const records = getStoredAttendanceRecords();
     const isUpdate = processSingleRecordInMemory(records, record);
-    cachedRecordsMemory = records;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    cachedRecordsMemory[getStorageKey()] = records;
+    localStorage.setItem(getStorageKey(), JSON.stringify(records));
 
     logAttendanceWriteDiagnostic(
       record.isAdminRectified || record.manualRectified ? 'ADMIN_ATTENDANCE_CORRECTION' : ((record as any).source || record.checkInMode || 'LocalStorage'),
@@ -269,8 +300,8 @@ export const saveMultipleAttendanceRecords = (newRecords: AttendanceRecord[]): v
     newRecords.forEach((rec) => {
       processSingleRecordInMemory(records, rec);
     });
-    cachedRecordsMemory = records;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    cachedRecordsMemory[getStorageKey()] = records;
+    localStorage.setItem(getStorageKey(), JSON.stringify(records));
   } catch (err) {
     console.error('Failed to save multiple attendance records locally:', err);
   }
@@ -306,7 +337,7 @@ export const markRecordSyncedInLocal = (id: string, serverSyncTime: string): voi
     if (record) {
       record.syncStatus = 'Synced';
       record.serverSyncTime = serverSyncTime;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+      localStorage.setItem(getStorageKey(), JSON.stringify(records));
     }
   } catch (err) {
     console.error('Failed to mark record synced locally:', err);
@@ -317,7 +348,7 @@ export const removePendingAttendanceRecord = (id: string): void => {
   try {
     const records = getStoredAttendanceRecords();
     const filtered = records.filter((r) => r.id !== id && r.docId !== id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+    localStorage.setItem(getStorageKey(), JSON.stringify(filtered));
   } catch (err) {
     console.error('Failed to remove pending attendance record:', err);
   }
