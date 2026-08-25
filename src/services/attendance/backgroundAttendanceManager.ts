@@ -180,43 +180,47 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
       
       const info = getEmployeeInfo();
       if (info?.id) {
-        reconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ');
-        if (isMedianApp()) {
-          startMedianBackgroundLocation(getEmployeeInfo);
-        }
-
-        // Trigger immediate high-accuracy location check on app resume
-        try {
-          if (Capacitor.isNativePlatform()) {
-            Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000 }).then((pos) => {
-              if (pos?.coords) {
-                handleLocationUpdateForAttendance(
-                  pos.coords.latitude,
-                  pos.coords.longitude,
-                  info.id,
-                  info.name,
-                  info.townCity || 'Raniganj HQ'
-                );
-              }
-            }).catch((e) => console.warn('Resume GPS fetch error:', e));
-          } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-              (pos) => {
-                handleLocationUpdateForAttendance(
-                  pos.coords.latitude,
-                  pos.coords.longitude,
-                  info.id,
-                  info.name,
-                  info.townCity || 'Raniganj HQ'
-                );
-              },
-              (err) => console.warn('Resume Web GPS error:', err),
-              { enableHighAccuracy: true, timeout: 5000 }
-            );
+        // Reconcile any native events first so authoritative background timestamps are restored
+        reconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ').then(() => {
+          if (isMedianApp()) {
+            startMedianBackgroundLocation(getEmployeeInfo);
           }
-        } catch (err) {
-          console.warn('App resume location update error:', err);
-        }
+
+          // Trigger immediate high-accuracy location check on app resume
+          try {
+            if (Capacitor.isNativePlatform()) {
+              Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000 }).then((pos) => {
+                if (pos?.coords) {
+                  handleLocationUpdateForAttendance(
+                    pos.coords.latitude,
+                    pos.coords.longitude,
+                    info.id,
+                    info.name,
+                    info.townCity || 'Raniganj HQ'
+                  );
+                }
+              }).catch((e) => console.warn('Resume GPS fetch error:', e));
+            } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  handleLocationUpdateForAttendance(
+                    pos.coords.latitude,
+                    pos.coords.longitude,
+                    info.id,
+                    info.name,
+                    info.townCity || 'Raniganj HQ'
+                  );
+                },
+                (err) => console.warn('Resume Web GPS error:', err),
+                { enableHighAccuracy: true, timeout: 5000 }
+              );
+            }
+          } catch (err) {
+            console.warn('App resume location update error:', err);
+          }
+        }).catch((err) => {
+          console.warn('Resume native reconciliation error:', err);
+        });
       }
 
       runAutoCheckoutFinalizer();

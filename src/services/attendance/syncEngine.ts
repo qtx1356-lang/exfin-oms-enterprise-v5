@@ -148,6 +148,11 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
         let finalCheckInMode = record.checkInMode;
 
         const isExplicitAdminCorrection = record.isAdminRectified || record.manualRectified;
+        let finalGeofenceExitTime = record.geofenceExitTime;
+        let finalGeofenceExitTimestamp = record.geofenceExitTimestamp;
+        let finalLastExitTime = record.lastExitTime;
+        let finalExitTime = record.exitTime;
+
         if (!isExplicitAdminCorrection) {
           try {
             const serverSnap = await getDoc(docRef);
@@ -163,9 +168,21 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                 finalCheckInTownCity = serverData.checkInTownCity || finalCheckInTownCity;
                 finalCheckInMode = serverData.checkInMode || finalCheckInMode;
               }
+
+              // Preserve authoritative earlier geofenceExitTime from server if local is later or missing
+              if (serverData.geofenceExitTimestamp && record.currentState !== 'RETURNING_TO_OFFICE') {
+                const serverExitMs = new Date(serverData.geofenceExitTimestamp).getTime();
+                const localExitMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
+                if (serverExitMs < localExitMs && serverData.geofenceExitTime) {
+                  finalGeofenceExitTime = serverData.geofenceExitTime;
+                  finalGeofenceExitTimestamp = serverData.geofenceExitTimestamp;
+                  finalLastExitTime = serverData.lastExitTime || serverData.geofenceExitTime;
+                  finalExitTime = serverData.exitTime || serverData.geofenceExitTime;
+                }
+              }
             }
           } catch (readErr) {
-            console.warn('[SyncEngine] Non-fatal check on existing server checkInTime:', readErr);
+            console.warn('[SyncEngine] Non-fatal check on existing server checkInTime/geofenceExitTime:', readErr);
           }
         }
 
@@ -183,8 +200,12 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           checkInTownCity: finalCheckInTownCity,
           checkInMode: finalCheckInMode,
           checkOutTime: record.checkOutTime,
-          lastExitTime: record.lastExitTime || null,
-          exitTime: record.exitTime || null,
+          geofenceExitTime: finalGeofenceExitTime || null,
+          geofenceExitTimestamp: finalGeofenceExitTimestamp || null,
+          lastExitTime: finalLastExitTime || record.lastExitTime || null,
+          exitTime: finalExitTime || record.exitTime || null,
+          pendingCheckoutConfirmation: record.pendingCheckoutConfirmation ?? false,
+          currentState: record.currentState || null,
           returnTime: record.returnTime || null,
           processedEvents: record.processedEvents || []
         });

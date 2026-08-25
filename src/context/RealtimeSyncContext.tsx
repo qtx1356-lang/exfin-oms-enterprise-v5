@@ -388,6 +388,34 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                     }
                   }
                 }
+
+                // AUTHORITATIVE GEOFENCE EXIT TIME SAFEGUARD:
+                // If either localRec or sa has an authoritative geofenceExitTime / geofenceExitTimestamp,
+                // strictly preserve the EARLIEST valid geofence exit timestamp.
+                if (!sa.isAdminRectified && !sa.manualRectified && finalRec.currentState !== 'RETURNING_TO_OFFICE') {
+                  const localExitMs = localRec?.geofenceExitTimestamp ? new Date(localRec.geofenceExitTimestamp).getTime() : Infinity;
+                  const serverExitMs = sa?.geofenceExitTimestamp ? new Date(sa.geofenceExitTimestamp).getTime() : Infinity;
+
+                  if (serverExitMs < localExitMs && sa?.geofenceExitTime) {
+                    finalRec = {
+                      ...finalRec,
+                      geofenceExitTime: sa.geofenceExitTime,
+                      geofenceExitTimestamp: sa.geofenceExitTimestamp,
+                      lastExitTime: sa.lastExitTime || sa.geofenceExitTime,
+                      exitTime: sa.exitTime || sa.geofenceExitTime,
+                      pendingCheckoutConfirmation: sa.pendingCheckoutConfirmation ?? finalRec.pendingCheckoutConfirmation
+                    };
+                  } else if (localExitMs < serverExitMs && localRec?.geofenceExitTime) {
+                    finalRec = {
+                      ...finalRec,
+                      geofenceExitTime: localRec.geofenceExitTime,
+                      geofenceExitTimestamp: localRec.geofenceExitTimestamp,
+                      lastExitTime: localRec.lastExitTime || localRec.geofenceExitTime,
+                      exitTime: localRec.exitTime || localRec.geofenceExitTime,
+                      pendingCheckoutConfirmation: localRec.pendingCheckoutConfirmation ?? finalRec.pendingCheckoutConfirmation
+                    };
+                  }
+                }
               } else {
                 syncDecision = 'CREATED_FROM_SERVER';
                 finalRec = sa;

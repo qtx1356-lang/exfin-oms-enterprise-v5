@@ -873,6 +873,10 @@ export const AutomaticAttendanceEngine = {
             isNativeEvent
           });
         }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('exfin-checkout-confirmation-needed', { detail: { employeeId, record } }));
+          window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+        }
         return record;
       }
 

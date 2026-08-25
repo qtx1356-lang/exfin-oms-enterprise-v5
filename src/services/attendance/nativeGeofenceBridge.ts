@@ -74,6 +74,9 @@ export const reconcileNativeGeofenceEvents = async (
       `Reconciling ${events.length} unconsumed native background geofence events from native storage.`
     );
 
+    // Sort chronologically so earliest exit/entry transitions execute in true chronological order
+    events.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
     for (const evt of events) {
       const eventDate = new Date(evt.timestamp || Date.now());
       if (evt.transition === 'EXIT') {

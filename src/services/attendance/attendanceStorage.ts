@@ -239,6 +239,25 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
       record.checkInMode = existingRecord.checkInMode || record.checkInMode;
     }
 
+    // AUTHORITATIVE GEOFENCE EXIT TIME PRESERVATION:
+    // If existingRecord has a valid geofenceExitTimestamp/geofenceExitTime, preserve the earliest exit time!
+    if (!isExplicitAdminCorrection && record.currentState !== 'RETURNING_TO_OFFICE') {
+      const existingExitMs = existingRecord.geofenceExitTimestamp ? new Date(existingRecord.geofenceExitTimestamp).getTime() : Infinity;
+      const incomingExitMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
+
+      if (existingExitMs < incomingExitMs && existingRecord.geofenceExitTime) {
+        record.geofenceExitTime = existingRecord.geofenceExitTime;
+        record.geofenceExitTimestamp = existingRecord.geofenceExitTimestamp;
+        record.lastExitTime = existingRecord.lastExitTime || existingRecord.geofenceExitTime;
+        record.exitTime = existingRecord.exitTime || existingRecord.geofenceExitTime;
+      } else if (existingRecord.geofenceExitTime && !record.geofenceExitTime) {
+        record.geofenceExitTime = existingRecord.geofenceExitTime;
+        record.geofenceExitTimestamp = existingRecord.geofenceExitTimestamp;
+        record.lastExitTime = existingRecord.lastExitTime || existingRecord.geofenceExitTime;
+        record.exitTime = existingRecord.exitTime || existingRecord.geofenceExitTime;
+      }
+    }
+
     // Authoritatively calculate workingHours when valid check-in and check-out exist
     if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
       record.workingHours = null;
