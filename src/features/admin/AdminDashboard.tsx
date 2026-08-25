@@ -1745,14 +1745,10 @@ export const AdminDashboard: React.FC = () => {
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Mode</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-emerald-400">Check In</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-emerald-300">Check-In Location</th>
-                                {isSuperAdmin() && (
-                                  <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-emerald-300">Check-In Distance</th>
-                                )}
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-emerald-300">Check-in Distance</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-rose-400">Check Out</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-rose-300">Checkout Location</th>
-                                {isSuperAdmin() && (
-                                  <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-rose-300">Checkout Distance</th>
-                                )}
+                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-rose-300">Check-out Distance</th>
                                 {isSuperAdmin() && (
                                   <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-cyan-300">Current Location</th>
                                 )}
@@ -1822,11 +1818,9 @@ export const AdminDashboard: React.FC = () => {
                                     {checkInLoc.location}
                                   </td>
                                   {/* Check-In Distance */}
-                                  {isSuperAdmin() && (
-                                    <td className="p-3 border-b border-purple-500/10 text-emerald-300 font-mono whitespace-nowrap">
-                                      {checkInLoc.distance || '—'}
-                                    </td>
-                                  )}
+                                  <td className="p-3 border-b border-purple-500/10 text-emerald-300 font-mono whitespace-nowrap">
+                                    {checkInLoc.metersFormatted || '—'}
+                                  </td>
                                   {/* Check-Out Time */}
                                   <td className="p-3 border-b border-purple-500/10 whitespace-nowrap">
                                     {checkoutLoc.isUnresolved ? (
@@ -1848,11 +1842,9 @@ export const AdminDashboard: React.FC = () => {
                                     {checkoutLoc.location}
                                   </td>
                                   {/* Checkout Distance */}
-                                  {isSuperAdmin() && (
-                                    <td className="p-3 border-b border-purple-500/10 text-rose-300 font-mono whitespace-nowrap">
-                                      {checkoutLoc.distance || '—'}
-                                    </td>
-                                  )}
+                                  <td className="p-3 border-b border-purple-500/10 text-rose-300 font-mono whitespace-nowrap">
+                                    {checkoutLoc.metersFormatted || '—'}
+                                  </td>
                                   {/* Current Location */}
                                   {isSuperAdmin() && (
                                     <td className="p-3 border-b border-purple-500/10 truncate max-w-[150px]" title={currentLoc.location}>
@@ -2099,8 +2091,8 @@ export const AdminDashboard: React.FC = () => {
                             <span className="text-[10px] text-emerald-300/80 font-mono">{checkInLoc.time}</span>
                           </div>
                           <div className="text-xs text-white font-medium">{checkInLoc.location}</div>
-                          {isSuperAdmin() && checkInLoc.distance && (
-                            <div className="text-[10px] text-emerald-300/70 font-mono">Distance: {checkInLoc.distance}</div>
+                          {checkInLoc.metersFormatted && (
+                            <div className="text-[10px] text-emerald-300/70 font-mono">Distance: {checkInLoc.metersFormatted}</div>
                           )}
                           {isSuperAdmin() && (selectedAttendance.checkInLatitude !== undefined || selectedAttendance.latitude !== undefined) && (
                             <div className="text-[9px] text-purple-300/40 font-mono pt-1">
@@ -2116,8 +2108,8 @@ export const AdminDashboard: React.FC = () => {
                             <span className="text-[10px] text-rose-300/80 font-mono">{checkoutLoc.time}</span>
                           </div>
                           <div className={`text-xs font-medium ${checkoutLoc.isUnresolved ? 'text-amber-300 font-bold' : 'text-white'}`}>{checkoutLoc.location}</div>
-                          {isSuperAdmin() && checkoutLoc.distance && (
-                            <div className="text-[10px] text-purple-300/70 font-mono">Distance: {checkoutLoc.distance}</div>
+                          {checkoutLoc.metersFormatted && (
+                            <div className="text-[10px] text-purple-300/70 font-mono">Distance: {checkoutLoc.metersFormatted}</div>
                           )}
                           {isSuperAdmin() && selectedAttendance.checkoutLatitude !== undefined && (
                             <div className="text-[9px] text-purple-300/40 font-mono pt-1">

@@ -215,6 +215,93 @@ export const formatDistanceDisplay = (meters: number | null | undefined): string
 };
 
 /**
+ * Defensive coordinate pair validator
+ */
+export const isValidCoordinatePair = (lat: any, lon: any): boolean => {
+  return (
+    typeof lat === 'number' &&
+    typeof lon === 'number' &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lon >= -180 &&
+    lon <= 180 &&
+    !(lat === 0 && lon === 0)
+  );
+};
+
+/**
+ * Format distance strictly in meters with sensible 1-decimal rounding (e.g. "8.4 m", "31.7 m").
+ * Returns null if distance is invalid, null, undefined, or missing.
+ * Never formats missing coordinates as "0 m".
+ */
+export const formatMetersDistance = (meters: number | null | undefined): string | null => {
+  if (typeof meters !== 'number' || isNaN(meters) || !Number.isFinite(meters) || meters <= 0) return null;
+  const rounded = Math.round(meters * 10) / 10;
+  return `${rounded} m`;
+};
+
+/**
+ * Extract or calculate check-in distance from office in meters.
+ */
+export const getCheckInDistanceInMeters = (record: AttendanceRecord | null | undefined): number | null => {
+  if (!record) return null;
+  if (!hasActualCheckIn(record)) return null;
+
+  // 1. Stored checkInDistance or distance
+  if (typeof record.checkInDistance === 'number' && Number.isFinite(record.checkInDistance) && record.checkInDistance > 0) {
+    return record.checkInDistance;
+  }
+  if (typeof record.distance === 'number' && Number.isFinite(record.distance) && record.distance > 0) {
+    return record.distance;
+  }
+
+  // 2. Canonical distance calculation from checkInLatitude/checkInLongitude or latitude/longitude
+  const lat = record.checkInLatitude ?? record.latitude;
+  const lon = record.checkInLongitude ?? record.longitude;
+  if (isValidCoordinatePair(lat, lon)) {
+    const calc = getDistanceFromLatLonInM(lat!, lon!, OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude);
+    if (typeof calc === 'number' && Number.isFinite(calc) && calc > 0) {
+      return calc;
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Extract or calculate checkout distance from office in meters.
+ */
+export const getCheckoutDistanceInMeters = (record: AttendanceRecord | null | undefined): number | null => {
+  if (!record) return null;
+  // If checkout has not occurred yet or is unresolved
+  if (isAttendanceCheckoutUnresolved(record) || record.checkoutStatus === 'UNRESOLVED') {
+    return null;
+  }
+  if (!record.checkOutTime || record.checkOutTime === 'Pending' || record.checkOutTime === 'N/A' || record.checkOutTime === '--:--' || record.checkOutTime.trim() === '') {
+    return null;
+  }
+
+  // 1. Stored checkoutDistance
+  if (typeof record.checkoutDistance === 'number' && Number.isFinite(record.checkoutDistance) && record.checkoutDistance > 0) {
+    return record.checkoutDistance;
+  }
+
+  // 2. Canonical distance calculation from checkoutLatitude/checkoutLongitude
+  const lat = record.checkoutLatitude;
+  const lon = record.checkoutLongitude;
+  if (isValidCoordinatePair(lat, lon)) {
+    const calc = getDistanceFromLatLonInM(lat!, lon!, OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude);
+    if (typeof calc === 'number' && Number.isFinite(calc) && calc > 0) {
+      return calc;
+    }
+  }
+
+  return null;
+};
+
+/**
  * Get Check-in location details for UI display.
  */
 export const getCheckInLocationDetails = (record: AttendanceRecord): {
@@ -222,16 +309,16 @@ export const getCheckInLocationDetails = (record: AttendanceRecord): {
   location: string;
   distance: string | null;
   rawDistance: number | null;
+  metersFormatted: string | null;
 } => {
   if (!record) {
-    return { time: '--:--', location: 'Location unavailable', distance: null, rawDistance: null };
+    return { time: '--:--', location: 'Location unavailable', distance: null, rawDistance: null, metersFormatted: null };
   }
 
   const time = record.checkInTime || '--:--';
-  const rawDist = typeof record.checkInDistance === 'number' 
-    ? record.checkInDistance 
-    : (typeof record.distance === 'number' ? record.distance : null);
+  const rawDist = getCheckInDistanceInMeters(record);
   const distance = formatDistanceDisplay(rawDist);
+  const metersFormatted = formatMetersDistance(rawDist);
 
   let location = 'Location unavailable';
   if (record.checkInTownCity && record.checkInTownCity.trim()) {
@@ -242,7 +329,7 @@ export const getCheckInLocationDetails = (record: AttendanceRecord): {
     location = record.townCity.trim();
   }
 
-  return { time, location, distance, rawDistance: rawDist };
+  return { time, location, distance, rawDistance: rawDist, metersFormatted };
 };
 
 /**
@@ -254,15 +341,16 @@ export const getCheckoutLocationDetails = (record: AttendanceRecord): {
   distance: string | null;
   rawDistance: number | null;
   isUnresolved: boolean;
+  metersFormatted: string | null;
 } => {
   if (!record) {
-    return { time: '--:--', location: 'Location unavailable', distance: null, rawDistance: null, isUnresolved: false };
+    return { time: '--:--', location: 'Location unavailable', distance: null, rawDistance: null, isUnresolved: false, metersFormatted: null };
   }
 
   const unresolved = isAttendanceCheckoutUnresolved(record) || record.checkoutStatus === 'UNRESOLVED';
   let time = '--:--';
   
-  if (record.checkOutTime && record.checkOutTime !== 'Pending' && record.checkOutTime !== 'N/A') {
+  if (record.checkOutTime && record.checkOutTime !== 'Pending' && record.checkOutTime !== 'N/A' && record.checkOutTime !== '--:--') {
     time = record.checkOutTime;
   } else if (unresolved) {
     time = 'UNRESOLVED';
@@ -270,8 +358,9 @@ export const getCheckoutLocationDetails = (record: AttendanceRecord): {
     time = 'Pending';
   }
 
-  const rawDist = typeof record.checkoutDistance === 'number' ? record.checkoutDistance : null;
+  const rawDist = getCheckoutDistanceInMeters(record);
   const distance = formatDistanceDisplay(rawDist);
+  const metersFormatted = formatMetersDistance(rawDist);
 
   let location = 'Location unavailable';
 
@@ -287,24 +376,7 @@ export const getCheckoutLocationDetails = (record: AttendanceRecord): {
     location = 'Pending checkout';
   }
 
-  return { time, location, distance, rawDistance: rawDist, isUnresolved: unresolved };
-};
-
-/**
- * Defensive coordinate pair validator
- */
-const isValidCoordinatePair = (lat: any, lon: any): boolean => {
-  return (
-    typeof lat === 'number' &&
-    typeof lon === 'number' &&
-    Number.isFinite(lat) &&
-    Number.isFinite(lon) &&
-    lat >= -90 &&
-    lat <= 90 &&
-    lon >= -180 &&
-    lon <= 180 &&
-    !(lat === 0 && lon === 0)
-  );
+  return { time, location, distance, rawDistance: rawDist, isUnresolved: unresolved, metersFormatted };
 };
 
 /**
