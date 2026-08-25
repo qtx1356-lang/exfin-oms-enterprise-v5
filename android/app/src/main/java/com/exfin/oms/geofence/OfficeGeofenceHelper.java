@@ -2,6 +2,7 @@ package com.exfin.oms.geofence;
 
 import android.Manifest;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -23,6 +24,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class OfficeGeofenceHelper {
     public static final String TAG = "OfficeGeofenceHelper";
@@ -119,12 +121,34 @@ public class OfficeGeofenceHelper {
         return R * c;
     }
 
+    private static void safeFinishPendingResult(BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
+        if (pendingResult != null && finishedFlag != null) {
+            if (finishedFlag.compareAndSet(false, true)) {
+                try {
+                    Log.i(TAG, "[NativeGeofenceLifecycle] GO_ASYNC_FINISHED");
+                    pendingResult.finish();
+                } catch (Exception e) {
+                    Log.w(TAG, "Error finishing BroadcastReceiver.PendingResult", e);
+                }
+            }
+        }
+    }
+
     public static void recordNativeGeofenceEvent(Context context, String transitionType, double lat, double lng) {
-        recordNativeGeofenceEvent(context, transitionType, lat, lng, System.currentTimeMillis());
+        recordNativeGeofenceEvent(context, transitionType, lat, lng, System.currentTimeMillis(), null);
     }
 
     public static void recordNativeGeofenceEvent(Context context, String transitionType, double lat, double lng, long eventTimestamp) {
-        if (context == null) return;
+        recordNativeGeofenceEvent(context, transitionType, lat, lng, eventTimestamp, null);
+    }
+
+    public static void recordNativeGeofenceEvent(Context context, String transitionType, double lat, double lng, long eventTimestamp, BroadcastReceiver.PendingResult pendingResult) {
+        final AtomicBoolean finishedFlag = new AtomicBoolean(false);
+        if (context == null) {
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
         double distance = 25.0;
         boolean hasCoords = (lat != 0.0 && lng != 0.0);
         if (hasCoords) {
@@ -177,7 +201,7 @@ public class OfficeGeofenceHelper {
         }
 
         // Trigger Fallback Location Check & Background Synchronization with exact event timestamp and distance
-        getFallbackLocationAndProcess(context, transitionType, lat, lng, eventTimestamp, distance);
+        getFallbackLocationAndProcess(context, transitionType, lat, lng, eventTimestamp, distance, pendingResult, finishedFlag);
     }
 
     private static final String KEY_SYNC_QUEUE = "native_geofence_sync_queue";
@@ -208,13 +232,13 @@ public class OfficeGeofenceHelper {
         }
     }
 
-    private static void getFallbackLocationAndProcess(Context context, String transitionType, double inputLat, double inputLng, long eventTimestamp, double calculatedDistance) {
+    private static void getFallbackLocationAndProcess(Context context, String transitionType, double inputLat, double inputLng, long eventTimestamp, double calculatedDistance, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
         // If input coordinates are valid and not exactly the office center (which indicates a default fallback)
         boolean hasValidLocation = (inputLat != 0.0 && inputLng != 0.0 && 
                                     (Math.abs(inputLat - OFFICE_LAT) > 0.000001 || Math.abs(inputLng - OFFICE_LNG) > 0.000001));
 
         if (hasValidLocation) {
-            queueAndSyncEvent(context, transitionType, inputLat, inputLng, 10.0f, eventTimestamp, calculatedDistance);
+            queueAndSyncEvent(context, transitionType, inputLat, inputLng, 10.0f, eventTimestamp, calculatedDistance, pendingResult, finishedFlag);
         } else {
             // Try to fetch background location via FusedLocationProviderClient
             try {
@@ -224,7 +248,7 @@ public class OfficeGeofenceHelper {
                     fusedClient.getLastLocation().addOnSuccessListener(location -> {
                         if (location != null) {
                             double dist = calculateDistance(location.getLatitude(), location.getLongitude(), OFFICE_LAT, OFFICE_LNG);
-                            queueAndSyncEvent(context, transitionType, location.getLatitude(), location.getLongitude(), location.getAccuracy(), eventTimestamp, dist);
+                            queueAndSyncEvent(context, transitionType, location.getLatitude(), location.getLongitude(), location.getAccuracy(), eventTimestamp, dist, pendingResult, finishedFlag);
                         } else {
                             // Try system LocationManager as secondary fallback
                             try {
@@ -240,37 +264,37 @@ public class OfficeGeofenceHelper {
                                 }
                                 if (loc != null) {
                                     double dist = calculateDistance(loc.getLatitude(), loc.getLongitude(), OFFICE_LAT, OFFICE_LNG);
-                                    queueAndSyncEvent(context, transitionType, loc.getLatitude(), loc.getLongitude(), loc.getAccuracy(), eventTimestamp, dist);
+                                    queueAndSyncEvent(context, transitionType, loc.getLatitude(), loc.getLongitude(), loc.getAccuracy(), eventTimestamp, dist, pendingResult, finishedFlag);
                                 } else {
                                     // Persistent with location_unavailable
-                                    queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp);
+                                    queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp, pendingResult, finishedFlag);
                                 }
                             } catch (Exception ex) {
                                 Log.e(TAG, "Error getting location from LocationManager", ex);
-                                queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp);
+                                queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp, pendingResult, finishedFlag);
                             }
                         }
                     }).addOnFailureListener(e -> {
-                        queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp);
+                        queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp, pendingResult, finishedFlag);
                     });
                 } else {
-                    queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp);
+                    queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp, pendingResult, finishedFlag);
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error getting FusedLocationProvider location", e);
-                queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp);
+                queueAndSyncEventLocationUnavailable(context, transitionType, eventTimestamp, pendingResult, finishedFlag);
             }
         }
     }
 
-    private static void queueAndSyncEvent(Context context, String transitionType, double lat, double lng, float accuracy, long eventTimestamp, double distance) {
+    private static void queueAndSyncEvent(Context context, String transitionType, double lat, double lng, float accuracy, long eventTimestamp, double distance, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
         saveEventToQueue(context, transitionType, lat, lng, accuracy, false, eventTimestamp, distance);
-        triggerBackgroundSync(context);
+        triggerBackgroundSync(context, pendingResult, finishedFlag);
     }
 
-    private static void queueAndSyncEventLocationUnavailable(Context context, String transitionType, long eventTimestamp) {
+    private static void queueAndSyncEventLocationUnavailable(Context context, String transitionType, long eventTimestamp, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
         saveEventToQueue(context, transitionType, 0, 0, 0, true, eventTimestamp, 25.0);
-        triggerBackgroundSync(context);
+        triggerBackgroundSync(context, pendingResult, finishedFlag);
     }
 
     private static synchronized void saveEventToQueue(Context context, String transitionType, double lat, double lng, float accuracy, boolean locationUnavailable, long eventTimestamp, double distance) {
@@ -323,18 +347,29 @@ public class OfficeGeofenceHelper {
     }
 
     public static void triggerBackgroundSync(Context context) {
-        if (context == null) return;
+        triggerBackgroundSync(context, null, null);
+    }
+
+    public static void triggerBackgroundSync(Context context, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
+        if (context == null) {
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
         registerNetworkCallbackIfNecessary(context);
         
         executor.execute(() -> {
             synchronized (OfficeGeofenceHelper.class) {
-                if (isSyncRunning) return;
+                if (isSyncRunning) {
+                    safeFinishPendingResult(pendingResult, finishedFlag);
+                    return;
+                }
                 isSyncRunning = true;
             }
             try {
-                performBackgroundSync(context);
+                performBackgroundSync(context, pendingResult, finishedFlag);
             } catch (Exception e) {
                 Log.e(TAG, "Exception during background sync task:", e);
+                safeFinishPendingResult(pendingResult, finishedFlag);
             } finally {
                 synchronized (OfficeGeofenceHelper.class) {
                     isSyncRunning = false;
@@ -344,123 +379,140 @@ public class OfficeGeofenceHelper {
     }
 
     private static void performBackgroundSync(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        String serverUrl = prefs.getString("server_url", null);
-        if (serverUrl == null || serverUrl.trim().isEmpty()) {
-            Log.w(TAG, "Cannot background sync: server_url is not configured yet in SharedPreferences.");
-            return;
-        }
+        performBackgroundSync(context, null, null);
+    }
 
-        String queueStr = prefs.getString(KEY_SYNC_QUEUE, "[]");
-        JSONArray queue;
+    private static void performBackgroundSync(Context context, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
         try {
-            queue = new JSONArray(queueStr);
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to parse sync queue SharedPreferences content:", e);
-            return;
-        }
-
-        if (queue.length() == 0) {
-            return;
-        }
-
-        Log.i(TAG, "Starting background synchronization for " + queue.length() + " queued native events...");
-        JSONArray updatedQueue = new JSONArray();
-
-        for (int i = 0; i < queue.length(); i++) {
-            JSONObject event = queue.optJSONObject(i);
-            if (event == null) continue;
-
-            String status = event.optString("syncStatus", "PENDING");
-            if ("SYNCED".equals(status)) {
-                continue;
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            String serverUrl = prefs.getString("server_url", null);
+            if (serverUrl == null || serverUrl.trim().isEmpty()) {
+                Log.w(TAG, "Cannot background sync: server_url is not configured yet in SharedPreferences.");
+                Log.w(TAG, "[NativeGeofenceLifecycle] ENTRY_SYNC_FAILED (missing server_url)");
+                return;
             }
 
-            int retryCount = event.optInt("retryCount", 0);
-            String eventId = event.optString("eventId");
-            String employeeId = event.optString("employeeId");
-            String eventType = event.optString("eventType");
-            long eventTimestamp = event.optLong("eventTimestamp");
-
+            String queueStr = prefs.getString(KEY_SYNC_QUEUE, "[]");
+            JSONArray queue;
             try {
-                event.put("syncStatus", "SYNCING");
-            } catch (Exception ex) {
-                Log.e(TAG, "Failed to update event status to SYNCING", ex);
+                queue = new JSONArray(queueStr);
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to parse sync queue SharedPreferences content:", e);
+                Log.e(TAG, "[NativeGeofenceLifecycle] ENTRY_SYNC_FAILED (queue parse error)");
+                return;
             }
 
-            // Format JSON payload for backend
-            JSONObject payload = new JSONObject();
-            try {
-                payload.put("employeeId", employeeId);
-                payload.put("employeeName", event.optString("employeeName"));
-                payload.put("townCity", event.optString("townCity"));
-                payload.put("deviceId", event.optString("deviceId"));
-                payload.put("eventId", eventId);
-                payload.put("eventType", eventType);
-                payload.put("transition", eventType);
-                payload.put("distance", event.optDouble("distance", 25.0));
-                payload.put("source", "NATIVE_GEOFENCE_" + eventType);
+            if (queue.length() == 0) {
+                return;
+            }
 
-                if (event.optBoolean("locationUnavailable", false)) {
-                    payload.put("locationUnavailable", true);
-                } else {
-                    payload.put("latitude", event.optDouble("latitude"));
-                    payload.put("longitude", event.optDouble("longitude"));
-                    payload.put("accuracy", event.optDouble("accuracy"));
+            Log.i(TAG, "[NativeGeofenceLifecycle] ENTRY_SYNC_STARTED");
+            Log.i(TAG, "Starting background synchronization for " + queue.length() + " queued native events...");
+            JSONArray updatedQueue = new JSONArray();
+
+            for (int i = 0; i < queue.length(); i++) {
+                JSONObject event = queue.optJSONObject(i);
+                if (event == null) continue;
+
+                String status = event.optString("syncStatus", "PENDING");
+                if ("SYNCED".equals(status)) {
+                    continue;
                 }
 
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
-                sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
-                String isoTimestamp = sdf.format(new Date(eventTimestamp));
-                payload.put("timestamp", isoTimestamp);
+                int retryCount = event.optInt("retryCount", 0);
+                String eventId = event.optString("eventId");
+                String employeeId = event.optString("employeeId");
+                String eventType = event.optString("eventType");
+                long eventTimestamp = event.optLong("eventTimestamp");
 
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to build sync request payload", e);
-                updatedQueue.put(event);
-                continue;
-            }
-
-            // Perform HTTP request
-            boolean success = false;
-            try {
-                java.net.URL url = new java.net.URL(serverUrl + "/api/median-background-location");
-                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-                conn.setDoOutput(true);
-                conn.setConnectTimeout(10000);
-                conn.setReadTimeout(10000);
-
-                java.io.OutputStream os = conn.getOutputStream();
-                os.write(payload.toString().getBytes("UTF-8"));
-                os.close();
-
-                int code = conn.getResponseCode();
-                if (code == 200 || code == 201) {
-                    success = true;
-                    Log.i(TAG, "Successfully synced native background event " + eventId + " to backend. HTTP " + code);
-                } else {
-                    Log.w(TAG, "Server rejected background geofence event " + eventId + ". HTTP response: " + code);
-                }
-                conn.disconnect();
-            } catch (Exception e) {
-                Log.w(TAG, "Network connection error while syncing background geofence event " + eventId + ": " + e.getMessage());
-            }
-
-            if (success) {
-                // Event synced, do not put back into the updated queue.
-            } else {
                 try {
-                    event.put("syncStatus", "FAILED");
-                    event.put("retryCount", retryCount + 1);
-                } catch (Exception e) {
-                    Log.e(TAG, "Error updating event retry state", e);
+                    event.put("syncStatus", "SYNCING");
+                } catch (Exception ex) {
+                    Log.e(TAG, "Failed to update event status to SYNCING", ex);
                 }
-                updatedQueue.put(event);
-            }
-        }
 
-        prefs.edit().putString(KEY_SYNC_QUEUE, updatedQueue.toString()).apply();
+                // Format JSON payload for backend
+                JSONObject payload = new JSONObject();
+                try {
+                    payload.put("employeeId", employeeId);
+                    payload.put("employeeName", event.optString("employeeName"));
+                    payload.put("townCity", event.optString("townCity"));
+                    payload.put("deviceId", event.optString("deviceId"));
+                    payload.put("eventId", eventId);
+                    payload.put("eventType", eventType);
+                    payload.put("transition", eventType);
+                    payload.put("distance", event.optDouble("distance", 25.0));
+                    payload.put("source", "NATIVE_GEOFENCE_" + eventType);
+
+                    if (event.optBoolean("locationUnavailable", false)) {
+                        payload.put("locationUnavailable", true);
+                    } else {
+                        payload.put("latitude", event.optDouble("latitude"));
+                        payload.put("longitude", event.optDouble("longitude"));
+                        payload.put("accuracy", event.optDouble("accuracy"));
+                    }
+
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+                    sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+                    String isoTimestamp = sdf.format(new Date(eventTimestamp));
+                    payload.put("timestamp", isoTimestamp);
+
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to build sync request payload", e);
+                    updatedQueue.put(event);
+                    continue;
+                }
+
+                // Perform HTTP request
+                boolean success = false;
+                try {
+                    java.net.URL url = new java.net.URL(serverUrl + "/api/median-background-location");
+                    java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                    conn.setDoOutput(true);
+                    conn.setConnectTimeout(10000);
+                    conn.setReadTimeout(10000);
+
+                    java.io.OutputStream os = conn.getOutputStream();
+                    os.write(payload.toString().getBytes("UTF-8"));
+                    os.close();
+
+                    int code = conn.getResponseCode();
+                    if (code == 200 || code == 201) {
+                        success = true;
+                        Log.i(TAG, "Successfully synced native background event " + eventId + " to backend. HTTP " + code);
+                        Log.i(TAG, "[NativeGeofenceLifecycle] ENTRY_SYNC_SUCCESS");
+                    } else {
+                        Log.w(TAG, "Server rejected background geofence event " + eventId + ". HTTP response: " + code);
+                        Log.w(TAG, "[NativeGeofenceLifecycle] ENTRY_SYNC_FAILED (HTTP " + code + ")");
+                    }
+                    conn.disconnect();
+                } catch (Exception e) {
+                    Log.w(TAG, "Network connection error while syncing background geofence event " + eventId + ": " + e.getMessage());
+                    Log.w(TAG, "[NativeGeofenceLifecycle] ENTRY_SYNC_FAILED (Network error: " + e.getMessage() + ")");
+                }
+
+                if (success) {
+                    // Event synced, do not put back into the updated queue.
+                } else {
+                    try {
+                        event.put("syncStatus", "FAILED");
+                        event.put("retryCount", retryCount + 1);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error updating event retry state", e);
+                    }
+                    updatedQueue.put(event);
+                }
+            }
+
+            prefs.edit().putString(KEY_SYNC_QUEUE, updatedQueue.toString()).apply();
+        } catch (Exception e) {
+            Log.e(TAG, "Exception in performBackgroundSync", e);
+            Log.e(TAG, "[NativeGeofenceLifecycle] ENTRY_SYNC_FAILED (Exception)");
+        } finally {
+            safeFinishPendingResult(pendingResult, finishedFlag);
+        }
     }
 
     public static JSONArray getAndClearUnconsumedEvents(Context context) {

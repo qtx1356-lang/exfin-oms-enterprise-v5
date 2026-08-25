@@ -46,11 +46,15 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
 
         if (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT) {
             Log.i(TAG, "=== NATIVE OFFICE GEOFENCE EXIT EVENT DELIVERED ===");
-            OfficeGeofenceHelper.recordNativeGeofenceEvent(context, "EXIT", lat, lng, eventTimestamp);
+            final PendingResult pendingResult = goAsync();
+            Log.i(TAG, "[NativeGeofenceLifecycle] GO_ASYNC_STARTED (EXIT)");
+            OfficeGeofenceHelper.recordNativeGeofenceEvent(context, "EXIT", lat, lng, eventTimestamp, pendingResult);
             GeofencePlugin.notifyNativeTransition("EXIT", lat, lng, eventTimestamp);
         } else if (transitionType == Geofence.GEOFENCE_TRANSITION_ENTER) {
             Log.i(TAG, "=== NATIVE OFFICE GEOFENCE ENTER EVENT DELIVERED ===");
-            OfficeGeofenceHelper.recordNativeGeofenceEvent(context, "ENTER", lat, lng, eventTimestamp);
+            final PendingResult pendingResult = goAsync();
+            Log.i(TAG, "[NativeGeofenceLifecycle] GO_ASYNC_STARTED");
+            OfficeGeofenceHelper.recordNativeGeofenceEvent(context, "ENTER", lat, lng, eventTimestamp, pendingResult);
             GeofencePlugin.notifyNativeTransition("ENTER", lat, lng, eventTimestamp);
         } else {
             Log.w(TAG, "Unhandled geofence transition type: " + transitionType);
