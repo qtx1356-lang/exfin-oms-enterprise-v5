@@ -6,6 +6,7 @@ import {
   getPendingAttendanceRecords,
   markRecordSyncedInLocal
 } from './attendanceStorage';
+import { parseAttendanceTimeToMinutes } from './automaticAttendanceEngine';
 import { 
   getPendingEventsFromQueue, 
   markEventSyncedInQueue 
@@ -169,15 +170,27 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                 finalCheckInMode = serverData.checkInMode || finalCheckInMode;
               }
 
-              // Preserve authoritative earlier geofenceExitTime from server if local is later or missing
-              if (serverData.geofenceExitTimestamp && record.currentState !== 'RETURNING_TO_OFFICE') {
-                const serverExitMs = new Date(serverData.geofenceExitTimestamp).getTime();
-                const localExitMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
-                if (serverExitMs < localExitMs && serverData.geofenceExitTime) {
-                  finalGeofenceExitTime = serverData.geofenceExitTime;
-                  finalGeofenceExitTimestamp = serverData.geofenceExitTimestamp;
-                  finalLastExitTime = serverData.lastExitTime || serverData.geofenceExitTime;
-                  finalExitTime = serverData.exitTime || serverData.geofenceExitTime;
+              // Preserve authoritative earlier geofenceExitTime from server ONLY within the same active exit episode
+              if (
+                serverData.geofenceExitTimestamp &&
+                record.currentState !== 'RETURNING_TO_OFFICE' &&
+                record.currentState !== 'CHECKED_IN'
+              ) {
+                const returnTimeStr = record.returnTime || serverData.returnTime;
+                const returnMins = returnTimeStr ? parseAttendanceTimeToMinutes(returnTimeStr) : null;
+                const serverExitMins = serverData.geofenceExitTime ? parseAttendanceTimeToMinutes(serverData.geofenceExitTime) : null;
+                const isServerSameEpisode = serverData.currentState !== 'CHECKED_IN' &&
+                  !(returnMins !== null && serverExitMins !== null && serverExitMins <= returnMins);
+
+                if (isServerSameEpisode) {
+                  const serverExitMs = new Date(serverData.geofenceExitTimestamp).getTime();
+                  const localExitMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
+                  if (serverExitMs < localExitMs && serverData.geofenceExitTime) {
+                    finalGeofenceExitTime = serverData.geofenceExitTime;
+                    finalGeofenceExitTimestamp = serverData.geofenceExitTimestamp;
+                    finalLastExitTime = serverData.lastExitTime || serverData.geofenceExitTime;
+                    finalExitTime = serverData.exitTime || serverData.geofenceExitTime;
+                  }
                 }
               }
             }

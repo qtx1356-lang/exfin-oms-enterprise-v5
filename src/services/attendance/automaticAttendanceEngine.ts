@@ -655,6 +655,7 @@ export const AutomaticAttendanceEngine = {
           record.pendingCheckoutConfirmation = false;
           record.returningToOffice = false;
           record.currentState = 'CHECKED_IN';
+          record.syncStatus = 'Pending';
           // Clear candidate exit checkout location
           delete record.checkoutLatitude;
           delete record.checkoutLongitude;

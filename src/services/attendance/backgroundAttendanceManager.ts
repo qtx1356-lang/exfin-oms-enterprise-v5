@@ -69,6 +69,25 @@ export const ensureOfficeGeofenceRegistered = (): BackgroundGeofenceConfig => {
   return config;
 };
 
+let activeReconciliationPromise: Promise<void> | null = null;
+
+export const safeReconcileNativeGeofenceEvents = (
+  employeeId: string,
+  employeeName: string,
+  townCity: string
+): Promise<void> => {
+  if (activeReconciliationPromise) {
+    return activeReconciliationPromise;
+  }
+  const promise = reconcileNativeGeofenceEvents(employeeId, employeeName, townCity);
+  activeReconciliationPromise = promise.finally(() => {
+    if (activeReconciliationPromise === promise) {
+      activeReconciliationPromise = null;
+    }
+  });
+  return activeReconciliationPromise;
+};
+
 /**
  * Evaluates position against registered geofence and triggers automatic check-in/exit/return
  */
@@ -84,15 +103,24 @@ export const handleLocationUpdateForAttendance = (
 
   ensureOfficeGeofenceRegistered();
 
-  AutomaticAttendanceEngine.processLocationUpdate(
-    latitude,
-    longitude,
-    employeeId,
-    employeeName,
-    townCity,
-    new Date(),
-    accuracy
-  );
+  const dispatchUpdate = () => {
+    AutomaticAttendanceEngine.processLocationUpdate(
+      latitude,
+      longitude,
+      employeeId,
+      employeeName,
+      townCity,
+      new Date(),
+      accuracy
+    );
+  };
+
+  // Ensure native background event reconciliation completes before processing foreground position updates
+  if (activeReconciliationPromise) {
+    activeReconciliationPromise.then(dispatchUpdate).catch(dispatchUpdate);
+  } else {
+    dispatchUpdate();
+  }
 };
 
 /**
@@ -163,10 +191,15 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
   const timerKey = `bg_att_timer_${Date.now()}`;
   trackResourceCreated('SYNC_TIMER', timerKey, 'bg_attendance_manager');
 
+  const infoOnBoot = getEmployeeInfo();
+  if (infoOnBoot?.id) {
+    safeReconcileNativeGeofenceEvents(infoOnBoot.id, infoOnBoot.name, infoOnBoot.townCity || 'Raniganj HQ');
+  }
+
   const intervalId = setInterval(() => {
     const info = getEmployeeInfo();
     if (info?.id) {
-      reconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ');
+      safeReconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ');
     }
     runAutoCheckoutFinalizer();
     if (navigator.onLine) {
@@ -181,7 +214,7 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
       const info = getEmployeeInfo();
       if (info?.id) {
         // Reconcile any native events first so authoritative background timestamps are restored
-        reconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ').then(() => {
+        safeReconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ').then(() => {
           if (isMedianApp()) {
             startMedianBackgroundLocation(getEmployeeInfo);
           }

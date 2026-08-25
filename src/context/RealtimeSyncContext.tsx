@@ -27,7 +27,8 @@ import { initializeNotificationSoundBaseline, triggerNewNotificationSound } from
 import { initializeAlertBaseline, isPopupShown } from '../services/notification/alertDeduplication';
 import { saveLeaveRecord, getStoredLeaves } from '../services/leave/leaveStorage';
 import { saveExpenseRecord, getStoredExpenseRecords } from '../services/expenses/expenseStorage';
-import { saveAttendanceRecord, saveMultipleAttendanceRecords, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration, runSafeWorkingHoursNormalization } from '../services/attendance/attendanceStorage';
+import { getPendingAttendanceRecords, saveAttendanceRecord, saveMultipleAttendanceRecords, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration, runSafeWorkingHoursNormalization } from '../services/attendance/attendanceStorage';
+import { parseAttendanceTimeToMinutes } from '../services/attendance/automaticAttendanceEngine';
 import { hasActualCheckIn, getEarliestCheckInTime, getAttendanceCanonicalKey } from '../utils/attendanceUtils';
 import { logSyncListenerUpdate } from '../services/sync/syncPerformanceLogger';
 
@@ -410,14 +411,30 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                   }
                 }
 
-                // AUTHORITATIVE GEOFENCE EXIT TIME SAFEGUARD:
-                // If either localRec or sa has an authoritative geofenceExitTime / geofenceExitTimestamp,
-                // strictly preserve the EARLIEST valid geofence exit timestamp.
-                if (!sa.isAdminRectified && !sa.manualRectified && finalRec.currentState !== 'RETURNING_TO_OFFICE') {
+                // AUTHORITATIVE GEOFENCE EXIT TIME SAFEGUARD (EPISODE-SCOPED):
+                // Only compare exit timestamps within the same active exit episode.
+                if (
+                  !sa.isAdminRectified &&
+                  !sa.manualRectified &&
+                  finalRec.currentState !== 'RETURNING_TO_OFFICE' &&
+                  finalRec.currentState !== 'CHECKED_IN'
+                ) {
                   const localExitMs = localRec?.geofenceExitTimestamp ? new Date(localRec.geofenceExitTimestamp).getTime() : Infinity;
                   const serverExitMs = sa?.geofenceExitTimestamp ? new Date(sa.geofenceExitTimestamp).getTime() : Infinity;
 
-                  if (serverExitMs < localExitMs && sa?.geofenceExitTime) {
+                  const returnTimeStr = finalRec.returnTime || sa.returnTime || localRec?.returnTime;
+                  const returnMins = returnTimeStr ? parseAttendanceTimeToMinutes(returnTimeStr) : null;
+
+                  const serverExitMins = sa.geofenceExitTime ? parseAttendanceTimeToMinutes(sa.geofenceExitTime) : null;
+                  const localExitMins = localRec?.geofenceExitTime ? parseAttendanceTimeToMinutes(localRec.geofenceExitTime) : null;
+
+                  const isServerSameEpisode = sa.currentState !== 'CHECKED_IN' &&
+                    !(returnMins !== null && serverExitMins !== null && serverExitMins <= returnMins);
+
+                  const isLocalSameEpisode = localRec?.currentState !== 'CHECKED_IN' &&
+                    !(returnMins !== null && localExitMins !== null && localExitMins <= returnMins);
+
+                  if (isServerSameEpisode && serverExitMs < localExitMs && sa?.geofenceExitTime) {
                     finalRec = {
                       ...finalRec,
                       geofenceExitTime: sa.geofenceExitTime,
@@ -426,7 +443,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                       exitTime: sa.exitTime || sa.geofenceExitTime,
                       pendingCheckoutConfirmation: sa.pendingCheckoutConfirmation ?? finalRec.pendingCheckoutConfirmation
                     };
-                  } else if (localExitMs < serverExitMs && localRec?.geofenceExitTime) {
+                  } else if (isLocalSameEpisode && localExitMs < serverExitMs && localRec?.geofenceExitTime) {
                     finalRec = {
                       ...finalRec,
                       geofenceExitTime: localRec.geofenceExitTime,

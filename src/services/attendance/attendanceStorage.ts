@@ -33,7 +33,7 @@ if (typeof window !== 'undefined') {
   }
 }
 
-import { getFormattedDateStr } from './automaticAttendanceEngine';
+import { getFormattedDateStr, parseAttendanceTimeToMinutes } from './automaticAttendanceEngine';
 
 const MIGRATION_FLAG_KEY = 'exfin_unresolved_migration_v1_executed';
 const WORKING_HOURS_REPAIR_FLAG_KEY = 'exfin_working_hours_repair_v1_executed';
@@ -239,22 +239,29 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
       record.checkInMode = existingRecord.checkInMode || record.checkInMode;
     }
 
-    // AUTHORITATIVE GEOFENCE EXIT TIME PRESERVATION:
-    // If existingRecord has a valid geofenceExitTimestamp/geofenceExitTime, preserve the earliest exit time!
-    if (!isExplicitAdminCorrection && record.currentState !== 'RETURNING_TO_OFFICE') {
-      const existingExitMs = existingRecord.geofenceExitTimestamp ? new Date(existingRecord.geofenceExitTimestamp).getTime() : Infinity;
-      const incomingExitMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
+    // AUTHORITATIVE GEOFENCE EXIT TIME PRESERVATION (EPISODE-SCOPED):
+    // Preserve earliest exit time only within the same active exit episode (do not restore if CHECKED_IN or RETURNING_TO_OFFICE).
+    if (!isExplicitAdminCorrection && record.currentState !== 'RETURNING_TO_OFFICE' && record.currentState !== 'CHECKED_IN') {
+      const returnTimeStr = record.returnTime || existingRecord.returnTime;
+      const returnMins = returnTimeStr ? parseAttendanceTimeToMinutes(returnTimeStr) : null;
+      const existingExitMins = existingRecord.geofenceExitTime ? parseAttendanceTimeToMinutes(existingRecord.geofenceExitTime) : null;
+      const isExistingSameEpisode = !(returnMins !== null && existingExitMins !== null && existingExitMins <= returnMins);
 
-      if (existingExitMs < incomingExitMs && existingRecord.geofenceExitTime) {
-        record.geofenceExitTime = existingRecord.geofenceExitTime;
-        record.geofenceExitTimestamp = existingRecord.geofenceExitTimestamp;
-        record.lastExitTime = existingRecord.lastExitTime || existingRecord.geofenceExitTime;
-        record.exitTime = existingRecord.exitTime || existingRecord.geofenceExitTime;
-      } else if (existingRecord.geofenceExitTime && !record.geofenceExitTime) {
-        record.geofenceExitTime = existingRecord.geofenceExitTime;
-        record.geofenceExitTimestamp = existingRecord.geofenceExitTimestamp;
-        record.lastExitTime = existingRecord.lastExitTime || existingRecord.geofenceExitTime;
-        record.exitTime = existingRecord.exitTime || existingRecord.geofenceExitTime;
+      if (isExistingSameEpisode) {
+        const existingExitMs = existingRecord.geofenceExitTimestamp ? new Date(existingRecord.geofenceExitTimestamp).getTime() : Infinity;
+        const incomingExitMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
+
+        if (existingExitMs < incomingExitMs && existingRecord.geofenceExitTime) {
+          record.geofenceExitTime = existingRecord.geofenceExitTime;
+          record.geofenceExitTimestamp = existingRecord.geofenceExitTimestamp;
+          record.lastExitTime = existingRecord.lastExitTime || existingRecord.geofenceExitTime;
+          record.exitTime = existingRecord.exitTime || existingRecord.geofenceExitTime;
+        } else if (existingRecord.geofenceExitTime && !record.geofenceExitTime) {
+          record.geofenceExitTime = existingRecord.geofenceExitTime;
+          record.geofenceExitTimestamp = existingRecord.geofenceExitTimestamp;
+          record.lastExitTime = existingRecord.lastExitTime || existingRecord.geofenceExitTime;
+          record.exitTime = existingRecord.exitTime || existingRecord.geofenceExitTime;
+        }
       }
     }
 
