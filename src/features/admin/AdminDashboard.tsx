@@ -648,8 +648,8 @@ export const AdminDashboard: React.FC = () => {
       checkAllLoaded();
     }, () => { regsLoaded = true; checkAllLoaded(); });
 
-    // Listen to attendance with bounded limit
-    const qAttendance = query(collection(db, 'attendance'), limit(1000));
+    // Listen to attendance with bounded limit sorted by date descending to get the newest records first
+    const qAttendance = query(collection(db, 'attendance'), orderBy('date', 'desc'), limit(1000));
     const unsubAttendance = onSnapshot(qAttendance, (snapshot) => {
       const firestoreAtt: AttendanceRecord[] = [];
       snapshot.forEach((doc) => {
