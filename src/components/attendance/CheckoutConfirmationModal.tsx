@@ -26,11 +26,16 @@ export const CheckoutConfirmationModal: React.FC = () => {
     const todayStr = getFormattedDateStr();
     const record = getTodayAttendanceRecord(employeeId, todayStr);
 
+    const hasRealCheckoutTime =
+      typeof record?.checkOutTime === 'string' &&
+      record.checkOutTime.trim() !== '' &&
+      record.checkOutTime.trim() !== '--:--';
+
     if (
       record &&
       record.checkInTime &&
       record.checkInTime !== '--:--' &&
-      !record.checkOutTime &&
+      !hasRealCheckoutTime &&
       (record.attendanceType === 'OFFICE' || !record.attendanceType) &&
       record.pendingCheckoutConfirmation === true
     ) {
