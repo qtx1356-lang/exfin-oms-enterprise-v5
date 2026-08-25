@@ -124,10 +124,12 @@ export const NotificationCenter: React.FC = () => {
     }
   };
 
-  const handleNotificationClick = async (notif: NotificationRecord) => {
+  const handleNotificationClick = (notif: NotificationRecord) => {
     try {
       if (!notif.read && !(notif as any).isRead) {
-        await markNotificationRead(notif.id, currentUser || undefined);
+        markNotificationRead(notif.id, currentUser || undefined).catch((err) =>
+          console.warn('Failed to mark notification read:', err)
+        );
         // Conditional local update if not using real-time sync
         if (!realtimeSync) {
           setLocalNotifications((prev) =>

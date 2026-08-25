@@ -160,95 +160,119 @@ export const runSafeUnresolvedHistoricalMigration = (): MigrationReport => {
   };
 };
 
+let cachedRecordsMemory: AttendanceRecord[] | null = null;
+
 export const getStoredAttendanceRecords = (): AttendanceRecord[] => {
+  if (cachedRecordsMemory !== null) {
+    return cachedRecordsMemory;
+  }
   try {
     const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    cachedRecordsMemory = data ? JSON.parse(data) : [];
+    return cachedRecordsMemory!;
   } catch (err) {
     console.error('Failed to parse local attendance records:', err);
     return [];
   }
 };
 
+const processSingleRecordInMemory = (records: AttendanceRecord[], record: AttendanceRecord): boolean => {
+  const cleanEmpId = (record.employeeId || (record as any).employeeCode || '').trim().toLowerCase();
+  const existingIndex = records.findIndex((r) => {
+    if (!r) return false;
+    if (record.id && r.id === record.id) return true;
+    if (record.docId && r.docId && r.docId === record.docId) return true;
+    
+    const rEmpId = (r.employeeId || (r as any).employeeCode || '').trim().toLowerCase();
+    if (cleanEmpId && rEmpId && cleanEmpId === rEmpId && r.date === record.date) {
+      return true;
+    }
+    return false;
+  });
+
+  if (existingIndex >= 0) {
+    const existingRecord = records[existingIndex];
+
+    // WRITE-ONCE RULE FOR CHECK-IN TIME:
+    // If the existing record has a valid check-in time, preserve it!
+    // Do not allow ANY normal operational update to overwrite an already recorded check-in time.
+    const isExplicitAdminCorrection = record.isAdminRectified || record.manualRectified;
+    if (hasActualCheckIn(existingRecord) && !isExplicitAdminCorrection) {
+      const earliestIn = getEarliestCheckInTime(existingRecord.checkInTime, record.checkInTime) || existingRecord.checkInTime;
+      record.checkInTime = earliestIn;
+      record.createdAtDeviceTime = existingRecord.createdAtDeviceTime || record.createdAtDeviceTime;
+      record.checkInLatitude = existingRecord.checkInLatitude ?? record.checkInLatitude;
+      record.checkInLongitude = existingRecord.checkInLongitude ?? record.checkInLongitude;
+      record.checkInDistance = existingRecord.checkInDistance ?? record.checkInDistance;
+      record.checkInTownCity = existingRecord.checkInTownCity || record.checkInTownCity;
+      record.checkInMode = existingRecord.checkInMode || record.checkInMode;
+    }
+
+    // Authoritatively calculate workingHours when valid check-in and check-out exist
+    if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+      record.workingHours = null;
+    } else if (
+      record.checkInTime &&
+      record.checkOutTime &&
+      record.checkOutTime !== '--:--' &&
+      record.checkOutTime !== 'Pending' &&
+      record.checkOutTime !== 'N/A' &&
+      record.checkOutTime !== 'UNRESOLVED'
+    ) {
+      record.workingHours = calculateWorkingHours(record.checkInTime, record.checkOutTime);
+    }
+
+    records[existingIndex] = record;
+  } else {
+    // Authoritatively calculate workingHours for new records
+    if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+      record.workingHours = null;
+    } else if (
+      record.checkInTime &&
+      record.checkOutTime &&
+      record.checkOutTime !== '--:--' &&
+      record.checkOutTime !== 'Pending' &&
+      record.checkOutTime !== 'N/A' &&
+      record.checkOutTime !== 'UNRESOLVED'
+    ) {
+      record.workingHours = calculateWorkingHours(record.checkInTime, record.checkOutTime);
+    }
+
+    records.unshift(record);
+  }
+
+  return existingIndex >= 0;
+};
+
 export const saveAttendanceRecord = (record: AttendanceRecord): void => {
   try {
     const records = getStoredAttendanceRecords();
-
-    // Look for existing record by id, docId, or matching employee + date
-    const cleanEmpId = (record.employeeId || (record as any).employeeCode || '').trim().toLowerCase();
-    const existingIndex = records.findIndex((r) => {
-      if (!r) return false;
-      if (record.id && r.id === record.id) return true;
-      if (record.docId && r.docId && r.docId === record.docId) return true;
-      
-      const rEmpId = (r.employeeId || (r as any).employeeCode || '').trim().toLowerCase();
-      if (cleanEmpId && rEmpId && cleanEmpId === rEmpId && r.date === record.date) {
-        return true;
-      }
-      return false;
-    });
-
-    if (existingIndex >= 0) {
-      const existingRecord = records[existingIndex];
-
-      // WRITE-ONCE RULE FOR CHECK-IN TIME:
-      // If the existing record has a valid check-in time, preserve it!
-      // Do not allow ANY normal operational update to overwrite an already recorded check-in time.
-      const isExplicitAdminCorrection = record.isAdminRectified || record.manualRectified;
-      if (hasActualCheckIn(existingRecord) && !isExplicitAdminCorrection) {
-        const earliestIn = getEarliestCheckInTime(existingRecord.checkInTime, record.checkInTime) || existingRecord.checkInTime;
-        record.checkInTime = earliestIn;
-        record.createdAtDeviceTime = existingRecord.createdAtDeviceTime || record.createdAtDeviceTime;
-        record.checkInLatitude = existingRecord.checkInLatitude ?? record.checkInLatitude;
-        record.checkInLongitude = existingRecord.checkInLongitude ?? record.checkInLongitude;
-        record.checkInDistance = existingRecord.checkInDistance ?? record.checkInDistance;
-        record.checkInTownCity = existingRecord.checkInTownCity || record.checkInTownCity;
-        record.checkInMode = existingRecord.checkInMode || record.checkInMode;
-      }
-
-      // Authoritatively calculate workingHours when valid check-in and check-out exist
-      if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
-        record.workingHours = null;
-      } else if (
-        record.checkInTime &&
-        record.checkOutTime &&
-        record.checkOutTime !== '--:--' &&
-        record.checkOutTime !== 'Pending' &&
-        record.checkOutTime !== 'N/A' &&
-        record.checkOutTime !== 'UNRESOLVED'
-      ) {
-        record.workingHours = calculateWorkingHours(record.checkInTime, record.checkOutTime);
-      }
-
-      records[existingIndex] = record;
-    } else {
-      // Authoritatively calculate workingHours for new records
-      if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
-        record.workingHours = null;
-      } else if (
-        record.checkInTime &&
-        record.checkOutTime &&
-        record.checkOutTime !== '--:--' &&
-        record.checkOutTime !== 'Pending' &&
-        record.checkOutTime !== 'N/A' &&
-        record.checkOutTime !== 'UNRESOLVED'
-      ) {
-        record.workingHours = calculateWorkingHours(record.checkInTime, record.checkOutTime);
-      }
-
-      records.unshift(record);
-    }
-
+    const isUpdate = processSingleRecordInMemory(records, record);
+    cachedRecordsMemory = records;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
 
     logAttendanceWriteDiagnostic(
       record.isAdminRectified || record.manualRectified ? 'ADMIN_ATTENDANCE_CORRECTION' : ((record as any).source || record.checkInMode || 'LocalStorage'),
       record.employeeId,
       record.checkInTime,
-      existingIndex >= 0 ? 'LOCAL_STORAGE_UPDATE' : 'LOCAL_STORAGE_CREATE'
+      isUpdate ? 'LOCAL_STORAGE_UPDATE' : 'LOCAL_STORAGE_CREATE'
     );
   } catch (err) {
     console.error('Failed to save attendance record locally:', err);
+  }
+};
+
+export const saveMultipleAttendanceRecords = (newRecords: AttendanceRecord[]): void => {
+  if (!newRecords || newRecords.length === 0) return;
+  try {
+    const records = getStoredAttendanceRecords();
+    newRecords.forEach((rec) => {
+      processSingleRecordInMemory(records, rec);
+    });
+    cachedRecordsMemory = records;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  } catch (err) {
+    console.error('Failed to save multiple attendance records locally:', err);
   }
 };
 

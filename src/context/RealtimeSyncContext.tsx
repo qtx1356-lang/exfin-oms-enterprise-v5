@@ -27,7 +27,7 @@ import { initializeNotificationSoundBaseline, triggerNewNotificationSound } from
 import { initializeAlertBaseline, isPopupShown } from '../services/notification/alertDeduplication';
 import { saveLeaveRecord, getStoredLeaves } from '../services/leave/leaveStorage';
 import { saveExpenseRecord, getStoredExpenseRecords } from '../services/expenses/expenseStorage';
-import { saveAttendanceRecord, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration, runSafeWorkingHoursNormalization } from '../services/attendance/attendanceStorage';
+import { saveAttendanceRecord, saveMultipleAttendanceRecords, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration, runSafeWorkingHoursNormalization } from '../services/attendance/attendanceStorage';
 import { hasActualCheckIn, getEarliestCheckInTime, getAttendanceCanonicalKey } from '../utils/attendanceUtils';
 import { logSyncListenerUpdate } from '../services/sync/syncPerformanceLogger';
 
@@ -180,7 +180,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('exfin-notifications-updated', handleNotificationsUpdated);
     };
-  }, [empCode, employeeData]);
+  }, [empCode, employeeData?.id, employeeData?.isTeamLeader]);
 
   // Clean up previous listeners when employee changes
   const cleanupListeners = () => {
@@ -394,22 +394,11 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
               }
 
               map.set(key, finalRec);
-              saveAttendanceRecord(finalRec);
-
-              console.log('[AttendanceSync] EMPLOYEE_RECORD', {
-                employeeCode: finalRec.employeeId || (finalRec as any).employeeCode,
-                date: finalRec.date,
-                id: finalRec.id,
-                docId: finalRec.docId || key,
-                checkInTime: finalRec.checkInTime,
-                checkOutTime: finalRec.checkOutTime,
-                attendanceMode: finalRec.attendanceType || finalRec.checkInMode,
-                status: finalRec.checkoutStatus || finalRec.status,
-                syncStatus: finalRec.syncStatus
-              });
             });
 
-            return Array.from(map.values());
+            const updatedList = Array.from(map.values());
+            saveMultipleAttendanceRecords(updatedList);
+            return updatedList;
           });
         },
         (err) => console.warn('RealtimeSync: Attendance snapshot error:', err)
@@ -615,7 +604,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       cleanupListeners();
     };
-  }, [empCode, employeeData]);
+  }, [empCode, employeeData?.id, employeeData?.isTeamLeader]);
 
   // OPTIMISTIC TASK UPDATE
   const updateTaskOptimistically = useCallback(
