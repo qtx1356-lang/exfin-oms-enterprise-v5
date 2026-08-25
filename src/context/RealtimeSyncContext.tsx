@@ -90,8 +90,29 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(() =>
     getStoredExpenseRecords()
   );
-  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
+  const [notifications, setNotifications] = useState<NotificationRecord[]>(() => {
+    try {
+      const userScopeKey = empCode || (employeeData as any)?.id || undefined;
+      return getStoredNotifications(userScopeKey);
+    } catch {
+      return [];
+    }
+  });
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(() => {
+    try {
+      const userScopeKey = empCode || (employeeData as any)?.id || undefined;
+      const stored = getStoredNotifications(userScopeKey);
+      return stored.filter((n) => !n.read && !(n as any).isRead).length;
+    } catch {
+      return 0;
+    }
+  });
+
+  // Keep a fresh reference to employeeData without triggering listener teardowns
+  const latestEmployeeDataRef = useRef(employeeData);
+  useEffect(() => {
+    latestEmployeeDataRef.current = employeeData;
+  }, [employeeData]);
 
   // Active snapshot unsubscriptions
   const activeUnsubsRef = useRef<(() => void)[]>([]);
@@ -566,7 +587,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             };
 
             // Strict privacy and isolation enforcement
-            if (isNotificationForUser(record, employeeData)) {
+            if (isNotificationForUser(record, latestEmployeeDataRef.current || employeeData)) {
               list.push(record);
             }
           });
@@ -583,7 +604,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             initializeAlertBaseline(list);
           } else {
             // Subsequent snapshot: trigger sound for newly arrived unread employee notifications
-            const isEmployee = Boolean(employeeData?.employeeCode);
+            const isEmployee = Boolean((latestEmployeeDataRef.current || employeeData)?.employeeCode);
             list.forEach((record) => {
               if (!record.read && !(record as any).isRead) {
                 if (!isPopupShown(record.id)) {

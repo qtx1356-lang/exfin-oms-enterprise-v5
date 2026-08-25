@@ -286,31 +286,39 @@ export const NotificationManagement: React.FC = () => {
     selCodes: string[]
   ): Registration[] => {
     // Filter active employees (Approved registration status, and not Admin/Super Admin)
-    const activeEmployees = registrations.filter(
-      (reg) => reg.status === 'Approved' && reg.role !== 'SUPER_ADMIN' && reg.role !== 'ADMIN'
-    );
+    const activeEmployees = registrations.filter((reg) => {
+      const status = (reg.status || 'Approved').toString().trim().toLowerCase();
+      return status === 'approved' && reg.role !== 'SUPER_ADMIN' && reg.role !== 'ADMIN';
+    });
 
     switch (tType) {
       case 'ALL':
         return activeEmployees;
-      case 'DEPARTMENT':
-        return activeEmployees.filter(
-          (reg) => 
-            reg.office === tVal || 
-            reg.department === tVal || 
-            (reg.office && reg.office.toLowerCase() === (tVal as string).toLowerCase()) ||
-            (reg.department && reg.department.toLowerCase() === (tVal as string).toLowerCase())
-        );
-      case 'DESIGNATION':
-        return activeEmployees.filter(
-          (reg) => 
-            reg.designation === tVal || 
-            (reg.designation && reg.designation.toLowerCase() === (tVal as string).toLowerCase())
-        );
-      case 'SELECTED':
-        return activeEmployees.filter((reg) => selCodes.includes(reg.employeeCode));
+      case 'DEPARTMENT': {
+        const targetStr = String(tVal || '').trim().toLowerCase();
+        return activeEmployees.filter((reg) => {
+          const office = (reg.office || '').trim().toLowerCase();
+          const dept = (reg.department || '').trim().toLowerCase();
+          return office === targetStr || dept === targetStr;
+        });
+      }
+      case 'DESIGNATION': {
+        const targetStr = String(tVal || '').trim().toLowerCase();
+        return activeEmployees.filter((reg) => {
+          const desig = (reg.designation || '').trim().toLowerCase();
+          return desig === targetStr;
+        });
+      }
+      case 'SELECTED': {
+        const cleanSelected = selCodes.map((c) => String(c).trim().toLowerCase());
+        return activeEmployees.filter((reg) => {
+          const code = String(reg.employeeCode || '').trim().toLowerCase();
+          const id = String(reg.id || '').trim().toLowerCase();
+          return cleanSelected.includes(code) || cleanSelected.includes(id);
+        });
+      }
       default:
-        return [];
+        return activeEmployees;
     }
   };
 
@@ -440,7 +448,9 @@ export const NotificationManagement: React.FC = () => {
       const batch = writeBatch(db);
       
       recipients.forEach((rec) => {
-        const notifId = `notif_${campaign.id}_${rec.employeeCode}`;
+        const empCode = rec.employeeCode || rec.id;
+        const recId = rec.id || rec.employeeCode;
+        const notifId = `notif_${campaign.id}_${empCode}`;
         const ref = doc(db, 'notifications', notifId);
         
         const payload: NotificationRecord & { channels?: string[] } = {
@@ -449,13 +459,14 @@ export const NotificationManagement: React.FC = () => {
           category: campaign.type === 'ANNOUNCEMENT' ? 'SYSTEM' : ((campaign.category as any) || 'SYSTEM'),
           title: campaign.title,
           message: campaign.message,
-          recipientUserId: rec.id,
-          recipientEmployeeCode: rec.employeeCode,
-          recipientRole: rec.role,
+          recipientUserId: recId,
+          recipientEmployeeCode: empCode,
+          recipientRole: rec.role || 'EMPLOYEE',
           priority: campaign.type === 'ANNOUNCEMENT' ? 'HIGH' : (campaign.priority || 'NORMAL'),
           route: campaign.route || '',
           read: false,
           timestamp: nowIso,
+          createdAt: nowIso,
           createdAtDeviceTime: nowIso,
           updatedAtDeviceTime: nowIso,
           serverSyncTime: nowIso,
@@ -476,7 +487,10 @@ export const NotificationManagement: React.FC = () => {
           id: announcementId,
           title: campaign.title,
           content: campaign.message,
-          date: nowIso, // Backward compatibility timestamp
+          date: nowIso,
+          createdAt: nowIso,
+          timestamp: nowIso,
+          createdAtDeviceTime: nowIso,
           campaignId: campaign.id,
           targetType: campaign.targetType,
           targetValue: campaign.targetValue,
@@ -490,7 +504,10 @@ export const NotificationManagement: React.FC = () => {
         id: announcementId,
         title: campaign.title,
         content: campaign.message,
-        date: nowIso, // Backward compatibility timestamp
+        date: nowIso,
+        createdAt: nowIso,
+        timestamp: nowIso,
+        createdAtDeviceTime: nowIso,
         campaignId: campaign.id,
         targetType: campaign.targetType,
         targetValue: campaign.targetValue,
