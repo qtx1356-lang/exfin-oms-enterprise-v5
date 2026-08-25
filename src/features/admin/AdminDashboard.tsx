@@ -1745,12 +1745,20 @@ export const AdminDashboard: React.FC = () => {
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Mode</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-emerald-400">Check In</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-emerald-300">Check-In Location</th>
-                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-emerald-300">Check-In Distance</th>
+                                {isSuperAdmin() && (
+                                  <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-emerald-300">Check-In Distance</th>
+                                )}
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-rose-400">Check Out</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-rose-300">Checkout Location</th>
-                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-rose-300">Checkout Distance</th>
-                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-cyan-300">Current Location</th>
-                                <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-cyan-300">Current Distance</th>
+                                {isSuperAdmin() && (
+                                  <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-rose-300">Checkout Distance</th>
+                                )}
+                                {isSuperAdmin() && (
+                                  <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-cyan-300">Current Location</th>
+                                )}
+                                {isSuperAdmin() && (
+                                  <th className="p-3 border-b border-purple-500/20 whitespace-nowrap text-cyan-300">Current Distance</th>
+                                )}
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Hours</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Client/Outdoor</th>
                                 <th className="p-3 border-b border-purple-500/20 whitespace-nowrap">Sync</th>
@@ -1814,9 +1822,11 @@ export const AdminDashboard: React.FC = () => {
                                     {checkInLoc.location}
                                   </td>
                                   {/* Check-In Distance */}
-                                  <td className="p-3 border-b border-purple-500/10 text-emerald-300 font-mono whitespace-nowrap">
-                                    {checkInLoc.distance || '—'}
-                                  </td>
+                                  {isSuperAdmin() && (
+                                    <td className="p-3 border-b border-purple-500/10 text-emerald-300 font-mono whitespace-nowrap">
+                                      {checkInLoc.distance || '—'}
+                                    </td>
+                                  )}
                                   {/* Check-Out Time */}
                                   <td className="p-3 border-b border-purple-500/10 whitespace-nowrap">
                                     {checkoutLoc.isUnresolved ? (
@@ -1838,27 +1848,33 @@ export const AdminDashboard: React.FC = () => {
                                     {checkoutLoc.location}
                                   </td>
                                   {/* Checkout Distance */}
-                                  <td className="p-3 border-b border-purple-500/10 text-rose-300 font-mono whitespace-nowrap">
-                                    {checkoutLoc.distance || '—'}
-                                  </td>
+                                  {isSuperAdmin() && (
+                                    <td className="p-3 border-b border-purple-500/10 text-rose-300 font-mono whitespace-nowrap">
+                                      {checkoutLoc.distance || '—'}
+                                    </td>
+                                  )}
                                   {/* Current Location */}
-                                  <td className="p-3 border-b border-purple-500/10 truncate max-w-[150px]" title={currentLoc.location}>
-                                    <div className="flex items-center gap-1.5">
-                                      <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase shrink-0 ${
-                                        currentLoc.status === 'LIVE' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse' :
-                                        currentLoc.status === 'RECENT' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                                        currentLoc.status === 'STALE' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                                        'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                      }`}>
-                                        {currentLoc.status}
-                                      </span>
-                                      <span className="text-purple-200 truncate">{currentLoc.location}</span>
-                                    </div>
-                                  </td>
+                                  {isSuperAdmin() && (
+                                    <td className="p-3 border-b border-purple-500/10 truncate max-w-[150px]" title={currentLoc.location}>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase shrink-0 ${
+                                          currentLoc.status === 'LIVE' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse' :
+                                          currentLoc.status === 'RECENT' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                                          currentLoc.status === 'STALE' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                                          'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                        }`}>
+                                          {currentLoc.status}
+                                        </span>
+                                        <span className="text-purple-200 truncate">{currentLoc.location}</span>
+                                      </div>
+                                    </td>
+                                  )}
                                   {/* Current Distance */}
-                                  <td className="p-3 border-b border-purple-500/10 text-cyan-300 font-mono whitespace-nowrap">
-                                    {currentLoc.distance || '—'}
-                                  </td>
+                                  {isSuperAdmin() && (
+                                    <td className="p-3 border-b border-purple-500/10 text-cyan-300 font-mono whitespace-nowrap">
+                                      {currentLoc.distance || '—'}
+                                    </td>
+                                  )}
                                   {/* Working Hours */}
                                   <td className="p-3 border-b border-purple-500/10 font-bold text-white whitespace-nowrap">
                                     {checkoutLoc.isUnresolved ? (
@@ -2075,7 +2091,7 @@ export const AdminDashboard: React.FC = () => {
                     const currentLoc = getCurrentLocationDetails(selectedAttendance, empLiveLoc);
 
                     return (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div className={`grid grid-cols-1 ${isSuperAdmin() ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-2`}>
                         {/* Check-In Location */}
                         <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl space-y-1">
                           <div className="flex justify-between items-center">
@@ -2083,10 +2099,10 @@ export const AdminDashboard: React.FC = () => {
                             <span className="text-[10px] text-emerald-300/80 font-mono">{checkInLoc.time}</span>
                           </div>
                           <div className="text-xs text-white font-medium">{checkInLoc.location}</div>
-                          {checkInLoc.distance && (
+                          {isSuperAdmin() && checkInLoc.distance && (
                             <div className="text-[10px] text-emerald-300/70 font-mono">Distance: {checkInLoc.distance}</div>
                           )}
-                          {(selectedAttendance.checkInLatitude !== undefined || selectedAttendance.latitude !== undefined) && (
+                          {isSuperAdmin() && (selectedAttendance.checkInLatitude !== undefined || selectedAttendance.latitude !== undefined) && (
                             <div className="text-[9px] text-purple-300/40 font-mono pt-1">
                               {selectedAttendance.checkInLatitude ?? selectedAttendance.latitude}, {selectedAttendance.checkInLongitude ?? selectedAttendance.longitude}
                             </div>
@@ -2100,10 +2116,10 @@ export const AdminDashboard: React.FC = () => {
                             <span className="text-[10px] text-rose-300/80 font-mono">{checkoutLoc.time}</span>
                           </div>
                           <div className={`text-xs font-medium ${checkoutLoc.isUnresolved ? 'text-amber-300 font-bold' : 'text-white'}`}>{checkoutLoc.location}</div>
-                          {checkoutLoc.distance && (
+                          {isSuperAdmin() && checkoutLoc.distance && (
                             <div className="text-[10px] text-purple-300/70 font-mono">Distance: {checkoutLoc.distance}</div>
                           )}
-                          {selectedAttendance.checkoutLatitude !== undefined && (
+                          {isSuperAdmin() && selectedAttendance.checkoutLatitude !== undefined && (
                             <div className="text-[9px] text-purple-300/40 font-mono pt-1">
                               {selectedAttendance.checkoutLatitude}, {selectedAttendance.checkoutLongitude}
                             </div>
@@ -2111,31 +2127,33 @@ export const AdminDashboard: React.FC = () => {
                         </div>
 
                         {/* Current Location */}
-                        <div className="p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-xl space-y-1">
-                          <div className="flex justify-between items-center">
-                            <span className="text-[11px] text-cyan-300 font-bold">Current Location</span>
-                            <span className={`px-1 py-0.2 rounded text-[8px] font-black uppercase ${
-                              currentLoc.status === 'LIVE' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse' :
-                              currentLoc.status === 'RECENT' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                              currentLoc.status === 'STALE' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                              'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                            }`}>
-                              {currentLoc.status}
-                            </span>
-                          </div>
-                          <div className="text-xs text-white font-medium">{currentLoc.location}</div>
-                          {currentLoc.distance && (
-                            <div className="text-[10px] text-cyan-300/70 font-mono">Distance: {currentLoc.distance}</div>
-                          )}
-                          {currentLoc.statusText && (
-                            <div className="text-[9px] text-cyan-200/80 font-mono">⏱ {currentLoc.statusText}</div>
-                          )}
-                          {currentLoc.latitude !== undefined && (
-                            <div className="text-[9px] text-purple-300/40 font-mono pt-1">
-                              {currentLoc.latitude}, {currentLoc.longitude}
+                        {isSuperAdmin() && (
+                          <div className="p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-xl space-y-1">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[11px] text-cyan-300 font-bold">Current Location</span>
+                              <span className={`px-1 py-0.2 rounded text-[8px] font-black uppercase ${
+                                currentLoc.status === 'LIVE' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse' :
+                                currentLoc.status === 'RECENT' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                                currentLoc.status === 'STALE' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                                'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                              }`}>
+                                {currentLoc.status}
+                              </span>
                             </div>
-                          )}
-                        </div>
+                            <div className="text-xs text-white font-medium">{currentLoc.location}</div>
+                            {currentLoc.distance && (
+                              <div className="text-[10px] text-cyan-300/70 font-mono">Distance: {currentLoc.distance}</div>
+                            )}
+                            {currentLoc.statusText && (
+                              <div className="text-[9px] text-cyan-200/80 font-mono">⏱ {currentLoc.statusText}</div>
+                            )}
+                            {currentLoc.latitude !== undefined && (
+                              <div className="text-[9px] text-purple-300/40 font-mono pt-1">
+                                {currentLoc.latitude}, {currentLoc.longitude}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
