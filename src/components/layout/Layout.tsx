@@ -19,6 +19,7 @@ import {
 import {
   isNotificationEligibleForPopup,
   markPopupShown,
+  isPopupShown,
 } from '../../services/notification/alertDeduplication';
 import { NotificationRecord } from '../../types/notification';
 import { motion, AnimatePresence } from 'motion/react';
@@ -134,15 +135,26 @@ export const Layout: React.FC = () => {
     if (!currentUser || syncNotifs.length === 0) return;
 
     // Filter syncNotifs for unseen eligible notifications intended for current employee
-    const unseenNotifs = syncNotifs.filter((n) => {
-      if (!isNotificationForUser(n, currentUser)) return false;
-      return isNotificationEligibleForPopup(n);
+    const unseenNotifs: NotificationRecord[] = [];
+
+    syncNotifs.forEach((n) => {
+      if (!isNotificationForUser(n, currentUser)) return;
+
+      if (isPopupShown(n.id)) {
+        // Suppressed duplicate
+        return;
+      }
+
+      if (isNotificationEligibleForPopup(n)) {
+        console.log('[NotificationRealtime] POPUP_TRIGGERED', { id: n.id, title: n.title });
+        markPopupShown(n.id);
+        unseenNotifs.push(n);
+      } else {
+        console.log('[NotificationRealtime] POPUP_DUPLICATE_SUPPRESSED', { id: n.id });
+      }
     });
 
     if (unseenNotifs.length === 0) return;
-
-    // Mark all qualifying notifications as shown in persistent popup deduplication store
-    unseenNotifs.forEach((n) => markPopupShown(n.id));
 
     if (unseenNotifs.length === 1) {
       setActiveToastNotif({

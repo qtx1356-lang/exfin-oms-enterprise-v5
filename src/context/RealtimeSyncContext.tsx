@@ -24,6 +24,7 @@ import { saveTaskRecord, getStoredTasks } from '../services/planner/taskStorage'
 import { isNotificationDeletedLocally, saveMultipleNotificationsLocally, getPendingDeletes, getPendingReads, getStoredNotifications } from '../services/notification/notificationStorage';
 import { isNotificationForUser } from '../services/notification/notificationService';
 import { initializeNotificationSoundBaseline, triggerNewNotificationSound } from '../services/notification/alertSoundService';
+import { initializeAlertBaseline, isPopupShown } from '../services/notification/alertDeduplication';
 import { saveLeaveRecord, getStoredLeaves } from '../services/leave/leaveStorage';
 import { saveExpenseRecord, getStoredExpenseRecords } from '../services/expenses/expenseStorage';
 import { saveAttendanceRecord, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration, runSafeWorkingHoursNormalization } from '../services/attendance/attendanceStorage';
@@ -499,6 +500,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       return onSnapshot(
         q,
         (snapshot) => {
+          console.log('[NotificationRealtime] SNAPSHOT_RECEIVED', { queryIndex: qIdx, count: snapshot.docs.length });
           const list: NotificationRecord[] = [];
           snapshot.forEach((docSnap) => {
             const d = docSnap.data() as any;
@@ -552,20 +554,25 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             }
           });
 
+          console.log('[NotificationRealtime] EMPLOYEE_FILTERED', { count: list.length });
           notifSnapshots[qIdx] = list;
 
           // Check if this query is seen for the first time in this session
           const isFirstSnapshotForQuery = !initialQuerySnapshotSeenRef.current[qIdx];
           if (isFirstSnapshotForQuery) {
             initialQuerySnapshotSeenRef.current[qIdx] = true;
-            // Baseline initial query records so historical notifications never chime
+            // Baseline initial query records so historical notifications never chime or popup
             initializeNotificationSoundBaseline(list);
+            initializeAlertBaseline(list);
           } else {
             // Subsequent snapshot: trigger sound for newly arrived unread employee notifications
             const isEmployee = Boolean(employeeData?.employeeCode);
             list.forEach((record) => {
               if (!record.read && !(record as any).isRead) {
-                triggerNewNotificationSound(record, isEmployee);
+                if (!isPopupShown(record.id)) {
+                  console.log('[NotificationRealtime] NEW_NOTIFICATION', { id: record.id, title: record.title });
+                  triggerNewNotificationSound(record, isEmployee);
+                }
               }
             });
           }
@@ -588,8 +595,10 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             return timeB - timeA;
           });
 
+          const newUnreadCount = finalNotifsList.filter((n) => !n.read && !(n as any).isRead).length;
           setNotifications(finalNotifsList);
-          setUnreadNotificationCount(finalNotifsList.filter((n) => !n.read && !(n as any).isRead).length);
+          setUnreadNotificationCount(newUnreadCount);
+          console.log('[NotificationRealtime] BELL_UPDATED', { unreadCount: newUnreadCount });
 
           // Save to local storage to keep it fully synchronized and dispatch update event
           saveMultipleNotificationsLocally(finalNotifsList, userScopeKey);
