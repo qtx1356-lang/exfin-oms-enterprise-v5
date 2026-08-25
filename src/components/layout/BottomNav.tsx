@@ -26,25 +26,6 @@ export const BottomNav: React.FC = React.memo(() => {
     e.preventDefault();
     e.stopPropagation();
 
-    // Prevent navigation if checkout confirmation is pending
-    if (employeeData) {
-      const empCode = employeeData.employeeCode || employeeData.employeeId;
-      if (empCode) {
-        const todayStr = getFormattedDateStr();
-        const rec = getTodayAttendanceRecord(empCode, todayStr);
-        if (
-          rec &&
-          rec.checkInTime &&
-          rec.checkInTime !== '--:--' &&
-          (!rec.checkOutTime || rec.checkoutStatus !== 'COMPLETED') &&
-          (rec.pendingCheckoutConfirmation === true || rec.currentState === 'PENDING_EXIT_CONFIRMATION')
-        ) {
-          // Navigation blocked while modal is active
-          return;
-        }
-      }
-    }
-
     if (location.pathname !== path) {
       navigate(path);
     }
