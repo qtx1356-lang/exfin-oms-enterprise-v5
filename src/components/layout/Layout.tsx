@@ -14,16 +14,16 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
   deleteNotification,
+  isNotificationForUser,
 } from '../../services/notification/notificationService';
+import {
+  isNotificationEligibleForPopup,
+  markPopupShown,
+} from '../../services/notification/alertDeduplication';
 import { NotificationRecord } from '../../types/notification';
 import { motion, AnimatePresence } from 'motion/react';
 import { InAppNotificationToast, ToastPayload } from '../common/InAppNotificationToast';
 import { CheckoutConfirmationModal } from '../attendance/CheckoutConfirmationModal';
-import {
-  initRealtimePushListener,
-  initializeNotificationBaseline,
-  processIncomingNotifications,
-} from '../../services/notification/pushNotificationService';
 import { initTaskDeadlineMonitor } from '../../services/planner/taskDeadlineEngine';
 
 const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
@@ -129,31 +129,50 @@ export const Layout: React.FC = () => {
     return syncNotifs.slice(0, 3);
   }, [syncNotifs]);
 
-  // Baseline notification initialization & incoming toast notifications
+  // Check for newly received eligible notifications and present popup immediately
   useEffect(() => {
     if (!currentUser || syncNotifs.length === 0) return;
-    if (!baselineDoneRef.current) {
-      initializeNotificationBaseline(syncNotifs);
-      baselineDoneRef.current = true;
+
+    // Filter syncNotifs for unseen eligible notifications intended for current employee
+    const unseenNotifs = syncNotifs.filter((n) => {
+      if (!isNotificationForUser(n, currentUser)) return false;
+      return isNotificationEligibleForPopup(n);
+    });
+
+    if (unseenNotifs.length === 0) return;
+
+    // Mark all qualifying notifications as shown in persistent popup deduplication store
+    unseenNotifs.forEach((n) => markPopupShown(n.id));
+
+    if (unseenNotifs.length === 1) {
+      setActiveToastNotif({
+        mode: 'SINGLE',
+        notification: unseenNotifs[0],
+      });
     } else {
-      processIncomingNotifications(syncNotifs, (toastData) => {
-        setActiveToastNotif(toastData);
+      const count = unseenNotifs.length;
+      const hasCritical = unseenNotifs.some(
+        (n) => n.priority === 'URGENT' || n.priority === 'HIGH'
+      );
+      setActiveToastNotif({
+        mode: 'SUMMARY',
+        count,
+        title: count <= 5 ? `🔔 ${count} New Notifications` : `🔔 New Notifications`,
+        message: `You have ${count} new unread notifications.`,
+        actionLabel: count <= 5 ? 'View Notifications' : 'View All',
+        route: '/notifications',
+        priority: hasCritical ? 'HIGH' : 'NORMAL',
       });
     }
   }, [currentUser, syncNotifs]);
 
-  // Real-time Push Notification Engine Listener for current employee
+  // Task deadline monitor for current employee
   useEffect(() => {
     if (!currentUser) return;
-    const unsubPush = initRealtimePushListener(currentUser, (incomingToast) => {
-      setActiveToastNotif(incomingToast);
-    });
-
     const empCode = currentUser.employeeCode;
     const unsubDeadline = empCode ? initTaskDeadlineMonitor(empCode) : () => {};
 
     return () => {
-      unsubPush();
       unsubDeadline();
     };
   }, [currentUser?.employeeCode, currentUser?.id]);
