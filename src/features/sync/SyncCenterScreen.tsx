@@ -115,13 +115,13 @@ export const SyncCenterScreen: React.FC = () => {
         );
       case 'pending':
         return (
-          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/20 text-purple-200 border border-purple-500/30">
+          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#18C98F]/20 text-[#18C98F] border border-[#18C98F]/30">
             <RefreshCw className="w-3.5 h-3.5 animate-spin" /> PENDING SYNC ({summary.totalPending})
           </span>
         );
       case 'syncing':
         return (
-          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/20 text-purple-200 border border-purple-500/30">
+          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#18C98F]/20 text-[#18C98F] border border-[#18C98F]/30">
             <RefreshCw className="w-3.5 h-3.5 animate-spin" /> SYNCING...
           </span>
         );
@@ -135,23 +135,23 @@ export const SyncCenterScreen: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 text-white max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 text-white max-w-4xl mx-auto pb-12 font-sans">
       {/* Top Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate(-1)}
-            className="p-2 rounded-xl bg-[#2D1B5A]/60 border border-purple-500/20 text-purple-300 hover:text-white transition-all"
+            className="p-2 rounded-xl bg-[#1D2329] border border-[#3A4148] text-[#B7C0BC] hover:text-white hover:bg-[#252C34] transition-all"
             aria-label="Go Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
             <h1 className="text-xl font-black text-white flex items-center gap-2">
-              <Layers className="w-5 h-5 text-purple-400" />
+              <Layers className="w-5 h-5 text-[#18C98F]" />
               Sync Failure Center
             </h1>
-            <p className="text-xs text-purple-300/80">
+            <p className="text-xs text-[#B7C0BC]">
               Manage local record queues, retries, and offline failures.
             </p>
           </div>
@@ -161,34 +161,34 @@ export const SyncCenterScreen: React.FC = () => {
 
       {/* Summary KPI Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl bg-[#2D1B5A] border border-purple-500/20 flex flex-col justify-between">
-          <span className="text-[11px] font-bold text-purple-300/70 uppercase">System Status</span>
-          <span className="text-sm font-extrabold capitalize mt-1 text-purple-100">
+        <div className="p-4 rounded-2xl bg-[#171B1F] border border-[#3A4148] flex flex-col justify-between shadow-md">
+          <span className="text-[11px] font-bold text-[#7E8985] uppercase">System Status</span>
+          <span className="text-sm font-extrabold capitalize mt-1 text-[#B7C0BC]">
             {summary.status.replace('_', ' ')}
           </span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#2D1B5A] border border-purple-500/20 flex flex-col justify-between">
-          <span className="text-[11px] font-bold text-purple-300/70 uppercase">Pending Sync</span>
+        <div className="p-4 rounded-2xl bg-[#171B1F] border border-[#3A4148] flex flex-col justify-between shadow-md">
+          <span className="text-[11px] font-bold text-[#7E8985] uppercase">Pending Sync</span>
           <span className="text-2xl font-black text-amber-300">{summary.totalPending}</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#2D1B5A] border border-purple-500/20 flex flex-col justify-between">
-          <span className="text-[11px] font-bold text-purple-300/70 uppercase">Failed (Dead Letter)</span>
+        <div className="p-4 rounded-2xl bg-[#171B1F] border border-[#3A4148] flex flex-col justify-between shadow-md">
+          <span className="text-[11px] font-bold text-[#7E8985] uppercase">Failed (Dead Letter)</span>
           <span className="text-2xl font-black text-red-400">{summary.totalFailed}</span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#2D1B5A] border border-purple-500/20 flex flex-col justify-between">
-          <span className="text-[11px] font-bold text-purple-300/70 uppercase">Last Sync</span>
-          <span className="text-xs font-bold text-purple-200 mt-1">
+        <div className="p-4 rounded-2xl bg-[#171B1F] border border-[#3A4148] flex flex-col justify-between shadow-md">
+          <span className="text-[11px] font-bold text-[#7E8985] uppercase">Last Sync</span>
+          <span className="text-xs font-bold text-[#B7C0BC] mt-1">
             {summary.lastSyncTime ? new Date(summary.lastSyncTime).toLocaleTimeString() : 'Not Yet'}
           </span>
         </div>
       </div>
 
       {/* Primary Actions Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#2D1B5A]/80 border border-purple-500/20 p-3.5 rounded-2xl">
-        <span className="text-xs text-purple-200 font-semibold">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#171B1F] border border-[#3A4148] p-3.5 rounded-2xl">
+        <span className="text-xs text-[#B7C0BC] font-semibold">
           Total Queue: {records.length} item(s) awaiting cloud synchronization
         </span>
         <div className="flex items-center gap-2">
@@ -196,7 +196,7 @@ export const SyncCenterScreen: React.FC = () => {
             variant="outline"
             onClick={refreshData}
             disabled={isSyncing}
-            className="text-xs"
+            className="text-xs border-[#3A4148] bg-[#1D2329] hover:bg-[#252C34]"
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isSyncing ? 'animate-spin' : ''}`} />
             Refresh
@@ -204,7 +204,7 @@ export const SyncCenterScreen: React.FC = () => {
           <Button
             onClick={handleRetryAll}
             disabled={isSyncing || records.length === 0 || !navigator.onLine}
-            className="text-xs bg-purple-600 hover:bg-purple-500"
+            className="text-xs bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F]"
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isSyncing ? 'animate-spin' : ''}`} />
             Retry All Records
@@ -222,16 +222,16 @@ export const SyncCenterScreen: React.FC = () => {
           return (
             <div
               key={mod}
-              className="bg-[#2D1B5A] border border-purple-500/20 rounded-2xl overflow-hidden shadow-lg"
+              className="bg-[#171B1F] border border-[#3A4148] rounded-2xl overflow-hidden shadow-lg"
             >
               <div
                 onClick={() => toggleModule(mod)}
-                className="p-4 bg-[#1D113B]/60 hover:bg-[#1D113B]/80 cursor-pointer flex items-center justify-between transition-colors border-b border-purple-500/10"
+                className="p-4 bg-[#111417] hover:bg-[#1D2329]/50 cursor-pointer flex items-center justify-between transition-colors border-b border-[#3A4148]"
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="font-extrabold text-sm text-purple-200">{mod}</span>
+                  <span className="font-extrabold text-sm text-[#B7C0BC]">{mod}</span>
                   {modRecords.length > 0 ? (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-[#1D2329] text-[#B7C0BC] border border-[#3A4148]">
                       {modRecords.length} queued
                     </span>
                   ) : (
@@ -246,30 +246,30 @@ export const SyncCenterScreen: React.FC = () => {
                   )}
                 </div>
                 {isExpanded ? (
-                  <ChevronUp className="w-4 h-4 text-purple-300" />
+                  <ChevronUp className="w-4 h-4 text-[#7E8985]" />
                 ) : (
-                  <ChevronDown className="w-4 h-4 text-purple-300" />
+                  <ChevronDown className="w-4 h-4 text-[#7E8985]" />
                 )}
               </div>
 
               {isExpanded && (
                 <div className="p-4 space-y-3">
                   {modRecords.length === 0 ? (
-                    <p className="text-xs text-purple-300/60 py-3 text-center italic">
+                    <p className="text-xs text-[#7E8985] py-3 text-center italic">
                       No unsynchronized or failed records for {mod}.
                     </p>
                   ) : (
                     modRecords.map((rec) => (
                       <div
                         key={rec.id}
-                        className="p-3.5 bg-[#1D113B]/80 border border-purple-500/20 rounded-xl space-y-2"
+                        className="p-3.5 bg-[#111417] border border-[#3A4148] rounded-xl space-y-2"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <span className="text-xs font-bold text-white block">
                               {rec.recordType}
                             </span>
-                            <span className="text-[10px] text-purple-300/70 font-mono">
+                            <span className="text-[10px] text-[#7E8985] font-mono">
                               ID: {rec.recordId}
                             </span>
                           </div>
@@ -284,7 +284,7 @@ export const SyncCenterScreen: React.FC = () => {
                           </span>
                         </div>
 
-                        <p className="text-xs text-purple-200/90 font-medium">
+                        <p className="text-xs text-[#B7C0BC] font-medium">
                           {rec.payloadSummary}
                         </p>
 
@@ -294,7 +294,7 @@ export const SyncCenterScreen: React.FC = () => {
                           </div>
                         )}
 
-                        <div className="pt-2 border-t border-purple-500/10 flex flex-wrap items-center justify-between gap-2 text-[10px] text-purple-300/70">
+                        <div className="pt-2 border-t border-[#3A4148] flex flex-wrap items-center justify-between gap-2 text-[10px] text-[#7E8985]">
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             Created: {new Date(rec.createdAtDeviceTime).toLocaleString()}
@@ -303,20 +303,20 @@ export const SyncCenterScreen: React.FC = () => {
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => setSelectedRecord(rec)}
-                              className="px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 font-bold transition-all flex items-center gap-1"
+                              className="px-2.5 py-1 rounded-lg bg-[#1D2329] hover:bg-[#252C34] border border-[#3A4148] text-[#B7C0BC] font-bold transition-all flex items-center gap-1"
                             >
-                              <Eye className="w-3 h-3" /> Payload
+                              <Eye className="w-3 h-3 text-[#18C98F]" /> Payload
                             </button>
                             <button
                               onClick={() => handleRemoveOne(rec)}
-                              className="px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 font-bold transition-all flex items-center gap-1"
+                              className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 font-bold transition-all flex items-center gap-1"
                             >
                               <Trash2 className="w-3 h-3" /> Safe Remove
                             </button>
                             <button
                               onClick={() => handleRetryOne(rec)}
                               disabled={isSyncing || !navigator.onLine}
-                              className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold transition-all flex items-center gap-1 disabled:opacity-50"
+                              className="px-2.5 py-1 rounded-lg bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] font-bold transition-all flex items-center gap-1 disabled:opacity-50"
                             >
                               <RefreshCw className="w-3 h-3" /> Retry
                             </button>
@@ -339,26 +339,26 @@ export const SyncCenterScreen: React.FC = () => {
           onClose={() => setSelectedRecord(null)}
           title={`Payload Details: ${selectedRecord.recordType}`}
         >
-          <div className="space-y-4">
+          <div className="space-y-4 font-sans text-white">
             <div className="space-y-1">
-              <span className="text-xs font-bold text-purple-300">Module:</span>
+              <span className="text-xs font-bold text-[#7E8985]">Module:</span>
               <p className="text-sm font-extrabold text-white">{selectedRecord.module}</p>
             </div>
 
             <div className="space-y-1">
-              <span className="text-xs font-bold text-purple-300">Created Device Time:</span>
-              <p className="text-xs text-purple-200">{new Date(selectedRecord.createdAtDeviceTime).toLocaleString()}</p>
+              <span className="text-xs font-bold text-[#7E8985]">Created Device Time:</span>
+              <p className="text-xs text-[#B7C0BC]">{new Date(selectedRecord.createdAtDeviceTime).toLocaleString()}</p>
             </div>
 
             <div className="space-y-1">
-              <span className="text-xs font-bold text-purple-300 font-mono">Payload JSON:</span>
-              <pre className="p-3 bg-[#110B29] border border-purple-500/20 rounded-xl text-[11px] font-mono text-purple-200 overflow-x-auto max-h-60">
+              <span className="text-xs font-bold text-[#7E8985] font-mono">Payload JSON:</span>
+              <pre className="p-3 bg-[#111417] border border-[#3A4148] rounded-xl text-[11px] font-mono text-emerald-300 overflow-x-auto max-h-60">
                 {JSON.stringify(selectedRecord.payload || {}, null, 2)}
               </pre>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="text" onClick={() => setSelectedRecord(null)}>
+              <Button variant="text" onClick={() => setSelectedRecord(null)} className="text-[#B7C0BC] hover:text-white">
                 Close
               </Button>
               <Button
@@ -367,6 +367,7 @@ export const SyncCenterScreen: React.FC = () => {
                   setSelectedRecord(null);
                 }}
                 disabled={!navigator.onLine}
+                className="bg-[#18C98F] text-[#0B0D0F] hover:bg-[#10966D]"
               >
                 Retry Synchronization
               </Button>

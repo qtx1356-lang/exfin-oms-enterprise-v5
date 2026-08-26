@@ -32,7 +32,7 @@ export const BottomNav: React.FC = React.memo(() => {
   };
 
   return (
-    <nav aria-label="Bottom Navigation" className="fixed bottom-3 left-2 right-2 max-w-md mx-auto h-16 bg-[#111417]/95 backdrop-blur-2xl border border-[#292F33] rounded-full flex items-center justify-around px-1.5 z-[100] shadow-xl pointer-events-auto">
+    <nav aria-label="Bottom Navigation" className="fixed bottom-3 left-2 right-2 max-w-md mx-auto h-16 bg-[#111417]/95 backdrop-blur-2xl border border-[#3A4148] rounded-full flex items-center justify-around px-1.5 z-[100] shadow-xl pointer-events-auto">
       {navItems.map((item) => {
         const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
         return (

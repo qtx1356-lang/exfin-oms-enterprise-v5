@@ -580,7 +580,7 @@ export const MyTeamScreen: React.FC = () => {
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex overflow-x-auto gap-2 p-1.5 bg-[#171B1E] rounded-2xl border border-[#292F33] text-xs font-bold no-scrollbar">
+      <div className="flex overflow-x-auto gap-2 p-1.5 bg-[#171B1E] rounded-2xl border border-[#3A4148] text-xs font-bold no-scrollbar">
         <button
           onClick={() => setActiveTab('overview')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 ${
@@ -651,22 +651,22 @@ export const MyTeamScreen: React.FC = () => {
         <div className="space-y-5">
           {/* Summary Metric Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Card className="p-3.5 bg-[#171B1E] border border-[#292F33] text-center">
+            <Card className="p-3.5 bg-[#171B1E] border border-[#3A4148] text-center">
               <p className="text-[10px] font-bold text-[#7E8985] uppercase">Total Members</p>
               <p className="text-2xl font-black text-white mt-0.5">{totalTeamMembers}</p>
             </Card>
 
-            <Card className="p-3.5 bg-[#171B1E] border border-[#292F33] text-center">
+            <Card className="p-3.5 bg-[#171B1E] border border-[#3A4148] text-center">
               <p className="text-[10px] font-bold text-amber-500 uppercase">Pending Approvals</p>
               <p className="text-2xl font-black text-amber-500 mt-0.5">{pendingApprovalsCount}</p>
             </Card>
 
-            <Card className="p-3.5 bg-[#171B1E] border border-[#292F33] text-center">
+            <Card className="p-3.5 bg-[#171B1E] border border-[#3A4148] text-center">
               <p className="text-[10px] font-bold text-blue-400 uppercase">Active Tasks</p>
               <p className="text-2xl font-black text-blue-400 mt-0.5">{activeTasksCount}</p>
             </Card>
 
-            <Card className="p-3.5 bg-[#171B1E] border border-[#292F33] text-center">
+            <Card className="p-3.5 bg-[#171B1E] border border-[#3A4148] text-center">
               <p className="text-[10px] font-bold text-[#18C98F] uppercase">Team Completion</p>
               <p className="text-2xl font-black text-[#18C98F] mt-0.5">{teamCompletionPct}%</p>
             </Card>
@@ -696,7 +696,7 @@ export const MyTeamScreen: React.FC = () => {
           )}
 
           {/* Team Workload Visual Bar */}
-          <Card className="p-4 bg-[#171B1E] border border-[#292F33] space-y-4">
+          <Card className="p-4 bg-[#171B1E] border border-[#3A4148] space-y-4">
             <h3 className="text-xs font-black uppercase tracking-wider text-[#B7C0BC] flex items-center gap-1.5">
               <BarChart3 className="w-4 h-4 text-[#18C98F]" /> Team Member Workload Summary
             </h3>
@@ -714,7 +714,7 @@ export const MyTeamScreen: React.FC = () => {
                   const mPct = mTasks.length > 0 ? Math.round((mCompleted / mTasks.length) * 100) : 0;
 
                   return (
-                    <div key={member.id} className="bg-[#111417] p-3 rounded-xl border border-[#292F33] space-y-2">
+                    <div key={member.id} className="bg-[#111417] p-3 rounded-xl border border-[#3A4148] space-y-2">
                       <div className="flex justify-between items-center text-xs">
                         <div>
                           <span className="font-bold text-white">{member.name}</span>
@@ -729,7 +729,7 @@ export const MyTeamScreen: React.FC = () => {
                       </div>
 
                       {/* Visual Workload Bar */}
-                      <div className="w-full bg-[#171B1E] h-2.5 rounded-full overflow-hidden border border-[#292F33] flex">
+                      <div className="w-full bg-[#171B1E] h-2.5 rounded-full overflow-hidden border border-[#3A4148] flex">
                         <div className="bg-[#18C98F] h-full" style={{ width: `${mPct}%` }} title={`Completed: ${mPct}%`} />
                         <div className="bg-blue-500 h-full" style={{ width: `${mTasks.length > 0 ? Math.round((mActive / mTasks.length) * 100) : 0}%` }} title={`Active: ${mActive}`} />
                       </div>
@@ -761,10 +761,10 @@ export const MyTeamScreen: React.FC = () => {
               const mPct = mTasks.length > 0 ? Math.round((mCompleted / mTasks.length) * 100) : 0;
 
               return (
-                <Card key={member.id} className="p-4 bg-[#171B1E] border border-[#292F33] rounded-2xl flex flex-col justify-between gap-3">
+                <Card key={member.id} className="p-4 bg-[#171B1E] border border-[#3A4148] rounded-2xl flex flex-col justify-between gap-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-[#111417] border border-[#292F33] overflow-hidden flex-shrink-0 flex items-center justify-center">
+                      <div className="w-11 h-11 rounded-2xl bg-[#111417] border border-[#3A4148] overflow-hidden flex-shrink-0 flex items-center justify-center">
                         {member.selfieUrl ? (
                           <img src={member.selfieUrl} alt={member.name} className="w-full h-full object-cover" />
                         ) : (
@@ -782,7 +782,7 @@ export const MyTeamScreen: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 bg-[#111417] p-2.5 rounded-xl border border-[#292F33] text-center text-xs">
+                  <div className="grid grid-cols-3 gap-2 bg-[#111417] p-2.5 rounded-xl border border-[#3A4148] text-center text-xs">
                     <div>
                       <p className="text-[9px] text-[#7E8985] uppercase font-bold">Active</p>
                       <p className="font-bold text-blue-400">{mActive}</p>
@@ -797,12 +797,12 @@ export const MyTeamScreen: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-[#292F33]">
+                  <div className="flex items-center justify-between pt-1 border-t border-[#3A4148]">
                     <span className="text-xs font-bold text-[#B7C0BC]">{mPct}% Work Completed</span>
                     <Button
                       onClick={() => setSelectedMemberForReport(member)}
                       variant="outlined"
-                      className="border-[#292F33] text-[#B7C0BC] hover:text-[#18C98F] hover:border-[#18C98F] text-[10px] px-2.5 py-1 rounded-lg bg-transparent"
+                      className="border-[#3A4148] text-[#B7C0BC] hover:text-[#18C98F] hover:border-[#18C98F] text-[10px] px-2.5 py-1 rounded-lg bg-transparent"
                     >
                       <Eye className="w-3 h-3 mr-1" /> Workload Report
                     </Button>
@@ -828,7 +828,7 @@ export const MyTeamScreen: React.FC = () => {
       {activeTab === 'tasks' && (
         <div className="space-y-4">
           {/* Filters Bar */}
-          <div className="flex flex-wrap items-center gap-3 bg-[#171B1E] p-3 rounded-2xl border border-[#292F33] text-xs">
+          <div className="flex flex-wrap items-center gap-3 bg-[#171B1E] p-3 rounded-2xl border border-[#3A4148] text-xs">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#7E8985]" />
               <input
@@ -836,14 +836,14 @@ export const MyTeamScreen: React.FC = () => {
                 placeholder="Search team tasks..."
                 value={taskSearchTerm}
                 onChange={(e) => setTaskSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-[#292F33] bg-[#111417] text-white focus:outline-none focus:border-[#18C98F]"
+                className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-[#3A4148] bg-[#111417] text-white focus:outline-none focus:border-[#18C98F]"
               />
             </div>
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-[#111417] text-white px-3 py-1.5 rounded-xl border border-[#292F33] font-bold focus:outline-none focus:border-[#18C98F]"
+              className="bg-[#111417] text-white px-3 py-1.5 rounded-xl border border-[#3A4148] font-bold focus:outline-none focus:border-[#18C98F]"
             >
               <option value="All">All Statuses</option>
               <option value="PENDING">PENDING</option>
@@ -856,7 +856,7 @@ export const MyTeamScreen: React.FC = () => {
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="bg-[#111417] text-white px-3 py-1.5 rounded-xl border border-[#292F33] font-bold focus:outline-none focus:border-[#18C98F]"
+              className="bg-[#111417] text-white px-3 py-1.5 rounded-xl border border-[#3A4148] font-bold focus:outline-none focus:border-[#18C98F]"
             >
               <option value="All">All Priorities</option>
               <option value="URGENT">URGENT</option>
@@ -872,7 +872,7 @@ export const MyTeamScreen: React.FC = () => {
               const effStatus = getEffectiveTaskStatus(t);
 
               return (
-                <Card key={t.id} className="p-4 bg-[#171B1E] border border-[#292F33] rounded-2xl space-y-3">
+                <Card key={t.id} className="p-4 bg-[#171B1E] border border-[#3A4148] rounded-2xl space-y-3">
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-bold text-sm text-white">{t.title}</h3>
@@ -899,7 +899,7 @@ export const MyTeamScreen: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-[#111417] p-2.5 rounded-xl border border-[#292F33] text-xs text-[#B7C0BC]">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-[#111417] p-2.5 rounded-xl border border-[#3A4148] text-xs text-[#B7C0BC]">
                     <div>
                       <span className="text-[#7E8985] block text-[10px]">Assigned To:</span>
                       <span className="font-bold text-white font-mono">{(t.assignedToEmployeeCodes || []).join(', ') || 'Team'}</span>
@@ -963,7 +963,7 @@ export const MyTeamScreen: React.FC = () => {
       {/* REVIEW QUEUE PANEL */}
       {activeTab === 'approvals' && (
         <div className="space-y-4">
-          <div className="p-3.5 bg-[#171B1E] rounded-2xl border border-[#292F33]">
+          <div className="p-3.5 bg-[#171B1E] rounded-2xl border border-[#3A4148]">
             <h2 className="text-xs font-black text-[#7E8985] uppercase tracking-wider mb-1 flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-amber-400" /> Pending Task Review Queue
             </h2>
@@ -989,7 +989,7 @@ export const MyTeamScreen: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 bg-[#111417] p-3 rounded-xl border border-[#292F33] text-xs text-[#B7C0BC]">
+                <div className="grid grid-cols-2 gap-2 bg-[#111417] p-3 rounded-xl border border-[#3A4148] text-xs text-[#B7C0BC]">
                   <div>
                     <span className="text-[#7E8985] block text-[10px]">Submitted By:</span>
                     <span className="font-bold text-white font-mono">{(t.assignedToEmployeeCodes || []).join(', ') || 'Employee'}</span>
@@ -1038,13 +1038,13 @@ export const MyTeamScreen: React.FC = () => {
       {/* TEAM REPORTS PANEL */}
       {activeTab === 'reports' && (
         <div className="space-y-4">
-          <Card className="p-5 bg-[#171B1E] border border-[#292F33] rounded-2xl space-y-4">
+          <Card className="p-5 bg-[#171B1E] border border-[#3A4148] rounded-2xl space-y-4">
             <h3 className="text-sm font-black uppercase text-[#B7C0BC] tracking-wider flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-[#18C98F]" /> Executive Team Performance Metrics
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-[#111417] p-3.5 rounded-xl border border-[#292F33] text-center">
+              <div className="bg-[#111417] p-3.5 rounded-xl border border-[#3A4148] text-center">
                 <p className="text-[10px] text-[#7E8985] font-bold uppercase">Total Team Tasks</p>
                 <p className="text-xl font-black text-white">{teamTasks.length}</p>
               </div>
@@ -1073,13 +1073,13 @@ export const MyTeamScreen: React.FC = () => {
       {/* TEAM LEAVES REVIEW PANEL */}
       {activeTab === 'leaves' && (
         <div className="space-y-4">
-          <Card className="p-5 bg-[#171B1E] border border-[#292F33] rounded-2xl space-y-4">
+          <Card className="p-5 bg-[#171B1E] border border-[#3A4148] rounded-2xl space-y-4">
             <h3 className="text-sm font-black uppercase text-[#B7C0BC] tracking-wider flex items-center gap-2">
               <Calendar className="w-5 h-5 text-[#18C98F]" /> Team Leave Management
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-[#111417] p-3.5 rounded-xl border border-[#292F33] text-center">
+              <div className="bg-[#111417] p-3.5 rounded-xl border border-[#3A4148] text-center">
                 <p className="text-[10px] text-[#7E8985] font-bold uppercase">Total Requests</p>
                 <p className="text-xl font-black text-white">{teamLeaves.length}</p>
               </div>
@@ -1106,20 +1106,20 @@ export const MyTeamScreen: React.FC = () => {
           </Card>
 
           {/* Filters and List */}
-          <Card className="p-5 bg-[#1C0940] border border-purple-500/20 rounded-2xl space-y-4 shadow-xl">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-purple-500/15 pb-4">
-              <h4 className="text-xs font-extrabold uppercase tracking-wider text-purple-200">
+          <Card className="p-5 bg-[#171B1E] border border-[#3A4148] rounded-2xl space-y-4 shadow-xl">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-[#3A4148] pb-4">
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#B7C0BC]">
                 Team Leave Requests History
               </h4>
-              <div className="flex gap-1 bg-[#25134F] p-1 rounded-xl border border-purple-500/10 text-xs self-start">
+              <div className="flex gap-1 bg-[#111417] p-1 rounded-xl border border-[#3A4148] text-xs self-start">
                 {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
                   <button
                     key={status}
                     onClick={() => setLeaveStatusFilter(status)}
                     className={`px-3 py-1.5 rounded-lg transition-all font-semibold ${
                       leaveStatusFilter === status
-                        ? 'bg-[#7C3AED] text-white shadow-md'
-                        : 'text-purple-300/70 hover:text-white'
+                        ? 'bg-[#18C98F] text-[#0B0D0F] shadow-md'
+                        : 'text-[#B7C0BC]/70 hover:text-white'
                     }`}
                   >
                     {status.charAt(0) + status.slice(1).toLowerCase()}
@@ -1145,7 +1145,7 @@ export const MyTeamScreen: React.FC = () => {
                       <div
                         key={leave.id}
                         onClick={() => setSelectedLeaveForReview(leave)}
-                        className="p-4 bg-[#22104E] hover:bg-[#2C175F] rounded-2xl border border-purple-500/15 transition cursor-pointer flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center"
+                        className="p-4 bg-[#1D2329] hover:bg-[#252C34] rounded-2xl border border-[#3A4148] transition cursor-pointer flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center"
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-2">
@@ -1160,24 +1160,24 @@ export const MyTeamScreen: React.FC = () => {
                               {leave.status}
                             </span>
                             {isPendingMyReview && (
-                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-purple-500 text-white animate-pulse">
+                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-[#18C98F] text-[#0B0D0F] animate-pulse">
                                 Action Required
                               </span>
                             )}
                           </div>
-                          <p className="text-xs font-semibold text-purple-200">
+                          <p className="text-xs font-semibold text-[#B7C0BC]">
                             Range: {leave.startDate} to {leave.endDate} ({leave.totalDays} Days)
                           </p>
-                          <p className="text-[11px] text-purple-200/60 leading-tight line-clamp-1">
+                          <p className="text-[11px] text-[#B7C0BC]/60 leading-tight line-clamp-1">
                             Reason: "{leave.reason}"
                           </p>
                         </div>
 
-                        <div className="flex sm:flex-col items-end gap-2 w-full sm:w-auto justify-between border-t border-purple-500/5 sm:border-0 pt-2 sm:pt-0">
-                          <span className="text-xs text-purple-300/50">
+                        <div className="flex sm:flex-col items-end gap-2 w-full sm:w-auto justify-between border-t border-[#3A4148]/5 sm:border-0 pt-2 sm:pt-0">
+                          <span className="text-xs text-[#7E8985]">
                             {new Date(leave.createdAtDeviceTime).toLocaleDateString()}
                           </span>
-                          <span className="text-xs font-bold text-purple-300">
+                          <span className="text-xs font-bold text-[#18C98F]">
                             {leave.approvalStatus === 'TEAM_LEADER_APPROVED' ? 'TL Approved &rarr; Admin' : 
                              leave.approvalStatus === 'APPROVED' ? 'Fully Approved' : 
                              leave.approvalStatus}
@@ -1208,7 +1208,7 @@ export const MyTeamScreen: React.FC = () => {
           title="Team Leave Request Audit"
         >
           <div className="space-y-4 text-xs text-[#B7C0BC]">
-            <div className="bg-[#111417] p-4 rounded-2xl border border-[#292F33] space-y-2">
+            <div className="bg-[#111417] p-4 rounded-2xl border border-[#3A4148] space-y-2">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-[10px] text-[#7E8985]/50 font-bold uppercase">Employee</p>
@@ -1221,7 +1221,7 @@ export const MyTeamScreen: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#292F33]">
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#3A4148]">
                 <div>
                   <p className="text-[10px] text-[#7E8985]/50 font-bold uppercase">Duration</p>
                   <p className="text-xs font-black text-white">{selectedLeaveForReview.totalDays} Days</p>
@@ -1232,7 +1232,7 @@ export const MyTeamScreen: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-[#292F33]">
+              <div className="pt-2 border-t border-[#3A4148]">
                 <p className="text-[10px] text-[#7E8985]/50 font-bold uppercase">Reason</p>
                 <p className="text-xs text-white leading-normal mt-0.5">"{selectedLeaveForReview.reason}"</p>
               </div>
@@ -1240,14 +1240,14 @@ export const MyTeamScreen: React.FC = () => {
 
             {/* Existing Remarks Info */}
             {selectedLeaveForReview.teamLeaderRemark && (
-              <div className="bg-[#1D2226] p-3 rounded-xl border border-[#292F33] space-y-1">
+              <div className="bg-[#1D2226] p-3 rounded-xl border border-[#3A4148] space-y-1">
                 <p className="font-bold text-[#7E8985]">Team Leader Remark</p>
                 <p className="italic text-white">"{selectedLeaveForReview.teamLeaderRemark}"</p>
               </div>
             )}
             
             {selectedLeaveForReview.adminRemark && (
-              <div className="bg-[#1D2226] p-3 rounded-xl border border-[#292F33] space-y-1">
+              <div className="bg-[#1D2226] p-3 rounded-xl border border-[#3A4148] space-y-1">
                 <p className="font-bold text-[#7E8985]">Admin Remark</p>
                 <p className="italic text-white">"{selectedLeaveForReview.adminRemark}"</p>
               </div>
@@ -1255,7 +1255,7 @@ export const MyTeamScreen: React.FC = () => {
 
             {/* Decision panel if still pending TL action */}
             {selectedLeaveForReview.status === 'PENDING' && selectedLeaveForReview.currentApproverRole === 'TEAM_LEADER' ? (
-              <div className="space-y-3.5 pt-2 border-t border-[#292F33]">
+              <div className="space-y-3.5 pt-2 border-t border-[#3A4148]">
                 <div>
                   <label className="block text-xs font-extrabold uppercase text-[#7E8985] mb-1.5">
                     Review Remark / Notes
@@ -1265,7 +1265,7 @@ export const MyTeamScreen: React.FC = () => {
                     onChange={(e) => setLeaveReviewRemark(e.target.value)}
                     placeholder="Enter review notes or rejection reason (rejection reason is mandatory)..."
                     rows={3}
-                    className="w-full bg-[#111417] border border-[#292F33] focus:border-[#18C98F] rounded-xl p-3 text-xs text-white focus:outline-none placeholder-[#7E8985]/30"
+                    className="w-full bg-[#111417] border border-[#3A4148] focus:border-[#18C98F] rounded-xl p-3 text-xs text-white focus:outline-none placeholder-[#7E8985]/30"
                   />
                 </div>
 
@@ -1288,7 +1288,7 @@ export const MyTeamScreen: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="text-center py-2.5 bg-[#111417] border border-[#292F33] rounded-xl text-[#7E8985] font-semibold">
+              <div className="text-center py-2.5 bg-[#111417] border border-[#3A4148] rounded-xl text-[#7E8985] font-semibold">
                 Status: {selectedLeaveForReview.status} — Awaiting: {selectedLeaveForReview.currentApproverRole}
               </div>
             )}
@@ -1306,7 +1306,7 @@ export const MyTeamScreen: React.FC = () => {
               value={taskTitle}
               onChange={(e) => setTaskTitle(e.target.value)}
               placeholder="e.g. Daily Operations Checklist & Audit"
-              className="w-full p-3 rounded-xl border border-[#292F33] bg-[#111417] text-white font-bold text-xs focus:outline-none focus:border-[#18C98F]"
+              className="w-full p-3 rounded-xl border border-[#3A4148] bg-[#111417] text-white font-bold text-xs focus:outline-none focus:border-[#18C98F]"
             />
           </div>
 
@@ -1316,7 +1316,7 @@ export const MyTeamScreen: React.FC = () => {
               value={taskDescription}
               onChange={(e) => setTaskDescription(e.target.value)}
               placeholder="Provide clear steps for your team member(s)..."
-              className="w-full p-3 rounded-xl border border-[#292F33] bg-[#111417] text-white text-xs min-h-[70px] focus:outline-none focus:border-[#18C98F]"
+              className="w-full p-3 rounded-xl border border-[#3A4148] bg-[#111417] text-white text-xs min-h-[70px] focus:outline-none focus:border-[#18C98F]"
             />
           </div>
 
@@ -1326,7 +1326,7 @@ export const MyTeamScreen: React.FC = () => {
               <select
                 value={taskPriority}
                 onChange={(e) => setTaskPriority(e.target.value as TaskPriority)}
-                className="w-full p-3 rounded-xl border border-[#292F33] bg-[#111417] text-white font-bold text-xs focus:outline-none focus:border-[#18C98F]"
+                className="w-full p-3 rounded-xl border border-[#3A4148] bg-[#111417] text-white font-bold text-xs focus:outline-none focus:border-[#18C98F]"
               >
                 <option value="LOW">LOW</option>
                 <option value="MEDIUM">MEDIUM</option>
@@ -1340,7 +1340,7 @@ export const MyTeamScreen: React.FC = () => {
               <select
                 value={taskAssignmentType}
                 onChange={(e) => setTaskAssignmentType(e.target.value as AssignmentType)}
-                className="w-full p-3 rounded-xl border border-[#292F33] bg-[#111417] text-white font-bold text-xs focus:outline-none focus:border-[#18C98F]"
+                className="w-full p-3 rounded-xl border border-[#3A4148] bg-[#111417] text-white font-bold text-xs focus:outline-none focus:border-[#18C98F]"
               >
                 <option value="EMPLOYEE">Single Team Member</option>
                 <option value="MULTIPLE_EMPLOYEES">Multiple Team Members</option>
@@ -1352,7 +1352,7 @@ export const MyTeamScreen: React.FC = () => {
           {taskAssignmentType !== 'DEPARTMENT' && (
             <div className="space-y-1">
               <label className="font-extrabold text-[#7E8985] uppercase block">Select Team Member(s) *</label>
-              <div className="max-h-36 overflow-y-auto bg-[#111417] p-2 rounded-xl border border-[#292F33] space-y-1">
+              <div className="max-h-36 overflow-y-auto bg-[#111417] p-2 rounded-xl border border-[#3A4148] space-y-1">
                 {teamMembers.map((m) => {
                   const isChecked = selectedMemberIds.includes(m.id) || selectedMemberIds.includes(m.employeeCode);
                   return (
@@ -1389,7 +1389,7 @@ export const MyTeamScreen: React.FC = () => {
                 type="date"
                 value={taskDueDate}
                 onChange={(e) => setTaskDueDate(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-[#292F33] bg-[#111417] text-white text-xs font-bold focus:outline-none focus:border-[#18C98F]"
+                className="w-full p-2.5 rounded-xl border border-[#3A4148] bg-[#111417] text-white text-xs font-bold focus:outline-none focus:border-[#18C98F]"
               />
             </div>
 
@@ -1399,7 +1399,7 @@ export const MyTeamScreen: React.FC = () => {
                 type="time"
                 value={taskDueTime}
                 onChange={(e) => setTaskDueTime(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-[#292F33] bg-[#111417] text-white text-xs font-bold focus:outline-none focus:border-[#18C98F]"
+                className="w-full p-2.5 rounded-xl border border-[#3A4148] bg-[#111417] text-white text-xs font-bold focus:outline-none focus:border-[#18C98F]"
               />
             </div>
           </div>
@@ -1411,7 +1411,7 @@ export const MyTeamScreen: React.FC = () => {
               value={taskRemark}
               onChange={(e) => setTaskRemark(e.target.value)}
               placeholder="Directives or additional guidance..."
-              className="w-full p-3 rounded-xl border border-[#292F33] bg-[#111417] text-white text-xs focus:outline-none focus:border-[#18C98F]"
+              className="w-full p-3 rounded-xl border border-[#3A4148] bg-[#111417] text-white text-xs focus:outline-none focus:border-[#18C98F]"
             />
           </div>
 
@@ -1472,7 +1472,7 @@ export const MyTeamScreen: React.FC = () => {
 
           return (
             <div className="space-y-4 text-xs max-h-[75vh] overflow-y-auto pr-1">
-              <div className="p-3 bg-[#111417] rounded-2xl border border-[#292F33] flex justify-between items-center">
+              <div className="p-3 bg-[#111417] rounded-2xl border border-[#3A4148] flex justify-between items-center">
                 <div>
                   <h3 className="font-bold text-sm text-white">{selectedMemberForReport.name}</h3>
                   <p className="text-[10px] text-[#7E8985] font-mono">Code: {selectedMemberForReport.employeeCode}</p>
@@ -1483,27 +1483,27 @@ export const MyTeamScreen: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#292F33]">
+                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#3A4148]">
                   <p className="text-[9px] text-[#7E8985] uppercase font-bold">Assigned</p>
                   <p className="font-black text-white text-sm">{mTasks.length}</p>
                 </div>
-                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#292F33]">
+                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#3A4148]">
                   <p className="text-[9px] text-[#18C98F] uppercase font-bold">Completed</p>
                   <p className="font-black text-[#18C98F] text-sm">{mCompleted}</p>
                 </div>
-                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#292F33]">
+                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#3A4148]">
                   <p className="text-[9px] text-blue-300 uppercase font-bold">In Progress</p>
                   <p className="font-black text-blue-300 text-sm">{mInProgress + mPending}</p>
                 </div>
-                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#292F33]">
+                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#3A4148]">
                   <p className="text-[9px] text-red-300 uppercase font-bold">Overdue</p>
                   <p className="font-black text-red-400 text-sm">{mOverdue}</p>
                 </div>
               </div>
 
-              <div className="p-3 bg-[#111417] rounded-xl border border-[#292F33]">
+              <div className="p-3 bg-[#111417] rounded-xl border border-[#3A4148]">
                 <p className="font-bold text-[#B7C0BC] mb-1">Completion Rate: {mPct}%</p>
-                <div className="w-full bg-[#171B1E] h-2.5 rounded-full overflow-hidden border border-[#292F33]">
+                <div className="w-full bg-[#171B1E] h-2.5 rounded-full overflow-hidden border border-[#3A4148]">
                   <div className="bg-[#18C98F] h-full" style={{ width: `${mPct}%` }} />
                 </div>
               </div>
@@ -1512,7 +1512,7 @@ export const MyTeamScreen: React.FC = () => {
                 <h4 className="font-extrabold text-xs text-[#7E8985] uppercase">Recent Tasks ({mTasks.length})</h4>
                 <div className="max-h-40 overflow-y-auto space-y-2">
                   {mTasks.map((t) => (
-                    <div key={t.id} className="p-2.5 bg-[#111417] rounded-xl border border-[#292F33] text-xs flex justify-between items-center">
+                    <div key={t.id} className="p-2.5 bg-[#111417] rounded-xl border border-[#3A4148] text-xs flex justify-between items-center">
                       <div>
                         <p className="font-bold text-white">{t.title}</p>
                         <p className="text-[10px] text-[#7E8985]">Due: {t.dueDate}</p>
@@ -1523,7 +1523,7 @@ export const MyTeamScreen: React.FC = () => {
                 </div>
               </div>
 
-              <Button onClick={() => setSelectedMemberForReport(null)} className="w-full bg-[#171B1E] hover:bg-[#1D2226] border border-[#292F33] text-white py-2.5">
+              <Button onClick={() => setSelectedMemberForReport(null)} className="w-full bg-[#171B1E] hover:bg-[#1D2226] border border-[#3A4148] text-white py-2.5">
                 Close Report
               </Button>
             </div>

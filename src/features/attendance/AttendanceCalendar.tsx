@@ -324,14 +324,14 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
   };
 
   return (
-    <div className="bg-[#171B1E] rounded-2xl border border-[#292F33] p-4 sm:p-6 shadow-md space-y-5 text-white font-sans">
+    <div className="bg-[#171B1E] rounded-2xl border border-[#3A4148] p-4 sm:p-6 shadow-md space-y-5 text-white font-sans">
       
       {/* ==================================================== */}
       {/* HEADER & MONTH NAVIGATION */}
       {/* ==================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#292F33] pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#3A4148] pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#111417] border border-[#292F33] flex items-center justify-center text-[#18C98F] shadow-inner">
+          <div className="w-10 h-10 rounded-2xl bg-[#111417] border border-[#3A4148] flex items-center justify-center text-[#18C98F] shadow-inner">
             <CalendarIcon className="w-5 h-5 text-[#18C98F]" />
           </div>
           <div>
@@ -339,7 +339,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
               <h2 className="text-base sm:text-lg font-black text-white tracking-wide">
                 Attendance Calendar
               </h2>
-              <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#111417] text-[#18C98F] border border-[#292F33] uppercase tracking-widest">
+              <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#111417] text-[#18C98F] border border-[#3A4148] uppercase tracking-widest">
                 History
               </span>
             </div>
@@ -350,10 +350,10 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
         </div>
 
         {/* Navigation Buttons */}
-        <div className="flex items-center justify-between sm:justify-end gap-2 bg-[#111417] p-1.5 rounded-2xl border border-[#292F33]">
+        <div className="flex items-center justify-between sm:justify-end gap-2 bg-[#111417] p-1.5 rounded-2xl border border-[#3A4148]">
           <button
             onClick={handlePrevMonth}
-            className="p-2 rounded-xl bg-[#1D2226] hover:bg-[#292F33] text-[#B7C0BC] hover:text-white transition-all border border-[#292F33] active:scale-95"
+            className="p-2 rounded-xl bg-[#1D2226] hover:bg-[#3A4148] text-[#B7C0BC] hover:text-white transition-all border border-[#3A4148] active:scale-95"
             title="Previous Month"
             aria-label="Previous Month"
           >
@@ -366,7 +366,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
 
           <button
             onClick={handleNextMonth}
-            className="p-2 rounded-xl bg-[#1D2226] hover:bg-[#292F33] text-[#B7C0BC] hover:text-white transition-all border border-[#292F33] active:scale-95"
+            className="p-2 rounded-xl bg-[#1D2226] hover:bg-[#3A4148] text-[#B7C0BC] hover:text-white transition-all border border-[#3A4148] active:scale-95"
             title="Next Month"
             aria-label="Next Month"
           >
@@ -388,7 +388,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       {/* ==================================================== */}
       <div className="space-y-2">
         {/* Day Headers (MON to SUN) */}
-        <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[10px] sm:text-xs font-black text-[#B7C0BC] uppercase tracking-wider py-1 border-b border-[#292F33]">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[10px] sm:text-xs font-black text-[#B7C0BC] uppercase tracking-wider py-1 border-b border-[#3A4148]">
           <span>MON</span>
           <span>TUE</span>
           <span>WED</span>
@@ -417,13 +417,13 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
             const isFuture = info.isFuture;
 
             // Compute cell border & badge styling
-            let bgStyle = 'bg-[#111417] hover:bg-[#1D2226] border-[#292F33]';
+            let bgStyle = 'bg-[#111417] hover:bg-[#1D2226] border-[#3A4148]';
             let statusIcon = '—';
             let statusLabel = 'No Record';
             let textColor = 'text-[#7E8985]';
 
             if (isFuture) {
-              bgStyle = 'bg-[#111417] border-[#292F33] opacity-40';
+              bgStyle = 'bg-[#111417] border-[#3A4148] opacity-40';
               statusIcon = '○';
               statusLabel = 'Future';
               textColor = 'text-[#7E8985]/50';
@@ -464,7 +464,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                 key={dateStr}
                 onClick={() => handleDayClick(dayNumber)}
                 className={`relative h-16 sm:h-20 p-1.5 sm:p-2 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between group active:scale-95 ${bgStyle} ${
-                  isToday ? 'ring-2 ring-[#18C98F] ring-offset-2 ring-offset-[#171B1E] border-[#292F33]' : ''
+                  isToday ? 'ring-2 ring-[#18C98F] ring-offset-2 ring-offset-[#171B1E] border-[#3A4148]' : ''
                 }`}
               >
                 {/* Date Number + Today Highlight Badge */}
@@ -497,7 +497,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       {/* ==================================================== */}
       {/* LEGEND */}
       {/* ==================================================== */}
-      <div className="pt-3 border-t border-[#292F33] flex flex-wrap items-center justify-center gap-3 sm:gap-5 text-[11px] font-bold text-[#B7C0BC]">
+      <div className="pt-3 border-t border-[#3A4148] flex flex-wrap items-center justify-center gap-3 sm:gap-5 text-[11px] font-bold text-[#B7C0BC]">
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-[#18C98F]" />
           <span>✓ Office</span>
@@ -526,11 +526,11 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       {selectedDayDetail && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
           <div 
-            className="w-full max-w-lg bg-[#171B1E] border border-[#292F33] rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl space-y-5 animate-slide-up text-white relative max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-lg bg-[#171B1E] border border-[#3A4148] rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl space-y-5 animate-slide-up text-white relative max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex justify-between items-start border-b border-[#292F33] pb-4">
+            <div className="flex justify-between items-start border-b border-[#3A4148] pb-4">
               <div>
                 <p className="text-[10px] text-[#B7C0BC] font-extrabold uppercase tracking-widest flex items-center gap-2">
                   <CalendarIcon className="w-3.5 h-3.5 text-[#18C98F]" />
@@ -547,14 +547,14 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
               </div>
               <button
                 onClick={() => setSelectedDayDetail(null)}
-                className="p-2 rounded-xl bg-[#1D2226] hover:bg-[#292F33] text-[#B7C0BC] hover:text-white transition-all border border-[#292F33]"
+                className="p-2 rounded-xl bg-[#1D2226] hover:bg-[#3A4148] text-[#B7C0BC] hover:text-white transition-all border border-[#3A4148]"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Attendance Status Badge Header */}
-            <div className="p-4 rounded-2xl bg-[#111417] border border-[#292F33] flex items-center justify-between">
+            <div className="p-4 rounded-2xl bg-[#111417] border border-[#3A4148] flex items-center justify-between">
               <span className="text-xs font-bold text-[#B7C0BC]">Status</span>
               <span className={`px-3 py-1 rounded-full text-xs font-black border flex items-center gap-1.5 ${
                 selectedDayDetail.category === 'OFFICE' ? 'bg-[#18C98F]/25 text-[#18C98F] border-[#18C98F]/40' :
@@ -580,13 +580,13 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
             {selectedDayDetail.attendanceRecord ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3.5 bg-[#111417] rounded-2xl border border-[#292F33] space-y-1">
+                  <div className="p-3.5 bg-[#111417] rounded-2xl border border-[#3A4148] space-y-1">
                     <p className="text-[10px] text-[#B7C0BC] font-bold uppercase">Check-In</p>
                     <p className="text-base font-black text-white">{selectedDayDetail.attendanceRecord.checkInTime}</p>
                     <p className="text-[9px] text-[#7E8985]">Source: {selectedDayDetail.attendanceRecord.checkInMode}</p>
                   </div>
 
-                  <div className="p-3.5 bg-[#111417] rounded-2xl border border-[#292F33] space-y-1">
+                  <div className="p-3.5 bg-[#111417] rounded-2xl border border-[#3A4148] space-y-1">
                     <p className="text-[10px] text-[#B7C0BC] font-bold uppercase">Check-Out</p>
                     <p className="text-base font-black text-white">{selectedDayDetail.attendanceRecord.checkOutTime || 'Pending'}</p>
                     <p className="text-[9px] text-[#7E8985]">
@@ -595,7 +595,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                   </div>
                 </div>
 
-                <div className="p-3.5 bg-[#111417] rounded-2xl border border-[#292F33] flex justify-between items-center text-xs">
+                <div className="p-3.5 bg-[#111417] rounded-2xl border border-[#3A4148] flex justify-between items-center text-xs">
                   <span className="font-bold text-[#B7C0BC]">Working Time</span>
                   <span className="font-black text-emerald-300 text-sm font-mono">
                     {(() => {
@@ -656,7 +656,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                 <p><strong className="text-[#B7C0BC]">Reason:</strong> {selectedDayDetail.leaveRecord.reason}</p>
               </div>
             ) : (
-              <div className="p-5 bg-[#111417] rounded-2xl border border-[#292F33] text-center space-y-2">
+              <div className="p-5 bg-[#111417] rounded-2xl border border-[#3A4148] text-center space-y-2">
                 <p className="text-xs text-[#B7C0BC] font-medium">
                   {selectedDayDetail.isFuture 
                     ? 'This is a future date. No attendance records exist yet.' 

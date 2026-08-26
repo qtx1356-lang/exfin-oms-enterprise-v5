@@ -332,7 +332,7 @@ export const PlannerScreen: React.FC = () => {
       case 'Low':
       default:
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/40 uppercase tracking-wider">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#1D2329] text-[#B7C0BC] border border-[#3A4148] uppercase tracking-wider">
             Low
           </span>
         );
@@ -382,7 +382,7 @@ export const PlannerScreen: React.FC = () => {
       case 'Assigned':
       default:
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-200 border border-purple-500/30">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#1D2329] text-[#B7C0BC] border border-[#3A4148]">
             Assigned
           </span>
         );
@@ -486,7 +486,7 @@ export const PlannerScreen: React.FC = () => {
   return (
     <div className="flex flex-col gap-5 pb-16 text-white max-w-5xl mx-auto">
       {/* Top Header */}
-      <div className="flex items-center justify-between pt-2 pb-2 border-b border-[#292F33]">
+      <div className="flex items-center justify-between pt-2 pb-2 border-b border-[#3A4148]">
         <div>
           <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
             <CheckSquare className="w-7 h-7 text-[#18C98F]" /> Work Planner
@@ -501,10 +501,10 @@ export const PlannerScreen: React.FC = () => {
       </div>
 
       {/* Feature Card: WORK COMPLETION SUMMARY */}
-      <Card className="p-5 bg-[#171B1E] border border-[#292F33] shadow-md rounded-2xl relative overflow-hidden">
+      <Card className="p-5 bg-[#171B1E] border border-[#3A4148] shadow-md rounded-2xl relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#111417] border border-[#292F33] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-[#111417] border border-[#3A4148] flex items-center justify-center">
               <Briefcase className="w-5 h-5 text-[#18C98F]" />
             </div>
             <div>
@@ -523,7 +523,7 @@ export const PlannerScreen: React.FC = () => {
 
         {/* Progress Bar */}
         <div className="space-y-1.5">
-          <div className="w-full bg-[#111417] h-3 rounded-full overflow-hidden border border-[#292F33] p-0.5">
+          <div className="w-full bg-[#111417] h-3 rounded-full overflow-hidden border border-[#3A4148] p-0.5">
             <div 
               className="h-full bg-[#18C98F] rounded-full transition-all duration-500"
               style={{ width: `${overallProgressPct}%` }}
@@ -543,7 +543,7 @@ export const PlannerScreen: React.FC = () => {
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${
             activeCategory === 'today'
               ? 'bg-[#18C98F] border-[#18C98F] text-[#0B0D0F] shadow-md scale-[1.02]'
-              : 'bg-[#111417] border-[#292F33] text-[#B7C0BC] hover:bg-[#1D2226]'
+              : 'bg-[#111417] border-[#3A4148] text-[#B7C0BC] hover:bg-[#1D2226]'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -557,7 +557,7 @@ export const PlannerScreen: React.FC = () => {
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${
             activeCategory === 'upcoming'
               ? 'bg-blue-600 border-blue-500 text-white shadow-md scale-[1.02]'
-              : 'bg-[#111417] border-[#292F33] text-[#B7C0BC] hover:bg-[#1D2226]'
+              : 'bg-[#111417] border-[#3A4148] text-[#B7C0BC] hover:bg-[#1D2226]'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -571,7 +571,7 @@ export const PlannerScreen: React.FC = () => {
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${
             activeCategory === 'overdue'
               ? 'bg-rose-600 border-rose-500 text-white shadow-md scale-[1.02]'
-              : 'bg-[#111417] border-[#292F33] text-rose-300 hover:bg-[#1D2226]'
+              : 'bg-[#111417] border-[#3A4148] text-rose-300 hover:bg-[#1D2226]'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -585,7 +585,7 @@ export const PlannerScreen: React.FC = () => {
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${
             activeCategory === 'revision'
               ? 'bg-amber-600 border-amber-500 text-white shadow-md scale-[1.02]'
-              : 'bg-[#111417] border-[#292F33] text-amber-300 hover:bg-[#1D2226]'
+              : 'bg-[#111417] border-[#3A4148] text-amber-300 hover:bg-[#1D2226]'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -599,7 +599,7 @@ export const PlannerScreen: React.FC = () => {
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${
             activeCategory === 'completed'
               ? 'bg-emerald-600 border-emerald-500 text-white shadow-md scale-[1.02]'
-              : 'bg-[#111417] border-[#292F33] text-emerald-300 hover:bg-[#1D2226]'
+              : 'bg-[#111417] border-[#3A4148] text-emerald-300 hover:bg-[#1D2226]'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -613,7 +613,7 @@ export const PlannerScreen: React.FC = () => {
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${
             activeCategory === 'all'
               ? 'bg-[#18C98F] border-[#18C98F] text-[#0B0D0F] shadow-md scale-[1.02]'
-              : 'bg-[#111417] border-[#292F33] text-[#B7C0BC] hover:bg-[#1D2226]'
+              : 'bg-[#111417] border-[#3A4148] text-[#B7C0BC] hover:bg-[#1D2226]'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -625,7 +625,7 @@ export const PlannerScreen: React.FC = () => {
 
       {/* View Mode Toggle & Filters */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between bg-[#111417] p-1.5 rounded-2xl border border-[#292F33]">
+        <div className="flex items-center justify-between bg-[#111417] p-1.5 rounded-2xl border border-[#3A4148]">
           <div className="flex items-center gap-1 w-full">
             <button
               onClick={() => setViewMode('daily')}
@@ -652,19 +652,19 @@ export const PlannerScreen: React.FC = () => {
 
         {/* Weekly View Strip */}
         {viewMode === 'weekly' && (
-          <div className="grid grid-cols-7 gap-1.5 bg-[#111417] p-2.5 rounded-2xl border border-[#292F33] text-center">
+          <div className="grid grid-cols-7 gap-1.5 bg-[#111417] p-2.5 rounded-2xl border border-[#3A4148] text-center">
             {weekDays.map((day) => (
               <div 
                 key={day.dateStr}
                 className={`p-2 rounded-xl border flex flex-col items-center justify-between ${
                   day.dateStr === todayDateStr
                     ? 'bg-[#18C98F]/20 border-[#18C98F]/50'
-                    : 'bg-[#171B1E] border-[#292F33]'
+                    : 'bg-[#171B1E] border-[#3A4148]'
                 }`}
               >
                 <span className="text-[10px] font-bold text-[#7E8985]">{day.dayName}</span>
                 <span className="text-xs font-black text-white my-0.5">{day.dayNum}</span>
-                <span className="text-[9px] font-extrabold text-[#B7C0BC] bg-[#1D2226] px-1.5 py-0.5 rounded-full border border-[#292F33]">
+                <span className="text-[9px] font-extrabold text-[#B7C0BC] bg-[#1D2226] px-1.5 py-0.5 rounded-full border border-[#3A4148]">
                   {day.completed}/{day.total}
                 </span>
               </div>
@@ -685,7 +685,7 @@ export const PlannerScreen: React.FC = () => {
                 className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${
                   priorityFilter === p
                     ? 'bg-[#18C98F] text-[#0B0D0F] border-[#18C98F] shadow-md'
-                    : 'bg-[#111417] text-[#B7C0BC] border-[#292F33] hover:bg-[#1D2226]'
+                    : 'bg-[#111417] text-[#B7C0BC] border-[#3A4148] hover:bg-[#1D2226]'
                 }`}
               >
                 {p}
@@ -705,7 +705,7 @@ export const PlannerScreen: React.FC = () => {
                   className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${
                     statusFilter === s
                       ? 'bg-[#18C98F] text-[#0B0D0F] border-[#18C98F] shadow-md'
-                      : 'bg-[#111417] text-[#B7C0BC] border-[#292F33] hover:bg-[#1D2226]'
+                      : 'bg-[#111417] text-[#B7C0BC] border-[#3A4148] hover:bg-[#1D2226]'
                   }`}
                 >
                   {s}
@@ -750,7 +750,7 @@ export const PlannerScreen: React.FC = () => {
                     ? 'border-rose-500/50 hover:border-rose-400'
                     : effectiveStatus === 'Completed'
                     ? 'border-emerald-500/30 hover:border-emerald-400'
-                    : 'border-[#292F33] hover:border-[#18C98F]'
+                    : 'border-[#3A4148] hover:border-[#18C98F]'
                 }`}
               >
                 {/* Top Row: Title, Priority, Status Badge */}
@@ -796,7 +796,7 @@ export const PlannerScreen: React.FC = () => {
                 </div>
 
                 {/* Description */}
-                <p className="text-xs text-[#B7C0BC]/90 line-clamp-2 bg-[#111417] p-2.5 rounded-xl border border-[#292F33]">
+                <p className="text-xs text-[#B7C0BC]/90 line-clamp-2 bg-[#111417] p-2.5 rounded-xl border border-[#3A4148]">
                   {task.description}
                 </p>
 
@@ -829,7 +829,7 @@ export const PlannerScreen: React.FC = () => {
                     <span>Progress</span>
                     <span className="text-white font-extrabold">{task.completionPercentage || 0}%</span>
                   </div>
-                  <div className="w-full bg-[#111417] h-2 rounded-full overflow-hidden border border-[#292F33]">
+                  <div className="w-full bg-[#111417] h-2 rounded-full overflow-hidden border border-[#3A4148]">
                     <div
                       className={`h-full transition-all duration-300 ${
                         effectiveStatus === 'Completed'
@@ -846,7 +846,7 @@ export const PlannerScreen: React.FC = () => {
                 </div>
 
                 {/* ACTION BUTTONS (Requirement 3: Start Task, Submit Task, Mark Completed, View Revision Request) */}
-                <div className="pt-2 border-t border-[#292F33] flex flex-wrap items-center justify-between gap-2">
+                <div className="pt-2 border-t border-[#3A4148] flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-[10px] text-[#7E8985]">
                     <span className="flex items-center gap-1">
                       <User className="w-3 h-3 text-[#B7C0BC]" /> By {task.createdByName || 'Admin'}
@@ -915,7 +915,7 @@ export const PlannerScreen: React.FC = () => {
             );
           })
         ) : (
-          <div className="py-12 bg-[#171B1E] rounded-2xl border border-dashed border-[#292F33]">
+          <div className="py-12 bg-[#171B1E] rounded-2xl border border-dashed border-[#3A4148]">
             <EmptyState
               icon={CheckSquare}
               title="No tasks in this view"
@@ -938,7 +938,7 @@ export const PlannerScreen: React.FC = () => {
           return (
             <div className="space-y-4 text-xs">
               {/* Task Header info (Read-only for employee: ownership, priority, due date cannot be changed by employee) */}
-              <div className="p-3 bg-[#111417] rounded-2xl border border-[#292F33] space-y-2">
+              <div className="p-3 bg-[#111417] rounded-2xl border border-[#3A4148] space-y-2">
                 <div className="flex justify-between items-start gap-2">
                   <div>
                     <h3 className="font-extrabold text-base text-white">{selectedTask.title}</h3>
@@ -952,7 +952,7 @@ export const PlannerScreen: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-[#171B1E] rounded-xl text-[#B7C0BC] text-xs leading-relaxed border border-[#292F33]">
+                <div className="p-2.5 bg-[#171B1E] rounded-xl text-[#B7C0BC] text-xs leading-relaxed border border-[#3A4148]">
                   {selectedTask.description}
                 </div>
 
@@ -1000,7 +1000,7 @@ export const PlannerScreen: React.FC = () => {
               )}
 
               {/* Employee Interactive Progress Slider */}
-              <div className="p-3 bg-[#111417] rounded-2xl border border-[#292F33] space-y-3">
+              <div className="p-3 bg-[#111417] rounded-2xl border border-[#3A4148] space-y-3">
                 <div className="flex justify-between items-center">
                   <label className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-[#18C98F]" /> Completion Percentage
@@ -1029,7 +1029,7 @@ export const PlannerScreen: React.FC = () => {
                       className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all border ${
                         completionInput === pct
                           ? 'bg-[#18C98F] text-[#0B0D0F] border-[#18C98F]'
-                          : 'bg-[#171B1E] text-[#B7C0BC] border-[#292F33]'
+                          : 'bg-[#171B1E] text-[#B7C0BC] border-[#3A4148]'
                       }`}
                     >
                       {pct}%
@@ -1052,7 +1052,7 @@ export const PlannerScreen: React.FC = () => {
                         className={`p-2.5 rounded-xl border text-xs space-y-1 ${
                           c.authorRole === 'ADMIN'
                             ? 'bg-emerald-950/20 border-emerald-500/30'
-                            : 'bg-[#111417] border-[#292F33]'
+                            : 'bg-[#111417] border-[#3A4148]'
                         }`}
                       >
                         <div className="flex justify-between items-center text-[10px] font-bold">
@@ -1077,7 +1077,7 @@ export const PlannerScreen: React.FC = () => {
                     value={commentInput}
                     onChange={(e) => setCommentInput(e.target.value)}
                     placeholder="Add progress notes or questions..."
-                    className="flex-1 px-3 py-2 rounded-xl border border-[#292F33] bg-[#111417] text-white text-xs focus:outline-none focus:ring-2 focus:ring-[#18C98F]"
+                    className="flex-1 px-3 py-2 rounded-xl border border-[#3A4148] bg-[#111417] text-white text-xs focus:outline-none focus:ring-2 focus:ring-[#18C98F]"
                   />
                   <Button 
                     type="button" 
@@ -1106,7 +1106,7 @@ export const PlannerScreen: React.FC = () => {
                       onClick={handleSaveTaskProgress}
                       disabled={isUpdating}
                       variant="secondary"
-                      className="flex-1 py-3 bg-[#1D2226] hover:bg-[#292F33] text-white border border-[#292F33] font-bold rounded-2xl"
+                      className="flex-1 py-3 bg-[#1D2226] hover:bg-[#3A4148] text-white border border-[#3A4148] font-bold rounded-2xl"
                     >
                       {isUpdating ? 'Saving...' : 'Save Progress'}
                     </Button>
@@ -1133,7 +1133,7 @@ export const PlannerScreen: React.FC = () => {
       >
         {viewingRevisionsTask && (
           <div className="space-y-4 text-xs">
-            <div className="p-3 bg-[#111417] rounded-2xl border border-[#292F33]">
+            <div className="p-3 bg-[#111417] rounded-2xl border border-[#3A4148]">
               <h4 className="font-bold text-sm text-white">{viewingRevisionsTask.title}</h4>
               <p className="text-[11px] text-[#B7C0BC] mt-0.5">
                 Total Revisions: <span className="font-bold text-amber-300">{viewingRevisionsTask.revisions?.length || viewingRevisionsTask.revisionCount || 0}</span>
@@ -1153,7 +1153,7 @@ export const PlannerScreen: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="p-2 bg-[#111417] rounded-lg border border-[#292F33] text-white">
+                    <div className="p-2 bg-[#111417] rounded-lg border border-[#3A4148] text-white">
                       <span className="text-[10px] font-bold text-amber-400 block mb-0.5">Requested by {rev.requestedByName}:</span>
                       {rev.reason}
                     </div>

@@ -133,8 +133,8 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   // Derive visual theme and labels
   let statusTitle = 'NOT CHECKED IN';
   let statusBadgeText = 'Your workday hasn\'t started';
-  let statusColor = 'from-[#171B1E] to-[#111417] border-[#292F33] text-[#B7C0BC]';
-  let badgeStyle = 'bg-white/5 text-[#B7C0BC] border-[#292F33]';
+  let statusColor = 'from-[#171B1E] to-[#111417] border-[#3A4148] text-[#B7C0BC]';
+  let badgeStyle = 'bg-white/5 text-[#B7C0BC] border-[#3A4148]';
   let StateIcon = Clock;
 
   if (isCheckedOut) {
@@ -153,8 +153,8 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
     } else if (attendanceType === 'CLIENT_VISIT') {
       statusTitle = 'CLIENT VISIT';
       statusBadgeText = todayRecord.clientName ? `Client: ${todayRecord.clientName}` : 'On-Site Visit';
-      statusColor = 'from-[#171B1E] to-[#111417] border-purple-500/30 text-purple-300';
-      badgeStyle = 'bg-purple-500/15 text-purple-300 border-purple-500/20';
+      statusColor = 'from-[#171B1E] to-[#111417] border-teal-500/30 text-teal-300';
+      badgeStyle = 'bg-teal-500/15 text-teal-300 border-teal-500/20';
       StateIcon = MapPin;
     } else if (attendanceType === 'OUTDOOR') {
       statusTitle = 'OUTDOOR WORK';
@@ -166,8 +166,8 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
       if (todayRecord.returningToOffice) {
         statusTitle = 'CHECKED IN (AWAY)';
         statusBadgeText = 'Returning to Office';
-        statusColor = 'from-[#171B1E] to-[#111417] border-purple-500/30 text-purple-300';
-        badgeStyle = 'bg-purple-500/15 text-purple-300 border-purple-500/20';
+        statusColor = 'from-[#171B1E] to-[#111417] border-[#3A4148] text-[#B7C0BC]';
+        badgeStyle = 'bg-[#1D2329] text-[#B7C0BC] border-[#3A4148]';
         StateIcon = MapPin;
       } else {
         statusTitle = 'CHECKED IN';

@@ -253,7 +253,7 @@ export const ExpenseScreen: React.FC = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="p-4 bg-[#171B1E] border border-[#292F33] shadow-lg flex flex-col justify-between rounded-2xl">
+        <Card className="p-4 bg-[#171B1E] border border-[#3A4148] shadow-lg flex flex-col justify-between rounded-2xl">
           <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#7E8985]">
             Total Submitted
           </p>
@@ -262,7 +262,7 @@ export const ExpenseScreen: React.FC = () => {
           </p>
         </Card>
 
-        <Card className="p-4 bg-[#171B1E] border border-[#292F33] shadow-lg flex flex-col justify-between rounded-2xl">
+        <Card className="p-4 bg-[#171B1E] border border-[#3A4148] shadow-lg flex flex-col justify-between rounded-2xl">
           <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-500">
             Pending
           </p>
@@ -271,7 +271,7 @@ export const ExpenseScreen: React.FC = () => {
           </p>
         </Card>
 
-        <Card className="p-4 bg-[#171B1E] border border-[#292F33] shadow-lg flex flex-col justify-between rounded-2xl">
+        <Card className="p-4 bg-[#171B1E] border border-[#3A4148] shadow-lg flex flex-col justify-between rounded-2xl">
           <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#18C98F]">
             Approved
           </p>
@@ -296,7 +296,7 @@ export const ExpenseScreen: React.FC = () => {
         </Button>
         <Button 
           onClick={() => setIsScannerOpen(true)} 
-          className="py-3.5 text-sm font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-[#1D2226] hover:bg-[#292F33] text-white border border-[#292F33]"
+          className="py-3.5 text-sm font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-[#1D2226] hover:bg-[#3A4148] text-white border border-[#3A4148]"
         >
           <Camera className="w-5 h-5" /> Scan Receipt
         </Button>
@@ -326,7 +326,7 @@ export const ExpenseScreen: React.FC = () => {
               className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${
                 statusFilter === status
                   ? 'bg-[#18C98F] text-[#0B0D0F] border-[#18C98F] shadow-md'
-                  : 'bg-[#111417] text-[#7E8985] border-[#292F33] hover:bg-[#1D2226]'
+                  : 'bg-[#111417] text-[#7E8985] border-[#3A4148] hover:bg-[#1D2226]'
               }`}
             >
               {status}
@@ -338,7 +338,7 @@ export const ExpenseScreen: React.FC = () => {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-[#292F33] bg-[#111417] text-white text-xs font-semibold focus:outline-none focus:border-[#18C98F]"
+            className="w-full px-3 py-2 rounded-xl border border-[#3A4148] bg-[#111417] text-white text-xs font-semibold focus:outline-none focus:border-[#18C98F]"
           >
             <option value="All">All Categories</option>
             {EXPENSE_CATEGORIES.map((cat) => (
@@ -350,7 +350,7 @@ export const ExpenseScreen: React.FC = () => {
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-[#292F33] bg-[#111417] text-white text-xs font-semibold focus:outline-none focus:border-[#18C98F]"
+            className="w-full px-3 py-2 rounded-xl border border-[#3A4148] bg-[#111417] text-white text-xs font-semibold focus:outline-none focus:border-[#18C98F]"
           />
         </div>
       </div>
@@ -368,11 +368,11 @@ export const ExpenseScreen: React.FC = () => {
             return (
               <Card 
                 key={expense.id} 
-                className="p-4 bg-[#171B1E] border border-[#292F33] shadow-md hover:border-[#18C98F]/40 transition-all space-y-3"
+                className="p-4 bg-[#171B1E] border border-[#3A4148] shadow-md hover:border-[#18C98F]/40 transition-all space-y-3"
               >
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-[#111417] border border-[#292F33] flex items-center justify-center text-[#18C98F] flex-shrink-0">
+                    <div className="w-10 h-10 rounded-2xl bg-[#111417] border border-[#3A4148] flex items-center justify-center text-[#18C98F] flex-shrink-0">
                       <CategoryIcon className="w-5 h-5" />
                     </div>
                     <div>
@@ -384,7 +384,7 @@ export const ExpenseScreen: React.FC = () => {
                               setPreviewReceipt((expense.receiptUrl || expense.localReceiptData)!);
                               setZoomScale(1);
                             }}
-                            className="p-1 rounded-md bg-[#1D2226] text-white hover:text-[#18C98F] border border-[#292F33] transition-colors"
+                            className="p-1 rounded-md bg-[#1D2226] text-white hover:text-[#18C98F] border border-[#3A4148] transition-colors"
                             title="View Attached Receipt"
                           >
                             <Paperclip className="w-3.5 h-3.5" />
@@ -418,7 +418,7 @@ export const ExpenseScreen: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#292F33] text-xs text-[#B7C0BC] leading-relaxed">
+                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#3A4148] text-xs text-[#B7C0BC] leading-relaxed">
                   {expense.description}
                 </div>
 
@@ -433,7 +433,7 @@ export const ExpenseScreen: React.FC = () => {
             );
           })
         ) : (
-          <div className="py-8 bg-[#171B1E] rounded-2xl border border-dashed border-[#292F33]">
+          <div className="py-8 bg-[#171B1E] rounded-2xl border border-dashed border-[#3A4148]">
             <EmptyState
               icon={Receipt}
               title="No expense claims found"
@@ -452,8 +452,8 @@ export const ExpenseScreen: React.FC = () => {
         <form onSubmit={handleSubmitExpense} className="space-y-4">
           
           <div className="space-y-1">
-            <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
-              <IndianRupee className="w-3.5 h-3.5 text-[#A78BFA]" /> Amount (₹)
+            <label className="text-xs font-bold text-[#B7C0BC] uppercase tracking-wider flex items-center gap-1.5">
+              <IndianRupee className="w-3.5 h-3.5 text-[#18C98F]" /> Amount (₹)
             </label>
             <input
               type="number"
@@ -463,19 +463,19 @@ export const ExpenseScreen: React.FC = () => {
               onChange={(e) => setAmount(e.target.value)}
               placeholder="e.g. 1500"
               required
-              className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[#211044] text-white text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+              className="w-full px-4 py-3 rounded-2xl border border-[#3A4148] bg-[#111417] text-white text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
-              <Briefcase className="w-3.5 h-3.5 text-[#A78BFA]" /> Category
+            <label className="text-xs font-bold text-[#B7C0BC] uppercase tracking-wider flex items-center gap-1.5">
+              <Briefcase className="w-3.5 h-3.5 text-[#18C98F]" /> Category
             </label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
               required
-              className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[#211044] text-white text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+              className="w-full px-4 py-3 rounded-2xl border border-[#3A4148] bg-[#111417] text-white text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
             >
               {EXPENSE_CATEGORIES.map((cat) => (
                 <option key={cat} value={cat}>{cat}</option>
@@ -484,20 +484,20 @@ export const ExpenseScreen: React.FC = () => {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-[#A78BFA]" /> Date
+            <label className="text-xs font-bold text-[#B7C0BC] uppercase tracking-wider flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-[#18C98F]" /> Date
             </label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
               required
-              className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[#211044] text-white text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+              className="w-full px-4 py-3 rounded-2xl border border-[#3A4148] bg-[#111417] text-white text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
+            <label className="text-xs font-bold text-[#B7C0BC] uppercase tracking-wider flex items-center gap-1.5">
               Description
             </label>
             <textarea
@@ -506,35 +506,35 @@ export const ExpenseScreen: React.FC = () => {
               placeholder="Describe purpose of expense..."
               rows={3}
               required
-              className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[#211044] text-white text-xs focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+              className="w-full px-4 py-3 rounded-2xl border border-[#3A4148] bg-[#111417] text-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
             />
           </div>
 
           {/* Scanned metadata details preview if present */}
           {(scannedMerchant || scannedReceiptNum || scannedGstAmount) && (
-            <div className="p-2.5 bg-[#170930] rounded-xl border border-purple-500/20 text-[11px] space-y-1">
+            <div className="p-2.5 bg-[#1D2329] rounded-xl border border-[#3A4148] text-[11px] space-y-1">
               <div className="font-bold text-emerald-300 flex items-center justify-between">
                 <span>Scanned Receipt Details</span>
-                <span className="text-[10px] text-purple-300/70 font-normal">Verified via Scanner</span>
+                <span className="text-[10px] text-[#B7C0BC]/70 font-normal">Verified via Scanner</span>
               </div>
-              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-purple-200/90 pt-1">
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[#B7C0BC]/90 pt-1">
                 {scannedMerchant && (
-                  <div><span className="text-purple-400 font-semibold">Vendor:</span> {scannedMerchant}</div>
+                  <div><span className="text-[#18C98F] font-semibold">Vendor:</span> {scannedMerchant}</div>
                 )}
                 {scannedReceiptNum && (
-                  <div><span className="text-purple-400 font-semibold">Bill #:</span> {scannedReceiptNum}</div>
+                  <div><span className="text-[#18C98F] font-semibold">Bill #:</span> {scannedReceiptNum}</div>
                 )}
                 {scannedGstAmount !== null && scannedGstAmount !== undefined && (
-                  <div><span className="text-purple-400 font-semibold">GST:</span> ₹{scannedGstAmount}</div>
+                  <div><span className="text-[#18C98F] font-semibold">GST:</span> ₹{scannedGstAmount}</div>
                 )}
               </div>
             </div>
           )}
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center justify-between">
+            <label className="text-xs font-bold text-[#B7C0BC] uppercase tracking-wider flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <Camera className="w-3.5 h-3.5 text-[#A78BFA]" /> Receipt Image {receiptUrl ? '(Attached)' : '(Optional)'}
+                <Camera className="w-3.5 h-3.5 text-[#18C98F]" /> Receipt Image {receiptUrl ? '(Attached)' : '(Optional)'}
               </span>
               {receiptUrl && (
                 <button
@@ -543,7 +543,7 @@ export const ExpenseScreen: React.FC = () => {
                     setIsModalOpen(false);
                     setIsScannerOpen(true);
                   }}
-                  className="text-[11px] font-bold text-purple-300 hover:text-white underline cursor-pointer"
+                  className="text-[11px] font-bold text-[#18C98F] hover:text-white underline cursor-pointer"
                 >
                   Rescan with Camera
                 </button>
@@ -566,7 +566,7 @@ export const ExpenseScreen: React.FC = () => {
                     setIsModalOpen(false);
                     setIsScannerOpen(true);
                   }}
-                  className="border-2 border-dashed border-purple-500/40 bg-purple-950/30 hover:bg-purple-900/40 rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-xs font-semibold text-purple-200 transition-colors cursor-pointer"
+                  className="border-2 border-dashed border-[#3A4148] hover:border-emerald-500/60 bg-[#1D2329]/40 hover:bg-[#1D2329] rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-xs font-semibold text-[#B7C0BC] transition-colors cursor-pointer"
                 >
                   <Camera className="w-4 h-4 text-emerald-400" />
                   <span className="text-[11px] font-bold text-white">Scan with Camera</span>
@@ -574,14 +574,14 @@ export const ExpenseScreen: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-purple-500/30 bg-[#211044]/60 hover:bg-[#211044] rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-xs font-semibold text-purple-200 transition-colors cursor-pointer"
+                  className="border-2 border-dashed border-[#3A4148] hover:border-emerald-500/60 bg-[#1D2329]/40 hover:bg-[#1D2329] rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-xs font-semibold text-[#B7C0BC] transition-colors cursor-pointer"
                 >
-                  <Paperclip className="w-4 h-4 text-purple-300" />
+                  <Paperclip className="w-4 h-4 text-[#B7C0BC]/60" />
                   <span className="text-[11px] font-bold text-white">Upload File / Photo</span>
                 </button>
               </div>
             ) : (
-              <div className="relative rounded-2xl overflow-hidden border border-purple-500/30 h-32 bg-black/40">
+              <div className="relative rounded-2xl overflow-hidden border border-[#3A4148] h-32 bg-black/40">
                 <img src={receiptUrl} alt="Receipt Preview" className="w-full h-full object-contain" />
                 <button
                   type="button"
@@ -619,7 +619,7 @@ export const ExpenseScreen: React.FC = () => {
             <Button 
               type="submit" 
               disabled={isSubmitting} 
-              className="flex-1 py-3 bg-[#7C3AED] hover:bg-[#6D28D9] font-bold rounded-2xl"
+              className="flex-1 py-3 bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] font-bold rounded-2xl"
             >
               {isSubmitting ? 'Saving Claim...' : 'Submit Claim'}
             </Button>
@@ -656,7 +656,7 @@ export const ExpenseScreen: React.FC = () => {
       >
         {previewReceipt && (
           <div className="space-y-4">
-            <div className="relative max-h-[60vh] overflow-auto bg-black/60 rounded-2xl border border-purple-500/30 p-2 flex items-center justify-center">
+            <div className="relative max-h-[60vh] overflow-auto bg-black/60 rounded-2xl border border-[#3A4148] p-2 flex items-center justify-center">
               <img 
                 src={previewReceipt} 
                 alt="Receipt" 
@@ -667,15 +667,15 @@ export const ExpenseScreen: React.FC = () => {
 
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-purple-300">Zoom:</span>
+                <span className="text-xs font-bold text-[#B7C0BC]">Zoom:</span>
                 {[1, 1.5, 2].map((scale) => (
                   <button
                     key={scale}
                     onClick={() => setZoomScale(scale)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all border ${
                       zoomScale === scale
-                        ? 'bg-[#7C3AED] text-white border-purple-400'
-                        : 'bg-[#211044] text-purple-300 border-purple-500/20'
+                        ? 'bg-[#18C98F] text-[#0B0D0F] border-[#18C98F]'
+                        : 'bg-[#1D2329] text-[#B7C0BC] border-[#3A4148]'
                     }`}
                   >
                     {scale}x

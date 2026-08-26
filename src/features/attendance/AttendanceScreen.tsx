@@ -772,19 +772,19 @@ export const AttendanceScreen: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-[#071A17] text-[#F5FFFC] p-3 sm:p-6 pb-32 max-w-5xl mx-auto space-y-5 font-sans">
+    <div className="min-h-screen bg-[#0F1317] text-[#F5F7F6] p-3 sm:p-6 pb-32 max-w-5xl mx-auto space-y-5 font-sans">
       
       {/* ==================================================== */}
       {/* CLEAN PAGE TITLE */}
       {/* ==================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#1D4840]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#3A4148]">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-[#F5FFFC] tracking-tight flex items-center gap-2">
-            <Clock className="w-7 h-7 text-[#18C7A0]" /> Attendance
+          <h1 className="text-2xl sm:text-3xl font-black text-[#F5F7F6] tracking-tight flex items-center gap-2">
+            <Clock className="w-7 h-7 text-[#18C98F]" /> Attendance
           </h1>
-          <p className="text-xs text-[#A8C7C0] font-medium mt-0.5 flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-[#18C7A0]" />
-            {getFormattedDateLong()} • <strong className="text-[#F5FFFC]">{employeeName}</strong> ({employeeId})
+          <p className="text-xs text-[#B7C0BC] font-medium mt-0.5 flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-[#18C98F]" />
+            {getFormattedDateLong()} • <strong className="text-[#F5F7F6]">{employeeName}</strong> ({employeeId})
           </p>
         </div>
       </div>
@@ -802,12 +802,12 @@ export const AttendanceScreen: React.FC = () => {
 
       {/* Action Feedback Banner */}
       {actionFeedback && (
-        <div className="p-3.5 bg-[#102D28] border border-[#18C7A0]/40 text-[#F5FFFC] rounded-2xl text-xs font-bold flex justify-between items-center shadow-sm animate-fade-in">
+        <div className="p-3.5 bg-[#171B1F] border border-[#3A4148] text-[#F5F7F6] rounded-2xl text-xs font-bold flex justify-between items-center shadow-sm animate-fade-in">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#18C7A0]" />
+            <Sparkles className="w-4 h-4 text-[#18C98F]" />
             <span>{actionFeedback}</span>
           </div>
-          <button onClick={() => setActionFeedback(null)} className="text-[#A8C7C0] hover:text-[#F5FFFC] font-bold text-sm px-1">✕</button>
+          <button onClick={() => setActionFeedback(null)} className="text-[#B7C0BC] hover:text-[#F5F7F6] font-bold text-sm px-1">✕</button>
         </div>
       )}
 
@@ -816,10 +816,10 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {activeUnresolvedRecord ? (
         <div className="space-y-5 animate-fade-in">
-          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-[#102D28] via-[#0B2420] to-[#071A17] border-2 border-amber-500/40 shadow-2xl space-y-5">
+          <div className="p-5 sm:p-6 rounded-3xl bg-[#171B1F] border border-amber-500/40 shadow-2xl space-y-5">
             <div className="flex items-start justify-between gap-3 pb-3 border-b border-amber-500/20">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 flex-shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-300 flex-shrink-0">
                   <AlertTriangle className="w-6 h-6" />
                 </div>
                 <div>
@@ -833,14 +833,14 @@ export const AttendanceScreen: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <h2 className="text-xl font-black text-[#F5FFFC] mt-1">
+                  <h2 className="text-xl font-black text-[#F5F7F6] mt-1">
                     CHECKOUT REQUIRES RESOLUTION
                   </h2>
                 </div>
               </div>
             </div>
 
-            <p className="text-xs sm:text-sm text-[#A8C7C0] leading-relaxed font-medium">
+            <p className="text-xs sm:text-sm text-[#B7C0BC] leading-relaxed font-medium">
               {activeUnresolvedRecord.date === new Date(Date.now() - 86400000).toISOString().split('T')[0]
                 ? "Yesterday's checkout time could not be reliably determined."
                 : `Previous checkout time for ${activeUnresolvedRecord.date} could not be reliably determined.`}
@@ -848,17 +848,17 @@ export const AttendanceScreen: React.FC = () => {
             </p>
 
             {/* Session Details */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-[#071A17]/80 rounded-2xl border border-[#1D4840] text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-[#111417] rounded-2xl border border-[#3A4148] text-xs">
               <div>
-                <span className="text-[10px] text-[#718F88] font-bold uppercase block tracking-wider">Date</span>
-                <span className="text-[#F5FFFC] font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
+                <span className="text-[10px] text-[#7E8985] font-bold uppercase block tracking-wider">Date</span>
+                <span className="text-[#F5F7F6] font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
               </div>
               <div>
-                <span className="text-[10px] text-[#718F88] font-bold uppercase block tracking-wider">Check-in</span>
-                <span className="text-emerald-400 font-mono font-extrabold text-sm">{activeUnresolvedRecord.checkInTime || '--:--'}</span>
+                <span className="text-[10px] text-[#7E8985] font-bold uppercase block tracking-wider">Check-in</span>
+                <span className="text-[#18C98F] font-mono font-extrabold text-sm">{activeUnresolvedRecord.checkInTime || '--:--'}</span>
               </div>
               <div className="col-span-2 sm:col-span-1">
-                <span className="text-[10px] text-[#718F88] font-bold uppercase block tracking-wider">Checkout</span>
+                <span className="text-[10px] text-[#7E8985] font-bold uppercase block tracking-wider">Checkout</span>
                 <span className={`font-extrabold text-sm ${activeUnresolvedRecord.checkoutStatus === 'PENDING_ADMIN_REVIEW' ? 'text-amber-400' : 'text-rose-400'}`}>
                   {activeUnresolvedRecord.checkoutStatus === 'PENDING_ADMIN_REVIEW' ? 'PENDING ADMIN REVIEW' : 'UNRESOLVED'}
                 </span>
@@ -887,15 +887,15 @@ export const AttendanceScreen: React.FC = () => {
                       setIsEditingProposal(true);
                       setProposedTimeInput(activeUnresolvedRecord.employeeProposedCheckoutTime || '');
                     }}
-                    className="px-3 py-1.5 bg-[#071A17] hover:bg-[#0B2420] text-amber-300 text-xs font-bold rounded-xl border border-amber-500/30 transition-all"
+                    className="px-3 py-1.5 bg-[#111417] hover:bg-[#1D2329] text-amber-300 text-xs font-bold rounded-xl border border-amber-500/30 transition-all"
                   >
                     Edit Proposed Time
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="space-y-3 p-4 rounded-2xl bg-[#071A17]/80 border border-[#1D4840]">
-                <label className="text-xs font-bold text-[#F5FFFC] block">
+              <div className="space-y-3 p-4 rounded-2xl bg-[#111417] border border-[#3A4148]">
+                <label className="text-xs font-bold text-[#F5F7F6] block">
                   Select or enter your actual checkout time for {activeUnresolvedRecord.date}:
                 </label>
 
@@ -904,7 +904,7 @@ export const AttendanceScreen: React.FC = () => {
                     type="time"
                     value={proposedTimeInput}
                     onChange={(e) => setProposedTimeInput(e.target.value)}
-                    className="flex-1 px-3.5 py-2.5 bg-[#071A17] border border-[#1D4840] text-[#F5FFFC] rounded-xl text-xs focus:ring-2 focus:ring-[#18C7A0] focus:outline-none"
+                    className="flex-1 px-3.5 py-2.5 bg-[#111417] border border-[#3A4148] text-[#F5F7F6] rounded-xl text-xs focus:ring-2 focus:ring-[#18C98F] focus:outline-none"
                   />
                   <div className="flex flex-wrap gap-1.5">
                     {['17:30', '18:00', '18:10', '18:30', '19:00', '19:30'].map((preset) => {
@@ -918,8 +918,8 @@ export const AttendanceScreen: React.FC = () => {
                           onClick={() => setProposedTimeInput(preset)}
                           className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
                             proposedTimeInput === preset
-                              ? 'bg-[#18C7A0] text-[#071A17] border-[#18C7A0]'
-                              : 'bg-[#071A17] text-[#A8C7C0] border-[#1D4840] hover:bg-[#0B2420]'
+                              ? 'bg-[#18C98F] text-black border-[#18C98F]'
+                              : 'bg-[#111417] text-[#B7C0BC] border-[#3A4148] hover:bg-[#1D2329]'
                           }`}
                         >
                           {label}
@@ -941,7 +941,7 @@ export const AttendanceScreen: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsEditingProposal(false)}
-                      className="px-4 py-2 bg-[#071A17] hover:bg-[#0B2420] text-[#A8C7C0] text-xs font-bold rounded-xl border border-[#1D4840] transition-all"
+                      className="px-4 py-2 bg-[#111417] hover:bg-[#1D2329] text-[#B7C0BC] text-xs font-bold rounded-xl border border-[#3A4148] transition-all"
                     >
                       Cancel
                     </button>
@@ -959,8 +959,8 @@ export const AttendanceScreen: React.FC = () => {
             )}
 
             {/* Continuous Tracking Notice */}
-            <div className="flex items-center gap-2 p-3 bg-[#071A17] rounded-xl border border-[#1D4840] text-[11px] text-[#A8C7C0]">
-              <Activity className="w-3.5 h-3.5 text-[#18C7A0] flex-shrink-0" />
+            <div className="flex items-center gap-2 p-3 bg-[#111417] rounded-xl border border-[#3A4148] text-[11px] text-[#B7C0BC]">
+              <Activity className="w-3.5 h-3.5 text-[#18C98F] flex-shrink-0" />
               <span>
                 <strong>Independent Daily Engine:</strong> Today&apos;s automatic check-in & geofence tracking continues working normally in the background.
               </span>
@@ -974,11 +974,11 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       <div className="space-y-3">
         <div className="flex justify-between items-center px-1">
-          <h2 className="text-xs font-bold text-[#A8C7C0] uppercase tracking-wider">
+          <h2 className="text-xs font-bold text-[#B7C0BC] uppercase tracking-wider">
             Select Attendance Mode
           </h2>
           {todayRecord && (
-            <span className="text-[10px] bg-[#102D28] text-[#A8C7C0] font-extrabold px-2.5 py-0.5 rounded-full border border-[#1D4840]">
+            <span className="text-[10px] bg-[#171B1F] text-[#B7C0BC] font-extrabold px-2.5 py-0.5 rounded-full border border-[#3A4148]">
               Mode Locked for Today
             </span>
           )}
@@ -993,24 +993,24 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('OFFICE')}
             className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
               activeMode === 'OFFICE'
-                ? 'border-[#18C7A0] bg-[#143730] shadow-[0_0_20px_rgba(24,199,160,0.25)] ring-2 ring-[#18C7A0]'
-                : 'border-[#1D4840] bg-[#102D28]/80 hover:border-[#18C7A0]/40 hover:bg-[#143730]'
+                ? 'border-emerald-500/60 bg-[#1D2329] ring-2 ring-emerald-500/60'
+                : 'border-[#3A4148] bg-[#171B1F]/80 hover:border-emerald-500/40 hover:bg-[#1D2329]'
             } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🏢</span>
               {activeMode === 'OFFICE' && (
-                <span className="w-4 h-4 rounded-full bg-[#18C7A0] text-[#071A17] flex items-center justify-center text-[10px]">
+                <span className="w-4 h-4 rounded-full bg-[#18C98F] text-black flex items-center justify-center text-[10px]">
                   <Check className="w-3 h-3" />
                 </span>
               )}
               {todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' && (
-                <Lock className="w-3.5 h-3.5 text-[#718F88]" />
+                <Lock className="w-3.5 h-3.5 text-[#7E8985]" />
               )}
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-[#F5FFFC]">Office</h3>
-              <p className="text-[10px] text-[#A8C7C0] font-medium leading-tight mt-0.5">25m Geofence</p>
+              <h3 className="font-extrabold text-xs text-[#F5F7F6]">Office</h3>
+              <p className="text-[10px] text-[#B7C0BC] font-medium leading-tight mt-0.5">25m Geofence</p>
             </div>
           </button>
 
@@ -1021,8 +1021,8 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('WFH')}
             className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
               activeMode === 'WFH'
-                ? 'border-emerald-500 bg-[#143730] shadow-[0_0_20px_rgba(34,197,94,0.25)] ring-2 ring-emerald-500'
-                : 'border-[#1D4840] bg-[#102D28]/80 hover:border-emerald-400/40 hover:bg-[#143730]'
+                ? 'border-emerald-500/60 bg-[#1D2329] ring-2 ring-emerald-500/60'
+                : 'border-[#3A4148] bg-[#171B1F]/80 hover:border-emerald-500/40 hover:bg-[#1D2329]'
             } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
@@ -1039,8 +1039,8 @@ export const AttendanceScreen: React.FC = () => {
               </div>
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-[#F5FFFC]">Work From Home</h3>
-              <p className="text-[10px] text-[#A8C7C0] font-medium leading-tight mt-0.5">Max 2 per Month</p>
+              <h3 className="font-extrabold text-xs text-[#F5F7F6]">Work From Home</h3>
+              <p className="text-[10px] text-[#B7C0BC] font-medium leading-tight mt-0.5">Max 2 per Month</p>
             </div>
           </button>
 
@@ -1051,8 +1051,8 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('CLIENT_VISIT')}
             className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
               activeMode === 'CLIENT_VISIT'
-                ? 'border-amber-500 bg-[#143730] shadow-[0_0_20px_rgba(245,158,11,0.25)] ring-2 ring-amber-500'
-                : 'border-[#1D4840] bg-[#102D28]/80 hover:border-amber-400/40 hover:bg-[#143730]'
+                ? 'border-amber-500/60 bg-[#1D2329] ring-2 ring-amber-500/60'
+                : 'border-[#3A4148] bg-[#171B1F]/80 hover:border-amber-400/40 hover:bg-[#1D2329]'
             } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
@@ -1064,8 +1064,8 @@ export const AttendanceScreen: React.FC = () => {
               )}
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-[#F5FFFC]">Client Visit</h3>
-              <p className="text-[10px] text-[#A8C7C0] font-medium leading-tight mt-0.5">On-site Meetings</p>
+              <h3 className="font-extrabold text-xs text-[#F5F7F6]">Client Visit</h3>
+              <p className="text-[10px] text-[#B7C0BC] font-medium leading-tight mt-0.5">On-site Meetings</p>
             </div>
           </button>
 
@@ -1076,8 +1076,8 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('OUTDOOR')}
             className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
               activeMode === 'OUTDOOR'
-                ? 'border-cyan-500 bg-[#143730] shadow-[0_0_20px_rgba(6,182,212,0.25)] ring-2 ring-cyan-500'
-                : 'border-[#1D4840] bg-[#102D28]/80 hover:border-cyan-400/40 hover:bg-[#143730]'
+                ? 'border-cyan-500/60 bg-[#1D2329] ring-2 ring-cyan-500/60'
+                : 'border-[#3A4148] bg-[#171B1F]/80 hover:border-cyan-400/40 hover:bg-[#1D2329]'
             } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
@@ -1089,8 +1089,8 @@ export const AttendanceScreen: React.FC = () => {
               )}
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-[#F5FFFC]">Outdoor Work</h3>
-              <p className="text-[10px] text-[#A8C7C0] font-medium leading-tight mt-0.5">Field & Market Duty</p>
+              <h3 className="font-extrabold text-xs text-[#F5F7F6]">Outdoor Work</h3>
+              <p className="text-[10px] text-[#B7C0BC] font-medium leading-tight mt-0.5">Field & Market Duty</p>
             </div>
           </button>
         </div>
@@ -1100,12 +1100,12 @@ export const AttendanceScreen: React.FC = () => {
           {activeMode === 'OFFICE' && (
             <div className="space-y-3">
               {/* GPS status / distance indicator */}
-              <div className="p-4 bg-[#102D28] rounded-2xl border border-[#1D4840] text-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="p-4 bg-[#171B1F] rounded-2xl border border-[#3A4148] text-xs flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   <span className="text-lg">📍</span>
                   <div>
-                    <p className="font-extrabold text-[#F5FFFC]">Office Location Status</p>
-                    <p className="text-[11px] text-[#A8C7C0] mt-0.5">
+                    <p className="font-extrabold text-[#F5F7F6]">Office Location Status</p>
+                    <p className="text-[11px] text-[#B7C0BC] mt-0.5">
                       {distance === null
                         ? (locationStatus === 'error' ? `GPS lock error: ${errorMessage}` : 'Acquiring high-accuracy GPS satellite lock...')
                         : distance <= 25
@@ -1116,8 +1116,8 @@ export const AttendanceScreen: React.FC = () => {
                 </div>
 
                 {locationStatus === 'loading' && (
-                  <div className="flex items-center gap-1.5 font-bold text-[#18C7A0] animate-pulse">
-                    <RotateCw className="w-3.5 h-3.5 animate-spin" /> Tracking...
+                  <div className="flex items-center gap-1.5 font-bold text-[#18C98F] animate-pulse">
+                    <RotateCw className="w-3.5 h-3.5 animate-spin animate-spin text-[#18C98F]" /> Tracking...
                   </div>
                 )}
                 {locationStatus === 'error' && (
@@ -1136,11 +1136,11 @@ export const AttendanceScreen: React.FC = () => {
 
               {/* AUTO CHECK-IN active status */}
               {!todayRecord && locationState === 'INSIDE_OFFICE' && (
-                <div className="bg-[#102D28] rounded-[22px] border border-[#18C7A0]/40 p-5 shadow-[0_0_25px_rgba(24,199,160,0.2)] text-center space-y-3">
-                  <div className="flex items-center justify-center gap-2 text-[#18C7A0] text-xs font-black uppercase tracking-wider">
-                    <Radio className="w-4 h-4 text-[#18C7A0] animate-spin" /> Auto Check-In Active
+                <div className="bg-[#171B1F] rounded-[22px] border border-emerald-500/60 p-5 shadow-lg text-center space-y-3">
+                  <div className="flex items-center justify-center gap-2 text-[#18C98F] text-xs font-black uppercase tracking-wider">
+                    <Radio className="w-4 h-4 text-[#18C98F] animate-spin" /> Auto Check-In Active
                   </div>
-                  <p className="text-[11px] text-[#A8C7C0] font-medium">
+                  <p className="text-[11px] text-[#B7C0BC] font-medium">
                     Inside Office Geofence. Auto Check-in is executing immediately.
                   </p>
                 </div>
@@ -1154,8 +1154,8 @@ export const AttendanceScreen: React.FC = () => {
                     disabled={locationStatus !== 'success' || distance === null || distance > 25}
                     className={`w-full py-4 font-black text-sm rounded-2xl transition-all border ${
                       locationStatus === 'success' && distance !== null && distance <= 25
-                        ? 'bg-[#18C7A0] hover:bg-[#0E9F82] text-[#071A17] border-[#18C7A0]/30 active:scale-95 shadow-lg'
-                        : 'bg-[#0B2420] text-[#718F88] border-[#1D4840] opacity-40 cursor-not-allowed pointer-events-none shadow-none transform-none'
+                        ? 'bg-[#18C98F] hover:bg-[#10966D] text-black border-[#18C98F]/30 active:scale-95 shadow-lg'
+                        : 'bg-[#111417] text-[#7E8985] border-[#3A4148] opacity-40 cursor-not-allowed pointer-events-none shadow-none transform-none'
                     }`}
                   >
                     <UserCheck className="w-5 h-5 mr-2" /> 
@@ -1177,7 +1177,7 @@ export const AttendanceScreen: React.FC = () => {
                         className={`w-full py-4 font-black text-sm rounded-2xl transition-all shadow-lg ${
                           isInsideGeofence 
                             ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-400/30 active:scale-95' 
-                            : 'bg-[#0B2420] text-[#718F88] border border-[#1D4840] cursor-not-allowed'
+                            : 'bg-[#111417] text-[#7E8985] border border-[#3A4148] cursor-not-allowed'
                         }`}
                       >
                         <LogOut className="w-5 h-5 mr-2" /> Manual Check-Out (Inside Geofence Only)
@@ -1195,8 +1195,8 @@ export const AttendanceScreen: React.FC = () => {
           )}
 
           {activeMode === 'WFH' && (
-            <div className="bg-[#171B1E] rounded-2xl border border-[#292F33] p-5 shadow-lg space-y-4">
-              <div className="flex justify-between items-center border-b border-[#292F33] pb-3">
+            <div className="bg-[#171B1F] rounded-2xl border border-[#3A4148] p-5 shadow-lg space-y-4">
+              <div className="flex justify-between items-center border-b border-[#3A4148] pb-3">
                 <div className="flex items-center gap-2.5">
                   <span className="text-xl">🏠</span>
                   <div>
@@ -1229,7 +1229,7 @@ export const AttendanceScreen: React.FC = () => {
                       value={wfhReason}
                       onChange={(e) => setWfhReason(e.target.value)}
                       placeholder="e.g., Personal errand / Doctor visit / Remote task"
-                      className="w-full px-4 py-2.5 bg-[#111417] border border-[#292F33] rounded-xl text-xs text-[#F5F7F6] placeholder-[#7E8985] focus:outline-none focus:border-[#18C98F]"
+                      className="w-full px-4 py-2.5 bg-[#111417] border border-[#3A4148] rounded-xl text-xs text-[#F5F7F6] placeholder-[#7E8985] focus:outline-none focus:border-[#18C98F]"
                     />
                   </div>
 
@@ -1242,20 +1242,20 @@ export const AttendanceScreen: React.FC = () => {
                       onChange={(e) => setWfhWorkPlan(e.target.value)}
                       rows={2}
                       placeholder="Detail your planned deliverables for today..."
-                      className="w-full px-4 py-2.5 bg-[#111417] border border-[#292F33] rounded-xl text-xs text-[#F5F7F6] placeholder-[#7E8985] focus:outline-none focus:border-[#18C98F]"
+                      className="w-full px-4 py-2.5 bg-[#111417] border border-[#3A4148] rounded-xl text-xs text-[#F5F7F6] placeholder-[#7E8985] focus:outline-none focus:border-[#18C98F]"
                     />
                   </div>
 
                   <Button
                     type="submit"
                     disabled={currentWfhMonthCount >= 2}
-                    className="w-full py-3 bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] font-black text-xs rounded-xl shadow"
+                    className="w-full py-3 bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] font-black text-xs rounded-xl shadow border border-[#3A4148]"
                   >
                     Submit WFH Attendance
                   </Button>
                 </form>
               ) : (
-                <div className="p-3 bg-[#111417] rounded-xl border border-[#292F33] text-xs space-y-1">
+                <div className="p-3 bg-[#111417] rounded-xl border border-[#3A4148] text-xs space-y-1">
                   <p className="font-bold text-[#18C98F]">WFH Session Active for Today</p>
                   <p><span className="text-[#B7C0BC] font-bold">Reason:</span> {todayRecord.wfhReason || 'N/A'}</p>
                   <p><span className="text-[#B7C0BC] font-bold">Work Plan:</span> {todayRecord.workPlan || 'N/A'}</p>
@@ -1265,8 +1265,8 @@ export const AttendanceScreen: React.FC = () => {
           )}
 
           {activeMode === 'CLIENT_VISIT' && (
-            <div className="bg-[#171B1E] rounded-2xl border border-[#292F33] p-5 shadow-lg space-y-4">
-              <div className="flex items-center gap-2.5 border-b border-[#292F33] pb-3">
+            <div className="bg-[#171B1F] rounded-2xl border border-[#3A4148] p-5 shadow-lg space-y-4">
+              <div className="flex items-center gap-2.5 border-b border-[#3A4148] pb-3">
                 <span className="text-xl">🤝</span>
                 <div>
                   <h3 className="text-xs font-black text-[#F5F7F6] uppercase tracking-wider">Client Visit</h3>
@@ -1292,7 +1292,7 @@ export const AttendanceScreen: React.FC = () => {
                       value={clientName}
                       onChange={(e) => setClientName(e.target.value)}
                       placeholder="e.g., Tata Steel Ltd"
-                      className="w-full px-4 py-2.5 bg-[#111417] border border-[#292F33] rounded-xl text-xs text-[#F5F7F6] placeholder-[#7E8985] focus:outline-none focus:border-amber-450"
+                      className="w-full px-4 py-2.5 bg-[#111417] border border-[#3A4148] rounded-xl text-xs text-[#F5F7F6] placeholder-[#7E8985] focus:outline-none focus:border-amber-450"
                     />
                   </div>
 
@@ -1305,7 +1305,7 @@ export const AttendanceScreen: React.FC = () => {
                       value={clientLocation}
                       onChange={(e) => setClientLocation(e.target.value)}
                       placeholder="e.g., Durgapur Industrial Complex"
-                      className="w-full px-4 py-2.5 bg-[#111417] border border-[#292F33] rounded-xl text-xs text-[#F5F7F6] placeholder-[#7E8985] focus:outline-none focus:border-amber-450"
+                      className="w-full px-4 py-2.5 bg-[#111417] border border-[#3A4148] rounded-xl text-xs text-[#F5F7F6] placeholder-[#7E8985] focus:outline-none focus:border-amber-450"
                     />
                   </div>
 
@@ -1318,7 +1318,7 @@ export const AttendanceScreen: React.FC = () => {
                       onChange={(e) => setClientPurpose(e.target.value)}
                       rows={2}
                       placeholder="e.g., Contract negotiation and site inspection"
-                      className="w-full px-4 py-2.5 bg-[#111417] border border-[#292F33] rounded-xl text-xs text-[#F5F7F6] placeholder-[#7E8985] focus:outline-none focus:border-amber-450"
+                      className="w-full px-4 py-2.5 bg-[#111417] border border-[#3A4148] rounded-xl text-xs text-[#F5F7F6] placeholder-[#7E8985] focus:outline-none focus:border-amber-450"
                     />
                   </div>
 
@@ -1330,7 +1330,7 @@ export const AttendanceScreen: React.FC = () => {
                   </Button>
                 </form>
               ) : (
-                <div className="p-3 bg-[#111417] rounded-xl border border-[#292F33] text-xs space-y-1">
+                <div className="p-3 bg-[#111417] rounded-xl border border-[#3A4148] text-xs space-y-1">
                   <p className="font-bold text-amber-300">Client Visit Active for Today</p>
                   <p><span className="text-[#B7C0BC] font-bold">Client:</span> {todayRecord.clientName || 'N/A'}</p>
                   <p><span className="text-[#B7C0BC] font-bold">Location:</span> {todayRecord.clientLocation || 'N/A'}</p>
@@ -1341,8 +1341,8 @@ export const AttendanceScreen: React.FC = () => {
           )}
 
           {activeMode === 'OUTDOOR' && (
-            <div className="bg-[#171B1E] rounded-2xl border border-[#292F33] p-5 shadow-lg space-y-4">
-              <div className="flex items-center gap-2.5 border-b border-[#292F33] pb-3">
+            <div className="bg-[#171B1F] rounded-2xl border border-[#3A4148] p-5 shadow-lg space-y-4">
+              <div className="flex items-center gap-2.5 border-b border-[#3A4148] pb-3">
                 <span className="text-xl">🚗</span>
                 <div>
                   <h3 className="text-xs font-black text-[#F5F7F6] uppercase tracking-wider">Outdoor Work</h3>
@@ -1366,10 +1366,10 @@ export const AttendanceScreen: React.FC = () => {
                     <select
                       value={outdoorType}
                       onChange={(e) => setOutdoorType(e.target.value as OutdoorWorkTypeOption)}
-                      className="w-full px-4 py-2.5 bg-[#111417] border border-[#292F33] rounded-xl text-xs text-[#F5F7F6] focus:outline-none focus:border-blue-400"
+                      className="w-full px-4 py-2.5 bg-[#111417] border border-[#3A4148] rounded-xl text-xs text-[#F5F7F6] focus:outline-none focus:border-[#18C98F]"
                     >
                       {OUTDOOR_TYPE_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt} className="bg-[#111417] text-white">{opt}</option>
+                        <option key={opt} value={opt} className="bg-[#111417] text-[#F5F7F6]">{opt}</option>
                       ))}
                     </select>
                   </div>
@@ -1383,7 +1383,7 @@ export const AttendanceScreen: React.FC = () => {
                       onChange={(e) => setOutdoorDescription(e.target.value)}
                       rows={2}
                       placeholder="Provide details about your outdoor field assignment..."
-                      className="w-full px-4 py-2.5 bg-[#111417] border border-[#292F33] rounded-xl text-xs text-[#F5F7F6] placeholder-[#7E8985] focus:outline-none focus:border-blue-400"
+                      className="w-full px-4 py-2.5 bg-[#111417] border border-[#3A4148] rounded-xl text-xs text-[#F5F7F6] placeholder-[#7E8985] focus:outline-none focus:border-[#18C98F]"
                     />
                   </div>
 
@@ -1395,7 +1395,7 @@ export const AttendanceScreen: React.FC = () => {
                   </Button>
                 </form>
               ) : (
-                <div className="p-3 bg-[#111417] rounded-xl border border-[#292F33] text-xs space-y-1">
+                <div className="p-3 bg-[#111417] rounded-xl border border-[#3A4148] text-xs space-y-1">
                   <p className="font-bold text-blue-300">Outdoor Work Active for Today</p>
                   <p><span className="text-[#B7C0BC] font-bold">Type:</span> {todayRecord.outdoorType || 'N/A'}</p>
                   <p><span className="text-[#B7C0BC] font-bold">Description:</span> {todayRecord.description || 'N/A'}</p>
@@ -1436,8 +1436,8 @@ export const AttendanceScreen: React.FC = () => {
       {/* 3. TODAY'S DETAILS */}
       {/* ==================================================== */}
       {todayRecord && ['WFH', 'CLIENT_VISIT', 'OUTDOOR'].includes(todayRecord.attendanceType || '') && (
-        <Card className="p-5 bg-[#171B1E] border border-[#292F33] text-xs rounded-2xl space-y-3">
-          <h3 className="text-xs font-extrabold text-[#B7C0BC] uppercase tracking-widest border-b border-[#292F33] pb-2">
+        <Card className="p-5 bg-[#171B1F] border border-[#3A4148] text-xs rounded-2xl space-y-3">
+          <h3 className="text-xs font-extrabold text-[#B7C0BC] uppercase tracking-widest border-b border-[#3A4148] pb-2">
             📝 Today's Details
           </h3>
           {todayRecord.attendanceType === 'WFH' && (
@@ -1478,15 +1478,15 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {/* 6. MONTHLY SUMMARY */}
       {/* ==================================================== */}
-      <Card className="p-5 bg-[#171B1E] border border-[#292F33] shadow-md rounded-2xl">
-        <h3 className="text-xs font-extrabold text-[#B7C0BC] uppercase tracking-widest border-b border-[#292F33] pb-2 mb-4 flex items-center justify-between">
+      <Card className="p-5 bg-[#171B1F] border border-[#3A4148] shadow-md rounded-2xl">
+        <h3 className="text-xs font-extrabold text-[#B7C0BC] uppercase tracking-widest border-b border-[#3A4148] pb-2 mb-4 flex items-center justify-between">
           <span>📊 THIS MONTH</span>
           <span className="text-[10px] text-[#7E8985] font-mono font-bold uppercase">SUMMARY</span>
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
           {/* Left: Compact Stats Table */}
-          <div className="space-y-2 border-b md:border-b-0 md:border-r border-[#292F33] pb-4 md:pb-0 md:pr-6 text-xs">
+          <div className="space-y-2 border-b md:border-b-0 md:border-r border-[#3A4148] pb-4 md:pb-0 md:pr-6 text-xs">
             <div className="flex justify-between font-semibold">
               <span className="text-[#B7C0BC]">Present</span>
               <span className="text-[#F5F7F6] font-black">{monthlyStats.present}</span>
@@ -1518,7 +1518,7 @@ export const AttendanceScreen: React.FC = () => {
           </div>
 
           {/* Middle: Attendance Rate Circle/Indicator */}
-          <div className="flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-[#292F33] pb-4 md:pb-0 md:px-6">
+          <div className="flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-[#3A4148] pb-4 md:pb-0 md:px-6">
             <span className="text-[10px] text-[#B7C0BC] uppercase tracking-wider font-extrabold mb-2 text-center">
               Attendance Rate
             </span>
@@ -1569,7 +1569,7 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {/* 7. ATTENDANCE HISTORY LOGS */}
       {/* ==================================================== */}
-      <div className="bg-[#171B1E] rounded-2xl border border-[#292F33] overflow-hidden shadow-md">
+      <div className="bg-[#171B1F] rounded-2xl border border-[#3A4148] overflow-hidden shadow-md">
         <div 
           onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
           className="p-5 flex items-center justify-between cursor-pointer hover:bg-[#1D2226] transition select-none"
@@ -1582,7 +1582,7 @@ export const AttendanceScreen: React.FC = () => {
               {isHistoryExpanded ? 'Search and filter local & synchronized records' : 'Click to expand historical logs'}
             </p>
           </div>
-          <div className="w-7 h-7 rounded-lg bg-[#111417] border border-[#292F33] flex items-center justify-center text-[#18C98F]">
+          <div className="w-7 h-7 rounded-lg bg-[#111417] border border-[#3A4148] flex items-center justify-center text-[#18C98F]">
             <span className={`transform transition-transform duration-200 ${isHistoryExpanded ? 'rotate-90' : ''}`}>
               &rarr;
             </span>
@@ -1590,7 +1590,7 @@ export const AttendanceScreen: React.FC = () => {
         </div>
 
         {isHistoryExpanded && (
-          <div className="p-6 border-t border-[#292F33] bg-[#111417]/40 space-y-4">
+          <div className="p-6 border-t border-[#3A4148] bg-[#111417]/40 space-y-4">
             {/* Search and Filters Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="relative">
@@ -1599,7 +1599,7 @@ export const AttendanceScreen: React.FC = () => {
                   placeholder="Search date, client, location..."
                   value={historySearchTerm}
                   onChange={(e) => setHistorySearchTerm(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 bg-[#111417] border border-[#292F33] rounded-xl text-xs text-white placeholder-[#7E8985] focus:outline-none focus:border-[#18C98F]"
+                  className="w-full pl-8 pr-3 py-2 bg-[#111417] border border-[#3A4148] rounded-xl text-xs text-white placeholder-[#7E8985] focus:outline-none focus:border-[#18C98F]"
                 />
                 <span className="absolute left-2.5 top-2.5 text-[#7E8985] text-xs">🔍</span>
               </div>
@@ -1608,7 +1608,7 @@ export const AttendanceScreen: React.FC = () => {
                 <select
                   value={historyTypeFilter}
                   onChange={(e) => setHistoryTypeFilter(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-[#111417] border border-[#292F33] rounded-xl text-xs text-white focus:outline-none"
+                  className="w-full px-3 py-2 bg-[#111417] border border-[#3A4148] rounded-xl text-xs text-white focus:outline-none"
                 >
                   <option value="ALL">All Modes</option>
                   <option value="OFFICE">🏢 Office</option>
@@ -1633,7 +1633,7 @@ export const AttendanceScreen: React.FC = () => {
                   return (
                     <div 
                       key={rec.id} 
-                      className="p-4 bg-[#111417] rounded-2xl border border-[#292F33] text-xs flex flex-col gap-3 hover:border-[#18C98F]/40 transition-all"
+                      className="p-4 bg-[#111417] rounded-2xl border border-[#3A4148] text-xs flex flex-col gap-3 hover:border-[#18C98F]/40 transition-all"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
@@ -1654,7 +1654,7 @@ export const AttendanceScreen: React.FC = () => {
                               const calculated = calculateWorkingHours(rec.checkInTime, rec.checkOutTime);
                               if (calculated) {
                                   return (
-                                    <span className="text-[11px] text-[#F5F7F6] font-mono font-bold bg-[#1D2226] px-2 py-0.5 rounded-md border border-[#292F33]">
+                                    <span className="text-[11px] text-[#F5F7F6] font-mono font-bold bg-[#1D2226] px-2 py-0.5 rounded-md border border-[#3A4148]">
                                       ⏱️ {calculated}
                                     </span>
                                   );
@@ -1678,9 +1678,9 @@ export const AttendanceScreen: React.FC = () => {
                       )}
 
                       {/* Separate Check-in, Checkout & Current Location */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1 pt-2 border-t border-[#292F33]">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1 pt-2 border-t border-[#3A4148]">
                         {/* Check-In Block */}
-                        <div className="bg-[#111417] p-2.5 rounded-xl border border-[#292F33] space-y-0.5">
+                        <div className="bg-[#111417] p-2.5 rounded-xl border border-[#3A4148] space-y-0.5">
                           <div className="text-[10px] font-bold text-[#18C98F] uppercase tracking-wider flex items-center justify-between">
                             <span>Check-in Location</span>
                             <span className="font-mono text-[#18C98F]">{checkInLoc.time}</span>
@@ -1696,7 +1696,7 @@ export const AttendanceScreen: React.FC = () => {
                         </div>
 
                         {/* Checkout Block */}
-                        <div className="bg-[#111417] p-2.5 rounded-xl border border-[#292F33] space-y-0.5">
+                        <div className="bg-[#111417] p-2.5 rounded-xl border border-[#3A4148] space-y-0.5">
                           <div className="text-[10px] font-bold text-[#7E8985] uppercase tracking-wider flex items-center justify-between">
                             <span>Checkout Location</span>
                             <span className="font-mono text-rose-300">{checkoutLoc.time}</span>
@@ -1712,7 +1712,7 @@ export const AttendanceScreen: React.FC = () => {
                         </div>
 
                         {/* Current Location Block */}
-                        <div className="bg-[#111417] p-2.5 rounded-xl border border-[#292F33] space-y-0.5">
+                        <div className="bg-[#111417] p-2.5 rounded-xl border border-[#3A4148] space-y-0.5">
                           <div className="text-[10px] font-bold text-cyan-350 uppercase tracking-wider flex items-center justify-between">
                             <span>Current Location</span>
                             <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
@@ -1733,7 +1733,7 @@ export const AttendanceScreen: React.FC = () => {
                             </div>
                           )}
                           {currentLoc.statusText && (
-                            <div className="text-[9px] text-cyan-250/80 font-mono flex items-center gap-1">
+                            <div className="text-[9px] text-[#7E8985] font-mono flex items-center gap-1">
                               <span>⏱</span> {currentLoc.statusText}
                             </div>
                           )}
@@ -1753,3 +1753,5 @@ export const AttendanceScreen: React.FC = () => {
     </div>
   );
 };
+
+export default AttendanceScreen;

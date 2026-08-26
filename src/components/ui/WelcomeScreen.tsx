@@ -56,7 +56,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         
         {/* Central Logo / Icon */}
         <div className="relative flex items-center justify-center my-1">
-          <div className="w-20 h-20 rounded-full border border-[#292F33] bg-[#171B1E] flex items-center justify-center shadow-lg">
+          <div className="w-20 h-20 rounded-full border border-[#3A4148] bg-[#171B1E] flex items-center justify-center shadow-lg">
             <div className="w-16 h-16 rounded-full bg-[#1D2226] border border-[#18C98F]/40 flex items-center justify-center">
               {isRegistered ? (
                 <UserCheck className="w-8 h-8 text-[#18C98F]" />
@@ -92,7 +92,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         </div>
 
         {/* Automation Banner */}
-        <div className="w-full py-3 px-4 rounded-2xl bg-[#171B1E] border border-[#292F33] text-center">
+        <div className="w-full py-3 px-4 rounded-2xl bg-[#171B1E] border border-[#3A4148] text-center">
           <p className="text-xs sm:text-sm font-extrabold text-[#18C98F] tracking-wide flex items-center justify-center gap-1.5 leading-snug">
             <Sparkles className="w-3.5 h-3.5 text-[#18C98F] shrink-0" />
             <span>✨ AUTOMATIC ATTENDANCE</span>
@@ -105,13 +105,13 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         {/* Compact Location & Attendance Status Card */}
         <div className={`w-full bg-[#171B1E] p-4.5 rounded-2xl border text-left shadow-md ${
           isLocationLoading
-            ? 'border-[#292F33]'
+            ? 'border-[#3A4148]'
             : isInsideGeofence
               ? 'border-[#18C98F]/50'
               : 'border-[#EF4444]/50'
         }`}>
           {/* Header */}
-          <div className="flex items-center gap-2 mb-3.5 border-b border-[#292F33] pb-2">
+          <div className="flex items-center gap-2 mb-3.5 border-b border-[#3A4148] pb-2">
             <MapPin className={`w-4 h-4 ${isLocationLoading ? 'text-[#18C98F]' : isInsideGeofence ? 'text-[#18C98F]' : 'text-[#EF4444]'}`} />
             <span className="text-xs font-black uppercase tracking-widest text-[#B7C0BC]">
               📍 Location & Attendance
@@ -146,7 +146,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             </div>
 
             {/* Row 1, Col 2: Distance */}
-            <div className="space-y-1 border-l border-[#292F33] pl-4">
+            <div className="space-y-1 border-l border-[#3A4148] pl-4">
               <span className="text-[10px] font-bold text-[#7E8985] uppercase tracking-wider block">
                 Distance
               </span>
@@ -170,7 +170,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             </div>
 
             {/* Row 2, Col 1: Office Radius */}
-            <div className="space-y-1 pt-2.5 border-t border-[#292F33]">
+            <div className="space-y-1 pt-2.5 border-t border-[#3A4148]">
               <span className="text-[10px] font-bold text-[#7E8985] uppercase tracking-wider block">
                 Office Radius
               </span>
@@ -180,7 +180,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             </div>
 
             {/* Row 2, Col 2: Geofence */}
-            <div className="space-y-1 pt-2.5 border-t border-l border-[#292F33] pl-4">
+            <div className="space-y-1 pt-2.5 border-t border-l border-[#3A4148] pl-4">
               <span className="text-[10px] font-bold text-[#7E8985] uppercase tracking-wider block">
                 Geofence
               </span>
@@ -207,11 +207,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         </div>
 
         {/* Feature Highlights Grid */}
-        <div className="w-full bg-[#171B1E] p-3 rounded-2xl border border-[#292F33] grid grid-cols-4 gap-1.5 text-center">
+        <div className="w-full bg-[#171B1E] p-3 rounded-2xl border border-[#3A4148] grid grid-cols-4 gap-1.5 text-center">
           
           {/* Secure Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[#1D2226] text-[#18C98F] flex items-center justify-center mb-1 border border-[#292F33]">
+            <div className="w-8 h-8 rounded-xl bg-[#1D2226] text-[#18C98F] flex items-center justify-center mb-1 border border-[#3A4148]">
               <Lock className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-black text-[#F5F7F6] block leading-tight">🔒 Secure</span>
@@ -220,7 +220,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
           {/* Smart Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[#1D2226] text-[#18C98F] flex items-center justify-center mb-1 border border-[#292F33]">
+            <div className="w-8 h-8 rounded-xl bg-[#1D2226] text-[#18C98F] flex items-center justify-center mb-1 border border-[#3A4148]">
               <Zap className="w-4 h-4 text-[#18C98F]" />
             </div>
             <span className="text-[10px] font-black text-[#F5F7F6] block leading-tight">⚡ Smart</span>
@@ -229,7 +229,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
           {/* Accurate Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[#1D2226] text-[#18C98F] flex items-center justify-center mb-1 border border-[#292F33]">
+            <div className="w-8 h-8 rounded-xl bg-[#1D2226] text-[#18C98F] flex items-center justify-center mb-1 border border-[#3A4148]">
               <Target className="w-4 h-4 text-[#18C98F]" />
             </div>
             <span className="text-[10px] font-black text-[#F5F7F6] block leading-tight">🎯 Accurate</span>
@@ -238,7 +238,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
           {/* Reliable Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[#1D2226] text-[#F59E0B] flex items-center justify-center mb-1 border border-[#292F33]">
+            <div className="w-8 h-8 rounded-xl bg-[#1D2226] text-[#F59E0B] flex items-center justify-center mb-1 border border-[#3A4148]">
               <Check className="w-4 h-4 text-[#F59E0B]" />
             </div>
             <span className="text-[10px] font-black text-[#F5F7F6] block leading-tight">✓ Reliable</span>
