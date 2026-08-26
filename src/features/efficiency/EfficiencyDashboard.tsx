@@ -275,78 +275,69 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       const fetchedTasksMap = new Map<string, TaskRecord>();
       const fetchedAttMap = new Map<string, AttendanceRecord>();
 
-      const qTasksCode = query(
-        collection(db, 'tasks'),
-        where('assignedToEmployeeCodes', 'array-contains', targetCode),
-        limit(200)
-      );
-      const unsubTasksCode = onSnapshot(qTasksCode, (snap) => {
-        snap.docs.forEach(doc => {
-          fetchedTasksMap.set(doc.id, { id: doc.id, ...doc.data() } as TaskRecord);
-        });
-        setTasks(Array.from(fetchedTasksMap.values()));
-        setLoading(false);
-      }, (err) => {
-        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks notice:', err);
-        setLoading(false);
-      });
-      unsubs.push(unsubTasksCode);
-
-      if (targetId && targetId !== targetCode) {
-        const qTasksId = query(
-          collection(db, 'tasks'),
-          where('assignedToEmployeeIds', 'array-contains', targetId),
-          limit(200)
+      const taskQueries = [];
+      if (targetCode) {
+        taskQueries.push(
+          query(collection(db, 'tasks'), where('assignedToEmployeeCodes', 'array-contains', targetCode), limit(200))
         );
-        const unsubTasksId = onSnapshot(qTasksId, (snap) => {
+        taskQueries.push(
+          query(collection(db, 'tasks'), where('assignedToEmployeeIds', 'array-contains', targetCode), limit(200))
+        );
+      }
+      if (targetId && targetId !== targetCode) {
+        taskQueries.push(
+          query(collection(db, 'tasks'), where('assignedToEmployeeCodes', 'array-contains', targetId), limit(200))
+        );
+        taskQueries.push(
+          query(collection(db, 'tasks'), where('assignedToEmployeeIds', 'array-contains', targetId), limit(200))
+        );
+      }
+
+      const attendanceQueries = [];
+      if (targetCode) {
+        attendanceQueries.push(
+          query(collection(db, 'attendance'), where('employeeCode', '==', targetCode), limit(365))
+        );
+        attendanceQueries.push(
+          query(collection(db, 'attendance'), where('employeeId', '==', targetCode), limit(365))
+        );
+      }
+      if (targetId && targetId !== targetCode) {
+        attendanceQueries.push(
+          query(collection(db, 'attendance'), where('employeeCode', '==', targetId), limit(365))
+        );
+        attendanceQueries.push(
+          query(collection(db, 'attendance'), where('employeeId', '==', targetId), limit(365))
+        );
+      }
+
+      taskQueries.forEach((q, idx) => {
+        const unsub = onSnapshot(q, (snap) => {
           snap.docs.forEach(doc => {
             fetchedTasksMap.set(doc.id, { id: doc.id, ...doc.data() } as TaskRecord);
           });
           setTasks(Array.from(fetchedTasksMap.values()));
           setLoading(false);
         }, (err) => {
-          console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks(id) notice:', err);
+          console.warn(`[EFFICIENCY_FIRESTORE_ERROR] path=tasks queryIndex=${idx} notice:`, err);
           setLoading(false);
         });
-        unsubs.push(unsubTasksId);
-      }
-
-      // 3. TARGETED ATTENDANCE LISTENER (Employee-specific)
-      const qAttCode = query(
-        collection(db, 'attendance'),
-        where('employeeCode', '==', targetCode),
-        limit(365)
-      );
-      const unsubAttCode = onSnapshot(qAttCode, (snap) => {
-        snap.docs.forEach(doc => {
-          fetchedAttMap.set(doc.id, { id: doc.id, ...doc.data() } as AttendanceRecord);
-        });
-        setAttendance(Array.from(fetchedAttMap.values()));
-        setLoading(false);
-      }, (err) => {
-        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance notice:', err);
-        setLoading(false);
+        unsubs.push(unsub);
       });
-      unsubs.push(unsubAttCode);
 
-      if (targetId && targetId !== targetCode) {
-        const qAttId = query(
-          collection(db, 'attendance'),
-          where('employeeId', '==', targetId),
-          limit(365)
-        );
-        const unsubAttId = onSnapshot(qAttId, (snap) => {
+      attendanceQueries.forEach((q, idx) => {
+        const unsub = onSnapshot(q, (snap) => {
           snap.docs.forEach(doc => {
             fetchedAttMap.set(doc.id, { id: doc.id, ...doc.data() } as AttendanceRecord);
           });
           setAttendance(Array.from(fetchedAttMap.values()));
           setLoading(false);
         }, (err) => {
-          console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance(id) notice:', err);
+          console.warn(`[EFFICIENCY_FIRESTORE_ERROR] path=attendance queryIndex=${idx} notice:`, err);
           setLoading(false);
         });
-        unsubs.push(unsubAttId);
-      }
+        unsubs.push(unsub);
+      });
     } else {
       setLoading(false);
     }
@@ -455,7 +446,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       teamLeaderId: null
     };
 
-    return calculateEfficiency(
+    const calcResult = calculateEfficiency(
       emp.id || targetEmpId,
       emp.employeeCode || targetEmpCode,
       emp.name || emp.employeeCode || 'Employee',
@@ -467,6 +458,51 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       attendance,
       weightages
     );
+
+    // Filter attendance records in the period to print detailed logs
+    const filteredAttendance = attendance.filter(r => {
+      const matchCode = r.employeeCode && (r.employeeCode === targetEmpCode || r.employeeCode === targetEmpId);
+      const matchId = r.employeeId && (r.employeeId === targetEmpCode || r.employeeId === targetEmpId);
+      const isEmp = matchCode || matchId;
+      return isEmp && r.date >= startDate && r.date <= endDate;
+    });
+
+    // Filter tasks in the period to print detailed logs
+    const filteredTasks = tasks.filter(t => {
+      const matchCode = t.assignedToEmployeeCodes && (
+        t.assignedToEmployeeCodes.includes(targetEmpCode) ||
+        (targetEmpId && t.assignedToEmployeeCodes.includes(targetEmpId))
+      );
+      const matchId = t.assignedToEmployeeIds && (
+        t.assignedToEmployeeIds.includes(targetEmpCode) ||
+        (targetEmpId && t.assignedToEmployeeIds.includes(targetEmpId))
+      );
+      const isAssigned = matchCode || matchId;
+      if (!isAssigned) return false;
+      const tDate = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime ? t.createdAtDeviceTime.substring(0, 10) : '');
+      return tDate >= startDate && tDate <= endDate;
+    });
+
+    console.log(`[EFFICIENCY_DIAGNOSTIC_COMPARE]
+- Mode: ${targetEmpCode === activeEmployeeCode ? "EMPLOYEE_DEVICE" : "TEAM_LEADER_INDIVIDUAL"}
+- Selected Employee Code: ${targetEmpCode}
+- Selected Employee ID: ${targetEmpId}
+- Date Range: ${startDate} to ${endDate}
+- Raw Attendance Count (before filtering): ${attendance.length}
+- Filtered Attendance Count (within date range): ${filteredAttendance.length}
+- Raw Tasks Count (before filtering): ${tasks.length}
+- Filtered Tasks Count (within date range): ${filteredTasks.length}
+- Work Hours Calculated: ${calcResult.breakdown.validCheckOutsCount > 0 ? calcResult.breakdown.validCheckOutsCount : 0} checkout logs
+- Final Efficiency Score (%): ${calcResult.finalScore}%
+- Component Scores:
+  * Task Completion Score: ${calcResult.breakdown.taskCompletionScore}% (assigned: ${calcResult.breakdown.assignedTasksCount}, completed: ${calcResult.breakdown.completedTasksCount})
+  * On-Time Completion Score: ${calcResult.breakdown.onTimeCompletionScore}% (on-time: ${calcResult.breakdown.onTimeTasksCount})
+  * Quality Score: ${calcResult.breakdown.qualityScore}% (revisions: ${calcResult.breakdown.totalRevisionRequests})
+  * Punctuality Score: ${calcResult.breakdown.punctualityScore}% (attendance: ${calcResult.breakdown.attendanceDaysCount}, late: ${calcResult.breakdown.lateArrivalsCount})
+  * Workload Score: ${calcResult.breakdown.workloadScore}% (overdue: ${calcResult.breakdown.overdueTasksCount})
+`);
+
+    return calcResult;
   }, [selectedEmployee, targetEmpCode, targetEmpId, startDate, endDate, tasks, attendance, weightages]);
 
   const previousCalculation = useMemo(() => {
@@ -566,7 +602,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       );
       const isAssigned = matchCode || matchId;
       if (!isAssigned) return false;
-      const tDate = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime.substring(0, 10));
+      const tDate = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime ? t.createdAtDeviceTime.substring(0, 10) : '');
       return tDate >= startDate && tDate <= endDate;
     });
   }, [tasks, targetEmpCode, targetEmpId, startDate, endDate]);
@@ -654,7 +690,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
         const isA = (t.assignedToEmployeeCodes && t.assignedToEmployeeCodes.includes(mCode)) ||
                     (t.assignedToEmployeeIds && t.assignedToEmployeeIds.includes(mCode));
         if (!isA) return false;
-        const d = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime.substring(0, 10));
+        const d = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime ? t.createdAtDeviceTime.substring(0, 10) : '');
         return d >= startDate && d <= endDate;
       });
 

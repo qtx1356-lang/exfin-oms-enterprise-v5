@@ -90,28 +90,41 @@ export const calculateEfficiency = (
   
   // Filter attendance records in period
   const periodAttendance = attendanceRecords.filter(rec => {
-    const matchId = rec.employeeId && (rec.employeeId === employeeCode || rec.employeeId === employeeId);
-    const matchCode = rec.employeeCode && (rec.employeeCode === employeeCode || rec.employeeCode === employeeId);
+    const matchId = rec.employeeId && (rec.employeeId === employeeCode || (employeeId && rec.employeeId === employeeId));
+    const matchCode = rec.employeeCode && (rec.employeeCode === employeeCode || (employeeId && rec.employeeCode === employeeId));
     const isEmp = matchId || matchCode;
     return isEmp && rec.date >= startDateStr && rec.date <= endDateStr;
   });
 
   // Filter tasks in period
   const periodTasks = tasks.filter(task => {
-    const matchCode = task.assignedToEmployeeCodes && (
+    const matchCodeArr = task.assignedToEmployeeCodes && (
       task.assignedToEmployeeCodes.includes(employeeCode) || 
-      task.assignedToEmployeeCodes.includes(employeeId)
+      (employeeId && task.assignedToEmployeeCodes.includes(employeeId))
     );
-    const matchId = task.assignedToEmployeeIds && (
-      task.assignedToEmployeeIds.includes(employeeId) || 
+    const matchIdArr = task.assignedToEmployeeIds && (
+      (employeeId && task.assignedToEmployeeIds.includes(employeeId)) || 
       task.assignedToEmployeeIds.includes(employeeCode)
     );
-    const isAssigned = matchCode || matchId;
+    const matchAssigneeCode = (task as any).assigneeCode && (
+      (task as any).assigneeCode === employeeCode || (employeeId && (task as any).assigneeCode === employeeId)
+    );
+    const matchAssigneeId = (task as any).assigneeId && (
+      (employeeId && (task as any).assigneeId === employeeId) || (task as any).assigneeId === employeeCode
+    );
+    const matchAssignedTo = (task as any).assignedTo && (
+      (task as any).assignedTo === employeeCode || (employeeId && (task as any).assignedTo === employeeId)
+    );
+    const matchEmpCode = (task as any).employeeCode && (
+      (task as any).employeeCode === employeeCode || (employeeId && (task as any).employeeCode === employeeId)
+    );
+
+    const isAssigned = matchCodeArr || matchIdArr || matchAssigneeCode || matchAssigneeId || matchAssignedTo || matchEmpCode;
     
     if (!isAssigned) return false;
     
     // Task date is either due date or completed date
-    const taskDate = task.dueDate || (task.completedAt ? task.completedAt.substring(0, 10) : task.createdAtDeviceTime.substring(0, 10));
+    const taskDate = task.dueDate || (task.completedAt ? task.completedAt.substring(0, 10) : task.createdAtDeviceTime ? task.createdAtDeviceTime.substring(0, 10) : '');
     return taskDate >= startDateStr && taskDate <= endDateStr;
   });
 
@@ -323,10 +336,10 @@ export const calculateEfficiency = (
   // Final Score = Weighted Base - Overdue Penalty - Revision Penalty
   const calculatedFinalScore = sumOfAvailableWeights > 0
     ? Math.max(0, Math.min(100, Math.round(weightedBaseScore - overduePenalty - revisionPenalty)))
-    : 0;
+    : -1;
 
   const finalScore = calculatedFinalScore;
-  const grade = getEfficiencyGrade(finalScore);
+  const grade = finalScore < 0 ? ('N/A' as EfficiencyGrade) : getEfficiencyGrade(finalScore);
 
   const breakdown: EfficiencyBreakdown = {
     taskCompletionScore,
