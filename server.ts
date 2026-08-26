@@ -90,6 +90,133 @@ function getFormattedTimeStr(date: Date): string {
   }
 }
 
+function parseAttendanceTimeToMinutes(timeStr: string | null | undefined): number | null {
+  if (!timeStr) return null;
+  const clean = timeStr.trim();
+  if (!clean || clean === 'Pending' || clean === 'N/A' || clean === 'UNRESOLVED' || clean === '--:--') {
+    return null;
+  }
+  const match12 = clean.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([aApP][mM])$/);
+  if (match12) {
+    let hours = parseInt(match12[1], 10);
+    const minutes = parseInt(match12[2], 10);
+    const meridian = match12[3].toUpperCase();
+    if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) return null;
+    if (meridian === 'AM') {
+      if (hours === 12) hours = 0;
+    } else if (meridian === 'PM') {
+      if (hours < 12) hours += 12;
+    }
+    return hours * 60 + minutes;
+  }
+  const match24 = clean.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (match24) {
+    const hours = parseInt(match24[1], 10);
+    const minutes = parseInt(match24[2], 10);
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+    return hours * 60 + minutes;
+  }
+  return null;
+}
+
+function calculateWorkingHours(checkInTimeStr: string | null | undefined, checkOutTimeStr: string | null | undefined): string | null {
+  if (!checkInTimeStr || !checkOutTimeStr) return null;
+  const inMins = parseAttendanceTimeToMinutes(checkInTimeStr);
+  const outMins = parseAttendanceTimeToMinutes(checkOutTimeStr);
+  if (inMins === null || outMins === null || outMins < inMins) return null;
+  const diffMins = outMins - inMins;
+  const h = Math.floor(diffMins / 60);
+  const m = diffMins % 60;
+  return `${h}h ${m}m`;
+}
+
+async function runServerAttendanceFinalizer() {
+  if (!db) return;
+  try {
+    const now = new Date();
+    const kolkataStr = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+    const nowKolkata = new Date(kolkataStr);
+    const todayStr = getFormattedDateStr(now);
+    const hours = nowKolkata.getHours();
+    const minutes = nowKolkata.getMinutes();
+
+    const is1800OrLater = hours >= 18;
+    const is2359OrLater = hours === 23 && minutes >= 59;
+
+    // Fetch active/unsettled attendance documents
+    const qSnap = await db.collection("attendance")
+      .where("checkoutStatus", "in", ["Pending", "PENDING_CONFIRMATION", null])
+      .limit(100)
+      .get()
+      .catch(async () => {
+        return await db!.collection("attendance").where("checkOutTime", "==", null).limit(100).get();
+      });
+
+    if (qSnap.empty) return;
+
+    for (const docSnap of qSnap.docs) {
+      const data = docSnap.data();
+      if (data.checkOutTime && data.checkoutStatus === "COMPLETED") continue;
+      if (data.manualRectified || data.isAdminRectified || data.correctedAt) continue;
+
+      const recDate = data.date;
+      const isPastDay = recDate < todayStr;
+      const isToday = recDate === todayStr;
+
+      let shouldSettle = false;
+      let finalCheckoutTime = "06:00 PM";
+      let checkoutType = "AUTO_CHECKOUT";
+      let checkoutMode = "AUTO_SYSTEM";
+
+      if (isPastDay) {
+        // Unsettled past days must be settled immediately under next-day protection
+        shouldSettle = true;
+        finalCheckoutTime = data.geofenceExitTime || data.lastExitTime || data.exitTime || "06:00 PM";
+      } else if (isToday) {
+        const attType = data.attendanceType || "OFFICE";
+        if (attType === "WFH" || attType === "CLIENT_VISIT" || attType === "OUTDOOR") {
+          if (is2359OrLater) {
+            shouldSettle = true;
+            finalCheckoutTime = "11:59 PM";
+          }
+        } else {
+          // OFFICE
+          if (data.geofenceExitTime || data.lastExitTime || data.exitTime || data.currentState === "PENDING_EXIT_CONFIRMATION") {
+            if (is1800OrLater) {
+              shouldSettle = true;
+              finalCheckoutTime = data.geofenceExitTime || data.lastExitTime || data.exitTime || "06:00 PM";
+            }
+          }
+        }
+      }
+
+      if (shouldSettle) {
+        const workingHours = calculateWorkingHours(data.checkInTime, finalCheckoutTime);
+        const eventId = `evt_srv_final_${data.employeeId}_${recDate}_${finalCheckoutTime.replace(/\s+/g, '_')}`;
+
+        await docSnap.ref.update({
+          checkOutTime: finalCheckoutTime,
+          checkoutStatus: "COMPLETED",
+          checkOutMode: checkoutMode,
+          checkoutType: checkoutType,
+          status: "completed",
+          workingHours: workingHours,
+          currentState: "FINALIZED_CHECKOUT",
+          resolutionSource: "AUTO_SYSTEM",
+          updatedAt: new Date().toISOString(),
+          serverSyncTime: new Date().toISOString(),
+          serverSyncTimestamp: FieldValue.serverTimestamp(),
+          processedEvents: FieldValue.arrayUnion(eventId)
+        });
+
+        console.log(`[ServerFinalizer] Finalized attendance for ${data.employeeId} on ${recDate} at ${finalCheckoutTime}`);
+      }
+    }
+  } catch (err) {
+    console.warn("[ServerFinalizer] Error during background finalizer run:", err);
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -1066,6 +1193,11 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Office Management System Server running on http://0.0.0.0:${PORT}`);
+    // Run finalizer on boot and every 60 seconds
+    runServerAttendanceFinalizer().catch(() => {});
+    setInterval(() => {
+      runServerAttendanceFinalizer().catch(() => {});
+    }, 60000);
   });
 }
 

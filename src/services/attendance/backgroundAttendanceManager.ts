@@ -13,6 +13,7 @@ import {
 import { registerNativeOfficeGeofence, initNativeGeofenceListener, reconcileNativeGeofenceEvents } from './nativeGeofenceBridge';
 import { isMedianApp, initializeMedianBackgroundLocation, startMedianBackgroundLocation } from './medianBackgroundLocation';
 import { isAdminContextActive } from '../../utils/attendanceUtils';
+import { reconcileAttendanceOnResume } from './resumeReconciliation';
 
 const GEOFENCE_REGISTERED_KEY = 'exfin_office_geofence_25m';
 
@@ -208,6 +209,9 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
   const infoOnBoot = getEmployeeInfo();
   if (infoOnBoot?.id) {
     safeReconcileNativeGeofenceEvents(infoOnBoot.id, infoOnBoot.name, infoOnBoot.townCity || 'Raniganj HQ');
+    reconcileAttendanceOnResume(infoOnBoot.id, infoOnBoot.name, infoOnBoot.townCity || 'Raniganj HQ').catch((e) => {
+      console.warn('[BackgroundAttendanceManager] Boot resume reconciliation error:', e);
+    });
   }
 
   const intervalId = setInterval(() => {
@@ -221,67 +225,53 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
     }
   }, 30000); // Check every 30 seconds
 
+  const triggerResumeReconciliation = () => {
+    logAttendanceEvent('GEOFENCE_ENTER', 'SYSTEM', 'App resumed/focused. Triggering PWA attendance reconciliation.');
+    const info = getEmployeeInfo();
+    if (info?.id) {
+      safeReconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ').then(() => {
+        if (isMedianApp()) {
+          startMedianBackgroundLocation(getEmployeeInfo);
+        }
+        reconcileAttendanceOnResume(info.id, info.name, info.townCity || 'Raniganj HQ').catch((err) => {
+          console.warn('[BackgroundAttendanceManager] Resume reconciliation error:', err);
+        });
+      }).catch((err) => {
+        console.warn('Resume native reconciliation error:', err);
+      });
+    }
+
+    runAutoCheckoutFinalizer();
+
+    if (navigator.onLine) {
+      syncPendingAttendanceRecords().catch(() => {});
+    }
+  };
+
   const handleVisibilityChange = () => {
     if (document.visibilityState === 'visible') {
-      logAttendanceEvent('GEOFENCE_ENTER', 'SYSTEM', 'App brought to foreground. Refreshing attendance state.');
-      
-      const info = getEmployeeInfo();
-      if (info?.id) {
-        // Reconcile any native events first so authoritative background timestamps are restored
-        safeReconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ').then(() => {
-          if (isMedianApp()) {
-            startMedianBackgroundLocation(getEmployeeInfo);
-          }
-
-          // Trigger immediate high-accuracy location check on app resume
-          try {
-            if (Capacitor.isNativePlatform()) {
-              Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000 }).then((pos) => {
-                if (pos?.coords) {
-                  handleLocationUpdateForAttendance(
-                    pos.coords.latitude,
-                    pos.coords.longitude,
-                    info.id,
-                    info.name,
-                    info.townCity || 'Raniganj HQ'
-                  );
-                }
-              }).catch((e) => console.warn('Resume GPS fetch error:', e));
-            } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
-              navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                  handleLocationUpdateForAttendance(
-                    pos.coords.latitude,
-                    pos.coords.longitude,
-                    info.id,
-                    info.name,
-                    info.townCity || 'Raniganj HQ'
-                  );
-                },
-                (err) => console.warn('Resume Web GPS error:', err),
-                { enableHighAccuracy: true, timeout: 5000 }
-              );
-            }
-          } catch (err) {
-            console.warn('App resume location update error:', err);
-          }
-        }).catch((err) => {
-          console.warn('Resume native reconciliation error:', err);
-        });
-      }
-
-      runAutoCheckoutFinalizer();
-
-      if (navigator.onLine) {
-        syncPendingAttendanceRecords().catch(() => {});
-      }
+      triggerResumeReconciliation();
     } else {
       logAttendanceEvent('GEOFENCE_EXIT', 'SYSTEM', 'App minimized/backgrounded. Background geofence monitoring active.');
     }
   };
 
+  const handleFocus = () => {
+    triggerResumeReconciliation();
+  };
+
+  const handlePageShow = () => {
+    triggerResumeReconciliation();
+  };
+
+  const handleOnline = () => {
+    triggerResumeReconciliation();
+  };
+
   document.addEventListener('visibilitychange', handleVisibilityChange);
-  window.addEventListener('online', syncPendingAttendanceRecords);
+  window.addEventListener('focus', handleFocus);
+  window.addEventListener('pageshow', handlePageShow);
+  window.addEventListener('online', handleOnline);
 
   logStartupTag('AUTO_ATTENDANCE_READY', 'Background attendance monitoring and automatic check-in listener ready');
 
@@ -291,6 +281,8 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
     if (cleanupNativeListener) cleanupNativeListener();
     if (cleanupMedian) cleanupMedian();
     document.removeEventListener('visibilitychange', handleVisibilityChange);
-    window.removeEventListener('online', syncPendingAttendanceRecords);
+    window.removeEventListener('focus', handleFocus);
+    window.removeEventListener('pageshow', handlePageShow);
+    window.removeEventListener('online', handleOnline);
   };
 };

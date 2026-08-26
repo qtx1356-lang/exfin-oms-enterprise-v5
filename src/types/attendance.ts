@@ -3,6 +3,26 @@ export type CheckOutMode = 'MANUAL' | 'AUTO_SYSTEM' | 'N/A';
 export type SyncStatus = 'Pending' | 'Synced';
 export type AttendanceType = 'OFFICE' | 'WFH' | 'CLIENT_VISIT' | 'OUTDOOR';
 
+export type EvidenceSource = 
+  | 'FOREGROUND_GPS' 
+  | 'PWA_RESUME_GPS' 
+  | 'NATIVE_GEOFENCE' 
+  | 'MANUAL' 
+  | 'SERVER_FINALIZATION' 
+  | 'SYSTEM_RECONCILIATION';
+
+export interface AttendanceObservation {
+  timestamp: string; // ISO string
+  timeStr: string; // "10:00 AM"
+  latitude: number | null;
+  longitude: number | null;
+  distance: number | null;
+  accuracy?: number;
+  townCity: string;
+  isInsideOffice: boolean;
+  evidenceSource: EvidenceSource;
+}
+
 export type AttendanceState = 
   | 'OUTSIDE'
   | 'ENTERING'
@@ -175,6 +195,11 @@ export interface AttendanceRecord {
   // State Machine & Idempotency tracking
   currentState?: AttendanceState;
   processedEvents?: string[]; // List of eventIds processed for this record
+  episodeId?: string | null;
+  evidenceSource?: EvidenceSource;
+  lastObservation?: AttendanceObservation;
+  exitObservations?: AttendanceObservation[];
+  returnObservations?: AttendanceObservation[];
 
   // Work From Home (WFH) fields
   wfhReason?: string | null;
