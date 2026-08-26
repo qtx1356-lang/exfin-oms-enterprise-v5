@@ -222,11 +222,11 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
   // Sync tasks and attendance when selecting the active logged-in employee
   useEffect(() => {
-    if (targetEmpCode === activeEmployeeCode) {
+    if (targetEmpCode === activeEmployeeCode && !isAdmin && !isTeamLeader) {
       setTasks(syncTasks);
       setAttendance(syncAttendance);
     }
-  }, [syncTasks, syncAttendance, targetEmpCode, activeEmployeeCode]);
+  }, [syncTasks, syncAttendance, targetEmpCode, activeEmployeeCode, isAdmin, isTeamLeader]);
 
   // Firestore Subscriptions
   useEffect(() => {
@@ -267,78 +267,37 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       setAllEmployees([employeeData]);
     }
 
-    // 2. TARGETED TASKS & ATTENDANCE LISTENERS (Only needed if inspecting a different employee)
-    // If inspecting current employee, realtimeSync already provides stream with zero overhead.
-    if (targetCode !== activeEmployeeCode) {
+    // 2. UNIFIED TASKS & ATTENDANCE LISTENERS FOR ADMINS & TEAM LEADERS
+    if (isAdmin || isTeamLeader) {
       setLoading(true);
 
-      const fetchedTasksMap = new Map<string, TaskRecord>();
-      const fetchedAttMap = new Map<string, AttendanceRecord>();
-
-      const taskQueries = [];
-      if (targetCode) {
-        taskQueries.push(
-          query(collection(db, 'tasks'), where('assignedToEmployeeCodes', 'array-contains', targetCode), limit(200))
-        );
-        taskQueries.push(
-          query(collection(db, 'tasks'), where('assignedToEmployeeIds', 'array-contains', targetCode), limit(200))
-        );
-      }
-      if (targetId && targetId !== targetCode) {
-        taskQueries.push(
-          query(collection(db, 'tasks'), where('assignedToEmployeeCodes', 'array-contains', targetId), limit(200))
-        );
-        taskQueries.push(
-          query(collection(db, 'tasks'), where('assignedToEmployeeIds', 'array-contains', targetId), limit(200))
-        );
-      }
-
-      const attendanceQueries = [];
-      if (targetCode) {
-        attendanceQueries.push(
-          query(collection(db, 'attendance'), where('employeeCode', '==', targetCode), limit(365))
-        );
-        attendanceQueries.push(
-          query(collection(db, 'attendance'), where('employeeId', '==', targetCode), limit(365))
-        );
-      }
-      if (targetId && targetId !== targetCode) {
-        attendanceQueries.push(
-          query(collection(db, 'attendance'), where('employeeCode', '==', targetId), limit(365))
-        );
-        attendanceQueries.push(
-          query(collection(db, 'attendance'), where('employeeId', '==', targetId), limit(365))
-        );
-      }
-
-      taskQueries.forEach((q, idx) => {
-        const unsub = onSnapshot(q, (snap) => {
-          snap.docs.forEach(doc => {
-            fetchedTasksMap.set(doc.id, { id: doc.id, ...doc.data() } as TaskRecord);
-          });
-          setTasks(Array.from(fetchedTasksMap.values()));
-          setLoading(false);
-        }, (err) => {
-          console.warn(`[EFFICIENCY_FIRESTORE_ERROR] path=tasks queryIndex=${idx} notice:`, err);
-          setLoading(false);
+      const unsubTasks = onSnapshot(collection(db, 'tasks'), (snap) => {
+        const list: TaskRecord[] = [];
+        snap.docs.forEach(doc => {
+          list.push({ id: doc.id, ...doc.data() } as TaskRecord);
         });
-        unsubs.push(unsub);
+        setTasks(list);
+        setLoading(false);
+      }, (err) => {
+        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks notice:', err);
+        setLoading(false);
       });
+      unsubs.push(unsubTasks);
 
-      attendanceQueries.forEach((q, idx) => {
-        const unsub = onSnapshot(q, (snap) => {
-          snap.docs.forEach(doc => {
-            fetchedAttMap.set(doc.id, { id: doc.id, ...doc.data() } as AttendanceRecord);
-          });
-          setAttendance(Array.from(fetchedAttMap.values()));
-          setLoading(false);
-        }, (err) => {
-          console.warn(`[EFFICIENCY_FIRESTORE_ERROR] path=attendance queryIndex=${idx} notice:`, err);
-          setLoading(false);
+      const unsubAtt = onSnapshot(collection(db, 'attendance'), (snap) => {
+        const list: AttendanceRecord[] = [];
+        snap.docs.forEach(doc => {
+          list.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
         });
-        unsubs.push(unsub);
+        setAttendance(list);
+        setLoading(false);
+      }, (err) => {
+        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance notice:', err);
+        setLoading(false);
       });
+      unsubs.push(unsubAtt);
     } else {
+      // If we are inspecting ourselves as a standard employee, our local sync hook does the work
       setLoading(false);
     }
 
