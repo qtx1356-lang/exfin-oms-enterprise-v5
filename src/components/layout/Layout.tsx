@@ -25,6 +25,7 @@ import { NotificationRecord } from '../../types/notification';
 import { motion, AnimatePresence } from 'motion/react';
 import { InAppNotificationToast, ToastPayload } from '../common/InAppNotificationToast';
 import { CheckoutConfirmationModal } from '../attendance/CheckoutConfirmationModal';
+import { GlobalUnresolvedRecovery } from '../common/GlobalUnresolvedRecovery';
 import { initTaskDeadlineMonitor } from '../../services/planner/taskDeadlineEngine';
 
 const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
@@ -441,6 +442,7 @@ export const Layout: React.FC = () => {
           onDismiss={() => setActiveToastNotif(null)}
         />
         <CheckoutConfirmationModal />
+        <GlobalUnresolvedRecovery />
         <Outlet />
       </main>
       <BottomNav />

@@ -716,35 +716,11 @@ export const EmployeeDashboard: React.FC = () => {
 
   const nextUpcomingLeave = upcomingLeaves.length > 0 ? upcomingLeaves[0] : null;
 
-  // Check for past unresolved attendance records requiring mandatory action
-  const unresolvedAttendance = useMemo(() => {
-    if (!employeeData) return null;
-    const empId = employeeData.employeeCode || employeeData.id;
-    const pastRecords = attendanceRecords
-      .filter((r) => {
-        const rEmp = r.employeeId || r.employeeCode;
-        if (rEmp !== empId) return false;
-        if (r.date >= todayStr) return false;
-        if (r.checkoutStatus === 'UNRESOLVED' || r.checkoutStatus === 'PENDING_ADMIN_REVIEW') return true;
-        const hasCheckout = !!(r.checkOutTime && r.checkOutTime !== '--:--');
-        const isRectified = !!(r.manualRectified || r.isAdminRectified || r.correctedAt);
-        return !hasCheckout && !isRectified && r.checkoutStatus !== 'COMPLETED';
-      })
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    return pastRecords.length > 0 ? pastRecords[0] : null;
-  }, [attendanceRecords, employeeData, todayStr]);
-
   useEffect(() => {
-    // Check if we need to show the popup for unresolved past attendance or missed today
+    // Check if we need to show the popup for missed today
     let targetRecord = null;
     
-    // First check unresolved past attendance
-    if (unresolvedAttendance && unresolvedAttendance.checkoutStatus === 'UNRESOLVED') {
-      if (unresolvedAttendance.attendanceType === 'OFFICE' || !unresolvedAttendance.attendanceType) {
-        targetRecord = unresolvedAttendance;
-      }
-    } else if (todayAttendance && !todayAttendance.checkOutTime && !todayAttendance.exitDetectedTime && !todayAttendance.exitTime) {
+    if (todayAttendance && !todayAttendance.checkOutTime && !todayAttendance.exitDetectedTime && !todayAttendance.exitTime) {
       // If they are checked in today, but their current distance is > 25, they missed the exit detection
       if (todayAttendance.attendanceType === 'OFFICE' || !todayAttendance.attendanceType) {
         if (todayAttendance.currentState === 'CHECKED_IN' && todayAttendance.currentDistance && todayAttendance.currentDistance > 25) {
@@ -759,12 +735,12 @@ export const EmployeeDashboard: React.FC = () => {
     } else {
       setShowUnresolvedModal(false);
     }
-  }, [unresolvedAttendance, todayAttendance]);
+  }, [todayAttendance]);
 
   const handleUnresolvedCheckoutSubmit = async (time: string) => {
     // Determine which record we are resolving
-    let targetRecord = unresolvedAttendance;
-    if (!targetRecord && todayAttendance && !todayAttendance.checkOutTime && todayAttendance.currentDistance && todayAttendance.currentDistance > 25) {
+    let targetRecord = null;
+    if (todayAttendance && !todayAttendance.checkOutTime && todayAttendance.currentDistance && todayAttendance.currentDistance > 25) {
       targetRecord = todayAttendance;
     }
     
@@ -947,30 +923,6 @@ export const EmployeeDashboard: React.FC = () => {
             {greetingPrefix}
           </h2>
         </div>
-
-        {/* UNRESOLVED ATTENDANCE ACTION CARD */}
-        {unresolvedAttendance && (
-          <div className="p-4 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 text-amber-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shadow-lg animate-fade-in">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center flex-shrink-0 border border-amber-500/30">
-                <AlertCircle className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-xs font-black text-white uppercase tracking-wider">Attendance Requires Action</h4>
-                <p className="text-xs text-amber-200/90 mt-0.5">
-                  Your checkout for <strong>{unresolvedAttendance.date}</strong> is {unresolvedAttendance.checkoutSource === 'EMPLOYEE_REPORTED' ? 'awaiting Admin review' : 'unresolved'}.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => navigate('/attendance')}
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black text-xs font-black rounded-xl transition-all flex items-center gap-1.5 flex-shrink-0 self-end sm:self-auto shadow-md"
-            >
-              <span>{unresolvedAttendance.checkoutSource === 'EMPLOYEE_REPORTED' ? 'View Status' : 'Resolve Checkout'}</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
 
         {/* TODAY OVERVIEW CARD */}
         <Card className="p-4 sm:p-5 bg-[rgba(17,24,39,0.92)] border border-[rgba(148,163,184,0.22)] shadow-xl rounded-2xl relative overflow-hidden">
@@ -1551,11 +1503,11 @@ export const EmployeeDashboard: React.FC = () => {
         )}
       </AnimatePresence>
       
-      {showUnresolvedModal && (unresolvedAttendance || todayAttendance) && (
+      {showUnresolvedModal && todayAttendance && (
         <UnresolvedCheckoutModal
           isOpen={showUnresolvedModal}
           onClose={() => setShowUnresolvedModal(false)}
-          record={(unresolvedAttendance?.checkoutStatus === 'UNRESOLVED' ? unresolvedAttendance : todayAttendance) as AttendanceRecord}
+          record={todayAttendance as AttendanceRecord}
           onSubmit={handleUnresolvedCheckoutSubmit}
           isSubmitting={isSubmittingRecovery}
         />
