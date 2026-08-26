@@ -251,6 +251,33 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
 
         syncedCount++;
         success = true;
+
+        // Non-blocking auxiliary WhatsApp notification dispatch upon successful Firestore persistence
+        try {
+          let eventType = 'AUTO_CHECK_IN';
+          const attType = String(record.attendanceType || '');
+          if (record.checkOutTime) {
+            eventType = 'CHECK_OUT';
+          } else if (attType === 'WFH') {
+            eventType = 'WFH';
+          } else if (attType === 'CLIENT_VISIT') {
+            eventType = 'CLIENT_VISIT';
+          } else if (attType === 'OUTDOOR' || attType === 'OUTDOOR_WORK') {
+            eventType = 'OUTDOOR_WORK';
+          } else if (record.exitTime || record.lastExitTime) {
+            eventType = 'OUTSIDE_OFFICE';
+          } else if (record.checkInMode === 'MANUAL') {
+            eventType = 'MANUAL_CHECK_IN';
+          }
+
+          import('../notification/whatsappService').then(({ dispatchAttendanceWhatsApp }) => {
+            dispatchAttendanceWhatsApp(sanitizedRecord as any, eventType).catch((waErr) => {
+              console.warn('[SyncEngine] Auxiliary WhatsApp dispatch warning (non-fatal):', waErr);
+            });
+          }).catch(() => {});
+        } catch (waHookErr) {
+          // Auxiliary notification failure must never block or affect attendance synchronization
+        }
       } catch (err: any) {
         console.error(`Sync Engine: Error syncing attendance record ID ${record.id} (Attempt ${attempt}/${maxAttempts}):`, err);
 

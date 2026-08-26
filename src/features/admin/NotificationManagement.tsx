@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { NotificationDeliveryLog } from './NotificationDeliveryLog';
 import { NotificationMatrixTab } from './NotificationMatrixTab';
+import { WhatsAppConfigTab } from './WhatsAppConfigTab';
 
 // Helper functions for robust Date/Timestamp conversions to handle both Firestore Timestamp and ISO string formats
 const getScheduledDate = (val: any): Date | null => {
@@ -114,7 +115,7 @@ export const NotificationManagement: React.FC = () => {
   const { isSuperAdmin, isAdmin } = usePermission();
   const { user: adminUser, loginId } = useAdminAuth();
 
-  const [activeTab, setActiveTab] = useState<'compose' | 'active' | 'history' | 'delivery' | 'matrix'>('compose');
+  const [activeTab, setActiveTab] = useState<'compose' | 'active' | 'history' | 'delivery' | 'matrix' | 'whatsapp'>('compose');
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -691,6 +692,14 @@ export const NotificationManagement: React.FC = () => {
           >
             Channel Matrix
           </Button>
+          <Button 
+            onClick={() => setActiveTab('whatsapp')} 
+            variant={activeTab === 'whatsapp' ? 'primary' : 'secondary'}
+            className="text-xs flex items-center gap-1.5"
+          >
+            <Send className="w-3.5 h-3.5 text-emerald-400" />
+            <span>WhatsApp Settings</span>
+          </Button>
         </div>
       </div>
 
@@ -1227,6 +1236,10 @@ export const NotificationManagement: React.FC = () => {
 
       {activeTab === 'matrix' && (
         <NotificationMatrixTab />
+      )}
+
+      {activeTab === 'whatsapp' && (
+        <WhatsAppConfigTab />
       )}
 
       {/* Edit Scheduled Campaign Modal Dialog */}

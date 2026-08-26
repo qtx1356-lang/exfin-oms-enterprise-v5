@@ -3,7 +3,7 @@ import { Card } from '../../components/ui/Card';
 import { db } from '../../services/firebase/config';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { NotificationRecord } from '../../types/notification';
-import { MessageCircle, Bell, Smartphone, RefreshCw, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { MessageCircle, Bell, Smartphone, RefreshCw, Info, CheckCircle2, AlertTriangle, Send } from 'lucide-react';
 
 export const NotificationDeliveryLog: React.FC = () => {
   const [logs, setLogs] = useState<NotificationRecord[]>([]);
@@ -99,6 +99,22 @@ export const NotificationDeliveryLog: React.FC = () => {
                     <Bell className="w-3.5 h-3.5 text-emerald-400" /> In-App
                   </span>
                   <span className="text-emerald-400 font-bold">✓</span>
+                </div>
+
+                {/* WhatsApp */}
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 text-purple-200">
+                    <Send className="w-3.5 h-3.5 text-emerald-400" /> WhatsApp
+                  </span>
+                  {log.whatsappStatus === 'DELIVERED' || log.whatsappStatus === 'SENT' ? (
+                    <span className="text-emerald-400 font-bold">✓</span>
+                  ) : log.whatsappStatus === 'FAILED' ? (
+                    <span className="text-rose-400 font-bold">✗</span>
+                  ) : log.channels?.includes('WHATSAPP') ? (
+                    <span className="text-emerald-400 font-bold">✓</span>
+                  ) : (
+                    <span className="text-purple-300/30">—</span>
+                  )}
                 </div>
 
                 {/* Push */}

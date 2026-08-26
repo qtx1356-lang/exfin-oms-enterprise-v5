@@ -70,12 +70,14 @@ export async function sendNotification(payload: CentralNotificationPayload): Pro
   const enableEmail = config ? config.email : true;
   const enableSms = config ? config.sms : false;
   const enablePush = config ? config.push : true;
+  const enableWhatsApp = config ? config.whatsapp : true;
 
   const activeChannels: string[] = ['IN_APP'];
   let inAppStatus: ChannelDeliveryStatus = 'DELIVERED';
   let emailStatus: ChannelDeliveryStatus = 'NOT_REQUIRED';
   let smsStatus: ChannelDeliveryStatus = 'NOT_REQUIRED';
   let pushStatus: ChannelDeliveryStatus = 'NOT_REQUIRED';
+  let whatsappStatus: ChannelDeliveryStatus = 'NOT_REQUIRED';
 
   // 3. Email Dispatch (Secondary)
   if (enableEmail && email) {
@@ -118,7 +120,35 @@ export async function sendNotification(payload: CentralNotificationPayload): Pro
     }
   }
 
-  // 6. Create SINGLE authoritative Notification Record
+  // 6. WhatsApp Dispatch (Auxiliary real-time channel)
+  if (enableWhatsApp && (mobile || payload.employeeCode)) {
+    activeChannels.push('WHATSAPP');
+    try {
+      const waRes = await fetch('/api/notifications/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventId: payload.entityId || idempotencyKey,
+          eventType: payload.type,
+          employeeId: userId || payload.employeeCode,
+          employeeCode: payload.employeeCode,
+          employeeName: payload.employeeCode,
+          employeeMobile: mobile,
+          customMessage: `${payload.title}\n\n${payload.message}`,
+        }),
+      });
+      if (waRes.ok) {
+        whatsappStatus = 'DELIVERED';
+      } else {
+        whatsappStatus = 'FAILED';
+      }
+    } catch (waErr) {
+      console.warn('[CentralNotification] WhatsApp auxiliary dispatch warning:', waErr);
+      whatsappStatus = 'NOT_CONFIGURED';
+    }
+  }
+
+  // 7. Create SINGLE authoritative Notification Record
   const notificationRecord = await createNotification({
     idempotencyKey,
     recipientEmployeeCode: payload.employeeCode,
@@ -137,6 +167,7 @@ export async function sendNotification(payload: CentralNotificationPayload): Pro
     emailStatus,
     smsStatus,
     pushStatus,
+    whatsappStatus,
     source: payload.source || 'SYSTEM',
   } as any);
 

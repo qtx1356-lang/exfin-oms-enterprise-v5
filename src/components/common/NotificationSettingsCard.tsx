@@ -19,6 +19,8 @@ import {
   Info,
   XCircle,
 } from 'lucide-react';
+import { db } from '../../services/firebase/config';
+import { doc, updateDoc } from 'firebase/firestore';
 import {
   getNotificationSettings,
   updateNotificationSettings,
@@ -85,9 +87,24 @@ export const NotificationSettingsCard: React.FC = () => {
     };
   }, [refreshPermissionState]);
 
-  const handleToggle = (key: keyof NotificationSettings) => {
+  const handleToggle = async (key: keyof NotificationSettings) => {
     const updated = updateNotificationSettings({ [key]: !settings[key] });
     setSettings(updated);
+
+    if (key === 'whatsappOptIn') {
+      try {
+        const regId = localStorage.getItem('registrationId');
+        if (regId && db) {
+          const regRef = doc(db, 'registrations', regId);
+          await updateDoc(regRef, {
+            whatsappConsent: updated.whatsappOptIn ? 'YES' : 'NO',
+            whatsappConsentUpdatedAt: new Date().toISOString()
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to sync WhatsApp opt-in preference to cloud profile:', err);
+      }
+    }
   };
 
   // Request Android / OS Permission from button
@@ -447,6 +464,22 @@ export const NotificationSettingsCard: React.FC = () => {
               checked={settings.attendanceNotifs}
               onChange={() => handleToggle('attendanceNotifs')}
               className="accent-purple-500 w-4 h-4 rounded cursor-pointer"
+            />
+          </div>
+
+          <div className="flex items-center justify-between bg-[#211044] p-2.5 rounded-xl border border-emerald-500/20 sm:col-span-2">
+            <div className="flex items-center gap-2">
+              <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+              <div>
+                <span className="font-bold text-white">WhatsApp Attendance Alerts</span>
+                <p className="text-[10px] text-purple-300/70">Receive real-time check-in and checkout slips on WhatsApp</p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={settings.whatsappOptIn}
+              onChange={() => handleToggle('whatsappOptIn')}
+              className="accent-emerald-500 w-4 h-4 rounded cursor-pointer"
             />
           </div>
         </div>

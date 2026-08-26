@@ -87,13 +87,14 @@ export interface NotificationRecord {
   deleted?: boolean;
   deletedUserIds?: string[];
   createdAt?: string; // Backward compatibility fallback
-  channels?: string[]; // 'IN_APP', 'EMAIL', 'SMS', 'PUSH'
+  channels?: string[]; // 'IN_APP', 'EMAIL', 'SMS', 'PUSH', 'WHATSAPP'
   
   // Independent channel delivery statuses
   inAppStatus?: ChannelDeliveryStatus;
   emailStatus?: ChannelDeliveryStatus;
   smsStatus?: ChannelDeliveryStatus;
   pushStatus?: ChannelDeliveryStatus;
+  whatsappStatus?: ChannelDeliveryStatus;
   
   source?: string;
   idempotencyKey?: string;

@@ -5,6 +5,17 @@ import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore, FieldValue, Firestore } from "firebase-admin/firestore";
 import { getAuth, Auth } from "firebase-admin/auth";
 import { createServer as createViteServer } from "vite";
+import { 
+  getWhatsAppConfig, 
+  saveWhatsAppConfig, 
+  getWhatsAppEnvCredentials, 
+  dispatchWhatsAppAttendanceNotification, 
+  sendMetaWhatsAppMessage, 
+  normalizePhoneNumber,
+  DEFAULT_WHATSAPP_TEMPLATES,
+  DEFAULT_META_TEMPLATES,
+  ALLOWED_ATTENDANCE_EVENT_TYPES
+} from "./server/services/whatsappService";
 
 const OFFICE_LAT = 23.616227;
 const OFFICE_LNG = 87.117063;
@@ -96,8 +107,17 @@ async function startServer() {
     });
   });
 
-  // Helper to extract and verify Firebase Admin ID token
-  async function verifyAdminCaller(req: express.Request): Promise<{ uid: string; email?: string; role?: string; loginId?: string } | null> {
+  // Helper to extract and verify Firebase Admin ID token (Admins & Employees)
+  async function verifyCaller(req: express.Request): Promise<{
+    uid: string;
+    email?: string;
+    role: string;
+    loginId?: string;
+    employeeId?: string;
+    employeeCode?: string;
+    isAdmin: boolean;
+    isSuperAdmin: boolean;
+  } | null> {
     if (!authAdmin || !db) return null;
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
@@ -105,22 +125,62 @@ async function startServer() {
     try {
       const decoded = await authAdmin.verifyIdToken(token);
       const uid = decoded.uid;
+
+      // 1. Check admin_users collection
       const adminSnap = await db.collection("admin_users").doc(uid).get();
-      if (!adminSnap.exists) {
-        return { uid, email: decoded.email };
+      if (adminSnap.exists) {
+        const data = adminSnap.data() || {};
+        const role = data.role || "EMPLOYEE";
+        return {
+          uid,
+          email: data.email || decoded.email,
+          role,
+          loginId: data.loginId || "",
+          isAdmin: role === "SUPER_ADMIN" || role === "ADMIN" || role === "HR" || role === "TEAM_LEADER",
+          isSuperAdmin: role === "SUPER_ADMIN"
+        };
       }
-      const data = adminSnap.data() || {};
+
+      // 2. Check registrations collection for employee identification
+      let employeeId = uid;
+      let employeeCode = "";
+      const regSnap = await db.collection("registrations").doc(uid).get();
+      if (regSnap.exists) {
+        const rData = regSnap.data() || {};
+        employeeId = regSnap.id;
+        employeeCode = rData.employeeCode || "";
+      } else {
+        const qSnap = await db.collection("registrations").where("uid", "==", uid).limit(1).get();
+        if (!qSnap.empty) {
+          employeeId = qSnap.docs[0].id;
+          employeeCode = qSnap.docs[0].data().employeeCode || "";
+        } else if (decoded.email) {
+          const qEmail = await db.collection("registrations").where("email", "==", decoded.email).limit(1).get();
+          if (!qEmail.empty) {
+            employeeId = qEmail.docs[0].id;
+            employeeCode = qEmail.docs[0].data().employeeCode || "";
+          }
+        }
+      }
+
       return {
         uid,
-        email: data.email || decoded.email,
-        role: data.role || "EMPLOYEE",
-        loginId: data.loginId || "",
+        email: decoded.email,
+        role: "EMPLOYEE",
+        loginId: "",
+        employeeId,
+        employeeCode,
+        isAdmin: false,
+        isSuperAdmin: false
       };
     } catch (err) {
-      console.error("[Admin Backend] Token verification failed:", err);
+      console.error("[Backend Auth] Token verification failed:", err);
       return null;
     }
   }
+
+  // Backward compatibility alias for existing admin routes
+  const verifyAdminCaller = verifyCaller;
 
   // 1. Super-Admin Reset / Generate Temporary Password for Administrator
   app.post("/api/admin/super-admin/reset-password", async (req, res) => {
@@ -435,6 +495,7 @@ async function startServer() {
 
       // 6. Check Active Attendance and perform INSIDE/OUTSIDE state transitions in a transaction
       const dateStr = getFormattedDateStr(tsDate);
+      const timeStr = getFormattedTimeStr(tsDate);
       const attDocId = `${employeeId}_${dateStr}`;
       const attDocRef = db.collection("attendance").doc(attDocId);
 
@@ -443,7 +504,6 @@ async function startServer() {
 
       await db.runTransaction(async (transaction) => {
         const attSnap = await transaction.get(attDocRef);
-        const timeStr = getFormattedTimeStr(tsDate);
         const eventIso = tsDate.toISOString();
 
         if (!attSnap.exists) {
@@ -664,6 +724,32 @@ async function startServer() {
 
       if (transitionRecorded) {
         console.log(`[Median Backend] Transition successful for ${employeeName} to state: ${targetState} (Distance: ${isLocationUnavailable ? "unavailable" : `${Math.round(distance!)}m`})`);
+        
+        // Auxiliary WhatsApp notification trigger for background geofence events
+        if (db) {
+          try {
+            const isEntry = targetState === "CHECKED_IN";
+            const eventType = isEntry ? "AUTO_CHECK_IN" : "OUTSIDE_OFFICE";
+            const eventId = `evt_bg_${employeeId}_${dateStr}_${eventType}_${timeStr.replace(/\s+/g, '_')}`;
+
+            dispatchWhatsAppAttendanceNotification(db, {
+              eventId,
+              eventType,
+              employeeId,
+              employeeCode: employeeId,
+              employeeName,
+              attendanceType: "OFFICE",
+              checkInTime: timeStr,
+              distance: isLocationUnavailable ? 0 : Math.round(distance!),
+              townCity: townCity || "Raniganj HQ",
+              eventTime: timeStr
+            }).catch((waErr) => {
+              console.warn("[BackgroundAttendance] Auxiliary WhatsApp dispatch warning (non-fatal):", waErr);
+            });
+          } catch (waTriggerErr) {
+            console.warn("[BackgroundAttendance] Non-fatal WhatsApp trigger error:", waTriggerErr);
+          }
+        }
       }
 
       return res.json({
@@ -684,6 +770,278 @@ async function startServer() {
     } catch (err: any) {
       console.error("[Median Backend] Error processing background location:", err);
       return res.status(500).json({ error: "Internal server error processing location" });
+    }
+  });
+
+  // ==========================================
+  // WHATSAPP REAL-TIME NOTIFICATION API ROUTES
+  // ==========================================
+
+  // 1. Dispatch Attendance WhatsApp Notification (Authenticated & Role Checked)
+  app.post("/api/notifications/whatsapp", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) {
+      return res.status(401).json({ error: "Unauthorized: Valid Firebase authentication token required" });
+    }
+
+    if (!db) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+
+    try {
+      const payload = req.body;
+      if (!payload || !payload.eventType) {
+        return res.status(400).json({ error: "Invalid payload: eventType is required" });
+      }
+
+      // Event Type Whitelist Check
+      if (!ALLOWED_ATTENDANCE_EVENT_TYPES.includes(payload.eventType)) {
+        return res.status(400).json({ 
+          error: `Unsupported eventType: ${payload.eventType}. Must be one of: ${ALLOWED_ATTENDANCE_EVENT_TYPES.join(', ')}` 
+        });
+      }
+
+      // Role & Ownership Verification
+      const targetEmployeeId = payload.employeeId || caller.employeeId || caller.uid;
+      const targetEmployeeCode = payload.employeeCode || caller.employeeCode || "";
+
+      if (!caller.isAdmin) {
+        // Regular employees can ONLY trigger attendance notifications for their own account
+        const isOwnAccount = 
+          (caller.employeeId && (caller.employeeId === payload.employeeId || caller.uid === payload.employeeId)) ||
+          (caller.employeeCode && caller.employeeCode === payload.employeeCode) ||
+          caller.uid === payload.employeeId;
+
+        if (!isOwnAccount) {
+          return res.status(403).json({ 
+            error: "Forbidden: Employees can only dispatch attendance notifications for their own verified account" 
+          });
+        }
+      }
+
+      // Server-side enrichment: lookup registration doc to get authoritative details
+      let authoritativeName = payload.employeeName;
+      let authoritativeCode = targetEmployeeCode;
+      let authoritativePhone = "";
+      let authoritativeConsent = "";
+
+      try {
+        let regDoc = null;
+        if (targetEmployeeId) {
+          const doc = await db.collection("registrations").doc(targetEmployeeId).get();
+          if (doc.exists) regDoc = doc;
+        }
+        if (!regDoc && targetEmployeeCode) {
+          const q = await db.collection("registrations").where("employeeCode", "==", targetEmployeeCode).limit(1).get();
+          if (!q.empty) regDoc = q.docs[0];
+        }
+
+        if (regDoc && regDoc.exists) {
+          const rData = regDoc.data() || {};
+          authoritativeName = rData.name || authoritativeName || "Employee";
+          authoritativeCode = rData.employeeCode || authoritativeCode || targetEmployeeId;
+          authoritativePhone = rData.phone || rData.mobileNumber || rData.whatsappNumber || rData.mobile || "";
+          authoritativeConsent = rData.whatsappConsent || rData.whatsappOptIn || "";
+        }
+      } catch (regLookupErr) {
+        console.warn("[WhatsApp API] Registration lookup non-fatal error:", regLookupErr);
+      }
+
+      // Construct verified server payload (ignoring client-injected recipient overrides)
+      const verifiedPayload = {
+        ...payload,
+        employeeId: targetEmployeeId,
+        employeeCode: authoritativeCode || targetEmployeeId,
+        employeeName: authoritativeName || "Employee",
+        employeeMobile: authoritativePhone || undefined,
+        whatsappConsent: authoritativeConsent || undefined
+      };
+
+      const results = await dispatchWhatsAppAttendanceNotification(db, verifiedPayload);
+      return res.json({
+        success: true,
+        results
+      });
+    } catch (err: any) {
+      console.error("[WhatsApp API] Error dispatching notification:", err);
+      return res.status(500).json({ error: err.message || "Internal server error dispatching WhatsApp message" });
+    }
+  });
+
+  // 2. Super-Admin: Get WhatsApp Configuration & Status (Masked)
+  app.get("/api/admin/whatsapp/config", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller || !caller.isAdmin) {
+      return res.status(401).json({ error: "Unauthorized access: Valid Admin token required" });
+    }
+
+    if (!db) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+
+    try {
+      const env = getWhatsAppEnvCredentials();
+      const config = await getWhatsAppConfig(db);
+
+      const maskString = (str: string) => {
+        if (!str || str.length <= 4) return str ? "****" : "";
+        return `${str.slice(0, 3)}****${str.slice(-4)}`;
+      };
+
+      return res.json({
+        configured: env.isConfigured,
+        status: env.isConfigured ? "CONNECTED" : "NOT_CONFIGURED",
+        maskedPhoneNumberId: maskString(env.phoneNumberId),
+        maskedWabaId: maskString(env.businessAccountId),
+        apiVersion: config.apiVersion || env.apiVersion,
+        globalEnabled: config.globalEnabled,
+        recipientMode: config.recipientMode,
+        adminRecipients: config.adminRecipients || [],
+        templates: config.templates || DEFAULT_WHATSAPP_TEMPLATES,
+        metaTemplates: config.metaTemplates || DEFAULT_META_TEMPLATES,
+        updatedAt: config.updatedAt,
+        updatedBy: config.updatedBy
+      });
+    } catch (err: any) {
+      console.error("[WhatsApp Admin] Error fetching config:", err);
+      return res.status(500).json({ error: "Failed to fetch WhatsApp configuration" });
+    }
+  });
+
+  // 3. Super-Admin: Save WhatsApp Configuration
+  app.post("/api/admin/whatsapp/config", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller || !caller.isSuperAdmin) {
+      return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
+    }
+
+    if (!db) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+
+    try {
+      const updateData = req.body;
+      const updatedConfig = await saveWhatsAppConfig(
+        db,
+        {
+          globalEnabled: updateData.globalEnabled,
+          recipientMode: updateData.recipientMode,
+          adminRecipients: updateData.adminRecipients,
+          templates: updateData.templates,
+          metaTemplates: updateData.metaTemplates
+        },
+        caller.email || caller.loginId || "SUPER_ADMIN"
+      );
+
+      // Record Audit Log
+      try {
+        const auditRef = db.collection("audit_logs").doc();
+        await auditRef.set({
+          id: auditRef.id,
+          actionCategory: "SYSTEM_SETTINGS",
+          action: "Updated WhatsApp Notification Configuration",
+          performedByUserId: caller.loginId || caller.uid,
+          performedByName: caller.email || "Super Admin",
+          timestamp: new Date().toISOString(),
+          details: {
+            globalEnabled: updatedConfig.globalEnabled,
+            recipientMode: updatedConfig.recipientMode,
+            adminRecipientsCount: (updatedConfig.adminRecipients || []).length
+          }
+        });
+      } catch (auditErr) {
+        console.warn("[WhatsApp Admin] Non-fatal audit log warning:", auditErr);
+      }
+
+      const env = getWhatsAppEnvCredentials();
+      const maskString = (str: string) => {
+        if (!str || str.length <= 4) return str ? "****" : "";
+        return `${str.slice(0, 3)}****${str.slice(-4)}`;
+      };
+
+      return res.json({
+        configured: env.isConfigured,
+        status: env.isConfigured ? "CONNECTED" : "NOT_CONFIGURED",
+        maskedPhoneNumberId: maskString(env.phoneNumberId),
+        maskedWabaId: maskString(env.businessAccountId),
+        apiVersion: updatedConfig.apiVersion || env.apiVersion,
+        globalEnabled: updatedConfig.globalEnabled,
+        recipientMode: updatedConfig.recipientMode,
+        adminRecipients: updatedConfig.adminRecipients || [],
+        templates: updatedConfig.templates || DEFAULT_WHATSAPP_TEMPLATES,
+        metaTemplates: updatedConfig.metaTemplates || DEFAULT_META_TEMPLATES,
+        updatedAt: updatedConfig.updatedAt,
+        updatedBy: updatedConfig.updatedBy
+      });
+    } catch (err: any) {
+      console.error("[WhatsApp Admin] Error saving config:", err);
+      return res.status(500).json({ error: "Failed to save WhatsApp configuration" });
+    }
+  });
+
+  // 4. Super-Admin: Send Live Test WhatsApp Message
+  app.post("/api/admin/whatsapp/test", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller || !caller.isSuperAdmin) {
+      return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
+    }
+
+    const { recipient, testMessage, templateName, languageCode, type } = req.body;
+    if (!recipient) {
+      return res.status(400).json({ error: "Recipient phone number is required" });
+    }
+
+    try {
+      const messageBody = testMessage || "EXFIN OMS WhatsApp Connection Test Successful.";
+      
+      let sendRes;
+      if (type === 'template' && templateName) {
+        sendRes = await sendMetaWhatsAppMessage(recipient, {
+          type: 'template',
+          templateName,
+          languageCode: languageCode || 'en',
+          parameters: [{ type: 'text', text: 'Admin Test' }],
+          textBody: messageBody
+        });
+      } else {
+        sendRes = await sendMetaWhatsAppMessage(recipient, messageBody);
+      }
+
+      if (sendRes.success) {
+        // Record Audit Log
+        if (db) {
+          try {
+            const auditRef = db.collection("audit_logs").doc();
+            await auditRef.set({
+              id: auditRef.id,
+              actionCategory: "SYSTEM_SETTINGS",
+              action: "Sent WhatsApp Live Test Message",
+              performedByUserId: caller.loginId || caller.uid,
+              performedByName: caller.email || "Super Admin",
+              timestamp: new Date().toISOString(),
+              details: {
+                recipientPhone: normalizePhoneNumber(recipient),
+                providerMessageId: sendRes.providerMessageId,
+                templateUsed: templateName || 'text'
+              }
+            });
+          } catch (e) {}
+        }
+
+        return res.json({
+          success: true,
+          message: "Test WhatsApp message sent successfully!",
+          providerMessageId: sendRes.providerMessageId
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: sendRes.error || "Failed to send WhatsApp test message via Meta API"
+        });
+      }
+    } catch (err: any) {
+      console.error("[WhatsApp Admin] Error sending test message:", err);
+      return res.status(500).json({ error: err.message || "Failed to execute WhatsApp test dispatch" });
     }
   });
 

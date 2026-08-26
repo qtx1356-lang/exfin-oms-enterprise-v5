@@ -6,6 +6,7 @@ export interface NotificationSettings {
   leaveNotifs: boolean;
   teamNotifs: boolean;
   attendanceNotifs: boolean;
+  whatsappOptIn: boolean;
 }
 
 const STORAGE_KEY = 'exfin_notification_settings';
@@ -18,6 +19,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   leaveNotifs: true,
   teamNotifs: true,
   attendanceNotifs: true,
+  whatsappOptIn: true,
 };
 
 export const getNotificationSettings = (): NotificationSettings => {

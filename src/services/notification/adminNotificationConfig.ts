@@ -11,10 +11,101 @@ export interface EventNotificationConfig {
   email: boolean;
   sms: boolean;
   push: boolean;
+  whatsapp: boolean;
   isMandatory?: boolean;
 }
 
 export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
+  {
+    eventType: 'AUTO_CHECK_IN',
+    label: 'Automatic Check-in Confirmation',
+    category: 'ATTENDANCE',
+    inApp: true,
+    email: false,
+    sms: false,
+    push: true,
+    whatsapp: true,
+  },
+  {
+    eventType: 'MANUAL_CHECK_IN',
+    label: 'Manual Office Check-in',
+    category: 'ATTENDANCE',
+    inApp: true,
+    email: false,
+    sms: false,
+    push: true,
+    whatsapp: true,
+  },
+  {
+    eventType: 'CHECK_OUT',
+    label: 'Office Check-out Confirmation',
+    category: 'ATTENDANCE',
+    inApp: true,
+    email: false,
+    sms: false,
+    push: true,
+    whatsapp: true,
+  },
+  {
+    eventType: 'WFH',
+    label: 'Work From Home (WFH) Attendance',
+    category: 'ATTENDANCE',
+    inApp: true,
+    email: false,
+    sms: false,
+    push: true,
+    whatsapp: true,
+  },
+  {
+    eventType: 'CLIENT_VISIT',
+    label: 'Client Visit Attendance',
+    category: 'ATTENDANCE',
+    inApp: true,
+    email: false,
+    sms: false,
+    push: true,
+    whatsapp: true,
+  },
+  {
+    eventType: 'OUTDOOR_WORK',
+    label: 'Outdoor Work Attendance',
+    category: 'ATTENDANCE',
+    inApp: true,
+    email: false,
+    sms: false,
+    push: true,
+    whatsapp: true,
+  },
+  {
+    eventType: 'LATE_CHECK_IN',
+    label: 'Late Check-in Alert',
+    category: 'ATTENDANCE',
+    inApp: true,
+    email: false,
+    sms: false,
+    push: true,
+    whatsapp: true,
+  },
+  {
+    eventType: 'OUTSIDE_OFFICE',
+    label: 'Outside Office / Geofence Exit Alert',
+    category: 'ATTENDANCE',
+    inApp: true,
+    email: false,
+    sms: false,
+    push: true,
+    whatsapp: true,
+  },
+  {
+    eventType: 'MISSING_CHECKOUT_REMINDER',
+    label: 'Missing Checkout Reminder',
+    category: 'ATTENDANCE',
+    inApp: true,
+    email: false,
+    sms: false,
+    push: true,
+    whatsapp: true,
+  },
   {
     eventType: 'ATTENDANCE_CORRECTION',
     label: 'Attendance Correction',
@@ -23,25 +114,8 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     email: true,
     sms: false,
     push: true,
+    whatsapp: true,
     isMandatory: true,
-  },
-  {
-    eventType: 'AUTO_CHECKIN',
-    label: 'Automatic Check-in Confirmation',
-    category: 'ATTENDANCE',
-    inApp: true,
-    email: false,
-    sms: false,
-    push: true,
-  },
-  {
-    eventType: 'CHECKOUT_REMINDER',
-    label: 'End-of-day Checkout Reminder',
-    category: 'ATTENDANCE',
-    inApp: true,
-    email: false,
-    sms: false,
-    push: true,
   },
   {
     eventType: 'LEAVE_APPROVED',
@@ -51,6 +125,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     email: true,
     sms: false,
     push: true,
+    whatsapp: false,
   },
   {
     eventType: 'LEAVE_REJECTED',
@@ -60,6 +135,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     email: true,
     sms: false,
     push: true,
+    whatsapp: false,
   },
   {
     eventType: 'EXPENSE_APPROVED',
@@ -69,6 +145,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     email: true,
     sms: false,
     push: true,
+    whatsapp: false,
   },
   {
     eventType: 'EXPENSE_REJECTED',
@@ -78,6 +155,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     email: true,
     sms: false,
     push: true,
+    whatsapp: false,
   },
   {
     eventType: 'TASK_ASSIGNED',
@@ -87,6 +165,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     email: true,
     sms: false,
     push: true,
+    whatsapp: false,
   },
   {
     eventType: 'TASK_OVERDUE',
@@ -96,6 +175,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     email: true,
     sms: false,
     push: true,
+    whatsapp: false,
   },
   {
     eventType: 'TEAM_ASSIGNMENT',
@@ -105,6 +185,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     email: true,
     sms: false,
     push: true,
+    whatsapp: false,
   },
   {
     eventType: 'ACCOUNT_STATUS_CHANGED',
@@ -114,6 +195,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     email: true,
     sms: true,
     push: true,
+    whatsapp: true,
     isMandatory: true,
   },
   {
@@ -124,6 +206,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     email: true,
     sms: true,
     push: true,
+    whatsapp: true,
     isMandatory: true,
   },
   {
@@ -134,11 +217,28 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     email: false,
     sms: false,
     push: true,
+    whatsapp: false,
   },
 ];
 
 const CONFIG_DOC_PATH = 'notification_settings/admin_matrix_config';
 const LOCAL_STORAGE_KEY = 'exfin_admin_notif_matrix';
+
+/**
+ * Helper to normalize and merge matrix configuration with defaults
+ */
+function normalizeMatrix(rawMatrix: EventNotificationConfig[]): EventNotificationConfig[] {
+  const merged = DEFAULT_NOTIFICATION_MATRIX.map((defaultItem) => {
+    const existing = rawMatrix.find((r) => r.eventType === defaultItem.eventType);
+    if (!existing) return defaultItem;
+    return {
+      ...defaultItem,
+      ...existing,
+      whatsapp: existing.whatsapp !== undefined ? existing.whatsapp : defaultItem.whatsapp,
+    };
+  });
+  return merged;
+}
 
 /**
  * Fetch authoritative Admin Notification Matrix Configuration
@@ -149,7 +249,7 @@ export async function getAdminNotificationMatrix(): Promise<EventNotificationCon
       const docRef = doc(db, CONFIG_DOC_PATH);
       const snap = await getDoc(docRef);
       if (snap.exists() && snap.data()?.matrix) {
-        const matrix = snap.data().matrix as EventNotificationConfig[];
+        const matrix = normalizeMatrix(snap.data().matrix as EventNotificationConfig[]);
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(matrix));
         return matrix;
       }
@@ -162,7 +262,7 @@ export async function getAdminNotificationMatrix(): Promise<EventNotificationCon
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (raw) {
-      return JSON.parse(raw);
+      return normalizeMatrix(JSON.parse(raw));
     }
   } catch (e) {
     // ignore

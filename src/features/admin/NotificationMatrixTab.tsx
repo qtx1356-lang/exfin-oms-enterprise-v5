@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Settings, CheckCircle2, Save, ShieldAlert, Mail, MessageSquare, Bell, Smartphone, RefreshCw } from 'lucide-react';
+import { Settings, CheckCircle2, Save, ShieldAlert, Mail, MessageSquare, Bell, Smartphone, RefreshCw, Send } from 'lucide-react';
 import { 
   EventNotificationConfig, 
   getAdminNotificationMatrix, 
@@ -36,7 +36,7 @@ export const NotificationMatrixTab: React.FC = () => {
     }
   };
 
-  const handleToggle = (eventType: string, channel: 'inApp' | 'email' | 'sms' | 'push') => {
+  const handleToggle = (eventType: string, channel: 'inApp' | 'email' | 'sms' | 'push' | 'whatsapp') => {
     setMatrix((prev) =>
       prev.map((item) => {
         if (item.eventType !== eventType) return item;
@@ -93,7 +93,7 @@ export const NotificationMatrixTab: React.FC = () => {
             <Settings className="w-4 h-4 text-purple-400" /> Notification Channel Configuration
           </h3>
           <p className="text-xs text-purple-300/80 mt-0.5">
-            Configure delivery channels (In-App, Email, SMS, Android Push) per event type. In-App is the single source of truth.
+            Configure delivery channels (In-App, Email, SMS, Android Push, WhatsApp) per event type. In-App is the single source of truth.
           </p>
         </div>
 
@@ -129,6 +129,9 @@ export const NotificationMatrixTab: React.FC = () => {
               <th className="pb-3 px-3">Category</th>
               <th className="pb-3 px-3 text-center">
                 <span className="inline-flex items-center gap-1"><Bell className="w-3.5 h-3.5" /> In-App (Primary)</span>
+              </th>
+              <th className="pb-3 px-3 text-center">
+                <span className="inline-flex items-center gap-1 text-emerald-400"><Send className="w-3.5 h-3.5" /> WhatsApp</span>
               </th>
               <th className="pb-3 px-3 text-center">
                 <span className="inline-flex items-center gap-1"><Mail className="w-3.5 h-3.5" /> Email (Secondary)</span>
@@ -170,6 +173,16 @@ export const NotificationMatrixTab: React.FC = () => {
                     disabled={true}
                     className="w-4 h-4 rounded border-purple-500/40 text-purple-600 focus:ring-purple-500 cursor-not-allowed opacity-90"
                     title="In-App is always enabled as the single source of truth"
+                  />
+                </td>
+
+                {/* WHATSAPP */}
+                <td className="py-3.5 px-3 text-center">
+                  <input
+                    type="checkbox"
+                    checked={item.whatsapp ?? false}
+                    onChange={() => handleToggle(item.eventType, 'whatsapp')}
+                    className="w-4 h-4 rounded border-emerald-500/40 text-emerald-500 focus:ring-emerald-500 cursor-pointer accent-emerald-500"
                   />
                 </td>
 
