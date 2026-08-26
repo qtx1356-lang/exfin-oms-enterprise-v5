@@ -33,8 +33,6 @@ import { PayslipScreen } from '../features/employee/PayslipScreen';
 import { ChatScreen } from '../features/employee/ChatScreen';
 import { EmployeeFAQScreen } from '../features/help/EmployeeFAQScreen';
 import { WorkHoursScreen } from '../features/workHours/WorkHoursScreen';
-import { NativeMigrationScreen } from '../components/NativeMigrationScreen';
-import { DownloadAppPage } from '../components/DownloadAppPage';
 
 // Protects /admin/dashboard - accessible by ADMIN, HR, SUPER_ADMIN
 const AdminProtectedRoute = () => {
@@ -178,20 +176,16 @@ export const AppRouter: React.FC = () => {
         {/* Super Admin Routes (Backward Compatibility Redirect) */}
         <Route path="/super-admin/*" element={<Navigate to="/x7Kp9/dashboard" replace />} />
 
-        {/* Native Migration Gateway & Download Routes */}
-        <Route path="/" element={<NativeMigrationScreen />} />
-        <Route path="/download-app" element={<DownloadAppPage />} />
-
-        {/* Legacy Web Dashboard Routes */}
+        {/* Normal Exfin OMS PWA Flow */}
         <Route element={<EmployeeGuard />}>
-          <Route path="/web-dashboard" element={<Layout />}>
+          <Route path="/" element={<Layout />}>
             <Route index element={<EmployeeDashboard />} />
             <Route path="attendance" element={<FeatureGuard feature="attendance"><AttendanceScreen /></FeatureGuard>} />
             <Route path="leave" element={<FeatureGuard feature="leave"><LeaveScreen /></FeatureGuard>} />
             <Route path="expenses" element={<FeatureGuard feature="expenses"><ExpenseScreen /></FeatureGuard>} />
             <Route path="planner" element={<FeatureGuard feature="workPlanner"><PlannerScreen /></FeatureGuard>} />
             <Route path="my-team" element={<FeatureGuard feature="myTeam"><MyTeamScreen /></FeatureGuard>} />
-            <Route path="team" element={<Navigate to="/web-dashboard/my-team" replace />} />
+            <Route path="team" element={<Navigate to="/my-team" replace />} />
             <Route path="efficiency" element={<FeatureGuard feature="employeeEfficiency"><EfficiencyDashboard /></FeatureGuard>} />
             <Route path="notifications" element={<FeatureGuard feature="notifications"><NotificationCenter /></FeatureGuard>} />
             <Route path="sync-center" element={<SyncCenterScreen />} />
@@ -201,6 +195,7 @@ export const AppRouter: React.FC = () => {
             <Route path="faq" element={<EmployeeFAQScreen />} />
             <Route path="work-hours" element={<WorkHoursScreen />} />
           </Route>
+          <Route path="/web-dashboard/*" element={<Navigate to="/" replace />} />
         </Route>
 
         {/* Fallback */}
