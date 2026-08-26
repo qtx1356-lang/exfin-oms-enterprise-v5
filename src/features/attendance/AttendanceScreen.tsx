@@ -606,8 +606,8 @@ export const AttendanceScreen: React.FC = () => {
       if (isInsideGeofence) {
         return {
           text: 'ENTERING OFFICE... READY FOR AUTO CHECK-IN',
-          style: 'bg-purple-500/25 text-purple-200 border-purple-400/40',
-          icon: <Compass className="w-4 h-4 text-purple-300 animate-bounce" />
+          style: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+          icon: <Compass className="w-4 h-4 text-emerald-300 animate-bounce" />
         };
       }
       return {
@@ -618,8 +618,8 @@ export const AttendanceScreen: React.FC = () => {
     }
     return {
       text: 'READY FOR ATTENDANCE SUBMISSION',
-      style: 'bg-purple-600/30 text-purple-200 border-purple-500/40',
-      icon: <Sparkles className="w-4 h-4 text-purple-300" />
+      style: 'bg-[#18C7A0]/20 text-[#18C7A0] border-[#18C7A0]/40',
+      icon: <Sparkles className="w-4 h-4 text-[#18C7A0]" />
     };
   };
 
@@ -772,19 +772,19 @@ export const AttendanceScreen: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-[#120722] text-white p-3 sm:p-6 pb-32 max-w-5xl mx-auto space-y-5 font-sans">
+    <div className="min-h-screen bg-[#071A17] text-[#F5FFFC] p-3 sm:p-6 pb-32 max-w-5xl mx-auto space-y-5 font-sans">
       
       {/* ==================================================== */}
       {/* CLEAN PAGE TITLE */}
       {/* ==================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-teal-500/20">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#1D4840]">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2">
-            <Clock className="w-7 h-7 text-teal-400" /> Attendance
+          <h1 className="text-2xl sm:text-3xl font-black text-[#F5FFFC] tracking-tight flex items-center gap-2">
+            <Clock className="w-7 h-7 text-[#18C7A0]" /> Attendance
           </h1>
-          <p className="text-xs text-teal-200/80 font-medium mt-0.5 flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-teal-400" />
-            {getFormattedDateLong()} • <strong className="text-white">{employeeName}</strong> ({employeeId})
+          <p className="text-xs text-[#A8C7C0] font-medium mt-0.5 flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-[#18C7A0]" />
+            {getFormattedDateLong()} • <strong className="text-[#F5FFFC]">{employeeName}</strong> ({employeeId})
           </p>
         </div>
       </div>
@@ -802,12 +802,12 @@ export const AttendanceScreen: React.FC = () => {
 
       {/* Action Feedback Banner */}
       {actionFeedback && (
-        <div className="p-3.5 bg-purple-900/60 border border-purple-400/40 text-purple-100 rounded-2xl text-xs font-bold flex justify-between items-center shadow-sm animate-fade-in">
+        <div className="p-3.5 bg-[#102D28] border border-[#18C7A0]/40 text-[#F5FFFC] rounded-2xl text-xs font-bold flex justify-between items-center shadow-sm animate-fade-in">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-purple-300" />
+            <Sparkles className="w-4 h-4 text-[#18C7A0]" />
             <span>{actionFeedback}</span>
           </div>
-          <button onClick={() => setActionFeedback(null)} className="text-purple-300 hover:text-white font-bold text-sm px-1">✕</button>
+          <button onClick={() => setActionFeedback(null)} className="text-[#A8C7C0] hover:text-[#F5FFFC] font-bold text-sm px-1">✕</button>
         </div>
       )}
 
@@ -816,7 +816,7 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {activeUnresolvedRecord ? (
         <div className="space-y-5 animate-fade-in">
-          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-[#2D1B5A] via-[#1E113E] to-[#120722] border-2 border-amber-500/40 shadow-2xl space-y-5">
+          <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-[#102D28] via-[#0B2420] to-[#071A17] border-2 border-amber-500/40 shadow-2xl space-y-5">
             <div className="flex items-start justify-between gap-3 pb-3 border-b border-amber-500/20">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 flex-shrink-0">
@@ -833,14 +833,14 @@ export const AttendanceScreen: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <h2 className="text-xl font-black text-white mt-1">
+                  <h2 className="text-xl font-black text-[#F5FFFC] mt-1">
                     CHECKOUT REQUIRES RESOLUTION
                   </h2>
                 </div>
               </div>
             </div>
 
-            <p className="text-xs sm:text-sm text-purple-200/90 leading-relaxed font-medium">
+            <p className="text-xs sm:text-sm text-[#A8C7C0] leading-relaxed font-medium">
               {activeUnresolvedRecord.date === new Date(Date.now() - 86400000).toISOString().split('T')[0]
                 ? "Yesterday's checkout time could not be reliably determined."
                 : `Previous checkout time for ${activeUnresolvedRecord.date} could not be reliably determined.`}
@@ -848,17 +848,17 @@ export const AttendanceScreen: React.FC = () => {
             </p>
 
             {/* Session Details */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-black/40 rounded-2xl border border-purple-500/20 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-[#071A17]/80 rounded-2xl border border-[#1D4840] text-xs">
               <div>
-                <span className="text-[10px] text-purple-400 font-bold uppercase block tracking-wider">Date</span>
-                <span className="text-white font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
+                <span className="text-[10px] text-[#718F88] font-bold uppercase block tracking-wider">Date</span>
+                <span className="text-[#F5FFFC] font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
               </div>
               <div>
-                <span className="text-[10px] text-purple-400 font-bold uppercase block tracking-wider">Check-in</span>
+                <span className="text-[10px] text-[#718F88] font-bold uppercase block tracking-wider">Check-in</span>
                 <span className="text-emerald-400 font-mono font-extrabold text-sm">{activeUnresolvedRecord.checkInTime || '--:--'}</span>
               </div>
               <div className="col-span-2 sm:col-span-1">
-                <span className="text-[10px] text-purple-400 font-bold uppercase block tracking-wider">Checkout</span>
+                <span className="text-[10px] text-[#718F88] font-bold uppercase block tracking-wider">Checkout</span>
                 <span className={`font-extrabold text-sm ${activeUnresolvedRecord.checkoutStatus === 'PENDING_ADMIN_REVIEW' ? 'text-amber-400' : 'text-rose-400'}`}>
                   {activeUnresolvedRecord.checkoutStatus === 'PENDING_ADMIN_REVIEW' ? 'PENDING ADMIN REVIEW' : 'UNRESOLVED'}
                 </span>
@@ -887,15 +887,15 @@ export const AttendanceScreen: React.FC = () => {
                       setIsEditingProposal(true);
                       setProposedTimeInput(activeUnresolvedRecord.employeeProposedCheckoutTime || '');
                     }}
-                    className="px-3 py-1.5 bg-black/40 hover:bg-black/60 text-amber-300 text-xs font-bold rounded-xl border border-amber-500/30 transition-all"
+                    className="px-3 py-1.5 bg-[#071A17] hover:bg-[#0B2420] text-amber-300 text-xs font-bold rounded-xl border border-amber-500/30 transition-all"
                   >
                     Edit Proposed Time
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="space-y-3 p-4 rounded-2xl bg-black/30 border border-purple-500/20">
-                <label className="text-xs font-bold text-white block">
+              <div className="space-y-3 p-4 rounded-2xl bg-[#071A17]/80 border border-[#1D4840]">
+                <label className="text-xs font-bold text-[#F5FFFC] block">
                   Select or enter your actual checkout time for {activeUnresolvedRecord.date}:
                 </label>
 
@@ -904,7 +904,7 @@ export const AttendanceScreen: React.FC = () => {
                     type="time"
                     value={proposedTimeInput}
                     onChange={(e) => setProposedTimeInput(e.target.value)}
-                    className="flex-1 px-3.5 py-2.5 bg-purple-950/40 border border-purple-500/30 text-white rounded-xl text-xs focus:ring-2 focus:ring-teal-400 focus:outline-none"
+                    className="flex-1 px-3.5 py-2.5 bg-[#071A17] border border-[#1D4840] text-[#F5FFFC] rounded-xl text-xs focus:ring-2 focus:ring-[#18C7A0] focus:outline-none"
                   />
                   <div className="flex flex-wrap gap-1.5">
                     {['17:30', '18:00', '18:10', '18:30', '19:00', '19:30'].map((preset) => {
@@ -918,8 +918,8 @@ export const AttendanceScreen: React.FC = () => {
                           onClick={() => setProposedTimeInput(preset)}
                           className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
                             proposedTimeInput === preset
-                              ? 'bg-teal-500 text-black border-teal-400'
-                              : 'bg-purple-950/40 text-purple-200 border-purple-500/20 hover:bg-purple-900/40'
+                              ? 'bg-[#18C7A0] text-[#071A17] border-[#18C7A0]'
+                              : 'bg-[#071A17] text-[#A8C7C0] border-[#1D4840] hover:bg-[#0B2420]'
                           }`}
                         >
                           {label}
@@ -941,7 +941,7 @@ export const AttendanceScreen: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsEditingProposal(false)}
-                      className="px-4 py-2 bg-black/40 hover:bg-black/60 text-purple-300 text-xs font-bold rounded-xl border border-purple-500/20 transition-all"
+                      className="px-4 py-2 bg-[#071A17] hover:bg-[#0B2420] text-[#A8C7C0] text-xs font-bold rounded-xl border border-[#1D4840] transition-all"
                     >
                       Cancel
                     </button>
@@ -959,8 +959,8 @@ export const AttendanceScreen: React.FC = () => {
             )}
 
             {/* Continuous Tracking Notice */}
-            <div className="flex items-center gap-2 p-3 bg-purple-950/30 rounded-xl border border-purple-500/15 text-[11px] text-purple-300/80">
-              <Activity className="w-3.5 h-3.5 text-teal-400 flex-shrink-0" />
+            <div className="flex items-center gap-2 p-3 bg-[#071A17] rounded-xl border border-[#1D4840] text-[11px] text-[#A8C7C0]">
+              <Activity className="w-3.5 h-3.5 text-[#18C7A0] flex-shrink-0" />
               <span>
                 <strong>Independent Daily Engine:</strong> Today&apos;s automatic check-in & geofence tracking continues working normally in the background.
               </span>
@@ -974,11 +974,11 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       <div className="space-y-3">
         <div className="flex justify-between items-center px-1">
-          <h2 className="text-xs font-bold text-purple-300 uppercase tracking-wider">
+          <h2 className="text-xs font-bold text-[#A8C7C0] uppercase tracking-wider">
             Select Attendance Mode
           </h2>
           {todayRecord && (
-            <span className="text-[10px] bg-purple-900/60 text-purple-200 font-extrabold px-2.5 py-0.5 rounded-full border border-purple-500/30">
+            <span className="text-[10px] bg-[#102D28] text-[#A8C7C0] font-extrabold px-2.5 py-0.5 rounded-full border border-[#1D4840]">
               Mode Locked for Today
             </span>
           )}
@@ -993,24 +993,24 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('OFFICE')}
             className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
               activeMode === 'OFFICE'
-                ? 'border-[#7C3AED] bg-[#381F6D] shadow-[0_0_20px_rgba(124,58,237,0.35)] ring-2 ring-[#7C3AED]'
-                : 'border-purple-500/20 bg-[#2D1B5A]/70 hover:border-purple-400/40 hover:bg-[#2D1B5A]'
+                ? 'border-[#18C7A0] bg-[#143730] shadow-[0_0_20px_rgba(24,199,160,0.25)] ring-2 ring-[#18C7A0]'
+                : 'border-[#1D4840] bg-[#102D28]/80 hover:border-[#18C7A0]/40 hover:bg-[#143730]'
             } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🏢</span>
               {activeMode === 'OFFICE' && (
-                <span className="w-4 h-4 rounded-full bg-[#7C3AED] text-white flex items-center justify-center text-[10px]">
+                <span className="w-4 h-4 rounded-full bg-[#18C7A0] text-[#071A17] flex items-center justify-center text-[10px]">
                   <Check className="w-3 h-3" />
                 </span>
               )}
               {todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' && (
-                <Lock className="w-3.5 h-3.5 text-purple-400/60" />
+                <Lock className="w-3.5 h-3.5 text-[#718F88]" />
               )}
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-white">Office</h3>
-              <p className="text-[10px] text-purple-300 font-medium leading-tight mt-0.5">25m Geofence</p>
+              <h3 className="font-extrabold text-xs text-[#F5FFFC]">Office</h3>
+              <p className="text-[10px] text-[#A8C7C0] font-medium leading-tight mt-0.5">25m Geofence</p>
             </div>
           </button>
 
@@ -1021,8 +1021,8 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('WFH')}
             className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
               activeMode === 'WFH'
-                ? 'border-emerald-500 bg-[#1E3B30] shadow-[0_0_20px_rgba(16,185,129,0.3)] ring-2 ring-emerald-500'
-                : 'border-purple-500/20 bg-[#2D1B5A]/70 hover:border-emerald-400/40 hover:bg-[#2D1B5A]'
+                ? 'border-emerald-500 bg-[#143730] shadow-[0_0_20px_rgba(34,197,94,0.25)] ring-2 ring-emerald-500'
+                : 'border-[#1D4840] bg-[#102D28]/80 hover:border-emerald-400/40 hover:bg-[#143730]'
             } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
@@ -1039,8 +1039,8 @@ export const AttendanceScreen: React.FC = () => {
               </div>
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-white">Work From Home</h3>
-              <p className="text-[10px] text-purple-300 font-medium leading-tight mt-0.5">Max 2 per Month</p>
+              <h3 className="font-extrabold text-xs text-[#F5FFFC]">Work From Home</h3>
+              <p className="text-[10px] text-[#A8C7C0] font-medium leading-tight mt-0.5">Max 2 per Month</p>
             </div>
           </button>
 
@@ -1051,8 +1051,8 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('CLIENT_VISIT')}
             className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
               activeMode === 'CLIENT_VISIT'
-                ? 'border-amber-500 bg-[#3B2D1E] shadow-[0_0_20px_rgba(245,158,11,0.3)] ring-2 ring-amber-500'
-                : 'border-purple-500/20 bg-[#2D1B5A]/70 hover:border-amber-400/40 hover:bg-[#2D1B5A]'
+                ? 'border-amber-500 bg-[#143730] shadow-[0_0_20px_rgba(245,158,11,0.25)] ring-2 ring-amber-500'
+                : 'border-[#1D4840] bg-[#102D28]/80 hover:border-amber-400/40 hover:bg-[#143730]'
             } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
@@ -1064,8 +1064,8 @@ export const AttendanceScreen: React.FC = () => {
               )}
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-white">Client Visit</h3>
-              <p className="text-[10px] text-purple-300 font-medium leading-tight mt-0.5">On-site Meetings</p>
+              <h3 className="font-extrabold text-xs text-[#F5FFFC]">Client Visit</h3>
+              <p className="text-[10px] text-[#A8C7C0] font-medium leading-tight mt-0.5">On-site Meetings</p>
             </div>
           </button>
 
@@ -1076,21 +1076,21 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('OUTDOOR')}
             className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
               activeMode === 'OUTDOOR'
-                ? 'border-indigo-500 bg-[#2A234A] shadow-[0_0_20px_rgba(99,102,241,0.3)] ring-2 ring-indigo-500'
-                : 'border-purple-500/20 bg-[#2D1B5A]/70 hover:border-indigo-400/40 hover:bg-[#2D1B5A]'
+                ? 'border-cyan-500 bg-[#143730] shadow-[0_0_20px_rgba(6,182,212,0.25)] ring-2 ring-cyan-500'
+                : 'border-[#1D4840] bg-[#102D28]/80 hover:border-cyan-400/40 hover:bg-[#143730]'
             } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🚗</span>
               {activeMode === 'OUTDOOR' && (
-                <span className="w-4 h-4 rounded-full bg-indigo-500 text-white flex items-center justify-center text-[10px]">
+                <span className="w-4 h-4 rounded-full bg-cyan-500 text-white flex items-center justify-center text-[10px]">
                   <Check className="w-3 h-3" />
                 </span>
               )}
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-white">Outdoor Work</h3>
-              <p className="text-[10px] text-purple-300 font-medium leading-tight mt-0.5">Field & Market Duty</p>
+              <h3 className="font-extrabold text-xs text-[#F5FFFC]">Outdoor Work</h3>
+              <p className="text-[10px] text-[#A8C7C0] font-medium leading-tight mt-0.5">Field & Market Duty</p>
             </div>
           </button>
         </div>
@@ -1100,12 +1100,12 @@ export const AttendanceScreen: React.FC = () => {
           {activeMode === 'OFFICE' && (
             <div className="space-y-3">
               {/* GPS status / distance indicator */}
-              <div className="p-4 bg-purple-950/60 rounded-2xl border border-purple-500/20 text-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="p-4 bg-[#102D28] rounded-2xl border border-[#1D4840] text-xs flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   <span className="text-lg">📍</span>
                   <div>
-                    <p className="font-extrabold text-white">Office Location Status</p>
-                    <p className="text-[11px] text-purple-300/90 mt-0.5">
+                    <p className="font-extrabold text-[#F5FFFC]">Office Location Status</p>
+                    <p className="text-[11px] text-[#A8C7C0] mt-0.5">
                       {distance === null
                         ? (locationStatus === 'error' ? `GPS lock error: ${errorMessage}` : 'Acquiring high-accuracy GPS satellite lock...')
                         : distance <= 25
@@ -1116,7 +1116,7 @@ export const AttendanceScreen: React.FC = () => {
                 </div>
 
                 {locationStatus === 'loading' && (
-                  <div className="flex items-center gap-1.5 font-bold text-purple-300 animate-pulse">
+                  <div className="flex items-center gap-1.5 font-bold text-[#18C7A0] animate-pulse">
                     <RotateCw className="w-3.5 h-3.5 animate-spin" /> Tracking...
                   </div>
                 )}
@@ -1136,11 +1136,11 @@ export const AttendanceScreen: React.FC = () => {
 
               {/* AUTO CHECK-IN active status */}
               {!todayRecord && locationState === 'INSIDE_OFFICE' && (
-                <div className="bg-[#2D1B5A]/90 backdrop-blur-xl rounded-[22px] border border-purple-400/40 p-5 shadow-[0_0_25px_rgba(124,58,237,0.3)] text-center space-y-3">
-                  <div className="flex items-center justify-center gap-2 text-purple-200 text-xs font-black uppercase tracking-wider">
-                    <Radio className="w-4 h-4 text-[#7C3AED] animate-spin" /> Auto Check-In Active
+                <div className="bg-[#102D28] rounded-[22px] border border-[#18C7A0]/40 p-5 shadow-[0_0_25px_rgba(24,199,160,0.2)] text-center space-y-3">
+                  <div className="flex items-center justify-center gap-2 text-[#18C7A0] text-xs font-black uppercase tracking-wider">
+                    <Radio className="w-4 h-4 text-[#18C7A0] animate-spin" /> Auto Check-In Active
                   </div>
-                  <p className="text-[11px] text-purple-200 font-medium">
+                  <p className="text-[11px] text-[#A8C7C0] font-medium">
                     Inside Office Geofence. Auto Check-in is executing immediately.
                   </p>
                 </div>
@@ -1154,8 +1154,8 @@ export const AttendanceScreen: React.FC = () => {
                     disabled={locationStatus !== 'success' || distance === null || distance > 25}
                     className={`w-full py-4 font-black text-sm rounded-2xl transition-all border ${
                       locationStatus === 'success' && distance !== null && distance <= 25
-                        ? 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white border-purple-400/30 active:scale-95 shadow-lg'
-                        : 'bg-[#1D123C] text-purple-300/40 border-purple-950/40 opacity-40 cursor-not-allowed pointer-events-none shadow-none transform-none'
+                        ? 'bg-[#18C7A0] hover:bg-[#0E9F82] text-[#071A17] border-[#18C7A0]/30 active:scale-95 shadow-lg'
+                        : 'bg-[#0B2420] text-[#718F88] border-[#1D4840] opacity-40 cursor-not-allowed pointer-events-none shadow-none transform-none'
                     }`}
                   >
                     <UserCheck className="w-5 h-5 mr-2" /> 
@@ -1177,7 +1177,7 @@ export const AttendanceScreen: React.FC = () => {
                         className={`w-full py-4 font-black text-sm rounded-2xl transition-all shadow-lg ${
                           isInsideGeofence 
                             ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-400/30 active:scale-95' 
-                            : 'bg-purple-950/60 text-purple-400 border border-purple-500/20 cursor-not-allowed'
+                            : 'bg-[#0B2420] text-[#718F88] border border-[#1D4840] cursor-not-allowed'
                         }`}
                       >
                         <LogOut className="w-5 h-5 mr-2" /> Manual Check-Out (Inside Geofence Only)

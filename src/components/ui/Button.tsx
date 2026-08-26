@@ -13,18 +13,18 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'filled', ...props }, ref) => {
     const variants = {
-      filled: 'bg-[#7C3AED] text-white hover:bg-[#6D28D9] active:scale-[0.98] shadow-lg shadow-purple-900/40 font-bold',
-      outlined: 'border border-purple-400/40 text-purple-200 hover:bg-purple-500/20 active:scale-[0.98]',
-      text: 'text-purple-300 hover:bg-purple-500/15 active:scale-[0.98]',
-      elevated: 'bg-[#35206A] text-white hover:bg-[#3D257A] shadow-md active:scale-[0.98]',
-      tonal: 'bg-[#211044] text-purple-200 hover:bg-[#2D1B5A] active:scale-[0.98]',
+      filled: 'bg-[#18C7A0] text-[#04110E] hover:bg-[#0E9F82] active:bg-[#0E9F82] font-bold rounded-xl shadow-md',
+      outlined: 'border border-[#1D4840] text-[#A8C7C0] hover:bg-[#143730] rounded-xl',
+      text: 'text-[#A8C7C0] hover:bg-[#102D28] rounded-xl',
+      elevated: 'bg-[#143730] text-[#F5FFFC] hover:bg-[#1D4840] shadow-md rounded-xl',
+      tonal: 'bg-[#0B2420] text-[#A8C7C0] hover:bg-[#102D28] rounded-xl',
     };
 
     return (
       <button
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center rounded-full px-6 py-2.5 text-sm font-semibold transition-all duration-75 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C3AED] disabled:opacity-50 disabled:cursor-not-allowed',
+          'inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-bold transition-colors duration-75 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#18C7A0] disabled:bg-[#163B35] disabled:text-[#718F88] disabled:cursor-not-allowed',
           variants[variant],
           className
         )}

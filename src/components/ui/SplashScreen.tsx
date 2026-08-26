@@ -13,7 +13,7 @@ export const SplashScreen: React.FC<{ onFinish: () => void }> = ({ onFinish }) =
     <motion.div 
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-gradient-to-b from-[#170B38] via-[#211044] to-[#2A145B] flex flex-col items-center justify-center z-50 text-white"
+      className="fixed inset-0 bg-gradient-to-b from-[#071A17] via-[#0B2420] to-[#102D28] flex flex-col items-center justify-center z-50 text-[#F5FFFC]"
     >
       <motion.div
         initial={{ scale: 0.85, opacity: 0 }}
@@ -21,8 +21,8 @@ export const SplashScreen: React.FC<{ onFinish: () => void }> = ({ onFinish }) =
         transition={{ duration: 0.5 }}
         className="text-center"
       >
-        <div className="w-20 h-20 mx-auto bg-[#7C3AED] rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(124,58,237,0.6)]">
-          <span className="text-3xl font-black tracking-tighter text-white">EO</span>
+        <div className="w-20 h-20 mx-auto bg-[#18C7A0] rounded-3xl flex items-center justify-center shadow-lg border border-[#35E0B9]/30">
+          <span className="text-3xl font-black tracking-tighter text-[#04110E]">EO</span>
         </div>
       </motion.div>
     </motion.div>

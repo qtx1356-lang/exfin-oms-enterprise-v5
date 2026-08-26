@@ -46,48 +46,40 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const isLocationError = (locationStatus === 'error' || isPermissionDenied || isGpsOff || isLocationUnavailable || isOffline) && distance === null;
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-b from-[#12072B] via-[#1B0B3B] to-[#260E4E] flex flex-col items-center justify-between p-4 sm:p-6 z-40 text-white overflow-y-auto">
+    <div className="fixed inset-0 bg-gradient-to-b from-[#071A17] via-[#0B2420] to-[#102D28] flex flex-col items-center justify-between p-4 sm:p-6 z-40 text-[#F5FFFC] overflow-y-auto">
       {/* Background ambient lighting */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#7C3AED]/20 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-1/3 left-1/2 -translate-x-1/2 w-80 h-80 bg-[#A855F7]/10 rounded-full blur-[90px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#18C7A0]/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-1/3 left-1/2 -translate-x-1/2 w-80 h-80 bg-[#0E9F82]/10 rounded-full blur-[90px] pointer-events-none" />
 
       {/* Main Content Container */}
       <div className="w-full max-w-sm my-auto py-2 flex flex-col items-center text-center relative z-10 space-y-5">
         
-        {/* Central Glowing Icon */}
-        <motion.div 
-          initial={false}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative flex items-center justify-center my-1"
-        >
-          {/* Layered Glow Rings */}
-          <div className="absolute w-24 h-24 rounded-full border border-purple-500/30 bg-[#7C3AED]/15 blur-sm" />
-          <div className="absolute w-20 h-20 rounded-full border border-purple-400/50 shadow-[0_0_20px_rgba(168,85,247,0.4)]" />
-          
-          <div className="relative w-16 h-16 rounded-full bg-gradient-to-tr from-[#6D28D9] via-[#8B5CF6] to-[#A78BFA] p-0.5 shadow-[0_0_30px_rgba(124,58,237,0.6)]">
-            <div className="w-full h-full bg-[#180A36] rounded-full flex items-center justify-center">
+        {/* Central Logo / Icon */}
+        <div className="relative flex items-center justify-center my-1">
+          <div className="w-20 h-20 rounded-full border border-[#1D4840] bg-[#102D28] flex items-center justify-center shadow-lg">
+            <div className="w-16 h-16 rounded-full bg-[#143730] border border-[#18C7A0]/40 flex items-center justify-center">
               {isRegistered ? (
-                <UserCheck className="w-8 h-8 text-[#C4B5FD]" />
+                <UserCheck className="w-8 h-8 text-[#18C7A0]" />
               ) : (
-                <Building2 className="w-8 h-8 text-purple-300" />
+                <Building2 className="w-8 h-8 text-[#18C7A0]" />
               )}
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Time-Aware Greeting */}
         <div>
-          <div className="text-amber-300 font-serif italic text-lg sm:text-xl font-bold tracking-wide flex items-center justify-center gap-1.5 drop-shadow-[0_0_10px_rgba(245,158,11,0.3)]">
+          <div className="text-[#F59E0B] font-serif italic text-lg sm:text-xl font-bold tracking-wide flex items-center justify-center gap-1.5">
             <span>☀️</span>
             <span>{greeting}</span>
           </div>
 
           {/* Employee Welcome */}
-          <h1 className="mt-1 text-2xl sm:text-3xl font-black text-white tracking-tight leading-tight">
+          <h1 className="mt-1 text-2xl sm:text-3xl font-black text-[#F5FFFC] tracking-tight leading-tight">
             {displayName ? (
               <>
-                <span className="block text-xl sm:text-2xl font-bold text-purple-100">Welcome back,</span>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-purple-100 to-purple-300 font-extrabold">
+                <span className="block text-xl sm:text-2xl font-bold text-[#A8C7C0]">Welcome back,</span>
+                <span className="text-[#18C7A0] font-extrabold">
                   {displayName}
                 </span>
               </>
@@ -99,29 +91,29 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
           </h1>
         </div>
 
-        {/* Improved Gold-Accent Automation Banner */}
-        <div className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-[#2A174F] via-[#351B63] to-[#2A174F] border border-amber-400/40 shadow-[0_0_15px_rgba(245,158,11,0.15)] text-center transition-all">
-          <p className="text-xs sm:text-sm font-extrabold text-amber-300 tracking-wide flex items-center justify-center gap-1.5 leading-snug">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+        {/* Automation Banner */}
+        <div className="w-full py-3 px-4 rounded-2xl bg-[#102D28] border border-[#1D4840] text-center">
+          <p className="text-xs sm:text-sm font-extrabold text-[#18C7A0] tracking-wide flex items-center justify-center gap-1.5 leading-snug">
+            <Sparkles className="w-3.5 h-3.5 text-[#18C7A0] shrink-0" />
             <span>✨ AUTOMATIC ATTENDANCE</span>
           </p>
-          <p className="text-[10px] text-purple-200 mt-1 font-semibold">
+          <p className="text-[10px] text-[#A8C7C0] mt-1 font-semibold">
             Check-in & checkout handled automatically
           </p>
         </div>
 
         {/* Compact Location & Attendance Status Card */}
-        <div className={`w-full bg-[#1A0C38]/95 backdrop-blur-md p-4.5 rounded-2xl border text-left shadow-lg ${
+        <div className={`w-full bg-[#102D28] p-4.5 rounded-2xl border text-left shadow-md ${
           isLocationLoading
-            ? 'border-purple-500/25 shadow-purple-500/5'
+            ? 'border-[#1D4840]'
             : isInsideGeofence
-              ? 'border-teal-500/40 shadow-[0_0_20px_rgba(20,184,166,0.15)]'
-              : 'border-pink-500/40 shadow-[0_0_20px_rgba(236,72,153,0.15)]'
+              ? 'border-[#18C7A0]/50'
+              : 'border-[#EF4444]/50'
         }`}>
           {/* Header */}
-          <div className="flex items-center gap-2 mb-3.5 border-b border-purple-500/10 pb-2">
-            <MapPin className={`w-4 h-4 ${isLocationLoading ? 'text-purple-400 animate-pulse' : isInsideGeofence ? 'text-teal-400 animate-pulse' : 'text-pink-400'}`} />
-            <span className="text-xs font-black uppercase tracking-widest text-purple-200">
+          <div className="flex items-center gap-2 mb-3.5 border-b border-[#1D4840] pb-2">
+            <MapPin className={`w-4 h-4 ${isLocationLoading ? 'text-[#18C7A0]' : isInsideGeofence ? 'text-[#18C7A0]' : 'text-[#EF4444]'}`} />
+            <span className="text-xs font-black uppercase tracking-widest text-[#A8C7C0]">
               📍 Location & Attendance
             </span>
           </div>
@@ -131,81 +123,81 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             
             {/* Row 1, Col 1: Location Status */}
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">
+              <span className="text-[10px] font-bold text-[#718F88] uppercase tracking-wider block">
                 Location Status
               </span>
               {isLocationLoading ? (
-                <span className="text-sm font-black text-purple-300 animate-pulse block">
+                <span className="text-sm font-black text-[#A8C7C0] block">
                   Locating...
                 </span>
               ) : distance === null ? (
-                <span className="text-sm font-black text-purple-300 block">
+                <span className="text-sm font-black text-[#A8C7C0] block">
                   {isGpsOff || isPermissionDenied || isLocationError ? 'GPS Unavailable' : 'Locating...'}
                 </span>
               ) : isInsideGeofence ? (
-                <span className="text-sm font-black text-teal-400 flex items-center gap-1 drop-shadow-[0_0_8px_rgba(20,184,166,0.25)]">
-                  <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" /> INSIDE OFFICE
+                <span className="text-sm font-black text-[#18C7A0] flex items-center gap-1">
+                  <CheckCircle2 className="w-4 h-4 text-[#18C7A0] shrink-0" /> INSIDE OFFICE
                 </span>
               ) : (
-                <span className="text-sm font-black text-pink-400 flex items-center gap-1 drop-shadow-[0_0_8px_rgba(236,72,153,0.25)]">
-                  <MapPin className="w-4 h-4 text-pink-400 shrink-0" /> OUTSIDE OFFICE
+                <span className="text-sm font-black text-[#EF4444] flex items-center gap-1">
+                  <MapPin className="w-4 h-4 text-[#EF4444] shrink-0" /> OUTSIDE OFFICE
                 </span>
               )}
             </div>
 
             {/* Row 1, Col 2: Distance */}
-            <div className="space-y-1 border-l border-purple-500/10 pl-4">
-              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">
+            <div className="space-y-1 border-l border-[#1D4840] pl-4">
+              <span className="text-[10px] font-bold text-[#718F88] uppercase tracking-wider block">
                 Distance
               </span>
               {distance !== null ? (
-                <span className="text-sm font-black text-purple-100 block">
+                <span className="text-sm font-black text-[#F5FFFC] block">
                   {formattedDistance}
                 </span>
               ) : isLocationLoading ? (
-                <span className="text-sm font-black text-purple-300 animate-pulse block">
+                <span className="text-sm font-black text-[#A8C7C0] block">
                   Locating...
                 </span>
               ) : isGpsOff || isPermissionDenied || isLocationError ? (
-                <span className="text-sm font-black text-amber-400 block leading-tight">
+                <span className="text-sm font-black text-[#F59E0B] block leading-tight">
                   GPS unavailable
                 </span>
               ) : (
-                <span className="text-sm font-black text-rose-400 block leading-tight">
+                <span className="text-sm font-black text-[#EF4444] block leading-tight">
                   Location unavailable
                 </span>
               )}
             </div>
 
             {/* Row 2, Col 1: Office Radius */}
-            <div className="space-y-1 pt-2.5 border-t border-purple-500/10">
-              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">
+            <div className="space-y-1 pt-2.5 border-t border-[#1D4840]">
+              <span className="text-[10px] font-bold text-[#718F88] uppercase tracking-wider block">
                 Office Radius
               </span>
-              <span className="text-sm font-black text-purple-100 block">
+              <span className="text-sm font-black text-[#F5FFFC] block">
                 25 m
               </span>
             </div>
 
             {/* Row 2, Col 2: Geofence */}
-            <div className="space-y-1 pt-2.5 border-t border-l border-purple-500/10 pl-4">
-              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">
+            <div className="space-y-1 pt-2.5 border-t border-l border-[#1D4840] pl-4">
+              <span className="text-[10px] font-bold text-[#718F88] uppercase tracking-wider block">
                 Geofence
               </span>
               {isLocationLoading ? (
-                <span className="text-sm font-black text-purple-300 animate-pulse block">
+                <span className="text-sm font-black text-[#A8C7C0] block">
                   Checking...
                 </span>
               ) : distance === null ? (
-                <span className="text-sm font-black text-rose-400 block drop-shadow-[0_0_8px_rgba(244,63,94,0.25)]">
+                <span className="text-sm font-black text-[#EF4444] block">
                   UNAVAILABLE
                 </span>
               ) : isInsideGeofence ? (
-                <span className="text-sm font-black text-teal-400 block drop-shadow-[0_0_8px_rgba(20,184,166,0.25)]">
+                <span className="text-sm font-black text-[#18C7A0] block">
                   WITHIN GEOFENCE
                 </span>
               ) : (
-                <span className="text-sm font-black text-pink-400 block drop-shadow-[0_0_8px_rgba(236,72,153,0.25)]">
+                <span className="text-sm font-black text-[#EF4444] block">
                   OUT OF GEOFENCE
                 </span>
               )}
@@ -214,43 +206,43 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
           </div>
         </div>
 
-        {/* Feature Highlights Grid (Pink/Violet Gradient Border) */}
-        <div className="w-full bg-[#180A34]/60 backdrop-blur-md p-3 rounded-2xl border border-pink-500/25 shadow-[0_0_15px_rgba(236,72,153,0.08)] grid grid-cols-4 gap-1.5 text-center">
+        {/* Feature Highlights Grid */}
+        <div className="w-full bg-[#102D28] p-3 rounded-2xl border border-[#1D4840] grid grid-cols-4 gap-1.5 text-center">
           
           {/* Secure Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-1 border border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.1)]">
+            <div className="w-8 h-8 rounded-xl bg-[#143730] text-[#18C7A0] flex items-center justify-center mb-1 border border-[#1D4840]">
               <Lock className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-black text-white block leading-tight">🔒 Secure</span>
-            <span className="text-[8px] text-purple-300/70 block leading-tight mt-0.5 whitespace-nowrap">Protected data</span>
+            <span className="text-[10px] font-black text-[#F5FFFC] block leading-tight">🔒 Secure</span>
+            <span className="text-[8px] text-[#A8C7C0] block leading-tight mt-0.5 whitespace-nowrap">Protected data</span>
           </div>
 
           {/* Smart Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-300 flex items-center justify-center mb-1 border border-purple-500/20 shadow-[0_0_8px_rgba(168,85,247,0.1)]">
-              <Zap className="w-4 h-4 text-purple-400" />
+            <div className="w-8 h-8 rounded-xl bg-[#143730] text-[#18C7A0] flex items-center justify-center mb-1 border border-[#1D4840]">
+              <Zap className="w-4 h-4 text-[#18C7A0]" />
             </div>
-            <span className="text-[10px] font-black text-white block leading-tight">⚡ Smart</span>
-            <span className="text-[8px] text-purple-300/70 block leading-tight mt-0.5 whitespace-nowrap">Auto attendance</span>
+            <span className="text-[10px] font-black text-[#F5FFFC] block leading-tight">⚡ Smart</span>
+            <span className="text-[8px] text-[#A8C7C0] block leading-tight mt-0.5 whitespace-nowrap">Auto attendance</span>
           </div>
 
           {/* Accurate Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-300 flex items-center justify-center mb-1 border border-indigo-500/20 shadow-[0_0_8px_rgba(99,102,241,0.1)]">
-              <Target className="w-4 h-4 text-indigo-400" />
+            <div className="w-8 h-8 rounded-xl bg-[#143730] text-[#18C7A0] flex items-center justify-center mb-1 border border-[#1D4840]">
+              <Target className="w-4 h-4 text-[#18C7A0]" />
             </div>
-            <span className="text-[10px] font-black text-white block leading-tight">🎯 Accurate</span>
-            <span className="text-[8px] text-purple-300/70 block leading-tight mt-0.5 whitespace-nowrap">Precise location</span>
+            <span className="text-[10px] font-black text-[#F5FFFC] block leading-tight">🎯 Accurate</span>
+            <span className="text-[8px] text-[#A8C7C0] block leading-tight mt-0.5 whitespace-nowrap">Precise location</span>
           </div>
 
           {/* Reliable Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-1 border border-amber-500/20 shadow-[0_0_8px_rgba(245,158,11,0.1)]">
-              <Check className="w-4 h-4 text-amber-400" />
+            <div className="w-8 h-8 rounded-xl bg-[#143730] text-[#F59E0B] flex items-center justify-center mb-1 border border-[#1D4840]">
+              <Check className="w-4 h-4 text-[#F59E0B]" />
             </div>
-            <span className="text-[10px] font-black text-white block leading-tight">✓ Reliable</span>
-            <span className="text-[8px] text-purple-300/70 block leading-tight mt-0.5 whitespace-nowrap">Always synced</span>
+            <span className="text-[10px] font-black text-[#F5FFFC] block leading-tight">✓ Reliable</span>
+            <span className="text-[8px] text-[#A8C7C0] block leading-tight mt-0.5 whitespace-nowrap">Always synced</span>
           </div>
 
         </div>
@@ -261,7 +253,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       <div className="w-full max-w-sm pt-2 pb-2 relative z-10">
         <button
           onClick={onProceed}
-          className="w-full py-4 px-6 bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#A78BFA] hover:from-[#6D28D9] hover:to-[#7C3AED] text-white font-black uppercase tracking-wider text-sm sm:text-base rounded-2xl shadow-[0_0_25px_rgba(124,58,237,0.4)] flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] cursor-pointer border border-purple-400/30"
+          className="w-full py-4 px-6 bg-[#18C7A0] hover:bg-[#0E9F82] active:bg-[#0E9F82] text-[#04110E] font-black uppercase tracking-wider text-sm sm:text-base rounded-xl shadow-md flex items-center justify-center gap-2 transition-colors cursor-pointer border border-[#35E0B9]/40"
         >
           <span>{status === 'unregistered' ? 'Continue to Registration' : 'Enter Dashboard'}</span>
           <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />

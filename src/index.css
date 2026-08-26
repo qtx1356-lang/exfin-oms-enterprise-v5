@@ -1,32 +1,58 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #7C3AED;
-  --color-on-primary: #FFFFFF;
-  --color-primary-container: #35206A;
-  --color-on-primary-container: #D8CCF2;
-  --color-secondary: #8B5CF6;
-  --color-on-secondary: #FFFFFF;
-  --color-secondary-container: #2D1B5A;
-  --color-on-secondary-container: #D8CCF2;
-  --color-background: #170B38;
-  --color-surface: #2D1B5A;
-  --color-surface-elevated: #35206A;
-  --color-surface-variant: #211044;
-  --color-on-surface: #FFFFFF;
-  --color-on-surface-variant: #D8CCF2;
-  --color-outline: rgba(167, 139, 250, 0.18);
-  --color-success: #10B981;
-  --color-danger: #EF4444;
+  --color-app-bg: #071A17;
+  --color-app-bg-secondary: #0B2420;
+  --color-card-bg: #102D28;
+  --color-card-elevated: #143730;
+  --color-border-emerald: #1D4840;
+  --color-border-subtle: #163B35;
+  --color-primary: #18C7A0;
+  --color-primary-dark: #0E9F82;
+  --color-primary-light: #35E0B9;
+  --color-on-primary: #04110E;
+  --color-text-primary: #F5FFFC;
+  --color-text-secondary: #A8C7C0;
+  --color-text-muted: #718F88;
+  --color-success: #22C55E;
   --color-warning: #F59E0B;
-  --color-info: #3B82F6;
-  --color-muted: #A99BC4;
+  --color-danger: #EF4444;
+  --color-info: #38BDF8;
+  --color-offline: #F59E0B;
+  
+  --color-background: #071A17;
+  --color-surface: #102D28;
+  --color-surface-elevated: #143730;
+  --color-surface-variant: #0B2420;
+  --color-on-surface: #F5FFFC;
+  --color-on-surface-variant: #A8C7C0;
+  --color-outline: #1D4840;
+  --color-muted: #718F88;
+}
+
+:root {
+  --app-bg: #071A17;
+  --app-bg-secondary: #0B2420;
+  --card-bg: #102D28;
+  --card-elevated: #143730;
+  --border: #1D4840;
+  --border-subtle: #163B35;
+  --primary: #18C7A0;
+  --primary-dark: #0E9F82;
+  --primary-light: #35E0B9;
+  --text-primary: #F5FFFC;
+  --text-secondary: #A8C7C0;
+  --text-muted: #718F88;
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --info: #38BDF8;
 }
 
 body {
-  background: linear-gradient(180deg, #12072B 0%, #1B0B3B 50%, #260E4E 100%);
+  background: linear-gradient(180deg, #071A17 0%, #0B2420 55%, #102D28 100%);
   background-attachment: fixed;
-  color: #FFFFFF;
+  color: #F5FFFC;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   margin: 0;
   padding: 0;
@@ -39,21 +65,21 @@ button, a, input, select, textarea, [role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Custom scrollbar for deep purple theme */
+/* Custom scrollbar for Midnight Emerald theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #170B38;
+  background: #071A17;
 }
 ::-webkit-scrollbar-thumb {
-  background: #35206A;
+  background: #143730;
   border-radius: 9999px;
-  border: 1px solid rgba(167, 139, 250, 0.2);
+  border: 1px solid #1D4840;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #7C3AED;
+  background: #18C7A0;
 }
 
 /* Enterprise Form Inputs default styling */
@@ -65,11 +91,11 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: #211044 !important;
-  color: #FFFFFF !important;
-  border: 1px solid rgba(167, 139, 250, 0.25) !important;
+  background-color: #0B2420 !important;
+  color: #F5FFFC !important;
+  border: 1px solid #1D4840 !important;
   border-radius: 14px !important;
-  transition: all 0.2s ease-in-out;
+  transition: border-color 0.15s ease-in-out;
 }
 
 input[type="text"]:focus,
@@ -81,13 +107,13 @@ input[type="time"]:focus,
 textarea:focus,
 select:focus {
   outline: none !important;
-  border-color: #7C3AED !important;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.3) !important;
+  border-color: #18C7A0 !important;
+  box-shadow: 0 0 0 2px rgba(24, 199, 160, 0.2) !important;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #A99BC4 !important;
+  color: #718F88 !important;
 }
 
 @keyframes subtlePulse {

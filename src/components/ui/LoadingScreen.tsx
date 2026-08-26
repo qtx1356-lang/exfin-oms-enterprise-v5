@@ -10,7 +10,7 @@ export const LoadingScreen: React.FC<{ fullScreen?: boolean }> = ({ fullScreen =
     );
   }
   return (
-    <div className="fixed inset-0 bg-gradient-to-b from-[#170B38] to-[#2A145B] flex flex-col items-center justify-center z-[9999] text-white">
+    <div className="fixed inset-0 bg-gradient-to-b from-[#071A17] via-[#0B2420] to-[#102D28] flex flex-col items-center justify-center z-[9999] text-[#F5FFFC]">
       <Loader size="lg" />
     </div>
   );

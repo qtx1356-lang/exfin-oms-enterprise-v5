@@ -13,15 +13,15 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant = 'elevated', ...props }, ref) => {
     const variants = {
-      elevated: 'bg-[#2D1B5A] border border-purple-500/20 shadow-[0_10px_30px_rgba(0,0,0,0.35)] text-white',
-      filled: 'bg-[#211044] border border-purple-500/15 text-white',
-      outlined: 'bg-[#2D1B5A]/90 border border-purple-400/25 text-white',
+      elevated: 'bg-[#143730] border border-[#1D4840] shadow-md text-[#F5FFFC]',
+      filled: 'bg-[#102D28] border border-[#1D4840] text-[#F5FFFC]',
+      outlined: 'bg-[#102D28]/90 border border-[#163B35] text-[#F5FFFC]',
     };
 
     return (
       <div
         ref={ref}
-        className={cn('rounded-[22px] overflow-hidden transition-all duration-300', variants[variant], className)}
+        className={cn('rounded-[16px] overflow-hidden', variants[variant], className)}
         {...props}
       />
     );

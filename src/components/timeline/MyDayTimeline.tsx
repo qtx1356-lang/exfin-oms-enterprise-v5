@@ -368,26 +368,23 @@ export const MyDayTimeline: React.FC = () => {
 
   return (
     <>
-      <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 shadow-xl relative overflow-hidden">
-        {/* Background glow */}
-        <div className="absolute top-0 right-0 w-28 h-28 bg-[#7C3AED]/10 rounded-full blur-2xl pointer-events-none" />
-
+      <Card className="p-4 bg-[#102D28] border border-[#1D4840] shadow-md relative overflow-hidden">
         {/* Section Header */}
-        <div className="flex items-center justify-between pb-3 mb-3 border-b border-purple-500/15">
+        <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#1D4840]">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#7C3AED]/20 border border-purple-500/30 flex items-center justify-center text-[#A78BFA]">
+            <div className="w-7 h-7 rounded-lg bg-[#0B2420] border border-[#1D4840] flex items-center justify-center text-[#18C7A0]">
               <Clock className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-xs font-black text-white uppercase tracking-wider">MY DAY</h2>
-              <p className="text-[10px] text-purple-300/70 font-medium">Today's Timeline</p>
+              <h2 className="text-xs font-black text-[#F5FFFC] uppercase tracking-wider">MY DAY</h2>
+              <p className="text-[10px] text-[#A8C7C0] font-medium">Today's Timeline</p>
             </div>
           </div>
 
           {/* Current Status Badge */}
           <div className="flex items-center gap-2">
             {!isOnline && (
-              <span className="text-[9px] font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1">
+              <span className="text-[9px] font-bold text-[#F59E0B] bg-[#F59E0B]/10 px-2 py-0.5 rounded-full border border-[#F59E0B]/20 flex items-center gap-1">
                 <WifiOff className="w-2.5 h-2.5" /> Offline
               </span>
             )}
@@ -402,27 +399,27 @@ export const MyDayTimeline: React.FC = () => {
 
         {/* Timeline Event List or Empty State */}
         {events.length > 0 ? (
-          <div className="relative pl-5 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-purple-500/20">
+          <div className="relative pl-5 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#1D4840]">
             {displayedEvents.map((evt) => {
               const IconComp = evt.icon;
               return (
                 <div key={evt.id} className="relative flex items-start gap-3">
                   {/* Event Marker */}
-                  <div className={`absolute -left-5 top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] shadow ring-4 ring-[#2D1B5A] ${evt.iconBg}`}>
+                  <div className={`absolute -left-5 top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] shadow ring-4 ring-[#102D28] ${evt.iconBg}`}>
                     <IconComp className="w-2.5 h-2.5" />
                   </div>
 
                   {/* Event Card Content */}
-                  <div className="flex-1 bg-[#211044]/80 p-2.5 rounded-xl border border-purple-500/10 hover:border-purple-500/30 transition flex items-start justify-between gap-2">
+                  <div className="flex-1 bg-[#0B2420] p-2.5 rounded-xl border border-[#1D4840] flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[11px] font-black text-white truncate">{evt.title}</span>
+                        <span className="text-[11px] font-black text-[#F5FFFC] truncate">{evt.title}</span>
                       </div>
-                      <p className="text-[10px] text-purple-200/80 leading-relaxed truncate">{evt.description}</p>
+                      <p className="text-[10px] text-[#A8C7C0] leading-relaxed truncate">{evt.description}</p>
                     </div>
 
                     <div className="flex flex-col items-end shrink-0 text-right">
-                      <span className="text-[10px] font-bold text-purple-300/90">{evt.timeStr}</span>
+                      <span className="text-[10px] font-bold text-[#A8C7C0]">{evt.timeStr}</span>
                       <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded border mt-1 ${evt.badgeStyle}`}>
                         {evt.badgeLabel}
                       </span>
@@ -434,19 +431,19 @@ export const MyDayTimeline: React.FC = () => {
           </div>
         ) : (
           /* Empty State */
-          <div className="py-6 px-4 text-center bg-[#211044]/60 rounded-2xl border border-dashed border-purple-500/20">
-            <Sparkles className="w-6 h-6 text-purple-400/60 mx-auto mb-2" />
-            <p className="text-xs font-bold text-white mb-0.5">Your workday hasn't started yet</p>
-            <p className="text-[11px] text-purple-300/70">No attendance or activity recorded today.</p>
+          <div className="py-6 px-4 text-center bg-[#0B2420] rounded-2xl border border-dashed border-[#1D4840]">
+            <Sparkles className="w-6 h-6 text-[#18C7A0] mx-auto mb-2" />
+            <p className="text-xs font-bold text-[#F5FFFC] mb-0.5">Your workday hasn't started yet</p>
+            <p className="text-[11px] text-[#A8C7C0]">No attendance or activity recorded today.</p>
           </div>
         )}
 
         {/* View Full Day Link */}
         {hasMore && (
-          <div className="mt-3 pt-2 border-t border-purple-500/10 text-center">
+          <div className="mt-3 pt-2 border-t border-[#1D4840] text-center">
             <button
               onClick={() => setShowFullDayModal(true)}
-              className="text-xs font-bold text-purple-300 hover:text-white transition flex items-center justify-center gap-1 mx-auto"
+              className="text-xs font-bold text-[#18C7A0] hover:text-[#35E0B9] transition flex items-center justify-center gap-1 mx-auto"
             >
               <span>View Full Day ({events.length} Events) &rarr;</span>
             </button>
@@ -461,53 +458,53 @@ export const MyDayTimeline: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-[#071A17]/80 backdrop-blur-sm flex items-center justify-center p-4"
             onClick={() => setShowFullDayModal(false)}
           >
             <motion.div
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="w-full max-w-lg bg-[#1B0B3B] border border-purple-500/30 rounded-3xl p-5 shadow-2xl overflow-hidden max-h-[85vh] flex flex-col"
+              className="w-full max-w-lg bg-[#0B2420] border border-[#1D4840] rounded-3xl p-5 shadow-2xl overflow-hidden max-h-[85vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-purple-500/20 mb-4">
+              <div className="flex items-center justify-between pb-3 border-b border-[#1D4840] mb-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#7C3AED]/20 border border-purple-500/30 flex items-center justify-center text-[#A78BFA]">
+                  <div className="w-8 h-8 rounded-xl bg-[#102D28] border border-[#1D4840] flex items-center justify-center text-[#18C7A0]">
                     <Clock className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="font-black text-sm text-white">Full Day Timeline</h3>
-                    <p className="text-[10px] text-purple-300/70">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+                    <h3 className="font-black text-sm text-[#F5FFFC]">Full Day Timeline</h3>
+                    <p className="text-[10px] text-[#A8C7C0]">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
                   </div>
                 </div>
 
                 <button
                   onClick={() => setShowFullDayModal(false)}
-                  className="p-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 hover:text-white transition"
+                  className="p-1.5 rounded-full bg-[#102D28] border border-[#1D4840] text-[#A8C7C0] hover:text-[#F5FFFC] transition"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Scrollable Event List */}
-              <div className="flex-1 overflow-y-auto pr-1 space-y-4 relative pl-5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-purple-500/20">
+              <div className="flex-1 overflow-y-auto pr-1 space-y-4 relative pl-5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#1D4840]">
                 {events.map((evt) => {
                   const IconComp = evt.icon;
                   return (
                     <div key={evt.id} className="relative flex items-start gap-3">
-                      <div className={`absolute -left-5 top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] shadow ring-4 ring-[#1B0B3B] ${evt.iconBg}`}>
+                      <div className={`absolute -left-5 top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] shadow ring-4 ring-[#0B2420] ${evt.iconBg}`}>
                         <IconComp className="w-2.5 h-2.5" />
                       </div>
 
-                      <div className="flex-1 bg-[#211044] p-3 rounded-xl border border-purple-500/15 flex items-start justify-between gap-2">
+                      <div className="flex-1 bg-[#102D28] p-3 rounded-xl border border-[#1D4840] flex items-start justify-between gap-2">
                         <div>
-                          <p className="text-xs font-black text-white">{evt.title}</p>
-                          <p className="text-[11px] text-purple-200/80 mt-0.5">{evt.description}</p>
+                          <p className="text-xs font-black text-[#F5FFFC]">{evt.title}</p>
+                          <p className="text-[11px] text-[#A8C7C0] mt-0.5">{evt.description}</p>
                         </div>
                         <div className="text-right shrink-0">
-                          <span className="text-[10px] font-bold text-purple-300">{evt.timeStr}</span>
+                          <span className="text-[10px] font-bold text-[#A8C7C0]">{evt.timeStr}</span>
                           <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded border block mt-1 ${evt.badgeStyle}`}>
                             {evt.badgeLabel}
                           </span>
@@ -519,10 +516,10 @@ export const MyDayTimeline: React.FC = () => {
               </div>
 
               {/* Modal Footer */}
-              <div className="pt-3 mt-4 border-t border-purple-500/20 text-center">
+              <div className="pt-3 mt-4 border-t border-[#1D4840] text-center">
                 <button
                   onClick={() => setShowFullDayModal(false)}
-                  className="w-full py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-extrabold text-xs rounded-xl transition"
+                  className="w-full py-2.5 bg-[#18C7A0] hover:bg-[#0E9F82] text-[#071A17] font-extrabold text-xs rounded-xl transition"
                 >
                   Close
                 </button>
