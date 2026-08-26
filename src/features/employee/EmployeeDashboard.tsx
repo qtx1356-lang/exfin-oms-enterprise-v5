@@ -890,7 +890,7 @@ export const EmployeeDashboard: React.FC = () => {
 
   return (
     <>
-      <div className="flex flex-col gap-5 pb-8 text-[#F8FAFC]">
+      <div className="flex flex-col gap-5 pb-8 text-[#0F172A]">
         {/* Top Header */}
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-3.5">
@@ -902,16 +902,16 @@ export const EmployeeDashboard: React.FC = () => {
               )}
             </div>
             <div>
-              <h1 className="text-lg font-black text-[#F8FAFC] leading-tight">
+              <h1 className="text-lg font-black text-[#0F172A] leading-tight">
                 {employeeData.name || 'Employee'}
               </h1>
-              <p className="text-xs text-[#CBD5E1] font-medium mt-0.5">
-                Code: <span className="text-[#22D3EE] font-bold">{employeeData.employeeCode || 'N/A'}</span>
+              <p className="text-xs text-[#334155] font-medium mt-0.5">
+                Code: <span className="text-[#059669] font-bold">{employeeData.employeeCode || 'N/A'}</span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-[rgba(20,28,42,0.85)] border border-[rgba(148,163,184,0.25)] px-3 py-1.5 rounded-full text-xs font-semibold text-[#CBD5E1] shadow-sm">
+          <div className="flex items-center gap-1.5 bg-[rgba(15,23,32,0.9)] border border-[rgba(148,163,184,0.3)] px-3 py-1.5 rounded-full text-xs font-semibold text-[#CBD5E1] shadow-sm">
             <MapPin className="w-3.5 h-3.5 text-[#22D3EE] shrink-0" />
             <span className="truncate max-w-[130px]">{employeeData.officeLocation || employeeData.workLocation || 'Raniganj HQ'}</span>
           </div>
@@ -919,7 +919,7 @@ export const EmployeeDashboard: React.FC = () => {
 
         {/* Greeting Banner */}
         <div className="text-left py-0.5">
-          <h2 className="text-xl sm:text-2xl font-black text-[#22D3EE] tracking-tight uppercase">
+          <h2 className="text-xl sm:text-2xl font-black text-[#047857] tracking-tight uppercase">
             {greetingPrefix}
           </h2>
         </div>
@@ -1236,10 +1236,10 @@ export const EmployeeDashboard: React.FC = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed inset-0 z-50 bg-[#0F1317] overflow-y-auto"
+            className="fixed inset-0 z-50 bg-[#EAF7EE] overflow-y-auto"
           >
             <div className="container mx-auto p-4 max-w-3xl">
-              <div className="flex flex-col gap-5 pb-8 text-[#F5F7F6] min-h-screen">
+              <div className="flex flex-col gap-5 pb-8 text-[#0F172A] min-h-screen">
                 {/* Work Pulse Header */}
                 <div className="flex flex-col gap-4 pt-2">
                   <button 
@@ -1250,13 +1250,13 @@ export const EmployeeDashboard: React.FC = () => {
                   </button>
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-[10px] font-black text-[#18C98F] uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                      <p className="text-[10px] font-black text-[#047857] uppercase tracking-widest mb-1 flex items-center gap-1.5">
                         <Activity className="w-3.5 h-3.5" /> WORK PULSE
                       </p>
-                      <h1 className="text-2xl font-black text-[#F5F7F6] leading-tight">
+                      <h1 className="text-2xl font-black text-[#0F172A] leading-tight">
                         Your Work Pulse Snapshot
                       </h1>
-                      <p className="text-xs text-[#B7C0BC] mt-1">Here's your personal work snapshot 👋</p>
+                      <p className="text-xs text-[#334155] mt-1">Here's your personal work snapshot 👋</p>
                     </div>
                     <div className="bg-[#171B1F] border border-[#3A4148] px-3 py-1.5 rounded-full text-[10px] font-bold text-[#B7C0BC] mt-1">
                       {monthName} {currentYear}

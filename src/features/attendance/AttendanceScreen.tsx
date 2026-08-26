@@ -347,10 +347,12 @@ export const AttendanceScreen: React.FC = () => {
       if (activeRecord && (activeRecord.attendanceType === 'OFFICE' || !activeRecord.attendanceType)) {
         const updated = trackSmartOfficeExit(activeRecord, distance, liveLocation, currentAddress);
         setTodayRecord(updated);
+      } else {
+        refreshRecords();
       }
-      handleImmediateAutoCheckIn(locationState === 'INSIDE_OFFICE', liveLocation);
+      handleImmediateAutoCheckIn(isInsideGeofence || distance <= OFFICE_LOCATION.radius, liveLocation);
     }
-  }, [liveLocation, distance, locationState, employeeId]);
+  }, [liveLocation, distance, isInsideGeofence, employeeId]);
 
   // Office Check-In Handler
   const handleManualCheckIn = async () => {
@@ -775,22 +777,22 @@ export const AttendanceScreen: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-[#080A0F] text-[#F8FAFC] p-3 sm:p-6 pb-32 max-w-5xl mx-auto space-y-5 font-sans relative">
+    <div className="p-3 sm:p-6 pb-32 max-w-5xl mx-auto space-y-5 font-sans relative">
       {/* Background ambient lighting */}
-      <div className="fixed top-20 right-10 w-96 h-96 bg-[rgba(139,92,246,0.06)] rounded-full blur-[120px] pointer-events-none" />
-      <div className="fixed bottom-20 left-10 w-96 h-96 bg-[rgba(34,211,238,0.05)] rounded-full blur-[120px] pointer-events-none" />
+      <div className="fixed top-20 right-10 w-96 h-96 bg-[rgba(16,185,129,0.04)] rounded-full blur-[120px] pointer-events-none" />
+      <div className="fixed bottom-20 left-10 w-96 h-96 bg-[rgba(16,185,129,0.03)] rounded-full blur-[120px] pointer-events-none" />
       
       {/* ==================================================== */}
       {/* CLEAN PAGE TITLE */}
       {/* ==================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[rgba(148,163,184,0.20)]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[rgba(148,163,184,0.30)]">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-[#F8FAFC] tracking-tight flex items-center gap-2">
-            <Clock className="w-7 h-7 text-[#22D3EE]" /> Attendance
+          <h1 className="text-2xl sm:text-3xl font-black text-[#0F172A] tracking-tight flex items-center gap-2">
+            <Clock className="w-7 h-7 text-[#059669]" /> Attendance
           </h1>
-          <p className="text-xs text-[#CBD5E1] font-medium mt-0.5 flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-[#22D3EE]" />
-            {getFormattedDateLong()} • <strong className="text-[#F8FAFC]">{employeeName}</strong> ({employeeId})
+          <p className="text-xs text-[#334155] font-medium mt-0.5 flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-[#059669]" />
+            {getFormattedDateLong()} • <strong className="text-[#0F172A]">{employeeName}</strong> ({employeeId})
           </p>
         </div>
       </div>

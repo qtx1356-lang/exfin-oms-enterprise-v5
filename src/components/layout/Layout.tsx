@@ -273,14 +273,14 @@ export const Layout: React.FC = () => {
       : (!isOnline ? 'Offline' : 'Raniganj HQ');
 
   return (
-    <div className="min-h-screen bg-[#080B0F] text-[#F8FAFC] pb-20 relative overflow-x-hidden">
-      {/* Ambient Transparent Violet & Cyan background lighting glow */}
-      <div className="fixed top-0 left-1/4 w-96 h-96 bg-[rgba(139,92,246,0.06)] rounded-full blur-[120px] pointer-events-none -z-10" />
-      <div className="fixed top-1/3 right-10 w-80 h-80 bg-[rgba(0,245,255,0.04)] rounded-full blur-[100px] pointer-events-none -z-10" />
-      <div className="fixed bottom-10 left-1/3 w-96 h-96 bg-[rgba(139,92,246,0.05)] rounded-full blur-[130px] pointer-events-none -z-10" />
+    <div className="min-h-screen bg-[#EAF7EE] text-[#0F172A] pb-20 relative overflow-x-hidden">
+      {/* Soft subtle mint background ambient highlights */}
+      <div className="fixed top-0 left-1/4 w-96 h-96 bg-[rgba(16,185,129,0.04)] rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="fixed top-1/3 right-10 w-80 h-80 bg-[rgba(16,185,129,0.03)] rounded-full blur-[100px] pointer-events-none -z-10" />
+      <div className="fixed bottom-10 left-1/3 w-96 h-96 bg-[rgba(16,185,129,0.04)] rounded-full blur-[130px] pointer-events-none -z-10" />
 
       {/* Dynamic Header Bar with [Distance] [Office Status] [Location Address] [Bell] */}
-      <header className="sticky top-0 z-50 bg-[rgba(8,11,15,0.82)] backdrop-blur-[20px] border-b border-[rgba(167,139,250,0.15)] shadow-[0_4px_20px_rgba(0,0,0,0.5)]">
+      <header className="sticky top-0 z-50 bg-[rgba(15,23,32,0.92)] backdrop-blur-[20px] border-b border-[rgba(148,163,184,0.25)] shadow-[0_4px_20px_rgba(0,0,0,0.12)]">
         <div className="container mx-auto px-2.5 sm:px-4 py-2 max-w-3xl flex items-center justify-between gap-1.5 sm:gap-2">
           {/* Left/Center Header Status & Location Controls */}
           <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden py-0.5">

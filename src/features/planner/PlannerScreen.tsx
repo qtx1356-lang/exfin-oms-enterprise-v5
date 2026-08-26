@@ -484,15 +484,15 @@ export const PlannerScreen: React.FC = () => {
   const overallProgressPct = totalAssignedTasks > 0 ? Math.round((completedCount / totalAssignedTasks) * 100) : 0;
 
   return (
-    <div className="flex flex-col gap-5 pb-16 text-white max-w-5xl mx-auto">
+    <div className="flex flex-col gap-5 pb-16 text-[#0F172A] max-w-5xl mx-auto">
       {/* Top Header */}
-      <div className="flex items-center justify-between pt-2 pb-2 border-b border-[#3A4148]">
+      <div className="flex items-center justify-between pt-2 pb-2 border-b border-[rgba(148,163,184,0.30)]">
         <div>
-          <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            <CheckSquare className="w-7 h-7 text-[#18C98F]" /> Work Planner
+          <h1 className="text-2xl font-black text-[#0F172A] tracking-tight flex items-center gap-2">
+            <CheckSquare className="w-7 h-7 text-[#059669]" /> Work Planner
           </h1>
-          <p className="text-xs text-[#B7C0BC] font-medium mt-0.5">
-            Operational Deliverables & Tasks for <span className="text-[#18C98F] font-bold">{empDept}</span>
+          <p className="text-xs text-[#334155] font-medium mt-0.5">
+            Operational Deliverables & Tasks for <span className="text-[#059669] font-bold">{empDept}</span>
           </p>
         </div>
 

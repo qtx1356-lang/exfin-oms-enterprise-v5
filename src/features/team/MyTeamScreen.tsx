@@ -560,13 +560,13 @@ export const MyTeamScreen: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-white">MY TEAM</h1>
-              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#18C98F]/20 text-[#18C98F] border border-[#18C98F]/30">
+              <h1 className="text-xl font-black text-[#0F172A]">MY TEAM</h1>
+              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#059669]/20 text-[#059669] border border-[#059669]/30">
                 TEAM LEADER
               </span>
             </div>
-            <p className="text-xs text-[#7E8985]">
-              Managing team members & work planner reviews for <span className="font-bold text-white">{employeeData?.name}</span>
+            <p className="text-xs text-[#334155]">
+              Managing team members & work planner reviews for <span className="font-bold text-[#0F172A]">{employeeData?.name}</span>
             </p>
           </div>
         </div>

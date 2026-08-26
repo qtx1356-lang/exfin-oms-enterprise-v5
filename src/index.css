@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --color-app-bg: #080B0F;
-  --color-app-bg-secondary: #0A0E13;
+  --color-app-bg: #EAF7EE;
+  --color-app-bg-secondary: #D8F0E0;
   --color-card-bg: rgba(139, 92, 246, 0.08);
   --color-card-elevated: rgba(139, 92, 246, 0.12);
   --color-border-emerald: rgba(167, 139, 250, 0.18);
@@ -20,10 +20,10 @@
   --color-info: #00F5FF;
   --color-offline: #F59E0B;
   
-  --color-background: #080B0F;
+  --color-background: #EAF7EE;
   --color-surface: rgba(139, 92, 246, 0.08);
   --color-surface-elevated: rgba(139, 92, 246, 0.12);
-  --color-surface-variant: #0A0E13;
+  --color-surface-variant: #D8F0E0;
   --color-on-surface: #F8FAFC;
   --color-on-surface-variant: #A7B0BE;
   --color-outline: rgba(167, 139, 250, 0.18);
@@ -31,7 +31,7 @@
 }
 
 :root {
-  --employee-bg: #080B0F;
+  --employee-bg: #EAF7EE;
   --employee-surface: rgba(139, 92, 246, 0.08);
   --employee-surface-strong: rgba(139, 92, 246, 0.12);
   --employee-cyan: #00F5FF;
@@ -43,8 +43,8 @@
   --employee-text-muted: #667085;
   --employee-border: rgba(167, 139, 250, 0.18);
 
-  --app-bg: #080B0F;
-  --app-bg-secondary: #0A0E13;
+  --app-bg: #EAF7EE;
+  --app-bg-secondary: #D8F0E0;
   --card-bg: rgba(139, 92, 246, 0.08);
   --card-elevated: rgba(139, 92, 246, 0.12);
   --border: rgba(167, 139, 250, 0.18);
@@ -63,9 +63,9 @@
 }
 
 body {
-  background-color: #080B0F;
-  background-image: linear-gradient(135deg, #080B0F 0%, #0A0E13 50%, #080B0F 100%);
-  color: #F8FAFC;
+  background-color: #EAF7EE;
+  background-image: none;
+  color: #0F172A;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   margin: 0;
   padding: 0;
@@ -84,21 +84,21 @@ button, a, input, select, textarea, [role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Custom scrollbar for Obsidian + Cyan theme */
+/* Custom scrollbar for theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #080B0F;
+  background: #EAF7EE;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.2);
+  background: rgba(16, 185, 129, 0.25);
   border-radius: 9999px;
-  border: 1px solid rgba(167, 139, 250, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #00F5FF;
+  background: #10B981;
 }
 
 /* Enterprise Form Inputs default styling */
@@ -110,9 +110,9 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: rgba(255, 255, 255, 0.035) !important;
+  background-color: rgba(15, 23, 42, 0.85) !important;
   color: #F8FAFC !important;
-  border: 1px solid rgba(167, 139, 250, 0.20) !important;
+  border: 1px solid rgba(148, 163, 184, 0.35) !important;
   border-radius: 14px !important;
   transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }

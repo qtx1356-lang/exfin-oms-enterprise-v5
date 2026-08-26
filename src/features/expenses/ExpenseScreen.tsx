@@ -235,14 +235,14 @@ export const ExpenseScreen: React.FC = () => {
   const pendingSyncCount = expenses.filter((e) => e.syncStatus === 'Pending Sync').length;
 
   return (
-    <div className="flex flex-col gap-5 pb-12 text-white max-w-5xl mx-auto">
+    <div className="flex flex-col gap-5 pb-12 text-[#0F172A] max-w-5xl mx-auto">
       {/* Top Bar with Offline/Sync Indicator */}
-      <div className="flex items-center justify-between pt-2 pb-2 border-b border-[#18C98F]/20">
+      <div className="flex items-center justify-between pt-2 pb-2 border-b border-[rgba(148,163,184,0.30)]">
         <div>
-          <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            <Wallet className="w-7 h-7 text-[#18C98F]" /> Expense Claims
+          <h1 className="text-2xl font-black text-[#0F172A] tracking-tight flex items-center gap-2">
+            <Wallet className="w-7 h-7 text-[#059669]" /> Expense Claims
           </h1>
-          <p className="text-xs text-[#7E8985] font-medium mt-0.5">
+          <p className="text-xs text-[#334155] font-medium mt-0.5">
             Submit & track reimbursement requests in Indian Rupees (₹)
           </p>
         </div>

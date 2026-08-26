@@ -46,10 +46,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const isLocationError = (locationStatus === 'error' || isPermissionDenied || isGpsOff || isLocationUnavailable || isOffline) && distance === null;
 
   return (
-    <div className="fixed inset-0 bg-[#080B0F] flex flex-col items-center justify-between p-4 sm:p-6 z-40 text-[#F8FAFC] overflow-y-auto relative">
+    <div className="fixed inset-0 bg-[#EAF7EE] flex flex-col items-center justify-between p-4 sm:p-6 z-40 text-[#0F172A] overflow-y-auto relative">
       {/* Background ambient lighting */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[rgba(139,92,246,0.15)] rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/3 left-1/2 -translate-x-1/2 w-80 h-80 bg-[rgba(0,245,255,0.18)] rounded-full blur-[110px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[rgba(16,185,129,0.06)] rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/3 left-1/2 -translate-x-1/2 w-80 h-80 bg-[rgba(16,185,129,0.05)] rounded-full blur-[110px] pointer-events-none" />
 
       {/* Main Content Container */}
       <div className="w-full max-w-sm my-auto py-2 flex flex-col items-center text-center relative z-10 space-y-5">

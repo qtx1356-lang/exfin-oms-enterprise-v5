@@ -56,7 +56,7 @@ public class OfficeGeofenceHelper {
                     .setCircularRegion(OFFICE_LAT, OFFICE_LNG, GEOFENCE_RADIUS_METERS)
                     .setExpirationDuration(Geofence.NEVER_EXPIRE)
                     .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_EXIT)
-                    .setNotificationResponsiveness(5000) // 5 seconds
+                    .setNotificationResponsiveness(1000) // 1 second fast responsiveness
                     .build();
 
             GeofencingRequest request = new GeofencingRequest.Builder()

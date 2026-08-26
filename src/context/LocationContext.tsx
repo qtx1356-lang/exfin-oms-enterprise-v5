@@ -159,6 +159,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const adaptiveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastUiUpdateRef = useRef<number>(0);
   const rawLocationRef = useRef<{ latitude: number; longitude: number; accuracy?: number; timestamp: number } | null>(null);
+  const latestDistanceRef = useRef<number | null>(null);
 
   const isStale = React.useMemo(() => {
     if (!isFreshFixReceived || !locationTimestamp) return false;
@@ -467,30 +468,20 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       OFFICE_LOCATION.longitude
     );
 
-    // Always keep latest raw coordinate in ref for non-UI workers
+    // Always keep latest raw coordinate and distance in refs for non-UI workers & adaptive polling
     rawLocationRef.current = { latitude, longitude, accuracy, timestamp: fixTime };
     locationTimestampRef.current = fixTime;
+    latestDistanceRef.current = calculatedDistance;
 
-    // Determine Hysteresis Geofence State
-    let nextInside = stableInsideOffice;
+    // Boundary comparison: strictly <= 25.0 meters (OFFICE_LOCATION.radius)
     const isHighAccuracyForGeofence = !accuracy || accuracy <= 35;
+    const isWithinBoundary = calculatedDistance <= OFFICE_LOCATION.radius;
+    const nextInside = isWithinBoundary && isHighAccuracyForGeofence;
 
-    if (calculatedDistance <= 23 && isHighAccuracyForGeofence) {
-      nextInside = true;
-    } else if (calculatedDistance >= 27) {
-      nextInside = false;
-    } else {
-      if (stableInsideOffice === null || stableInsideOffice === undefined) {
-        nextInside = calculatedDistance <= OFFICE_LOCATION.radius && isHighAccuracyForGeofence;
-      } else {
-        nextInside = stableInsideOffice;
-      }
-    }
-
-    // Throttle React UI State Updates: Update UI state every 15 seconds OR immediately when geofence state transitions
-    const geofenceStateChanged = (stableInsideOffice !== null && stableInsideOffice !== nextInside);
+    // Bypass UI Throttle: Update React UI state immediately on geofence transition or initial load, or every 5 seconds maximum
+    const geofenceStateChanged = (stableInsideOffice !== nextInside);
     const timeSinceLastUiUpdate = now - lastUiUpdateRef.current;
-    const shouldUpdateUi = lastUiUpdateRef.current === 0 || geofenceStateChanged || timeSinceLastUiUpdate >= 15000;
+    const shouldUpdateUi = lastUiUpdateRef.current === 0 || geofenceStateChanged || timeSinceLastUiUpdate >= 5000;
 
     if (shouldUpdateUi) {
       lastUiUpdateRef.current = now;
@@ -509,7 +500,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (e) {}
 
     // Evaluate automatic background geofence state transition & live location write
-    // Strictly isolate the Admin Panel: never trigger employee attendance checks or writes in Admin context
+    // Direct execution: process check-in immediately upon valid coordinate arrival without waiting for UI state
     if (!isAdminContextActive()) {
       try {
         const cachedRaw = localStorage.getItem('cached_registration_data');
@@ -529,6 +520,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               timestamp: new Date(fixTime).toISOString()
             }).catch((err) => console.warn('Error updating live_locations:', err));
 
+            const startTime = Date.now();
             handleLocationUpdateForAttendance(
               latitude,
               longitude,
@@ -537,6 +529,16 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               currentAddress || 'Raniganj HQ',
               accuracy
             );
+
+            if (calculatedDistance <= OFFICE_LOCATION.radius) {
+              console.log('[AUTO_CHECKIN_TIMING]', {
+                locationReceivedTime: new Date(fixTime).toISOString(),
+                locationAccuracy: accuracy || 'N/A',
+                distanceFromOffice: Math.round(calculatedDistance * 100) / 100,
+                geofenceEvaluationTimeMs: Date.now() - startTime,
+                status: 'EVALUATED_INSIDE_25M'
+              });
+            }
           }
         }
       } catch (err) {
@@ -682,9 +684,10 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
     };
   }, []);
 
-  // Fallback Location Health Monitoring Engine
-  // watchPosition handles active location streaming.
-  // This timer runs periodically to issue a fallback query ONLY if watchPosition hasn't received a fix for > 20s.
+  // Two-Stage Location Strategy: Fallback Location Health Monitoring Engine
+  // Stage A — Approaching Office (dist <= 500m): Query fresh GPS fixes every 3s if watchPosition pauses
+  // Stage B — Inside/Near Office (dist <= 25m): Fast 3s active monitoring & immediate evaluation
+  // Stage C — Far from Office (> 500m): Relaxed 20s polling to conserve battery
   useEffect(() => {
     if (!activeAttendanceMode) return;
 
@@ -703,14 +706,19 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
       const now = Date.now();
       const lastFixTime = locationTimestampRef.current || 0;
       const lastFixAge = now - lastFixTime;
+      const currentDist = latestDistanceRef.current;
 
-      // Only invoke fallback query if watchPosition has been silent for more than 20 seconds
-      if (lastFixTime > 0 && lastFixAge > 20000) {
-        console.warn(`[Location Engine] Stale location fix (${(lastFixAge / 1000).toFixed(1)}s old). Querying fallback position...`);
+      // Stage A/B vs Far detection
+      const isApproachingOrNear = currentDist !== null && currentDist <= 500;
+      const maxAllowedAgeMs = isApproachingOrNear ? 3000 : 20000;
+      const nextDelayMs = isApproachingOrNear ? 3000 : 20000;
+
+      if (lastFixTime > 0 && lastFixAge > maxAllowedAgeMs) {
+        console.warn(`[Location Engine - Stage ${isApproachingOrNear ? 'A/B (Fast)' : 'Normal'}] Fix is ${(lastFixAge / 1000).toFixed(1)}s old. Requesting fresh position...`);
         try {
           const pos = await Geolocation.getCurrentPosition({
             enableHighAccuracy: true,
-            timeout: 5000,
+            timeout: isApproachingOrNear ? 3000 : 5000,
             maximumAge: 0
           });
           if (pos && pos.coords && isRunning) {
@@ -722,11 +730,12 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
       }
 
       if (isRunning) {
-        adaptiveTimerRef.current = setTimeout(checkLocationHealth, 20000);
+        adaptiveTimerRef.current = setTimeout(checkLocationHealth, nextDelayMs);
       }
     };
 
-    adaptiveTimerRef.current = setTimeout(checkLocationHealth, 20000);
+    const initialDelay = (latestDistanceRef.current !== null && latestDistanceRef.current <= 500) ? 3000 : 20000;
+    adaptiveTimerRef.current = setTimeout(checkLocationHealth, initialDelay);
 
     return () => {
       isRunning = false;

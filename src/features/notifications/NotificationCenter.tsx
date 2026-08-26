@@ -272,13 +272,13 @@ export const NotificationCenter: React.FC = () => {
 
   return (
     <div className="py-6 min-h-[calc(100vh-120px)] space-y-6 max-w-5xl mx-auto font-sans">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#3A4148]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[rgba(148,163,184,0.30)]">
         <div>
-          <h1 className="text-2xl font-black text-white flex items-center gap-2">
-            <Bell className="w-7 h-7 text-[#18C98F]" />
+          <h1 className="text-2xl font-black text-[#0F172A] flex items-center gap-2">
+            <Bell className="w-7 h-7 text-[#059669]" />
             Notification Center
           </h1>
-          <p className="text-[#B7C0BC] text-xs font-medium mt-0.5">
+          <p className="text-[#334155] text-xs font-medium mt-0.5">
             Centralized notification feed and actionable real-time alerts
           </p>
         </div>

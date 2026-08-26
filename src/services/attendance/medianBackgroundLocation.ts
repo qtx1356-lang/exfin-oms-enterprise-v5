@@ -143,15 +143,15 @@ export const startMedianBackgroundLocation = async (
     // Background server POST endpoint
     postUrl,
     // Android Configuration for 25m boundary detection
-    androidInterval: 20000, // 20s interval
-    androidFastestInterval: 10000, // 10s fastest
+    androidInterval: 5000, // 5s fast interval
+    androidFastestInterval: 2000, // 2s fastest
     androidPriority: 'highAccuracy' as const, // High Accuracy GPS
-    androidSmallestDisplacement: 15, // 15 meters filter
+    androidSmallestDisplacement: 0, // 0 meters filter for instant boundary crossing detection
     androidNotificationTitle: 'EXFIN OMS Attendance Active',
     androidNotificationText: 'Monitoring 25m office boundary for automatic attendance',
     // iOS Configuration if applicable
     iosBackgroundIndicator: true,
-    iosDistanceFilter: 15,
+    iosDistanceFilter: 0,
     iosDesiredAccuracy: 'best' as const,
     // JS Callback for foreground updates and app resume reconciliation
     callback: (data: any) => {
