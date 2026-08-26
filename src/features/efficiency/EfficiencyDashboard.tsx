@@ -103,14 +103,6 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   const [loading, setLoading] = useState(false);
   const [offlineMode, setOfflineMode] = useState(false);
 
-  // Sync with cached realtime sync data when active employee is selected
-  useEffect(() => {
-    if (!selectedEmployeeCode || selectedEmployeeCode === activeEmployeeCode) {
-      setTasks(syncTasks);
-      setAttendance(syncAttendance);
-    }
-  }, [syncTasks, syncAttendance, selectedEmployeeCode, activeEmployeeCode]);
-
   // Report generation state
   const [reportState, setReportState] = useState<'idle' | 'preparing' | 'success' | 'failure'>('idle');
   const [reportError, setReportError] = useState<string | null>(null);
@@ -212,11 +204,34 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   const [weightsError, setWeightsError] = useState<string | null>(null);
   const [weightsSuccess, setWeightsSuccess] = useState(false);
 
+  // ----------------------------------------------------
+  // TARGET EMPLOYEE IDENTITY RESOLUTION
+  // ----------------------------------------------------
+  const selectedEmployee = useMemo(() => {
+    if (!selectedEmployeeCode) return employeeData || null;
+    return allEmployees.find(e => 
+      e.employeeCode === selectedEmployeeCode || 
+      e.id === selectedEmployeeCode || 
+      e.uid === selectedEmployeeCode
+    ) || (selectedEmployeeCode === activeEmployeeCode ? employeeData : null);
+  }, [allEmployees, selectedEmployeeCode, activeEmployeeCode, employeeData]);
+
+  // Fallback Rule: IF selected employee exists THEN use selected employee. ELSE use current logged-in employee.
+  const targetEmpCode = selectedEmployee?.employeeCode || selectedEmployeeCode || activeEmployeeCode;
+  const targetEmpId = selectedEmployee?.id || selectedEmployee?.uid || targetEmpCode || activeEmployeeId;
+
+  // Sync tasks and attendance when selecting the active logged-in employee
+  useEffect(() => {
+    if (targetEmpCode === activeEmployeeCode) {
+      setTasks(syncTasks);
+      setAttendance(syncAttendance);
+    }
+  }, [syncTasks, syncAttendance, targetEmpCode, activeEmployeeCode]);
+
   // Firestore Subscriptions
   useEffect(() => {
     effDashEffectCount++;
     activeListeners++;
-    const effectId = effDashEffectCount;
 
     if (!db) {
       setOfflineMode(true);
@@ -229,8 +244,8 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       setAdminWeights(w);
     });
 
-    const targetCode = selectedEmployeeCode || activeEmployeeCode;
-    const targetId = activeEmployeeId;
+    const targetCode = targetEmpCode;
+    const targetId = targetEmpId;
 
     if (!targetCode) {
       setLoading(false);
@@ -255,21 +270,25 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
     // 2. TARGETED TASKS & ATTENDANCE LISTENERS (Only needed if inspecting a different employee)
     // If inspecting current employee, realtimeSync already provides stream with zero overhead.
     if (targetCode !== activeEmployeeCode) {
+      setLoading(true);
+
+      const fetchedTasksMap = new Map<string, TaskRecord>();
+      const fetchedAttMap = new Map<string, AttendanceRecord>();
+
       const qTasksCode = query(
         collection(db, 'tasks'),
         where('assignedToEmployeeCodes', 'array-contains', targetCode),
         limit(200)
       );
       const unsubTasksCode = onSnapshot(qTasksCode, (snap) => {
-        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as TaskRecord[];
-        setTasks(prev => {
-          const map = new Map<string, TaskRecord>();
-          prev.forEach(t => map.set(t.id, t));
-          list.forEach(t => map.set(t.id, t));
-          return Array.from(map.values());
+        snap.docs.forEach(doc => {
+          fetchedTasksMap.set(doc.id, { id: doc.id, ...doc.data() } as TaskRecord);
         });
+        setTasks(Array.from(fetchedTasksMap.values()));
+        setLoading(false);
       }, (err) => {
         console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks notice:', err);
+        setLoading(false);
       });
       unsubs.push(unsubTasksCode);
 
@@ -280,15 +299,14 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
           limit(200)
         );
         const unsubTasksId = onSnapshot(qTasksId, (snap) => {
-          const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as TaskRecord[];
-          setTasks(prev => {
-            const map = new Map<string, TaskRecord>();
-            prev.forEach(t => map.set(t.id, t));
-            list.forEach(t => map.set(t.id, t));
-            return Array.from(map.values());
+          snap.docs.forEach(doc => {
+            fetchedTasksMap.set(doc.id, { id: doc.id, ...doc.data() } as TaskRecord);
           });
+          setTasks(Array.from(fetchedTasksMap.values()));
+          setLoading(false);
         }, (err) => {
           console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks(id) notice:', err);
+          setLoading(false);
         });
         unsubs.push(unsubTasksId);
       }
@@ -300,15 +318,14 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
         limit(365)
       );
       const unsubAttCode = onSnapshot(qAttCode, (snap) => {
-        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AttendanceRecord[];
-        setAttendance(prev => {
-          const map = new Map<string, AttendanceRecord>();
-          prev.forEach(a => map.set(a.id, a));
-          list.forEach(a => map.set(a.id, a));
-          return Array.from(map.values());
+        snap.docs.forEach(doc => {
+          fetchedAttMap.set(doc.id, { id: doc.id, ...doc.data() } as AttendanceRecord);
         });
+        setAttendance(Array.from(fetchedAttMap.values()));
+        setLoading(false);
       }, (err) => {
         console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance notice:', err);
+        setLoading(false);
       });
       unsubs.push(unsubAttCode);
 
@@ -319,34 +336,35 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
           limit(365)
         );
         const unsubAttId = onSnapshot(qAttId, (snap) => {
-          const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AttendanceRecord[];
-          setAttendance(prev => {
-            const map = new Map<string, AttendanceRecord>();
-            prev.forEach(a => map.set(a.id, a));
-            list.forEach(a => map.set(a.id, a));
-            return Array.from(map.values());
+          snap.docs.forEach(doc => {
+            fetchedAttMap.set(doc.id, { id: doc.id, ...doc.data() } as AttendanceRecord);
           });
+          setAttendance(Array.from(fetchedAttMap.values()));
+          setLoading(false);
         }, (err) => {
           console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance(id) notice:', err);
+          setLoading(false);
         });
         unsubs.push(unsubAttId);
       }
+    } else {
+      setLoading(false);
     }
 
     return () => {
       activeListeners--;
       unsubs.forEach(unsub => unsub());
     };
-  }, [selectedEmployeeCode, activeEmployeeCode, activeEmployeeId, isAdmin, isTeamLeader]);
+  }, [targetEmpCode, targetEmpId, activeEmployeeCode, isAdmin, isTeamLeader]);
 
   // Fetch snapshots
   useEffect(() => {
-    if (selectedEmployeeCode) {
-      getEfficiencySnapshots(selectedEmployeeCode).then(snaps => {
+    if (targetEmpCode) {
+      getEfficiencySnapshots(targetEmpCode).then(snaps => {
         setHistoricalSnapshots(snaps);
       });
     }
-  }, [selectedEmployeeCode]);
+  }, [targetEmpCode]);
 
   // Authorized Employees Filter (Privacy Enforced)
   const myTeamMembers = useMemo(() => {
@@ -370,21 +388,18 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
     return allEmployees.filter(e => e.employeeCode === activeEmployeeCode);
   }, [allEmployees, isAdmin, isTeamLeader, activeEmployeeCode, myTeamMembers]);
 
-  const selectedEmployee = useMemo(() => {
-    return allEmployees.find(e => e.employeeCode === selectedEmployeeCode) || 
-           (selectedEmployeeCode === activeEmployeeCode ? employeeData : null);
-  }, [allEmployees, selectedEmployeeCode, activeEmployeeCode, employeeData]);
-
   // ----------------------------------------------------
   // WORK HOURS COMPUTATION (Respecting Unresolved Checkouts)
   // ----------------------------------------------------
   const selectedEmployeeAttendance = useMemo(() => {
-    if (!selectedEmployeeCode) return [];
+    if (!targetEmpCode) return [];
     return attendance.filter(r => {
-      const isEmp = r.employeeId === selectedEmployeeCode || r.employeeCode === selectedEmployeeCode;
+      const matchCode = r.employeeCode && (r.employeeCode === targetEmpCode || r.employeeCode === targetEmpId);
+      const matchId = r.employeeId && (r.employeeId === targetEmpCode || r.employeeId === targetEmpId);
+      const isEmp = matchCode || matchId;
       return isEmp && r.date >= startDate && r.date <= endDate;
     });
-  }, [attendance, selectedEmployeeCode, startDate, endDate]);
+  }, [attendance, targetEmpCode, targetEmpId, startDate, endDate]);
 
   const workHoursMetrics = useMemo(() => {
     let totalMinutes = 0;
@@ -409,7 +424,11 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
     const today = new Date();
     const currentMonthPrefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     const monthlySummary = calculateMonthlySummary(
-      attendance.filter(r => r.employeeId === selectedEmployeeCode || r.employeeCode === selectedEmployeeCode),
+      attendance.filter(r => {
+        const matchCode = r.employeeCode && (r.employeeCode === targetEmpCode || r.employeeCode === targetEmpId);
+        const matchId = r.employeeId && (r.employeeId === targetEmpCode || r.employeeId === targetEmpId);
+        return matchCode || matchId;
+      }),
       currentMonthPrefix
     );
 
@@ -421,25 +440,25 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       unresolvedCount,
       monthlyTotalFormatted: formatMinutesToDuration(monthlySummary.totalMinutes)
     };
-  }, [selectedEmployeeAttendance, attendance, selectedEmployeeCode]);
+  }, [selectedEmployeeAttendance, attendance, targetEmpCode, targetEmpId]);
 
   // ----------------------------------------------------
   // EFFICIENCY COMPUTATIONS
   // ----------------------------------------------------
   const currentCalculation = useMemo(() => {
-    if (!selectedEmployeeCode) return null;
+    if (!targetEmpCode) return null;
     const emp = selectedEmployee || {
-      id: selectedEmployeeCode,
-      employeeCode: selectedEmployeeCode,
-      name: selectedEmployeeCode,
+      id: targetEmpId,
+      employeeCode: targetEmpCode,
+      name: targetEmpCode,
       department: 'Operations',
       teamLeaderId: null
     };
 
     return calculateEfficiency(
-      emp.id || emp.employeeCode,
-      emp.employeeCode,
-      emp.name || 'Employee',
+      emp.id || targetEmpId,
+      emp.employeeCode || targetEmpCode,
+      emp.name || emp.employeeCode || 'Employee',
       emp.department || 'Operations',
       emp.teamLeaderId || null,
       startDate,
@@ -448,22 +467,22 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       attendance,
       weightages
     );
-  }, [selectedEmployee, selectedEmployeeCode, startDate, endDate, tasks, attendance, weightages]);
+  }, [selectedEmployee, targetEmpCode, targetEmpId, startDate, endDate, tasks, attendance, weightages]);
 
   const previousCalculation = useMemo(() => {
-    if (!selectedEmployeeCode) return null;
+    if (!targetEmpCode) return null;
     const emp = selectedEmployee || {
-      id: selectedEmployeeCode,
-      employeeCode: selectedEmployeeCode,
-      name: selectedEmployeeCode,
+      id: targetEmpId,
+      employeeCode: targetEmpCode,
+      name: targetEmpCode,
       department: 'Operations',
       teamLeaderId: null
     };
 
     return calculateEfficiency(
-      emp.id || emp.employeeCode,
-      emp.employeeCode,
-      emp.name || 'Employee',
+      emp.id || targetEmpId,
+      emp.employeeCode || targetEmpCode,
+      emp.name || emp.employeeCode || 'Employee',
       emp.department || 'Operations',
       emp.teamLeaderId || null,
       prevStartDate,
@@ -472,7 +491,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       attendance,
       weightages
     );
-  }, [selectedEmployee, selectedEmployeeCode, prevStartDate, prevEndDate, tasks, attendance, weightages]);
+  }, [selectedEmployee, targetEmpCode, targetEmpId, prevStartDate, prevEndDate, tasks, attendance, weightages]);
 
   // Leaderboard Ranking
   const companyLeaderboard = useMemo(() => {
@@ -500,10 +519,10 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   }, [isAdmin, allEmployees, authorizedEmployees, startDate, endDate, tasks, attendance, weightages]);
 
   const currentRank = useMemo(() => {
-    if (!selectedEmployeeCode || !companyLeaderboard.length) return null;
-    const idx = companyLeaderboard.findIndex(i => i.employee.employeeCode === selectedEmployeeCode);
+    if (!targetEmpCode || !companyLeaderboard.length) return null;
+    const idx = companyLeaderboard.findIndex(i => i.employee.employeeCode === targetEmpCode || i.employee.id === targetEmpId);
     return idx !== -1 ? idx + 1 : null;
-  }, [companyLeaderboard, selectedEmployeeCode]);
+  }, [companyLeaderboard, targetEmpCode, targetEmpId]);
 
   // Monthly Comparison Stats
   const monthlyComparisonStats = useMemo(() => {
@@ -535,15 +554,22 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
   // Task Breakdown Counts
   const periodTasks = useMemo(() => {
-    if (!selectedEmployeeCode) return [];
+    if (!targetEmpCode) return [];
     return tasks.filter(t => {
-      const isAssigned = (t.assignedToEmployeeCodes && t.assignedToEmployeeCodes.includes(selectedEmployeeCode)) ||
-                         (t.assignedToEmployeeIds && t.assignedToEmployeeIds.includes(selectedEmployeeCode));
+      const matchCode = t.assignedToEmployeeCodes && (
+        t.assignedToEmployeeCodes.includes(targetEmpCode) ||
+        (targetEmpId && t.assignedToEmployeeCodes.includes(targetEmpId))
+      );
+      const matchId = t.assignedToEmployeeIds && (
+        t.assignedToEmployeeIds.includes(targetEmpCode) ||
+        (targetEmpId && t.assignedToEmployeeIds.includes(targetEmpId))
+      );
+      const isAssigned = matchCode || matchId;
       if (!isAssigned) return false;
       const tDate = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime.substring(0, 10));
       return tDate >= startDate && tDate <= endDate;
     });
-  }, [tasks, selectedEmployeeCode, startDate, endDate]);
+  }, [tasks, targetEmpCode, targetEmpId, startDate, endDate]);
 
   const taskMetrics = useMemo(() => {
     const assigned = periodTasks.length;
@@ -978,6 +1004,19 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       {/* ==================================================== */}
       {viewMode === 'MY_PERFORMANCE' && (
         <>
+          {/* EMPTY DATA STATE NOTICE */}
+          {!loading && taskMetrics.assigned === 0 && workHoursMetrics.daysWithWork === 0 && (
+            <div className="bg-[#171B1E] border border-amber-500/30 rounded-2xl p-4 flex items-center gap-3 text-amber-300 text-xs shadow-md">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-400" />
+              <div>
+                <p className="font-bold text-amber-300">No Efficiency Data Available For Selected Period</p>
+                <p className="text-[11px] text-[#B7C0BC] mt-0.5">
+                  {selectedEmployee?.name || targetEmpCode} ({targetEmpCode}) has no recorded attendance or task activity for {periodLabel}.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* TOP SUMMARY GRID (12 CORE METRICS) */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             

@@ -90,16 +90,23 @@ export const calculateEfficiency = (
   
   // Filter attendance records in period
   const periodAttendance = attendanceRecords.filter(rec => {
-    const empCode = rec.employeeId;
-    // support match by code or database doc id
-    const isEmp = empCode === employeeCode || empCode === employeeId;
+    const matchId = rec.employeeId && (rec.employeeId === employeeCode || rec.employeeId === employeeId);
+    const matchCode = rec.employeeCode && (rec.employeeCode === employeeCode || rec.employeeCode === employeeId);
+    const isEmp = matchId || matchCode;
     return isEmp && rec.date >= startDateStr && rec.date <= endDateStr;
   });
 
   // Filter tasks in period
   const periodTasks = tasks.filter(task => {
-    const isAssigned = (task.assignedToEmployeeCodes && task.assignedToEmployeeCodes.includes(employeeCode)) ||
-                       (task.assignedToEmployeeIds && task.assignedToEmployeeIds.includes(employeeId));
+    const matchCode = task.assignedToEmployeeCodes && (
+      task.assignedToEmployeeCodes.includes(employeeCode) || 
+      task.assignedToEmployeeCodes.includes(employeeId)
+    );
+    const matchId = task.assignedToEmployeeIds && (
+      task.assignedToEmployeeIds.includes(employeeId) || 
+      task.assignedToEmployeeIds.includes(employeeCode)
+    );
+    const isAssigned = matchCode || matchId;
     
     if (!isAssigned) return false;
     
