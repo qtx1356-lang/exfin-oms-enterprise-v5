@@ -783,18 +783,18 @@ export const AttendanceScreen: React.FC = () => {
       <div className="fixed bottom-20 left-10 w-96 h-96 bg-[rgba(16,185,129,0.03)] rounded-full blur-[120px] pointer-events-none" />
       
       {/* ==================================================== */}
-      {/* CLEAN PAGE TITLE */}
+      {/* CLEAN PAGE TITLE & EMPLOYEE HEADER */}
       {/* ==================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#2A5B50]/30">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-[#12332B] tracking-tight flex items-center gap-2">
-            <Clock className="w-7 h-7 text-[#12332B]" /> Attendance
-          </h1>
-          <p className="text-xs text-[#31534A] font-medium mt-0.5 flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-[#31534A]" />
-            {getFormattedDateLong()} • <strong className="text-[#12332B]">{employeeName}</strong> ({employeeId})
-          </p>
-        </div>
+      <div className="pb-3 border-b border-[#2A5B50]/30 space-y-1">
+        <h1 className="text-2xl sm:text-3xl font-black text-[#12332B] tracking-tight flex items-center gap-2">
+          <Clock className="w-7 h-7 text-[#12332B]" /> ATTENDANCE
+        </h1>
+        <p className="text-sm font-bold text-[#31534A]">
+          {getFormattedDateLong()}
+        </p>
+        <p className="text-xs font-bold text-[#12332B] truncate">
+          {employeeName} <span className="text-[#31534A] font-medium">· {employeeId}</span>
+        </p>
       </div>
 
       {/* ==================================================== */}
@@ -1078,7 +1078,7 @@ export const AttendanceScreen: React.FC = () => {
               activeMode === 'OFFICE'
                 ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
                 : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
-            } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-40 cursor-not-allowed' : ''}`}
+            } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-70 bg-[#112C26] cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🏢</span>
@@ -1106,7 +1106,7 @@ export const AttendanceScreen: React.FC = () => {
               activeMode === 'WFH'
                 ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
                 : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
-            } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-40 cursor-not-allowed' : ''}`}
+            } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-70 bg-[#112C26] cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🏠</span>
@@ -1115,6 +1115,9 @@ export const AttendanceScreen: React.FC = () => {
                   <span className="w-4 h-4 rounded-full bg-[#19C7C0] text-[#112C26] flex items-center justify-center text-[10px]">
                     <Check className="w-3 h-3" />
                   </span>
+                )}
+                {todayRecord && todayRecord.attendanceType !== 'WFH' && (
+                  <Lock className="w-3.5 h-3.5 text-[#9FB9AF]" />
                 )}
                 <span className="text-[9px] font-bold bg-[#19C7C0]/20 text-[#19C7C0] px-1.5 py-0.5 rounded border border-[#19C7C0]/30">
                   {currentWfhMonthCount}/2
@@ -1136,7 +1139,7 @@ export const AttendanceScreen: React.FC = () => {
               activeMode === 'CLIENT_VISIT'
                 ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
                 : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
-            } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-40 cursor-not-allowed' : ''}`}
+            } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-70 bg-[#112C26] cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🤝</span>
@@ -1144,6 +1147,9 @@ export const AttendanceScreen: React.FC = () => {
                 <span className="w-4 h-4 rounded-full bg-[#19C7C0] text-[#112C26] flex items-center justify-center text-[10px]">
                   <Check className="w-3 h-3" />
                 </span>
+              )}
+              {todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' && (
+                <Lock className="w-3.5 h-3.5 text-[#9FB9AF]" />
               )}
             </div>
             <div>
@@ -1161,7 +1167,7 @@ export const AttendanceScreen: React.FC = () => {
               activeMode === 'OUTDOOR'
                 ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
                 : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
-            } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
+            } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-70 bg-[#112C26] cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🚗</span>
@@ -1169,6 +1175,9 @@ export const AttendanceScreen: React.FC = () => {
                 <span className="w-4 h-4 rounded-full bg-[#19C7C0] text-[#112C26] flex items-center justify-center text-[10px]">
                   <Check className="w-3 h-3" />
                 </span>
+              )}
+              {todayRecord && todayRecord.attendanceType !== 'OUTDOOR' && (
+                <Lock className="w-3.5 h-3.5 text-[#9FB9AF]" />
               )}
             </div>
             <div>
