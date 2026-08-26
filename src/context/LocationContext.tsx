@@ -90,6 +90,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     console.warn('[Location Error Logged]', err);
     if (typeof navigator !== 'undefined' && !navigator.onLine && (distance !== null || getInitialCachedDistance() !== null)) {
       setLocationStatus('success');
+      clearErrors();
       return;
     }
     setLocationStatus('error');

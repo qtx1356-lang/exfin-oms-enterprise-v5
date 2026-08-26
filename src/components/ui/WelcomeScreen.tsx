@@ -111,7 +111,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         </div>
 
         {/* Compact Location & Attendance Status Card */}
-        <div className={`w-full bg-[#1A0C38]/95 backdrop-blur-md p-4.5 rounded-2xl border transition-all duration-300 text-left shadow-lg ${
+        <div className={`w-full bg-[#1A0C38]/95 backdrop-blur-md p-4.5 rounded-2xl border text-left shadow-lg ${
           isLocationLoading
             ? 'border-purple-500/25 shadow-purple-500/5'
             : isInsideGeofence
