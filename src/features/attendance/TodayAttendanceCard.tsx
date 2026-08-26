@@ -140,59 +140,59 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   if (isCheckedOut) {
     statusTitle = 'WORKDAY COMPLETED';
     statusBadgeText = 'Checked Out';
-    statusBorderColor = 'border-[rgba(16,185,129,0.35)]';
-    badgeStyle = 'bg-[rgba(16,185,129,0.15)] text-[#10B981] border-[rgba(16,185,129,0.3)]';
+    statusBorderColor = 'border-[#35C98A]/40';
+    badgeStyle = 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/40';
     StateIcon = CheckCircle2;
   } else if (isCheckedIn) {
     if (attendanceType === 'WFH') {
       statusTitle = 'WORK FROM HOME';
       statusBadgeText = 'WFH Active';
-      statusBorderColor = 'border-[rgba(0,245,255,0.35)]';
-      badgeStyle = 'bg-[rgba(0,245,255,0.12)] text-[#00F5FF] border-[rgba(0,245,255,0.25)]';
+      statusBorderColor = 'border-[#19C7C0]/40';
+      badgeStyle = 'bg-[#19C7C0]/20 text-[#19C7C0] border-[#19C7C0]/40';
       StateIcon = Home;
     } else if (attendanceType === 'CLIENT_VISIT') {
       statusTitle = 'CLIENT VISIT';
       statusBadgeText = todayRecord.clientName ? `Client: ${todayRecord.clientName}` : 'On-Site Visit';
-      statusBorderColor = 'border-[rgba(0,245,255,0.35)]';
-      badgeStyle = 'bg-[rgba(0,245,255,0.12)] text-[#00F5FF] border-[rgba(0,245,255,0.25)]';
+      statusBorderColor = 'border-[#19C7C0]/40';
+      badgeStyle = 'bg-[#19C7C0]/20 text-[#19C7C0] border-[#19C7C0]/40';
       StateIcon = MapPin;
     } else if (attendanceType === 'OUTDOOR') {
       statusTitle = 'OUTDOOR WORK';
       statusBadgeText = todayRecord.outdoorType || 'Field Visit';
-      statusBorderColor = 'border-[rgba(245,158,11,0.35)]';
-      badgeStyle = 'bg-amber-500/15 text-amber-300 border-amber-500/25';
+      statusBorderColor = 'border-[#F2C75C]/40';
+      badgeStyle = 'bg-[#F2C75C]/20 text-[#F2C75C] border-[#F2C75C]/40';
       StateIcon = Briefcase;
     } else {
       if (todayRecord.returningToOffice) {
         statusTitle = 'CHECKED IN (AWAY)';
         statusBadgeText = 'Returning to Office';
-        statusBorderColor = 'border-[rgba(167,139,250,0.25)]';
-        badgeStyle = 'bg-[rgba(139,92,246,0.12)] text-[#A7B0BE] border-[rgba(167,139,250,0.25)]';
+        statusBorderColor = 'border-[#2A5B50]';
+        badgeStyle = 'bg-[#112C26] text-[#C7DAD3] border-[#2A5B50]';
         StateIcon = MapPin;
       } else {
         statusTitle = 'CHECKED IN';
         statusBadgeText = todayRecord.checkInMode === 'AUTO' ? 'Auto Check-In' : 'Office Attendance';
-        statusBorderColor = 'border-[rgba(16,185,129,0.35)]';
-        badgeStyle = 'bg-[rgba(16,185,129,0.15)] text-[#10B981] border-[rgba(16,185,129,0.3)]';
+        statusBorderColor = 'border-[#35C98A]/40';
+        badgeStyle = 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/40';
         StateIcon = CheckCircle2;
       }
     }
   }
 
   return (
-    <Card className={`p-4 sm:p-5 bg-[rgba(139,92,246,0.08)] backdrop-blur-[16px] border ${statusBorderColor} shadow-[0_8px_32px_rgba(0,0,0,0.35)] relative overflow-hidden transition-all duration-300`}>
+    <Card className={`p-4 sm:p-5 bg-[#173A32] backdrop-blur-[16px] border ${statusBorderColor} shadow-xl relative overflow-hidden transition-all duration-300 text-[#F4FAF7]`}>
       {/* Background Ambient Glow */}
-      <div className="absolute top-0 right-0 w-48 h-48 bg-[rgba(0,245,255,0.05)] rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-48 h-48 bg-[#19C7C0]/5 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header Row */}
-      <div className="flex items-center justify-between pb-3 border-b border-[rgba(167,139,250,0.18)] mb-4">
+      <div className="flex items-center justify-between pb-3 border-b border-[#2A5B50] mb-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-[rgba(139,92,246,0.12)] border border-[rgba(167,139,250,0.25)] flex items-center justify-center">
-            <StateIcon className="w-4 h-4 text-[#00F5FF]" />
+          <div className="w-8 h-8 rounded-xl bg-[#21483E] border border-[#2A5B50] flex items-center justify-center">
+            <StateIcon className="w-4 h-4 text-[#19C7C0]" />
           </div>
           <div>
-            <h2 className="text-xs font-black uppercase tracking-wider text-[#F8FAFC]">TODAY'S ATTENDANCE</h2>
-            <p className="text-[10px] text-[#A7B0BE] font-medium">Smart Attendance Engine</p>
+            <h2 className="text-xs font-black uppercase tracking-wider text-[#F4FAF7]">TODAY'S ATTENDANCE</h2>
+            <p className="text-[10px] text-[#C7DAD3] font-medium">Smart Attendance Engine</p>
           </div>
         </div>
       </div>
@@ -208,60 +208,60 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
             </span>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-black text-[#F8FAFC] tracking-tight leading-none mt-1">
+          <h1 className="text-2xl sm:text-3xl font-black text-[#F4FAF7] tracking-tight leading-none mt-1">
             {statusTitle}
           </h1>
 
           {/* Time Summary */}
-          <div className="mt-2 text-xs font-bold text-[#A7B0BE]">
+          <div className="mt-2 text-xs font-bold text-[#C7DAD3]">
             {isCheckedOut ? (
-              <div className="flex flex-col gap-1 text-emerald-300">
+              <div className="flex flex-col gap-1 text-[#35C98A]">
                 <span className="flex items-center gap-1">
                   <span>{todayRecord.checkInTime}</span>
                   <span>→</span>
                   <span>{todayRecord.checkOutTime}</span>
                 </span>
                 {todayRecord.checkOutMode && (
-                  <span className="text-[10px] text-[#667085] font-semibold uppercase tracking-wider">
+                  <span className="text-[10px] text-[#9FB9AF] font-semibold uppercase tracking-wider">
                     Checkout Type: {todayRecord.checkOutMode === 'AUTO_SYSTEM' ? 'Automatic' : 'Manual'}
                   </span>
                 )}
               </div>
             ) : isCheckedIn ? (
-              <span className="text-[#F8FAFC]">
-                Checked in at <span className="font-mono text-[#10B981]">{todayRecord.checkInTime}</span>
+              <span className="text-[#F4FAF7]">
+                Checked in at <span className="font-mono text-[#35C98A]">{todayRecord.checkInTime}</span>
               </span>
             ) : (
-              <span className="text-[#667085] font-medium">No check-in recorded for today yet.</span>
+              <span className="text-[#9FB9AF] font-medium">No check-in recorded for today yet.</span>
             )}
           </div>
         </div>
 
         {/* Right: Working Time Counter */}
-        <div className="bg-[rgba(12,15,22,0.85)] backdrop-blur-md p-3.5 rounded-2xl border border-[rgba(167,139,250,0.18)] flex flex-col items-start sm:items-end justify-center">
-          <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#00F5FF] flex items-center gap-1 mb-0.5">
-            <Activity className="w-3 h-3 text-[#00F5FF]" />
+        <div className="bg-[#112C26] p-3.5 rounded-2xl border border-[#2A5B50] flex flex-col items-start sm:items-end justify-center">
+          <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#19C7C0] flex items-center gap-1 mb-0.5">
+            <Activity className="w-3 h-3 text-[#19C7C0]" />
             WORKING TIME
           </span>
-          <span className="text-2xl sm:text-3xl font-black font-mono text-[#F8FAFC] tracking-tight">
+          <span className="text-2xl sm:text-3xl font-black font-mono text-[#F4FAF7] tracking-tight">
             {workingTimeStr}
           </span>
           {isCheckedIn && !isCheckedOut && (
-            <span className="text-[9px] font-bold text-[#10B981] flex items-center gap-1 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-ping" /> Live Session Active
+            <span className="text-[9px] font-bold text-[#35C98A] flex items-center gap-1 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#35C98A] animate-ping" /> Live Session Active
             </span>
           )}
         </div>
       </div>
 
       {/* Visual Timeline Bar */}
-      <div className="pt-3 border-t border-[rgba(167,139,250,0.18)]">
-        <div className="flex items-center justify-between text-[10px] font-bold text-[#A7B0BE] mb-1.5">
+      <div className="pt-3 border-t border-[#2A5B50]">
+        <div className="flex items-center justify-between text-[10px] font-bold text-[#C7DAD3] mb-1.5">
           <span>CHECK-IN</span>
           <span>{isCheckedOut ? 'CHECK-OUT' : isCheckedIn ? 'LIVE PROGRESS' : 'READY FOR DUTY'}</span>
         </div>
 
-        <div className="relative w-full h-2.5 bg-[rgba(8,11,15,0.7)] rounded-full overflow-hidden border border-[rgba(167,139,250,0.18)] flex items-center p-0.5">
+        <div className="relative w-full h-2.5 bg-[#112C26] rounded-full overflow-hidden border border-[#2A5B50] flex items-center p-0.5">
           {isCheckedIn ? (
             <motion.div 
               initial={{ width: '5%' }}
@@ -269,16 +269,16 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
               transition={{ duration: 0.8, ease: 'easeOut' }}
               className={`h-full rounded-full ${
                 isCheckedOut 
-                  ? 'bg-gradient-to-r from-[#10B981] to-[#00F5FF]' 
-                  : 'bg-gradient-to-r from-[#10B981] via-[#8B5CF6] to-[#00F5FF] animate-pulse'
+                  ? 'bg-gradient-to-r from-[#35C98A] to-[#19C7C0]' 
+                  : 'bg-gradient-to-r from-[#35C98A] via-[#12A09B] to-[#19C7C0] animate-pulse'
               }`}
             />
           ) : (
-            <div className="w-0 h-full bg-[#4B5563] rounded-full" />
+            <div className="w-0 h-full bg-[#2A5B50] rounded-full" />
           )}
         </div>
 
-        <div className="flex items-center justify-between text-[10px] font-mono text-[#667085] mt-1.5">
+        <div className="flex items-center justify-between text-[10px] font-mono text-[#9FB9AF] mt-1.5">
           <span>{todayRecord?.checkInTime || '--:--'}</span>
           <span>{todayRecord?.checkOutTime || (isCheckedIn ? 'Now' : '--:--')}</span>
         </div>
@@ -291,62 +291,62 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
         const currentLoc = getCurrentLocationDetails(todayRecord, liveLocationData);
 
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 pt-3 border-t border-[rgba(167,139,250,0.18)] text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 pt-3 border-t border-[#2A5B50] text-xs">
             {/* Check-in Location */}
-            <div className="bg-[rgba(12,15,22,0.85)] p-2.5 rounded-xl border border-[rgba(167,139,250,0.18)] space-y-0.5">
-              <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
+            <div className="bg-[#112C26] p-2.5 rounded-xl border border-[#2A5B50] space-y-0.5">
+              <div className="text-[10px] font-bold text-[#35C98A] uppercase tracking-wider flex items-center justify-between">
                 <span>Check-in Location</span>
-                <span className="font-mono text-emerald-300">{checkIn.time}</span>
+                <span className="font-mono text-[#35C98A]">{checkIn.time}</span>
               </div>
-              <div className="text-[#F8FAFC] font-medium truncate flex items-center gap-1" title={checkIn.location}>
-                <span className="text-emerald-400">📍</span> {checkIn.location}
+              <div className="text-[#F4FAF7] font-medium truncate flex items-center gap-1" title={checkIn.location}>
+                <span className="text-[#35C98A]">📍</span> {checkIn.location}
               </div>
               {checkIn.distance && (
-                <div className="text-[10px] text-[#A7B0BE] font-mono">
+                <div className="text-[10px] text-[#C7DAD3] font-mono">
                   {checkIn.distance}
                 </div>
               )}
             </div>
 
             {/* Checkout Location */}
-            <div className="bg-[rgba(12,15,22,0.85)] p-2.5 rounded-xl border border-[rgba(167,139,250,0.18)] space-y-0.5">
-              <div className="text-[10px] font-bold text-[#A78BFA] uppercase tracking-wider flex items-center justify-between">
+            <div className="bg-[#112C26] p-2.5 rounded-xl border border-[#2A5B50] space-y-0.5">
+              <div className="text-[10px] font-bold text-[#19C7C0] uppercase tracking-wider flex items-center justify-between">
                 <span>Checkout Location</span>
-                <span className="font-mono text-[#A78BFA]">{checkout.time}</span>
+                <span className="font-mono text-[#19C7C0]">{checkout.time}</span>
               </div>
-              <div className={`font-medium truncate flex items-center gap-1 ${checkout.isUnresolved ? 'text-amber-300 font-bold' : 'text-[#F8FAFC]'}`} title={checkout.location}>
-                <span className={checkout.isUnresolved ? 'text-amber-400' : 'text-[#8B5CF6]'}>📍</span> {checkout.location}
+              <div className={`font-medium truncate flex items-center gap-1 ${checkout.isUnresolved ? 'text-[#F2C75C] font-bold' : 'text-[#F4FAF7]'}`} title={checkout.location}>
+                <span className={checkout.isUnresolved ? 'text-[#F2C75C]' : 'text-[#19C7C0]'}>📍</span> {checkout.location}
               </div>
               {checkout.distance && (
-                <div className="text-[10px] text-[#A7B0BE] font-mono">
+                <div className="text-[10px] text-[#C7DAD3] font-mono">
                   {checkout.distance}
                 </div>
               )}
             </div>
 
             {/* Current (Live) Location */}
-            <div className="bg-[rgba(12,15,22,0.85)] p-2.5 rounded-xl border border-[rgba(167,139,250,0.18)] space-y-0.5">
-              <div className="text-[10px] font-bold text-[#00F5FF] uppercase tracking-wider flex items-center justify-between">
+            <div className="bg-[#112C26] p-2.5 rounded-xl border border-[#2A5B50] space-y-0.5">
+              <div className="text-[10px] font-bold text-[#19C7C0] uppercase tracking-wider flex items-center justify-between">
                 <span>Current Location</span>
                 <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
-                  currentLoc.status === 'LIVE' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse' :
-                  currentLoc.status === 'RECENT' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
-                  currentLoc.status === 'STALE' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                  'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                  currentLoc.status === 'LIVE' ? 'bg-[#35C98A]/20 text-[#35C98A] border border-[#35C98A]/30 animate-pulse' :
+                  currentLoc.status === 'RECENT' ? 'bg-[#19C7C0]/20 text-[#19C7C0] border border-[#19C7C0]/30' :
+                  currentLoc.status === 'STALE' ? 'bg-[#F2C75C]/20 text-[#F2C75C] border border-[#F2C75C]/30' :
+                  'bg-[#EF6B73]/20 text-[#EF6B73] border border-[#EF6B73]/30'
                 }`}>
                   {currentLoc.status}
                 </span>
               </div>
-              <div className="text-[#F8FAFC] font-medium truncate flex items-center gap-1" title={currentLoc.location}>
-                <span className="text-[#00F5FF]">📍</span> {currentLoc.location}
+              <div className="text-[#F4FAF7] font-medium truncate flex items-center gap-1" title={currentLoc.location}>
+                <span className="text-[#19C7C0]">📍</span> {currentLoc.location}
               </div>
               {currentLoc.distance && (
-                <div className="text-[10px] text-[#A7B0BE] font-mono">
+                <div className="text-[10px] text-[#C7DAD3] font-mono">
                   Distance: {currentLoc.distance}
                 </div>
               )}
               {currentLoc.statusText && (
-                <div className="text-[9px] text-[#00F5FF]/80 font-mono flex items-center gap-1">
+                <div className="text-[9px] text-[#19C7C0] font-mono flex items-center gap-1">
                   <span>⏱</span> {currentLoc.statusText}
                 </div>
               )}

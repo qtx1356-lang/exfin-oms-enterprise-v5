@@ -3,69 +3,84 @@
 @theme {
   --color-app-bg: #EAF7EE;
   --color-app-bg-secondary: #D8F0E0;
-  --color-card-bg: rgba(139, 92, 246, 0.08);
-  --color-card-elevated: rgba(139, 92, 246, 0.12);
-  --color-border-emerald: rgba(167, 139, 250, 0.18);
-  --color-border-subtle: rgba(167, 139, 250, 0.18);
-  --color-primary: #00F5FF;
-  --color-primary-dark: #00C8D4;
-  --color-primary-light: #67F9FF;
-  --color-on-primary: #041014;
-  --color-text-primary: #F8FAFC;
-  --color-text-secondary: #A7B0BE;
-  --color-text-muted: #667085;
-  --color-success: #10B981;
-  --color-warning: #F59E0B;
-  --color-danger: #EF4444;
-  --color-info: #00F5FF;
-  --color-offline: #F59E0B;
+  
+  /* Primary & Secondary Cards */
+  --color-card-bg: #173A32;
+  --color-card-elevated: #21483E;
+  --color-card-surface: #112C26;
+  --color-border-emerald: rgba(25, 199, 192, 0.25);
+  --color-border-subtle: rgba(42, 91, 80, 0.40);
+  
+  /* Primary Accent: Restrained Electric Cyan/Teal */
+  --color-primary: #19C7C0;
+  --color-primary-dark: #12A09B;
+  --color-primary-light: #44E0DA;
+  --color-on-primary: #12332B;
+  
+  /* Text inside Dark Cards */
+  --color-card-text: #F4FAF7;
+  --color-card-text-secondary: #C7DAD3;
+  --color-card-text-muted: #9FB9AF;
+
+  /* Text on Light Mint Background */
+  --color-bg-text: #12332B;
+  --color-bg-text-secondary: #31534A;
+  --color-bg-text-muted: #547068;
+
+  /* Status Colors */
+  --color-success: #35C98A;
+  --color-warning: #F2C75C;
+  --color-danger: #EF6B73;
+  --color-info: #19C7C0;
+  --color-offline: #F2C75C;
   
   --color-background: #EAF7EE;
-  --color-surface: rgba(139, 92, 246, 0.08);
-  --color-surface-elevated: rgba(139, 92, 246, 0.12);
-  --color-surface-variant: #D8F0E0;
-  --color-on-surface: #F8FAFC;
-  --color-on-surface-variant: #A7B0BE;
-  --color-outline: rgba(167, 139, 250, 0.18);
-  --color-muted: #667085;
+  --color-surface: #173A32;
+  --color-surface-elevated: #21483E;
+  --color-surface-variant: #112C26;
+  --color-on-surface: #F4FAF7;
+  --color-on-surface-variant: #C7DAD3;
+  --color-outline: rgba(25, 199, 192, 0.25);
+  --color-muted: #9FB9AF;
 }
 
 :root {
   --employee-bg: #EAF7EE;
-  --employee-surface: rgba(139, 92, 246, 0.08);
-  --employee-surface-strong: rgba(139, 92, 246, 0.12);
-  --employee-cyan: #00F5FF;
-  --employee-cyan-hover: #67F9FF;
-  --employee-violet: #8B5CF6;
-  --employee-violet-light: #A78BFA;
-  --employee-text: #F8FAFC;
-  --employee-text-secondary: #A7B0BE;
-  --employee-text-muted: #667085;
-  --employee-border: rgba(167, 139, 250, 0.18);
+  --employee-surface: #173A32;
+  --employee-surface-strong: #21483E;
+  --employee-cyan: #19C7C0;
+  --employee-cyan-hover: #44E0DA;
+  --employee-text-card: #F4FAF7;
+  --employee-text-card-secondary: #C7DAD3;
+  --employee-text-card-muted: #9FB9AF;
+  --employee-text-bg: #12332B;
+  --employee-text-bg-secondary: #31534A;
+  --employee-text-bg-muted: #547068;
+  --employee-border: rgba(42, 91, 80, 0.40);
 
   --app-bg: #EAF7EE;
   --app-bg-secondary: #D8F0E0;
-  --card-bg: rgba(139, 92, 246, 0.08);
-  --card-elevated: rgba(139, 92, 246, 0.12);
-  --border: rgba(167, 139, 250, 0.18);
-  --border-subtle: rgba(167, 139, 250, 0.18);
-  --border-active: rgba(0, 245, 255, 0.55);
-  --primary: #00F5FF;
-  --primary-dark: #00C8D4;
-  --primary-light: #67F9FF;
-  --text-primary: #F8FAFC;
-  --text-secondary: #A7B0BE;
-  --text-muted: #667085;
-  --success: #10B981;
-  --warning: #F59E0B;
-  --danger: #EF4444;
-  --info: #00F5FF;
+  --card-bg: #173A32;
+  --card-elevated: #21483E;
+  --border: rgba(42, 91, 80, 0.40);
+  --border-subtle: rgba(42, 91, 80, 0.30);
+  --border-active: rgba(25, 199, 192, 0.60);
+  --primary: #19C7C0;
+  --primary-dark: #12A09B;
+  --primary-light: #44E0DA;
+  --text-primary: #12332B;
+  --text-secondary: #31534A;
+  --text-muted: #547068;
+  --success: #35C98A;
+  --warning: #F2C75C;
+  --danger: #EF6B73;
+  --info: #19C7C0;
 }
 
 body {
   background-color: #EAF7EE;
   background-image: none;
-  color: #0F172A;
+  color: #12332B;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   margin: 0;
   padding: 0;
@@ -93,12 +108,12 @@ button, a, input, select, textarea, [role="button"] {
   background: #EAF7EE;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(16, 185, 129, 0.25);
+  background: rgba(25, 199, 192, 0.30);
   border-radius: 9999px;
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(25, 199, 192, 0.20);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #10B981;
+  background: #19C7C0;
 }
 
 /* Enterprise Form Inputs default styling */
@@ -110,9 +125,9 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: rgba(15, 23, 42, 0.85) !important;
-  color: #F8FAFC !important;
-  border: 1px solid rgba(148, 163, 184, 0.35) !important;
+  background-color: #112C26 !important;
+  color: #F4FAF7 !important;
+  border: 1px solid rgba(42, 91, 80, 0.50) !important;
   border-radius: 14px !important;
   transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
@@ -126,47 +141,47 @@ input[type="time"]:focus,
 textarea:focus,
 select:focus {
   outline: none !important;
-  border-color: #00F5FF !important;
-  box-shadow: 0 0 0 2px rgba(0, 245, 255, 0.12) !important;
+  border-color: #19C7C0 !important;
+  box-shadow: 0 0 0 2px rgba(25, 199, 192, 0.20) !important;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #667085 !important;
+  color: #9FB9AF !important;
 }
 
 /* Standard glass card utility */
 .glass-card {
-  background: rgba(139, 92, 246, 0.08);
-  border: 1px solid rgba(167, 139, 250, 0.18);
+  background: #173A32;
+  border: 1px solid rgba(42, 91, 80, 0.45);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 24px rgba(18, 51, 43, 0.12);
 }
 
 .glass-card-elevated {
-  background: rgba(139, 92, 246, 0.12);
-  border: 1px solid rgba(167, 139, 250, 0.25);
+  background: #21483E;
+  border: 1px solid rgba(25, 199, 192, 0.25);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 12px 32px rgba(18, 51, 43, 0.18);
 }
 
 /* Standard cyan button utility */
 .btn-cyan {
-  background: rgba(0, 245, 255, 0.12);
-  border: 1px solid rgba(0, 245, 255, 0.55);
-  color: #00F5FF;
-  box-shadow: 0 0 18px rgba(0, 245, 255, 0.12);
+  background: rgba(25, 199, 192, 0.15);
+  border: 1px solid rgba(25, 199, 192, 0.60);
+  color: #19C7C0;
+  box-shadow: 0 0 18px rgba(25, 199, 192, 0.12);
   transition: all 0.15s ease;
 }
 .btn-cyan:hover {
-  background: rgba(0, 245, 255, 0.18);
-  box-shadow: 0 0 24px rgba(0, 245, 255, 0.22);
+  background: rgba(25, 199, 192, 0.25);
+  box-shadow: 0 0 24px rgba(25, 199, 192, 0.22);
 }
 .btn-cyan:active {
-  background: rgba(0, 200, 212, 0.22);
-  color: #00C8D4;
+  background: rgba(18, 160, 155, 0.30);
+  color: #12A09B;
 }
 
 @keyframes subtlePulse {

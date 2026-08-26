@@ -848,7 +848,7 @@ export const AttendanceScreen: React.FC = () => {
               </div>
             </div>
 
-            <p className="text-xs sm:text-sm text-[#B7C0BC] leading-relaxed font-medium">
+            <p className="text-xs sm:text-sm text-[#C7DAD3] leading-relaxed font-medium">
               {activeUnresolvedRecord.date === new Date(Date.now() - 86400000).toISOString().split('T')[0]
                 ? "Yesterday's checkout time could not be reliably determined."
                 : `Previous checkout time for ${activeUnresolvedRecord.date} could not be reliably determined.`}
@@ -856,18 +856,18 @@ export const AttendanceScreen: React.FC = () => {
             </p>
 
             {/* Session Details */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-[#111417] rounded-2xl border border-[#3A4148] text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 bg-[#112C26] rounded-2xl border border-[#2A5B50] text-xs">
               <div>
-                <span className="text-[10px] text-[#7E8985] font-bold uppercase block tracking-wider">Date</span>
-                <span className="text-[#F5F7F6] font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
+                <span className="text-[10px] text-[#9FB9AF] font-bold uppercase block tracking-wider">Date</span>
+                <span className="text-[#F4FAF7] font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
               </div>
               <div>
-                <span className="text-[10px] text-[#7E8985] font-bold uppercase block tracking-wider">Check-in</span>
-                <span className="text-[#18C98F] font-mono font-extrabold text-sm">{activeUnresolvedRecord.checkInTime || '--:--'}</span>
+                <span className="text-[10px] text-[#9FB9AF] font-bold uppercase block tracking-wider">Check-in</span>
+                <span className="text-[#35C98A] font-mono font-extrabold text-sm">{activeUnresolvedRecord.checkInTime || '--:--'}</span>
               </div>
               <div className="col-span-2 sm:col-span-1">
-                <span className="text-[10px] text-[#7E8985] font-bold uppercase block tracking-wider">Checkout</span>
-                <span className={`font-extrabold text-sm ${activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'text-amber-400' : 'text-rose-400'}`}>
+                <span className="text-[10px] text-[#9FB9AF] font-bold uppercase block tracking-wider">Checkout</span>
+                <span className={`font-extrabold text-sm ${activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'text-[#F2C75C]' : 'text-[#EF6B73]'}`}>
                   {activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'REPORTED (UNRESOLVED)' : 'UNRESOLVED'}
                 </span>
               </div>
@@ -875,17 +875,17 @@ export const AttendanceScreen: React.FC = () => {
 
             {/* Resolution Form / Pending State */}
             {activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' && !isEditingProposal ? (
-              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">
+              <div className="p-4 rounded-2xl bg-[#F2C75C]/10 border border-[#F2C75C]/30 space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-amber-300 text-xs font-black">
+                  <div className="flex items-center gap-2 text-[#F2C75C] text-xs font-black">
                     <Clock className="w-4 h-4" />
                     <span>Reported Checkout: {activeUnresolvedRecord.checkOutTime || activeUnresolvedRecord.employeeProposedCheckoutTime || 'Submitted'}</span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-[#F2C75C]/20 text-[#F2C75C] border border-[#F2C75C]/40">
                     EMPLOYEE REPORTED
                   </span>
                 </div>
-                <p className="text-xs text-amber-200/80 leading-relaxed">
+                <p className="text-xs text-[#F2C75C]/90 leading-relaxed">
                   You have reported a checkout time. This record remains UNRESOLVED and must be verified by an Administrator before full attendance access is unlocked.
                 </p>
                 <div className="flex justify-end pt-1">
@@ -895,15 +895,15 @@ export const AttendanceScreen: React.FC = () => {
                       setIsEditingProposal(true);
                       setProposedTimeInput(activeUnresolvedRecord.employeeProposedCheckoutTime || '');
                     }}
-                    className="px-3 py-1.5 bg-[#111417] hover:bg-[#1D2329] text-amber-300 text-xs font-bold rounded-xl border border-amber-500/30 transition-all"
+                    className="px-3 py-1.5 bg-[#112C26] hover:bg-[#21483E] text-[#F2C75C] text-xs font-bold rounded-xl border border-[#F2C75C]/30 transition-all cursor-pointer"
                   >
                     Edit Proposed Time
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="space-y-3 p-4 rounded-2xl bg-[#111417] border border-[#3A4148]">
-                <label className="text-xs font-bold text-[#F5F7F6] block">
+              <div className="space-y-3 p-4 rounded-2xl bg-[#112C26] border border-[#2A5B50]">
+                <label className="text-xs font-bold text-[#F4FAF7] block">
                   Select or enter your actual checkout time for {activeUnresolvedRecord.date}:
                 </label>
 
@@ -912,7 +912,7 @@ export const AttendanceScreen: React.FC = () => {
                     type="time"
                     value={proposedTimeInput}
                     onChange={(e) => setProposedTimeInput(e.target.value)}
-                    className="flex-1 px-3.5 py-2.5 bg-[#111417] border border-[#3A4148] text-[#F5F7F6] rounded-xl text-xs focus:ring-2 focus:ring-[#18C98F] focus:outline-none"
+                    className="flex-1 px-3.5 py-2.5 bg-[#173A32] border border-[#2A5B50] text-[#F4FAF7] rounded-xl text-xs focus:ring-2 focus:ring-[#19C7C0] focus:outline-none"
                   />
                   <div className="flex flex-wrap gap-1.5">
                     {['17:30', '18:00', '18:10', '18:30', '19:00', '19:30'].map((preset) => {
@@ -924,10 +924,10 @@ export const AttendanceScreen: React.FC = () => {
                           key={preset}
                           type="button"
                           onClick={() => setProposedTimeInput(preset)}
-                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
                             proposedTimeInput === preset
-                              ? 'bg-[#18C98F] text-black border-[#18C98F]'
-                              : 'bg-[#111417] text-[#B7C0BC] border-[#3A4148] hover:bg-[#1D2329]'
+                              ? 'bg-[#19C7C0] text-[#112C26] border-[#19C7C0]'
+                              : 'bg-[#173A32] text-[#C7DAD3] border-[#2A5B50] hover:bg-[#21483E]'
                           }`}
                         >
                           {label}
@@ -938,7 +938,7 @@ export const AttendanceScreen: React.FC = () => {
                 </div>
 
                 {proposalError && (
-                  <div className="text-xs text-rose-400 font-bold flex items-center gap-1.5">
+                  <div className="text-xs text-[#EF6B73] font-bold flex items-center gap-1.5">
                     <AlertCircle className="w-3.5 h-3.5" />
                     <span>{proposalError}</span>
                   </div>
@@ -949,7 +949,7 @@ export const AttendanceScreen: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsEditingProposal(false)}
-                      className="px-4 py-2 bg-[#111417] hover:bg-[#1D2329] text-[#B7C0BC] text-xs font-bold rounded-xl border border-[#3A4148] transition-all"
+                      className="px-4 py-2 bg-[#173A32] hover:bg-[#21483E] text-[#C7DAD3] text-xs font-bold rounded-xl border border-[#2A5B50] transition-all cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -957,7 +957,7 @@ export const AttendanceScreen: React.FC = () => {
                   <Button
                     onClick={handleSubmitProposedTime}
                     disabled={isSubmittingProposal}
-                    className="bg-amber-500 hover:bg-amber-400 text-black text-xs font-black px-6 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2"
+                    className="bg-[#F2C75C] hover:bg-[#F2C75C]/90 text-[#112C26] text-xs font-black px-6 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
                   >
                     <Check className="w-4 h-4" />
                     {isSubmittingProposal ? 'SUBMITTING...' : 'RESOLVE CHECKOUT'}
@@ -967,8 +967,8 @@ export const AttendanceScreen: React.FC = () => {
             )}
 
             {/* Continuous Tracking Notice */}
-            <div className="flex items-center gap-2 p-3 bg-[#111417] rounded-xl border border-[#3A4148] text-[11px] text-[#B7C0BC]">
-              <Activity className="w-3.5 h-3.5 text-[#18C98F] flex-shrink-0" />
+            <div className="flex items-center gap-2 p-3 bg-[#112C26] rounded-xl border border-[#2A5B50] text-[11px] text-[#C7DAD3]">
+              <Activity className="w-3.5 h-3.5 text-[#35C98A] flex-shrink-0" />
               <span>
                 <strong>Independent Daily Engine:</strong> Today&apos;s automatic check-in & geofence tracking continues working normally in the background.
               </span>
@@ -982,11 +982,11 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       <div className="space-y-3">
         <div className="flex justify-between items-center px-1">
-          <h2 className="text-xs font-bold text-[#B7C0BC] uppercase tracking-wider">
+          <h2 className="text-xs font-bold text-[#12332B] uppercase tracking-wider">
             Select Attendance Mode
           </h2>
           {todayRecord && (
-            <span className="text-[10px] bg-[#171B1F] text-[#B7C0BC] font-extrabold px-2.5 py-0.5 rounded-full border border-[#3A4148]">
+            <span className="text-[10px] bg-[#173A32] text-[#C7DAD3] font-extrabold px-2.5 py-0.5 rounded-full border border-[#2A5B50]">
               Mode Locked for Today
             </span>
           )}
@@ -999,26 +999,26 @@ export const AttendanceScreen: React.FC = () => {
             type="button"
             disabled={!!todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE'}
             onClick={() => setActiveMode('OFFICE')}
-            className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
+            className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group cursor-pointer ${
               activeMode === 'OFFICE'
-                ? 'border-[rgba(34,211,238,0.7)] bg-[rgba(30,41,59,0.9)] ring-2 ring-[rgba(34,211,238,0.5)] shadow-[0_0_15px_rgba(34,211,238,0.15)]'
-                : 'border-[rgba(148,163,184,0.22)] bg-[rgba(17,24,39,0.8)] hover:border-[rgba(34,211,238,0.4)] hover:bg-[rgba(30,41,59,0.6)]'
+                ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
+                : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
             } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🏢</span>
               {activeMode === 'OFFICE' && (
-                <span className="w-4 h-4 rounded-full bg-[#22D3EE] text-black flex items-center justify-center text-[10px]">
+                <span className="w-4 h-4 rounded-full bg-[#19C7C0] text-[#112C26] flex items-center justify-center text-[10px]">
                   <Check className="w-3 h-3" />
                 </span>
               )}
               {todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' && (
-                <Lock className="w-3.5 h-3.5 text-[#7E8985]" />
+                <Lock className="w-3.5 h-3.5 text-[#9FB9AF]" />
               )}
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-[#F8FAFC]">Office</h3>
-              <p className="text-[10px] text-[#CBD5E1] font-medium leading-tight mt-0.5">25m Geofence</p>
+              <h3 className="font-extrabold text-xs text-[#F4FAF7]">Office</h3>
+              <p className="text-[10px] text-[#C7DAD3] font-medium leading-tight mt-0.5">25m Geofence</p>
             </div>
           </button>
 
@@ -1027,28 +1027,28 @@ export const AttendanceScreen: React.FC = () => {
             type="button"
             disabled={!!todayRecord && todayRecord.attendanceType !== 'WFH'}
             onClick={() => setActiveMode('WFH')}
-            className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
+            className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group cursor-pointer ${
               activeMode === 'WFH'
-                ? 'border-[rgba(59,130,246,0.7)] bg-[rgba(30,41,59,0.9)] ring-2 ring-[rgba(59,130,246,0.5)] shadow-[0_0_15px_rgba(59,130,246,0.15)]'
-                : 'border-[rgba(148,163,184,0.22)] bg-[rgba(17,24,39,0.8)] hover:border-[rgba(59,130,246,0.4)] hover:bg-[rgba(30,41,59,0.6)]'
+                ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
+                : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
             } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🏠</span>
               <div className="flex items-center gap-1">
                 {activeMode === 'WFH' && (
-                  <span className="w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[10px]">
+                  <span className="w-4 h-4 rounded-full bg-[#19C7C0] text-[#112C26] flex items-center justify-center text-[10px]">
                     <Check className="w-3 h-3" />
                   </span>
                 )}
-                <span className="text-[9px] font-bold bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded border border-blue-500/30">
+                <span className="text-[9px] font-bold bg-[#19C7C0]/20 text-[#19C7C0] px-1.5 py-0.5 rounded border border-[#19C7C0]/30">
                   {currentWfhMonthCount}/2
                 </span>
               </div>
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-[#F8FAFC]">Work From Home</h3>
-              <p className="text-[10px] text-[#CBD5E1] font-medium leading-tight mt-0.5">Max 2 per Month</p>
+              <h3 className="font-extrabold text-xs text-[#F4FAF7]">Work From Home</h3>
+              <p className="text-[10px] text-[#C7DAD3] font-medium leading-tight mt-0.5">Max 2 per Month</p>
             </div>
           </button>
 
@@ -1057,23 +1057,23 @@ export const AttendanceScreen: React.FC = () => {
             type="button"
             disabled={!!todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT'}
             onClick={() => setActiveMode('CLIENT_VISIT')}
-            className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
+            className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group cursor-pointer ${
               activeMode === 'CLIENT_VISIT'
-                ? 'border-[rgba(245,158,11,0.7)] bg-[rgba(30,41,59,0.9)] ring-2 ring-[rgba(245,158,11,0.5)] shadow-[0_0_15px_rgba(245,158,11,0.15)]'
-                : 'border-[rgba(148,163,184,0.22)] bg-[rgba(17,24,39,0.8)] hover:border-[rgba(245,158,11,0.4)] hover:bg-[rgba(30,41,59,0.6)]'
+                ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
+                : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
             } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🤝</span>
               {activeMode === 'CLIENT_VISIT' && (
-                <span className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px]">
+                <span className="w-4 h-4 rounded-full bg-[#19C7C0] text-[#112C26] flex items-center justify-center text-[10px]">
                   <Check className="w-3 h-3" />
                 </span>
               )}
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-[#F8FAFC]">Client Visit</h3>
-              <p className="text-[10px] text-[#CBD5E1] font-medium leading-tight mt-0.5">On-site Meetings</p>
+              <h3 className="font-extrabold text-xs text-[#F4FAF7]">Client Visit</h3>
+              <p className="text-[10px] text-[#C7DAD3] font-medium leading-tight mt-0.5">On-site Meetings</p>
             </div>
           </button>
 
@@ -1082,23 +1082,23 @@ export const AttendanceScreen: React.FC = () => {
             type="button"
             disabled={!!todayRecord && todayRecord.attendanceType !== 'OUTDOOR'}
             onClick={() => setActiveMode('OUTDOOR')}
-            className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group ${
+            className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group cursor-pointer ${
               activeMode === 'OUTDOOR'
-                ? 'border-[rgba(168,85,247,0.7)] bg-[rgba(30,41,59,0.9)] ring-2 ring-[rgba(168,85,247,0.5)] shadow-[0_0_15px_rgba(168,85,247,0.15)]'
-                : 'border-[rgba(148,163,184,0.22)] bg-[rgba(17,24,39,0.8)] hover:border-[rgba(168,85,247,0.4)] hover:bg-[rgba(30,41,59,0.6)]'
+                ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
+                : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
             } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🚗</span>
               {activeMode === 'OUTDOOR' && (
-                <span className="w-4 h-4 rounded-full bg-purple-500 text-white flex items-center justify-center text-[10px]">
+                <span className="w-4 h-4 rounded-full bg-[#19C7C0] text-[#112C26] flex items-center justify-center text-[10px]">
                   <Check className="w-3 h-3" />
                 </span>
               )}
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-[#F8FAFC]">Outdoor Work</h3>
-              <p className="text-[10px] text-[#CBD5E1] font-medium leading-tight mt-0.5">Field & Market Duty</p>
+              <h3 className="font-extrabold text-xs text-[#F4FAF7]">Outdoor Work</h3>
+              <p className="text-[10px] text-[#C7DAD3] font-medium leading-tight mt-0.5">Field & Market Duty</p>
             </div>
           </button>
         </div>
@@ -1444,30 +1444,30 @@ export const AttendanceScreen: React.FC = () => {
       {/* 3. TODAY'S DETAILS */}
       {/* ==================================================== */}
       {todayRecord && ['WFH', 'CLIENT_VISIT', 'OUTDOOR'].includes(todayRecord.attendanceType || '') && (
-        <Card className="p-5 bg-[#171B1F] border border-[#3A4148] text-xs rounded-2xl space-y-3">
-          <h3 className="text-xs font-extrabold text-[#B7C0BC] uppercase tracking-widest border-b border-[#3A4148] pb-2">
+        <Card className="p-5 bg-[#173A32] border border-[#2A5B50] text-xs rounded-2xl space-y-3 text-[#F4FAF7]">
+          <h3 className="text-xs font-extrabold text-[#C7DAD3] uppercase tracking-widest border-b border-[#2A5B50] pb-2">
             📝 Today's Details
           </h3>
           {todayRecord.attendanceType === 'WFH' && (
             <div className="space-y-1.5">
-              <p className="font-bold text-[#18C98F]">Work From Home (WFH)</p>
-              <p><span className="text-[#B7C0BC] font-bold">Reason:</span> {todayRecord.wfhReason || 'N/A'}</p>
-              <p><span className="text-[#B7C0BC] font-bold">Work Plan:</span> {todayRecord.workPlan || 'N/A'}</p>
+              <p className="font-bold text-[#35C98A]">Work From Home (WFH)</p>
+              <p><span className="text-[#C7DAD3] font-bold">Reason:</span> {todayRecord.wfhReason || 'N/A'}</p>
+              <p><span className="text-[#C7DAD3] font-bold">Work Plan:</span> {todayRecord.workPlan || 'N/A'}</p>
             </div>
           )}
           {todayRecord.attendanceType === 'CLIENT_VISIT' && (
             <div className="space-y-1.5">
-              <p className="font-bold text-amber-300">Client Visit</p>
-              <p><span className="text-[#B7C0BC] font-bold">Client:</span> {todayRecord.clientName || 'N/A'}</p>
-              <p><span className="text-[#B7C0BC] font-bold">Location:</span> {todayRecord.clientLocation || 'N/A'}</p>
-              <p><span className="text-[#B7C0BC] font-bold">Purpose:</span> {todayRecord.purpose || 'N/A'}</p>
+              <p className="font-bold text-[#F2C75C]">Client Visit</p>
+              <p><span className="text-[#C7DAD3] font-bold">Client:</span> {todayRecord.clientName || 'N/A'}</p>
+              <p><span className="text-[#C7DAD3] font-bold">Location:</span> {todayRecord.clientLocation || 'N/A'}</p>
+              <p><span className="text-[#C7DAD3] font-bold">Purpose:</span> {todayRecord.purpose || 'N/A'}</p>
             </div>
           )}
           {todayRecord.attendanceType === 'OUTDOOR' && (
             <div className="space-y-1.5">
-              <p className="font-bold text-blue-300">Outdoor Work</p>
-              <p><span className="text-[#B7C0BC] font-bold">Type:</span> {todayRecord.outdoorType || 'N/A'}</p>
-              <p><span className="text-[#B7C0BC] font-bold">Description:</span> {todayRecord.description || 'N/A'}</p>
+              <p className="font-bold text-[#19C7C0]">Outdoor Work</p>
+              <p><span className="text-[#C7DAD3] font-bold">Type:</span> {todayRecord.outdoorType || 'N/A'}</p>
+              <p><span className="text-[#C7DAD3] font-bold">Description:</span> {todayRecord.description || 'N/A'}</p>
             </div>
           )}
         </Card>
@@ -1486,61 +1486,61 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {/* 6. MONTHLY SUMMARY */}
       {/* ==================================================== */}
-      <Card className="p-5 bg-[#171B1F] border border-[#3A4148] shadow-md rounded-2xl">
-        <h3 className="text-xs font-extrabold text-[#B7C0BC] uppercase tracking-widest border-b border-[#3A4148] pb-2 mb-4 flex items-center justify-between">
+      <Card className="p-5 bg-[#173A32] border border-[#2A5B50] shadow-md rounded-2xl text-[#F4FAF7]">
+        <h3 className="text-xs font-extrabold text-[#C7DAD3] uppercase tracking-widest border-b border-[#2A5B50] pb-2 mb-4 flex items-center justify-between">
           <span>📊 THIS MONTH</span>
-          <span className="text-[10px] text-[#7E8985] font-mono font-bold uppercase">SUMMARY</span>
+          <span className="text-[10px] text-[#9FB9AF] font-mono font-bold uppercase">SUMMARY</span>
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
           {/* Left: Compact Stats Table */}
-          <div className="space-y-2 border-b md:border-b-0 md:border-r border-[#3A4148] pb-4 md:pb-0 md:pr-6 text-xs">
+          <div className="space-y-2 border-b md:border-b-0 md:border-r border-[#2A5B50] pb-4 md:pb-0 md:pr-6 text-xs">
             <div className="flex justify-between font-semibold">
-              <span className="text-[#B7C0BC]">Present</span>
-              <span className="text-[#F5F7F6] font-black">{monthlyStats.present}</span>
+              <span className="text-[#C7DAD3]">Present</span>
+              <span className="text-[#F4FAF7] font-black">{monthlyStats.present}</span>
             </div>
             <div className="flex justify-between font-semibold">
-              <span className="text-[#B7C0BC] ml-3">🏢 Office</span>
-              <span className="text-[#F5F7F6] font-bold">{monthlyStats.office}</span>
+              <span className="text-[#C7DAD3] ml-3">🏢 Office</span>
+              <span className="text-[#F4FAF7] font-bold">{monthlyStats.office}</span>
             </div>
             <div className="flex justify-between font-semibold">
-              <span className="text-[#B7C0BC] ml-3">🏠 WFH</span>
-              <span className="text-[#18C98F] font-bold">{monthlyStats.wfh}</span>
+              <span className="text-[#C7DAD3] ml-3">🏠 WFH</span>
+              <span className="text-[#35C98A] font-bold">{monthlyStats.wfh}</span>
             </div>
             <div className="flex justify-between font-semibold">
-              <span className="text-[#B7C0BC] ml-3">🤝 Client Visit</span>
-              <span className="text-amber-300 font-bold">{monthlyStats.clientVisit}</span>
+              <span className="text-[#C7DAD3] ml-3">🤝 Client Visit</span>
+              <span className="text-[#F2C75C] font-bold">{monthlyStats.clientVisit}</span>
             </div>
             <div className="flex justify-between font-semibold">
-              <span className="text-[#B7C0BC] ml-3">🚗 Outdoor Work</span>
-              <span className="text-blue-300 font-bold">{monthlyStats.outdoor}</span>
+              <span className="text-[#C7DAD3] ml-3">🚗 Outdoor Work</span>
+              <span className="text-[#19C7C0] font-bold">{monthlyStats.outdoor}</span>
             </div>
             <div className="flex justify-between font-semibold">
-              <span className="text-[#B7C0BC]">🏖 Leave</span>
-              <span className="text-cyan-300 font-black">{monthlyStats.leave}</span>
+              <span className="text-[#C7DAD3]">🏖 Leave</span>
+              <span className="text-[#19C7C0] font-black">{monthlyStats.leave}</span>
             </div>
             <div className="flex justify-between font-semibold">
-              <span className="text-[#B7C0BC]">○ Absent</span>
-              <span className="text-rose-300 font-black">{monthlyStats.absent}</span>
+              <span className="text-[#C7DAD3]">○ Absent</span>
+              <span className="text-[#EF6B73] font-black">{monthlyStats.absent}</span>
             </div>
           </div>
 
           {/* Middle: Attendance Rate Circle/Indicator */}
-          <div className="flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-[#3A4148] pb-4 md:pb-0 md:px-6">
-            <span className="text-[10px] text-[#B7C0BC] uppercase tracking-wider font-extrabold mb-2 text-center">
+          <div className="flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-[#2A5B50] pb-4 md:pb-0 md:px-6">
+            <span className="text-[10px] text-[#C7DAD3] uppercase tracking-wider font-extrabold mb-2 text-center">
               Attendance Rate
             </span>
             <div className="relative w-20 h-20 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                 <path
-                  className="text-[#1D2226]"
+                  className="text-[#112C26]"
                   strokeWidth="3"
                   stroke="currentColor"
                   fill="none"
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                 />
                 <path
-                  className="text-[#18C98F]"
+                  className="text-[#35C98A]"
                   strokeDasharray={`${monthlyStats.attendanceRate}, 100`}
                   strokeWidth="3.5"
                   strokeLinecap="round"
@@ -1550,23 +1550,23 @@ export const AttendanceScreen: React.FC = () => {
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm font-black font-mono text-white">{monthlyStats.attendanceRate}%</span>
+                <span className="text-sm font-black font-mono text-[#F4FAF7]">{monthlyStats.attendanceRate}%</span>
               </div>
             </div>
-            <span className="text-[10px] text-[#7E8985] mt-1.5 font-bold font-mono">
+            <span className="text-[10px] text-[#9FB9AF] mt-1.5 font-bold font-mono">
               {monthlyStats.workingDaysElapsed} / {monthlyStats.workingDaysTotal} Days
             </span>
           </div>
 
           {/* Right: Average Working Time */}
           <div className="flex flex-col items-center md:items-end justify-center text-center md:text-right">
-            <span className="text-[10px] text-[#B7C0BC] uppercase tracking-wider font-extrabold mb-1">
+            <span className="text-[10px] text-[#C7DAD3] uppercase tracking-wider font-extrabold mb-1">
               Average Working Time
             </span>
-            <span className="text-2xl font-black font-mono text-white tracking-tight">
+            <span className="text-2xl font-black font-mono text-[#F4FAF7] tracking-tight">
               {monthlyStats.avgWorkingTime}
             </span>
-            <span className="text-[10px] text-[#7E8985] mt-1 font-bold">
+            <span className="text-[10px] text-[#9FB9AF] mt-1 font-bold">
               Based on active sessions
             </span>
           </div>
@@ -1577,20 +1577,20 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {/* 7. ATTENDANCE HISTORY LOGS */}
       {/* ==================================================== */}
-      <div className="bg-[#171B1F] rounded-2xl border border-[#3A4148] overflow-hidden shadow-md">
+      <div className="bg-[#173A32] rounded-2xl border border-[#2A5B50] overflow-hidden shadow-md text-[#F4FAF7]">
         <div 
           onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
-          className="p-5 flex items-center justify-between cursor-pointer hover:bg-[#1D2226] transition select-none"
+          className="p-5 flex items-center justify-between cursor-pointer hover:bg-[#21483E] transition select-none"
         >
           <div>
-            <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+            <h3 className="text-sm font-black text-[#F4FAF7] uppercase tracking-wider flex items-center gap-2">
               <span>📅</span> Attendance History Logs
             </h3>
-            <p className="text-[11px] text-[#B7C0BC] mt-0.5">
+            <p className="text-[11px] text-[#C7DAD3] mt-0.5">
               {isHistoryExpanded ? 'Search and filter local & synchronized records' : 'Click to expand historical logs'}
             </p>
           </div>
-          <div className="w-7 h-7 rounded-lg bg-[#111417] border border-[#3A4148] flex items-center justify-center text-[#18C98F]">
+          <div className="w-7 h-7 rounded-lg bg-[#112C26] border border-[#2A5B50] flex items-center justify-center text-[#19C7C0]">
             <span className={`transform transition-transform duration-200 ${isHistoryExpanded ? 'rotate-90' : ''}`}>
               &rarr;
             </span>
@@ -1598,7 +1598,7 @@ export const AttendanceScreen: React.FC = () => {
         </div>
 
         {isHistoryExpanded && (
-          <div className="p-6 border-t border-[#3A4148] bg-[#111417]/40 space-y-4">
+          <div className="p-6 border-t border-[#2A5B50] bg-[#112C26]/40 space-y-4">
             {/* Search and Filters Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="relative">
@@ -1607,16 +1607,16 @@ export const AttendanceScreen: React.FC = () => {
                   placeholder="Search date, client, location..."
                   value={historySearchTerm}
                   onChange={(e) => setHistorySearchTerm(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 bg-[#111417] border border-[#3A4148] rounded-xl text-xs text-white placeholder-[#7E8985] focus:outline-none focus:border-[#18C98F]"
+                  className="w-full pl-8 pr-3 py-2 bg-[#112C26] border border-[#2A5B50] rounded-xl text-xs text-[#F4FAF7] placeholder-[#9FB9AF] focus:outline-none focus:border-[#19C7C0]"
                 />
-                <span className="absolute left-2.5 top-2.5 text-[#7E8985] text-xs">🔍</span>
+                <span className="absolute left-2.5 top-2.5 text-[#9FB9AF] text-xs">🔍</span>
               </div>
 
               <div>
                 <select
                   value={historyTypeFilter}
                   onChange={(e) => setHistoryTypeFilter(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-[#111417] border border-[#3A4148] rounded-xl text-xs text-white focus:outline-none"
+                  className="w-full px-3 py-2 bg-[#112C26] border border-[#2A5B50] rounded-xl text-xs text-[#F4FAF7] focus:outline-none"
                 >
                   <option value="ALL">All Modes</option>
                   <option value="OFFICE">🏢 Office</option>
@@ -1630,7 +1630,7 @@ export const AttendanceScreen: React.FC = () => {
             </div>
 
             {filteredHistoryRecords.length === 0 ? (
-              <p className="text-xs text-[#7E8985] italic text-center py-6">No matching attendance records found.</p>
+              <p className="text-xs text-[#9FB9AF] italic text-center py-6">No matching attendance records found.</p>
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
                 {filteredHistoryRecords.map((rec) => {
@@ -1641,28 +1641,28 @@ export const AttendanceScreen: React.FC = () => {
                   return (
                     <div 
                       key={rec.id} 
-                      className="p-4 bg-[#111417] rounded-2xl border border-[#3A4148] text-xs flex flex-col gap-3 hover:border-[#18C98F]/40 transition-all"
+                      className="p-4 bg-[#112C26] rounded-2xl border border-[#2A5B50] text-xs flex flex-col gap-3 hover:border-[#19C7C0]/40 transition-all"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
                             (rec.attendanceType || 'OFFICE') === 'WFH'
-                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              ? 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/40'
                               : (rec.attendanceType || 'OFFICE') === 'CLIENT_VISIT'
-                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                              ? 'bg-[#F2C75C]/20 text-[#F2C75C] border-[#F2C75C]/40'
                               : (rec.attendanceType || 'OFFICE') === 'OUTDOOR'
-                              ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
-                              : 'bg-[#18C98F]/20 text-[#18C98F] border-[#18C98F]/40'
+                              ? 'bg-[#19C7C0]/20 text-[#19C7C0] border-[#19C7C0]/40'
+                              : 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/40'
                           }`}>
                             {(rec.attendanceType || 'OFFICE') === 'WFH' ? '🏠 WFH' : (rec.attendanceType || 'OFFICE') === 'CLIENT_VISIT' ? '🤝 Client Visit' : (rec.attendanceType || 'OFFICE') === 'OUTDOOR' ? '🚗 Outdoor Work' : '🏢 Office'}
                           </span>
-                          <span className="font-bold text-white">{rec.date}</span>
+                          <span className="font-bold text-[#F4FAF7]">{rec.date}</span>
                           {(() => {
                             if (rec.checkInTime && rec.checkOutTime && rec.checkOutTime !== '--:--' && rec.checkOutTime !== 'Pending' && rec.checkOutTime !== 'N/A' && rec.checkOutTime !== 'UNRESOLVED') {
                               const calculated = calculateWorkingHours(rec.checkInTime, rec.checkOutTime);
                               if (calculated) {
                                   return (
-                                    <span className="text-[11px] text-[#F5F7F6] font-mono font-bold bg-[#1D2226] px-2 py-0.5 rounded-md border border-[#3A4148]">
+                                    <span className="text-[11px] text-[#F4FAF7] font-mono font-bold bg-[#173A32] px-2 py-0.5 rounded-md border border-[#2A5B50]">
                                       ⏱️ {calculated}
                                     </span>
                                   );
@@ -1676,72 +1676,72 @@ export const AttendanceScreen: React.FC = () => {
                       </div>
 
                       {rec.clientName && (
-                        <p className="text-[11px] text-amber-300">Client: {rec.clientName} ({rec.clientLocation})</p>
+                        <p className="text-[11px] text-[#F2C75C]">Client: {rec.clientName} ({rec.clientLocation})</p>
                       )}
                       {rec.wfhReason && (
-                        <p className="text-[11px] text-[#18C98F]">WFH Reason: {rec.wfhReason}</p>
+                        <p className="text-[11px] text-[#35C98A]">WFH Reason: {rec.wfhReason}</p>
                       )}
                       {rec.outdoorType && (
-                        <p className="text-[11px] text-blue-300">Outdoor: {rec.outdoorType} - {rec.description}</p>
+                        <p className="text-[11px] text-[#19C7C0]">Outdoor: {rec.outdoorType} - {rec.description}</p>
                       )}
 
                       {/* Separate Check-in, Checkout & Current Location */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1 pt-2 border-t border-[#3A4148]">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1 pt-2 border-t border-[#2A5B50]">
                         {/* Check-In Block */}
-                        <div className="bg-[#111417] p-2.5 rounded-xl border border-[#3A4148] space-y-0.5">
-                          <div className="text-[10px] font-bold text-[#18C98F] uppercase tracking-wider flex items-center justify-between">
+                        <div className="bg-[#173A32] p-2.5 rounded-xl border border-[#2A5B50] space-y-0.5">
+                          <div className="text-[10px] font-bold text-[#35C98A] uppercase tracking-wider flex items-center justify-between">
                             <span>Check-in Location</span>
-                            <span className="font-mono text-[#18C98F]">{checkInLoc.time}</span>
+                            <span className="font-mono text-[#35C98A]">{checkInLoc.time}</span>
                           </div>
-                          <div className="text-white font-medium truncate flex items-center gap-1" title={checkInLoc.location}>
-                            <span className="text-[#18C98F]">📍</span> {checkInLoc.location}
+                          <div className="text-[#F4FAF7] font-medium truncate flex items-center gap-1" title={checkInLoc.location}>
+                            <span className="text-[#35C98A]">📍</span> {checkInLoc.location}
                           </div>
                           {checkInLoc.distance && (
-                            <div className="text-[10px] text-[#7E8985] font-mono">
+                            <div className="text-[10px] text-[#C7DAD3] font-mono">
                               Distance: {checkInLoc.distance}
                             </div>
                           )}
                         </div>
 
                         {/* Checkout Block */}
-                        <div className="bg-[#111417] p-2.5 rounded-xl border border-[#3A4148] space-y-0.5">
-                          <div className="text-[10px] font-bold text-[#7E8985] uppercase tracking-wider flex items-center justify-between">
+                        <div className="bg-[#173A32] p-2.5 rounded-xl border border-[#2A5B50] space-y-0.5">
+                          <div className="text-[10px] font-bold text-[#C7DAD3] uppercase tracking-wider flex items-center justify-between">
                             <span>Checkout Location</span>
-                            <span className="font-mono text-rose-300">{checkoutLoc.time}</span>
+                            <span className="font-mono text-[#EF6B73]">{checkoutLoc.time}</span>
                           </div>
-                          <div className={`font-medium truncate flex items-center gap-1 ${checkoutLoc.isUnresolved ? 'text-amber-300 font-bold' : 'text-white'}`} title={checkoutLoc.location}>
-                            <span className={checkoutLoc.isUnresolved ? 'text-amber-400' : 'text-rose-400'}>📍</span> {checkoutLoc.location}
+                          <div className={`font-medium truncate flex items-center gap-1 ${checkoutLoc.isUnresolved ? 'text-[#F2C75C] font-bold' : 'text-[#F4FAF7]'}`} title={checkoutLoc.location}>
+                            <span className={checkoutLoc.isUnresolved ? 'text-[#F2C75C]' : 'text-[#EF6B73]'}>📍</span> {checkoutLoc.location}
                           </div>
                           {checkoutLoc.distance && (
-                            <div className="text-[10px] text-[#7E8985] font-mono">
+                            <div className="text-[10px] text-[#C7DAD3] font-mono">
                               Distance: {checkoutLoc.distance}
                             </div>
                           )}
                         </div>
 
                         {/* Current Location Block */}
-                        <div className="bg-[#111417] p-2.5 rounded-xl border border-[#3A4148] space-y-0.5">
-                          <div className="text-[10px] font-bold text-cyan-350 uppercase tracking-wider flex items-center justify-between">
+                        <div className="bg-[#173A32] p-2.5 rounded-xl border border-[#2A5B50] space-y-0.5">
+                          <div className="text-[10px] font-bold text-[#19C7C0] uppercase tracking-wider flex items-center justify-between">
                             <span>Current Location</span>
                             <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
-                              currentLoc.status === 'LIVE' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse' :
-                              currentLoc.status === 'RECENT' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                              currentLoc.status === 'STALE' ? 'bg-[#18C98F]/10 text-amber-300 border border-amber-500/30' :
-                              'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                              currentLoc.status === 'LIVE' ? 'bg-[#35C98A]/20 text-[#35C98A] border border-[#35C98A]/30 animate-pulse' :
+                              currentLoc.status === 'RECENT' ? 'bg-[#19C7C0]/20 text-[#19C7C0] border border-[#19C7C0]/30' :
+                              currentLoc.status === 'STALE' ? 'bg-[#F2C75C]/20 text-[#F2C75C] border border-[#F2C75C]/30' :
+                              'bg-[#EF6B73]/20 text-[#EF6B73] border border-[#EF6B73]/30'
                             }`}>
                               {currentLoc.status}
                             </span>
                           </div>
-                          <div className="text-white font-medium truncate flex items-center gap-1" title={currentLoc.location}>
-                            <span className="text-cyan-400">📍</span> {currentLoc.location}
+                          <div className="text-[#F4FAF7] font-medium truncate flex items-center gap-1" title={currentLoc.location}>
+                            <span className="text-[#19C7C0]">📍</span> {currentLoc.location}
                           </div>
                           {currentLoc.distance && (
-                            <div className="text-[10px] text-[#7E8985] font-mono">
+                            <div className="text-[10px] text-[#C7DAD3] font-mono">
                               Distance: {currentLoc.distance}
                             </div>
                           )}
                           {currentLoc.statusText && (
-                            <div className="text-[9px] text-[#7E8985] font-mono flex items-center gap-1">
+                            <div className="text-[9px] text-[#C7DAD3] font-mono flex items-center gap-1">
                               <span>⏱</span> {currentLoc.statusText}
                             </div>
                           )}

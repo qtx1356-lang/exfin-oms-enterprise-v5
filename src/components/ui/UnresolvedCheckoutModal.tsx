@@ -69,37 +69,37 @@ export const UnresolvedCheckoutModal: React.FC<Props> = ({ isOpen, onClose, reco
 
   return (
     <Dialog isOpen={isOpen} onClose={onClose} title="Checkout Pending" hideDefaultFooter>
-      <div className="space-y-4">
-        <p className="text-sm text-[#A7B0BE]">
+      <div className="space-y-4 text-[#F4FAF7]">
+        <p className="text-sm text-[#C7DAD3]">
           No checkout was recorded for today's Office attendance and no office exit was detected.
         </p>
-        <p className="text-sm text-[#A7B0BE]">
+        <p className="text-sm text-[#C7DAD3]">
           Enter the time you actually checked out. This will be recorded as an employee-reported checkout and will remain unresolved for verification.
         </p>
 
         {error && (
-          <div className="text-xs text-rose-400 font-bold flex items-center gap-1.5 p-2 bg-rose-500/10 rounded-lg">
+          <div className="text-xs text-[#EF6B73] font-bold flex items-center gap-1.5 p-2 bg-[#EF6B73]/10 rounded-lg border border-[#EF6B73]/30">
             <AlertCircle className="w-4 h-4" />
             <span>{error}</span>
           </div>
         )}
 
         <div>
-          <label className="block text-xs font-bold text-[#A7B0BE] mb-1">Checkout Time</label>
+          <label className="block text-xs font-bold text-[#C7DAD3] mb-1">Checkout Time</label>
           <div className="relative">
-            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B5CF6]" />
+            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#19C7C0]" />
             <input
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-[#080B0F] border border-[rgba(167,139,250,0.3)] text-[#F8FAFC] rounded-xl focus:outline-none focus:border-[#00F5FF] transition-colors"
+              className="w-full pl-9 pr-4 py-2.5 bg-[#112C26] border border-[#2A5B50] text-[#F4FAF7] rounded-xl focus:outline-none focus:border-[#19C7C0] transition-colors"
             />
           </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-[rgba(0,245,255,0.12)] text-[#00F5FF] border border-[rgba(0,245,255,0.55)] hover:bg-[rgba(0,245,255,0.2)] hover:text-[#67F9FF] shadow-[0_0_15px_rgba(0,245,255,0.15)] flex items-center gap-1">
+          <Button variant="outline" onClick={onClose} className="border-[#2A5B50] text-[#C7DAD3] hover:bg-[#21483E] cursor-pointer">Cancel</Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-[#19C7C0] text-[#112C26] hover:bg-[#19C7C0]/90 font-bold flex items-center gap-1 cursor-pointer">
             <Check className="w-4 h-4" />
             {isSubmitting ? 'Submitting...' : 'Enter Checkout Time'}
           </Button>
