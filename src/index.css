@@ -1,48 +1,48 @@
 @import "tailwindcss";
 
 @theme {
-  --color-app-bg: #071A17;
-  --color-app-bg-secondary: #0B2420;
-  --color-card-bg: #102D28;
-  --color-card-elevated: #143730;
-  --color-border-emerald: #1D4840;
-  --color-border-subtle: #163B35;
-  --color-primary: #18C7A0;
-  --color-primary-dark: #0E9F82;
-  --color-primary-light: #35E0B9;
-  --color-on-primary: #04110E;
-  --color-text-primary: #F5FFFC;
-  --color-text-secondary: #A8C7C0;
-  --color-text-muted: #718F88;
+  --color-app-bg: #0B0D0F;
+  --color-app-bg-secondary: #111417;
+  --color-card-bg: #171B1E;
+  --color-card-elevated: #1D2226;
+  --color-border-emerald: #292F33;
+  --color-border-subtle: #22282C;
+  --color-primary: #18C98F;
+  --color-primary-dark: #10966D;
+  --color-primary-light: #35E0AA;
+  --color-on-primary: #06110D;
+  --color-text-primary: #F5F7F6;
+  --color-text-secondary: #B7C0BC;
+  --color-text-muted: #7E8985;
   --color-success: #22C55E;
   --color-warning: #F59E0B;
   --color-danger: #EF4444;
   --color-info: #38BDF8;
   --color-offline: #F59E0B;
   
-  --color-background: #071A17;
-  --color-surface: #102D28;
-  --color-surface-elevated: #143730;
-  --color-surface-variant: #0B2420;
-  --color-on-surface: #F5FFFC;
-  --color-on-surface-variant: #A8C7C0;
-  --color-outline: #1D4840;
-  --color-muted: #718F88;
+  --color-background: #0B0D0F;
+  --color-surface: #171B1E;
+  --color-surface-elevated: #1D2226;
+  --color-surface-variant: #111417;
+  --color-on-surface: #F5F7F6;
+  --color-on-surface-variant: #B7C0BC;
+  --color-outline: #292F33;
+  --color-muted: #7E8985;
 }
 
 :root {
-  --app-bg: #071A17;
-  --app-bg-secondary: #0B2420;
-  --card-bg: #102D28;
-  --card-elevated: #143730;
-  --border: #1D4840;
-  --border-subtle: #163B35;
-  --primary: #18C7A0;
-  --primary-dark: #0E9F82;
-  --primary-light: #35E0B9;
-  --text-primary: #F5FFFC;
-  --text-secondary: #A8C7C0;
-  --text-muted: #718F88;
+  --app-bg: #0B0D0F;
+  --app-bg-secondary: #111417;
+  --card-bg: #171B1E;
+  --card-elevated: #1D2226;
+  --border: #292F33;
+  --border-subtle: #22282C;
+  --primary: #18C98F;
+  --primary-dark: #10966D;
+  --primary-light: #35E0AA;
+  --text-primary: #F5F7F6;
+  --text-secondary: #B7C0BC;
+  --text-muted: #7E8985;
   --success: #22C55E;
   --warning: #F59E0B;
   --danger: #EF4444;
@@ -50,9 +50,9 @@
 }
 
 body {
-  background: linear-gradient(180deg, #071A17 0%, #0B2420 55%, #102D28 100%);
+  background: linear-gradient(180deg, #0B0D0F 0%, #101315 100%);
   background-attachment: fixed;
-  color: #F5FFFC;
+  color: #F5F7F6;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   margin: 0;
   padding: 0;
@@ -65,21 +65,21 @@ button, a, input, select, textarea, [role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Custom scrollbar for Midnight Emerald theme */
+/* Custom scrollbar for Graphite + Emerald theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #071A17;
+  background: #0B0D0F;
 }
 ::-webkit-scrollbar-thumb {
-  background: #143730;
+  background: #1D2226;
   border-radius: 9999px;
-  border: 1px solid #1D4840;
+  border: 1px solid #292F33;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #18C7A0;
+  background: #18C98F;
 }
 
 /* Enterprise Form Inputs default styling */
@@ -91,9 +91,9 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: #0B2420 !important;
-  color: #F5FFFC !important;
-  border: 1px solid #1D4840 !important;
+  background-color: #14181B !important;
+  color: #F5F7F6 !important;
+  border: 1px solid #292F33 !important;
   border-radius: 14px !important;
   transition: border-color 0.15s ease-in-out;
 }
@@ -107,13 +107,13 @@ input[type="time"]:focus,
 textarea:focus,
 select:focus {
   outline: none !important;
-  border-color: #18C7A0 !important;
-  box-shadow: 0 0 0 2px rgba(24, 199, 160, 0.2) !important;
+  border-color: #18C98F !important;
+  box-shadow: 0 0 0 2px rgba(24, 201, 143, 0.2) !important;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #718F88 !important;
+  color: #7E8985 !important;
 }
 
 @keyframes subtlePulse {

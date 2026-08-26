@@ -32,7 +32,7 @@ export const BottomNav: React.FC = React.memo(() => {
   };
 
   return (
-    <nav aria-label="Bottom Navigation" className="fixed bottom-3 left-2 right-2 max-w-md mx-auto h-16 bg-[#0B2420]/95 backdrop-blur-2xl border border-[#1D4840] rounded-full flex items-center justify-around px-1.5 z-[100] shadow-xl pointer-events-auto">
+    <nav aria-label="Bottom Navigation" className="fixed bottom-3 left-2 right-2 max-w-md mx-auto h-16 bg-[#111417]/95 backdrop-blur-2xl border border-[#292F33] rounded-full flex items-center justify-around px-1.5 z-[100] shadow-xl pointer-events-auto">
       {navItems.map((item) => {
         const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
         return (
@@ -41,18 +41,18 @@ export const BottomNav: React.FC = React.memo(() => {
             type="button"
             onClick={(e) => handleNavClick(e, item.path)}
             className={`flex flex-col items-center justify-center flex-1 min-w-0 h-12 rounded-full transition-colors duration-75 touch-manipulation cursor-pointer active:scale-95 ${
-              isActive ? 'text-[#F5FFFC]' : 'text-[#718F88] hover:text-[#A8C7C0]'
+              isActive ? 'text-[#F5F7F6]' : 'text-[#7E8985] hover:text-[#B7C0BC]'
             }`}
           >
             <div className={`flex items-center justify-center w-10 h-7 rounded-full mb-0.5 transition-colors duration-75 ${
-              isActive ? 'bg-[#18C7A0] text-[#04110E] shadow-sm' : 'bg-transparent'
+              isActive ? 'bg-[#18C98F] text-[#06110D] shadow-sm' : 'bg-transparent'
             }`}>
               <item.icon className={`w-4 h-4 ${
-                isActive ? 'stroke-[#04110E]' : 'stroke-[#718F88]'
+                isActive ? 'stroke-[#06110D]' : 'stroke-[#7E8985]'
               }`} />
             </div>
             <span className={`text-[10px] sm:text-[10.5px] leading-none truncate max-w-full px-1 ${
-              isActive ? 'font-black text-[#18C7A0]' : 'font-semibold text-[#718F88]'
+              isActive ? 'font-black text-[#18C98F]' : 'font-semibold text-[#7E8985]'
             }`}>
               {item.label}
             </span>

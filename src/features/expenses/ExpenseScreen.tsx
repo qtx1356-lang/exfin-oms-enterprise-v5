@@ -237,12 +237,12 @@ export const ExpenseScreen: React.FC = () => {
   return (
     <div className="flex flex-col gap-5 pb-12 text-white max-w-5xl mx-auto">
       {/* Top Bar with Offline/Sync Indicator */}
-      <div className="flex items-center justify-between pt-2 pb-2 border-b border-emerald-500/20">
+      <div className="flex items-center justify-between pt-2 pb-2 border-b border-[#18C98F]/20">
         <div>
           <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            <Wallet className="w-7 h-7 text-emerald-400" /> Expense Claims
+            <Wallet className="w-7 h-7 text-[#18C98F]" /> Expense Claims
           </h1>
-          <p className="text-xs text-emerald-200/80 font-medium mt-0.5">
+          <p className="text-xs text-[#7E8985] font-medium mt-0.5">
             Submit & track reimbursement requests in Indian Rupees (₹)
           </p>
         </div>
@@ -253,8 +253,8 @@ export const ExpenseScreen: React.FC = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="p-4 bg-gradient-to-br from-[#0F291E] to-[#123325] border border-emerald-500/30 shadow-lg flex flex-col justify-between rounded-2xl">
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300/80">
+        <Card className="p-4 bg-[#171B1E] border border-[#292F33] shadow-lg flex flex-col justify-between rounded-2xl">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#7E8985]">
             Total Submitted
           </p>
           <p className="text-xl font-black text-white mt-1 tracking-tight font-mono">
@@ -262,20 +262,20 @@ export const ExpenseScreen: React.FC = () => {
           </p>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-[#0F291E] to-[#123325] border border-amber-500/30 shadow-lg flex flex-col justify-between rounded-2xl">
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-300">
+        <Card className="p-4 bg-[#171B1E] border border-[#292F33] shadow-lg flex flex-col justify-between rounded-2xl">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-500">
             Pending
           </p>
-          <p className="text-xl font-black text-amber-300 mt-1 tracking-tight font-mono">
+          <p className="text-xl font-black text-amber-500 mt-1 tracking-tight font-mono">
             ₹{totalPending.toLocaleString('en-IN')}
           </p>
         </Card>
 
-        <Card className="p-4 bg-gradient-to-br from-[#0F291E] to-[#123325] border border-emerald-500/30 shadow-lg flex flex-col justify-between rounded-2xl">
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300">
+        <Card className="p-4 bg-[#171B1E] border border-[#292F33] shadow-lg flex flex-col justify-between rounded-2xl">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#18C98F]">
             Approved
           </p>
-          <p className="text-xl font-black text-emerald-400 mt-1 tracking-tight font-mono">
+          <p className="text-xl font-black text-[#18C98F] mt-1 tracking-tight font-mono">
             ₹{totalApproved.toLocaleString('en-IN')}
           </p>
         </Card>
@@ -290,13 +290,13 @@ export const ExpenseScreen: React.FC = () => {
             setScannedGstAmount(null);
             setIsModalOpen(true);
           }} 
-          className="py-3.5 text-sm font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-[#7C3AED] hover:bg-[#6D28D9]"
+          className="py-3.5 text-sm font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F]"
         >
           <Plus className="w-5 h-5" /> Enter Manually
         </Button>
         <Button 
           onClick={() => setIsScannerOpen(true)} 
-          className="py-3.5 text-sm font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white"
+          className="py-3.5 text-sm font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-[#1D2226] hover:bg-[#292F33] text-white border border-[#292F33]"
         >
           <Camera className="w-5 h-5" /> Scan Receipt
         </Button>
@@ -305,13 +305,13 @@ export const ExpenseScreen: React.FC = () => {
       {/* Filters Section */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-extrabold text-purple-300/80 uppercase tracking-wider">
+          <span className="text-xs font-extrabold text-[#7E8985] uppercase tracking-wider">
             Filter History
           </span>
           {dateFilter && (
             <button 
               onClick={() => setDateFilter('')} 
-              className="text-[11px] font-bold text-purple-300 hover:underline"
+              className="text-[11px] font-bold text-[#18C98F] hover:underline"
             >
               Clear Date Filter
             </button>
@@ -325,8 +325,8 @@ export const ExpenseScreen: React.FC = () => {
               onClick={() => setStatusFilter(status)}
               className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${
                 statusFilter === status
-                  ? 'bg-[#7C3AED] text-white border-purple-400/50 shadow-md'
-                  : 'bg-[#211044] text-purple-300/80 border-purple-500/20 hover:bg-[#2D1B5A]'
+                  ? 'bg-[#18C98F] text-[#0B0D0F] border-[#18C98F] shadow-md'
+                  : 'bg-[#111417] text-[#7E8985] border-[#292F33] hover:bg-[#1D2226]'
               }`}
             >
               {status}
@@ -338,7 +338,7 @@ export const ExpenseScreen: React.FC = () => {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-purple-500/30 bg-[#211044] text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+            className="w-full px-3 py-2 rounded-xl border border-[#292F33] bg-[#111417] text-white text-xs font-semibold focus:outline-none focus:border-[#18C98F]"
           >
             <option value="All">All Categories</option>
             {EXPENSE_CATEGORIES.map((cat) => (
@@ -350,14 +350,14 @@ export const ExpenseScreen: React.FC = () => {
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-purple-500/30 bg-[#211044] text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+            className="w-full px-3 py-2 rounded-xl border border-[#292F33] bg-[#111417] text-white text-xs font-semibold focus:outline-none focus:border-[#18C98F]"
           />
         </div>
       </div>
 
       {/* Expense History List */}
       <div className="space-y-3">
-        <h2 className="text-xs font-extrabold text-purple-300/80 uppercase tracking-wider">
+        <h2 className="text-xs font-extrabold text-[#7E8985] uppercase tracking-wider">
           Expense Records ({filteredExpenses.length})
         </h2>
 
@@ -368,11 +368,11 @@ export const ExpenseScreen: React.FC = () => {
             return (
               <Card 
                 key={expense.id} 
-                className="p-4 bg-[#2D1B5A] border border-purple-500/20 shadow-md hover:border-purple-500/40 transition-all space-y-3"
+                className="p-4 bg-[#171B1E] border border-[#292F33] shadow-md hover:border-[#18C98F]/40 transition-all space-y-3"
               >
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-[#211044] border border-purple-500/30 flex items-center justify-center text-[#A78BFA] flex-shrink-0">
+                    <div className="w-10 h-10 rounded-2xl bg-[#111417] border border-[#292F33] flex items-center justify-center text-[#18C98F] flex-shrink-0">
                       <CategoryIcon className="w-5 h-5" />
                     </div>
                     <div>
@@ -384,14 +384,14 @@ export const ExpenseScreen: React.FC = () => {
                               setPreviewReceipt((expense.receiptUrl || expense.localReceiptData)!);
                               setZoomScale(1);
                             }}
-                            className="p-1 rounded-md bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-colors"
+                            className="p-1 rounded-md bg-[#1D2226] text-white hover:text-[#18C98F] border border-[#292F33] transition-colors"
                             title="View Attached Receipt"
                           >
                             <Paperclip className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
-                      <p className="text-[11px] text-purple-300/70 font-medium">
+                      <p className="text-[11px] text-[#7E8985] font-medium">
                         {expense.date} • Code: {expense.employeeCode}
                       </p>
                     </div>
@@ -418,7 +418,7 @@ export const ExpenseScreen: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 text-xs text-purple-200/90 leading-relaxed">
+                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#292F33] text-xs text-[#B7C0BC] leading-relaxed">
                   {expense.description}
                 </div>
 
@@ -433,7 +433,7 @@ export const ExpenseScreen: React.FC = () => {
             );
           })
         ) : (
-          <div className="py-8 bg-[#211044] rounded-2xl border border-dashed border-purple-500/20">
+          <div className="py-8 bg-[#171B1E] rounded-2xl border border-dashed border-[#292F33]">
             <EmptyState
               icon={Receipt}
               title="No expense claims found"

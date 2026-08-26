@@ -63,10 +63,10 @@ const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
   const durationSec = Math.max(7, Math.round(overflowDistance / 18));
 
   return (
-    <div className="flex items-center gap-1 text-[11px] text-[#A8C7C0] font-medium overflow-hidden bg-[#102D28] border border-[#1D4840] px-2 py-0.5 rounded-full min-w-[60px] flex-1 max-w-[150px] xs:max-w-[200px] sm:max-w-[280px]"
+    <div className="flex items-center gap-1 text-[11px] text-[#B7C0BC] font-medium overflow-hidden bg-[#171B1E] border border-[#292F33] px-2 py-0.5 rounded-full min-w-[60px] flex-1 max-w-[150px] xs:max-w-[200px] sm:max-w-[280px]"
       title={address}
     >
-      <MapPin className="w-3 h-3 text-[#18C7A0] shrink-0 z-10" />
+      <MapPin className="w-3 h-3 text-[#18C98F] shrink-0 z-10" />
       <div className="overflow-hidden relative flex-1 min-w-0">
         <span
           ref={textRef}
@@ -281,13 +281,13 @@ export const Layout: React.FC = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Dynamic Header Bar with [Distance] [Office Status] [Location Address] [Bell] */}
-      <header className="sticky top-0 z-50 bg-[#0B2420]/90 backdrop-blur-md border-b border-[#1D4840]">
+      <header className="sticky top-0 z-50 bg-[#111417]/90 backdrop-blur-md border-b border-[#292F33]">
         <div className="container mx-auto px-2.5 sm:px-4 py-2 max-w-3xl flex items-center justify-between gap-1.5 sm:gap-2">
           {/* Left/Center Header Status & Location Controls */}
           <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden py-0.5">
             {/* Live Distance Value */}
             <div
-              className="text-[10px] font-extrabold text-[#A8C7C0] bg-[#102D28] border border-[#1D4840] px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
+              className="text-[10px] font-extrabold text-[#B7C0BC] bg-[#171B1E] border border-[#292F33] px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
               title="Live distance from office"
             >
               <span>{formattedDistance}</span>
@@ -322,7 +322,7 @@ export const Layout: React.FC = () => {
                 {!adminUser && (
                   <button
                     onClick={() => navigate('/faq')}
-                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#102D28] border border-[#1D4840] text-[#A8C7C0] hover:text-[#F5FFFC] hover:bg-[#143730] transition-colors cursor-pointer"
+                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#171B1E] border border-[#292F33] text-[#B7C0BC] hover:text-[#F5F7F6] hover:bg-[#1D2226] transition-colors cursor-pointer"
                     aria-label="Help & FAQ"
                     title="Help & FAQ"
                   >
@@ -333,13 +333,13 @@ export const Layout: React.FC = () => {
                   {/* Bell Button */}
                   <button
                     onClick={handleBellClick}
-                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#102D28] border border-[#1D4840] text-[#A8C7C0] hover:text-[#F5FFFC] hover:bg-[#143730] transition-colors cursor-pointer"
+                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#171B1E] border border-[#292F33] text-[#B7C0BC] hover:text-[#F5F7F6] hover:bg-[#1D2226] transition-colors cursor-pointer"
                     aria-label="Toggle notifications"
                     id="notification-bell-btn"
                   >
                     <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-[#EF4444] text-[9px] sm:text-[10px] font-black text-white ring-2 ring-[#071A17]">
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-[#EF4444] text-[9px] sm:text-[10px] font-black text-white ring-2 ring-[#0B0D0F]">
                         {unreadCount}
                       </span>
                     )}
@@ -349,20 +349,20 @@ export const Layout: React.FC = () => {
                 <AnimatePresence>
                   {dropdownOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#102D28] border border-[#1D4840] rounded-2xl shadow-xl z-50 overflow-hidden text-[#F5FFFC]"
-                      id="notification-bell-dropdown"
+                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                       animate={{ opacity: 1, y: 0, scale: 1 }}
+                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                       transition={{ duration: 0.15 }}
+                       className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#171B1E] border border-[#292F33] rounded-2xl shadow-xl z-50 overflow-hidden text-[#F5F7F6]"
+                       id="notification-bell-dropdown"
                     >
-                      <div className="p-4 border-b border-[#1D4840] flex items-center justify-between">
+                      <div className="p-4 border-b border-[#292F33] flex items-center justify-between">
                         <span className="font-bold text-sm">Recent Alerts</span>
                         <div className="flex items-center gap-2">
                           {unreadCount > 0 && (
                             <button
                               onClick={handleMarkAllRead}
-                              className="text-[11px] text-[#18C7A0] hover:underline font-bold flex items-center gap-1 bg-[#143730] px-2 py-0.5 rounded-full transition-colors"
+                              className="text-[11px] text-[#18C98F] hover:underline font-bold flex items-center gap-1 bg-[#1D2226] px-2 py-0.5 rounded-full transition-colors"
                               title="Mark all notifications as read"
                               id="mark-all-read-btn"
                             >
@@ -371,16 +371,16 @@ export const Layout: React.FC = () => {
                             </button>
                           )}
                           {unreadCount > 0 && (
-                            <span className="text-xs text-[#18C7A0] bg-[#143730] px-2 py-0.5 rounded-full font-bold">
+                            <span className="text-xs text-[#18C98F] bg-[#1D2226] px-2 py-0.5 rounded-full font-bold">
                               {unreadCount} unread
                             </span>
                           )}
                         </div>
                       </div>
 
-                      <div className="max-h-64 overflow-y-auto divide-y divide-[#1D4840]">
+                      <div className="max-h-64 overflow-y-auto divide-y divide-[#292F33]">
                         {recentNotifs.length === 0 ? (
-                          <div className="p-6 text-center text-[#718F88] text-xs">
+                          <div className="p-6 text-center text-[#7E8985] text-xs">
                             No recent notifications.
                           </div>
                         ) : (
@@ -388,28 +388,28 @@ export const Layout: React.FC = () => {
                             <div
                               key={notif.id}
                               onClick={() => handleNotificationClick(notif)}
-                              className={`p-3.5 hover:bg-[#143730] transition-colors cursor-pointer flex items-start gap-3 text-left group ${
-                                notif.read ? 'opacity-60' : 'bg-[#0B2420]'
+                              className={`p-3.5 hover:bg-[#1D2226] transition-colors cursor-pointer flex items-start gap-3 text-left group ${
+                                notif.read ? 'opacity-60' : 'bg-[#111417]'
                               }`}
                             >
                               <div className="mt-1">
-                                <Info className={`w-4 h-4 ${notif.read ? 'text-[#718F88]' : 'text-[#18C7A0]'}`} />
+                                <Info className={`w-4 h-4 ${notif.read ? 'text-[#7E8985]' : 'text-[#18C98F]'}`} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-xs font-bold ${notif.read ? 'text-[#A8C7C0]' : 'text-[#F5FFFC]'}`}>
+                                <p className={`text-xs font-bold ${notif.read ? 'text-[#B7C0BC]' : 'text-[#F5F7F6]'}`}>
                                   {notif.title}
                                 </p>
-                                <p className="text-[11px] text-[#A8C7C0] truncate mt-0.5">
+                                <p className="text-[11px] text-[#B7C0BC] truncate mt-0.5">
                                   {notif.message}
                                 </p>
                               </div>
                               <div className="flex items-center gap-1.5 flex-shrink-0">
                                 {!notif.read && (
-                                  <div className="w-2 h-2 rounded-full bg-[#18C7A0] mt-1" />
+                                  <div className="w-2 h-2 rounded-full bg-[#18C98F] mt-1" />
                                 )}
                                 <button
                                   onClick={(e) => handleDeleteNotification(e, notif.id)}
-                                  className="p-1 rounded hover:bg-[#EF4444]/20 text-[#718F88] hover:text-[#EF4444] transition-colors opacity-80 group-hover:opacity-100"
+                                  className="p-1 rounded hover:bg-[#EF4444]/20 text-[#7E8985] hover:text-[#EF4444] transition-colors opacity-80 group-hover:opacity-100"
                                   title="Delete notification"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -422,7 +422,7 @@ export const Layout: React.FC = () => {
 
                       <button
                         onClick={handleViewAll}
-                        className="w-full py-3 bg-[#0B2420] hover:bg-[#143730] text-center text-xs font-bold text-[#18C7A0] transition-colors border-t border-[#1D4840] flex items-center justify-center gap-1.5"
+                        className="w-full py-3 bg-[#111417] hover:bg-[#1D2226] text-center text-xs font-bold text-[#18C98F] transition-colors border-t border-[#292F33] flex items-center justify-center gap-1.5"
                       >
                         <span>View all alerts</span>
                         <ChevronRight className="w-3.5 h-3.5" />

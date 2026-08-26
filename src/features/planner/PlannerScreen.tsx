@@ -486,13 +486,13 @@ export const PlannerScreen: React.FC = () => {
   return (
     <div className="flex flex-col gap-5 pb-16 text-white max-w-5xl mx-auto">
       {/* Top Header */}
-      <div className="flex items-center justify-between pt-2 pb-2 border-b border-indigo-500/20">
+      <div className="flex items-center justify-between pt-2 pb-2 border-b border-[#292F33]">
         <div>
           <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            <CheckSquare className="w-7 h-7 text-indigo-400" /> Work Planner
+            <CheckSquare className="w-7 h-7 text-[#18C98F]" /> Work Planner
           </h1>
-          <p className="text-xs text-indigo-200/80 font-medium mt-0.5">
-            Operational Deliverables & Tasks for <span className="text-indigo-300 font-bold">{empDept}</span>
+          <p className="text-xs text-[#B7C0BC] font-medium mt-0.5">
+            Operational Deliverables & Tasks for <span className="text-[#18C98F] font-bold">{empDept}</span>
           </p>
         </div>
 
@@ -501,23 +501,21 @@ export const PlannerScreen: React.FC = () => {
       </div>
 
       {/* Feature Card: WORK COMPLETION SUMMARY */}
-      <Card className="p-5 bg-gradient-to-br from-[#121B36] via-[#18244A] to-[#10172E] border border-indigo-500/30 shadow-xl rounded-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-36 h-36 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-        
+      <Card className="p-5 bg-[#171B1E] border border-[#292F33] shadow-md rounded-2xl relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
-              <Briefcase className="w-5 h-5 text-indigo-300" />
+            <div className="w-10 h-10 rounded-xl bg-[#111417] border border-[#292F33] flex items-center justify-center">
+              <Briefcase className="w-5 h-5 text-[#18C98F]" />
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Sprint Delivery Rate</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#B7C0BC]">Sprint Delivery Rate</span>
               <h2 className="text-lg font-black text-white leading-none mt-0.5">TASK PROGRESS & CADENCE</h2>
             </div>
           </div>
 
           <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-end">
             <div className="text-right">
-              <p className="text-xs font-bold text-indigo-200">Completion Score</p>
+              <p className="text-xs font-bold text-[#B7C0BC]">Completion Score</p>
               <p className="text-2xl font-black text-white font-mono">{overallProgressPct}%</p>
             </div>
           </div>
@@ -525,13 +523,13 @@ export const PlannerScreen: React.FC = () => {
 
         {/* Progress Bar */}
         <div className="space-y-1.5">
-          <div className="w-full bg-[#0F1629] h-3 rounded-full overflow-hidden border border-indigo-500/20 p-0.5">
+          <div className="w-full bg-[#111417] h-3 rounded-full overflow-hidden border border-[#292F33] p-0.5">
             <div 
-              className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 rounded-full transition-all duration-500"
+              className="h-full bg-[#18C98F] rounded-full transition-all duration-500"
               style={{ width: `${overallProgressPct}%` }}
             />
           </div>
-          <div className="flex justify-between items-center text-[10px] font-bold text-indigo-300/80">
+          <div className="flex justify-between items-center text-[10px] font-bold text-[#7E8985]">
             <span>{completedCount} of {totalAssignedTasks} tasks completed</span>
             <span>{categoryCounts.overdue > 0 ? `${categoryCounts.overdue} overdue items need attention` : 'All tasks on schedule'}</span>
           </div>
@@ -544,97 +542,97 @@ export const PlannerScreen: React.FC = () => {
           onClick={() => setActiveCategory('today')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${
             activeCategory === 'today'
-              ? 'bg-[#7C3AED] border-purple-400 text-white shadow-lg scale-[1.02]'
-              : 'bg-[#211044] border-purple-500/20 text-purple-200 hover:bg-[#2D1B5A]'
+              ? 'bg-[#18C98F] border-[#18C98F] text-[#0B0D0F] shadow-md scale-[1.02]'
+              : 'bg-[#111417] border-[#292F33] text-[#B7C0BC] hover:bg-[#1D2226]'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
             <CalendarCheck className="w-3.5 h-3.5" /> Today's
           </div>
-          <span className="text-lg font-black mt-1 font-mono">{categoryCounts.today}</span>
+          <span className={`text-lg font-black mt-1 font-mono ${activeCategory === 'today' ? 'text-[#0B0D0F]' : 'text-white'}`}>{categoryCounts.today}</span>
         </button>
 
         <button
           onClick={() => setActiveCategory('upcoming')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${
             activeCategory === 'upcoming'
-              ? 'bg-[#7C3AED] border-purple-400 text-white shadow-lg scale-[1.02]'
-              : 'bg-[#211044] border-purple-500/20 text-purple-200 hover:bg-[#2D1B5A]'
+              ? 'bg-blue-600 border-blue-500 text-white shadow-md scale-[1.02]'
+              : 'bg-[#111417] border-[#292F33] text-[#B7C0BC] hover:bg-[#1D2226]'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
             <CalendarClock className="w-3.5 h-3.5 text-blue-300" /> Upcoming
           </div>
-          <span className="text-lg font-black mt-1 font-mono text-blue-300">{categoryCounts.upcoming}</span>
+          <span className={`text-lg font-black mt-1 font-mono ${activeCategory === 'upcoming' ? 'text-white' : 'text-blue-300'}`}>{categoryCounts.upcoming}</span>
         </button>
 
         <button
           onClick={() => setActiveCategory('overdue')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${
             activeCategory === 'overdue'
-              ? 'bg-rose-700 border-rose-400 text-white shadow-lg scale-[1.02]'
-              : 'bg-[#211044] border-rose-500/30 text-rose-300 hover:bg-rose-950/40'
+              ? 'bg-rose-600 border-rose-500 text-white shadow-md scale-[1.02]'
+              : 'bg-[#111417] border-[#292F33] text-rose-300 hover:bg-[#1D2226]'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
             <AlertTriangle className="w-3.5 h-3.5 text-rose-400" /> Overdue
           </div>
-          <span className="text-lg font-black mt-1 font-mono text-rose-400">{categoryCounts.overdue}</span>
+          <span className={`text-lg font-black mt-1 font-mono ${activeCategory === 'overdue' ? 'text-white' : 'text-rose-400'}`}>{categoryCounts.overdue}</span>
         </button>
 
         <button
           onClick={() => setActiveCategory('revision')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${
             activeCategory === 'revision'
-              ? 'bg-amber-600 border-amber-300 text-white shadow-lg scale-[1.02]'
-              : 'bg-[#211044] border-amber-500/30 text-amber-300 hover:bg-amber-950/40'
+              ? 'bg-amber-600 border-amber-500 text-white shadow-md scale-[1.02]'
+              : 'bg-[#111417] border-[#292F33] text-amber-300 hover:bg-[#1D2226]'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
             <RotateCcw className="w-3.5 h-3.5 text-amber-400" /> Revisions
           </div>
-          <span className="text-lg font-black mt-1 font-mono text-amber-300">{categoryCounts.revision}</span>
+          <span className={`text-lg font-black mt-1 font-mono ${activeCategory === 'revision' ? 'text-white' : 'text-amber-300'}`}>{categoryCounts.revision}</span>
         </button>
 
         <button
           onClick={() => setActiveCategory('completed')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${
             activeCategory === 'completed'
-              ? 'bg-emerald-700 border-emerald-400 text-white shadow-lg scale-[1.02]'
-              : 'bg-[#211044] border-emerald-500/30 text-emerald-300 hover:bg-emerald-950/40'
+              ? 'bg-emerald-600 border-emerald-500 text-white shadow-md scale-[1.02]'
+              : 'bg-[#111417] border-[#292F33] text-emerald-300 hover:bg-[#1D2226]'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Completed
           </div>
-          <span className="text-lg font-black mt-1 font-mono text-emerald-400">{categoryCounts.completed}</span>
+          <span className={`text-lg font-black mt-1 font-mono ${activeCategory === 'completed' ? 'text-white' : 'text-emerald-400'}`}>{categoryCounts.completed}</span>
         </button>
 
         <button
           onClick={() => setActiveCategory('all')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all ${
             activeCategory === 'all'
-              ? 'bg-[#7C3AED] border-purple-400 text-white shadow-lg scale-[1.02]'
-              : 'bg-[#211044] border-purple-500/20 text-purple-200 hover:bg-[#2D1B5A]'
+              ? 'bg-[#18C98F] border-[#18C98F] text-[#0B0D0F] shadow-md scale-[1.02]'
+              : 'bg-[#111417] border-[#292F33] text-[#B7C0BC] hover:bg-[#1D2226]'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
             <Layers className="w-3.5 h-3.5" /> All Tasks
           </div>
-          <span className="text-lg font-black mt-1 font-mono">{categoryCounts.total}</span>
+          <span className={`text-lg font-black mt-1 font-mono ${activeCategory === 'all' ? 'text-[#0B0D0F]' : 'text-white'}`}>{categoryCounts.total}</span>
         </button>
       </div>
 
       {/* View Mode Toggle & Filters */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between bg-[#211044] p-1.5 rounded-2xl border border-purple-500/20">
+        <div className="flex items-center justify-between bg-[#111417] p-1.5 rounded-2xl border border-[#292F33]">
           <div className="flex items-center gap-1 w-full">
             <button
               onClick={() => setViewMode('daily')}
               className={`flex-1 py-2 text-xs font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
                 viewMode === 'daily'
-                  ? 'bg-[#7C3AED] text-white shadow-md'
-                  : 'text-purple-300/70 hover:text-white'
+                  ? 'bg-[#18C98F] text-[#0B0D0F] shadow-md'
+                  : 'text-[#B7C0BC] hover:text-white'
               }`}
             >
               <Calendar className="w-3.5 h-3.5" /> Category View
@@ -643,8 +641,8 @@ export const PlannerScreen: React.FC = () => {
               onClick={() => setViewMode('weekly')}
               className={`flex-1 py-2 text-xs font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
                 viewMode === 'weekly'
-                  ? 'bg-[#7C3AED] text-white shadow-md'
-                  : 'text-purple-300/70 hover:text-white'
+                  ? 'bg-[#18C98F] text-[#0B0D0F] shadow-md'
+                  : 'text-[#B7C0BC] hover:text-white'
               }`}
             >
               <Layers className="w-3.5 h-3.5" /> Weekly Cadence
@@ -654,19 +652,19 @@ export const PlannerScreen: React.FC = () => {
 
         {/* Weekly View Strip */}
         {viewMode === 'weekly' && (
-          <div className="grid grid-cols-7 gap-1.5 bg-[#211044] p-2.5 rounded-2xl border border-purple-500/20 text-center">
+          <div className="grid grid-cols-7 gap-1.5 bg-[#111417] p-2.5 rounded-2xl border border-[#292F33] text-center">
             {weekDays.map((day) => (
               <div 
                 key={day.dateStr}
                 className={`p-2 rounded-xl border flex flex-col items-center justify-between ${
                   day.dateStr === todayDateStr
-                    ? 'bg-[#7C3AED]/30 border-purple-400/50'
-                    : 'bg-[#2D1B5A]/60 border-purple-500/10'
+                    ? 'bg-[#18C98F]/20 border-[#18C98F]/50'
+                    : 'bg-[#171B1E] border-[#292F33]'
                 }`}
               >
-                <span className="text-[10px] font-bold text-purple-300/80">{day.dayName}</span>
+                <span className="text-[10px] font-bold text-[#7E8985]">{day.dayName}</span>
                 <span className="text-xs font-black text-white my-0.5">{day.dayNum}</span>
-                <span className="text-[9px] font-extrabold text-purple-200 bg-purple-500/20 px-1.5 py-0.5 rounded-full border border-purple-500/30">
+                <span className="text-[9px] font-extrabold text-[#B7C0BC] bg-[#1D2226] px-1.5 py-0.5 rounded-full border border-[#292F33]">
                   {day.completed}/{day.total}
                 </span>
               </div>
@@ -677,8 +675,8 @@ export const PlannerScreen: React.FC = () => {
         {/* Sub-Filters for Priority & Status */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-            <span className="text-[10px] font-extrabold text-purple-300/80 uppercase tracking-wider flex items-center gap-1 flex-shrink-0">
-              <Filter className="w-3 h-3 text-[#A78BFA]" /> Priority:
+            <span className="text-[10px] font-extrabold text-[#B7C0BC] uppercase tracking-wider flex items-center gap-1 flex-shrink-0">
+              <Filter className="w-3 h-3 text-[#18C98F]" /> Priority:
             </span>
             {['All', 'Critical', 'High', 'Medium', 'Low'].map((p) => (
               <button
@@ -686,8 +684,8 @@ export const PlannerScreen: React.FC = () => {
                 onClick={() => setPriorityFilter(p)}
                 className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${
                   priorityFilter === p
-                    ? 'bg-[#7C3AED] text-white border-purple-400/50 shadow-md'
-                    : 'bg-[#211044] text-purple-300/80 border-purple-500/20 hover:bg-[#2D1B5A]'
+                    ? 'bg-[#18C98F] text-[#0B0D0F] border-[#18C98F] shadow-md'
+                    : 'bg-[#111417] text-[#B7C0BC] border-[#292F33] hover:bg-[#1D2226]'
                 }`}
               >
                 {p}
@@ -697,7 +695,7 @@ export const PlannerScreen: React.FC = () => {
 
           {activeCategory === 'all' && (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar ml-auto">
-              <span className="text-[10px] font-extrabold text-purple-300/80 uppercase tracking-wider flex items-center gap-1 flex-shrink-0">
+              <span className="text-[10px] font-extrabold text-[#B7C0BC] uppercase tracking-wider flex items-center gap-1 flex-shrink-0">
                 Status:
               </span>
               {['All', 'Assigned', 'In Progress', 'Submitted', 'Completed', 'Revision Requested', 'Overdue', 'Cancelled'].map((s) => (
@@ -706,8 +704,8 @@ export const PlannerScreen: React.FC = () => {
                   onClick={() => setStatusFilter(s)}
                   className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${
                     statusFilter === s
-                      ? 'bg-[#7C3AED] text-white border-purple-400/50 shadow-md'
-                      : 'bg-[#211044] text-purple-300/80 border-purple-500/20 hover:bg-[#2D1B5A]'
+                      ? 'bg-[#18C98F] text-[#0B0D0F] border-[#18C98F] shadow-md'
+                      : 'bg-[#111417] text-[#B7C0BC] border-[#292F33] hover:bg-[#1D2226]'
                   }`}
                 >
                   {s}
@@ -720,7 +718,7 @@ export const PlannerScreen: React.FC = () => {
 
       {/* Task List (Requirement 3: Shows title, description, priority, assigned date, due date/time, current status, expected/actual completion time, revision count + Action buttons) */}
       <div className="space-y-3">
-        <h2 className="text-xs font-extrabold text-purple-300/80 uppercase tracking-wider flex items-center justify-between">
+        <h2 className="text-xs font-extrabold text-[#B7C0BC] uppercase tracking-wider flex items-center justify-between">
           <span>
             {activeCategory === 'today' && "Today's Deliverables"}
             {activeCategory === 'upcoming' && 'Upcoming Deliverables'}
@@ -745,21 +743,21 @@ export const PlannerScreen: React.FC = () => {
               <Card
                 key={task.id}
                 onClick={() => handleOpenTask(task)}
-                className={`p-4.5 bg-[#2D1B5A] border rounded-2xl shadow-md cursor-pointer transition-all space-y-3 group ${
+                className={`p-4.5 bg-[#171B1E] border rounded-2xl shadow-md cursor-pointer transition-all space-y-3 group ${
                   effectiveStatus === 'Revision Requested'
                     ? 'border-amber-500/50 hover:border-amber-400'
                     : effectiveStatus === 'Overdue'
                     ? 'border-rose-500/50 hover:border-rose-400'
                     : effectiveStatus === 'Completed'
                     ? 'border-emerald-500/30 hover:border-emerald-400'
-                    : 'border-purple-500/20 hover:border-purple-500/50'
+                    : 'border-[#292F33] hover:border-[#18C98F]'
                 }`}
               >
                 {/* Top Row: Title, Priority, Status Badge */}
                 <div className="flex justify-between items-start gap-2">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-bold text-base text-white group-hover:text-purple-200 transition-colors">
+                      <h3 className="font-bold text-base text-white group-hover:text-[#18C98F] transition-colors">
                         {task.title}
                       </h3>
                       {getPriorityBadge(task.priority)}
@@ -767,24 +765,24 @@ export const PlannerScreen: React.FC = () => {
                     </div>
 
                     {/* Metadata Grid */}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-purple-300/80 pt-0.5">
-                      <span className="flex items-center gap-1 font-semibold text-purple-200">
-                        <Calendar className="w-3 h-3 text-[#A78BFA]" /> Assigned: {assignedDateDisplay}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[#7E8985] pt-0.5">
+                      <span className="flex items-center gap-1 font-semibold text-[#B7C0BC]">
+                        <Calendar className="w-3.5 h-3.5 text-[#18C98F]" /> Assigned: {assignedDateDisplay}
                       </span>
 
                       <span className="flex items-center gap-1 font-semibold text-amber-300">
-                        <Clock className="w-3 h-3 text-amber-400" /> Due: {task.dueDate} {task.dueTime ? `@ ${task.dueTime}` : ''}
+                        <Clock className="w-3.5 h-3.5 text-amber-400" /> Due: {task.dueDate} {task.dueTime ? `@ ${task.dueTime}` : ''}
                       </span>
 
                       {task.expectedCompletionTime && (
-                        <span className="flex items-center gap-1 font-semibold text-indigo-300">
-                          <Clock className="w-3 h-3 text-indigo-400" /> Expected: {task.expectedCompletionTime}
+                        <span className="flex items-center gap-1 font-semibold text-blue-300">
+                          <Clock className="w-3.5 h-3.5 text-blue-400" /> Expected: {task.expectedCompletionTime}
                         </span>
                       )}
 
                       {task.completedAt && (
                         <span className="flex items-center gap-1 font-semibold text-emerald-300">
-                          <Check className="w-3 h-3 text-emerald-400" /> Completed: {new Date(task.completedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                          <Check className="w-3.5 h-3.5 text-emerald-400" /> Completed: {new Date(task.completedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                         </span>
                       )}
 
@@ -798,7 +796,7 @@ export const PlannerScreen: React.FC = () => {
                 </div>
 
                 {/* Description */}
-                <p className="text-xs text-purple-200/90 line-clamp-2 bg-[#211044]/60 p-2.5 rounded-xl border border-purple-500/10">
+                <p className="text-xs text-[#B7C0BC]/90 line-clamp-2 bg-[#111417] p-2.5 rounded-xl border border-[#292F33]">
                   {task.description}
                 </p>
 
@@ -827,11 +825,11 @@ export const PlannerScreen: React.FC = () => {
 
                 {/* Progress Bar */}
                 <div className="space-y-1 pt-1">
-                  <div className="flex justify-between items-center text-[10px] font-bold text-purple-300/80">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-[#7E8985]">
                     <span>Progress</span>
                     <span className="text-white font-extrabold">{task.completionPercentage || 0}%</span>
                   </div>
-                  <div className="w-full bg-[#211044] h-2 rounded-full overflow-hidden border border-purple-500/20">
+                  <div className="w-full bg-[#111417] h-2 rounded-full overflow-hidden border border-[#292F33]">
                     <div
                       className={`h-full transition-all duration-300 ${
                         effectiveStatus === 'Completed'
@@ -840,7 +838,7 @@ export const PlannerScreen: React.FC = () => {
                           ? 'bg-rose-500'
                           : effectiveStatus === 'Revision Requested'
                           ? 'bg-amber-400'
-                          : 'bg-[#7C3AED]'
+                          : 'bg-[#18C98F]'
                       }`}
                       style={{ width: `${task.completionPercentage || 0}%` }}
                     />
@@ -848,14 +846,14 @@ export const PlannerScreen: React.FC = () => {
                 </div>
 
                 {/* ACTION BUTTONS (Requirement 3: Start Task, Submit Task, Mark Completed, View Revision Request) */}
-                <div className="pt-2 border-t border-purple-500/10 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-[10px] text-purple-300/70">
+                <div className="pt-2 border-t border-[#292F33] flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-[10px] text-[#7E8985]">
                     <span className="flex items-center gap-1">
-                      <User className="w-3 h-3 text-purple-400" /> By {task.createdByName || 'Admin'}
+                      <User className="w-3 h-3 text-[#B7C0BC]" /> By {task.createdByName || 'Admin'}
                     </span>
                     {(task.comments || []).length > 0 && (
                       <span className="flex items-center gap-1">
-                        <MessageSquare className="w-3 h-3 text-indigo-400" /> {(task.comments || []).length} comments
+                        <MessageSquare className="w-3 h-3 text-blue-400" /> {(task.comments || []).length} comments
                       </span>
                     )}
                   </div>
@@ -881,7 +879,7 @@ export const PlannerScreen: React.FC = () => {
                       <Button
                         size="sm"
                         onClick={(e) => handleStartTask(task, e)}
-                        className="py-1 px-3 text-[11px] font-bold bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1 rounded-xl"
+                        className="py-1 px-3 text-[11px] font-bold bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] flex items-center gap-1 rounded-xl"
                       >
                         <Play className="w-3 h-3" /> Start Task
                       </Button>
@@ -895,7 +893,7 @@ export const PlannerScreen: React.FC = () => {
                           e.stopPropagation();
                           handleOpenTask(task);
                         }}
-                        className="py-1 px-3 text-[11px] font-bold bg-[#7C3AED] hover:bg-[#6D28D9] text-white flex items-center gap-1 rounded-xl"
+                        className="py-1 px-3 text-[11px] font-bold bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] flex items-center gap-1 rounded-xl"
                       >
                         <Send className="w-3 h-3" /> {effectiveStatus === 'Revision Requested' ? 'Resubmit Task' : 'Submit Task'}
                       </Button>
@@ -917,7 +915,7 @@ export const PlannerScreen: React.FC = () => {
             );
           })
         ) : (
-          <div className="py-12 bg-[#211044] rounded-2xl border border-dashed border-purple-500/20">
+          <div className="py-12 bg-[#171B1E] rounded-2xl border border-dashed border-[#292F33]">
             <EmptyState
               icon={CheckSquare}
               title="No tasks in this view"
@@ -940,11 +938,11 @@ export const PlannerScreen: React.FC = () => {
           return (
             <div className="space-y-4 text-xs">
               {/* Task Header info (Read-only for employee: ownership, priority, due date cannot be changed by employee) */}
-              <div className="p-3 bg-[#211044] rounded-2xl border border-purple-500/30 space-y-2">
+              <div className="p-3 bg-[#111417] rounded-2xl border border-[#292F33] space-y-2">
                 <div className="flex justify-between items-start gap-2">
                   <div>
                     <h3 className="font-extrabold text-base text-white">{selectedTask.title}</h3>
-                    <p className="text-[10px] text-purple-300/80 font-semibold mt-0.5">
+                    <p className="text-[10px] text-[#B7C0BC] font-semibold mt-0.5">
                       Dept: {selectedTask.assignedToDepartment} • Assigned by {selectedTask.createdByName}
                     </p>
                   </div>
@@ -954,25 +952,25 @@ export const PlannerScreen: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-[#2D1B5A] rounded-xl text-purple-100 text-xs leading-relaxed border border-purple-500/20">
+                <div className="p-2.5 bg-[#171B1E] rounded-xl text-[#B7C0BC] text-xs leading-relaxed border border-[#292F33]">
                   {selectedTask.description}
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-purple-200">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-[#B7C0BC]">
                   <div>
-                    <span className="text-purple-300/70 font-bold block">Due Date & Time</span>
+                    <span className="text-[#7E8985] font-bold block">Due Date & Time</span>
                     <span className="font-semibold text-white">{selectedTask.dueDate} {selectedTask.dueTime || ''}</span>
                   </div>
                   <div>
-                    <span className="text-purple-300/70 font-bold block">Assigned Date</span>
-                    <span className="font-semibold text-purple-200">
+                    <span className="text-[#7E8985] font-bold block">Assigned Date</span>
+                    <span className="font-semibold text-[#B7C0BC]">
                       {selectedTask.assignedTime?.substring(0, 10) || selectedTask.createdAtDeviceTime?.substring(0, 10) || 'N/A'}
                     </span>
                   </div>
                   {selectedTask.expectedCompletionTime && (
                     <div>
-                      <span className="text-purple-300/70 font-bold block">Expected Completion</span>
-                      <span className="font-semibold text-indigo-300">{selectedTask.expectedCompletionTime}</span>
+                      <span className="text-[#7E8985] font-bold block">Expected Completion</span>
+                      <span className="font-semibold text-blue-300">{selectedTask.expectedCompletionTime}</span>
                     </div>
                   )}
                 </div>
@@ -995,19 +993,19 @@ export const PlannerScreen: React.FC = () => {
                       value={resubmissionNote}
                       onChange={(e) => setResubmissionNote(e.target.value)}
                       placeholder="e.g. Corrected figures and updated report"
-                      className="w-full px-3 py-2 rounded-xl border border-amber-500/30 bg-[#211044] text-white text-xs"
+                      className="w-full px-3 py-2 rounded-xl border border-amber-500/30 bg-[#111417] text-white text-xs"
                     />
                   </div>
                 </div>
               )}
 
               {/* Employee Interactive Progress Slider */}
-              <div className="p-3 bg-[#211044] rounded-2xl border border-purple-500/30 space-y-3">
+              <div className="p-3 bg-[#111417] rounded-2xl border border-[#292F33] space-y-3">
                 <div className="flex justify-between items-center">
                   <label className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
-                    <Sliders className="w-3.5 h-3.5 text-[#A78BFA]" /> Completion Percentage
+                    <Sliders className="w-3.5 h-3.5 text-[#18C98F]" /> Completion Percentage
                   </label>
-                  <span className="text-sm font-black text-[#A78BFA] bg-purple-500/20 px-2.5 py-0.5 rounded-full border border-purple-500/30 font-mono">
+                  <span className="text-sm font-black text-[#18C98F] bg-[#18C98F]/20 px-2.5 py-0.5 rounded-full border border-[#18C98F]/30 font-mono">
                     {completionInput}%
                   </span>
                 </div>
@@ -1019,7 +1017,7 @@ export const PlannerScreen: React.FC = () => {
                   step="5"
                   value={completionInput}
                   onChange={(e) => setCompletionInput(Number(e.target.value))}
-                  className="w-full accent-[#7C3AED] cursor-pointer"
+                  className="w-full accent-[#18C98F] cursor-pointer"
                 />
 
                 <div className="flex justify-between gap-1">
@@ -1030,8 +1028,8 @@ export const PlannerScreen: React.FC = () => {
                       onClick={() => setCompletionInput(pct)}
                       className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all border ${
                         completionInput === pct
-                          ? 'bg-[#7C3AED] text-white border-purple-400'
-                          : 'bg-[#2D1B5A] text-purple-300 border-purple-500/20'
+                          ? 'bg-[#18C98F] text-[#0B0D0F] border-[#18C98F]'
+                          : 'bg-[#171B1E] text-[#B7C0BC] border-[#292F33]'
                       }`}
                     >
                       {pct}%
@@ -1042,7 +1040,7 @@ export const PlannerScreen: React.FC = () => {
 
               {/* Comments Thread */}
               <div className="space-y-2">
-                <h4 className="font-extrabold text-xs text-purple-300/80 uppercase tracking-wider">
+                <h4 className="font-extrabold text-xs text-[#B7C0BC] uppercase tracking-wider">
                   Discussion & Notes ({(selectedTask.comments || []).length})
                 </h4>
 
@@ -1053,23 +1051,23 @@ export const PlannerScreen: React.FC = () => {
                         key={c.id}
                         className={`p-2.5 rounded-xl border text-xs space-y-1 ${
                           c.authorRole === 'ADMIN'
-                            ? 'bg-purple-900/40 border-purple-500/30'
-                            : 'bg-[#211044] border-purple-500/20'
+                            ? 'bg-emerald-950/20 border-emerald-500/30'
+                            : 'bg-[#111417] border-[#292F33]'
                         }`}
                       >
                         <div className="flex justify-between items-center text-[10px] font-bold">
-                          <span className={c.authorRole === 'ADMIN' ? 'text-amber-300' : 'text-purple-300'}>
+                          <span className={c.authorRole === 'ADMIN' ? 'text-emerald-400' : 'text-[#18C98F]'}>
                             {c.authorName} ({c.authorRole})
                           </span>
-                          <span className="text-purple-300/60 font-mono">
+                          <span className="text-[#7E8985] font-mono">
                             {new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        <p className="text-purple-100">{c.content}</p>
+                        <p className="text-white">{c.content}</p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-[11px] text-purple-300/60 italic text-center py-2">No comments yet.</p>
+                    <p className="text-[11px] text-[#7E8985] italic text-center py-2">No comments yet.</p>
                   )}
                 </div>
 
@@ -1079,13 +1077,13 @@ export const PlannerScreen: React.FC = () => {
                     value={commentInput}
                     onChange={(e) => setCommentInput(e.target.value)}
                     placeholder="Add progress notes or questions..."
-                    className="flex-1 px-3 py-2 rounded-xl border border-purple-500/30 bg-[#211044] text-white text-xs focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                    className="flex-1 px-3 py-2 rounded-xl border border-[#292F33] bg-[#111417] text-white text-xs focus:outline-none focus:ring-2 focus:ring-[#18C98F]"
                   />
                   <Button 
                     type="button" 
                     onClick={handleAddComment} 
                     disabled={!commentInput.trim()}
-                    className="px-3 bg-purple-700 hover:bg-purple-600 text-white font-bold"
+                    className="px-3 bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] font-bold"
                   >
                     <Send className="w-3.5 h-3.5" />
                   </Button>
@@ -1108,14 +1106,14 @@ export const PlannerScreen: React.FC = () => {
                       onClick={handleSaveTaskProgress}
                       disabled={isUpdating}
                       variant="secondary"
-                      className="flex-1 py-3 bg-[#2D1B5A] hover:bg-[#3D2575] text-white font-bold rounded-2xl"
+                      className="flex-1 py-3 bg-[#1D2226] hover:bg-[#292F33] text-white border border-[#292F33] font-bold rounded-2xl"
                     >
                       {isUpdating ? 'Saving...' : 'Save Progress'}
                     </Button>
                     <Button
                       onClick={() => handleSubmitTask(selectedTask)}
                       disabled={isUpdating}
-                      className="flex-1 py-3 bg-[#7C3AED] hover:bg-[#6D28D9] font-bold rounded-2xl flex items-center justify-center gap-1.5"
+                      className="flex-1 py-3 bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] font-bold rounded-2xl flex items-center justify-center gap-1.5"
                     >
                       <Send className="w-4 h-4" /> Submit Task (100%)
                     </Button>
@@ -1135,9 +1133,9 @@ export const PlannerScreen: React.FC = () => {
       >
         {viewingRevisionsTask && (
           <div className="space-y-4 text-xs">
-            <div className="p-3 bg-[#211044] rounded-2xl border border-purple-500/30">
+            <div className="p-3 bg-[#111417] rounded-2xl border border-[#292F33]">
               <h4 className="font-bold text-sm text-white">{viewingRevisionsTask.title}</h4>
-              <p className="text-[11px] text-purple-300 mt-0.5">
+              <p className="text-[11px] text-[#B7C0BC] mt-0.5">
                 Total Revisions: <span className="font-bold text-amber-300">{viewingRevisionsTask.revisions?.length || viewingRevisionsTask.revisionCount || 0}</span>
               </p>
             </div>
@@ -1145,17 +1143,17 @@ export const PlannerScreen: React.FC = () => {
             <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
               {(viewingRevisionsTask.revisions || []).length > 0 ? (
                 viewingRevisionsTask.revisions!.map((rev, idx) => (
-                  <div key={idx} className="p-3 bg-[#2D1B5A] rounded-xl border border-amber-500/30 space-y-2">
+                  <div key={idx} className="p-3 bg-[#171B1E] rounded-xl border border-amber-500/30 space-y-2">
                     <div className="flex justify-between items-center">
                       <span className="font-black text-amber-300 text-xs">
                         Revision #{rev.revisionNumber || (idx + 1)}
                       </span>
-                      <span className="text-[10px] text-purple-300/70">
+                      <span className="text-[10px] text-[#7E8985]">
                         {new Date(rev.requestedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                       </span>
                     </div>
 
-                    <div className="p-2 bg-[#1A0B36] rounded-lg border border-purple-500/20 text-purple-100">
+                    <div className="p-2 bg-[#111417] rounded-lg border border-[#292F33] text-white">
                       <span className="text-[10px] font-bold text-amber-400 block mb-0.5">Requested by {rev.requestedByName}:</span>
                       {rev.reason}
                     </div>
@@ -1175,18 +1173,18 @@ export const PlannerScreen: React.FC = () => {
                   </div>
                 ))
               ) : viewingRevisionsTask.reviewRemark ? (
-                <div className="p-3 bg-[#2D1B5A] rounded-xl border border-amber-500/30 space-y-1">
+                <div className="p-3 bg-[#171B1E] rounded-xl border border-amber-500/30 space-y-1">
                   <span className="font-bold text-amber-300">Revision Note:</span>
-                  <p className="text-purple-100">{viewingRevisionsTask.reviewRemark}</p>
+                  <p className="text-white">{viewingRevisionsTask.reviewRemark}</p>
                 </div>
               ) : (
-                <p className="text-center py-4 text-purple-300 italic">No revision history recorded for this task.</p>
+                <p className="text-center py-4 text-[#7E8985] italic">No revision history recorded for this task.</p>
               )}
             </div>
 
             <Button
               onClick={() => setViewingRevisionsTask(null)}
-              className="w-full py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] font-bold rounded-xl"
+              className="w-full py-2.5 bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] font-bold rounded-xl"
             >
               Close
             </Button>

@@ -555,17 +555,17 @@ export const MyTeamScreen: React.FC = () => {
       {/* Top Title & Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-2">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-[#7C3AED]/30 border border-purple-400/40 flex items-center justify-center text-[#A78BFA] shadow-lg">
+          <div className="w-11 h-11 rounded-2xl bg-[#18C98F]/20 border border-[#18C98F]/30 flex items-center justify-center text-[#18C98F] shadow-lg">
             <Users className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-black text-white">MY TEAM</h1>
-              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#18C98F]/20 text-[#18C98F] border border-[#18C98F]/30">
                 TEAM LEADER
               </span>
             </div>
-            <p className="text-xs text-purple-300/80">
+            <p className="text-xs text-[#7E8985]">
               Managing team members & work planner reviews for <span className="font-bold text-white">{employeeData?.name}</span>
             </p>
           </div>
@@ -573,18 +573,18 @@ export const MyTeamScreen: React.FC = () => {
 
         <Button
           onClick={() => setShowCreateTaskModal(true)}
-          className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-extrabold text-xs px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-1.5"
+          className="bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] font-extrabold text-xs px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-1.5"
         >
           <Plus className="w-4 h-4" /> Assign Team Task
         </Button>
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex overflow-x-auto gap-2 p-1.5 bg-[#2D1B5A] rounded-2xl border border-purple-500/20 text-xs font-bold no-scrollbar">
+      <div className="flex overflow-x-auto gap-2 p-1.5 bg-[#171B1E] rounded-2xl border border-[#292F33] text-xs font-bold no-scrollbar">
         <button
           onClick={() => setActiveTab('overview')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 ${
-            activeTab === 'overview' ? 'bg-[#7C3AED] text-white shadow-md' : 'text-purple-300/70 hover:text-white'
+            activeTab === 'overview' ? 'bg-[#18C98F] text-[#0B0D0F] shadow-md' : 'text-[#B7C0BC] hover:text-white'
           }`}
         >
           <TrendingUp className="w-3.5 h-3.5" /> Overview
@@ -593,7 +593,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('members')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 ${
-            activeTab === 'members' ? 'bg-[#7C3AED] text-white shadow-md' : 'text-purple-300/70 hover:text-white'
+            activeTab === 'members' ? 'bg-[#18C98F] text-[#0B0D0F] shadow-md' : 'text-[#B7C0BC] hover:text-white'
           }`}
         >
           <Users className="w-3.5 h-3.5" /> Team Members ({totalTeamMembers})
@@ -602,7 +602,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('tasks')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 ${
-            activeTab === 'tasks' ? 'bg-[#7C3AED] text-white shadow-md' : 'text-purple-300/70 hover:text-white'
+            activeTab === 'tasks' ? 'bg-[#18C98F] text-[#0B0D0F] shadow-md' : 'text-[#B7C0BC] hover:text-white'
           }`}
         >
           <CheckSquare className="w-3.5 h-3.5" /> Team Tasks ({teamTasks.length})
@@ -611,7 +611,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('approvals')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 ${
-            activeTab === 'approvals' ? 'bg-[#7C3AED] text-white shadow-md' : 'text-purple-300/70 hover:text-white'
+            activeTab === 'approvals' ? 'bg-[#18C98F] text-[#0B0D0F] shadow-md' : 'text-[#B7C0BC] hover:text-white'
           }`}
         >
           <Clock className="w-3.5 h-3.5" /> Review Queue
@@ -625,7 +625,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('reports')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 ${
-            activeTab === 'reports' ? 'bg-[#7C3AED] text-white shadow-md' : 'text-purple-300/70 hover:text-white'
+            activeTab === 'reports' ? 'bg-[#18C98F] text-[#0B0D0F] shadow-md' : 'text-[#B7C0BC] hover:text-white'
           }`}
         >
           <BarChart3 className="w-3.5 h-3.5" /> Team Reports
@@ -634,7 +634,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('leaves')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 ${
-            activeTab === 'leaves' ? 'bg-[#7C3AED] text-white shadow-md' : 'text-purple-300/70 hover:text-white'
+            activeTab === 'leaves' ? 'bg-[#18C98F] text-[#0B0D0F] shadow-md' : 'text-[#B7C0BC] hover:text-white'
           }`}
         >
           <Calendar className="w-3.5 h-3.5" /> Team Leaves ({teamLeaves.length})
@@ -651,30 +651,30 @@ export const MyTeamScreen: React.FC = () => {
         <div className="space-y-5">
           {/* Summary Metric Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Card className="p-3.5 bg-[#2D1B5A] border border-purple-500/20 text-center">
-              <p className="text-[10px] font-bold text-purple-300 uppercase">Total Members</p>
+            <Card className="p-3.5 bg-[#171B1E] border border-[#292F33] text-center">
+              <p className="text-[10px] font-bold text-[#7E8985] uppercase">Total Members</p>
               <p className="text-2xl font-black text-white mt-0.5">{totalTeamMembers}</p>
             </Card>
 
-            <Card className="p-3.5 bg-[#2D1B5A] border border-amber-500/30 text-center">
-              <p className="text-[10px] font-bold text-amber-300 uppercase">Pending Approvals</p>
-              <p className="text-2xl font-black text-amber-300 mt-0.5">{pendingApprovalsCount}</p>
+            <Card className="p-3.5 bg-[#171B1E] border border-[#292F33] text-center">
+              <p className="text-[10px] font-bold text-amber-500 uppercase">Pending Approvals</p>
+              <p className="text-2xl font-black text-amber-500 mt-0.5">{pendingApprovalsCount}</p>
             </Card>
 
-            <Card className="p-3.5 bg-[#2D1B5A] border border-blue-500/30 text-center">
-              <p className="text-[10px] font-bold text-blue-300 uppercase">Active Tasks</p>
-              <p className="text-2xl font-black text-blue-300 mt-0.5">{activeTasksCount}</p>
+            <Card className="p-3.5 bg-[#171B1E] border border-[#292F33] text-center">
+              <p className="text-[10px] font-bold text-blue-400 uppercase">Active Tasks</p>
+              <p className="text-2xl font-black text-blue-400 mt-0.5">{activeTasksCount}</p>
             </Card>
 
-            <Card className="p-3.5 bg-[#2D1B5A] border border-emerald-500/30 text-center">
-              <p className="text-[10px] font-bold text-emerald-300 uppercase">Team Completion</p>
-              <p className="text-2xl font-black text-emerald-400 mt-0.5">{teamCompletionPct}%</p>
+            <Card className="p-3.5 bg-[#171B1E] border border-[#292F33] text-center">
+              <p className="text-[10px] font-bold text-[#18C98F] uppercase">Team Completion</p>
+              <p className="text-2xl font-black text-[#18C98F] mt-0.5">{teamCompletionPct}%</p>
             </Card>
           </div>
 
           {/* Pending Approvals Quick Alert Banner */}
           {pendingApprovalsCount > 0 && (
-            <Card className="p-4 bg-gradient-to-r from-amber-900/30 to-[#2D1B5A] border border-amber-500/40 rounded-2xl flex items-center justify-between">
+            <Card className="p-4 bg-[#1D2226] border border-amber-500/40 rounded-2xl flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Clock className="w-6 h-6 text-amber-400 animate-pulse flex-shrink-0" />
                 <div>
@@ -696,9 +696,9 @@ export const MyTeamScreen: React.FC = () => {
           )}
 
           {/* Team Workload Visual Bar */}
-          <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
-              <BarChart3 className="w-4 h-4 text-[#A78BFA]" /> Team Member Workload Summary
+          <Card className="p-4 bg-[#171B1E] border border-[#292F33] space-y-4">
+            <h3 className="text-xs font-black uppercase tracking-wider text-[#B7C0BC] flex items-center gap-1.5">
+              <BarChart3 className="w-4 h-4 text-[#18C98F]" /> Team Member Workload Summary
             </h3>
 
             <div className="space-y-3">
@@ -714,30 +714,30 @@ export const MyTeamScreen: React.FC = () => {
                   const mPct = mTasks.length > 0 ? Math.round((mCompleted / mTasks.length) * 100) : 0;
 
                   return (
-                    <div key={member.id} className="bg-[#211044] p-3 rounded-xl border border-purple-500/10 space-y-2">
+                    <div key={member.id} className="bg-[#111417] p-3 rounded-xl border border-[#292F33] space-y-2">
                       <div className="flex justify-between items-center text-xs">
                         <div>
                           <span className="font-bold text-white">{member.name}</span>
-                          <span className="text-[10px] text-purple-300/70 font-mono ml-2">({member.employeeCode})</span>
+                          <span className="text-[10px] text-[#7E8985] font-mono ml-2">({member.employeeCode})</span>
                         </div>
                         <div className="flex items-center gap-3 text-[11px]">
-                          <span className="text-purple-300">{mTasks.length} Assigned</span>
-                          <span className="text-blue-300">{mActive} Active</span>
-                          <span className="text-emerald-400 font-bold">{mCompleted} Done ({mPct}%)</span>
+                          <span className="text-[#B7C0BC]">{mTasks.length} Assigned</span>
+                          <span className="text-blue-400">{mActive} Active</span>
+                          <span className="text-[#18C98F] font-bold">{mCompleted} Done ({mPct}%)</span>
                           {mOverdue > 0 && <span className="text-red-400 font-bold">{mOverdue} Overdue</span>}
                         </div>
                       </div>
 
                       {/* Visual Workload Bar */}
-                      <div className="w-full bg-[#2D1B5A] h-2.5 rounded-full overflow-hidden border border-purple-500/20 flex">
-                        <div className="bg-emerald-400 h-full" style={{ width: `${mPct}%` }} title={`Completed: ${mPct}%`} />
-                        <div className="bg-amber-400 h-full" style={{ width: `${mTasks.length > 0 ? Math.round((mActive / mTasks.length) * 100) : 0}%` }} title={`Active: ${mActive}`} />
+                      <div className="w-full bg-[#171B1E] h-2.5 rounded-full overflow-hidden border border-[#292F33] flex">
+                        <div className="bg-[#18C98F] h-full" style={{ width: `${mPct}%` }} title={`Completed: ${mPct}%`} />
+                        <div className="bg-blue-500 h-full" style={{ width: `${mTasks.length > 0 ? Math.round((mActive / mTasks.length) * 100) : 0}%` }} title={`Active: ${mActive}`} />
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <p className="text-xs text-purple-300/60 italic text-center py-4">
+                <p className="text-xs text-[#7E8985] italic text-center py-4">
                   No assigned team members currently found. Use the Admin Panel to designate team membership.
                 </p>
               )}
@@ -761,48 +761,48 @@ export const MyTeamScreen: React.FC = () => {
               const mPct = mTasks.length > 0 ? Math.round((mCompleted / mTasks.length) * 100) : 0;
 
               return (
-                <Card key={member.id} className="p-4 bg-[#2D1B5A] border border-purple-500/20 rounded-2xl flex flex-col justify-between gap-3">
+                <Card key={member.id} className="p-4 bg-[#171B1E] border border-[#292F33] rounded-2xl flex flex-col justify-between gap-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-[#211044] border border-purple-500/30 overflow-hidden flex-shrink-0">
+                      <div className="w-11 h-11 rounded-2xl bg-[#111417] border border-[#292F33] overflow-hidden flex-shrink-0 flex items-center justify-center">
                         {member.selfieUrl ? (
                           <img src={member.selfieUrl} alt={member.name} className="w-full h-full object-cover" />
                         ) : (
-                          <UserCheck className="w-6 h-6 m-2 text-purple-300" />
+                          <UserCheck className="w-6 h-6 text-[#18C98F]" />
                         )}
                       </div>
                       <div>
                         <h3 className="font-bold text-sm text-white">{member.name}</h3>
-                        <p className="text-[10px] font-mono text-purple-300/80">{member.employeeCode}</p>
-                        <p className="text-[10px] text-purple-300/60">{member.department || 'Operations'} • {member.designation || 'Executive'}</p>
+                        <p className="text-[10px] font-mono text-[#7E8985]">{member.employeeCode}</p>
+                        <p className="text-[10px] text-[#7E8985]">{member.department || 'Operations'} • {member.designation || 'Executive'}</p>
                       </div>
                     </div>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#18C98F]/20 text-[#18C98F] border border-[#18C98F]/30">
                       {member.status || 'Approved'}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 text-center text-xs">
+                  <div className="grid grid-cols-3 gap-2 bg-[#111417] p-2.5 rounded-xl border border-[#292F33] text-center text-xs">
                     <div>
-                      <p className="text-[9px] text-purple-300 uppercase font-bold">Active</p>
-                      <p className="font-bold text-blue-300">{mActive}</p>
+                      <p className="text-[9px] text-[#7E8985] uppercase font-bold">Active</p>
+                      <p className="font-bold text-blue-400">{mActive}</p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-purple-300 uppercase font-bold">Completed</p>
-                      <p className="font-bold text-emerald-400">{mCompleted}</p>
+                      <p className="text-[9px] text-[#7E8985] uppercase font-bold">Completed</p>
+                      <p className="font-bold text-[#18C98F]">{mCompleted}</p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-purple-300 uppercase font-bold">Overdue</p>
+                      <p className="text-[9px] text-[#7E8985] uppercase font-bold">Overdue</p>
                       <p className="font-bold text-red-400">{mOverdue}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-purple-500/15">
-                    <span className="text-xs font-bold text-purple-200">{mPct}% Work Completed</span>
+                  <div className="flex items-center justify-between pt-1 border-t border-[#292F33]">
+                    <span className="text-xs font-bold text-[#B7C0BC]">{mPct}% Work Completed</span>
                     <Button
                       onClick={() => setSelectedMemberForReport(member)}
                       variant="outlined"
-                      className="border-purple-500/30 text-purple-200 text-[10px] px-2.5 py-1 rounded-lg"
+                      className="border-[#292F33] text-[#B7C0BC] hover:text-[#18C98F] hover:border-[#18C98F] text-[10px] px-2.5 py-1 rounded-lg bg-transparent"
                     >
                       <Eye className="w-3 h-3 mr-1" /> Workload Report
                     </Button>
@@ -828,22 +828,22 @@ export const MyTeamScreen: React.FC = () => {
       {activeTab === 'tasks' && (
         <div className="space-y-4">
           {/* Filters Bar */}
-          <div className="flex flex-wrap items-center gap-3 bg-[#2D1B5A] p-3 rounded-2xl border border-purple-500/20 text-xs">
+          <div className="flex flex-wrap items-center gap-3 bg-[#171B1E] p-3 rounded-2xl border border-[#292F33] text-xs">
             <div className="relative flex-1 min-w-[200px]">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-purple-300/70" />
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#7E8985]" />
               <input
                 type="text"
                 placeholder="Search team tasks..."
                 value={taskSearchTerm}
                 onChange={(e) => setTaskSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-purple-500/30 bg-[#211044] text-white focus:outline-none"
+                className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-[#292F33] bg-[#111417] text-white focus:outline-none focus:border-[#18C98F]"
               />
             </div>
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-[#211044] text-white px-3 py-1.5 rounded-xl border border-purple-500/30 font-bold"
+              className="bg-[#111417] text-white px-3 py-1.5 rounded-xl border border-[#292F33] font-bold focus:outline-none focus:border-[#18C98F]"
             >
               <option value="All">All Statuses</option>
               <option value="PENDING">PENDING</option>
@@ -856,7 +856,7 @@ export const MyTeamScreen: React.FC = () => {
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="bg-[#211044] text-white px-3 py-1.5 rounded-xl border border-purple-500/30 font-bold"
+              className="bg-[#111417] text-white px-3 py-1.5 rounded-xl border border-[#292F33] font-bold focus:outline-none focus:border-[#18C98F]"
             >
               <option value="All">All Priorities</option>
               <option value="URGENT">URGENT</option>
@@ -872,11 +872,11 @@ export const MyTeamScreen: React.FC = () => {
               const effStatus = getEffectiveTaskStatus(t);
 
               return (
-                <Card key={t.id} className="p-4 bg-[#2D1B5A] border border-purple-500/20 rounded-2xl space-y-3">
+                <Card key={t.id} className="p-4 bg-[#171B1E] border border-[#292F33] rounded-2xl space-y-3">
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-bold text-sm text-white">{t.title}</h3>
-                      <p className="text-xs text-purple-200/80 mt-0.5 line-clamp-2">{t.description}</p>
+                      <p className="text-xs text-[#B7C0BC] mt-0.5 line-clamp-2">{t.description}</p>
                     </div>
 
                     <div className="flex flex-col items-end gap-1">
@@ -892,27 +892,27 @@ export const MyTeamScreen: React.FC = () => {
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${
                         t.priority === 'URGENT' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
                         t.priority === 'HIGH' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
-                        'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                        'bg-[#18C98F]/20 text-[#18C98F] border-[#18C98F]/30'
                       }`}>
                         {t.priority} Priority
                       </span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-[#211044] p-2.5 rounded-xl border border-purple-500/10 text-xs text-purple-200">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-[#111417] p-2.5 rounded-xl border border-[#292F33] text-xs text-[#B7C0BC]">
                     <div>
-                      <span className="text-purple-300/70 block text-[10px]">Assigned To:</span>
+                      <span className="text-[#7E8985] block text-[10px]">Assigned To:</span>
                       <span className="font-bold text-white font-mono">{(t.assignedToEmployeeCodes || []).join(', ') || 'Team'}</span>
                     </div>
 
                     <div>
-                      <span className="text-purple-300/70 block text-[10px]">Due Date:</span>
+                      <span className="text-[#7E8985] block text-[10px]">Due Date:</span>
                       <span className="font-bold text-white">{t.dueDate} {t.dueTime || ''}</span>
                     </div>
 
                     <div>
-                      <span className="text-purple-300/70 block text-[10px]">Progress:</span>
-                      <span className="font-bold text-emerald-300">{t.completionPercentage || 0}%</span>
+                      <span className="text-[#7E8985] block text-[10px]">Progress:</span>
+                      <span className="font-bold text-[#18C98F]">{t.completionPercentage || 0}%</span>
                     </div>
                   </div>
 
@@ -963,25 +963,25 @@ export const MyTeamScreen: React.FC = () => {
       {/* REVIEW QUEUE PANEL */}
       {activeTab === 'approvals' && (
         <div className="space-y-4">
-          <div className="p-3.5 bg-[#2D1B5A] rounded-2xl border border-purple-500/20">
-            <h2 className="text-xs font-black text-purple-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+          <div className="p-3.5 bg-[#171B1E] rounded-2xl border border-[#292F33]">
+            <h2 className="text-xs font-black text-[#7E8985] uppercase tracking-wider mb-1 flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-amber-400" /> Pending Task Review Queue
             </h2>
-            <p className="text-xs text-purple-200/80">
+            <p className="text-xs text-[#B7C0BC]">
               When team members complete tasks, they enter this queue for your approval or revision request.
             </p>
           </div>
 
           <div className="space-y-3">
             {teamTasks.filter((t) => t.approvalStatus === 'PENDING_REVIEW').map((t) => (
-              <Card key={t.id} className="p-4 bg-[#2D1B5A] border-2 border-amber-500/40 rounded-2xl space-y-3 shadow-xl">
+              <Card key={t.id} className="p-4 bg-[#171B1E] border-2 border-amber-500/40 rounded-2xl space-y-3 shadow-xl">
                 <div className="flex justify-between items-start">
                   <div>
                     <span className="text-[10px] font-black uppercase text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
                       PENDING TL REVIEW
                     </span>
                     <h3 className="font-bold text-base text-white mt-1.5">{t.title}</h3>
-                    <p className="text-xs text-purple-200/90 mt-1">{t.description}</p>
+                    <p className="text-xs text-[#B7C0BC] mt-1">{t.description}</p>
                   </div>
 
                   <span className="font-black text-emerald-400 text-sm bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
@@ -989,14 +989,14 @@ export const MyTeamScreen: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 bg-[#211044] p-3 rounded-xl border border-purple-500/20 text-xs text-purple-200">
+                <div className="grid grid-cols-2 gap-2 bg-[#111417] p-3 rounded-xl border border-[#292F33] text-xs text-[#B7C0BC]">
                   <div>
-                    <span className="text-purple-300/70 block text-[10px]">Submitted By:</span>
+                    <span className="text-[#7E8985] block text-[10px]">Submitted By:</span>
                     <span className="font-bold text-white font-mono">{(t.assignedToEmployeeCodes || []).join(', ') || 'Employee'}</span>
                   </div>
 
                   <div>
-                    <span className="text-purple-300/70 block text-[10px]">Due Date:</span>
+                    <span className="text-[#7E8985] block text-[10px]">Due Date:</span>
                     <span className="font-bold text-white">{t.dueDate} {t.dueTime || ''}</span>
                   </div>
                 </div>
@@ -1038,28 +1038,28 @@ export const MyTeamScreen: React.FC = () => {
       {/* TEAM REPORTS PANEL */}
       {activeTab === 'reports' && (
         <div className="space-y-4">
-          <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20 rounded-2xl space-y-4">
-            <h3 className="text-sm font-black uppercase text-purple-300 tracking-wider flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-[#A78BFA]" /> Executive Team Performance Metrics
+          <Card className="p-5 bg-[#171B1E] border border-[#292F33] rounded-2xl space-y-4">
+            <h3 className="text-sm font-black uppercase text-[#B7C0BC] tracking-wider flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-[#18C98F]" /> Executive Team Performance Metrics
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-[#211044] p-3.5 rounded-xl border border-purple-500/20 text-center">
-                <p className="text-[10px] text-purple-300 font-bold uppercase">Total Team Tasks</p>
+              <div className="bg-[#111417] p-3.5 rounded-xl border border-[#292F33] text-center">
+                <p className="text-[10px] text-[#7E8985] font-bold uppercase">Total Team Tasks</p>
                 <p className="text-xl font-black text-white">{teamTasks.length}</p>
               </div>
 
-              <div className="bg-[#211044] p-3.5 rounded-xl border border-emerald-500/30 text-center">
-                <p className="text-[10px] text-emerald-300 font-bold uppercase">Completed</p>
-                <p className="text-xl font-black text-emerald-400">{completedTasksCount}</p>
+              <div className="bg-[#111417] p-3.5 rounded-xl border border-emerald-500/30 text-center">
+                <p className="text-[10px] text-[#18C98F] font-bold uppercase">Completed</p>
+                <p className="text-xl font-black text-[#18C98F]">{completedTasksCount}</p>
               </div>
 
-              <div className="bg-[#211044] p-3.5 rounded-xl border border-blue-500/30 text-center">
+              <div className="bg-[#111417] p-3.5 rounded-xl border border-blue-500/30 text-center">
                 <p className="text-[10px] text-blue-300 font-bold uppercase">On-Time Completion</p>
                 <p className="text-xl font-black text-blue-300">{onTimePct}%</p>
               </div>
 
-              <div className="bg-[#211044] p-3.5 rounded-xl border border-amber-500/30 text-center">
+              <div className="bg-[#111417] p-3.5 rounded-xl border border-amber-500/30 text-center">
                 <p className="text-[10px] text-amber-300 font-bold uppercase">Revisions Requested</p>
                 <p className="text-xl font-black text-amber-300">{revisionRequiredCount}</p>
               </div>
@@ -1073,30 +1073,30 @@ export const MyTeamScreen: React.FC = () => {
       {/* TEAM LEAVES REVIEW PANEL */}
       {activeTab === 'leaves' && (
         <div className="space-y-4">
-          <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20 rounded-2xl space-y-4">
-            <h3 className="text-sm font-black uppercase text-purple-300 tracking-wider flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-[#A78BFA]" /> Team Leave Management
+          <Card className="p-5 bg-[#171B1E] border border-[#292F33] rounded-2xl space-y-4">
+            <h3 className="text-sm font-black uppercase text-[#B7C0BC] tracking-wider flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-[#18C98F]" /> Team Leave Management
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-[#211044] p-3.5 rounded-xl border border-purple-500/20 text-center">
-                <p className="text-[10px] text-purple-300 font-bold uppercase">Total Requests</p>
+              <div className="bg-[#111417] p-3.5 rounded-xl border border-[#292F33] text-center">
+                <p className="text-[10px] text-[#7E8985] font-bold uppercase">Total Requests</p>
                 <p className="text-xl font-black text-white">{teamLeaves.length}</p>
               </div>
 
-              <div className="bg-[#211044] p-3.5 rounded-xl border border-amber-500/30 text-center">
+              <div className="bg-[#111417] p-3.5 rounded-xl border border-amber-500/30 text-center">
                 <p className="text-[10px] text-amber-300 font-bold uppercase">Pending TL Review</p>
                 <p className="text-xl font-black text-amber-400">{pendingTeamLeavesCount}</p>
               </div>
 
-              <div className="bg-[#211044] p-3.5 rounded-xl border border-emerald-500/30 text-center">
+              <div className="bg-[#111417] p-3.5 rounded-xl border border-emerald-500/30 text-center">
                 <p className="text-[10px] text-emerald-300 font-bold uppercase">TL Approved</p>
-                <p className="text-xl font-black text-emerald-400">
+                <p className="text-xl font-black text-[#18C98F]">
                   {teamLeaves.filter((l) => l.approvalStatus === 'TEAM_LEADER_APPROVED' || l.approvalStatus === 'APPROVED').length}
                 </p>
               </div>
 
-              <div className="bg-[#211044] p-3.5 rounded-xl border border-rose-500/30 text-center">
+              <div className="bg-[#111417] p-3.5 rounded-xl border border-rose-500/30 text-center">
                 <p className="text-[10px] text-rose-300 font-bold uppercase">Rejected</p>
                 <p className="text-xl font-black text-rose-400">
                   {teamLeaves.filter((l) => l.status === 'REJECTED').length}
@@ -1207,57 +1207,57 @@ export const MyTeamScreen: React.FC = () => {
           onClose={() => setSelectedLeaveForReview(null)}
           title="Team Leave Request Audit"
         >
-          <div className="space-y-4 text-xs text-purple-200">
-            <div className="bg-[#22104E] p-4 rounded-2xl border border-purple-500/10 space-y-2">
+          <div className="space-y-4 text-xs text-[#B7C0BC]">
+            <div className="bg-[#111417] p-4 rounded-2xl border border-[#292F33] space-y-2">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-[10px] text-purple-300/50 font-bold uppercase">Employee</p>
+                  <p className="text-[10px] text-[#7E8985]/50 font-bold uppercase">Employee</p>
                   <p className="text-xs font-black text-white">{selectedLeaveForReview.employeeName}</p>
-                  <p className="text-[10px] text-purple-300/70">Code: {selectedLeaveForReview.employeeCode}</p>
+                  <p className="text-[10px] text-[#7E8985]/70">Code: {selectedLeaveForReview.employeeCode}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-purple-300/50 font-bold uppercase">Department</p>
+                  <p className="text-[10px] text-[#7E8985]/50 font-bold uppercase">Department</p>
                   <p className="text-xs font-black text-white">{selectedLeaveForReview.department}</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-purple-500/5">
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#292F33]">
                 <div>
-                  <p className="text-[10px] text-purple-300/50 font-bold uppercase">Duration</p>
+                  <p className="text-[10px] text-[#7E8985]/50 font-bold uppercase">Duration</p>
                   <p className="text-xs font-black text-white">{selectedLeaveForReview.totalDays} Days</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-purple-300/50 font-bold uppercase">Date Range</p>
+                  <p className="text-[10px] text-[#7E8985]/50 font-bold uppercase">Date Range</p>
                   <p className="text-xs font-black text-white">{selectedLeaveForReview.startDate} — {selectedLeaveForReview.endDate}</p>
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-purple-500/5">
-                <p className="text-[10px] text-purple-300/50 font-bold uppercase">Reason</p>
+              <div className="pt-2 border-t border-[#292F33]">
+                <p className="text-[10px] text-[#7E8985]/50 font-bold uppercase">Reason</p>
                 <p className="text-xs text-white leading-normal mt-0.5">"{selectedLeaveForReview.reason}"</p>
               </div>
             </div>
 
             {/* Existing Remarks Info */}
             {selectedLeaveForReview.teamLeaderRemark && (
-              <div className="bg-[#1C0A3F] p-3 rounded-xl border border-purple-500/10 space-y-1">
-                <p className="font-bold text-purple-300/80">Team Leader Remark</p>
+              <div className="bg-[#1D2226] p-3 rounded-xl border border-[#292F33] space-y-1">
+                <p className="font-bold text-[#7E8985]">Team Leader Remark</p>
                 <p className="italic text-white">"{selectedLeaveForReview.teamLeaderRemark}"</p>
               </div>
             )}
             
             {selectedLeaveForReview.adminRemark && (
-              <div className="bg-[#1C0A3F] p-3 rounded-xl border border-purple-500/10 space-y-1">
-                <p className="font-bold text-purple-300/80">Admin Remark</p>
+              <div className="bg-[#1D2226] p-3 rounded-xl border border-[#292F33] space-y-1">
+                <p className="font-bold text-[#7E8985]">Admin Remark</p>
                 <p className="italic text-white">"{selectedLeaveForReview.adminRemark}"</p>
               </div>
             )}
 
             {/* Decision panel if still pending TL action */}
             {selectedLeaveForReview.status === 'PENDING' && selectedLeaveForReview.currentApproverRole === 'TEAM_LEADER' ? (
-              <div className="space-y-3.5 pt-2 border-t border-purple-500/10">
+              <div className="space-y-3.5 pt-2 border-t border-[#292F33]">
                 <div>
-                  <label className="block text-xs font-extrabold uppercase text-purple-300 mb-1.5">
+                  <label className="block text-xs font-extrabold uppercase text-[#7E8985] mb-1.5">
                     Review Remark / Notes
                   </label>
                   <textarea
@@ -1265,7 +1265,7 @@ export const MyTeamScreen: React.FC = () => {
                     onChange={(e) => setLeaveReviewRemark(e.target.value)}
                     placeholder="Enter review notes or rejection reason (rejection reason is mandatory)..."
                     rows={3}
-                    className="w-full bg-[#230F4F] border border-purple-500/20 focus:border-purple-500/60 rounded-xl p-3 text-xs text-white focus:outline-none placeholder-purple-300/30"
+                    className="w-full bg-[#111417] border border-[#292F33] focus:border-[#18C98F] rounded-xl p-3 text-xs text-white focus:outline-none placeholder-[#7E8985]/30"
                   />
                 </div>
 
@@ -1288,7 +1288,7 @@ export const MyTeamScreen: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="text-center py-2.5 bg-purple-950/30 border border-purple-500/10 rounded-xl text-purple-300/70 font-semibold">
+              <div className="text-center py-2.5 bg-[#111417] border border-[#292F33] rounded-xl text-[#7E8985] font-semibold">
                 Status: {selectedLeaveForReview.status} — Awaiting: {selectedLeaveForReview.currentApproverRole}
               </div>
             )}
@@ -1300,33 +1300,33 @@ export const MyTeamScreen: React.FC = () => {
       <Dialog isOpen={showCreateTaskModal} onClose={() => setShowCreateTaskModal(false)} title="Assign Task to Team">
         <div className="space-y-4 text-xs max-h-[75vh] overflow-y-auto pr-1">
           <div className="space-y-1">
-            <label className="font-extrabold text-purple-300 uppercase block">Task Title *</label>
+            <label className="font-extrabold text-[#7E8985] uppercase block">Task Title *</label>
             <input
               type="text"
               value={taskTitle}
               onChange={(e) => setTaskTitle(e.target.value)}
               placeholder="e.g. Daily Operations Checklist & Audit"
-              className="w-full p-3 rounded-xl border border-purple-500/30 bg-[#211044] text-white font-bold text-xs focus:outline-none"
+              className="w-full p-3 rounded-xl border border-[#292F33] bg-[#111417] text-white font-bold text-xs focus:outline-none focus:border-[#18C98F]"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="font-extrabold text-purple-300 uppercase block">Description & Guidelines *</label>
+            <label className="font-extrabold text-[#7E8985] uppercase block">Description & Guidelines *</label>
             <textarea
               value={taskDescription}
               onChange={(e) => setTaskDescription(e.target.value)}
               placeholder="Provide clear steps for your team member(s)..."
-              className="w-full p-3 rounded-xl border border-purple-500/30 bg-[#211044] text-white text-xs min-h-[70px] focus:outline-none"
+              className="w-full p-3 rounded-xl border border-[#292F33] bg-[#111417] text-white text-xs min-h-[70px] focus:outline-none focus:border-[#18C98F]"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="font-extrabold text-purple-300 uppercase block">Priority *</label>
+              <label className="font-extrabold text-[#7E8985] uppercase block">Priority *</label>
               <select
                 value={taskPriority}
                 onChange={(e) => setTaskPriority(e.target.value as TaskPriority)}
-                className="w-full p-3 rounded-xl border border-purple-500/30 bg-[#211044] text-white font-bold text-xs"
+                className="w-full p-3 rounded-xl border border-[#292F33] bg-[#111417] text-white font-bold text-xs focus:outline-none focus:border-[#18C98F]"
               >
                 <option value="LOW">LOW</option>
                 <option value="MEDIUM">MEDIUM</option>
@@ -1336,11 +1336,11 @@ export const MyTeamScreen: React.FC = () => {
             </div>
 
             <div className="space-y-1">
-              <label className="font-extrabold text-purple-300 uppercase block">Assignment Scope *</label>
+              <label className="font-extrabold text-[#7E8985] uppercase block">Assignment Scope *</label>
               <select
                 value={taskAssignmentType}
                 onChange={(e) => setTaskAssignmentType(e.target.value as AssignmentType)}
-                className="w-full p-3 rounded-xl border border-purple-500/30 bg-[#211044] text-white font-bold text-xs"
+                className="w-full p-3 rounded-xl border border-[#292F33] bg-[#111417] text-white font-bold text-xs focus:outline-none focus:border-[#18C98F]"
               >
                 <option value="EMPLOYEE">Single Team Member</option>
                 <option value="MULTIPLE_EMPLOYEES">Multiple Team Members</option>
@@ -1351,12 +1351,12 @@ export const MyTeamScreen: React.FC = () => {
 
           {taskAssignmentType !== 'DEPARTMENT' && (
             <div className="space-y-1">
-              <label className="font-extrabold text-purple-300 uppercase block">Select Team Member(s) *</label>
-              <div className="max-h-36 overflow-y-auto bg-[#211044] p-2 rounded-xl border border-purple-500/30 space-y-1">
+              <label className="font-extrabold text-[#7E8985] uppercase block">Select Team Member(s) *</label>
+              <div className="max-h-36 overflow-y-auto bg-[#111417] p-2 rounded-xl border border-[#292F33] space-y-1">
                 {teamMembers.map((m) => {
                   const isChecked = selectedMemberIds.includes(m.id) || selectedMemberIds.includes(m.employeeCode);
                   return (
-                    <label key={m.id} className="flex items-center gap-2.5 p-2 hover:bg-[#2D1B5A] rounded-lg cursor-pointer">
+                    <label key={m.id} className="flex items-center gap-2.5 p-2 hover:bg-[#1D2226] rounded-lg cursor-pointer">
                       <input
                         type={taskAssignmentType === 'EMPLOYEE' ? 'radio' : 'checkbox'}
                         name="teamAssignee"
@@ -1369,11 +1369,11 @@ export const MyTeamScreen: React.FC = () => {
                             else setSelectedMemberIds(selectedMemberIds.filter((id) => id !== m.id));
                           }
                         }}
-                        className="accent-[#7C3AED]"
+                        className="accent-[#18C98F]"
                       />
                       <div>
                         <p className="font-bold text-white text-xs">{m.name}</p>
-                        <p className="text-[10px] text-purple-300/70 font-mono">{m.employeeCode}</p>
+                        <p className="text-[10px] text-[#7E8985] font-mono">{m.employeeCode}</p>
                       </div>
                     </label>
                   );
@@ -1384,45 +1384,45 @@ export const MyTeamScreen: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="font-extrabold text-purple-300 uppercase block">Due Date *</label>
+              <label className="font-extrabold text-[#7E8985] uppercase block">Due Date *</label>
               <input
                 type="date"
                 value={taskDueDate}
                 onChange={(e) => setTaskDueDate(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-purple-500/30 bg-[#211044] text-white text-xs font-bold"
+                className="w-full p-2.5 rounded-xl border border-[#292F33] bg-[#111417] text-white text-xs font-bold focus:outline-none focus:border-[#18C98F]"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="font-extrabold text-purple-300 uppercase block">Due Time</label>
+              <label className="font-extrabold text-[#7E8985] uppercase block">Due Time</label>
               <input
                 type="time"
                 value={taskDueTime}
                 onChange={(e) => setTaskDueTime(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-purple-500/30 bg-[#211044] text-white text-xs font-bold"
+                className="w-full p-2.5 rounded-xl border border-[#292F33] bg-[#111417] text-white text-xs font-bold focus:outline-none focus:border-[#18C98F]"
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="font-extrabold text-purple-300 uppercase block">Team Leader Remark</label>
+            <label className="font-extrabold text-[#7E8985] uppercase block">Team Leader Remark</label>
             <input
               type="text"
               value={taskRemark}
               onChange={(e) => setTaskRemark(e.target.value)}
               placeholder="Directives or additional guidance..."
-              className="w-full p-3 rounded-xl border border-purple-500/30 bg-[#211044] text-white text-xs"
+              className="w-full p-3 rounded-xl border border-[#292F33] bg-[#111417] text-white text-xs focus:outline-none focus:border-[#18C98F]"
             />
           </div>
 
           <div className="flex gap-3 pt-2">
-            <Button variant="text" onClick={() => setShowCreateTaskModal(false)} className="flex-1">
+            <Button variant="text" onClick={() => setShowCreateTaskModal(false)} className="flex-1 text-[#B7C0BC] hover:text-white">
               Cancel
             </Button>
             <Button
               onClick={handleCreateTask}
               disabled={!taskTitle.trim() || !taskDescription.trim() || !taskDueDate || (taskAssignmentType !== 'DEPARTMENT' && selectedMemberIds.length === 0)}
-              className="flex-1 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold"
+              className="flex-1 bg-[#18C98F] hover:bg-[#15b37f] text-[#0B0D0F] font-bold"
             >
               Assign Task
             </Button>
@@ -1433,17 +1433,17 @@ export const MyTeamScreen: React.FC = () => {
       {/* RETURN FOR REVISION MODAL */}
       <Dialog isOpen={showRevisionModal} onClose={() => setShowRevisionModal(false)} title="Return Task for Revision">
         <div className="space-y-4 text-xs">
-          <p className="text-purple-200">
+          <p className="text-[#B7C0BC]">
             Provide specific directives for what the team member needs to fix or update:
           </p>
           <textarea
             value={revisionRemarkInput}
             onChange={(e) => setRevisionRemarkInput(e.target.value)}
             placeholder="e.g. Please update client figures in section 2 and attach updated PDF..."
-            className="w-full p-3 rounded-xl border border-amber-500/40 bg-[#211044] text-white text-xs min-h-[90px] focus:outline-none"
+            className="w-full p-3 rounded-xl border border-amber-500/40 bg-[#111417] text-white text-xs min-h-[90px] focus:outline-none focus:border-[#18C98F]"
           />
           <div className="flex gap-3 pt-2">
-            <Button variant="text" onClick={() => setShowRevisionModal(false)} className="flex-1">
+            <Button variant="text" onClick={() => setShowRevisionModal(false)} className="flex-1 text-[#B7C0BC] hover:text-white">
               Cancel
             </Button>
             <Button
@@ -1472,58 +1472,58 @@ export const MyTeamScreen: React.FC = () => {
 
           return (
             <div className="space-y-4 text-xs max-h-[75vh] overflow-y-auto pr-1">
-              <div className="p-3 bg-[#211044] rounded-2xl border border-purple-500/30 flex justify-between items-center">
+              <div className="p-3 bg-[#111417] rounded-2xl border border-[#292F33] flex justify-between items-center">
                 <div>
                   <h3 className="font-bold text-sm text-white">{selectedMemberForReport.name}</h3>
-                  <p className="text-[10px] text-purple-300 font-mono">Code: {selectedMemberForReport.employeeCode}</p>
+                  <p className="text-[10px] text-[#7E8985] font-mono">Code: {selectedMemberForReport.employeeCode}</p>
                 </div>
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-[#18C98F]/20 text-[#18C98F] border border-[#18C98F]/30">
                   {selectedMemberForReport.department || 'Operations'}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-                <div className="bg-[#211044] p-2.5 rounded-xl border border-purple-500/20">
-                  <p className="text-[9px] text-purple-300 uppercase font-bold">Assigned</p>
+                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#292F33]">
+                  <p className="text-[9px] text-[#7E8985] uppercase font-bold">Assigned</p>
                   <p className="font-black text-white text-sm">{mTasks.length}</p>
                 </div>
-                <div className="bg-[#211044] p-2.5 rounded-xl border border-emerald-500/20">
-                  <p className="text-[9px] text-emerald-300 uppercase font-bold">Completed</p>
-                  <p className="font-black text-emerald-400 text-sm">{mCompleted}</p>
+                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#292F33]">
+                  <p className="text-[9px] text-[#18C98F] uppercase font-bold">Completed</p>
+                  <p className="font-black text-[#18C98F] text-sm">{mCompleted}</p>
                 </div>
-                <div className="bg-[#211044] p-2.5 rounded-xl border border-blue-500/20">
+                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#292F33]">
                   <p className="text-[9px] text-blue-300 uppercase font-bold">In Progress</p>
                   <p className="font-black text-blue-300 text-sm">{mInProgress + mPending}</p>
                 </div>
-                <div className="bg-[#211044] p-2.5 rounded-xl border border-red-500/20">
+                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#292F33]">
                   <p className="text-[9px] text-red-300 uppercase font-bold">Overdue</p>
                   <p className="font-black text-red-400 text-sm">{mOverdue}</p>
                 </div>
               </div>
 
-              <div className="p-3 bg-[#211044] rounded-xl border border-purple-500/20">
-                <p className="font-bold text-purple-200 mb-1">Completion Rate: {mPct}%</p>
-                <div className="w-full bg-[#2D1B5A] h-2.5 rounded-full overflow-hidden">
-                  <div className="bg-emerald-400 h-full" style={{ width: `${mPct}%` }} />
+              <div className="p-3 bg-[#111417] rounded-xl border border-[#292F33]">
+                <p className="font-bold text-[#B7C0BC] mb-1">Completion Rate: {mPct}%</p>
+                <div className="w-full bg-[#171B1E] h-2.5 rounded-full overflow-hidden border border-[#292F33]">
+                  <div className="bg-[#18C98F] h-full" style={{ width: `${mPct}%` }} />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <h4 className="font-extrabold text-xs text-purple-300 uppercase">Recent Tasks ({mTasks.length})</h4>
+                <h4 className="font-extrabold text-xs text-[#7E8985] uppercase">Recent Tasks ({mTasks.length})</h4>
                 <div className="max-h-40 overflow-y-auto space-y-2">
                   {mTasks.map((t) => (
-                    <div key={t.id} className="p-2.5 bg-[#211044] rounded-xl border border-purple-500/10 text-xs flex justify-between items-center">
+                    <div key={t.id} className="p-2.5 bg-[#111417] rounded-xl border border-[#292F33] text-xs flex justify-between items-center">
                       <div>
                         <p className="font-bold text-white">{t.title}</p>
-                        <p className="text-[10px] text-purple-300/70">Due: {t.dueDate}</p>
+                        <p className="text-[10px] text-[#7E8985]">Due: {t.dueDate}</p>
                       </div>
-                      <span className="text-[10px] font-bold text-purple-300">{getEffectiveTaskStatus(t)}</span>
+                      <span className="text-[10px] font-bold text-[#B7C0BC]">{getEffectiveTaskStatus(t)}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <Button onClick={() => setSelectedMemberForReport(null)} className="w-full">
+              <Button onClick={() => setSelectedMemberForReport(null)} className="w-full bg-[#171B1E] hover:bg-[#1D2226] border border-[#292F33] text-white py-2.5">
                 Close Report
               </Button>
             </div>

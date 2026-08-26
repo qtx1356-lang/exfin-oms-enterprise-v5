@@ -133,47 +133,47 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   // Derive visual theme and labels
   let statusTitle = 'NOT CHECKED IN';
   let statusBadgeText = 'Your workday hasn\'t started';
-  let statusColor = 'from-gray-800 to-gray-900 border-gray-500/30 text-gray-300';
-  let badgeStyle = 'bg-gray-500/15 text-gray-300 border-gray-500/30';
+  let statusColor = 'from-[#171B1E] to-[#111417] border-[#292F33] text-[#B7C0BC]';
+  let badgeStyle = 'bg-white/5 text-[#B7C0BC] border-[#292F33]';
   let StateIcon = Clock;
 
   if (isCheckedOut) {
     statusTitle = 'WORKDAY COMPLETED';
     statusBadgeText = 'Checked Out';
-    statusColor = 'from-[#1A2E28] via-[#15342A] to-[#122A22] border-emerald-500/40 text-emerald-300';
-    badgeStyle = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+    statusColor = 'from-[#171B1E] to-[#111417] border-[#18C98F]/30 text-[#18C98F]';
+    badgeStyle = 'bg-[#18C98F]/15 text-[#18C98F] border-[#18C98F]/20';
     StateIcon = CheckCircle2;
   } else if (isCheckedIn) {
     if (attendanceType === 'WFH') {
       statusTitle = 'WORK FROM HOME';
       statusBadgeText = 'WFH Active';
-      statusColor = 'from-[#17223B] via-[#1A284A] to-[#141F38] border-blue-500/40 text-blue-300';
-      badgeStyle = 'bg-blue-500/15 text-blue-300 border-blue-500/30';
+      statusColor = 'from-[#171B1E] to-[#111417] border-blue-500/30 text-blue-300';
+      badgeStyle = 'bg-blue-500/15 text-blue-300 border-blue-500/20';
       StateIcon = Home;
     } else if (attendanceType === 'CLIENT_VISIT') {
       statusTitle = 'CLIENT VISIT';
       statusBadgeText = todayRecord.clientName ? `Client: ${todayRecord.clientName}` : 'On-Site Visit';
-      statusColor = 'from-[#281545] via-[#2F1752] to-[#22113B] border-purple-500/40 text-purple-300';
-      badgeStyle = 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+      statusColor = 'from-[#171B1E] to-[#111417] border-purple-500/30 text-purple-300';
+      badgeStyle = 'bg-purple-500/15 text-purple-300 border-purple-500/20';
       StateIcon = MapPin;
     } else if (attendanceType === 'OUTDOOR') {
       statusTitle = 'OUTDOOR WORK';
       statusBadgeText = todayRecord.outdoorType || 'Field Visit';
-      statusColor = 'from-[#2B1D0E] via-[#332210] to-[#24170A] border-amber-500/40 text-amber-300';
-      badgeStyle = 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+      statusColor = 'from-[#171B1E] to-[#111417] border-amber-500/30 text-amber-300';
+      badgeStyle = 'bg-amber-500/15 text-amber-300 border-amber-500/20';
       StateIcon = Briefcase;
     } else {
       if (todayRecord.returningToOffice) {
         statusTitle = 'CHECKED IN (AWAY)';
         statusBadgeText = 'Returning to Office';
-        statusColor = 'from-[#281545] via-[#2F1752] to-[#22113B] border-purple-500/40 text-purple-300';
-        badgeStyle = 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+        statusColor = 'from-[#171B1E] to-[#111417] border-purple-500/30 text-purple-300';
+        badgeStyle = 'bg-purple-500/15 text-purple-300 border-purple-500/20';
         StateIcon = MapPin;
       } else {
         statusTitle = 'CHECKED IN';
         statusBadgeText = todayRecord.checkInMode === 'AUTO' ? 'Auto Check-In' : 'Office Attendance';
-        statusColor = 'from-[#162C22] via-[#1B362A] to-[#12241C] border-emerald-500/40 text-emerald-300';
-        badgeStyle = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+        statusColor = 'from-[#171B1E] to-[#111417] border-[#18C98F]/30 text-[#18C98F]';
+        badgeStyle = 'bg-[#18C98F]/15 text-[#18C98F] border-[#18C98F]/20';
         StateIcon = CheckCircle2;
       }
     }
