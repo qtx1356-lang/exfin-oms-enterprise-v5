@@ -133,46 +133,46 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   // Derive visual theme and labels
   let statusTitle = 'NOT CHECKED IN';
   let statusBadgeText = 'Your workday hasn\'t started';
-  let statusColor = 'from-[rgba(20,28,42,0.95)] to-[rgba(15,23,42,0.9)] border-[rgba(148,163,184,0.25)] text-[#CBD5E1]';
-  let badgeStyle = 'bg-white/5 text-[#CBD5E1] border-[rgba(148,163,184,0.25)]';
+  let statusBorderColor = 'border-[rgba(167,139,250,0.18)]';
+  let badgeStyle = 'bg-[rgba(139,92,246,0.08)] text-[#A7B0BE] border-[rgba(167,139,250,0.18)]';
   let StateIcon = Clock;
 
   if (isCheckedOut) {
     statusTitle = 'WORKDAY COMPLETED';
     statusBadgeText = 'Checked Out';
-    statusColor = 'from-[rgba(20,28,42,0.95)] to-[rgba(15,23,42,0.9)] border-[rgba(16,185,129,0.4)] text-[#10B981]';
+    statusBorderColor = 'border-[rgba(16,185,129,0.35)]';
     badgeStyle = 'bg-[rgba(16,185,129,0.15)] text-[#10B981] border-[rgba(16,185,129,0.3)]';
     StateIcon = CheckCircle2;
   } else if (isCheckedIn) {
     if (attendanceType === 'WFH') {
       statusTitle = 'WORK FROM HOME';
       statusBadgeText = 'WFH Active';
-      statusColor = 'from-[rgba(20,28,42,0.95)] to-[rgba(15,23,42,0.9)] border-[rgba(59,130,246,0.4)] text-blue-300';
-      badgeStyle = 'bg-blue-500/15 text-blue-300 border-blue-500/25';
+      statusBorderColor = 'border-[rgba(0,245,255,0.35)]';
+      badgeStyle = 'bg-[rgba(0,245,255,0.12)] text-[#00F5FF] border-[rgba(0,245,255,0.25)]';
       StateIcon = Home;
     } else if (attendanceType === 'CLIENT_VISIT') {
       statusTitle = 'CLIENT VISIT';
       statusBadgeText = todayRecord.clientName ? `Client: ${todayRecord.clientName}` : 'On-Site Visit';
-      statusColor = 'from-[rgba(20,28,42,0.95)] to-[rgba(15,23,42,0.9)] border-[rgba(34,211,238,0.4)] text-[#67E8F9]';
-      badgeStyle = 'bg-[rgba(34,211,238,0.15)] text-[#67E8F9] border-[rgba(34,211,238,0.25)]';
+      statusBorderColor = 'border-[rgba(0,245,255,0.35)]';
+      badgeStyle = 'bg-[rgba(0,245,255,0.12)] text-[#00F5FF] border-[rgba(0,245,255,0.25)]';
       StateIcon = MapPin;
     } else if (attendanceType === 'OUTDOOR') {
       statusTitle = 'OUTDOOR WORK';
       statusBadgeText = todayRecord.outdoorType || 'Field Visit';
-      statusColor = 'from-[rgba(20,28,42,0.95)] to-[rgba(15,23,42,0.9)] border-[rgba(245,158,11,0.4)] text-amber-300';
+      statusBorderColor = 'border-[rgba(245,158,11,0.35)]';
       badgeStyle = 'bg-amber-500/15 text-amber-300 border-amber-500/25';
       StateIcon = Briefcase;
     } else {
       if (todayRecord.returningToOffice) {
         statusTitle = 'CHECKED IN (AWAY)';
         statusBadgeText = 'Returning to Office';
-        statusColor = 'from-[rgba(20,28,42,0.95)] to-[rgba(15,23,42,0.9)] border-[rgba(148,163,184,0.25)] text-[#CBD5E1]';
-        badgeStyle = 'bg-[rgba(30,41,59,0.8)] text-[#CBD5E1] border-[rgba(148,163,184,0.25)]';
+        statusBorderColor = 'border-[rgba(167,139,250,0.25)]';
+        badgeStyle = 'bg-[rgba(139,92,246,0.12)] text-[#A7B0BE] border-[rgba(167,139,250,0.25)]';
         StateIcon = MapPin;
       } else {
         statusTitle = 'CHECKED IN';
         statusBadgeText = todayRecord.checkInMode === 'AUTO' ? 'Auto Check-In' : 'Office Attendance';
-        statusColor = 'from-[rgba(20,28,42,0.95)] to-[rgba(15,23,42,0.9)] border-[rgba(16,185,129,0.4)] text-[#10B981]';
+        statusBorderColor = 'border-[rgba(16,185,129,0.35)]';
         badgeStyle = 'bg-[rgba(16,185,129,0.15)] text-[#10B981] border-[rgba(16,185,129,0.3)]';
         StateIcon = CheckCircle2;
       }
@@ -180,23 +180,21 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   }
 
   return (
-    <Card className={`p-4 sm:p-5 bg-gradient-to-br ${statusColor} border shadow-2xl relative overflow-hidden transition-all duration-300`}>
+    <Card className={`p-4 sm:p-5 bg-[rgba(139,92,246,0.08)] backdrop-blur-[16px] border ${statusBorderColor} shadow-[0_8px_32px_rgba(0,0,0,0.35)] relative overflow-hidden transition-all duration-300`}>
       {/* Background Ambient Glow */}
-      <div className="absolute top-0 right-0 w-48 h-48 bg-[rgba(139,92,246,0.08)] rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-48 h-48 bg-[rgba(0,245,255,0.05)] rounded-full blur-3xl pointer-events-none" />
 
       {/* Header Row */}
-      <div className="flex items-center justify-between pb-3 border-b border-[rgba(148,163,184,0.18)] mb-4">
+      <div className="flex items-center justify-between pb-3 border-b border-[rgba(167,139,250,0.18)] mb-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center">
-            <StateIcon className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 rounded-xl bg-[rgba(139,92,246,0.12)] border border-[rgba(167,139,250,0.25)] flex items-center justify-center">
+            <StateIcon className="w-4 h-4 text-[#00F5FF]" />
           </div>
           <div>
-            <h2 className="text-xs font-black uppercase tracking-wider text-white/90">TODAY'S ATTENDANCE</h2>
-            <p className="text-[10px] text-white/60 font-medium">Smart Attendance Engine</p>
+            <h2 className="text-xs font-black uppercase tracking-wider text-[#F8FAFC]">TODAY'S ATTENDANCE</h2>
+            <p className="text-[10px] text-[#A7B0BE] font-medium">Smart Attendance Engine</p>
           </div>
         </div>
-
-        {/* Sync / Offline Status Indicator Removed */}
       </div>
 
       {/* Main Status & Details Grid */}
@@ -210,12 +208,12 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
             </span>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight leading-none mt-1">
+          <h1 className="text-2xl sm:text-3xl font-black text-[#F8FAFC] tracking-tight leading-none mt-1">
             {statusTitle}
           </h1>
 
           {/* Time Summary */}
-          <div className="mt-2 text-xs font-bold text-white/80">
+          <div className="mt-2 text-xs font-bold text-[#A7B0BE]">
             {isCheckedOut ? (
               <div className="flex flex-col gap-1 text-emerald-300">
                 <span className="flex items-center gap-1">
@@ -224,25 +222,25 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
                   <span>{todayRecord.checkOutTime}</span>
                 </span>
                 {todayRecord.checkOutMode && (
-                  <span className="text-[10px] text-white/70 font-semibold uppercase tracking-wider">
+                  <span className="text-[10px] text-[#667085] font-semibold uppercase tracking-wider">
                     Checkout Type: {todayRecord.checkOutMode === 'AUTO_SYSTEM' ? 'Automatic' : 'Manual'}
                   </span>
                 )}
               </div>
             ) : isCheckedIn ? (
-              <span className="text-white/90">
+              <span className="text-[#F8FAFC]">
                 Checked in at <span className="font-mono text-[#10B981]">{todayRecord.checkInTime}</span>
               </span>
             ) : (
-              <span className="text-white/60 font-medium">No check-in recorded for today yet.</span>
+              <span className="text-[#667085] font-medium">No check-in recorded for today yet.</span>
             )}
           </div>
         </div>
 
         {/* Right: Working Time Counter */}
-        <div className="bg-[rgba(10,15,28,0.7)] backdrop-blur-md p-3.5 rounded-2xl border border-[rgba(148,163,184,0.2)] flex flex-col items-start sm:items-end justify-center">
-          <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#22D3EE] flex items-center gap-1 mb-0.5">
-            <Activity className="w-3 h-3 text-[#22D3EE]" />
+        <div className="bg-[rgba(12,15,22,0.85)] backdrop-blur-md p-3.5 rounded-2xl border border-[rgba(167,139,250,0.18)] flex flex-col items-start sm:items-end justify-center">
+          <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#00F5FF] flex items-center gap-1 mb-0.5">
+            <Activity className="w-3 h-3 text-[#00F5FF]" />
             WORKING TIME
           </span>
           <span className="text-2xl sm:text-3xl font-black font-mono text-[#F8FAFC] tracking-tight">
@@ -257,13 +255,13 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
       </div>
 
       {/* Visual Timeline Bar */}
-      <div className="pt-3 border-t border-white/10">
-        <div className="flex items-center justify-between text-[10px] font-bold text-white/70 mb-1.5">
+      <div className="pt-3 border-t border-[rgba(167,139,250,0.18)]">
+        <div className="flex items-center justify-between text-[10px] font-bold text-[#A7B0BE] mb-1.5">
           <span>CHECK-IN</span>
           <span>{isCheckedOut ? 'CHECK-OUT' : isCheckedIn ? 'LIVE PROGRESS' : 'READY FOR DUTY'}</span>
         </div>
 
-        <div className="relative w-full h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/10 flex items-center p-0.5">
+        <div className="relative w-full h-2.5 bg-[rgba(8,11,15,0.7)] rounded-full overflow-hidden border border-[rgba(167,139,250,0.18)] flex items-center p-0.5">
           {isCheckedIn ? (
             <motion.div 
               initial={{ width: '5%' }}
@@ -271,16 +269,16 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
               transition={{ duration: 0.8, ease: 'easeOut' }}
               className={`h-full rounded-full ${
                 isCheckedOut 
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-400' 
-                  : 'bg-gradient-to-r from-emerald-500 via-purple-500 to-amber-400 animate-pulse'
+                  ? 'bg-gradient-to-r from-[#10B981] to-[#00F5FF]' 
+                  : 'bg-gradient-to-r from-[#10B981] via-[#8B5CF6] to-[#00F5FF] animate-pulse'
               }`}
             />
           ) : (
-            <div className="w-0 h-full bg-gray-600 rounded-full" />
+            <div className="w-0 h-full bg-[#4B5563] rounded-full" />
           )}
         </div>
 
-        <div className="flex items-center justify-between text-[10px] font-mono text-white/60 mt-1.5">
+        <div className="flex items-center justify-between text-[10px] font-mono text-[#667085] mt-1.5">
           <span>{todayRecord?.checkInTime || '--:--'}</span>
           <span>{todayRecord?.checkOutTime || (isCheckedIn ? 'Now' : '--:--')}</span>
         </div>
@@ -293,62 +291,62 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
         const currentLoc = getCurrentLocationDetails(todayRecord, liveLocationData);
 
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 pt-3 border-t border-white/10 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3 pt-3 border-t border-[rgba(167,139,250,0.18)] text-xs">
             {/* Check-in Location */}
-            <div className="bg-black/30 p-2.5 rounded-xl border border-white/10 space-y-0.5">
+            <div className="bg-[rgba(12,15,22,0.85)] p-2.5 rounded-xl border border-[rgba(167,139,250,0.18)] space-y-0.5">
               <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
                 <span>Check-in Location</span>
                 <span className="font-mono text-emerald-300">{checkIn.time}</span>
               </div>
-              <div className="text-white font-medium truncate flex items-center gap-1" title={checkIn.location}>
+              <div className="text-[#F8FAFC] font-medium truncate flex items-center gap-1" title={checkIn.location}>
                 <span className="text-emerald-400">📍</span> {checkIn.location}
               </div>
               {checkIn.distance && (
-                <div className="text-[10px] text-white/70 font-mono">
+                <div className="text-[10px] text-[#A7B0BE] font-mono">
                   {checkIn.distance}
                 </div>
               )}
             </div>
 
             {/* Checkout Location */}
-            <div className="bg-black/30 p-2.5 rounded-xl border border-white/10 space-y-0.5">
-              <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider flex items-center justify-between">
+            <div className="bg-[rgba(12,15,22,0.85)] p-2.5 rounded-xl border border-[rgba(167,139,250,0.18)] space-y-0.5">
+              <div className="text-[10px] font-bold text-[#A78BFA] uppercase tracking-wider flex items-center justify-between">
                 <span>Checkout Location</span>
-                <span className="font-mono text-purple-200">{checkout.time}</span>
+                <span className="font-mono text-[#A78BFA]">{checkout.time}</span>
               </div>
-              <div className={`font-medium truncate flex items-center gap-1 ${checkout.isUnresolved ? 'text-amber-300 font-bold' : 'text-white'}`} title={checkout.location}>
-                <span className={checkout.isUnresolved ? 'text-amber-400' : 'text-purple-400'}>📍</span> {checkout.location}
+              <div className={`font-medium truncate flex items-center gap-1 ${checkout.isUnresolved ? 'text-amber-300 font-bold' : 'text-[#F8FAFC]'}`} title={checkout.location}>
+                <span className={checkout.isUnresolved ? 'text-amber-400' : 'text-[#8B5CF6]'}>📍</span> {checkout.location}
               </div>
               {checkout.distance && (
-                <div className="text-[10px] text-white/70 font-mono">
+                <div className="text-[10px] text-[#A7B0BE] font-mono">
                   {checkout.distance}
                 </div>
               )}
             </div>
 
             {/* Current (Live) Location */}
-            <div className="bg-black/30 p-2.5 rounded-xl border border-white/10 space-y-0.5">
-              <div className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider flex items-center justify-between">
+            <div className="bg-[rgba(12,15,22,0.85)] p-2.5 rounded-xl border border-[rgba(167,139,250,0.18)] space-y-0.5">
+              <div className="text-[10px] font-bold text-[#00F5FF] uppercase tracking-wider flex items-center justify-between">
                 <span>Current Location</span>
                 <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
                   currentLoc.status === 'LIVE' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse' :
-                  currentLoc.status === 'RECENT' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                  currentLoc.status === 'RECENT' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
                   currentLoc.status === 'STALE' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
                   'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                 }`}>
                   {currentLoc.status}
                 </span>
               </div>
-              <div className="text-white font-medium truncate flex items-center gap-1" title={currentLoc.location}>
-                <span className="text-cyan-400">📍</span> {currentLoc.location}
+              <div className="text-[#F8FAFC] font-medium truncate flex items-center gap-1" title={currentLoc.location}>
+                <span className="text-[#00F5FF]">📍</span> {currentLoc.location}
               </div>
               {currentLoc.distance && (
-                <div className="text-[10px] text-white/70 font-mono">
+                <div className="text-[10px] text-[#A7B0BE] font-mono">
                   Distance: {currentLoc.distance}
                 </div>
               )}
               {currentLoc.statusText && (
-                <div className="text-[9px] text-cyan-200/80 font-mono flex items-center gap-1">
+                <div className="text-[9px] text-[#00F5FF]/80 font-mono flex items-center gap-1">
                   <span>⏱</span> {currentLoc.statusText}
                 </div>
               )}
