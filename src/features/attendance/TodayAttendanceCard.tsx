@@ -132,9 +132,9 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
 
   // Derive visual theme and labels
   let statusTitle = 'NOT CHECKED IN';
-  let statusBadgeText = 'Your workday hasn\'t started';
-  let statusBorderColor = 'border-[rgba(167,139,250,0.18)]';
-  let badgeStyle = 'bg-[rgba(139,92,246,0.08)] text-[#A7B0BE] border-[rgba(167,139,250,0.18)]';
+  let statusBadgeText = 'Workday Not Started';
+  let statusBorderColor = 'border-[#2A5B50]';
+  let badgeStyle = 'bg-[#112C26] text-[#9FB9AF] border-[#2A5B50]';
   let StateIcon = Clock;
 
   if (isCheckedOut) {
@@ -170,7 +170,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
         badgeStyle = 'bg-[#112C26] text-[#C7DAD3] border-[#2A5B50]';
         StateIcon = MapPin;
       } else {
-        statusTitle = 'CHECKED IN';
+        statusTitle = 'PRESENT';
         statusBadgeText = todayRecord.checkInMode === 'AUTO' ? 'Auto Check-In' : 'Office Attendance';
         statusBorderColor = 'border-[#35C98A]/40';
         badgeStyle = 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/40';
@@ -179,6 +179,12 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
     }
   }
 
+  const todayDateFormatted = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long'
+  });
+
   return (
     <Card className={`p-4 sm:p-5 bg-[#173A32] backdrop-blur-[16px] border ${statusBorderColor} shadow-xl relative overflow-hidden transition-all duration-300 text-[#F4FAF7]`}>
       {/* Background Ambient Glow */}
@@ -186,101 +192,122 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
 
       {/* Header Row */}
       <div className="flex items-center justify-between pb-3 border-b border-[#2A5B50] mb-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-[#21483E] border border-[#2A5B50] flex items-center justify-center">
             <StateIcon className="w-4 h-4 text-[#19C7C0]" />
           </div>
           <div>
             <h2 className="text-xs font-black uppercase tracking-wider text-[#F4FAF7]">TODAY'S ATTENDANCE</h2>
-            <p className="text-[10px] text-[#C7DAD3] font-medium">Smart Attendance Engine</p>
+            <p className="text-[10px] text-[#C7DAD3] font-medium">{todayDateFormatted}</p>
           </div>
         </div>
+
+        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${badgeStyle} flex items-center gap-1.5`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+          {statusBadgeText}
+        </span>
       </div>
 
       {/* Main Status & Details Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center mb-4">
         {/* Left: Status Title & Timestamps */}
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${badgeStyle} flex items-center gap-1`}>
-              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-              {statusBadgeText}
-            </span>
-          </div>
+          <span className="text-[10px] font-bold text-[#9FB9AF] uppercase tracking-wider block mb-1">
+            Current Status
+          </span>
 
-          <h1 className="text-2xl sm:text-3xl font-black text-[#F4FAF7] tracking-tight leading-none mt-1">
+          <h1 className="text-2xl sm:text-3xl font-black text-[#F4FAF7] tracking-tight leading-none">
             {statusTitle}
           </h1>
 
           {/* Time Summary */}
-          <div className="mt-2 text-xs font-bold text-[#C7DAD3]">
+          <div className="mt-2.5 text-xs font-bold text-[#C7DAD3]">
             {isCheckedOut ? (
               <div className="flex flex-col gap-1 text-[#35C98A]">
-                <span className="flex items-center gap-1">
-                  <span>{todayRecord.checkInTime}</span>
-                  <span>→</span>
-                  <span>{todayRecord.checkOutTime}</span>
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Checked in {todayRecord.checkInTime}</span>
+                  <span>—</span>
+                  <span>Checked out {todayRecord.checkOutTime}</span>
                 </span>
-                {todayRecord.checkOutMode && (
-                  <span className="text-[10px] text-[#9FB9AF] font-semibold uppercase tracking-wider">
-                    Checkout Type: {todayRecord.checkOutMode === 'AUTO_SYSTEM' ? 'Automatic' : 'Manual'}
-                  </span>
-                )}
               </div>
             ) : isCheckedIn ? (
-              <span className="text-[#F4FAF7]">
-                Checked in at <span className="font-mono text-[#35C98A]">{todayRecord.checkInTime}</span>
+              <span className="text-[#F4FAF7] flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#35C98A]" />
+                Checked in at <span className="font-mono text-[#35C98A] font-extrabold">{todayRecord.checkInTime}</span>
               </span>
             ) : (
-              <span className="text-[#9FB9AF] font-medium">No check-in recorded for today yet.</span>
+              <span className="text-[#9FB9AF] font-medium flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#9FB9AF]" />
+                Check-in not yet recorded today
+              </span>
             )}
           </div>
         </div>
 
         {/* Right: Working Time Counter */}
-        <div className="bg-[#112C26] p-3.5 rounded-2xl border border-[#2A5B50] flex flex-col items-start sm:items-end justify-center">
-          <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#19C7C0] flex items-center gap-1 mb-0.5">
-            <Activity className="w-3 h-3 text-[#19C7C0]" />
+        <div className="bg-[#112C26] p-4 rounded-2xl border border-[#2A5B50] flex flex-col items-start sm:items-end justify-center shadow-inner">
+          <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#19C7C0] flex items-center gap-1 mb-1">
+            <Activity className="w-3.5 h-3.5 text-[#19C7C0]" />
             WORKING TIME
           </span>
           <span className="text-2xl sm:text-3xl font-black font-mono text-[#F4FAF7] tracking-tight">
             {workingTimeStr}
           </span>
           {isCheckedIn && !isCheckedOut && (
-            <span className="text-[9px] font-bold text-[#35C98A] flex items-center gap-1 mt-0.5">
+            <span className="text-[10px] font-extrabold text-[#35C98A] flex items-center gap-1 mt-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#35C98A] animate-ping" /> Live Session Active
             </span>
           )}
         </div>
       </div>
 
-      {/* Visual Timeline Bar */}
-      <div className="pt-3 border-t border-[#2A5B50]">
-        <div className="flex items-center justify-between text-[10px] font-bold text-[#C7DAD3] mb-1.5">
-          <span>CHECK-IN</span>
-          <span>{isCheckedOut ? 'CHECK-OUT' : isCheckedIn ? 'LIVE PROGRESS' : 'READY FOR DUTY'}</span>
+      {/* Visual Timeline Cards (Check-In & Checkout Prominent Display) */}
+      <div className="pt-3 border-t border-[#2A5B50] space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          {/* Check-In Box */}
+          <div className="bg-[#112C26] p-3 rounded-xl border border-[#2A5B50] space-y-1">
+            <span className="text-[10px] font-extrabold text-[#35C98A] uppercase tracking-wider block">
+              CHECK-IN
+            </span>
+            <span className="text-base sm:text-lg font-black font-mono text-[#F4FAF7] block">
+              {todayRecord?.checkInTime || 'Not recorded'}
+            </span>
+            <span className="text-[10px] text-[#C7DAD3] font-medium block truncate">
+              {isCheckedIn ? (attendanceType === 'OFFICE' ? 'Office HQ' : attendanceType) : 'Awaiting check-in'}
+            </span>
+          </div>
+
+          {/* Checkout Box */}
+          <div className="bg-[#112C26] p-3 rounded-xl border border-[#2A5B50] space-y-1">
+            <span className="text-[10px] font-extrabold text-[#19C7C0] uppercase tracking-wider block">
+              CHECKOUT
+            </span>
+            <span className="text-base sm:text-lg font-black font-mono text-[#F4FAF7] block">
+              {todayRecord?.checkOutTime || 'Not yet recorded'}
+            </span>
+            <span className="text-[10px] text-[#C7DAD3] font-medium block truncate">
+              {isCheckedOut ? 'Checkout recorded' : isCheckedIn ? 'Session in progress' : 'Not recorded'}
+            </span>
+          </div>
         </div>
 
-        <div className="relative w-full h-2.5 bg-[#112C26] rounded-full overflow-hidden border border-[#2A5B50] flex items-center p-0.5">
+        {/* Progress Bar */}
+        <div className="relative w-full h-2 bg-[#112C26] rounded-full overflow-hidden border border-[#2A5B50]">
           {isCheckedIn ? (
             <motion.div 
               initial={{ width: '5%' }}
-              animate={{ width: isCheckedOut ? '100%' : '70%' }}
+              animate={{ width: isCheckedOut ? '100%' : '65%' }}
               transition={{ duration: 0.8, ease: 'easeOut' }}
               className={`h-full rounded-full ${
                 isCheckedOut 
-                  ? 'bg-gradient-to-r from-[#35C98A] to-[#19C7C0]' 
-                  : 'bg-gradient-to-r from-[#35C98A] via-[#12A09B] to-[#19C7C0] animate-pulse'
+                  ? 'bg-[#35C98A]' 
+                  : 'bg-gradient-to-r from-[#35C98A] to-[#19C7C0] animate-pulse'
               }`}
             />
           ) : (
             <div className="w-0 h-full bg-[#2A5B50] rounded-full" />
           )}
-        </div>
-
-        <div className="flex items-center justify-between text-[10px] font-mono text-[#9FB9AF] mt-1.5">
-          <span>{todayRecord?.checkInTime || '--:--'}</span>
-          <span>{todayRecord?.checkOutTime || (isCheckedIn ? 'Now' : '--:--')}</span>
         </div>
       </div>
 
