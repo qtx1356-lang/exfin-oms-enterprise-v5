@@ -542,13 +542,13 @@ async function startServer() {
         latestVersionCode: 1,
         latestVersionName: "1.0.0",
         minimumSupportedVersionCode: 1,
-        updateUrl: "",
-        releaseNotes: "• Native Android project initialized\n• Background location & 25m geofencing support added\n• Awaiting production signing and build.",
-        published: false,
+        updateUrl: "https://exfin-oms-enterprise-v5.pages.dev/downloads/exfin-oms-v1.0.0.apk",
+        releaseNotes: "• EXFIN OMS ENTERPRISE PRODUCTION RELEASE\n• Native Android Background Attendance (25m Geofence)\n• Automatic Check-in & Exit Detection\n• Survival across device reboots\n• Optimized for battery & accuracy",
+        published: true,
         forceUpdate: false,
-        nativeAppAvailable: false,
-        nativeAppDownloadUrl: "",
-        nativeAppLandingUrl: `${req.protocol}://${req.get("host")}/download-app`
+        nativeAppAvailable: true,
+        nativeAppDownloadUrl: "https://exfin-oms-enterprise-v5.pages.dev/downloads/exfin-oms-v1.0.0.apk",
+        nativeAppLandingUrl: "https://exfin-oms-enterprise-v5.pages.dev/download-app"
       };
 
       if (db) {
