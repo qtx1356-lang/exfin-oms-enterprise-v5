@@ -134,14 +134,20 @@ async function runServerAttendanceFinalizer() {
   if (!db) return;
   try {
     const now = new Date();
+    // Deterministic Asia/Kolkata timezone resolution
     const kolkataStr = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
     const nowKolkata = new Date(kolkataStr);
-    const todayStr = getFormattedDateStr(now);
+    
+    const year = nowKolkata.getFullYear();
+    const month = String(nowKolkata.getMonth() + 1).padStart(2, "0");
+    const day = String(nowKolkata.getDate()).padStart(2, "0");
+    const todayKolkataStr = `${year}-${month}-${day}`;
+    
     const hours = nowKolkata.getHours();
     const minutes = nowKolkata.getMinutes();
 
-    const is1800OrLater = hours >= 18;
-    const is2359OrLater = hours === 23 && minutes >= 59;
+    // 11:59 PM (23:59) is the attendance day settlement boundary
+    const isEndOfDay = hours === 23 && minutes >= 59;
 
     // Fetch active/unsettled attendance documents
     const qSnap = await db.collection("attendance")
@@ -156,61 +162,63 @@ async function runServerAttendanceFinalizer() {
 
     for (const docSnap of qSnap.docs) {
       const data = docSnap.data();
+      if (!data) continue;
+
+      // 1. If genuine completed checkout already exists, preserve it completely
       if (data.checkOutTime && data.checkoutStatus === "COMPLETED") continue;
       if (data.manualRectified || data.isAdminRectified || data.correctedAt) continue;
 
       const recDate = data.date;
-      const isPastDay = recDate < todayStr;
-      const isToday = recDate === todayStr;
+      if (!recDate) continue;
 
-      let shouldSettle = false;
-      let finalCheckoutTime = "06:00 PM";
-      let checkoutType = "AUTO_CHECKOUT";
-      let checkoutMode = "AUTO_SYSTEM";
+      const isPastDay = recDate < todayKolkataStr;
+      const isToday = recDate === todayKolkataStr;
 
-      if (isPastDay) {
-        // Unsettled past days must be settled immediately under next-day protection
-        shouldSettle = true;
-        finalCheckoutTime = data.geofenceExitTime || data.lastExitTime || data.exitTime || "06:00 PM";
-      } else if (isToday) {
-        const attType = data.attendanceType || "OFFICE";
-        if (attType === "WFH" || attType === "CLIENT_VISIT" || attType === "OUTDOOR") {
-          if (is2359OrLater) {
-            shouldSettle = true;
-            finalCheckoutTime = "11:59 PM";
-          }
-        } else {
-          // OFFICE
-          if (data.geofenceExitTime || data.lastExitTime || data.exitTime || data.currentState === "PENDING_EXIT_CONFIRMATION") {
-            if (is1800OrLater) {
-              shouldSettle = true;
-              finalCheckoutTime = data.geofenceExitTime || data.lastExitTime || data.exitTime || "06:00 PM";
-            }
-          }
-        }
+      // Settle today's records only at/after 23:59 Asia/Kolkata, or past days immediately
+      if (!isPastDay && (!isToday || !isEndOfDay)) {
+        continue;
       }
 
-      if (shouldSettle) {
-        const workingHours = calculateWorkingHours(data.checkInTime, finalCheckoutTime);
-        const eventId = `evt_srv_final_${data.employeeId}_${recDate}_${finalCheckoutTime.replace(/\s+/g, '_')}`;
+      // 2. Determine checkout time strictly adhering to priority:
+      // Priority 1: Genuine manual checkout (already handled above)
+      // Priority 2: Genuine GPS/native geofence exit observation (e.g. 6:40 PM exit preserved)
+      // Priority 3: Existing valid automatic checkout
+      // Priority 4: 11:59 PM end-of-day settlement boundary
+      const genuineExitTime = data.geofenceExitTime || data.lastExitTime || data.exitTime;
+      let finalCheckoutTime: string;
+      let resolutionSource: string;
 
-        await docSnap.ref.update({
-          checkOutTime: finalCheckoutTime,
-          checkoutStatus: "COMPLETED",
-          checkOutMode: checkoutMode,
-          checkoutType: checkoutType,
-          status: "completed",
-          workingHours: workingHours,
-          currentState: "FINALIZED_CHECKOUT",
-          resolutionSource: "AUTO_SYSTEM",
-          updatedAt: new Date().toISOString(),
-          serverSyncTime: new Date().toISOString(),
-          serverSyncTimestamp: FieldValue.serverTimestamp(),
-          processedEvents: FieldValue.arrayUnion(eventId)
-        });
-
-        console.log(`[ServerFinalizer] Finalized attendance for ${data.employeeId} on ${recDate} at ${finalCheckoutTime}`);
+      if (genuineExitTime && genuineExitTime !== "Pending" && genuineExitTime !== "N/A" && genuineExitTime !== "UNRESOLVED") {
+        // Genuine GPS observation preserved - DO NOT overwrite with 11:59 PM
+        finalCheckoutTime = genuineExitTime;
+        resolutionSource = "AUTO_GEOFENCE";
+      } else {
+        // Day-end settlement boundary at 11:59 PM
+        finalCheckoutTime = "11:59 PM";
+        resolutionSource = "AUTO_SYSTEM";
       }
+
+      const workingHours = calculateWorkingHours(data.checkInTime, finalCheckoutTime);
+      const cleanTimeKey = finalCheckoutTime.replace(/[^a-zA-Z0-9]/g, "_");
+      const eventId = `evt_srv_final_${data.employeeId}_${recDate}_${cleanTimeKey}`;
+
+      await docSnap.ref.update({
+        checkOutTime: finalCheckoutTime,
+        checkoutStatus: "COMPLETED",
+        checkOutMode: "AUTO_SYSTEM",
+        checkoutType: "AUTO_CHECKOUT",
+        status: "completed",
+        workingHours: workingHours,
+        currentState: "FINALIZED_CHECKOUT",
+        resolutionSource: resolutionSource,
+        evidenceSource: "SERVER_FINALIZATION",
+        updatedAt: new Date().toISOString(),
+        serverSyncTime: new Date().toISOString(),
+        serverSyncTimestamp: FieldValue.serverTimestamp(),
+        processedEvents: FieldValue.arrayUnion(eventId)
+      });
+
+      console.log(`[ServerFinalizer] Settled attendance for ${data.employeeId} on ${recDate} at ${finalCheckoutTime} (Evidence: SERVER_FINALIZATION, Source: ${resolutionSource})`);
     }
   } catch (err) {
     console.warn("[ServerFinalizer] Error during background finalizer run:", err);
