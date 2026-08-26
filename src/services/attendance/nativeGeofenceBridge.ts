@@ -147,12 +147,12 @@ export const initNativeGeofenceListener = async (
     const info = getEmployeeInfo();
     if (info?.id) {
       try {
-        const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://exfin-oms-enterprise-v5.pages.dev';
+        const authoritativeServerUrl = 'https://exfin-oms-enterprise-v5.pages.dev';
         await NativeGeofencePlugin.setEmployeeIdentity({
           id: info.id,
           name: info.name,
           townCity: info.townCity || 'Raniganj HQ',
-          serverUrl: originUrl
+          serverUrl: authoritativeServerUrl
         });
         console.log('[NativeGeofenceBridge] Configured native employee identity on init.');
       } catch (err) {

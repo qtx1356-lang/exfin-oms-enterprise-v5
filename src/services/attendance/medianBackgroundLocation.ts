@@ -134,8 +134,9 @@ export const startMedianBackgroundLocation = async (
   const employee = getEmployeeInfo();
   const empId = employee?.id || 'ANONYMOUS';
 
-  // Construct secure background postUrl targeting the server API
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://exfin-oms-enterprise-v5.pages.dev';
+  // Construct secure background postUrl targeting the server API (avoiding localhost/capacitor origins in native app)
+  const rawOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://exfin-oms-enterprise-v5.pages.dev';
+  const origin = (rawOrigin.includes('localhost') || rawOrigin.includes('capacitor://')) ? 'https://exfin-oms-enterprise-v5.pages.dev' : rawOrigin;
   const postUrl = `${origin}/api/median-background-location?emp=${encodeURIComponent(empId)}&source=MEDIAN_BACKGROUND_LOCATION`;
 
   const config = {

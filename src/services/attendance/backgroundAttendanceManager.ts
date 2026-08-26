@@ -124,7 +124,7 @@ export const handleLocationUpdateForAttendance = (
 };
 
 /**
- * Checks and Requests Background Location Permission ("Always Allow")
+ * Checks and Requests Background Location Permission ("Always Allow") separately from foreground location
  */
 export const checkBackgroundPermissionStatus = async (): Promise<{
   location: string;
@@ -133,11 +133,13 @@ export const checkBackgroundPermissionStatus = async (): Promise<{
 }> => {
   try {
     if (Capacitor.isNativePlatform()) {
-      const status = await Geolocation.checkPermissions();
+      const status = await Geolocation.checkPermissions() as any;
+      const foregroundGranted = status.location === 'granted' || status.coarseLocation === 'granted';
+      const backgroundGranted = status.backgroundLocation === 'granted' || (!status.backgroundLocation && foregroundGranted && Capacitor.getPlatform() !== 'android');
       return {
-        location: status.location,
+        location: status.location || 'prompt',
         coarseLocation: status.coarseLocation,
-        isBackgroundGranted: status.location === 'granted'
+        isBackgroundGranted: backgroundGranted
       };
     } else if (navigator.permissions && navigator.permissions.query) {
       const perm = await navigator.permissions.query({ name: 'geolocation' as any });
@@ -155,8 +157,10 @@ export const checkBackgroundPermissionStatus = async (): Promise<{
 export const requestBackgroundLocationPermission = async (): Promise<boolean> => {
   try {
     if (Capacitor.isNativePlatform()) {
-      const perm = await Geolocation.requestPermissions();
-      return perm.location === 'granted';
+      const perm = await Geolocation.requestPermissions({ permissions: ['location', 'backgroundLocation'] as any });
+      const fgGranted = perm.location === 'granted' || perm.coarseLocation === 'granted';
+      const bgGranted = (perm as any).backgroundLocation === 'granted' || (fgGranted && Capacitor.getPlatform() !== 'android');
+      return bgGranted;
     }
   } catch (err) {
     console.warn('Background permission request error:', err);
@@ -170,7 +174,17 @@ export const requestBackgroundLocationPermission = async (): Promise<boolean> =>
 export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { id: string; name: string; townCity?: string } | null): (() => void) => {
   logStartupTag('ATTENDANCE_INIT_START', 'Initializing background attendance manager');
   ensureOfficeGeofenceRegistered();
-  registerNativeOfficeGeofence();
+
+  // Verify background permission separately before registering native geofence
+  checkBackgroundPermissionStatus().then((status) => {
+    if (status.isBackgroundGranted) {
+      registerNativeOfficeGeofence();
+    } else {
+      console.log('[BackgroundAttendanceManager] Background location permission ("Allow all the time") not yet granted. Native geofence registration deferred.');
+    }
+  }).catch(() => {
+    registerNativeOfficeGeofence();
+  });
 
   // If running inside Median native app, start Median Background Location
   let cleanupMedian: (() => void) | null = null;
