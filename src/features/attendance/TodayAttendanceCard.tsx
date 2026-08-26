@@ -216,7 +216,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
         <div className="grid grid-cols-2 gap-3">
           {/* Check-In Box */}
           <div className="bg-[#112C26] p-3 rounded-xl border border-[#2A5B50] space-y-1">
-            <span className="text-[10px] font-extrabold text-[#35C98A] uppercase tracking-wider block">
+            <span className="text-[10px] font-black text-[#F4FAF7] uppercase tracking-wider block">
               CHECK-IN
             </span>
             <span className="text-base sm:text-lg font-black font-mono text-[#F4FAF7] block">
@@ -229,7 +229,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
 
           {/* Checkout Box */}
           <div className="bg-[#112C26] p-3 rounded-xl border border-[#2A5B50] space-y-1">
-            <span className="text-[10px] font-extrabold text-[#19C7C0] uppercase tracking-wider block">
+            <span className="text-[10px] font-black text-[#F4FAF7] uppercase tracking-wider block">
               CHECKOUT
             </span>
             <span className="text-base sm:text-lg font-black font-mono text-[#F4FAF7] block">

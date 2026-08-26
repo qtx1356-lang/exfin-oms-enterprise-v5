@@ -4,7 +4,8 @@ import { Button } from '../../components/ui/Button';
 import { 
   AlertCircle, 
   AlertTriangle,
-  CheckCircle, 
+  CheckCircle,
+  CheckCircle2, 
   ChevronDown, 
   ChevronUp, 
   Clock, 
@@ -588,43 +589,43 @@ export const AttendanceScreen: React.FC = () => {
   const getRibbonInfo = () => {
     if (isSyncing) {
       return {
-        text: 'SYNCING ATTENDANCE...',
-        style: 'bg-blue-600/30 text-blue-200 border-blue-500/40 animate-pulse',
-        icon: <RotateCw className="w-4 h-4 animate-spin text-blue-400" />
+        title: 'SYNCING ATTENDANCE',
+        subtitle: 'Synchronizing offline records with server...',
+        icon: <RotateCw className="w-5 h-5 animate-spin text-[#19C7C0]" />
       };
     }
     if (todayRecord) {
       if (todayRecord.checkOutTime) {
         return {
-          text: 'CHECKED OUT',
-          style: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-          icon: <CheckCircle className="w-4 h-4 text-emerald-400" />
+          title: '✓ CHECKED OUT',
+          subtitle: `Completed successfully at ${todayRecord.checkOutTime}`,
+          icon: <CheckCircle2 className="w-5 h-5 text-[#35C98A]" />
         };
       }
       return {
-        text: 'CHECKED IN SUCCESSFULLY',
-        style: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-        icon: <CheckCircle className="w-4 h-4 text-emerald-400" />
+        title: '● LIVE STATUS',
+        subtitle: `Attendance Active · Checked in at ${todayRecord.checkInTime}`,
+        icon: <span className="w-3 h-3 rounded-full bg-[#35C98A] animate-ping shrink-0" />
       };
     }
     if (activeMode === 'OFFICE') {
-      if (isInsideGeofence) {
+      if (isInsideGeofence || (distance !== null && distance <= 25)) {
         return {
-          text: 'ENTERING OFFICE... READY FOR AUTO CHECK-IN',
-          style: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-          icon: <Compass className="w-4 h-4 text-emerald-300 animate-bounce" />
+          title: 'ENTERING OFFICE GEOFENCE',
+          subtitle: 'Inside 25m boundary · Ready for check-in',
+          icon: <Compass className="w-5 h-5 text-[#35C98A] animate-bounce shrink-0" />
         };
       }
       return {
-        text: 'OUTSIDE OFFICE GEOFENCE',
-        style: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
-        icon: <AlertCircle className="w-4 h-4 text-rose-400" />
+        title: 'OUTSIDE OFFICE GEOFENCE',
+        subtitle: distance !== null ? `${Math.round(distance)}m from office (25m limit)` : 'Calculating distance...',
+        icon: <AlertCircle className="w-5 h-5 text-[#EF6B73] shrink-0" />
       };
     }
     return {
-      text: 'READY FOR ATTENDANCE SUBMISSION',
-      style: 'bg-[#18C7A0]/20 text-[#18C7A0] border-[#18C7A0]/40',
-      icon: <Sparkles className="w-4 h-4 text-[#18C7A0]" />
+      title: 'READY FOR ATTENDANCE',
+      subtitle: 'Select mode and submit your attendance',
+      icon: <Sparkles className="w-5 h-5 text-[#19C7C0] shrink-0" />
     };
   };
 
@@ -783,277 +784,24 @@ export const AttendanceScreen: React.FC = () => {
       <div className="fixed bottom-20 left-10 w-96 h-96 bg-[rgba(16,185,129,0.03)] rounded-full blur-[120px] pointer-events-none" />
       
       {/* ==================================================== */}
-      {/* CLEAN PAGE TITLE & EMPLOYEE HEADER */}
+      {/* 1. CLEAN PAGE TITLE & EMPLOYEE HEADER */}
       {/* ==================================================== */}
       <div className="pb-3 border-b border-[#2A5B50]/30 space-y-1">
         <h1 className="text-2xl sm:text-3xl font-black text-[#12332B] tracking-tight flex items-center gap-2">
           <Clock className="w-7 h-7 text-[#12332B]" /> ATTENDANCE
         </h1>
-        <p className="text-sm font-bold text-[#31534A]">
+        <p className="text-sm font-bold text-[#31534A] leading-snug">
           {getFormattedDateLong()}
         </p>
-        <p className="text-xs font-bold text-[#12332B] truncate">
-          {employeeName} <span className="text-[#31534A] font-medium">· {employeeId}</span>
-        </p>
+        <div className="text-xs font-bold text-[#12332B] flex flex-wrap items-center gap-1.5 leading-snug">
+          <span>{employeeName}</span>
+          <span className="text-[#31534A] font-medium">•</span>
+          <span className="text-[#31534A] font-medium">{employeeId}</span>
+        </div>
       </div>
 
       {/* ==================================================== */}
-      {/* LIVE STATUS RIBBON */}
-      {/* ==================================================== */}
-      <div className={`px-4 py-2.5 rounded-2xl border flex items-center justify-between text-xs font-bold tracking-wider transition-all duration-300 shadow-sm ${ribbonInfo.style}`}>
-        <div className="flex items-center gap-2.5">
-          {ribbonInfo.icon}
-          <span>{ribbonInfo.text}</span>
-        </div>
-        <span className="text-[10px] opacity-75 font-mono uppercase">LIVE STATUS</span>
-      </div>
-
-      {/* Action Feedback Banner */}
-      {actionFeedback && (
-        <div className="p-3.5 bg-[#173A32] border border-[#2A5B50] text-[#F4FAF7] rounded-2xl text-xs font-bold flex justify-between items-center shadow-sm animate-fade-in">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#19C7C0]" />
-            <span>{actionFeedback}</span>
-          </div>
-          <button onClick={() => setActionFeedback(null)} className="text-[#C7DAD3] hover:text-[#F4FAF7] font-bold text-sm px-1 cursor-pointer">✕</button>
-        </div>
-      )}
-
-      {/* ==================================================== */}
-      {/* UNRESOLVED CHECKOUT NOTICE */}
-      {/* ==================================================== */}
-      {activeUnresolvedRecord && (
-        <div className="space-y-5 animate-fade-in">
-          <div className="p-5 sm:p-6 rounded-3xl bg-[#173A32] border border-[#F2C75C]/40 shadow-xl space-y-4">
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#2A5B50]">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#F2C75C]/10 border border-[#F2C75C]/30 flex items-center justify-center text-[#F2C75C] flex-shrink-0">
-                  <AlertTriangle className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase font-black tracking-widest px-2.5 py-0.5 rounded-full bg-[#F2C75C]/20 text-[#F2C75C] border border-[#F2C75C]/30">
-                      CHECKOUT PENDING
-                    </span>
-                    {unresolvedPastRecords.length > 1 && (
-                      <span className="text-[10px] font-bold text-[#F2C75C]">
-                        ({unresolvedPastRecords.length} pending)
-                      </span>
-                    )}
-                  </div>
-                  <h2 className="text-lg font-black text-[#F4FAF7] mt-1">
-                    Checkout Resolution Required
-                  </h2>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-xs text-[#C7DAD3] leading-relaxed font-medium">
-              Your checkout for <strong className="text-[#F4FAF7]">{activeUnresolvedRecord.date}</strong> was not recorded.
-              Please submit your actual checkout time for Admin verification.
-            </p>
-
-            {/* Session Details */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 bg-[#112C26] rounded-2xl border border-[#2A5B50] text-xs">
-              <div>
-                <span className="text-[10px] text-[#9FB9AF] font-bold uppercase block tracking-wider">Date</span>
-                <span className="text-[#F4FAF7] font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
-              </div>
-              <div>
-                <span className="text-[10px] text-[#9FB9AF] font-bold uppercase block tracking-wider">Check-in</span>
-                <span className="text-[#35C98A] font-mono font-extrabold text-sm">{activeUnresolvedRecord.checkInTime || '--:--'}</span>
-              </div>
-              <div className="col-span-2 sm:col-span-1">
-                <span className="text-[10px] text-[#9FB9AF] font-bold uppercase block tracking-wider">Checkout</span>
-                <span className={`font-extrabold text-sm ${activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'text-[#F2C75C]' : 'text-[#EF6B73]'}`}>
-                  {activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'Reported (Pending)' : 'Unresolved'}
-                </span>
-              </div>
-            </div>
-
-            {/* Resolution Form / Pending State */}
-            {activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' && !isEditingProposal ? (
-              <div className="p-4 rounded-2xl bg-[#F2C75C]/10 border border-[#F2C75C]/30 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-[#F2C75C] text-xs font-black">
-                    <Clock className="w-4 h-4" />
-                    <span>Reported Checkout: {activeUnresolvedRecord.checkOutTime || activeUnresolvedRecord.employeeProposedCheckoutTime || 'Submitted'}</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-[#F2C75C]/20 text-[#F2C75C] border border-[#F2C75C]/40">
-                    REPORTED
-                  </span>
-                </div>
-                <p className="text-xs text-[#F2C75C]/90 leading-relaxed">
-                  Your proposed checkout time has been submitted and is currently pending Admin verification.
-                </p>
-                <div className="flex justify-end pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditingProposal(true);
-                      setProposedTimeInput(activeUnresolvedRecord.employeeProposedCheckoutTime || '');
-                    }}
-                    className="px-3 py-1.5 bg-[#112C26] hover:bg-[#21483E] text-[#F2C75C] text-xs font-bold rounded-xl border border-[#F2C75C]/30 transition-all cursor-pointer"
-                  >
-                    Edit Proposed Time
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-3 p-4 rounded-2xl bg-[#112C26] border border-[#2A5B50]">
-                <label className="text-xs font-bold text-[#F4FAF7] block">
-                  Select your actual checkout time for {activeUnresolvedRecord.date}:
-                </label>
-
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="time"
-                    value={proposedTimeInput}
-                    onChange={(e) => setProposedTimeInput(e.target.value)}
-                    className="flex-1 px-3.5 py-2.5 bg-[#173A32] border border-[#2A5B50] text-[#F4FAF7] rounded-xl text-xs focus:ring-2 focus:ring-[#19C7C0] focus:outline-none"
-                  />
-                  <div className="flex flex-wrap gap-1.5">
-                    {['17:30', '18:00', '18:10', '18:30', '19:00', '19:30'].map((preset) => {
-                      const [hStr, mStr] = preset.split(':');
-                      const h = parseInt(hStr, 10);
-                      const label = `${h > 12 ? h - 12 : h}:${mStr} ${h >= 12 ? 'PM' : 'AM'}`;
-                      return (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => setProposedTimeInput(preset)}
-                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
-                            proposedTimeInput === preset
-                              ? 'bg-[#19C7C0] text-[#112C26] border-[#19C7C0]'
-                              : 'bg-[#173A32] text-[#C7DAD3] border-[#2A5B50] hover:bg-[#21483E]'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {proposalError && (
-                  <div className="text-xs text-[#EF6B73] font-bold flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>{proposalError}</span>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  {isEditingProposal && (
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingProposal(false)}
-                      className="px-4 py-2 bg-[#173A32] hover:bg-[#21483E] text-[#C7DAD3] text-xs font-bold rounded-xl border border-[#2A5B50] transition-all cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                  <Button
-                    onClick={handleSubmitProposedTime}
-                    disabled={isSubmittingProposal}
-                    className="bg-[#F2C75C] hover:bg-[#F2C75C]/90 text-[#112C26] text-xs font-black px-6 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
-                  >
-                    <Check className="w-4 h-4" />
-                    {isSubmittingProposal ? 'SUBMITTING...' : 'RESOLVE CHECKOUT'}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ==================================================== */}
-      {/* 1. TODAY'S PRIMARY ATTENDANCE CARD */}
-      {/* ==================================================== */}
-      {(() => {
-        const liveLocationData: LiveEmployeeLocation | null = liveLocation ? {
-          employeeId: employeeData?.employeeCode || employeeData?.uid || '',
-          employeeName: employeeData?.name || '',
-          latitude: liveLocation.latitude,
-          longitude: liveLocation.longitude,
-          accuracy: (liveLocation as any).accuracy,
-          distanceFromOffice: distance ?? 0,
-          townCity: currentAddress || 'Raniganj HQ',
-          timestamp: (liveLocation as any).timestamp ? new Date((liveLocation as any).timestamp).toISOString() : new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        } : null;
-
-        return (
-          <TodayAttendanceCard 
-            todayRecord={todayRecord} 
-            isSyncing={isSyncing} 
-            isOnline={isOnline}
-            liveLocationData={liveLocationData}
-          />
-        );
-      })()}
-
-      {/* ==================================================== */}
-      {/* 2. LOCATION STATUS CARD */}
-      {/* ==================================================== */}
-      <Card className="p-4 sm:p-5 bg-[#173A32] border border-[#2A5B50] rounded-2xl shadow-md space-y-3 text-[#F4FAF7]">
-        <div className="flex items-center justify-between border-b border-[#2A5B50] pb-2.5">
-          <div className="flex items-center gap-2">
-            <Compass className="w-4 h-4 text-[#19C7C0]" />
-            <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#F4FAF7]">
-              LOCATION STATUS
-            </h2>
-          </div>
-          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
-            isInsideGeofence || (distance !== null && distance <= 25)
-              ? 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/40'
-              : locationStatus === 'error'
-              ? 'bg-[#F2C75C]/20 text-[#F2C75C] border-[#F2C75C]/40'
-              : 'bg-[#EF6B73]/20 text-[#EF6B73] border-[#EF6B73]/40'
-          }`}>
-            {isInsideGeofence || (distance !== null && distance <= 25)
-              ? 'Inside Office'
-              : locationStatus === 'error'
-              ? 'Location unavailable'
-              : 'Outside Office'}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-          <div>
-            <span className="text-[10px] font-bold text-[#9FB9AF] uppercase tracking-wider block mb-0.5">
-              Distance from Office
-            </span>
-            <span className="text-xl sm:text-2xl font-black font-mono text-[#F4FAF7]">
-              {distance !== null ? `${distance.toFixed(0)} m` : 'Acquiring GPS...'}
-            </span>
-            <span className="text-[11px] text-[#C7DAD3] font-medium block mt-0.5">
-              {currentAddress || 'Raniganj HQ Office Radius (25 m)'}
-            </span>
-          </div>
-
-          <div className="flex flex-col sm:items-end justify-center">
-            {locationStatus === 'loading' && (
-              <div className="flex items-center gap-1.5 font-bold text-[#19C7C0] text-xs animate-pulse">
-                <RotateCw className="w-3.5 h-3.5 animate-spin text-[#19C7C0]" /> Updating GPS...
-              </div>
-            )}
-            {locationStatus === 'error' && (
-              <Button onClick={() => refreshLocation()} className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[11px] py-1.5 px-3 rounded-xl shadow cursor-pointer">
-                Retry GPS Lock
-              </Button>
-            )}
-            {locationStatus === 'success' && (
-              <span className="text-[11px] text-[#9FB9AF] font-mono">
-                GPS Accuracy: High • 25m Limit
-              </span>
-            )}
-          </div>
-        </div>
-      </Card>
-
-      {/* ==================================================== */}
-      {/* 3. ATTENDANCE MODE & ACTIONS */}
+      {/* 2. ATTENDANCE MODE (Moved to Top immediately below Header) */}
       {/* ==================================================== */}
       <div className="space-y-3">
         <div className="flex justify-between items-center px-1">
@@ -1078,7 +826,7 @@ export const AttendanceScreen: React.FC = () => {
               activeMode === 'OFFICE'
                 ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
                 : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
-            } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-70 bg-[#112C26] cursor-not-allowed' : ''}`}
+            } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-80 bg-[#112C26] cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🏢</span>
@@ -1088,7 +836,7 @@ export const AttendanceScreen: React.FC = () => {
                 </span>
               )}
               {todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' && (
-                <Lock className="w-3.5 h-3.5 text-[#9FB9AF]" />
+                <Lock className="w-3.5 h-3.5 text-[#C7DAD3]" />
               )}
             </div>
             <div>
@@ -1106,7 +854,7 @@ export const AttendanceScreen: React.FC = () => {
               activeMode === 'WFH'
                 ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
                 : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
-            } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-70 bg-[#112C26] cursor-not-allowed' : ''}`}
+            } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-80 bg-[#112C26] cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🏠</span>
@@ -1117,7 +865,7 @@ export const AttendanceScreen: React.FC = () => {
                   </span>
                 )}
                 {todayRecord && todayRecord.attendanceType !== 'WFH' && (
-                  <Lock className="w-3.5 h-3.5 text-[#9FB9AF]" />
+                  <Lock className="w-3.5 h-3.5 text-[#C7DAD3]" />
                 )}
                 <span className="text-[9px] font-bold bg-[#19C7C0]/20 text-[#19C7C0] px-1.5 py-0.5 rounded border border-[#19C7C0]/30">
                   {currentWfhMonthCount}/2
@@ -1139,7 +887,7 @@ export const AttendanceScreen: React.FC = () => {
               activeMode === 'CLIENT_VISIT'
                 ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
                 : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
-            } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-70 bg-[#112C26] cursor-not-allowed' : ''}`}
+            } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-80 bg-[#112C26] cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🤝</span>
@@ -1149,7 +897,7 @@ export const AttendanceScreen: React.FC = () => {
                 </span>
               )}
               {todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' && (
-                <Lock className="w-3.5 h-3.5 text-[#9FB9AF]" />
+                <Lock className="w-3.5 h-3.5 text-[#C7DAD3]" />
               )}
             </div>
             <div>
@@ -1167,7 +915,7 @@ export const AttendanceScreen: React.FC = () => {
               activeMode === 'OUTDOOR'
                 ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
                 : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
-            } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-70 bg-[#112C26] cursor-not-allowed' : ''}`}
+            } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-80 bg-[#112C26] cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🚗</span>
@@ -1177,7 +925,7 @@ export const AttendanceScreen: React.FC = () => {
                 </span>
               )}
               {todayRecord && todayRecord.attendanceType !== 'OUTDOOR' && (
-                <Lock className="w-3.5 h-3.5 text-[#9FB9AF]" />
+                <Lock className="w-3.5 h-3.5 text-[#C7DAD3]" />
               )}
             </div>
             <div>
@@ -1246,12 +994,10 @@ export const AttendanceScreen: React.FC = () => {
                       )}
                     </>
                   ) : (
-                    <Button 
-                      disabled
-                      className="w-full py-3.5 font-black text-sm rounded-2xl bg-[#112C26] text-[#35C98A] border border-[#35C98A]/30 cursor-not-allowed"
-                    >
-                      <CheckCircle className="w-5 h-5 mr-2" /> Checked Out
-                    </Button>
+                    <div className="w-full py-3.5 px-4 rounded-2xl bg-[#112C26] text-[#35C98A] border border-[#35C98A]/40 flex items-center justify-center gap-2 text-xs font-black tracking-wider shadow-sm">
+                      <CheckCircle2 className="w-4 h-4 text-[#35C98A]" />
+                      <span>✓ CHECKED OUT — WORKDAY COMPLETED</span>
+                    </div>
                   )}
                 </div>
               )}
@@ -1469,6 +1215,270 @@ export const AttendanceScreen: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* ==================================================== */}
+      {/* 3. CHECKED OUT / LIVE STATUS STRIP */}
+      {/* ==================================================== */}
+      <div className="p-3.5 rounded-2xl bg-[#173A32] border border-[#2A5B50] flex items-center justify-between shadow-md text-[#F4FAF7]">
+        <div className="flex items-center gap-3">
+          {ribbonInfo.icon}
+          <div>
+            <span className="text-xs font-black uppercase tracking-wider text-[#F4FAF7] block">
+              {ribbonInfo.title}
+            </span>
+            <span className="text-[11px] text-[#C7DAD3] font-medium block">
+              {ribbonInfo.subtitle}
+            </span>
+          </div>
+        </div>
+        <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-[#112C26] text-[#19C7C0] border border-[#2A5B50] shrink-0">
+          LIVE STATUS
+        </span>
+      </div>
+
+      {/* Action Feedback Banner */}
+      {actionFeedback && (
+        <div className="p-3.5 bg-[#173A32] border border-[#2A5B50] text-[#F4FAF7] rounded-2xl text-xs font-bold flex justify-between items-center shadow-sm animate-fade-in">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-[#19C7C0]" />
+            <span>{actionFeedback}</span>
+          </div>
+          <button onClick={() => setActionFeedback(null)} className="text-[#C7DAD3] hover:text-[#F4FAF7] font-bold text-sm px-1 cursor-pointer">✕</button>
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* UNRESOLVED CHECKOUT NOTICE */}
+      {/* ==================================================== */}
+      {activeUnresolvedRecord && (
+        <div className="space-y-5 animate-fade-in">
+          <div className="p-5 sm:p-6 rounded-3xl bg-[#173A32] border border-[#F2C75C]/40 shadow-xl space-y-4">
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#2A5B50]">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#F2C75C]/10 border border-[#F2C75C]/30 flex items-center justify-center text-[#F2C75C] flex-shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase font-black tracking-widest px-2.5 py-0.5 rounded-full bg-[#F2C75C]/20 text-[#F2C75C] border border-[#F2C75C]/30">
+                      CHECKOUT PENDING
+                    </span>
+                    {unresolvedPastRecords.length > 1 && (
+                      <span className="text-[10px] font-bold text-[#F2C75C]">
+                        ({unresolvedPastRecords.length} pending)
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="text-lg font-black text-[#F4FAF7] mt-1">
+                    Checkout Resolution Required
+                  </h2>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#C7DAD3] leading-relaxed font-medium">
+              Your checkout for <strong className="text-[#F4FAF7]">{activeUnresolvedRecord.date}</strong> was not recorded.
+              Please submit your actual checkout time for Admin verification.
+            </p>
+
+            {/* Session Details */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 bg-[#112C26] rounded-2xl border border-[#2A5B50] text-xs">
+              <div>
+                <span className="text-[10px] text-[#9FB9AF] font-bold uppercase block tracking-wider">Date</span>
+                <span className="text-[#F4FAF7] font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-[#9FB9AF] font-bold uppercase block tracking-wider">Check-in</span>
+                <span className="text-[#35C98A] font-mono font-extrabold text-sm">{activeUnresolvedRecord.checkInTime || '--:--'}</span>
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <span className="text-[10px] text-[#9FB9AF] font-bold uppercase block tracking-wider">Checkout</span>
+                <span className={`font-extrabold text-sm ${activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'text-[#F2C75C]' : 'text-[#EF6B73]'}`}>
+                  {activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'Reported (Pending)' : 'Unresolved'}
+                </span>
+              </div>
+            </div>
+
+            {/* Resolution Form / Pending State */}
+            {activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' && !isEditingProposal ? (
+              <div className="p-4 rounded-2xl bg-[#F2C75C]/10 border border-[#F2C75C]/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-[#F2C75C] text-xs font-black">
+                    <Clock className="w-4 h-4" />
+                    <span>Reported Checkout: {activeUnresolvedRecord.checkOutTime || activeUnresolvedRecord.employeeProposedCheckoutTime || 'Submitted'}</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-[#F2C75C]/20 text-[#F2C75C] border border-[#F2C75C]/40">
+                    REPORTED
+                  </span>
+                </div>
+                <p className="text-xs text-[#F2C75C]/90 leading-relaxed">
+                  Your proposed checkout time has been submitted and is currently pending Admin verification.
+                </p>
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingProposal(true);
+                      setProposedTimeInput(activeUnresolvedRecord.employeeProposedCheckoutTime || '');
+                    }}
+                    className="px-3 py-1.5 bg-[#112C26] hover:bg-[#21483E] text-[#F2C75C] text-xs font-bold rounded-xl border border-[#F2C75C]/30 transition-all cursor-pointer"
+                  >
+                    Edit Proposed Time
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 p-4 rounded-2xl bg-[#112C26] border border-[#2A5B50]">
+                <label className="text-xs font-bold text-[#F4FAF7] block">
+                  Select your actual checkout time for {activeUnresolvedRecord.date}:
+                </label>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="time"
+                    value={proposedTimeInput}
+                    onChange={(e) => setProposedTimeInput(e.target.value)}
+                    className="flex-1 px-3.5 py-2.5 bg-[#173A32] border border-[#2A5B50] text-[#F4FAF7] rounded-xl text-xs focus:ring-2 focus:ring-[#19C7C0] focus:outline-none"
+                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    {['17:30', '18:00', '18:10', '18:30', '19:00', '19:30'].map((preset) => {
+                      const [hStr, mStr] = preset.split(':');
+                      const h = parseInt(hStr, 10);
+                      const label = `${h > 12 ? h - 12 : h}:${mStr} ${h >= 12 ? 'PM' : 'AM'}`;
+                      return (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setProposedTimeInput(preset)}
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
+                            proposedTimeInput === preset
+                              ? 'bg-[#19C7C0] text-[#112C26] border-[#19C7C0]'
+                              : 'bg-[#173A32] text-[#C7DAD3] border-[#2A5B50] hover:bg-[#21483E]'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {proposalError && (
+                  <div className="text-xs text-[#EF6B73] font-bold flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{proposalError}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  {isEditingProposal && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingProposal(false)}
+                      className="px-4 py-2 bg-[#173A32] hover:bg-[#21483E] text-[#C7DAD3] text-xs font-bold rounded-xl border border-[#2A5B50] transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <Button
+                    onClick={handleSubmitProposedTime}
+                    disabled={isSubmittingProposal}
+                    className="bg-[#F2C75C] hover:bg-[#F2C75C]/90 text-[#112C26] text-xs font-black px-6 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" />
+                    {isSubmittingProposal ? 'SUBMITTING...' : 'RESOLVE CHECKOUT'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* 4. TODAY'S PRIMARY ATTENDANCE CARD */}
+      {/* ==================================================== */}
+      {(() => {
+        const liveLocationData: LiveEmployeeLocation | null = liveLocation ? {
+          employeeId: employeeData?.employeeCode || employeeData?.uid || '',
+          employeeName: employeeData?.name || '',
+          latitude: liveLocation.latitude,
+          longitude: liveLocation.longitude,
+          accuracy: (liveLocation as any).accuracy,
+          distanceFromOffice: distance ?? 0,
+          townCity: currentAddress || 'Raniganj HQ',
+          timestamp: (liveLocation as any).timestamp ? new Date((liveLocation as any).timestamp).toISOString() : new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        } : null;
+
+        return (
+          <TodayAttendanceCard 
+            todayRecord={todayRecord} 
+            isSyncing={isSyncing} 
+            isOnline={isOnline}
+            liveLocationData={liveLocationData}
+          />
+        );
+      })()}
+
+      {/* ==================================================== */}
+      {/* 5. LOCATION STATUS CARD */}
+      {/* ==================================================== */}
+      <Card className="p-4 sm:p-5 bg-[#173A32] border border-[#2A5B50] rounded-2xl shadow-md space-y-3 text-[#F4FAF7]">
+        <div className="flex items-center justify-between border-b border-[#2A5B50] pb-2.5">
+          <div className="flex items-center gap-2">
+            <Compass className="w-4 h-4 text-[#19C7C0]" />
+            <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#F4FAF7]">
+              LOCATION STATUS
+            </h2>
+          </div>
+          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
+            isInsideGeofence || (distance !== null && distance <= 25)
+              ? 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/40'
+              : locationStatus === 'error'
+              ? 'bg-[#F2C75C]/20 text-[#F2C75C] border-[#F2C75C]/40'
+              : 'bg-[#EF6B73]/20 text-[#EF6B73] border-[#EF6B73]/40'
+          }`}>
+            {isInsideGeofence || (distance !== null && distance <= 25)
+              ? 'Inside Office'
+              : locationStatus === 'error'
+              ? 'Location unavailable'
+              : 'Outside Office'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+          <div>
+            <span className="text-[10px] font-bold text-[#9FB9AF] uppercase tracking-wider block mb-0.5">
+              Distance from Office
+            </span>
+            <span className="text-xl sm:text-2xl font-black font-mono text-[#F4FAF7]">
+              {distance !== null ? `${distance.toFixed(0)} m` : 'Acquiring GPS...'}
+            </span>
+            <span className="text-[11px] text-[#C7DAD3] font-medium block mt-0.5">
+              Location: {currentAddress || 'Raniganj HQ Office Radius (25 m)'}
+            </span>
+          </div>
+
+          <div className="flex flex-col sm:items-end justify-center">
+            {locationStatus === 'loading' && (
+              <div className="flex items-center gap-1.5 font-bold text-[#19C7C0] text-xs animate-pulse">
+                <RotateCw className="w-3.5 h-3.5 animate-spin text-[#19C7C0]" /> Updating GPS...
+              </div>
+            )}
+            {locationStatus === 'error' && (
+              <Button onClick={() => refreshLocation()} className="bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[11px] py-1.5 px-3 rounded-xl shadow cursor-pointer">
+                Retry GPS Lock
+              </Button>
+            )}
+            {locationStatus === 'success' && (
+              <span className="text-[11px] text-[#9FB9AF] font-mono">
+                GPS Accuracy: High • 25 m Limit
+              </span>
+            )}
+          </div>
+        </div>
+      </Card>
 
 
 
