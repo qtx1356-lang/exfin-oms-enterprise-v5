@@ -1254,9 +1254,27 @@ async function startServer() {
     }
   });
 
-  // Serve Codester final download packages
+  // Serve Codester final download packages and APKs with explicit MIME type and fallback protection
   const downloadsPath = path.join(process.cwd(), "public", "downloads");
-  app.use("/downloads", express.static(downloadsPath));
+  app.get("/downloads/:filename", (req, res) => {
+    const filename = req.params.filename;
+    const filePath = path.join(downloadsPath, filename);
+    if (fs.existsSync(filePath)) {
+      res.setHeader("Content-Type", "application/vnd.android.package-archive");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      return res.sendFile(filePath);
+    } else {
+      return res.status(404).json({ error: "APK file not found on server", requested: filename });
+    }
+  });
+  app.use("/downloads", express.static(downloadsPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.apk')) {
+        res.setHeader("Content-Type", "application/vnd.android.package-archive");
+        res.setHeader("Content-Disposition", "attachment");
+      }
+    }
+  }));
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
