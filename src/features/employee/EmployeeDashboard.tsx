@@ -551,13 +551,13 @@ export const EmployeeDashboard: React.FC = () => {
       icon: Calendar, 
       label: 'Apply Leave', 
       onClick: () => navigate('/leave'), 
-      bg: 'bg-purple-500/20 text-purple-300 border-purple-500/30' 
+      bg: 'bg-[rgba(139,92,246,0.15)] text-[#C4B5FD] border-[rgba(139,92,246,0.3)]' 
     },
     { 
       icon: Wallet, 
       label: 'Expenses', 
       onClick: () => navigate('/expenses'), 
-      bg: 'bg-amber-500/20 text-amber-300 border-amber-500/30' 
+      bg: 'bg-[rgba(245,158,11,0.15)] text-[#FCD34D] border-[rgba(245,158,11,0.3)]' 
     },
     { 
       icon: FileText, 
@@ -572,44 +572,44 @@ export const EmployeeDashboard: React.FC = () => {
       }, 
       bg: hasPayslips === false 
         ? 'bg-rose-500/10 text-rose-300/40 border-rose-500/10 opacity-50 cursor-not-allowed' 
-        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
+        : 'bg-[rgba(16,185,129,0.15)] text-[#6EE7B7] border-[rgba(16,185,129,0.3)]' 
     },
     { 
       icon: MessageSquare, 
       label: 'Chat', 
       onClick: () => navigate('/chat'), 
-      bg: 'bg-pink-500/20 text-pink-300 border-pink-500/30' 
+      bg: 'bg-[rgba(34,211,238,0.15)] text-[#67E8F9] border-[rgba(34,211,238,0.3)]' 
     },
     { 
       icon: Bell, 
       label: 'Notifications', 
       badge: unreadNotificationCount > 0 ? unreadNotificationCount : null,
       onClick: () => navigate('/notifications'), 
-      bg: 'bg-blue-500/20 text-blue-300 border-blue-500/30' 
+      bg: 'bg-[rgba(59,130,246,0.15)] text-[#93C5FD] border-[rgba(59,130,246,0.3)]' 
     },
     { 
       icon: HelpCircle, 
       label: 'FAQ & Help', 
       onClick: () => navigate('/faq'), 
-      bg: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' 
+      bg: 'bg-[rgba(148,163,184,0.15)] text-[#CBD5E1] border-[rgba(148,163,184,0.3)]' 
     },
     { 
       icon: User, 
       label: 'Profile', 
       onClick: () => navigate('/profile'), 
-      bg: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' 
+      bg: 'bg-[rgba(34,211,238,0.15)] text-[#22D3EE] border-[rgba(34,211,238,0.3)]' 
     },
     { 
       icon: Activity, 
       label: 'Work Pulse', 
       onClick: () => setActiveView('workpulse'), 
-      bg: 'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30' 
+      bg: 'bg-[rgba(168,85,247,0.15)] text-[#D8B4FE] border-[rgba(168,85,247,0.3)]' 
     },
     { 
       icon: Clock, 
       label: 'Work Hours', 
       onClick: () => navigate('/work-hours'), 
-      bg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' 
+      bg: 'bg-[rgba(16,185,129,0.15)] text-[#34D399] border-[rgba(16,185,129,0.3)]' 
     },
   ];
 
@@ -847,36 +847,36 @@ export const EmployeeDashboard: React.FC = () => {
 
   return (
     <>
-      <div className="flex flex-col gap-5 pb-8 text-[#F5F7F6]">
+      <div className="flex flex-col gap-5 pb-8 text-[#F8FAFC]">
         {/* Top Header */}
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-[#171B1F] border-2 border-[#18C98F]/60 flex-shrink-0 shadow-md">
+            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-[rgba(20,28,42,0.95)] border-2 border-[rgba(34,211,238,0.5)] flex-shrink-0 shadow-lg">
               {employeeData.selfieUrl ? (
                 <img src={employeeData.selfieUrl} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                <UserCheck className="w-6 h-6 m-auto mt-3 text-[#18C98F]" />
+                <UserCheck className="w-6 h-6 m-auto mt-3 text-[#22D3EE]" />
               )}
             </div>
             <div>
-              <h1 className="text-lg font-black text-[#F5F7F6] leading-tight">
+              <h1 className="text-lg font-black text-[#F8FAFC] leading-tight">
                 {employeeData.name || 'Employee'}
               </h1>
-              <p className="text-xs text-[#B7C0BC] font-medium mt-0.5">
-                Code: <span className="text-[#18C98F] font-bold">{employeeData.employeeCode || 'N/A'}</span>
+              <p className="text-xs text-[#CBD5E1] font-medium mt-0.5">
+                Code: <span className="text-[#22D3EE] font-bold">{employeeData.employeeCode || 'N/A'}</span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-[#171B1F] border border-[#3A4148] px-3 py-1.5 rounded-full text-xs font-semibold text-[#B7C0BC] shadow-sm">
-            <MapPin className="w-3.5 h-3.5 text-[#18C98F] shrink-0" />
+          <div className="flex items-center gap-1.5 bg-[rgba(20,28,42,0.85)] border border-[rgba(148,163,184,0.25)] px-3 py-1.5 rounded-full text-xs font-semibold text-[#CBD5E1] shadow-sm">
+            <MapPin className="w-3.5 h-3.5 text-[#22D3EE] shrink-0" />
             <span className="truncate max-w-[130px]">{employeeData.officeLocation || employeeData.workLocation || 'Raniganj HQ'}</span>
           </div>
         </div>
 
         {/* Greeting Banner */}
         <div className="text-left py-0.5">
-          <h2 className="text-xl sm:text-2xl font-black text-[#18C98F] tracking-tight uppercase">
+          <h2 className="text-xl sm:text-2xl font-black text-[#22D3EE] tracking-tight uppercase">
             {greetingPrefix}
           </h2>
         </div>
@@ -906,17 +906,17 @@ export const EmployeeDashboard: React.FC = () => {
         )}
 
         {/* TODAY OVERVIEW CARD */}
-        <Card className="p-4 sm:p-5 bg-[#171B1F] border border-[#3A4148] shadow-md rounded-2xl relative overflow-hidden">
-          <div className="border-b border-[#3A4148] pb-3 mb-3.5 flex items-center justify-between">
+        <Card className="p-4 sm:p-5 bg-[rgba(17,24,39,0.92)] border border-[rgba(148,163,184,0.22)] shadow-xl rounded-2xl relative overflow-hidden">
+          <div className="border-b border-[rgba(148,163,184,0.2)] pb-3 mb-3.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-[#1D2329] border border-[#3A4148] text-[#18C98F]">
+              <div className="p-1.5 rounded-lg bg-[rgba(30,41,59,0.8)] border border-[rgba(148,163,184,0.2)] text-[#22D3EE]">
                 <Calendar className="w-4 h-4" />
               </div>
-              <h3 className="text-xs font-black text-[#F5F7F6] uppercase tracking-widest">
+              <h3 className="text-xs font-black text-[#F8FAFC] uppercase tracking-widest">
                 TODAY OVERVIEW
               </h3>
             </div>
-            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-[#111417] border border-[#3A4148] text-[#B7C0BC] uppercase tracking-wider font-mono">
+            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-[rgba(10,15,28,0.7)] border border-[rgba(148,163,184,0.2)] text-[#CBD5E1] uppercase tracking-wider font-mono">
               {todayDate}
             </span>
           </div>
@@ -924,25 +924,25 @@ export const EmployeeDashboard: React.FC = () => {
           {/* 2-Column Grid */}
           <div className="grid grid-cols-2 gap-3 text-xs font-bold">
             {/* ATTENDANCE MINI-CARD */}
-            <div className="p-3 rounded-xl border border-[#3A4148] bg-[#1D2329] text-[#F5F7F6] flex flex-col justify-between">
+            <div className="p-3 rounded-xl border border-[rgba(148,163,184,0.2)] bg-[rgba(30,41,59,0.7)] text-[#F8FAFC] flex flex-col justify-between">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] uppercase font-black tracking-wider text-[#B7C0BC]">
+                <span className="text-[10px] uppercase font-black tracking-wider text-[#94A3B8]">
                   ATTENDANCE
                 </span>
-                <UserCheck className="w-4 h-4 text-[#18C98F]" />
+                <UserCheck className="w-4 h-4 text-[#10B981]" />
               </div>
               <div>
                 <p className="text-sm font-black tracking-tight truncate">
                   {attendanceStatusLabel}
                 </p>
-                <p className="text-[10px] font-medium text-[#B7C0BC] mt-0.5 truncate">
+                <p className="text-[10px] font-medium text-[#CBD5E1] mt-0.5 truncate">
                   {checkInTimeStr && checkInTimeStr !== '--:--' ? `In at ${checkInTimeStr}` : 'Shift active'}
                 </p>
               </div>
             </div>
 
             {/* WORKING TIME MINI-CARD */}
-            <div className="p-3 rounded-xl border border-[#3A4148] bg-[#1D2329] text-[#F5F7F6] flex flex-col justify-between">
+            <div className="p-3 rounded-xl border border-[rgba(148,163,184,0.2)] bg-[rgba(30,41,59,0.7)] text-[#F8FAFC] flex flex-col justify-between">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] uppercase font-black tracking-wider text-[#F59E0B]">
                   WORKING TIME
@@ -953,43 +953,43 @@ export const EmployeeDashboard: React.FC = () => {
                 <p className="text-sm font-black tracking-tight text-[#F59E0B]">
                   {workingDurationStr}
                 </p>
-                <p className="text-[10px] font-medium text-[#B7C0BC] mt-0.5">
+                <p className="text-[10px] font-medium text-[#CBD5E1] mt-0.5">
                   Logged duration
                 </p>
               </div>
             </div>
 
             {/* TASKS MINI-CARD */}
-            <div className="p-3 rounded-xl border border-[#3A4148] bg-[#1D2329] text-[#F5F7F6] flex flex-col justify-between">
+            <div className="p-3 rounded-xl border border-[rgba(148,163,184,0.2)] bg-[rgba(30,41,59,0.7)] text-[#F8FAFC] flex flex-col justify-between">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] uppercase font-black tracking-wider text-[#38BDF8]">
+                <span className="text-[10px] uppercase font-black tracking-wider text-[#22D3EE]">
                   TASKS
                 </span>
-                <CheckSquare className="w-4 h-4 text-[#38BDF8]" />
+                <CheckSquare className="w-4 h-4 text-[#22D3EE]" />
               </div>
               <div>
-                <p className="text-sm font-black tracking-tight text-[#38BDF8]">
+                <p className="text-sm font-black tracking-tight text-[#22D3EE]">
                   {completedTaskCount} / {assignedTaskCount} completed
                 </p>
-                <p className="text-[10px] font-medium text-[#B7C0BC] mt-0.5">
+                <p className="text-[10px] font-medium text-[#CBD5E1] mt-0.5">
                   {assignedTaskCount - completedTaskCount > 0 ? `${assignedTaskCount - completedTaskCount} remaining` : 'All tasks completed'}
                 </p>
               </div>
             </div>
 
             {/* WORK PROGRESS MINI-CARD */}
-            <div className="p-3 rounded-xl border border-[#3A4148] bg-[#1D2329] text-[#F5F7F6] flex flex-col justify-between">
+            <div className="p-3 rounded-xl border border-[rgba(148,163,184,0.2)] bg-[rgba(30,41,59,0.7)] text-[#F8FAFC] flex flex-col justify-between">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] uppercase font-black tracking-wider text-[#22C55E]">
+                <span className="text-[10px] uppercase font-black tracking-wider text-[#10B981]">
                   WORK PROGRESS
                 </span>
-                <BarChart3 className="w-4 h-4 text-[#22C55E]" />
+                <BarChart3 className="w-4 h-4 text-[#10B981]" />
               </div>
               <div>
-                <p className="text-sm font-black tracking-tight text-[#22C55E]">
+                <p className="text-sm font-black tracking-tight text-[#10B981]">
                   {taskProgressPercentage}%
                 </p>
-                <p className="text-[10px] font-medium text-emerald-200/70 mt-0.5">
+                <p className="text-[10px] font-medium text-[#CBD5E1] mt-0.5">
                   Completion rate
                 </p>
               </div>

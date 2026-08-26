@@ -1,62 +1,63 @@
 @import "tailwindcss";
 
 @theme {
-  --color-app-bg: #0B0D0F;
-  --color-app-bg-secondary: #111417;
-  --color-card-bg: #171B1E;
-  --color-card-elevated: #1D2226;
-  --color-border-emerald: #292F33;
-  --color-border-subtle: #22282C;
-  --color-primary: #18C98F;
-  --color-primary-dark: #10966D;
-  --color-primary-light: #35E0AA;
-  --color-on-primary: #06110D;
-  --color-text-primary: #F5F7F6;
-  --color-text-secondary: #B7C0BC;
-  --color-text-muted: #7E8985;
-  --color-success: #22C55E;
+  --color-app-bg: #080A0F;
+  --color-app-bg-secondary: #0D1117;
+  --color-card-bg: rgba(17, 24, 39, 0.92);
+  --color-card-elevated: rgba(20, 28, 42, 0.95);
+  --color-border-emerald: rgba(148, 163, 184, 0.20);
+  --color-border-subtle: rgba(148, 163, 184, 0.20);
+  --color-primary: #22D3EE;
+  --color-primary-dark: #0891B2;
+  --color-primary-light: #67E8F9;
+  --color-on-primary: #041014;
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #CBD5E1;
+  --color-text-muted: #94A3B8;
+  --color-success: #10B981;
   --color-warning: #F59E0B;
   --color-danger: #EF4444;
-  --color-info: #38BDF8;
+  --color-info: #22D3EE;
   --color-offline: #F59E0B;
   
-  --color-background: #0B0D0F;
-  --color-surface: #171B1E;
-  --color-surface-elevated: #1D2226;
-  --color-surface-variant: #111417;
-  --color-on-surface: #F5F7F6;
-  --color-on-surface-variant: #B7C0BC;
-  --color-outline: #292F33;
-  --color-muted: #7E8985;
+  --color-background: #080A0F;
+  --color-surface: rgba(17, 24, 39, 0.92);
+  --color-surface-elevated: rgba(20, 28, 42, 0.95);
+  --color-surface-variant: #0D1117;
+  --color-on-surface: #F8FAFC;
+  --color-on-surface-variant: #CBD5E1;
+  --color-outline: rgba(148, 163, 184, 0.20);
+  --color-muted: #94A3B8;
 }
 
 :root {
-  --app-bg: #0B0D0F;
-  --app-bg-secondary: #111417;
-  --card-bg: #171B1E;
-  --card-elevated: #1D2226;
-  --border: #292F33;
-  --border-subtle: #22282C;
-  --primary: #18C98F;
-  --primary-dark: #10966D;
-  --primary-light: #35E0AA;
-  --text-primary: #F5F7F6;
-  --text-secondary: #B7C0BC;
-  --text-muted: #7E8985;
-  --success: #22C55E;
+  --app-bg: #080A0F;
+  --app-bg-secondary: #0D1117;
+  --card-bg: rgba(17, 24, 39, 0.92);
+  --card-elevated: rgba(20, 28, 42, 0.95);
+  --border: rgba(148, 163, 184, 0.20);
+  --border-subtle: rgba(148, 163, 184, 0.20);
+  --border-active: rgba(34, 211, 238, 0.55);
+  --primary: #22D3EE;
+  --primary-dark: #0891B2;
+  --primary-light: #67E8F9;
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+  --success: #10B981;
   --warning: #F59E0B;
   --danger: #EF4444;
-  --info: #38BDF8;
+  --info: #22D3EE;
 }
 
 body {
-  background: linear-gradient(180deg, #0B0D0F 0%, #101315 100%);
-  background-attachment: fixed;
-  color: #F5F7F6;
+  background-color: #080A0F;
+  color: #F8FAFC;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   margin: 0;
   padding: 0;
   min-height: 100vh;
+  position: relative;
 }
 
 /* Touch optimization for instant button feedback */
@@ -65,21 +66,21 @@ button, a, input, select, textarea, [role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Custom scrollbar for Graphite + Emerald theme */
+/* Custom scrollbar for Obsidian + Cyan theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0B0D0F;
+  background: #080A0F;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1D2226;
+  background: #1E293B;
   border-radius: 9999px;
-  border: 1px solid #292F33;
+  border: 1px solid rgba(148, 163, 184, 0.20);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #18C98F;
+  background: #22D3EE;
 }
 
 /* Enterprise Form Inputs default styling */
@@ -91,11 +92,11 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: #14181B !important;
-  color: #F5F7F6 !important;
-  border: 1px solid #292F33 !important;
+  background-color: rgba(15, 23, 42, 0.88) !important;
+  color: #F8FAFC !important;
+  border: 1px solid rgba(148, 163, 184, 0.20) !important;
   border-radius: 14px !important;
-  transition: border-color 0.15s ease-in-out;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
 input[type="text"]:focus,
@@ -107,13 +108,13 @@ input[type="time"]:focus,
 textarea:focus,
 select:focus {
   outline: none !important;
-  border-color: #18C98F !important;
-  box-shadow: 0 0 0 2px rgba(24, 201, 143, 0.2) !important;
+  border-color: #22D3EE !important;
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.25) !important;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #7E8985 !important;
+  color: #94A3B8 !important;
 }
 
 @keyframes subtlePulse {

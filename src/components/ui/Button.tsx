@@ -13,18 +13,18 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'filled', ...props }, ref) => {
     const variants = {
-      filled: 'bg-[#18C7A0] text-[#04110E] hover:bg-[#0E9F82] active:bg-[#0E9F82] font-bold rounded-xl shadow-md',
-      outlined: 'border border-[#1D4840] text-[#A8C7C0] hover:bg-[#143730] rounded-xl',
-      text: 'text-[#A8C7C0] hover:bg-[#102D28] rounded-xl',
-      elevated: 'bg-[#143730] text-[#F5FFFC] hover:bg-[#1D4840] shadow-md rounded-xl',
-      tonal: 'bg-[#0B2420] text-[#A8C7C0] hover:bg-[#102D28] rounded-xl',
+      filled: 'bg-[#22D3EE] text-[#041014] hover:bg-[#67E8F9] active:bg-[#67E8F9] font-bold rounded-xl shadow-md',
+      outlined: 'bg-[rgba(15,23,42,0.88)] border border-[rgba(148,163,184,0.28)] text-[#F8FAFC] hover:bg-[rgba(30,41,59,0.9)] hover:border-[rgba(34,211,238,0.55)] rounded-xl',
+      text: 'text-[#CBD5E1] hover:text-[#22D3EE] hover:bg-white/5 rounded-xl',
+      elevated: 'bg-[rgba(20,28,42,0.95)] border border-[rgba(148,163,184,0.20)] text-[#F8FAFC] hover:bg-[rgba(30,41,59,0.95)] shadow-md rounded-xl',
+      tonal: 'bg-[rgba(34,211,238,0.12)] border border-[rgba(34,211,238,0.25)] text-[#67E8F9] hover:bg-[rgba(34,211,238,0.20)] rounded-xl',
     };
 
     return (
       <button
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-bold transition-colors duration-75 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#18C7A0] disabled:bg-[#163B35] disabled:text-[#718F88] disabled:cursor-not-allowed',
+          'inline-flex items-center justify-center rounded-xl min-h-[44px] px-5 py-2.5 text-sm font-bold transition-all duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22D3EE] disabled:bg-[rgba(30,41,59,0.5)] disabled:text-[#64748B] disabled:border-[rgba(148,163,184,0.1)] disabled:cursor-not-allowed cursor-pointer active:scale-[0.98]',
           variants[variant],
           className
         )}

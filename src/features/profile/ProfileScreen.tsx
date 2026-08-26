@@ -239,7 +239,7 @@ export const ProfileScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="py-12 flex justify-center items-center text-[#18C98F] font-bold">
+      <div className="py-12 flex justify-center items-center text-[#22D3EE] font-bold">
         Loading profile information...
       </div>
     );
@@ -248,11 +248,11 @@ export const ProfileScreen: React.FC = () => {
   if (!profile && !employeeData) {
     return (
       <div className="py-16 text-center space-y-4 max-w-md mx-auto">
-        <div className="p-4 bg-[#171B1F] rounded-2xl border border-[#3A4148] text-white space-y-3 shadow-lg">
-          <p className="text-sm font-bold text-[#B7C0BC]">Profile information is temporarily unavailable.</p>
+        <div className="p-4 bg-[rgba(17,24,39,0.92)] rounded-2xl border border-[rgba(148,163,184,0.22)] text-white space-y-3 shadow-lg">
+          <p className="text-sm font-bold text-[#CBD5E1]">Profile information is temporarily unavailable.</p>
           <Button
             onClick={() => window.location.reload()}
-            className="w-full bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] text-xs font-bold py-2 rounded-xl"
+            className="w-full bg-[#22D3EE] hover:bg-[#67E8F9] text-[#041014] text-xs font-black py-2 rounded-xl"
           >
             Retry / Refresh
           </Button>
@@ -262,15 +262,19 @@ export const ProfileScreen: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 pb-24 max-w-4xl mx-auto">
+    <div className="space-y-6 pb-24 max-w-4xl mx-auto relative">
+      {/* Background ambient lighting */}
+      <div className="fixed top-20 right-10 w-96 h-96 bg-[rgba(139,92,246,0.06)] rounded-full blur-[120px] pointer-events-none" />
+      <div className="fixed bottom-20 left-10 w-96 h-96 bg-[rgba(34,211,238,0.05)] rounded-full blur-[120px] pointer-events-none" />
+
       {/* 1. Header Card */}
-      <Card className="p-6 bg-[#171B1F] border border-[#3A4148] text-white rounded-[24px] shadow-2xl relative overflow-hidden">
-        <div className="absolute -top-12 -right-12 w-48 h-48 bg-[#18C98F]/10 rounded-full blur-3xl pointer-events-none" />
+      <Card className="p-6 bg-[rgba(17,24,39,0.92)] backdrop-blur-md border border-[rgba(148,163,184,0.25)] text-white rounded-[24px] shadow-2xl relative overflow-hidden">
+        <div className="absolute -top-12 -right-12 w-48 h-48 bg-[rgba(139,92,246,0.08)] rounded-full blur-3xl pointer-events-none" />
 
         <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10">
           {/* Avatar Container */}
           <div className="relative group">
-            <div className="w-24 h-24 rounded-full bg-[#111417] border-2 border-[#18C98F] overflow-hidden flex items-center justify-center shadow-lg">
+            <div className="w-24 h-24 rounded-full bg-[rgba(10,15,28,0.9)] border-2 border-[#22D3EE] overflow-hidden flex items-center justify-center shadow-[0_0_20px_rgba(34,211,238,0.2)]">
               {profile?.profilePhotoUrl || profile?.localPhotoData ? (
                 <img
                   src={profile.profilePhotoUrl || profile.localPhotoData!}
@@ -278,7 +282,7 @@ export const ProfileScreen: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <User className="w-12 h-12 text-[#B7C0BC]/60" />
+                <User className="w-12 h-12 text-[#CBD5E1]/60" />
               )}
             </div>
           </div>
@@ -287,17 +291,17 @@ export const ProfileScreen: React.FC = () => {
           <div className="text-center sm:text-left space-y-1.5 flex-1">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
               <h1 className="text-2xl font-black text-white">{profile?.name || employeeData?.name || 'Employee Name'}</h1>
-              <span className="px-3 py-0.5 rounded-full text-xs font-black bg-[#18C98F] text-[#0B0D0F] shadow-md">
+              <span className="px-3 py-0.5 rounded-full text-xs font-black bg-[#22D3EE] text-[#041014] shadow-md">
                 {profile?.employeeCode || employeeData?.employeeCode}
               </span>
             </div>
 
-            <p className="text-sm font-bold text-[#B7C0BC]">
+            <p className="text-sm font-bold text-[#CBD5E1]">
               {profile?.designation} • {profile?.department}
             </p>
 
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
-              <span className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-[#1D2329] text-[#B7C0BC] border border-[#3A4148] flex items-center gap-1">
+              <span className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-[rgba(30,41,59,0.8)] text-[#CBD5E1] border border-[rgba(148,163,184,0.22)] flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#18C98F]" />
                 Role: {getRoleDisplayName(profile?.role || currentRole)}
               </span>

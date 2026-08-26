@@ -133,47 +133,47 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   // Derive visual theme and labels
   let statusTitle = 'NOT CHECKED IN';
   let statusBadgeText = 'Your workday hasn\'t started';
-  let statusColor = 'from-[#171B1E] to-[#111417] border-[#3A4148] text-[#B7C0BC]';
-  let badgeStyle = 'bg-white/5 text-[#B7C0BC] border-[#3A4148]';
+  let statusColor = 'from-[rgba(20,28,42,0.95)] to-[rgba(15,23,42,0.9)] border-[rgba(148,163,184,0.25)] text-[#CBD5E1]';
+  let badgeStyle = 'bg-white/5 text-[#CBD5E1] border-[rgba(148,163,184,0.25)]';
   let StateIcon = Clock;
 
   if (isCheckedOut) {
     statusTitle = 'WORKDAY COMPLETED';
     statusBadgeText = 'Checked Out';
-    statusColor = 'from-[#171B1E] to-[#111417] border-[#18C98F]/30 text-[#18C98F]';
-    badgeStyle = 'bg-[#18C98F]/15 text-[#18C98F] border-[#18C98F]/20';
+    statusColor = 'from-[rgba(20,28,42,0.95)] to-[rgba(15,23,42,0.9)] border-[rgba(16,185,129,0.4)] text-[#10B981]';
+    badgeStyle = 'bg-[rgba(16,185,129,0.15)] text-[#10B981] border-[rgba(16,185,129,0.3)]';
     StateIcon = CheckCircle2;
   } else if (isCheckedIn) {
     if (attendanceType === 'WFH') {
       statusTitle = 'WORK FROM HOME';
       statusBadgeText = 'WFH Active';
-      statusColor = 'from-[#171B1E] to-[#111417] border-blue-500/30 text-blue-300';
-      badgeStyle = 'bg-blue-500/15 text-blue-300 border-blue-500/20';
+      statusColor = 'from-[rgba(20,28,42,0.95)] to-[rgba(15,23,42,0.9)] border-[rgba(59,130,246,0.4)] text-blue-300';
+      badgeStyle = 'bg-blue-500/15 text-blue-300 border-blue-500/25';
       StateIcon = Home;
     } else if (attendanceType === 'CLIENT_VISIT') {
       statusTitle = 'CLIENT VISIT';
       statusBadgeText = todayRecord.clientName ? `Client: ${todayRecord.clientName}` : 'On-Site Visit';
-      statusColor = 'from-[#171B1E] to-[#111417] border-teal-500/30 text-teal-300';
-      badgeStyle = 'bg-teal-500/15 text-teal-300 border-teal-500/20';
+      statusColor = 'from-[rgba(20,28,42,0.95)] to-[rgba(15,23,42,0.9)] border-[rgba(34,211,238,0.4)] text-[#67E8F9]';
+      badgeStyle = 'bg-[rgba(34,211,238,0.15)] text-[#67E8F9] border-[rgba(34,211,238,0.25)]';
       StateIcon = MapPin;
     } else if (attendanceType === 'OUTDOOR') {
       statusTitle = 'OUTDOOR WORK';
       statusBadgeText = todayRecord.outdoorType || 'Field Visit';
-      statusColor = 'from-[#171B1E] to-[#111417] border-amber-500/30 text-amber-300';
-      badgeStyle = 'bg-amber-500/15 text-amber-300 border-amber-500/20';
+      statusColor = 'from-[rgba(20,28,42,0.95)] to-[rgba(15,23,42,0.9)] border-[rgba(245,158,11,0.4)] text-amber-300';
+      badgeStyle = 'bg-amber-500/15 text-amber-300 border-amber-500/25';
       StateIcon = Briefcase;
     } else {
       if (todayRecord.returningToOffice) {
         statusTitle = 'CHECKED IN (AWAY)';
         statusBadgeText = 'Returning to Office';
-        statusColor = 'from-[#171B1E] to-[#111417] border-[#3A4148] text-[#B7C0BC]';
-        badgeStyle = 'bg-[#1D2329] text-[#B7C0BC] border-[#3A4148]';
+        statusColor = 'from-[rgba(20,28,42,0.95)] to-[rgba(15,23,42,0.9)] border-[rgba(148,163,184,0.25)] text-[#CBD5E1]';
+        badgeStyle = 'bg-[rgba(30,41,59,0.8)] text-[#CBD5E1] border-[rgba(148,163,184,0.25)]';
         StateIcon = MapPin;
       } else {
         statusTitle = 'CHECKED IN';
         statusBadgeText = todayRecord.checkInMode === 'AUTO' ? 'Auto Check-In' : 'Office Attendance';
-        statusColor = 'from-[#171B1E] to-[#111417] border-[#18C98F]/30 text-[#18C98F]';
-        badgeStyle = 'bg-[#18C98F]/15 text-[#18C98F] border-[#18C98F]/20';
+        statusColor = 'from-[rgba(20,28,42,0.95)] to-[rgba(15,23,42,0.9)] border-[rgba(16,185,129,0.4)] text-[#10B981]';
+        badgeStyle = 'bg-[rgba(16,185,129,0.15)] text-[#10B981] border-[rgba(16,185,129,0.3)]';
         StateIcon = CheckCircle2;
       }
     }
@@ -182,10 +182,10 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   return (
     <Card className={`p-4 sm:p-5 bg-gradient-to-br ${statusColor} border shadow-2xl relative overflow-hidden transition-all duration-300`}>
       {/* Background Ambient Glow */}
-      <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-48 h-48 bg-[rgba(139,92,246,0.08)] rounded-full blur-3xl pointer-events-none" />
 
       {/* Header Row */}
-      <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
+      <div className="flex items-center justify-between pb-3 border-b border-[rgba(148,163,184,0.18)] mb-4">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center">
             <StateIcon className="w-4 h-4 text-white" />
@@ -217,7 +217,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
           {/* Time Summary */}
           <div className="mt-2 text-xs font-bold text-white/80">
             {isCheckedOut ? (
-              <div className="flex flex-col gap-1 text-emerald-200">
+              <div className="flex flex-col gap-1 text-emerald-300">
                 <span className="flex items-center gap-1">
                   <span>{todayRecord.checkInTime}</span>
                   <span>→</span>
@@ -231,7 +231,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
               </div>
             ) : isCheckedIn ? (
               <span className="text-white/90">
-                Checked in at <span className="font-mono text-emerald-300">{todayRecord.checkInTime}</span>
+                Checked in at <span className="font-mono text-[#10B981]">{todayRecord.checkInTime}</span>
               </span>
             ) : (
               <span className="text-white/60 font-medium">No check-in recorded for today yet.</span>
@@ -240,17 +240,17 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
         </div>
 
         {/* Right: Working Time Counter */}
-        <div className="bg-black/25 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 flex flex-col items-start sm:items-end justify-center">
-          <span className="text-[10px] font-extrabold uppercase tracking-widest text-white/60 flex items-center gap-1 mb-0.5">
-            <Activity className="w-3 h-3 text-emerald-400" />
+        <div className="bg-[rgba(10,15,28,0.7)] backdrop-blur-md p-3.5 rounded-2xl border border-[rgba(148,163,184,0.2)] flex flex-col items-start sm:items-end justify-center">
+          <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#22D3EE] flex items-center gap-1 mb-0.5">
+            <Activity className="w-3 h-3 text-[#22D3EE]" />
             WORKING TIME
           </span>
-          <span className="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight">
+          <span className="text-2xl sm:text-3xl font-black font-mono text-[#F8FAFC] tracking-tight">
             {workingTimeStr}
           </span>
           {isCheckedIn && !isCheckedOut && (
-            <span className="text-[9px] font-bold text-emerald-400/90 flex items-center gap-1 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" /> Live Session Active
+            <span className="text-[9px] font-bold text-[#10B981] flex items-center gap-1 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-ping" /> Live Session Active
             </span>
           )}
         </div>
