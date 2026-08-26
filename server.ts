@@ -535,6 +535,44 @@ async function startServer() {
     }
   });
 
+  // App Version Config endpoint for Native Android App Update Mechanism
+  app.get("/api/app-version", async (req, res) => {
+    try {
+      let versionConfig = {
+        latestVersionCode: 25,
+        latestVersionName: "2.5.0",
+        minimumSupportedVersionCode: 23,
+        updateUrl: `${req.protocol}://${req.get("host")}/downloads/exfin-oms-v2.5.0.apk`,
+        releaseNotes: "• Improved automatic attendance\n• Faster native location detection\n• Improved notifications & background reliability",
+        forceUpdate: false,
+        published: true,
+        releaseDate: "2026-08-26"
+      };
+
+      if (db) {
+        try {
+          const doc = await db.collection("app_config").doc("version").get();
+          if (doc.exists) {
+            const data = doc.data();
+            if (data) {
+              versionConfig = { ...versionConfig, ...data };
+            }
+          }
+        } catch (e: any) {
+          // Fallback gracefully if app_config collection doesn't exist or permission denied
+          if (!e?.message?.includes('PERMISSION_DENIED')) {
+            console.warn("[AppVersion] Could not fetch version config from Firestore, using default:", e?.message || e);
+          }
+        }
+      }
+
+      return res.json(versionConfig);
+    } catch (err: any) {
+      console.error("[AppVersion] Error serving app version:", err);
+      return res.status(500).json({ error: err.message || "Failed to fetch version config" });
+    }
+  });
+
   // Secure Median Background Location POST endpoint
   app.post("/api/median-background-location", async (req, res) => {
     try {

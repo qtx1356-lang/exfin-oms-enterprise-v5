@@ -149,11 +149,18 @@ public class OfficeGeofenceHelper {
             return;
         }
 
+        SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm:ss", Locale.US);
+        timeFormatter.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
+        String enterReceivedTime = timeFormatter.format(new Date());
+        Log.i(TAG, "[Performance] Geofence ENTER received: " + enterReceivedTime);
+
         double distance = 25.0;
         boolean hasCoords = (lat != 0.0 && lng != 0.0);
         if (hasCoords) {
             distance = calculateDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
         }
+        String validationCompletedTime = timeFormatter.format(new Date());
+        Log.i(TAG, "[Performance] 25 m validation completed: " + validationCompletedTime + " (dist=" + Math.round(distance) + "m)");
 
         try {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -233,19 +240,26 @@ public class OfficeGeofenceHelper {
     }
 
     private static void getFallbackLocationAndProcess(Context context, String transitionType, double inputLat, double inputLng, long eventTimestamp, double calculatedDistance, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
+        SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm:ss", Locale.US);
+        timeFormatter.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
+
         // If input coordinates are valid and not exactly the office center (which indicates a default fallback)
         boolean hasValidLocation = (inputLat != 0.0 && inputLng != 0.0 && 
-                                    (Math.abs(inputLat - OFFICE_LAT) > 0.000001 || Math.abs(inputLng - OFFICE_LNG) > 0.000001));
+                                     (Math.abs(inputLat - OFFICE_LAT) > 0.000001 || Math.abs(inputLng - OFFICE_LNG) > 0.000001));
 
         if (hasValidLocation) {
+            String locObtainedTime = timeFormatter.format(new Date());
+            Log.i(TAG, "[Performance] Current location obtained: " + locObtainedTime);
             queueAndSyncEvent(context, transitionType, inputLat, inputLng, 10.0f, eventTimestamp, calculatedDistance, pendingResult, finishedFlag);
         } else {
-            // Try to fetch background location via FusedLocationProviderClient
+            // Try to fetch background location via FusedLocationProviderClient with high accuracy for speed
             try {
                 com.google.android.gms.location.FusedLocationProviderClient fusedClient = 
                     com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context);
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                     fusedClient.getLastLocation().addOnSuccessListener(location -> {
+                        String locObtainedTime = timeFormatter.format(new Date());
+                        Log.i(TAG, "[Performance] Current location obtained: " + locObtainedTime);
                         if (location != null) {
                             double dist = calculateDistance(location.getLatitude(), location.getLongitude(), OFFICE_LAT, OFFICE_LNG);
                             queueAndSyncEvent(context, transitionType, location.getLatitude(), location.getLongitude(), location.getAccuracy(), eventTimestamp, dist, pendingResult, finishedFlag);
@@ -465,6 +479,11 @@ public class OfficeGeofenceHelper {
 
                 // Perform HTTP request
                 boolean success = false;
+                SimpleDateFormat reqTimeFormatter = new SimpleDateFormat("HH:mm:ss", Locale.US);
+                reqTimeFormatter.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
+                String reqStartedTime = reqTimeFormatter.format(new Date());
+                Log.i(TAG, "[Performance] Check-in request started: " + reqStartedTime);
+
                 try {
                     java.net.URL url = new java.net.URL(serverUrl + "/api/median-background-location");
                     java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
@@ -481,6 +500,8 @@ public class OfficeGeofenceHelper {
                     int code = conn.getResponseCode();
                     if (code == 200 || code == 201) {
                         success = true;
+                        String confirmedTime = reqTimeFormatter.format(new Date());
+                        Log.i(TAG, "[Performance] Check-in confirmed: " + confirmedTime);
                         Log.i(TAG, "Successfully synced native background event " + eventId + " to backend. HTTP " + code);
                         Log.i(TAG, "[NativeGeofenceLifecycle] ENTRY_SYNC_SUCCESS");
                     } else {

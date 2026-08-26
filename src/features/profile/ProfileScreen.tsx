@@ -542,10 +542,10 @@ export const ProfileScreen: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#1D2329] text-[#B7C0BC] border border-[#3A4148]">
-            App Version: {APP_VERSION}
+            Version {APP_VERSION}
           </span>
           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#1D2329] text-[#B7C0BC] border border-[#3A4148]">
-            SW Cache: {SERVICE_WORKER_VERSION}
+            Build 25
           </span>
         </div>
       </Card>

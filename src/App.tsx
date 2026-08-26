@@ -10,6 +10,7 @@ import { PermissionProvider } from './context/PermissionContext';
 import { LocationProvider } from './context/LocationContext';
 import { AlertPopupProvider } from './context/AlertPopupContext';
 import { ConnectivityIndicator } from './components/common/ConnectivityIndicator';
+import { UpdateModal } from './components/UpdateModal';
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
               <LocationProvider>
                 <AlertPopupProvider>
                   <ConnectivityIndicator />
+                  <UpdateModal />
                   <AppRouter />
                 </AlertPopupProvider>
               </LocationProvider>
