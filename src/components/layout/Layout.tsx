@@ -31,22 +31,17 @@ const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
   const [overflowDistance, setOverflowDistance] = useState(0);
-  const isInitialOfflineRef = useRef(typeof navigator !== 'undefined' && !navigator.onLine);
 
   useEffect(() => {
-    if (isInitialOfflineRef.current) {
-      setOverflowDistance(0);
-      return;
-    }
-
     const checkOverflow = () => {
       if (containerRef.current && textRef.current) {
         const containerWidth = containerRef.current.clientWidth;
         const textWidth = textRef.current.scrollWidth;
         if (textWidth > containerWidth + 4) {
-          setOverflowDistance(textWidth - containerWidth + 12);
+          const newDist = textWidth - containerWidth + 12;
+          setOverflowDistance((prev) => (prev === newDist ? prev : newDist));
         } else {
-          setOverflowDistance(0);
+          setOverflowDistance((prev) => (prev === 0 ? prev : 0));
         }
       }
     };
@@ -67,7 +62,7 @@ const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
       title={address}
     >
       <MapPin className="w-3 h-3 text-[#18C98F] shrink-0 z-10" />
-      <div className="overflow-hidden relative flex-1 min-w-0">
+      <div ref={containerRef} className="overflow-hidden relative flex-1 min-w-0">
         <span
           ref={textRef}
           className={`inline-block whitespace-nowrap text-[10.5px] ${
@@ -273,9 +268,7 @@ export const Layout: React.FC = () => {
   const rawAddress = (typeof currentAddress === 'string' ? currentAddress.trim() : '');
   const displayAddress =
     rawAddress && !rawAddress.toLowerCase().includes('unavailable')
-      ? (rawAddress.length > 28
-          ? rawAddress.substring(0, 26) + '...'
-          : rawAddress)
+      ? rawAddress
       : (!isOnline ? 'Offline' : 'Raniganj HQ');
 
   return (
