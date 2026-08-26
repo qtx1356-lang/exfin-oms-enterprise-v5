@@ -93,7 +93,20 @@ const AdminPortalPublicRoute = () => {
 
 const EmployeeGuard = () => {
   const { status } = useRegistration();
-  const [showWelcome, setShowWelcome] = React.useState(true);
+  const [showWelcome, setShowWelcome] = React.useState(() => {
+    try {
+      return sessionStorage.getItem('exfin_welcome_dismissed') !== 'true';
+    } catch {
+      return true;
+    }
+  });
+
+  const handleProceed = React.useCallback(() => {
+    try {
+      sessionStorage.setItem('exfin_welcome_dismissed', 'true');
+    } catch {}
+    setShowWelcome(false);
+  }, []);
 
   if (status === 'loading') {
     return <LoadingScreen />;
@@ -104,7 +117,7 @@ const EmployeeGuard = () => {
   }
 
   if (showWelcome) {
-    return <WelcomeScreen onProceed={() => setShowWelcome(false)} />;
+    return <WelcomeScreen onProceed={handleProceed} />;
   }
 
   if (status === 'unregistered') return <DeviceRegistration />;
