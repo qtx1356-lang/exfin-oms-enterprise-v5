@@ -5,9 +5,10 @@ interface DialogProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  hideDefaultFooter?: boolean;
 }
 
-export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children }) => {
+export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children, hideDefaultFooter }) => {
   if (!isOpen) return null;
 
   return (
@@ -19,14 +20,16 @@ export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children
         <div className="p-5 overflow-y-auto text-[#A7B0BE] text-sm leading-relaxed break-words min-h-0">
           {children}
         </div>
-        <div className="p-4 pt-3 flex-shrink-0 border-t border-[rgba(167,139,250,0.18)] flex justify-end gap-2 bg-[rgba(8,11,15,0.85)]">
-          <button 
-            onClick={onClose}
-            className="px-5 py-2 text-[#A7B0BE] font-bold rounded-xl hover:bg-[rgba(139,92,246,0.12)] hover:text-[#00F5FF] transition-colors cursor-pointer border border-[rgba(167,139,250,0.20)]"
-          >
-            Close
-          </button>
-        </div>
+        {!hideDefaultFooter && (
+          <div className="p-4 pt-3 flex-shrink-0 border-t border-[rgba(167,139,250,0.18)] flex justify-end gap-2 bg-[rgba(8,11,15,0.85)]">
+            <button 
+              onClick={onClose}
+              className="px-5 py-2 text-[#A7B0BE] font-bold rounded-xl hover:bg-[rgba(139,92,246,0.12)] hover:text-[#00F5FF] transition-colors cursor-pointer border border-[rgba(167,139,250,0.20)]"
+            >
+              Close
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

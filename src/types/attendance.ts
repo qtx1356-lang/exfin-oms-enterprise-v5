@@ -153,6 +153,8 @@ export interface AttendanceRecord {
 
   // Unresolved Checkout & Mandatory Resolution fields
   checkoutStatus?: 'COMPLETED' | 'UNRESOLVED' | 'PENDING_ADMIN_REVIEW';
+  attendanceStatus?: 'RESOLVED' | 'UNRESOLVED';
+  exitDetectedTime?: string | null;
   employeeProposedCheckoutTime?: string | null;
   employeeResolutionReason?: string | null;
   previousStatus?: string | null;

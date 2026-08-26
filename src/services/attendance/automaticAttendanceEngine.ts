@@ -345,6 +345,21 @@ export const AutomaticAttendanceEngine = {
 
     if (record && !record.checkOutTime && (record.attendanceType === 'OFFICE' || !record.attendanceType)) {
       if ((currentState === 'CHECKED_IN' || currentState === 'ENTERING' || currentState === 'RETURNING_TO_OFFICE') && !isInside) {
+        
+        // Check for large time gap to prevent false exit detection time
+        const lastLocTime = record.currentLocationTimestamp ? new Date(record.currentLocationTimestamp).getTime() : timestamp.getTime();
+        const timeDiffMins = (timestamp.getTime() - lastLocTime) / 60000;
+        
+        if (timeDiffMins > 15) {
+          console.log('[AUTO_EXIT_MISSED]', {
+            employeeId,
+            date: dateStr,
+            timeDiffMins: Math.round(timeDiffMins),
+            message: 'App was likely closed during actual exit. Deferring to manual recovery.'
+          });
+          return record;
+        }
+
         // EXIT GEOFENCE: CHECKED_IN -> PENDING_EXIT_CONFIRMATION
         console.log('[AUTO_EXIT_DETECTED]', {
           employeeId,
@@ -587,6 +602,7 @@ export const AutomaticAttendanceEngine = {
           // State Transition: CHECKED_IN / RETURNING_TO_OFFICE -> PENDING_EXIT_CONFIRMATION
           record.lastExitTime = timeStr;
           record.exitTime = record.exitTime || timeStr;
+          record.exitDetectedTime = record.exitDetectedTime || timeStr;
 
           const newTimestampMs = eventTimestamp.getTime();
           const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
@@ -594,6 +610,7 @@ export const AutomaticAttendanceEngine = {
           if (record.currentState === 'RETURNING_TO_OFFICE' || !record.geofenceExitTime || newTimestampMs < existingTimestampMs) {
             record.geofenceExitTime = timeStr;
             record.geofenceExitTimestamp = eventIso;
+            record.exitDetectedTime = timeStr;
             record.lastExitTime = timeStr;
             record.exitTime = record.exitTime || timeStr;
           }
@@ -693,6 +710,8 @@ export const AutomaticAttendanceEngine = {
         record.checkOutTime = checkoutTimeStr;
         record.checkOutMode = source === 'MANUAL' ? 'MANUAL' : 'AUTO_SYSTEM';
         record.checkoutType = source === 'MANUAL' ? 'MANUAL' : 'AUTO_CHECKOUT';
+        record.checkoutSource = source === 'MANUAL' ? 'MANUAL' : 'EXIT_DETECTED';
+        record.attendanceStatus = 'RESOLVED';
         record.status = 'completed';
         record.checkoutStatus = 'COMPLETED';
         record.workingHours = workingHours;
@@ -919,6 +938,8 @@ export const AutomaticAttendanceEngine = {
     record.checkOutTime = checkoutTimeStr;
     record.checkOutMode = 'AUTO_SYSTEM';
     record.checkoutType = 'AUTO_CHECKOUT';
+    record.checkoutSource = 'EXIT_DETECTED';
+    record.attendanceStatus = 'RESOLVED';
     record.checkoutStatus = 'COMPLETED';
     record.status = 'completed';
     record.workingHours = workingHours;
@@ -1056,20 +1077,22 @@ export const AutomaticAttendanceEngine = {
     timestamp: Date = new Date()
   ): AttendanceRecord | null {
     const record = getTodayAttendanceRecord(employeeId, dateStr);
-    if (!record || (record.checkOutTime && record.checkoutStatus === 'COMPLETED')) {
+    if (!record || (record.checkOutTime && record.checkoutStatus === 'COMPLETED') || record.attendanceStatus === 'RESOLVED') {
       return null;
     }
 
     if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
-      const hasExitEvent = !!(record.geofenceExitTime || record.lastExitTime || record.exitTime);
+      const hasExitEvent = !!(record.geofenceExitTime || record.lastExitTime || record.exitTime || record.exitDetectedTime);
       if (hasExitEvent) {
         // CASE 1: Valid final exit exists
-        const checkoutTimeStr = record.geofenceExitTime || record.lastExitTime || record.exitTime || '11:59 PM';
+        const checkoutTimeStr = record.geofenceExitTime || record.lastExitTime || record.exitTime || record.exitDetectedTime || '11:59 PM';
         const workingHours = calculateWorkingHours(record.checkInTime, checkoutTimeStr);
         record.checkOutTime = checkoutTimeStr;
         record.checkoutStatus = 'COMPLETED';
+        record.attendanceStatus = 'RESOLVED';
         record.checkOutMode = 'AUTO_SYSTEM';
         record.checkoutType = 'AUTO_CHECKOUT';
+        record.checkoutSource = 'EXIT_DETECTED';
         record.status = 'completed';
         record.workingHours = workingHours;
         record.currentState = 'FINALIZED_CHECKOUT';
@@ -1109,28 +1132,36 @@ export const AutomaticAttendanceEngine = {
         return record;
       } else {
         // CASE 3: No reliable checkout exists (GPS stopped before exit, missing location updates, etc.)
-        // DO NOT automatically use 11:59 PM. Mark as UNRESOLVED.
-        record.checkOutTime = null;
-        record.checkoutStatus = 'UNRESOLVED';
-        record.checkoutTownCity = 'Location unavailable';
-        delete record.checkoutLatitude;
-        delete record.checkoutLongitude;
-        delete record.checkoutDistance;
-        record.checkOutMode = 'AUTO_SYSTEM';
-        record.checkoutType = 'UNRESOLVED';
-        record.status = 'UNRESOLVED';
-        record.workingHours = null;
-        record.currentState = 'UNRESOLVED';
-        record.resolutionSource = null;
-        logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `No valid exit event found for ${dateStr}. Marked checkoutStatus as UNRESOLVED.`);
+        if (record.checkoutSource !== 'EMPLOYEE_REPORTED') {
+          // DO NOT automatically use 11:59 PM. Mark as UNRESOLVED.
+          record.checkOutTime = null;
+          record.checkoutStatus = 'UNRESOLVED';
+          record.attendanceStatus = 'UNRESOLVED';
+          record.checkoutTownCity = 'Location unavailable';
+          delete record.checkoutLatitude;
+          delete record.checkoutLongitude;
+          delete record.checkoutDistance;
+          record.checkOutMode = 'AUTO_SYSTEM';
+          record.checkoutType = 'UNRESOLVED';
+          record.status = 'UNRESOLVED';
+          record.workingHours = null;
+          record.currentState = 'UNRESOLVED';
+          record.resolutionSource = null;
+          logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `No valid exit event found for ${dateStr}. Marked checkoutStatus as UNRESOLVED.`);
 
-        try {
-          const locUnavailKey = `loc_unavail_${employeeId}_${dateStr}`;
-          if (localStorage.getItem(locUnavailKey) === 'true') {
-            record.checkoutSource = "END_OF_DAY_LOCATION_UNAVAILABLE";
-            record.locationUnavailableDuringDay = true;
-          }
-        } catch (e) {}
+          try {
+            const locUnavailKey = `loc_unavail_${employeeId}_${dateStr}`;
+            if (localStorage.getItem(locUnavailKey) === 'true') {
+              record.checkoutSource = "END_OF_DAY_LOCATION_UNAVAILABLE";
+              record.locationUnavailableDuringDay = true;
+            }
+          } catch (e) {}
+        } else {
+          logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `Preserved EMPLOYEE_REPORTED checkout for ${dateStr}. Status remains UNRESOLVED.`);
+          record.checkoutStatus = 'UNRESOLVED';
+          record.attendanceStatus = 'UNRESOLVED';
+          record.status = 'UNRESOLVED';
+        }
 
         const eventId = generateIdempotentEventId(employeeId, dateStr, 'END_OF_DAY_UNRESOLVED', 'UNRESOLVED');
         record.processedEvents = Array.from(new Set([...(record.processedEvents || []), eventId]));

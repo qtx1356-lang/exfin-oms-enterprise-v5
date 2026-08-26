@@ -34,9 +34,11 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getTodayAttendanceRecord, getStoredAttendanceRecords } from '../../services/attendance/attendanceStorage';
+import { getTodayAttendanceRecord, getStoredAttendanceRecords, saveAttendanceRecord } from '../../services/attendance/attendanceStorage';
 import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEngine';
+import { syncPendingAttendanceRecords } from '../../services/attendance/syncEngine';
 import { AttendanceRecord } from '../../types/attendance';
+import { UnresolvedCheckoutModal } from '../../components/ui/UnresolvedCheckoutModal';
 import { getStoredLeaves, getStoredLeaveConfig, getStoredEmployeeAllowances } from '../../services/leave/leaveStorage';
 import { calculateLeaveBalance } from '../../services/leave/leaveService';
 import { getStoredTasks } from '../../services/planner/taskStorage';
@@ -195,6 +197,8 @@ export const EmployeeDashboard: React.FC = () => {
   const [leaveBalance, setLeaveBalance] = useState({ available: 24, pending: 0, used: 0 });
   const [hasPayslips, setHasPayslips] = useState<boolean | null>(() => getInitialHasPayslips(employeeData?.employeeCode));
   const [showUnavailableMessage, setShowUnavailableMessage] = useState(false);
+  const [showUnresolvedModal, setShowUnresolvedModal] = useState(false);
+  const [isSubmittingRecovery, setIsSubmittingRecovery] = useState(false);
 
   // Section Loading & Error states
   const [attendanceLoading, setAttendanceLoading] = useState(false);
@@ -731,6 +735,69 @@ export const EmployeeDashboard: React.FC = () => {
     return pastRecords.length > 0 ? pastRecords[0] : null;
   }, [attendanceRecords, employeeData, todayStr]);
 
+  useEffect(() => {
+    // Check if we need to show the popup for unresolved past attendance or missed today
+    let targetRecord = null;
+    
+    // First check unresolved past attendance
+    if (unresolvedAttendance && unresolvedAttendance.checkoutStatus === 'UNRESOLVED') {
+      if (unresolvedAttendance.attendanceType === 'OFFICE' || !unresolvedAttendance.attendanceType) {
+        targetRecord = unresolvedAttendance;
+      }
+    } else if (todayAttendance && !todayAttendance.checkOutTime && !todayAttendance.exitDetectedTime && !todayAttendance.exitTime) {
+      // If they are checked in today, but their current distance is > 25, they missed the exit detection
+      if (todayAttendance.attendanceType === 'OFFICE' || !todayAttendance.attendanceType) {
+        if (todayAttendance.currentState === 'CHECKED_IN' && todayAttendance.currentDistance && todayAttendance.currentDistance > 25) {
+          targetRecord = todayAttendance;
+        }
+      }
+    }
+
+    // Don't show if they already reported it
+    if (targetRecord && targetRecord.checkoutSource !== 'EMPLOYEE_REPORTED') {
+      setShowUnresolvedModal(true);
+    } else {
+      setShowUnresolvedModal(false);
+    }
+  }, [unresolvedAttendance, todayAttendance]);
+
+  const handleUnresolvedCheckoutSubmit = async (time: string) => {
+    // Determine which record we are resolving
+    let targetRecord = unresolvedAttendance;
+    if (!targetRecord && todayAttendance && !todayAttendance.checkOutTime && todayAttendance.currentDistance && todayAttendance.currentDistance > 25) {
+      targetRecord = todayAttendance;
+    }
+    
+    if (!targetRecord) return;
+    setIsSubmittingRecovery(true);
+    try {
+      const updatedRecord: AttendanceRecord = {
+        ...targetRecord,
+        checkOutTime: time,
+        employeeProposedCheckoutTime: time,
+        checkoutSource: 'EMPLOYEE_REPORTED',
+        checkoutStatus: 'UNRESOLVED',
+        attendanceStatus: 'UNRESOLVED',
+        status: 'UNRESOLVED',
+        syncStatus: 'Pending',
+        updatedAt: new Date().toISOString(),
+        version: (targetRecord.version || 1) + 1,
+      };
+
+      saveAttendanceRecord(updatedRecord);
+      setAttendanceRecords(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
+      setShowUnresolvedModal(false);
+
+      if (navigator.onLine) {
+        await syncPendingAttendanceRecords();
+      }
+    } catch (e) {
+      console.error('Failed to submit unresolved checkout', e);
+    } finally {
+      setIsSubmittingRecovery(false);
+    }
+  };
+
   // -------------------------------------------------------------------------
   // WORK PULSE CALCULATIONS
   // -------------------------------------------------------------------------
@@ -891,7 +958,7 @@ export const EmployeeDashboard: React.FC = () => {
               <div>
                 <h4 className="text-xs font-black text-white uppercase tracking-wider">Attendance Requires Action</h4>
                 <p className="text-xs text-amber-200/90 mt-0.5">
-                  Your checkout for <strong>{unresolvedAttendance.date}</strong> is {unresolvedAttendance.checkoutStatus === 'PENDING_ADMIN_REVIEW' ? 'awaiting Admin review' : 'unresolved'}.
+                  Your checkout for <strong>{unresolvedAttendance.date}</strong> is {unresolvedAttendance.checkoutSource === 'EMPLOYEE_REPORTED' ? 'awaiting Admin review' : 'unresolved'}.
                 </p>
               </div>
             </div>
@@ -899,7 +966,7 @@ export const EmployeeDashboard: React.FC = () => {
               onClick={() => navigate('/attendance')}
               className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black text-xs font-black rounded-xl transition-all flex items-center gap-1.5 flex-shrink-0 self-end sm:self-auto shadow-md"
             >
-              <span>{unresolvedAttendance.checkoutStatus === 'PENDING_ADMIN_REVIEW' ? 'View Status' : 'Resolve Checkout'}</span>
+              <span>{unresolvedAttendance.checkoutSource === 'EMPLOYEE_REPORTED' ? 'View Status' : 'Resolve Checkout'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -1483,6 +1550,16 @@ export const EmployeeDashboard: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {showUnresolvedModal && (unresolvedAttendance || todayAttendance) && (
+        <UnresolvedCheckoutModal
+          isOpen={showUnresolvedModal}
+          onClose={() => setShowUnresolvedModal(false)}
+          record={(unresolvedAttendance?.checkoutStatus === 'UNRESOLVED' ? unresolvedAttendance : todayAttendance) as AttendanceRecord}
+          onSubmit={handleUnresolvedCheckoutSubmit}
+          isSubmitting={isSubmittingRecovery}
+        />
+      )}
     </>
   );
 };

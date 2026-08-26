@@ -199,9 +199,12 @@ export const AttendanceScreen: React.FC = () => {
     try {
       const updatedRecord: AttendanceRecord = {
         ...activeUnresolvedRecord,
-        checkoutStatus: 'PENDING_ADMIN_REVIEW',
+        checkOutTime: formattedTime,
+        checkoutStatus: 'UNRESOLVED',
+        attendanceStatus: 'UNRESOLVED',
+        status: 'UNRESOLVED',
+        checkoutSource: 'EMPLOYEE_REPORTED',
         employeeProposedCheckoutTime: formattedTime,
-        status: 'PENDING_ADMIN_REVIEW',
         syncStatus: 'Pending',
         updatedAt: new Date().toISOString(),
         version: (activeUnresolvedRecord.version || 1) + 1,
@@ -862,26 +865,26 @@ export const AttendanceScreen: React.FC = () => {
               </div>
               <div className="col-span-2 sm:col-span-1">
                 <span className="text-[10px] text-[#7E8985] font-bold uppercase block tracking-wider">Checkout</span>
-                <span className={`font-extrabold text-sm ${activeUnresolvedRecord.checkoutStatus === 'PENDING_ADMIN_REVIEW' ? 'text-amber-400' : 'text-rose-400'}`}>
-                  {activeUnresolvedRecord.checkoutStatus === 'PENDING_ADMIN_REVIEW' ? 'PENDING ADMIN REVIEW' : 'UNRESOLVED'}
+                <span className={`font-extrabold text-sm ${activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'text-amber-400' : 'text-rose-400'}`}>
+                  {activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'REPORTED (UNRESOLVED)' : 'UNRESOLVED'}
                 </span>
               </div>
             </div>
 
             {/* Resolution Form / Pending State */}
-            {activeUnresolvedRecord.checkoutStatus === 'PENDING_ADMIN_REVIEW' && !isEditingProposal ? (
+            {activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' && !isEditingProposal ? (
               <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-amber-300 text-xs font-black">
                     <Clock className="w-4 h-4" />
-                    <span>Proposed Checkout: {activeUnresolvedRecord.employeeProposedCheckoutTime || 'Submitted'}</span>
+                    <span>Reported Checkout: {activeUnresolvedRecord.checkOutTime || activeUnresolvedRecord.employeeProposedCheckoutTime || 'Submitted'}</span>
                   </div>
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                    PENDING ADMIN REVIEW
+                    EMPLOYEE REPORTED
                   </span>
                 </div>
                 <p className="text-xs text-amber-200/80 leading-relaxed">
-                  Your proposed checkout time has been submitted to Admin for verification. The Admin will review your attendance logs and finalize the record. Once finalized, full attendance access will be automatically unlocked.
+                  You have reported a checkout time. This record remains UNRESOLVED and must be verified by an Administrator before full attendance access is unlocked.
                 </p>
                 <div className="flex justify-end pt-1">
                   <button
