@@ -539,14 +539,16 @@ async function startServer() {
   app.get("/api/app-version", async (req, res) => {
     try {
       let versionConfig = {
-        latestVersionCode: 25,
-        latestVersionName: "2.5.0",
-        minimumSupportedVersionCode: 23,
-        updateUrl: `${req.protocol}://${req.get("host")}/downloads/exfin-oms-v2.5.0.apk`,
-        releaseNotes: "• Improved automatic attendance\n• Faster native location detection\n• Improved notifications & background reliability",
+        latestVersionCode: 1,
+        latestVersionName: "1.0.0",
+        minimumSupportedVersionCode: 1,
+        updateUrl: "",
+        releaseNotes: "• Native Android project initialized\n• Background location & 25m geofencing support added\n• Awaiting production signing and build.",
+        published: false,
         forceUpdate: false,
-        published: true,
-        releaseDate: "2026-08-26"
+        nativeAppAvailable: false,
+        nativeAppDownloadUrl: "",
+        nativeAppLandingUrl: `${req.protocol}://${req.get("host")}/download-app`
       };
 
       if (db) {
@@ -1257,28 +1259,6 @@ async function startServer() {
   // Serve Codester final download packages and APKs with explicit MIME type and fallback protection
   const downloadsPath = path.join(process.cwd(), "public", "downloads");
   
-  app.get("/api/admin/debug-apk", (req, res) => {
-    const filename = "exfin-oms-v2.5.0.apk";
-    const filePath = path.join(downloadsPath, filename);
-    if (!fs.existsSync(filePath)) {
-      return res.json({ status: "error", message: "APK not found", path: filePath });
-    }
-    const stats = fs.statSync(filePath);
-    const buffer = Buffer.alloc(4);
-    const fd = fs.openSync(filePath, 'r');
-    fs.readSync(fd, buffer, 0, 4, 0);
-    fs.closeSync(fd);
-    
-    res.json({
-      status: "ok",
-      filename,
-      size: stats.size,
-      header: buffer.toString('hex'),
-      isZip: buffer.toString('hex') === '504b0304',
-      mtime: stats.mtime
-    });
-  });
-
   app.get("/downloads/:filename", (req, res) => {
     const filename = req.params.filename;
     const filePath = path.join(downloadsPath, filename);
