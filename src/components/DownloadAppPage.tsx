@@ -31,9 +31,34 @@ export function DownloadAppPage() {
     fetchVer();
   }, []);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     setDownloading(true);
     setDownloadStarted(true);
+
+    // Diagnostic check
+    try {
+      console.log(`[Diagnostic] Initiating download check for: ${versionInfo.updateUrl}`);
+      const response = await fetch(versionInfo.updateUrl, { method: 'HEAD' });
+      console.log(`[Diagnostic] Status: ${response.status} ${response.statusText}`);
+      console.log(`[Diagnostic] Content-Type: ${response.headers.get('Content-Type')}`);
+      console.log(`[Diagnostic] Content-Length: ${response.headers.get('Content-Length')}`);
+      
+      if (response.status === 200) {
+        const type = response.headers.get('Content-Type') || '';
+        const size = parseInt(response.headers.get('Content-Length') || '0', 10);
+        
+        if (type.includes('text/html')) {
+          console.error('[Diagnostic] ERROR: Download URL returned HTML instead of APK binary. This is likely a routing fallback issue.');
+        } else if (size < 100000) {
+          console.warn(`[Diagnostic] WARNING: Download file size (${size} bytes) is unusually small for a production APK. This may be a mock or truncated file.`);
+        } else {
+          console.log(`[Diagnostic] SUCCESS: Download URL appears to be a valid binary of size ${size} bytes.`);
+        }
+      }
+    } catch (err) {
+      console.error('[Diagnostic] Pre-download check failed:', err);
+    }
+
     // Trigger download
     const link = document.createElement('a');
     link.href = versionInfo.updateUrl;

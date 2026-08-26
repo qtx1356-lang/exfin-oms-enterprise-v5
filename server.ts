@@ -1256,6 +1256,29 @@ async function startServer() {
 
   // Serve Codester final download packages and APKs with explicit MIME type and fallback protection
   const downloadsPath = path.join(process.cwd(), "public", "downloads");
+  
+  app.get("/api/admin/debug-apk", (req, res) => {
+    const filename = "exfin-oms-v2.5.0.apk";
+    const filePath = path.join(downloadsPath, filename);
+    if (!fs.existsSync(filePath)) {
+      return res.json({ status: "error", message: "APK not found", path: filePath });
+    }
+    const stats = fs.statSync(filePath);
+    const buffer = Buffer.alloc(4);
+    const fd = fs.openSync(filePath, 'r');
+    fs.readSync(fd, buffer, 0, 4, 0);
+    fs.closeSync(fd);
+    
+    res.json({
+      status: "ok",
+      filename,
+      size: stats.size,
+      header: buffer.toString('hex'),
+      isZip: buffer.toString('hex') === '504b0304',
+      mtime: stats.mtime
+    });
+  });
+
   app.get("/downloads/:filename", (req, res) => {
     const filename = req.params.filename;
     const filePath = path.join(downloadsPath, filename);

@@ -248,9 +248,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // EXCLUSIONS — NEVER INTERFERE WITH SENSITIVE API / FIRESTORE / AUTH / REVERSE GEOCODING
+  // EXCLUSIONS — NEVER INTERFERE WITH SENSITIVE API / FIRESTORE / AUTH / REVERSE GEOCODING / DOWNLOADS
   if (
     url.pathname.includes('/api/') ||
+    url.pathname.includes('/downloads/') ||
+    url.pathname.endsWith('.apk') ||
     url.hostname.includes('firebase') ||
     url.hostname.includes('firestore') ||
     url.hostname.includes('googleapis') ||
