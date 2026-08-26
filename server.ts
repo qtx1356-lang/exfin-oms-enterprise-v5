@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
-import { initializeApp, getApps } from "firebase-admin/app";
+import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore, FieldValue, Firestore } from "firebase-admin/firestore";
 import { getAuth, Auth } from "firebase-admin/auth";
 import { createServer as createViteServer } from "vite";
@@ -25,19 +25,43 @@ const GEOFENCE_RADIUS_METERS = 25.0;
 let db: Firestore | null = null;
 let authAdmin: Auth | null = null;
 try {
+  let serviceAccount: any = null;
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    try {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    } catch (e) {
+      console.warn("[Median Backend] Could not parse FIREBASE_SERVICE_ACCOUNT_KEY JSON");
+    }
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS && fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)) {
+    try {
+      serviceAccount = JSON.parse(fs.readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS, "utf8"));
+    } catch (e) {
+      console.warn("[Median Backend] Could not read GOOGLE_APPLICATION_CREDENTIALS file");
+    }
+  }
+
   const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  let projectId: string | undefined;
   if (fs.existsSync(configPath)) {
     const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-    if (!getApps().length) {
+    projectId = config.projectId;
+  }
+
+  if (!getApps().length) {
+    if (serviceAccount) {
       initializeApp({
-        projectId: config.projectId,
+        credential: cert(serviceAccount),
+        projectId: serviceAccount.project_id || projectId,
       });
-    }
-  } else {
-    if (!getApps().length) {
+    } else if (projectId) {
+      initializeApp({
+        projectId,
+      });
+    } else {
       initializeApp();
     }
   }
+
   db = getFirestore();
   authAdmin = getAuth();
   console.log("[Median Backend] Firebase Admin Firestore & Auth initialized successfully.");
@@ -130,6 +154,8 @@ function calculateWorkingHours(checkInTimeStr: string | null | undefined, checkO
   return `${h}h ${m}m`;
 }
 
+let firestoreAdminNoticeLogged = false;
+
 async function runServerAttendanceFinalizer() {
   if (!db) return;
   try {
@@ -154,7 +180,10 @@ async function runServerAttendanceFinalizer() {
       .where("checkoutStatus", "in", ["Pending", "PENDING_CONFIRMATION", null])
       .limit(100)
       .get()
-      .catch(async () => {
+      .catch(async (queryErr: any) => {
+        if (queryErr?.code === 7 || queryErr?.message?.includes("PERMISSION_DENIED") || queryErr?.message?.includes("7 PERMISSION_DENIED")) {
+          throw queryErr;
+        }
         return await db!.collection("attendance").where("checkOutTime", "==", null).limit(100).get();
       });
 
@@ -220,8 +249,15 @@ async function runServerAttendanceFinalizer() {
 
       console.log(`[ServerFinalizer] Settled attendance for ${data.employeeId} on ${recDate} at ${finalCheckoutTime} (Evidence: SERVER_FINALIZATION, Source: ${resolutionSource})`);
     }
-  } catch (err) {
-    console.warn("[ServerFinalizer] Error during background finalizer run:", err);
+  } catch (err: any) {
+    if (err?.code === 7 || err?.message?.includes("PERMISSION_DENIED") || err?.message?.includes("7 PERMISSION_DENIED")) {
+      if (!firestoreAdminNoticeLogged) {
+        console.log("[ServerFinalizer] Standby: Firebase Admin service account not configured. Client-side engines manage real-time attendance settlement.");
+        firestoreAdminNoticeLogged = true;
+      }
+      return;
+    }
+    console.warn("[ServerFinalizer] Error during background finalizer run:", err?.message || err);
   }
 }
 
