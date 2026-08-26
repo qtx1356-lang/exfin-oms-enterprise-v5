@@ -10,6 +10,141 @@ const PLAYED_SOUND_IDS_KEY = 'exfin_played_notification_sound_ids';
 const playedNotificationSoundIds = new Set<string>();
 let isBaselineInitialized = false;
 
+// Pending notifications batch queue
+const pendingNotificationBatch: NotificationRecord[] = [];
+let batchTimer: any = null;
+
+/**
+ * Play female voice announcement using Web Speech Synthesis API
+ */
+export const playFemaleVoiceAnnouncement = (text: string): Promise<boolean> => {
+  return new Promise((resolve) => {
+    try {
+      if (typeof window === 'undefined' || !window.speechSynthesis) {
+        console.warn('[NotificationSound] SpeechSynthesis not supported in this environment');
+        resolve(false);
+        return;
+      }
+
+      // Cancel any ongoing speech to avoid delays or overlapping voices
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.volume = 0.8; // Moderate friendly volume
+      utterance.rate = 1.0;   // Short and natural speech rate
+      utterance.pitch = 1.15; // Natural friendly pitch slightly higher for female voice
+
+      // Attempt to select a high-quality female English voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const femaleVoice = voices.find((v) => {
+        const name = v.name.toLowerCase();
+        const lang = v.lang.toLowerCase();
+        const isEnglish = lang.startsWith('en') || lang.includes('en');
+        const isFemalePattern = name.includes('female') || 
+                                name.includes('zira') || 
+                                name.includes('samantha') || 
+                                name.includes('karen') || 
+                                name.includes('hazel') || 
+                                name.includes('google us english') || 
+                                name.includes('natural') ||
+                                name.includes('moira') || 
+                                name.includes('tessa') || 
+                                name.includes('susan');
+        return isEnglish && isFemalePattern;
+      }) || voices.find((v) => v.lang.toLowerCase().startsWith('en'));
+
+      if (femaleVoice) {
+        utterance.voice = femaleVoice;
+        console.log(`[NotificationSound] Selected female voice: ${femaleVoice.name} (${femaleVoice.lang})`);
+      } else {
+        console.log('[NotificationSound] Default English voice chosen');
+      }
+
+      utterance.onend = () => {
+        console.log('[NotificationSound] Female voice alert played successfully');
+        resolve(true);
+      };
+
+      utterance.onerror = (e) => {
+        console.warn('[NotificationSound] SpeechSynthesis playback error:', e);
+        resolve(false);
+      };
+
+      window.speechSynthesis.speak(utterance);
+    } catch (err) {
+      console.warn('[NotificationSound] SpeechSynthesis exception handled gracefully:', err);
+      resolve(false);
+    }
+  });
+};
+
+/**
+ * Trigger short, professional haptic vibration pattern (short -> brief pause -> short)
+ * This must never be triggered for standard UI interactions (only new notification alerts).
+ */
+export const triggerConsolidatedVibration = (): void => {
+  try {
+    const settings = getNotificationSettings();
+    if (!settings.vibrationEnabled) {
+      console.log('[NotificationSound] Vibration is disabled in settings');
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      console.log('[NotificationSound] Triggering haptic vibration pattern: [100ms, 100ms, 100ms]');
+      navigator.vibrate([100, 100, 100]);
+    }
+  } catch (err) {
+    console.warn('[NotificationSound] Haptic vibration failed gracefully:', err);
+  }
+};
+
+/**
+ * Process accumulated batch of new notifications to play a consolidated alert
+ */
+const processNotificationBatch = (): void => {
+  if (pendingNotificationBatch.length === 0) return;
+
+  const count = pendingNotificationBatch.length;
+  console.log(`[NotificationSound] Processing batch of ${count} new notification(s)`);
+
+  // Clear batch queue but make a copy for processing
+  pendingNotificationBatch.length = 0;
+  batchTimer = null;
+
+  // Ensure we only play voice alerts/haptics when the app is in the foreground
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    console.log('[NotificationSound] Consolidated alert suppressed: App is in background');
+    return;
+  }
+
+  // 1. Play consolidated haptic pattern
+  triggerConsolidatedVibration();
+
+  // 2. Play consolidated female voice alert
+  const announcementText = count === 1 ? 'You have a new notification.' : 'You have new notifications.';
+  playFemaleVoiceAnnouncement(announcementText);
+};
+
+/**
+ * Queue a new notification record for consolidated batch processing
+ */
+const addToNotificationBatch = (notif: NotificationRecord): void => {
+  if (pendingNotificationBatch.some((n) => n.id === notif.id)) {
+    return;
+  }
+  pendingNotificationBatch.push(notif);
+
+  if (batchTimer) {
+    clearTimeout(batchTimer);
+  }
+
+  batchTimer = setTimeout(() => {
+    processNotificationBatch();
+  }, 250); // 250ms settle window to bundle near-simultaneous notifications
+};
+
 // Load persisted sound alert IDs from storage
 const loadPersistedSoundIds = () => {
   try {
@@ -87,6 +222,18 @@ export const setupAudioAutoplayUnlock = (): void => {
           await sharedAudioContext.resume().catch(() => {});
         }
         console.log(`[NotificationSound] AUDIO_CONTEXT_STATE ${sharedAudioContext.state}`);
+      }
+
+      // Pre-warm/unlock SpeechSynthesis engine on WebView / Mobile / PWA
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        try {
+          const warmUpUtterance = new SpeechSynthesisUtterance('');
+          warmUpUtterance.volume = 0;
+          window.speechSynthesis.speak(warmUpUtterance);
+          console.log('[NotificationSound] SpeechSynthesis pre-warmed on user gesture');
+        } catch (ttsErr) {
+          console.warn('[NotificationSound] SpeechSynthesis pre-warm error ignored:', ttsErr);
+        }
       }
     } catch (e) {
       console.warn('[NotificationSound] Audio unlock warning:', e);
@@ -181,11 +328,10 @@ export const triggerNewNotificationSound = (
   // 4. Mark as played BEFORE playing to prevent race conditions across parallel snapshot updates
   markNotificationSoundPlayed(notif.id);
 
-  console.log(`[NotificationSound] PLAY_ATTEMPT ${notif.id}`);
+  console.log(`[NotificationSound] PLAY_ATTEMPT ${notif.id} (Queueing to batch)`);
 
-  // 5. Play sound and vibration
-  playAlertSound(notif.priority || 'NORMAL', notif.id, notif.title, notif.message);
-  triggerAlertVibration(notif.priority || 'NORMAL');
+  // 5. Add to the consolidated notification batch queue
+  addToNotificationBatch(notif);
 
   return true;
 };
