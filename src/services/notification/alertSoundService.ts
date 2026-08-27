@@ -1,8 +1,10 @@
 import { getNotificationSettings } from './notificationSettings';
 import { NotificationPriority, NotificationRecord } from '../../types/notification';
 import { NOTIFICATION_SOUND_DATA_URI } from './alertSoundAsset';
+import { PRE_RECORDED_GREETINGS, GreetingPeriodKey } from '../voice/greetingAssets';
 
 let alertAudioInstance: HTMLAudioElement | null = null;
+let greetingAudioInstance: HTMLAudioElement | null = null;
 let sharedAudioContext: AudioContext | null = null;
 let audioUnlocked = false;
 
@@ -15,65 +17,101 @@ const pendingNotificationBatch: NotificationRecord[] = [];
 let batchTimer: any = null;
 
 /**
- * Play female voice announcement using Web Speech Synthesis API
+ * Play high-quality natural female voice greeting
+ * Priority 1: High-fidelity pre-rendered studio female voice asset (0ms latency, 100% offline reliable)
+ * Priority 2: Controlled server-side dynamic TTS API (Aoede natural female voice)
+ * Constraint: NEVER fall back to device-native TTS / SpeechSynthesis
  */
-export const playFemaleVoiceAnnouncement = (text: string): Promise<boolean> => {
-  return new Promise((resolve) => {
+export const playFemaleVoiceAnnouncement = async (
+  text: string, 
+  periodKey?: GreetingPeriodKey
+): Promise<boolean> => {
+  return new Promise(async (resolve) => {
     try {
-      if (typeof window === 'undefined' || !window.speechSynthesis) {
-        console.warn('[NotificationSound] SpeechSynthesis not supported in this environment');
+      if (typeof window === 'undefined') {
         resolve(false);
         return;
       }
 
-      // Cancel any ongoing speech to avoid delays or overlapping voices
-      window.speechSynthesis.cancel();
+      console.log(`[GreetingVoice] Playing high-quality female voice greeting. Text: "${text}", Period: ${periodKey || 'auto'}`);
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US';
-      utterance.volume = 0.8; // Moderate friendly volume
-      utterance.rate = 1.0;   // Short and natural speech rate
-      utterance.pitch = 1.15; // Natural friendly pitch slightly higher for female voice
-
-      // Attempt to select a high-quality female English voice if available
-      const voices = window.speechSynthesis.getVoices();
-      const femaleVoice = voices.find((v) => {
-        const name = v.name.toLowerCase();
-        const lang = v.lang.toLowerCase();
-        const isEnglish = lang.startsWith('en') || lang.includes('en');
-        const isFemalePattern = name.includes('female') || 
-                                name.includes('zira') || 
-                                name.includes('samantha') || 
-                                name.includes('karen') || 
-                                name.includes('hazel') || 
-                                name.includes('google us english') || 
-                                name.includes('natural') ||
-                                name.includes('moira') || 
-                                name.includes('tessa') || 
-                                name.includes('susan');
-        return isEnglish && isFemalePattern;
-      }) || voices.find((v) => v.lang.toLowerCase().startsWith('en'));
-
-      if (femaleVoice) {
-        utterance.voice = femaleVoice;
-        console.log(`[NotificationSound] Selected female voice: ${femaleVoice.name} (${femaleVoice.lang})`);
-      } else {
-        console.log('[NotificationSound] Default English voice chosen');
+      // 1. Check if we have a matching pre-recorded high quality female voice asset
+      let targetPeriod: GreetingPeriodKey = periodKey || 'good_morning';
+      if (!periodKey) {
+        const lower = text.toLowerCase();
+        if (lower.includes('morning')) targetPeriod = 'good_morning';
+        else if (lower.includes('afternoon')) targetPeriod = 'good_afternoon';
+        else if (lower.includes('evening')) targetPeriod = 'good_evening';
       }
 
-      utterance.onend = () => {
-        console.log('[NotificationSound] Female voice alert played successfully');
+      const preRecordedBase64 = PRE_RECORDED_GREETINGS[targetPeriod] || PRE_RECORDED_GREETINGS['good_morning'];
+
+      // Try dynamic custom employee name synthesis via server endpoint if online
+      let audioToPlay: string | null = null;
+      if (text && navigator.onLine) {
+        try {
+          const res = await fetch('/api/tts/welcome', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.audioBase64) {
+              audioToPlay = data.audioBase64.startsWith('data:') ? data.audioBase64 : `data:audio/wav;base64,${data.audioBase64}`;
+              console.log('[GreetingVoice] Loaded personalized studio female voice audio from backend');
+            }
+          }
+        } catch (serverErr) {
+          console.warn('[GreetingVoice] Server TTS fetch bypassed, using embedded master asset:', serverErr);
+        }
+      }
+
+      // Fallback to high-quality pre-recorded female asset
+      if (!audioToPlay) {
+        audioToPlay = preRecordedBase64;
+        console.log(`[GreetingVoice] Using pre-recorded female audio asset for ${targetPeriod}`);
+      }
+
+      if (!audioToPlay) {
+        console.warn('[GreetingVoice] No audio asset available for greeting');
+        resolve(false);
+        return;
+      }
+
+      // Play via controlled HTMLAudioElement with system audio unlock & volume normalization
+      if (!greetingAudioInstance) {
+        greetingAudioInstance = new Audio();
+        greetingAudioInstance.preload = 'auto';
+      }
+
+      greetingAudioInstance.src = audioToPlay;
+      greetingAudioInstance.volume = 0.85; // Natural, clear studio volume
+      greetingAudioInstance.currentTime = 0;
+
+      greetingAudioInstance.onended = () => {
+        console.log('[GreetingVoice] Female voice greeting completed successfully');
         resolve(true);
       };
 
-      utterance.onerror = (e) => {
-        console.warn('[NotificationSound] SpeechSynthesis playback error:', e);
+      greetingAudioInstance.onerror = (err) => {
+        console.warn('[GreetingVoice] HTMLAudioElement error on playback:', err);
         resolve(false);
       };
 
-      window.speechSynthesis.speak(utterance);
+      const playPromise = greetingAudioInstance.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('[GreetingVoice] Female voice playback started smoothly');
+          })
+          .catch((playErr) => {
+            console.warn('[GreetingVoice] Autoplay blocked or deferred, waiting for user gesture:', playErr);
+            resolve(false);
+          });
+      }
     } catch (err) {
-      console.warn('[NotificationSound] SpeechSynthesis exception handled gracefully:', err);
+      console.warn('[GreetingVoice] Greeting audio execution exception handled safely:', err);
       resolve(false);
     }
   });

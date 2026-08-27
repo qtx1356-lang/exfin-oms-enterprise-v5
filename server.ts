@@ -5,6 +5,7 @@ import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore, FieldValue, Firestore } from "firebase-admin/firestore";
 import { getAuth, Auth } from "firebase-admin/auth";
 import { createServer as createViteServer } from "vite";
+import { GoogleGenAI } from "@google/genai";
 import { 
   getWhatsAppConfig, 
   saveWhatsAppConfig, 
@@ -572,6 +573,64 @@ async function startServer() {
     } catch (err: any) {
       console.error("[AppVersion] Error serving app version:", err);
       return res.status(500).json({ error: err.message || "Failed to fetch version config" });
+    }
+  });
+
+  // Welcome Screen High-Quality Female Voice Greeting Endpoint (Aoede female voice)
+  const greetingAudioCache = new Map<string, { audioBase64: string; timestamp: number }>();
+  app.post("/api/tts/welcome", async (req, res) => {
+    try {
+      const { text } = req.body || {};
+      const cleanText = typeof text === "string" ? text.trim() : "";
+      
+      if (!cleanText || cleanText.length > 100) {
+        return res.status(400).json({ error: "Invalid greeting text parameter" });
+      }
+
+      // Check in-memory server cache first
+      const cached = greetingAudioCache.get(cleanText.toLowerCase());
+      if (cached && (Date.now() - cached.timestamp < 24 * 60 * 60 * 1000)) {
+        return res.json({ audioBase64: cached.audioBase64, cached: true });
+      }
+
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(503).json({ error: "Gemini API key not configured" });
+      }
+
+      const ai = new GoogleGenAI({ 
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+      });
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-tts-preview",
+        contents: cleanText,
+        config: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: "Aoede" // Natural, professional warm female voice
+              }
+            }
+          }
+        }
+      });
+
+      const audioBase64 = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (!audioBase64) {
+        return res.status(502).json({ error: "Failed to generate audio stream from voice model" });
+      }
+
+      greetingAudioCache.set(cleanText.toLowerCase(), {
+        audioBase64,
+        timestamp: Date.now()
+      });
+
+      return res.json({ audioBase64, cached: false });
+    } catch (err: any) {
+      console.warn("[TTS Welcome] Server voice generation error:", err?.message || err);
+      return res.status(500).json({ error: err?.message || "Internal voice generation error" });
     }
   });
 

@@ -4,6 +4,8 @@ import { ShieldCheck, MapPin, ArrowRight, UserCheck, Sparkles, Building2, CheckC
 import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { logStartupTag } from '../../services/startup/startupPerformanceLogger';
+import { playFemaleVoiceAnnouncement } from '../../services/notification/alertSoundService';
+import { GreetingPeriodKey } from '../../services/voice/greetingAssets';
 
 interface WelcomeScreenProps {
   onProceed?: () => void;
@@ -29,11 +31,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
   }, []);
 
-  const [greetingInfo] = useState<{ label: string; periodKey: string }>(() => {
+  const [greetingInfo] = useState<{ label: string; periodKey: GreetingPeriodKey }>(() => {
     const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return { label: 'Good Morning', periodKey: 'morning' };
-    if (hour >= 12 && hour < 17) return { label: 'Good Afternoon', periodKey: 'afternoon' };
-    return { label: 'Good Evening', periodKey: 'evening' };
+    if (hour >= 5 && hour < 12) return { label: 'Good Morning', periodKey: 'good_morning' };
+    if (hour >= 12 && hour < 17) return { label: 'Good Afternoon', periodKey: 'good_afternoon' };
+    return { label: 'Good Evening', periodKey: 'good_evening' };
   });
 
   const displayName = employeeData?.name || cachedName;
@@ -49,12 +51,17 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         if (!sessionStorage.getItem(sessionKey)) {
           sessionStorage.setItem(sessionKey, 'true');
           setShowAlertToast(true);
+
+          // Trigger high-quality studio female voice greeting
+          const greetingSentence = `${greetingInfo.label}, ${displayName}.`;
+          playFemaleVoiceAnnouncement(greetingSentence, greetingInfo.periodKey);
+
           const t = setTimeout(() => setShowAlertToast(false), 4000);
           return () => clearTimeout(t);
         }
       } catch (e) {}
     }
-  }, [displayName, greetingInfo.periodKey]);
+  }, [displayName, greetingInfo.periodKey, greetingInfo.label]);
 
   // Derive Location & Distance display states dynamically
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
