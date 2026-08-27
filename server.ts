@@ -1453,6 +1453,63 @@ async function startServer() {
   });
 
   // 3. Super-Admin: Register Current Device FCM Token
+  app.get("/api/admin/attendance-alerts/vapid-public-key", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller || !caller.isSuperAdmin) {
+      return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
+    }
+    const pubKey = process.env.WEB_PUSH_VAPID_PUBLIC_KEY;
+    if (!pubKey) {
+      return res.status(404).json({ error: "VAPID keys not configured on server" });
+    }
+    return res.json({ publicKey: pubKey });
+  });
+
+  app.post("/api/admin/attendance-alerts/register-web-device", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller || !caller.isSuperAdmin) {
+      return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
+    }
+
+    if (!db) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+
+    const { endpoint, keys } = req.body || {};
+    if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
+      return res.status(400).json({ error: "Invalid Web Push subscription format" });
+    }
+
+    try {
+      const updatedConfig = await saveSuperAdminAlertConfig(
+        db,
+        {
+          enabled: true,
+          recipientUid: caller.uid,
+          recipientName: caller.loginId || caller.email || "Super Admin",
+          recipientEmail: caller.email || "",
+          deviceModel: "Web Browser (" + (req.headers['user-agent']?.split(' ')[0] || "Unknown") + ")",
+          devicePlatform: "web",
+          recipientFcmToken: "", // Clear native push
+          webPushSubscription: {
+            adminUid: caller.uid,
+            endpoint,
+            p256dh: keys.p256dh,
+            auth: keys.auth,
+            registeredAt: new Date().toISOString(),
+            userAgent: req.headers['user-agent'] || 'Unknown Browser'
+          }
+        },
+        caller.email || caller.loginId || "SUPER_ADMIN"
+      );
+
+      return res.json({ success: true, config: updatedConfig });
+    } catch (err: any) {
+      console.error("[SuperAdmin Alert] Failed to register web push device:", err);
+      return res.status(500).json({ error: err.message || "Failed to register web push device" });
+    }
+  });
+
   app.post("/api/admin/attendance-alerts/register-device", async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller || !caller.isSuperAdmin) {
@@ -1484,7 +1541,8 @@ async function startServer() {
           recipientEmail: caller.email || "",
           recipientFcmToken: fcmToken.trim(),
           deviceModel: deviceModel || "Android Device",
-          devicePlatform: devicePlatform || "android"
+          devicePlatform: devicePlatform || "android",
+          webPushSubscription: null as any // Clear web push
         },
         caller.email || caller.loginId || "SUPER_ADMIN"
       );

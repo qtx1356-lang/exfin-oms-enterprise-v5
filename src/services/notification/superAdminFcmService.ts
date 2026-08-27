@@ -14,6 +14,7 @@ export interface SuperAdminAlertClientConfig {
   notifyOfficeExit?: boolean;
   updatedAt?: string;
   updatedBy?: string;
+  webPushSubscription?: any;
 }
 
 export interface AttendanceAlertDispatchPayload {
@@ -155,8 +156,72 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
       throw capErr;
     }
   } else {
-    // Web environment: do NOT generate a fake token
-    throw new Error('Device registration requires the EXFIN Android app. You cannot register a web browser to receive push alerts.');
+    // Web environment: use standard Web Push API
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      throw new Error('This browser does not support push notifications.');
+    }
+
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      throw new Error('Browser notification permission is disabled. Please enable notifications for EXFIN in your browser settings.');
+    }
+
+    const token = await getIdToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const vapidRes = await fetch('/api/admin/attendance-alerts/vapid-public-key', {
+      method: 'GET',
+      headers
+    });
+    
+    if (!vapidRes.ok) {
+      throw new Error('Failed to retrieve VAPID public key from server.');
+    }
+    const { publicKey } = await vapidRes.json();
+    
+    const registration = await navigator.serviceWorker.ready;
+    
+    const padding = '='.repeat((4 - publicKey.length % 4) % 4);
+    const base64 = (publicKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const applicationServerKey = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      applicationServerKey[i] = rawData.charCodeAt(i);
+    }
+    
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey
+    });
+
+    const subJson = subscription.toJSON();
+
+    const registerRes = await fetch('/api/admin/attendance-alerts/register-web-device', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        endpoint: subJson.endpoint,
+        keys: subJson.keys
+      })
+    });
+
+    const contentType = registerRes.headers.get('content-type');
+    if (!contentType?.includes('application/json')) {
+      throw new Error(`Attendance alert API returned non-JSON response (${registerRes.status}). Ensure the backend is running.`);
+    }
+
+    if (!registerRes.ok) {
+      const errorData = await registerRes.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error ${registerRes.status}`);
+    }
+
+    const data = await registerRes.json();
+    return {
+      success: true,
+      token: subJson.endpoint || '',
+      config: data.config,
+    };
   }
 
   const token = await getIdToken();

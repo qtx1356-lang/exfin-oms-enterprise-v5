@@ -1,6 +1,24 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getMessaging, Message } from 'firebase-admin/messaging';
+import webpush from 'web-push';
+
+if (process.env.WEB_PUSH_VAPID_PUBLIC_KEY && process.env.WEB_PUSH_VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.WEB_PUSH_VAPID_SUBJECT || 'mailto:admin@example.com',
+    process.env.WEB_PUSH_VAPID_PUBLIC_KEY,
+    process.env.WEB_PUSH_VAPID_PRIVATE_KEY
+  );
+}
+
+export interface WebPushSubscription {
+  adminUid: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  registeredAt: string;
+  userAgent: string;
+}
 
 export interface SuperAdminAlertConfig {
   enabled: boolean;
@@ -15,6 +33,7 @@ export interface SuperAdminAlertConfig {
   notifyOfficeExit?: boolean;
   updatedAt?: string;
   updatedBy?: string;
+  webPushSubscription?: WebPushSubscription;
 }
 
 export interface AttendanceAlertPayload {
@@ -121,8 +140,8 @@ export async function sendSuperAdminAttendanceAlert(
       return { success: false, skipped: true, reason: 'Alerts globally disabled' };
     }
 
-    if (!config.recipientFcmToken || config.recipientFcmToken.trim() === '') {
-      return { success: false, skipped: true, reason: 'No Super-Admin FCM device token registered' };
+    if ((!config.recipientFcmToken || config.recipientFcmToken.trim() === '') && !config.webPushSubscription) {
+      return { success: false, skipped: true, reason: 'No Super-Admin FCM device or Web Push browser registered' };
     }
     
     // 2. Check Event Type Filtering
@@ -206,46 +225,86 @@ export async function sendSuperAdminAttendanceAlert(
     }
 
     // 4. Send FCM Message to Designated Super-Admin Device
-    const message: Message = {
-      token: config.recipientFcmToken.trim(),
-      notification: {
-        title,
-        body,
-      },
-      data: {
-        type: 'SUPER_ADMIN_ATTENDANCE_ALERT',
-        eventId,
-        eventType: payload.eventType,
-        employeeId: payload.employeeId,
-        employeeCode: payload.employeeCode,
-        employeeName: empName,
-        checkInTime: payload.checkInTime || '',
-        checkOutTime: payload.checkOutTime || '',
-        recordedExitTime: payload.recordedExitTime || '',
-        timestamp: new Date().toISOString(),
-      },
-      android: {
-        priority: 'high',
-        notification: {
-          channelId: 'exfin_oms_important',
-          sound: 'default',
-          color: isCheckOut ? '#E11D48' : isExit ? '#F59E0B' : '#10B981',
-          clickAction: 'FLUTTER_NOTIFICATION_CLICK',
-        },
-      },
-    };
-
-    const messaging = getMessaging();
     let messageId: string | undefined;
+    let webPushSuccess = false;
     
     try {
-      messageId = await messaging.send(message);
+      if (config.recipientFcmToken && config.recipientFcmToken.trim() !== '') {
+        const message: Message = {
+          token: config.recipientFcmToken.trim(),
+          notification: {
+            title,
+            body,
+          },
+          data: {
+            type: 'SUPER_ADMIN_ATTENDANCE_ALERT',
+            eventId,
+            eventType: payload.eventType,
+            employeeId: payload.employeeId,
+            employeeCode: payload.employeeCode,
+            employeeName: empName,
+            checkInTime: payload.checkInTime || '',
+            checkOutTime: payload.checkOutTime || '',
+            recordedExitTime: payload.recordedExitTime || '',
+            timestamp: new Date().toISOString(),
+          },
+          android: {
+            priority: 'high',
+            notification: {
+              channelId: 'exfin_oms_important',
+              sound: 'default',
+              color: isCheckOut ? '#E11D48' : isExit ? '#F59E0B' : '#10B981',
+              clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+            },
+          },
+        };
+        const messaging = getMessaging();
+        messageId = await messaging.send(message);
+      }
+
+      if (config.webPushSubscription && process.env.WEB_PUSH_VAPID_PUBLIC_KEY) {
+        try {
+          const wpRes = await webpush.sendNotification(
+            {
+              endpoint: config.webPushSubscription.endpoint,
+              keys: {
+                p256dh: config.webPushSubscription.p256dh,
+                auth: config.webPushSubscription.auth,
+              }
+            },
+            JSON.stringify({
+              title,
+              body,
+              data: {
+                type: 'SUPER_ADMIN_ATTENDANCE_ALERT',
+                eventId,
+                eventType: payload.eventType,
+                employeeId: payload.employeeId,
+                employeeName: empName
+              }
+            })
+          );
+          webPushSuccess = true;
+          messageId = messageId || `wp_${Date.now()}`;
+        } catch (wpErr: any) {
+          console.error('[SuperAdmin FCM] Web Push delivery failed:', wpErr);
+          if (wpErr.statusCode === 404 || wpErr.statusCode === 410) {
+            // Subscription has expired or is no longer valid
+            await db.collection(CONFIG_DOC_PATH).doc('singleton').update({
+              webPushSubscription: FieldValue.delete()
+            });
+            console.log('[SuperAdmin FCM] Removed expired web push subscription.');
+          }
+          if (!messageId) throw wpErr; // Only throw if native FCM also didn't send
+        }
+      }
       
       // Update delivery log in Firestore
       await idempotencyRef.set({
         status: 'SENT', // We use SENT, not DELIVERED since FCM only acknowledges acceptance
-        recipientFcmToken: config.recipientFcmToken.slice(0, 10) + '...',
+        recipientFcmToken: config.recipientFcmToken ? config.recipientFcmToken.slice(0, 10) + '...' : null,
         fcmMessageId: messageId,
+        webPushSent: webPushSuccess,
         sentAt: new Date().toISOString(),
       }, { merge: true });
       
@@ -276,40 +335,77 @@ export async function sendSuperAdminTestPush(
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
     let token = tokenToTest;
+    let webPushSubscription: WebPushSubscription | undefined;
+    
     if (!token) {
       const config = await getSuperAdminAlertConfig(db);
       token = config.recipientFcmToken;
+      webPushSubscription = config.webPushSubscription;
     }
 
-    if (!token || token.trim() === '') {
-      return { success: false, error: 'No FCM token provided or registered in configuration' };
+    if ((!token || token.trim() === '') && !webPushSubscription) {
+      return { success: false, error: 'No FCM token or Web Push browser provided or registered in configuration' };
     }
 
-    const title = testTitle || '⚡ EXFIN OMS — Super-Admin Test Alert';
-    const body = testBody || 'Push notifications are actively connected to your Super-Admin Android device.';
+    const title = testTitle || '⚡ EXFIN OMS — Test Alert';
+    const body = testBody || 'Push notifications are actively connected to your Super-Admin device.';
+    
+    let messageId: string | undefined;
 
-    const message: Message = {
-      token: token.trim(),
-      notification: {
-        title,
-        body,
-      },
-      data: {
-        type: 'SUPER_ADMIN_TEST_ALERT',
-        timestamp: new Date().toISOString(),
-      },
-      android: {
-        priority: 'high',
+    if (token && token.trim() !== '') {
+      const message: Message = {
+        token: token.trim(),
         notification: {
-          channelId: 'exfin_oms_important',
-          sound: 'default',
-          color: '#8B5CF6',
+          title,
+          body,
         },
-      },
-    };
+        data: {
+          type: 'SUPER_ADMIN_TEST_ALERT',
+          timestamp: new Date().toISOString(),
+        },
+        android: {
+          priority: 'high',
+          notification: {
+            channelId: 'exfin_oms_important',
+            sound: 'default',
+            color: '#8B5CF6',
+          },
+        },
+      };
 
-    const messaging = getMessaging();
-    const messageId = await messaging.send(message);
+      const messaging = getMessaging();
+      messageId = await messaging.send(message);
+    }
+    
+    if (webPushSubscription && process.env.WEB_PUSH_VAPID_PUBLIC_KEY) {
+      try {
+        await webpush.sendNotification(
+          {
+            endpoint: webPushSubscription.endpoint,
+            keys: {
+              p256dh: webPushSubscription.p256dh,
+              auth: webPushSubscription.auth,
+            }
+          },
+          JSON.stringify({
+            title,
+            body,
+            data: {
+              type: 'SUPER_ADMIN_TEST_ALERT'
+            }
+          })
+        );
+        messageId = messageId || `wp_test_${Date.now()}`;
+      } catch (wpErr: any) {
+        console.error('[SuperAdmin FCM] Test Web Push error:', wpErr);
+        if (wpErr.statusCode === 404 || wpErr.statusCode === 410) {
+          await db.collection(CONFIG_DOC_PATH).doc('singleton').update({
+            webPushSubscription: FieldValue.delete()
+          });
+        }
+        if (!messageId) throw wpErr;
+      }
+    }
 
     console.log(`[SuperAdmin FCM] Test push sent successfully. MessageId: ${messageId}`);
     return { success: true, messageId };

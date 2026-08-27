@@ -200,7 +200,7 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
     );
   }
 
-  const isConnected = !!(config?.recipientFcmToken && config.recipientFcmToken.trim().length > 0);
+  const isConnected = !!(config?.recipientFcmToken && config.recipientFcmToken.trim().length > 0) || !!config?.webPushSubscription;
 
   return (
     <div className="space-y-6">
