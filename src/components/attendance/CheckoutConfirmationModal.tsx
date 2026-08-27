@@ -39,6 +39,10 @@ export const CheckoutConfirmationModal: React.FC = () => {
       (record.attendanceType === 'OFFICE' || !record.attendanceType) &&
       record.pendingCheckoutConfirmation === true
     ) {
+      if (!record.confirmationDisplayedAt) {
+        record.confirmationDisplayedAt = new Date().toISOString();
+        saveAttendanceRecord(record);
+      }
       setActiveRecord(record);
     } else {
       setActiveRecord(null);
@@ -185,7 +189,7 @@ export const CheckoutConfirmationModal: React.FC = () => {
     return null;
   }
 
-  const exitTimeDisplay = activeRecord.geofenceExitTime || activeRecord.lastExitTime || activeRecord.exitTime || 'Just now';
+  const exitTimeDisplay = activeRecord.recordedExitTime || activeRecord.geofenceExitTime || activeRecord.lastExitTime || activeRecord.exitTime || 'Just now';
 
   return (
     <AnimatePresence>

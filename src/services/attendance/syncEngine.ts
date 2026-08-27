@@ -154,6 +154,10 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
         let finalLastExitTime = record.lastExitTime;
         let finalExitTime = record.exitTime;
 
+        let finalRecordedExitTime = record.recordedExitTime;
+        let finalExitDetectedAt = record.exitDetectedAt;
+        let finalExitDetectionSource = record.exitDetectionSource;
+
         if (!isExplicitAdminCorrection) {
           try {
             const serverSnap = await getDoc(docRef);
@@ -188,6 +192,9 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                   if (serverExitMs < localExitMs && serverData.geofenceExitTime) {
                     finalGeofenceExitTime = serverData.geofenceExitTime;
                     finalGeofenceExitTimestamp = serverData.geofenceExitTimestamp;
+                    finalRecordedExitTime = serverData.recordedExitTime || serverData.geofenceExitTime;
+                    finalExitDetectedAt = serverData.exitDetectedAt || serverData.geofenceExitTimestamp;
+                    finalExitDetectionSource = serverData.exitDetectionSource || 'NATIVE_GEOFENCE';
                     finalLastExitTime = serverData.lastExitTime || serverData.geofenceExitTime;
                     finalExitTime = serverData.exitTime || serverData.geofenceExitTime;
                   }
@@ -213,6 +220,13 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           checkInTownCity: finalCheckInTownCity,
           checkInMode: finalCheckInMode,
           checkOutTime: record.checkOutTime,
+          recordedExitTime: finalRecordedExitTime || finalGeofenceExitTime || null,
+          exitDetectedAt: finalExitDetectedAt || finalGeofenceExitTimestamp || null,
+          exitDetectionSource: finalExitDetectionSource || (finalGeofenceExitTime ? 'NATIVE_GEOFENCE' : null),
+          appOpenedAt: record.appOpenedAt || null,
+          confirmationDisplayedAt: record.confirmationDisplayedAt || null,
+          confirmationCompletedAt: record.confirmationCompletedAt || null,
+          checkoutFinalizationSource: record.checkoutFinalizationSource || null,
           geofenceExitTime: finalGeofenceExitTime || null,
           geofenceExitTimestamp: finalGeofenceExitTimestamp || null,
           lastExitTime: finalLastExitTime || record.lastExitTime || null,

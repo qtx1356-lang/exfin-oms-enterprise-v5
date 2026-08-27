@@ -897,11 +897,15 @@ async function startServer() {
             const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
             const newTimestampMs = tsDate.getTime();
 
-            if (!record.geofenceExitTime || newTimestampMs < existingTimestampMs || currentState === "RETURNING_TO_OFFICE") {
+            if (!record.geofenceExitTime || !record.recordedExitTime || newTimestampMs < existingTimestampMs || currentState === "RETURNING_TO_OFFICE") {
               record.lastExitTime = timeStr;
               record.exitTime = record.exitTime || timeStr;
               record.geofenceExitTime = timeStr;
               record.geofenceExitTimestamp = eventIso;
+              record.recordedExitTime = timeStr;
+              record.exitDetectedAt = eventIso;
+              record.exitDetectedTime = timeStr;
+              record.exitDetectionSource = "NATIVE_GEOFENCE";
             }
             record.pendingCheckoutConfirmation = true;
             record.returningToOffice = false;

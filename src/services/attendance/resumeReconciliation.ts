@@ -284,51 +284,78 @@ export const reconcileAttendanceOnResume = async (
 
         if (!isInside) {
           // Employee is now OUTSIDE office
-          if (currentState === 'CHECKED_IN' || currentState === 'ENTERING' || currentState === 'RETURNING_TO_OFFICE') {
-            // Transition: CHECKED_IN -> PENDING_EXIT_CONFIRMATION
-            // NO PAST FABRICATION: The observation time is the authoritative exit time
-            const episodeId = `ep_${employeeId}_${dateStr}_exit_${Date.now()}`;
-            const eventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_EXIT', timeStr);
+          // Record app open / resume timestamp separately
+          record.appOpenedAt = nowIso;
 
-            record.episodeId = episodeId;
-            record.lastExitTime = timeStr;
-            record.exitTime = record.exitTime || timeStr;
-            record.geofenceExitTime = timeStr;
-            record.geofenceExitTimestamp = nowIso;
+          if (
+            currentState === 'CHECKED_IN' || 
+            currentState === 'ENTERING' || 
+            currentState === 'RETURNING_TO_OFFICE' ||
+            currentState === 'PENDING_EXIT_CONFIRMATION'
+          ) {
+            // Check if native Android geofence or background location already recorded an authoritative exit time
+            const hasExistingExit = !!(record.recordedExitTime || record.geofenceExitTime);
+
+            if (!hasExistingExit) {
+              // NO PRIOR EXIT RECORDED: The observation time is the authoritative initial exit time
+              const episodeId = `ep_${employeeId}_${dateStr}_exit_${Date.now()}`;
+              const eventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_EXIT', timeStr);
+
+              record.episodeId = episodeId;
+              record.lastExitTime = timeStr;
+              record.exitTime = record.exitTime || timeStr;
+              record.geofenceExitTime = timeStr;
+              record.geofenceExitTimestamp = nowIso;
+              record.recordedExitTime = timeStr;
+              record.exitDetectedAt = nowIso;
+              record.exitDetectedTime = timeStr;
+              record.exitDetectionSource = 'PWA_RESUME_GPS';
+              record.exitObservations = [...(record.exitObservations || []), observation];
+              record.processedEvents = Array.from(new Set([...(record.processedEvents || []), eventId]));
+
+              enqueueAttendanceEvent({
+                eventId,
+                employeeId,
+                attendanceDate: dateStr,
+                eventType: 'GEOFENCE_EXIT',
+                eventTime: timeStr,
+                location: {
+                  latitude: pos.latitude,
+                  longitude: pos.longitude,
+                  townCity: cleanTown,
+                  distance
+                },
+                attendanceMode: 'OFFICE',
+                source: 'AUTO_GEOFENCE'
+              });
+
+              markEventIdProcessed(eventId);
+              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] Detected initial exit from office (${Math.round(distance)}m) on resume at ${timeStr}. State: PENDING_EXIT_CONFIRMATION.`);
+            } else {
+              // PRESERVE EXISTING NATIVE EXIT TIME: Do NOT overwrite with resume time!
+              console.log('[ResumeReconciliation] PRESERVING_NATIVE_EXIT_TIME:', {
+                recordedExitTime: record.recordedExitTime,
+                geofenceExitTime: record.geofenceExitTime,
+                appOpenedAt: nowIso
+              });
+              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] App opened at ${timeStr} outside office. Preserving recorded exit time: ${record.recordedExitTime || record.geofenceExitTime}.`);
+            }
+
             record.pendingCheckoutConfirmation = true;
             record.returningToOffice = false;
             record.currentState = 'PENDING_EXIT_CONFIRMATION';
-            record.evidenceSource = 'PWA_RESUME_GPS';
+            record.checkoutStatus = 'PENDING_EXIT_CONFIRMATION';
+            record.evidenceSource = record.evidenceSource || 'PWA_RESUME_GPS';
             record.syncStatus = 'Pending';
 
-            record.checkoutLatitude = pos.latitude;
-            record.checkoutLongitude = pos.longitude;
-            record.checkoutDistance = distance;
-            record.checkoutTownCity = cleanTown;
+            if (!record.checkoutLatitude && pos) {
+              record.checkoutLatitude = pos.latitude;
+              record.checkoutLongitude = pos.longitude;
+              record.checkoutDistance = distance;
+              record.checkoutTownCity = cleanTown;
+            }
 
-            record.exitObservations = [...(record.exitObservations || []), observation];
-            record.processedEvents = Array.from(new Set([...(record.processedEvents || []), eventId]));
-
-            enqueueAttendanceEvent({
-              eventId,
-              employeeId,
-              attendanceDate: dateStr,
-              eventType: 'GEOFENCE_EXIT',
-              eventTime: timeStr,
-              location: {
-                latitude: pos.latitude,
-                longitude: pos.longitude,
-                townCity: cleanTown,
-                distance
-              },
-              attendanceMode: 'OFFICE',
-              source: 'AUTO_GEOFENCE'
-            });
-
-            markEventIdProcessed(eventId);
             modified = true;
-
-            logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] Detected exit from office (${Math.round(distance)}m) on resume at ${timeStr}. State: PENDING_EXIT_CONFIRMATION.`);
 
             if (typeof window !== 'undefined') {
               window.dispatchEvent(new CustomEvent('exfin-checkout-confirmation-needed', { detail: { employeeId, record } }));
