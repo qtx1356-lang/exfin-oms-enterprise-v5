@@ -296,6 +296,27 @@ async function startServer() {
 
   app.use(express.json());
 
+  // CORS Middleware for Cloudflare Pages and cross-origin frontend apps
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Requested-With, Accept, Origin");
+    } else {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Requested-With, Accept, Origin");
+    }
+
+    if (req.method === "OPTIONS") {
+      return res.status(204).end();
+    }
+
+    next();
+  });
+
   // Health check endpoint
   app.get("/api/health", (req, res) => {
     res.json({
