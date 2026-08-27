@@ -478,10 +478,10 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const isWithinBoundary = calculatedDistance <= OFFICE_LOCATION.radius;
     const nextInside = isWithinBoundary && isHighAccuracyForGeofence;
 
-    // Bypass UI Throttle: Update React UI state immediately on geofence transition or initial load, or every 5 seconds maximum
+    // Bypass UI Throttle: Update React UI state immediately on geofence transition or initial load, or every 1 second maximum
     const geofenceStateChanged = (stableInsideOffice !== nextInside);
     const timeSinceLastUiUpdate = now - lastUiUpdateRef.current;
-    const shouldUpdateUi = lastUiUpdateRef.current === 0 || geofenceStateChanged || timeSinceLastUiUpdate >= 5000;
+    const shouldUpdateUi = lastUiUpdateRef.current === 0 || geofenceStateChanged || timeSinceLastUiUpdate >= 1000;
 
     if (shouldUpdateUi) {
       lastUiUpdateRef.current = now;
