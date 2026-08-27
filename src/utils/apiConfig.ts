@@ -13,14 +13,6 @@ export function getApiBaseUrl(): string {
     return envUrl.replace(/\/$/, '');
   }
 
-  if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
-    // If hosted on Cloudflare Pages or external static frontend domain separate from Cloud Run backend
-    if (host.includes('pages.dev') || host.includes('cloudflare')) {
-      return 'https://ais-dev-cqv7gyt4sebhl5lxhbruzl-65234134226.asia-southeast1.run.app';
-    }
-  }
-
   return '';
 }
 
