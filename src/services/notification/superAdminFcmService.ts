@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '@/src/utils/apiConfig';
+import { API_BASE_URL, buildApiUrl } from '@/src/utils/apiConfig';
 import { auth } from '../firebase/config';
 import { PushNotifications } from '@capacitor/push-notifications';
 
@@ -102,7 +102,7 @@ export async function getSuperAdminAlertConfig(): Promise<SuperAdminAlertClientC
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const data = await fetchJson(API_BASE_URL + '/api/admin/attendance-alerts/config', {
+  const data = await fetchJson(buildApiUrl('/api/admin/attendance-alerts/config'), {
     method: 'GET',
     headers,
   });
@@ -120,7 +120,7 @@ export async function saveSuperAdminAlertConfig(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const data = await fetchJson(API_BASE_URL + '/api/admin/attendance-alerts/config', {
+  const data = await fetchJson(buildApiUrl('/api/admin/attendance-alerts/config'), {
     method: 'POST',
     headers,
     body: JSON.stringify(update),
@@ -141,7 +141,7 @@ export async function removeRecipientDevice(): Promise<{
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const data = await fetchJson(API_BASE_URL + '/api/admin/attendance-alerts/remove-device', {
+  const data = await fetchJson(buildApiUrl('/api/admin/attendance-alerts/remove-device'), {
     method: 'POST',
     headers,
   });
@@ -202,7 +202,7 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const data = await fetchJson(API_BASE_URL + '/api/admin/attendance-alerts/register-device', {
+    const data = await fetchJson(buildApiUrl('/api/admin/attendance-alerts/register-device'), {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -233,7 +233,7 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const vapidData = await fetchJson(API_BASE_URL + '/api/admin/attendance-alerts/web-push-public-key', {
+    const vapidData = await fetchJson(buildApiUrl('/api/admin/attendance-alerts/web-push-public-key'), {
       method: 'GET',
       headers,
     });
@@ -266,7 +266,7 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
       throw new Error('Failed to generate a valid Web Push subscription.');
     }
 
-    const data = await fetchJson(API_BASE_URL + '/api/admin/attendance-alerts/register-web-device', {
+    const data = await fetchJson(buildApiUrl('/api/admin/attendance-alerts/register-web-device'), {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -296,7 +296,7 @@ export async function sendSuperAdminTestAlert(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  return await fetchJson(API_BASE_URL + '/api/admin/attendance-alerts/test', {
+  return await fetchJson(buildApiUrl('/api/admin/attendance-alerts/test'), {
     method: 'POST',
     headers,
     body: JSON.stringify({
