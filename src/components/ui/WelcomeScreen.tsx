@@ -29,16 +29,32 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
   }, []);
 
-  // Time-aware greeting
-  const [greeting] = useState<string>(() => {
+  const [greetingInfo] = useState<{ label: string; periodKey: string }>(() => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning!';
-    if (hour < 17) return 'Good Afternoon!';
-    return 'Good Evening!';
+    if (hour >= 5 && hour < 12) return { label: 'Good Morning', periodKey: 'morning' };
+    if (hour >= 12 && hour < 17) return { label: 'Good Afternoon', periodKey: 'afternoon' };
+    return { label: 'Good Evening', periodKey: 'evening' };
   });
 
   const displayName = employeeData?.name || cachedName;
   const isRegistered = status === 'Approved' || !!displayName;
+
+  const [showAlertToast, setShowAlertToast] = useState(false);
+
+  useEffect(() => {
+    logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
+    if (displayName) {
+      try {
+        const sessionKey = `exfin_greeting_shown_${greetingInfo.periodKey}`;
+        if (!sessionStorage.getItem(sessionKey)) {
+          sessionStorage.setItem(sessionKey, 'true');
+          setShowAlertToast(true);
+          const t = setTimeout(() => setShowAlertToast(false), 4000);
+          return () => clearTimeout(t);
+        }
+      } catch (e) {}
+    }
+  }, [displayName, greetingInfo.periodKey]);
 
   // Derive Location & Distance display states dynamically
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
@@ -47,6 +63,21 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
   return (
     <div className="fixed inset-0 bg-[#EAF7EE] flex flex-col items-center justify-between p-4 sm:p-6 z-40 text-[#12332B] overflow-y-auto relative">
+      {/* Time-of-Day Welcome Alert Toast (Once per session per period) */}
+      {showAlertToast && (
+        <div className="absolute top-4 left-4 right-4 z-50 mx-auto max-w-sm bg-[#173A32] border border-[#19C7C0]/60 text-white p-3.5 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-md">
+          <div className="w-10 h-10 rounded-xl bg-[#112C26] border border-[#19C7C0]/30 flex items-center justify-center shrink-0">
+            <Sparkles className="w-5 h-5 text-[#19C7C0]" />
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <p className="text-xs font-bold text-[#19C7C0] uppercase tracking-wider">Welcome Alert</p>
+            <p className="text-sm font-extrabold text-white truncate">
+              {greetingInfo.label}, {displayName || 'Employee'}!
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Background ambient subtle lighting */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[rgba(25,199,192,0.08)] rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-1/3 left-1/2 -translate-x-1/2 w-80 h-80 bg-[rgba(53,201,138,0.08)] rounded-full blur-[110px] pointer-events-none" />
@@ -71,7 +102,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         <div>
           <div className="text-[#31534A] font-serif italic text-lg sm:text-xl font-bold tracking-wide flex items-center justify-center gap-1.5">
             <span>☀️</span>
-            <span>{greeting}</span>
+            <span>{greetingInfo.label}!</span>
           </div>
 
           {/* Employee Welcome */}
