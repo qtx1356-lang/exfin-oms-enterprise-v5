@@ -49,23 +49,18 @@ async function getIdToken(): Promise<string | null> {
 }
 
 /**
- * Fetch Super-Admin alert configuration
+ * Internal helper to perform fetch with strict JSON response verification and clear diagnostics
  */
-export async function getSuperAdminAlertConfig(): Promise<SuperAdminAlertClientConfig> {
-  const token = await getIdToken();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+async function fetchJson(url: string, options: RequestInit = {}): Promise<any> {
+  const res = await fetch(url, options);
+  const contentType = res.headers.get('content-type') || 'unknown';
 
-  const res = await fetch(API_BASE_URL + '/api/admin/attendance-alerts/config', {
-    method: 'GET',
-    headers,
-  });
-
-  const contentType = res.headers.get('content-type');
-  if (!contentType?.includes('application/json')) {
-    const text = await res.text();
-    console.error('[SuperAdminFcmClient] Non-JSON response received:', text.substring(0, 200));
-    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). EXFIN API returned HTML instead of JSON. Check API routing.`);
+  if (!contentType.includes('application/json')) {
+    const preview = await res.text().catch(() => '');
+    console.error(`[SuperAdminFcmClient] Non-JSON response (${res.status}, ${contentType}) from ${url}:`, preview.substring(0, 150));
+    throw new Error(
+      `EXFIN API returned HTML instead of JSON (Status ${res.status}, Content-Type: ${contentType}). The request URL (${url}) may be reaching the frontend SPA instead of the backend.`
+    );
   }
 
   if (!res.ok) {
@@ -73,7 +68,22 @@ export async function getSuperAdminAlertConfig(): Promise<SuperAdminAlertClientC
     throw new Error(errorData.error || `HTTP error ${res.status}`);
   }
 
-  const data = await res.json();
+  return await res.json();
+}
+
+/**
+ * Fetch Super-Admin alert configuration
+ */
+export async function getSuperAdminAlertConfig(): Promise<SuperAdminAlertClientConfig> {
+  const token = await getIdToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const data = await fetchJson(API_BASE_URL + '/api/admin/attendance-alerts/config', {
+    method: 'GET',
+    headers,
+  });
+
   return data.config || { enabled: false, notifyCheckIn: false, notifyCheckOut: false, notifyOfficeExit: false, recipientRegistered: false };
 }
 
@@ -87,30 +97,41 @@ export async function saveSuperAdminAlertConfig(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(API_BASE_URL + '/api/admin/attendance-alerts/config', {
+  const data = await fetchJson(API_BASE_URL + '/api/admin/attendance-alerts/config', {
     method: 'POST',
     headers,
     body: JSON.stringify(update),
   });
 
-  const contentType = res.headers.get('content-type');
-  if (!contentType?.includes('application/json')) {
-    const text = await res.text();
-    console.error('[SuperAdminFcmClient] Non-JSON response received on save:', text.substring(0, 200));
-    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). EXFIN API returned HTML instead of JSON. Check API routing.`);
-  }
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || `HTTP error ${res.status}`);
-  }
-
-  const data = await res.json();
   return data.config;
 }
 
 /**
- * Registers the current device (Capacitor Android or Browser) as the designated Super-Admin alert recipient
+ * Remove recipient device registration
+ */
+export async function removeRecipientDevice(): Promise<{
+  success: boolean;
+  config?: SuperAdminAlertClientConfig;
+  message?: string;
+}> {
+  const token = await getIdToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const data = await fetchJson(API_BASE_URL + '/api/admin/attendance-alerts/remove-device', {
+    method: 'POST',
+    headers,
+  });
+
+  return {
+    success: true,
+    config: data.config,
+    message: 'Recipient device removed successfully.',
+  };
+}
+
+/**
+ * Registers the current device (Capacitor Android or Web Browser) as designated Super-Admin alert recipient
  */
 export async function registerThisDeviceAsAlertRecipient(): Promise<{
   success: boolean;
@@ -119,13 +140,11 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
   message?: string;
 }> {
   const isCapacitor = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
-  let fcmToken = '';
-  let deviceModel = 'Web Browser (' + (typeof navigator !== 'undefined' ? navigator.userAgent.split(' ')[0] : 'Unknown') + ')';
-  let devicePlatform = 'web';
 
   if (isCapacitor) {
-    devicePlatform = (window as any).Capacitor?.getPlatform() || 'android';
-    deviceModel = `Android Device (${devicePlatform.toUpperCase()})`;
+    let fcmToken = '';
+    const devicePlatform = (window as any).Capacitor?.getPlatform() || 'android';
+    const deviceModel = `Android Device (${devicePlatform.toUpperCase()})`;
 
     try {
       const permResult = await PushNotifications.requestPermissions();
@@ -135,7 +154,6 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
 
       await PushNotifications.register();
 
-      // Wait for registration token or retrieve from native cache
       fcmToken = await new Promise<string>((resolve, reject) => {
         const timer = setTimeout(() => {
           reject(new Error('Capacitor push registration timed out'));
@@ -156,33 +174,54 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
       console.warn('[SuperAdmin FCM] Capacitor registration error:', capErr);
       throw capErr;
     }
+
+    const token = await getIdToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const data = await fetchJson(API_BASE_URL + '/api/admin/attendance-alerts/register-device', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        fcmToken,
+        deviceModel,
+        devicePlatform,
+      }),
+    });
+
+    return {
+      success: true,
+      token: fcmToken,
+      config: data.config,
+      message: data.message,
+    };
   } else {
-    // Web environment: use standard Web Push API
+    // Web Browser standard Web Push registration
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      throw new Error('This browser does not support push notifications.');
+      throw new Error('This browser does not support Web Push notifications.');
     }
 
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-      throw new Error('Browser notification permission is disabled. Please enable notifications for EXFIN in your browser settings.');
+      throw new Error('Browser notification permission was denied. Please enable notifications for EXFIN in your browser settings.');
     }
 
     const token = await getIdToken();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const vapidRes = await fetch(API_BASE_URL + '/api/admin/attendance-alerts/vapid-public-key', {
+    const vapidData = await fetchJson(API_BASE_URL + '/api/admin/attendance-alerts/web-push-public-key', {
       method: 'GET',
-      headers
+      headers,
     });
-    
-    if (!vapidRes.ok) {
-      throw new Error('Failed to retrieve VAPID public key from server.');
+
+    const publicKey = vapidData.publicKey;
+    if (!publicKey) {
+      throw new Error('VAPID public key not found on server.');
     }
-    const { publicKey } = await vapidRes.json();
-    
+
     const registration = await navigator.serviceWorker.ready;
-    
+
     const padding = '='.repeat((4 - publicKey.length % 4) % 4);
     const base64 = (publicKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
     const rawData = window.atob(base64);
@@ -190,74 +229,36 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
     for (let i = 0; i < rawData.length; ++i) {
       applicationServerKey[i] = rawData.charCodeAt(i);
     }
-    
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey
-    });
+
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey,
+      });
+    }
 
     const subJson = subscription.toJSON();
+    if (!subJson.endpoint || !subJson.keys) {
+      throw new Error('Failed to generate a valid Web Push subscription.');
+    }
 
-    const registerRes = await fetch(API_BASE_URL + '/api/admin/attendance-alerts/register-web-device', {
+    const data = await fetchJson(API_BASE_URL + '/api/admin/attendance-alerts/register-web-device', {
       method: 'POST',
       headers,
       body: JSON.stringify({
         endpoint: subJson.endpoint,
-        keys: subJson.keys
-      })
+        keys: subJson.keys,
+      }),
     });
 
-    const contentType = registerRes.headers.get('content-type');
-    if (!contentType?.includes('application/json')) {
-      throw new Error(`Attendance alert API returned non-JSON response (${registerRes.status}). EXFIN API returned HTML instead of JSON. Check API routing.`);
-    }
-
-    if (!registerRes.ok) {
-      const errorData = await registerRes.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error ${registerRes.status}`);
-    }
-
-    const data = await registerRes.json();
     return {
       success: true,
       token: subJson.endpoint || '',
       config: data.config,
+      message: 'Browser successfully registered for attendance push alerts!',
     };
   }
-
-  const token = await getIdToken();
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const res = await fetch(API_BASE_URL + '/api/admin/attendance-alerts/register-device', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      fcmToken,
-      deviceModel,
-      devicePlatform,
-    }),
-  });
-
-  const contentType = res.headers.get('content-type');
-  if (!contentType?.includes('application/json')) {
-    const text = await res.text();
-    console.error('[SuperAdminFcmClient] Non-JSON response received on register:', text.substring(0, 200));
-    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). EXFIN API returned HTML instead of JSON. Check API routing.`);
-  }
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || `HTTP error ${res.status}`);
-  }
-
-  const data = await res.json();
-  return {
-    success: true,
-    token: fcmToken,
-    config: data.config,
-    message: data.message,
-  };
 }
 
 /**
@@ -272,7 +273,7 @@ export async function sendSuperAdminTestAlert(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(API_BASE_URL + '/api/admin/attendance-alerts/test', {
+  return await fetchJson(API_BASE_URL + '/api/admin/attendance-alerts/test', {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -281,18 +282,4 @@ export async function sendSuperAdminTestAlert(
       body,
     }),
   });
-
-  const contentType = res.headers.get('content-type');
-  if (!contentType?.includes('application/json')) {
-    const text = await res.text();
-    console.error('[SuperAdminFcmClient] Non-JSON response received on test:', text.substring(0, 200));
-    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). EXFIN API returned HTML instead of JSON. Check API routing.`);
-  }
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || `HTTP error ${res.status}`);
-  }
-
-  return await res.json();
 }

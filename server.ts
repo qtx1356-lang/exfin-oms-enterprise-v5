@@ -21,7 +21,8 @@ import {
   getSuperAdminAlertConfig,
   saveSuperAdminAlertConfig,
   sendSuperAdminAttendanceAlert,
-  sendSuperAdminTestPush
+  sendSuperAdminTestPush,
+  getVapidPublicKey
 } from "./server/services/superAdminFcmService";
 
 const OFFICE_LAT = 23.616227;
@@ -1453,17 +1454,48 @@ async function startServer() {
     }
   });
 
-  // 3. Super-Admin: Register Current Device FCM Token
-  app.get("/api/admin/attendance-alerts/vapid-public-key", async (req, res) => {
+  // 3. Super-Admin: Get VAPID Public Key (Support both endpoints)
+  const handleVapidKey = async (req: express.Request, res: express.Response) => {
     const caller = await verifyCaller(req);
     if (!caller || !caller.isSuperAdmin) {
       return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
     }
-    const pubKey = process.env.WEB_PUSH_VAPID_PUBLIC_KEY;
+    const pubKey = getVapidPublicKey();
     if (!pubKey) {
       return res.status(404).json({ error: "VAPID keys not configured on server" });
     }
-    return res.json({ publicKey: pubKey });
+    return res.json({ success: true, publicKey: pubKey });
+  };
+
+  app.get("/api/admin/attendance-alerts/vapid-public-key", handleVapidKey);
+  app.get("/api/admin/attendance-alerts/web-push-public-key", handleVapidKey);
+
+  // 3b. Remove Recipient Device
+  app.post("/api/admin/attendance-alerts/remove-device", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller || !caller.isSuperAdmin) {
+      return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
+    }
+
+    if (!db) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+
+    try {
+      const updatedConfig = await saveSuperAdminAlertConfig(
+        db,
+        {
+          enabled: false,
+          recipientFcmToken: "",
+          webPushSubscription: null as any
+        },
+        caller.email || caller.loginId || "SUPER_ADMIN"
+      );
+
+      return res.json({ success: true, message: "Recipient device removed successfully", config: updatedConfig });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Failed to remove recipient device" });
+    }
   });
 
   app.post("/api/admin/attendance-alerts/register-web-device", async (req, res) => {

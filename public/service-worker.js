@@ -389,18 +389,33 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   try {
-    const payload = event.data.json();
-    const title = payload.title || 'Office Management System';
+    let title = 'EXFIN OMS Alert';
+    let body = '';
+    let dataObj = {};
+
+    try {
+      const payload = event.data.json();
+      title = payload.title || title;
+      body = payload.body || payload.message || '';
+      dataObj = payload.data || {};
+    } catch (e) {
+      body = event.data.text() || '';
+    }
+
     const options = {
-      body: payload.message || payload.body || '',
-      icon: '/manifest.json',
-      badge: '/manifest.json',
+      body: body,
+      icon: '/favicon.ico',
+      badge: '/favicon.ico',
       data: {
-        route: payload.route || '/notifications',
-        id: payload.id,
+        route: dataObj.route || '/admin-portal',
+        eventId: dataObj.eventId,
+        type: dataObj.type
       },
-      tag: payload.id || 'exfin_push',
+      tag: dataObj.eventId || ('exfin_alert_' + Date.now()),
+      renotify: true,
+      requireInteraction: true
     };
+
     event.waitUntil(self.registration.showNotification(title, options));
   } catch (err) {
     console.error('[SW] Push notification error:', err);
@@ -409,11 +424,11 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const route = event.notification.data?.route || '/notifications';
+  const route = event.notification.data?.route || '/admin-portal';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if (client.url.includes(route) && 'focus' in client) {
+        if ('focus' in client) {
           return client.focus();
         }
       }
@@ -421,3 +436,4 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+

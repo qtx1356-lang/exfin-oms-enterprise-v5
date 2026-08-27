@@ -8,17 +8,10 @@ import {
   RefreshCw,
   ShieldCheck,
   ShieldAlert,
-  Save,
   Send,
   Sparkles,
-  Key,
   Radio,
-  Clock,
-  Layers,
-  HelpCircle,
-  Copy,
-  Check,
-  Info
+  Trash2
 } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { usePermission } from '../../context/PermissionContext';
@@ -27,6 +20,7 @@ import {
   saveSuperAdminAlertConfig,
   registerThisDeviceAsAlertRecipient,
   sendSuperAdminTestAlert,
+  removeRecipientDevice,
   SuperAdminAlertClientConfig
 } from '../../services/notification/superAdminFcmService';
 
@@ -41,13 +35,11 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
   const [registering, setRegistering] = useState(false);
   const [testing, setTesting] = useState(false);
 
-  const [manualToken, setManualToken] = useState('');
-  const [deviceModelInput, setDeviceModelInput] = useState('');
-
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; messageId?: string } | null>(null);
-  const [copiedToken, setCopiedToken] = useState(false);
+
+  const isNative = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
 
   useEffect(() => {
     fetchConfig();
@@ -59,10 +51,6 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
     try {
       const data = await getSuperAdminAlertConfig();
       setConfig(data);
-      if (data) {
-        setManualToken(data.recipientFcmToken || '');
-        setDeviceModelInput(data.deviceModel || '');
-      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to load Super-Admin alert configuration');
     } finally {
@@ -79,7 +67,7 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
     try {
       const updated = await saveSuperAdminAlertConfig({ enabled: newEnabled });
       setConfig(updated);
-      setSuccessMessage(`Attendance push alerts ${newEnabled ? 'ENABLED' : 'DISABLED'} for Super-Admin device.`);
+      setSuccessMessage(`Attendance push alerts ${newEnabled ? 'ENABLED' : 'DISABLED'} for designated recipient device.`);
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to update alert state');
     } finally {
@@ -114,8 +102,6 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
       const result = await registerThisDeviceAsAlertRecipient();
       if (result.success && result.config) {
         setConfig(result.config);
-        setManualToken(result.config.recipientFcmToken);
-        setDeviceModelInput(result.config.deviceModel || '');
         setSuccessMessage('This device was successfully registered as the designated Super-Admin attendance alert recipient!');
       }
     } catch (err: any) {
@@ -125,21 +111,20 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
     }
   };
 
-  const handleSaveManualSettings = async () => {
-    if (!config || !canEdit) return;
+  const handleRemoveDevice = async () => {
+    if (!canEdit) return;
     setSaving(true);
     setErrorMessage(null);
     setSuccessMessage(null);
+    setTestResult(null);
     try {
-      const updated = await saveSuperAdminAlertConfig({
-        recipientFcmToken: manualToken.trim(),
-        deviceModel: deviceModelInput.trim(),
-        enabled: manualToken.trim() ? config.enabled : false,
-      });
-      setConfig(updated);
-      setSuccessMessage('Super-Admin recipient device token updated successfully.');
+      const result = await removeRecipientDevice();
+      if (result.success && result.config) {
+        setConfig(result.config);
+        setSuccessMessage('Recipient device registration removed successfully.');
+      }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to save recipient configuration');
+      setErrorMessage(err.message || 'Failed to remove recipient device');
     } finally {
       setSaving(false);
     }
@@ -151,15 +136,10 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
     setTestResult(null);
     setErrorMessage(null);
     try {
-      const targetToken = manualToken.trim() || config?.recipientFcmToken;
-      if (!targetToken) {
-        throw new Error('No FCM recipient token configured. Please register this device or enter a token first.');
-      }
-
       const res = await sendSuperAdminTestAlert(
-        targetToken,
+        undefined,
         '⚡ EXFIN OMS — Super-Admin Test Alert',
-        'Live FCM attendance notifications are active for this Super-Admin device.'
+        'Live attendance push alerts are active for this Super-Admin device.'
       );
 
       if (res.success) {
@@ -184,13 +164,6 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
     }
   };
 
-  const handleCopyToken = () => {
-    if (!config?.recipientFcmToken) return;
-    navigator.clipboard.writeText(config.recipientFcmToken);
-    setCopiedToken(true);
-    setTimeout(() => setCopiedToken(false), 2000);
-  };
-
   if (loading) {
     return (
       <Card className="p-8 flex flex-col items-center justify-center gap-3 bg-[#13072E]/90 border-purple-500/20 text-center">
@@ -200,7 +173,7 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
     );
   }
 
-  const isConnected = !!(config?.recipientFcmToken && config.recipientFcmToken.trim().length > 0) || !!config?.webPushSubscription;
+  const isRegistered = !!(config?.webPushSubscription?.endpoint || (config?.recipientFcmToken && config.recipientFcmToken.trim().length > 0));
 
   return (
     <div className="space-y-6">
@@ -216,11 +189,11 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
                   Super-Admin Attendance Alert Device
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-semibold uppercase tracking-wider">
-                    Free • FCM Push
+                    Web Push • Instant Alerts
                   </span>
                 </h2>
                 <p className="text-xs text-purple-200/80 mt-0.5">
-                  Instant real-time push notifications sent to ONE designated Super-Admin Android device on employee Check-In and Check-Out.
+                  Instant real-time push notifications sent to ONE designated Super-Admin device on employee Check-In and Check-Out.
                 </p>
               </div>
             </div>
@@ -229,26 +202,26 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
           {/* Connection Status Badge & Refresh */}
           <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
             <div className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 text-xs font-semibold ${
-              config?.enabled && isConnected
+              config?.enabled && isRegistered
                 ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
-                : !config?.enabled && isConnected
+                : !config?.enabled && isRegistered
                 ? 'bg-amber-950/60 border-amber-500/40 text-amber-300'
                 : 'bg-rose-950/60 border-rose-500/40 text-rose-300'
             }`}>
-              {config?.enabled && isConnected ? (
+              {config?.enabled && isRegistered ? (
                 <>
                   <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
                   <span>ALERTS ACTIVE</span>
                 </>
-              ) : !config?.enabled && isConnected ? (
+              ) : !config?.enabled && isRegistered ? (
                 <>
                   <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-                  <span>PAUSED (TOKEN READY)</span>
+                  <span>PAUSED (REGISTERED)</span>
                 </>
               ) : (
                 <>
                   <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                  <span>DEVICE NOT LINKED</span>
+                  <span>DEVICE NOT REGISTERED</span>
                 </>
               )}
             </div>
@@ -422,54 +395,129 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
             </div>
           </Card>
 
-          {/* Quick Registration & Token Management */}
+          {/* Browser / Device Push Registration Section */}
           <Card className="p-5 bg-[#170B33]/90 border-purple-500/20 space-y-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Key className="w-4 h-4 text-purple-400" />
-              Recipient Device Registration
-            </h3>
-            <p className="text-xs text-purple-200/70">
-              Link the current Android device or configure the FCM registration token manually.
-            </p>
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-purple-400" />
+                Recipient Device Registration
+              </h3>
+              <p className="text-xs text-purple-200/70 mt-1">
+                Register the current Android browser to receive EXFIN attendance alerts.
+              </p>
+            </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <Button
-                onClick={handleRegisterDevice}
-                disabled={!canEdit || registering}
-                variant="primary"
-                className="text-xs flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 py-2.5 px-4 rounded-xl shadow-lg"
-              >
-                {registering ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Registering Device...</span>
-                  </>
-                ) : (
-                  <>
-                    <Smartphone className="w-4 h-4" />
-                    <span>Register This Device as Recipient</span>
-                  </>
-                )}
-              </Button>
+            {/* Status Indicator */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-purple-300">Status:</span>
+              <span className={`text-xs font-bold px-3 py-1 rounded-xl border ${
+                isRegistered
+                  ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
+                  : 'bg-rose-950/60 border-rose-500/40 text-rose-300'
+              }`}>
+                {isRegistered ? '● DEVICE REGISTERED' : '● DEVICE NOT REGISTERED'}
+              </span>
+            </div>
 
-              <Button
-                onClick={handleSendTestPush}
-                disabled={!canEdit || testing || !isConnected}
-                variant="secondary"
-                className="text-xs flex items-center justify-center gap-2 border-purple-500/30 hover:bg-purple-500/20 py-2.5 px-4 rounded-xl"
-              >
-                {testing ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-400" />
-                    <span>Sending Test Push...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4 text-purple-300" />
-                    <span>Send Live Test Push Alert</span>
-                  </>
+            {/* If registered, show details */}
+            {isRegistered && (
+              <div className="p-3.5 rounded-xl bg-purple-950/40 border border-purple-500/10 space-y-2 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-purple-300/70">Recipient:</span>
+                  <span className="font-bold text-white">{config?.deviceModel || 'This Android Browser'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-purple-300/70">Push Connection:</span>
+                  <span className="font-bold text-emerald-400 flex items-center gap-1.5">
+                    <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
+                    Connected
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-purple-300/70">Registered Email:</span>
+                  <span className="font-medium text-purple-200">{config?.recipientEmail || adminUser?.email || 'Super Admin'}</span>
+                </div>
+                {config?.updatedAt && (
+                  <div className="flex justify-between items-center pt-1 border-t border-purple-500/10 text-[11px]">
+                    <span className="text-purple-300/60">Registered On:</span>
+                    <span className="text-purple-300/90">{new Date(config.updatedAt).toLocaleString()}</span>
+                  </div>
                 )}
-              </Button>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3 pt-2">
+              {!isRegistered ? (
+                <Button
+                  onClick={handleRegisterDevice}
+                  disabled={!canEdit || registering}
+                  variant="primary"
+                  className="w-full sm:w-auto text-xs flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 py-2.5 px-5 rounded-xl shadow-lg"
+                >
+                  {registering ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Registering Browser...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Smartphone className="w-4 h-4" />
+                      <span>Register This Device</span>
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    onClick={handleRegisterDevice}
+                    disabled={!canEdit || registering}
+                    variant="primary"
+                    className="text-xs flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 py-2.5 px-4 rounded-xl shadow-lg"
+                  >
+                    {registering ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Re-registering...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Re-register This Device</span>
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    onClick={handleSendTestPush}
+                    disabled={!canEdit || testing}
+                    variant="secondary"
+                    className="text-xs flex items-center justify-center gap-2 border-purple-500/30 hover:bg-purple-500/20 py-2.5 px-4 rounded-xl"
+                  >
+                    {testing ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-400" />
+                        <span>Sending Test Push...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-3.5 h-3.5 text-purple-300" />
+                        <span>Send Test Push Alert</span>
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    onClick={handleRemoveDevice}
+                    disabled={!canEdit || saving}
+                    variant="secondary"
+                    className="text-xs flex items-center justify-center gap-2 border-rose-500/30 hover:bg-rose-950/40 text-rose-300 py-2.5 px-4 rounded-xl"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Remove This Device</span>
+                  </Button>
+                </>
+              )}
             </div>
 
             {/* Test result message */}
@@ -487,63 +535,15 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
                 <div>
                   <p className="font-bold">{testResult.message}</p>
                   {testResult.messageId && (
-                    <p className="text-[10px] opacity-75 mt-0.5">FCM Message ID: {testResult.messageId}</p>
+                    <p className="text-[10px] opacity-75 mt-0.5">Push Delivery ID: {testResult.messageId}</p>
                   )}
                 </div>
               </div>
             )}
-
-            {/* Manual Token Settings Collapse */}
-            <div className="pt-3 border-t border-purple-500/10 space-y-3">
-              <label className="text-xs font-semibold text-purple-300 flex items-center justify-between">
-                <span>FCM Device Registration Token</span>
-                {config?.recipientFcmToken && (
-                  <button
-                    onClick={handleCopyToken}
-                    className="text-[11px] text-purple-400 hover:text-white flex items-center gap-1 font-normal"
-                  >
-                    {copiedToken ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedToken ? 'Copied' : 'Copy Token'}</span>
-                  </button>
-                )}
-              </label>
-
-              <textarea
-                value={manualToken}
-                onChange={(e) => setManualToken(e.target.value)}
-                disabled={!canEdit}
-                placeholder="e.g. f8e9d2... (FCM token auto-populated when you register this device)"
-                rows={2}
-                className="w-full bg-[#13072E] border border-purple-500/20 rounded-xl p-2.5 text-xs text-purple-100 placeholder-purple-400/40 focus:outline-none focus:border-purple-400 font-mono"
-              />
-
-              <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-                <div className="w-full sm:w-1/2">
-                  <input
-                    type="text"
-                    value={deviceModelInput}
-                    onChange={(e) => setDeviceModelInput(e.target.value)}
-                    disabled={!canEdit}
-                    placeholder="Device Model (e.g. Samsung Galaxy SM-G991B)"
-                    className="w-full bg-[#13072E] border border-purple-500/20 rounded-xl px-3 py-2 text-xs text-purple-100 placeholder-purple-400/40 focus:outline-none focus:border-purple-400"
-                  />
-                </div>
-
-                <Button
-                  onClick={handleSaveManualSettings}
-                  disabled={!canEdit || saving}
-                  variant="secondary"
-                  className="w-full sm:w-auto text-xs flex items-center justify-center gap-1.5 border-purple-500/30 hover:bg-purple-500/20"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Save Token Changes</span>
-                </Button>
-              </div>
-            </div>
           </Card>
         </div>
 
-        {/* Right Col: Recipient Status & System Architecture Overview */}
+        {/* Right Col: Designated Recipient Status & System Architecture Overview */}
         <div className="space-y-6">
           <Card className="p-5 bg-[#170B33]/90 border-purple-500/20 space-y-4">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -567,16 +567,16 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-purple-300/70">Device Platform:</span>
-                  <span className="font-medium text-emerald-300 uppercase">{config?.devicePlatform || 'android'}</span>
+                  <span className="font-medium text-emerald-300 uppercase">{config?.devicePlatform || 'web'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-purple-300/70">Device Model:</span>
-                  <span className="font-medium text-purple-200 truncate max-w-[140px]">{config?.deviceModel || 'Android Device'}</span>
+                  <span className="font-medium text-purple-200 truncate max-w-[140px]">{config?.deviceModel || 'Android Browser'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-purple-300/70">Token Status:</span>
-                  <span className={`font-bold ${isConnected ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {isConnected ? 'Registered & Bound' : 'Missing Token'}
+                  <span className="text-purple-300/70">Status:</span>
+                  <span className={`font-bold ${isRegistered ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {isRegistered ? 'Registered & Bound' : 'Device Not Registered'}
                   </span>
                 </div>
                 {config?.updatedAt && (
@@ -599,7 +599,7 @@ export const SuperAdminAttendanceAlertTab: React.FC = () => {
             <ul className="space-y-2 text-[11px] text-purple-200/80">
               <li className="flex items-start gap-2">
                 <span className="text-emerald-400 font-bold">✓</span>
-                <span><strong>100% Free:</strong> Uses native Google Firebase Cloud Messaging with zero third-party subscription or provider costs.</span>
+                <span><strong>Web Push Standard:</strong> Native browser push notifications via W3C Push API and VAPID.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-400 font-bold">✓</span>

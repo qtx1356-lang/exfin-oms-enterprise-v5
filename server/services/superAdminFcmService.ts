@@ -3,13 +3,33 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getMessaging, Message } from 'firebase-admin/messaging';
 import webpush from 'web-push';
 
-if (process.env.WEB_PUSH_VAPID_PUBLIC_KEY && process.env.WEB_PUSH_VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
-    process.env.WEB_PUSH_VAPID_SUBJECT || 'mailto:admin@example.com',
-    process.env.WEB_PUSH_VAPID_PUBLIC_KEY,
-    process.env.WEB_PUSH_VAPID_PRIVATE_KEY
-  );
+let vapidPublicKey = process.env.WEB_PUSH_VAPID_PUBLIC_KEY || '';
+let vapidPrivateKey = process.env.WEB_PUSH_VAPID_PRIVATE_KEY || '';
+let vapidSubject = process.env.WEB_PUSH_VAPID_SUBJECT || 'mailto:admin@exfinoms.com';
+
+if (!vapidPublicKey || !vapidPrivateKey || vapidPublicKey.includes('YOUR_VAPID') || vapidPrivateKey.includes('YOUR_VAPID')) {
+  try {
+    const generatedKeys = webpush.generateVAPIDKeys();
+    vapidPublicKey = generatedKeys.publicKey;
+    vapidPrivateKey = generatedKeys.privateKey;
+    console.log('[SuperAdmin FCM] Generated dynamic server VAPID keys for Web Push.');
+  } catch (genErr) {
+    console.warn('[SuperAdmin FCM] Could not generate dynamic VAPID keys:', genErr);
+  }
 }
+
+if (vapidPublicKey && vapidPrivateKey) {
+  try {
+    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+  } catch (vErr) {
+    console.warn('[SuperAdmin FCM] Failed to set VAPID details:', vErr);
+  }
+}
+
+export function getVapidPublicKey(): string {
+  return vapidPublicKey;
+}
+
 
 export interface WebPushSubscription {
   adminUid: string;
@@ -178,18 +198,18 @@ export async function sendSuperAdminAttendanceAlert(
     if (isCheckOut) {
       // Authoritative checkout time: preserve original geofence exit time if present
       const checkoutTime = payload.recordedExitTime || payload.checkOutTime || payload.eventTime || 'Recorded';
-      title = `🔴 Employee Check-Out: ${empName}`;
-      body = `${empName} (${empCode}) checked out at ${checkoutTime}.\nLocation: ${locStr}${distStr ? ` (${distStr})` : ''}${payload.workingHours ? ` • Duration: ${payload.workingHours}` : ''}`;
+      title = 'EXFIN OMS — Check-Out';
+      body = `${empName} (${empCode}) checked out at ${checkoutTime}.${payload.workingHours ? `\nWorking Hours: ${payload.workingHours}.` : ''}`;
     } else if (isExit) {
       const exitTime = payload.recordedExitTime || payload.eventTime || 'Just now';
-      title = `⚠️ Geofence Exit: ${empName}`;
-      body = `${empName} (${empCode}) left office perimeter at ${exitTime}.${distStr ? ` Distance: ${distStr}` : ''}`;
+      title = 'EXFIN OMS — Geofence Exit';
+      body = `${empName} (${empCode}) stepped outside 25m office boundary at ${exitTime}.${distStr ? ` Distance: ${distStr}` : ''}`;
     } else {
       // Check-In
       const inTime = payload.checkInTime || payload.eventTime || 'Just now';
-      const modeLabel = payload.eventType === 'WFH' ? 'WFH' : payload.eventType === 'CLIENT_VISIT' ? 'Client Visit' : payload.eventType === 'OUTDOOR_WORK' ? 'Outdoor' : payload.attendanceType || 'Office';
-      title = `🟢 Employee Check-In: ${empName}`;
-      body = `${empName} (${empCode}) checked in at ${inTime} [${modeLabel}].\nLocation: ${locStr}${distStr ? ` • Distance: ${distStr}` : ''}`;
+      const modeLabel = payload.eventType === 'WFH' ? 'WFH' : payload.eventType === 'CLIENT_VISIT' ? 'Client Visit' : payload.eventType === 'OUTDOOR_WORK' ? 'Outdoor Work' : payload.attendanceType || 'Office';
+      title = 'EXFIN OMS — Check-In';
+      body = `${empName} (${empCode}) checked in at ${inTime}.\nMode: ${modeLabel}.`;
     }
     
     const shouldSend = await db.runTransaction(async (transaction) => {
