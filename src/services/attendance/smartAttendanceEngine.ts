@@ -352,7 +352,7 @@ export const runAutoCheckoutFinalizer = (): void => {
 
   records.forEach((rec) => {
     if (
-      (rec.checkOutTime && rec.checkoutStatus === 'COMPLETED') ||
+      (rec.checkOutTime && (rec.checkoutStatus === 'FINALIZED' || rec.checkoutStatus === 'COMPLETED')) ||
       rec.checkoutStatus === 'UNRESOLVED' ||
       rec.checkoutStatus === 'PENDING_ADMIN_REVIEW' ||
       rec.manualRectified ||

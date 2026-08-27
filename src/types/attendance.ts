@@ -152,7 +152,11 @@ export interface AttendanceRecord {
   checkoutDismissed?: boolean;
 
   // Unresolved Checkout & Mandatory Resolution fields
-  checkoutStatus?: 'COMPLETED' | 'UNRESOLVED' | 'PENDING_ADMIN_REVIEW';
+  manualCheckoutTime?: string | null;
+  recordedExitTime?: string | null;
+  exitDetectionSource?: 'NATIVE_GEOFENCE' | 'NONE' | string | null;
+  checkoutFinalizationSource?: 'MANUAL_CHECKOUT' | 'CONFIRMED_NATIVE_EXIT' | 'END_OF_DAY_NATIVE_EXIT' | 'NONE' | string | null;
+  checkoutStatus?: 'FINALIZED' | 'COMPLETED' | 'UNRESOLVED' | 'PENDING_EXIT_CONFIRMATION' | 'PENDING_ADMIN_REVIEW';
   attendanceStatus?: 'RESOLVED' | 'UNRESOLVED';
   exitDetectedTime?: string | null;
   employeeProposedCheckoutTime?: string | null;
