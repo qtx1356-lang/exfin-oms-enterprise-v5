@@ -2,19 +2,39 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getMessaging, Message } from 'firebase-admin/messaging';
 import webpush from 'web-push';
+import fs from 'fs';
+import path from 'path';
 
 let vapidPublicKey = process.env.WEB_PUSH_VAPID_PUBLIC_KEY || '';
 let vapidPrivateKey = process.env.WEB_PUSH_VAPID_PRIVATE_KEY || '';
 let vapidSubject = process.env.WEB_PUSH_VAPID_SUBJECT || 'mailto:admin@exfinoms.com';
 
+const VAPID_KEY_FILE = path.join(process.cwd(), '.vapid_keys.json');
+
 if (!vapidPublicKey || !vapidPrivateKey || vapidPublicKey.includes('YOUR_VAPID') || vapidPrivateKey.includes('YOUR_VAPID')) {
-  try {
-    const generatedKeys = webpush.generateVAPIDKeys();
-    vapidPublicKey = generatedKeys.publicKey;
-    vapidPrivateKey = generatedKeys.privateKey;
-    console.log('[SuperAdmin FCM] Generated dynamic server VAPID keys for Web Push.');
-  } catch (genErr) {
-    console.warn('[SuperAdmin FCM] Could not generate dynamic VAPID keys:', genErr);
+  if (fs.existsSync(VAPID_KEY_FILE)) {
+    try {
+      const saved = JSON.parse(fs.readFileSync(VAPID_KEY_FILE, 'utf8'));
+      if (saved.publicKey && saved.privateKey) {
+        vapidPublicKey = saved.publicKey;
+        vapidPrivateKey = saved.privateKey;
+        console.log('[SuperAdmin FCM] Loaded persistent VAPID key pair from file cache.');
+      }
+    } catch (e) {
+      console.warn('[SuperAdmin FCM] Failed to read .vapid_keys.json:', e);
+    }
+  }
+
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    try {
+      const generatedKeys = webpush.generateVAPIDKeys();
+      vapidPublicKey = generatedKeys.publicKey;
+      vapidPrivateKey = generatedKeys.privateKey;
+      fs.writeFileSync(VAPID_KEY_FILE, JSON.stringify({ publicKey: vapidPublicKey, privateKey: vapidPrivateKey }, null, 2), 'utf8');
+      console.log('[SuperAdmin FCM] Generated and saved persistent VAPID keys to file cache.');
+    } catch (genErr) {
+      console.warn('[SuperAdmin FCM] Could not generate dynamic VAPID keys:', genErr);
+    }
   }
 }
 
@@ -282,7 +302,7 @@ export async function sendSuperAdminAttendanceAlert(
         messageId = await messaging.send(message);
       }
 
-      if (config.webPushSubscription && process.env.WEB_PUSH_VAPID_PUBLIC_KEY) {
+      if (config.webPushSubscription && vapidPublicKey) {
         try {
           const wpRes = await webpush.sendNotification(
             {
@@ -397,7 +417,7 @@ export async function sendSuperAdminTestPush(
       messageId = await messaging.send(message);
     }
     
-    if (webPushSubscription && process.env.WEB_PUSH_VAPID_PUBLIC_KEY) {
+    if (webPushSubscription && vapidPublicKey) {
       try {
         await webpush.sendNotification(
           {

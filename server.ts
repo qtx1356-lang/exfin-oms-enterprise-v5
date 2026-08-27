@@ -329,6 +329,16 @@ async function startServer() {
     });
   });
 
+  // Diagnostic routing endpoint
+  app.get("/api/attendance-alerts-routing-test", (req, res) => {
+    res.json({
+      success: true,
+      service: "EXFIN OMS API",
+      route: "attendance-alerts",
+      runtime: "express"
+    });
+  });
+
   // Helper to extract and verify Firebase Admin ID token (Admins & Employees)
   async function verifyCaller(req: express.Request): Promise<{
     uid: string;
