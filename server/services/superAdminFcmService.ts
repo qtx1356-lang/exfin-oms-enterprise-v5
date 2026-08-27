@@ -42,9 +42,6 @@ let cachedConfig: SuperAdminAlertConfig | null = null;
 let lastConfigFetch = 0;
 const CACHE_TTL_MS = 30000; // 30 seconds
 
-// In-memory idempotency deduplication set
-const recentAlertEventIds = new Map<string, number>();
-
 export async function getSuperAdminAlertConfig(db: Firestore): Promise<SuperAdminAlertConfig> {
   const now = Date.now();
   if (cachedConfig && now - lastConfigFetch < CACHE_TTL_MS) {
@@ -118,25 +115,7 @@ export async function sendSuperAdminAttendanceAlert(
   payload: AttendanceAlertPayload
 ): Promise<{ success: boolean; skipped?: boolean; messageId?: string; reason?: string }> {
   try {
-    // 1. Idempotency Deduplication Check
-    const eventId = payload.eventId || `att_alert_${payload.employeeCode}_${payload.eventType}_${payload.eventTime || payload.checkInTime || payload.checkOutTime || Date.now()}`;
-    const now = Date.now();
-
-    // Clean up old deduplication entries (> 1 hour)
-    if (recentAlertEventIds.size > 500) {
-      for (const [id, timestamp] of recentAlertEventIds.entries()) {
-        if (now - timestamp > 3600000) {
-          recentAlertEventIds.delete(id);
-        }
-      }
-    }
-
-    if (recentAlertEventIds.has(eventId)) {
-      console.log(`[SuperAdmin FCM] Skipping duplicate alert event ID: ${eventId}`);
-      return { success: true, skipped: true, reason: 'Duplicate event ID' };
-    }
-
-    // 2. Fetch Config
+    // 1. Fetch Config First (needed for idempotency key)
     const config = await getSuperAdminAlertConfig(db);
     if (!config.enabled) {
       return { success: false, skipped: true, reason: 'Alerts globally disabled' };
@@ -145,8 +124,8 @@ export async function sendSuperAdminAttendanceAlert(
     if (!config.recipientFcmToken || config.recipientFcmToken.trim() === '') {
       return { success: false, skipped: true, reason: 'No Super-Admin FCM device token registered' };
     }
-
-    // 3. Check Event Type Filtering
+    
+    // 2. Check Event Type Filtering
     const isCheckIn = payload.eventType === 'CHECK_IN' || payload.eventType === 'AUTO_CHECK_IN' || payload.eventType === 'MANUAL_CHECK_IN' || payload.eventType === 'WFH' || payload.eventType === 'CLIENT_VISIT' || payload.eventType === 'OUTDOOR_WORK';
     const isCheckOut = payload.eventType === 'CHECK_OUT';
     const isExit = payload.eventType === 'OUTSIDE_OFFICE' || payload.eventType === 'GEOFENCE_EXIT';
@@ -161,7 +140,14 @@ export async function sendSuperAdminAttendanceAlert(
       return { success: false, skipped: true, reason: 'Office exit alerts disabled in config' };
     }
 
-    // 4. Construct Clear, Authoritative Push Message
+    // 3. Idempotency Deduplication Check via Firestore Transaction
+    // Use authoritative eventId if available, fallback only if absolutely missing
+    const eventId = payload.eventId || `att_alert_${payload.employeeCode}_${payload.eventType}_${payload.eventTime || payload.checkInTime || payload.checkOutTime || Date.now()}`;
+    const idempotencyKey = `attendance_push_${eventId}_${payload.eventType}_${config.recipientUid || 'superadmin'}`;
+    
+    const idempotencyRef = db.collection('attendance_push_delivery_logs').doc(idempotencyKey);
+    
+    // Construct Clear, Authoritative Push Message
     const empName = payload.employeeName || 'Employee';
     const empCode = payload.employeeCode || payload.employeeId || 'N/A';
     const locStr = payload.townCity ? `${payload.townCity}` : 'Raniganj HQ';
@@ -186,8 +172,40 @@ export async function sendSuperAdminAttendanceAlert(
       title = `🟢 Employee Check-In: ${empName}`;
       body = `${empName} (${empCode}) checked in at ${inTime} [${modeLabel}].\nLocation: ${locStr}${distStr ? ` • Distance: ${distStr}` : ''}`;
     }
+    
+    const shouldSend = await db.runTransaction(async (transaction) => {
+      const doc = await transaction.get(idempotencyRef);
+      if (doc.exists) {
+        const data = doc.data();
+        if (data && (data.status === 'PENDING' || data.status === 'SENT' || data.status === 'DELIVERED')) {
+          return false; // Skip duplicate
+        }
+      }
+      
+      // Reserve the notification
+      transaction.set(idempotencyRef, {
+        idempotencyKey,
+        eventId,
+        eventType: payload.eventType,
+        employeeId: payload.employeeId,
+        employeeCode: payload.employeeCode || payload.employeeId,
+        employeeName: empName,
+        recipientUid: config.recipientUid,
+        status: 'PENDING',
+        createdAt: FieldValue.serverTimestamp(),
+        notificationTitle: title,
+        notificationBody: body,
+      }, { merge: true });
+      
+      return true;
+    });
 
-    // 5. Send FCM Message to Designated Super-Admin Device
+    if (!shouldSend) {
+      console.log(`[SuperAdmin FCM] Skipping duplicate alert event ID: ${eventId}`);
+      return { success: true, skipped: true, reason: 'Duplicate event ID detected via Firestore idempotency' };
+    }
+
+    // 4. Send FCM Message to Designated Super-Admin Device
     const message: Message = {
       token: config.recipientFcmToken.trim(),
       notification: {
@@ -218,35 +236,32 @@ export async function sendSuperAdminAttendanceAlert(
     };
 
     const messaging = getMessaging();
-    const messageId = await messaging.send(message);
-
-    // Record idempotency
-    recentAlertEventIds.set(eventId, now);
-
-    // Record delivery log in Firestore
+    let messageId: string | undefined;
+    
     try {
-      const logRef = db.collection('attendance_alert_logs').doc(eventId);
-      await logRef.set({
-        eventId,
-        eventType: payload.eventType,
-        employeeId: payload.employeeId,
-        employeeCode: payload.employeeCode,
-        employeeName: empName,
-        recipientUid: config.recipientUid,
+      messageId = await messaging.send(message);
+      
+      // Update delivery log in Firestore
+      await idempotencyRef.set({
+        status: 'SENT', // We use SENT, not DELIVERED since FCM only acknowledges acceptance
         recipientFcmToken: config.recipientFcmToken.slice(0, 10) + '...',
-        title,
-        body,
-        status: 'DELIVERED',
         fcmMessageId: messageId,
         sentAt: new Date().toISOString(),
-        serverTimestamp: FieldValue.serverTimestamp(),
       }, { merge: true });
-    } catch (logErr) {
-      console.warn('[SuperAdmin FCM] Log save warning:', logErr);
+      
+      console.log(`[SuperAdmin FCM] Attendance push sent to Super-Admin device for ${empName} (${payload.eventType}). MessageId: ${messageId}`);
+      return { success: true, messageId };
+    } catch (sendErr: any) {
+      // Mark as failed in Firestore
+      await idempotencyRef.set({
+        status: 'FAILED',
+        error: sendErr?.message || 'FCM delivery failed',
+        failedAt: new Date().toISOString(),
+      }, { merge: true });
+      
+      throw sendErr;
     }
 
-    console.log(`[SuperAdmin FCM] Attendance push sent to Super-Admin device for ${empName} (${payload.eventType}). MessageId: ${messageId}`);
-    return { success: true, messageId };
   } catch (err: any) {
     console.error('[SuperAdmin FCM] Failed to send push notification to Super-Admin:', err);
     return { success: false, reason: err?.message || 'FCM delivery failed' };

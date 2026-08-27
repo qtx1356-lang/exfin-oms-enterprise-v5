@@ -259,7 +259,7 @@ async function runServerAttendanceFinalizer() {
       // Auxiliary Super-Admin Attendance Alert dispatch (FCM, non-blocking)
       if (db) {
         sendSuperAdminAttendanceAlert(db, {
-          eventId,
+          eventId: docSnap.id,
           eventType: 'CHECK_OUT',
           employeeId: data.employeeId,
           employeeCode: data.employeeCode || data.employeeId,
@@ -1049,9 +1049,8 @@ async function startServer() {
             });
 
             // Auxiliary Super-Admin Attendance Alert dispatch (FCM, non-blocking)
-            const alertEventId = `evt_sa_fcm_${employeeId}_${dateStr}_${eventType}_${timeStr.replace(/\s+/g, '_')}`;
             sendSuperAdminAttendanceAlert(db, {
-              eventId: alertEventId,
+              eventId: attDocId,
               eventType: isEntry ? "AUTO_CHECK_IN" : "OUTSIDE_OFFICE",
               employeeId,
               employeeCode: employeeId,
@@ -1467,6 +1466,12 @@ async function startServer() {
     const { fcmToken, deviceModel, devicePlatform } = req.body || {};
     if (!fcmToken || typeof fcmToken !== "string" || fcmToken.trim().length < 10) {
       return res.status(400).json({ error: "Valid FCM push registration token is required" });
+    }
+    
+    // Prevent registering mock/browser tokens as production recipients
+    const tokenLower = fcmToken.trim().toLowerCase();
+    if (tokenLower.startsWith("fcm_web_") || tokenLower.startsWith("fcm_android_") || tokenLower.includes("mock")) {
+      return res.status(400).json({ error: "Cannot register mock or browser-based generated tokens as the production recipient device. Please use a real Android build." });
     }
 
     try {

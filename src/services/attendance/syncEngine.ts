@@ -292,12 +292,12 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
 
           // Non-blocking auxiliary Super-Admin FCM alert dispatch
           try {
-            const alertEventId = `evt_sa_sync_${record.employeeId}_${record.date}_${eventType}_${(record.checkOutTime || record.checkInTime || record.lastExitTime || 'now').replace(/[^a-zA-Z0-9]/g, '_')}`;
+            const authoritativeEventId = record.id || record.docId || `fallback_${record.employeeId}_${record.date}`;
             fetch('/api/attendance/notify-super-admin', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                eventId: alertEventId,
+                eventId: authoritativeEventId,
                 eventType,
                 employeeId: record.employeeId,
                 employeeCode: record.employeeId,
