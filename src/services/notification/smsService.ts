@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/src/utils/apiConfig';
 import { ChannelDeliveryStatus } from '../../types/notification';
 
 export interface SmsPayload {
@@ -24,7 +25,7 @@ export async function dispatchSmsNotification(payload: SmsPayload): Promise<Chan
       return 'NOT_CONFIGURED';
     }
 
-    const res = await fetch('/api/notifications/sms', {
+    const res = await fetch(API_BASE_URL + '/api/notifications/sms', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

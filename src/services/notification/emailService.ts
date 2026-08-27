@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/src/utils/apiConfig';
 import { ChannelDeliveryStatus } from '../../types/notification';
 
 export interface EmailPayload {
@@ -29,7 +30,7 @@ export async function dispatchEmailNotification(payload: EmailPayload): Promise<
     }
 
     // Call server proxy route /api/email if running in node container
-    const res = await fetch('/api/notifications/email', {
+    const res = await fetch(API_BASE_URL + '/api/notifications/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

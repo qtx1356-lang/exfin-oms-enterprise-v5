@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/src/utils/apiConfig';
 import { createNotification, findNotificationByIdempotencyKey } from './notificationService';
 import { sendPushNotification } from './pushNotificationService';
 import { dispatchEmailNotification } from './emailService';
@@ -124,7 +125,7 @@ export async function sendNotification(payload: CentralNotificationPayload): Pro
   if (enableWhatsApp && (mobile || payload.employeeCode)) {
     activeChannels.push('WHATSAPP');
     try {
-      const waRes = await fetch('/api/notifications/whatsapp', {
+      const waRes = await fetch(API_BASE_URL + '/api/notifications/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

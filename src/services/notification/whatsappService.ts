@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/src/utils/apiConfig';
 import { auth } from '../firebase/config';
 import { AttendanceRecord } from '../../types/attendance';
 
@@ -96,7 +97,7 @@ export async function dispatchAttendanceWhatsApp(
       customMessage: extra?.customMessage
     };
 
-    const res = await fetch('/api/notifications/whatsapp', {
+    const res = await fetch(API_BASE_URL + '/api/notifications/whatsapp', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -124,7 +125,7 @@ export async function dispatchAttendanceWhatsApp(
  */
 export async function getWhatsAppAdminConfig(): Promise<WhatsAppClientConfig> {
   const token = await getIdToken();
-  const res = await fetch('/api/admin/whatsapp/config', {
+  const res = await fetch(API_BASE_URL + '/api/admin/whatsapp/config', {
     headers: {
       ...(token ? { 'Authorization': `Bearer ${token}` } : {})
     }
@@ -143,7 +144,7 @@ export async function getWhatsAppAdminConfig(): Promise<WhatsAppClientConfig> {
  */
 export async function saveWhatsAppAdminConfig(update: Partial<WhatsAppClientConfig>): Promise<WhatsAppClientConfig> {
   const token = await getIdToken();
-  const res = await fetch('/api/admin/whatsapp/config', {
+  const res = await fetch(API_BASE_URL + '/api/admin/whatsapp/config', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -173,7 +174,7 @@ export async function sendTestWhatsAppMessage(
   }
 ): Promise<{ success: boolean; message: string; providerMessageId?: string; error?: string }> {
   const token = await getIdToken();
-  const res = await fetch('/api/admin/whatsapp/test', {
+  const res = await fetch(API_BASE_URL + '/api/admin/whatsapp/test', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

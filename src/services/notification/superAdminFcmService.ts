@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/src/utils/apiConfig';
 import { auth } from '../firebase/config';
 import { PushNotifications } from '@capacitor/push-notifications';
 
@@ -55,7 +56,7 @@ export async function getSuperAdminAlertConfig(): Promise<SuperAdminAlertClientC
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch('/api/admin/attendance-alerts/config', {
+  const res = await fetch(API_BASE_URL + '/api/admin/attendance-alerts/config', {
     method: 'GET',
     headers,
   });
@@ -64,7 +65,7 @@ export async function getSuperAdminAlertConfig(): Promise<SuperAdminAlertClientC
   if (!contentType?.includes('application/json')) {
     const text = await res.text();
     console.error('[SuperAdminFcmClient] Non-JSON response received:', text.substring(0, 200));
-    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). Ensure the backend is running.`);
+    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). EXFIN API returned HTML instead of JSON. Check API routing.`);
   }
 
   if (!res.ok) {
@@ -86,7 +87,7 @@ export async function saveSuperAdminAlertConfig(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch('/api/admin/attendance-alerts/config', {
+  const res = await fetch(API_BASE_URL + '/api/admin/attendance-alerts/config', {
     method: 'POST',
     headers,
     body: JSON.stringify(update),
@@ -96,7 +97,7 @@ export async function saveSuperAdminAlertConfig(
   if (!contentType?.includes('application/json')) {
     const text = await res.text();
     console.error('[SuperAdminFcmClient] Non-JSON response received on save:', text.substring(0, 200));
-    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). Ensure the backend is running.`);
+    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). EXFIN API returned HTML instead of JSON. Check API routing.`);
   }
 
   if (!res.ok) {
@@ -170,7 +171,7 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const vapidRes = await fetch('/api/admin/attendance-alerts/vapid-public-key', {
+    const vapidRes = await fetch(API_BASE_URL + '/api/admin/attendance-alerts/vapid-public-key', {
       method: 'GET',
       headers
     });
@@ -197,7 +198,7 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
 
     const subJson = subscription.toJSON();
 
-    const registerRes = await fetch('/api/admin/attendance-alerts/register-web-device', {
+    const registerRes = await fetch(API_BASE_URL + '/api/admin/attendance-alerts/register-web-device', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -208,7 +209,7 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
 
     const contentType = registerRes.headers.get('content-type');
     if (!contentType?.includes('application/json')) {
-      throw new Error(`Attendance alert API returned non-JSON response (${registerRes.status}). Ensure the backend is running.`);
+      throw new Error(`Attendance alert API returned non-JSON response (${registerRes.status}). EXFIN API returned HTML instead of JSON. Check API routing.`);
     }
 
     if (!registerRes.ok) {
@@ -228,7 +229,7 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch('/api/admin/attendance-alerts/register-device', {
+  const res = await fetch(API_BASE_URL + '/api/admin/attendance-alerts/register-device', {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -242,7 +243,7 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
   if (!contentType?.includes('application/json')) {
     const text = await res.text();
     console.error('[SuperAdminFcmClient] Non-JSON response received on register:', text.substring(0, 200));
-    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). Ensure the backend is running.`);
+    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). EXFIN API returned HTML instead of JSON. Check API routing.`);
   }
 
   if (!res.ok) {
@@ -271,7 +272,7 @@ export async function sendSuperAdminTestAlert(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch('/api/admin/attendance-alerts/test', {
+  const res = await fetch(API_BASE_URL + '/api/admin/attendance-alerts/test', {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -285,7 +286,7 @@ export async function sendSuperAdminTestAlert(
   if (!contentType?.includes('application/json')) {
     const text = await res.text();
     console.error('[SuperAdminFcmClient] Non-JSON response received on test:', text.substring(0, 200));
-    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). Ensure the backend is running.`);
+    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). EXFIN API returned HTML instead of JSON. Check API routing.`);
   }
 
   if (!res.ok) {

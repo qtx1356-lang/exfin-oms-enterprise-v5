@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/src/utils/apiConfig';
 import { getNotificationSettings } from './notificationSettings';
 import { NotificationPriority, NotificationRecord } from '../../types/notification';
 import { NOTIFICATION_SOUND_DATA_URI } from './alertSoundAsset';
@@ -50,7 +51,7 @@ export const playFemaleVoiceAnnouncement = async (
       let audioToPlay: string | null = null;
       if (text && navigator.onLine) {
         try {
-          const res = await fetch('/api/tts/welcome', {
+          const res = await fetch(API_BASE_URL + '/api/tts/welcome', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text })

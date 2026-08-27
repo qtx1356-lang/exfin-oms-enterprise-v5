@@ -298,11 +298,12 @@ async function startServer() {
   // Health check endpoint
   app.get("/api/health", (req, res) => {
     res.json({
-      status: "ok",
-      service: "exfin-oms-backend",
+      success: true,
+      service: "EXFIN OMS API",
       firebaseAdminInitialized: !!db,
       firebaseAuthInitialized: !!authAdmin,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      environment: "production"
     });
   });
 

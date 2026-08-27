@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/src/utils/apiConfig';
 import { auth, db } from '../firebase/config';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { doc, getDoc, setDoc, getDocs, collection } from 'firebase/firestore';
@@ -114,7 +115,7 @@ export async function changeOwnPassword(currentPassword: string, newPassword: st
   const nowIso = new Date().toISOString();
 
   try {
-    const res = await fetch('/api/admin/password-changed', {
+    const res = await fetch(API_BASE_URL + '/api/admin/password-changed', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -173,7 +174,7 @@ export async function superAdminResetPassword(
 
   const token = await auth.currentUser.getIdToken();
 
-  const response = await fetch('/api/admin/super-admin/reset-password', {
+  const response = await fetch(API_BASE_URL + '/api/admin/super-admin/reset-password', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -199,7 +200,7 @@ export async function fetchAdminSecurityUsers(): Promise<AdminSecurityUser[]> {
 
   try {
     const token = await auth.currentUser.getIdToken();
-    const res = await fetch('/api/admin/super-admin/admin-users', {
+    const res = await fetch(API_BASE_URL + '/api/admin/super-admin/admin-users', {
       headers: {
         Authorization: `Bearer ${token}`,
       },

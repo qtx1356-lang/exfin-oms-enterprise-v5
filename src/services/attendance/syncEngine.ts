@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/src/utils/apiConfig';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { AttendanceRecord } from '../../types/attendance';
@@ -293,7 +294,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           // Non-blocking auxiliary Super-Admin FCM alert dispatch
           try {
             const authoritativeEventId = record.id || record.docId || `fallback_${record.employeeId}_${record.date}`;
-            fetch('/api/attendance/notify-super-admin', {
+            fetch(API_BASE_URL + '/api/attendance/notify-super-admin', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
