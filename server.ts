@@ -1638,6 +1638,11 @@ async function startServer() {
     }
   }));
 
+  // Catch-all for unresolved API endpoints to prevent HTML SPA fallback intercepting them
+  app.all('/api/*', (req, res) => {
+    return res.status(404).json({ success: false, error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

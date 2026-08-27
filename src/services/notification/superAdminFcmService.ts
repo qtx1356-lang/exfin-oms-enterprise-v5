@@ -59,13 +59,20 @@ export async function getSuperAdminAlertConfig(): Promise<SuperAdminAlertClientC
     headers,
   });
 
+  const contentType = res.headers.get('content-type');
+  if (!contentType?.includes('application/json')) {
+    const text = await res.text();
+    console.error('[SuperAdminFcmClient] Non-JSON response received:', text.substring(0, 200));
+    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). Ensure the backend is running.`);
+  }
+
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.error || `HTTP error ${res.status}`);
   }
 
   const data = await res.json();
-  return data.config;
+  return data.config || { enabled: false, notifyCheckIn: false, notifyCheckOut: false, notifyOfficeExit: false, recipientRegistered: false };
 }
 
 /**
@@ -83,6 +90,13 @@ export async function saveSuperAdminAlertConfig(
     headers,
     body: JSON.stringify(update),
   });
+
+  const contentType = res.headers.get('content-type');
+  if (!contentType?.includes('application/json')) {
+    const text = await res.text();
+    console.error('[SuperAdminFcmClient] Non-JSON response received on save:', text.substring(0, 200));
+    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). Ensure the backend is running.`);
+  }
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
@@ -122,11 +136,8 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
       // Wait for registration token or retrieve from native cache
       fcmToken = await new Promise<string>((resolve, reject) => {
         const timer = setTimeout(() => {
-          // Fallback to local storage or fallback generated token
-          const existing = localStorage.getItem('super_admin_fcm_token');
-          if (existing) resolve(existing);
-          else resolve(`fcm_android_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
-        }, 3500);
+          reject(new Error('Capacitor push registration timed out'));
+        }, 8000);
 
         PushNotifications.addListener('registration', (tokenObj) => {
           clearTimeout(timer);
@@ -140,17 +151,12 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
         });
       });
     } catch (capErr: any) {
-      console.warn('[SuperAdmin FCM] Capacitor registration warning:', capErr);
-      fcmToken = localStorage.getItem('super_admin_fcm_token') || `fcm_android_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      console.warn('[SuperAdmin FCM] Capacitor registration error:', capErr);
+      throw capErr;
     }
   } else {
-    // Web environment: retrieve or generate a token
-    let stored = localStorage.getItem('super_admin_fcm_token');
-    if (!stored) {
-      stored = `fcm_web_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-      localStorage.setItem('super_admin_fcm_token', stored);
-    }
-    fcmToken = stored;
+    // Web environment: do NOT generate a fake token
+    throw new Error('Device registration requires the EXFIN Android app. You cannot register a web browser to receive push alerts.');
   }
 
   const token = await getIdToken();
@@ -166,6 +172,13 @@ export async function registerThisDeviceAsAlertRecipient(): Promise<{
       devicePlatform,
     }),
   });
+
+  const contentType = res.headers.get('content-type');
+  if (!contentType?.includes('application/json')) {
+    const text = await res.text();
+    console.error('[SuperAdminFcmClient] Non-JSON response received on register:', text.substring(0, 200));
+    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). Ensure the backend is running.`);
+  }
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
@@ -202,6 +215,13 @@ export async function sendSuperAdminTestAlert(
       body,
     }),
   });
+
+  const contentType = res.headers.get('content-type');
+  if (!contentType?.includes('application/json')) {
+    const text = await res.text();
+    console.error('[SuperAdminFcmClient] Non-JSON response received on test:', text.substring(0, 200));
+    throw new Error(`Attendance alert API returned non-JSON response (${res.status}). Ensure the backend is running.`);
+  }
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
