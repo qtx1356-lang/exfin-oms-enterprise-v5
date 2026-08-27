@@ -17,6 +17,12 @@ import {
   DEFAULT_META_TEMPLATES,
   ALLOWED_ATTENDANCE_EVENT_TYPES
 } from "./server/services/whatsappService";
+import {
+  getSuperAdminAlertConfig,
+  saveSuperAdminAlertConfig,
+  sendSuperAdminAttendanceAlert,
+  sendSuperAdminTestPush
+} from "./server/services/superAdminFcmService";
 
 const OFFICE_LAT = 23.616227;
 const OFFICE_LNG = 87.117063;
@@ -249,6 +255,27 @@ async function runServerAttendanceFinalizer() {
       });
 
       console.log(`[ServerFinalizer] Settled attendance for ${data.employeeId} on ${recDate} at ${finalCheckoutTime} (Evidence: SERVER_FINALIZATION, Source: ${resolutionSource})`);
+
+      // Auxiliary Super-Admin Attendance Alert dispatch (FCM, non-blocking)
+      if (db) {
+        sendSuperAdminAttendanceAlert(db, {
+          eventId,
+          eventType: 'CHECK_OUT',
+          employeeId: data.employeeId,
+          employeeCode: data.employeeCode || data.employeeId,
+          employeeName: data.employeeName || 'Employee',
+          attendanceType: data.attendanceType || 'OFFICE',
+          checkInTime: data.checkInTime,
+          checkOutTime: finalCheckoutTime,
+          recordedExitTime: genuineExitTime || finalCheckoutTime,
+          workingHours: workingHours || undefined,
+          townCity: data.townCity || 'Raniganj HQ',
+          distance: data.distance || 0,
+          source: resolutionSource
+        }).catch((alertErr) => {
+          console.warn("[ServerFinalizer] Super-Admin FCM alert warning (non-fatal):", alertErr);
+        });
+      }
     }
   } catch (err: any) {
     if (err?.code === 7 || err?.message?.includes("PERMISSION_DENIED") || err?.message?.includes("7 PERMISSION_DENIED")) {
@@ -1020,6 +1047,25 @@ async function startServer() {
             }).catch((waErr) => {
               console.warn("[BackgroundAttendance] Auxiliary WhatsApp dispatch warning (non-fatal):", waErr);
             });
+
+            // Auxiliary Super-Admin Attendance Alert dispatch (FCM, non-blocking)
+            const alertEventId = `evt_sa_fcm_${employeeId}_${dateStr}_${eventType}_${timeStr.replace(/\s+/g, '_')}`;
+            sendSuperAdminAttendanceAlert(db, {
+              eventId: alertEventId,
+              eventType: isEntry ? "AUTO_CHECK_IN" : "OUTSIDE_OFFICE",
+              employeeId,
+              employeeCode: employeeId,
+              employeeName,
+              attendanceType: "OFFICE",
+              checkInTime: isEntry ? timeStr : undefined,
+              recordedExitTime: isEntry ? undefined : timeStr,
+              distance: isLocationUnavailable ? null : Math.round(distance!),
+              townCity: townCity || "Raniganj HQ",
+              eventTime: timeStr,
+              source: "BACKGROUND_GEOFENCE"
+            }).catch((fcmErr) => {
+              console.warn("[BackgroundAttendance] Super-Admin FCM alert warning (non-fatal):", fcmErr);
+            });
           } catch (waTriggerErr) {
             console.warn("[BackgroundAttendance] Non-fatal WhatsApp trigger error:", waTriggerErr);
           }
@@ -1316,6 +1362,251 @@ async function startServer() {
     } catch (err: any) {
       console.error("[WhatsApp Admin] Error sending test message:", err);
       return res.status(500).json({ error: err.message || "Failed to execute WhatsApp test dispatch" });
+    }
+  });
+
+  // =======================================================
+  // SUPER-ADMIN REAL-TIME ATTENDANCE FCM ALERT API ROUTES
+  // =======================================================
+
+  // 1. Super-Admin: Get Attendance Alert Configuration
+  app.get("/api/admin/attendance-alerts/config", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller || !caller.isAdmin) {
+      return res.status(401).json({ error: "Unauthorized access: Valid Admin token required" });
+    }
+
+    if (!db) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+
+    try {
+      const config = await getSuperAdminAlertConfig(db);
+      return res.json({
+        success: true,
+        config
+      });
+    } catch (err: any) {
+      console.error("[SuperAdmin Alert API] Error fetching config:", err);
+      return res.status(500).json({ error: "Failed to fetch attendance alert configuration" });
+    }
+  });
+
+  // 2. Super-Admin: Save Attendance Alert Configuration
+  app.post("/api/admin/attendance-alerts/config", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller || !caller.isSuperAdmin) {
+      return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
+    }
+
+    if (!db) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+
+    try {
+      const updateData = req.body || {};
+      const updatedConfig = await saveSuperAdminAlertConfig(
+        db,
+        {
+          enabled: updateData.enabled,
+          recipientUid: updateData.recipientUid || caller.uid,
+          recipientName: updateData.recipientName || caller.loginId || caller.email || "Super Admin",
+          recipientEmail: updateData.recipientEmail || caller.email || "",
+          recipientFcmToken: updateData.recipientFcmToken,
+          deviceModel: updateData.deviceModel,
+          devicePlatform: updateData.devicePlatform || "android",
+          notifyCheckIn: updateData.notifyCheckIn !== false,
+          notifyCheckOut: updateData.notifyCheckOut !== false,
+          notifyOfficeExit: updateData.notifyOfficeExit !== false
+        },
+        caller.email || caller.loginId || "SUPER_ADMIN"
+      );
+
+      // Record Audit Log
+      try {
+        const auditRef = db.collection("audit_logs").doc();
+        await auditRef.set({
+          id: auditRef.id,
+          actionCategory: "SYSTEM_SETTINGS",
+          action: "Updated Super-Admin Attendance Alert Configuration",
+          performedByUserId: caller.loginId || caller.uid,
+          performedByName: caller.email || caller.loginId || "Super Admin",
+          timestamp: new Date().toISOString(),
+          details: {
+            enabled: updatedConfig.enabled,
+            recipientUid: updatedConfig.recipientUid,
+            hasToken: !!updatedConfig.recipientFcmToken,
+            deviceModel: updatedConfig.deviceModel
+          }
+        });
+      } catch (auditErr) {
+        console.warn("[SuperAdmin Alert API] Audit log warning:", auditErr);
+      }
+
+      return res.json({
+        success: true,
+        config: updatedConfig
+      });
+    } catch (err: any) {
+      console.error("[SuperAdmin Alert API] Error saving config:", err);
+      return res.status(500).json({ error: "Failed to save attendance alert configuration" });
+    }
+  });
+
+  // 3. Super-Admin: Register Current Device FCM Token
+  app.post("/api/admin/attendance-alerts/register-device", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller || !caller.isSuperAdmin) {
+      return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
+    }
+
+    if (!db) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+
+    const { fcmToken, deviceModel, devicePlatform } = req.body || {};
+    if (!fcmToken || typeof fcmToken !== "string" || fcmToken.trim().length < 10) {
+      return res.status(400).json({ error: "Valid FCM push registration token is required" });
+    }
+
+    try {
+      const updatedConfig = await saveSuperAdminAlertConfig(
+        db,
+        {
+          enabled: true,
+          recipientUid: caller.uid,
+          recipientName: caller.loginId || caller.email || "Super Admin",
+          recipientEmail: caller.email || "",
+          recipientFcmToken: fcmToken.trim(),
+          deviceModel: deviceModel || "Android Device",
+          devicePlatform: devicePlatform || "android"
+        },
+        caller.email || caller.loginId || "SUPER_ADMIN"
+      );
+
+      // Record Audit Log
+      try {
+        const auditRef = db.collection("audit_logs").doc();
+        await auditRef.set({
+          id: auditRef.id,
+          actionCategory: "SYSTEM_SETTINGS",
+          action: "Registered Super-Admin Attendance Alert Device Token",
+          performedByUserId: caller.loginId || caller.uid,
+          performedByName: caller.email || caller.loginId || "Super Admin",
+          timestamp: new Date().toISOString(),
+          details: {
+            recipientUid: caller.uid,
+            deviceModel: deviceModel || "Android Device",
+            platform: devicePlatform || "android"
+          }
+        });
+      } catch (e) {}
+
+      return res.json({
+        success: true,
+        message: "Device registered as designated Super-Admin alert recipient",
+        config: updatedConfig
+      });
+    } catch (err: any) {
+      console.error("[SuperAdmin Alert API] Error registering device token:", err);
+      return res.status(500).json({ error: "Failed to register Super-Admin device token" });
+    }
+  });
+
+  // 4. Super-Admin: Send Live Test Push to Super-Admin Device
+  app.post("/api/admin/attendance-alerts/test", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller || !caller.isSuperAdmin) {
+      return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
+    }
+
+    if (!db) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+
+    const { token, title, body } = req.body || {};
+
+    try {
+      const result = await sendSuperAdminTestPush(db, token, title, body);
+      if (result.success) {
+        // Record Audit Log
+        try {
+          const auditRef = db.collection("audit_logs").doc();
+          await auditRef.set({
+            id: auditRef.id,
+            actionCategory: "SYSTEM_SETTINGS",
+            action: "Sent Super-Admin Test Attendance Alert Push",
+            performedByUserId: caller.loginId || caller.uid,
+            performedByName: caller.email || caller.loginId || "Super Admin",
+            timestamp: new Date().toISOString(),
+            details: {
+              messageId: result.messageId
+            }
+          });
+        } catch (e) {}
+
+        return res.json({
+          success: true,
+          message: "Test push notification delivered to Super-Admin device successfully!",
+          messageId: result.messageId
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: result.error || "Failed to dispatch test push notification"
+        });
+      }
+    } catch (err: any) {
+      console.error("[SuperAdmin Alert API] Error sending test alert:", err);
+      return res.status(500).json({ error: err.message || "Failed to execute test alert dispatch" });
+    }
+  });
+
+  // 5. Attendance Event Alert Trigger (Auxiliary & Non-Blocking)
+  app.post("/api/attendance/notify-super-admin", async (req, res) => {
+    if (!db) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+
+    try {
+      const payload = req.body;
+      if (!payload || !payload.eventType || !payload.employeeId) {
+        return res.status(400).json({ error: "Invalid payload: eventType and employeeId are required" });
+      }
+
+      // Lookup registration doc if employeeName/Code not passed
+      let empName = payload.employeeName;
+      let empCode = payload.employeeCode;
+      let townCity = payload.townCity;
+
+      if (!empName || !empCode) {
+        try {
+          const docSnap = await db.collection("registrations").doc(payload.employeeId).get();
+          if (docSnap.exists) {
+            const rData = docSnap.data() || {};
+            empName = empName || rData.name;
+            empCode = empCode || rData.employeeCode || payload.employeeId;
+            townCity = townCity || rData.townCity;
+          }
+        } catch (e) {}
+      }
+
+      const alertResult = await sendSuperAdminAttendanceAlert(db, {
+        ...payload,
+        employeeName: empName || "Employee",
+        employeeCode: empCode || payload.employeeId,
+        townCity: townCity || "Raniganj HQ"
+      });
+
+      return res.json({
+        success: alertResult.success,
+        skipped: alertResult.skipped,
+        messageId: alertResult.messageId,
+        reason: alertResult.reason
+      });
+    } catch (err: any) {
+      console.error("[Attendance Alert API] Error dispatching alert:", err);
+      return res.status(500).json({ error: err.message || "Internal server error dispatching alert" });
     }
   });
 

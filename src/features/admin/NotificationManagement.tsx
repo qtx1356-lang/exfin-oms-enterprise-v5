@@ -15,6 +15,7 @@ import {
 import { NotificationDeliveryLog } from './NotificationDeliveryLog';
 import { NotificationMatrixTab } from './NotificationMatrixTab';
 import { WhatsAppConfigTab } from './WhatsAppConfigTab';
+import { SuperAdminAttendanceAlertTab } from './SuperAdminAttendanceAlertTab';
 
 // Helper functions for robust Date/Timestamp conversions to handle both Firestore Timestamp and ISO string formats
 const getScheduledDate = (val: any): Date | null => {
@@ -115,7 +116,7 @@ export const NotificationManagement: React.FC = () => {
   const { isSuperAdmin, isAdmin } = usePermission();
   const { user: adminUser, loginId } = useAdminAuth();
 
-  const [activeTab, setActiveTab] = useState<'compose' | 'active' | 'history' | 'delivery' | 'matrix' | 'whatsapp'>('compose');
+  const [activeTab, setActiveTab] = useState<'compose' | 'active' | 'history' | 'delivery' | 'matrix' | 'whatsapp' | 'superadmin_alerts'>('compose');
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -700,6 +701,14 @@ export const NotificationManagement: React.FC = () => {
             <Send className="w-3.5 h-3.5 text-emerald-400" />
             <span>WhatsApp Settings</span>
           </Button>
+          <Button 
+            onClick={() => setActiveTab('superadmin_alerts')} 
+            variant={activeTab === 'superadmin_alerts' ? 'primary' : 'secondary'}
+            className="text-xs flex items-center gap-1.5"
+          >
+            <Bell className="w-3.5 h-3.5 text-purple-400" />
+            <span>Attendance Push Alerts</span>
+          </Button>
         </div>
       </div>
 
@@ -725,6 +734,9 @@ export const NotificationManagement: React.FC = () => {
           <button onClick={() => setErrorMessage(null)} className="ml-auto text-purple-300/60 hover:text-white">&times;</button>
         </div>
       )}
+
+      {/* SUPER-ADMIN ATTENDANCE PUSH ALERTS TAB */}
+      {activeTab === 'superadmin_alerts' && <SuperAdminAttendanceAlertTab />}
 
       {/* COMPOSE TAB */}
       {activeTab === 'compose' && (
