@@ -52,8 +52,31 @@ async function getIdToken(): Promise<string | null> {
  * Internal helper to perform fetch with strict JSON response verification and clear diagnostics
  */
 async function fetchJson(url: string, options: RequestInit = {}): Promise<any> {
-  const res = await fetch(url, options);
+  const method = options.method || 'GET';
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'server';
+
+  let res: Response;
+  try {
+    res = await fetch(url, options);
+  } catch (err: any) {
+    console.error('[EXFIN API] FETCH FAILED:', {
+      method,
+      fullUrl: url,
+      origin,
+      error: err?.message || String(err),
+    });
+    throw err;
+  }
+
   const contentType = res.headers.get('content-type') || 'unknown';
+
+  console.log('[EXFIN API]', {
+    method,
+    fullUrl: url,
+    origin,
+    status: res.status,
+    contentType,
+  });
 
   if (!contentType.includes('application/json')) {
     const preview = await res.text().catch(() => '');
