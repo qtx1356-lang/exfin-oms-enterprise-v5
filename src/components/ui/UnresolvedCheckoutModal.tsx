@@ -69,11 +69,11 @@ export const UnresolvedCheckoutModal: React.FC<Props> = ({ isOpen, onClose, reco
 
   return (
     <Dialog isOpen={isOpen} onClose={onClose} title="Checkout Pending" hideDefaultFooter>
-      <div className="space-y-4 text-[#FFFFFF]">
-        <p className="text-sm text-[#C7C7C7]">
+      <div className="space-y-4 text-[#F8F8FF]">
+        <p className="text-sm text-[#B9B9D0]">
           No checkout was recorded for today's Office attendance and no office exit was detected.
         </p>
-        <p className="text-sm text-[#C7C7C7]">
+        <p className="text-sm text-[#B9B9D0]">
           Enter the time you actually checked out. This will be recorded as an employee-reported checkout and will remain unresolved for verification.
         </p>
 
@@ -85,21 +85,21 @@ export const UnresolvedCheckoutModal: React.FC<Props> = ({ isOpen, onClose, reco
         )}
 
         <div>
-          <label className="block text-xs font-bold text-[#8A8A8A] uppercase tracking-wider mb-1.5">Checkout Time</label>
+          <label className="block text-xs font-bold text-[#8A8AA3] uppercase tracking-wider mb-1.5">Checkout Time</label>
           <div className="relative">
-            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#D4AF37]" />
+            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#818CF8]" />
             <input
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-[#121212] border border-[#292929] text-[#FFFFFF] rounded-xl focus:outline-none focus:border-[#D4AF37] transition-colors"
+              className="w-full pl-9 pr-4 py-2.5 bg-[#171936] border border-[#6366F1]/20 text-[#F8F8FF] rounded-xl focus:outline-none focus:border-[#6366F1] transition-colors"
             />
           </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outlined" onClick={onClose} className="border-[#292929] text-[#C7C7C7] hover:bg-[#1B1B1B] cursor-pointer">Cancel</Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting} variant="filled" className="bg-[#D4AF37] text-black font-bold flex items-center gap-1 cursor-pointer">
+          <Button variant="outlined" onClick={onClose} className="border-[#6366F1]/20 text-[#B9B9D0] hover:bg-[#1E1F41] cursor-pointer">Cancel</Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting} variant="filled" className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white font-bold flex items-center gap-1 cursor-pointer">
             <Check className="w-4 h-4" />
             {isSubmitting ? 'Submitting...' : 'Enter Checkout Time'}
           </Button>
