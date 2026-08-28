@@ -11,11 +11,11 @@ const config = {
     },
     LocalNotifications: {
       smallIcon: "ic_stat_onesignal_default",
-      iconColor: "#D4AF37",
+      iconColor: "#6366F1",
       sound: "notification.wav"
     }
   },
-  backgroundColor: "#080808"
+  backgroundColor: "#0F1025"
 };
 
 export default config;

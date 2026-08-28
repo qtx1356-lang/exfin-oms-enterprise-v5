@@ -53,7 +53,7 @@ export const LocationGate: React.FC = () => {
   const showUnavailable = isLocationUnavailable || (!showPermissionDenied && !showGpsOff);
 
   return (
-    <div className="fixed inset-0 z-[9999] min-h-screen bg-[#080808] flex flex-col items-center justify-center p-4 text-[#FFFFFF]">
+    <div className="fixed inset-0 z-[9999] min-h-screen bg-[#0F1025] flex flex-col items-center justify-center p-4 text-[#F8F8FF]">
       {/* Background ambient lighting */}
       <div className="fixed top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-[#D4AF37]/5 rounded-full blur-[120px] pointer-events-none" />
 

@@ -13,7 +13,7 @@ export const SplashScreen: React.FC<{ onFinish: () => void }> = ({ onFinish }) =
     <motion.div 
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-[#0B0C10] flex flex-col items-center justify-center z-50 text-[#F8F8FF]"
+      className="fixed inset-0 bg-[#0F1025] flex flex-col items-center justify-center z-50 text-[#F8F8FF]"
     >
       <motion.div
         initial={{ scale: 0.85, opacity: 0 }}

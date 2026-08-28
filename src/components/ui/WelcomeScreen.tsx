@@ -104,7 +104,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const isLocationError = (locationStatus === 'error' || isPermissionDenied || isGpsOff || isLocationUnavailable || isOffline) && distance === null;
 
   return (
-    <div className="fixed inset-0 bg-[#0B0C10] flex flex-col items-center justify-between p-4 sm:p-6 z-40 text-[#F8F8FF] overflow-y-auto relative">
+    <div className="fixed inset-0 bg-[#0F1025] flex flex-col items-center justify-between p-4 sm:p-6 z-40 text-[#F8F8FF] overflow-y-auto relative">
       {/* Time-of-Day Welcome Alert Toast */}
       {showAlertToast && (
         <div className="absolute top-4 left-4 right-4 z-50 mx-auto max-w-sm bg-[#171936]/90 border border-[#6366F1]/40 text-white p-3.5 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-md">

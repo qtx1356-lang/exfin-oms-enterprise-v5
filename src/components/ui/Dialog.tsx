@@ -12,7 +12,7 @@ export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-[#0B0C10]/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-[#0F1025]/85 backdrop-blur-md animate-in fade-in duration-200">
       <div className="bg-[#1E1F41]/90 backdrop-blur-[16px] border border-[#6366F1]/30 w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col rounded-[20px] p-0 shadow-2xl animate-in zoom-in-95 duration-200 text-[#F8F8FF]">
         <div className="p-5 pb-4 flex-shrink-0 border-b border-[#6366F1]/20 flex items-center justify-between bg-[#171936]">
           <h2 className="text-base font-bold text-[#F8F8FF] tracking-tight">{title}</h2>

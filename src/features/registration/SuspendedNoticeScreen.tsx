@@ -8,8 +8,8 @@ export const SuspendedNoticeScreen: React.FC = () => {
   const { rejectionReason, resetRegistration } = useRegistration();
 
   return (
-    <div className="min-h-screen bg-[#080808] text-[#FFFFFF] p-4 flex flex-col items-center justify-center font-sans">
-      <Card className="max-w-md w-full p-8 text-center flex flex-col items-center bg-[#151515] border border-[#F59E0B]/35 shadow-2xl rounded-3xl">
+    <div className="min-h-screen bg-[#0F1025] text-[#F8F8FF] p-4 flex flex-col items-center justify-center font-sans">
+      <Card className="max-w-md w-full p-8 text-center flex flex-col items-center bg-[#1E1F41]/80 border border-[#6366F1]/20 shadow-2xl rounded-3xl backdrop-blur-md">
         <div className="w-20 h-20 bg-[#F59E0B]/15 border border-[#F59E0B]/35 rounded-full flex items-center justify-center mb-6 shadow-xl">
           <AlertOctagon className="w-10 h-10 text-[#F59E0B]" />
         </div>

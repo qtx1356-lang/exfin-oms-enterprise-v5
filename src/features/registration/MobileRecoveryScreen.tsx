@@ -32,7 +32,7 @@ export const MobileRecoveryScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#080808] text-[#FFFFFF] p-4 flex flex-col justify-center items-center font-sans">
+    <div className="min-h-screen bg-[#0F1025] text-[#F8F8FF] p-4 flex flex-col justify-center items-center font-sans">
       <div className="max-w-md w-full space-y-6">
         
         <div className="text-center space-y-2">

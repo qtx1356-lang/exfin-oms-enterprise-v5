@@ -28,14 +28,14 @@ export const AdminLogin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] flex flex-col items-center justify-center p-4 text-white">
-      <Card className="max-w-md w-full p-8 space-y-6 bg-[#151515] border border-[#292929] shadow-2xl rounded-[28px]">
+    <div className="min-h-screen bg-[#0F1025] flex flex-col items-center justify-center p-4 text-[#F8F8FF]">
+      <Card className="max-w-md w-full p-8 space-y-6 bg-[#1E1F41]/80 backdrop-blur-[14px] border border-[#6366F1]/30 shadow-2xl rounded-[28px]">
         <div className="text-center">
-          <div className="w-16 h-16 bg-[#D4AF37] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_0_25px_rgba(212,175,55,0.3)]">
-            <ShieldCheck className="w-9 h-9 text-[#080808]" />
+          <div className="w-16 h-16 bg-[#6366F1] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_0_25px_rgba(99,102,241,0.4)]">
+            <ShieldCheck className="w-9 h-9 text-[#FFFFFF]" />
           </div>
-          <h1 className="text-2xl font-black text-white tracking-tight">Admin Portal</h1>
-          <p className="text-[#C7C7C7]/80 text-xs mt-1.5 font-medium">Enterprise Management System v6.0</p>
+          <h1 className="text-2xl font-black text-[#F8F8FF] tracking-tight">Admin Portal</h1>
+          <p className="text-[#B9B9D0] text-xs mt-1.5 font-medium">Enterprise Management System v6.0</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

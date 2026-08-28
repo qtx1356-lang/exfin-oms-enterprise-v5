@@ -42,7 +42,7 @@ const AdminProtectedRoute = () => {
 
   if (adminProfileError || (role !== 'ADMIN' && role !== 'SUPER_ADMIN' && role !== 'HR')) {
     return (
-      <div className="min-h-screen bg-[#0B0C10] flex flex-col items-center justify-center p-4 text-[#F8F8FF]">
+      <div className="min-h-screen bg-[#0F1025] flex flex-col items-center justify-center p-4 text-[#F8F8FF]">
         <Card className="max-w-md w-full p-8 space-y-6 bg-[#1E1F41]/80 backdrop-blur-[14px] border border-[#6366F1]/30 shadow-2xl rounded-[28px] text-center">
           <div className="w-16 h-16 bg-[#6366F1]/10 border border-[#6366F1]/30 rounded-2xl flex items-center justify-center mx-auto shadow-[0_0_25px_rgba(99,102,241,0.2)]">
             <ShieldAlert className="w-9 h-9 text-[#818CF8]" />

@@ -5,14 +5,26 @@ const DYNAMIC_CACHE_NAME = 'exfin-oms-v15-dynamic-v15';
 
 // Core Application Shell Assets (Injected during build by Vite plugin)
 const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/favicon.ico',
+  "/",
+  "/index.html",
+  "/manifest.json",
+  "/favicon.ico",
+  "/assets/centralNotificationService-Cp7yIlGQ.js",
+  "/assets/html2canvas.esm-QH1iLAAe.js",
+  "/assets/index-BPaptBSB.js",
+  "/assets/index-BcXXebAA.js",
+  "/assets/index-D9cnsoeD.js",
+  "/assets/index-lISAS8s0.css",
+  "/assets/index.es-D_1sO-ka.js",
+  "/assets/purify.es-DP5U8-sc.js",
+  "/assets/web-C2vJgmiM.js",
+  "/assets/web-C_nx7ta-.js",
+  "/assets/web-CtHiQTh9.js",
+  "/assets/web-LteW1msW.js"
 ];
 
 // Fallback Embedded App Shell HTML (Injected during build by Vite plugin)
-let fallbackAppShellText = '';
+let fallbackAppShellText = "<!-- OFFLINE-FIRST CORE REQUIREMENT: APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. NETWORK FAILURE MUST NEVER REDIRECT TO OR REPLACE THE NORMAL APPLICATION SHELL WITH AN OFFLINE PAGE. -->\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no\" />\n    <meta name=\"theme-color\" content=\"#0F1025\" />\n    <link rel=\"manifest\" href=\"/manifest.json\" />\n    <title>Office Management System v6.0</title>\n    <script>\n      window.__EXFIN_STARTUP_COUNT = (window.__EXFIN_STARTUP_COUNT || 0) + 1;\n      console.log('[OFFLINE-ROOT] JavaScript bundle executed, count:', window.__EXFIN_STARTUP_COUNT);\n      window.addEventListener('DOMContentLoaded', function() {\n        console.log('[OFFLINE-ROOT] DOMContentLoaded');\n      });\n\n      if ('serviceWorker' in navigator) {\n        navigator.serviceWorker.register('/service-worker.js', { scope: '/' })\n          .then(function (registration) {\n            if (registration.active) {\n              console.log('[STARTUP_PERF] [PWA_CACHE_READY] Service worker active and cache ready');\n            }\n            registration.onupdatefound = function () {\n              var installingWorker = registration.installing;\n              if (installingWorker) {\n                installingWorker.onstatechange = function () {\n                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {\n                    console.log('[STARTUP_PERF] [SERVICE_WORKER_UPDATED] New service worker version installed');\n                  }\n                };\n              }\n            };\n            registration.update().catch(function () {});\n          })\n          .catch(function (err) {\n            console.warn('Service worker registration failed:', err);\n          });\n      }\n    </script>\n    <script type=\"module\" crossorigin src=\"/assets/index-BPaptBSB.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-lISAS8s0.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  </body>\n</html>\n";
 
 // Helper to create synthetic HTML response
 function createSyntheticAppShellResponse(htmlText) {
