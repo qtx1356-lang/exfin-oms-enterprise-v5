@@ -27,8 +27,8 @@ function createSyntheticAppShellResponse(htmlText) {
   });
 }
 
-// Helper to search across ALL caches in CacheStorage for an asset
-async function matchAcrossAllCaches(requestOrUrl) {
+// Helper to search current active caches in CacheStorage for an asset
+async function matchCurrentCache(requestOrUrl) {
   // 1. Try current primary cache
   const primaryCache = await caches.open(CACHE_NAME);
   const primaryMatch = await primaryCache.match(requestOrUrl, { ignoreSearch: true });
@@ -38,22 +38,6 @@ async function matchAcrossAllCaches(requestOrUrl) {
   const dynamicCache = await caches.open(DYNAMIC_CACHE_NAME);
   const dynamicMatch = await dynamicCache.match(requestOrUrl, { ignoreSearch: true });
   if (dynamicMatch) return dynamicMatch;
-
-  // 3. Fallback across all other registered caches (legacy or transitional)
-  const allCacheNames = await caches.keys();
-  for (const name of allCacheNames) {
-    if (name !== CACHE_NAME && name !== DYNAMIC_CACHE_NAME) {
-      try {
-        const c = await caches.open(name);
-        const match = await c.match(requestOrUrl, { ignoreSearch: true });
-        if (match) {
-          // Promote into primary cache for faster next access
-          primaryCache.put(requestOrUrl, match.clone()).catch(() => {});
-          return match;
-        }
-      } catch (e) {}
-    }
-  }
 
   return null;
 }
@@ -283,7 +267,7 @@ self.addEventListener('fetch', (event) => {
         }
 
         // OFFLINE: If network fails, serve last known-good cached index.html
-        const cachedHtml = await matchAcrossAllCaches('/index.html') || await matchAcrossAllCaches('/');
+        const cachedHtml = await matchCurrentCache('/index.html') || await matchCurrentCache('/');
         if (cachedHtml) {
           return cachedHtml;
         }
@@ -319,8 +303,8 @@ self.addEventListener('fetch', (event) => {
   if (isStaticAsset) {
     event.respondWith(
       (async () => {
-        // 1. Try cache match first across all caches
-        const cachedResponse = await matchAcrossAllCaches(request) || await matchAcrossAllCaches(url.pathname);
+        // 1. Try cache match first across current active caches
+        const cachedResponse = await matchCurrentCache(request) || await matchCurrentCache(url.pathname);
         if (cachedResponse) {
           return cachedResponse;
         }
@@ -364,7 +348,7 @@ self.addEventListener('fetch', (event) => {
           }
 
           // 3. Fallback: match by pathname without query params
-          const pathnameMatch = await matchAcrossAllCaches(url.pathname);
+          const pathnameMatch = await matchCurrentCache(url.pathname);
           if (pathnameMatch) {
             return pathnameMatch;
           }
