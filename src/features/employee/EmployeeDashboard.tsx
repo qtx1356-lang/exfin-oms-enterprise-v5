@@ -894,52 +894,52 @@ export const EmployeeDashboard: React.FC = () => {
 
   return (
     <>
-      <div className="flex flex-col gap-5 pb-8 text-slate-800">
+      <div className="flex flex-col gap-5 pb-8 text-[#F8F8FF]">
         {/* Top Header */}
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-white border-2 border-indigo-200 flex-shrink-0 shadow-md">
+            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-[#1E1F41] border-2 border-[#6366F1]/50 flex-shrink-0 shadow-lg">
               {employeeData.selfieUrl ? (
                 <img src={employeeData.selfieUrl} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                <UserCheck className="w-6 h-6 m-auto mt-3 text-indigo-600" />
+                <UserCheck className="w-6 h-6 m-auto mt-3 text-[#6366F1]" />
               )}
             </div>
             <div>
-              <h1 className="text-lg font-black text-slate-900 leading-tight">
+              <h1 className="text-lg font-black text-[#F8F8FF] leading-tight">
                 {employeeData.name || 'Employee'}
               </h1>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Code: <span className="text-indigo-600 font-bold">{employeeData.employeeCode || 'N/A'}</span>
+              <p className="text-xs text-[#B9B9D0] font-medium mt-0.5">
+                Code: <span className="text-[#818CF8] font-bold">{employeeData.employeeCode || 'N/A'}</span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-white/90 border border-indigo-100 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-700 shadow-xs">
-            <MapPin className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+          <div className="flex items-center gap-1.5 bg-[#1E1F41]/80 border border-[#6366F1]/20 px-3 py-1.5 rounded-full text-xs font-semibold text-[#F8F8FF] shadow-sm">
+            <MapPin className="w-3.5 h-3.5 text-[#6366F1] shrink-0" />
             <span className="truncate max-w-[130px]">{employeeData.officeLocation || employeeData.workLocation || 'Raniganj HQ'}</span>
           </div>
         </div>
 
         {/* Greeting Banner */}
         <div className="text-left py-0.5">
-          <h2 className="text-xl sm:text-2xl font-black text-indigo-600 tracking-tight uppercase">
+          <h2 className="text-xl sm:text-2xl font-black text-[#818CF8] tracking-tight uppercase">
             {greetingPrefix}
           </h2>
         </div>
 
         {/* TODAY OVERVIEW CARD */}
-        <Card className="p-4 sm:p-5 bg-white/85 backdrop-blur-[14px] border border-indigo-100 shadow-xl shadow-indigo-500/5 rounded-2xl relative overflow-hidden text-slate-800">
-          <div className="border-b border-indigo-100 pb-3 mb-3.5 flex items-center justify-between">
+        <Card className="p-4 sm:p-5 bg-[#1E1F41]/80 backdrop-blur-[14px] border border-[#6366F1]/20 shadow-xl rounded-2xl relative overflow-hidden text-[#F8F8FF]">
+          <div className="border-b border-[#6366F1]/20 pb-3 mb-3.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600">
+              <div className="p-1.5 rounded-lg bg-[#4F46E5]/15 border border-[#4F46E5]/30 text-[#818CF8]">
                 <Calendar className="w-4 h-4" />
               </div>
-              <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest">
+              <h3 className="text-xs font-black text-[#F8F8FF] uppercase tracking-widest">
                 TODAY OVERVIEW
               </h3>
             </div>
-            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-indigo-50/80 border border-indigo-100 text-indigo-700 uppercase tracking-wider font-mono">
+            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-[#171936] border border-[#6366F1]/20 text-[#B9B9D0] uppercase tracking-wider font-mono">
               {todayDate}
             </span>
           </div>
@@ -947,72 +947,72 @@ export const EmployeeDashboard: React.FC = () => {
           {/* 2-Column Grid */}
           <div className="grid grid-cols-2 gap-3 text-xs font-bold">
             {/* ATTENDANCE MINI-CARD */}
-            <div className="p-3 rounded-xl border border-indigo-100 bg-white/90 text-slate-800 flex flex-col justify-between shadow-xs">
+            <div className="p-3 rounded-xl border border-[#6366F1]/20 bg-[#171936]/90 text-[#F8F8FF] flex flex-col justify-between">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] uppercase font-black tracking-wider text-slate-500">
+                <span className="text-[10px] uppercase font-black tracking-wider text-[#B9B9D0]">
                   ATTENDANCE
                 </span>
-                <UserCheck className="w-4 h-4 text-emerald-600" />
+                <UserCheck className="w-4 h-4 text-[#16A34A]" />
               </div>
               <div>
-                <p className="text-sm font-black tracking-tight truncate text-slate-900">
+                <p className="text-sm font-black tracking-tight truncate">
                   {attendanceStatusLabel}
                 </p>
-                <p className="text-[10px] font-medium text-slate-500 mt-0.5 truncate">
+                <p className="text-[10px] font-medium text-[#B9B9D0] mt-0.5 truncate">
                   {checkInTimeStr && checkInTimeStr !== '--:--' ? `In at ${checkInTimeStr}` : 'Shift active'}
                 </p>
               </div>
             </div>
 
             {/* WORKING TIME MINI-CARD */}
-            <div className="p-3 rounded-xl border border-indigo-100 bg-white/90 text-slate-800 flex flex-col justify-between shadow-xs">
+            <div className="p-3 rounded-xl border border-[#6366F1]/20 bg-[#171936]/90 text-[#F8F8FF] flex flex-col justify-between">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] uppercase font-black tracking-wider text-amber-600">
+                <span className="text-[10px] uppercase font-black tracking-wider text-[#D97706]">
                   WORKING TIME
                 </span>
-                <Clock className="w-4 h-4 text-amber-600" />
+                <Clock className="w-4 h-4 text-[#D97706]" />
               </div>
               <div>
-                <p className="text-sm font-black tracking-tight text-amber-600">
+                <p className="text-sm font-black tracking-tight text-[#D97706]">
                   {workingDurationStr}
                 </p>
-                <p className="text-[10px] font-medium text-slate-500 mt-0.5">
+                <p className="text-[10px] font-medium text-[#B9B9D0] mt-0.5">
                   Logged duration
                 </p>
               </div>
             </div>
 
             {/* TASKS MINI-CARD */}
-            <div className="p-3 rounded-xl border border-indigo-100 bg-white/90 text-slate-800 flex flex-col justify-between shadow-xs">
+            <div className="p-3 rounded-xl border border-[#6366F1]/20 bg-[#171936]/90 text-[#F8F8FF] flex flex-col justify-between">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] uppercase font-black tracking-wider text-indigo-600">
+                <span className="text-[10px] uppercase font-black tracking-wider text-[#6366F1]">
                   TASKS
                 </span>
-                <CheckSquare className="w-4 h-4 text-indigo-600" />
+                <CheckSquare className="w-4 h-4 text-[#6366F1]" />
               </div>
               <div>
-                <p className="text-sm font-black tracking-tight text-indigo-600">
+                <p className="text-sm font-black tracking-tight text-[#818CF8]">
                   {completedTaskCount} / {assignedTaskCount} completed
                 </p>
-                <p className="text-[10px] font-medium text-slate-500 mt-0.5">
+                <p className="text-[10px] font-medium text-[#B9B9D0] mt-0.5">
                   {assignedTaskCount - completedTaskCount > 0 ? `${assignedTaskCount - completedTaskCount} remaining` : 'All tasks completed'}
                 </p>
               </div>
             </div>
 
             {/* WORK PROGRESS MINI-CARD */}
-            <div className="p-3 rounded-xl border border-indigo-100 bg-white/90 text-slate-800 flex flex-col justify-between shadow-xs">
+            <div className="p-3 rounded-xl border border-[#6366F1]/20 bg-[#171936]/90 text-[#F8F8FF] flex flex-col justify-between">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] uppercase font-black tracking-wider text-emerald-600">
+                <span className="text-[10px] uppercase font-black tracking-wider text-[#16A34A]">
                   WORK PROGRESS
                 </span>
-                <BarChart3 className="w-4 h-4 text-emerald-600" />
+                <BarChart3 className="w-4 h-4 text-[#16A34A]" />
               </div>
               <div>
-                <p className="text-sm font-black tracking-tight text-emerald-600">
+                <p className="text-sm font-black tracking-tight text-[#16A34A]">
                   {taskProgressPercentage}%
                 </p>
-                <p className="text-[10px] font-medium text-slate-500 mt-0.5">
+                <p className="text-[10px] font-medium text-[#B9B9D0] mt-0.5">
                   Completion rate
                 </p>
               </div>
