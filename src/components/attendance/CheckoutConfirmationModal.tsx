@@ -189,7 +189,7 @@ export const CheckoutConfirmationModal: React.FC = () => {
     return null;
   }
 
-  const exitTimeDisplay = activeRecord.recordedExitTime || activeRecord.geofenceExitTime || activeRecord.lastExitTime || activeRecord.exitTime || 'Just now';
+  const exitTimeDisplay = activeRecord.recordedExitTime || activeRecord.geofenceExitTime || 'Exit time could not be detected';
 
   return (
     <AnimatePresence>

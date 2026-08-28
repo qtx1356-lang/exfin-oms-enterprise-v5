@@ -704,8 +704,22 @@ export const AutomaticAttendanceEngine = {
 
         if (source === 'AUTO_SYSTEM_END_OF_DAY') {
           if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
-            // Final exit rule: check out at actual final exit timestamp
-            checkoutTimeStr = record.recordedExitTime || record.geofenceExitTime || record.lastExitTime || record.exitTime || timeStr;
+            const nativeExit = record.recordedExitTime || record.geofenceExitTime;
+            if (!nativeExit) {
+              // Rule 7, 9 & 10: Cannot fabricate 11:59 PM checkout time without native exit event
+              record.recordedExitTime = null;
+              record.geofenceExitTime = null;
+              record.checkOutTime = null;
+              record.checkoutStatus = 'UNRESOLVED';
+              record.attendanceStatus = 'UNRESOLVED';
+              record.status = 'UNRESOLVED';
+              record.currentState = 'UNRESOLVED';
+              record.checkoutFinalizationSource = 'NONE';
+              saveAttendanceRecord(record);
+              logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `No native exit recorded for ${dateStr}. Transitioned session to UNRESOLVED workflow.`);
+              return record;
+            }
+            checkoutTimeStr = nativeExit;
           } else {
             checkoutTimeStr = timeStr;
           }
@@ -946,7 +960,25 @@ export const AutomaticAttendanceEngine = {
     }
 
     // Authoritative checkout time MUST be the previously captured recordedExitTime / geofenceExitTime
-    const checkoutTimeStr = record.recordedExitTime || record.geofenceExitTime || record.lastExitTime || record.exitTime || getFormattedTimeStr();
+    const nativeExitTime = record.recordedExitTime || record.geofenceExitTime;
+
+    if (!nativeExitTime) {
+      // Rule 9 & 10: If no native exit event exists, recordedExitTime MUST remain NULL and transition to UNRESOLVED workflow
+      record.recordedExitTime = null;
+      record.geofenceExitTime = null;
+      record.checkOutTime = null;
+      record.checkoutStatus = 'UNRESOLVED';
+      record.attendanceStatus = 'UNRESOLVED';
+      record.status = 'UNRESOLVED';
+      record.currentState = 'UNRESOLVED';
+      record.pendingCheckoutConfirmation = false;
+      record.checkoutFinalizationSource = 'NONE';
+      saveAttendanceRecord(record);
+      logAttendanceEvent('CHECK_OUT', employeeId, `No native exit event recorded for ${dateStr}. Transitioned session to UNRESOLVED workflow.`);
+      return record;
+    }
+
+    const checkoutTimeStr = nativeExitTime;
     const eventIso = new Date().toISOString();
     const eventId = generateIdempotentEventId(employeeId, dateStr, 'CHECK_OUT', checkoutTimeStr);
 
