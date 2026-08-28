@@ -591,7 +591,7 @@ export const AttendanceScreen: React.FC = () => {
       return {
         title: 'SYNCING ATTENDANCE',
         subtitle: 'Synchronizing offline records with server...',
-        icon: <RotateCw className="w-5 h-5 animate-spin text-[#19C7C0]" />
+        icon: <RotateCw className="w-5 h-5 animate-spin text-[#D4AF37]" />
       };
     }
     if (todayRecord) {
@@ -599,13 +599,13 @@ export const AttendanceScreen: React.FC = () => {
         return {
           title: '✓ CHECKED OUT',
           subtitle: `Completed successfully at ${todayRecord.checkOutTime}`,
-          icon: <CheckCircle2 className="w-5 h-5 text-[#35C98A]" />
+          icon: <CheckCircle2 className="w-5 h-5 text-[#22C55E]" />
         };
       }
       return {
         title: '● LIVE STATUS',
         subtitle: `Attendance Active · Checked in at ${todayRecord.checkInTime}`,
-        icon: <span className="w-3 h-3 rounded-full bg-[#35C98A] animate-ping shrink-0" />
+        icon: <span className="w-3 h-3 rounded-full bg-[#22C55E] animate-ping shrink-0" />
       };
     }
     if (activeMode === 'OFFICE') {
@@ -613,19 +613,19 @@ export const AttendanceScreen: React.FC = () => {
         return {
           title: 'ENTERING OFFICE GEOFENCE',
           subtitle: 'Inside 25m boundary · Ready for check-in',
-          icon: <Compass className="w-5 h-5 text-[#35C98A] animate-bounce shrink-0" />
+          icon: <Compass className="w-5 h-5 text-[#22C55E] animate-bounce shrink-0" />
         };
       }
       return {
         title: 'OUTSIDE OFFICE GEOFENCE',
         subtitle: distance !== null ? `${Math.round(distance)}m from office (25m limit)` : 'Calculating distance...',
-        icon: <AlertCircle className="w-5 h-5 text-[#EF6B73] shrink-0" />
+        icon: <AlertCircle className="w-5 h-5 text-[#EF4444] shrink-0" />
       };
     }
     return {
       title: 'READY FOR ATTENDANCE',
       subtitle: 'Select mode and submit your attendance',
-      icon: <Sparkles className="w-5 h-5 text-[#19C7C0] shrink-0" />
+      icon: <Sparkles className="w-5 h-5 text-[#D4AF37] shrink-0" />
     };
   };
 
@@ -780,23 +780,23 @@ export const AttendanceScreen: React.FC = () => {
   return (
     <div className="p-3 sm:p-6 pb-32 max-w-5xl mx-auto space-y-5 font-sans relative">
       {/* Background ambient lighting */}
-      <div className="fixed top-20 right-10 w-96 h-96 bg-[rgba(16,185,129,0.04)] rounded-full blur-[120px] pointer-events-none" />
-      <div className="fixed bottom-20 left-10 w-96 h-96 bg-[rgba(16,185,129,0.03)] rounded-full blur-[120px] pointer-events-none" />
+      <div className="fixed top-20 right-10 w-96 h-96 bg-[#D4AF37]/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="fixed bottom-20 left-10 w-96 h-96 bg-[#D4AF37]/3 rounded-full blur-[120px] pointer-events-none" />
       
       {/* ==================================================== */}
       {/* 1. CLEAN PAGE TITLE & EMPLOYEE HEADER */}
       {/* ==================================================== */}
-      <div className="pb-3 border-b border-[#2A5B50]/30 space-y-1">
-        <h1 className="text-2xl sm:text-3xl font-black text-[#12332B] tracking-tight flex items-center gap-2">
-          <Clock className="w-7 h-7 text-[#12332B]" /> ATTENDANCE
+      <div className="pb-3 border-b border-[#292929] space-y-1">
+        <h1 className="text-2xl sm:text-3xl font-black text-[#FFFFFF] tracking-tight flex items-center gap-2">
+          <Clock className="w-7 h-7 text-[#D4AF37]" /> ATTENDANCE
         </h1>
-        <p className="text-sm font-bold text-[#31534A] leading-snug">
+        <p className="text-sm font-bold text-[#8A8A8A] leading-snug">
           {getFormattedDateLong()}
         </p>
-        <div className="text-xs font-bold text-[#12332B] flex flex-wrap items-center gap-1.5 leading-snug">
+        <div className="text-xs font-bold text-[#C7C7C7] flex flex-wrap items-center gap-1.5 leading-snug">
           <span>{employeeName}</span>
-          <span className="text-[#31534A] font-medium">•</span>
-          <span className="text-[#31534A] font-medium">{employeeId}</span>
+          <span className="text-[#8A8A8A] font-medium">•</span>
+          <span className="text-[#8A8A8A] font-medium">{employeeId}</span>
         </div>
       </div>
 
@@ -805,11 +805,11 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       <div className="space-y-3">
         <div className="flex justify-between items-center px-1">
-          <h2 className="text-xs font-extrabold text-[#12332B] uppercase tracking-wider">
+          <h2 className="text-xs font-extrabold text-[#FFFFFF] uppercase tracking-wider">
             ATTENDANCE MODE
           </h2>
           {todayRecord && (
-            <span className="text-[10px] bg-[#173A32] text-[#C7DAD3] font-extrabold px-2.5 py-0.5 rounded-full border border-[#2A5B50]">
+            <span className="text-[10px] bg-[#1B1B1B] text-[#D4AF37] font-extrabold px-2.5 py-0.5 rounded-full border border-[#292929]">
               Mode Locked for Today
             </span>
           )}
@@ -824,24 +824,24 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('OFFICE')}
             className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group cursor-pointer ${
               activeMode === 'OFFICE'
-                ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
-                : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
-            } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-80 bg-[#112C26] cursor-not-allowed' : ''}`}
+                ? 'border-[#D4AF37] bg-[#1B1B1B] ring-1 ring-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.15)]'
+                : 'border-[#292929] bg-[#151515] hover:border-[#D4AF37]/50 hover:bg-[#1B1B1B]'
+            } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-50 bg-[#121212] cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🏢</span>
               {activeMode === 'OFFICE' && (
-                <span className="w-4 h-4 rounded-full bg-[#19C7C0] text-[#112C26] flex items-center justify-center text-[10px]">
-                  <Check className="w-3 h-3" />
+                <span className="w-4 h-4 rounded-full bg-[#D4AF37] text-[#080808] flex items-center justify-center text-[10px]">
+                  <Check className="w-3 h-3 stroke-[3]" />
                 </span>
               )}
               {todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' && (
-                <Lock className="w-3.5 h-3.5 text-[#C7DAD3]" />
+                <Lock className="w-3.5 h-3.5 text-[#8A8A8A]" />
               )}
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-[#F4FAF7]">Office</h3>
-              <p className="text-[10px] text-[#C7DAD3] font-medium leading-tight mt-0.5">25m Geofence</p>
+              <h3 className="font-extrabold text-xs text-[#FFFFFF]">Office</h3>
+              <p className="text-[10px] text-[#8A8A8A] font-medium leading-tight mt-0.5">25m Geofence</p>
             </div>
           </button>
 
@@ -852,29 +852,29 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('WFH')}
             className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group cursor-pointer ${
               activeMode === 'WFH'
-                ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
-                : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
-            } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-80 bg-[#112C26] cursor-not-allowed' : ''}`}
+                ? 'border-[#D4AF37] bg-[#1B1B1B] ring-1 ring-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.15)]'
+                : 'border-[#292929] bg-[#151515] hover:border-[#D4AF37]/50 hover:bg-[#1B1B1B]'
+            } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-50 bg-[#121212] cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🏠</span>
               <div className="flex items-center gap-1">
                 {activeMode === 'WFH' && (
-                  <span className="w-4 h-4 rounded-full bg-[#19C7C0] text-[#112C26] flex items-center justify-center text-[10px]">
-                    <Check className="w-3 h-3" />
+                  <span className="w-4 h-4 rounded-full bg-[#D4AF37] text-[#080808] flex items-center justify-center text-[10px]">
+                    <Check className="w-3 h-3 stroke-[3]" />
                   </span>
                 )}
                 {todayRecord && todayRecord.attendanceType !== 'WFH' && (
-                  <Lock className="w-3.5 h-3.5 text-[#C7DAD3]" />
+                  <Lock className="w-3.5 h-3.5 text-[#8A8A8A]" />
                 )}
-                <span className="text-[9px] font-bold bg-[#19C7C0]/20 text-[#19C7C0] px-1.5 py-0.5 rounded border border-[#19C7C0]/30">
+                <span className="text-[9px] font-bold bg-[#D4AF37]/15 text-[#D4AF37] px-1.5 py-0.5 rounded border border-[#D4AF37]/30">
                   {currentWfhMonthCount}/2
                 </span>
               </div>
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-[#F4FAF7]">Work From Home</h3>
-              <p className="text-[10px] text-[#C7DAD3] font-medium leading-tight mt-0.5">Max 2 per Month</p>
+              <h3 className="font-extrabold text-xs text-[#FFFFFF]">Work From Home</h3>
+              <p className="text-[10px] text-[#8A8A8A] font-medium leading-tight mt-0.5">Max 2 per Month</p>
             </div>
           </button>
 
@@ -885,24 +885,24 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('CLIENT_VISIT')}
             className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group cursor-pointer ${
               activeMode === 'CLIENT_VISIT'
-                ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
-                : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
-            } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-80 bg-[#112C26] cursor-not-allowed' : ''}`}
+                ? 'border-[#D4AF37] bg-[#1B1B1B] ring-1 ring-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.15)]'
+                : 'border-[#292929] bg-[#151515] hover:border-[#D4AF37]/50 hover:bg-[#1B1B1B]'
+            } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-50 bg-[#121212] cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🤝</span>
               {activeMode === 'CLIENT_VISIT' && (
-                <span className="w-4 h-4 rounded-full bg-[#19C7C0] text-[#112C26] flex items-center justify-center text-[10px]">
-                  <Check className="w-3 h-3" />
+                <span className="w-4 h-4 rounded-full bg-[#D4AF37] text-[#080808] flex items-center justify-center text-[10px]">
+                  <Check className="w-3 h-3 stroke-[3]" />
                 </span>
               )}
               {todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' && (
-                <Lock className="w-3.5 h-3.5 text-[#C7DAD3]" />
+                <Lock className="w-3.5 h-3.5 text-[#8A8A8A]" />
               )}
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-[#F4FAF7]">Client Visit</h3>
-              <p className="text-[10px] text-[#C7DAD3] font-medium leading-tight mt-0.5">On-site Meetings</p>
+              <h3 className="font-extrabold text-xs text-[#FFFFFF]">Client Visit</h3>
+              <p className="text-[10px] text-[#8A8A8A] font-medium leading-tight mt-0.5">On-site Meetings</p>
             </div>
           </button>
 
@@ -913,24 +913,24 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('OUTDOOR')}
             className={`p-3.5 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-24 relative overflow-hidden group cursor-pointer ${
               activeMode === 'OUTDOOR'
-                ? 'border-[#19C7C0] bg-[#21483E] ring-1 ring-[#19C7C0] shadow-lg'
-                : 'border-[#2A5B50] bg-[#173A32] hover:border-[#19C7C0]/50 hover:bg-[#21483E]'
-            } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-80 bg-[#112C26] cursor-not-allowed' : ''}`}
+                ? 'border-[#D4AF37] bg-[#1B1B1B] ring-1 ring-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.15)]'
+                : 'border-[#292929] bg-[#151515] hover:border-[#D4AF37]/50 hover:bg-[#1B1B1B]'
+            } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-50 bg-[#121212] cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-center">
               <span className="text-xl">🚗</span>
               {activeMode === 'OUTDOOR' && (
-                <span className="w-4 h-4 rounded-full bg-[#19C7C0] text-[#112C26] flex items-center justify-center text-[10px]">
-                  <Check className="w-3 h-3" />
+                <span className="w-4 h-4 rounded-full bg-[#D4AF37] text-[#080808] flex items-center justify-center text-[10px]">
+                  <Check className="w-3 h-3 stroke-[3]" />
                 </span>
               )}
               {todayRecord && todayRecord.attendanceType !== 'OUTDOOR' && (
-                <Lock className="w-3.5 h-3.5 text-[#C7DAD3]" />
+                <Lock className="w-3.5 h-3.5 text-[#8A8A8A]" />
               )}
             </div>
             <div>
-              <h3 className="font-extrabold text-xs text-[#F4FAF7]">Outdoor Work</h3>
-              <p className="text-[10px] text-[#C7DAD3] font-medium leading-tight mt-0.5">Field & Market Duty</p>
+              <h3 className="font-extrabold text-xs text-[#FFFFFF]">Outdoor Work</h3>
+              <p className="text-[10px] text-[#8A8A8A] font-medium leading-tight mt-0.5">Field & Market Duty</p>
             </div>
           </button>
         </div>
@@ -941,11 +941,11 @@ export const AttendanceScreen: React.FC = () => {
             <div className="space-y-3">
               {/* AUTO CHECK-IN active status */}
               {!todayRecord && locationState === 'INSIDE_OFFICE' && (
-                <div className="bg-[#173A32] rounded-2xl border border-[#35C98A]/40 p-4 text-center space-y-2">
-                  <div className="flex items-center justify-center gap-2 text-[#35C98A] text-xs font-extrabold uppercase tracking-wider">
-                    <Radio className="w-4 h-4 text-[#35C98A] animate-spin" /> Auto Check-In Active
+                <div className="bg-[#151515] rounded-2xl border border-[#22C55E]/40 p-4 text-center space-y-2">
+                  <div className="flex items-center justify-center gap-2 text-[#22C55E] text-xs font-extrabold uppercase tracking-wider">
+                    <Radio className="w-4 h-4 text-[#22C55E] animate-spin" /> Auto Check-In Active
                   </div>
-                  <p className="text-xs text-[#C7DAD3] font-medium">
+                  <p className="text-xs text-[#C7C7C7] font-medium">
                     Inside Office Geofence. Auto check-in is processing.
                   </p>
                 </div>
@@ -959,15 +959,15 @@ export const AttendanceScreen: React.FC = () => {
                     disabled={locationStatus !== 'success' || distance === null || distance > 25}
                     className={`w-full py-3.5 font-black text-sm rounded-2xl transition-all border cursor-pointer ${
                       locationStatus === 'success' && distance !== null && distance <= 25
-                        ? 'bg-[#19C7C0] hover:bg-[#14B0A9] text-[#0A2923] border-[#19C7C0]/30 active:scale-95 shadow-lg'
-                        : 'bg-[#112C26] text-[#9FB9AF] border-[#2A5B50] opacity-50 cursor-not-allowed shadow-none'
+                        ? 'bg-[#D4AF37] hover:bg-[#E6C766] text-[#080808] border-[#D4AF37]/50 active:scale-95 shadow-lg shadow-[#D4AF37]/10'
+                        : 'bg-[#121212] text-[#8A8A8A] border-[#292929] opacity-50 cursor-not-allowed shadow-none'
                     }`}
                   >
                     <UserCheck className="w-5 h-5 mr-2" /> 
                     {locationStatus === 'success' && distance !== null && distance <= 25 ? 'Check In' : 'Check In'}
                   </Button>
                   {(locationStatus !== 'success' || distance === null || distance > 25) && (
-                    <p className="text-xs text-[#31534A] text-center font-bold">
+                    <p className="text-xs text-[#8A8A8A] text-center font-bold">
                       Check-in is available within 25 m of office
                     </p>
                   )}
@@ -981,21 +981,21 @@ export const AttendanceScreen: React.FC = () => {
                         disabled={!isInsideGeofence}
                         className={`w-full py-3.5 font-black text-sm rounded-2xl transition-all shadow-lg cursor-pointer ${
                           isInsideGeofence 
-                            ? 'bg-[#EF6B73] hover:bg-[#D9555D] text-white border border-[#EF6B73]/30 active:scale-95' 
-                            : 'bg-[#112C26] text-[#9FB9AF] border border-[#2A5B50] cursor-not-allowed'
+                            ? 'bg-[#EF4444] hover:bg-[#DC2626] text-white border border-[#EF4444]/40 active:scale-95 shadow-[#EF4444]/20' 
+                            : 'bg-[#121212] text-[#8A8A8A] border border-[#292929] cursor-not-allowed'
                         }`}
                       >
                         <LogOut className="w-5 h-5 mr-2" /> Check Out
                       </Button>
                       {!isInsideGeofence && (
-                        <p className="text-xs text-[#31534A] text-center font-bold">
+                        <p className="text-xs text-[#8A8A8A] text-center font-bold">
                           Checkout is available within 25 m of office
                         </p>
                       )}
                     </>
                   ) : (
-                    <div className="w-full py-3.5 px-4 rounded-2xl bg-[#112C26] text-[#35C98A] border border-[#35C98A]/40 flex items-center justify-center gap-2 text-xs font-black tracking-wider shadow-sm">
-                      <CheckCircle2 className="w-4 h-4 text-[#35C98A]" />
+                    <div className="w-full py-3.5 px-4 rounded-2xl bg-[#121212] text-[#22C55E] border border-[#22C55E]/40 flex items-center justify-center gap-2 text-xs font-black tracking-wider shadow-sm">
+                      <CheckCircle2 className="w-4 h-4 text-[#22C55E]" />
                       <span>✓ CHECKED OUT — WORKDAY COMPLETED</span>
                     </div>
                   )}
@@ -1005,17 +1005,17 @@ export const AttendanceScreen: React.FC = () => {
           )}
 
           {activeMode === 'WFH' && (
-            <div className="bg-[#173A32] rounded-2xl border border-[#2A5B50] p-5 shadow-lg space-y-4">
-              <div className="flex justify-between items-center border-b border-[#2A5B50] pb-3">
+            <div className="bg-[#151515] rounded-2xl border border-[#292929] p-5 shadow-lg space-y-4">
+              <div className="flex justify-between items-center border-b border-[#292929] pb-3">
                 <div className="flex items-center gap-2.5">
                   <span className="text-xl">🏠</span>
                   <div>
-                    <h3 className="text-xs font-extrabold text-[#F4FAF7] uppercase tracking-wider">Work From Home (WFH)</h3>
-                    <p className="text-[10px] text-[#C7DAD3]">No office geofence required</p>
+                    <h3 className="text-xs font-extrabold text-[#FFFFFF] uppercase tracking-wider">Work From Home (WFH)</h3>
+                    <p className="text-[10px] text-[#8A8A8A]">No office geofence required</p>
                   </div>
                 </div>
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
-                  currentWfhMonthCount >= 2 ? 'bg-[#EF6B73]/20 text-[#EF6B73] border-[#EF6B73]/40' : 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/40'
+                  currentWfhMonthCount >= 2 ? 'bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/40' : 'bg-[#22C55E]/15 text-[#22C55E] border-[#22C55E]/40'
                 }`}>
                   {currentWfhMonthCount} / 2 Used This Month
                 </span>
@@ -1031,56 +1031,56 @@ export const AttendanceScreen: React.FC = () => {
               {!todayRecord ? (
                 <form onSubmit={handleWfhSubmit} className="space-y-3">
                   <div>
-                    <label className="block text-[10px] font-bold text-[#C7DAD3] mb-1">
-                      Reason for WFH <span className="text-[#EF6B73]">*</span>
+                    <label className="block text-[10px] font-bold text-[#C7C7C7] mb-1">
+                      Reason for WFH <span className="text-[#EF4444]">*</span>
                     </label>
                     <input
                       type="text"
                       value={wfhReason}
                       onChange={(e) => setWfhReason(e.target.value)}
                       placeholder="e.g., Personal errand / Doctor visit / Remote task"
-                      className="w-full px-4 py-2.5 bg-[#112C26] border border-[#2A5B50] rounded-xl text-xs text-[#F4FAF7] placeholder-[#9FB9AF] focus:outline-none focus:border-[#19C7C0]"
+                      className="w-full px-4 py-2.5 bg-[#121212] border border-[#292929] rounded-xl text-xs text-[#FFFFFF] placeholder-[#8A8A8A] focus:outline-none focus:border-[#D4AF37]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-[#C7DAD3] mb-1">
-                      Today's Work Plan <span className="text-[#EF6B73]">*</span>
+                    <label className="block text-[10px] font-bold text-[#C7C7C7] mb-1">
+                      Today's Work Plan <span className="text-[#EF4444]">*</span>
                     </label>
                     <textarea
                       value={wfhWorkPlan}
                       onChange={(e) => setWfhWorkPlan(e.target.value)}
                       rows={2}
                       placeholder="Detail your planned deliverables for today..."
-                      className="w-full px-4 py-2.5 bg-[#112C26] border border-[#2A5B50] rounded-xl text-xs text-[#F4FAF7] placeholder-[#9FB9AF] focus:outline-none focus:border-[#19C7C0]"
+                      className="w-full px-4 py-2.5 bg-[#121212] border border-[#292929] rounded-xl text-xs text-[#FFFFFF] placeholder-[#8A8A8A] focus:outline-none focus:border-[#D4AF37]"
                     />
                   </div>
 
                   <Button
                     type="submit"
                     disabled={currentWfhMonthCount >= 2}
-                    className="w-full py-3.5 bg-[#19C7C0] hover:bg-[#14B0A9] text-[#0A2923] font-black text-xs rounded-xl shadow border border-[#19C7C0]/30 cursor-pointer"
+                    className="w-full py-3.5 bg-[#D4AF37] hover:bg-[#E6C766] text-[#080808] font-black text-xs rounded-xl shadow border border-[#D4AF37]/40 cursor-pointer"
                   >
                     Submit WFH Attendance
                   </Button>
                 </form>
               ) : (
-                <div className="p-3 bg-[#112C26] rounded-xl border border-[#2A5B50] text-xs space-y-1">
-                  <p className="font-bold text-[#35C98A]">WFH Session Active for Today</p>
-                  <p><span className="text-[#C7DAD3] font-bold">Reason:</span> {todayRecord.wfhReason || 'N/A'}</p>
-                  <p><span className="text-[#C7DAD3] font-bold">Work Plan:</span> {todayRecord.workPlan || 'N/A'}</p>
+                <div className="p-3 bg-[#121212] rounded-xl border border-[#292929] text-xs space-y-1">
+                  <p className="font-bold text-[#22C55E]">WFH Session Active for Today</p>
+                  <p><span className="text-[#8A8A8A] font-bold">Reason:</span> {todayRecord.wfhReason || 'N/A'}</p>
+                  <p><span className="text-[#8A8A8A] font-bold">Work Plan:</span> {todayRecord.workPlan || 'N/A'}</p>
                 </div>
               )}
             </div>
           )}
 
           {activeMode === 'CLIENT_VISIT' && (
-            <div className="bg-[#173A32] rounded-2xl border border-[#2A5B50] p-5 shadow-lg space-y-4">
-              <div className="flex items-center gap-2.5 border-b border-[#2A5B50] pb-3">
+            <div className="bg-[#151515] rounded-2xl border border-[#292929] p-5 shadow-lg space-y-4">
+              <div className="flex items-center gap-2.5 border-b border-[#292929] pb-3">
                 <span className="text-xl">🤝</span>
                 <div>
-                  <h3 className="text-xs font-extrabold text-[#F4FAF7] uppercase tracking-wider">Client Visit</h3>
-                  <p className="text-[10px] text-[#C7DAD3]">Log on-site client meetings</p>
+                  <h3 className="text-xs font-extrabold text-[#FFFFFF] uppercase tracking-wider">Client Visit</h3>
+                  <p className="text-[10px] text-[#8A8A8A]">Log on-site client meetings</p>
                 </div>
               </div>
 
@@ -1094,69 +1094,69 @@ export const AttendanceScreen: React.FC = () => {
               {!todayRecord ? (
                 <form onSubmit={handleClientVisitSubmit} className="space-y-3">
                   <div>
-                    <label className="block text-[10px] font-bold text-[#C7DAD3] mb-1">
-                      Client Name <span className="text-[#EF6B73]">*</span>
+                    <label className="block text-[10px] font-bold text-[#C7C7C7] mb-1">
+                      Client Name <span className="text-[#EF4444]">*</span>
                     </label>
                     <input
                       type="text"
                       value={clientName}
                       onChange={(e) => setClientName(e.target.value)}
                       placeholder="e.g., Tata Steel Ltd"
-                      className="w-full px-4 py-2.5 bg-[#112C26] border border-[#2A5B50] rounded-xl text-xs text-[#F4FAF7] placeholder-[#9FB9AF] focus:outline-none focus:border-[#F2C75C]"
+                      className="w-full px-4 py-2.5 bg-[#121212] border border-[#292929] rounded-xl text-xs text-[#FFFFFF] placeholder-[#8A8A8A] focus:outline-none focus:border-[#D4AF37]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-[#C7DAD3] mb-1">
-                      Client Location / Address <span className="text-[#EF6B73]">*</span>
+                    <label className="block text-[10px] font-bold text-[#C7C7C7] mb-1">
+                      Client Location / Address <span className="text-[#EF4444]">*</span>
                     </label>
                     <input
                       type="text"
                       value={clientLocation}
                       onChange={(e) => setClientLocation(e.target.value)}
                       placeholder="e.g., Durgapur Industrial Complex"
-                      className="w-full px-4 py-2.5 bg-[#112C26] border border-[#2A5B50] rounded-xl text-xs text-[#F4FAF7] placeholder-[#9FB9AF] focus:outline-none focus:border-[#F2C75C]"
+                      className="w-full px-4 py-2.5 bg-[#121212] border border-[#292929] rounded-xl text-xs text-[#FFFFFF] placeholder-[#8A8A8A] focus:outline-none focus:border-[#D4AF37]"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-[#C7DAD3] mb-1">
-                      Purpose of Visit <span className="text-[#EF6B73]">*</span>
+                    <label className="block text-[10px] font-bold text-[#C7C7C7] mb-1">
+                      Purpose of Visit <span className="text-[#EF4444]">*</span>
                     </label>
                     <textarea
                       value={clientPurpose}
                       onChange={(e) => setClientPurpose(e.target.value)}
                       rows={2}
                       placeholder="e.g., Contract negotiation and site inspection"
-                      className="w-full px-4 py-2.5 bg-[#112C26] border border-[#2A5B50] rounded-xl text-xs text-[#F4FAF7] placeholder-[#9FB9AF] focus:outline-none focus:border-[#F2C75C]"
+                      className="w-full px-4 py-2.5 bg-[#121212] border border-[#292929] rounded-xl text-xs text-[#FFFFFF] placeholder-[#8A8A8A] focus:outline-none focus:border-[#D4AF37]"
                     />
                   </div>
 
                   <Button
                     type="submit"
-                    className="w-full py-3.5 bg-[#F2C75C] hover:bg-[#F2C75C]/90 text-[#112C26] font-black text-xs rounded-xl shadow border border-[#F2C75C]/30 cursor-pointer"
+                    className="w-full py-3.5 bg-[#D4AF37] hover:bg-[#E6C766] text-[#080808] font-black text-xs rounded-xl shadow border border-[#D4AF37]/40 cursor-pointer"
                   >
                     Submit Client Visit Attendance
                   </Button>
                 </form>
               ) : (
-                <div className="p-3 bg-[#112C26] rounded-xl border border-[#2A5B50] text-xs space-y-1">
-                  <p className="font-bold text-[#F2C75C]">Client Visit Active for Today</p>
-                  <p><span className="text-[#C7DAD3] font-bold">Client:</span> {todayRecord.clientName || 'N/A'}</p>
-                  <p><span className="text-[#C7DAD3] font-bold">Location:</span> {todayRecord.clientLocation || 'N/A'}</p>
-                  <p><span className="text-[#C7DAD3] font-bold">Purpose:</span> {todayRecord.purpose || 'N/A'}</p>
+                <div className="p-3 bg-[#121212] rounded-xl border border-[#292929] text-xs space-y-1">
+                  <p className="font-bold text-[#D4AF37]">Client Visit Active for Today</p>
+                  <p><span className="text-[#8A8A8A] font-bold">Client:</span> {todayRecord.clientName || 'N/A'}</p>
+                  <p><span className="text-[#8A8A8A] font-bold">Location:</span> {todayRecord.clientLocation || 'N/A'}</p>
+                  <p><span className="text-[#8A8A8A] font-bold">Purpose:</span> {todayRecord.purpose || 'N/A'}</p>
                 </div>
               )}
             </div>
           )}
 
           {activeMode === 'OUTDOOR' && (
-            <div className="bg-[#173A32] rounded-2xl border border-[#2A5B50] p-5 shadow-lg space-y-4">
-              <div className="flex items-center gap-2.5 border-b border-[#2A5B50] pb-3">
+            <div className="bg-[#151515] rounded-2xl border border-[#292929] p-5 shadow-lg space-y-4">
+              <div className="flex items-center gap-2.5 border-b border-[#292929] pb-3">
                 <span className="text-xl">🚗</span>
                 <div>
-                  <h3 className="text-xs font-extrabold text-[#F4FAF7] uppercase tracking-wider">Outdoor Work</h3>
-                  <p className="text-[10px] text-[#C7DAD3]">Field visits, surveys, market duty</p>
+                  <h3 className="text-xs font-extrabold text-[#FFFFFF] uppercase tracking-wider">Outdoor Work</h3>
+                  <p className="text-[10px] text-[#8A8A8A]">Field visits, surveys, market duty</p>
                 </div>
               </div>
 
@@ -1170,45 +1170,45 @@ export const AttendanceScreen: React.FC = () => {
               {!todayRecord ? (
                 <form onSubmit={handleOutdoorSubmit} className="space-y-3">
                   <div>
-                    <label className="block text-[10px] font-bold text-[#C7DAD3] mb-1">
-                      Outdoor Work Type <span className="text-[#EF6B73]">*</span>
+                    <label className="block text-[10px] font-bold text-[#C7C7C7] mb-1">
+                      Outdoor Work Type <span className="text-[#EF4444]">*</span>
                     </label>
                     <select
                       value={outdoorType}
                       onChange={(e) => setOutdoorType(e.target.value as OutdoorWorkTypeOption)}
-                      className="w-full px-4 py-2.5 bg-[#112C26] border border-[#2A5B50] rounded-xl text-xs text-[#F4FAF7] focus:outline-none focus:border-[#19C7C0]"
+                      className="w-full px-4 py-2.5 bg-[#121212] border border-[#292929] rounded-xl text-xs text-[#FFFFFF] focus:outline-none focus:border-[#D4AF37]"
                     >
                       {OUTDOOR_TYPE_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt} className="bg-[#112C26] text-[#F4FAF7]">{opt}</option>
+                        <option key={opt} value={opt} className="bg-[#121212] text-[#FFFFFF]">{opt}</option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-[#C7DAD3] mb-1">
-                      Description <span className="text-[#EF6B73]">*</span>
+                    <label className="block text-[10px] font-bold text-[#C7C7C7] mb-1">
+                      Description <span className="text-[#EF4444]">*</span>
                     </label>
                     <textarea
                       value={outdoorDescription}
                       onChange={(e) => setOutdoorDescription(e.target.value)}
                       rows={2}
                       placeholder="Provide details about your outdoor field assignment..."
-                      className="w-full px-4 py-2.5 bg-[#112C26] border border-[#2A5B50] rounded-xl text-xs text-[#F4FAF7] placeholder-[#9FB9AF] focus:outline-none focus:border-[#19C7C0]"
+                      className="w-full px-4 py-2.5 bg-[#121212] border border-[#292929] rounded-xl text-xs text-[#FFFFFF] placeholder-[#8A8A8A] focus:outline-none focus:border-[#D4AF37]"
                     />
                   </div>
 
                   <Button
                     type="submit"
-                    className="w-full py-3.5 bg-[#19C7C0] hover:bg-[#14B0A9] text-[#0A2923] font-black text-xs rounded-xl shadow border border-[#19C7C0]/30 cursor-pointer"
+                    className="w-full py-3.5 bg-[#D4AF37] hover:bg-[#E6C766] text-[#080808] font-black text-xs rounded-xl shadow border border-[#D4AF37]/40 cursor-pointer"
                   >
                     Submit Outdoor Work Attendance
                   </Button>
                 </form>
               ) : (
-                <div className="p-3 bg-[#112C26] rounded-xl border border-[#2A5B50] text-xs space-y-1">
-                  <p className="font-bold text-[#19C7C0]">Outdoor Work Active for Today</p>
-                  <p><span className="text-[#C7DAD3] font-bold">Type:</span> {todayRecord.outdoorType || 'N/A'}</p>
-                  <p><span className="text-[#C7DAD3] font-bold">Description:</span> {todayRecord.description || 'N/A'}</p>
+                <div className="p-3 bg-[#121212] rounded-xl border border-[#292929] text-xs space-y-1">
+                  <p className="font-bold text-[#D4AF37]">Outdoor Work Active for Today</p>
+                  <p><span className="text-[#8A8A8A] font-bold">Type:</span> {todayRecord.outdoorType || 'N/A'}</p>
+                  <p><span className="text-[#8A8A8A] font-bold">Description:</span> {todayRecord.description || 'N/A'}</p>
                 </div>
               )}
             </div>
@@ -1219,31 +1219,31 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {/* 3. CHECKED OUT / LIVE STATUS STRIP */}
       {/* ==================================================== */}
-      <div className="p-3.5 rounded-2xl bg-[#173A32] border border-[#2A5B50] flex items-center justify-between shadow-md text-[#F4FAF7]">
+      <div className="p-3.5 rounded-2xl bg-[#151515] border border-[#292929] flex items-center justify-between shadow-md text-[#FFFFFF]">
         <div className="flex items-center gap-3">
           {ribbonInfo.icon}
           <div>
-            <span className="text-xs font-black uppercase tracking-wider text-[#F4FAF7] block">
+            <span className="text-xs font-black uppercase tracking-wider text-[#FFFFFF] block">
               {ribbonInfo.title}
             </span>
-            <span className="text-[11px] text-[#C7DAD3] font-medium block">
+            <span className="text-[11px] text-[#8A8A8A] font-medium block">
               {ribbonInfo.subtitle}
             </span>
           </div>
         </div>
-        <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-[#112C26] text-[#19C7C0] border border-[#2A5B50] shrink-0">
+        <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-[#1B1B1B] text-[#D4AF37] border border-[#292929] shrink-0">
           LIVE STATUS
         </span>
       </div>
 
       {/* Action Feedback Banner */}
       {actionFeedback && (
-        <div className="p-3.5 bg-[#173A32] border border-[#2A5B50] text-[#F4FAF7] rounded-2xl text-xs font-bold flex justify-between items-center shadow-sm animate-fade-in">
+        <div className="p-3.5 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-2xl text-xs font-bold flex justify-between items-center shadow-sm animate-fade-in">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#19C7C0]" />
+            <Sparkles className="w-4 h-4 text-[#D4AF37]" />
             <span>{actionFeedback}</span>
           </div>
-          <button onClick={() => setActionFeedback(null)} className="text-[#C7DAD3] hover:text-[#F4FAF7] font-bold text-sm px-1 cursor-pointer">✕</button>
+          <button onClick={() => setActionFeedback(null)} className="text-[#8A8A8A] hover:text-[#FFFFFF] font-bold text-sm px-1 cursor-pointer">✕</button>
         </div>
       )}
 
@@ -1252,48 +1252,48 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {activeUnresolvedRecord && (
         <div className="space-y-5 animate-fade-in">
-          <div className="p-5 sm:p-6 rounded-3xl bg-[#173A32] border border-[#F2C75C]/40 shadow-xl space-y-4">
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#2A5B50]">
+          <div className="p-5 sm:p-6 rounded-3xl bg-[#151515] border border-[#F59E0B]/40 shadow-xl space-y-4">
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#292929]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#F2C75C]/10 border border-[#F2C75C]/30 flex items-center justify-center text-[#F2C75C] flex-shrink-0">
+                <div className="w-10 h-10 rounded-2xl bg-[#F59E0B]/10 border border-[#F59E0B]/30 flex items-center justify-center text-[#F59E0B] flex-shrink-0">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase font-black tracking-widest px-2.5 py-0.5 rounded-full bg-[#F2C75C]/20 text-[#F2C75C] border border-[#F2C75C]/30">
+                    <span className="text-[10px] uppercase font-black tracking-widest px-2.5 py-0.5 rounded-full bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30">
                       CHECKOUT PENDING
                     </span>
                     {unresolvedPastRecords.length > 1 && (
-                      <span className="text-[10px] font-bold text-[#F2C75C]">
+                      <span className="text-[10px] font-bold text-[#F59E0B]">
                         ({unresolvedPastRecords.length} pending)
                       </span>
                     )}
                   </div>
-                  <h2 className="text-lg font-black text-[#F4FAF7] mt-1">
+                  <h2 className="text-lg font-black text-[#FFFFFF] mt-1">
                     Checkout Resolution Required
                   </h2>
                 </div>
               </div>
             </div>
 
-            <p className="text-xs text-[#C7DAD3] leading-relaxed font-medium">
-              Your checkout for <strong className="text-[#F4FAF7]">{activeUnresolvedRecord.date}</strong> was not recorded.
+            <p className="text-xs text-[#C7C7C7] leading-relaxed font-medium">
+              Your checkout for <strong className="text-[#FFFFFF]">{activeUnresolvedRecord.date}</strong> was not recorded.
               Please submit your actual checkout time for Admin verification.
             </p>
 
             {/* Session Details */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 bg-[#112C26] rounded-2xl border border-[#2A5B50] text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 bg-[#121212] rounded-2xl border border-[#292929] text-xs">
               <div>
-                <span className="text-[10px] text-[#9FB9AF] font-bold uppercase block tracking-wider">Date</span>
-                <span className="text-[#F4FAF7] font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
+                <span className="text-[10px] text-[#8A8A8A] font-bold uppercase block tracking-wider">Date</span>
+                <span className="text-[#FFFFFF] font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
               </div>
               <div>
-                <span className="text-[10px] text-[#9FB9AF] font-bold uppercase block tracking-wider">Check-in</span>
-                <span className="text-[#35C98A] font-mono font-extrabold text-sm">{activeUnresolvedRecord.checkInTime || '--:--'}</span>
+                <span className="text-[10px] text-[#8A8A8A] font-bold uppercase block tracking-wider">Check-in</span>
+                <span className="text-[#22C55E] font-mono font-extrabold text-sm">{activeUnresolvedRecord.checkInTime || '--:--'}</span>
               </div>
               <div className="col-span-2 sm:col-span-1">
-                <span className="text-[10px] text-[#9FB9AF] font-bold uppercase block tracking-wider">Checkout</span>
-                <span className={`font-extrabold text-sm ${activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'text-[#F2C75C]' : 'text-[#EF6B73]'}`}>
+                <span className="text-[10px] text-[#8A8A8A] font-bold uppercase block tracking-wider">Checkout</span>
+                <span className={`font-extrabold text-sm ${activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'text-[#F59E0B]' : 'text-[#EF4444]'}`}>
                   {activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'Reported (Pending)' : 'Unresolved'}
                 </span>
               </div>
@@ -1301,17 +1301,17 @@ export const AttendanceScreen: React.FC = () => {
 
             {/* Resolution Form / Pending State */}
             {activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' && !isEditingProposal ? (
-              <div className="p-4 rounded-2xl bg-[#F2C75C]/10 border border-[#F2C75C]/30 space-y-3">
+              <div className="p-4 rounded-2xl bg-[#F59E0B]/10 border border-[#F59E0B]/30 space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-[#F2C75C] text-xs font-black">
+                  <div className="flex items-center gap-2 text-[#F59E0B] text-xs font-black">
                     <Clock className="w-4 h-4" />
                     <span>Reported Checkout: {activeUnresolvedRecord.checkOutTime || activeUnresolvedRecord.employeeProposedCheckoutTime || 'Submitted'}</span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-[#F2C75C]/20 text-[#F2C75C] border border-[#F2C75C]/40">
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/40">
                     REPORTED
                   </span>
                 </div>
-                <p className="text-xs text-[#F2C75C]/90 leading-relaxed">
+                <p className="text-xs text-[#F59E0B]/90 leading-relaxed">
                   Your proposed checkout time has been submitted and is currently pending Admin verification.
                 </p>
                 <div className="flex justify-end pt-1">
@@ -1321,24 +1321,24 @@ export const AttendanceScreen: React.FC = () => {
                       setIsEditingProposal(true);
                       setProposedTimeInput(activeUnresolvedRecord.employeeProposedCheckoutTime || '');
                     }}
-                    className="px-3 py-1.5 bg-[#112C26] hover:bg-[#21483E] text-[#F2C75C] text-xs font-bold rounded-xl border border-[#F2C75C]/30 transition-all cursor-pointer"
+                    className="px-3 py-1.5 bg-[#121212] hover:bg-[#1B1B1B] text-[#F59E0B] text-xs font-bold rounded-xl border border-[#F59E0B]/30 transition-all cursor-pointer"
                   >
                     Edit Proposed Time
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="space-y-3 p-4 rounded-2xl bg-[#112C26] border border-[#2A5B50]">
-                <label className="text-xs font-bold text-[#F4FAF7] block">
+              <div className="space-y-3 p-4 rounded-2xl bg-[#121212] border border-[#292929]">
+                <label className="text-xs font-bold text-[#FFFFFF] block">
                   Select your actual checkout time for {activeUnresolvedRecord.date}:
                 </label>
 
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex flex-col sm:row gap-2">
                   <input
                     type="time"
                     value={proposedTimeInput}
                     onChange={(e) => setProposedTimeInput(e.target.value)}
-                    className="flex-1 px-3.5 py-2.5 bg-[#173A32] border border-[#2A5B50] text-[#F4FAF7] rounded-xl text-xs focus:ring-2 focus:ring-[#19C7C0] focus:outline-none"
+                    className="flex-1 px-3.5 py-2.5 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-xl text-xs focus:ring-2 focus:ring-[#D4AF37] focus:outline-none"
                   />
                   <div className="flex flex-wrap gap-1.5">
                     {['17:30', '18:00', '18:10', '18:30', '19:00', '19:30'].map((preset) => {
@@ -1352,8 +1352,8 @@ export const AttendanceScreen: React.FC = () => {
                           onClick={() => setProposedTimeInput(preset)}
                           className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
                             proposedTimeInput === preset
-                              ? 'bg-[#19C7C0] text-[#112C26] border-[#19C7C0]'
-                              : 'bg-[#173A32] text-[#C7DAD3] border-[#2A5B50] hover:bg-[#21483E]'
+                              ? 'bg-[#D4AF37] text-[#080808] border-[#D4AF37]'
+                              : 'bg-[#151515] text-[#C7C7C7] border-[#292929] hover:bg-[#1B1B1B]'
                           }`}
                         >
                           {label}
@@ -1364,7 +1364,7 @@ export const AttendanceScreen: React.FC = () => {
                 </div>
 
                 {proposalError && (
-                  <div className="text-xs text-[#EF6B73] font-bold flex items-center gap-1.5">
+                  <div className="text-xs text-[#EF4444] font-bold flex items-center gap-1.5">
                     <AlertCircle className="w-3.5 h-3.5" />
                     <span>{proposalError}</span>
                   </div>
@@ -1375,7 +1375,7 @@ export const AttendanceScreen: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsEditingProposal(false)}
-                      className="px-4 py-2 bg-[#173A32] hover:bg-[#21483E] text-[#C7DAD3] text-xs font-bold rounded-xl border border-[#2A5B50] transition-all cursor-pointer"
+                      className="px-4 py-2 bg-[#151515] hover:bg-[#1B1B1B] text-[#C7C7C7] text-xs font-bold rounded-xl border border-[#292929] transition-all cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -1383,9 +1383,9 @@ export const AttendanceScreen: React.FC = () => {
                   <Button
                     onClick={handleSubmitProposedTime}
                     disabled={isSubmittingProposal}
-                    className="bg-[#F2C75C] hover:bg-[#F2C75C]/90 text-[#112C26] text-xs font-black px-6 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                    className="bg-[#D4AF37] hover:bg-[#E6C766] text-[#080808] text-xs font-black px-6 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
                   >
-                    <Check className="w-4 h-4" />
+                    <Check className="w-4 h-4 stroke-[3]" />
                     {isSubmittingProposal ? 'SUBMITTING...' : 'RESOLVE CHECKOUT'}
                   </Button>
                 </div>
@@ -1424,20 +1424,20 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {/* 5. LOCATION STATUS CARD */}
       {/* ==================================================== */}
-      <Card className="p-4 sm:p-5 bg-[#173A32] border border-[#2A5B50] rounded-2xl shadow-md space-y-3 text-[#F4FAF7]">
-        <div className="flex items-center justify-between border-b border-[#2A5B50] pb-2.5">
+      <Card className="p-4 sm:p-5 bg-[#151515] border border-[#292929] rounded-2xl shadow-md space-y-3 text-[#FFFFFF]">
+        <div className="flex items-center justify-between border-b border-[#292929] pb-2.5">
           <div className="flex items-center gap-2">
-            <Compass className="w-4 h-4 text-[#19C7C0]" />
-            <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#F4FAF7]">
+            <Compass className="w-4 h-4 text-[#D4AF37]" />
+            <h2 className="text-xs font-extrabold uppercase tracking-wider text-[#FFFFFF]">
               LOCATION STATUS
             </h2>
           </div>
           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
             isInsideGeofence || (distance !== null && distance <= 25)
-              ? 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/40'
+              ? 'bg-[#22C55E]/15 text-[#22C55E] border-[#22C55E]/40'
               : locationStatus === 'error'
-              ? 'bg-[#F2C75C]/20 text-[#F2C75C] border-[#F2C75C]/40'
-              : 'bg-[#EF6B73]/20 text-[#EF6B73] border-[#EF6B73]/40'
+              ? 'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/40'
+              : 'bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/40'
           }`}>
             {isInsideGeofence || (distance !== null && distance <= 25)
               ? 'Inside Office'
@@ -1449,21 +1449,21 @@ export const AttendanceScreen: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
           <div>
-            <span className="text-[10px] font-bold text-[#9FB9AF] uppercase tracking-wider block mb-0.5">
+            <span className="text-[10px] font-bold text-[#8A8A8A] uppercase tracking-wider block mb-0.5">
               Distance from Office
             </span>
-            <span className="text-xl sm:text-2xl font-black font-mono text-[#F4FAF7]">
+            <span className="text-xl sm:text-2xl font-black font-mono text-[#FFFFFF]">
               {distance !== null ? `${distance.toFixed(0)} m` : 'Acquiring GPS...'}
             </span>
-            <span className="text-[11px] text-[#C7DAD3] font-medium block mt-0.5">
+            <span className="text-[11px] text-[#8A8A8A] font-medium block mt-0.5">
               Location: {currentAddress || 'Raniganj HQ Office Radius (25 m)'}
             </span>
           </div>
 
           <div className="flex flex-col sm:items-end justify-center">
             {locationStatus === 'loading' && (
-              <div className="flex items-center gap-1.5 font-bold text-[#19C7C0] text-xs animate-pulse">
-                <RotateCw className="w-3.5 h-3.5 animate-spin text-[#19C7C0]" /> Updating GPS...
+              <div className="flex items-center gap-1.5 font-bold text-[#D4AF37] text-xs animate-pulse">
+                <RotateCw className="w-3.5 h-3.5 animate-spin text-[#D4AF37]" /> Updating GPS...
               </div>
             )}
             {locationStatus === 'error' && (
@@ -1472,7 +1472,7 @@ export const AttendanceScreen: React.FC = () => {
               </Button>
             )}
             {locationStatus === 'success' && (
-              <span className="text-[11px] text-[#9FB9AF] font-mono">
+              <span className="text-[11px] text-[#8A8A8A] font-mono">
                 GPS Accuracy: High • 25 m Limit
               </span>
             )}
@@ -1480,36 +1480,34 @@ export const AttendanceScreen: React.FC = () => {
         </div>
       </Card>
 
-
-
       {/* ==================================================== */}
       {/* 3. TODAY'S DETAILS */}
       {/* ==================================================== */}
       {todayRecord && ['WFH', 'CLIENT_VISIT', 'OUTDOOR'].includes(todayRecord.attendanceType || '') && (
-        <Card className="p-5 bg-[#173A32] border border-[#2A5B50] text-xs rounded-2xl space-y-3 text-[#F4FAF7]">
-          <h3 className="text-xs font-extrabold text-[#C7DAD3] uppercase tracking-widest border-b border-[#2A5B50] pb-2">
+        <Card className="p-5 bg-[#151515] border border-[#292929] text-xs rounded-2xl space-y-3 text-[#FFFFFF]">
+          <h3 className="text-xs font-extrabold text-[#8A8A8A] uppercase tracking-widest border-b border-[#292929] pb-2">
             📝 Today's Details
           </h3>
           {todayRecord.attendanceType === 'WFH' && (
             <div className="space-y-1.5">
-              <p className="font-bold text-[#35C98A]">Work From Home (WFH)</p>
-              <p><span className="text-[#C7DAD3] font-bold">Reason:</span> {todayRecord.wfhReason || 'N/A'}</p>
-              <p><span className="text-[#C7DAD3] font-bold">Work Plan:</span> {todayRecord.workPlan || 'N/A'}</p>
+              <p className="font-bold text-[#22C55E]">Work From Home (WFH)</p>
+              <p><span className="text-[#8A8A8A] font-bold">Reason:</span> {todayRecord.wfhReason || 'N/A'}</p>
+              <p><span className="text-[#8A8A8A] font-bold">Work Plan:</span> {todayRecord.workPlan || 'N/A'}</p>
             </div>
           )}
           {todayRecord.attendanceType === 'CLIENT_VISIT' && (
             <div className="space-y-1.5">
-              <p className="font-bold text-[#F2C75C]">Client Visit</p>
-              <p><span className="text-[#C7DAD3] font-bold">Client:</span> {todayRecord.clientName || 'N/A'}</p>
-              <p><span className="text-[#C7DAD3] font-bold">Location:</span> {todayRecord.clientLocation || 'N/A'}</p>
-              <p><span className="text-[#C7DAD3] font-bold">Purpose:</span> {todayRecord.purpose || 'N/A'}</p>
+              <p className="font-bold text-[#D4AF37]">Client Visit</p>
+              <p><span className="text-[#8A8A8A] font-bold">Client:</span> {todayRecord.clientName || 'N/A'}</p>
+              <p><span className="text-[#8A8A8A] font-bold">Location:</span> {todayRecord.clientLocation || 'N/A'}</p>
+              <p><span className="text-[#8A8A8A] font-bold">Purpose:</span> {todayRecord.purpose || 'N/A'}</p>
             </div>
           )}
           {todayRecord.attendanceType === 'OUTDOOR' && (
             <div className="space-y-1.5">
-              <p className="font-bold text-[#19C7C0]">Outdoor Work</p>
-              <p><span className="text-[#C7DAD3] font-bold">Type:</span> {todayRecord.outdoorType || 'N/A'}</p>
-              <p><span className="text-[#C7DAD3] font-bold">Description:</span> {todayRecord.description || 'N/A'}</p>
+              <p className="font-bold text-[#D4AF37]">Outdoor Work</p>
+              <p><span className="text-[#8A8A8A] font-bold">Type:</span> {todayRecord.outdoorType || 'N/A'}</p>
+              <p><span className="text-[#8A8A8A] font-bold">Description:</span> {todayRecord.description || 'N/A'}</p>
             </div>
           )}
         </Card>
@@ -1528,61 +1526,61 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {/* 6. MONTHLY SUMMARY */}
       {/* ==================================================== */}
-      <Card className="p-5 bg-[#173A32] border border-[#2A5B50] shadow-md rounded-2xl text-[#F4FAF7]">
-        <h3 className="text-xs font-extrabold text-[#C7DAD3] uppercase tracking-widest border-b border-[#2A5B50] pb-2 mb-4 flex items-center justify-between">
+      <Card className="p-5 bg-[#151515] border border-[#292929] shadow-md rounded-2xl text-[#FFFFFF]">
+        <h3 className="text-xs font-extrabold text-[#8A8A8A] uppercase tracking-widest border-b border-[#292929] pb-2 mb-4 flex items-center justify-between">
           <span>📊 THIS MONTH</span>
-          <span className="text-[10px] text-[#9FB9AF] font-mono font-bold uppercase">SUMMARY</span>
+          <span className="text-[10px] text-[#8A8A8A] font-mono font-bold uppercase">SUMMARY</span>
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
           {/* Left: Compact Stats Table */}
-          <div className="space-y-2 border-b md:border-b-0 md:border-r border-[#2A5B50] pb-4 md:pb-0 md:pr-6 text-xs">
+          <div className="space-y-2 border-b md:border-b-0 md:border-r border-[#292929] pb-4 md:pb-0 md:pr-6 text-xs">
             <div className="flex justify-between font-semibold">
-              <span className="text-[#C7DAD3]">Present</span>
-              <span className="text-[#F4FAF7] font-black">{monthlyStats.present}</span>
+              <span className="text-[#8A8A8A]">Present</span>
+              <span className="text-[#FFFFFF] font-black">{monthlyStats.present}</span>
             </div>
             <div className="flex justify-between font-semibold">
-              <span className="text-[#C7DAD3] ml-3">🏢 Office</span>
-              <span className="text-[#F4FAF7] font-bold">{monthlyStats.office}</span>
+              <span className="text-[#8A8A8A] ml-3">🏢 Office</span>
+              <span className="text-[#FFFFFF] font-bold">{monthlyStats.office}</span>
             </div>
             <div className="flex justify-between font-semibold">
-              <span className="text-[#C7DAD3] ml-3">🏠 WFH</span>
-              <span className="text-[#35C98A] font-bold">{monthlyStats.wfh}</span>
+              <span className="text-[#8A8A8A] ml-3">🏠 WFH</span>
+              <span className="text-[#D4AF37] font-bold">{monthlyStats.wfh}</span>
             </div>
             <div className="flex justify-between font-semibold">
-              <span className="text-[#C7DAD3] ml-3">🤝 Client Visit</span>
-              <span className="text-[#F2C75C] font-bold">{monthlyStats.clientVisit}</span>
+              <span className="text-[#8A8A8A] ml-3">🤝 Client Visit</span>
+              <span className="text-[#F59E0B] font-bold">{monthlyStats.clientVisit}</span>
             </div>
             <div className="flex justify-between font-semibold">
-              <span className="text-[#C7DAD3] ml-3">🚗 Outdoor Work</span>
-              <span className="text-[#19C7C0] font-bold">{monthlyStats.outdoor}</span>
+              <span className="text-[#8A8A8A] ml-3">🚗 Outdoor Work</span>
+              <span className="text-[#D4AF37] font-bold">{monthlyStats.outdoor}</span>
             </div>
             <div className="flex justify-between font-semibold">
-              <span className="text-[#C7DAD3]">🏖 Leave</span>
-              <span className="text-[#19C7C0] font-black">{monthlyStats.leave}</span>
+              <span className="text-[#8A8A8A]">🏖 Leave</span>
+              <span className="text-[#60A5FA] font-black">{monthlyStats.leave}</span>
             </div>
             <div className="flex justify-between font-semibold">
-              <span className="text-[#C7DAD3]">○ Absent</span>
-              <span className="text-[#EF6B73] font-black">{monthlyStats.absent}</span>
+              <span className="text-[#8A8A8A]">○ Absent</span>
+              <span className="text-[#EF4444] font-black">{monthlyStats.absent}</span>
             </div>
           </div>
 
           {/* Middle: Attendance Rate Circle/Indicator */}
-          <div className="flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-[#2A5B50] pb-4 md:pb-0 md:px-6">
-            <span className="text-[10px] text-[#C7DAD3] uppercase tracking-wider font-extrabold mb-2 text-center">
+          <div className="flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-[#292929] pb-4 md:pb-0 md:px-6">
+            <span className="text-[10px] text-[#8A8A8A] uppercase tracking-wider font-extrabold mb-2 text-center">
               Attendance Rate
             </span>
             <div className="relative w-20 h-20 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                 <path
-                  className="text-[#112C26]"
+                  className="text-[#121212]"
                   strokeWidth="3"
                   stroke="currentColor"
                   fill="none"
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                 />
                 <path
-                  className="text-[#35C98A]"
+                  className="text-[#D4AF37]"
                   strokeDasharray={`${monthlyStats.attendanceRate}, 100`}
                   strokeWidth="3.5"
                   strokeLinecap="round"
@@ -1592,47 +1590,46 @@ export const AttendanceScreen: React.FC = () => {
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-sm font-black font-mono text-[#F4FAF7]">{monthlyStats.attendanceRate}%</span>
+                <span className="text-sm font-black font-mono text-[#FFFFFF]">{monthlyStats.attendanceRate}%</span>
               </div>
             </div>
-            <span className="text-[10px] text-[#9FB9AF] mt-1.5 font-bold font-mono">
+            <span className="text-[10px] text-[#8A8A8A] mt-1.5 font-bold font-mono">
               {monthlyStats.workingDaysElapsed} / {monthlyStats.workingDaysTotal} Days
             </span>
           </div>
 
           {/* Right: Average Working Time */}
           <div className="flex flex-col items-center md:items-end justify-center text-center md:text-right">
-            <span className="text-[10px] text-[#C7DAD3] uppercase tracking-wider font-extrabold mb-1">
+            <span className="text-[10px] text-[#8A8A8A] uppercase tracking-wider font-extrabold mb-1">
               Average Working Time
             </span>
-            <span className="text-2xl font-black font-mono text-[#F4FAF7] tracking-tight">
+            <span className="text-2xl font-black font-mono text-[#FFFFFF] tracking-tight">
               {monthlyStats.avgWorkingTime}
             </span>
-            <span className="text-[10px] text-[#9FB9AF] mt-1 font-bold">
+            <span className="text-[10px] text-[#8A8A8A] mt-1 font-bold">
               Based on active sessions
             </span>
           </div>
         </div>
       </Card>
 
-
       {/* ==================================================== */}
       {/* 7. ATTENDANCE HISTORY LOGS */}
       {/* ==================================================== */}
-      <div className="bg-[#173A32] rounded-2xl border border-[#2A5B50] overflow-hidden shadow-md text-[#F4FAF7]">
+      <div className="bg-[#151515] rounded-2xl border border-[#292929] overflow-hidden shadow-md text-[#FFFFFF]">
         <div 
           onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
-          className="p-5 flex items-center justify-between cursor-pointer hover:bg-[#21483E] transition select-none"
+          className="p-5 flex items-center justify-between cursor-pointer hover:bg-[#1B1B1B] transition select-none"
         >
           <div>
-            <h3 className="text-sm font-black text-[#F4FAF7] uppercase tracking-wider flex items-center gap-2">
+            <h3 className="text-sm font-black text-[#FFFFFF] uppercase tracking-wider flex items-center gap-2">
               <span>📅</span> Attendance History Logs
             </h3>
-            <p className="text-[11px] text-[#C7DAD3] mt-0.5">
+            <p className="text-[11px] text-[#8A8A8A] mt-0.5">
               {isHistoryExpanded ? 'Search and filter local & synchronized records' : 'Click to expand historical logs'}
             </p>
           </div>
-          <div className="w-7 h-7 rounded-lg bg-[#112C26] border border-[#2A5B50] flex items-center justify-center text-[#19C7C0]">
+          <div className="w-7 h-7 rounded-lg bg-[#121212] border border-[#292929] flex items-center justify-center text-[#D4AF37]">
             <span className={`transform transition-transform duration-200 ${isHistoryExpanded ? 'rotate-90' : ''}`}>
               &rarr;
             </span>
@@ -1640,7 +1637,7 @@ export const AttendanceScreen: React.FC = () => {
         </div>
 
         {isHistoryExpanded && (
-          <div className="p-6 border-t border-[#2A5B50] bg-[#112C26]/40 space-y-4">
+          <div className="p-6 border-t border-[#292929] bg-[#121212]/40 space-y-4">
             {/* Search and Filters Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="relative">
@@ -1649,16 +1646,16 @@ export const AttendanceScreen: React.FC = () => {
                   placeholder="Search date, client, location..."
                   value={historySearchTerm}
                   onChange={(e) => setHistorySearchTerm(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 bg-[#112C26] border border-[#2A5B50] rounded-xl text-xs text-[#F4FAF7] placeholder-[#9FB9AF] focus:outline-none focus:border-[#19C7C0]"
+                  className="w-full pl-8 pr-3 py-2 bg-[#121212] border border-[#292929] rounded-xl text-xs text-[#FFFFFF] placeholder-[#8A8A8A] focus:outline-none focus:border-[#D4AF37]"
                 />
-                <span className="absolute left-2.5 top-2.5 text-[#9FB9AF] text-xs">🔍</span>
+                <span className="absolute left-2.5 top-2.5 text-[#8A8A8A] text-xs">🔍</span>
               </div>
 
               <div>
                 <select
                   value={historyTypeFilter}
                   onChange={(e) => setHistoryTypeFilter(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-[#112C26] border border-[#2A5B50] rounded-xl text-xs text-[#F4FAF7] focus:outline-none"
+                  className="w-full px-3 py-2 bg-[#121212] border border-[#292929] rounded-xl text-xs text-[#FFFFFF] focus:outline-none"
                 >
                   <option value="ALL">All Modes</option>
                   <option value="OFFICE">🏢 Office</option>
@@ -1672,7 +1669,7 @@ export const AttendanceScreen: React.FC = () => {
             </div>
 
             {filteredHistoryRecords.length === 0 ? (
-              <p className="text-xs text-[#9FB9AF] italic text-center py-6">No matching attendance records found.</p>
+              <p className="text-xs text-[#8A8A8A] italic text-center py-6">No matching attendance records found.</p>
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
                 {filteredHistoryRecords.map((rec) => {
@@ -1683,28 +1680,28 @@ export const AttendanceScreen: React.FC = () => {
                   return (
                     <div 
                       key={rec.id} 
-                      className="p-4 bg-[#112C26] rounded-2xl border border-[#2A5B50] text-xs flex flex-col gap-3 hover:border-[#19C7C0]/40 transition-all"
+                      className="p-4 bg-[#121212] rounded-2xl border border-[#292929] text-xs flex flex-col gap-3 hover:border-[#D4AF37]/40 transition-all"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
                             (rec.attendanceType || 'OFFICE') === 'WFH'
-                              ? 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/40'
+                              ? 'bg-[#D4AF37]/15 text-[#D4AF37] border-[#D4AF37]/40'
                               : (rec.attendanceType || 'OFFICE') === 'CLIENT_VISIT'
-                              ? 'bg-[#F2C75C]/20 text-[#F2C75C] border-[#F2C75C]/40'
+                              ? 'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/40'
                               : (rec.attendanceType || 'OFFICE') === 'OUTDOOR'
-                              ? 'bg-[#19C7C0]/20 text-[#19C7C0] border-[#19C7C0]/40'
-                              : 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/40'
+                              ? 'bg-[#D4AF37]/15 text-[#D4AF37] border-[#D4AF37]/40'
+                              : 'bg-[#22C55E]/15 text-[#22C55E] border-[#22C55E]/40'
                           }`}>
                             {(rec.attendanceType || 'OFFICE') === 'WFH' ? '🏠 WFH' : (rec.attendanceType || 'OFFICE') === 'CLIENT_VISIT' ? '🤝 Client Visit' : (rec.attendanceType || 'OFFICE') === 'OUTDOOR' ? '🚗 Outdoor Work' : '🏢 Office'}
                           </span>
-                          <span className="font-bold text-[#F4FAF7]">{rec.date}</span>
+                          <span className="font-bold text-[#FFFFFF]">{rec.date}</span>
                           {(() => {
                             if (rec.checkInTime && rec.checkOutTime && rec.checkOutTime !== '--:--' && rec.checkOutTime !== 'Pending' && rec.checkOutTime !== 'N/A' && rec.checkOutTime !== 'UNRESOLVED') {
                               const calculated = calculateWorkingHours(rec.checkInTime, rec.checkOutTime);
                               if (calculated) {
                                   return (
-                                    <span className="text-[11px] text-[#F4FAF7] font-mono font-bold bg-[#173A32] px-2 py-0.5 rounded-md border border-[#2A5B50]">
+                                    <span className="text-[11px] text-[#FFFFFF] font-mono font-bold bg-[#1B1B1B] px-2 py-0.5 rounded-md border border-[#292929]">
                                       ⏱️ {calculated}
                                     </span>
                                   );
@@ -1718,72 +1715,72 @@ export const AttendanceScreen: React.FC = () => {
                       </div>
 
                       {rec.clientName && (
-                        <p className="text-[11px] text-[#F2C75C]">Client: {rec.clientName} ({rec.clientLocation})</p>
+                        <p className="text-[11px] text-[#F59E0B]">Client: {rec.clientName} ({rec.clientLocation})</p>
                       )}
                       {rec.wfhReason && (
-                        <p className="text-[11px] text-[#35C98A]">WFH Reason: {rec.wfhReason}</p>
+                        <p className="text-[11px] text-[#22C55E]">WFH Reason: {rec.wfhReason}</p>
                       )}
                       {rec.outdoorType && (
-                        <p className="text-[11px] text-[#19C7C0]">Outdoor: {rec.outdoorType} - {rec.description}</p>
+                        <p className="text-[11px] text-[#D4AF37]">Outdoor: {rec.outdoorType} - {rec.description}</p>
                       )}
 
                       {/* Separate Check-in, Checkout & Current Location */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1 pt-2 border-t border-[#2A5B50]">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1 pt-2 border-t border-[#292929]">
                         {/* Check-In Block */}
-                        <div className="bg-[#173A32] p-2.5 rounded-xl border border-[#2A5B50] space-y-0.5">
-                          <div className="text-[10px] font-bold text-[#35C98A] uppercase tracking-wider flex items-center justify-between">
+                        <div className="bg-[#151515] p-2.5 rounded-xl border border-[#292929] space-y-0.5">
+                          <div className="text-[10px] font-bold text-[#22C55E] uppercase tracking-wider flex items-center justify-between">
                             <span>Check-in Location</span>
-                            <span className="font-mono text-[#35C98A]">{checkInLoc.time}</span>
+                            <span className="font-mono text-[#22C55E]">{checkInLoc.time}</span>
                           </div>
-                          <div className="text-[#F4FAF7] font-medium truncate flex items-center gap-1" title={checkInLoc.location}>
-                            <span className="text-[#35C98A]">📍</span> {checkInLoc.location}
+                          <div className="text-[#FFFFFF] font-medium truncate flex items-center gap-1" title={checkInLoc.location}>
+                            <span className="text-[#22C55E]">📍</span> {checkInLoc.location}
                           </div>
                           {checkInLoc.distance && (
-                            <div className="text-[10px] text-[#C7DAD3] font-mono">
+                            <div className="text-[10px] text-[#8A8A8A] font-mono">
                               Distance: {checkInLoc.distance}
                             </div>
                           )}
                         </div>
 
                         {/* Checkout Block */}
-                        <div className="bg-[#173A32] p-2.5 rounded-xl border border-[#2A5B50] space-y-0.5">
-                          <div className="text-[10px] font-bold text-[#C7DAD3] uppercase tracking-wider flex items-center justify-between">
+                        <div className="bg-[#151515] p-2.5 rounded-xl border border-[#292929] space-y-0.5">
+                          <div className="text-[10px] font-bold text-[#8A8A8A] uppercase tracking-wider flex items-center justify-between">
                             <span>Checkout Location</span>
-                            <span className="font-mono text-[#EF6B73]">{checkoutLoc.time}</span>
+                            <span className="font-mono text-[#EF4444]">{checkoutLoc.time}</span>
                           </div>
-                          <div className={`font-medium truncate flex items-center gap-1 ${checkoutLoc.isUnresolved ? 'text-[#F2C75C] font-bold' : 'text-[#F4FAF7]'}`} title={checkoutLoc.location}>
-                            <span className={checkoutLoc.isUnresolved ? 'text-[#F2C75C]' : 'text-[#EF6B73]'}>📍</span> {checkoutLoc.location}
+                          <div className={`font-medium truncate flex items-center gap-1 ${checkoutLoc.isUnresolved ? 'text-[#F59E0B] font-bold' : 'text-[#FFFFFF]'}`} title={checkoutLoc.location}>
+                            <span className={checkoutLoc.isUnresolved ? 'text-[#F59E0B]' : 'text-[#EF4444]'}>📍</span> {checkoutLoc.location}
                           </div>
                           {checkoutLoc.distance && (
-                            <div className="text-[10px] text-[#C7DAD3] font-mono">
+                            <div className="text-[10px] text-[#8A8A8A] font-mono">
                               Distance: {checkoutLoc.distance}
                             </div>
                           )}
                         </div>
 
                         {/* Current Location Block */}
-                        <div className="bg-[#173A32] p-2.5 rounded-xl border border-[#2A5B50] space-y-0.5">
-                          <div className="text-[10px] font-bold text-[#19C7C0] uppercase tracking-wider flex items-center justify-between">
+                        <div className="bg-[#151515] p-2.5 rounded-xl border border-[#292929] space-y-0.5">
+                          <div className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-wider flex items-center justify-between">
                             <span>Current Location</span>
                             <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
-                              currentLoc.status === 'LIVE' ? 'bg-[#35C98A]/20 text-[#35C98A] border border-[#35C98A]/30 animate-pulse' :
-                              currentLoc.status === 'RECENT' ? 'bg-[#19C7C0]/20 text-[#19C7C0] border border-[#19C7C0]/30' :
-                              currentLoc.status === 'STALE' ? 'bg-[#F2C75C]/20 text-[#F2C75C] border border-[#F2C75C]/30' :
-                              'bg-[#EF6B73]/20 text-[#EF6B73] border border-[#EF6B73]/30'
+                              currentLoc.status === 'LIVE' ? 'bg-[#22C55E]/15 text-[#22C55E] border border-[#22C55E]/30 animate-pulse' :
+                              currentLoc.status === 'RECENT' ? 'bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/30' :
+                              currentLoc.status === 'STALE' ? 'bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30' :
+                              'bg-[#EF4444]/15 text-[#EF4444] border border-[#EF4444]/30'
                             }`}>
                               {currentLoc.status}
                             </span>
                           </div>
-                          <div className="text-[#F4FAF7] font-medium truncate flex items-center gap-1" title={currentLoc.location}>
-                            <span className="text-[#19C7C0]">📍</span> {currentLoc.location}
+                          <div className="text-[#FFFFFF] font-medium truncate flex items-center gap-1" title={currentLoc.location}>
+                            <span className="text-[#D4AF37]">📍</span> {currentLoc.location}
                           </div>
                           {currentLoc.distance && (
-                            <div className="text-[10px] text-[#C7DAD3] font-mono">
+                            <div className="text-[10px] text-[#8A8A8A] font-mono">
                               Distance: {currentLoc.distance}
                             </div>
                           )}
                           {currentLoc.statusText && (
-                            <div className="text-[9px] text-[#C7DAD3] font-mono flex items-center gap-1">
+                            <div className="text-[9px] text-[#8A8A8A] font-mono flex items-center gap-1">
                               <span>⏱</span> {currentLoc.statusText}
                             </div>
                           )}
