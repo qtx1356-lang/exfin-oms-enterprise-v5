@@ -1,86 +1,90 @@
 @import "tailwindcss";
 
 @theme {
-  --color-app-bg: #0B0B0B;
-  --color-app-bg-secondary: #101010;
+  --color-app-bg: #0F1025;
+  --color-app-bg-secondary: #171936;
   
   /* Primary & Secondary Cards */
-  --color-card-bg: #151515;
-  --color-card-elevated: #1B1B1B;
-  --color-card-surface: #121212;
-  --color-border-gold: rgba(212, 175, 55, 0.40);
-  --color-border-subtle: #292929;
+  --color-card-bg: #1E1F41;
+  --color-card-elevated: #282A55;
+  --color-card-surface: #171936;
+  --color-border-gold: rgba(99, 102, 241, 0.40);
+  --color-border-indigo: rgba(99, 102, 241, 0.20);
+  --color-border-subtle: rgba(99, 102, 241, 0.16);
   
-  /* Primary Accent: Executive Gold */
-  --color-primary: #D4AF37;
-  --color-primary-dark: #9C7B20;
-  --color-primary-light: #E6C766;
-  --color-on-primary: #000000;
+  /* Primary Accent: Indigo Glass */
+  --color-primary: #4F46E5;
+  --color-primary-dark: #312E81;
+  --color-primary-light: #6366F1;
+  --color-primary-soft: #818CF8;
+  --color-on-primary: #FFFFFF;
   
-  /* Text inside Dark Cards & Canvas */
-  --color-card-text: #FFFFFF;
-  --color-card-text-secondary: #C7C7C7;
-  --color-card-text-muted: #8A8A8A;
+  /* Text inside Indigo Glass Cards & Canvas */
+  --color-card-text: #F8F8FF;
+  --color-card-text-secondary: #B9B9D0;
+  --color-card-text-muted: #8A8AA3;
 
   /* Text on Canvas */
-  --color-bg-text: #FFFFFF;
-  --color-bg-text-secondary: #C7C7C7;
-  --color-bg-text-muted: #8A8A8A;
+  --color-bg-text: #F8F8FF;
+  --color-bg-text-secondary: #B9B9D0;
+  --color-bg-text-muted: #8A8AA3;
 
   /* Status Colors */
-  --color-success: #22C55E;
-  --color-warning: #F59E0B;
-  --color-danger: #EF4444;
-  --color-info: #60A5FA;
-  --color-offline: #F59E0B;
+  --color-success: #16A34A;
+  --color-warning: #D97706;
+  --color-danger: #DC2626;
+  --color-info: #2563EB;
+  --color-offline: #D97706;
   
-  --color-background: #0B0B0B;
-  --color-surface: #151515;
-  --color-surface-elevated: #1B1B1B;
-  --color-surface-variant: #121212;
-  --color-on-surface: #FFFFFF;
-  --color-on-surface-variant: #C7C7C7;
-  --color-outline: #292929;
-  --color-muted: #8A8A8A;
+  --color-background: #0F1025;
+  --color-surface: #1E1F41;
+  --color-surface-elevated: #282A55;
+  --color-surface-variant: #171936;
+  --color-on-surface: #F8F8FF;
+  --color-on-surface-variant: #B9B9D0;
+  --color-outline: rgba(99, 102, 241, 0.20);
+  --color-muted: #8A8AA3;
 }
 
 :root {
-  --employee-bg: #0B0B0B;
-  --employee-surface: #151515;
-  --employee-surface-strong: #1B1B1B;
-  --employee-gold: #D4AF37;
-  --employee-gold-hover: #E6C766;
-  --employee-text-card: #FFFFFF;
-  --employee-text-card-secondary: #C7C7C7;
-  --employee-text-card-muted: #8A8A8A;
-  --employee-text-bg: #FFFFFF;
-  --employee-text-bg-secondary: #C7C7C7;
-  --employee-text-bg-muted: #8A8A8A;
-  --employee-border: #292929;
+  --employee-bg: #0F1025;
+  --employee-surface: #1E1F41;
+  --employee-surface-strong: #282A55;
+  --employee-indigo: #4F46E5;
+  --employee-indigo-hover: #6366F1;
+  --employee-gold: #6366F1;
+  --employee-gold-hover: #818CF8;
+  --employee-text-card: #F8F8FF;
+  --employee-text-card-secondary: #B9B9D0;
+  --employee-text-card-muted: #8A8AA3;
+  --employee-text-bg: #F8F8FF;
+  --employee-text-bg-secondary: #B9B9D0;
+  --employee-text-bg-muted: #8A8AA3;
+  --employee-border: rgba(99, 102, 241, 0.20);
 
-  --app-bg: #0B0B0B;
-  --app-bg-secondary: #101010;
-  --card-bg: #151515;
-  --card-elevated: #1B1B1B;
-  --border: #292929;
-  --border-subtle: #202020;
-  --border-active: rgba(212, 175, 55, 0.60);
-  --primary: #D4AF37;
-  --primary-dark: #9C7B20;
-  --primary-light: #E6C766;
-  --text-primary: #FFFFFF;
-  --text-secondary: #C7C7C7;
-  --text-muted: #8A8A8A;
-  --success: #22C55E;
-  --warning: #F59E0B;
-  --danger: #EF4444;
-  --info: #60A5FA;
+  --app-bg: #0F1025;
+  --app-bg-secondary: #171936;
+  --card-bg: #1E1F41;
+  --card-elevated: #282A55;
+  --border: rgba(99, 102, 241, 0.20);
+  --border-subtle: rgba(99, 102, 241, 0.15);
+  --border-active: rgba(99, 102, 241, 0.45);
+  --primary: #4F46E5;
+  --primary-dark: #312E81;
+  --primary-light: #6366F1;
+  --text-primary: #F8F8FF;
+  --text-secondary: #B9B9D0;
+  --text-muted: #8A8AA3;
+  --success: #16A34A;
+  --warning: #D97706;
+  --danger: #DC2626;
+  --info: #2563EB;
 }
 
 body {
-  background-color: #0B0B0B;
-  background-image: none;
-  color: #FFFFFF;
+  background-color: #0F1025;
+  background-image: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, rgba(49, 46, 129, 0.05) 50%, transparent 80%);
+  color: #F8F8FF;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   margin: 0;
   padding: 0;
@@ -101,24 +105,24 @@ button, a, input, select, textarea, [role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Custom scrollbar for Executive Black + Gold theme */
+/* Custom scrollbar for Indigo Glass theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0B0B0B;
+  background: #0F1025;
 }
 ::-webkit-scrollbar-thumb {
-  background: #292929;
+  background: rgba(99, 102, 241, 0.25);
   border-radius: 9999px;
-  border: 1px solid #202020;
+  border: 1px solid rgba(23, 25, 54, 0.8);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #D4AF37;
+  background: #6366F1;
 }
 
-/* Enterprise Form Inputs default styling */
+/* Indigo Glass Form Inputs default styling */
 input[type="text"],
 input[type="number"],
 input[type="email"],
@@ -127,9 +131,9 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: #121212 !important;
-  color: #FFFFFF !important;
-  border: 1px solid #292929 !important;
+  background-color: rgba(23, 25, 54, 0.85) !important;
+  color: #F8F8FF !important;
+  border: 1px solid rgba(99, 102, 241, 0.20) !important;
   border-radius: 12px !important;
   transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
@@ -143,51 +147,58 @@ input[type="time"]:focus,
 textarea:focus,
 select:focus {
   outline: none !important;
-  border-color: #D4AF37 !important;
-  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.25) !important;
+  border-color: #6366F1 !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.30) !important;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #8A8A8A !important;
+  color: #8A8AA3 !important;
 }
 
-/* Executive Card Utilities */
+/* Indigo Glass Card Utilities */
 .glass-card {
-  background: #151515;
-  border: 1px solid #292929;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  background: rgba(30, 31, 65, 0.72);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  box-shadow: 0 8px 32px rgba(15, 16, 37, 0.37);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 16px;
 }
 
 .glass-card-elevated {
-  background: #1B1B1B;
-  border: 1px solid rgba(212, 175, 55, 0.25);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8);
+  background: rgba(40, 42, 85, 0.75);
+  border: 1px solid rgba(99, 102, 241, 0.30);
+  box-shadow: 0 12px 40px rgba(15, 16, 37, 0.50);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 18px;
 }
 
-/* Gold button utility */
-.btn-gold {
-  background: #D4AF37;
-  color: #000000;
+/* Indigo button utilities */
+.btn-indigo, .btn-gold {
+  background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%);
+  color: #FFFFFF;
   font-weight: 700;
-  border: 1px solid #E6C766;
-  box-shadow: 0 0 15px rgba(212, 175, 55, 0.25);
+  border: 1px solid rgba(129, 140, 248, 0.40);
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.35);
+  border-radius: 12px;
   transition: all 0.15s ease;
 }
-.btn-gold:hover {
-  background: #E6C766;
-  box-shadow: 0 0 20px rgba(212, 175, 55, 0.40);
+.btn-indigo:hover, .btn-gold:hover {
+  background: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);
+  box-shadow: 0 6px 24px rgba(99, 102, 241, 0.45);
 }
-.btn-gold:active {
-  background: #9C7B20;
-  color: #000000;
+.btn-indigo:active, .btn-gold:active {
+  background: #312E81;
+  color: #FFFFFF;
 }
 
-/* Gold badge utility */
-.gold-badge {
-  background: rgba(212, 175, 55, 0.10);
-  border: 1px solid rgba(212, 175, 55, 0.30);
-  color: #D4AF37;
+/* Indigo badge utility */
+.indigo-badge, .gold-badge {
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.30);
+  color: #818CF8;
 }
 
 @keyframes subtlePulse {
@@ -216,3 +227,4 @@ textarea::placeholder {
     transform: translateX(0);
   }
 }
+

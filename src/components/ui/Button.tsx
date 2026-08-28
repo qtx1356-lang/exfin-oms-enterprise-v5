@@ -13,21 +13,21 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'filled', ...props }, ref) => {
     const variants = {
-      // Primary Executive Gold CTA
-      filled: 'bg-[#D4AF37] text-black font-bold border border-[#E6C766] shadow-[0_0_15px_rgba(212,175,55,0.20)] hover:bg-[#E6C766] hover:shadow-[0_0_20px_rgba(212,175,55,0.35)] active:bg-[#9C7B20] active:text-black rounded-xl',
-      gold: 'bg-[#D4AF37] text-black font-bold border border-[#E6C766] shadow-[0_0_15px_rgba(212,175,55,0.20)] hover:bg-[#E6C766] hover:shadow-[0_0_20px_rgba(212,175,55,0.35)] active:bg-[#9C7B20] active:text-black rounded-xl',
-      cyan: 'bg-[rgba(212,175,55,0.12)] border border-[rgba(212,175,55,0.40)] text-[#D4AF37] shadow-[0_0_12px_rgba(212,175,55,0.10)] hover:bg-[rgba(212,175,55,0.20)] hover:text-[#E6C766] hover:border-[#D4AF37] active:bg-[rgba(212,175,55,0.30)] font-bold rounded-xl',
-      outlined: 'bg-[#151515] border border-[#292929] text-[#FFFFFF] hover:bg-[#1B1B1B] hover:border-[#D4AF37] hover:text-[#D4AF37] rounded-xl',
-      text: 'text-[#C7C7C7] hover:text-[#D4AF37] hover:bg-[#151515] rounded-xl',
-      elevated: 'bg-[#1B1B1B] border border-[#292929] text-[#FFFFFF] hover:bg-[#202020] hover:border-[#D4AF37]/50 shadow-[0_4px_16px_rgba(0,0,0,0.5)] rounded-xl',
-      tonal: 'bg-[rgba(212,175,55,0.10)] border border-[rgba(212,175,55,0.25)] text-[#D4AF37] hover:bg-[rgba(212,175,55,0.18)] hover:text-[#E6C766] rounded-xl',
+      // Primary Indigo Glass CTA
+      filled: 'bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white font-bold border border-[#818CF8]/40 shadow-[0_4px_16px_rgba(79,70,229,0.35)] hover:from-[#6366F1] hover:to-[#818CF8] hover:shadow-[0_6px_24px_rgba(99,102,241,0.45)] active:from-[#312E81] active:to-[#4F46E5] rounded-xl',
+      gold: 'bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white font-bold border border-[#818CF8]/40 shadow-[0_4px_16px_rgba(79,70,229,0.35)] hover:from-[#6366F1] hover:to-[#818CF8] hover:shadow-[0_6px_24px_rgba(99,102,241,0.45)] active:from-[#312E81] active:to-[#4F46E5] rounded-xl',
+      cyan: 'bg-[#6366F1]/15 border border-[#6366F1]/30 text-[#818CF8] hover:bg-[#6366F1]/25 hover:text-white hover:border-[#6366F1]/60 font-bold rounded-xl',
+      outlined: 'bg-[#1E1F41]/60 border border-[#6366F1]/20 text-[#F8F8FF] hover:bg-[#1E1F41]/90 hover:border-[#6366F1]/50 hover:text-[#818CF8] rounded-xl',
+      text: 'text-[#B9B9D0] hover:text-[#F8F8FF] hover:bg-[#1E1F41]/50 rounded-xl',
+      elevated: 'bg-[#171936] border border-[#6366F1]/25 text-[#F8F8FF] hover:bg-[#1E1F41] hover:border-[#6366F1]/50 shadow-[0_4px_16px_rgba(15,16,37,0.4)] rounded-xl',
+      tonal: 'bg-[#4F46E5]/15 border border-[#4F46E5]/30 text-[#818CF8] hover:bg-[#4F46E5]/25 hover:text-white rounded-xl',
     };
 
     return (
       <button
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center rounded-xl min-h-[44px] px-5 py-2.5 text-sm font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] disabled:bg-[#151515] disabled:text-[#555555] disabled:border-[#202020] disabled:shadow-none disabled:cursor-not-allowed cursor-pointer active:scale-[0.98]',
+          'inline-flex items-center justify-center rounded-xl min-h-[44px] px-5 py-2.5 text-sm font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6366F1] disabled:bg-[#171936]/50 disabled:text-[#8A8AA3] disabled:border-[#6366F1]/10 disabled:shadow-none disabled:cursor-not-allowed cursor-pointer active:scale-[0.98]',
           variants[variant],
           className
         )}

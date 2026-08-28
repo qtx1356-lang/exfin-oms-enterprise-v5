@@ -13,10 +13,10 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant = 'elevated', ...props }, ref) => {
     const variants = {
-      elevated: 'bg-[#151515] border border-[#292929] shadow-[0_4px_20px_rgba(0,0,0,0.5)] text-[#FFFFFF]',
-      filled: 'bg-[#121212] border border-[#202020] shadow-[0_2px_12px_rgba(0,0,0,0.4)] text-[#FFFFFF]',
-      outlined: 'bg-[#151515] border border-[#292929] text-[#FFFFFF]',
-      gold: 'bg-[#151515] border border-[#8F7425] shadow-[0_0_20px_rgba(212,175,55,0.12)] text-[#FFFFFF]',
+      elevated: 'bg-[#1E1F41]/75 backdrop-blur-[14px] border border-[#6366F1]/20 shadow-[0_8px_32px_rgba(15,16,37,0.37)] text-[#F8F8FF]',
+      filled: 'bg-[#171936]/80 backdrop-blur-[12px] border border-[#6366F1]/15 shadow-[0_4px_20px_rgba(15,16,37,0.25)] text-[#F8F8FF]',
+      outlined: 'bg-[#1E1F41]/60 backdrop-blur-[10px] border border-[#6366F1]/25 text-[#F8F8FF]',
+      gold: 'bg-[#1E1F41]/85 backdrop-blur-[16px] border border-[#6366F1]/40 shadow-[0_8px_32px_rgba(79,70,229,0.2)] text-[#F8F8FF]',
     };
 
     return (

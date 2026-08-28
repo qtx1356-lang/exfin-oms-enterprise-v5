@@ -59,14 +59,14 @@ const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
   const durationSec = Math.max(7, Math.round(overflowDistance / 18));
 
   return (
-    <div className="flex items-center gap-1 text-[11px] text-[#C7C7C7] font-medium overflow-hidden bg-[#121212] border border-[#292929] px-2 py-0.5 rounded-full min-w-[60px] flex-1 max-w-[150px] xs:max-w-[200px] sm:max-w-[280px]"
+    <div className="flex items-center gap-1 text-[11px] text-[#B9B9D0] font-medium overflow-hidden bg-[#1E1F41]/80 border border-[#6366F1]/20 px-2 py-0.5 rounded-full min-w-[60px] flex-1 max-w-[150px] xs:max-w-[200px] sm:max-w-[280px]"
       title={address}
     >
-      <MapPin className="w-3 h-3 text-[#D4AF37] shrink-0 z-10" />
+      <MapPin className="w-3 h-3 text-[#6366F1] shrink-0 z-10" />
       <div ref={containerRef} className="overflow-hidden relative flex-1 min-w-0">
         <span
           ref={textRef}
-          className={`inline-block whitespace-nowrap text-[10.5px] text-[#C7C7C7] ${
+          className={`inline-block whitespace-nowrap text-[10.5px] text-[#B9B9D0] ${
             overflowDistance > 0 ? '' : 'truncate'
           }`}
           style={
@@ -268,19 +268,19 @@ export const Layout: React.FC = () => {
       : (!isOnline ? 'Offline' : 'Raniganj HQ');
 
   return (
-    <div className="min-h-screen bg-[#0B0B0B] text-[#FFFFFF] pb-20 relative overflow-x-hidden">
-      {/* Subtle ambient lighting */}
-      <div className="fixed top-0 left-1/4 w-96 h-96 bg-[rgba(212,175,55,0.03)] rounded-full blur-[140px] pointer-events-none -z-10" />
-      <div className="fixed bottom-10 left-1/3 w-96 h-96 bg-[rgba(212,175,55,0.02)] rounded-full blur-[140px] pointer-events-none -z-10" />
+    <div className="min-h-screen bg-[#0F1025] text-[#F8F8FF] pb-20 relative overflow-x-hidden">
+      {/* Subtle Indigo ambient lighting */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="fixed bottom-10 right-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-[140px] pointer-events-none -z-10" />
 
       {/* Dynamic Header Bar with [Distance] [Office Status] [Location Address] [Bell] */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#151515] border-b border-[#292929] shadow-[0_4px_20px_rgba(0,0,0,0.7)] text-[#FFFFFF]">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#171936]/80 backdrop-blur-[16px] border-b border-[#6366F1]/20 shadow-[0_4px_24px_rgba(15,16,37,0.5)] text-[#F8F8FF]">
         <div className="container mx-auto px-2.5 sm:px-4 py-2 max-w-3xl flex items-center justify-between gap-1.5 sm:gap-2">
           {/* Left/Center Header Status & Location Controls */}
           <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden py-0.5">
             {/* Live Distance Value */}
             <div
-              className="text-[10px] font-bold text-[#C7C7C7] bg-[#121212] border border-[#292929] px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
+              className="text-[10px] font-bold text-[#B9B9D0] bg-[#1E1F41]/80 border border-[#6366F1]/20 px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
               title="Live distance from office"
             >
               <span>{formattedDistance}</span>
@@ -290,12 +290,12 @@ export const Layout: React.FC = () => {
             <div
               className={`text-[9px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap flex items-center gap-1 shadow-sm select-none shrink-0 ${
                 isInsideGeofence
-                  ? 'bg-[#22C55E]/15 text-[#22C55E] border-[#22C55E]/40'
-                  : 'bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/40'
+                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                  : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
               }`}
               title={isInsideGeofence ? 'Inside office geofence' : 'Outside office geofence'}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-[#22C55E] animate-pulse' : 'bg-[#EF4444]'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
               <span>{isInsideGeofence ? 'INSIDE OFFICE' : 'OUTSIDE OFFICE'}</span>
             </div>
 
@@ -315,7 +315,7 @@ export const Layout: React.FC = () => {
                 {!adminUser && (
                   <button
                     onClick={() => navigate('/faq')}
-                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#121212] border border-[#292929] text-[#C7C7C7] hover:text-[#D4AF37] hover:border-[#D4AF37]/50 transition-all cursor-pointer"
+                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#1E1F41]/80 border border-[#6366F1]/20 text-[#B9B9D0] hover:text-[#818CF8] hover:border-[#6366F1]/50 transition-all cursor-pointer"
                     aria-label="Help & FAQ"
                     title="Help & FAQ"
                   >
@@ -326,13 +326,13 @@ export const Layout: React.FC = () => {
                   {/* Bell Button */}
                   <button
                     onClick={handleBellClick}
-                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#121212] border border-[#292929] text-[#C7C7C7] hover:text-[#D4AF37] hover:border-[#D4AF37]/50 transition-all cursor-pointer"
+                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#1E1F41]/80 border border-[#6366F1]/20 text-[#B9B9D0] hover:text-[#818CF8] hover:border-[#6366F1]/50 transition-all cursor-pointer"
                     aria-label="Toggle notifications"
                     id="notification-bell-btn"
                   >
                     <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-[#EF4444] text-[9px] sm:text-[10px] font-bold text-white ring-2 ring-[#151515]">
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-[#DC2626] text-[9px] sm:text-[10px] font-bold text-white ring-2 ring-[#171936]">
                         {unreadCount}
                       </span>
                     )}
@@ -346,16 +346,16 @@ export const Layout: React.FC = () => {
                        animate={{ opacity: 1, y: 0, scale: 1 }}
                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
                        transition={{ duration: 0.15 }}
-                       className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#151515] border border-[#292929] rounded-2xl shadow-2xl z-50 overflow-hidden text-[#FFFFFF]"
+                       className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#171936]/95 backdrop-blur-[20px] border border-[#6366F1]/25 rounded-2xl shadow-[0_12px_40px_rgba(15,16,37,0.6)] z-50 overflow-hidden text-[#F8F8FF]"
                        id="notification-bell-dropdown"
                     >
-                      <div className="p-4 border-b border-[#292929] flex items-center justify-between bg-[#1B1B1B]">
-                        <span className="font-bold text-sm text-[#FFFFFF]">Recent Alerts</span>
+                      <div className="p-4 border-b border-[#6366F1]/20 flex items-center justify-between bg-[#1E1F41]/90">
+                        <span className="font-bold text-sm text-[#F8F8FF]">Recent Alerts</span>
                         <div className="flex items-center gap-2">
                           {unreadCount > 0 && (
                             <button
                               onClick={handleMarkAllRead}
-                              className="text-[11px] text-[#D4AF37] hover:underline font-bold flex items-center gap-1 bg-[#D4AF37]/15 border border-[#D4AF37]/30 px-2 py-0.5 rounded-full transition-colors"
+                              className="text-[11px] text-[#818CF8] hover:underline font-bold flex items-center gap-1 bg-[#4F46E5]/15 border border-[#4F46E5]/30 px-2 py-0.5 rounded-full transition-colors"
                               title="Mark all notifications as read"
                               id="mark-all-read-btn"
                             >
@@ -364,14 +364,14 @@ export const Layout: React.FC = () => {
                             </button>
                           )}
                           {unreadCount > 0 && (
-                            <span className="text-xs text-[#D4AF37] bg-[#D4AF37]/20 border border-[#D4AF37]/40 px-2 py-0.5 rounded-full font-bold">
+                            <span className="text-xs text-[#818CF8] bg-[#6366F1]/20 border border-[#6366F1]/40 px-2 py-0.5 rounded-full font-bold">
                               {unreadCount} unread
                             </span>
                           )}
                         </div>
                       </div>
 
-                      <div className="max-h-64 overflow-y-auto divide-y divide-[#292929]/60">
+                      <div className="max-h-64 overflow-y-auto divide-y divide-[#6366F1]/15">
                         {recentNotifs.length === 0 ? (
                           <div className="p-6 text-center text-[#8A8A8A] text-xs">
                             No recent notifications.
