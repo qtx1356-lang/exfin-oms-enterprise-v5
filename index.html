@@ -129,30 +129,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      if (window.location.search.indexOf('boottest=1') !== -1) {
-        document.getElementById('root').innerHTML = `
-          <div style="min-height: 100vh; background-color: #0F1025; color: #FFFFFF; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center;">
-            <div style="background-color: #1E1F41; border: 1px solid #6366F1; border-radius: 20px; padding: 40px; max-width: 500px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-              <h1 style="color: #6366F1; font-weight: 900; font-size: 24px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px;">Exfin HTML Boot Test</h1>
-              <div style="background-color: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: 12px; padding: 20px; margin-bottom: 25px; font-family: monospace; font-size: 13px; text-align: left; line-height: 1.6; color: #818CF8;">
-                <p style="margin: 0;">🌐 URL: \${window.location.href}</p>
-                <p style="margin: 5px 0 0 0;">📱 UserAgent: \${navigator.userAgent}</p>
-                <p style="margin: 5px 0 0 0;">🕒 Time: \${new Date().toISOString()}</p>
-                <p style="margin: 5px 0 0 0;">⚙️ HTML Parse & Inline JS: ACTIVE & OK</p>
-              </div>
-              <p style="color: #B9B9D0; font-size: 14px; line-height: 1.5; margin-bottom: 30px;">
-                This confirms your Cloudflare Worker is successfully serving index.html, the browser has parsed the page, and inline scripts are executing perfectly.
-              </p>
-              <button onclick="window.location.search = ''" style="background-image: linear-gradient(to right, #4F46E5, #6366F1); color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: bold; font-size: 13px; cursor: pointer; transition: opacity 0.2s;">
-                Return to Normal App
-              </button>
-            </div>
-          </div>
-        `;
-        throw new Error('STOP_RENDER_BOOT_TEST');
-      }
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
