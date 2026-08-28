@@ -974,7 +974,7 @@ export const AutomaticAttendanceEngine = {
       record.pendingCheckoutConfirmation = false;
       record.checkoutFinalizationSource = 'NONE';
       saveAttendanceRecord(record);
-      logAttendanceEvent('CHECK_OUT', employeeId, `No native exit event recorded for ${dateStr}. Transitioned session to UNRESOLVED workflow.`);
+      logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `No native exit event recorded for ${dateStr}. Transitioned session to UNRESOLVED workflow.`);
       return record;
     }
 

@@ -18,12 +18,11 @@ import {
   ALLOWED_ATTENDANCE_EVENT_TYPES
 } from "./server/services/whatsappService";
 import {
-  getSuperAdminAlertConfig,
-  saveSuperAdminAlertConfig,
-  sendSuperAdminAttendanceAlert,
-  sendSuperAdminTestPush,
-  getVapidPublicKey
-} from "./server/services/superAdminFcmService";
+  getDailyReportConfig,
+  saveDailyReportConfig,
+  generateAndSendDailyReport,
+  sendDailyReportTestEmail
+} from "./server/services/dailyAdminReportService";
 
 const OFFICE_LAT = 23.616227;
 const OFFICE_LNG = 87.117063;
@@ -256,27 +255,6 @@ async function runServerAttendanceFinalizer() {
       });
 
       console.log(`[ServerFinalizer] Settled attendance for ${data.employeeId} on ${recDate} at ${finalCheckoutTime} (Evidence: SERVER_FINALIZATION, Source: ${resolutionSource})`);
-
-      // Auxiliary Super-Admin Attendance Alert dispatch (FCM, non-blocking)
-      if (db) {
-        sendSuperAdminAttendanceAlert(db, {
-          eventId: docSnap.id,
-          eventType: 'CHECK_OUT',
-          employeeId: data.employeeId,
-          employeeCode: data.employeeCode || data.employeeId,
-          employeeName: data.employeeName || 'Employee',
-          attendanceType: data.attendanceType || 'OFFICE',
-          checkInTime: data.checkInTime,
-          checkOutTime: finalCheckoutTime,
-          recordedExitTime: genuineExitTime || finalCheckoutTime,
-          workingHours: workingHours || undefined,
-          townCity: data.townCity || 'Raniganj HQ',
-          distance: data.distance || 0,
-          source: resolutionSource
-        }).catch((alertErr) => {
-          console.warn("[ServerFinalizer] Super-Admin FCM alert warning (non-fatal):", alertErr);
-        });
-      }
     }
   } catch (err: any) {
     if (err?.code === 7 || err?.message?.includes("PERMISSION_DENIED") || err?.message?.includes("7 PERMISSION_DENIED")) {
@@ -326,16 +304,6 @@ async function startServer() {
       firebaseAuthInitialized: !!authAdmin,
       timestamp: new Date().toISOString(),
       environment: "production"
-    });
-  });
-
-  // Diagnostic routing endpoint
-  app.get("/api/attendance-alerts-routing-test", (req, res) => {
-    res.json({
-      success: true,
-      service: "EXFIN OMS API",
-      route: "attendance-alerts",
-      runtime: "express"
     });
   });
 
@@ -1080,24 +1048,6 @@ async function startServer() {
             }).catch((waErr) => {
               console.warn("[BackgroundAttendance] Auxiliary WhatsApp dispatch warning (non-fatal):", waErr);
             });
-
-            // Auxiliary Super-Admin Attendance Alert dispatch (FCM, non-blocking)
-            sendSuperAdminAttendanceAlert(db, {
-              eventId: attDocId,
-              eventType: isEntry ? "AUTO_CHECK_IN" : "OUTSIDE_OFFICE",
-              employeeId,
-              employeeCode: employeeId,
-              employeeName,
-              attendanceType: "OFFICE",
-              checkInTime: isEntry ? timeStr : undefined,
-              recordedExitTime: isEntry ? undefined : timeStr,
-              distance: isLocationUnavailable ? null : Math.round(distance!),
-              townCity: townCity || "Raniganj HQ",
-              eventTime: timeStr,
-              source: "BACKGROUND_GEOFENCE"
-            }).catch((fcmErr) => {
-              console.warn("[BackgroundAttendance] Super-Admin FCM alert warning (non-fatal):", fcmErr);
-            });
           } catch (waTriggerErr) {
             console.warn("[BackgroundAttendance] Non-fatal WhatsApp trigger error:", waTriggerErr);
           }
@@ -1398,11 +1348,11 @@ async function startServer() {
   });
 
   // =======================================================
-  // SUPER-ADMIN REAL-TIME ATTENDANCE FCM ALERT API ROUTES
+  // DAILY OPERATIONS ADMIN EMAIL REPORT SYSTEM API ROUTES
   // =======================================================
 
-  // 1. Super-Admin: Get Attendance Alert Configuration
-  app.get("/api/admin/attendance-alerts/config", async (req, res) => {
+  // 1. Get Daily Report Config (Admin/Super-Admin)
+  app.get("/api/admin/daily-report/config", async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller || !caller.isAdmin) {
       return res.status(401).json({ error: "Unauthorized access: Valid Admin token required" });
@@ -1413,22 +1363,22 @@ async function startServer() {
     }
 
     try {
-      const config = await getSuperAdminAlertConfig(db);
+      const config = await getDailyReportConfig(db);
       return res.json({
         success: true,
         config
       });
     } catch (err: any) {
-      console.error("[SuperAdmin Alert API] Error fetching config:", err);
-      return res.status(500).json({ error: "Failed to fetch attendance alert configuration" });
+      console.error("[DailyReport API] Error fetching config:", err);
+      return res.status(500).json({ error: "Failed to fetch daily report configuration" });
     }
   });
 
-  // 2. Super-Admin: Save Attendance Alert Configuration
-  app.post("/api/admin/attendance-alerts/config", async (req, res) => {
+  // 2. Save Daily Report Config (Super-Admin only)
+  app.post("/api/admin/daily-report/config", async (req, res) => {
     const caller = await verifyCaller(req);
-    if (!caller || !caller.isSuperAdmin) {
-      return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
+    if (!caller || caller.role !== "SUPER_ADMIN") {
+      return res.status(401).json({ error: "Unauthorized access: Super-Admin credentials required" });
     }
 
     if (!db) {
@@ -1436,76 +1386,22 @@ async function startServer() {
     }
 
     try {
-      const updateData = req.body || {};
-      const updatedConfig = await saveSuperAdminAlertConfig(
-        db,
-        {
-          enabled: updateData.enabled,
-          recipientUid: updateData.recipientUid || caller.uid,
-          recipientName: updateData.recipientName || caller.loginId || caller.email || "Super Admin",
-          recipientEmail: updateData.recipientEmail || caller.email || "",
-          recipientFcmToken: updateData.recipientFcmToken,
-          deviceModel: updateData.deviceModel,
-          devicePlatform: updateData.devicePlatform || "android",
-          notifyCheckIn: updateData.notifyCheckIn !== false,
-          notifyCheckOut: updateData.notifyCheckOut !== false,
-          notifyOfficeExit: updateData.notifyOfficeExit !== false
-        },
-        caller.email || caller.loginId || "SUPER_ADMIN"
-      );
-
-      // Record Audit Log
-      try {
-        const auditRef = db.collection("audit_logs").doc();
-        await auditRef.set({
-          id: auditRef.id,
-          actionCategory: "SYSTEM_SETTINGS",
-          action: "Updated Super-Admin Attendance Alert Configuration",
-          performedByUserId: caller.loginId || caller.uid,
-          performedByName: caller.email || caller.loginId || "Super Admin",
-          timestamp: new Date().toISOString(),
-          details: {
-            enabled: updatedConfig.enabled,
-            recipientUid: updatedConfig.recipientUid,
-            hasToken: !!updatedConfig.recipientFcmToken,
-            deviceModel: updatedConfig.deviceModel
-          }
-        });
-      } catch (auditErr) {
-        console.warn("[SuperAdmin Alert API] Audit log warning:", auditErr);
-      }
-
+      const updatedConfig = await saveDailyReportConfig(db, req.body, caller.email || caller.uid);
       return res.json({
         success: true,
         config: updatedConfig
       });
     } catch (err: any) {
-      console.error("[SuperAdmin Alert API] Error saving config:", err);
-      return res.status(500).json({ error: "Failed to save attendance alert configuration" });
+      console.error("[DailyReport API] Error saving config:", err);
+      return res.status(500).json({ error: "Failed to save daily report configuration" });
     }
   });
 
-  // 3. Super-Admin: Get VAPID Public Key (Support both endpoints)
-  const handleVapidKey = async (req: express.Request, res: express.Response) => {
+  // 3. Send Test Email (Super-Admin only)
+  app.post("/api/admin/daily-report/send-test", async (req, res) => {
     const caller = await verifyCaller(req);
-    if (!caller || !caller.isSuperAdmin) {
-      return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
-    }
-    const pubKey = getVapidPublicKey();
-    if (!pubKey) {
-      return res.status(404).json({ error: "VAPID keys not configured on server" });
-    }
-    return res.json({ success: true, publicKey: pubKey });
-  };
-
-  app.get("/api/admin/attendance-alerts/vapid-public-key", handleVapidKey);
-  app.get("/api/admin/attendance-alerts/web-push-public-key", handleVapidKey);
-
-  // 3b. Remove Recipient Device
-  app.post("/api/admin/attendance-alerts/remove-device", async (req, res) => {
-    const caller = await verifyCaller(req);
-    if (!caller || !caller.isSuperAdmin) {
-      return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
+    if (!caller || caller.role !== "SUPER_ADMIN") {
+      return res.status(401).json({ error: "Unauthorized access: Super-Admin credentials required" });
     }
 
     if (!db) {
@@ -1513,227 +1409,98 @@ async function startServer() {
     }
 
     try {
-      const updatedConfig = await saveSuperAdminAlertConfig(
-        db,
-        {
-          enabled: false,
-          recipientFcmToken: "",
-          webPushSubscription: null as any
-        },
-        caller.email || caller.loginId || "SUPER_ADMIN"
-      );
-
-      return res.json({ success: true, message: "Recipient device removed successfully", config: updatedConfig });
+      const result = await sendDailyReportTestEmail(db, caller.email || caller.uid);
+      return res.json(result);
     } catch (err: any) {
-      return res.status(500).json({ error: err.message || "Failed to remove recipient device" });
+      console.error("[DailyReport API] Error sending test email:", err);
+      return res.status(500).json({ success: false, error: err.message || "Failed to send test email" });
     }
   });
 
-  app.post("/api/admin/attendance-alerts/register-web-device", async (req, res) => {
+  // 4. Send Yesterday's / Specific Date Report Manually (Super-Admin only)
+  app.post("/api/admin/daily-report/send-yesterday", async (req, res) => {
     const caller = await verifyCaller(req);
-    if (!caller || !caller.isSuperAdmin) {
-      return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
+    if (!caller || caller.role !== "SUPER_ADMIN") {
+      return res.status(401).json({ error: "Unauthorized access: Super-Admin credentials required" });
     }
 
     if (!db) {
       return res.status(503).json({ error: "Database service unavailable" });
     }
 
-    const { endpoint, keys } = req.body || {};
-    if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
-      return res.status(400).json({ error: "Invalid Web Push subscription format" });
-    }
-
     try {
-      const updatedConfig = await saveSuperAdminAlertConfig(
-        db,
-        {
-          enabled: true,
-          recipientUid: caller.uid,
-          recipientName: caller.loginId || caller.email || "Super Admin",
-          recipientEmail: caller.email || "",
-          deviceModel: "Web Browser (" + (req.headers['user-agent']?.split(' ')[0] || "Unknown") + ")",
-          devicePlatform: "web",
-          recipientFcmToken: "", // Clear native push
-          webPushSubscription: {
-            adminUid: caller.uid,
-            endpoint,
-            p256dh: keys.p256dh,
-            auth: keys.auth,
-            registeredAt: new Date().toISOString(),
-            userAgent: req.headers['user-agent'] || 'Unknown Browser'
-          }
-        },
-        caller.email || caller.loginId || "SUPER_ADMIN"
-      );
-
-      return res.json({ success: true, config: updatedConfig });
+      const targetDate = req.body.date; // Optional custom target date YYYY-MM-DD
+      const result = await generateAndSendDailyReport(db, targetDate, true, caller.email || caller.uid);
+      return res.json(result);
     } catch (err: any) {
-      console.error("[SuperAdmin Alert] Failed to register web push device:", err);
-      return res.status(500).json({ error: err.message || "Failed to register web push device" });
+      console.error("[DailyReport API] Error manually sending report:", err);
+      return res.status(500).json({ success: false, error: err.message || "Failed to manually generate/send report" });
     }
   });
 
-  app.post("/api/admin/attendance-alerts/register-device", async (req, res) => {
+  // 5. Get Daily Report Sending History (Super-Admin only)
+  app.get("/api/admin/daily-report/history", async (req, res) => {
     const caller = await verifyCaller(req);
-    if (!caller || !caller.isSuperAdmin) {
-      return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
+    if (!caller || !caller.isAdmin) {
+      return res.status(401).json({ error: "Unauthorized access: Valid Admin token required" });
     }
 
     if (!db) {
       return res.status(503).json({ error: "Database service unavailable" });
     }
 
-    const { fcmToken, deviceModel, devicePlatform } = req.body || {};
-    if (!fcmToken || typeof fcmToken !== "string" || fcmToken.trim().length < 10) {
-      return res.status(400).json({ error: "Valid FCM push registration token is required" });
-    }
-    
-    // Prevent registering mock/browser tokens as production recipients
-    const tokenLower = fcmToken.trim().toLowerCase();
-    if (tokenLower.startsWith("fcm_web_") || tokenLower.startsWith("fcm_android_") || tokenLower.includes("mock")) {
-      return res.status(400).json({ error: "Cannot register mock or browser-based generated tokens as the production recipient device. Please use a real Android build." });
-    }
-
     try {
-      const updatedConfig = await saveSuperAdminAlertConfig(
-        db,
-        {
-          enabled: true,
-          recipientUid: caller.uid,
-          recipientName: caller.loginId || caller.email || "Super Admin",
-          recipientEmail: caller.email || "",
-          recipientFcmToken: fcmToken.trim(),
-          deviceModel: deviceModel || "Android Device",
-          devicePlatform: devicePlatform || "android",
-          webPushSubscription: null as any // Clear web push
-        },
-        caller.email || caller.loginId || "SUPER_ADMIN"
-      );
+      const historySnap = await db.collection("daily_admin_reports")
+        .orderBy("startedAt", "desc")
+        .limit(30)
+        .get();
 
-      // Record Audit Log
-      try {
-        const auditRef = db.collection("audit_logs").doc();
-        await auditRef.set({
-          id: auditRef.id,
-          actionCategory: "SYSTEM_SETTINGS",
-          action: "Registered Super-Admin Attendance Alert Device Token",
-          performedByUserId: caller.loginId || caller.uid,
-          performedByName: caller.email || caller.loginId || "Super Admin",
-          timestamp: new Date().toISOString(),
-          details: {
-            recipientUid: caller.uid,
-            deviceModel: deviceModel || "Android Device",
-            platform: devicePlatform || "android"
-          }
+      const history: any[] = [];
+      historySnap.forEach((doc) => {
+        history.push({
+          id: doc.id,
+          ...doc.data()
         });
-      } catch (e) {}
+      });
 
       return res.json({
         success: true,
-        message: "Device registered as designated Super-Admin alert recipient",
-        config: updatedConfig
+        history
       });
     } catch (err: any) {
-      console.error("[SuperAdmin Alert API] Error registering device token:", err);
-      return res.status(500).json({ error: "Failed to register Super-Admin device token" });
+      console.error("[DailyReport API] Error fetching history:", err);
+      return res.status(500).json({ error: "Failed to fetch daily report history" });
     }
   });
 
-  // 4. Super-Admin: Send Live Test Push to Super-Admin Device
-  app.post("/api/admin/attendance-alerts/test", async (req, res) => {
-    const caller = await verifyCaller(req);
-    if (!caller || !caller.isSuperAdmin) {
-      return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
-    }
-
+  // 6. Automated Scheduler Endpoint: POST /api/internal/daily-admin-report
+  app.post("/api/internal/daily-admin-report", async (req, res) => {
     if (!db) {
       return res.status(503).json({ error: "Database service unavailable" });
     }
 
-    const { token, title, body } = req.body || {};
+    // Secure via Header checking against CRON_SECRET env variable
+    const authHeader = req.headers.authorization;
+    const queryToken = req.query.token;
+    const expectedSecret = process.env.CRON_SECRET || "exfin_oms_secure_scheduler_token_2026";
 
-    try {
-      const result = await sendSuperAdminTestPush(db, token, title, body);
-      if (result.success) {
-        // Record Audit Log
-        try {
-          const auditRef = db.collection("audit_logs").doc();
-          await auditRef.set({
-            id: auditRef.id,
-            actionCategory: "SYSTEM_SETTINGS",
-            action: "Sent Super-Admin Test Attendance Alert Push",
-            performedByUserId: caller.loginId || caller.uid,
-            performedByName: caller.email || caller.loginId || "Super Admin",
-            timestamp: new Date().toISOString(),
-            details: {
-              messageId: result.messageId
-            }
-          });
-        } catch (e) {}
+    const isAuthorized = 
+      (authHeader === `Bearer ${expectedSecret}`) || 
+      (queryToken === expectedSecret);
 
-        return res.json({
-          success: true,
-          message: "Test push notification delivered to Super-Admin device successfully!",
-          messageId: result.messageId
-        });
-      } else {
-        return res.status(400).json({
-          success: false,
-          error: result.error || "Failed to dispatch test push notification"
-        });
-      }
-    } catch (err: any) {
-      console.error("[SuperAdmin Alert API] Error sending test alert:", err);
-      return res.status(500).json({ error: err.message || "Failed to execute test alert dispatch" });
-    }
-  });
-
-  // 5. Attendance Event Alert Trigger (Auxiliary & Non-Blocking)
-  app.post("/api/attendance/notify-super-admin", async (req, res) => {
-    if (!db) {
-      return res.status(503).json({ error: "Database service unavailable" });
+    if (!isAuthorized) {
+      console.warn(`[DailyReport Scheduler] Unauthorized attempt to invoke scheduler endpoint.`);
+      return res.status(401).json({ error: "Unauthorized: Invalid or missing scheduling credentials" });
     }
 
     try {
-      const payload = req.body;
-      if (!payload || !payload.eventType || !payload.employeeId) {
-        return res.status(400).json({ error: "Invalid payload: eventType and employeeId are required" });
-      }
-
-      // Lookup registration doc if employeeName/Code not passed
-      let empName = payload.employeeName;
-      let empCode = payload.employeeCode;
-      let townCity = payload.townCity;
-
-      if (!empName || !empCode) {
-        try {
-          const docSnap = await db.collection("registrations").doc(payload.employeeId).get();
-          if (docSnap.exists) {
-            const rData = docSnap.data() || {};
-            empName = empName || rData.name;
-            empCode = empCode || rData.employeeCode || payload.employeeId;
-            townCity = townCity || rData.townCity;
-          }
-        } catch (e) {}
-      }
-
-      const alertResult = await sendSuperAdminAttendanceAlert(db, {
-        ...payload,
-        employeeName: empName || "Employee",
-        employeeCode: empCode || payload.employeeId,
-        townCity: townCity || "Raniganj HQ"
-      });
-
-      return res.json({
-        success: alertResult.success,
-        skipped: alertResult.skipped,
-        messageId: alertResult.messageId,
-        reason: alertResult.reason
-      });
+      console.log(`[DailyReport Scheduler] Scheduler triggered report dispatch process...`);
+      const targetDate = req.body?.date || req.query?.date; // Allows passing a custom date for testing/re-running
+      const result = await generateAndSendDailyReport(db, targetDate, false, "AUTOMATED_SCHEDULER");
+      return res.json(result);
     } catch (err: any) {
-      console.error("[Attendance Alert API] Error dispatching alert:", err);
-      return res.status(500).json({ error: err.message || "Internal server error dispatching alert" });
+      console.error("[DailyReport Scheduler] Error in scheduled report execution:", err);
+      return res.status(500).json({ error: err.message || "Failed to execute scheduled report process" });
     }
   });
 

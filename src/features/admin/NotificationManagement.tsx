@@ -15,7 +15,7 @@ import {
 import { NotificationDeliveryLog } from './NotificationDeliveryLog';
 import { NotificationMatrixTab } from './NotificationMatrixTab';
 import { WhatsAppConfigTab } from './WhatsAppConfigTab';
-import { SuperAdminAttendanceAlertTab } from './SuperAdminAttendanceAlertTab';
+import { DailyAdminReportTab } from './DailyAdminReportTab';
 
 // Helper functions for robust Date/Timestamp conversions to handle both Firestore Timestamp and ISO string formats
 const getScheduledDate = (val: any): Date | null => {
@@ -78,7 +78,8 @@ import {
   ChevronRight,
   Sparkles,
   Eye,
-  Check
+  Check,
+  Mail
 } from 'lucide-react';
 import { NotificationType, NotificationCategory, NotificationPriority, NotificationRecord } from '../../types/notification';
 
@@ -116,7 +117,7 @@ export const NotificationManagement: React.FC = () => {
   const { isSuperAdmin, isAdmin } = usePermission();
   const { user: adminUser, loginId } = useAdminAuth();
 
-  const [activeTab, setActiveTab] = useState<'compose' | 'active' | 'history' | 'delivery' | 'matrix' | 'whatsapp' | 'superadmin_alerts'>('compose');
+  const [activeTab, setActiveTab] = useState<'compose' | 'active' | 'history' | 'delivery' | 'matrix' | 'whatsapp' | 'daily_report'>('compose');
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -702,12 +703,12 @@ export const NotificationManagement: React.FC = () => {
             <span>WhatsApp Settings</span>
           </Button>
           <Button 
-            onClick={() => setActiveTab('superadmin_alerts')} 
-            variant={activeTab === 'superadmin_alerts' ? 'primary' : 'secondary'}
+            onClick={() => setActiveTab('daily_report')} 
+            variant={activeTab === 'daily_report' ? 'primary' : 'secondary'}
             className="text-xs flex items-center gap-1.5"
           >
-            <Bell className="w-3.5 h-3.5 text-purple-400" />
-            <span>Attendance Push Alerts</span>
+            <Mail className="w-3.5 h-3.5 text-purple-400" />
+            <span>Daily Admin Report</span>
           </Button>
         </div>
       </div>
@@ -735,8 +736,8 @@ export const NotificationManagement: React.FC = () => {
         </div>
       )}
 
-      {/* SUPER-ADMIN ATTENDANCE PUSH ALERTS TAB */}
-      {activeTab === 'superadmin_alerts' && <SuperAdminAttendanceAlertTab />}
+      {/* DAILY OPERATIONS ADMIN EMAIL REPORT TAB */}
+      {activeTab === 'daily_report' && <DailyAdminReportTab />}
 
       {/* COMPOSE TAB */}
       {activeTab === 'compose' && (
