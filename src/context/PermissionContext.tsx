@@ -97,6 +97,15 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, 5000);
 
     let unsub = () => {};
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      if (timerId) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
+      setLoading(false);
+      return unsub;
+    }
+
     try {
       const q = query(collection(db, 'roles'));
       unsub = onSnapshot(q, (snapshot) => {
