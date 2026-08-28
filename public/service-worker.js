@@ -1,7 +1,7 @@
 // OFFLINE-FIRST CORE REQUIREMENT: APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. NETWORK FAILURE MUST NEVER REDIRECT TO OR REPLACE THE NORMAL APPLICATION SHELL WITH AN OFFLINE PAGE.
 
-const CACHE_NAME = 'exfin-oms-v12-core-v12';
-const DYNAMIC_CACHE_NAME = 'exfin-oms-v12-dynamic-v12';
+const CACHE_NAME = 'exfin-oms-v14-core-v14';
+const DYNAMIC_CACHE_NAME = 'exfin-oms-v14-dynamic-v14';
 
 // Core Application Shell Assets (Injected during build by Vite plugin)
 const PRECACHE_ASSETS = [

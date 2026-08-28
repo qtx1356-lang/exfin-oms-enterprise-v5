@@ -37,7 +37,7 @@ import {
 import { db } from '../../services/firebase/config';
 import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 
-import { APP_VERSION, SERVICE_WORKER_VERSION } from '../../config/version';
+import { APP_VERSION, SERVICE_WORKER_VERSION, EXFIN_BUILD_MARKER } from '../../config/version';
 import { NotificationSettingsCard } from '../../components/common/NotificationSettingsCard';
 
 export const ProfileScreen: React.FC = () => {
@@ -540,7 +540,10 @@ export const ProfileScreen: React.FC = () => {
           <Info className="w-4 h-4 text-[#D4AF37]" />
           <span className="text-xs font-bold text-[#8A8A8A]">OFFICE MANAGEMENT SYSTEM</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#101010] text-[#D4AF37] border border-[#D4AF37]/30">
+            EXFIN BUILD: {EXFIN_BUILD_MARKER}
+          </span>
           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#101010] text-[#8A8A8A] border border-[#292929]">
             Version {APP_VERSION}
           </span>
