@@ -2,10 +2,20 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Wifi, WifiOff } from 'lucide-react';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
+import { recordOfflineMount, recordOfflineUnmount } from '../DiagnosticOverlay';
 
 export const ConnectivityIndicator: React.FC = () => {
   const { isOnline, showStatusIndicator } = useRealtimeSync();
   const isInitialOfflineRef = React.useRef(typeof navigator !== 'undefined' && !navigator.onLine);
+
+  React.useEffect(() => {
+    if (showStatusIndicator && !isOnline) {
+      recordOfflineMount();
+      return () => {
+        recordOfflineUnmount();
+      };
+    }
+  }, [showStatusIndicator, isOnline]);
 
   return (
     <AnimatePresence>
