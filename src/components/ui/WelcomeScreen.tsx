@@ -11,9 +11,18 @@ interface WelcomeScreenProps {
   onProceed?: () => void;
 }
 
+const getTime = () => new Date().toISOString().substring(11, 23);
+
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const { status, employeeData } = useRegistration();
   const { locationStatus, distance, formattedDistance, isInsideGeofence, locationState, isGpsOff, isPermissionDenied, isLocationUnavailable } = useLocationContext();
+
+  useEffect(() => {
+    console.log(`[FLICKER-TRACE] WelcomeScreen MOUNT ${getTime()}`);
+    return () => console.log(`[FLICKER-TRACE] WelcomeScreen UNMOUNT ${getTime()}`);
+  }, []);
+
+  console.log(`[FLICKER-TRACE] WelcomeScreen RENDER status=${status} locStatus=${locationStatus} dist=${distance} ${getTime()}`);
 
   // Try reading cached employee data immediately from localStorage for 0ms render
   const [cachedName] = useState<string>(() => {

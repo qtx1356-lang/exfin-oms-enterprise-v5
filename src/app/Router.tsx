@@ -91,6 +91,8 @@ const AdminPortalPublicRoute = () => {
   return <AdminPortalLogin />;
 };
 
+const getTime = () => new Date().toISOString().substring(11, 23);
+
 const EmployeeGuard = () => {
   const { status } = useRegistration();
   const [showWelcome, setShowWelcome] = React.useState(() => {
@@ -100,6 +102,13 @@ const EmployeeGuard = () => {
       return true;
     }
   });
+
+  React.useEffect(() => {
+    console.log(`[FLICKER-TRACE] EmployeeGuard MOUNT ${getTime()}`);
+    return () => console.log(`[FLICKER-TRACE] EmployeeGuard UNMOUNT ${getTime()}`);
+  }, []);
+
+  console.log(`[FLICKER-TRACE] EmployeeGuard RENDER status=${status} showWelcome=${showWelcome} ${getTime()}`);
 
   const handleProceed = React.useCallback(() => {
     try {

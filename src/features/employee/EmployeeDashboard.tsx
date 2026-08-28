@@ -381,7 +381,7 @@ export const EmployeeDashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!db || !employeeData?.employeeCode) return;
+    if (!db || !employeeData?.employeeCode || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
     
     const q = query(
       collection(db, 'salaries'),
@@ -441,7 +441,7 @@ export const EmployeeDashboard: React.FC = () => {
     setNotificationsLoading(true);
     setNotificationsError(null);
 
-    if (!db) {
+    if (!db || (typeof navigator !== 'undefined' && !navigator.onLine)) {
       setNotificationsLoading(false);
       return;
     }

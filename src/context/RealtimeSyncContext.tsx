@@ -65,9 +65,16 @@ const RealtimeSyncContext = createContext<RealtimeSyncContextType | undefined>(
   undefined
 );
 
+const getTime = () => new Date().toISOString().substring(11, 23);
+
 export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  React.useEffect(() => {
+    console.log(`[FLICKER-TRACE] RealtimeSyncProvider MOUNT ${getTime()}`);
+    return () => console.log(`[FLICKER-TRACE] RealtimeSyncProvider UNMOUNT ${getTime()}`);
+  }, []);
+
   const { employeeData } = useRegistration();
   const empCode = employeeData?.employeeCode || employeeData?.id || '';
 
@@ -221,7 +228,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Setup real-time listeners for current employee identity strictly
   useEffect(() => {
-    if (!empCode || !db) {
+    if (!empCode || !db || !isOnline) {
       cleanupListeners();
       setNotifications([]);
       setUnreadNotificationCount(0);
@@ -678,7 +685,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       cleanupListeners();
     };
-  }, [empCode, employeeData?.id, employeeData?.isTeamLeader]);
+  }, [empCode, employeeData?.id, employeeData?.isTeamLeader, isOnline]);
 
   // OPTIMISTIC TASK UPDATE
   const updateTaskOptimistically = useCallback(

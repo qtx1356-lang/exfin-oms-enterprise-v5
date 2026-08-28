@@ -24,7 +24,14 @@ interface AdminAuthContextType {
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
+const getTime = () => new Date().toISOString().substring(11, 23);
+
 export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  React.useEffect(() => {
+    console.log(`[FLICKER-TRACE] AdminAuthProvider MOUNT ${getTime()}`);
+    return () => console.log(`[FLICKER-TRACE] AdminAuthProvider UNMOUNT ${getTime()}`);
+  }, []);
+
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<AppRole>('EMPLOYEE');

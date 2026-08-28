@@ -11,7 +11,16 @@ import { LocationProvider } from './context/LocationContext';
 import { AlertPopupProvider } from './context/AlertPopupContext';
 import { ConnectivityIndicator } from './components/common/ConnectivityIndicator';
 
+const getTime = () => new Date().toISOString().substring(11, 23);
+
 export default function App() {
+  React.useEffect(() => {
+    console.log(`[FLICKER-TRACE] App MOUNT ${getTime()}`);
+    return () => console.log(`[FLICKER-TRACE] App UNMOUNT ${getTime()}`);
+  }, []);
+
+  console.log(`[FLICKER-TRACE] App RENDER ${getTime()}`);
+
   return (
     <ErrorBoundary>
       <AdminAuthProvider>
@@ -31,4 +40,5 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
 

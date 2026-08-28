@@ -22,7 +22,14 @@ interface PermissionContextType {
 
 const PermissionContext = createContext<PermissionContextType | undefined>(undefined);
 
+const getTime = () => new Date().toISOString().substring(11, 23);
+
 export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  React.useEffect(() => {
+    console.log(`[FLICKER-TRACE] PermissionProvider MOUNT ${getTime()}`);
+    return () => console.log(`[FLICKER-TRACE] PermissionProvider UNMOUNT ${getTime()}`);
+  }, []);
+
   const { user: adminUser, role: adminRole, loading: adminLoading } = useAdminAuth();
   const { status: regStatus, employeeData } = useRegistration();
   

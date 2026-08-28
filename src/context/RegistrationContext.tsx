@@ -40,7 +40,14 @@ const normalizeMobile = (num: string): string => {
   return digits;
 };
 
+const getTime = () => new Date().toISOString().substring(11, 23);
+
 export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  React.useEffect(() => {
+    console.log(`[FLICKER-TRACE] RegistrationProvider MOUNT ${getTime()}`);
+    return () => console.log(`[FLICKER-TRACE] RegistrationProvider UNMOUNT ${getTime()}`);
+  }, []);
+
   const [localRegId, setLocalRegId] = useState<string | null>(() => localStorage.getItem('registrationId'));
   const [employeeData, setEmployeeData] = useState<any>(() => {
     try {
@@ -257,8 +264,8 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 setStatus(regStatus === 'Approved' ? 'Approved' : regStatus);
               }
 
-              // Realtime listener
-              if (isMounted) {
+              // Realtime listener (only when online)
+              if (isMounted && typeof navigator !== 'undefined' && navigator.onLine) {
                 const unsub = onSnapshot(regDocRef, (docSnap) => {
                   if (!isMounted) {
                     unsub();

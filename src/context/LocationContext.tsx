@@ -68,7 +68,14 @@ const getInitialCachedDistance = (): number | null => {
   }
 };
 
+const getTime = () => new Date().toISOString().substring(11, 23);
+
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  React.useEffect(() => {
+    console.log(`[FLICKER-TRACE] LocationProvider MOUNT ${getTime()}`);
+    return () => console.log(`[FLICKER-TRACE] LocationProvider UNMOUNT ${getTime()}`);
+  }, []);
+
   const [liveLocation, setLiveLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [distance, setDistance] = useState<number | null>(getInitialCachedDistance);
   const [isFreshFixReceived, setIsFreshFixReceived] = useState<boolean>(false);
