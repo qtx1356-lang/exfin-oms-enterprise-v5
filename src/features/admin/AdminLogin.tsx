@@ -28,40 +28,40 @@ export const AdminLogin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#170B38] via-[#211044] to-[#2A145B] flex flex-col items-center justify-center p-4 text-white">
-      <Card className="max-w-md w-full p-8 space-y-6 bg-[#2D1B5A] border border-purple-500/30 shadow-2xl rounded-[28px]">
+    <div className="min-h-screen bg-[#0F0F0F] flex flex-col items-center justify-center p-4 text-white">
+      <Card className="max-w-md w-full p-8 space-y-6 bg-[#151515] border border-[#292929] shadow-2xl rounded-[28px]">
         <div className="text-center">
-          <div className="w-16 h-16 bg-[#7C3AED] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_0_25px_rgba(124,58,237,0.5)]">
-            <ShieldCheck className="w-9 h-9 text-white" />
+          <div className="w-16 h-16 bg-[#D4AF37] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_0_25px_rgba(212,175,55,0.3)]">
+            <ShieldCheck className="w-9 h-9 text-[#080808]" />
           </div>
           <h1 className="text-2xl font-black text-white tracking-tight">Admin Portal</h1>
-          <p className="text-purple-300/80 text-xs mt-1.5 font-medium">Enterprise Management System v6.0</p>
+          <p className="text-[#C7C7C7]/80 text-xs mt-1.5 font-medium">Enterprise Management System v6.0</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-[#A78BFA]" /> Login ID
+            <label className="text-xs font-bold text-[#C7C7C7] uppercase tracking-wider flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-[#D4AF37]" /> Login ID
             </label>
             <input
               type="text"
               value={loginId}
               onChange={(e) => setLoginId(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[#211044] text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED] text-sm"
+              className="w-full px-4 py-3 rounded-2xl border border-[#292929] bg-[#121212] text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37] text-sm"
               placeholder="admin"
               required
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-[#A78BFA]" /> Password
+            <label className="text-xs font-bold text-[#C7C7C7] uppercase tracking-wider flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-[#D4AF37]" /> Password
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[#211044] text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED] text-sm"
+              className="w-full px-4 py-3 rounded-2xl border border-[#292929] bg-[#121212] text-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37] text-sm"
               placeholder="••••••••"
               required
             />

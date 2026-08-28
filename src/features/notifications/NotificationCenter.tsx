@@ -212,7 +212,7 @@ export const NotificationCenter: React.FC = () => {
       case 'EXPENSE':
         return <DollarSign className="w-4 h-4 text-yellow-400" />;
       case 'DEVICE':
-        return <Smartphone className="w-4 h-4 text-[#18C98F]" />;
+        return <Smartphone className="w-4 h-4 text-[#D4AF37]" />;
       case 'EFFICIENCY':
         return <TrendingUp className="w-4 h-4 text-emerald-400" />;
       default:

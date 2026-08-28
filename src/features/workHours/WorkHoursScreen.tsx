@@ -367,22 +367,22 @@ export const WorkHoursScreen: React.FC = () => {
         <>
           {/* STATS OVERVIEW SECTION */}
           <div>
-            <h2 className="text-xs font-black text-[#B7C0BC] uppercase tracking-widest mb-3">
+            <h2 className="text-xs font-black text-[#C7C7C7] uppercase tracking-widest mb-3">
               MONTHLY METRIC AGGREGATORS
             </h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <Card className="p-4 bg-[#171B1F] border border-[#3A4148] space-y-2 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-[#18C98F]/5 rounded-bl-full group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] font-black text-[#18C98F] uppercase tracking-wider block">
+              <Card className="p-4 bg-[#151515] border border-[#292929] space-y-2 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-[#D4AF37]/5 rounded-bl-full group-hover:scale-110 transition-transform" />
+                <span className="text-[10px] font-black text-[#D4AF37] uppercase tracking-wider block">
                   TOTAL HOURS
                 </span>
                 <span className="text-xl sm:text-2xl font-black text-white tracking-tight block">
                   {formatMinutesToDuration(stats.totalMinutes)}
                 </span>
-                <p className="text-[10px] text-[#B7C0BC]/50">Cumulative work logged</p>
+                <p className="text-[10px] text-[#8A8A8A]">Cumulative work logged</p>
               </Card>
 
-              <Card className="p-4 bg-[#171B1F] border border-[#3A4148] space-y-2 relative overflow-hidden group">
+              <Card className="p-4 bg-[#151515] border border-[#292929] space-y-2 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-bl-full group-hover:scale-110 transition-transform" />
                 <span className="text-[10px] font-black text-blue-400 uppercase tracking-wider block">
                   WORKING DAYS
@@ -390,28 +390,28 @@ export const WorkHoursScreen: React.FC = () => {
                 <span className="text-xl sm:text-2xl font-black text-white tracking-tight block">
                   {stats.workingDays}
                 </span>
-                <p className="text-[10px] text-[#B7C0BC]/50">Active attendances</p>
+                <p className="text-[10px] text-[#8A8A8A]">Active attendances</p>
               </Card>
 
-              <Card className="p-4 bg-[#171B1F] border border-[#3A4148] space-y-2 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-bl-full group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider block">
+              <Card className="p-4 bg-[#151515] border border-[#292929] space-y-2 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-[#E6C766]/5 rounded-bl-full group-hover:scale-110 transition-transform" />
+                <span className="text-[10px] font-black text-[#E6C766] uppercase tracking-wider block">
                   AVERAGE HOURS
                 </span>
                 <span className="text-xl sm:text-2xl font-black text-white tracking-tight block">
                   {formatMinutesToDuration(stats.averageMinutesPerDay)}
                 </span>
-                <p className="text-[10px] text-[#B7C0BC]/50">Hours per day logged</p>
+                <p className="text-[10px] text-[#8A8A8A]">Hours per day logged</p>
               </Card>
 
-              <Card className="p-4 bg-[#171B1F] border border-[#3A4148] space-y-2 relative overflow-hidden group">
+              <Card className="p-4 bg-[#151515] border border-[#292929] space-y-2 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-20 h-20 bg-teal-500/5 rounded-bl-full group-hover:scale-110 transition-transform" />
                 <span className="text-[10px] font-black text-teal-400 uppercase tracking-wider block">
                   BREAKDOWN
                 </span>
-                <div className="grid grid-cols-2 gap-1.5 text-[9.5px] font-bold text-[#B7C0BC] pt-1">
+                <div className="grid grid-cols-2 gap-1.5 text-[9.5px] font-bold text-[#C7C7C7] pt-1">
                   <div className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#18C98F]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
                     <span>Office: {stats.officeDays}d</span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -434,23 +434,23 @@ export const WorkHoursScreen: React.FC = () => {
           {/* DYNAMIC COMPACT HISTOGRAM CHART */}
           {chartData.length > 0 && (
             <div>
-              <h2 className="text-xs font-black text-[#B7C0BC] uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-[#18C98F]" /> Completed Daily Hours Chart
+              <h2 className="text-xs font-black text-[#C7C7C7] uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                <TrendingUp className="w-4 h-4 text-[#D4AF37]" /> Completed Daily Hours Chart
               </h2>
-              <Card className="p-4 bg-[#171B1F] border border-[#3A4148]">
+              <Card className="p-4 bg-[#151515] border border-[#292929]">
                 <div className="h-44 w-full flex items-end gap-1.5">
                   {chartData.map((d, index) => {
                     const heightPercent = Math.min(100, Math.max(8, (d.hours / 12) * 100));
                     return (
                       <div key={index} className="flex-1 flex flex-col items-center group relative h-full justify-end">
-                        <div className="absolute bottom-full mb-1 bg-[#111417] border border-[#3A4148] text-[8.5px] font-bold text-white px-1.5 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg">
+                        <div className="absolute bottom-full mb-1 bg-[#121212] border border-[#292929] text-[8.5px] font-bold text-white px-1.5 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg">
                           {d.hours} hrs
                         </div>
                         <div
                           style={{ height: `${heightPercent}%` }}
-                          className="w-full bg-[#18C98F] rounded-t-sm group-hover:bg-[#10966D] transition-all cursor-pointer border-t border-[#18C98F]/30"
+                          className="w-full bg-[#D4AF37] rounded-t-sm group-hover:bg-[#E6C766] transition-all cursor-pointer border-t border-[#D4AF37]/30"
                         />
-                        <span className="text-[8.5px] font-bold text-[#B7C0BC]/60 mt-1.5">
+                        <span className="text-[8.5px] font-bold text-[#8A8A8A] mt-1.5">
                           {d.day}
                         </span>
                       </div>
@@ -463,12 +463,12 @@ export const WorkHoursScreen: React.FC = () => {
 
           {/* MONTHLY CALENDAR VIEW */}
           <div>
-            <h2 className="text-xs font-black text-[#B7C0BC] uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <CalendarIcon className="w-4 h-4 text-[#18C98F]" /> Monthly Attendance Board
+            <h2 className="text-xs font-black text-[#C7C7C7] uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <CalendarIcon className="w-4 h-4 text-[#D4AF37]" /> Monthly Attendance Board
             </h2>
-            <Card className="p-4 bg-[#171B1F] border border-[#3A4148]">
+            <Card className="p-4 bg-[#151515] border border-[#292929]">
               {/* Calendar Grid Header */}
-              <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-black text-[#B7C0BC] uppercase tracking-wider mb-2">
+              <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-black text-[#C7C7C7] uppercase tracking-wider mb-2">
                 <div>Sun</div>
                 <div>Mon</div>
                 <div>Tue</div>
@@ -482,11 +482,11 @@ export const WorkHoursScreen: React.FC = () => {
               <div className="grid grid-cols-7 gap-1.5">
                 {calendarDays.map((item, idx) => {
                   if (!item) {
-                    return <div key={`empty-${idx}`} className="aspect-square bg-[#111417]/30 rounded-xl" />;
+                    return <div key={`empty-${idx}`} className="aspect-square bg-[#121212]/30 rounded-xl" />;
                   }
 
                   const { day, record } = item;
-                  let bgClass = 'bg-[#111417]/40 text-[#B7C0BC]/40 border border-[#3A4148]/50 hover:border-[#3A4148]';
+                  let bgClass = 'bg-[#121212]/40 text-[#8A8A8A] border border-[#292929] hover:border-[#3A3A3A]';
                   
                   if (record) {
                     const isCompleted = !!(record.checkOutTime && record.checkOutTime !== '--:--');
@@ -497,7 +497,7 @@ export const WorkHoursScreen: React.FC = () => {
                     } else {
                       switch (record.attendanceType) {
                         case 'OFFICE':
-                          bgClass = 'bg-[#18C98F]/10 border-[#18C98F]/30 text-[#18C98F] hover:bg-[#18C98F]/20'; // Green: Office
+                          bgClass = 'bg-[#D4AF37]/10 border-[#D4AF37]/30 text-[#D4AF37] hover:bg-[#D4AF37]/20'; // Gold: Office
                           break;
                         case 'WFH':
                           bgClass = 'bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20'; // Blue: WFH
@@ -531,9 +531,9 @@ export const WorkHoursScreen: React.FC = () => {
               </div>
 
               {/* Legend Indicator */}
-              <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4 pt-3 border-t border-[#3A4148] text-[9.5px] font-bold text-[#B7C0BC]/80">
+              <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4 pt-3 border-t border-[#292929] text-[9.5px] font-bold text-[#C7C7C7]">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded bg-[#18C98F]/20 border border-[#18C98F]/30" />
+                  <span className="w-2.5 h-2.5 rounded bg-[#D4AF37]/20 border border-[#D4AF37]/30" />
                   <span>Office</span>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -562,36 +562,36 @@ export const WorkHoursScreen: React.FC = () => {
 
           {/* MODE BREAKDOWN DETAILED PANEL */}
           <div>
-            <h2 className="text-xs font-black text-[#B7C0BC]/80 uppercase tracking-widest mb-3">
+            <h2 className="text-xs font-black text-[#C7C7C7] uppercase tracking-widest mb-3">
               WORK TYPE INSIGHTS
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="p-4 rounded-2xl bg-[#171B1F] border border-[#3A4148] flex items-center justify-between">
+              <div className="p-4 rounded-2xl bg-[#151515] border border-[#292929] flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#18C98F]/15 border border-[#18C98F]/20 flex items-center justify-center text-[#18C98F]">
+                  <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37]">
                     <MapPin className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="text-xs font-black text-white">OFFICE WORK</h3>
-                    <p className="text-[10px] text-[#B7C0BC]/60 mt-0.5">{stats.officeDays} Active Days</p>
+                    <p className="text-[10px] text-[#8A8A8A] mt-0.5">{stats.officeDays} Active Days</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <span className="text-sm font-black text-white block">{formatMinutesToDuration(stats.officeMinutes)}</span>
-                  <span className="text-[9px] text-[#18C98F] uppercase font-black tracking-wider">
+                  <span className="text-[9px] text-[#D4AF37] uppercase font-black tracking-wider">
                     Avg {stats.officeDays > 0 ? formatMinutesToDuration(Math.round(stats.officeMinutes / stats.officeDays)) : '0h'}
                   </span>
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-[#171B1F] border border-[#3A4148] flex items-center justify-between">
+              <div className="p-4 rounded-2xl bg-[#151515] border border-[#292929] flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center text-blue-400">
                     <Laptop className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="text-xs font-black text-white">WORK FROM HOME</h3>
-                    <p className="text-[10px] text-[#B7C0BC]/60 mt-0.5">{stats.wfhDays} Active Days</p>
+                    <p className="text-[10px] text-[#8A8A8A] mt-0.5">{stats.wfhDays} Active Days</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -602,14 +602,14 @@ export const WorkHoursScreen: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-[#171B1F] border border-[#3A4148] flex items-center justify-between">
+              <div className="p-4 rounded-2xl bg-[#151515] border border-[#292929] flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-teal-500/15 border border-teal-500/20 flex items-center justify-center text-teal-400">
                     <Users className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="text-xs font-black text-white">CLIENT VISIT</h3>
-                    <p className="text-[10px] text-[#B7C0BC]/60 mt-0.5">{stats.clientDays} Active Days</p>
+                    <p className="text-[10px] text-[#8A8A8A] mt-0.5">{stats.clientDays} Active Days</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -620,14 +620,14 @@ export const WorkHoursScreen: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-[#171B1F] border border-[#3A4148] flex items-center justify-between">
+              <div className="p-4 rounded-2xl bg-[#151515] border border-[#292929] flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/20 flex items-center justify-center text-orange-400">
                     <Briefcase className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="text-xs font-black text-white">OUTDOOR WORK</h3>
-                    <p className="text-[10px] text-[#B7C0BC]/60 mt-0.5">{stats.outdoorDays} Active Days</p>
+                    <p className="text-[10px] text-[#8A8A8A] mt-0.5">{stats.outdoorDays} Active Days</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -642,7 +642,7 @@ export const WorkHoursScreen: React.FC = () => {
 
           {/* HISTORICAL RECORDS LIST */}
           <div>
-            <h2 className="text-xs font-black text-[#B7C0BC]/80 uppercase tracking-widest mb-3">
+            <h2 className="text-xs font-black text-[#C7C7C7] uppercase tracking-widest mb-3">
               DAILY WORK TIMELINE
             </h2>
             <div className="flex flex-col gap-2.5">
@@ -653,16 +653,16 @@ export const WorkHoursScreen: React.FC = () => {
                     <button
                       key={r.id || r.docId || r.date}
                       onClick={() => handleDayTap(r)}
-                      className="p-4 rounded-2xl bg-[#171B1F] border border-[#3A4148] flex items-center justify-between text-left hover:border-[#18C98F] hover:bg-[#1D2329] transition-all cursor-pointer group"
+                      className="p-4 rounded-2xl bg-[#151515] border border-[#292929] flex items-center justify-between text-left hover:border-[#D4AF37] hover:bg-[#1B1B1B] transition-all cursor-pointer group"
                     >
                       <div className="space-y-1">
-                        <span className="text-[10px] font-black text-[#18C98F] block uppercase">
+                        <span className="text-[10px] font-black text-[#D4AF37] block uppercase">
                           {r.date}
                         </span>
                         <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
                           {r.attendanceType}
                         </h4>
-                        <div className="flex gap-3 text-[10px] text-[#B7C0BC]/60 font-semibold">
+                        <div className="flex gap-3 text-[10px] text-[#8A8A8A] font-semibold">
                           <span>In: {r.checkInTime}</span>
                           <span>•</span>
                           <span>Out: {details.checkoutText}</span>
@@ -671,10 +671,10 @@ export const WorkHoursScreen: React.FC = () => {
 
                       <div className="flex items-center gap-4">
                         <div className="text-right">
-                          <span className="text-xs font-black text-white block group-hover:text-[#18C98F] transition-colors">
+                          <span className="text-xs font-black text-white block group-hover:text-[#D4AF37] transition-colors">
                             {details.duration}
                           </span>
-                          <span className="text-[8.5px] font-black tracking-wider uppercase text-[#B7C0BC] block mt-0.5">
+                          <span className="text-[8.5px] font-black tracking-wider uppercase text-[#C7C7C7] block mt-0.5">
                             {getAttendanceSource(r)}
                           </span>
                         </div>
@@ -686,7 +686,7 @@ export const WorkHoursScreen: React.FC = () => {
                   );
                 })
               ) : (
-                <Card className="p-8 text-center bg-[#171B1F] border border-[#3A4148] text-[#B7C0BC]/50">
+                <Card className="p-8 text-center bg-[#151515] border border-[#292929] text-[#8A8A8A]">
                   <p className="text-xs font-semibold">No attendance work-hour records are available for this month.</p>
                 </Card>
               )}
@@ -697,64 +697,64 @@ export const WorkHoursScreen: React.FC = () => {
 
       {/* DETAILED DAILY WORK HOURS MODAL */}
       {showDetailModal && selectedRecord && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-[#171B1F] border border-[#3A4148] rounded-[28px] max-w-sm w-full p-6 space-y-5 shadow-2xl relative">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-[#151515] border border-[#292929] rounded-[28px] max-w-sm w-full p-6 space-y-5 shadow-2xl relative">
             <button
               onClick={() => {
                 setShowDetailModal(false);
                 setSelectedRecord(null);
               }}
-              className="absolute top-4 right-4 text-[#B7C0BC] hover:text-white p-1 rounded-full hover:bg-white/5 transition-colors"
+              className="absolute top-4 right-4 text-[#8A8A8A] hover:text-white p-1 rounded-full hover:bg-white/5 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="text-center space-y-1.5 pb-2 border-b border-[#3A4148]">
-              <span className="text-[10px] font-black text-[#18C98F] uppercase tracking-widest">
+            <div className="text-center space-y-1.5 pb-2 border-b border-[#292929]">
+              <span className="text-[10px] font-black text-[#D4AF37] uppercase tracking-widest">
                 DAILY ATTENDANCE DETAIL
               </span>
               <h3 className="text-base font-black text-white">{selectedRecord.date}</h3>
             </div>
 
             <div className="space-y-3 text-xs font-semibold">
-              <div className="flex justify-between items-center py-2 border-b border-[#3A4148]/50">
-                <span className="text-[#B7C0BC]">Attendance Mode</span>
+              <div className="flex justify-between items-center py-2 border-b border-[#292929]/50">
+                <span className="text-[#8A8A8A]">Attendance Mode</span>
                 <span className="text-white font-black uppercase">{selectedRecord.attendanceType}</span>
               </div>
 
-              <div className="flex justify-between items-center py-2 border-b border-[#3A4148]/50">
-                <span className="text-[#B7C0BC]">Check-in</span>
+              <div className="flex justify-between items-center py-2 border-b border-[#292929]/50">
+                <span className="text-[#8A8A8A]">Check-in</span>
                 <span className="text-white font-black">{selectedRecord.checkInTime}</span>
               </div>
 
-              <div className="flex justify-between items-center py-2 border-b border-[#3A4148]/50">
-                <span className="text-[#B7C0BC]">Check-out</span>
+              <div className="flex justify-between items-center py-2 border-b border-[#292929]/50">
+                <span className="text-[#8A8A8A]">Check-out</span>
                 <span className="text-white font-black">{selectedRecord.checkOutTime || 'In Progress'}</span>
               </div>
 
-              <div className="flex justify-between items-center py-2 border-b border-[#3A4148]/50">
-                <span className="text-[#B7C0BC]">Total Work Hours</span>
-                <span className="text-[#18C98F] font-black">
+              <div className="flex justify-between items-center py-2 border-b border-[#292929]/50">
+                <span className="text-[#8A8A8A]">Total Work Hours</span>
+                <span className="text-[#D4AF37] font-black">
                   {getRecordStatusDetails(selectedRecord).duration}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center py-2 border-b border-[#3A4148]/50">
-                <span className="text-[#B7C0BC]">Attendance Source</span>
+              <div className="flex justify-between items-center py-2 border-b border-[#292929]/50">
+                <span className="text-[#8A8A8A]">Attendance Source</span>
                 <span className="text-white font-black">
                   {getAttendanceSource(selectedRecord)}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center py-2 border-b border-[#3A4148]/50">
-                <span className="text-[#B7C0BC]">Tracking Distance</span>
+              <div className="flex justify-between items-center py-2 border-b border-[#292929]/50">
+                <span className="text-[#8A8A8A]">Tracking Distance</span>
                 <span className="text-white font-black">
                   {Math.round(selectedRecord.distance)} meters from office
                 </span>
               </div>
 
-              <div className="flex justify-between items-center py-2 border-b border-[#3A4148]/50">
-                <span className="text-[#B7C0BC]">Status</span>
+              <div className="flex justify-between items-center py-2 border-b border-[#292929]/50">
+                <span className="text-[#8A8A8A]">Status</span>
                 <span className={`px-2 py-0.5 rounded-full border text-[9px] font-black uppercase ${getRecordStatusDetails(selectedRecord).colorClass}`}>
                   {getRecordStatusDetails(selectedRecord).label}
                 </span>
@@ -766,7 +766,7 @@ export const WorkHoursScreen: React.FC = () => {
                 setShowDetailModal(false);
                 setSelectedRecord(null);
               }}
-              className="w-full py-3 bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] font-bold rounded-2xl text-xs transition-all shadow-lg active:scale-95"
+              className="w-full py-3 bg-[#D4AF37] hover:bg-[#E6C766] text-[#080808] font-bold rounded-2xl text-xs transition-all shadow-lg active:scale-95"
             >
               Close Details
             </button>

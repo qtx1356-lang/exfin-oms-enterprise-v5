@@ -425,29 +425,29 @@ export const LeaveScreen: React.FC = () => {
 
             {/* Right Column: Calendar Visualizer */}
             <div className="lg:col-span-7">
-              <Card className="p-6 bg-[#171B1F] border border-[#3A4148] shadow-xl rounded-[22px] h-full flex flex-col">
+              <Card className="p-6 bg-[#151515] border border-[#292929] shadow-xl rounded-[22px] h-full flex flex-col">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-sm font-black text-white flex items-center gap-2">
-                    <CalendarIcon className="w-4.5 h-4.5 text-[#18C98F]" />
+                    <CalendarIcon className="w-4.5 h-4.5 text-[#D4AF37]" />
                     Leave Calendar
                   </h2>
                   <div className="flex gap-2">
-                    <button onClick={() => changeMonth(-1)} className="p-1.5 hover:bg-[#1D2329] rounded-lg transition text-[#B7C0BC] bg-[#111417] border border-[#3A4148]">
+                    <button onClick={() => changeMonth(-1)} className="p-1.5 hover:bg-[#1B1B1B] rounded-lg transition text-[#C7C7C7] bg-[#121212] border border-[#292929]">
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <div className="px-3 py-1.5 bg-[#111417] rounded-lg border border-[#3A4148] text-xs font-bold text-white min-w-[100px] text-center">
+                    <div className="px-3 py-1.5 bg-[#121212] rounded-lg border border-[#292929] text-xs font-bold text-white min-w-[100px] text-center">
                       {monthNames[cMonth]} {cYear}
                     </div>
-                    <button onClick={() => changeMonth(1)} className="p-1.5 hover:bg-[#1D2329] rounded-lg transition text-[#B7C0BC] bg-[#111417] border border-[#3A4148]">
+                    <button onClick={() => changeMonth(1)} className="p-1.5 hover:bg-[#1B1B1B] rounded-lg transition text-[#C7C7C7] bg-[#121212] border border-[#292929]">
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
-                <div className="flex-1 bg-[#111417] border border-[#3A4148] rounded-2xl p-4 sm:p-6 flex flex-col">
+                <div className="flex-1 bg-[#121212] border border-[#292929] rounded-2xl p-4 sm:p-6 flex flex-col">
                   <div className="grid grid-cols-7 gap-1 text-center mb-2">
                     {weekdayNames.map((n) => (
-                      <span key={n} className="text-[10px] font-bold text-[#B7C0BC]/50 py-2 uppercase tracking-wider">
+                      <span key={n} className="text-[10px] font-bold text-[#8A8A8A] py-2 uppercase tracking-wider">
                         {n}
                       </span>
                     ))}
@@ -467,8 +467,7 @@ export const LeaveScreen: React.FC = () => {
                         return dayStr >= l.startDate && dayStr <= l.endDate && l.status !== 'CANCELLED';
                       });
 
-                      let cellClass = 'bg-[#171B1F]/50 border border-[#3A4148]/10 text-[#B7C0BC]';
-                      let indicator = null;
+                      let cellClass = 'bg-[#151515]/50 border border-[#292929]/40 text-[#C7C7C7]';
 
                       if (leaveOnDay) {
                          if (leaveOnDay.status === 'APPROVED') {
@@ -479,7 +478,7 @@ export const LeaveScreen: React.FC = () => {
                            cellClass = 'bg-rose-500/20 border-rose-500/40 text-rose-100 font-bold opacity-60';
                          }
                       } else if (isToday) {
-                         cellClass = 'bg-[#18C98F]/20 border-[#18C98F] text-white font-black ring-2 ring-[#18C98F]/30';
+                         cellClass = 'bg-[#D4AF37]/20 border-[#D4AF37] text-white font-black ring-2 ring-[#D4AF37]/30';
                       }
 
                       return (
@@ -490,10 +489,10 @@ export const LeaveScreen: React.FC = () => {
                     })}
                   </div>
                   
-                  <div className="flex gap-4 justify-center mt-6 pt-4 border-t border-[#3A4148]/20">
-                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-emerald-500/40 border border-emerald-500/40"></div><span className="text-[10px] text-[#B7C0BC]">Approved</span></div>
-                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-amber-500/40 border border-amber-500/40"></div><span className="text-[10px] text-[#B7C0BC]">Pending</span></div>
-                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-[#18C98F]/20 border border-[#18C98F]"></div><span className="text-[10px] text-[#B7C0BC]">Today</span></div>
+                  <div className="flex gap-4 justify-center mt-6 pt-4 border-t border-[#292929]">
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-emerald-500/40 border border-emerald-500/40"></div><span className="text-[10px] text-[#C7C7C7]">Approved</span></div>
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-amber-500/40 border border-amber-500/40"></div><span className="text-[10px] text-[#C7C7C7]">Pending</span></div>
+                    <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-[#D4AF37]/20 border border-[#D4AF37]"></div><span className="text-[10px] text-[#C7C7C7]">Today</span></div>
                   </div>
                 </div>
               </Card>
@@ -506,9 +505,9 @@ export const LeaveScreen: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Apply Leave Card */}
         <div className="lg:col-span-5 space-y-6">
-          <Card className="p-5 bg-[#171B1F] border border-[#3A4148] shadow-xl">
-            <h2 className="text-sm font-black text-white mb-4 flex items-center gap-2 border-b border-[#3A4148] pb-2.5">
-              <CalendarDays className="w-4.5 h-4.5 text-[#18C98F]" />
+          <Card className="p-5 bg-[#151515] border border-[#292929] shadow-xl">
+            <h2 className="text-sm font-black text-white mb-4 flex items-center gap-2 border-b border-[#292929] pb-2.5">
+              <CalendarDays className="w-4.5 h-4.5 text-[#D4AF37]" />
               Apply Leave Request
             </h2>
 
@@ -595,13 +594,13 @@ export const LeaveScreen: React.FC = () => {
                       const todayStr = new Date().toISOString().split('T')[0];
                       const isPast = dayStr < todayStr;
 
-                      let cellClass = 'hover:bg-[#1D2329] text-[#B7C0BC]';
+                      let cellClass = 'hover:bg-[#1B1B1B] text-[#C7C7C7]';
                       if (isSelectedStart || isSelectedEnd) {
-                        cellClass = 'bg-[#18C98F] text-[#0B0D0F] font-bold shadow-md';
+                        cellClass = 'bg-[#D4AF37] text-[#080808] font-bold shadow-md';
                       } else if (isInRange) {
-                        cellClass = 'bg-[#18C98F]/20 text-[#18C98F] font-semibold';
+                        cellClass = 'bg-[#D4AF37]/20 text-[#D4AF37] font-semibold';
                       } else if (isPast) {
-                        cellClass = 'text-[#B7C0BC]/30 hover:bg-[#1D2329]/50';
+                        cellClass = 'text-[#8A8A8A]/30 hover:bg-[#1B1B1B]/50';
                       }
 
                       return (
@@ -621,19 +620,19 @@ export const LeaveScreen: React.FC = () => {
 
               {/* Selected Dates summary */}
               {startDate && (
-                <div className="p-3 bg-[#111417] border border-[#3A4148] rounded-2xl grid grid-cols-2 gap-2 text-xs">
+                <div className="p-3 bg-[#121212] border border-[#292929] rounded-2xl grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <p className="text-[10px] text-[#B7C0BC]/60 font-semibold">Start Date</p>
+                    <p className="text-[10px] text-[#8A8A8A] font-semibold">Start Date</p>
                     <p className="text-white font-black">{startDate}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] text-[#B7C0BC]/60 font-semibold">End Date</p>
+                    <p className="text-[10px] text-[#8A8A8A] font-semibold">End Date</p>
                     <p className="text-white font-black">{endDate || 'Select end date...'}</p>
                   </div>
                   {requestedLeaveDaysCount > 0 && (
-                    <div className="col-span-2 pt-1 border-t border-[#3A4148] mt-1 flex justify-between items-center text-xs">
-                      <span className="text-[#B7C0BC]/80 font-bold">Total Duration:</span>
-                      <span className="text-[#18C98F] font-black text-sm">{requestedLeaveDaysCount} Days</span>
+                    <div className="col-span-2 pt-1 border-t border-[#292929] mt-1 flex justify-between items-center text-xs">
+                      <span className="text-[#C7C7C7] font-bold">Total Duration:</span>
+                      <span className="text-[#D4AF37] font-black text-sm">{requestedLeaveDaysCount} Days</span>
                     </div>
                   )}
                 </div>
@@ -641,7 +640,7 @@ export const LeaveScreen: React.FC = () => {
 
               {/* Leave Reason */}
               <div>
-                <label className="block text-xs font-bold text-[#B7C0BC] mb-1.5">
+                <label className="block text-xs font-bold text-[#C7C7C7] mb-1.5">
                   Reason for Leave Request
                 </label>
                 <textarea
@@ -649,7 +648,7 @@ export const LeaveScreen: React.FC = () => {
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="E.g., Medical, Family Emergency, urgent personal work..."
                   rows={3}
-                  className="w-full bg-[#111417] border border-[#3A4148] focus:border-emerald-500/60 rounded-xl p-3 text-xs text-white focus:outline-none placeholder-[#B7C0BC]/30"
+                  className="w-full bg-[#121212] border border-[#292929] focus:border-[#D4AF37]/60 rounded-xl p-3 text-xs text-white focus:outline-none placeholder-[#8A8A8A]"
                 />
               </div>
 
@@ -657,18 +656,18 @@ export const LeaveScreen: React.FC = () => {
               <Button
                 type="submit"
                 disabled={isSubmitting || !startDate || !endDate}
-                className="w-full bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] font-bold p-3 rounded-xl transition flex justify-center items-center gap-2 shadow-md"
+                className="w-full bg-[#D4AF37] hover:bg-[#E6C766] text-[#080808] font-bold p-3 rounded-xl transition flex justify-center items-center gap-2 shadow-md"
               >
-                <Send className="w-3.5 h-3.5 text-[#0B0D0F]" />
+                <Send className="w-3.5 h-3.5 text-[#080808]" />
                 {isSubmitting ? 'Submitting Leave...' : 'Submit Leave Request'}
               </Button>
             </form>
           </Card>
 
           {/* Quick info panel */}
-          <Card className="p-4 bg-[#171B1F] border border-[#3A4148] text-xs text-[#B7C0BC]/70 space-y-2">
-            <h3 className="font-bold text-[#B7C0BC] flex items-center gap-1.5">
-              <Info className="w-4 h-4 text-[#18C98F]" /> Leave Policy Guidelines
+          <Card className="p-4 bg-[#151515] border border-[#292929] text-xs text-[#8A8A8A] space-y-2">
+            <h3 className="font-bold text-[#C7C7C7] flex items-center gap-1.5">
+              <Info className="w-4 h-4 text-[#D4AF37]" /> Leave Policy Guidelines
             </h3>
             <ul className="list-disc list-inside space-y-1 text-[11px] pl-1 leading-normal">
               <li>Weekends are counted in the total duration selection.</li>
@@ -762,54 +761,54 @@ export const LeaveScreen: React.FC = () => {
           onClose={() => setSelectedLeave(null)}
           title="Leave Request Details"
         >
-          <div className="space-y-4 text-xs text-[#B7C0BC]">
-            <div className="grid grid-cols-2 gap-3.5 bg-[#111417] p-4 rounded-2xl border border-[#3A4148]">
+          <div className="space-y-4 text-xs text-[#C7C7C7]">
+            <div className="grid grid-cols-2 gap-3.5 bg-[#121212] p-4 rounded-2xl border border-[#292929]">
               <div>
-                <p className="text-[10px] text-[#B7C0BC]/50 font-bold uppercase">Date Range</p>
+                <p className="text-[10px] text-[#8A8A8A] font-bold uppercase">Date Range</p>
                 <p className="text-xs font-black text-white mt-0.5">
                   {selectedLeave.startDate} — {selectedLeave.endDate}
                 </p>
               </div>
               <div>
-                <p className="text-[10px] text-[#B7C0BC]/50 font-bold uppercase">Total Duration</p>
+                <p className="text-[10px] text-[#8A8A8A] font-bold uppercase">Total Duration</p>
                 <p className="text-xs font-black text-white mt-0.5">{selectedLeave.totalDays} Day(s)</p>
               </div>
-              <div className="col-span-2 pt-2 border-t border-[#3A4148]/60">
-                <p className="text-[10px] text-[#B7C0BC]/50 font-bold uppercase">Reason</p>
+              <div className="col-span-2 pt-2 border-t border-[#292929]">
+                <p className="text-[10px] text-[#8A8A8A] font-bold uppercase">Reason</p>
                 <p className="text-xs text-white mt-0.5">"{selectedLeave.reason}"</p>
               </div>
             </div>
 
             <div className="space-y-2.5">
               <h3 className="font-bold text-white">Approval Path Status</h3>
-              <div className="space-y-2 bg-[#111417] p-3.5 rounded-2xl border border-[#3A4148]">
+              <div className="space-y-2 bg-[#121212] p-3.5 rounded-2xl border border-[#292929]">
                 <div className="flex justify-between items-center">
-                  <span className="font-semibold text-[#B7C0BC]/70">Current Level Status</span>
+                  <span className="font-semibold text-[#8A8A8A]">Current Level Status</span>
                   <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${getStatusBadgeClass(selectedLeave.status)}`}>
                     {selectedLeave.status}
                   </span>
                 </div>
                 
                 {selectedLeave.teamLeaderId && (
-                  <div className="pt-2 border-t border-[#3A4148]/60 space-y-1">
-                    <p className="font-bold text-[#B7C0BC]">Team Leader Review</p>
+                  <div className="pt-2 border-t border-[#292929] space-y-1">
+                    <p className="font-bold text-[#C7C7C7]">Team Leader Review</p>
                     <div className="flex justify-between text-[11px]">
                       <span>TL: {selectedLeave.teamLeaderName}</span>
-                      <span className="font-semibold text-[#18C98F]">{selectedLeave.approvalStatus === 'PENDING' ? 'Pending Review' : 'Reviewed'}</span>
+                      <span className="font-semibold text-[#D4AF37]">{selectedLeave.approvalStatus === 'PENDING' ? 'Pending Review' : 'Reviewed'}</span>
                     </div>
                     {selectedLeave.teamLeaderRemark && (
-                      <p className="bg-[#1D2329] p-2 rounded-xl border border-[#3A4148] italic text-[#B7C0BC]/90 text-[11px]">
+                      <p className="bg-[#1B1B1B] p-2 rounded-xl border border-[#292929] italic text-[#C7C7C7] text-[11px]">
                         TL Remark: "{selectedLeave.teamLeaderRemark}"
                       </p>
                     )}
                   </div>
                 )}
 
-                <div className="pt-2 border-t border-[#3A4148]/60 space-y-1">
-                  <p className="font-bold text-[#B7C0BC]">Admin Final Review</p>
+                <div className="pt-2 border-t border-[#292929] space-y-1">
+                  <p className="font-bold text-[#C7C7C7]">Admin Final Review</p>
                   <div className="flex justify-between text-[11px]">
                     <span>Admin Status</span>
-                    <span className="font-semibold text-[#18C98F]">
+                    <span className="font-semibold text-[#D4AF37]">
                       {selectedLeave.status === 'PENDING' && selectedLeave.approvalStatus !== 'TEAM_LEADER_APPROVED'
                         ? 'Awaiting Team Leader'
                         : selectedLeave.status === 'PENDING'
@@ -818,7 +817,7 @@ export const LeaveScreen: React.FC = () => {
                     </span>
                   </div>
                   {selectedLeave.adminRemark && (
-                    <p className="bg-[#1D2329] p-2 rounded-xl border border-[#3A4148] italic text-[#B7C0BC]/90 text-[11px]">
+                    <p className="bg-[#1B1B1B] p-2 rounded-xl border border-[#292929] italic text-[#C7C7C7] text-[11px]">
                       Admin Remark: "{selectedLeave.adminRemark}"
                     </p>
                   )}
@@ -826,7 +825,7 @@ export const LeaveScreen: React.FC = () => {
 
                 {/* Override indicators */}
                 {selectedLeave.overrideBy && (
-                  <div className="pt-2 border-t border-[#3A4148]/60 space-y-1 bg-amber-500/5 p-2 rounded-xl border border-amber-500/10">
+                  <div className="pt-2 border-t border-[#292929] space-y-1 bg-amber-500/5 p-2 rounded-xl border border-amber-500/10">
                     <p className="font-bold text-amber-300 flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5" /> Admin Manual Override
                     </p>
@@ -838,7 +837,7 @@ export const LeaveScreen: React.FC = () => {
             </div>
 
             {/* Sync Metadata */}
-            <div className="flex justify-between items-center text-[10px] text-[#B7C0BC]/40 px-1 pt-1">
+            <div className="flex justify-between items-center text-[10px] text-[#8A8A8A] px-1 pt-1">
               <span>Device Created: {new Date(selectedLeave.createdAtDeviceTime).toLocaleString()}</span>
             </div>
 
