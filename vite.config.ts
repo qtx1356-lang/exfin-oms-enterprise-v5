@@ -4,6 +4,8 @@ import path from 'path';
 import fs from 'fs';
 import {defineConfig, Plugin} from 'vite';
 
+import { cloudflare } from "@cloudflare/vite-plugin";
+
 function swPrecachePlugin(): Plugin {
   return {
     name: 'sw-precache-plugin',
