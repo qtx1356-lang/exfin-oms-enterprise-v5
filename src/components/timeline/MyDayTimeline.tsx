@@ -167,59 +167,59 @@ export const MyDayTimeline: React.FC = () => {
           icon: CheckCircle2,
           iconBg: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
         });
-      }
+    }
 
-      // Office Exit / Geofence Exit
-      const exitTime = todayRecord.lastExitTime || todayRecord.exitTime;
-      if (exitTime && exitTime !== '--:--') {
-        const timeMs = parseTimeStringToMs(exitTime, now);
-        compiledEvents.push({
-          id: `att-exit-${todayRecord.docId || todayRecord.id}`,
-          category: 'ATTENDANCE',
-          timeStr: exitTime,
-          timeMs: timeMs + 10, // slight offset to order after checkin if times match
-          title: '🚪 Office Exit Detected',
-          description: 'Stepped outside office 25m perimeter',
-          badgeLabel: 'Geofence Exit',
-          badgeStyle: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-          icon: MapPin,
-          iconBg: 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-        });
-      }
+    // Office Exit / Geofence Exit
+    const exitTime = todayRecord.lastExitTime || todayRecord.exitTime;
+    if (exitTime && exitTime !== '--:--') {
+      const timeMs = parseTimeStringToMs(exitTime, now);
+      compiledEvents.push({
+        id: `att-exit-${todayRecord.docId || todayRecord.id}`,
+        category: 'ATTENDANCE',
+        timeStr: exitTime,
+        timeMs: timeMs + 10, // slight offset to order after checkin if times match
+        title: '🚪 Office Exit Detected',
+        description: 'Stepped outside office 25m perimeter',
+        badgeLabel: 'Geofence Exit',
+        badgeStyle: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+        icon: MapPin,
+        iconBg: 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+      });
+    }
 
-      // Geofence Return
-      if (todayRecord.returnTime && todayRecord.returnTime !== '--:--') {
-        const timeMs = parseTimeStringToMs(todayRecord.returnTime, now);
-        compiledEvents.push({
-          id: `att-return-${todayRecord.docId || todayRecord.id}`,
-          category: 'ATTENDANCE',
-          timeStr: todayRecord.returnTime,
-          timeMs: timeMs + 20,
-          title: '🏢 Returned to Office',
-          description: 'Re-entered office 25m perimeter',
-          badgeLabel: 'Geofence Return',
-          badgeStyle: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
-          icon: MapPin,
-          iconBg: 'bg-purple-500/20 text-purple-400 border-purple-500/30'
-        });
-      }
+    // Geofence Return
+    if (todayRecord.returnTime && todayRecord.returnTime !== '--:--') {
+      const timeMs = parseTimeStringToMs(todayRecord.returnTime, now);
+      compiledEvents.push({
+        id: `att-return-${todayRecord.docId || todayRecord.id}`,
+        category: 'ATTENDANCE',
+        timeStr: todayRecord.returnTime,
+        timeMs: timeMs + 20,
+        title: '🏢 Returned to Office',
+        description: 'Re-entered office 25m perimeter',
+        badgeLabel: 'Geofence Return',
+        badgeStyle: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+        icon: MapPin,
+        iconBg: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+      });
+    }
 
-      // Check-Out
-      if (todayRecord.checkOutTime && todayRecord.checkOutTime !== '--:--') {
-        const timeMs = parseTimeStringToMs(todayRecord.checkOutTime, now);
-        compiledEvents.push({
-          id: `att-checkout-${todayRecord.docId || todayRecord.id}`,
-          category: 'ATTENDANCE',
-          timeStr: todayRecord.checkOutTime,
-          timeMs: timeMs + 30,
-          title: '✓ Workday Completed',
-          description: todayRecord.checkOutMode === 'AUTO_SYSTEM' ? 'Automatic checkout recorded' : 'Checkout recorded',
-          badgeLabel: 'Check-Out',
-          badgeStyle: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
-          icon: LogOut,
-          iconBg: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30'
-        });
-      }
+    // Check-Out
+    if (todayRecord.checkOutTime && todayRecord.checkOutTime !== '--:--') {
+      const timeMs = parseTimeStringToMs(todayRecord.checkOutTime, now);
+      compiledEvents.push({
+        id: `att-checkout-${todayRecord.docId || todayRecord.id}`,
+        category: 'ATTENDANCE',
+        timeStr: todayRecord.checkOutTime,
+        timeMs: timeMs + 30,
+        title: '✓ Workday Completed',
+        description: todayRecord.checkOutMode === 'AUTO_SYSTEM' ? 'Automatic checkout recorded' : 'Checkout recorded',
+        badgeLabel: 'Check-Out',
+        badgeStyle: 'bg-emerald-600/15 text-emerald-300 border-emerald-600/30',
+        icon: LogOut,
+        iconBg: 'bg-emerald-600/20 text-emerald-400 border-emerald-600/30'
+      });
+    }
     }
 
     // --- TASK EVENTS ---
@@ -248,9 +248,9 @@ export const MyDayTimeline: React.FC = () => {
             title: '📋 Task Completed',
             description: task.title,
             badgeLabel: 'Completed',
-            badgeStyle: 'bg-[#7C3AED]/20 text-purple-200 border-purple-500/30',
+            badgeStyle: 'bg-emerald-500/20 text-emerald-200 border-emerald-500/30',
             icon: CheckSquare,
-            iconBg: 'bg-[#7C3AED]/30 text-purple-300 border-purple-500/30'
+            iconBg: 'bg-emerald-500/30 text-emerald-300 border-emerald-500/30'
           });
         }
       } else if (task.completionPercentage > 0 || task.status === 'IN_PROGRESS') {
@@ -263,16 +263,16 @@ export const MyDayTimeline: React.FC = () => {
           const timeMs = updatedIso ? new Date(updatedIso).getTime() : now.getTime() - 3600000;
 
           compiledEvents.push({
-            id: `task-[#7C3AED]-${task.id}`,
+            id: `task-prog-${task.id}`,
             category: 'TASK',
             timeStr,
             timeMs,
             title: '📋 Task Updated',
             description: `${task.title} (${task.completionPercentage || 50}% progress)`,
             badgeLabel: 'In Progress',
-            badgeStyle: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+            badgeStyle: 'bg-emerald-400/15 text-emerald-300 border-emerald-400/30',
             icon: Briefcase,
-            iconBg: 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+            iconBg: 'bg-emerald-400/20 text-emerald-400 border-emerald-400/30'
           });
         }
       } else if (task.dueDate) {
@@ -287,9 +287,9 @@ export const MyDayTimeline: React.FC = () => {
             title: '📋 Task Due Today',
             description: task.title,
             badgeLabel: 'Assigned',
-            badgeStyle: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+            badgeStyle: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
             icon: Briefcase,
-            iconBg: 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+            iconBg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
           });
         }
       }
@@ -336,16 +336,16 @@ export const MyDayTimeline: React.FC = () => {
     } else if (todayRecord?.checkOutTime && todayRecord.checkOutTime !== '--:--') {
       statusText = 'Workday Completed';
       statusSubtext = `Checked out at ${todayRecord.checkOutTime}`;
-      statusBadgeColor = 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30';
+      statusBadgeColor = 'bg-emerald-600/15 text-emerald-300 border-emerald-600/30';
     } else if (todayRecord?.checkInTime && todayRecord.checkInTime !== '--:--') {
       if (todayRecord.attendanceType === 'WFH') {
         statusText = 'WFH Active';
         statusSubtext = 'Working from home';
-        statusBadgeColor = 'bg-blue-500/15 text-blue-300 border-blue-500/30';
+        statusBadgeColor = 'bg-emerald-400/15 text-emerald-300 border-emerald-400/30';
       } else if (todayRecord.attendanceType === 'CLIENT_VISIT') {
         statusText = 'Client Visit';
         statusSubtext = todayRecord.clientName ? `Client: ${todayRecord.clientName}` : 'On-site visit';
-        statusBadgeColor = 'bg-purple-500/15 text-purple-300 border-purple-500/30';
+        statusBadgeColor = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
       } else {
         statusText = 'Working';
         statusSubtext = `Checked in at ${todayRecord.checkInTime}`;
@@ -368,16 +368,16 @@ export const MyDayTimeline: React.FC = () => {
 
   return (
     <>
-      <Card className="p-4 bg-[#102D28] border border-[#1D4840] shadow-md relative overflow-hidden">
+      <Card className="p-4 bg-[var(--card-bg)] border border-[var(--border)] shadow-md relative overflow-hidden">
         {/* Section Header */}
-        <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#1D4840]">
+        <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--border)]">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[#0B2420] border border-[#1D4840] flex items-center justify-center text-[#18C7A0]">
+            <div className="w-7 h-7 rounded-lg bg-[var(--app-bg-secondary)] border border-[var(--border)] flex items-center justify-center text-[var(--primary-light)]">
               <Clock className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-xs font-black text-[#F5FFFC] uppercase tracking-wider">MY DAY</h2>
-              <p className="text-[10px] text-[#A8C7C0] font-medium">Today's Timeline</p>
+              <h2 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider">MY DAY</h2>
+              <p className="text-[10px] text-[var(--text-secondary)] font-medium">Today's Timeline</p>
             </div>
           </div>
 
@@ -399,27 +399,27 @@ export const MyDayTimeline: React.FC = () => {
 
         {/* Timeline Event List or Empty State */}
         {events.length > 0 ? (
-          <div className="relative pl-5 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#1D4840]">
+          <div className="relative pl-5 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-[var(--border)]">
             {displayedEvents.map((evt) => {
               const IconComp = evt.icon;
               return (
                 <div key={evt.id} className="relative flex items-start gap-3">
                   {/* Event Marker */}
-                  <div className={`absolute -left-5 top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] shadow ring-4 ring-[#102D28] ${evt.iconBg}`}>
+                  <div className={`absolute -left-5 top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] shadow ring-4 ring-[var(--card-bg)] ${evt.iconBg}`}>
                     <IconComp className="w-2.5 h-2.5" />
                   </div>
 
                   {/* Event Card Content */}
-                  <div className="flex-1 bg-[#0B2420] p-2.5 rounded-xl border border-[#1D4840] flex items-start justify-between gap-2">
+                  <div className="flex-1 bg-[var(--app-bg-secondary)] p-2.5 rounded-xl border border-[var(--border)] flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[11px] font-black text-[#F5FFFC] truncate">{evt.title}</span>
+                        <span className="text-[11px] font-black text-[var(--text-primary)] truncate">{evt.title}</span>
                       </div>
-                      <p className="text-[10px] text-[#A8C7C0] leading-relaxed truncate">{evt.description}</p>
+                      <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed truncate">{evt.description}</p>
                     </div>
 
                     <div className="flex flex-col items-end shrink-0 text-right">
-                      <span className="text-[10px] font-bold text-[#A8C7C0]">{evt.timeStr}</span>
+                      <span className="text-[10px] font-bold text-[var(--text-secondary)]">{evt.timeStr}</span>
                       <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded border mt-1 ${evt.badgeStyle}`}>
                         {evt.badgeLabel}
                       </span>
@@ -431,19 +431,19 @@ export const MyDayTimeline: React.FC = () => {
           </div>
         ) : (
           /* Empty State */
-          <div className="py-6 px-4 text-center bg-[#0B2420] rounded-2xl border border-dashed border-[#1D4840]">
-            <Sparkles className="w-6 h-6 text-[#18C7A0] mx-auto mb-2" />
-            <p className="text-xs font-bold text-[#F5FFFC] mb-0.5">Your workday hasn't started yet</p>
-            <p className="text-[11px] text-[#A8C7C0]">No attendance or activity recorded today.</p>
+          <div className="py-6 px-4 text-center bg-[var(--app-bg-secondary)] rounded-2xl border border-dashed border-[var(--border)]">
+            <Sparkles className="w-6 h-6 text-[var(--primary-light)] mx-auto mb-2" />
+            <p className="text-xs font-bold text-[var(--text-primary)] mb-0.5">Your workday hasn't started yet</p>
+            <p className="text-[11px] text-[var(--text-secondary)]">No attendance or activity recorded today.</p>
           </div>
         )}
 
         {/* View Full Day Link */}
         {hasMore && (
-          <div className="mt-3 pt-2 border-t border-[#1D4840] text-center">
+          <div className="mt-3 pt-2 border-t border-[var(--border)] text-center">
             <button
               onClick={() => setShowFullDayModal(true)}
-              className="text-xs font-bold text-[#18C7A0] hover:text-[#35E0B9] transition flex items-center justify-center gap-1 mx-auto"
+              className="text-xs font-bold text-[var(--primary-light)] hover:text-[var(--primary)] transition flex items-center justify-center gap-1 mx-auto"
             >
               <span>View Full Day ({events.length} Events) &rarr;</span>
             </button>
@@ -458,53 +458,53 @@ export const MyDayTimeline: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-[#071A17]/80 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-[var(--app-bg)]/80 backdrop-blur-sm flex items-center justify-center p-4"
             onClick={() => setShowFullDayModal(false)}
           >
             <motion.div
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="w-full max-w-lg bg-[#0B2420] border border-[#1D4840] rounded-3xl p-5 shadow-2xl overflow-hidden max-h-[85vh] flex flex-col"
+              className="w-full max-w-lg bg-[var(--card-bg)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl overflow-hidden max-h-[85vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-[#1D4840] mb-4">
+              <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] mb-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-[#102D28] border border-[#1D4840] flex items-center justify-center text-[#18C7A0]">
+                  <div className="w-8 h-8 rounded-xl bg-[var(--card-elevated)] border border-[var(--border)] flex items-center justify-center text-[var(--primary-light)]">
                     <Clock className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="font-black text-sm text-[#F5FFFC]">Full Day Timeline</h3>
-                    <p className="text-[10px] text-[#A8C7C0]">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+                    <h3 className="font-black text-sm text-[var(--text-primary)]">Full Day Timeline</h3>
+                    <p className="text-[10px] text-[var(--text-secondary)]">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
                   </div>
                 </div>
 
                 <button
                   onClick={() => setShowFullDayModal(false)}
-                  className="p-1.5 rounded-full bg-[#102D28] border border-[#1D4840] text-[#A8C7C0] hover:text-[#F5FFFC] transition"
+                  className="p-1.5 rounded-full bg-[var(--app-bg-secondary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Scrollable Event List */}
-              <div className="flex-1 overflow-y-auto pr-1 space-y-4 relative pl-5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#1D4840]">
+              <div className="flex-1 overflow-y-auto pr-1 space-y-4 relative pl-5 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-[var(--border)]">
                 {events.map((evt) => {
                   const IconComp = evt.icon;
                   return (
                     <div key={evt.id} className="relative flex items-start gap-3">
-                      <div className={`absolute -left-5 top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] shadow ring-4 ring-[#0B2420] ${evt.iconBg}`}>
+                      <div className={`absolute -left-5 top-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] shadow ring-4 ring-[var(--card-bg)] ${evt.iconBg}`}>
                         <IconComp className="w-2.5 h-2.5" />
                       </div>
 
-                      <div className="flex-1 bg-[#102D28] p-3 rounded-xl border border-[#1D4840] flex items-start justify-between gap-2">
+                      <div className="flex-1 bg-[var(--app-bg-secondary)] p-3 rounded-xl border border-[var(--border)] flex items-start justify-between gap-2">
                         <div>
-                          <p className="text-xs font-black text-[#F5FFFC]">{evt.title}</p>
-                          <p className="text-[11px] text-[#A8C7C0] mt-0.5">{evt.description}</p>
+                          <p className="text-xs font-black text-[var(--text-primary)]">{evt.title}</p>
+                          <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{evt.description}</p>
                         </div>
                         <div className="text-right shrink-0">
-                          <span className="text-[10px] font-bold text-[#A8C7C0]">{evt.timeStr}</span>
+                          <span className="text-[10px] font-bold text-[var(--text-secondary)]">{evt.timeStr}</span>
                           <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded border block mt-1 ${evt.badgeStyle}`}>
                             {evt.badgeLabel}
                           </span>
@@ -516,10 +516,10 @@ export const MyDayTimeline: React.FC = () => {
               </div>
 
               {/* Modal Footer */}
-              <div className="pt-3 mt-4 border-t border-[#1D4840] text-center">
+              <div className="pt-3 mt-4 border-t border-[var(--border)] text-center">
                 <button
                   onClick={() => setShowFullDayModal(false)}
-                  className="w-full py-2.5 bg-[#18C7A0] hover:bg-[#0E9F82] text-[#071A17] font-extrabold text-xs rounded-xl transition"
+                  className="w-full py-2.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-white font-extrabold text-xs rounded-xl transition shadow-lg"
                 >
                   Close
                 </button>

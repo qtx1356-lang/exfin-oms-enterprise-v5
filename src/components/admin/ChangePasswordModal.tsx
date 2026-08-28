@@ -91,26 +91,26 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <Card className="max-w-lg w-full p-6 sm:p-8 bg-[#210D44] border border-amber-500/30 rounded-[28px] shadow-2xl space-y-6 text-white my-8">
+      <Card className="max-w-lg w-full p-6 sm:p-8 bg-[var(--card-bg)] border border-[var(--border)] rounded-[28px] shadow-2xl space-y-6 text-[var(--text-primary)] my-8">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-purple-600 flex items-center justify-center shadow-lg shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[var(--primary-dark)] to-[var(--primary)] flex items-center justify-center shadow-lg shrink-0">
               <KeyRound className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-black text-white">
+              <h2 className="text-lg sm:text-xl font-black text-[var(--text-primary)]">
                 {isMandatory ? 'Mandatory Password Update' : 'Change Admin Password'}
               </h2>
-              <p className="text-xs text-purple-300/80">
-                Account: <span className="text-amber-400 font-mono font-bold">{loginId || user?.email || 'Admin'}</span>
+              <p className="text-xs text-[var(--text-secondary)]/80">
+                Account: <span className="text-[var(--primary-light)] font-mono font-bold">{loginId || user?.email || 'Admin'}</span>
               </p>
             </div>
           </div>
           {!isMandatory && onClose && (
             <button
               onClick={onClose}
-              className="text-purple-400 hover:text-white p-1 rounded-xl hover:bg-white/5 transition-colors"
+              className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1 rounded-xl hover:bg-white/5 transition-colors"
               aria-label="Close modal"
             >
               <XCircle className="w-6 h-6" />
@@ -148,8 +148,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Current Password Field */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-amber-400" />
+            <label className="text-xs font-bold text-[var(--text-primary)]/80 uppercase tracking-wider flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-[var(--primary)]" />
               {isMandatory ? 'Current / Temporary Password' : 'Current Password'}
             </label>
             <div className="relative">
@@ -160,12 +160,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 required
                 disabled={loading || !!success}
                 placeholder="Enter current password"
-                className="w-full pl-4 pr-11 py-3 bg-[#170932] border border-purple-500/30 rounded-xl text-white text-xs sm:text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                className="w-full pl-4 pr-11 py-3 bg-[var(--app-bg-secondary)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] text-xs sm:text-sm focus:outline-none focus:border-[var(--primary)] transition-colors"
               />
               <button
                 type="button"
                 onClick={() => setShowCurrent(!showCurrent)}
-                className="absolute right-3 top-3 text-purple-400 hover:text-white"
+                className="absolute right-3 top-3 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 tabIndex={-1}
               >
                 {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -175,8 +175,8 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
           {/* New Password Field */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-amber-400" /> New Password
+            <label className="text-xs font-bold text-[var(--text-primary)]/80 uppercase tracking-wider flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-[var(--primary)]" /> New Password
             </label>
             <div className="relative">
               <input
@@ -186,12 +186,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 required
                 disabled={loading || !!success}
                 placeholder="Enter new strong password"
-                className="w-full pl-4 pr-11 py-3 bg-[#170932] border border-purple-500/30 rounded-xl text-white text-xs sm:text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                className="w-full pl-4 pr-11 py-3 bg-[var(--app-bg-secondary)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] text-xs sm:text-sm focus:outline-none focus:border-[var(--primary)] transition-colors"
               />
               <button
                 type="button"
                 onClick={() => setShowNew(!showNew)}
-                className="absolute right-3 top-3 text-purple-400 hover:text-white"
+                className="absolute right-3 top-3 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 tabIndex={-1}
               >
                 {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -202,7 +202,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
             {newPassword.length > 0 && (
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-purple-300/80">Strength:</span>
+                  <span className="text-[var(--text-secondary)]/80">Strength:</span>
                   <span className={`font-bold ${
                     strength.score <= 1 ? 'text-rose-400' :
                     strength.score === 2 ? 'text-amber-400' :
@@ -211,7 +211,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                     {strength.strengthLabel}
                   </span>
                 </div>
-                <div className="w-full h-1.5 bg-[#170932] rounded-full overflow-hidden flex gap-1">
+                <div className="w-full h-1.5 bg-[var(--app-bg-secondary)] rounded-full overflow-hidden flex gap-1">
                   <div className={`h-full rounded-full transition-all duration-300 ${strength.score >= 1 ? getStrengthBarColor() : 'bg-transparent'}`} style={{ width: '25%' }} />
                   <div className={`h-full rounded-full transition-all duration-300 ${strength.score >= 2 ? getStrengthBarColor() : 'bg-transparent'}`} style={{ width: '25%' }} />
                   <div className={`h-full rounded-full transition-all duration-300 ${strength.score >= 3 ? getStrengthBarColor() : 'bg-transparent'}`} style={{ width: '25%' }} />
@@ -223,9 +223,9 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
           {/* Confirm Password Field */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center justify-between">
+            <label className="text-xs font-bold text-[var(--text-primary)]/80 uppercase tracking-wider flex items-center justify-between">
               <span className="flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-amber-400" /> Confirm New Password
+                <Lock className="w-3.5 h-3.5 text-[var(--primary)]" /> Confirm New Password
               </span>
               {isMatch && (
                 <span className="text-emerald-400 text-[10px] flex items-center gap-1 font-bold">
@@ -246,16 +246,16 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 required
                 disabled={loading || !!success}
                 placeholder="Re-enter new password"
-                className={`w-full pl-4 pr-11 py-3 bg-[#170932] border rounded-xl text-white text-xs sm:text-sm focus:outline-none transition-colors ${
+                className={`w-full pl-4 pr-11 py-3 bg-[var(--app-bg-secondary)] border rounded-xl text-[var(--text-primary)] text-xs sm:text-sm focus:outline-none transition-colors ${
                   isMismatch ? 'border-rose-500/70 focus:border-rose-500' :
                   isMatch ? 'border-emerald-500/70 focus:border-emerald-500' :
-                  'border-purple-500/30 focus:border-amber-500'
+                  'border-[var(--border)] focus:border-[var(--primary)]'
                 }`}
               />
               <button
                 type="button"
                 onClick={() => setShowConfirm(!showConfirm)}
-                className="absolute right-3 top-3 text-purple-400 hover:text-white"
+                className="absolute right-3 top-3 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 tabIndex={-1}
               >
                 {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -264,25 +264,25 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
           </div>
 
           {/* Checklist */}
-          <div className="p-3.5 bg-[#170932] border border-purple-500/20 rounded-2xl space-y-1.5 text-[11px] text-purple-300/90">
-            <p className="font-bold text-white uppercase text-[10px] tracking-wider mb-1 flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> Security Standards
+          <div className="p-3.5 bg-[var(--app-bg-secondary)] border border-[var(--border)] rounded-2xl space-y-1.5 text-[11px] text-[var(--text-secondary)]/90">
+            <p className="font-bold text-[var(--text-primary)] uppercase text-[10px] tracking-wider mb-1 flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-[var(--primary)]" /> Security Standards
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              <div className={`flex items-center gap-1.5 ${strength.hasMinLength ? 'text-emerald-400 font-bold' : 'text-purple-300/60'}`}>
-                {strength.hasMinLength ? <CheckCircle2 className="w-3.5 h-3.5" /> : <div className="w-3.5 h-3.5 rounded-full border border-purple-500/40" />}
+              <div className={`flex items-center gap-1.5 ${strength.hasMinLength ? 'text-emerald-400 font-bold' : 'text-[var(--text-secondary)]/60'}`}>
+                {strength.hasMinLength ? <CheckCircle2 className="w-3.5 h-3.5" /> : <div className="w-3.5 h-3.5 rounded-full border border-[var(--border)]" />}
                 <span>At least 8 characters</span>
               </div>
-              <div className={`flex items-center gap-1.5 ${strength.hasUppercase && strength.hasLowercase ? 'text-emerald-400 font-bold' : 'text-purple-300/60'}`}>
-                {strength.hasUppercase && strength.hasLowercase ? <CheckCircle2 className="w-3.5 h-3.5" /> : <div className="w-3.5 h-3.5 rounded-full border border-purple-500/40" />}
+              <div className={`flex items-center gap-1.5 ${strength.hasUppercase && strength.hasLowercase ? 'text-emerald-400 font-bold' : 'text-[var(--text-secondary)]/60'}`}>
+                {strength.hasUppercase && strength.hasLowercase ? <CheckCircle2 className="w-3.5 h-3.5" /> : <div className="w-3.5 h-3.5 rounded-full border border-[var(--border)]" />}
                 <span>Upper & lower case</span>
               </div>
-              <div className={`flex items-center gap-1.5 ${strength.hasNumber ? 'text-emerald-400 font-bold' : 'text-purple-300/60'}`}>
-                {strength.hasNumber ? <CheckCircle2 className="w-3.5 h-3.5" /> : <div className="w-3.5 h-3.5 rounded-full border border-purple-500/40" />}
+              <div className={`flex items-center gap-1.5 ${strength.hasNumber ? 'text-emerald-400 font-bold' : 'text-[var(--text-secondary)]/60'}`}>
+                {strength.hasNumber ? <CheckCircle2 className="w-3.5 h-3.5" /> : <div className="w-3.5 h-3.5 rounded-full border border-[var(--border)]" />}
                 <span>At least one number (0-9)</span>
               </div>
-              <div className={`flex items-center gap-1.5 ${strength.hasSpecialChar ? 'text-emerald-400 font-bold' : 'text-purple-300/60'}`}>
-                {strength.hasSpecialChar ? <CheckCircle2 className="w-3.5 h-3.5" /> : <div className="w-3.5 h-3.5 rounded-full border border-purple-500/40" />}
+              <div className={`flex items-center gap-1.5 ${strength.hasSpecialChar ? 'text-emerald-400 font-bold' : 'text-[var(--text-secondary)]/60'}`}>
+                {strength.hasSpecialChar ? <CheckCircle2 className="w-3.5 h-3.5" /> : <div className="w-3.5 h-3.5 rounded-full border border-[var(--border)]" />}
                 <span>Special character (!@#$)</span>
               </div>
             </div>
@@ -296,7 +296,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 variant="secondary"
                 disabled={loading}
                 onClick={onClose}
-                className="w-full sm:w-1/3 py-3 border-purple-500/30 text-purple-200 hover:bg-white/5"
+                className="w-full sm:w-1/3 py-3 border-[var(--border)] text-[var(--text-secondary)] hover:bg-white/5"
               >
                 Cancel
               </Button>
@@ -306,7 +306,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
               disabled={loading || !strength.isValid || !isMatch || !!success}
               className={`w-full py-3 text-xs sm:text-sm font-extrabold shadow-lg rounded-xl flex items-center justify-center gap-2 ${
                 !isMandatory && onClose ? 'sm:w-2/3' : 'w-full'
-              } bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black`}
+              } bg-gradient-to-r from-[var(--primary-dark)] to-[var(--primary)] hover:from-[var(--primary)] hover:to-[var(--primary-light)] text-white`}
             >
               {loading ? (
                 'Updating Password...'

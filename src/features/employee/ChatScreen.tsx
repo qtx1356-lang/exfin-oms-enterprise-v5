@@ -79,10 +79,10 @@ const AttachmentViewer: React.FC<{ attachment: ChatAttachment }> = ({ attachment
 
   if (loading) {
     return (
-      <div className="mb-2 bg-[#100525]/80 border border-purple-500/15 p-3 rounded-xl flex items-center justify-between gap-3 min-w-[220px]">
+      <div className="mb-2 bg-[var(--card-bg)]/80 border border-[var(--primary)]/15 p-3 rounded-xl flex items-center justify-between gap-3 min-w-[220px]">
         <div className="flex items-center gap-2">
-          <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
-          <span className="text-xs text-purple-200/70 font-mono">Loading attachment...</span>
+          <Loader2 className="w-4 h-4 text-[var(--primary)] animate-spin" />
+          <span className="text-xs text-[var(--text-secondary)] font-mono">Loading attachment...</span>
         </div>
       </div>
     );
@@ -90,7 +90,7 @@ const AttachmentViewer: React.FC<{ attachment: ChatAttachment }> = ({ attachment
 
   if (error || !blobUrl) {
     return (
-      <div className="mb-2 bg-[#100525]/80 border border-rose-500/20 p-3 rounded-xl flex items-center justify-between gap-2 min-w-[220px] text-rose-300">
+      <div className="mb-2 bg-[var(--card-bg)]/80 border border-rose-500/20 p-3 rounded-xl flex items-center justify-between gap-2 min-w-[220px] text-rose-300">
         <div className="flex items-center gap-2 min-w-0">
           <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
           <span className="text-xs truncate">{attachment.fileName} (Failed to load)</span>
@@ -107,10 +107,10 @@ const AttachmentViewer: React.FC<{ attachment: ChatAttachment }> = ({ attachment
   }
 
   return (
-    <div className="mb-2 bg-[#100525]/80 border border-purple-500/15 p-2.5 rounded-xl flex flex-col gap-2 shadow-inner min-w-[220px]">
+    <div className="mb-2 bg-[var(--card-bg)]/80 border border-[var(--primary)]/15 p-2.5 rounded-xl flex flex-col gap-2 shadow-inner min-w-[220px]">
       <div className="flex items-center gap-2.5">
         {isImage ? (
-          <div className="relative group overflow-hidden rounded-lg border border-purple-500/10 max-h-48 w-full flex items-center justify-center bg-black/40">
+          <div className="relative group overflow-hidden rounded-lg border border-[var(--primary)]/10 max-h-48 w-full flex items-center justify-center bg-black/40">
             <img
               src={blobUrl}
               alt={attachment.fileName}
@@ -120,14 +120,14 @@ const AttachmentViewer: React.FC<{ attachment: ChatAttachment }> = ({ attachment
             />
           </div>
         ) : (
-          <div className="w-10 h-10 rounded-lg bg-purple-500/15 border border-purple-500/20 flex items-center justify-center text-purple-300 shrink-0">
+          <div className="w-10 h-10 rounded-lg bg-[var(--primary)]/15 border border-[var(--primary)]/20 flex items-center justify-center text-[var(--primary)] shrink-0">
             <FileText className="w-5 h-5" />
           </div>
         )}
         {!isImage && (
           <div className="text-left min-w-0 flex-1">
-            <p className="text-xs font-bold text-white truncate">{attachment.fileName}</p>
-            <p className="text-[9px] text-purple-300/60 uppercase font-bold">
+            <p className="text-xs font-bold text-[var(--text-primary)] truncate">{attachment.fileName}</p>
+            <p className="text-[9px] text-[var(--text-secondary)] uppercase font-bold">
               {attachment.fileName.split('.').pop()?.toUpperCase() || 'FILE'} • {formatFileSize(attachment.fileSize)}
             </p>
           </div>
@@ -136,25 +136,25 @@ const AttachmentViewer: React.FC<{ attachment: ChatAttachment }> = ({ attachment
 
       {isImage && (
         <div className="text-left min-w-0">
-          <p className="text-xs font-bold text-white truncate">{attachment.fileName}</p>
-          <p className="text-[9px] text-purple-300/60 uppercase font-bold">
+          <p className="text-xs font-bold text-[var(--text-primary)] truncate">{attachment.fileName}</p>
+          <p className="text-[9px] text-[var(--text-secondary)] uppercase font-bold">
             {formatFileSize(attachment.fileSize)}
           </p>
         </div>
       )}
 
-      <div className="flex gap-2 justify-end pt-1.5 border-t border-purple-500/10">
+      <div className="flex gap-2 justify-end pt-1.5 border-t border-[var(--primary)]/10">
         <button
           type="button"
           onClick={() => downloadOrOpenAttachment(attachment, 'open')}
-          className="text-[10px] font-bold text-teal-300 hover:text-white bg-teal-500/15 border border-teal-500/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer"
+          className="text-[10px] font-bold text-emerald-400 hover:text-white bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer"
         >
           <ExternalLink className="w-3 h-3" /> Open
         </button>
         <button
           type="button"
           onClick={() => downloadOrOpenAttachment(attachment, 'download')}
-          className="text-[10px] font-bold text-purple-200 hover:text-white bg-purple-500/15 border border-purple-500/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer"
+          className="text-[10px] font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--primary)]/15 border border-[var(--primary)]/30 px-2.5 py-1 rounded-lg transition flex items-center gap-1 cursor-pointer"
         >
           <Download className="w-3 h-3" /> Download
         </button>
@@ -620,7 +620,7 @@ export const ChatScreen: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-110px)] text-white -mt-2">
+    <div className="flex flex-col h-[calc(100vh-110px)] text-[var(--text-primary)] -mt-2">
       {/* Network Offline Alert */}
       {isOffline && (
         <div className="bg-amber-500/10 border-b border-amber-500/30 text-amber-200 text-xs px-4 py-2 flex items-center gap-2 justify-center font-bold">
@@ -631,16 +631,16 @@ export const ChatScreen: React.FC = () => {
 
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT COLUMN: Conversation List (Hidden on mobile when chat is active) */}
-        <div className={`w-full md:w-80 border-r border-purple-500/20 flex flex-col bg-[#1A0B36]/50 ${activeConv ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`w-full md:w-80 border-r border-[var(--primary)]/20 flex flex-col bg-[var(--app-bg-secondary)]/50 ${activeConv ? 'hidden md:flex' : 'flex'}`}>
           {/* Header */}
-          <div className="p-4 border-b border-purple-500/20 space-y-3">
+          <div className="p-4 border-b border-[var(--primary)]/20 space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-black flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-purple-400" /> Communications
+                <MessageSquare className="w-5 h-5 text-[var(--primary)]" /> Communications
               </h2>
               <button
                 onClick={() => setIsNewChatOpen(true)}
-                className="w-8 h-8 rounded-full bg-purple-600 hover:bg-purple-500 flex items-center justify-center transition shadow-lg text-white"
+                className="w-8 h-8 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-light)] flex items-center justify-center transition shadow-lg text-white"
                 title="New Chat"
               >
                 <Plus className="w-4 h-4" />
@@ -648,21 +648,21 @@ export const ChatScreen: React.FC = () => {
             </div>
             {/* Search Bar */}
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 w-4 h-4 text-purple-300/50" />
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-[var(--text-secondary)]/50" />
               <input
                 type="text"
                 placeholder="Search conversations..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#15092E] border border-purple-500/20 rounded-xl py-1.5 pl-9 pr-4 text-xs text-white focus:outline-none focus:border-purple-500/55"
+                className="w-full bg-[var(--app-bg-primary)] border border-[var(--primary)]/20 rounded-xl py-1.5 pl-9 pr-4 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]/55"
               />
             </div>
           </div>
 
           {/* Conversation list */}
-          <div className="flex-1 overflow-y-auto divide-y divide-purple-500/10">
+          <div className="flex-1 overflow-y-auto divide-y divide-[var(--primary)]/10">
             {filteredConversations.length === 0 ? (
-              <div className="text-center py-12 text-xs text-purple-300/40">
+              <div className="text-center py-12 text-xs text-[var(--text-secondary)]/40 font-bold">
                 No conversations found. Tap the '+' button above to start chatting!
               </div>
             ) : (
@@ -675,11 +675,11 @@ export const ChatScreen: React.FC = () => {
                     key={conv.id}
                     onClick={() => setActiveConv(conv)}
                     className={`p-3.5 flex items-center gap-3 cursor-pointer transition ${
-                      isSelected ? 'bg-purple-600/20 border-l-4 border-purple-500' : 'hover:bg-white/[0.02]'
+                      isSelected ? 'bg-[var(--primary)]/20 border-l-4 border-[var(--primary)]' : 'hover:bg-white/[0.02]'
                     }`}
                   >
                     {/* Icon */}
-                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-300 relative">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 border border-[var(--primary)]/20 flex items-center justify-center text-[var(--primary)] relative">
                       {conv.type === 'ALL_EMPLOYEES' ? (
                         <Users className="w-5 h-5" />
                       ) : conv.type === 'GROUP' ? (
@@ -697,19 +697,19 @@ export const ChatScreen: React.FC = () => {
                     {/* Meta */}
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-baseline mb-0.5">
-                        <h4 className="text-xs font-bold text-white truncate pr-1">
+                        <h4 className="text-xs font-bold text-[var(--text-primary)] truncate pr-1">
                           {getRecipientName(conv)}
                         </h4>
                         {conv.lastMessage && (
-                          <span className="text-[9px] text-purple-300/40 font-mono">
+                          <span className="text-[9px] text-[var(--text-secondary)]/40 font-mono">
                             {new Date(conv.lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-purple-300/60 truncate">
+                      <p className="text-[11px] text-[var(--text-secondary)]/60 truncate">
                         {conv.lastMessage ? (
                           <>
-                            <span className="font-semibold text-purple-300/80">{conv.lastMessage.senderName}: </span>
+                            <span className="font-semibold text-[var(--text-secondary)]/80">{conv.lastMessage.senderName}: </span>
                             {conv.lastMessage.content}
                           </>
                         ) : (
@@ -725,11 +725,11 @@ export const ChatScreen: React.FC = () => {
         </div>
 
         {/* RIGHT COLUMN: Chat Area */}
-        <div className={`flex-1 flex flex-col bg-[#110526]/40 ${!activeConv ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`flex-1 flex flex-col bg-[var(--app-bg-primary)]/40 ${!activeConv ? 'hidden md:flex' : 'flex'}`}>
           {activeConv ? (
             <>
               {/* Active Conversation Header */}
-              <div className="p-4 border-b border-purple-500/20 bg-[#1A0B36]/40 flex items-center justify-between">
+              <div className="p-4 border-b border-[var(--primary)]/20 bg-[var(--app-bg-secondary)]/40 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setActiveConv(null)}
@@ -737,7 +737,7 @@ export const ChatScreen: React.FC = () => {
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </button>
-                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-300">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 border border-[var(--primary)]/20 flex items-center justify-center text-[var(--primary)]">
                     {activeConv.type === 'ALL_EMPLOYEES' ? (
                       <Users className="w-5 h-5" />
                     ) : activeConv.type === 'GROUP' ? (
@@ -747,10 +747,10 @@ export const ChatScreen: React.FC = () => {
                     )}
                   </div>
                   <div>
-                    <h3 className="text-xs font-bold text-white leading-tight">
+                    <h3 className="text-xs font-bold text-[var(--text-primary)] leading-tight">
                       {getRecipientName(activeConv)}
                     </h3>
-                    <p className="text-[9px] text-purple-300/50 uppercase font-black tracking-wider mt-0.5">
+                    <p className="text-[9px] text-[var(--text-secondary)]/50 uppercase font-black tracking-wider mt-0.5">
                       {activeConv.type === 'ALL_EMPLOYEES' ? 'Broadcast Channel' : activeConv.type === 'GROUP' ? 'Group Space' : 'Direct Correspondence'}
                     </p>
                   </div>
@@ -760,14 +760,14 @@ export const ChatScreen: React.FC = () => {
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => setCallModal({ isOpen: true, type: 'audio' })}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-purple-200 transition"
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[var(--text-secondary)] transition"
                     title="Audio Call"
                   >
                     <Phone className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setCallModal({ isOpen: true, type: 'video' })}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-purple-200 transition"
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[var(--text-secondary)] transition"
                     title="Video Call"
                   >
                     <Video className="w-4 h-4" />
@@ -776,9 +776,9 @@ export const ChatScreen: React.FC = () => {
               </div>
 
               {/* Message History list */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-gradient-to-b from-transparent to-[#110526]/50">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-gradient-to-b from-transparent to-[var(--app-bg-primary)]/50">
                 {messages.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-xs text-purple-300/40">
+                  <div className="h-full flex items-center justify-center text-xs text-[var(--text-secondary)]/40 font-bold">
                     No messages in this chat. Start typing below!
                   </div>
                 ) : (
@@ -795,12 +795,12 @@ export const ChatScreen: React.FC = () => {
                         {/* Sender info */}
                         {!isOwn && (
                           <div className="flex items-center gap-1.5 mb-1 pl-1">
-                            <span className="text-[10px] font-black text-purple-200">{msg.senderName}</span>
+                            <span className="text-[10px] font-black text-[var(--text-secondary)]">{msg.senderName}</span>
                             <span className={`text-[8px] font-black px-1.5 py-0.2 rounded uppercase ${
                               msg.senderRole === 'ADMIN' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
                               msg.senderRole === 'HR' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
                               msg.senderRole === 'TEAM_LEADER' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                              'bg-purple-500/10 text-purple-300 border border-purple-500/20'
+                              'bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/20'
                             }`}>
                               {msg.senderRole}
                             </span>
@@ -809,10 +809,10 @@ export const ChatScreen: React.FC = () => {
 
                         {/* Bubble */}
                         <div
-                          className={`max-w-[80%] rounded-[20px] px-4 py-2.5 text-xs font-medium leading-relaxed shadow-lg border ${
+                          className={`max-w-[80%] rounded-[20px] px-4 py-2.5 text-xs font-bold leading-relaxed shadow-lg border ${
                             isOwn
-                              ? 'bg-purple-600 border-purple-500 text-white rounded-tr-none'
-                              : 'bg-[#1C0D39]/90 border-purple-500/20 text-purple-100 rounded-tl-none'
+                              ? 'bg-[var(--primary)] border-[var(--primary-light)] text-white rounded-tr-none'
+                              : 'bg-[var(--card-bg)]/90 border-[var(--primary)]/20 text-[var(--text-primary)] rounded-tl-none'
                           }`}
                         >
                           {msg.attachment && (
@@ -822,7 +822,7 @@ export const ChatScreen: React.FC = () => {
                           {msg.content && <p className="whitespace-pre-wrap break-words">{msg.content}</p>}
                           
                           {/* Footer details inside bubble */}
-                          <div className="flex items-center justify-end gap-1 mt-1 text-[8px] text-white/40 font-mono">
+                          <div className="flex items-center justify-end gap-1 mt-1 text-[8px] text-white/40 font-mono font-bold">
                             <span>
                               {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
@@ -847,7 +847,7 @@ export const ChatScreen: React.FC = () => {
               </div>
 
               {/* Message Input controls */}
-              <div className="p-4 border-t border-purple-500/20 bg-[#1A0B36]/30">
+              <div className="p-4 border-t border-[var(--primary)]/20 bg-[var(--app-bg-secondary)]/30">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -886,15 +886,15 @@ export const ChatScreen: React.FC = () => {
 
                 {/* Upload Progress Display */}
                 {isUploading && uploadProgress !== null && (
-                  <div className="mb-2.5 p-2.5 bg-purple-500/10 border border-purple-500/20 rounded-xl space-y-1.5 text-xs text-purple-200">
+                  <div className="mb-2.5 p-2.5 bg-[var(--primary)]/10 border border-[var(--primary)]/20 rounded-xl space-y-1.5 text-xs text-[var(--text-secondary)]">
                     <div className="flex justify-between items-center font-bold text-[10px] uppercase tracking-wider">
                       <span className="flex items-center gap-1.5">
-                        <Loader2 className="w-3 h-3 animate-spin text-purple-400" />
+                        <Loader2 className="w-3 h-3 animate-spin text-[var(--primary)]" />
                         Uploading attachment...
                       </span>
                       <span className="font-mono">{uploadProgress}%</span>
                     </div>
-                    <div className="w-full h-1.5 bg-purple-950 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
                       <div className="h-full bg-emerald-500 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
                     </div>
                   </div>
@@ -902,24 +902,24 @@ export const ChatScreen: React.FC = () => {
 
                 {/* Pre-send Attachment Preview Card */}
                 {selectedFile && (
-                  <div className="mb-2.5 p-2.5 bg-[#1C0D39]/90 border border-purple-500/20 rounded-xl flex items-center justify-between gap-3">
+                  <div className="mb-2.5 p-2.5 bg-[var(--card-bg)]/90 border border-[var(--primary)]/20 rounded-xl flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       {previewUrl ? (
-                        <img src={previewUrl} className="w-10 h-10 object-cover rounded-lg border border-purple-500/30 shrink-0" />
+                        <img src={previewUrl} className="w-10 h-10 object-cover rounded-lg border border-[var(--primary)]/30 shrink-0" />
                       ) : (
-                        <div className="w-10 h-10 rounded-lg bg-purple-500/15 border border-purple-500/20 flex items-center justify-center text-purple-300 shrink-0">
+                        <div className="w-10 h-10 rounded-lg bg-[var(--primary)]/15 border border-[var(--primary)]/20 flex items-center justify-center text-[var(--primary)] shrink-0">
                           <FileText className="w-5 h-5" />
                         </div>
                       )}
                       <div className="text-left min-w-0">
-                        <p className="text-xs font-bold text-white truncate max-w-[200px]">{selectedFile.name}</p>
-                        <p className="text-[10px] text-purple-300/60 font-mono">{formatFileSize(selectedFile.size)}</p>
+                        <p className="text-xs font-bold text-[var(--text-primary)] truncate max-w-[200px]">{selectedFile.name}</p>
+                        <p className="text-[10px] text-[var(--text-secondary)] font-mono font-bold">{formatFileSize(selectedFile.size)}</p>
                       </div>
                     </div>
                     <button 
                       type="button"
                       onClick={handleRemoveFile}
-                      className="p-1.5 rounded-full hover:bg-white/10 text-purple-300 transition shrink-0"
+                      className="p-1.5 rounded-full hover:bg-white/10 text-[var(--text-secondary)] transition shrink-0"
                       title={isUploading ? "Cancel Upload" : "Remove Attachment"}
                     >
                       <X className="w-4 h-4" />
@@ -943,7 +943,7 @@ export const ChatScreen: React.FC = () => {
                         fileInputRef.current?.click();
                       }
                     }}
-                    className="p-2.5 rounded-xl bg-[#15092E] hover:bg-purple-600/30 border border-purple-500/20 text-purple-300 transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                    className="p-2.5 rounded-xl bg-[var(--app-bg-primary)] hover:bg-[var(--primary)]/30 border border-[var(--primary)]/20 text-[var(--primary)] transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                     title="Attach document or image"
                   >
                     <Paperclip className="w-4.5 h-4.5" />
@@ -955,13 +955,13 @@ export const ChatScreen: React.FC = () => {
                     placeholder={isOffline ? "Typing offline..." : isUploading ? "Uploading file..." : "Write message..."}
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    className="flex-1 bg-[#15092E] border border-purple-500/20 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-purple-300/40 focus:outline-none focus:border-purple-500/55 disabled:opacity-50"
+                    className="flex-1 bg-[var(--app-bg-primary)] border border-[var(--primary)]/20 rounded-2xl px-4 py-2.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-secondary)]/40 focus:outline-none focus:border-[var(--primary)]/55 disabled:opacity-50"
                   />
 
                   <Button
                     type="submit"
                     disabled={isUploading || (!inputText.trim() && !selectedFile)}
-                    className="bg-purple-600 hover:bg-purple-500 disabled:opacity-40 shrink-0 px-4 rounded-2xl h-auto self-stretch flex items-center justify-center"
+                    className="bg-[var(--primary)] hover:bg-[var(--primary-light)] disabled:opacity-40 shrink-0 px-4 rounded-2xl h-auto self-stretch flex items-center justify-center text-white"
                   >
                     {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </Button>
@@ -969,9 +969,9 @@ export const ChatScreen: React.FC = () => {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-purple-300/40">
-              <MessageSquare className="w-16 h-16 text-purple-500/20 mb-3" />
-              <h3 className="text-base font-black text-white/60 mb-1">No Active Chat</h3>
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-[var(--text-secondary)]/40 font-bold">
+              <MessageSquare className="w-16 h-16 text-[var(--primary)]/20 mb-3" />
+              <h3 className="text-base font-black text-[var(--text-primary)]/60 mb-1">No Active Chat</h3>
               <p className="text-xs max-w-xs leading-relaxed">
                 Select an existing thread from the left pane, or click the '+' button to discover contacts and start a conversation.
               </p>

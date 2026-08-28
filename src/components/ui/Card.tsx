@@ -13,10 +13,10 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant = 'elevated', ...props }, ref) => {
     const variants = {
-      elevated: 'bg-[#1E1F41]/75 backdrop-blur-[14px] border border-[#6366F1]/20 shadow-[0_8px_32px_rgba(15,16,37,0.37)] text-[#F8F8FF]',
-      filled: 'bg-[#171936]/80 backdrop-blur-[12px] border border-[#6366F1]/15 shadow-[0_4px_20px_rgba(15,16,37,0.25)] text-[#F8F8FF]',
-      outlined: 'bg-[#1E1F41]/60 backdrop-blur-[10px] border border-[#6366F1]/25 text-[#F8F8FF]',
-      gold: 'bg-[#1E1F41]/85 backdrop-blur-[16px] border border-[#6366F1]/40 shadow-[0_8px_32px_rgba(79,70,229,0.2)] text-[#F8F8FF]',
+      elevated: 'bg-[var(--card-elevated)] backdrop-blur-[14px] border border-[var(--border-active)] shadow-lg text-[var(--text-primary)]',
+      filled: 'bg-[var(--card-bg)] backdrop-blur-[12px] border border-[var(--border)] shadow-md text-[var(--text-primary)]',
+      outlined: 'bg-transparent backdrop-blur-[10px] border border-[var(--border)] text-[var(--text-primary)]',
+      gold: 'bg-[var(--card-elevated)] backdrop-blur-[16px] border border-[var(--primary)]/40 shadow-xl text-[var(--text-primary)]',
     };
 
     return (

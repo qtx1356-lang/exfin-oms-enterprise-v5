@@ -59,14 +59,14 @@ const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
   const durationSec = Math.max(7, Math.round(overflowDistance / 18));
 
   return (
-    <div className="flex items-center gap-1 text-[11px] text-[#B9B9D0] font-medium overflow-hidden bg-[#1E1F41]/80 border border-[#6366F1]/20 px-2 py-0.5 rounded-full min-w-[60px] flex-1 max-w-[150px] xs:max-w-[200px] sm:max-w-[280px]"
+    <div className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)] font-medium overflow-hidden bg-[var(--app-bg-secondary)]/80 border border-[var(--primary)]/20 px-2 py-0.5 rounded-full min-w-[60px] flex-1 max-w-[150px] xs:max-w-[200px] sm:max-w-[280px]"
       title={address}
     >
-      <MapPin className="w-3 h-3 text-[#6366F1] shrink-0 z-10" />
+      <MapPin className="w-3 h-3 text-[var(--primary)] shrink-0 z-10" />
       <div ref={containerRef} className="overflow-hidden relative flex-1 min-w-0">
         <span
           ref={textRef}
-          className={`inline-block whitespace-nowrap text-[10.5px] text-[#B9B9D0] ${
+          className={`inline-block whitespace-nowrap text-[10.5px] text-[var(--text-secondary)] ${
             overflowDistance > 0 ? '' : 'truncate'
           }`}
           style={
@@ -268,19 +268,19 @@ export const Layout: React.FC = () => {
       : (!isOnline ? 'Offline' : 'Raniganj HQ');
 
   return (
-    <div className="min-h-screen bg-[#0F1025] text-[#F8F8FF] pb-20 relative overflow-x-hidden">
-      {/* Subtle Indigo ambient lighting */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none -z-10" />
-      <div className="fixed bottom-10 right-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-[140px] pointer-events-none -z-10" />
+    <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)] pb-20 relative overflow-x-hidden">
+      {/* Subtle Emerald ambient lighting */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-[var(--primary)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="fixed bottom-10 right-1/4 w-96 h-96 bg-[var(--primary)]/5 rounded-full blur-[140px] pointer-events-none -z-10" />
 
       {/* Dynamic Header Bar with [Distance] [Office Status] [Location Address] [Bell] */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#171936]/85 backdrop-blur-[16px] border-b border-[#6366F1]/20 shadow-[0_4px_24px_rgba(15,16,37,0.5)] text-[#F8F8FF]">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[var(--card-bg)]/85 backdrop-blur-[16px] border-b border-[var(--primary)]/20 shadow-md text-[var(--text-primary)]">
         <div className="container mx-auto px-2.5 sm:px-4 py-2 max-w-3xl flex items-center justify-between gap-1.5 sm:gap-2">
           {/* Left/Center Header Status & Location Controls */}
           <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden py-0.5">
             {/* Live Distance Value */}
             <div
-              className="text-[10px] font-bold text-[#B9B9D0] bg-[#1E1F41]/80 border border-[#6366F1]/20 px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
+              className="text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--app-bg-secondary)]/80 border border-[var(--primary)]/20 px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
               title="Live distance from office"
             >
               <span>{formattedDistance}</span>
@@ -315,7 +315,7 @@ export const Layout: React.FC = () => {
                 {!adminUser && (
                   <button
                     onClick={() => navigate('/faq')}
-                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#1E1F41]/80 border border-[#6366F1]/20 text-[#B9B9D0] hover:text-[#818CF8] hover:border-[#6366F1]/50 transition-all cursor-pointer shadow-xs"
+                    className="relative p-1.5 sm:p-2 rounded-xl bg-[var(--app-bg-secondary)]/80 border border-[var(--primary)]/20 text-[var(--text-secondary)] hover:text-[var(--primary-light)] hover:border-[var(--primary)]/50 transition-all cursor-pointer shadow-xs"
                     aria-label="Help & FAQ"
                     title="Help & FAQ"
                   >
@@ -326,13 +326,13 @@ export const Layout: React.FC = () => {
                   {/* Bell Button */}
                   <button
                     onClick={handleBellClick}
-                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#1E1F41]/80 border border-[#6366F1]/20 text-[#B9B9D0] hover:text-[#818CF8] hover:border-[#6366F1]/50 transition-all cursor-pointer shadow-xs"
+                    className="relative p-1.5 sm:p-2 rounded-xl bg-[var(--app-bg-secondary)]/80 border border-[var(--primary)]/20 text-[var(--text-secondary)] hover:text-[var(--primary-light)] hover:border-[var(--primary)]/50 transition-all cursor-pointer shadow-xs"
                     aria-label="Toggle notifications"
                     id="notification-bell-btn"
                   >
                     <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-rose-600 text-[9px] sm:text-[10px] font-bold text-white ring-2 ring-[#171936]">
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-rose-600 text-[9px] sm:text-[10px] font-bold text-white ring-2 ring-[var(--card-bg)]">
                         {unreadCount}
                       </span>
                     )}
@@ -346,16 +346,16 @@ export const Layout: React.FC = () => {
                        animate={{ opacity: 1, y: 0, scale: 1 }}
                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
                        transition={{ duration: 0.15 }}
-                       className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#171936]/95 backdrop-blur-[20px] border border-[#6366F1]/25 rounded-2xl shadow-[0_12px_40px_rgba(15,16,37,0.6)] z-50 overflow-hidden text-[#F8F8FF]"
+                       className="absolute right-0 mt-2 w-80 sm:w-96 bg-[var(--card-bg)]/95 backdrop-blur-[20px] border border-[var(--primary)]/25 rounded-2xl shadow-xl z-50 overflow-hidden text-[var(--text-primary)]"
                        id="notification-bell-dropdown"
                     >
-                      <div className="p-4 border-b border-[#6366F1]/20 flex items-center justify-between bg-[#1E1F41]/90">
-                        <span className="font-bold text-sm text-[#F8F8FF]">Recent Alerts</span>
+                      <div className="p-4 border-b border-[var(--primary)]/20 flex items-center justify-between bg-[var(--app-bg-secondary)]/90">
+                        <span className="font-bold text-sm text-[var(--text-primary)]">Recent Alerts</span>
                         <div className="flex items-center gap-2">
                           {unreadCount > 0 && (
                             <button
                               onClick={handleMarkAllRead}
-                              className="text-[11px] text-[#818CF8] hover:underline font-bold flex items-center gap-1 bg-[#4F46E5]/15 border border-[#4F46E5]/30 px-2 py-0.5 rounded-full transition-colors"
+                              className="text-[11px] text-[var(--primary-light)] hover:underline font-bold flex items-center gap-1 bg-[var(--primary)]/15 border border-[var(--primary)]/30 px-2 py-0.5 rounded-full transition-colors"
                               title="Mark all notifications as read"
                               id="mark-all-read-btn"
                             >
@@ -364,16 +364,16 @@ export const Layout: React.FC = () => {
                             </button>
                           )}
                           {unreadCount > 0 && (
-                            <span className="text-xs text-[#818CF8] bg-[#6366F1]/20 border border-[#6366F1]/40 px-2 py-0.5 rounded-full font-bold">
+                            <span className="text-xs text-[var(--primary-light)] bg-[var(--primary)]/20 border border-[var(--primary)]/40 px-2 py-0.5 rounded-full font-bold">
                               {unreadCount} unread
                             </span>
                           )}
                         </div>
                       </div>
 
-                      <div className="max-h-64 overflow-y-auto divide-y divide-[#6366F1]/15">
+                      <div className="max-h-64 overflow-y-auto divide-y divide-[var(--primary)]/15">
                         {recentNotifs.length === 0 ? (
-                          <div className="p-6 text-center text-[#8A8AA3] text-xs">
+                          <div className="p-6 text-center text-[var(--text-secondary)] text-xs">
                             No recent notifications.
                           </div>
                         ) : (
@@ -381,28 +381,28 @@ export const Layout: React.FC = () => {
                             <div
                               key={notif.id}
                               onClick={() => handleNotificationClick(notif)}
-                              className={`p-3.5 hover:bg-[#1E1F41] transition-colors cursor-pointer flex items-start gap-3 text-left group ${
-                                notif.read ? 'opacity-60' : 'bg-[#171936]/60'
+                              className={`p-3.5 hover:bg-[var(--app-bg-secondary)] transition-colors cursor-pointer flex items-start gap-3 text-left group ${
+                                notif.read ? 'opacity-60' : 'bg-[var(--card-bg)]/60'
                               }`}
                             >
                               <div className="mt-1">
-                                <Info className={`w-4 h-4 ${notif.read ? 'text-[#8A8AA3]' : 'text-[#818CF8]'}`} />
+                                <Info className={`w-4 h-4 ${notif.read ? 'text-[var(--text-secondary)]' : 'text-[var(--primary-light)]'}`} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-xs font-bold ${notif.read ? 'text-[#B9B9D0]' : 'text-[#F8F8FF]'}`}>
+                                <p className={`text-xs font-bold ${notif.read ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'}`}>
                                   {notif.title}
                                 </p>
-                                <p className="text-[11px] text-[#8A8AA3] truncate mt-0.5">
+                                <p className="text-[11px] text-[var(--text-secondary)] truncate mt-0.5">
                                   {notif.message}
                                 </p>
                               </div>
                               <div className="flex items-center gap-1.5 flex-shrink-0">
                                 {!notif.read && (
-                                  <div className="w-2 h-2 rounded-full bg-[#6366F1] mt-1 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
+                                  <div className="w-2 h-2 rounded-full bg-[var(--primary)] mt-1 shadow-[0_0_8px_var(--primary)]" />
                                 )}
                                 <button
                                   onClick={(e) => handleDeleteNotification(e, notif.id)}
-                                  className="p-1 rounded hover:bg-rose-500/20 text-[#8A8AA3] hover:text-rose-400 transition-colors opacity-80 group-hover:opacity-100"
+                                  className="p-1 rounded hover:bg-rose-500/20 text-[var(--text-secondary)] hover:text-rose-400 transition-colors opacity-80 group-hover:opacity-100"
                                   title="Delete notification"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -415,7 +415,7 @@ export const Layout: React.FC = () => {
 
                       <button
                         onClick={handleViewAll}
-                        className="w-full py-3 bg-[#171936] hover:bg-[#1E1F41] text-center text-xs font-bold text-[#818CF8] transition-colors border-t border-[#6366F1]/20 flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="w-full py-3 bg-[var(--card-bg)] hover:bg-[var(--app-bg-secondary)] text-center text-xs font-bold text-[var(--primary-light)] transition-colors border-t border-[var(--primary)]/20 flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <span>View all alerts</span>
                         <ChevronRight className="w-3.5 h-3.5" />

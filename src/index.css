@@ -5,11 +5,10 @@
   --color-app-bg-secondary: #0B2A20;
   
   /* Primary & Secondary Cards */
-  --color-card-bg: rgba(11, 42, 32, 0.85);
-  --color-card-elevated: rgba(20, 69, 53, 0.90);
+  --color-card-bg: #0B2A20;
+  --color-card-elevated: #144535;
   --color-card-surface: #10382B;
-  --color-border-gold: rgba(5, 150, 105, 0.40);
-  --color-border-indigo: rgba(5, 150, 105, 0.25);
+  --color-border-emerald: rgba(5, 150, 105, 0.40);
   --color-border-subtle: rgba(255, 255, 255, 0.08);
   
   /* Primary Accent: Emerald Office */
@@ -37,7 +36,7 @@
   --color-offline: #D97706;
   
   --color-background: #071C16;
-  --color-surface: rgba(11, 42, 32, 0.85);
+  --color-surface: #0B2A20;
   --color-surface-elevated: #144535;
   --color-surface-variant: #10382B;
   --color-on-surface: #F8FAFC;
@@ -47,25 +46,12 @@
 }
 
 :root {
-  --employee-bg: #071C16;
-  --employee-surface: rgba(11, 42, 32, 0.85);
-  --employee-surface-strong: #144535;
-  --employee-indigo: #059669;
-  --employee-indigo-hover: #10B981;
-  --employee-gold: #059669;
-  --employee-gold-hover: #10B981;
-  --employee-text-card: #F8FAFC;
-  --employee-text-card-secondary: #D1D5DB;
-  --employee-text-card-muted: #94A3B8;
-  --employee-text-bg: #F8FAFC;
-  --employee-text-bg-secondary: #D1D5DB;
-  --employee-text-bg-muted: #94A3B8;
-  --employee-border: rgba(255, 255, 255, 0.08);
-
+  /* DARK MODE (Default) */
   --app-bg: #071C16;
   --app-bg-secondary: #0B2A20;
-  --card-bg: rgba(11, 42, 32, 0.85);
+  --card-bg: #0B2A20;
   --card-elevated: #144535;
+  --card-surface: #10382B;
   --border: rgba(255, 255, 255, 0.08);
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-active: rgba(5, 150, 105, 0.50);
@@ -79,19 +65,77 @@
   --warning: #D97706;
   --danger: #DC2626;
   --info: #059669;
+  
+  --employee-bg: var(--app-bg);
+  --employee-surface: var(--card-bg);
+  --employee-surface-strong: var(--card-elevated);
+  --employee-indigo: var(--primary);
+  --employee-indigo-hover: var(--primary-light);
+  --employee-gold: var(--primary);
+  --employee-gold-hover: var(--primary-light);
+  --employee-text-card: var(--text-primary);
+  --employee-text-card-secondary: var(--text-secondary);
+  --employee-text-card-muted: var(--text-muted);
+  --employee-text-bg: var(--text-primary);
+  --employee-text-bg-secondary: var(--text-secondary);
+  --employee-text-bg-muted: var(--text-muted);
+  --employee-border: var(--border);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --app-bg: #F6FAF8;
+    --app-bg-secondary: #FFFFFF;
+    --card-bg: #FFFFFF;
+    --card-elevated: #FFFFFF;
+    --card-surface: #F8FAFC;
+    --border: #E2E8F0;
+    --border-subtle: #EDF2F7;
+    --border-active: rgba(5, 150, 105, 0.30);
+    --primary: #059669;
+    --primary-dark: #047857;
+    --primary-light: #10B981;
+    --text-primary: #111827;
+    --text-secondary: #475569;
+    --text-muted: #64748B;
+    --success: #10B981;
+    --warning: #D97706;
+    --danger: #DC2626;
+    --info: #059669;
+
+    --employee-bg: var(--app-bg);
+    --employee-surface: var(--card-bg);
+    --employee-surface-strong: var(--card-elevated);
+    --employee-indigo: var(--primary);
+    --employee-indigo-hover: var(--primary-light);
+    --employee-gold: var(--primary);
+    --employee-gold-hover: var(--primary-light);
+    --employee-text-card: var(--text-primary);
+    --employee-text-card-secondary: var(--text-secondary);
+    --employee-text-card-muted: var(--text-muted);
+    --employee-text-bg: var(--text-primary);
+    --employee-text-bg-secondary: var(--text-secondary);
+    --employee-text-bg-muted: var(--text-muted);
+    --employee-border: var(--border);
+  }
 }
 
 body {
-  background-color: #071C16;
-  background-image: radial-gradient(circle at 50% 0%, rgba(5, 150, 105, 0.16) 0%, rgba(6, 78, 59, 0.08) 50%, transparent 80%);
-  color: #F8FAFC;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--app-bg);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   margin: 0;
   padding: 0;
   min-height: 100vh;
   position: relative;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-image: radial-gradient(circle at 50% 0%, rgba(5, 150, 105, 0.16) 0%, rgba(6, 78, 59, 0.08) 50%, transparent 80%);
+  }
 }
 
 #root {
@@ -111,15 +155,15 @@ button, a, input, select, textarea, [role="button"] {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #071C16;
+  background: var(--app-bg);
 }
 ::-webkit-scrollbar-thumb {
   background: rgba(5, 150, 105, 0.30);
   border-radius: 9999px;
-  border: 1px solid rgba(11, 42, 32, 0.8);
+  border: 1px solid var(--app-bg-secondary);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #10B981;
+  background: var(--primary-light);
 }
 
 /* Emerald Form Inputs default styling */
@@ -131,9 +175,9 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: rgba(11, 42, 32, 0.85) !important;
-  color: #F8FAFC !important;
-  border: 1px solid rgba(5, 150, 105, 0.30) !important;
+  background-color: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
   border-radius: 12px !important;
   transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
@@ -147,37 +191,53 @@ input[type="time"]:focus,
 textarea:focus,
 select:focus {
   outline: none !important;
-  border-color: #10B981 !important;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.30) !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.20) !important;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #94A3B8 !important;
+  color: var(--text-muted) !important;
 }
 
 /* Emerald Card Utilities */
 .glass-card {
-  background: rgba(11, 42, 32, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px rgba(7, 28, 22, 0.40);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   border-radius: 16px;
 }
 
+@media (prefers-color-scheme: dark) {
+  .glass-card {
+    background: rgba(11, 42, 32, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px rgba(7, 28, 22, 0.40);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+}
+
 .glass-card-elevated {
-  background: rgba(20, 69, 53, 0.90);
-  border: 1px solid rgba(5, 150, 105, 0.30);
-  box-shadow: 0 12px 40px rgba(7, 28, 22, 0.55);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: var(--card-elevated);
+  border: 1px solid var(--border-active);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
   border-radius: 20px;
 }
 
-/* Emerald button utilities */
-.btn-indigo, .btn-gold, .btn-emerald {
-  background: linear-gradient(135deg, #064E3B 0%, #059669 100%);
+@media (prefers-color-scheme: dark) {
+  .glass-card-elevated {
+    background: rgba(20, 69, 53, 0.90);
+    border: 1px solid rgba(5, 150, 105, 0.30);
+    box-shadow: 0 12px 40px rgba(7, 28, 22, 0.55);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+}
+
+/* Emerald button utilities & backward compatibility */
+.btn-primary, .btn-emerald, .btn-indigo, .btn-gold {
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
   color: #FFFFFF;
   font-weight: 600;
   border: 1px solid rgba(16, 185, 129, 0.35);
@@ -185,20 +245,26 @@ textarea::placeholder {
   border-radius: 12px;
   transition: all 0.15s ease;
 }
-.btn-indigo:hover, .btn-gold:hover, .btn-emerald:hover {
-  background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+
+.btn-primary:hover, .btn-emerald:hover, .btn-indigo:hover, .btn-gold:hover {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
   box-shadow: 0 6px 24px rgba(16, 185, 129, 0.45);
 }
-.btn-indigo:active, .btn-gold:active, .btn-emerald:active {
-  background: #064E3B;
-  color: #FFFFFF;
+
+.btn-primary:active, .btn-emerald:active, .btn-indigo:active, .btn-gold:active {
+  background: var(--primary-dark);
+  transform: translateY(1px);
 }
 
 /* Emerald badge utility */
-.indigo-badge, .gold-badge, .emerald-badge {
+.emerald-badge, .indigo-badge, .gold-badge {
   background: rgba(5, 150, 105, 0.15);
   border: 1px solid rgba(5, 150, 105, 0.30);
-  color: #34D399;
+  color: var(--primary-light);
+  font-weight: 500;
+  border-radius: 9999px;
+  padding: 2px 10px;
+  font-size: 12px;
 }
 
 @keyframes subtlePulse {
@@ -227,5 +293,6 @@ textarea::placeholder {
     transform: translateX(0);
   }
 }
+
 
 

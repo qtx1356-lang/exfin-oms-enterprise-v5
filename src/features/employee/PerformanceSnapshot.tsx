@@ -398,29 +398,29 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
     <>
       <div 
         onClick={() => setShowDetailModal(true)}
-        className="bg-gradient-to-br from-[#173A32] via-[#112C26] to-[#0E2520] border border-[#2A5B50] rounded-[26px] p-5 shadow-lg cursor-pointer hover:border-[#19C7C0]/50 transition-all group relative overflow-hidden text-[#F4FAF7] font-sans"
+        className="bg-gradient-to-br from-[var(--app-bg)] via-[var(--app-bg-secondary)] to-[var(--app-bg)] border border-[var(--border)] rounded-[26px] p-5 shadow-lg cursor-pointer hover:border-[var(--primary)]/50 transition-all group relative overflow-hidden text-[var(--text-primary)] font-sans"
       >
-        <div className="absolute top-0 right-0 w-32 h-32 bg-[#19C7C0]/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--primary)]/10 rounded-full blur-2xl pointer-events-none" />
 
         {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-[#2A5B50] mb-4">
+        <div className="flex items-center justify-between pb-3.5 border-b border-[var(--border)] mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-[#19C7C0]/20 border border-[#19C7C0]/30 flex items-center justify-center text-[#19C7C0] shadow-inner">
+            <div className="w-9 h-9 rounded-2xl bg-[var(--primary)]/20 border border-[var(--primary)]/30 flex items-center justify-center text-[var(--primary)] shadow-inner">
               <Activity className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-black text-[#F4FAF7] tracking-wide uppercase">
+              <h2 className="text-sm sm:text-base font-black text-[var(--text-primary)] tracking-wide uppercase">
                 PERFORMANCE SNAPSHOT
               </h2>
-              <p className="text-[10px] text-[#C7DAD3] font-semibold">
+              <p className="text-[10px] text-[var(--text-secondary)] font-semibold">
                 Personal Progress Overview ({monthName})
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#C7DAD3] bg-[#112C26] px-3 py-1 rounded-full border border-[#2A5B50] group-hover:text-[#19C7C0] transition">
+          <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[var(--text-secondary)] bg-[var(--app-bg-secondary)] px-3 py-1 rounded-full border border-[var(--border)] group-hover:text-[var(--primary)] transition">
             <span>View Details</span>
-            <ChevronRight className="w-3.5 h-3.5 text-[#19C7C0] group-hover:translate-x-1 transition-transform" />
+            <ChevronRight className="w-3.5 h-3.5 text-[var(--primary)] group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
 
@@ -428,20 +428,20 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           
           {/* 1. PERFORMANCE RING (Efficiency Score) */}
-          <div className="bg-[#112C26] rounded-2xl p-3.5 border border-[#2A5B50] flex items-center gap-3.5 shadow-sm">
+          <div className="bg-[var(--app-bg-secondary)] rounded-2xl p-3.5 border border-[var(--border)] flex items-center gap-3.5 shadow-sm">
             <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center">
               {efficiencyResult ? (
                 <>
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                     <path
-                      className="text-[#173A32]"
+                      className="text-[var(--app-bg)]"
                       strokeWidth="3.5"
                       stroke="currentColor"
                       fill="none"
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     />
                     <path
-                      className="text-[#19C7C0]"
+                      className="text-[var(--primary)]"
                       strokeDasharray={`${efficiencyResult.finalScore}, 100`}
                       strokeWidth="3.5"
                       strokeLinecap="round"
@@ -451,27 +451,27 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
                     />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xs font-black text-[#F4FAF7]">{efficiencyResult.finalScore}%</span>
+                    <span className="text-xs font-black text-[var(--text-primary)]">{efficiencyResult.finalScore}%</span>
                   </div>
                 </>
               ) : (
-                <div className="w-12 h-12 rounded-full bg-[#173A32] border border-[#2A5B50] flex items-center justify-center text-[#C7DAD3]">
+                <div className="w-12 h-12 rounded-full bg-[var(--app-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)]">
                   <BarChart3 className="w-5 h-5 opacity-50" />
                 </div>
               )}
             </div>
 
             <div>
-              <p className="text-[10px] font-extrabold text-[#C7DAD3] uppercase tracking-wider">Efficiency</p>
+              <p className="text-[10px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">Efficiency</p>
               {efficiencyResult ? (
                 <>
-                  <p className="text-lg font-black text-[#F4FAF7] leading-tight">{efficiencyResult.finalScore}%</p>
-                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-[#19C7C0]/20 text-[#19C7C0] border border-[#19C7C0]/30">
+                  <p className="text-lg font-black text-[var(--text-primary)] leading-tight">{efficiencyResult.finalScore}%</p>
+                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-[var(--primary)]/20 text-[var(--primary)] border border-[var(--primary)]/30">
                     {efficiencyResult.grade}
                   </span>
                 </>
               ) : (
-                <p className="text-xs font-bold text-[#F2C75C] mt-0.5 leading-snug">
+                <p className="text-xs font-bold text-amber-500 mt-0.5 leading-snug">
                   Not available yet
                 </p>
               )}
@@ -479,12 +479,12 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
           </div>
 
           {/* 2. TASK PERFORMANCE */}
-          <div className="bg-[#112C26] rounded-2xl p-3.5 border border-[#2A5B50] flex flex-col justify-between shadow-sm">
+          <div className="bg-[var(--app-bg-secondary)] rounded-2xl p-3.5 border border-[var(--border)] flex flex-col justify-between shadow-sm">
             <div className="flex justify-between items-center mb-1">
-              <span className="text-[10px] font-extrabold text-[#C7DAD3] uppercase tracking-wider flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3 text-[#35C98A]" /> Tasks
+              <span className="text-[10px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Tasks
               </span>
-              <span className="text-[10px] font-black text-[#35C98A] font-mono">
+              <span className="text-[10px] font-black text-emerald-500 font-mono">
                 {taskStats.completionRate}% Rate
               </span>
             </div>
@@ -492,73 +492,73 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
             {taskStats.hasTasks ? (
               <div className="space-y-1 my-1">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-[#C7DAD3]">Completed:</span>
-                  <span className="font-black text-[#F4FAF7]">{taskStats.completed} / {taskStats.assigned}</span>
+                  <span className="text-[var(--text-secondary)]">Completed:</span>
+                  <span className="font-black text-[var(--text-primary)]">{taskStats.completed} / {taskStats.assigned}</span>
                 </div>
-                <div className="w-full bg-[#173A32] h-1.5 rounded-full overflow-hidden border border-[#2A5B50]">
+                <div className="w-full bg-[var(--app-bg)] h-1.5 rounded-full overflow-hidden border border-[var(--border)]">
                   <div 
-                    className="bg-[#35C98A] h-full rounded-full transition-all duration-500"
+                    className="bg-emerald-500 h-full rounded-full transition-all duration-500"
                     style={{ width: `${taskStats.completionRate}%` }}
                   />
                 </div>
               </div>
             ) : (
-              <p className="text-xs font-medium text-[#9FB9AF] italic my-1">
+              <p className="text-xs font-medium text-[var(--text-secondary)] italic my-1">
                 No tasks assigned this month
               </p>
             )}
           </div>
 
           {/* 3. ATTENDANCE PERFORMANCE */}
-          <div className="bg-[#112C26] rounded-2xl p-3.5 border border-[#2A5B50] flex flex-col justify-between shadow-sm">
+          <div className="bg-[var(--app-bg-secondary)] rounded-2xl p-3.5 border border-[var(--border)] flex flex-col justify-between shadow-sm">
             <div className="flex justify-between items-center mb-1">
-              <span className="text-[10px] font-extrabold text-[#C7DAD3] uppercase tracking-wider flex items-center gap-1">
-                <UserCheck className="w-3 h-3 text-[#19C7C0]" /> Attendance
+              <span className="text-[10px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1">
+                <UserCheck className="w-3 h-3 text-[var(--primary)]" /> Attendance
               </span>
-              <span className="text-[10px] font-black text-[#C7DAD3]">
+              <span className="text-[10px] font-black text-[var(--text-secondary)]">
                 {monthName}
               </span>
             </div>
 
             <div className="grid grid-cols-4 gap-1 text-center my-1">
-              <div className="bg-[#173A32] p-1 rounded-lg border border-[#2A5B50]">
-                <p className="text-[8px] text-[#C7DAD3] font-bold">Present</p>
-                <p className="text-xs font-black text-[#F4FAF7]">{attendanceCounts.present}</p>
+              <div className="bg-[var(--app-bg)] p-1 rounded-lg border border-[var(--border)]">
+                <p className="text-[8px] text-[var(--text-secondary)] font-bold">Present</p>
+                <p className="text-xs font-black text-[var(--text-primary)]">{attendanceCounts.present}</p>
               </div>
-              <div className="bg-[#35C98A]/10 p-1 rounded-lg border border-[#35C98A]/20">
-                <p className="text-[8px] text-[#35C98A] font-bold">WFH</p>
-                <p className="text-xs font-black text-[#35C98A]">{attendanceCounts.wfh}</p>
+              <div className="bg-emerald-500/10 p-1 rounded-lg border border-emerald-500/20">
+                <p className="text-[8px] text-emerald-500 font-bold">WFH</p>
+                <p className="text-xs font-black text-emerald-500">{attendanceCounts.wfh}</p>
               </div>
-              <div className="bg-[#F2C75C]/10 p-1 rounded-lg border border-[#F2C75C]/20">
-                <p className="text-[8px] text-[#F2C75C] font-bold">Client</p>
-                <p className="text-xs font-black text-[#F2C75C]">{attendanceCounts.clientVisit}</p>
+              <div className="bg-amber-500/10 p-1 rounded-lg border border-amber-500/20">
+                <p className="text-[8px] text-amber-500 font-bold">Client</p>
+                <p className="text-xs font-black text-amber-500">{attendanceCounts.clientVisit}</p>
               </div>
-              <div className="bg-[#19C7C0]/10 p-1 rounded-lg border border-[#19C7C0]/20">
-                <p className="text-[8px] text-[#19C7C0] font-bold">Leave</p>
-                <p className="text-xs font-black text-[#19C7C0]">{attendanceCounts.leave}</p>
+              <div className="bg-[var(--primary)]/10 p-1 rounded-lg border border-[var(--primary)]/20">
+                <p className="text-[8px] text-[var(--primary)] font-bold">Leave</p>
+                <p className="text-xs font-black text-[var(--primary)]">{attendanceCounts.leave}</p>
               </div>
             </div>
           </div>
 
           {/* 4. PERFORMANCE TREND */}
-          <div className="bg-[#112C26] rounded-2xl p-3.5 border border-[#2A5B50] flex flex-col justify-between shadow-sm">
-            <span className="text-[10px] font-extrabold text-[#C7DAD3] uppercase tracking-wider flex items-center gap-1 mb-1">
-              <TrendingUp className="w-3 h-3 text-[#19C7C0]" /> Trend
+          <div className="bg-[var(--app-bg-secondary)] rounded-2xl p-3.5 border border-[var(--border)] flex flex-col justify-between shadow-sm">
+            <span className="text-[10px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1 mb-1">
+              <TrendingUp className="w-3 h-3 text-[var(--primary)]" /> Trend
             </span>
 
             {trendData.hasData ? (
               <div className="flex items-center justify-between my-1">
                 <div>
-                  <span className="text-[9px] text-[#9FB9AF] block">Previous vs Current</span>
-                  <p className="text-xs font-black text-[#F4FAF7]">
+                  <span className="text-[9px] text-[var(--text-secondary)] block">Previous vs Current</span>
+                  <p className="text-xs font-black text-[var(--text-primary)]">
                     {trendData.prevScore}% &rarr; {trendData.currentScore}%
                   </p>
                 </div>
 
                 <div className={`px-2 py-1 rounded-xl text-[10px] font-black border flex items-center gap-1 ${
-                  trendData.state === 'Improving' ? 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/30' :
-                  trendData.state === 'Needs Attention' ? 'bg-[#EF6B73]/20 text-[#EF6B73] border-[#EF6B73]/30' :
-                  'bg-[#19C7C0]/20 text-[#19C7C0] border-[#19C7C0]/30'
+                  trendData.state === 'Improving' ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30' :
+                  trendData.state === 'Needs Attention' ? 'bg-rose-500/20 text-rose-500 border-rose-500/30' :
+                  'bg-[var(--primary)]/20 text-[var(--primary)] border-[var(--primary)]/30'
                 }`}>
                   {trendData.state === 'Improving' && <TrendingUp className="w-3 h-3" />}
                   {trendData.state === 'Needs Attention' && <TrendingDown className="w-3 h-3" />}
@@ -566,7 +566,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
                 </div>
               </div>
             ) : (
-              <p className="text-xs font-semibold text-[#9FB9AF] italic my-1">
+              <p className="text-xs font-semibold text-[var(--text-secondary)] italic my-1">
                 Not enough data yet
               </p>
             )}
@@ -576,15 +576,15 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
 
         {/* Positive Feedback Banner (if applicable) */}
         {positiveMessage && (
-          <div className="mt-3.5 p-2.5 bg-[#19C7C0]/15 border border-[#19C7C0]/30 rounded-2xl text-xs font-bold text-[#F4FAF7] flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#F2C75C] shrink-0" />
+          <div className="mt-3.5 p-2.5 bg-[var(--primary)]/15 border border-[var(--primary)]/30 rounded-2xl text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
             <span>{positiveMessage}</span>
           </div>
         )}
 
         {/* Offline indicator */}
         {!isOnline && lastUpdatedTime && (
-          <p className="text-[10px] text-[#9FB9AF] mt-2 text-right italic font-mono">
+          <p className="text-[10px] text-[var(--text-secondary)] mt-2 text-right italic font-mono">
             Cached values • Last updated: {lastUpdatedTime}
           </p>
         )}
@@ -605,26 +605,26 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-2xl bg-[#173A32] border border-[#2A5B50] rounded-[28px] p-5 sm:p-6 shadow-2xl text-[#F4FAF7] space-y-5 max-h-[90vh] overflow-y-auto relative font-sans"
+              className="w-full max-w-2xl bg-[var(--app-bg)] border border-[var(--border)] rounded-[28px] p-5 sm:p-6 shadow-2xl text-[var(--text-primary)] space-y-5 max-h-[90vh] overflow-y-auto relative font-sans"
             >
               {/* Header */}
-              <div className="flex justify-between items-start border-b border-[#2A5B50] pb-4">
+              <div className="flex justify-between items-start border-b border-[var(--border)] pb-4">
                 <div>
-                  <p className="text-[10px] text-[#C7DAD3] font-extrabold uppercase tracking-widest flex items-center gap-1.5">
-                    <Activity className="w-3.5 h-3.5 text-[#19C7C0]" />
+                  <p className="text-[10px] text-[var(--text-secondary)] font-extrabold uppercase tracking-widest flex items-center gap-1.5">
+                    <Activity className="w-3.5 h-3.5 text-[var(--primary)]" />
                     MY PERFORMANCE
                   </p>
-                  <h2 className="text-xl sm:text-2xl font-black text-[#F4FAF7] mt-1">
+                  <h2 className="text-xl sm:text-2xl font-black text-[var(--text-primary)] mt-1">
                     {employeeName}
                   </h2>
-                  <p className="text-xs text-[#C7DAD3] font-medium">
-                    Employee Code: <strong className="text-[#F4FAF7]">{employeeCode}</strong> • {department}
+                  <p className="text-xs text-[var(--text-secondary)] font-medium">
+                    Employee Code: <strong className="text-[var(--text-primary)]">{employeeCode}</strong> • {department}
                   </p>
                 </div>
 
                 <button
                   onClick={() => setShowDetailModal(false)}
-                  className="p-2 rounded-xl bg-[#112C26] hover:bg-[#21483E] text-[#C7DAD3] hover:text-[#F4FAF7] transition-all border border-[#2A5B50] cursor-pointer"
+                  className="p-2 rounded-xl bg-[var(--app-bg-secondary)] hover:bg-[var(--primary)]/10 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--border)] cursor-pointer"
                   aria-label="Close"
                 >
                   <X className="w-5 h-5" />
@@ -632,115 +632,115 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
               </div>
 
               {/* Overall Efficiency Card */}
-              <div className="p-4 rounded-2xl bg-[#112C26] border border-[#2A5B50] flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="p-4 rounded-2xl bg-[var(--app-bg-secondary)] border border-[var(--border)] flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
                     {efficiencyResult ? (
                       <>
                         <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                          <circle cx="18" cy="18" r="15.9155" className="stroke-[#173A32] fill-none stroke-[3.5]" />
+                          <circle cx="18" cy="18" r="15.9155" className="stroke-[var(--app-bg)] fill-none stroke-[3.5]" />
                           <circle 
                             cx="18" 
                             cy="18" 
                             r="15.9155" 
-                            className="stroke-[#19C7C0] fill-none stroke-[3.5]" 
+                            className="stroke-[var(--primary)] fill-none stroke-[3.5]" 
                             strokeDasharray={`${efficiencyResult.finalScore}, 100`}
                             strokeLinecap="round"
                           />
                         </svg>
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-sm font-black text-[#F4FAF7]">{efficiencyResult.finalScore}%</span>
+                          <span className="text-sm font-black text-[var(--text-primary)]">{efficiencyResult.finalScore}%</span>
                         </div>
                       </>
                     ) : (
-                      <div className="w-14 h-14 rounded-full bg-[#173A32] border border-[#2A5B50] flex items-center justify-center text-[#C7DAD3] text-xs font-bold">
+                      <div className="w-14 h-14 rounded-full bg-[var(--app-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] text-xs font-bold">
                         N/A
                       </div>
                     )}
                   </div>
 
                   <div>
-                    <span className="text-[10px] font-extrabold text-[#C7DAD3] uppercase tracking-wider">Overall Efficiency Score</span>
-                    <h3 className="text-xl font-black text-[#F4FAF7] leading-tight">
+                    <span className="text-[10px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">Overall Efficiency Score</span>
+                    <h3 className="text-xl font-black text-[var(--text-primary)] leading-tight">
                       {efficiencyResult ? `${efficiencyResult.finalScore}%` : 'Not available yet'}
                     </h3>
                     {efficiencyResult && (
-                      <span className="text-xs font-bold text-[#C7DAD3] mt-0.5 block">
-                        Grade: <strong className="text-[#F2C75C]">{efficiencyResult.grade}</strong>
+                      <span className="text-xs font-bold text-[var(--text-secondary)] mt-0.5 block">
+                        Grade: <strong className="text-amber-500">{efficiencyResult.grade}</strong>
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="text-right text-xs bg-[#173A32] p-3 rounded-xl border border-[#2A5B50] w-full sm:w-auto">
-                  <p className="text-[10px] text-[#C7DAD3] font-bold uppercase">Period</p>
-                  <p className="font-mono text-[#F4FAF7] font-bold mt-0.5">{monthName} {currentYear}</p>
+                <div className="text-right text-xs bg-[var(--app-bg)] p-3 rounded-xl border border-[var(--border)] w-full sm:w-auto">
+                  <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase">Period</p>
+                  <p className="font-mono text-[var(--text-primary)] font-bold mt-0.5">{monthName} {currentYear}</p>
                 </div>
               </div>
 
               {/* Task Performance Detailed Breakdown */}
-              <div className="p-4 bg-[#112C26] rounded-2xl border border-[#2A5B50] space-y-3">
-                <div className="flex justify-between items-center border-b border-[#2A5B50] pb-2">
-                  <span className="text-xs font-black text-[#C7DAD3] uppercase tracking-wider flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#35C98A]" /> Task Performance
+              <div className="p-4 bg-[var(--app-bg-secondary)] rounded-2xl border border-[var(--border)] space-y-3">
+                <div className="flex justify-between items-center border-b border-[var(--border)] pb-2">
+                  <span className="text-xs font-black text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Task Performance
                   </span>
-                  <span className="text-xs font-black text-[#35C98A] font-mono">
+                  <span className="text-xs font-black text-emerald-500 font-mono">
                     {taskStats.completionRate}% Completion Rate
                   </span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="p-2.5 bg-[#173A32] rounded-xl border border-[#2A5B50]">
-                    <p className="text-[10px] font-bold text-[#C7DAD3] uppercase">Assigned</p>
-                    <p className="text-base font-black text-[#F4FAF7]">{taskStats.assigned}</p>
+                  <div className="p-2.5 bg-[var(--app-bg)] rounded-xl border border-[var(--border)]">
+                    <p className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Assigned</p>
+                    <p className="text-base font-black text-[var(--text-primary)]">{taskStats.assigned}</p>
                   </div>
-                  <div className="p-2.5 bg-[#35C98A]/10 rounded-xl border border-[#35C98A]/30">
-                    <p className="text-[10px] font-bold text-[#35C98A] uppercase">Completed</p>
-                    <p className="text-base font-black text-[#35C98A]">{taskStats.completed}</p>
+                  <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
+                    <p className="text-[10px] font-bold text-emerald-500 uppercase">Completed</p>
+                    <p className="text-base font-black text-emerald-500">{taskStats.completed}</p>
                   </div>
-                  <div className="p-2.5 bg-[#F2C75C]/10 rounded-xl border border-[#F2C75C]/30">
-                    <p className="text-[10px] font-bold text-[#F2C75C] uppercase">In Progress</p>
-                    <p className="text-base font-black text-[#F2C75C]">{taskStats.inProgress}</p>
+                  <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/30">
+                    <p className="text-[10px] font-bold text-amber-500 uppercase">In Progress</p>
+                    <p className="text-base font-black text-amber-500">{taskStats.inProgress}</p>
                   </div>
                 </div>
               </div>
 
               {/* Attendance Detailed Breakdown */}
-              <div className="p-4 bg-[#112C26] rounded-2xl border border-[#2A5B50] space-y-3">
-                <div className="flex justify-between items-center border-b border-[#2A5B50] pb-2">
-                  <span className="text-xs font-black text-[#C7DAD3] uppercase tracking-wider flex items-center gap-1.5">
-                    <UserCheck className="w-4 h-4 text-[#19C7C0]" /> Attendance Breakdown
+              <div className="p-4 bg-[var(--app-bg-secondary)] rounded-2xl border border-[var(--border)] space-y-3">
+                <div className="flex justify-between items-center border-b border-[var(--border)] pb-2">
+                  <span className="text-xs font-black text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1.5">
+                    <UserCheck className="w-4 h-4 text-[var(--primary)]" /> Attendance Breakdown
                   </span>
-                  <span className="text-xs font-black text-[#C7DAD3]">
+                  <span className="text-xs font-black text-[var(--text-secondary)]">
                     {attendanceCounts.present} Days Logged
                   </span>
                 </div>
 
                 <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                  <div className="p-2.5 bg-[#173A32] rounded-xl border border-[#2A5B50]">
-                    <p className="text-[10px] font-bold text-[#C7DAD3] uppercase">Office</p>
-                    <p className="text-base font-black text-[#F4FAF7]">{attendanceCounts.office}</p>
+                  <div className="p-2.5 bg-[var(--app-bg)] rounded-xl border border-[var(--border)]">
+                    <p className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Office</p>
+                    <p className="text-base font-black text-[var(--text-primary)]">{attendanceCounts.office}</p>
                   </div>
-                  <div className="p-2.5 bg-[#35C98A]/10 rounded-xl border border-[#35C98A]/30">
-                    <p className="text-[10px] font-bold text-[#35C98A] uppercase">WFH</p>
-                    <p className="text-base font-black text-[#35C98A]">{attendanceCounts.wfh}</p>
+                  <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/30">
+                    <p className="text-[10px] font-bold text-emerald-500 uppercase">WFH</p>
+                    <p className="text-base font-black text-emerald-500">{attendanceCounts.wfh}</p>
                   </div>
-                  <div className="p-2.5 bg-[#F2C75C]/10 rounded-xl border border-[#F2C75C]/30">
-                    <p className="text-[10px] font-bold text-[#F2C75C] uppercase">Client</p>
-                    <p className="text-base font-black text-[#F2C75C]">{attendanceCounts.clientVisit}</p>
+                  <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/30">
+                    <p className="text-[10px] font-bold text-amber-500 uppercase">Client</p>
+                    <p className="text-base font-black text-amber-500">{attendanceCounts.clientVisit}</p>
                   </div>
-                  <div className="p-2.5 bg-[#19C7C0]/10 rounded-xl border border-[#19C7C0]/30">
-                    <p className="text-[10px] font-bold text-[#19C7C0] uppercase">Leave</p>
-                    <p className="text-base font-black text-[#19C7C0]">{attendanceCounts.leave}</p>
+                  <div className="p-2.5 bg-[var(--primary)]/10 rounded-xl border border-[var(--primary)]/30">
+                    <p className="text-[10px] font-bold text-[var(--primary)] uppercase">Leave</p>
+                    <p className="text-base font-black text-[var(--primary)]">{attendanceCounts.leave}</p>
                   </div>
                 </div>
               </div>
 
               {/* Weekly Progress Bar Chart */}
-              <div className="p-4 bg-[#112C26] rounded-2xl border border-[#2A5B50] space-y-3">
-                <div className="flex justify-between items-center border-b border-[#2A5B50] pb-2">
-                  <span className="text-xs font-black text-[#C7DAD3] uppercase tracking-wider flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-[#19C7C0]" /> Weekly Progress (This Week)
+              <div className="p-4 bg-[var(--app-bg-secondary)] rounded-2xl border border-[var(--border)] space-y-3">
+                <div className="flex justify-between items-center border-b border-[var(--border)] pb-2">
+                  <span className="text-xs font-black text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-[var(--primary)]" /> Weekly Progress (This Week)
                   </span>
                 </div>
 
@@ -748,39 +748,39 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
                   <div className="space-y-2 pt-1">
                     {weeklyProgress.weekDays.map(day => (
                       <div key={day.dateStr} className="flex items-center gap-3 text-xs">
-                        <span className="w-8 font-bold text-[#C7DAD3]">{day.label}</span>
-                        <div className="flex-1 bg-[#173A32] h-3 rounded-full overflow-hidden border border-[#2A5B50]">
+                        <span className="w-8 font-bold text-[var(--text-secondary)]">{day.label}</span>
+                        <div className="flex-1 bg-[var(--app-bg)] h-3 rounded-full overflow-hidden border border-[var(--border)]">
                           <div 
-                            className={`h-full rounded-full transition-all duration-500 ${day.isFuture ? 'bg-[#21483E]' : 'bg-[#19C7C0]'}`}
+                            className={`h-full rounded-full transition-all duration-500 ${day.isFuture ? 'bg-[var(--border)]' : 'bg-[var(--primary)]'}`}
                             style={{ width: `${day.completionRate}%` }}
                           />
                         </div>
-                        <span className="w-10 text-right font-black font-mono text-[#F4FAF7]">
+                        <span className="w-10 text-right font-black font-mono text-[var(--text-primary)]">
                           {day.isFuture ? '—' : `${day.completionRate}%`}
                         </span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-[#9FB9AF] italic py-2">
+                  <p className="text-xs text-[var(--text-secondary)] italic py-2">
                     Not enough weekly activity recorded yet.
                   </p>
                 )}
               </div>
 
               {/* Performance Trend Detail */}
-              <div className="p-4 bg-[#112C26] rounded-2xl border border-[#2A5B50] flex justify-between items-center text-xs">
+              <div className="p-4 bg-[var(--app-bg-secondary)] rounded-2xl border border-[var(--border)] flex justify-between items-center text-xs">
                 <div>
-                  <span className="text-[#C7DAD3] font-bold uppercase text-[10px]">Performance Trend</span>
-                  <p className="font-black text-[#F4FAF7] text-sm mt-0.5">
+                  <span className="text-[var(--text-secondary)] font-bold uppercase text-[10px]">Performance Trend</span>
+                  <p className="font-black text-[var(--text-primary)] text-sm mt-0.5">
                     {trendData.hasData ? `${trendData.prevScore}% → ${trendData.currentScore}%` : 'Not enough data yet'}
                   </p>
                 </div>
                 {trendData.hasData && (
                   <span className={`px-3 py-1 rounded-full text-xs font-black border ${
-                    trendData.state === 'Improving' ? 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/30' :
-                    trendData.state === 'Needs Attention' ? 'bg-[#EF6B73]/20 text-[#EF6B73] border-[#EF6B73]/30' :
-                    'bg-[#19C7C0]/20 text-[#19C7C0] border-[#19C7C0]/30'
+                    trendData.state === 'Improving' ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30' :
+                    trendData.state === 'Needs Attention' ? 'bg-rose-500/20 text-rose-500 border-rose-500/30' :
+                    'bg-[var(--primary)]/20 text-[var(--primary)] border-[var(--primary)]/30'
                   }`}>
                     {trendData.state === 'Improving' ? '↑ Improving' : trendData.state === 'Needs Attention' ? '↓ Needs Attention' : '→ Stable'}
                   </span>
@@ -791,7 +791,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
               <div className="pt-2">
                 <button
                   onClick={() => setShowDetailModal(false)}
-                  className="w-full py-3.5 bg-[#19C7C0] hover:bg-[#19C7C0]/90 text-[#112C26] font-extrabold rounded-2xl text-xs transition-all shadow-lg cursor-pointer"
+                  className="w-full py-3.5 bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-white font-extrabold rounded-2xl text-xs transition-all shadow-lg cursor-pointer"
                 >
                   Close
                 </button>

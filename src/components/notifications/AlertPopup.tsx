@@ -91,15 +91,15 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
       case 'ATTENDANCE':
         return <Calendar className="w-8 h-8 text-emerald-400" />;
       case 'PLANNER':
-        return <ClipboardList className="w-8 h-8 text-blue-400" />;
+        return <ClipboardList className="w-8 h-8 text-emerald-400" />;
       case 'LEAVE':
-        return <FileText className="w-8 h-8 text-orange-400" />;
+        return <FileText className="w-8 h-8 text-emerald-400" />;
       case 'EXPENSE':
-        return <DollarSign className="w-8 h-8 text-yellow-400" />;
+        return <DollarSign className="w-8 h-8 text-emerald-400" />;
       case 'TEAM':
-        return <Users className="w-8 h-8 text-purple-300" />;
+        return <Users className="w-8 h-8 text-[var(--primary-light)]" />;
       default:
-        return <Bell className="w-8 h-8 text-purple-300" />;
+        return <Bell className="w-8 h-8 text-[var(--primary-light)]" />;
     }
   };
 
@@ -115,12 +115,12 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
           id={`alert-popup-${notification.id}`}
-          className={`relative w-full max-w-lg bg-[#211044] border rounded-[28px] shadow-[0_25px_70px_rgba(0,0,0,0.85)] overflow-hidden text-white ${
+          className={`relative w-full max-w-lg bg-[var(--card-bg)] border rounded-[28px] shadow-[0_25px_70px_rgba(0,0,0,0.85)] overflow-hidden text-[var(--text-primary)] ${
             isUrgent
               ? 'border-rose-500/80 shadow-[0_0_50px_rgba(244,63,94,0.35)]'
               : isHigh
               ? 'border-amber-500/80 shadow-[0_0_40px_rgba(245,158,11,0.3)]'
-              : 'border-purple-500/50 shadow-[0_0_40px_rgba(139,92,246,0.25)]'
+              : 'border-[var(--primary)]/50 shadow-[0_0_40px_rgba(5,150,105,0.25)]'
           }`}
         >
           {/* Top Priority Accent Bar */}
@@ -129,8 +129,8 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
               isUrgent
                 ? 'bg-gradient-to-r from-rose-500 via-amber-400 to-rose-600'
                 : isHigh
-                ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-purple-600'
-                : 'bg-gradient-to-r from-purple-600 via-indigo-400 to-purple-500'
+                ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-emerald-600'
+                : 'bg-gradient-to-r from-[var(--primary-dark)] via-[var(--primary)] to-[var(--primary-light)]'
             }`}
           />
 
@@ -138,7 +138,7 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
           <button
             onClick={onDismiss}
             id="alert-popup-close-btn"
-            className="absolute top-4 right-4 p-2 rounded-xl bg-purple-950/60 border border-purple-500/20 text-purple-300 hover:text-white hover:bg-purple-800/40 transition-colors z-10"
+            className="absolute top-4 right-4 p-2 rounded-xl bg-[var(--app-bg-secondary)]/60 border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--primary)]/20 transition-colors z-10"
             title="Dismiss popup"
             aria-label="Close alert"
           >
@@ -154,7 +154,7 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
                     ? 'bg-rose-950/70 border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.3)]'
                     : isHigh
                     ? 'bg-amber-950/70 border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.25)]'
-                    : 'bg-purple-950/80 border-purple-500/40 shadow-[0_0_20px_rgba(168,85,247,0.25)]'
+                    : 'bg-emerald-950/80 border-[var(--primary)]/40 shadow-[0_0_20px_rgba(5,150,105,0.25)]'
                 }`}
               >
                 {renderCategoryIcon()}
@@ -166,7 +166,7 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
                     className={`text-[10px] font-black tracking-wider uppercase px-2.5 py-0.5 rounded-full border ${
                       isAnnouncement
                         ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                        : 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                     }`}
                   >
                     {isAnnouncement ? '📢 ANNOUNCEMENT' : '🔔 REAL-TIME ALERT'}
@@ -185,13 +185,13 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
                   )}
 
                   {notification.category && (
-                    <span className="text-[9px] font-bold uppercase text-purple-300/80 bg-purple-900/40 px-2 py-0.5 rounded-full border border-purple-500/20">
+                    <span className="text-[9px] font-bold uppercase text-[var(--text-secondary)]/80 bg-[var(--app-bg-secondary)] px-2 py-0.5 rounded-full border border-[var(--border)]">
                       {notification.category}
                     </span>
                   )}
                 </div>
 
-                <div className="text-[11px] text-purple-300/70 font-medium">
+                <div className="text-[11px] text-[var(--text-secondary)]/70 font-medium">
                   {formattedTime}
                 </div>
               </div>
@@ -201,7 +201,7 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
             <div>
               <h2
                 id="alert-popup-title"
-                className="text-lg sm:text-xl font-black text-white leading-snug tracking-tight"
+                className="text-lg sm:text-xl font-black text-[var(--text-primary)] leading-snug tracking-tight"
               >
                 {notification.title || 'Important Notice'}
               </h2>
@@ -210,15 +210,15 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
             {/* Notification Message */}
             <div
               id="alert-popup-message-body"
-              className="bg-[#170B38]/80 border border-purple-500/20 rounded-2xl p-4 max-h-56 sm:max-h-64 overflow-y-auto text-purple-100 text-xs sm:text-sm leading-relaxed whitespace-pre-line select-text"
+              className="bg-[var(--app-bg-secondary)]/80 border border-[var(--border)] rounded-2xl p-4 max-h-56 sm:max-h-64 overflow-y-auto text-[var(--text-primary)] text-xs sm:text-sm leading-relaxed whitespace-pre-line select-text"
             >
               {notification.message}
             </div>
 
             {/* Queue info if multiple alerts waiting */}
             {queueCount > 0 && (
-              <div className="flex items-center gap-1.5 text-[11px] text-purple-300/80 bg-purple-950/50 border border-purple-500/20 px-3 py-1.5 rounded-xl">
-                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]/80 bg-[var(--app-bg-secondary)]/50 border border-[var(--border)] px-3 py-1.5 rounded-xl">
+                <Sparkles className="w-3.5 h-3.5 text-[var(--primary)]" />
                 <span>
                   +{queueCount} more alert{queueCount > 1 ? 's' : ''} in queue
                 </span>
@@ -231,7 +231,7 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
                 type="button"
                 onClick={() => onAcknowledge(notification.id)}
                 id="alert-popup-acknowledge-btn"
-                className="flex-1 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 active:scale-[0.98] text-white text-xs sm:text-sm font-black tracking-wide flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(147,51,234,0.4)] transition-all cursor-pointer"
+                className="flex-1 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-[var(--primary-dark)] via-[var(--primary)] to-[var(--primary-light)] hover:from-[var(--primary)] hover:to-[var(--primary-light)] active:scale-[0.98] text-white text-xs sm:text-sm font-black tracking-wide flex items-center justify-center gap-2 shadow-[0_8px_25px_rgba(5,150,105,0.4)] transition-all cursor-pointer"
               >
                 <Check className="w-4 h-4 text-emerald-300 stroke-[3]" />
                 <span>OK / ACKNOWLEDGE</span>
@@ -241,7 +241,7 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
                 type="button"
                 onClick={onDismiss}
                 id="alert-popup-dismiss-btn"
-                className="py-3.5 px-5 rounded-2xl bg-purple-950/70 hover:bg-purple-900/60 text-purple-300 hover:text-white border border-purple-500/30 text-xs sm:text-sm font-bold transition-colors cursor-pointer"
+                className="py-3.5 px-5 rounded-2xl bg-[var(--app-bg-secondary)]/70 hover:bg-[var(--app-bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] text-xs sm:text-sm font-bold transition-colors cursor-pointer"
               >
                 Close
               </button>

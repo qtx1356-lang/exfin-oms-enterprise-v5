@@ -314,49 +314,49 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
   };
 
   return (
-    <div className="bg-[#151515] rounded-2xl border border-[#292929] p-4 sm:p-6 shadow-2xl space-y-5 text-white font-sans">
+    <div className="bg-[var(--app-bg-secondary)] rounded-2xl border border-[var(--primary)]/20 p-4 sm:p-6 shadow-2xl space-y-5 text-[var(--text-primary)] font-sans">
       
       {/* ==================================================== */}
       {/* HEADER & MONTH NAVIGATION */}
       {/* ==================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#292929] pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--primary)]/20 pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#1B1B1B] border border-[#292929] flex items-center justify-center text-[#D4AF37] shadow-inner">
-            <CalendarIcon className="w-5 h-5 text-[#D4AF37]" />
+          <div className="w-10 h-10 rounded-2xl bg-[var(--card-bg)] border border-[var(--primary)]/20 flex items-center justify-center text-[var(--primary)] shadow-inner">
+            <CalendarIcon className="w-5 h-5 text-[var(--primary)]" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base sm:text-lg font-black text-white tracking-wide">
+              <h2 className="text-base sm:text-lg font-black text-[var(--text-primary)] tracking-wide">
                 Attendance Calendar
               </h2>
-              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#1B1B1B] text-[#D4AF37] border border-[#292929] uppercase tracking-widest">
+              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[var(--card-bg)] text-[var(--primary)] border border-[var(--primary)]/20 uppercase tracking-widest">
                 History
               </span>
             </div>
-            <p className="text-xs text-[#8A8A8A] mt-0.5">
-              Monthly overview for <strong className="text-white">{employeeName}</strong>
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+              Monthly overview for <strong className="text-[var(--text-primary)]">{employeeName}</strong>
             </p>
           </div>
         </div>
 
         {/* Navigation Buttons */}
-        <div className="flex items-center justify-between sm:justify-end gap-2 bg-[#121212] p-1.5 rounded-2xl border border-[#292929]">
+        <div className="flex items-center justify-between sm:justify-end gap-2 bg-[var(--app-bg-primary)] p-1.5 rounded-2xl border border-[var(--primary)]/20">
           <button
             onClick={handlePrevMonth}
-            className="p-2 rounded-xl bg-[#1B1B1B] hover:bg-[#292929] text-[#8A8A8A] hover:text-white transition-all border border-[#292929] active:scale-95 cursor-pointer"
+            className="p-2 rounded-xl bg-[var(--card-bg)] hover:bg-[var(--app-bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--primary)]/20 active:scale-95 cursor-pointer"
             title="Previous Month"
             aria-label="Previous Month"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <span className="text-xs sm:text-sm font-bold text-white px-3 tracking-wider font-mono">
+          <span className="text-xs sm:text-sm font-bold text-[var(--text-primary)] px-3 tracking-wider font-mono">
             {monthTitle}
           </span>
 
           <button
             onClick={handleNextMonth}
-            className="p-2 rounded-xl bg-[#1B1B1B] hover:bg-[#292929] text-[#8A8A8A] hover:text-white transition-all border border-[#292929] active:scale-95 cursor-pointer"
+            className="p-2 rounded-xl bg-[var(--card-bg)] hover:bg-[var(--app-bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--primary)]/20 active:scale-95 cursor-pointer"
             title="Next Month"
             aria-label="Next Month"
           >
@@ -378,21 +378,21 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       {/* ==================================================== */}
       <div className="space-y-2">
         {/* Day Headers (MON to SUN) */}
-        <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[10px] sm:text-xs font-bold text-[#8A8A8A] uppercase tracking-wider py-1 border-b border-[#292929]">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[10px] sm:text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider py-1 border-b border-[var(--primary)]/20">
           <span>MON</span>
           <span>TUE</span>
           <span>WED</span>
           <span>THU</span>
           <span>FRI</span>
-          <span className="text-[#8A8A8A]">SAT</span>
-          <span className="text-[#8A8A8A]/80">SUN</span>
+          <span className="text-[var(--text-secondary)]">SAT</span>
+          <span className="text-[var(--text-secondary)]/80">SUN</span>
         </div>
 
         {/* Days Grid */}
         <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {/* Empty cells for starting day offset */}
           {Array.from({ length: startingDayOffset }).map((_, idx) => (
-            <div key={`offset-${idx}`} className="h-16 sm:h-20 rounded-2xl bg-[#121212]/30 border border-transparent opacity-20 pointer-events-none" />
+            <div key={`offset-${idx}`} className="h-16 sm:h-20 rounded-2xl bg-[var(--card-bg)]/30 border border-transparent opacity-20 pointer-events-none" />
           ))}
 
           {/* Actual Month Days */}
@@ -406,26 +406,26 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
             const isToday = info.isToday;
             const isFuture = info.isFuture;
 
-            let bgStyle = 'bg-[#121212] hover:bg-[#1B1B1B] border-[#292929]';
+            let bgStyle = 'bg-[var(--card-bg)] hover:bg-[var(--app-bg-primary)] border-[var(--primary)]/10';
             let statusIcon = '—';
             let statusLabel = 'No Record';
-            let textColor = 'text-[#8A8A8A]';
+            let textColor = 'text-[var(--text-secondary)]';
 
             if (isFuture) {
-              bgStyle = 'bg-[#121212] border-[#292929] opacity-30';
+              bgStyle = 'bg-[var(--card-bg)] border-[var(--primary)]/10 opacity-30';
               statusIcon = '○';
               statusLabel = 'Future';
-              textColor = 'text-[#8A8A8A]/40';
+              textColor = 'text-[var(--text-secondary)]/40';
             } else if (info.category === 'OFFICE') {
-              bgStyle = 'bg-[#22C55E]/10 hover:bg-[#22C55E]/15 border-[#22C55E]/40 shadow-sm';
+              bgStyle = 'bg-emerald-500/10 hover:bg-emerald-500/15 border-emerald-500/40 shadow-sm';
               statusIcon = '✓';
               statusLabel = 'Office';
-              textColor = 'text-[#22C55E]';
+              textColor = 'text-emerald-400';
             } else if (info.category === 'WFH') {
-              bgStyle = 'bg-[#D4AF37]/10 hover:bg-[#D4AF37]/15 border-[#D4AF37]/40 shadow-[0_0_10px_rgba(212,175,55,0.15)]';
+              bgStyle = 'bg-[var(--primary)]/10 hover:bg-[var(--primary)]/15 border-[var(--primary)]/40 shadow-[0_0_10px_rgba(16,185,129,0.15)]';
               statusIcon = '🏠';
               statusLabel = 'WFH';
-              textColor = 'text-[#D4AF37]';
+              textColor = 'text-[var(--primary-light)]';
             } else if (info.category === 'CLIENT_VISIT') {
               bgStyle = 'bg-amber-950/40 hover:bg-amber-900/60 border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.15)]';
               statusIcon = '📍';
@@ -453,16 +453,16 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                 key={dateStr}
                 onClick={() => handleDayClick(dayNumber)}
                 className={`relative h-16 sm:h-20 p-1.5 sm:p-2 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between group active:scale-95 cursor-pointer ${bgStyle} ${
-                  isToday ? 'ring-2 ring-[#D4AF37] ring-offset-2 ring-offset-[#151515] border-[#292929]' : ''
+                  isToday ? 'ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--app-bg-secondary)] border-[var(--primary)]/20' : ''
                 }`}
               >
                 {/* Date Number + Today Highlight Badge */}
                 <div className="flex justify-between items-center w-full">
-                  <span className={`text-xs sm:text-sm font-black font-mono ${isToday ? 'text-white' : 'text-[#C7C7C7]'}`}>
+                  <span className={`text-xs sm:text-sm font-black font-mono ${isToday ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
                     {dayNumber}
                   </span>
                   {isToday && (
-                    <span className="text-[9px] font-bold bg-[#D4AF37] text-black px-1.5 py-0.5 rounded-full shadow tracking-wider uppercase">
+                    <span className="text-[9px] font-bold bg-[var(--primary)] text-white px-1.5 py-0.5 rounded-full shadow tracking-wider uppercase">
                       TODAY
                     </span>
                   )}
@@ -486,13 +486,13 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       {/* ==================================================== */}
       {/* LEGEND */}
       {/* ==================================================== */}
-      <div className="pt-3 border-t border-[#292929] flex flex-wrap items-center justify-center gap-3 sm:gap-5 text-[11px] font-bold text-[#8A8A8A]">
+      <div className="pt-3 border-t border-[var(--primary)]/20 flex flex-wrap items-center justify-center gap-3 sm:gap-5 text-[11px] font-bold text-[var(--text-secondary)]">
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#22C55E]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
           <span>✓ Office</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#D4AF37]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[var(--primary)]" />
           <span>🏠 WFH</span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -515,44 +515,44 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       {selectedDayDetail && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
           <div 
-            className="w-full max-w-lg bg-[#151515] border border-[#292929] rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl space-y-5 animate-slide-up text-white relative max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-lg bg-[var(--app-bg-secondary)] border border-[var(--primary)]/20 rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl space-y-5 animate-slide-up text-[var(--text-primary)] relative max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex justify-between items-start border-b border-[#292929] pb-4">
+            <div className="flex justify-between items-start border-b border-[var(--primary)]/20 pb-4">
               <div>
-                <p className="text-[10px] text-[#8A8A8A] font-bold uppercase tracking-widest flex items-center gap-2">
-                  <CalendarIcon className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-widest flex items-center gap-2">
+                  <CalendarIcon className="w-3.5 h-3.5 text-[var(--primary)]" />
                   Day Attendance Details
                   {selectedDayDetail.isToday && (
-                    <span className="bg-[#D4AF37] text-black text-[9px] px-2 py-0.5 rounded-full font-bold">
+                    <span className="bg-[var(--primary)] text-white text-[9px] px-2 py-0.5 rounded-full font-bold">
                       TODAY
                     </span>
                   )}
                 </p>
-                <h3 className="text-lg sm:text-xl font-black text-white mt-1">
+                <h3 className="text-lg sm:text-xl font-black text-[var(--text-primary)] mt-1">
                   {selectedDayDetail.formattedDateLong}
                 </h3>
               </div>
               <button
                 onClick={() => setSelectedDayDetail(null)}
-                className="p-2 rounded-xl bg-[#1B1B1B] hover:bg-[#292929] text-[#8A8A8A] hover:text-white transition-all border border-[#292929] cursor-pointer"
+                className="p-2 rounded-xl bg-[var(--card-bg)] hover:bg-[var(--app-bg-primary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--primary)]/20 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Attendance Status Badge Header */}
-            <div className="p-4 rounded-2xl bg-[#121212] border border-[#292929] flex items-center justify-between">
-              <span className="text-xs font-bold text-[#8A8A8A]">Status</span>
+            <div className="p-4 rounded-2xl bg-[var(--card-bg)] border border-[var(--primary)]/20 flex items-center justify-between">
+              <span className="text-xs font-bold text-[var(--text-secondary)]">Status</span>
               <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
-                selectedDayDetail.category === 'OFFICE' ? 'bg-[#22C55E]/15 text-[#22C55E] border-[#22C55E]/40' :
-                selectedDayDetail.category === 'WFH' ? 'bg-[#D4AF37]/15 text-[#D4AF37] border-[#D4AF37]/40' :
+                selectedDayDetail.category === 'OFFICE' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40' :
+                selectedDayDetail.category === 'WFH' ? 'bg-[var(--primary)]/15 text-[var(--primary-light)] border-[var(--primary)]/40' :
                 selectedDayDetail.category === 'CLIENT_VISIT' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :
                 selectedDayDetail.category === 'OUTDOOR' ? 'bg-blue-500/20 text-blue-300 border-blue-500/40' :
                 selectedDayDetail.category === 'LEAVE' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' :
                 selectedDayDetail.category === 'ABSENT' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' :
-                'bg-[#1B1B1B] text-[#8A8A8A] border-[#292929]'
+                'bg-[var(--card-bg)] text-[var(--text-secondary)] border-[var(--primary)]/20'
               }`}>
                 {selectedDayDetail.category === 'OFFICE' && '✓ OFFICE'}
                 {selectedDayDetail.category === 'WFH' && '🏠 WFH'}
@@ -569,24 +569,24 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
             {selectedDayDetail.attendanceRecord ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3.5 bg-[#121212] rounded-2xl border border-[#292929] space-y-1">
-                    <p className="text-[10px] text-[#8A8A8A] font-bold uppercase">Check-In</p>
-                    <p className="text-base font-black text-white">{selectedDayDetail.attendanceRecord.checkInTime}</p>
-                    <p className="text-[9px] text-[#8A8A8A]">Source: {selectedDayDetail.attendanceRecord.checkInMode}</p>
+                  <div className="p-3.5 bg-[var(--card-bg)] rounded-2xl border border-[var(--primary)]/20 space-y-1">
+                    <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase">Check-In</p>
+                    <p className="text-base font-black text-[var(--text-primary)]">{selectedDayDetail.attendanceRecord.checkInTime}</p>
+                    <p className="text-[9px] text-[var(--text-secondary)]">Source: {selectedDayDetail.attendanceRecord.checkInMode}</p>
                   </div>
 
-                  <div className="p-3.5 bg-[#121212] rounded-2xl border border-[#292929] space-y-1">
-                    <p className="text-[10px] text-[#8A8A8A] font-bold uppercase">Check-Out</p>
-                    <p className="text-base font-black text-white">{selectedDayDetail.attendanceRecord.checkOutTime || 'Pending'}</p>
-                    <p className="text-[9px] text-[#8A8A8A]">
+                  <div className="p-3.5 bg-[var(--card-bg)] rounded-2xl border border-[var(--primary)]/20 space-y-1">
+                    <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase">Check-Out</p>
+                    <p className="text-base font-black text-[var(--text-primary)]">{selectedDayDetail.attendanceRecord.checkOutTime || 'Pending'}</p>
+                    <p className="text-[9px] text-[var(--text-secondary)]">
                       Source: {selectedDayDetail.attendanceRecord.checkOutMode === 'AUTO_SYSTEM' ? 'Automatic Checkout' : (selectedDayDetail.attendanceRecord.checkOutMode === 'MANUAL' ? 'Manual Checkout' : 'In Progress')}
                     </p>
                   </div>
                 </div>
 
-                <div className="p-3.5 bg-[#121212] rounded-2xl border border-[#292929] flex justify-between items-center text-xs">
-                  <span className="font-bold text-[#8A8A8A]">Working Time</span>
-                  <span className="font-bold text-[#D4AF37] text-sm font-mono">
+                <div className="p-3.5 bg-[var(--card-bg)] rounded-2xl border border-[var(--primary)]/20 flex justify-between items-center text-xs">
+                  <span className="font-bold text-[var(--text-secondary)]">Working Time</span>
+                  <span className="font-bold text-[var(--primary-light)] text-sm font-mono">
                     {(() => {
                       const rec = selectedDayDetail.attendanceRecord;
                       if (!rec) return '--';
@@ -614,39 +614,39 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
 
                 {/* Mode Specific Additional Info */}
                 {selectedDayDetail.attendanceRecord.attendanceType === 'WFH' && (
-                  <div className="p-4 bg-[#D4AF37]/10 rounded-2xl border border-[#D4AF37]/20 text-xs space-y-2">
-                    <p className="font-bold text-[#D4AF37] uppercase tracking-wider text-[10px]">Work From Home Details</p>
-                    <p><strong className="text-[#8A8A8A]">Reason:</strong> {selectedDayDetail.attendanceRecord.wfhReason || 'N/A'}</p>
-                    <p><strong className="text-[#8A8A8A]">Work Plan:</strong> {selectedDayDetail.attendanceRecord.workPlan || 'N/A'}</p>
+                  <div className="p-4 bg-[var(--primary)]/10 rounded-2xl border border-[var(--primary)]/20 text-xs space-y-2">
+                    <p className="font-bold text-[var(--primary-light)] uppercase tracking-wider text-[10px]">Work From Home Details</p>
+                    <p><strong className="text-[var(--text-secondary)] font-bold">Reason:</strong> {selectedDayDetail.attendanceRecord.wfhReason || 'N/A'}</p>
+                    <p><strong className="text-[var(--text-secondary)] font-bold">Work Plan:</strong> {selectedDayDetail.attendanceRecord.workPlan || 'N/A'}</p>
                   </div>
                 )}
 
                 {selectedDayDetail.attendanceRecord.attendanceType === 'CLIENT_VISIT' && (
                   <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20 text-xs space-y-2">
                     <p className="font-bold text-amber-300 uppercase tracking-wider text-[10px]">Client Visit Details</p>
-                    <p><strong className="text-[#8A8A8A]">Client:</strong> {selectedDayDetail.attendanceRecord.clientName || 'N/A'}</p>
-                    <p><strong className="text-[#8A8A8A]">Location:</strong> {selectedDayDetail.attendanceRecord.clientLocation || 'N/A'}</p>
-                    <p><strong className="text-[#8A8A8A]">Purpose:</strong> {selectedDayDetail.attendanceRecord.purpose || 'N/A'}</p>
+                    <p><strong className="text-[var(--text-secondary)] font-bold">Client:</strong> {selectedDayDetail.attendanceRecord.clientName || 'N/A'}</p>
+                    <p><strong className="text-[var(--text-secondary)] font-bold">Location:</strong> {selectedDayDetail.attendanceRecord.clientLocation || 'N/A'}</p>
+                    <p><strong className="text-[var(--text-secondary)] font-bold">Purpose:</strong> {selectedDayDetail.attendanceRecord.purpose || 'N/A'}</p>
                   </div>
                 )}
 
                 {selectedDayDetail.attendanceRecord.attendanceType === 'OUTDOOR' && (
                   <div className="p-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 text-xs space-y-2">
                     <p className="font-bold text-blue-300 uppercase tracking-wider text-[10px]">Outdoor Work Details</p>
-                    <p><strong className="text-[#8A8A8A]">Type:</strong> {selectedDayDetail.attendanceRecord.outdoorType || 'N/A'}</p>
-                    <p><strong className="text-[#8A8A8A]">Description:</strong> {selectedDayDetail.attendanceRecord.description || 'N/A'}</p>
+                    <p><strong className="text-[var(--text-secondary)] font-bold">Type:</strong> {selectedDayDetail.attendanceRecord.outdoorType || 'N/A'}</p>
+                    <p><strong className="text-[var(--text-secondary)] font-bold">Description:</strong> {selectedDayDetail.attendanceRecord.description || 'N/A'}</p>
                   </div>
                 )}
               </div>
             ) : selectedDayDetail.leaveRecord ? (
               <div className="p-4 bg-cyan-500/10 rounded-2xl border border-cyan-500/20 text-xs space-y-2">
                 <p className="font-bold text-cyan-300 uppercase tracking-wider text-[10px]">Approved Leave Details</p>
-                <p><strong className="text-[#8A8A8A]">Duration:</strong> {selectedDayDetail.leaveRecord.startDate} to {selectedDayDetail.leaveRecord.endDate} ({selectedDayDetail.leaveRecord.totalDays} Days)</p>
-                <p><strong className="text-[#8A8A8A]">Reason:</strong> {selectedDayDetail.leaveRecord.reason}</p>
+                <p><strong className="text-[var(--text-secondary)] font-bold">Duration:</strong> {selectedDayDetail.leaveRecord.startDate} to {selectedDayDetail.leaveRecord.endDate} ({selectedDayDetail.leaveRecord.totalDays} Days)</p>
+                <p><strong className="text-[var(--text-secondary)] font-bold">Reason:</strong> {selectedDayDetail.leaveRecord.reason}</p>
               </div>
             ) : (
-              <div className="p-5 bg-[#121212] rounded-2xl border border-[#292929] text-center space-y-2">
-                <p className="text-xs text-[#8A8A8A] font-medium">
+              <div className="p-5 bg-[var(--card-bg)] rounded-2xl border border-[var(--primary)]/20 text-center space-y-2">
+                <p className="text-xs text-[var(--text-secondary)] font-medium">
                   {selectedDayDetail.isFuture 
                     ? 'This is a future date. No attendance records exist yet.' 
                     : 'No attendance record found for this date.'}
@@ -658,7 +658,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
             <div className="pt-2">
               <button
                 onClick={() => setSelectedDayDetail(null)}
-                className="w-full py-3.5 bg-[#D4AF37] hover:bg-[#E6C766] text-black font-bold rounded-2xl text-xs transition-all shadow-lg active:scale-95 cursor-pointer"
+                className="w-full py-3.5 bg-[var(--primary)] hover:bg-[var(--primary-light)] text-white font-bold rounded-2xl text-xs transition-all shadow-lg active:scale-95 cursor-pointer"
               >
                 Close
               </button>
