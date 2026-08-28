@@ -80,21 +80,21 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
   useEffect(() => {
     logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
-    if (firstName) {
-      try {
-        const sessionKey = `exfin_greeting_shown_${greetingInfo.periodKey}`;
-        if (!sessionStorage.getItem(sessionKey)) {
-          sessionStorage.setItem(sessionKey, 'true');
-          setShowAlertToast(true);
+    try {
+      const sessionKey = 'exfin_session_greeting_played';
+      if (!sessionStorage.getItem(sessionKey)) {
+        sessionStorage.setItem(sessionKey, 'true');
+        setShowAlertToast(true);
 
-          // Trigger high-quality studio female voice greeting with the first name
-          const greetingSentence = `${greetingInfo.label}, ${firstName}.`;
-          speakWelcomeGreeting(greetingSentence, greetingInfo.periodKey);
+        // Trigger personalized native voice greeting with the first name if available
+        const greetingSentence = firstName ? `${greetingInfo.label}, ${firstName}.` : `${greetingInfo.label}.`;
+        speakWelcomeGreeting(greetingSentence, greetingInfo.periodKey);
 
-          const t = setTimeout(() => setShowAlertToast(false), 4000);
-          return () => clearTimeout(t);
-        }
-      } catch (e) {}
+        const t = setTimeout(() => setShowAlertToast(false), 4000);
+        return () => clearTimeout(t);
+      }
+    } catch (e) {
+      console.warn('[WelcomeScreen] Greeting initialization error:', e);
     }
   }, [firstName, greetingInfo.periodKey, greetingInfo.label]);
 
@@ -114,7 +114,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
           <div className="flex-1 min-w-0 text-left">
             <p className="text-[10px] font-bold text-[var(--aurora-emerald)] uppercase tracking-wider">Welcome Alert</p>
             <p className="text-sm font-extrabold text-[var(--text-primary)] truncate">
-              {greetingInfo.label}, {displayName || 'Executive'}!
+              {greetingInfo.label}, Executive!
             </p>
           </div>
         </div>
@@ -144,19 +144,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         <div>
           <div className="text-[var(--text-secondary)] text-sm sm:text-base font-semibold tracking-wide flex items-center justify-center gap-1.5">
             <span className="text-[var(--aurora-emerald)] text-xl">☀️</span>
-            <span>{greetingInfo.label}</span>
+            <span>{greetingInfo.label} 👋</span>
           </div>
 
-          {/* Employee Welcome */}
+          {/* Generic Welcome */}
           <h1 className="mt-1 text-2xl sm:text-3xl font-black text-[var(--text-primary)] tracking-tight leading-tight uppercase aurora-text">
-            {displayName ? (
-              <>
-                <span className="block text-lg sm:text-xl font-bold text-[var(--text-secondary)]">Welcome back,</span>
-                <span className="text-[var(--text-primary)] font-extrabold text-2xl sm:text-3xl block mt-0.5">
-                  {displayName}
-                </span>
-              </>
-            ) : status === 'unregistered' ? (
+            {status === 'unregistered' ? (
               <>Register Device</>
             ) : (
               <>Welcome to Workspace</>

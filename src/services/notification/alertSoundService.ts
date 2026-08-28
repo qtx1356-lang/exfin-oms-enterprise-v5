@@ -19,10 +19,9 @@ let batchTimer: any = null;
 
 /**
  * FLOW 1 — WELCOME GREETING
- * Play high-quality natural female voice greeting on the Welcome Screen.
- * Priority 1: Dynamic custom employee name synthesis via server endpoint `/api/tts/welcome` if online
- * Priority 2: High-fidelity pre-recorded studio female voice asset (0ms latency, 100% offline reliable)
- * Constraint: NEVER fall back to device-native TTS / SpeechSynthesis
+ * Play natural voice greeting on the Welcome Screen.
+ * Priority 1: Device-native SpeechSynthesis (Fastest, personalized, 100% offline, uses first name)
+ * Priority 2: High-fidelity pre-recorded studio female voice asset (Fallback for generic greetings)
  */
 export const speakWelcomeGreeting = async (
   text: string, 
@@ -35,89 +34,100 @@ export const speakWelcomeGreeting = async (
         return;
       }
 
-      console.log(`[GreetingVoice] Playing high-quality female voice greeting. Text: "${text}", Period: ${periodKey || 'auto'}`);
-
-      // Check if we have a matching pre-recorded high quality female voice asset
-      let targetPeriod: GreetingPeriodKey = periodKey || 'good_morning';
-      if (!periodKey) {
-        const lower = text.toLowerCase();
-        if (lower.includes('morning')) targetPeriod = 'good_morning';
-        else if (lower.includes('afternoon')) targetPeriod = 'good_afternoon';
-        else if (lower.includes('evening')) targetPeriod = 'good_evening';
-      }
-
-      const preRecordedBase64 = PRE_RECORDED_GREETINGS[targetPeriod] || PRE_RECORDED_GREETINGS['good_morning'];
-
-      // Try dynamic custom employee name synthesis via server endpoint if online
-      let audioToPlay: string | null = null;
-      if (text && navigator.onLine) {
-        try {
-          const res = await fetch(API_BASE_URL + '/api/tts/welcome', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.audioBase64) {
-              audioToPlay = data.audioBase64.startsWith('data:') ? data.audioBase64 : `data:audio/wav;base64,${data.audioBase64}`;
-              console.log('[GreetingVoice] Loaded personalized studio female voice audio from backend');
-            }
-          }
-        } catch (serverErr) {
-          console.warn('[GreetingVoice] Server TTS fetch bypassed, using embedded master asset:', serverErr);
-        }
-      }
-
-      // Fallback to high-quality pre-recorded female asset for Welcome Screen only
-      if (!audioToPlay) {
-        audioToPlay = preRecordedBase64;
-        console.log(`[GreetingVoice] Using pre-recorded female audio asset for ${targetPeriod}`);
-      }
-
-      if (!audioToPlay) {
-        console.warn('[GreetingVoice] No audio asset available for greeting');
+      const cleanText = text ? text.trim() : '';
+      if (!cleanText) {
         resolve(false);
         return;
       }
 
-      // Play via controlled HTMLAudioElement with system audio unlock & volume normalization
-      if (!greetingAudioInstance) {
-        greetingAudioInstance = new Audio();
-        greetingAudioInstance.preload = 'auto';
+      console.log(`[GreetingVoice] Speaking personalized greeting: "${cleanText}"`);
+
+      // Priority 1: Use native browser SpeechSynthesis for personalized first-name greeting
+      if (window.speechSynthesis) {
+        try {
+          // Cancel any current utterances
+          window.speechSynthesis.cancel();
+          
+          const utterance = new SpeechSynthesisUtterance(cleanText);
+          utterance.volume = 0.85;
+          utterance.rate = 0.95; // Slightly slower for a more natural, friendly pace
+          utterance.pitch = 1.05; // Slightly higher for a friendlier tone
+          
+          // Select a high-quality "natural" sounding voice if available
+          const voices = window.speechSynthesis.getVoices();
+          const preferredVoice = voices.find(v => 
+            v.lang.startsWith('en') && 
+            (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha') || v.name.includes('Premium'))
+          );
+          
+          if (preferredVoice) {
+            utterance.voice = preferredVoice;
+          }
+
+          utterance.onend = () => {
+            console.log('[GreetingVoice] Native speech greeting completed');
+            resolve(true);
+          };
+          utterance.onerror = (evt) => {
+            console.warn('[GreetingVoice] Native speech greeting error, attempting fallback:', evt);
+            // Fallback to recorded asset handled below
+            playFallbackRecordedAsset(periodKey || 'good_morning').then(resolve);
+          };
+
+          window.speechSynthesis.speak(utterance);
+          
+          // On some browsers (like Chrome on Android), speechSynthesis might not fire onend if it's too short
+          // or if the engine is wonky. We'll set a safety timeout.
+          setTimeout(() => resolve(true), 5000);
+          return;
+        } catch (nativeErr) {
+          console.warn('[GreetingVoice] Native speech synthesis execution failed:', nativeErr);
+        }
       }
 
-      greetingAudioInstance.src = audioToPlay;
-      greetingAudioInstance.volume = 0.85; // Natural, clear studio volume
-      greetingAudioInstance.currentTime = 0;
-
-      greetingAudioInstance.onended = () => {
-        console.log('[GreetingVoice] Female voice greeting completed successfully');
-        resolve(true);
-      };
-
-      greetingAudioInstance.onerror = (err) => {
-        console.warn('[GreetingVoice] HTMLAudioElement error on playback:', err);
-        resolve(false);
-      };
-
-      const playPromise = greetingAudioInstance.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log('[GreetingVoice] Female voice playback started smoothly');
-          })
-          .catch((playErr) => {
-            console.warn('[GreetingVoice] Autoplay blocked or deferred, waiting for user gesture:', playErr);
-            resolve(false);
-          });
-      }
+      // Priority 2: Fallback to high-quality pre-recorded generic asset if native fails
+      const success = await playFallbackRecordedAsset(periodKey || 'good_morning');
+      resolve(success);
     } catch (err) {
-      console.warn('[GreetingVoice] Greeting audio execution exception handled safely:', err);
+      console.warn('[GreetingVoice] Exception in greeting flow:', err);
       resolve(false);
     }
   });
 };
+
+/**
+ * Internal helper to play pre-recorded generic greeting assets
+ */
+async function playFallbackRecordedAsset(periodKey: GreetingPeriodKey): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      const audioToPlay = PRE_RECORDED_GREETINGS[periodKey] || PRE_RECORDED_GREETINGS['good_morning'];
+      if (!audioToPlay) {
+        resolve(false);
+        return;
+      }
+
+      if (!greetingAudioInstance) {
+        greetingAudioInstance = new Audio();
+      }
+      greetingAudioInstance.src = audioToPlay;
+      greetingAudioInstance.volume = 0.85;
+      greetingAudioInstance.currentTime = 0;
+      
+      greetingAudioInstance.onended = () => resolve(true);
+      greetingAudioInstance.onerror = () => resolve(false);
+      
+      greetingAudioInstance.play().then(() => {
+        console.log(`[GreetingVoice] Fallback pre-recorded asset played: ${periodKey}`);
+      }).catch(err => {
+        console.warn('[GreetingVoice] Fallback asset play blocked:', err);
+        resolve(false);
+      });
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
 
 // Aliased export for backward compatibility
 export const playFemaleVoiceAnnouncement = speakWelcomeGreeting;
