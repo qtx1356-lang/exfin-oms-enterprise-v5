@@ -1,90 +1,90 @@
 @import "tailwindcss";
 
 @theme {
-  --color-app-bg: #0F1025;
-  --color-app-bg-secondary: #171936;
+  --color-app-bg: #071C16;
+  --color-app-bg-secondary: #0B2A20;
   
   /* Primary & Secondary Cards */
-  --color-card-bg: rgba(30, 31, 65, 0.80);
-  --color-card-elevated: rgba(40, 42, 85, 0.85);
-  --color-card-surface: #171936;
-  --color-border-gold: rgba(99, 102, 241, 0.40);
-  --color-border-indigo: rgba(99, 102, 241, 0.25);
-  --color-border-subtle: rgba(99, 102, 241, 0.16);
+  --color-card-bg: rgba(11, 42, 32, 0.85);
+  --color-card-elevated: rgba(20, 69, 53, 0.90);
+  --color-card-surface: #10382B;
+  --color-border-gold: rgba(5, 150, 105, 0.40);
+  --color-border-indigo: rgba(5, 150, 105, 0.25);
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
   
-  /* Primary Accent: Indigo Glass */
-  --color-primary: #4F46E5;
-  --color-primary-dark: #312E81;
-  --color-primary-light: #6366F1;
-  --color-primary-soft: #818CF8;
+  /* Primary Accent: Emerald Office */
+  --color-primary: #059669;
+  --color-primary-dark: #064E3B;
+  --color-primary-light: #10B981;
+  --color-primary-soft: #34D399;
   --color-on-primary: #FFFFFF;
   
-  /* Text inside Indigo Glass Cards & Canvas */
-  --color-card-text: #F8F8FF;
-  --color-card-text-secondary: #B9B9D0;
-  --color-card-text-muted: #8A8AA3;
+  /* Text inside Emerald Cards & Canvas */
+  --color-card-text: #F8FAFC;
+  --color-card-text-secondary: #D1D5DB;
+  --color-card-text-muted: #94A3B8;
 
   /* Text on Canvas */
-  --color-bg-text: #F8F8FF;
-  --color-bg-text-secondary: #B9B9D0;
-  --color-bg-text-muted: #8A8AA3;
+  --color-bg-text: #F8FAFC;
+  --color-bg-text-secondary: #D1D5DB;
+  --color-bg-text-muted: #94A3B8;
 
   /* Status Colors */
-  --color-success: #16A34A;
+  --color-success: #10B981;
   --color-warning: #D97706;
   --color-danger: #DC2626;
-  --color-info: #2563EB;
+  --color-info: #059669;
   --color-offline: #D97706;
   
-  --color-background: #0F1025;
-  --color-surface: rgba(30, 31, 65, 0.80);
-  --color-surface-elevated: #282A55;
-  --color-surface-variant: #171936;
-  --color-on-surface: #F8F8FF;
-  --color-on-surface-variant: #B9B9D0;
-  --color-outline: rgba(99, 102, 241, 0.20);
-  --color-muted: #8A8AA3;
+  --color-background: #071C16;
+  --color-surface: rgba(11, 42, 32, 0.85);
+  --color-surface-elevated: #144535;
+  --color-surface-variant: #10382B;
+  --color-on-surface: #F8FAFC;
+  --color-on-surface-variant: #D1D5DB;
+  --color-outline: rgba(255, 255, 255, 0.12);
+  --color-muted: #94A3B8;
 }
 
 :root {
-  --employee-bg: #0F1025;
-  --employee-surface: rgba(30, 31, 65, 0.80);
-  --employee-surface-strong: #282A55;
-  --employee-indigo: #4F46E5;
-  --employee-indigo-hover: #6366F1;
-  --employee-gold: #4F46E5;
-  --employee-gold-hover: #6366F1;
-  --employee-text-card: #F8F8FF;
-  --employee-text-card-secondary: #B9B9D0;
-  --employee-text-card-muted: #8A8AA3;
-  --employee-text-bg: #F8F8FF;
-  --employee-text-bg-secondary: #B9B9D0;
-  --employee-text-bg-muted: #8A8AA3;
-  --employee-border: rgba(99, 102, 241, 0.20);
+  --employee-bg: #071C16;
+  --employee-surface: rgba(11, 42, 32, 0.85);
+  --employee-surface-strong: #144535;
+  --employee-indigo: #059669;
+  --employee-indigo-hover: #10B981;
+  --employee-gold: #059669;
+  --employee-gold-hover: #10B981;
+  --employee-text-card: #F8FAFC;
+  --employee-text-card-secondary: #D1D5DB;
+  --employee-text-card-muted: #94A3B8;
+  --employee-text-bg: #F8FAFC;
+  --employee-text-bg-secondary: #D1D5DB;
+  --employee-text-bg-muted: #94A3B8;
+  --employee-border: rgba(255, 255, 255, 0.08);
 
-  --app-bg: #0F1025;
-  --app-bg-secondary: #171936;
-  --card-bg: rgba(30, 31, 65, 0.80);
-  --card-elevated: #282A55;
-  --border: rgba(99, 102, 241, 0.20);
-  --border-subtle: rgba(99, 102, 241, 0.15);
-  --border-active: rgba(99, 102, 241, 0.45);
-  --primary: #4F46E5;
-  --primary-dark: #312E81;
-  --primary-light: #6366F1;
-  --text-primary: #F8F8FF;
-  --text-secondary: #B9B9D0;
-  --text-muted: #8A8AA3;
-  --success: #16A34A;
+  --app-bg: #071C16;
+  --app-bg-secondary: #0B2A20;
+  --card-bg: rgba(11, 42, 32, 0.85);
+  --card-elevated: #144535;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-active: rgba(5, 150, 105, 0.50);
+  --primary: #059669;
+  --primary-dark: #064E3B;
+  --primary-light: #10B981;
+  --text-primary: #F8FAFC;
+  --text-secondary: #D1D5DB;
+  --text-muted: #94A3B8;
+  --success: #10B981;
   --warning: #D97706;
   --danger: #DC2626;
-  --info: #2563EB;
+  --info: #059669;
 }
 
 body {
-  background-color: #0F1025;
-  background-image: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.18) 0%, rgba(49, 46, 129, 0.08) 50%, transparent 80%);
-  color: #F8F8FF;
+  background-color: #071C16;
+  background-image: radial-gradient(circle at 50% 0%, rgba(5, 150, 105, 0.16) 0%, rgba(6, 78, 59, 0.08) 50%, transparent 80%);
+  color: #F8FAFC;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   margin: 0;
   padding: 0;
@@ -105,24 +105,24 @@ button, a, input, select, textarea, [role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Custom scrollbar for Indigo Glass theme */
+/* Custom scrollbar for Emerald Office theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0F1025;
+  background: #071C16;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.30);
+  background: rgba(5, 150, 105, 0.30);
   border-radius: 9999px;
-  border: 1px solid rgba(23, 25, 54, 0.8);
+  border: 1px solid rgba(11, 42, 32, 0.8);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #6366F1;
+  background: #10B981;
 }
 
-/* Indigo Glass Form Inputs default styling */
+/* Emerald Form Inputs default styling */
 input[type="text"],
 input[type="number"],
 input[type="email"],
@@ -131,9 +131,9 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: rgba(23, 25, 54, 0.85) !important;
-  color: #F8F8FF !important;
-  border: 1px solid rgba(99, 102, 241, 0.25) !important;
+  background-color: rgba(11, 42, 32, 0.85) !important;
+  color: #F8FAFC !important;
+  border: 1px solid rgba(5, 150, 105, 0.30) !important;
   border-radius: 12px !important;
   transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
@@ -147,58 +147,58 @@ input[type="time"]:focus,
 textarea:focus,
 select:focus {
   outline: none !important;
-  border-color: #6366F1 !important;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.30) !important;
+  border-color: #10B981 !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.30) !important;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #8A8AA3 !important;
+  color: #94A3B8 !important;
 }
 
-/* Indigo Glass Card Utilities */
+/* Emerald Card Utilities */
 .glass-card {
-  background: rgba(30, 31, 65, 0.72);
-  border: 1px solid rgba(99, 102, 241, 0.20);
-  box-shadow: 0 8px 32px rgba(15, 16, 37, 0.40);
+  background: rgba(11, 42, 32, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(7, 28, 22, 0.40);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border-radius: 18px;
+  border-radius: 16px;
 }
 
 .glass-card-elevated {
-  background: rgba(40, 42, 85, 0.80);
-  border: 1px solid rgba(99, 102, 241, 0.30);
-  box-shadow: 0 12px 40px rgba(15, 16, 37, 0.55);
+  background: rgba(20, 69, 53, 0.90);
+  border: 1px solid rgba(5, 150, 105, 0.30);
+  box-shadow: 0 12px 40px rgba(7, 28, 22, 0.55);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-radius: 20px;
 }
 
-/* Indigo button utilities */
-.btn-indigo, .btn-gold {
-  background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%);
+/* Emerald button utilities */
+.btn-indigo, .btn-gold, .btn-emerald {
+  background: linear-gradient(135deg, #064E3B 0%, #059669 100%);
   color: #FFFFFF;
-  font-weight: 700;
-  border: 1px solid rgba(129, 140, 248, 0.35);
-  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.35);
+  font-weight: 600;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 16px rgba(5, 150, 105, 0.35);
   border-radius: 12px;
   transition: all 0.15s ease;
 }
-.btn-indigo:hover, .btn-gold:hover {
-  background: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);
-  box-shadow: 0 6px 24px rgba(99, 102, 241, 0.45);
+.btn-indigo:hover, .btn-gold:hover, .btn-emerald:hover {
+  background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+  box-shadow: 0 6px 24px rgba(16, 185, 129, 0.45);
 }
-.btn-indigo:active, .btn-gold:active {
-  background: #312E81;
+.btn-indigo:active, .btn-gold:active, .btn-emerald:active {
+  background: #064E3B;
   color: #FFFFFF;
 }
 
-/* Indigo badge utility */
-.indigo-badge, .gold-badge {
-  background: rgba(99, 102, 241, 0.15);
-  border: 1px solid rgba(99, 102, 241, 0.30);
-  color: #818CF8;
+/* Emerald badge utility */
+.indigo-badge, .gold-badge, .emerald-badge {
+  background: rgba(5, 150, 105, 0.15);
+  border: 1px solid rgba(5, 150, 105, 0.30);
+  color: #34D399;
 }
 
 @keyframes subtlePulse {
