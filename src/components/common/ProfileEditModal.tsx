@@ -189,17 +189,17 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
     <Dialog isOpen={isOpen} onClose={onClose} title={`Edit Employee Profile: ${user.name || 'Unknown'}`}>
       <div className="flex flex-col items-center mb-5">
         <div className="relative group">
-          <div className="w-24 h-24 rounded-full bg-[#170B38] border-2 border-[#7C3AED] overflow-hidden flex items-center justify-center shadow-lg">
+          <div className="w-24 h-24 rounded-full bg-[#151515] border-2 border-[#D4AF37] overflow-hidden flex items-center justify-center shadow-lg">
             {photoUrl ? (
               <img src={photoUrl} alt={user.name} className="w-full h-full object-cover" />
             ) : (
-              <User className="w-12 h-12 text-purple-300/60" />
+              <User className="w-12 h-12 text-[#D4AF37]/60" />
             )}
           </div>
           <label
             className={`absolute bottom-0 right-0 p-2 ${
-              uploadingPhoto ? 'bg-purple-800' : 'bg-[#7C3AED] hover:bg-[#6D28D9]'
-            } text-white rounded-full cursor-pointer shadow-md transition-all scale-95 group-hover:scale-105`}
+              uploadingPhoto ? 'bg-[#B5922F]' : 'bg-[#D4AF37] hover:bg-[#B5922F]'
+            } text-black rounded-full cursor-pointer shadow-md transition-all scale-95 group-hover:scale-105`}
           >
             {uploadingPhoto ? (
               <span className="text-[9px] font-black animate-pulse">Wait...</span>

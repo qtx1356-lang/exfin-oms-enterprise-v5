@@ -192,9 +192,9 @@ export const WorkHoursScreen: React.FC = () => {
         format: 'a4',
       });
 
-      const primaryColor = [23, 27, 31]; // #171B1F
-      const accentColor = [24, 201, 143]; // #18C98F
-      const textGray = [80, 80, 80];
+      const primaryColor = [21, 21, 21]; // #151515
+      const accentColor = [212, 175, 55]; // #D4AF37
+      const textGray = [138, 138, 138];
 
       // Draw Top Header Bar
       doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -325,12 +325,12 @@ export const WorkHoursScreen: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* HEADER SECTION */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#171B1F] border border-[#3A4148] p-4 rounded-3xl backdrop-blur-md">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#151515] border border-[#292929] p-4 rounded-3xl backdrop-blur-md">
         <div>
           <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-            <Clock className="w-6 h-6 text-[#18C98F]" /> WORK HOURS
+            <Clock className="w-6 h-6 text-[#D4AF37]" /> WORK HOURS
           </h1>
-          <p className="text-xs text-[#B7C0BC] mt-1">
+          <p className="text-xs text-[#C7C7C7] mt-1">
             Authoritative attendance hours analysis & breakdown
           </p>
         </div>
@@ -339,10 +339,10 @@ export const WorkHoursScreen: React.FC = () => {
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="flex-1 sm:flex-none text-xs font-bold text-white bg-[#111417] border border-[#3A4148] rounded-2xl px-3 py-2.5 outline-none cursor-pointer focus:border-[#18C98F] transition-all shadow-md"
+            className="flex-1 sm:flex-none text-xs font-bold text-white bg-[#101010] border border-[#292929] rounded-2xl px-3 py-2.5 outline-none cursor-pointer focus:border-[#D4AF37] transition-all shadow-md"
           >
             {monthOptions.map((opt) => (
-              <option key={opt.val} value={opt.val} className="bg-[#111417]">
+              <option key={opt.val} value={opt.val} className="bg-[#101010]">
                 {opt.label}
               </option>
             ))}
@@ -351,7 +351,7 @@ export const WorkHoursScreen: React.FC = () => {
           <Button
             onClick={handleExportPDF}
             disabled={isFutureMonth || monthlyRecords.length === 0}
-            className="w-full sm:w-auto text-xs py-2.5 bg-[#18C98F] hover:bg-[#10966D] font-bold rounded-2xl flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all text-[#0B0D0F]"
+            className="w-full sm:w-auto text-xs py-2.5 bg-[#D4AF37] hover:bg-[#B5922F] font-bold rounded-2xl flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all text-black"
           >
             <Download className="w-4 h-4" /> Export PDF
           </Button>

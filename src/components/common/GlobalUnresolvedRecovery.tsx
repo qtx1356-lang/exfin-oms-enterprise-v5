@@ -180,14 +180,14 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
             </p>
           </div>
 
-          <div className="text-xs text-[#A7B0BE] bg-[#171B1E] p-3 rounded-xl border border-[#2D3339]">
+          <div className="text-xs text-[#C7C7C7] bg-[#101010] p-3 rounded-xl border border-[#292929]">
             <div className="flex justify-between items-center mb-1">
               <span>Date:</span>
               <span className="font-bold text-white">{unresolvedRecord.date}</span>
             </div>
             <div className="flex justify-between items-center">
               <span>Check-in Time:</span>
-              <span className="font-bold text-[#18C98F]">{unresolvedRecord.checkInTime}</span>
+              <span className="font-bold text-[#D4AF37]">{unresolvedRecord.checkInTime}</span>
             </div>
           </div>
 

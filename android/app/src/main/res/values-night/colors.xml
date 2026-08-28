@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Executive Edition Palette Night Values -->
+    <color name="colorPrimary">#D4AF37</color>
+    <color name="colorPrimaryDark">#080808</color>
+    <color name="colorAccent">#D4AF37</color>
+    <color name="backgroundColor">#080808</color>
+    <color name="surfaceColor">#111111</color>
+    <color name="cardColor">#151515</color>
+    <color name="borderColor">#292929</color>
+</resources>

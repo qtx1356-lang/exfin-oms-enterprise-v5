@@ -682,20 +682,20 @@ export const LeaveScreen: React.FC = () => {
         {/* Right: History & List */}
         <div className="lg:col-span-7 space-y-4">
           <Card className="p-5 bg-[#171B1F] border border-[#3A4148] shadow-xl min-h-[400px] flex flex-col">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-[#3A4148] pb-4 mb-4">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-[#292929] pb-4 mb-4">
               <h2 className="text-sm font-black text-white flex items-center gap-2">
-                <FileText className="w-4.5 h-4.5 text-[#18C98F]" />
+                <FileText className="w-4.5 h-4.5 text-[#D4AF37]" />
                 My Leave History
               </h2>
-              <div className="flex gap-1 bg-[#111417] p-1 rounded-xl border border-[#3A4148] text-xs self-start">
+              <div className="flex gap-1 bg-[#101010] p-1 rounded-xl border border-[#292929] text-xs self-start">
                 {(['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'] as const).map((status) => (
                   <button
                     key={status}
                     onClick={() => setStatusFilter(status)}
                     className={`px-2.5 py-1 rounded-lg transition-all font-semibold ${
                       statusFilter === status
-                        ? 'bg-[#18C98F] text-[#0B0D0F] shadow-md'
-                        : 'text-[#B7C0BC]/70 hover:text-white'
+                        ? 'bg-[#D4AF37] text-black shadow-md font-bold'
+                        : 'text-[#C7C7C7]/70 hover:text-white'
                     }`}
                   >
                     {status.charAt(0) + status.slice(1).toLowerCase()}
@@ -711,7 +711,7 @@ export const LeaveScreen: React.FC = () => {
                   <div
                     key={leave.id}
                     onClick={() => setSelectedLeave(leave)}
-                    className="p-3.5 bg-[#1D2329] hover:bg-[#252C34] rounded-2xl border border-[#3A4148] transition cursor-pointer flex flex-col sm:flex-row justify-between gap-3 items-start sm:items-center"
+                    className="p-3.5 bg-[#151515] hover:bg-[#1B1B1B] rounded-2xl border border-[#292929] transition cursor-pointer flex flex-col sm:flex-row justify-between gap-3 items-start sm:items-center"
                   >
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">

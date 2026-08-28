@@ -111,10 +111,10 @@ export function exportToXLSX(
     </head>
     <body>
       <div style="padding:24px;">
-        <h1 style="color:#2D1B5A;font-size:22px;font-weight:900;margin:0 0 2px 0;letter-spacing:-0.5px;">Office Management System</h1>
-        <span style="color:#7C3AED;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:12px;">Enterprise Management System</span>
+        <h1 style="color:#FFFFFF;font-size:22px;font-weight:900;margin:0 0 2px 0;letter-spacing:-0.5px;">Office Management System</h1>
+        <span style="color:#D4AF37;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:12px;">Enterprise Management System</span>
         
-        <h2 style="color:#5B21B6;font-size:16px;font-weight:800;margin:0 0 4px 0;">${title}</h2>
+        <h2 style="color:#D4AF37;font-size:16px;font-weight:800;margin:0 0 4px 0;">${title}</h2>
         <p style="font-size:12px;color:#4B5563;margin:0 0 16px 0;"><strong>Reporting Period:</strong> ${period}</p>
         
         <table style="margin-bottom:20px;max-width:450px;font-size:11px;border-collapse:collapse;">

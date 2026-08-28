@@ -42,19 +42,19 @@ const AdminProtectedRoute = () => {
 
   if (adminProfileError || (role !== 'ADMIN' && role !== 'SUPER_ADMIN' && role !== 'HR')) {
     return (
-      <div className="min-h-screen bg-[#0F1317] flex flex-col items-center justify-center p-4 text-white">
-        <Card className="max-w-md w-full p-8 space-y-6 bg-[#171B1E] border border-[#3A4148] shadow-2xl rounded-[28px] text-center">
-          <div className="w-16 h-16 bg-amber-500/20 border border-amber-500/40 rounded-2xl flex items-center justify-center mx-auto shadow-[0_0_25px_rgba(245,158,11,0.3)]">
-            <ShieldAlert className="w-9 h-9 text-amber-400" />
+      <div className="min-h-screen bg-[#080808] flex flex-col items-center justify-center p-4 text-white">
+        <Card className="max-w-md w-full p-8 space-y-6 bg-[#151515] border border-[#292929] shadow-2xl rounded-[28px] text-center">
+          <div className="w-16 h-16 bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-2xl flex items-center justify-center mx-auto shadow-[0_0_25px_rgba(212,175,55,0.2)]">
+            <ShieldAlert className="w-9 h-9 text-[#D4AF37]" />
           </div>
           <h1 className="text-xl font-black text-white">Admin Access Restricted</h1>
-          <p className="text-[#B7C0BC] text-xs leading-relaxed">
+          <p className="text-[#C7C7C7] text-xs leading-relaxed">
             {adminProfileError || 'Your account is authenticated, but does not have Admin access privileges.'}
           </p>
           <div className="pt-2">
             <button
               onClick={() => logout()}
-              className="w-full py-3 bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] font-bold rounded-2xl text-xs transition-colors shadow-lg"
+              className="w-full py-3 bg-[#D4AF37] hover:bg-[#B5922F] text-black font-bold rounded-2xl text-xs transition-colors shadow-lg"
             >
               Sign Out & Return to Login
             </button>
@@ -145,7 +145,7 @@ const FeatureGuard: React.FC<{ feature: FeatureKey; children: React.ReactNode }>
   if (!hasFeatureAccess(feature)) {
     return (
       <div className="py-6 h-[calc(100vh-120px)]">
-        <Card className="h-full p-6 flex flex-col bg-[#171B1E] border border-[#3A4148] text-white rounded-[22px]">
+        <Card className="h-full p-6 flex flex-col bg-[#151515] border border-[#292929] text-white rounded-[22px]">
           <h1 className="text-xl font-black text-white mb-6">Access Denied</h1>
           <div className="flex-1">
             <EmptyState 

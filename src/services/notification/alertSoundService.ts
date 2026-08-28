@@ -569,7 +569,7 @@ export const playAlertSound = (
                 channelId: channelId,
                 sound: 'alert.wav',
                 smallIcon: 'ic_stat_onesignal_default',
-                iconColor: '#7C3AED',
+                iconColor: '#D4AF37',
                 extra: { notifId }
               }
             ]
