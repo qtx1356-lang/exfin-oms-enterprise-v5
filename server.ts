@@ -1411,7 +1411,7 @@ async function startServer() {
   // =======================================================
 
   // 1. Get Daily Report Config (Admin/Super-Admin)
-  app.get("/api/admin/daily-report/config", async (req, res) => {
+  app.get(["/api/admin/daily-report/config", "/api/admin/daily-email-report/config"], async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller || !caller.isAdmin) {
       return res.status(401).json({ error: "Unauthorized access: Valid Admin token required" });
@@ -1434,7 +1434,7 @@ async function startServer() {
   });
 
   // 2. Save Daily Report Config (Super-Admin only)
-  app.post("/api/admin/daily-report/config", async (req, res) => {
+  app.post(["/api/admin/daily-report/config", "/api/admin/daily-email-report/config"], async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller || caller.role !== "SUPER_ADMIN") {
       return res.status(401).json({ error: "Unauthorized access: Super-Admin credentials required" });
@@ -1465,7 +1465,7 @@ async function startServer() {
   });
 
   // 3. Send Test Email (Super-Admin only)
-  app.post("/api/admin/daily-report/send-test", async (req, res) => {
+  app.post(["/api/admin/daily-report/send-test", "/api/admin/daily-email-report/test"], async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller || caller.role !== "SUPER_ADMIN") {
       return res.status(401).json({ error: "Unauthorized access: Super-Admin credentials required" });
@@ -1485,7 +1485,7 @@ async function startServer() {
   });
 
   // 4. Send Yesterday's / Specific Date Report Manually (Super-Admin only)
-  app.post("/api/admin/daily-report/send-yesterday", async (req, res) => {
+  app.post(["/api/admin/daily-report/send-yesterday", "/api/admin/daily-email-report/send-yesterday"], async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller || caller.role !== "SUPER_ADMIN") {
       return res.status(401).json({ error: "Unauthorized access: Super-Admin credentials required" });
@@ -1506,7 +1506,7 @@ async function startServer() {
   });
 
   // 5. Get Daily Report Sending History (Super-Admin only)
-  app.get("/api/admin/daily-report/history", async (req, res) => {
+  app.get(["/api/admin/daily-report/history", "/api/admin/daily-email-report/history"], async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller || !caller.isAdmin) {
       return res.status(401).json({ error: "Unauthorized access: Valid Admin token required" });
