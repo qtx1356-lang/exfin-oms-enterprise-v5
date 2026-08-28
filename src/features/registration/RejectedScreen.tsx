@@ -8,19 +8,27 @@ export const RejectedScreen: React.FC = () => {
   const { rejectionReason, resetRegistration } = useRegistration();
 
   return (
-    <div className="min-h-screen bg-[#0F1025] text-[#F8F8FF] p-4 flex flex-col items-center justify-center font-sans">
-      <Card className="max-w-md w-full p-8 text-center flex flex-col items-center bg-[#1E1F41]/80 border border-[#6366F1]/20 shadow-2xl rounded-3xl backdrop-blur-md">
-        <div className="w-20 h-20 bg-[#EF4444]/15 border border-[#EF4444]/35 rounded-full flex items-center justify-center mb-6 shadow-xl">
-          <XCircle className="w-10 h-10 text-[#EF4444]" />
+    <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)] p-4 flex flex-col items-center justify-center font-sans relative overflow-hidden">
+      {/* Emerald Aurora Ambient Lighting */}
+      <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[var(--aurora-emerald)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[var(--aurora-teal)]/8 rounded-full blur-[140px] pointer-events-none -z-10" />
+
+      <div className="max-w-md w-full glass-card-elevated p-10 text-center flex flex-col items-center relative z-10">
+        <div className="w-20 h-20 bg-[var(--danger)]/10 border border-[var(--danger)]/20 rounded-full flex items-center justify-center mb-8 shadow-2xl relative">
+          <XCircle className="w-10 h-10 text-[var(--danger)]" />
+          <div className="absolute inset-0 bg-[var(--danger)]/10 blur-xl rounded-full -z-10" />
         </div>
-        <h2 className="text-xl font-black text-[#FFFFFF] mb-3 tracking-wide uppercase">Registration Rejected</h2>
-        <p className="text-[#C7C7C7] text-xs mb-6 leading-relaxed">
-          {rejectionReason || 'Your device registration was rejected by the administrator.'}
+        <h2 className="text-xl font-black text-[var(--text-primary)] mb-4 tracking-tight uppercase">Registration Denied</h2>
+        <p className="text-[var(--text-secondary)] text-xs leading-relaxed font-medium mb-8 max-w-[260px]">
+          {rejectionReason || 'Security protocols prevented your device registration from being approved by the administrator.'}
         </p>
-        <Button onClick={resetRegistration} className="w-full bg-[#D4AF37] hover:bg-[#E6C766] active:bg-[#9C7B20] text-black font-black uppercase tracking-wider rounded-2xl border border-[#E6C766]">
-          Register Again
-        </Button>
-      </Card>
+        <button 
+          onClick={resetRegistration} 
+          className="w-full py-4 aurora-bg text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl border border-white/20 active:scale-[0.98] transition-all aurora-glow-emerald"
+        >
+          Restart Registration
+        </button>
+      </div>
     </div>
   );
 };

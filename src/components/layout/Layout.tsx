@@ -269,70 +269,71 @@ export const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)] pb-20 relative overflow-x-hidden">
-      {/* Subtle Emerald ambient lighting */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-[var(--primary)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
-      <div className="fixed bottom-10 right-1/4 w-96 h-96 bg-[var(--primary)]/5 rounded-full blur-[140px] pointer-events-none -z-10" />
+      {/* Emerald Aurora Ambient Lighting */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-[var(--aurora-emerald)]/15 rounded-full blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed bottom-10 right-1/4 w-[400px] h-[400px] bg-[var(--aurora-teal)]/10 rounded-full blur-[160px] pointer-events-none -z-10" />
+      <div className="fixed top-1/2 left-0 w-[300px] h-[500px] bg-[var(--aurora-cyan)]/5 rounded-full blur-[120px] pointer-events-none -z-10" />
 
-      {/* Dynamic Header Bar with [Distance] [Office Status] [Location Address] [Bell] */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[var(--card-bg)]/85 backdrop-blur-[16px] border-b border-[var(--primary)]/20 shadow-md text-[var(--text-primary)]">
-        <div className="container mx-auto px-2.5 sm:px-4 py-2 max-w-3xl flex items-center justify-between gap-1.5 sm:gap-2">
+      {/* Dynamic Header Bar with Glassmorphism */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[var(--card-surface)]/70 backdrop-blur-[24px] border-b border-[var(--border)] shadow-xl text-[var(--text-primary)]">
+        <div className="container mx-auto px-3 sm:px-5 py-2.5 max-w-3xl flex items-center justify-between gap-2">
           {/* Left/Center Header Status & Location Controls */}
-          <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden py-0.5">
+          <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
             {/* Live Distance Value */}
             <div
-              className="text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--app-bg-secondary)]/80 border border-[var(--primary)]/20 px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
+              className="text-[10px] font-black text-[var(--text-secondary)] bg-[var(--card-bg)]/80 border border-[var(--border)] px-2.5 py-1 rounded-xl whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0 uppercase tracking-tight"
               title="Live distance from office"
             >
+              <span className="text-[var(--aurora-emerald)]">DIST:</span>
               <span>{formattedDistance}</span>
             </div>
 
             {/* Office Location Status Badge */}
             <div
-              className={`text-[9px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap flex items-center gap-1 shadow-sm select-none shrink-0 ${
+              className={`text-[9px] font-black px-2.5 py-1 rounded-xl border whitespace-nowrap flex items-center gap-1.5 shadow-sm select-none shrink-0 transition-all duration-500 ${
                 isInsideGeofence
-                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                  : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                  ? 'bg-[var(--success)]/10 text-[var(--success)] border-[var(--success)]/20 shadow-[0_0_12px_rgba(34,197,94,0.15)]'
+                  : 'bg-[var(--danger)]/10 text-[var(--danger)] border-[var(--danger)]/20 shadow-[0_0_12px_rgba(239,68,68,0.15)]'
               }`}
               title={isInsideGeofence ? 'Inside office geofence' : 'Outside office geofence'}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-              <span>{isInsideGeofence ? 'INSIDE OFFICE' : 'OUTSIDE OFFICE'}</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-[var(--success)] animate-pulse' : 'bg-[var(--danger)]'}`} />
+              <span className="tracking-[0.05em]">{isInsideGeofence ? 'GEOFENCE OK' : 'OUT OF RANGE'}</span>
             </div>
 
             {/* Global Sync Status */}
             <GlobalSyncStatus />
 
             {/* Location Address */}
-            <div className="block min-w-0 flex-1">
+            <div className="hidden xs:block min-w-0 flex-1">
               <MarqueeAddress address={displayAddress} />
             </div>
           </div>
 
           {/* Right Header Navigation Controls: [Notification Bell] */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             {currentUser && (
               <>
                 {!adminUser && (
                   <button
                     onClick={() => navigate('/faq')}
-                    className="relative p-1.5 sm:p-2 rounded-xl bg-[var(--app-bg-secondary)]/80 border border-[var(--primary)]/20 text-[var(--text-secondary)] hover:text-[var(--primary-light)] hover:border-[var(--primary)]/50 transition-all cursor-pointer shadow-xs"
+                    className="relative p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--aurora-emerald)]/30 transition-all cursor-pointer shadow-sm active:scale-95"
                     aria-label="Help & FAQ"
-                    title="Help & FAQ"
                   >
-                    <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <HelpCircle className="w-4.5 h-4.5" />
                   </button>
                 )}
                 <div className="relative shrink-0 flex items-center" ref={dropdownRef}>
                   {/* Bell Button */}
                   <button
                     onClick={handleBellClick}
-                    className="relative p-1.5 sm:p-2 rounded-xl bg-[var(--app-bg-secondary)]/80 border border-[var(--primary)]/20 text-[var(--text-secondary)] hover:text-[var(--primary-light)] hover:border-[var(--primary)]/50 transition-all cursor-pointer shadow-xs"
+                    className="relative p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--aurora-emerald)]/30 transition-all cursor-pointer shadow-sm active:scale-95"
                     aria-label="Toggle notifications"
                     id="notification-bell-btn"
                   >
-                    <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <Bell className="w-4.5 h-4.5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-rose-600 text-[9px] sm:text-[10px] font-bold text-white ring-2 ring-[var(--card-bg)]">
+                      <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--danger)] text-[9px] font-black text-white ring-2 ring-[var(--card-bg)] shadow-lg animate-bounce-subtle">
                         {unreadCount}
                       </span>
                     )}
@@ -342,68 +343,67 @@ export const Layout: React.FC = () => {
                 <AnimatePresence>
                   {dropdownOpen && (
                     <motion.div
-                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                       initial={{ opacity: 0, y: 12, scale: 0.95 }}
                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                       transition={{ duration: 0.15 }}
-                       className="absolute right-0 mt-2 w-80 sm:w-96 bg-[var(--card-bg)]/95 backdrop-blur-[20px] border border-[var(--primary)]/25 rounded-2xl shadow-xl z-50 overflow-hidden text-[var(--text-primary)]"
+                       exit={{ opacity: 0, y: 12, scale: 0.95 }}
+                       transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+                       className="absolute right-0 mt-3 w-[320px] xs:w-[380px] glass-card-elevated z-50 overflow-hidden text-[var(--text-primary)] shadow-2xl"
                        id="notification-bell-dropdown"
                     >
-                      <div className="p-4 border-b border-[var(--primary)]/20 flex items-center justify-between bg-[var(--app-bg-secondary)]/90">
-                        <span className="font-bold text-sm text-[var(--text-primary)]">Recent Alerts</span>
+                      <div className="p-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--card-surface)]/90">
+                        <span className="font-black text-xs uppercase tracking-widest text-[var(--text-primary)]">Intelligence Alerts</span>
                         <div className="flex items-center gap-2">
                           {unreadCount > 0 && (
                             <button
                               onClick={handleMarkAllRead}
-                              className="text-[11px] text-[var(--primary-light)] hover:underline font-bold flex items-center gap-1 bg-[var(--primary)]/15 border border-[var(--primary)]/30 px-2 py-0.5 rounded-full transition-colors"
-                              title="Mark all notifications as read"
+                              className="text-[9px] text-[var(--aurora-emerald)] hover:underline font-black flex items-center gap-1 bg-[var(--aurora-emerald)]/10 border border-[var(--aurora-emerald)]/20 px-2.5 py-1 rounded-lg transition-all uppercase tracking-wider"
                               id="mark-all-read-btn"
                             >
                               <CheckCheck className="w-3 h-3" />
-                              <span>Mark all read</span>
+                              <span>Clear All</span>
                             </button>
-                          )}
-                          {unreadCount > 0 && (
-                            <span className="text-xs text-[var(--primary-light)] bg-[var(--primary)]/20 border border-[var(--primary)]/40 px-2 py-0.5 rounded-full font-bold">
-                              {unreadCount} unread
-                            </span>
                           )}
                         </div>
                       </div>
 
-                      <div className="max-h-64 overflow-y-auto divide-y divide-[var(--primary)]/15">
+                      <div className="max-h-80 overflow-y-auto divide-y divide-[var(--border)]">
                         {recentNotifs.length === 0 ? (
-                          <div className="p-6 text-center text-[var(--text-secondary)] text-xs">
-                            No recent notifications.
+                          <div className="p-10 text-center flex flex-col items-center gap-3">
+                            <div className="w-12 h-12 rounded-full bg-[var(--card-surface)] border border-[var(--border)] flex items-center justify-center">
+                              <Bell className="w-5 h-5 text-[var(--text-muted)]" />
+                            </div>
+                            <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest">System Clear</span>
                           </div>
                         ) : (
                           recentNotifs.map((notif) => (
                             <div
                               key={notif.id}
                               onClick={() => handleNotificationClick(notif)}
-                              className={`p-3.5 hover:bg-[var(--app-bg-secondary)] transition-colors cursor-pointer flex items-start gap-3 text-left group ${
-                                notif.read ? 'opacity-60' : 'bg-[var(--card-bg)]/60'
+                              className={`p-4 hover:bg-[var(--card-surface)] transition-all cursor-pointer flex items-start gap-4 text-left group relative ${
+                                notif.read ? 'opacity-50' : 'bg-transparent'
                               }`}
                             >
-                              <div className="mt-1">
-                                <Info className={`w-4 h-4 ${notif.read ? 'text-[var(--text-secondary)]' : 'text-[var(--primary-light)]'}`} />
+                              {!notif.read && (
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--aurora-emerald)]" />
+                              )}
+                              <div className={`mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
+                                notif.read ? 'bg-[var(--card-bg)] border-[var(--border)]' : 'bg-[var(--aurora-emerald)]/10 border-[var(--aurora-emerald)]/20'
+                              }`}>
+                                <Info className={`w-4 h-4 ${notif.read ? 'text-[var(--text-muted)]' : 'text-[var(--aurora-emerald)]'}`} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-xs font-bold ${notif.read ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'}`}>
+                                <p className={`text-xs font-black uppercase tracking-tight leading-tight ${notif.read ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'}`}>
                                   {notif.title}
                                 </p>
-                                <p className="text-[11px] text-[var(--text-secondary)] truncate mt-0.5">
+                                <p className="text-[11px] text-[var(--text-secondary)] mt-1 leading-relaxed line-clamp-2">
                                   {notif.message}
                                 </p>
                               </div>
-                              <div className="flex items-center gap-1.5 flex-shrink-0">
-                                {!notif.read && (
-                                  <div className="w-2 h-2 rounded-full bg-[var(--primary)] mt-1 shadow-[0_0_8px_var(--primary)]" />
-                                )}
+                              <div className="flex items-center gap-2 shrink-0">
                                 <button
                                   onClick={(e) => handleDeleteNotification(e, notif.id)}
-                                  className="p-1 rounded hover:bg-rose-500/20 text-[var(--text-secondary)] hover:text-rose-400 transition-colors opacity-80 group-hover:opacity-100"
-                                  title="Delete notification"
+                                  className="p-1.5 rounded-lg hover:bg-[var(--danger)]/10 text-[var(--text-muted)] hover:text-[var(--danger)] transition-colors"
+                                  title="Remove"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -415,9 +415,9 @@ export const Layout: React.FC = () => {
 
                       <button
                         onClick={handleViewAll}
-                        className="w-full py-3 bg-[var(--card-bg)] hover:bg-[var(--app-bg-secondary)] text-center text-xs font-bold text-[var(--primary-light)] transition-colors border-t border-[var(--primary)]/20 flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="w-full py-4 bg-[var(--card-surface)] hover:bg-[var(--card-bg)] text-center text-[10px] font-black text-[var(--aurora-emerald)] transition-all border-t border-[var(--border)] flex items-center justify-center gap-2 cursor-pointer uppercase tracking-[0.2em]"
                       >
-                        <span>View all alerts</span>
+                        <span>Portal Intelligence Center</span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </motion.div>
@@ -430,7 +430,7 @@ export const Layout: React.FC = () => {
         </div>
       </header>
 
-      <main className="container mx-auto p-4 pt-16 sm:pt-20 max-w-3xl pb-28">
+      <main className="container mx-auto p-4 pt-20 sm:pt-24 max-w-3xl pb-32">
         <InAppNotificationToast
           toastData={activeToastNotif}
           onDismiss={() => setActiveToastNotif(null)}

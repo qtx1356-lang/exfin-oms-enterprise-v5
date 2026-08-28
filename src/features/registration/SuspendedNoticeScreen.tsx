@@ -8,19 +8,27 @@ export const SuspendedNoticeScreen: React.FC = () => {
   const { rejectionReason, resetRegistration } = useRegistration();
 
   return (
-    <div className="min-h-screen bg-[#0F1025] text-[#F8F8FF] p-4 flex flex-col items-center justify-center font-sans">
-      <Card className="max-w-md w-full p-8 text-center flex flex-col items-center bg-[#1E1F41]/80 border border-[#6366F1]/20 shadow-2xl rounded-3xl backdrop-blur-md">
-        <div className="w-20 h-20 bg-[#F59E0B]/15 border border-[#F59E0B]/35 rounded-full flex items-center justify-center mb-6 shadow-xl">
-          <AlertOctagon className="w-10 h-10 text-[#F59E0B]" />
+    <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)] p-4 flex flex-col items-center justify-center font-sans relative overflow-hidden">
+      {/* Emerald Aurora Ambient Lighting */}
+      <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[var(--aurora-emerald)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[var(--aurora-teal)]/8 rounded-full blur-[140px] pointer-events-none -z-10" />
+
+      <div className="max-w-md w-full glass-card-elevated p-10 text-center flex flex-col items-center relative z-10">
+        <div className="w-20 h-20 bg-[var(--warning)]/10 border border-[var(--warning)]/20 rounded-full flex items-center justify-center mb-8 shadow-2xl relative">
+          <AlertOctagon className="w-10 h-10 text-[var(--warning)]" />
+          <div className="absolute inset-0 bg-[var(--warning)]/10 blur-xl rounded-full -z-10" />
         </div>
-        <h2 className="text-xl font-black text-[#FFFFFF] mb-3 tracking-wide uppercase">Account Access Restricted</h2>
-        <p className="text-[#C7C7C7] text-xs mb-6 leading-relaxed">
-          {rejectionReason || 'Your account is currently suspended, blocked, or inactive. Please contact your administrator.'}
+        <h2 className="text-xl font-black text-[var(--text-primary)] mb-4 tracking-tight uppercase">Access Suspended</h2>
+        <p className="text-[var(--text-secondary)] text-xs leading-relaxed font-medium mb-8 max-w-[260px]">
+          {rejectionReason || 'Security protocols have temporarily restricted your access. Please contact the security department for account re-activation.'}
         </p>
-        <Button onClick={resetRegistration} variant="outlined" className="w-full border-[#292929] text-[#C7C7C7] hover:border-[#D4AF37] hover:text-[#D4AF37] font-bold">
-          Try Different Mobile Number
-        </Button>
-      </Card>
+        <button 
+          onClick={resetRegistration} 
+          className="w-full py-4 px-6 rounded-2xl border border-[var(--border)] text-[var(--text-primary)] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[var(--card-surface)] transition-all shadow-md"
+        >
+          Different Credentials
+        </button>
+      </div>
     </div>
   );
 };

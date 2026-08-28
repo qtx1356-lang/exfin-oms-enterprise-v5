@@ -42,24 +42,28 @@ const AdminProtectedRoute = () => {
 
   if (adminProfileError || (role !== 'ADMIN' && role !== 'SUPER_ADMIN' && role !== 'HR')) {
     return (
-      <div className="min-h-screen bg-[#0F1025] flex flex-col items-center justify-center p-4 text-[#F8F8FF]">
-        <Card className="max-w-md w-full p-8 space-y-6 bg-[#1E1F41]/80 backdrop-blur-[14px] border border-[#6366F1]/30 shadow-2xl rounded-[28px] text-center">
-          <div className="w-16 h-16 bg-[#6366F1]/10 border border-[#6366F1]/30 rounded-2xl flex items-center justify-center mx-auto shadow-[0_0_25px_rgba(99,102,241,0.2)]">
-            <ShieldAlert className="w-9 h-9 text-[#818CF8]" />
+      <div className="min-h-screen bg-[var(--app-bg)] flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        {/* Emerald Aurora Ambient Lighting */}
+        <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[var(--aurora-emerald)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+        <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[var(--aurora-teal)]/8 rounded-full blur-[140px] pointer-events-none -z-10" />
+
+        <div className="glass-card-elevated max-w-md w-full p-8 space-y-6 text-center relative">
+          <div className="w-16 h-16 bg-[var(--aurora-emerald)]/10 border border-[var(--aurora-emerald)]/30 rounded-2xl flex items-center justify-center mx-auto shadow-xl">
+            <ShieldAlert className="w-9 h-9 text-[var(--aurora-emerald)]" />
           </div>
-          <h1 className="text-xl font-black text-[#F8F8FF]">Admin Access Restricted</h1>
-          <p className="text-[#B9B9D0] text-xs leading-relaxed">
+          <h1 className="text-xl font-black text-[var(--text-primary)] uppercase tracking-tight">Admin Access Restricted</h1>
+          <p className="text-[var(--text-secondary)] text-xs leading-relaxed font-medium">
             {adminProfileError || 'Your account is authenticated, but does not have Admin access privileges.'}
           </p>
           <div className="pt-2">
             <button
               onClick={() => logout()}
-              className="w-full py-3 bg-gradient-to-r from-[#4F46E5] to-[#6366F1] hover:from-[#6366F1] hover:to-[#818CF8] text-white font-bold rounded-2xl text-xs transition-colors shadow-lg"
+              className="w-full py-4 aurora-bg text-white font-black rounded-2xl text-xs transition-all shadow-xl active:scale-[0.98] uppercase tracking-widest border border-white/20"
             >
-              Sign Out & Return to Login
+              Sign Out & Return
             </button>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -144,17 +148,27 @@ const FeatureGuard: React.FC<{ feature: FeatureKey; children: React.ReactNode }>
   
   if (!hasFeatureAccess(feature)) {
     return (
-      <div className="py-6 h-[calc(100vh-120px)]">
-        <Card className="h-full p-6 flex flex-col bg-[#1E1F41]/80 backdrop-blur-[14px] border border-[#6366F1]/30 text-[#F8F8FF] rounded-[22px]">
-          <h1 className="text-xl font-black text-[#F8F8FF] mb-6">Access Denied</h1>
-          <div className="flex-1">
-            <EmptyState 
-              icon={ShieldAlert}
-              title="Feature not available for your role"
-              description="You do not have permission to access this module."
-            />
+      <div className="py-6 h-[calc(100vh-120px)] flex flex-col relative overflow-hidden">
+        {/* Emerald Aurora Ambient Lighting */}
+        <div className="absolute top-20 right-10 w-[300px] h-[300px] bg-[var(--aurora-emerald)]/10 rounded-full blur-[100px] pointer-events-none -z-10" />
+        
+        <div className="flex-1 glass-card-elevated p-8 flex flex-col items-center justify-center text-center relative">
+          <div className="w-16 h-16 bg-[var(--danger)]/10 border border-[var(--danger)]/20 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+            <ShieldAlert className="w-8 h-8 text-[var(--danger)]" />
           </div>
-        </Card>
+          <h1 className="text-xl font-black text-[var(--text-primary)] uppercase tracking-tight mb-2">Access Denied</h1>
+          <p className="text-[var(--text-secondary)] text-xs font-medium max-w-[240px] mx-auto leading-relaxed">
+            You do not have permission to access the <b>{feature}</b> module.
+          </p>
+          <div className="mt-8 flex gap-3">
+             <button 
+               onClick={() => window.history.back()}
+               className="px-6 py-3 rounded-xl border border-[var(--border)] text-[var(--text-primary)] text-xs font-black uppercase tracking-widest hover:bg-[var(--card-surface)] transition-all"
+             >
+               Go Back
+             </button>
+          </div>
+        </div>
       </div>
     );
   }

@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  --color-app-bg: #071C16;
-  --color-app-bg-secondary: #0B2A20;
+  --color-app-bg: var(--app-bg);
+  --color-app-bg-secondary: var(--app-bg-secondary);
   
   /* Primary & Secondary Cards */
-  --color-card-bg: #0B2A20;
-  --color-card-elevated: #144535;
-  --color-card-surface: #10382B;
+  --color-card-bg: var(--card-bg);
+  --color-card-elevated: var(--card-elevated);
+  --color-card-surface: var(--card-surface);
   --color-border-emerald: rgba(5, 150, 105, 0.40);
-  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-subtle: var(--border);
   
   /* Primary Accent: Emerald Office */
   --color-primary: #059669;
@@ -19,14 +19,14 @@
   --color-on-primary: #FFFFFF;
   
   /* Text inside Emerald Cards & Canvas */
-  --color-card-text: #F8FAFC;
-  --color-card-text-secondary: #D1D5DB;
-  --color-card-text-muted: #94A3B8;
+  --color-card-text: var(--text-primary);
+  --color-card-text-secondary: var(--text-secondary);
+  --color-card-text-muted: var(--text-muted);
 
   /* Text on Canvas */
-  --color-bg-text: #F8FAFC;
-  --color-bg-text-secondary: #D1D5DB;
-  --color-bg-text-muted: #94A3B8;
+  --color-bg-text: var(--text-primary);
+  --color-bg-text-secondary: var(--text-secondary);
+  --color-bg-text-muted: var(--text-muted);
 
   /* Status Colors */
   --color-success: #10B981;
@@ -35,37 +35,45 @@
   --color-info: #059669;
   --color-offline: #D97706;
   
-  --color-background: #071C16;
-  --color-surface: #0B2A20;
-  --color-surface-elevated: #144535;
-  --color-surface-variant: #10382B;
-  --color-on-surface: #F8FAFC;
-  --color-on-surface-variant: #D1D5DB;
-  --color-outline: rgba(255, 255, 255, 0.12);
-  --color-muted: #94A3B8;
+  --color-background: var(--app-bg);
+  --color-surface: var(--card-bg);
+  --color-surface-elevated: var(--card-elevated);
+  --color-surface-variant: var(--card-surface);
+  --color-on-surface: var(--text-primary);
+  --color-on-surface-variant: var(--text-secondary);
+  --color-outline: var(--border);
+  --color-muted: var(--text-muted);
 }
 
 :root {
-  /* DARK MODE (Default) */
-  --app-bg: #071C16;
-  --app-bg-secondary: #0B2A20;
-  --card-bg: #0B2A20;
-  --card-elevated: #144535;
-  --card-surface: #10382B;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-active: rgba(5, 150, 105, 0.50);
+  /* EMERALD AURORA DARK MODE (Default) */
+  --app-bg: #031712;
+  --app-bg-secondary: #06251D;
+  --card-bg: #06251D;
+  --card-elevated: #0D4032;
+  --card-surface: #09352A;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-active: rgba(16, 185, 129, 0.30);
   --primary: #059669;
-  --primary-dark: #064E3B;
+  --primary-dark: #022C22;
   --primary-light: #10B981;
   --text-primary: #F8FAFC;
-  --text-secondary: #D1D5DB;
+  --text-secondary: #D1FAE5;
   --text-muted: #94A3B8;
   --success: #10B981;
-  --warning: #D97706;
-  --danger: #DC2626;
+  --warning: #F59E0B;
+  --danger: #EF4444;
   --info: #059669;
   
+  /* Aurora Specifics */
+  --aurora-deep: #064E3B;
+  --aurora-emerald: #059669;
+  --aurora-teal: #14B8A6;
+  --aurora-cyan: #22D3EE;
+  --aurora-gradient: linear-gradient(135deg, var(--aurora-deep) 0%, var(--aurora-emerald) 40%, var(--aurora-teal) 75%, var(--aurora-cyan) 100%);
+  
+  /* Legacy Employee Mappings (Functional Protection) */
   --employee-bg: var(--app-bg);
   --employee-surface: var(--card-bg);
   --employee-surface-strong: var(--card-elevated);
@@ -84,25 +92,21 @@
 
 @media (prefers-color-scheme: light) {
   :root {
-    --app-bg: #F6FAF8;
+    --app-bg: #F5FAF7;
     --app-bg-secondary: #FFFFFF;
     --card-bg: #FFFFFF;
     --card-elevated: #FFFFFF;
     --card-surface: #F8FAFC;
-    --border: #E2E8F0;
+    --border: #DDEBE5;
     --border-subtle: #EDF2F7;
     --border-active: rgba(5, 150, 105, 0.30);
     --primary: #059669;
     --primary-dark: #047857;
     --primary-light: #10B981;
-    --text-primary: #111827;
+    --text-primary: #0F172A;
     --text-secondary: #475569;
     --text-muted: #64748B;
-    --success: #10B981;
-    --warning: #D97706;
-    --danger: #DC2626;
-    --info: #059669;
-
+    
     --employee-bg: var(--app-bg);
     --employee-surface: var(--card-bg);
     --employee-surface-strong: var(--card-elevated);
@@ -130,11 +134,16 @@ body {
   position: relative;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 @media (prefers-color-scheme: dark) {
   body {
-    background-image: radial-gradient(circle at 50% 0%, rgba(5, 150, 105, 0.16) 0%, rgba(6, 78, 59, 0.08) 50%, transparent 80%);
+    background-image: 
+      radial-gradient(circle at 80% 0%, rgba(34, 211, 238, 0.03) 0%, transparent 40%),
+      radial-gradient(circle at 20% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 50% 100%, rgba(6, 78, 59, 0.05) 0%, transparent 50%);
+    background-attachment: fixed;
   }
 }
 
@@ -143,13 +152,46 @@ body {
   min-height: 100vh;
 }
 
+/* Aurora Signature Utilities */
+.aurora-bg {
+  background: var(--aurora-gradient);
+}
+
+.aurora-text {
+  background: var(--aurora-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.aurora-glow-emerald {
+  box-shadow: 0 0 40px rgba(16, 185, 129, 0.12);
+}
+
+.aurora-glow-teal {
+  box-shadow: 0 0 40px rgba(20, 184, 166, 0.08);
+}
+
+.glass-nav {
+  background: rgba(6, 37, 29, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@media (prefers-color-scheme: light) {
+  .glass-nav {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+}
+
 /* Touch optimization for instant button feedback */
 button, a, input, select, textarea, [role="button"] {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Custom scrollbar for Emerald Office theme */
+/* Custom scrollbar for Emerald Aurora theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -158,7 +200,7 @@ button, a, input, select, textarea, [role="button"] {
   background: var(--app-bg);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(5, 150, 105, 0.30);
+  background: rgba(5, 150, 105, 0.20);
   border-radius: 9999px;
   border: 1px solid var(--app-bg-secondary);
 }
@@ -179,7 +221,7 @@ select {
   color: var(--text-primary) !important;
   border: 1px solid var(--border) !important;
   border-radius: 12px !important;
-  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 input[type="text"]:focus,
@@ -191,8 +233,8 @@ input[type="time"]:focus,
 textarea:focus,
 select:focus {
   outline: none !important;
-  border-color: var(--primary) !important;
-  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.20) !important;
+  border-color: var(--aurora-emerald) !important;
+  box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.12) !important;
 }
 
 input::placeholder,
@@ -204,15 +246,15 @@ textarea::placeholder {
 .glass-card {
   background: var(--card-bg);
   border: 1px solid var(--border);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
   border-radius: 16px;
 }
 
 @media (prefers-color-scheme: dark) {
   .glass-card {
-    background: rgba(11, 42, 32, 0.82);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 32px rgba(7, 28, 22, 0.40);
+    background: rgba(6, 37, 29, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
   }
@@ -221,15 +263,15 @@ textarea::placeholder {
 .glass-card-elevated {
   background: var(--card-elevated);
   border: 1px solid var(--border-active);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
   border-radius: 20px;
 }
 
 @media (prefers-color-scheme: dark) {
   .glass-card-elevated {
-    background: rgba(20, 69, 53, 0.90);
-    border: 1px solid rgba(5, 150, 105, 0.30);
-    box-shadow: 0 12px 40px rgba(7, 28, 22, 0.55);
+    background: rgba(13, 64, 50, 0.92);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.40);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
@@ -237,34 +279,37 @@ textarea::placeholder {
 
 /* Emerald button utilities & backward compatibility */
 .btn-primary, .btn-emerald, .btn-indigo, .btn-gold {
-  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+  background: linear-gradient(135deg, var(--aurora-deep) 0%, var(--aurora-emerald) 100%);
   color: #FFFFFF;
   font-weight: 600;
-  border: 1px solid rgba(16, 185, 129, 0.35);
-  box-shadow: 0 4px 16px rgba(5, 150, 105, 0.35);
+  border: 1px solid rgba(16, 185, 129, 0.30);
+  box-shadow: 0 4px 16px rgba(5, 150, 105, 0.25);
   border-radius: 12px;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-primary:hover, .btn-emerald:hover, .btn-indigo:hover, .btn-gold:hover {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-  box-shadow: 0 6px 24px rgba(16, 185, 129, 0.45);
+  background: linear-gradient(135deg, var(--aurora-emerald) 0%, var(--aurora-teal) 100%);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+  transform: translateY(-1px);
 }
 
 .btn-primary:active, .btn-emerald:active, .btn-indigo:active, .btn-gold:active {
-  background: var(--primary-dark);
   transform: translateY(1px);
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.20);
 }
 
 /* Emerald badge utility */
 .emerald-badge, .indigo-badge, .gold-badge {
-  background: rgba(5, 150, 105, 0.15);
-  border: 1px solid rgba(5, 150, 105, 0.30);
+  background: rgba(5, 150, 105, 0.12);
+  border: 1px solid rgba(5, 150, 105, 0.20);
   color: var(--primary-light);
-  font-weight: 500;
+  font-weight: 600;
   border-radius: 9999px;
   padding: 2px 10px;
-  font-size: 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 @keyframes subtlePulse {
@@ -273,13 +318,13 @@ textarea::placeholder {
     transform: scale(1);
   }
   50% {
-    opacity: 0.7;
+    opacity: 0.85;
     transform: scale(0.98);
   }
 }
 
 .animate-subtle-pulse {
-  animation: subtlePulse 2.5s ease-in-out infinite;
+  animation: subtlePulse 3s ease-in-out infinite;
 }
 
 @keyframes marqueeSmooth {

@@ -72,52 +72,56 @@ export const DeviceRegistration: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0F1025] text-[#F8F8FF] p-4 flex flex-col justify-center items-center font-sans">
-      <div className="max-w-md w-full space-y-5">
+    <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)] p-4 flex flex-col justify-center items-center font-sans relative overflow-hidden">
+      {/* Emerald Aurora Ambient Lighting */}
+      <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[var(--aurora-emerald)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[var(--aurora-teal)]/8 rounded-full blur-[140px] pointer-events-none -z-10" />
+
+      <div className="max-w-md w-full space-y-6 relative z-10">
         <div className="text-center space-y-2">
-          <div className="w-16 h-16 bg-[#151515] border border-[#8F7425]/40 rounded-2xl flex items-center justify-center mx-auto shadow-2xl">
-            <Shield className="w-8 h-8 text-[#D4AF37]" />
+          <div className="w-16 h-16 bg-[var(--aurora-emerald)]/10 border border-[var(--aurora-emerald)]/30 rounded-2xl flex items-center justify-center mx-auto shadow-2xl">
+            <Shield className="w-8 h-8 text-[var(--aurora-emerald)]" />
           </div>
-          <h1 className="text-2xl font-black tracking-wider uppercase text-[#FFFFFF]">EXFIN OMS</h1>
-          <h2 className="text-sm font-bold tracking-widest text-[#D4AF37] uppercase">REGISTER DEVICE</h2>
-          <p className="text-[#8A8A8A] text-xs font-semibold">Register your mobile device to access EXFIN OMS Executive Portal</p>
+          <h1 className="text-2xl font-black tracking-tight uppercase text-[var(--text-primary)] aurora-text">EXFIN OMS</h1>
+          <h2 className="text-sm font-bold tracking-[0.2em] text-[var(--aurora-emerald)] uppercase">Device Setup</h2>
+          <p className="text-[var(--text-secondary)] text-xs font-medium max-w-[260px] mx-auto leading-relaxed mt-2"> Register your mobile device to access the <span className="text-[var(--text-primary)] font-bold">Executive Portal</span></p>
         </div>
 
-        <Card className="p-6 bg-[#151515] border border-[#292929] shadow-2xl rounded-3xl text-[#FFFFFF]">
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="glass-card-elevated p-6 space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#C7C7C7] uppercase tracking-wider flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-[#D4AF37]" /> Full Name
+              <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest flex items-center gap-2 px-1">
+                <User className="w-3.5 h-3.5 text-[var(--aurora-emerald)]" /> Full Identity Name
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter full name"
-                className="w-full px-4 py-3 rounded-2xl border border-[#292929] bg-[#121212] text-[#FFFFFF] placeholder-[#8A8A8A] focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] text-sm"
+                className="w-full px-4 py-3.5 rounded-2xl border border-[var(--border)] bg-[var(--card-surface)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--aurora-emerald)] focus:ring-1 focus:ring-[var(--aurora-emerald)]/30 text-sm transition-all"
                 required
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#C7C7C7] uppercase tracking-wider flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-[#D4AF37]" /> Mobile Number
+              <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest flex items-center gap-2 px-1">
+                <Phone className="w-3.5 h-3.5 text-[var(--aurora-teal)]" /> Secure Mobile Number
               </label>
               <input
                 type="tel"
                 value={mobileNumber}
                 onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 placeholder="10-digit mobile number"
-                className="w-full px-4 py-3 rounded-2xl border border-[#292929] bg-[#121212] text-[#FFFFFF] placeholder-[#8A8A8A] focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] text-sm"
+                className="w-full px-4 py-3.5 rounded-2xl border border-[var(--border)] bg-[var(--card-surface)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--aurora-teal)] focus:ring-1 focus:ring-[var(--aurora-teal)]/30 text-sm transition-all"
                 required
                 maxLength={10}
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#C7C7C7] uppercase tracking-wider flex items-center gap-1.5">
-                <Camera className="w-3.5 h-3.5 text-[#D4AF37]" /> Verification Selfie
+              <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest flex items-center gap-2 px-1">
+                <Camera className="w-3.5 h-3.5 text-[var(--aurora-cyan)]" /> Bio-Verification Selfie
               </label>
               
               <input
@@ -132,42 +136,46 @@ export const DeviceRegistration: React.FC = () => {
               {!selfieBase64 ? (
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-[#292929] bg-[#121212] rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-[#D4AF37]/50 transition-colors"
+                  className="border-2 border-dashed border-[var(--border)] bg-[var(--card-surface)] rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-[var(--aurora-emerald)]/50 transition-all hover:bg-[var(--aurora-emerald)]/5"
                 >
-                  <div className="w-12 h-12 rounded-full bg-[#1B1B1B] border border-[#292929] flex items-center justify-center mb-2">
-                    <Camera className="w-6 h-6 text-[#D4AF37]" />
+                  <div className="w-12 h-12 rounded-full bg-[var(--aurora-emerald)]/10 border border-[var(--aurora-emerald)]/20 flex items-center justify-center mb-3">
+                    <Camera className="w-6 h-6 text-[var(--aurora-emerald)]" />
                   </div>
-                  <span className="text-xs font-bold text-[#FFFFFF]">Tap to take selfie</span>
-                  <span className="text-[10px] text-[#8A8A8A] mt-0.5">Camera verification required</span>
+                  <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider">Secure Capture</span>
+                  <span className="text-[10px] text-[var(--text-muted)] mt-1 font-medium italic">Biometric link required</span>
                 </div>
               ) : (
-                <div className="relative rounded-2xl overflow-hidden border border-[#292929] aspect-square max-h-56 mx-auto w-full">
+                <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] aspect-square max-h-56 mx-auto w-full group">
                   <img src={selfieBase64} alt="Selfie preview" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                    <Button type="button" variant="tonal" onClick={() => fileInputRef.current?.click()}>
+                  <div className="absolute inset-0 bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      type="button" 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-xl text-xs font-black uppercase tracking-widest"
+                    >
                       Retake Photo
-                    </Button>
+                    </button>
                   </div>
-                  <div className="absolute top-2 right-2 bg-[#22C55E] text-black p-1 rounded-full shadow-lg">
-                    <CheckCircle2 className="w-5 h-5" />
+                  <div className="absolute top-3 right-3 bg-[var(--success)] text-white p-1.5 rounded-full shadow-lg border border-white/20">
+                    <CheckCircle2 className="w-5 h-5 stroke-[3]" />
                   </div>
                 </div>
               )}
             </div>
 
             {error && (
-              <div className="p-3 bg-[#EF4444]/15 border border-[#EF4444]/35 text-[#EF4444] rounded-2xl text-xs font-bold text-center">
+              <div className="p-4 bg-[var(--danger)]/10 border border-[var(--danger)]/20 text-[var(--danger)] rounded-2xl text-xs font-bold text-center animate-shake">
                 {error}
               </div>
             )}
 
-            <Button
+            <button
               type="submit"
               disabled={loading || !name || !mobileNumber || !selfieBase64}
-              className="w-full py-3.5 text-sm font-black uppercase tracking-wider bg-[#D4AF37] hover:bg-[#E6C766] active:bg-[#9C7B20] text-black rounded-2xl shadow-xl mt-2 cursor-pointer border border-[#E6C766]"
+              className="w-full py-4 text-xs font-black uppercase tracking-[0.2em] aurora-bg text-white rounded-2xl shadow-xl mt-2 cursor-pointer border border-white/20 active:scale-[0.98] transition-all aurora-glow-emerald disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Submitting Registration...' : 'Register Device'}
-            </Button>
+              {loading ? 'Processing Setup...' : 'Register Device'}
+            </button>
 
             <button
               type="button"
@@ -177,12 +185,12 @@ export const DeviceRegistration: React.FC = () => {
                 sessionStorage.clear();
                 window.location.reload();
               }}
-              className="w-full py-2.5 bg-[#EF4444]/15 hover:bg-[#EF4444]/25 text-[#EF4444] text-xs font-bold rounded-xl border border-[#EF4444]/30 transition-colors mt-3 cursor-pointer uppercase tracking-wider"
+              className="w-full py-3 bg-[var(--danger)]/10 hover:bg-[var(--danger)]/20 text-[var(--danger)] text-[10px] font-black rounded-xl border border-[var(--danger)]/20 transition-all mt-3 cursor-pointer uppercase tracking-[0.1em]"
             >
-              Clear Device Registration
+              Reset Environment
             </button>
           </form>
-        </Card>
+        </div>
       </div>
     </div>
   );
