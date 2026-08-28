@@ -73,6 +73,11 @@
   --aurora-cyan: #22D3EE;
   --aurora-gradient: linear-gradient(135deg, var(--aurora-deep) 0%, var(--aurora-emerald) 40%, var(--aurora-teal) 75%, var(--aurora-cyan) 100%);
   
+  /* Premium Location Pill */
+  --pill-location-bg: rgba(16, 185, 129, 0.10);
+  --pill-location-border: rgba(52, 211, 153, 0.20);
+  --pill-location-text: #A7F3D0;
+  
   /* Legacy Employee Mappings (Functional Protection) */
   --employee-bg: var(--app-bg);
   --employee-surface: var(--card-bg);
@@ -107,6 +112,10 @@
     --text-secondary: #475569;
     --text-muted: #64748B;
     
+    --pill-location-bg: #ECFDF5;
+    --pill-location-border: #A7F3D0;
+    --pill-location-text: #047857;
+
     --employee-bg: var(--app-bg);
     --employee-surface: var(--card-bg);
     --employee-surface-strong: var(--card-elevated);
