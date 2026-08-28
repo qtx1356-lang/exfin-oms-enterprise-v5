@@ -8,6 +8,95 @@
     <link rel="manifest" href="/manifest.json" />
     <title>Office Management System v6.0</title>
     <script>
+      // Global Error and Resource Load Catcher for Live Diagnostics
+      (function() {
+        var errors = [];
+        function renderDiagnostics() {
+          var root = document.getElementById('root');
+          if (!root) {
+            // Retry when DOM is ready
+            window.addEventListener('DOMContentLoaded', renderDiagnostics);
+            return;
+          }
+          
+          var html = '<div style="min-height: 100vh; background-color: #0F1025; color: #FFFFFF; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;">' +
+            '<div style="background-color: #1E1F41; border: 2px solid #EF4444; border-radius: 20px; padding: 40px; max-width: 800px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); box-sizing: border-box;">' +
+              '<h1 style="color: #EF4444; font-weight: 900; font-size: 24px; margin-top: 0; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px;">Exfin Startup Crash Diagnosis</h1>' +
+              '<p style="color: #B9B9D0; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">' +
+                'A fatal JavaScript error occurred during application startup. Below is the diagnostic report captured in real-time.' +
+              '</p>' +
+              '<div style="background-color: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 12px; padding: 20px; margin-bottom: 25px; font-family: monospace; font-size: 13px; text-align: left; line-height: 1.6; color: #FCA5A5; overflow-x: auto; max-height: 350px;">';
+          
+          errors.forEach(function(err, index) {
+            html += '<div style="margin-bottom: 15px; border-bottom: 1px solid rgba(239,68,68,0.2); padding-bottom: 15px;">' +
+              '<strong>⚠️ Exception #' + (index + 1) + ':</strong> ' + (err.message || 'Unknown error') + '<br/>' +
+              '<strong>📂 Source:</strong> <span style="word-break: break-all; color: #F87171;">' + (err.filename || 'Unknown source') + '</span>:' + (err.lineno || '?') + ':' + (err.colno || '?') + '<br/>';
+            if (err.stack) {
+              html += '<strong>🥞 Stack Trace:</strong><pre style="margin: 5px 0 0 0; font-size: 11px; color: #F87171; overflow-x: auto; white-space: pre-wrap; word-break: break-all; font-family: monospace;">' + err.stack + '</pre>';
+            }
+            html += '</div>';
+          });
+          
+          html += '</div>' +
+              '<div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">' +
+                '<button onclick="window.location.reload()" style="background-image: linear-gradient(to right, #DC2626, #EF4444); color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: bold; font-size: 13px; cursor: pointer; transition: opacity 0.2s;">Force Reload</button>' +
+                '<button onclick="window.location.search = \'?boottest=1\'" style="background-color: #312E81; border: 1px solid #4F46E5; color: #C7D2FE; padding: 12px 24px; border-radius: 12px; font-weight: bold; font-size: 13px; cursor: pointer;">Run HTML Boot Test</button>' +
+                '<button onclick="window.location.search = \'?boottest=2\'" style="background-color: #064E3B; border: 1px solid #059669; color: #A7F3D0; padding: 12px 24px; border-radius: 12px; font-weight: bold; font-size: 13px; cursor: pointer;">Run Module Boot Test</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+          
+          root.innerHTML = html;
+        }
+
+        window.addEventListener('error', function(event) {
+          // Ignore the controlled STOP_RENDER boot tests
+          if (event.message && (event.message.indexOf('STOP_RENDER_BOOT_TEST') !== -1 || event.message.indexOf('STOP_RENDER_MODULE_BOOT_TEST') !== -1)) {
+            event.preventDefault();
+            return;
+          }
+          
+          // Intercept script/link load failures (network 404 or mime-type mismatch)
+          if (event.target && (event.target.tagName === 'SCRIPT' || event.target.tagName === 'LINK')) {
+            var srcUrl = event.target.src || event.target.href;
+            errors.push({
+              message: 'Failed to load static asset module. URL returned 404 or text/html instead of javascript/css.',
+              filename: srcUrl,
+              lineno: 0,
+              colno: 0
+            });
+            renderDiagnostics();
+            return;
+          }
+
+          errors.push({
+            message: event.message,
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno,
+            stack: event.error ? event.error.stack : null
+          });
+          renderDiagnostics();
+        }, true); // Use capture to intercept script loading errors
+
+        window.addEventListener('unhandledrejection', function(event) {
+          var reason = event.reason || {};
+          if (reason.message && (reason.message.indexOf('STOP_RENDER_BOOT_TEST') !== -1 || reason.message.indexOf('STOP_RENDER_MODULE_BOOT_TEST') !== -1)) {
+            event.preventDefault();
+            return;
+          }
+          
+          errors.push({
+            message: 'Unhandled Promise Rejection: ' + (reason.message || reason.toString()),
+            filename: reason.fileName || 'Promise',
+            lineno: reason.lineNumber || 0,
+            colno: reason.columnNumber || 0,
+            stack: reason.stack || null
+          });
+          renderDiagnostics();
+        });
+      })();
+
       window.__EXFIN_STARTUP_COUNT = (window.__EXFIN_STARTUP_COUNT || 0) + 1;
       console.log('[OFFLINE-ROOT] JavaScript bundle executed, count:', window.__EXFIN_STARTUP_COUNT);
       window.addEventListener('DOMContentLoaded', function() {
@@ -15,31 +104,46 @@
       });
 
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-          .then(function (registration) {
-            if (registration.active) {
-              console.log('[STARTUP_PERF] [PWA_CACHE_READY] Service worker active and cache ready');
-            }
-            registration.onupdatefound = function () {
-              var installingWorker = registration.installing;
-              if (installingWorker) {
-                installingWorker.onstatechange = function () {
-                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    console.log('[STARTUP_PERF] [SERVICE_WORKER_UPDATED] New service worker version installed');
-                  }
-                };
+        navigator.serviceWorker.getRegistrations().then(function (registrations) {
+          for (var i = 0; i < registrations.length; i++) {
+            registrations[i].unregister().then(function (success) {
+              if (success) {
+                console.log('[SW-DIAGNOSTIC] Successfully unregistered stale service worker');
               }
-            };
-            registration.update().catch(function () {});
-          })
-          .catch(function (err) {
-            console.warn('Service worker registration failed:', err);
-          });
+            });
+          }
+        }).catch(function (err) {
+          console.warn('Failed to get service worker registrations:', err);
+        });
       }
     </script>
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      if (window.location.search.indexOf('boottest=1') !== -1) {
+        document.getElementById('root').innerHTML = `
+          <div style="min-height: 100vh; background-color: #0F1025; color: #FFFFFF; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center;">
+            <div style="background-color: #1E1F41; border: 1px solid #6366F1; border-radius: 20px; padding: 40px; max-width: 500px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+              <h1 style="color: #6366F1; font-weight: 900; font-size: 24px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px;">Exfin HTML Boot Test</h1>
+              <div style="background-color: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: 12px; padding: 20px; margin-bottom: 25px; font-family: monospace; font-size: 13px; text-align: left; line-height: 1.6; color: #818CF8;">
+                <p style="margin: 0;">🌐 URL: \${window.location.href}</p>
+                <p style="margin: 5px 0 0 0;">📱 UserAgent: \${navigator.userAgent}</p>
+                <p style="margin: 5px 0 0 0;">🕒 Time: \${new Date().toISOString()}</p>
+                <p style="margin: 5px 0 0 0;">⚙️ HTML Parse & Inline JS: ACTIVE & OK</p>
+              </div>
+              <p style="color: #B9B9D0; font-size: 14px; line-height: 1.5; margin-bottom: 30px;">
+                This confirms your Cloudflare Worker is successfully serving index.html, the browser has parsed the page, and inline scripts are executing perfectly.
+              </p>
+              <button onclick="window.location.search = ''" style="background-image: linear-gradient(to right, #4F46E5, #6366F1); color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: bold; font-size: 13px; cursor: pointer; transition: opacity 0.2s;">
+                Return to Normal App
+              </button>
+            </div>
+          </div>
+        `;
+        throw new Error('STOP_RENDER_BOOT_TEST');
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

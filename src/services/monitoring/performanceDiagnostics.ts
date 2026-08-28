@@ -72,7 +72,7 @@ export const trackResourceCreated = (type: PerfResourceType, id: string, label?:
 
   activeResourceMap.set(id, { type, createdAt: Date.now(), label });
 
-  if (process.env.NODE_ENV !== 'production' || (window as any).__EXFIN_PERF_DEBUG__) {
+  if (import.meta.env.DEV || (window as any).__EXFIN_PERF_DEBUG__) {
     console.log(`[PERF_RESOURCE_CREATED] ${type} (ID: ${id}) | Active count:`, getActiveCountForType(type));
   }
 };
@@ -104,7 +104,7 @@ export const trackResourceCleaned = (type: PerfResourceType, id: string): void =
         break;
     }
 
-    if (process.env.NODE_ENV !== 'production' || (window as any).__EXFIN_PERF_DEBUG__) {
+    if (import.meta.env.DEV || (window as any).__EXFIN_PERF_DEBUG__) {
       console.log(`[PERF_RESOURCE_CLEANED] ${type} (ID: ${id}) | Active count:`, getActiveCountForType(type));
     }
   }
@@ -118,7 +118,7 @@ export const logPerfSyncEvent = (
   event: 'PERF_SYNC_STARTED' | 'PERF_SYNC_SKIPPED_ALREADY_RUNNING' | 'PERF_SYNC_COMPLETED',
   details?: string
 ): void => {
-  if (process.env.NODE_ENV !== 'production' || (window as any).__EXFIN_PERF_DEBUG__) {
+  if (import.meta.env.DEV || (window as any).__EXFIN_PERF_DEBUG__) {
     console.log(`[${event}]`, details || '');
   }
 };
