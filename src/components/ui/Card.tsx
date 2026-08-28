@@ -7,15 +7,16 @@ function cn(...inputs: ClassValue[]) {
 }
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: 'elevated' | 'filled' | 'outlined';
+  variant?: 'elevated' | 'filled' | 'outlined' | 'gold';
 }
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant = 'elevated', ...props }, ref) => {
     const variants = {
-      elevated: 'bg-[rgba(139,92,246,0.08)] backdrop-blur-[16px] border border-[rgba(167,139,250,0.18)] shadow-[0_8px_32px_rgba(0,0,0,0.35)] text-[#F8FAFC]',
-      filled: 'bg-[rgba(139,92,246,0.06)] backdrop-blur-[16px] border border-[rgba(167,139,250,0.15)] shadow-[0_8px_24px_rgba(0,0,0,0.3)] text-[#F8FAFC]',
-      outlined: 'bg-[rgba(139,92,246,0.04)] backdrop-blur-[12px] border border-[rgba(167,139,250,0.18)] text-[#F8FAFC]',
+      elevated: 'bg-[#151515] border border-[#292929] shadow-[0_4px_20px_rgba(0,0,0,0.5)] text-[#FFFFFF]',
+      filled: 'bg-[#121212] border border-[#202020] shadow-[0_2px_12px_rgba(0,0,0,0.4)] text-[#FFFFFF]',
+      outlined: 'bg-[#151515] border border-[#292929] text-[#FFFFFF]',
+      gold: 'bg-[#151515] border border-[#8F7425] shadow-[0_0_20px_rgba(212,175,55,0.12)] text-[#FFFFFF]',
     };
 
     return (
@@ -28,4 +29,3 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
   }
 );
 Card.displayName = 'Card';
-

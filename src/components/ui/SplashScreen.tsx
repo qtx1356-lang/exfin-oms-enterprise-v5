@@ -5,7 +5,7 @@ export const SplashScreen: React.FC<{ onFinish: () => void }> = ({ onFinish }) =
   useEffect(() => {
     const timer = setTimeout(() => {
       onFinish();
-    }, 2000);
+    }, 1800);
     return () => clearTimeout(timer);
   }, [onFinish]);
 
@@ -13,16 +13,21 @@ export const SplashScreen: React.FC<{ onFinish: () => void }> = ({ onFinish }) =
     <motion.div 
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-gradient-to-b from-[#071A17] via-[#0B2420] to-[#102D28] flex flex-col items-center justify-center z-50 text-[#F5FFFC]"
+      className="fixed inset-0 bg-[#080808] flex flex-col items-center justify-center z-50 text-[#FFFFFF]"
     >
       <motion.div
         initial={{ scale: 0.85, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="text-center"
+        className="text-center flex flex-col items-center"
       >
-        <div className="w-20 h-20 mx-auto bg-[#18C7A0] rounded-3xl flex items-center justify-center shadow-lg border border-[#35E0B9]/30">
-          <span className="text-3xl font-black tracking-tighter text-[#04110E]">EO</span>
+        <div className="w-20 h-20 mx-auto bg-[#151515] rounded-3xl flex items-center justify-center shadow-2xl border border-[#8F7425]/40 mb-4 relative">
+          <div className="absolute inset-0 bg-[#D4AF37]/5 rounded-3xl blur-md" />
+          <span className="text-3xl font-black tracking-tight text-[#D4AF37] relative z-10">EO</span>
+        </div>
+        <div className="space-y-1">
+          <h1 className="text-xl font-black tracking-widest text-[#FFFFFF] uppercase">EXFIN OMS</h1>
+          <p className="text-[11px] font-bold tracking-widest text-[#D4AF37] uppercase">Executive Edition</p>
         </div>
       </motion.div>
     </motion.div>

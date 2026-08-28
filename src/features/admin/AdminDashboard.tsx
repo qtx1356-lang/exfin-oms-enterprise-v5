@@ -53,6 +53,7 @@ import {
   ShieldAlert,
   HelpCircle,
   MessageCircle,
+  Mail,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -92,6 +93,7 @@ import { AdminLeaveManagementTab } from './AdminLeaveManagementTab';
 import { AdminExpensesTab } from './AdminExpensesTab';
 import { AdminSecurityTab } from './AdminSecurityTab';
 import { ChangePasswordModal } from '../../components/admin/ChangePasswordModal';
+import { DailyAdminReportTab } from './DailyAdminReportTab';
 
 export const safeStringify = (val: any): string => {
   if (val === null || val === undefined) return '';
@@ -263,6 +265,7 @@ type AdminTab =
   | 'workHours'
   | 'chat'
   | 'announcements'
+  | 'dailyReport'
   | 'auditLog'
   | 'faq'
   | 'pendingDeviceApprovals';
@@ -270,7 +273,7 @@ type AdminTab =
 export const AdminDashboard: React.FC = () => {
   const { logout, user: adminUser, role = 'ADMIN', authorizedOffice = 'ALL', loginId, mustChangePassword } = useAdminAuth();
   const navigate = useNavigate();
-  const { hasFeatureAccess, isSuperAdmin } = usePermission();
+  const { hasFeatureAccess, isSuperAdmin, isAdmin } = usePermission();
 
   const [totalUnreadChatCount, setTotalUnreadChatCount] = useState(0);
   const [showSelfChangePasswordModal, setShowSelfChangePasswordModal] = useState(false);
@@ -1075,6 +1078,7 @@ export const AdminDashboard: React.FC = () => {
       title: 'COMMUNICATION',
       items: [
         { id: 'chat' as AdminTab, label: 'Internal Chat', icon: MessageSquare, badge: totalUnreadChatCount, visible: true },
+        { id: 'dailyReport' as AdminTab, label: 'Daily Admin Email', icon: Mail, visible: canSeeAnnouncements || isSuperAdmin() || isAdmin() },
         { id: 'announcements' as AdminTab, label: 'Announcements & Alerts', icon: Megaphone, visible: canSeeAnnouncements },
       ],
     },
@@ -1604,6 +1608,9 @@ export const AdminDashboard: React.FC = () => {
 
         {/* ANNOUNCEMENTS & ALERTS TAB */}
         {activeTab === 'announcements' && canSeeAnnouncements && <NotificationManagement />}
+
+        {/* DAILY ADMIN REPORT TAB */}
+        {activeTab === 'dailyReport' && (canSeeAnnouncements || isSuperAdmin() || isAdmin()) && <DailyAdminReportTab />}
 
         {/* FAQ TAB */}
         {activeTab === 'faq' && <AdminFAQScreen />}

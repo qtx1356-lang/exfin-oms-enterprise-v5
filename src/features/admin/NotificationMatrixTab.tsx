@@ -44,6 +44,9 @@ export const NotificationMatrixTab: React.FC = () => {
         // In-App is always mandatory
         if (channel === 'inApp') return item;
 
+        // FCM Attendance Push is completely removed and permanently disabled
+        if (item.category === 'ATTENDANCE' && channel === 'push') return item;
+
         // Mandatory administrative/security rules cannot disable email or SMS if marked mandatory
         if (item.isMandatory && (channel === 'email' || channel === 'sms') && item[channel]) {
           // retain
@@ -208,12 +211,18 @@ export const NotificationMatrixTab: React.FC = () => {
 
                 {/* PUSH */}
                 <td className="py-3.5 px-3 text-center">
-                  <input
-                    type="checkbox"
-                    checked={item.push}
-                    onChange={() => handleToggle(item.eventType, 'push')}
-                    className="w-4 h-4 rounded border-purple-500/40 text-purple-600 focus:ring-purple-500 cursor-pointer"
-                  />
+                  {item.category === 'ATTENDANCE' ? (
+                    <span className="text-[10px] text-purple-400/50 font-mono italic" title="FCM Attendance Push has been removed">
+                      Disabled (FCM Removed)
+                    </span>
+                  ) : (
+                    <input
+                      type="checkbox"
+                      checked={item.push}
+                      onChange={() => handleToggle(item.eventType, 'push')}
+                      className="w-4 h-4 rounded border-purple-500/40 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                    />
+                  )}
                 </td>
               </tr>
             ))}

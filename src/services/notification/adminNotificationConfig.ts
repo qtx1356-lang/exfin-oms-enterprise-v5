@@ -23,7 +23,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     inApp: true,
     email: false,
     sms: false,
-    push: true,
+    push: false,
     whatsapp: true,
   },
   {
@@ -33,7 +33,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     inApp: true,
     email: false,
     sms: false,
-    push: true,
+    push: false,
     whatsapp: true,
   },
   {
@@ -43,7 +43,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     inApp: true,
     email: false,
     sms: false,
-    push: true,
+    push: false,
     whatsapp: true,
   },
   {
@@ -53,7 +53,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     inApp: true,
     email: false,
     sms: false,
-    push: true,
+    push: false,
     whatsapp: true,
   },
   {
@@ -63,7 +63,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     inApp: true,
     email: false,
     sms: false,
-    push: true,
+    push: false,
     whatsapp: true,
   },
   {
@@ -73,7 +73,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     inApp: true,
     email: false,
     sms: false,
-    push: true,
+    push: false,
     whatsapp: true,
   },
   {
@@ -83,7 +83,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     inApp: true,
     email: false,
     sms: false,
-    push: true,
+    push: false,
     whatsapp: true,
   },
   {
@@ -93,7 +93,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     inApp: true,
     email: false,
     sms: false,
-    push: true,
+    push: false,
     whatsapp: true,
   },
   {
@@ -103,7 +103,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     inApp: true,
     email: false,
     sms: false,
-    push: true,
+    push: false,
     whatsapp: true,
   },
   {
@@ -113,7 +113,7 @@ export const DEFAULT_NOTIFICATION_MATRIX: EventNotificationConfig[] = [
     inApp: true,
     email: true,
     sms: false,
-    push: true,
+    push: false,
     whatsapp: true,
     isMandatory: true,
   },
@@ -234,6 +234,7 @@ function normalizeMatrix(rawMatrix: EventNotificationConfig[]): EventNotificatio
     return {
       ...defaultItem,
       ...existing,
+      push: defaultItem.category === 'ATTENDANCE' ? false : (existing.push ?? defaultItem.push),
       whatsapp: existing.whatsapp !== undefined ? existing.whatsapp : defaultItem.whatsapp,
     };
   });

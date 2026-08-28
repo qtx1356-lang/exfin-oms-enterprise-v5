@@ -59,14 +59,14 @@ const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
   const durationSec = Math.max(7, Math.round(overflowDistance / 18));
 
   return (
-    <div className="flex items-center gap-1 text-[11px] text-[#A7B0BE] font-medium overflow-hidden bg-[rgba(139,92,246,0.08)] border border-[rgba(167,139,250,0.18)] px-2 py-0.5 rounded-full min-w-[60px] flex-1 max-w-[150px] xs:max-w-[200px] sm:max-w-[280px]"
+    <div className="flex items-center gap-1 text-[11px] text-[#C7C7C7] font-medium overflow-hidden bg-[#121212] border border-[#292929] px-2 py-0.5 rounded-full min-w-[60px] flex-1 max-w-[150px] xs:max-w-[200px] sm:max-w-[280px]"
       title={address}
     >
-      <MapPin className="w-3 h-3 text-[#00F5FF] shrink-0 z-10" />
+      <MapPin className="w-3 h-3 text-[#D4AF37] shrink-0 z-10" />
       <div ref={containerRef} className="overflow-hidden relative flex-1 min-w-0">
         <span
           ref={textRef}
-          className={`inline-block whitespace-nowrap text-[10.5px] text-[#A7B0BE] ${
+          className={`inline-block whitespace-nowrap text-[10.5px] text-[#C7C7C7] ${
             overflowDistance > 0 ? '' : 'truncate'
           }`}
           style={
@@ -104,7 +104,6 @@ export const Layout: React.FC = () => {
   const [activeToastNotif, setActiveToastNotif] = useState<ToastPayload | NotificationRecord | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const baselineDoneRef = useRef(false);
 
   const currentUser = React.useMemo(() => {
     if (adminUser) {
@@ -124,7 +123,6 @@ export const Layout: React.FC = () => {
     return null;
   }, [adminUser?.uid, employeeData?.id, employeeData?.employeeCode, employeeData?.isTeamLeader]);
 
-  // Derive unreadCount and recents directly from synchronized state (0 Firestore overhead)
   const unreadCount = syncUnreadCount;
   const recentNotifs = React.useMemo(() => {
     return syncNotifs.slice(0, 3);
@@ -134,14 +132,12 @@ export const Layout: React.FC = () => {
   useEffect(() => {
     if (!currentUser || syncNotifs.length === 0) return;
 
-    // Filter syncNotifs for unseen eligible notifications intended for current employee
     const unseenNotifs: NotificationRecord[] = [];
 
     syncNotifs.forEach((n) => {
       if (!isNotificationForUser(n, currentUser)) return;
 
       if (isPopupShown(n.id)) {
-        // Suppressed duplicate
         return;
       }
 
@@ -235,7 +231,6 @@ export const Layout: React.FC = () => {
       if (notif.route) {
         navigate(notif.route);
       } else {
-        // Fallback category mapping
         switch (notif.category) {
           case 'ATTENDANCE':
             navigate('/attendance');
@@ -273,39 +268,38 @@ export const Layout: React.FC = () => {
       : (!isOnline ? 'Offline' : 'Raniganj HQ');
 
   return (
-    <div className="min-h-screen bg-[#EAF7EE] text-[#12332B] pb-20 relative overflow-x-hidden">
-      {/* Soft subtle mint background ambient highlights */}
-      <div className="fixed top-0 left-1/4 w-96 h-96 bg-[rgba(25,199,192,0.04)] rounded-full blur-[120px] pointer-events-none -z-10" />
-      <div className="fixed top-1/3 right-10 w-80 h-80 bg-[rgba(25,199,192,0.03)] rounded-full blur-[100px] pointer-events-none -z-10" />
-      <div className="fixed bottom-10 left-1/3 w-96 h-96 bg-[rgba(25,199,192,0.04)] rounded-full blur-[130px] pointer-events-none -z-10" />
+    <div className="min-h-screen bg-[#0B0B0B] text-[#FFFFFF] pb-20 relative overflow-x-hidden">
+      {/* Subtle ambient lighting */}
+      <div className="fixed top-0 left-1/4 w-96 h-96 bg-[rgba(212,175,55,0.03)] rounded-full blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed bottom-10 left-1/3 w-96 h-96 bg-[rgba(212,175,55,0.02)] rounded-full blur-[140px] pointer-events-none -z-10" />
 
       {/* Dynamic Header Bar with [Distance] [Office Status] [Location Address] [Bell] */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#173A32] border-b border-[#2A5B50] shadow-[0_4px_20px_rgba(18,51,43,0.15)] text-[#F4FAF7]">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#151515] border-b border-[#292929] shadow-[0_4px_20px_rgba(0,0,0,0.7)] text-[#FFFFFF]">
         <div className="container mx-auto px-2.5 sm:px-4 py-2 max-w-3xl flex items-center justify-between gap-1.5 sm:gap-2">
           {/* Left/Center Header Status & Location Controls */}
           <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden py-0.5">
             {/* Live Distance Value */}
             <div
-              className="text-[10px] font-extrabold text-[#C7DAD3] bg-[#112C26] border border-[#2A5B50] px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
+              className="text-[10px] font-bold text-[#C7C7C7] bg-[#121212] border border-[#292929] px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
               title="Live distance from office"
             >
               <span>{formattedDistance}</span>
             </div>
 
-            {/* Office Location Status Badge (EMERALD for Success) */}
+            {/* Office Location Status Badge */}
             <div
-              className={`text-[9px] font-black px-2 py-0.5 rounded-full border whitespace-nowrap flex items-center gap-1 shadow-sm select-none shrink-0 ${
+              className={`text-[9px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap flex items-center gap-1 shadow-sm select-none shrink-0 ${
                 isInsideGeofence
-                  ? 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/40'
-                  : 'bg-[#EF6B73]/20 text-[#EF6B73] border-[#EF6B73]/40'
+                  ? 'bg-[#22C55E]/15 text-[#22C55E] border-[#22C55E]/40'
+                  : 'bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/40'
               }`}
               title={isInsideGeofence ? 'Inside office geofence' : 'Outside office geofence'}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-[#35C98A] animate-pulse' : 'bg-[#EF6B73]'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-[#22C55E] animate-pulse' : 'bg-[#EF4444]'}`} />
               <span>{isInsideGeofence ? 'INSIDE OFFICE' : 'OUTSIDE OFFICE'}</span>
             </div>
 
-            {/* Global Sync Status (shown only when offline/pending) */}
+            {/* Global Sync Status */}
             <GlobalSyncStatus />
 
             {/* Location Address */}
@@ -321,7 +315,7 @@ export const Layout: React.FC = () => {
                 {!adminUser && (
                   <button
                     onClick={() => navigate('/faq')}
-                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#112C26] border border-[#2A5B50] text-[#C7DAD3] hover:text-[#19C7C0] hover:border-[#19C7C0]/50 transition-all cursor-pointer"
+                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#121212] border border-[#292929] text-[#C7C7C7] hover:text-[#D4AF37] hover:border-[#D4AF37]/50 transition-all cursor-pointer"
                     aria-label="Help & FAQ"
                     title="Help & FAQ"
                   >
@@ -332,13 +326,13 @@ export const Layout: React.FC = () => {
                   {/* Bell Button */}
                   <button
                     onClick={handleBellClick}
-                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#112C26] border border-[#2A5B50] text-[#C7DAD3] hover:text-[#19C7C0] hover:border-[#19C7C0]/50 transition-all cursor-pointer"
+                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#121212] border border-[#292929] text-[#C7C7C7] hover:text-[#D4AF37] hover:border-[#D4AF37]/50 transition-all cursor-pointer"
                     aria-label="Toggle notifications"
                     id="notification-bell-btn"
                   >
                     <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-[#EF6B73] text-[9px] sm:text-[10px] font-black text-white ring-2 ring-[#173A32]">
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-[#EF4444] text-[9px] sm:text-[10px] font-bold text-white ring-2 ring-[#151515]">
                         {unreadCount}
                       </span>
                     )}
@@ -352,16 +346,16 @@ export const Layout: React.FC = () => {
                        animate={{ opacity: 1, y: 0, scale: 1 }}
                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
                        transition={{ duration: 0.15 }}
-                       className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#173A32] border border-[#2A5B50] rounded-2xl shadow-2xl z-50 overflow-hidden text-[#F4FAF7]"
+                       className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#151515] border border-[#292929] rounded-2xl shadow-2xl z-50 overflow-hidden text-[#FFFFFF]"
                        id="notification-bell-dropdown"
                     >
-                      <div className="p-4 border-b border-[#2A5B50] flex items-center justify-between bg-[#112C26]">
-                        <span className="font-bold text-sm text-[#F4FAF7]">Recent Alerts</span>
+                      <div className="p-4 border-b border-[#292929] flex items-center justify-between bg-[#1B1B1B]">
+                        <span className="font-bold text-sm text-[#FFFFFF]">Recent Alerts</span>
                         <div className="flex items-center gap-2">
                           {unreadCount > 0 && (
                             <button
                               onClick={handleMarkAllRead}
-                              className="text-[11px] text-[#19C7C0] hover:underline font-bold flex items-center gap-1 bg-[#19C7C0]/15 border border-[#19C7C0]/30 px-2 py-0.5 rounded-full transition-colors"
+                              className="text-[11px] text-[#D4AF37] hover:underline font-bold flex items-center gap-1 bg-[#D4AF37]/15 border border-[#D4AF37]/30 px-2 py-0.5 rounded-full transition-colors"
                               title="Mark all notifications as read"
                               id="mark-all-read-btn"
                             >
@@ -370,16 +364,16 @@ export const Layout: React.FC = () => {
                             </button>
                           )}
                           {unreadCount > 0 && (
-                            <span className="text-xs text-[#19C7C0] bg-[#19C7C0]/20 border border-[#19C7C0]/40 px-2 py-0.5 rounded-full font-bold">
+                            <span className="text-xs text-[#D4AF37] bg-[#D4AF37]/20 border border-[#D4AF37]/40 px-2 py-0.5 rounded-full font-bold">
                               {unreadCount} unread
                             </span>
                           )}
                         </div>
                       </div>
 
-                      <div className="max-h-64 overflow-y-auto divide-y divide-[#2A5B50]/50">
+                      <div className="max-h-64 overflow-y-auto divide-y divide-[#292929]/60">
                         {recentNotifs.length === 0 ? (
-                          <div className="p-6 text-center text-[#667085] text-xs">
+                          <div className="p-6 text-center text-[#8A8A8A] text-xs">
                             No recent notifications.
                           </div>
                         ) : (
@@ -387,28 +381,28 @@ export const Layout: React.FC = () => {
                             <div
                               key={notif.id}
                               onClick={() => handleNotificationClick(notif)}
-                              className={`p-3.5 hover:bg-[rgba(139,92,246,0.12)] transition-colors cursor-pointer flex items-start gap-3 text-left group ${
-                                notif.read ? 'opacity-60' : 'bg-[rgba(139,92,246,0.06)]'
+                              className={`p-3.5 hover:bg-[#1B1B1B] transition-colors cursor-pointer flex items-start gap-3 text-left group ${
+                                notif.read ? 'opacity-60' : 'bg-[#121212]'
                               }`}
                             >
                               <div className="mt-1">
-                                <Info className={`w-4 h-4 ${notif.read ? 'text-[#667085]' : 'text-[#00F5FF]'}`} />
+                                <Info className={`w-4 h-4 ${notif.read ? 'text-[#8A8A8A]' : 'text-[#D4AF37]'}`} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-xs font-bold ${notif.read ? 'text-[#A7B0BE]' : 'text-[#F8FAFC]'}`}>
+                                <p className={`text-xs font-bold ${notif.read ? 'text-[#C7C7C7]' : 'text-[#FFFFFF]'}`}>
                                   {notif.title}
                                 </p>
-                                <p className="text-[11px] text-[#667085] truncate mt-0.5">
+                                <p className="text-[11px] text-[#8A8A8A] truncate mt-0.5">
                                   {notif.message}
                                 </p>
                               </div>
                               <div className="flex items-center gap-1.5 flex-shrink-0">
                                 {!notif.read && (
-                                  <div className="w-2 h-2 rounded-full bg-[#00F5FF] mt-1 shadow-[0_0_8px_rgba(0,245,255,0.6)]" />
+                                  <div className="w-2 h-2 rounded-full bg-[#D4AF37] mt-1 shadow-[0_0_8px_rgba(212,175,55,0.6)]" />
                                 )}
                                 <button
                                   onClick={(e) => handleDeleteNotification(e, notif.id)}
-                                  className="p-1 rounded hover:bg-[#EF4444]/20 text-[#667085] hover:text-[#EF4444] transition-colors opacity-80 group-hover:opacity-100"
+                                  className="p-1 rounded hover:bg-[#EF4444]/20 text-[#8A8A8A] hover:text-[#EF4444] transition-colors opacity-80 group-hover:opacity-100"
                                   title="Delete notification"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -421,7 +415,7 @@ export const Layout: React.FC = () => {
 
                       <button
                         onClick={handleViewAll}
-                        className="w-full py-3 bg-[rgba(8,11,15,0.85)] hover:bg-[rgba(139,92,246,0.15)] text-center text-xs font-bold text-[#00F5FF] transition-colors border-t border-[rgba(167,139,250,0.18)] flex items-center justify-center gap-1.5 cursor-pointer"
+                        className="w-full py-3 bg-[#121212] hover:bg-[#1B1B1B] text-center text-xs font-bold text-[#D4AF37] transition-colors border-t border-[#292929] flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <span>View all alerts</span>
                         <ChevronRight className="w-3.5 h-3.5" />

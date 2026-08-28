@@ -30,7 +30,7 @@ export const BottomNav: React.FC = React.memo(() => {
   };
 
   return (
-    <nav aria-label="Bottom Navigation" className="fixed bottom-3 left-2 right-2 max-w-md mx-auto h-16 bg-[#173A32]/95 backdrop-blur-[20px] border border-[#2A5B50] rounded-full flex items-center justify-around px-2 z-[100] shadow-[0_8px_24px_rgba(18,51,43,0.25)] pointer-events-auto">
+    <nav aria-label="Bottom Navigation" className="fixed bottom-3 left-2 right-2 max-w-md mx-auto h-16 bg-[#151515]/95 backdrop-blur-[20px] border border-[#292929] rounded-full flex items-center justify-around px-2 z-[100] shadow-[0_8px_32px_rgba(0,0,0,0.8)] pointer-events-auto">
       {navItems.map((item) => {
         const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
         return (
@@ -39,18 +39,18 @@ export const BottomNav: React.FC = React.memo(() => {
             type="button"
             onClick={(e) => handleNavClick(e, item.path)}
             className={`flex flex-col items-center justify-center flex-1 min-w-0 h-12 rounded-full transition-all duration-100 touch-manipulation cursor-pointer active:scale-95 group ${
-              isActive ? 'text-[#19C7C0]' : 'text-[#C7DAD3] hover:text-[#F4FAF7]'
+              isActive ? 'text-[#D4AF37]' : 'text-[#8A8A8A] hover:text-[#FFFFFF]'
             }`}
           >
             <div className={`flex items-center justify-center w-8 h-6 mb-0.5 transition-all duration-100 ${
-              isActive ? 'text-[#19C7C0] filter drop-shadow-[0_0_8px_rgba(25,199,192,0.45)]' : 'text-[#C7DAD3]'
+              isActive ? 'text-[#D4AF37] filter drop-shadow-[0_0_8px_rgba(212,175,55,0.40)]' : 'text-[#8A8A8A]'
             }`}>
               <item.icon className={`w-4 h-4 ${
-                isActive ? 'stroke-[#19C7C0] stroke-[2.5]' : 'stroke-[#C7DAD3]'
+                isActive ? 'stroke-[#D4AF37] stroke-[2.5]' : 'stroke-[#8A8A8A]'
               }`} />
             </div>
             <span className={`text-[10px] sm:text-[10.5px] leading-none truncate max-w-full px-1 ${
-              isActive ? 'font-black text-[#19C7C0]' : 'font-semibold text-[#C7DAD3]'
+              isActive ? 'font-bold text-[#D4AF37]' : 'font-medium text-[#8A8A8A]'
             }`}>
               {item.label}
             </span>
@@ -61,7 +61,3 @@ export const BottomNav: React.FC = React.memo(() => {
   );
 });
 BottomNav.displayName = 'BottomNav';
-
-
-
-

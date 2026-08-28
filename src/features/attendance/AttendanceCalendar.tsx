@@ -231,13 +231,12 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
     let leaveCount = 0;
     let absentCount = 0;
 
-    // Iterate through all days in month
     for (let day = 1; day <= daysInMonth; day++) {
       const mStr = String(currentMonth + 1).padStart(2, '0');
       const dStr = String(day).padStart(2, '0');
       const dateStr = `${currentYear}-${mStr}-${dStr}`;
 
-      if (dateStr > todayStr) continue; // skip future days
+      if (dateStr > todayStr) continue;
 
       const info = getDayInfo(dateStr);
       if (info.category === 'OFFICE') officeCount++;
@@ -261,14 +260,14 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
     };
   }, [currentYear, currentMonth, daysInMonth, todayStr, monthRecords, currentEmployeeLeaves]);
 
-  // Working Days Calculation: Total non-Sunday days in month up to today (or total in month)
+  // Working Days Calculation
   const workingDaysInfo = useMemo(() => {
     let totalWorkingDaysInMonth = 0;
     let workingDaysElapsed = 0;
 
     for (let day = 1; day <= daysInMonth; day++) {
       const d = new Date(currentYear, currentMonth, day);
-      const isSunday = d.getDay() === 0; // 0 = Sunday
+      const isSunday = d.getDay() === 0;
       if (!isSunday) {
         totalWorkingDaysInMonth++;
         const mStr = String(currentMonth + 1).padStart(2, '0');
@@ -285,15 +284,6 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       elapsed: Math.max(1, workingDaysElapsed)
     };
   }, [currentYear, currentMonth, daysInMonth, todayStr]);
-
-  // Attendance Rate Calculation
-  const attendanceRate = useMemo(() => {
-    const totalValidDays = monthlyStats.present + monthlyStats.leave;
-    const denominator = workingDaysInfo.elapsed;
-    if (denominator <= 0) return 100;
-    const rate = Math.min(100, Math.round((totalValidDays / denominator) * 100));
-    return isNaN(rate) ? 0 : rate;
-  }, [monthlyStats, workingDaysInfo]);
 
   // Day click handler
   const handleDayClick = (dayNumber: number) => {
@@ -324,49 +314,49 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
   };
 
   return (
-    <div className="bg-[#171B1E] rounded-2xl border border-[#3A4148] p-4 sm:p-6 shadow-md space-y-5 text-white font-sans">
+    <div className="bg-[#151515] rounded-2xl border border-[#292929] p-4 sm:p-6 shadow-2xl space-y-5 text-white font-sans">
       
       {/* ==================================================== */}
       {/* HEADER & MONTH NAVIGATION */}
       {/* ==================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#3A4148] pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#292929] pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-[#111417] border border-[#3A4148] flex items-center justify-center text-[#18C98F] shadow-inner">
-            <CalendarIcon className="w-5 h-5 text-[#18C98F]" />
+          <div className="w-10 h-10 rounded-2xl bg-[#1B1B1B] border border-[#292929] flex items-center justify-center text-[#D4AF37] shadow-inner">
+            <CalendarIcon className="w-5 h-5 text-[#D4AF37]" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base sm:text-lg font-black text-white tracking-wide">
                 Attendance Calendar
               </h2>
-              <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#111417] text-[#18C98F] border border-[#3A4148] uppercase tracking-widest">
+              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#1B1B1B] text-[#D4AF37] border border-[#292929] uppercase tracking-widest">
                 History
               </span>
             </div>
-            <p className="text-xs text-[#B7C0BC] mt-0.5">
+            <p className="text-xs text-[#8A8A8A] mt-0.5">
               Monthly overview for <strong className="text-white">{employeeName}</strong>
             </p>
           </div>
         </div>
 
         {/* Navigation Buttons */}
-        <div className="flex items-center justify-between sm:justify-end gap-2 bg-[#111417] p-1.5 rounded-2xl border border-[#3A4148]">
+        <div className="flex items-center justify-between sm:justify-end gap-2 bg-[#121212] p-1.5 rounded-2xl border border-[#292929]">
           <button
             onClick={handlePrevMonth}
-            className="p-2 rounded-xl bg-[#1D2226] hover:bg-[#3A4148] text-[#B7C0BC] hover:text-white transition-all border border-[#3A4148] active:scale-95"
+            className="p-2 rounded-xl bg-[#1B1B1B] hover:bg-[#292929] text-[#8A8A8A] hover:text-white transition-all border border-[#292929] active:scale-95 cursor-pointer"
             title="Previous Month"
             aria-label="Previous Month"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <span className="text-xs sm:text-sm font-black text-white px-3 tracking-wider font-mono">
+          <span className="text-xs sm:text-sm font-bold text-white px-3 tracking-wider font-mono">
             {monthTitle}
           </span>
 
           <button
             onClick={handleNextMonth}
-            className="p-2 rounded-xl bg-[#1D2226] hover:bg-[#3A4148] text-[#B7C0BC] hover:text-white transition-all border border-[#3A4148] active:scale-95"
+            className="p-2 rounded-xl bg-[#1B1B1B] hover:bg-[#292929] text-[#8A8A8A] hover:text-white transition-all border border-[#292929] active:scale-95 cursor-pointer"
             title="Next Month"
             aria-label="Next Month"
           >
@@ -377,7 +367,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
 
       {/* Offline Warning Banner if selected month has no cached data offline */}
       {!isOnline && !hasDataForMonth && (
-        <div className="p-3.5 bg-amber-950/60 border border-amber-500/40 text-amber-200 rounded-2xl text-xs font-medium flex items-center gap-2.5 shadow-sm">
+        <div className="p-3.5 bg-amber-950/40 border border-amber-500/30 text-amber-200 rounded-2xl text-xs font-medium flex items-center gap-2.5 shadow-sm">
           <Info className="w-4 h-4 text-amber-400 flex-shrink-0" />
           <span>Attendance history for this month isn't available offline.</span>
         </div>
@@ -388,21 +378,21 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       {/* ==================================================== */}
       <div className="space-y-2">
         {/* Day Headers (MON to SUN) */}
-        <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[10px] sm:text-xs font-black text-[#B7C0BC] uppercase tracking-wider py-1 border-b border-[#3A4148]">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 text-center text-[10px] sm:text-xs font-bold text-[#8A8A8A] uppercase tracking-wider py-1 border-b border-[#292929]">
           <span>MON</span>
           <span>TUE</span>
           <span>WED</span>
           <span>THU</span>
           <span>FRI</span>
-          <span className="text-[#B7C0BC]">SAT</span>
-          <span className="text-[#B7C0BC]/80">SUN</span>
+          <span className="text-[#8A8A8A]">SAT</span>
+          <span className="text-[#8A8A8A]/80">SUN</span>
         </div>
 
         {/* Days Grid */}
         <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {/* Empty cells for starting day offset */}
           {Array.from({ length: startingDayOffset }).map((_, idx) => (
-            <div key={`offset-${idx}`} className="h-16 sm:h-20 rounded-2xl bg-[#111417]/20 border border-transparent opacity-20 pointer-events-none" />
+            <div key={`offset-${idx}`} className="h-16 sm:h-20 rounded-2xl bg-[#121212]/30 border border-transparent opacity-20 pointer-events-none" />
           ))}
 
           {/* Actual Month Days */}
@@ -416,27 +406,26 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
             const isToday = info.isToday;
             const isFuture = info.isFuture;
 
-            // Compute cell border & badge styling
-            let bgStyle = 'bg-[#111417] hover:bg-[#1D2226] border-[#3A4148]';
+            let bgStyle = 'bg-[#121212] hover:bg-[#1B1B1B] border-[#292929]';
             let statusIcon = '—';
             let statusLabel = 'No Record';
-            let textColor = 'text-[#7E8985]';
+            let textColor = 'text-[#8A8A8A]';
 
             if (isFuture) {
-              bgStyle = 'bg-[#111417] border-[#3A4148] opacity-40';
+              bgStyle = 'bg-[#121212] border-[#292929] opacity-30';
               statusIcon = '○';
               statusLabel = 'Future';
-              textColor = 'text-[#7E8985]/50';
+              textColor = 'text-[#8A8A8A]/40';
             } else if (info.category === 'OFFICE') {
-              bgStyle = 'bg-[#18C98F]/10 hover:bg-[#18C98F]/20 border-[#18C98F]/40 shadow-sm';
+              bgStyle = 'bg-[#22C55E]/10 hover:bg-[#22C55E]/15 border-[#22C55E]/40 shadow-sm';
               statusIcon = '✓';
               statusLabel = 'Office';
-              textColor = 'text-[#18C98F]';
+              textColor = 'text-[#22C55E]';
             } else if (info.category === 'WFH') {
-              bgStyle = 'bg-emerald-950/40 hover:bg-emerald-900/60 border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.15)]';
+              bgStyle = 'bg-[#D4AF37]/10 hover:bg-[#D4AF37]/15 border-[#D4AF37]/40 shadow-[0_0_10px_rgba(212,175,55,0.15)]';
               statusIcon = '🏠';
               statusLabel = 'WFH';
-              textColor = 'text-emerald-300';
+              textColor = 'text-[#D4AF37]';
             } else if (info.category === 'CLIENT_VISIT') {
               bgStyle = 'bg-amber-950/40 hover:bg-amber-900/60 border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.15)]';
               statusIcon = '📍';
@@ -463,17 +452,17 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
               <button
                 key={dateStr}
                 onClick={() => handleDayClick(dayNumber)}
-                className={`relative h-16 sm:h-20 p-1.5 sm:p-2 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between group active:scale-95 ${bgStyle} ${
-                  isToday ? 'ring-2 ring-[#18C98F] ring-offset-2 ring-offset-[#171B1E] border-[#3A4148]' : ''
+                className={`relative h-16 sm:h-20 p-1.5 sm:p-2 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between group active:scale-95 cursor-pointer ${bgStyle} ${
+                  isToday ? 'ring-2 ring-[#D4AF37] ring-offset-2 ring-offset-[#151515] border-[#292929]' : ''
                 }`}
               >
                 {/* Date Number + Today Highlight Badge */}
                 <div className="flex justify-between items-center w-full">
-                  <span className={`text-xs sm:text-sm font-black font-mono ${isToday ? 'text-white' : 'text-[#F5F7F6]'}`}>
+                  <span className={`text-xs sm:text-sm font-black font-mono ${isToday ? 'text-white' : 'text-[#C7C7C7]'}`}>
                     {dayNumber}
                   </span>
                   {isToday && (
-                    <span className="text-[9px] font-black bg-[#18C98F] text-[#0B0D0F] px-1.5 py-0.5 rounded-full shadow tracking-wider uppercase">
+                    <span className="text-[9px] font-bold bg-[#D4AF37] text-black px-1.5 py-0.5 rounded-full shadow tracking-wider uppercase">
                       TODAY
                     </span>
                   )}
@@ -497,13 +486,13 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       {/* ==================================================== */}
       {/* LEGEND */}
       {/* ==================================================== */}
-      <div className="pt-3 border-t border-[#3A4148] flex flex-wrap items-center justify-center gap-3 sm:gap-5 text-[11px] font-bold text-[#B7C0BC]">
+      <div className="pt-3 border-t border-[#292929] flex flex-wrap items-center justify-center gap-3 sm:gap-5 text-[11px] font-bold text-[#8A8A8A]">
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-[#18C98F]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#22C55E]" />
           <span>✓ Office</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+          <span className="w-2.5 h-2.5 rounded-full bg-[#D4AF37]" />
           <span>🏠 WFH</span>
         </div>
         <div className="flex items-center gap-1.5">
@@ -524,19 +513,19 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       {/* DAY DETAILS MODAL / BOTTOM SHEET */}
       {/* ==================================================== */}
       {selectedDayDetail && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
           <div 
-            className="w-full max-w-lg bg-[#171B1E] border border-[#3A4148] rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl space-y-5 animate-slide-up text-white relative max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-lg bg-[#151515] border border-[#292929] rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl space-y-5 animate-slide-up text-white relative max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex justify-between items-start border-b border-[#3A4148] pb-4">
+            <div className="flex justify-between items-start border-b border-[#292929] pb-4">
               <div>
-                <p className="text-[10px] text-[#B7C0BC] font-extrabold uppercase tracking-widest flex items-center gap-2">
-                  <CalendarIcon className="w-3.5 h-3.5 text-[#18C98F]" />
+                <p className="text-[10px] text-[#8A8A8A] font-bold uppercase tracking-widest flex items-center gap-2">
+                  <CalendarIcon className="w-3.5 h-3.5 text-[#D4AF37]" />
                   Day Attendance Details
                   {selectedDayDetail.isToday && (
-                    <span className="bg-[#18C98F] text-[#0B0D0F] text-[9px] px-2 py-0.5 rounded-full font-black">
+                    <span className="bg-[#D4AF37] text-black text-[9px] px-2 py-0.5 rounded-full font-bold">
                       TODAY
                     </span>
                   )}
@@ -547,23 +536,23 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
               </div>
               <button
                 onClick={() => setSelectedDayDetail(null)}
-                className="p-2 rounded-xl bg-[#1D2226] hover:bg-[#3A4148] text-[#B7C0BC] hover:text-white transition-all border border-[#3A4148]"
+                className="p-2 rounded-xl bg-[#1B1B1B] hover:bg-[#292929] text-[#8A8A8A] hover:text-white transition-all border border-[#292929] cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Attendance Status Badge Header */}
-            <div className="p-4 rounded-2xl bg-[#111417] border border-[#3A4148] flex items-center justify-between">
-              <span className="text-xs font-bold text-[#B7C0BC]">Status</span>
-              <span className={`px-3 py-1 rounded-full text-xs font-black border flex items-center gap-1.5 ${
-                selectedDayDetail.category === 'OFFICE' ? 'bg-[#18C98F]/25 text-[#18C98F] border-[#18C98F]/40' :
-                selectedDayDetail.category === 'WFH' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' :
+            <div className="p-4 rounded-2xl bg-[#121212] border border-[#292929] flex items-center justify-between">
+              <span className="text-xs font-bold text-[#8A8A8A]">Status</span>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
+                selectedDayDetail.category === 'OFFICE' ? 'bg-[#22C55E]/15 text-[#22C55E] border-[#22C55E]/40' :
+                selectedDayDetail.category === 'WFH' ? 'bg-[#D4AF37]/15 text-[#D4AF37] border-[#D4AF37]/40' :
                 selectedDayDetail.category === 'CLIENT_VISIT' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :
                 selectedDayDetail.category === 'OUTDOOR' ? 'bg-blue-500/20 text-blue-300 border-blue-500/40' :
                 selectedDayDetail.category === 'LEAVE' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' :
                 selectedDayDetail.category === 'ABSENT' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' :
-                'bg-slate-800 text-slate-300 border-slate-700'
+                'bg-[#1B1B1B] text-[#8A8A8A] border-[#292929]'
               }`}>
                 {selectedDayDetail.category === 'OFFICE' && '✓ OFFICE'}
                 {selectedDayDetail.category === 'WFH' && '🏠 WFH'}
@@ -580,24 +569,24 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
             {selectedDayDetail.attendanceRecord ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3.5 bg-[#111417] rounded-2xl border border-[#3A4148] space-y-1">
-                    <p className="text-[10px] text-[#B7C0BC] font-bold uppercase">Check-In</p>
+                  <div className="p-3.5 bg-[#121212] rounded-2xl border border-[#292929] space-y-1">
+                    <p className="text-[10px] text-[#8A8A8A] font-bold uppercase">Check-In</p>
                     <p className="text-base font-black text-white">{selectedDayDetail.attendanceRecord.checkInTime}</p>
-                    <p className="text-[9px] text-[#7E8985]">Source: {selectedDayDetail.attendanceRecord.checkInMode}</p>
+                    <p className="text-[9px] text-[#8A8A8A]">Source: {selectedDayDetail.attendanceRecord.checkInMode}</p>
                   </div>
 
-                  <div className="p-3.5 bg-[#111417] rounded-2xl border border-[#3A4148] space-y-1">
-                    <p className="text-[10px] text-[#B7C0BC] font-bold uppercase">Check-Out</p>
+                  <div className="p-3.5 bg-[#121212] rounded-2xl border border-[#292929] space-y-1">
+                    <p className="text-[10px] text-[#8A8A8A] font-bold uppercase">Check-Out</p>
                     <p className="text-base font-black text-white">{selectedDayDetail.attendanceRecord.checkOutTime || 'Pending'}</p>
-                    <p className="text-[9px] text-[#7E8985]">
+                    <p className="text-[9px] text-[#8A8A8A]">
                       Source: {selectedDayDetail.attendanceRecord.checkOutMode === 'AUTO_SYSTEM' ? 'Automatic Checkout' : (selectedDayDetail.attendanceRecord.checkOutMode === 'MANUAL' ? 'Manual Checkout' : 'In Progress')}
                     </p>
                   </div>
                 </div>
 
-                <div className="p-3.5 bg-[#111417] rounded-2xl border border-[#3A4148] flex justify-between items-center text-xs">
-                  <span className="font-bold text-[#B7C0BC]">Working Time</span>
-                  <span className="font-black text-emerald-300 text-sm font-mono">
+                <div className="p-3.5 bg-[#121212] rounded-2xl border border-[#292929] flex justify-between items-center text-xs">
+                  <span className="font-bold text-[#8A8A8A]">Working Time</span>
+                  <span className="font-bold text-[#D4AF37] text-sm font-mono">
                     {(() => {
                       const rec = selectedDayDetail.attendanceRecord;
                       if (!rec) return '--';
@@ -625,39 +614,39 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
 
                 {/* Mode Specific Additional Info */}
                 {selectedDayDetail.attendanceRecord.attendanceType === 'WFH' && (
-                  <div className="p-4 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 text-xs space-y-2">
-                    <p className="font-bold text-emerald-300 uppercase tracking-wider text-[10px]">Work From Home Details</p>
-                    <p><strong className="text-[#B7C0BC]">Reason:</strong> {selectedDayDetail.attendanceRecord.wfhReason || 'N/A'}</p>
-                    <p><strong className="text-[#B7C0BC]">Work Plan:</strong> {selectedDayDetail.attendanceRecord.workPlan || 'N/A'}</p>
+                  <div className="p-4 bg-[#D4AF37]/10 rounded-2xl border border-[#D4AF37]/20 text-xs space-y-2">
+                    <p className="font-bold text-[#D4AF37] uppercase tracking-wider text-[10px]">Work From Home Details</p>
+                    <p><strong className="text-[#8A8A8A]">Reason:</strong> {selectedDayDetail.attendanceRecord.wfhReason || 'N/A'}</p>
+                    <p><strong className="text-[#8A8A8A]">Work Plan:</strong> {selectedDayDetail.attendanceRecord.workPlan || 'N/A'}</p>
                   </div>
                 )}
 
                 {selectedDayDetail.attendanceRecord.attendanceType === 'CLIENT_VISIT' && (
                   <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20 text-xs space-y-2">
                     <p className="font-bold text-amber-300 uppercase tracking-wider text-[10px]">Client Visit Details</p>
-                    <p><strong className="text-[#B7C0BC]">Client:</strong> {selectedDayDetail.attendanceRecord.clientName || 'N/A'}</p>
-                    <p><strong className="text-[#B7C0BC]">Location:</strong> {selectedDayDetail.attendanceRecord.clientLocation || 'N/A'}</p>
-                    <p><strong className="text-[#B7C0BC]">Purpose:</strong> {selectedDayDetail.attendanceRecord.purpose || 'N/A'}</p>
+                    <p><strong className="text-[#8A8A8A]">Client:</strong> {selectedDayDetail.attendanceRecord.clientName || 'N/A'}</p>
+                    <p><strong className="text-[#8A8A8A]">Location:</strong> {selectedDayDetail.attendanceRecord.clientLocation || 'N/A'}</p>
+                    <p><strong className="text-[#8A8A8A]">Purpose:</strong> {selectedDayDetail.attendanceRecord.purpose || 'N/A'}</p>
                   </div>
                 )}
 
                 {selectedDayDetail.attendanceRecord.attendanceType === 'OUTDOOR' && (
                   <div className="p-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 text-xs space-y-2">
                     <p className="font-bold text-blue-300 uppercase tracking-wider text-[10px]">Outdoor Work Details</p>
-                    <p><strong className="text-[#B7C0BC]">Type:</strong> {selectedDayDetail.attendanceRecord.outdoorType || 'N/A'}</p>
-                    <p><strong className="text-[#B7C0BC]">Description:</strong> {selectedDayDetail.attendanceRecord.description || 'N/A'}</p>
+                    <p><strong className="text-[#8A8A8A]">Type:</strong> {selectedDayDetail.attendanceRecord.outdoorType || 'N/A'}</p>
+                    <p><strong className="text-[#8A8A8A]">Description:</strong> {selectedDayDetail.attendanceRecord.description || 'N/A'}</p>
                   </div>
                 )}
               </div>
             ) : selectedDayDetail.leaveRecord ? (
               <div className="p-4 bg-cyan-500/10 rounded-2xl border border-cyan-500/20 text-xs space-y-2">
                 <p className="font-bold text-cyan-300 uppercase tracking-wider text-[10px]">Approved Leave Details</p>
-                <p><strong className="text-[#B7C0BC]">Duration:</strong> {selectedDayDetail.leaveRecord.startDate} to {selectedDayDetail.leaveRecord.endDate} ({selectedDayDetail.leaveRecord.totalDays} Days)</p>
-                <p><strong className="text-[#B7C0BC]">Reason:</strong> {selectedDayDetail.leaveRecord.reason}</p>
+                <p><strong className="text-[#8A8A8A]">Duration:</strong> {selectedDayDetail.leaveRecord.startDate} to {selectedDayDetail.leaveRecord.endDate} ({selectedDayDetail.leaveRecord.totalDays} Days)</p>
+                <p><strong className="text-[#8A8A8A]">Reason:</strong> {selectedDayDetail.leaveRecord.reason}</p>
               </div>
             ) : (
-              <div className="p-5 bg-[#111417] rounded-2xl border border-[#3A4148] text-center space-y-2">
-                <p className="text-xs text-[#B7C0BC] font-medium">
+              <div className="p-5 bg-[#121212] rounded-2xl border border-[#292929] text-center space-y-2">
+                <p className="text-xs text-[#8A8A8A] font-medium">
                   {selectedDayDetail.isFuture 
                     ? 'This is a future date. No attendance records exist yet.' 
                     : 'No attendance record found for this date.'}
@@ -669,7 +658,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
             <div className="pt-2">
               <button
                 onClick={() => setSelectedDayDetail(null)}
-                className="w-full py-3.5 bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F] font-extrabold rounded-2xl text-xs transition-all shadow-lg active:scale-95"
+                className="w-full py-3.5 bg-[#D4AF37] hover:bg-[#E6C766] text-black font-bold rounded-2xl text-xs transition-all shadow-lg active:scale-95 cursor-pointer"
               >
                 Close
               </button>
