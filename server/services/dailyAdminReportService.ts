@@ -3,7 +3,8 @@ import { sendMail } from './emailService';
 
 export interface DailyReportConfig {
   enabled: boolean;
-  adminEmail: string;
+  adminEmail?: string; // backward compatibility
+  adminEmails: string[];
   sendTime: string;
   includeAttendance: boolean;
   includeLeaves: boolean;
@@ -15,10 +16,12 @@ export interface DailyReportConfig {
 
 export interface ReportStatusRecord {
   reportDate: string;
-  status: 'PENDING' | 'SENDING' | 'SENT' | 'FAILED';
+  status: 'PENDING' | 'SENDING' | 'SENT' | 'PARTIALLY_SENT' | 'FAILED' | 'NOT_CONFIGURED';
   startedAt: string;
   completedAt?: string;
-  recipient: string;
+  recipientCount?: number;
+  recipients?: string[];
+  recipient: string; // compatibility
   messageId?: string;
   error?: string;
   createdAt: any;
@@ -28,7 +31,7 @@ export interface ReportStatusRecord {
 // Default Configuration values
 export const DEFAULT_REPORT_CONFIG: DailyReportConfig = {
   enabled: true,
-  adminEmail: '',
+  adminEmails: [],
   sendTime: '07:00 AM',
   includeAttendance: true,
   includeLeaves: true,
@@ -37,6 +40,49 @@ export const DEFAULT_REPORT_CONFIG: DailyReportConfig = {
 };
 
 const CONFIG_DOC_PATH = 'notification_settings/daily_admin_report_config';
+
+/**
+ * Validates a list of email recipients according to strict rules:
+ * - non-empty array, max 20 entries, correct email format, no duplicates (case-insensitive)
+ */
+export function validateAdminEmails(emails: any): { valid: boolean; error?: string; cleaned?: string[] } {
+  if (!emails) {
+    return { valid: false, error: "Recipient list is required." };
+  }
+  if (!Array.isArray(emails)) {
+    return { valid: false, error: "Recipient list must be an array." };
+  }
+  if (emails.length > 20) {
+    return { valid: false, error: "Maximum 20 email recipients are allowed." };
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const cleaned: string[] = [];
+  const seen = new Set<string>();
+
+  for (let i = 0; i < emails.length; i++) {
+    const raw = emails[i];
+    if (typeof raw !== 'string') {
+      return { valid: false, error: `Invalid recipient format at index ${i}.` };
+    }
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return { valid: false, error: "Email addresses cannot be empty." };
+    }
+    if (!emailRegex.test(trimmed)) {
+      return { valid: false, error: `"${trimmed}" is not a valid email address.` };
+    }
+    
+    const lower = trimmed.toLowerCase();
+    if (seen.has(lower)) {
+      return { valid: false, error: `Duplicate email address detected: "${trimmed}".` };
+    }
+    seen.add(lower);
+    cleaned.push(trimmed);
+  }
+
+  return { valid: true, cleaned };
+}
 
 /**
  * Helper to get the formatted Date string (YYYY-MM-DD) for Asia/Kolkata timezone
@@ -123,9 +169,18 @@ export async function getDailyReportConfig(db: Firestore): Promise<DailyReportCo
       return { ...DEFAULT_REPORT_CONFIG };
     }
     const data = snap.data();
+
+    // BACKWARD COMPATIBILITY & MIGRATION
+    let adminEmails: string[] = [];
+    if (Array.isArray(data?.adminEmails)) {
+      adminEmails = data.adminEmails;
+    } else if (typeof data?.adminEmail === 'string' && data.adminEmail.trim()) {
+      adminEmails = [data.adminEmail.trim()];
+    }
+
     return {
       enabled: data?.enabled !== false,
-      adminEmail: data?.adminEmail || '',
+      adminEmails,
       sendTime: data?.sendTime || '07:00 AM',
       includeAttendance: data?.includeAttendance !== false,
       includeLeaves: data?.includeLeaves !== false,
@@ -149,9 +204,21 @@ export async function saveDailyReportConfig(
   updatedBy: string
 ): Promise<DailyReportConfig> {
   const current = await getDailyReportConfig(db);
+
+  // Clean / Validate config
+  let emailsToSave = config.adminEmails;
+  if (emailsToSave !== undefined) {
+    const valResult = validateAdminEmails(emailsToSave);
+    if (!valResult.valid) {
+      throw new Error(valResult.error);
+    }
+    emailsToSave = valResult.cleaned;
+  }
+
   const updated: DailyReportConfig = {
     ...current,
     ...config,
+    adminEmails: emailsToSave !== undefined ? emailsToSave : current.adminEmails,
     updatedAt: new Date().toISOString(),
     updatedBy,
   };
@@ -180,14 +247,29 @@ export async function generateAndSendDailyReport(
     return { success: true, message: 'Daily Admin Report is currently disabled in configuration.', reportDate };
   }
 
-  const recipient = config.adminEmail?.trim();
-  if (!recipient || !recipient.includes('@')) {
-    return { success: false, message: 'Admin email is not configured or is invalid.', reportDate };
+  const recipients = config.adminEmails || [];
+  const reportLogRef = db.collection('daily_admin_reports').doc(reportDate);
+
+  if (recipients.length === 0) {
+    // Write FAILED or NOT_CONFIGURED log with error message
+    await reportLogRef.set({
+      reportDate,
+      status: 'FAILED',
+      recipientCount: 0,
+      recipients: [],
+      recipient: '',
+      error: 'No Admin email recipients are configured.',
+      startedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    return { success: false, message: 'No Admin email recipients are configured.', reportDate };
   }
 
+  const primaryRecipient = recipients[0];
+
   // 3. Atomically enforce Idempotency using Firestore transactions to avoid dual delivery
-  const reportLogRef = db.collection('daily_admin_reports').doc(reportDate);
-  
   const canProceed = await db.runTransaction(async (transaction) => {
     const docSnap = await transaction.get(reportLogRef);
     if (docSnap.exists) {
@@ -212,7 +294,9 @@ export async function generateAndSendDailyReport(
       reportDate,
       status: 'SENDING',
       startedAt: new Date().toISOString(),
-      recipient,
+      recipientCount: recipients.length,
+      recipients: recipients,
+      recipient: primaryRecipient,
       triggeredBy: triggerBy,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -223,7 +307,7 @@ export async function generateAndSendDailyReport(
 
   if (!canProceed.proceed) {
     console.log(`[DailyReportService] Skipping generation: ${canProceed.reason}`);
-    return { success: false, message: canProceed.reason, reportDate, recipient };
+    return { success: false, message: canProceed.reason, reportDate, recipient: primaryRecipient };
   }
 
   try {
@@ -571,19 +655,29 @@ export async function generateAndSendDailyReport(
 
     // 10. Send the Mail via backend email service
     const subject = `EXFIN OMS — Daily Admin Report — ${formatDateStringFriendly(reportDate)}`;
+    const bccRecipients = recipients.slice(1);
+
     const emailRes = await sendMail({
-      to: recipient,
+      to: primaryRecipient,
+      bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
       subject,
       html: emailHtml,
     });
 
     if (emailRes.success) {
+      const accepted = emailRes.accepted || [];
+      const rejected = emailRes.rejected || [];
+      const hasRejections = rejected.length > 0;
+      const statusValue = hasRejections ? 'PARTIALLY_SENT' : 'SENT';
+
       await reportLogRef.set({
-        status: 'SENT',
+        status: statusValue,
         completedAt: new Date().toISOString(),
         messageId: emailRes.messageId || 'simulated',
         simulated: emailRes.simulated,
-        error: FieldValue.delete(),
+        acceptedRecipients: accepted,
+        rejectedRecipients: rejected,
+        error: hasRejections ? `Delivery failed for: ${rejected.join(', ')}` : FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
 
@@ -599,19 +693,25 @@ export async function generateAndSendDailyReport(
           timestamp: new Date().toISOString(),
           details: {
             reportDate,
-            recipient,
+            recipients,
+            recipientCount: recipients.length,
+            status: statusValue,
             manual: isManualSend,
             simulated: emailRes.simulated,
             messageId: emailRes.messageId,
+            acceptedCount: accepted.length,
+            rejectedCount: rejected.length,
           },
         });
       } catch (ae) {}
 
       return {
         success: true,
-        message: 'Daily Admin Report generated and sent successfully.',
+        message: hasRejections
+          ? `Daily Admin Report partially sent to ${accepted.length} recipients, but failed for ${rejected.length} recipients.`
+          : 'Daily Admin Report generated and sent successfully.',
         reportDate,
-        recipient,
+        recipient: primaryRecipient,
         messageId: emailRes.messageId,
       };
     } else {
@@ -641,7 +741,8 @@ export async function generateAndSendDailyReport(
         timestamp: new Date().toISOString(),
         details: {
           reportDate,
-          recipient,
+          recipients,
+          recipientCount: recipients.length,
           error: err.message || String(err),
         },
       });
@@ -651,23 +752,26 @@ export async function generateAndSendDailyReport(
       success: false,
       message: err.message || 'Failed to generate and dispatch daily report.',
       reportDate,
-      recipient,
+      recipient: primaryRecipient,
     };
   }
 }
 
 /**
- * Sends a clean test email to the configured Admin email address
+ * Sends a clean test email to the configured Admin email addresses
  */
 export async function sendDailyReportTestEmail(
   db: Firestore,
   triggerBy = 'SUPER_ADMIN'
-): Promise<{ success: boolean; message: string; recipient?: string }> {
+): Promise<{ success: boolean; message: string; recipientCount?: number; recipients?: string[] }> {
   const config = await getDailyReportConfig(db);
-  const recipient = config.adminEmail?.trim();
-  if (!recipient || !recipient.includes('@')) {
-    return { success: false, message: 'Admin email is not configured or is invalid.' };
+  const recipients = config.adminEmails || [];
+  if (recipients.length === 0) {
+    return { success: false, message: 'No Admin email recipients are configured.' };
   }
+
+  const primaryRecipient = recipients[0];
+  const bccRecipients = recipients.slice(1);
 
   const subject = `EXFIN OMS — Test Daily Report`;
   const html = `
@@ -684,8 +788,16 @@ export async function sendDailyReportTestEmail(
         <td style="padding: 8px 0; color: #10b981;">ACTIVE / OPERATIONAL</td>
       </tr>
       <tr style="border-bottom: 1px solid #e2e8f0;">
-        <td style="padding: 8px 0; font-weight: bold;">Recipient</td>
-        <td style="padding: 8px 0;">${recipient}</td>
+        <td style="padding: 8px 0; font-weight: bold;">Primary Recipient</td>
+        <td style="padding: 8px 0;">${primaryRecipient}</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 8px 0; font-weight: bold;">BCC Recipients</td>
+        <td style="padding: 8px 0;">${bccRecipients.length > 0 ? bccRecipients.join(', ') : 'None'}</td>
+      </tr>
+      <tr style="border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 8px 0; font-weight: bold;">Recipient Count</td>
+        <td style="padding: 8px 0;">${recipients.length}</td>
       </tr>
       <tr style="border-bottom: 1px solid #e2e8f0;">
         <td style="padding: 8px 0; font-weight: bold;">Send Time Setting</td>
@@ -705,12 +817,17 @@ export async function sendDailyReportTestEmail(
   `;
 
   const emailRes = await sendMail({
-    to: recipient,
+    to: primaryRecipient,
+    bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
     subject,
     html,
   });
 
   if (emailRes.success) {
+    const accepted = emailRes.accepted || [];
+    const rejected = emailRes.rejected || [];
+    const hasRejections = rejected.length > 0;
+
     // Audit Log
     try {
       const auditRef = db.collection('audit_logs').doc();
@@ -722,21 +839,28 @@ export async function sendDailyReportTestEmail(
         performedByName: triggerBy,
         timestamp: new Date().toISOString(),
         details: {
-          recipient,
+          recipients,
+          recipientCount: recipients.length,
+          acceptedCount: accepted.length,
+          rejectedCount: rejected.length,
         },
       });
     } catch (ae) {}
 
     return {
       success: true,
-      message: 'Test email successfully sent to ' + recipient,
-      recipient,
+      message: hasRejections
+        ? `Test email sent to ${accepted.length} recipients, but failed for ${rejected.length} recipients.`
+        : `Test email sent to ${recipients.length} recipients.`,
+      recipientCount: recipients.length,
+      recipients,
     };
   } else {
     return {
       success: false,
       message: emailRes.error || 'Failed to dispatch verification email',
-      recipient,
+      recipientCount: recipients.length,
+      recipients,
     };
   }
 }

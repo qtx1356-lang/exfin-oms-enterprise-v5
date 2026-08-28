@@ -22,7 +22,8 @@ import {
 
 interface DailyReportConfig {
   enabled: boolean;
-  adminEmail: string;
+  adminEmail?: string; // fallback
+  adminEmails: string[];
   sendTime: string;
   includeAttendance: boolean;
   includeLeaves: boolean;
@@ -35,9 +36,11 @@ interface DailyReportConfig {
 interface ReportHistoryItem {
   id: string;
   reportDate: string;
-  status: 'PENDING' | 'SENDING' | 'SENT' | 'FAILED';
+  status: 'PENDING' | 'SENDING' | 'SENT' | 'PARTIALLY_SENT' | 'FAILED' | 'NOT_CONFIGURED';
   startedAt: string;
   completedAt?: string;
+  recipientCount?: number;
+  recipients?: string[];
   recipient: string;
   messageId?: string;
   simulated?: boolean;
@@ -60,6 +63,63 @@ export function DailyAdminReportTab() {
 
   // Status banners
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // New email input states
+  const [newEmail, setNewEmail] = useState('');
+  const [emailInputError, setEmailInputError] = useState('');
+
+  const handleEmailInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewEmail(e.target.value);
+    if (emailInputError) {
+      setEmailInputError('');
+    }
+  };
+
+  const handleAddRecipient = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!config) return;
+
+    const trimmed = newEmail.trim();
+    if (!trimmed) {
+      setEmailInputError('Email address cannot be empty.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      setEmailInputError('Please enter a valid email address.');
+      return;
+    }
+
+    const currentEmails = config.adminEmails || [];
+    if (currentEmails.length >= 20) {
+      setEmailInputError('Maximum of 20 recipients allowed.');
+      return;
+    }
+
+    const lower = trimmed.toLowerCase();
+    if (currentEmails.some(email => email.toLowerCase() === lower)) {
+      setEmailInputError('This email address is already added.');
+      return;
+    }
+
+    // Add it to state
+    setConfig({
+      ...config,
+      adminEmails: [...currentEmails, trimmed]
+    });
+    setNewEmail('');
+    setEmailInputError('');
+  };
+
+  const handleRemoveRecipient = (emailToRemove: string) => {
+    if (!config) return;
+    const currentEmails = config.adminEmails || [];
+    setConfig({
+      ...config,
+      adminEmails: currentEmails.filter(email => email !== emailToRemove)
+    });
+  };
 
   // Load configuration & history
   const loadData = async () => {
@@ -291,18 +351,77 @@ export function DailyAdminReportTab() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-extrabold text-purple-200 uppercase tracking-wider block mb-1">Recipient Admin Email *</label>
-                    <input 
-                      type="email"
-                      required
-                      placeholder="admin@exfin.in"
-                      disabled={!isSuperAdmin}
-                      value={config.adminEmail}
-                      onChange={(e) => setConfig({ ...config, adminEmail: e.target.value })}
-                      className="w-full bg-[#1A0736] border border-purple-500/30 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 disabled:opacity-50"
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <label className="text-xs font-extrabold text-purple-200 uppercase tracking-wider block">
+                      Admin Email Recipients ({config.adminEmails?.length || 0}/20) *
+                    </label>
+                    
+                    {/* List of existing recipients */}
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {(!config.adminEmails || config.adminEmails.length === 0) ? (
+                        <p className="text-purple-300/40 text-[11px] italic bg-[#1A0736]/40 p-3 rounded-xl border border-dashed border-purple-500/20">
+                          No recipients configured. At least one recipient is required for report delivery.
+                        </p>
+                      ) : (
+                        <div className="flex flex-col gap-1.5">
+                          {config.adminEmails.map((email, idx) => (
+                            <div 
+                              key={email}
+                              className="flex items-center justify-between px-3 py-1.5 bg-[#1A0736] border border-purple-500/10 rounded-xl text-xs hover:border-purple-500/30 transition-all"
+                            >
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-purple-400 font-bold shrink-0">{idx + 1}.</span>
+                                <span className="text-white truncate" title={email}>{email}</span>
+                              </div>
+                              {isSuperAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveRecipient(email)}
+                                  className="text-purple-400 hover:text-rose-400 p-0.5 rounded-lg hover:bg-rose-500/10 shrink-0 transition-colors"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {isSuperAdmin && (
+                      <div className="space-y-2 pt-1">
+                        <div className="flex gap-2">
+                          <input 
+                            type="text"
+                            placeholder="Add recipient email (e.g. hr@exfin.in)"
+                            value={newEmail}
+                            onChange={handleEmailInputChange}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddRecipient(e);
+                              }
+                            }}
+                            className="flex-1 bg-[#1A0736] border border-purple-500/30 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
+                          />
+                          <Button 
+                            type="button"
+                            onClick={handleAddRecipient}
+                            variant="secondary"
+                            className="text-xs font-bold border border-purple-500/20 whitespace-nowrap bg-purple-500/10 hover:bg-purple-500/20"
+                          >
+                            Add Recipient
+                          </Button>
+                        </div>
+                        {emailInputError && (
+                          <div className="p-2.5 bg-rose-950/40 border border-rose-500/30 text-rose-200 text-xs rounded-xl flex items-center gap-1.5 animate-fadeIn">
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                            <span>{emailInputError}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="text-xs font-extrabold text-purple-200 uppercase tracking-wider block mb-1">Automated Delivery Target Time</label>
@@ -424,7 +543,7 @@ export function DailyAdminReportTab() {
                 <span className="text-[10px] text-purple-300/60 block">Sends a clean connection verification report to the configured recipient email address.</span>
                 <Button
                   onClick={handleSendTestEmail}
-                  disabled={testEmailLoading || !isSuperAdmin || !config?.adminEmail}
+                  disabled={testEmailLoading || !isSuperAdmin || !config?.adminEmails || config.adminEmails.length === 0}
                   variant="secondary"
                   className="w-full text-xs text-center flex items-center justify-center gap-1.5 border border-purple-500/20 bg-purple-500/10 hover:bg-purple-500/20 disabled:opacity-50"
                 >
@@ -453,7 +572,7 @@ export function DailyAdminReportTab() {
                 </div>
                 <Button
                   onClick={handleSendManualReport}
-                  disabled={manualTriggerLoading || !isSuperAdmin || !config?.adminEmail}
+                  disabled={manualTriggerLoading || !isSuperAdmin || !config?.adminEmails || config.adminEmails.length === 0}
                   className="w-full text-xs text-center flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold disabled:opacity-50"
                 >
                   {manualTriggerLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
@@ -507,7 +626,24 @@ export function DailyAdminReportTab() {
                         {item.status}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-purple-300/80">{item.recipient}</td>
+                    <td className="py-3 px-4 text-purple-300/80">
+                      {item.recipients && item.recipients.length > 0 ? (
+                        <div>
+                          <div className="font-medium truncate max-w-[140px]" title={item.recipients[0]}>
+                            {item.recipients[0]}
+                          </div>
+                          {item.recipients.length > 1 && (
+                            <span className="text-[10px] text-purple-400 font-bold bg-purple-500/10 px-1.5 py-0.5 rounded-full mt-0.5 inline-block">
+                              + {item.recipients.length - 1} more
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="truncate block max-w-[140px]" title={item.recipient || '-'}>
+                          {item.recipient || '-'}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3 px-4 text-purple-300/60 font-mono text-[10px]">
                       {item.startedAt ? new Date(item.startedAt).toLocaleString() : '-'}
                     </td>

@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 
 export interface EmailPayload {
   to: string;
+  bcc?: string | string[];
   subject: string;
   html: string;
 }
@@ -11,6 +12,8 @@ export interface SendEmailResult {
   simulated: boolean;
   messageId?: string;
   error?: string;
+  accepted?: string[];
+  rejected?: string[];
 }
 
 /**
@@ -30,13 +33,15 @@ export async function sendMail(payload: EmailPayload): Promise<SendEmailResult> 
   if (!isConfigured) {
     console.log(`[SMTP Email Simulation]
 To: ${payload.to}
+Bcc: ${payload.bcc ? (Array.isArray(payload.bcc) ? payload.bcc.join(', ') : payload.bcc) : 'None'}
 Subject: ${payload.subject}
 Body Size: ${payload.html.length} chars
 --- FALLBACK SIMULATION ONLY ---`);
     return {
       success: true,
       simulated: true,
-      messageId: `sim_${Date.now()}_${Math.floor(Math.random() * 1000)}`
+      messageId: `sim_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      accepted: [payload.to, ...(payload.bcc ? (Array.isArray(payload.bcc) ? payload.bcc : [payload.bcc]) : [])]
     };
   }
 
@@ -58,6 +63,7 @@ Body Size: ${payload.html.length} chars
     const info = await transporter.sendMail({
       from,
       to: payload.to,
+      bcc: payload.bcc,
       subject: payload.subject,
       html: payload.html,
     });
@@ -67,6 +73,8 @@ Body Size: ${payload.html.length} chars
       success: true,
       simulated: false,
       messageId: info.messageId,
+      accepted: (info.accepted || []) as string[],
+      rejected: (info.rejected || []) as string[]
     };
   } catch (err: any) {
     console.error(`[SMTP Email Dispatcher] Failed to send email to ${payload.to}:`, err);

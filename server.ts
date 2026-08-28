@@ -21,7 +21,8 @@ import {
   getDailyReportConfig,
   saveDailyReportConfig,
   generateAndSendDailyReport,
-  sendDailyReportTestEmail
+  sendDailyReportTestEmail,
+  validateAdminEmails
 } from "./server/services/dailyAdminReportService";
 
 const OFFICE_LAT = 23.616227;
@@ -1386,6 +1387,14 @@ async function startServer() {
     }
 
     try {
+      // Validate configuration payload
+      if (req.body.adminEmails !== undefined) {
+        const valResult = validateAdminEmails(req.body.adminEmails);
+        if (!valResult.valid) {
+          return res.status(400).json({ error: valResult.error });
+        }
+      }
+
       const updatedConfig = await saveDailyReportConfig(db, req.body, caller.email || caller.uid);
       return res.json({
         success: true,
@@ -1393,7 +1402,7 @@ async function startServer() {
       });
     } catch (err: any) {
       console.error("[DailyReport API] Error saving config:", err);
-      return res.status(500).json({ error: "Failed to save daily report configuration" });
+      return res.status(400).json({ error: err.message || "Failed to save daily report configuration" });
     }
   });
 
