@@ -76,22 +76,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     return first;
   }, [displayName]);
 
-  const [showAlertToast, setShowAlertToast] = useState(false);
-
   useEffect(() => {
     logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
     try {
       const sessionKey = 'exfin_session_greeting_played';
       if (!sessionStorage.getItem(sessionKey)) {
         sessionStorage.setItem(sessionKey, 'true');
-        setShowAlertToast(true);
 
         // Trigger personalized native voice greeting with the first name if available
         const greetingSentence = firstName ? `${greetingInfo.label}, ${firstName}.` : `${greetingInfo.label}.`;
         speakWelcomeGreeting(greetingSentence, greetingInfo.periodKey);
-
-        const t = setTimeout(() => setShowAlertToast(false), 4000);
-        return () => clearTimeout(t);
       }
     } catch (e) {
       console.warn('[WelcomeScreen] Greeting initialization error:', e);
@@ -105,21 +99,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
   return (
     <div className="fixed inset-0 bg-[var(--app-bg)] flex flex-col items-center justify-between p-4 sm:p-6 z-40 text-[var(--text-primary)] overflow-y-auto relative overflow-hidden">
-      {/* Time-of-Day Welcome Alert Toast */}
-      {showAlertToast && (
-        <div className="absolute top-4 left-4 right-4 z-50 mx-auto max-w-sm glass-card-elevated border-[var(--aurora-emerald)]/40 p-4 flex items-center gap-3 backdrop-blur-xl">
-          <div className="w-10 h-10 rounded-xl bg-[var(--aurora-emerald)]/10 border border-[var(--aurora-emerald)]/20 flex items-center justify-center shrink-0">
-            <Sparkles className="w-5 h-5 text-[var(--aurora-emerald)]" />
-          </div>
-          <div className="flex-1 min-w-0 text-left">
-            <p className="text-[10px] font-bold text-[var(--aurora-emerald)] uppercase tracking-wider">Welcome Alert</p>
-            <p className="text-sm font-extrabold text-[var(--text-primary)] truncate">
-              {greetingInfo.label}, Executive!
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Emerald Aurora Ambient Lighting */}
       <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[var(--aurora-emerald)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
       <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[var(--aurora-teal)]/8 rounded-full blur-[140px] pointer-events-none -z-10" />
@@ -152,7 +131,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             {status === 'unregistered' ? (
               <>Register Device</>
             ) : (
-              <>Welcome to Workspace</>
+              <>{displayName || 'Welcome Back'}</>
             )}
           </h1>
           <p className="text-[11px] font-bold text-[var(--aurora-emerald)] tracking-widest uppercase mt-2">
