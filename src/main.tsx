@@ -18,6 +18,9 @@ if (typeof window !== 'undefined' && window.sessionStorage) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {(() => {
+      console.log('[OFFLINE-ROOT] React root mounted');
+      return <App />;
+    })()}
   </StrictMode>,
 );

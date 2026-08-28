@@ -8,6 +8,12 @@
     <link rel="manifest" href="/manifest.json" />
     <title>Office Management System v6.0</title>
     <script>
+      window.__EXFIN_STARTUP_COUNT = (window.__EXFIN_STARTUP_COUNT || 0) + 1;
+      console.log('[OFFLINE-ROOT] JavaScript bundle executed, count:', window.__EXFIN_STARTUP_COUNT);
+      window.addEventListener('DOMContentLoaded', function() {
+        console.log('[OFFLINE-ROOT] DOMContentLoaded');
+      });
+
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
           .then(function (registration) {
