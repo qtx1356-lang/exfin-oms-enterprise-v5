@@ -154,3 +154,23 @@ export const parseTimestamp = (ts: any): Date | null => {
   
   return null;
 };
+
+export const isGreetingNotification = (notif: { title?: string; message?: string; type?: string } | null | undefined): boolean => {
+  if (!notif) return false;
+  
+  const title = (notif.title || '').toLowerCase();
+  const message = (notif.message || '').toLowerCase();
+  const type = (notif.type || '').toLowerCase();
+  
+  const hasGreetingPhrase = (str: string) => 
+    str.includes('good morning') || 
+    str.includes('good afternoon') || 
+    str.includes('good evening');
+
+  return (
+    hasGreetingPhrase(title) || 
+    hasGreetingPhrase(message) || 
+    type === 'greeting' || 
+    type === 'welcome_greeting'
+  );
+};

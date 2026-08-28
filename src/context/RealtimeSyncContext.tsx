@@ -13,7 +13,7 @@ import { TaskRecord } from '../types/planner';
 import { LeaveRecord } from '../types/leave';
 import { AttendanceRecord } from '../types/attendance';
 import { ExpenseRecord } from '../types/expense';
-import { NotificationRecord, parseTimestamp } from '../types/notification';
+import { NotificationRecord, parseTimestamp, isGreetingNotification } from '../types/notification';
 
 import { queueTaskSync, syncPendingTasks } from '../services/planner/taskSyncEngine';
 import { syncPendingLeaves } from '../services/leave/leaveSyncEngine';
@@ -604,7 +604,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             };
 
             // Strict privacy and isolation enforcement
-            if (isNotificationForUser(record, latestEmployeeDataRef.current || employeeData)) {
+            if (isNotificationForUser(record, latestEmployeeDataRef.current || employeeData) && !isGreetingNotification(record)) {
               list.push(record);
             }
           });

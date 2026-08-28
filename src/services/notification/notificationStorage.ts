@@ -1,4 +1,4 @@
-import { NotificationRecord, parseTimestamp } from '../../types/notification';
+import { NotificationRecord, parseTimestamp, isGreetingNotification } from '../../types/notification';
 
 export const getStorageKeys = (explicitUserId?: string) => {
   let currentUserId = explicitUserId;
@@ -158,7 +158,7 @@ export const getStoredNotifications = (userId?: string): NotificationRecord[] =>
     const pendingDeletes = getPendingDeletes(userId);
     const pendingReads = getPendingReads(userId);
     return notifications
-      .filter((n) => !deletedIds.includes(n.id) && !n.deleted && !pendingDeletes.includes(n.id))
+      .filter((n) => !deletedIds.includes(n.id) && !n.deleted && !pendingDeletes.includes(n.id) && !isGreetingNotification(n))
       .map((n) => {
         if (pendingReads.includes(n.id)) {
           return { ...n, read: true, isRead: true };

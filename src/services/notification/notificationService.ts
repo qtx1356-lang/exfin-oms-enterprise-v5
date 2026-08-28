@@ -13,7 +13,7 @@ import {
   arrayUnion,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
-import { NotificationRecord, NotificationType, NotificationCategory, NotificationPriority, parseTimestamp } from '../../types/notification';
+import { NotificationRecord, NotificationType, NotificationCategory, NotificationPriority, parseTimestamp, isGreetingNotification } from '../../types/notification';
 import {
   getStoredNotifications,
   saveNotificationLocally,
@@ -132,6 +132,29 @@ export const createNotification = async (
   const nowIso = new Date().toISOString();
   
   const recipientCode = data.recipientEmployeeCode || 'SYSTEM';
+
+  if (isGreetingNotification(data)) {
+    console.log('[NotificationService] GREETING_NOTIFICATION_IGNORED (Prevented from creation/storage)');
+    return {
+      id: 'greeting_prevented_' + Math.random().toString(36).substr(2, 9),
+      type: 'GREETING',
+      category: 'SYSTEM',
+      title: data.title || '',
+      message: data.message || '',
+      recipientUserId: data.recipientUserId || '',
+      recipientEmployeeCode: recipientCode,
+      recipientRole: 'EMPLOYEE',
+      priority: 'LOW',
+      read: true,
+      isRead: true,
+      timestamp: nowIso,
+      createdAtDeviceTime: nowIso,
+      updatedAtDeviceTime: nowIso,
+      serverSyncTime: '',
+      syncStatus: 'SYNCED',
+    };
+  }
+
   const idempotencyKey = data.idempotencyKey || (data as any).key || `${data.type}_${data.entityId || 'general'}_${recipientCode}`.replace(/[^a-zA-Z0-9_]/g, '_');
 
   // Check idempotency first
@@ -234,7 +257,7 @@ export const getNotificationsForUser = async (user: {
   // Filter local based on strict identity permissions
   const filterAllowedLocal = (n: NotificationRecord) => isNotificationForUser(n, user);
 
-  const localFiltered = localNotifications.filter(filterAllowedLocal);
+  const localFiltered = localNotifications.filter(n => filterAllowedLocal(n) && !isGreetingNotification(n));
 
   if (!isOnline()) {
     return localFiltered;
@@ -340,7 +363,7 @@ export const getNotificationsForUser = async (user: {
 
     // Re-load fully merged list from isolated storage
     const finalLocal = getStoredNotifications(userScopeKey);
-    return finalLocal.filter(filterAllowedLocal);
+    return finalLocal.filter(n => filterAllowedLocal(n) && !isGreetingNotification(n));
   } catch (err) {
     console.error('Error fetching notifications from server:', err);
     return localFiltered;
