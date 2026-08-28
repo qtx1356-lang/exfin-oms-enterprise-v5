@@ -1,11 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "react-example",
+  "name": "exfin-oms-enterprise-v5",
   "compatibility_date": "2026-08-26",
   "observability": {
     "enabled": true
   },
   "assets": {
+    "directory": "./dist",
     "not_found_handling": "single-page-application"
   }
 }
