@@ -346,6 +346,13 @@ self.addEventListener('fetch', (event) => {
             // Treat 404 or HTML content for JS/CSS as a missing/stale asset
             if (response.status === 404 || isHtmlForJsCss) {
               if (url.pathname.endsWith('.js')) {
+                if (self.navigator && self.navigator.onLine === false) {
+                  console.warn('[SW] Offline and JS asset 404/invalid. Returning warning fallback.');
+                  return new Response('console.warn("JS asset load failed due to offline status");', {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/javascript' }
+                  });
+                }
                 return await handleCriticalAssetFailure();
               }
             }
@@ -354,6 +361,13 @@ self.addEventListener('fetch', (event) => {
         } catch (fetchErr) {
           // If network fetch failed (offline) and we don't have the asset cached
           if (url.pathname.endsWith('.js')) {
+            if (self.navigator && self.navigator.onLine === false) {
+              console.warn('[SW] Offline and JS asset fetch failed. Returning warning fallback.');
+              return new Response('console.warn("JS asset load failed due to offline status");', {
+                status: 200,
+                headers: { 'Content-Type': 'application/javascript' }
+              });
+            }
             return await handleCriticalAssetFailure();
           }
 
