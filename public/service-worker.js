@@ -346,29 +346,25 @@ self.addEventListener('fetch', (event) => {
             // Treat 404 or HTML content for JS/CSS as a missing/stale asset
             if (response.status === 404 || isHtmlForJsCss) {
               if (url.pathname.endsWith('.js')) {
-                if (self.navigator && self.navigator.onLine === false) {
-                  console.warn('[SW] Offline and JS asset 404/invalid. Returning warning fallback.');
-                  return new Response('console.warn("JS asset load failed due to offline status");', {
-                    status: 200,
-                    headers: { 'Content-Type': 'application/javascript' }
-                  });
-                }
-                return await handleCriticalAssetFailure();
+                // If it's HTML, it's extremely likely a captive portal or offline proxy intercept.
+                // Do not initiate a destructive reload loop. Just fail gracefully.
+                console.warn('[SW] JS asset 404 or returned HTML (likely offline proxy/captive portal). Returning warning fallback.');
+                return new Response('console.warn("JS asset load failed due to 404 or HTML intercept");', {
+                  status: 200,
+                  headers: { 'Content-Type': 'application/javascript' }
+                });
               }
             }
           }
           return response;
         } catch (fetchErr) {
-          // If network fetch failed (offline) and we don't have the asset cached
+          // If network fetch failed (offline/DNS error) and we don't have the asset cached
           if (url.pathname.endsWith('.js')) {
-            if (self.navigator && self.navigator.onLine === false) {
-              console.warn('[SW] Offline and JS asset fetch failed. Returning warning fallback.');
-              return new Response('console.warn("JS asset load failed due to offline status");', {
-                status: 200,
-                headers: { 'Content-Type': 'application/javascript' }
-              });
-            }
-            return await handleCriticalAssetFailure();
+            console.warn('[SW] Network error fetching JS asset (likely offline). Returning warning fallback.');
+            return new Response('console.warn("JS asset load failed due to network error");', {
+              status: 200,
+              headers: { 'Content-Type': 'application/javascript' }
+            });
           }
 
           // 3. Fallback: match by pathname without query params
