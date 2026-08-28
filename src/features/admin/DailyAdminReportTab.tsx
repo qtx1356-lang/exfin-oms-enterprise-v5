@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { API_BASE_URL } from '../../utils/apiConfig';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { 
@@ -130,7 +131,7 @@ export function DailyAdminReportTab() {
       };
 
       // Fetch config
-      const configRes = await fetch('/api/admin/daily-report/config', { headers });
+      const configRes = await fetch(API_BASE_URL + '/api/admin/daily-report/config', { headers });
       const configData = await configRes.json();
       if (configData.success) {
         setConfig(configData.config);
@@ -139,7 +140,7 @@ export function DailyAdminReportTab() {
       }
 
       // Fetch history
-      const historyRes = await fetch('/api/admin/daily-report/history', { headers });
+      const historyRes = await fetch(API_BASE_URL + '/api/admin/daily-report/history', { headers });
       const historyData = await historyRes.json();
       if (historyData.success) {
         setHistory(historyData.history || []);
@@ -167,7 +168,7 @@ export function DailyAdminReportTab() {
     setStatusMsg(null);
 
     try {
-      const res = await fetch('/api/admin/daily-report/config', {
+      const res = await fetch(API_BASE_URL + '/api/admin/daily-report/config', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${adminToken}`,
@@ -198,7 +199,7 @@ export function DailyAdminReportTab() {
     setStatusMsg(null);
 
     try {
-      const res = await fetch('/api/admin/daily-report/send-test', {
+      const res = await fetch(API_BASE_URL + '/api/admin/daily-report/send-test', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${adminToken}`,
@@ -226,7 +227,7 @@ export function DailyAdminReportTab() {
     setStatusMsg(null);
 
     try {
-      const res = await fetch('/api/admin/daily-report/send-yesterday', {
+      const res = await fetch(API_BASE_URL + '/api/admin/daily-report/send-yesterday', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${adminToken}`,

@@ -290,34 +290,6 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
               console.warn('[SyncEngine] Auxiliary WhatsApp dispatch warning (non-fatal):', waErr);
             });
           }).catch(() => {});
-
-          // Non-blocking auxiliary Super-Admin FCM alert dispatch
-          try {
-            const authoritativeEventId = record.id || record.docId || `fallback_${record.employeeId}_${record.date}`;
-            fetch(API_BASE_URL + '/api/attendance/notify-super-admin', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                eventId: authoritativeEventId,
-                eventType,
-                employeeId: record.employeeId,
-                employeeCode: record.employeeId,
-                employeeName: (record as any).employeeName,
-                attendanceType: record.attendanceType || 'OFFICE',
-                checkInTime: record.checkInTime,
-                checkOutTime: record.checkOutTime,
-                recordedExitTime: finalRecordedExitTime || finalGeofenceExitTime || record.lastExitTime,
-                workingHours: record.workingHours,
-                distance: record.checkInDistance || (record as any).distance || (record as any).checkoutDistance,
-                townCity: record.checkInTownCity || (record as any).townCity || (record as any).checkoutTownCity,
-                eventTime: record.checkOutTime || record.checkInTime || finalRecordedExitTime || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
-              })
-            }).catch((fcmErr) => {
-              console.warn('[SyncEngine] Super-Admin FCM alert dispatch warning (non-fatal):', fcmErr);
-            });
-          } catch (fcmHookErr) {
-            // Super-Admin alert failure must never affect attendance sync
-          }
         } catch (waHookErr) {
           // Auxiliary notification failure must never block or affect attendance synchronization
         }
