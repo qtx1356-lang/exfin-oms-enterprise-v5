@@ -663,6 +663,64 @@ async function startServer() {
     }
   });
 
+  // Flow 2 — Real Notification / Alert Voice Endpoint (Aoede female voice)
+  const notificationAudioCache = new Map<string, { audioBase64: string; timestamp: number }>();
+  app.post("/api/tts/notification", async (req, res) => {
+    try {
+      const { text } = req.body || {};
+      const cleanText = typeof text === "string" ? text.trim() : "";
+      
+      if (!cleanText || cleanText.length > 250) {
+        return res.status(400).json({ error: "Invalid notification text parameter (must be 1-250 chars)" });
+      }
+
+      // Check in-memory server cache first
+      const cached = notificationAudioCache.get(cleanText.toLowerCase());
+      if (cached && (Date.now() - cached.timestamp < 24 * 60 * 60 * 1000)) {
+        return res.json({ audioBase64: cached.audioBase64, cached: true });
+      }
+
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(503).json({ error: "Gemini API key not configured" });
+      }
+
+      const ai = new GoogleGenAI({ 
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+      });
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-tts-preview",
+        contents: cleanText,
+        config: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: "Aoede" // Natural, professional warm female voice
+              }
+            }
+          }
+        }
+      });
+
+      const audioBase64 = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (!audioBase64) {
+        return res.status(502).json({ error: "Failed to generate audio stream from voice model" });
+      }
+
+      notificationAudioCache.set(cleanText.toLowerCase(), {
+        audioBase64,
+        timestamp: Date.now()
+      });
+
+      return res.json({ audioBase64, cached: false });
+    } catch (err: any) {
+      console.warn("[TTS Notification] Server voice generation error:", err?.message || err);
+      return res.status(500).json({ error: err?.message || "Internal voice generation error" });
+    }
+  });
+
   // Secure Median Background Location POST endpoint
   app.post("/api/median-background-location", async (req, res) => {
     try {

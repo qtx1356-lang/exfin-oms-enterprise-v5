@@ -4,7 +4,7 @@ import { ShieldCheck, MapPin, ArrowRight, UserCheck, Sparkles, Building2, CheckC
 import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { logStartupTag } from '../../services/startup/startupPerformanceLogger';
-import { playFemaleVoiceAnnouncement } from '../../services/notification/alertSoundService';
+import { speakWelcomeGreeting } from '../../services/notification/alertSoundService';
 import { GreetingPeriodKey } from '../../services/voice/greetingAssets';
 
 interface WelcomeScreenProps {
@@ -82,7 +82,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
           // Trigger high-quality studio female voice greeting with the first name
           const greetingSentence = `${greetingInfo.label}, ${firstName}.`;
-          playFemaleVoiceAnnouncement(greetingSentence, greetingInfo.periodKey);
+          speakWelcomeGreeting(greetingSentence, greetingInfo.periodKey);
 
           const t = setTimeout(() => setShowAlertToast(false), 4000);
           return () => clearTimeout(t);

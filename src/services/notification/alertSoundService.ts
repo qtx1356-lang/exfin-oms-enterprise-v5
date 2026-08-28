@@ -18,12 +18,13 @@ const pendingNotificationBatch: NotificationRecord[] = [];
 let batchTimer: any = null;
 
 /**
- * Play high-quality natural female voice greeting
- * Priority 1: High-fidelity pre-rendered studio female voice asset (0ms latency, 100% offline reliable)
- * Priority 2: Controlled server-side dynamic TTS API (Aoede natural female voice)
+ * FLOW 1 — WELCOME GREETING
+ * Play high-quality natural female voice greeting on the Welcome Screen.
+ * Priority 1: Dynamic custom employee name synthesis via server endpoint `/api/tts/welcome` if online
+ * Priority 2: High-fidelity pre-recorded studio female voice asset (0ms latency, 100% offline reliable)
  * Constraint: NEVER fall back to device-native TTS / SpeechSynthesis
  */
-export const playFemaleVoiceAnnouncement = async (
+export const speakWelcomeGreeting = async (
   text: string, 
   periodKey?: GreetingPeriodKey
 ): Promise<boolean> => {
@@ -36,7 +37,7 @@ export const playFemaleVoiceAnnouncement = async (
 
       console.log(`[GreetingVoice] Playing high-quality female voice greeting. Text: "${text}", Period: ${periodKey || 'auto'}`);
 
-      // 1. Check if we have a matching pre-recorded high quality female voice asset
+      // Check if we have a matching pre-recorded high quality female voice asset
       let targetPeriod: GreetingPeriodKey = periodKey || 'good_morning';
       if (!periodKey) {
         const lower = text.toLowerCase();
@@ -68,7 +69,7 @@ export const playFemaleVoiceAnnouncement = async (
         }
       }
 
-      // Fallback to high-quality pre-recorded female asset
+      // Fallback to high-quality pre-recorded female asset for Welcome Screen only
       if (!audioToPlay) {
         audioToPlay = preRecordedBase64;
         console.log(`[GreetingVoice] Using pre-recorded female audio asset for ${targetPeriod}`);
@@ -118,6 +119,137 @@ export const playFemaleVoiceAnnouncement = async (
   });
 };
 
+// Aliased export for backward compatibility
+export const playFemaleVoiceAnnouncement = speakWelcomeGreeting;
+
+/**
+ * FLOW 2 — REAL NOTIFICATION / ALERT
+ * Speaks actual application notification text cleanly and professionally.
+ * MUST NEVER fallback to any Welcome Greeting pre-recorded assets or greeting text phrases.
+ * Priority 1: High-quality server-side dynamic TTS API `/api/tts/notification` (Aoede voice) if online
+ * Priority 2: Device-native SpeechSynthesis if offline/unconfigured (safe client-side fallback)
+ * Constraint: If there is no valid text, do not play/speak anything.
+ */
+export const speakRealNotification = async (text: string): Promise<boolean> => {
+  return new Promise(async (resolve) => {
+    try {
+      if (typeof window === 'undefined') {
+        resolve(false);
+        return;
+      }
+
+      const cleanText = text ? text.trim() : '';
+      if (!cleanText) {
+        console.log('[NotificationVoice] Suppressed: Notification text is empty');
+        resolve(false);
+        return;
+      }
+
+      // STRICT RULE: Guard against accidental greeting readings
+      const lower = cleanText.toLowerCase();
+      if (
+        lower.includes('good morning') ||
+        lower.includes('good afternoon') ||
+        lower.includes('good evening')
+      ) {
+        console.warn('[NotificationVoice] Suppressed greeting-like sentence in real notifications flow:', cleanText);
+        resolve(false);
+        return;
+      }
+
+      console.log(`[NotificationVoice] Speaking notification: "${cleanText}"`);
+
+      let audioToPlay: string | null = null;
+      if (navigator.onLine) {
+        try {
+          const res = await fetch(API_BASE_URL + '/api/tts/notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: cleanText })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.audioBase64) {
+              audioToPlay = data.audioBase64.startsWith('data:') ? data.audioBase64 : `data:audio/wav;base64,${data.audioBase64}`;
+              console.log('[NotificationVoice] Loaded dynamic notification TTS audio from backend');
+            }
+          }
+        } catch (serverErr) {
+          console.warn('[NotificationVoice] Server notification TTS failed, attempting native browser fallback:', serverErr);
+        }
+      }
+
+      // Native browser speech synthesis fallback (Strictly NO greeting fallback)
+      if (!audioToPlay) {
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+          try {
+            console.log('[NotificationVoice] Using native browser SpeechSynthesis for notification message');
+            // Cancel any current utterances to prevent overlapping sounds
+            window.speechSynthesis.cancel();
+            
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.volume = 0.85;
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            
+            // Attempt to select a high-quality standard English voice if available
+            const voices = window.speechSynthesis.getVoices();
+            const preferredVoice = voices.find(v => 
+              v.lang.startsWith('en') && 
+              (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Zira') || v.name.includes('Samantha'))
+            );
+            if (preferredVoice) {
+              utterance.voice = preferredVoice;
+            }
+
+            utterance.onend = () => {
+              console.log('[NotificationVoice] Native speech synthesis completed successfully');
+              resolve(true);
+            };
+            utterance.onerror = (evt) => {
+              console.warn('[NotificationVoice] Native speech synthesis error:', evt);
+              resolve(false);
+            };
+
+            window.speechSynthesis.speak(utterance);
+            return;
+          } catch (nativeErr) {
+            console.warn('[NotificationVoice] Native speech synthesis failed:', nativeErr);
+          }
+        }
+        
+        console.warn('[NotificationVoice] No voice channel available (offline and native TTS unavailable)');
+        resolve(false);
+        return;
+      }
+
+      // Play generated high-quality audio
+      const audioInstance = new Audio(audioToPlay);
+      audioInstance.volume = 0.85;
+      audioInstance.currentTime = 0;
+      audioInstance.onended = () => {
+        console.log('[NotificationVoice] Playback of notification audio finished');
+        resolve(true);
+      };
+      audioInstance.onerror = (err) => {
+        console.warn('[NotificationVoice] HTMLAudioElement error on notification playback:', err);
+        resolve(false);
+      };
+
+      const playPromise = audioInstance.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((playErr) => {
+          console.warn('[NotificationVoice] Playback blocked or failed:', playErr);
+          resolve(false);
+        });
+      }
+    } catch (err) {
+      console.warn('[NotificationVoice] Execution exception:', err);
+      resolve(false);
+    }
+  });
+};
+
 /**
  * Trigger short, professional haptic vibration pattern (short -> brief pause -> short)
  * This must never be triggered for standard UI interactions (only new notification alerts).
@@ -148,7 +280,10 @@ const processNotificationBatch = (): void => {
   const count = pendingNotificationBatch.length;
   console.log(`[NotificationSound] Processing batch of ${count} new notification(s)`);
 
-  // Clear batch queue but make a copy for processing
+  // Make a copy of batch notifications for safe content extraction
+  const batchCopy = [...pendingNotificationBatch];
+
+  // Clear batch queue
   pendingNotificationBatch.length = 0;
   batchTimer = null;
 
@@ -161,9 +296,18 @@ const processNotificationBatch = (): void => {
   // 1. Play consolidated haptic pattern
   triggerConsolidatedVibration();
 
-  // 2. Play consolidated female voice alert
-  const announcementText = count === 1 ? 'You have a new notification.' : 'You have new notifications.';
-  playFemaleVoiceAnnouncement(announcementText);
+  // 2. Play consolidated female voice alert with the actual notification text
+  if (count === 1) {
+    const singleNotif = batchCopy[0];
+    const speechText = (singleNotif.message || singleNotif.title || '').trim();
+    if (speechText) {
+      speakRealNotification(speechText);
+    } else {
+      console.log('[NotificationSound] Suppressing voice alert: Notification has no text content');
+    }
+  } else {
+    speakRealNotification(`You have ${count} new notifications.`);
+  }
 };
 
 /**
