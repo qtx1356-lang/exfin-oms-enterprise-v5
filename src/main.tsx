@@ -4,7 +4,6 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { recordReactRootMount } from './components/DiagnosticOverlay';
 
 // Clear SW single-recovery marker upon successful startup (only when online)
 if (typeof window !== 'undefined' && window.sessionStorage) {
@@ -20,7 +19,6 @@ if (typeof window !== 'undefined' && window.sessionStorage) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {(() => {
-      recordReactRootMount();
       console.log('[OFFLINE-ROOT] React root mounted');
       return <App />;
     })()}
