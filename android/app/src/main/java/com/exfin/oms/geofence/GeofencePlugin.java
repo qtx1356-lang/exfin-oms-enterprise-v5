@@ -176,4 +176,96 @@ public class GeofencePlugin extends Plugin {
             call.reject("Failed to set employee identity: " + e.getMessage(), e);
         }
     }
+
+    @PluginMethod
+    public void startActiveSession(PluginCall call) {
+        try {
+            Context context = getContext();
+            String employeeId = call.getString("employeeId");
+            String employeeName = call.getString("employeeName", "");
+            String townCity = call.getString("townCity", "Raniganj HQ");
+            String date = call.getString("date");
+            String checkInTime = call.getString("checkInTime");
+
+            if (employeeId != null && date != null && checkInTime != null) {
+                OfficeGeofenceHelper.startActiveSession(context, employeeId, employeeName, townCity, date, checkInTime);
+                JSObject ret = new JSObject();
+                ret.put("success", true);
+                call.resolve(ret);
+            } else {
+                call.reject("Missing required parameters: employeeId, date, checkInTime");
+            }
+        } catch (Exception e) {
+            call.reject("Failed to start active session: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void clearActiveSession(PluginCall call) {
+        try {
+            Context context = getContext();
+            OfficeGeofenceHelper.clearActiveSession(context);
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to clear active session: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void getActiveAttendanceState(PluginCall call) {
+        try {
+            Context context = getContext();
+            JSONObject session = OfficeGeofenceHelper.getActiveSession(context);
+            JSObject ret = new JSObject();
+            if (session != null) {
+                ret.put("hasActiveSession", true);
+                ret.put("attendanceId", session.optString("attendanceId"));
+                ret.put("employeeId", session.optString("employeeId"));
+                ret.put("employeeName", session.optString("employeeName"));
+                ret.put("townCity", session.optString("townCity"));
+                ret.put("date", session.optString("date"));
+                ret.put("checkInTime", session.optString("checkInTime"));
+                ret.put("attendanceMode", session.optString("attendanceMode", "OFFICE"));
+                ret.put("sessionState", session.optString("sessionState", "ACTIVE"));
+                ret.put("checkoutStatus", session.optString("checkoutStatus", "ACTIVE"));
+                
+                String recExit = session.optString("recordedExitTime", null);
+                if (recExit != null && !"null".equalsIgnoreCase(recExit)) {
+                    ret.put("recordedExitTime", recExit);
+                } else {
+                    ret.put("recordedExitTime", null);
+                }
+
+                String exitDetAt = session.optString("exitDetectedAt", null);
+                if (exitDetAt != null && !"null".equalsIgnoreCase(exitDetAt)) {
+                    ret.put("exitDetectedAt", exitDetAt);
+                } else {
+                    ret.put("exitDetectedAt", null);
+                }
+
+                ret.put("exitSource", session.optString("exitSource", "NONE"));
+            } else {
+                ret.put("hasActiveSession", false);
+            }
+            ret.put("isGeofenceRegistered", OfficeGeofenceHelper.isGeofenceRegistered(context));
+            ret.put("isLocationServiceRunning", OfficeLocationService.isRunning());
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to get active attendance state: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void getDiagnosticInfo(PluginCall call) {
+        try {
+            Context context = getContext();
+            JSONObject diag = OfficeGeofenceHelper.getDiagnosticState(context);
+            JSObject ret = JSObject.fromJSONObject(diag);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to get diagnostic info: " + e.getMessage(), e);
+        }
+    }
 }

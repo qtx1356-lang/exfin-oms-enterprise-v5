@@ -55,8 +55,7 @@ async function fetchJson(url: string, options: RequestInit = {}): Promise<any> {
   const method = options.method || 'GET';
   const origin = typeof window !== 'undefined' ? window.location.origin : 'server';
 
-  console.info("[EXFIN API REQUEST]", {
-    method,
+  console.info("[EXFIN ATTENDANCE API]", {
     url,
     origin: typeof window !== 'undefined' ? window.location.origin : 'server'
   });

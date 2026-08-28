@@ -297,48 +297,28 @@ export const reconcileAttendanceOnResume = async (
             const hasExistingExit = !!(record.recordedExitTime || record.geofenceExitTime);
 
             if (!hasExistingExit) {
-              // NO PRIOR EXIT RECORDED: The observation time is the authoritative initial exit time
-              const episodeId = `ep_${employeeId}_${dateStr}_exit_${Date.now()}`;
-              const eventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_EXIT', timeStr);
-
-              record.episodeId = episodeId;
-              record.lastExitTime = timeStr;
-              record.exitTime = record.exitTime || timeStr;
-              record.geofenceExitTime = timeStr;
-              record.geofenceExitTimestamp = nowIso;
-              record.recordedExitTime = timeStr;
-              record.exitDetectedAt = nowIso;
-              record.exitDetectedTime = timeStr;
-              record.exitDetectionSource = 'PWA_RESUME_GPS';
-              record.exitObservations = [...(record.exitObservations || []), observation];
-              record.processedEvents = Array.from(new Set([...(record.processedEvents || []), eventId]));
-
-              enqueueAttendanceEvent({
-                eventId,
-                employeeId,
-                attendanceDate: dateStr,
-                eventType: 'GEOFENCE_EXIT',
-                eventTime: timeStr,
-                location: {
-                  latitude: pos.latitude,
-                  longitude: pos.longitude,
-                  townCity: cleanTown,
-                  distance
-                },
-                attendanceMode: 'OFFICE',
-                source: 'AUTO_GEOFENCE'
-              });
-
-              markEventIdProcessed(eventId);
-              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] Detected initial exit from office (${Math.round(distance)}m) on resume at ${timeStr}. State: PENDING_EXIT_CONFIRMATION.`);
+              // NO PRIOR NATIVE EXIT RECORDED: DO NOT fabricate exit timestamp from app open time!
+              // Requirement 2 & 12: recordedExitTime MUST remain null.
+              record.recordedExitTime = null;
+              record.geofenceExitTime = null;
+              record.lastExitTime = null;
+              record.exitTime = null;
+              record.exitDetectedAt = null;
+              record.exitDetectedTime = null;
+              record.pendingCheckoutConfirmation = false;
+              record.checkoutStatus = 'UNRESOLVED';
+              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] App opened outside office at ${timeStr}. No native exit event recorded. recordedExitTime remains null. Checkout status set to UNRESOLVED.`);
             } else {
-              // PRESERVE EXISTING NATIVE EXIT TIME: Do NOT overwrite with resume time!
+              // PRESERVE EXISTING AUTHORITATIVE NATIVE EXIT TIME: Do NOT overwrite with resume time!
               console.log('[ResumeReconciliation] PRESERVING_NATIVE_EXIT_TIME:', {
                 recordedExitTime: record.recordedExitTime,
                 geofenceExitTime: record.geofenceExitTime,
                 appOpenedAt: nowIso
               });
-              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] App opened at ${timeStr} outside office. Preserving recorded exit time: ${record.recordedExitTime || record.geofenceExitTime}.`);
+              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] App opened at ${timeStr} outside office. Preserving authoritative native exit time: ${record.recordedExitTime || record.geofenceExitTime}.`);
+              record.pendingCheckoutConfirmation = true;
+              record.currentState = 'PENDING_EXIT_CONFIRMATION';
+              record.checkoutStatus = 'PENDING_EXIT_CONFIRMATION';
             }
 
             record.pendingCheckoutConfirmation = true;

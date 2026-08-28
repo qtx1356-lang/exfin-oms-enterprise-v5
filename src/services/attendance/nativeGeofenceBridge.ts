@@ -9,6 +9,25 @@ export interface NativeGeofencePluginInterface {
   getUnconsumedNativeEvents(): Promise<{ events: Array<{ transition: 'EXIT' | 'ENTER'; time: string; date: string; latitude: number; longitude: number; timestamp: number }> }>;
   removeOfficeGeofence(): Promise<{ success: boolean }>;
   setEmployeeIdentity(identity: { id: string; name: string; townCity: string; serverUrl: string }): Promise<void>;
+  startActiveSession(session: { employeeId: string; employeeName: string; townCity: string; date: string; checkInTime: string }): Promise<{ success: boolean }>;
+  clearActiveSession(): Promise<{ success: boolean }>;
+  getActiveAttendanceState(): Promise<{
+    hasActiveSession: boolean;
+    attendanceId?: string;
+    employeeId?: string;
+    employeeName?: string;
+    townCity?: string;
+    date?: string;
+    checkInTime?: string;
+    sessionState?: string;
+    checkoutStatus?: string;
+    recordedExitTime?: string | null;
+    exitDetectedAt?: string | null;
+    exitSource?: string;
+    isGeofenceRegistered: boolean;
+    isLocationServiceRunning: boolean;
+  }>;
+  getDiagnosticInfo(): Promise<any>;
   addListener(eventName: 'geofenceTransition', listenerFunc: (data: { transition: 'EXIT' | 'ENTER'; time: string; date: string; latitude: number; longitude: number; timestamp: number }) => void): Promise<PluginListenerHandle>;
 }
 
@@ -207,5 +226,53 @@ export const initNativeGeofenceListener = async (
   } catch (err) {
     console.warn('[NativeGeofenceBridge] Failed to initialize native geofence listener:', err);
     return () => {};
+  }
+};
+
+export const startNativeActiveSession = async (session: {
+  employeeId: string;
+  employeeName: string;
+  townCity: string;
+  date: string;
+  checkInTime: string;
+}): Promise<boolean> => {
+  if (!Capacitor.isNativePlatform()) return true;
+  try {
+    const res = await NativeGeofencePlugin.startActiveSession(session);
+    return !!res.success;
+  } catch (err) {
+    console.warn('[NativeGeofenceBridge] Failed to start native active session:', err);
+    return false;
+  }
+};
+
+export const clearNativeActiveSession = async (): Promise<boolean> => {
+  if (!Capacitor.isNativePlatform()) return true;
+  try {
+    const res = await NativeGeofencePlugin.clearActiveSession();
+    return !!res.success;
+  } catch (err) {
+    console.warn('[NativeGeofenceBridge] Failed to clear native active session:', err);
+    return false;
+  }
+};
+
+export const getNativeActiveAttendanceState = async () => {
+  if (!Capacitor.isNativePlatform()) return null;
+  try {
+    return await NativeGeofencePlugin.getActiveAttendanceState();
+  } catch (err) {
+    console.warn('[NativeGeofenceBridge] Failed to get native active attendance state:', err);
+    return null;
+  }
+};
+
+export const getNativeDiagnosticInfo = async () => {
+  if (!Capacitor.isNativePlatform()) return null;
+  try {
+    return await NativeGeofencePlugin.getDiagnosticInfo();
+  } catch (err) {
+    console.warn('[NativeGeofenceBridge] Failed to get native diagnostic info:', err);
+    return null;
   }
 };

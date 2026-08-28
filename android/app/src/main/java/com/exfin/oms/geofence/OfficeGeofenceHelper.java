@@ -552,6 +552,199 @@ public class OfficeGeofenceHelper {
         }
     }
 
+    public static final String KEY_ACTIVE_SESSION = "active_attendance_session";
+    public static final String KEY_LAST_LOCATION_DIAGNOSTIC = "last_location_diagnostic";
+
+    public static synchronized void startActiveSession(Context context, String employeeId, String employeeName, String townCity, String date, String checkInTime) {
+        if (context == null) return;
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            JSONObject session = new JSONObject();
+            session.put("attendanceId", "att_" + employeeId + "_" + date);
+            session.put("employeeId", employeeId);
+            session.put("employeeName", employeeName);
+            session.put("townCity", townCity != null ? townCity : "Raniganj HQ");
+            session.put("date", date);
+            session.put("checkInTime", checkInTime);
+            session.put("attendanceMode", "OFFICE");
+            session.put("officeLatitude", OFFICE_LAT);
+            session.put("officeLongitude", OFFICE_LNG);
+            session.put("geofenceRadius", GEOFENCE_RADIUS_METERS);
+            session.put("sessionState", "ACTIVE");
+            session.put("checkoutStatus", "ACTIVE");
+            session.put("recordedExitTime", JSONObject.NULL);
+            session.put("exitDetectedAt", JSONObject.NULL);
+            session.put("exitSource", "NONE");
+
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putString(KEY_ACTIVE_SESSION, session.toString());
+            editor.putString("employee_id", employeeId);
+            editor.putString("employee_name", employeeName);
+            editor.putString("town_city", townCity != null ? townCity : "Raniganj HQ");
+            editor.apply();
+
+            Log.i(TAG, "[NATIVE_SESSION_STARTED] Active office session initialized for " + employeeId + " at " + checkInTime);
+
+            // Ensure native geofence & background location monitoring service are running
+            registerOfficeGeofence(context);
+            OfficeLocationService.start(context);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to start native active session: " + e.getMessage(), e);
+        }
+    }
+
+    public static synchronized void clearActiveSession(Context context) {
+        if (context == null) return;
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            String sessionStr = prefs.getString(KEY_ACTIVE_SESSION, null);
+            if (sessionStr != null) {
+                JSONObject session = new JSONObject(sessionStr);
+                session.put("sessionState", "FINALIZED");
+                session.put("checkoutStatus", "FINALIZED");
+                prefs.edit().putString(KEY_ACTIVE_SESSION, session.toString()).apply();
+            }
+            Log.i(TAG, "[NATIVE_SESSION_FINALIZED] Native active session cleared.");
+            OfficeLocationService.stop(context);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to clear native active session: " + e.getMessage(), e);
+        }
+    }
+
+    public static JSONObject getActiveSession(Context context) {
+        if (context == null) return null;
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            String sessionStr = prefs.getString(KEY_ACTIVE_SESSION, null);
+            if (sessionStr != null) {
+                return new JSONObject(sessionStr);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error reading active session: " + e.getMessage(), e);
+        }
+        return null;
+    }
+
+    public static synchronized void recordExitEvent(Context context, android.location.Location location, String source) {
+        if (context == null) return;
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            String sessionStr = prefs.getString(KEY_ACTIVE_SESSION, null);
+            if (sessionStr == null) return;
+
+            JSONObject session = new JSONObject(sessionStr);
+            String sessionState = session.optString("sessionState", "ACTIVE");
+            if (!"ACTIVE".equals(sessionState) && !"PENDING_EXIT_CONFIRMATION".equals(sessionState)) {
+                return;
+            }
+
+            String existingRecordedExitTime = session.optString("recordedExitTime", null);
+            if (existingRecordedExitTime != null && !existingRecordedExitTime.isEmpty() && !"null".equals(existingRecordedExitTime)) {
+                Log.i(TAG, "[IMMUTABLE_EXIT_TIME] Native exit timestamp already set: " + existingRecordedExitTime + ". Skipping overwrite from " + source);
+                return;
+            }
+
+            long eventTimestamp = (location != null && location.getTime() > 0) ? location.getTime() : System.currentTimeMillis();
+            SimpleDateFormat sdf = new SimpleDateFormat("hh:mm a", Locale.US);
+            sdf.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
+            String timeStr = sdf.format(new Date(eventTimestamp));
+
+            SimpleDateFormat isoSdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+            isoSdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+            String isoTimestamp = isoSdf.format(new Date(eventTimestamp));
+
+            double lat = (location != null) ? location.getLatitude() : OFFICE_LAT;
+            double lng = (location != null) ? location.getLongitude() : OFFICE_LNG;
+
+            session.put("recordedExitTime", timeStr);
+            session.put("exitDetectedAt", isoTimestamp);
+            session.put("exitSource", source);
+            session.put("sessionState", "PENDING_EXIT_CONFIRMATION");
+            session.put("checkoutStatus", "PENDING_EXIT_CONFIRMATION");
+
+            prefs.edit().putString(KEY_ACTIVE_SESSION, session.toString()).apply();
+            Log.i(TAG, "[NATIVE_EXIT_RECORDED] Authoritative immutable exit time captured: " + timeStr + " via " + source);
+
+            // Save to native unconsumed events queue
+            recordNativeGeofenceEvent(context, "EXIT", lat, lng, eventTimestamp);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to record native exit event: " + e.getMessage(), e);
+        }
+    }
+
+    public static synchronized void cancelPendingExit(Context context) {
+        if (context == null) return;
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            String sessionStr = prefs.getString(KEY_ACTIVE_SESSION, null);
+            if (sessionStr == null) return;
+
+            JSONObject session = new JSONObject(sessionStr);
+            if ("PENDING_EXIT_CONFIRMATION".equals(session.optString("sessionState"))) {
+                session.put("recordedExitTime", JSONObject.NULL);
+                session.put("exitDetectedAt", JSONObject.NULL);
+                session.put("exitSource", "NONE");
+                session.put("sessionState", "ACTIVE");
+                session.put("checkoutStatus", "ACTIVE");
+                prefs.edit().putString(KEY_ACTIVE_SESSION, session.toString()).apply();
+                Log.i(TAG, "[NATIVE_RETURN_CANCELLED] Returned to office boundary. Cancelled pending exit state.");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to cancel pending exit: " + e.getMessage(), e);
+        }
+    }
+
+    public static void saveLastLocationDiagnostic(Context context, double lat, double lng, float accuracy, long timestamp, double distance) {
+        if (context == null) return;
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            JSONObject diag = new JSONObject();
+            diag.put("latitude", lat);
+            diag.put("longitude", lng);
+            diag.put("accuracy", accuracy);
+            diag.put("timestamp", timestamp);
+            diag.put("distance", distance);
+            prefs.edit().putString(KEY_LAST_LOCATION_DIAGNOSTIC, diag.toString()).apply();
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to save last location diagnostic: " + e.getMessage());
+        }
+    }
+
+    public static JSONObject getDiagnosticState(Context context) {
+        JSONObject res = new JSONObject();
+        if (context == null) return res;
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            boolean fineLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            boolean bgLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            boolean geofenceRegistered = isGeofenceRegistered(context);
+            boolean locationServiceRunning = OfficeLocationService.isRunning();
+
+            res.put("locationMonitoring", (geofenceRegistered || locationServiceRunning) ? "ACTIVE" : "INACTIVE");
+            res.put("finePermission", fineLocation ? "GRANTED" : "DENIED");
+            res.put("bgPermission", bgLocation ? "GRANTED" : "DENIED");
+            res.put("foregroundService", locationServiceRunning ? "RUNNING" : "STOPPED");
+            res.put("geofenceRegistered", geofenceRegistered);
+
+            String activeSessionStr = prefs.getString(KEY_ACTIVE_SESSION, null);
+            if (activeSessionStr != null) {
+                res.put("activeSession", new JSONObject(activeSessionStr));
+            } else {
+                res.put("activeSession", JSONObject.NULL);
+            }
+
+            String diagStr = prefs.getString(KEY_LAST_LOCATION_DIAGNOSTIC, null);
+            if (diagStr != null) {
+                res.put("lastLocation", new JSONObject(diagStr));
+            }
+
+            res.put("lastExitTime", prefs.getString(KEY_LAST_EXIT_TIME, null));
+        } catch (Exception e) {
+            Log.e(TAG, "Error generating diagnostic state: " + e.getMessage(), e);
+        }
+        return res;
+    }
+
     public static boolean isGeofenceRegistered(Context context) {
         if (context == null) return false;
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
