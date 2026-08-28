@@ -1,33 +1,33 @@
 @import "tailwindcss";
 
 @theme {
-  --color-app-bg: #0F1025;
-  --color-app-bg-secondary: #171936;
+  --color-app-bg: #EEF2FF;
+  --color-app-bg-secondary: #E0E7FF;
   
   /* Primary & Secondary Cards */
-  --color-card-bg: #1E1F41;
-  --color-card-elevated: #282A55;
-  --color-card-surface: #171936;
-  --color-border-gold: rgba(99, 102, 241, 0.40);
+  --color-card-bg: rgba(255, 255, 255, 0.85);
+  --color-card-elevated: rgba(255, 255, 255, 0.95);
+  --color-card-surface: #F8FAFC;
+  --color-border-gold: rgba(99, 102, 241, 0.30);
   --color-border-indigo: rgba(99, 102, 241, 0.20);
-  --color-border-subtle: rgba(99, 102, 241, 0.16);
+  --color-border-subtle: rgba(224, 231, 255, 0.80);
   
   /* Primary Accent: Indigo Glass */
   --color-primary: #4F46E5;
-  --color-primary-dark: #312E81;
+  --color-primary-dark: #3730A3;
   --color-primary-light: #6366F1;
   --color-primary-soft: #818CF8;
   --color-on-primary: #FFFFFF;
   
   /* Text inside Indigo Glass Cards & Canvas */
-  --color-card-text: #F8F8FF;
-  --color-card-text-secondary: #B9B9D0;
-  --color-card-text-muted: #8A8AA3;
+  --color-card-text: #0F172A;
+  --color-card-text-secondary: #475569;
+  --color-card-text-muted: #64748B;
 
   /* Text on Canvas */
-  --color-bg-text: #F8F8FF;
-  --color-bg-text-secondary: #B9B9D0;
-  --color-bg-text-muted: #8A8AA3;
+  --color-bg-text: #0F172A;
+  --color-bg-text-secondary: #475569;
+  --color-bg-text-muted: #64748B;
 
   /* Status Colors */
   --color-success: #16A34A;
@@ -36,45 +36,45 @@
   --color-info: #2563EB;
   --color-offline: #D97706;
   
-  --color-background: #0F1025;
-  --color-surface: #1E1F41;
-  --color-surface-elevated: #282A55;
-  --color-surface-variant: #171936;
-  --color-on-surface: #F8F8FF;
-  --color-on-surface-variant: #B9B9D0;
+  --color-background: #EEF2FF;
+  --color-surface: rgba(255, 255, 255, 0.85);
+  --color-surface-elevated: #FFFFFF;
+  --color-surface-variant: #F1F5F9;
+  --color-on-surface: #0F172A;
+  --color-on-surface-variant: #475569;
   --color-outline: rgba(99, 102, 241, 0.20);
-  --color-muted: #8A8AA3;
+  --color-muted: #64748B;
 }
 
 :root {
-  --employee-bg: #0F1025;
-  --employee-surface: #1E1F41;
-  --employee-surface-strong: #282A55;
+  --employee-bg: #EEF2FF;
+  --employee-surface: rgba(255, 255, 255, 0.85);
+  --employee-surface-strong: #FFFFFF;
   --employee-indigo: #4F46E5;
-  --employee-indigo-hover: #6366F1;
-  --employee-gold: #6366F1;
-  --employee-gold-hover: #818CF8;
-  --employee-text-card: #F8F8FF;
-  --employee-text-card-secondary: #B9B9D0;
-  --employee-text-card-muted: #8A8AA3;
-  --employee-text-bg: #F8F8FF;
-  --employee-text-bg-secondary: #B9B9D0;
-  --employee-text-bg-muted: #8A8AA3;
+  --employee-indigo-hover: #4338CA;
+  --employee-gold: #4F46E5;
+  --employee-gold-hover: #4338CA;
+  --employee-text-card: #0F172A;
+  --employee-text-card-secondary: #475569;
+  --employee-text-card-muted: #64748B;
+  --employee-text-bg: #0F172A;
+  --employee-text-bg-secondary: #475569;
+  --employee-text-bg-muted: #64748B;
   --employee-border: rgba(99, 102, 241, 0.20);
 
-  --app-bg: #0F1025;
-  --app-bg-secondary: #171936;
-  --card-bg: #1E1F41;
-  --card-elevated: #282A55;
+  --app-bg: #EEF2FF;
+  --app-bg-secondary: #E0E7FF;
+  --card-bg: rgba(255, 255, 255, 0.85);
+  --card-elevated: #FFFFFF;
   --border: rgba(99, 102, 241, 0.20);
-  --border-subtle: rgba(99, 102, 241, 0.15);
+  --border-subtle: rgba(224, 231, 255, 0.80);
   --border-active: rgba(99, 102, 241, 0.45);
   --primary: #4F46E5;
-  --primary-dark: #312E81;
+  --primary-dark: #3730A3;
   --primary-light: #6366F1;
-  --text-primary: #F8F8FF;
-  --text-secondary: #B9B9D0;
-  --text-muted: #8A8AA3;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #64748B;
   --success: #16A34A;
   --warning: #D97706;
   --danger: #DC2626;
@@ -82,9 +82,9 @@
 }
 
 body {
-  background-color: #0F1025;
-  background-image: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, rgba(49, 46, 129, 0.05) 50%, transparent 80%);
-  color: #F8F8FF;
+  background-color: #EEF2FF;
+  background-image: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.12) 0%, rgba(224, 231, 255, 0.3) 50%, transparent 80%);
+  color: #0F172A;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   margin: 0;
   padding: 0;
@@ -111,15 +111,15 @@ button, a, input, select, textarea, [role="button"] {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0F1025;
+  background: #EEF2FF;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.25);
+  background: rgba(99, 102, 241, 0.30);
   border-radius: 9999px;
-  border: 1px solid rgba(23, 25, 54, 0.8);
+  border: 1px solid rgba(224, 231, 255, 0.8);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #6366F1;
+  background: #4F46E5;
 }
 
 /* Indigo Glass Form Inputs default styling */
@@ -131,9 +131,9 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: rgba(23, 25, 54, 0.85) !important;
-  color: #F8F8FF !important;
-  border: 1px solid rgba(99, 102, 241, 0.20) !important;
+  background-color: rgba(255, 255, 255, 0.90) !important;
+  color: #0F172A !important;
+  border: 1px solid rgba(99, 102, 241, 0.25) !important;
   border-radius: 12px !important;
   transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
@@ -147,29 +147,29 @@ input[type="time"]:focus,
 textarea:focus,
 select:focus {
   outline: none !important;
-  border-color: #6366F1 !important;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.30) !important;
+  border-color: #4F46E5 !important;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.25) !important;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #8A8AA3 !important;
+  color: #94A3B8 !important;
 }
 
 /* Indigo Glass Card Utilities */
 .glass-card {
-  background: rgba(30, 31, 65, 0.72);
+  background: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(99, 102, 241, 0.18);
-  box-shadow: 0 8px 32px rgba(15, 16, 37, 0.37);
+  box-shadow: 0 8px 30px rgba(79, 70, 229, 0.08);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-radius: 16px;
 }
 
 .glass-card-elevated {
-  background: rgba(40, 42, 85, 0.75);
-  border: 1px solid rgba(99, 102, 241, 0.30);
-  box-shadow: 0 12px 40px rgba(15, 16, 37, 0.50);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  box-shadow: 0 12px 36px rgba(79, 70, 229, 0.12);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-radius: 18px;
@@ -180,25 +180,25 @@ textarea::placeholder {
   background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%);
   color: #FFFFFF;
   font-weight: 700;
-  border: 1px solid rgba(129, 140, 248, 0.40);
-  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.35);
+  border: 1px solid rgba(99, 102, 241, 0.30);
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.25);
   border-radius: 12px;
   transition: all 0.15s ease;
 }
 .btn-indigo:hover, .btn-gold:hover {
-  background: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);
-  box-shadow: 0 6px 24px rgba(99, 102, 241, 0.45);
+  background: linear-gradient(135deg, #4338CA 0%, #4F46E5 100%);
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35);
 }
 .btn-indigo:active, .btn-gold:active {
-  background: #312E81;
+  background: #3730A3;
   color: #FFFFFF;
 }
 
 /* Indigo badge utility */
 .indigo-badge, .gold-badge {
-  background: rgba(99, 102, 241, 0.15);
-  border: 1px solid rgba(99, 102, 241, 0.30);
-  color: #818CF8;
+  background: rgba(79, 70, 229, 0.10);
+  border: 1px solid rgba(79, 70, 229, 0.25);
+  color: #4F46E5;
 }
 
 @keyframes subtlePulse {
@@ -227,4 +227,5 @@ textarea::placeholder {
     transform: translateX(0);
   }
 }
+
 

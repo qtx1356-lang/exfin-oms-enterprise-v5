@@ -268,19 +268,19 @@ export const Layout: React.FC = () => {
       : (!isOnline ? 'Offline' : 'Raniganj HQ');
 
   return (
-    <div className="min-h-screen bg-[#0F1025] text-[#F8F8FF] pb-20 relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#EEF2FF] text-slate-900 pb-20 relative overflow-x-hidden">
       {/* Subtle Indigo ambient lighting */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none -z-10" />
-      <div className="fixed bottom-10 right-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-indigo-500/15 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="fixed bottom-10 right-1/4 w-96 h-96 bg-indigo-400/10 rounded-full blur-[140px] pointer-events-none -z-10" />
 
       {/* Dynamic Header Bar with [Distance] [Office Status] [Location Address] [Bell] */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#171936]/80 backdrop-blur-[16px] border-b border-[#6366F1]/20 shadow-[0_4px_24px_rgba(15,16,37,0.5)] text-[#F8F8FF]">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-[16px] border-b border-indigo-100/90 shadow-[0_4px_20px_rgba(79,70,229,0.06)] text-slate-800">
         <div className="container mx-auto px-2.5 sm:px-4 py-2 max-w-3xl flex items-center justify-between gap-1.5 sm:gap-2">
           {/* Left/Center Header Status & Location Controls */}
           <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden py-0.5">
             {/* Live Distance Value */}
             <div
-              className="text-[10px] font-bold text-[#B9B9D0] bg-[#1E1F41]/80 border border-[#6366F1]/20 px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0"
+              className="text-[10px] font-bold text-slate-600 bg-indigo-50/80 border border-indigo-100 px-2 py-0.5 rounded-full whitespace-nowrap shadow-xs flex items-center gap-1 shrink-0"
               title="Live distance from office"
             >
               <span>{formattedDistance}</span>
@@ -288,14 +288,14 @@ export const Layout: React.FC = () => {
 
             {/* Office Location Status Badge */}
             <div
-              className={`text-[9px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap flex items-center gap-1 shadow-sm select-none shrink-0 ${
+              className={`text-[9px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap flex items-center gap-1 shadow-xs select-none shrink-0 ${
                 isInsideGeofence
-                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                  : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-rose-50 text-rose-700 border-rose-200'
               }`}
               title={isInsideGeofence ? 'Inside office geofence' : 'Outside office geofence'}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
               <span>{isInsideGeofence ? 'INSIDE OFFICE' : 'OUTSIDE OFFICE'}</span>
             </div>
 
@@ -315,7 +315,7 @@ export const Layout: React.FC = () => {
                 {!adminUser && (
                   <button
                     onClick={() => navigate('/faq')}
-                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#1E1F41]/80 border border-[#6366F1]/20 text-[#B9B9D0] hover:text-[#818CF8] hover:border-[#6366F1]/50 transition-all cursor-pointer"
+                    className="relative p-1.5 sm:p-2 rounded-xl bg-white/90 border border-indigo-100 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 transition-all cursor-pointer shadow-xs"
                     aria-label="Help & FAQ"
                     title="Help & FAQ"
                   >
@@ -326,13 +326,13 @@ export const Layout: React.FC = () => {
                   {/* Bell Button */}
                   <button
                     onClick={handleBellClick}
-                    className="relative p-1.5 sm:p-2 rounded-xl bg-[#1E1F41]/80 border border-[#6366F1]/20 text-[#B9B9D0] hover:text-[#818CF8] hover:border-[#6366F1]/50 transition-all cursor-pointer"
+                    className="relative p-1.5 sm:p-2 rounded-xl bg-white/90 border border-indigo-100 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 transition-all cursor-pointer shadow-xs"
                     aria-label="Toggle notifications"
                     id="notification-bell-btn"
                   >
                     <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-[#DC2626] text-[9px] sm:text-[10px] font-bold text-white ring-2 ring-[#171936]">
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-rose-600 text-[9px] sm:text-[10px] font-bold text-white ring-2 ring-white">
                         {unreadCount}
                       </span>
                     )}
