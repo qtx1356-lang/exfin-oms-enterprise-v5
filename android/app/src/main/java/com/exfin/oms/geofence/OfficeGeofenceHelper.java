@@ -726,6 +726,15 @@ public class OfficeGeofenceHelper {
             res.put("foregroundService", locationServiceRunning ? "RUNNING" : "STOPPED");
             res.put("geofenceRegistered", geofenceRegistered);
 
+            boolean ignoringBatteryOptimizations = true;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                android.os.PowerManager pm = (android.os.PowerManager) context.getSystemService(Context.POWER_SERVICE);
+                if (pm != null) {
+                    ignoringBatteryOptimizations = pm.isIgnoringBatteryOptimizations(context.getPackageName());
+                }
+            }
+            res.put("batteryOptimizationIgnoring", ignoringBatteryOptimizations);
+
             String activeSessionStr = prefs.getString(KEY_ACTIVE_SESSION, null);
             if (activeSessionStr != null) {
                 res.put("activeSession", new JSONObject(activeSessionStr));

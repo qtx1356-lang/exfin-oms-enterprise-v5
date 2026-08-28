@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { getNativeDiagnosticInfo } from '../../services/attendance/nativeGeofenceBridge';
-import { ShieldCheck, Activity, MapPin, Clock, RefreshCw, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Activity, MapPin, Clock, RefreshCw, AlertCircle, HardDrive, Wifi } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 
 export const AttendanceMonitoringDiagnosticScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [diagnostic, setDiagnostic] = useState<any>(null);
+  const [appOpenTime] = useState<string>(new Date().toLocaleTimeString());
+  const [lastSyncTime, setLastSyncTime] = useState<string>('Never');
 
   const loadDiagnostic = async () => {
     setLoading(true);
@@ -25,6 +27,14 @@ export const AttendanceMonitoringDiagnosticScreen: React.FC = () => {
           lastExitTime: null
         });
       }
+      
+      // Update synchronization check
+      const lastSync = localStorage.getItem('last_attendance_sync_time');
+      if (lastSync) {
+        setLastSyncTime(new Date(lastSync).toLocaleTimeString());
+      } else {
+        setLastSyncTime('N/A (Offline/Not Synced)');
+      }
     } catch (err) {
       console.error('[DiagnosticScreen] Error loading diagnostic info:', err);
     } finally {
@@ -34,9 +44,12 @@ export const AttendanceMonitoringDiagnosticScreen: React.FC = () => {
 
   useEffect(() => {
     loadDiagnostic();
-    const interval = setInterval(loadDiagnostic, 10000); // refresh every 10s
+    const interval = setInterval(loadDiagnostic, 5000); // refresh every 5s for active test observation
     return () => clearInterval(interval);
   }, []);
+
+  const hasExitPersisted = !!(diagnostic?.activeSession?.recordedExitTime && diagnostic?.activeSession?.recordedExitTime !== 'null');
+  const isExitSynchronized = hasExitPersisted && (diagnostic?.activeSession?.sessionState === 'FINALIZED' || lastSyncTime !== 'Never');
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6 text-slate-100 font-sans">
@@ -97,6 +110,10 @@ export const AttendanceMonitoringDiagnosticScreen: React.FC = () => {
           {diagnostic?.activeSession ? (
             <div className="space-y-2 text-xs font-mono text-slate-300">
               <div className="flex justify-between border-b border-slate-800/80 pb-1">
+                <span className="text-slate-500">Active Session:</span>
+                <span className="font-bold text-white">{diagnostic.activeSession.sessionState || 'ACTIVE'}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-800/80 pb-1">
                 <span className="text-slate-500">Employee ID:</span>
                 <span className="font-bold text-white">{diagnostic.activeSession.employeeId}</span>
               </div>
@@ -105,16 +122,28 @@ export const AttendanceMonitoringDiagnosticScreen: React.FC = () => {
                 <span className="text-emerald-400 font-bold">{diagnostic.activeSession.checkInTime}</span>
               </div>
               <div className="flex justify-between border-b border-slate-800/80 pb-1">
-                <span className="text-slate-500">Session State:</span>
-                <span className="text-indigo-300">{diagnostic.activeSession.sessionState}</span>
+                <span className="text-slate-500">Last Native EXIT Event:</span>
+                <span className="text-amber-300 font-bold">
+                  {diagnostic.activeSession.recordedExitTime && diagnostic.activeSession.recordedExitTime !== 'null' 
+                    ? diagnostic.activeSession.recordedExitTime 
+                    : 'NONE'}
+                </span>
               </div>
               <div className="flex justify-between border-b border-slate-800/80 pb-1">
-                <span className="text-slate-500">Authoritative Recorded Exit:</span>
-                <span className="text-amber-300 font-bold">{diagnostic.activeSession.recordedExitTime || 'NONE (Inside 25m)'}</span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-slate-500">Exit Source:</span>
                 <span className="text-purple-300">{diagnostic.activeSession.exitSource || 'NONE'}</span>
+              </div>
+              <div className="flex justify-between border-b border-slate-800/80 pb-1">
+                <span className="text-slate-500">Exit Event Persisted:</span>
+                <span className={hasExitPersisted ? 'text-emerald-400 font-bold' : 'text-slate-500'}>
+                  {hasExitPersisted ? 'YES' : 'NO'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Exit Event Synchronized:</span>
+                <span className={isExitSynchronized ? 'text-emerald-400 font-bold' : 'text-slate-500'}>
+                  {isExitSynchronized ? 'YES' : 'NO'}
+                </span>
               </div>
             </div>
           ) : (
@@ -146,18 +175,48 @@ export const AttendanceMonitoringDiagnosticScreen: React.FC = () => {
                 <span className="text-slate-500">Coordinates:</span>
                 <span>{diagnostic.lastLocation.latitude?.toFixed(5)}, {diagnostic.lastLocation.longitude?.toFixed(5)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between border-b border-slate-800/80 pb-1">
                 <span className="text-slate-500">Last Fix Time:</span>
                 <span>{new Date(diagnostic.lastLocation.timestamp).toLocaleTimeString()}</span>
               </div>
+              <div className="flex justify-between border-b border-slate-800/80 pb-1">
+                <span className="text-slate-500">Current App-Open Time:</span>
+                <span className="text-blue-400">{appOpenTime}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Last Synchronization Time:</span>
+                <span className="text-purple-400">{lastSyncTime}</span>
+              </div>
             </div>
           ) : (
-            <div className="text-xs text-slate-500 py-4 text-center italic">
-              No recent background location fix recorded yet.
+            <div className="space-y-2 text-xs font-mono text-slate-300">
+              <div className="flex justify-between border-b border-slate-800/80 pb-1">
+                <span className="text-slate-500">Current App-Open Time:</span>
+                <span className="text-blue-400">{appOpenTime}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Last Synchronization Time:</span>
+                <span className="text-purple-400">{lastSyncTime}</span>
+              </div>
+              <div className="text-xs text-slate-500 py-4 text-center italic">
+                No recent background location fix recorded yet.
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      {diagnostic?.batteryOptimizationIgnoring === false && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start space-x-3 text-amber-400 text-xs">
+          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-bold">Background Monitoring Restricted</p>
+            <p className="mt-1 text-slate-300">
+              The OS has restricted background battery activity for this app. Background location tracking and automatic exit detection may be suspended by the system. Please disable battery optimization for Office Management System in your device's System Settings.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -191,3 +250,4 @@ const DiagnosticTile: React.FC<{ icon: React.ReactNode; label: string; value: st
     </div>
   );
 };
+
