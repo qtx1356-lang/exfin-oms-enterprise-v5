@@ -41,19 +41,47 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const displayName = employeeData?.name || cachedName;
   const isRegistered = status === 'Approved' || !!displayName;
 
+  // Extract the employee's first name from the full name safely, filtering placeholders
+  const firstName = React.useMemo(() => {
+    if (!displayName) return null;
+    const trimmed = displayName.trim();
+    if (!trimmed) return null;
+
+    const lower = trimmed.toLowerCase();
+    if (
+      lower === 'undefined' || 
+      lower === 'null' || 
+      lower === 'user' || 
+      lower === 'employee' || 
+      lower === 'admin'
+    ) {
+      return null;
+    }
+
+    const parts = trimmed.split(/\s+/);
+    if (parts.length === 0) return null;
+
+    const first = parts[0];
+    const isTitle = /^(mr|ms|mrs|dr|prof)\.?$/i.test(first);
+    if (isTitle && parts.length > 1) {
+      return parts[1];
+    }
+    return first;
+  }, [displayName]);
+
   const [showAlertToast, setShowAlertToast] = useState(false);
 
   useEffect(() => {
     logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
-    if (displayName) {
+    if (firstName) {
       try {
         const sessionKey = `exfin_greeting_shown_${greetingInfo.periodKey}`;
         if (!sessionStorage.getItem(sessionKey)) {
           sessionStorage.setItem(sessionKey, 'true');
           setShowAlertToast(true);
 
-          // Trigger high-quality studio female voice greeting
-          const greetingSentence = `${greetingInfo.label}, ${displayName}.`;
+          // Trigger high-quality studio female voice greeting with the first name
+          const greetingSentence = `${greetingInfo.label}, ${firstName}.`;
           playFemaleVoiceAnnouncement(greetingSentence, greetingInfo.periodKey);
 
           const t = setTimeout(() => setShowAlertToast(false), 4000);
@@ -61,7 +89,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         }
       } catch (e) {}
     }
-  }, [displayName, greetingInfo.periodKey, greetingInfo.label]);
+  }, [firstName, greetingInfo.periodKey, greetingInfo.label]);
 
   // Derive Location & Distance display states dynamically
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
