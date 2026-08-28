@@ -3,6 +3,7 @@
  * Provides clean online/offline event tracking and network error classification.
  */
 
+import { useState, useEffect } from 'react';
 import { logStartupTag } from '../startup/startupPerformanceLogger';
 
 export type NetworkErrorType = 
@@ -113,3 +114,14 @@ class NetworkStatusManager {
 }
 
 export const networkStatusService = new NetworkStatusManager();
+
+export function useNetworkStatus(): NetworkStatus {
+  const [status, setStatus] = useState<NetworkStatus>(() => networkStatusService.getStatus());
+
+  useEffect(() => {
+    return networkStatusService.subscribe(setStatus);
+  }, []);
+
+  return status;
+}
+

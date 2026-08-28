@@ -31,6 +31,7 @@ import { getPendingAttendanceRecords, saveAttendanceRecord, saveMultipleAttendan
 import { parseAttendanceTimeToMinutes } from '../services/attendance/automaticAttendanceEngine';
 import { hasActualCheckIn, getEarliestCheckInTime, getAttendanceCanonicalKey } from '../utils/attendanceUtils';
 import { logSyncListenerUpdate } from '../services/sync/syncPerformanceLogger';
+import { useNetworkStatus, networkStatusService } from '../services/network/networkStatusService';
 
 export type SyncStateIndicator =
   | 'SYNCED'
@@ -70,11 +71,12 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
   const { employeeData } = useRegistration();
   const empCode = employeeData?.employeeCode || employeeData?.id || '';
 
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  const networkStatus = useNetworkStatus();
+  const isOnline = networkStatus.isOnline;
   const [lastOnlineTime, setLastOnlineTime] = useState<string>(new Date().toISOString());
-  const [showStatusIndicator, setShowStatusIndicator] = useState<boolean>(!navigator.onLine);
+  const [showStatusIndicator, setShowStatusIndicator] = useState<boolean>(!isOnline);
   const [syncState, setSyncState] = useState<SyncStateIndicator>(
-    navigator.onLine ? 'SYNCED' : 'OFFLINE — SAVED LOCALLY'
+    isOnline ? 'SYNCED' : 'OFFLINE — SAVED LOCALLY'
   );
 
   const [tasks, setTasks] = useState<TaskRecord[]>(() => getStoredTasks());
@@ -120,10 +122,10 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
   const localNotifBaselineDoneRef = useRef<boolean>(false);
   const initialQuerySnapshotSeenRef = useRef<{ [qIdx: number]: boolean }>({});
 
-  // Monitor network connectivity
+  // Monitor network connectivity transitions and trigger synchronization on reconnect
+  const wasOnlineRef = useRef(isOnline);
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
+    if (isOnline && !wasOnlineRef.current) {
       setLastOnlineTime(new Date().toISOString());
       setSyncState('SYNCING');
       setShowStatusIndicator(true);
@@ -132,37 +134,47 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       syncAllPendingRecords().then(() => {
         setSyncState('SYNCED');
         // Keep "Back Online" visible for a bit
-        setTimeout(() => setShowStatusIndicator(false), 3000);
+        const t = setTimeout(() => setShowStatusIndicator(false), 3000);
+        return () => clearTimeout(t);
+      }).catch((err) => {
+        console.warn('Sync failed on reconnect:', err);
+        setSyncState('SYNC ERROR');
       });
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
+    } else if (!isOnline && wasOnlineRef.current) {
       setSyncState('OFFLINE — SAVED LOCALLY');
       setShowStatusIndicator(true);
       console.log('RealtimeSync: Device offline. Operations will be queued locally.');
-    };
+    }
+    wasOnlineRef.current = isOnline;
+  }, [isOnline]);
 
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible' && navigator.onLine) {
-        console.log('RealtimeSync: App returned to foreground. Reconciling pending items...');
-        syncAllPendingRecords();
-      }
-    };
-
-    // 30-second background auto-synchronization timer
+  // Periodic background sync and foreground tab/app visibility handler
+  useEffect(() => {
     const autoSyncInterval = setInterval(() => {
-      if (navigator.onLine) {
+      if (isOnline) {
         syncAllPendingRecords().catch((err) => {
           console.warn('RealtimeSync: Automatic periodic sync background check error:', err);
         });
       }
     }, 30000);
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && isOnline) {
+        console.log('RealtimeSync: App returned to foreground. Reconciling pending items...');
+        syncAllPendingRecords();
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibility);
 
+    return () => {
+      clearInterval(autoSyncInterval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [isOnline]);
+
+  // Unified in-app notification center sync state effect
+  useEffect(() => {
     const handleNotificationsUpdated = () => {
       const userScopeKey = empCode || employeeData?.id || undefined;
       const stored = getStoredNotifications(userScopeKey);
@@ -196,13 +208,9 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     window.addEventListener('exfin-notifications-updated', handleNotificationsUpdated);
 
     return () => {
-      clearInterval(autoSyncInterval);
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('exfin-notifications-updated', handleNotificationsUpdated);
     };
-  }, [empCode, employeeData?.id, employeeData?.isTeamLeader]);
+  }, [empCode, employeeData]);
 
   // Clean up previous listeners when employee changes
   const cleanupListeners = () => {
@@ -690,7 +698,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       // 2. Queue background write
       queueTaskSync(optimisticRecord);
 
-      if (navigator.onLine) {
+      if (networkStatusService.getStatus().isOnline) {
         setSyncState('SYNCED');
       } else {
         setSyncState('OFFLINE — SAVED LOCALLY');
@@ -722,7 +730,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       // 2. Background sync
-      if (navigator.onLine) {
+      if (networkStatusService.getStatus().isOnline) {
         await syncPendingLeaves();
         setSyncState('SYNCED');
       } else {
@@ -752,7 +760,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
         return [optimisticRecord, ...prev];
       });
 
-      if (navigator.onLine) {
+      if (networkStatusService.getStatus().isOnline) {
         await syncPendingExpenseRecords();
         setSyncState('SYNCED');
       } else {
@@ -800,7 +808,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
         return [optimisticRecord, ...prev];
       });
 
-      if (navigator.onLine) {
+      if (networkStatusService.getStatus().isOnline) {
         await syncPendingAttendanceRecords();
         setSyncState('SYNCED');
       } else {

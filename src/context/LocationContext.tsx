@@ -3,6 +3,7 @@ import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { logStartupTag } from '../services/startup/startupPerformanceLogger';
+import { networkStatusService } from '../services/network/networkStatusService';
 import { OFFICE_LOCATION, getDistanceFromLatLonInM, getFormattedDateStr } from '../services/attendance/smartAttendanceEngine';
 import { 
   handleLocationUpdateForAttendance, 
@@ -747,28 +748,25 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
     };
   }, [activeAttendanceMode]);
 
+  // Keep liveLocation reference updated for network callback
+  const liveLocationRef = useRef(liveLocation);
   useEffect(() => {
-    const handleOnline = () => {
-      if (liveLocation) {
-        performReverseGeocode(liveLocation.latitude, liveLocation.longitude);
-      } else {
-        if (activeAttendanceModeRef.current) {
-          startTracking();
+    liveLocationRef.current = liveLocation;
+  }, [liveLocation]);
+
+  useEffect(() => {
+    const unsubscribeNetwork = networkStatusService.subscribe((status) => {
+      if (status.isOnline) {
+        const liveLoc = liveLocationRef.current;
+        if (liveLoc) {
+          performReverseGeocode(liveLoc.latitude, liveLoc.longitude);
+        } else {
+          if (activeAttendanceModeRef.current) {
+            startTracking();
+          }
         }
       }
-    };
-
-    const handleOffline = () => {
-      // Retain last known cached address rather than setting 'Offline'
-    };
-
-    const onlineListenerId = 'location_online_listener';
-    const offlineListenerId = 'location_offline_listener';
-    trackResourceCreated('ONLINE_LISTENER', onlineListenerId);
-    trackResourceCreated('OFFLINE_LISTENER', offlineListenerId);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    });
 
     // Register Capacitor App Active State Change Listener
     let appStateListener: any = null;
@@ -787,10 +785,7 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
     }
 
     return () => {
-      trackResourceCleaned('ONLINE_LISTENER', onlineListenerId);
-      trackResourceCleaned('OFFLINE_LISTENER', offlineListenerId);
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      unsubscribeNetwork();
       if (appStateListener && typeof appStateListener.remove === 'function') {
         appStateListener.remove();
       }

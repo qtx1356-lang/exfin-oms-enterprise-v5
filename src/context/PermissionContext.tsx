@@ -4,6 +4,7 @@ import { db } from '../services/firebase/config';
 import { AppRole, FeatureKey, RoleFeaturePermissions, DEFAULT_ROLE_PERMISSIONS } from '../types/roles';
 import { useAdminAuth } from './AdminAuthContext';
 import { useRegistration } from './RegistrationContext';
+import { networkStatusService } from '../services/network/networkStatusService';
 
 interface PermissionContextType {
   roles: Record<AppRole, RoleFeaturePermissions>;
@@ -123,26 +124,26 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setLoading(false);
     }
 
-    // Priority 5 FIX: Invalidate stale permission cache on network reconnection
-    const handleOnline = () => {
-      console.log('Permission Context: Network reconnected. Firestore remains authoritative, refreshing permissions...');
-      const updatedLocal = localStorage.getItem('roles_cache');
-      if (updatedLocal) {
-        try {
-          setRolesCache(JSON.parse(updatedLocal));
-        } catch (e) {
-          console.error('Failed to parse updated cached roles on reconnect', e);
+    // Invalidate stale permission cache on network reconnection
+    const unsubscribeNetwork = networkStatusService.subscribe((status) => {
+      if (status.isOnline) {
+        console.log('Permission Context: Network reconnected. Firestore remains authoritative, refreshing permissions...');
+        const updatedLocal = localStorage.getItem('roles_cache');
+        if (updatedLocal) {
+          try {
+            setRolesCache(JSON.parse(updatedLocal));
+          } catch (e) {
+            console.error('Failed to parse updated cached roles on reconnect', e);
+          }
         }
       }
-    };
-
-    window.addEventListener('online', handleOnline);
+    });
 
     return () => {
       isMounted = false;
       if (timerId) clearTimeout(timerId);
       unsub();
-      window.removeEventListener('online', handleOnline);
+      unsubscribeNetwork();
     };
   }, []);
 
