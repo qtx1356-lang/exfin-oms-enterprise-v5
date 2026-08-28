@@ -271,14 +271,14 @@ export const NotificationCenter: React.FC = () => {
   };
 
   return (
-    <div className="py-6 min-h-[calc(100vh-120px)] space-y-6 max-w-5xl mx-auto font-sans">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[rgba(148,163,184,0.30)]">
+    <div className="py-6 min-h-[calc(100vh-120px)] space-y-6 max-w-5xl mx-auto font-sans text-[#FFFFFF]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#292929]">
         <div>
-          <h1 className="text-2xl font-black text-[#0F172A] flex items-center gap-2">
-            <Bell className="w-7 h-7 text-[#059669]" />
+          <h1 className="text-2xl font-black text-[#FFFFFF] flex items-center gap-2">
+            <Bell className="w-7 h-7 text-[#D4AF37]" />
             Notification Center
           </h1>
-          <p className="text-[#334155] text-xs font-medium mt-0.5">
+          <p className="text-[#8A8A8A] text-xs font-medium mt-0.5">
             Centralized notification feed and actionable real-time alerts
           </p>
         </div>
@@ -287,22 +287,22 @@ export const NotificationCenter: React.FC = () => {
           <Button
             onClick={handleMarkAllRead}
             variant="outline"
-            className="border-[#3A4148] bg-[#1D2329] hover:bg-[#252C34] text-white rounded-xl flex items-center gap-2 text-xs font-bold"
+            className="border-[#292929] bg-[#1B1B1B] hover:bg-[#292929] text-[#FFFFFF] rounded-xl flex items-center gap-2 text-xs font-bold"
           >
-            <CheckCheck className="w-4 h-4 text-[#18C98F]" />
+            <CheckCheck className="w-4 h-4 text-[#D4AF37]" />
             Mark all read
           </Button>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-[#3A4148] gap-6">
+      <div className="flex border-b border-[#292929] gap-6">
         {(['ALL', 'UNREAD', 'IMPORTANT', 'SETTINGS'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`pb-3 font-bold text-sm relative transition-all duration-200 ${
-              activeTab === tab ? 'text-[#18C98F]' : 'text-slate-400 hover:text-slate-200'
+            className={`pb-3 font-bold text-sm relative transition-all duration-200 cursor-pointer ${
+              activeTab === tab ? 'text-[#D4AF37]' : 'text-[#8A8A8A] hover:text-[#FFFFFF]'
             }`}
           >
             {tab === 'ALL' && 'All Alerts'}
@@ -310,7 +310,7 @@ export const NotificationCenter: React.FC = () => {
             {tab === 'IMPORTANT' && 'Critical & High'}
             {tab === 'SETTINGS' && 'Preferences'}
             {activeTab === tab && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#18C98F] rounded-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#D4AF37] rounded-full" />
             )}
           </button>
         ))}
@@ -321,7 +321,7 @@ export const NotificationCenter: React.FC = () => {
       ) : (
         <>
           {/* Categories Horizontal Filter */}
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
             {[
               { key: 'ALL', label: 'All Modules' },
               { key: 'ATTENDANCE', label: 'Attendance' },
@@ -334,10 +334,10 @@ export const NotificationCenter: React.FC = () => {
               <button
                 key={cat.key}
                 onClick={() => setActiveCategory(cat.key)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border whitespace-nowrap ${
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border whitespace-nowrap cursor-pointer ${
                   activeCategory === cat.key
-                    ? 'bg-[#18C98F] border-[#18C98F] text-[#0B0D0F] shadow-lg'
-                    : 'bg-[#1D2329] border-[#3A4148] text-slate-300 hover:bg-[#252C34]'
+                    ? 'bg-[#D4AF37] border-[#D4AF37] text-[#080808] shadow-lg'
+                    : 'bg-[#151515] border-[#292929] text-[#8A8A8A] hover:bg-[#1B1B1B] hover:text-[#FFFFFF]'
                 }`}
               >
                 {cat.label}
@@ -347,12 +347,12 @@ export const NotificationCenter: React.FC = () => {
 
           {/* Content Feed */}
           {loading ? (
-            <Card className="p-8 flex flex-col items-center justify-center bg-[#171B1F] border border-[#3A4148] rounded-[22px] text-white">
-              <Clock className="w-8 h-8 animate-spin text-[#18C98F] mb-2" />
+            <Card className="p-8 flex flex-col items-center justify-center bg-[#151515] border border-[#292929] rounded-[22px] text-[#FFFFFF]">
+              <Clock className="w-8 h-8 animate-spin text-[#D4AF37] mb-2" />
               <p className="text-sm font-semibold">Synchronizing notifications...</p>
             </Card>
           ) : filteredNotifications.length === 0 ? (
-            <Card className="p-8 bg-[#171B1F] border border-[#3A4148] rounded-[22px] text-white">
+            <Card className="p-8 bg-[#151515] border border-[#292929] rounded-[22px] text-[#FFFFFF]">
               <EmptyState
                 icon={Bell}
                 title="All Clear"
@@ -367,19 +367,19 @@ export const NotificationCenter: React.FC = () => {
                   onClick={() => handleNotificationClick(notif)}
                   className={`p-4 rounded-[18px] border transition-all duration-200 cursor-pointer flex gap-4 ${
                     notif.read
-                      ? 'bg-[#111417]/40 border-[#3A4148] opacity-70 hover:opacity-100 hover:bg-[#1D2329]/30'
-                      : 'bg-[#171B1F] border-[#3A4148] hover:border-emerald-500/60 shadow-md'
+                      ? 'bg-[#101010]/60 border-[#292929] opacity-70 hover:opacity-100 hover:bg-[#1B1B1B]'
+                      : 'bg-[#151515] border-[#292929] hover:border-[#D4AF37]/60 shadow-md'
                   }`}
                 >
                   {/* Left category icon with indicator */}
                   <div className="relative flex-shrink-0 flex items-start mt-0.5">
-                    <div className="p-2.5 rounded-xl bg-[#111417] border border-[#3A4148]">
+                    <div className="p-2.5 rounded-xl bg-[#101010] border border-[#292929]">
                       {getCategoryIcon(notif.category)}
                     </div>
                     {!notif.read && (
                       <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-[#18C98F]"></span>
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D4AF37] opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-[#D4AF37]"></span>
                       </span>
                     )}
                   </div>
@@ -387,38 +387,38 @@ export const NotificationCenter: React.FC = () => {
                   {/* Main message details */}
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
-                      <h3 className="font-bold text-sm text-white truncate pr-2">
+                      <h3 className="font-bold text-sm text-[#FFFFFF] truncate pr-2">
                         {notif.title}
                       </h3>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${getPriorityStyle(notif.priority as NotificationPriority)}`}>
                           {getPriorityBadgeLabel(notif.priority as NotificationPriority)}
                         </span>
-                        <span className="text-[11px] text-slate-400 font-medium">
+                        <span className="text-[11px] text-[#8A8A8A] font-medium">
                           {formatTime(notif.timestamp || notif.createdAtDeviceTime)}
                         </span>
                       </div>
                     </div>
 
-                    <p className="text-slate-300 text-xs leading-relaxed mb-1 pr-6 break-words">
+                    <p className="text-[#8A8A8A] text-xs leading-relaxed mb-1 pr-6 break-words">
                       {notif.message}
                     </p>
 
                     <div className="flex items-center gap-2 flex-wrap mt-2">
-                      <span className="text-[10px] uppercase tracking-wider font-extrabold text-[#18C98F]">
+                      <span className="text-[10px] uppercase tracking-wider font-extrabold text-[#D4AF37]">
                         {notif.category}
                       </span>
                       
                       {/* Delivery Channel Badges */}
-                      <span className="text-[9px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-1.5 py-0.5 rounded-md font-bold">
+                      <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-md font-bold">
                         In-App ✓
                       </span>
 
                       {notif.emailStatus && notif.emailStatus !== 'NOT_REQUIRED' && (
                         <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold border ${
                           notif.emailStatus === 'DELIVERED' || notif.emailStatus === 'SENT'
-                            ? 'bg-blue-500/10 text-blue-300 border-blue-500/20'
-                            : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                            ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                            : 'bg-[#101010] text-[#8A8A8A] border-[#292929]'
                         }`}>
                           Email: {notif.emailStatus}
                         </span>
@@ -427,8 +427,8 @@ export const NotificationCenter: React.FC = () => {
                       {notif.smsStatus && notif.smsStatus !== 'NOT_REQUIRED' && (
                         <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold border ${
                           notif.smsStatus === 'DELIVERED' || notif.smsStatus === 'SENT'
-                            ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
-                            : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                            : 'bg-[#101010] text-[#8A8A8A] border-[#292929]'
                         }`}>
                           SMS: {notif.smsStatus}
                         </span>
@@ -437,8 +437,8 @@ export const NotificationCenter: React.FC = () => {
                       {notif.pushStatus && notif.pushStatus !== 'NOT_REQUIRED' && (
                         <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold border ${
                           notif.pushStatus === 'SENT' || notif.pushStatus === 'DELIVERED'
-                            ? 'bg-emerald-500/10 text-[#18C98F] border-emerald-500/20'
-                            : 'bg-rose-500/10 text-rose-300 border-rose-500/20'
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                            : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
                         }`}>
                           Push: {notif.pushStatus === 'SENT' ? 'SENT ✓' : notif.pushStatus}
                         </span>
@@ -456,7 +456,7 @@ export const NotificationCenter: React.FC = () => {
                   <div className="flex items-start">
                     <button
                       onClick={(e) => handleDelete(e, notif.id)}
-                      className="p-1 rounded-lg hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-colors"
+                      className="p-1 rounded-lg hover:bg-rose-500/10 text-[#8A8A8A] hover:text-rose-400 transition-colors cursor-pointer"
                       title="Archive notification"
                     >
                       <Trash2 className="w-4 h-4" />

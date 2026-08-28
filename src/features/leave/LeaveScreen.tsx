@@ -341,73 +341,73 @@ export const LeaveScreen: React.FC = () => {
             {/* Left Column: Balance & Upcoming */}
             <div className="lg:col-span-5 space-y-6">
               
-              <Card className="p-6 bg-[#171B1F] border border-[#3A4148] rounded-[22px] shadow-lg">
+              <Card className="p-6 bg-[#151515] border border-[#292929] rounded-[22px] shadow-lg text-[#FFFFFF]">
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <h2 className="text-sm font-black text-white flex items-center gap-2">
-                      <CalendarDays className="w-4.5 h-4.5 text-[#18C98F]" />
+                    <h2 className="text-sm font-black text-[#FFFFFF] flex items-center gap-2">
+                      <CalendarDays className="w-4.5 h-4.5 text-[#D4AF37]" />
                       LEAVE BALANCE
                     </h2>
-                    <p className="text-[11px] text-[#B7C0BC] mt-1">Leave Year: 1 Apr {startYear} — 31 Mar {endYear}</p>
+                    <p className="text-[11px] text-[#8A8A8A] mt-1">Leave Year: 1 Apr {startYear} — 31 Mar {endYear}</p>
                   </div>
                 </div>
 
                 <div className="flex justify-between items-end mb-4">
                   <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-[#B7C0BC]/60 uppercase tracking-wider">Annual Entitlement</p>
-                    <p className="text-3xl font-black text-white">{annualEntitlement}</p>
+                    <p className="text-[10px] font-bold text-[#8A8A8A] uppercase tracking-wider">Annual Entitlement</p>
+                    <p className="text-3xl font-black text-[#FFFFFF]">{annualEntitlement}</p>
                   </div>
                   <div className="text-right space-y-1">
-                    <p className="text-[10px] font-bold text-[#B7C0BC]/60 uppercase tracking-wider">Remaining</p>
-                    <p className="text-3xl font-black text-[#18C98F]">{remaining}</p>
+                    <p className="text-[10px] font-bold text-[#8A8A8A] uppercase tracking-wider">Remaining</p>
+                    <p className="text-3xl font-black text-[#D4AF37]">{remaining}</p>
                   </div>
                 </div>
 
                 {/* Progress Bar */}
-                <div className="h-3 w-full bg-[#111417] rounded-full overflow-hidden flex mb-4 border border-[#3A4148]">
+                <div className="h-3 w-full bg-[#101010] rounded-full overflow-hidden flex mb-4 border border-[#292929]">
                   <div style={{ width: `${usedPercent}%` }} className="bg-emerald-500 h-full transition-all" />
                   <div style={{ width: `${pendingPercent}%` }} className="bg-amber-500 h-full transition-all" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[#3A4148]">
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[#292929]">
                   <div className="flex items-center gap-2.5">
                     <div className="w-3 h-3 rounded-full bg-emerald-500" />
                     <div>
-                      <p className="text-[10px] font-bold text-emerald-300 uppercase">Used</p>
-                      <p className="text-sm font-black text-white">{used} Days</p>
+                      <p className="text-[10px] font-bold text-emerald-400 uppercase">Used</p>
+                      <p className="text-sm font-black text-[#FFFFFF]">{used} Days</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2.5">
                     <div className="w-3 h-3 rounded-full bg-amber-500" />
                     <div>
-                      <p className="text-[10px] font-bold text-amber-300 uppercase">Pending</p>
-                      <p className="text-sm font-black text-white">{pending} Days</p>
+                      <p className="text-[10px] font-bold text-amber-400 uppercase">Pending</p>
+                      <p className="text-sm font-black text-[#FFFFFF]">{pending} Days</p>
                     </div>
                   </div>
                 </div>
 
                 {used + pending >= annualEntitlement && (
-                  <div className="mt-5 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2 text-[11px] text-amber-200">
+                  <div className="mt-5 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-2 text-[11px] text-amber-300">
                     <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-400" />
                     <p>No leave balance remaining for this leave year. Further requests may be subject to unpaid leave.</p>
                   </div>
                 )}
               </Card>
 
-              <Card className="p-5 bg-[#171B1F] border border-[#3A4148] shadow-xl rounded-[22px]">
-                <h3 className="text-xs font-black text-[#B7C0BC] uppercase tracking-widest mb-4">Upcoming Leave</h3>
+              <Card className="p-5 bg-[#151515] border border-[#292929] shadow-xl rounded-[22px] text-[#FFFFFF]">
+                <h3 className="text-xs font-black text-[#D4AF37] uppercase tracking-widest mb-4">Upcoming Leave</h3>
                 {nearestUpcoming ? (
-                  <div className="bg-[#1D2329] p-4 rounded-xl border border-[#3A4148] flex justify-between items-center">
+                  <div className="bg-[#101010] p-4 rounded-xl border border-[#292929] flex justify-between items-center">
                     <div>
-                      <p className="text-sm font-black text-white">{nearestUpcoming.startDate} <span className="text-[10px] text-[#B7C0BC]/60 font-medium ml-1">to</span> {nearestUpcoming.endDate}</p>
-                      <p className="text-[11px] text-[#B7C0BC] mt-0.5">{nearestUpcoming.totalDays} Day{nearestUpcoming.totalDays > 1 ? 's' : ''} • {nearestUpcoming.reason}</p>
+                      <p className="text-sm font-black text-[#FFFFFF]">{nearestUpcoming.startDate} <span className="text-[10px] text-[#8A8A8A] font-medium ml-1">to</span> {nearestUpcoming.endDate}</p>
+                      <p className="text-[11px] text-[#8A8A8A] mt-0.5">{nearestUpcoming.totalDays} Day{nearestUpcoming.totalDays > 1 ? 's' : ''} • {nearestUpcoming.reason}</p>
                     </div>
                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${getStatusBadgeClass(nearestUpcoming.status)}`}>
                       {nearestUpcoming.status}
                     </span>
                   </div>
                 ) : (
-                  <p className="text-xs text-[#B7C0BC]/60 italic p-3 bg-[#1D2329]/50 rounded-xl border border-[#3A4148]">No upcoming leave.</p>
+                  <p className="text-xs text-[#8A8A8A] italic p-3 bg-[#101010] rounded-xl border border-[#292929]">No upcoming leave.</p>
                 )}
               </Card>
               

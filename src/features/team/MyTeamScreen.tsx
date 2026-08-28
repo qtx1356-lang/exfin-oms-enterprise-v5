@@ -551,40 +551,40 @@ export const MyTeamScreen: React.FC = () => {
   });
 
   return (
-    <div className="flex flex-col gap-5 pb-12 text-[#0F172A]">
+    <div className="flex flex-col gap-5 pb-12 text-[#FFFFFF]">
       {/* Top Title & Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-2">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-[#19C7C0]/20 border border-[#19C7C0]/30 flex items-center justify-center text-[#19C7C0] shadow-lg">
+          <div className="w-11 h-11 rounded-2xl bg-[#101010] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] shadow-lg shadow-[#D4AF37]/10">
             <Users className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-[#0F172A]">MY TEAM</h1>
-              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#0A4D3C]/20 text-[#0A4D3C] border border-[#0A4D3C]/30">
+              <h1 className="text-xl font-black text-[#FFFFFF]">MY TEAM</h1>
+              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#D4AF37] text-[#080808] shadow-sm">
                 TEAM LEADER
               </span>
             </div>
-            <p className="text-xs text-[#334155]">
-              Managing team members & work planner reviews for <span className="font-bold text-[#0F172A]">{employeeData?.name}</span>
+            <p className="text-xs text-[#8A8A8A]">
+              Managing team members & work planner reviews for <span className="font-bold text-[#FFFFFF]">{employeeData?.name}</span>
             </p>
           </div>
         </div>
 
         <Button
           onClick={() => setShowCreateTaskModal(true)}
-          className="bg-[#19C7C0] hover:bg-[#15ADA7] text-[#0A2923] font-extrabold text-xs px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-1.5 cursor-pointer"
+          className="bg-[#D4AF37] hover:bg-[#C5A028] text-[#080808] font-extrabold text-xs px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-1.5 cursor-pointer"
         >
           <Plus className="w-4 h-4" /> Assign Team Task
         </Button>
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex overflow-x-auto gap-2 p-1.5 bg-[#173A32] rounded-2xl border border-[#2A5B50] text-xs font-bold no-scrollbar">
+      <div className="flex overflow-x-auto gap-2 p-1.5 bg-[#151515] rounded-2xl border border-[#292929] text-xs font-bold no-scrollbar">
         <button
           onClick={() => setActiveTab('overview')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'overview' ? 'bg-[#19C7C0] text-[#0A2923] shadow-md' : 'text-[#C7DAD3] hover:text-[#F4FAF7]'
+            activeTab === 'overview' ? 'bg-[#D4AF37] text-[#080808] shadow-md' : 'text-[#8A8A8A] hover:text-[#FFFFFF]'
           }`}
         >
           <TrendingUp className="w-3.5 h-3.5" /> Overview
@@ -593,7 +593,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('members')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'members' ? 'bg-[#19C7C0] text-[#0A2923] shadow-md' : 'text-[#C7DAD3] hover:text-[#F4FAF7]'
+            activeTab === 'members' ? 'bg-[#D4AF37] text-[#080808] shadow-md' : 'text-[#8A8A8A] hover:text-[#FFFFFF]'
           }`}
         >
           <Users className="w-3.5 h-3.5" /> Team Members ({totalTeamMembers})
@@ -602,7 +602,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('tasks')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'tasks' ? 'bg-[#19C7C0] text-[#0A2923] shadow-md' : 'text-[#C7DAD3] hover:text-[#F4FAF7]'
+            activeTab === 'tasks' ? 'bg-[#D4AF37] text-[#080808] shadow-md' : 'text-[#8A8A8A] hover:text-[#FFFFFF]'
           }`}
         >
           <CheckSquare className="w-3.5 h-3.5" /> Team Tasks ({teamTasks.length})
@@ -611,12 +611,12 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('approvals')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'approvals' ? 'bg-[#19C7C0] text-[#0A2923] shadow-md' : 'text-[#C7DAD3] hover:text-[#F4FAF7]'
+            activeTab === 'approvals' ? 'bg-[#D4AF37] text-[#080808] shadow-md' : 'text-[#8A8A8A] hover:text-[#FFFFFF]'
           }`}
         >
           <Clock className="w-3.5 h-3.5" /> Review Queue
           {pendingApprovalsCount > 0 && (
-            <span className="bg-[#F2C75C] text-[#0A2923] text-[10px] px-2 py-0.2 rounded-full font-black animate-pulse">
+            <span className="bg-amber-400 text-[#080808] text-[10px] px-2 py-0.2 rounded-full font-black animate-pulse">
               {pendingApprovalsCount}
             </span>
           )}
@@ -625,7 +625,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('reports')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'reports' ? 'bg-[#19C7C0] text-[#0A2923] shadow-md' : 'text-[#C7DAD3] hover:text-[#F4FAF7]'
+            activeTab === 'reports' ? 'bg-[#D4AF37] text-[#080808] shadow-md' : 'text-[#8A8A8A] hover:text-[#FFFFFF]'
           }`}
         >
           <BarChart3 className="w-3.5 h-3.5" /> Team Reports
@@ -634,12 +634,12 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('leaves')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'leaves' ? 'bg-[#19C7C0] text-[#0A2923] shadow-md' : 'text-[#C7DAD3] hover:text-[#F4FAF7]'
+            activeTab === 'leaves' ? 'bg-[#D4AF37] text-[#080808] shadow-md' : 'text-[#8A8A8A] hover:text-[#FFFFFF]'
           }`}
         >
           <Calendar className="w-3.5 h-3.5" /> Team Leaves ({teamLeaves.length})
           {pendingTeamLeavesCount > 0 && (
-            <span className="bg-[#F2C75C] text-[#0A2923] text-[10px] px-2 py-0.5 rounded-full font-black ml-1 animate-pulse">
+            <span className="bg-amber-400 text-[#080808] text-[10px] px-2 py-0.5 rounded-full font-black ml-1 animate-pulse">
               {pendingTeamLeavesCount}
             </span>
           )}
@@ -651,44 +651,44 @@ export const MyTeamScreen: React.FC = () => {
         <div className="space-y-5">
           {/* Summary Metric Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Card className="p-3.5 bg-[#173A32] border border-[#2A5B50] text-center text-[#F4FAF7]">
-              <p className="text-[10px] font-bold text-[#C7DAD3] uppercase">Total Members</p>
-              <p className="text-2xl font-black text-[#F4FAF7] mt-0.5">{totalTeamMembers}</p>
+            <Card className="p-3.5 bg-[#151515] border border-[#292929] text-center text-[#FFFFFF]">
+              <p className="text-[10px] font-bold text-[#8A8A8A] uppercase">Total Members</p>
+              <p className="text-2xl font-black text-[#FFFFFF] mt-0.5">{totalTeamMembers}</p>
             </Card>
 
-            <Card className="p-3.5 bg-[#173A32] border border-[#2A5B50] text-center text-[#F4FAF7]">
-              <p className="text-[10px] font-bold text-[#F2C75C] uppercase">Pending Approvals</p>
-              <p className="text-2xl font-black text-[#F2C75C] mt-0.5">{pendingApprovalsCount}</p>
+            <Card className="p-3.5 bg-[#151515] border border-[#292929] text-center text-[#FFFFFF]">
+              <p className="text-[10px] font-bold text-amber-400 uppercase">Pending Approvals</p>
+              <p className="text-2xl font-black text-amber-400 mt-0.5">{pendingApprovalsCount}</p>
             </Card>
 
-            <Card className="p-3.5 bg-[#173A32] border border-[#2A5B50] text-center text-[#F4FAF7]">
-              <p className="text-[10px] font-bold text-[#19C7C0] uppercase">Active Tasks</p>
-              <p className="text-2xl font-black text-[#19C7C0] mt-0.5">{activeTasksCount}</p>
+            <Card className="p-3.5 bg-[#151515] border border-[#292929] text-center text-[#FFFFFF]">
+              <p className="text-[10px] font-bold text-[#D4AF37] uppercase">Active Tasks</p>
+              <p className="text-2xl font-black text-[#D4AF37] mt-0.5">{activeTasksCount}</p>
             </Card>
 
-            <Card className="p-3.5 bg-[#173A32] border border-[#2A5B50] text-center text-[#F4FAF7]">
-              <p className="text-[10px] font-bold text-[#35C98A] uppercase">Team Completion</p>
-              <p className="text-2xl font-black text-[#35C98A] mt-0.5">{teamCompletionPct}%</p>
+            <Card className="p-3.5 bg-[#151515] border border-[#292929] text-center text-[#FFFFFF]">
+              <p className="text-[10px] font-bold text-emerald-400 uppercase">Team Completion</p>
+              <p className="text-2xl font-black text-emerald-400 mt-0.5">{teamCompletionPct}%</p>
             </Card>
           </div>
 
           {/* Pending Approvals Quick Alert Banner */}
           {pendingApprovalsCount > 0 && (
-            <Card className="p-4 bg-[#173A32] border border-[#F2C75C]/50 rounded-2xl flex items-center justify-between text-[#F4FAF7]">
+            <Card className="p-4 bg-[#151515] border border-amber-500/40 rounded-2xl flex items-center justify-between text-[#FFFFFF]">
               <div className="flex items-center gap-3">
-                <Clock className="w-6 h-6 text-[#F2C75C] animate-pulse flex-shrink-0" />
+                <Clock className="w-6 h-6 text-amber-400 animate-pulse flex-shrink-0" />
                 <div>
-                  <h3 className="font-extrabold text-xs text-[#F2C75C]">
+                  <h3 className="font-extrabold text-xs text-amber-400">
                     {pendingApprovalsCount} Task{pendingApprovalsCount > 1 ? 's' : ''} Awaiting Your Team Leader Review!
                   </h3>
-                  <p className="text-[11px] text-[#C7DAD3]">
+                  <p className="text-[11px] text-[#8A8A8A]">
                     Team members completed work items requiring review and sign-off.
                   </p>
                 </div>
               </div>
               <Button
                 onClick={() => setActiveTab('approvals')}
-                className="bg-[#F2C75C] hover:bg-[#D9AF43] text-[#0A2923] font-extrabold text-xs px-3 py-1.5 rounded-xl whitespace-nowrap cursor-pointer"
+                className="bg-[#D4AF37] hover:bg-[#C5A028] text-[#080808] font-extrabold text-xs px-3 py-1.5 rounded-xl whitespace-nowrap cursor-pointer"
               >
                 Review Now
               </Button>
@@ -696,9 +696,9 @@ export const MyTeamScreen: React.FC = () => {
           )}
 
           {/* Team Workload Visual Bar */}
-          <Card className="p-4 bg-[#173A32] border border-[#2A5B50] space-y-4 text-[#F4FAF7]">
-            <h3 className="text-xs font-black uppercase tracking-wider text-[#C7DAD3] flex items-center gap-1.5">
-              <BarChart3 className="w-4 h-4 text-[#19C7C0]" /> Team Member Workload Summary
+          <Card className="p-4 bg-[#151515] border border-[#292929] space-y-4 text-[#FFFFFF]">
+            <h3 className="text-xs font-black uppercase tracking-wider text-[#D4AF37] flex items-center gap-1.5">
+              <BarChart3 className="w-4 h-4 text-[#D4AF37]" /> Team Member Workload Summary
             </h3>
 
             <div className="space-y-3">
@@ -714,30 +714,30 @@ export const MyTeamScreen: React.FC = () => {
                   const mPct = mTasks.length > 0 ? Math.round((mCompleted / mTasks.length) * 100) : 0;
 
                   return (
-                    <div key={member.id} className="bg-[#112C26] p-3 rounded-xl border border-[#2A5B50] space-y-2">
+                    <div key={member.id} className="bg-[#101010] p-3 rounded-xl border border-[#292929] space-y-2">
                       <div className="flex justify-between items-center text-xs">
                         <div>
-                          <span className="font-bold text-[#F4FAF7]">{member.name}</span>
-                          <span className="text-[10px] text-[#C7DAD3] font-mono ml-2">({member.employeeCode})</span>
+                          <span className="font-bold text-[#FFFFFF]">{member.name}</span>
+                          <span className="text-[10px] text-[#8A8A8A] font-mono ml-2">({member.employeeCode})</span>
                         </div>
                         <div className="flex items-center gap-3 text-[11px]">
-                          <span className="text-[#C7DAD3]">{mTasks.length} Assigned</span>
-                          <span className="text-[#19C7C0]">{mActive} Active</span>
-                          <span className="text-[#35C98A] font-bold">{mCompleted} Done ({mPct}%)</span>
-                          {mOverdue > 0 && <span className="text-[#EF6B73] font-bold">{mOverdue} Overdue</span>}
+                          <span className="text-[#8A8A8A]">{mTasks.length} Assigned</span>
+                          <span className="text-[#D4AF37]">{mActive} Active</span>
+                          <span className="text-emerald-400 font-bold">{mCompleted} Done ({mPct}%)</span>
+                          {mOverdue > 0 && <span className="text-rose-400 font-bold">{mOverdue} Overdue</span>}
                         </div>
                       </div>
 
                       {/* Visual Workload Bar */}
-                      <div className="w-full bg-[#173A32] h-2.5 rounded-full overflow-hidden border border-[#2A5B50] flex">
-                        <div className="bg-[#35C98A] h-full" style={{ width: `${mPct}%` }} title={`Completed: ${mPct}%`} />
-                        <div className="bg-[#19C7C0] h-full" style={{ width: `${mTasks.length > 0 ? Math.round((mActive / mTasks.length) * 100) : 0}%` }} title={`Active: ${mActive}`} />
+                      <div className="w-full bg-[#1B1B1B] h-2.5 rounded-full overflow-hidden border border-[#292929] flex">
+                        <div className="bg-emerald-400 h-full" style={{ width: `${mPct}%` }} title={`Completed: ${mPct}%`} />
+                        <div className="bg-[#D4AF37] h-full" style={{ width: `${mTasks.length > 0 ? Math.round((mActive / mTasks.length) * 100) : 0}%` }} title={`Active: ${mActive}`} />
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <p className="text-xs text-[#C7DAD3] italic text-center py-4">
+                <p className="text-xs text-[#8A8A8A] italic text-center py-4">
                   No assigned team members currently found. Use the Admin Panel to designate team membership.
                 </p>
               )}

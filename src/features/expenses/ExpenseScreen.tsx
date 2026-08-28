@@ -235,14 +235,14 @@ export const ExpenseScreen: React.FC = () => {
   const pendingSyncCount = expenses.filter((e) => e.syncStatus === 'Pending Sync').length;
 
   return (
-    <div className="flex flex-col gap-5 pb-12 text-[#0F172A] max-w-5xl mx-auto">
+    <div className="flex flex-col gap-5 pb-12 text-[#FFFFFF] max-w-5xl mx-auto font-sans">
       {/* Top Bar with Offline/Sync Indicator */}
-      <div className="flex items-center justify-between pt-2 pb-2 border-b border-[rgba(148,163,184,0.30)]">
+      <div className="flex items-center justify-between pt-2 pb-2 border-b border-[#292929]">
         <div>
-          <h1 className="text-2xl font-black text-[#0F172A] tracking-tight flex items-center gap-2">
-            <Wallet className="w-7 h-7 text-[#059669]" /> Expense Claims
+          <h1 className="text-2xl font-black text-[#FFFFFF] tracking-tight flex items-center gap-2">
+            <Wallet className="w-7 h-7 text-[#D4AF37]" /> Expense Claims
           </h1>
-          <p className="text-xs text-[#334155] font-medium mt-0.5">
+          <p className="text-xs text-[#8A8A8A] font-medium mt-0.5">
             Submit & track reimbursement requests in Indian Rupees (₹)
           </p>
         </div>
@@ -253,29 +253,29 @@ export const ExpenseScreen: React.FC = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="p-4 bg-[#171B1E] border border-[#3A4148] shadow-lg flex flex-col justify-between rounded-2xl">
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#7E8985]">
+        <Card className="p-4 bg-[#151515] border border-[#292929] shadow-lg flex flex-col justify-between rounded-2xl">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#8A8A8A]">
             Total Submitted
           </p>
-          <p className="text-xl font-black text-white mt-1 tracking-tight font-mono">
+          <p className="text-xl font-black text-[#FFFFFF] mt-1 tracking-tight font-mono">
             ₹{totalSubmitted.toLocaleString('en-IN')}
           </p>
         </Card>
 
-        <Card className="p-4 bg-[#171B1E] border border-[#3A4148] shadow-lg flex flex-col justify-between rounded-2xl">
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-500">
+        <Card className="p-4 bg-[#151515] border border-[#292929] shadow-lg flex flex-col justify-between rounded-2xl">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400">
             Pending
           </p>
-          <p className="text-xl font-black text-amber-500 mt-1 tracking-tight font-mono">
+          <p className="text-xl font-black text-amber-400 mt-1 tracking-tight font-mono">
             ₹{totalPending.toLocaleString('en-IN')}
           </p>
         </Card>
 
-        <Card className="p-4 bg-[#171B1E] border border-[#3A4148] shadow-lg flex flex-col justify-between rounded-2xl">
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#18C98F]">
+        <Card className="p-4 bg-[#151515] border border-[#292929] shadow-lg flex flex-col justify-between rounded-2xl">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-400">
             Approved
           </p>
-          <p className="text-xl font-black text-[#18C98F] mt-1 tracking-tight font-mono">
+          <p className="text-xl font-black text-emerald-400 mt-1 tracking-tight font-mono">
             ₹{totalApproved.toLocaleString('en-IN')}
           </p>
         </Card>
@@ -290,28 +290,28 @@ export const ExpenseScreen: React.FC = () => {
             setScannedGstAmount(null);
             setIsModalOpen(true);
           }} 
-          className="py-3.5 text-sm font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-[#18C98F] hover:bg-[#10966D] text-[#0B0D0F]"
+          className="py-3.5 text-sm font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-[#D4AF37] hover:bg-[#E6C766] text-[#080808]"
         >
           <Plus className="w-5 h-5" /> Enter Manually
         </Button>
         <Button 
           onClick={() => setIsScannerOpen(true)} 
-          className="py-3.5 text-sm font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-[#1D2226] hover:bg-[#3A4148] text-white border border-[#3A4148]"
+          className="py-3.5 text-sm font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-[#1B1B1B] hover:bg-[#292929] text-[#FFFFFF] border border-[#292929]"
         >
-          <Camera className="w-5 h-5" /> Scan Receipt
+          <Camera className="w-5 h-5 text-[#D4AF37]" /> Scan Receipt
         </Button>
       </div>
 
       {/* Filters Section */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-extrabold text-[#7E8985] uppercase tracking-wider">
+          <span className="text-xs font-extrabold text-[#D4AF37] uppercase tracking-wider">
             Filter History
           </span>
           {dateFilter && (
             <button 
               onClick={() => setDateFilter('')} 
-              className="text-[11px] font-bold text-[#18C98F] hover:underline"
+              className="text-[11px] font-bold text-[#D4AF37] hover:underline"
             >
               Clear Date Filter
             </button>
@@ -323,10 +323,10 @@ export const ExpenseScreen: React.FC = () => {
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
                 statusFilter === status
-                  ? 'bg-[#18C98F] text-[#0B0D0F] border-[#18C98F] shadow-md'
-                  : 'bg-[#111417] text-[#7E8985] border-[#3A4148] hover:bg-[#1D2226]'
+                  ? 'bg-[#D4AF37] text-[#080808] border-[#D4AF37] shadow-md'
+                  : 'bg-[#151515] text-[#8A8A8A] border-[#292929] hover:bg-[#1B1B1B] hover:text-[#FFFFFF]'
               }`}
             >
               {status}
@@ -338,7 +338,7 @@ export const ExpenseScreen: React.FC = () => {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-[#3A4148] bg-[#111417] text-white text-xs font-semibold focus:outline-none focus:border-[#18C98F]"
+            className="w-full px-3 py-2 rounded-xl border border-[#292929] bg-[#101010] text-[#FFFFFF] text-xs font-semibold focus:outline-none focus:border-[#D4AF37]"
           >
             <option value="All">All Categories</option>
             {EXPENSE_CATEGORIES.map((cat) => (
@@ -350,14 +350,14 @@ export const ExpenseScreen: React.FC = () => {
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-[#3A4148] bg-[#111417] text-white text-xs font-semibold focus:outline-none focus:border-[#18C98F]"
+            className="w-full px-3 py-2 rounded-xl border border-[#292929] bg-[#101010] text-[#FFFFFF] text-xs font-semibold focus:outline-none focus:border-[#D4AF37]"
           />
         </div>
       </div>
 
       {/* Expense History List */}
       <div className="space-y-3">
-        <h2 className="text-xs font-extrabold text-[#7E8985] uppercase tracking-wider">
+        <h2 className="text-xs font-extrabold text-[#D4AF37] uppercase tracking-wider">
           Expense Records ({filteredExpenses.length})
         </h2>
 
@@ -368,64 +368,62 @@ export const ExpenseScreen: React.FC = () => {
             return (
               <Card 
                 key={expense.id} 
-                className="p-4 bg-[#171B1E] border border-[#3A4148] shadow-md hover:border-[#18C98F]/40 transition-all space-y-3"
+                className="p-4 bg-[#151515] border border-[#292929] shadow-md hover:border-[#D4AF37]/50 transition-all space-y-3 text-[#FFFFFF]"
               >
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-[#111417] border border-[#3A4148] flex items-center justify-center text-[#18C98F] flex-shrink-0">
+                    <div className="w-10 h-10 rounded-2xl bg-[#1B1B1B] border border-[#292929] flex items-center justify-center text-[#D4AF37] flex-shrink-0">
                       <CategoryIcon className="w-5 h-5" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-sm text-white">{expense.category}</span>
+                        <span className="font-extrabold text-sm text-[#FFFFFF]">{expense.category}</span>
                         {(expense.receiptUrl || expense.localReceiptData) && (
                           <button
                             onClick={() => {
                               setPreviewReceipt((expense.receiptUrl || expense.localReceiptData)!);
                               setZoomScale(1);
                             }}
-                            className="p-1 rounded-md bg-[#1D2226] text-white hover:text-[#18C98F] border border-[#3A4148] transition-colors"
+                            className="p-1 rounded-md bg-[#1B1B1B] text-[#FFFFFF] hover:text-[#D4AF37] border border-[#292929] transition-colors cursor-pointer"
                             title="View Attached Receipt"
                           >
-                            <Paperclip className="w-3.5 h-3.5" />
+                            <Paperclip className="w-3.5 h-3.5 text-[#D4AF37]" />
                           </button>
                         )}
                       </div>
-                      <p className="text-[11px] text-[#7E8985] font-medium">
+                      <p className="text-[11px] text-[#8A8A8A] font-medium">
                         {expense.date} • Code: {expense.employeeCode}
                       </p>
                     </div>
                   </div>
 
                   <div className="text-right">
-                    <p className="text-base font-black text-white">
+                    <p className="text-base font-black text-[#FFFFFF]">
                       ₹{expense.amount.toLocaleString('en-IN')}
                     </p>
                     <div className="flex items-center justify-end gap-1.5 mt-1">
                       {/* Status Chip */}
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
                         expense.status === 'Approved'
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                           : expense.status === 'Rejected'
-                          ? 'bg-red-500/20 text-red-300 border-red-500/30'
-                          : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                          : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
                       }`}>
                         {expense.status}
                       </span>
-
-                      {/* Sync Status Chip Removed */}
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-[#111417] p-2.5 rounded-xl border border-[#3A4148] text-xs text-[#B7C0BC] leading-relaxed">
+                <div className="bg-[#101010] p-2.5 rounded-xl border border-[#292929] text-xs text-[#8A8A8A] leading-relaxed">
                   {expense.description}
                 </div>
 
                 {/* Rejection Reason Alert if Rejected */}
                 {expense.status === 'Rejected' && expense.rejectionReason && (
-                  <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-xs text-red-200">
-                    <span className="font-bold text-red-300">Rejected Reason: </span>
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300">
+                    <span className="font-bold text-rose-400">Rejected Reason: </span>
                     {expense.rejectionReason}
                   </div>
                 )}
@@ -433,7 +431,7 @@ export const ExpenseScreen: React.FC = () => {
             );
           })
         ) : (
-          <div className="py-8 bg-[#171B1E] rounded-2xl border border-dashed border-[#3A4148]">
+          <div className="py-8 bg-[#151515] rounded-2xl border border-dashed border-[#292929]">
             <EmptyState
               icon={Receipt}
               title="No expense claims found"

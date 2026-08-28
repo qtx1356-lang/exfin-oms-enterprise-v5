@@ -32,45 +32,46 @@ export const MobileRecoveryScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#170B38] via-[#211044] to-[#2A145B] text-white p-4 flex flex-col justify-center items-center">
+    <div className="min-h-screen bg-[#080808] text-[#FFFFFF] p-4 flex flex-col justify-center items-center font-sans">
       <div className="max-w-md w-full space-y-6">
         
         <div className="text-center space-y-2">
-          <div className="w-16 h-16 bg-[#7C3AED] rounded-2xl flex items-center justify-center mx-auto shadow-[0_0_30px_rgba(124,58,237,0.5)] border border-purple-400/30">
-            <Shield className="w-8 h-8 text-white" />
+          <div className="w-16 h-16 bg-[#151515] rounded-2xl flex items-center justify-center mx-auto shadow-2xl border border-[#8F7425]/40">
+            <Shield className="w-8 h-8 text-[#D4AF37]" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-white">Welcome Back</h1>
-          <p className="text-purple-300/80 text-xs">Enter your registered mobile number to restore your account.</p>
+          <h1 className="text-2xl font-black tracking-wider uppercase text-[#FFFFFF]">EXFIN OMS</h1>
+          <h2 className="text-sm font-bold tracking-widest text-[#D4AF37] uppercase">ACCOUNT RECOVERY</h2>
+          <p className="text-[#8A8A8A] text-xs">Enter your registered mobile number to restore your executive account.</p>
         </div>
 
-        <Card className="p-6 bg-[#2D1B5A] border border-purple-500/30 shadow-2xl rounded-[28px] space-y-5">
+        <Card className="p-6 bg-[#151515] border border-[#292929] shadow-2xl rounded-3xl space-y-5">
           <form onSubmit={handleSubmit} className="space-y-4">
             
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-purple-200 uppercase tracking-wider flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-[#A78BFA]" /> Mobile Number
+              <label className="text-xs font-bold text-[#C7C7C7] uppercase tracking-wider flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-[#D4AF37]" /> Mobile Number
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-3.5 text-purple-300 text-sm font-bold">+91</span>
+                <span className="absolute left-4 top-3.5 text-[#8A8A8A] text-sm font-bold">+91</span>
                 <input
                   type="tel"
                   value={localMobile}
                   onChange={(e) => setLocalMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   placeholder="9876543210"
-                  className="w-full pl-14 pr-4 py-3.5 rounded-2xl border border-purple-500/30 bg-[#211044] text-white focus:outline-none focus:ring-2 focus:ring-[#7C3AED] text-sm font-mono tracking-wider"
+                  className="w-full pl-14 pr-4 py-3.5 rounded-2xl border border-[#292929] bg-[#121212] text-[#FFFFFF] placeholder-[#8A8A8A] focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] text-sm font-mono tracking-wider"
                   required
                   maxLength={10}
                   autoFocus
                 />
               </div>
-              <p className="text-[11px] text-purple-300/70 pt-1">
+              <p className="text-[11px] text-[#8A8A8A] pt-1">
                 Your mobile number is your persistent account recovery key across device reinstalls.
               </p>
             </div>
 
             {(localError || recoveryError) && (
-              <div className="p-3 bg-red-500/20 border border-red-500/40 text-red-200 rounded-2xl text-xs font-bold flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />
+              <div className="p-3 bg-[#EF4444]/15 border border-[#EF4444]/35 text-[#EF4444] rounded-2xl text-xs font-bold flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-[#EF4444]" />
                 <span>{localError || recoveryError}</span>
               </div>
             )}
@@ -78,17 +79,17 @@ export const MobileRecoveryScreen: React.FC = () => {
             <Button
               type="submit"
               disabled={recoveryLoading || localMobile.length < 10}
-              className="w-full py-3.5 text-sm font-bold rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-gradient-to-r from-[#7C3AED] to-[#9333EA]"
+              className="w-full py-3.5 text-sm font-black uppercase tracking-wider rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-[#D4AF37] hover:bg-[#E6C766] active:bg-[#9C7B20] text-black border border-[#E6C766]"
             >
               <span>{recoveryLoading ? 'Verifying Account...' : 'Continue'}</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4 text-black" />
             </Button>
           </form>
         </Card>
 
         <div className="text-center">
-          <p className="text-[11px] text-purple-300/60 flex items-center justify-center gap-1">
-            <Sparkles className="w-3 h-3 text-amber-400" /> Office Management System Secure Mobile Identity System
+          <p className="text-[11px] text-[#8A8A8A] flex items-center justify-center gap-1">
+            <Sparkles className="w-3 h-3 text-[#D4AF37]" /> EXFIN OMS Executive Identity Engine
           </p>
         </div>
 

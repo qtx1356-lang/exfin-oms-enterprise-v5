@@ -268,13 +268,13 @@ export const ProfileScreen: React.FC = () => {
       <div className="fixed bottom-20 left-10 w-96 h-96 bg-[rgba(34,211,238,0.05)] rounded-full blur-[120px] pointer-events-none" />
 
       {/* 1. Header Card */}
-      <Card className="p-6 bg-[rgba(17,24,39,0.92)] backdrop-blur-md border border-[rgba(148,163,184,0.25)] text-white rounded-[24px] shadow-2xl relative overflow-hidden">
-        <div className="absolute -top-12 -right-12 w-48 h-48 bg-[rgba(139,92,246,0.08)] rounded-full blur-3xl pointer-events-none" />
+      <Card className="p-6 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-[24px] shadow-2xl relative overflow-hidden">
+        <div className="absolute -top-12 -right-12 w-48 h-48 bg-[#D4AF37]/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10">
           {/* Avatar Container */}
           <div className="relative group">
-            <div className="w-24 h-24 rounded-full bg-[rgba(10,15,28,0.9)] border-2 border-[#22D3EE] overflow-hidden flex items-center justify-center shadow-[0_0_20px_rgba(34,211,238,0.2)]">
+            <div className="w-24 h-24 rounded-full bg-[#101010] border-2 border-[#D4AF37] overflow-hidden flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.2)]">
               {profile?.profilePhotoUrl || profile?.localPhotoData ? (
                 <img
                   src={profile.profilePhotoUrl || profile.localPhotoData!}
@@ -282,7 +282,7 @@ export const ProfileScreen: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <User className="w-12 h-12 text-[#CBD5E1]/60" />
+                <User className="w-12 h-12 text-[#8A8A8A]" />
               )}
             </div>
           </div>
@@ -290,23 +290,23 @@ export const ProfileScreen: React.FC = () => {
           {/* User Basic Info */}
           <div className="text-center sm:text-left space-y-1.5 flex-1">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-              <h1 className="text-2xl font-black text-white">{profile?.name || employeeData?.name || 'Employee Name'}</h1>
-              <span className="px-3 py-0.5 rounded-full text-xs font-black bg-[#22D3EE] text-[#041014] shadow-md">
+              <h1 className="text-2xl font-black text-[#FFFFFF]">{profile?.name || employeeData?.name || 'Employee Name'}</h1>
+              <span className="px-3 py-0.5 rounded-full text-xs font-black bg-[#D4AF37] text-[#080808] shadow-md">
                 {profile?.employeeCode || employeeData?.employeeCode}
               </span>
             </div>
 
-            <p className="text-sm font-bold text-[#CBD5E1]">
+            <p className="text-sm font-bold text-[#8A8A8A]">
               {profile?.designation} • {profile?.department}
             </p>
 
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
-              <span className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-[rgba(30,41,59,0.8)] text-[#CBD5E1] border border-[rgba(148,163,184,0.22)] flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#18C98F]" />
+              <span className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-[#101010] text-[#FFFFFF] border border-[#292929] flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
                 Role: {getRoleDisplayName(profile?.role || currentRole)}
               </span>
 
-              <span className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-emerald-500/10 text-[#18C98F] border border-emerald-500/30 flex items-center gap-1">
+              <span className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Status: {profile?.employmentStatus || 'Active'}
               </span>
@@ -318,123 +318,123 @@ export const ProfileScreen: React.FC = () => {
       {/* 2. Main Grid Sections */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Personal Information (Editable via Change Request) */}
-        <Card className="p-5 bg-[#171B1F] border border-[#3A4148] text-white rounded-[22px] space-y-4 shadow-xl">
-          <div className="flex justify-between items-center border-b border-[#3A4148]/60 pb-3">
-            <h2 className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-2">
-              <User className="w-4 h-4 text-[#18C98F]" /> Personal Information
+        <Card className="p-5 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-[22px] space-y-4 shadow-xl">
+          <div className="flex justify-between items-center border-b border-[#292929] pb-3">
+            <h2 className="text-xs font-black uppercase text-[#D4AF37] tracking-wider flex items-center gap-2">
+              <User className="w-4 h-4 text-[#D4AF37]" /> Personal Information
             </h2>
-            <span className="text-[10px] text-[#B7C0BC]/60 font-semibold">Editable via Request</span>
+            <span className="text-[10px] text-[#8A8A8A] font-semibold">Editable via Request</span>
           </div>
 
           <div className="space-y-3.5 text-xs">
-            <div className="flex justify-between items-center bg-[#111417] p-3 rounded-xl border border-[#3A4148]/60">
+            <div className="flex justify-between items-center bg-[#101010] p-3 rounded-xl border border-[#292929]">
               <div>
-                <p className="text-[10px] font-bold text-[#B7C0BC]/70">MOBILE NUMBER</p>
-                <p className="text-sm font-bold text-white mt-0.5">{profile?.mobileNumber || 'Not Set'}</p>
+                <p className="text-[10px] font-bold text-[#8A8A8A]">MOBILE NUMBER</p>
+                <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.mobileNumber || 'Not Set'}</p>
               </div>
               <button
                 onClick={() => openEditModal('mobileNumber', 'Mobile Number', profile?.mobileNumber || '')}
-                className="p-2 rounded-lg bg-[#1D2329] text-[#B7C0BC] hover:bg-[#252C34] transition-all"
+                className="p-2 rounded-lg bg-[#1B1B1B] text-[#8A8A8A] hover:text-[#FFFFFF] transition-all cursor-pointer"
                 title="Request Mobile Change"
               >
                 <Edit2 className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="flex justify-between items-center bg-[#111417] p-3 rounded-xl border border-[#3A4148]/60">
+            <div className="flex justify-between items-center bg-[#101010] p-3 rounded-xl border border-[#292929]">
               <div>
-                <p className="text-[10px] font-bold text-[#B7C0BC]/70">EMAIL ADDRESS</p>
-                <p className="text-sm font-bold text-white mt-0.5">{profile?.email || 'Not Set'}</p>
+                <p className="text-[10px] font-bold text-[#8A8A8A]">EMAIL ADDRESS</p>
+                <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.email || 'Not Set'}</p>
               </div>
               <button
                 onClick={() => openEditModal('email', 'Email Address', profile?.email || '')}
-                className="p-2 rounded-lg bg-[#1D2329] text-[#B7C0BC] hover:bg-[#252C34] transition-all"
+                className="p-2 rounded-lg bg-[#1B1B1B] text-[#8A8A8A] hover:text-[#FFFFFF] transition-all cursor-pointer"
                 title="Request Email Change"
               >
                 <Edit2 className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="flex justify-between items-center bg-[#111417] p-3 rounded-xl border border-[#3A4148]/60">
+            <div className="flex justify-between items-center bg-[#101010] p-3 rounded-xl border border-[#292929]">
               <div>
-                <p className="text-[10px] font-bold text-[#B7C0BC]/70">EMERGENCY CONTACT</p>
-                <p className="text-sm font-bold text-white mt-0.5">{profile?.emergencyContact || 'Not Provided'}</p>
+                <p className="text-[10px] font-bold text-[#8A8A8A]">EMERGENCY CONTACT</p>
+                <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.emergencyContact || 'Not Provided'}</p>
               </div>
               <button
                 onClick={() => openEditModal('emergencyContact', 'Emergency Contact', profile?.emergencyContact || '')}
-                className="p-2 rounded-lg bg-[#1D2329] text-[#B7C0BC] hover:bg-[#252C34] transition-all"
+                className="p-2 rounded-lg bg-[#1B1B1B] text-[#8A8A8A] hover:text-[#FFFFFF] transition-all cursor-pointer"
                 title="Request Emergency Contact Change"
               >
                 <Edit2 className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="bg-[#111417] p-3 rounded-xl border border-[#3A4148]/60">
-              <p className="text-[10px] font-bold text-[#B7C0BC]/70">OFFICE LOCATION</p>
-              <p className="text-sm font-bold text-white mt-0.5">{profile?.officeLocation || profile?.workLocation || 'Raniganj HQ'}</p>
+            <div className="bg-[#101010] p-3 rounded-xl border border-[#292929]">
+              <p className="text-[10px] font-bold text-[#8A8A8A]">OFFICE LOCATION</p>
+              <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.officeLocation || profile?.workLocation || 'Raniganj HQ'}</p>
             </div>
           </div>
         </Card>
 
         {/* Employment Information (Read-Only) */}
-        <Card className="p-5 bg-[#171B1F] border border-[#3A4148] text-white rounded-[22px] space-y-4 shadow-xl">
-          <div className="flex justify-between items-center border-b border-[#3A4148]/60 pb-3">
-            <h2 className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-[#18C98F]" /> Employment Information
+        <Card className="p-5 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-[22px] space-y-4 shadow-xl">
+          <div className="flex justify-between items-center border-b border-[#292929] pb-3">
+            <h2 className="text-xs font-black uppercase text-[#D4AF37] tracking-wider flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-[#D4AF37]" /> Employment Information
             </h2>
-            <span className="text-[10px] text-amber-300/80 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+            <span className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
               READ ONLY
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="bg-[#111417] p-3 rounded-xl border border-[#3A4148]/60">
-              <p className="text-[10px] font-bold text-[#B7C0BC]/70">EMPLOYEE CODE</p>
-              <p className="text-sm font-black text-white mt-0.5">{profile?.employeeCode}</p>
+            <div className="bg-[#101010] p-3 rounded-xl border border-[#292929]">
+              <p className="text-[10px] font-bold text-[#8A8A8A]">EMPLOYEE CODE</p>
+              <p className="text-sm font-black text-[#FFFFFF] mt-0.5">{profile?.employeeCode}</p>
             </div>
 
-            <div className="bg-[#111417] p-3 rounded-xl border border-[#3A4148]/60">
-              <p className="text-[10px] font-bold text-[#B7C0BC]/70">DEPARTMENT</p>
-              <p className="text-sm font-bold text-white mt-0.5">{profile?.department}</p>
+            <div className="bg-[#101010] p-3 rounded-xl border border-[#292929]">
+              <p className="text-[10px] font-bold text-[#8A8A8A]">DEPARTMENT</p>
+              <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.department}</p>
             </div>
 
-            <div className="bg-[#111417] p-3 rounded-xl border border-[#3A4148]/60">
-              <p className="text-[10px] font-bold text-[#B7C0BC]/70">DESIGNATION</p>
-              <p className="text-sm font-bold text-white mt-0.5">{profile?.designation}</p>
+            <div className="bg-[#101010] p-3 rounded-xl border border-[#292929]">
+              <p className="text-[10px] font-bold text-[#8A8A8A]">DESIGNATION</p>
+              <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.designation}</p>
             </div>
 
-            <div className="bg-[#111417] p-3 rounded-xl border border-[#3A4148]/60">
-              <p className="text-[10px] font-bold text-[#B7C0BC]/70">TEAM LEADER</p>
-              <p className="text-sm font-bold text-[#B7C0BC] mt-0.5">{profile?.teamLeaderName || 'Branch Admin'}</p>
+            <div className="bg-[#101010] p-3 rounded-xl border border-[#292929]">
+              <p className="text-[10px] font-bold text-[#8A8A8A]">TEAM LEADER</p>
+              <p className="text-sm font-bold text-[#8A8A8A] mt-0.5">{profile?.teamLeaderName || 'Branch Admin'}</p>
             </div>
 
-            <div className="bg-[#111417] p-3 rounded-xl border border-[#3A4148]/60">
-              <p className="text-[10px] font-bold text-[#B7C0BC]/70">JOINING DATE</p>
-              <p className="text-sm font-bold text-white mt-0.5">{profile?.joiningDate}</p>
+            <div className="bg-[#101010] p-3 rounded-xl border border-[#292929]">
+              <p className="text-[10px] font-bold text-[#8A8A8A]">JOINING DATE</p>
+              <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.joiningDate}</p>
             </div>
 
-            <div className="bg-[#111417] p-3 rounded-xl border border-[#3A4148]/60">
-              <p className="text-[10px] font-bold text-[#B7C0BC]/70">REPORTING MANAGER</p>
-              <p className="text-sm font-bold text-white mt-0.5">{profile?.reportingManager || 'Branch Admin'}</p>
+            <div className="bg-[#101010] p-3 rounded-xl border border-[#292929]">
+              <p className="text-[10px] font-bold text-[#8A8A8A]">REPORTING MANAGER</p>
+              <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.reportingManager || 'Branch Admin'}</p>
             </div>
           </div>
         </Card>
       </div>
 
       {/* 3. Access & Permissions Section */}
-      <Card className="p-5 bg-[#171B1F] border border-[#3A4148] text-white rounded-[22px] space-y-3 shadow-xl">
-        <div className="flex justify-between items-center border-b border-[#3A4148]/60 pb-3">
-          <h2 className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-2">
-            <Shield className="w-4 h-4 text-[#18C98F]" /> Access & Authorized Modules
+      <Card className="p-5 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-[22px] space-y-3 shadow-xl">
+        <div className="flex justify-between items-center border-b border-[#292929] pb-3">
+          <h2 className="text-xs font-black uppercase text-[#D4AF37] tracking-wider flex items-center gap-2">
+            <Shield className="w-4 h-4 text-[#D4AF37]" /> Access & Authorized Modules
           </h2>
-          <span className="text-[10px] text-[#B7C0BC]/60 font-semibold">RBAC Governed</span>
+          <span className="text-[10px] text-[#8A8A8A] font-semibold">RBAC Governed</span>
         </div>
 
         <div className="flex flex-wrap gap-2 pt-1">
           {activeModules.map((m) => (
             <span
               key={m.key}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#111417] text-[#B7C0BC] border border-[#3A4148] flex items-center gap-1.5 shadow-sm"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#101010] text-[#8A8A8A] border border-[#292929] flex items-center gap-1.5 shadow-sm"
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               {m.label}
@@ -447,12 +447,12 @@ export const ProfileScreen: React.FC = () => {
       <NotificationSettingsCard />
 
       {/* 4. My Profile Change Requests Section */}
-      <Card className="p-5 bg-[#171B1F] border border-[#3A4148] text-white rounded-[22px] space-y-4 shadow-xl">
-        <div className="flex justify-between items-center border-b border-[#3A4148]/60 pb-3">
-          <h2 className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[#18C98F]" /> My Profile Change Requests
+      <Card className="p-5 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-[22px] space-y-4 shadow-xl">
+        <div className="flex justify-between items-center border-b border-[#292929] pb-3">
+          <h2 className="text-xs font-black uppercase text-[#D4AF37] tracking-wider flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[#D4AF37]" /> My Profile Change Requests
           </h2>
-          <span className="text-[10px] text-[#B7C0BC]/60 font-semibold">
+          <span className="text-[10px] text-[#8A8A8A] font-semibold">
             {changeRequests.length} Total Requests
           </span>
         </div>
@@ -462,40 +462,40 @@ export const ProfileScreen: React.FC = () => {
             changeRequests.map((req) => (
               <div
                 key={req.id}
-                className="p-3.5 bg-[#111417] rounded-xl border border-[#3A4148] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2"
+                className="p-3.5 bg-[#101010] rounded-xl border border-[#292929] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2"
               >
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-xs text-white">{req.fieldLabel}</span>
+                    <span className="font-extrabold text-xs text-[#FFFFFF]">{req.fieldLabel}</span>
                     <span
                       className={`px-2 py-0.5 rounded-full text-[9px] font-black border ${
                         req.status === 'Approved'
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
                           : req.status === 'Rejected'
-                          ? 'bg-red-500/20 text-red-300 border-red-500/30'
-                          : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                          : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
                       }`}
                     >
                       {req.status.toUpperCase()}
                     </span>
                   </div>
-                  <p className="text-[11px] text-[#B7C0BC]/80">
-                    Requested: <span className="text-white font-bold">{req.requestedValue}</span> (Reason: {req.reason})
+                  <p className="text-[11px] text-[#8A8A8A]">
+                    Requested: <span className="text-[#FFFFFF] font-bold">{req.requestedValue}</span> (Reason: {req.reason})
                   </p>
                   {req.rejectionReason && (
-                    <p className="text-[10px] text-red-300 font-semibold">
+                    <p className="text-[10px] text-rose-400 font-semibold">
                       Rejection Reason: {req.rejectionReason}
                     </p>
                   )}
                 </div>
 
-                <span className="text-[10px] text-[#B7C0BC]/50 font-mono">
+                <span className="text-[10px] text-[#8A8A8A] font-mono">
                   {new Date(req.createdAtDeviceTime).toLocaleDateString()}
                 </span>
               </div>
             ))
           ) : (
-            <p className="text-xs text-[#B7C0BC]/60 py-4 text-center">
+            <p className="text-xs text-[#8A8A8A] py-4 text-center">
               No profile change requests submitted yet.
             </p>
           )}
@@ -504,29 +504,29 @@ export const ProfileScreen: React.FC = () => {
 
       {/* 5. Team Leader View: My Team Members Scope */}
       {((profile as any)?.isTeamLeader || currentRole === 'TEAM_LEADER') && (
-        <Card className="p-5 bg-[#171B1F] border border-[#3A4148] text-white rounded-[22px] space-y-4 shadow-xl">
-          <div className="flex justify-between items-center border-b border-[#3A4148]/60 pb-3">
-            <h2 className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-2">
-              <Users className="w-4 h-4 text-[#18C98F]" /> Assigned Team Directory ({teamMembers.length})
+        <Card className="p-5 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-[22px] space-y-4 shadow-xl">
+          <div className="flex justify-between items-center border-b border-[#292929] pb-3">
+            <h2 className="text-xs font-black uppercase text-[#D4AF37] tracking-wider flex items-center gap-2">
+              <Users className="w-4 h-4 text-[#D4AF37]" /> Assigned Team Directory ({teamMembers.length})
             </h2>
-            <span className="text-[10px] text-[#B7C0BC]/60 font-semibold">Team Leader Scope</span>
+            <span className="text-[10px] text-[#8A8A8A] font-semibold">Team Leader Scope</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {teamMembers.map((member) => (
               <div
                 key={member.id}
-                className="p-3 bg-[#111417] rounded-xl border border-[#3A4148] flex items-center gap-3"
+                className="p-3 bg-[#101010] rounded-xl border border-[#292929] flex items-center gap-3"
               >
-                <div className="w-10 h-10 rounded-full bg-[#1D2329] border border-[#3A4148] flex items-center justify-center font-black text-[#18C98F]">
+                <div className="w-10 h-10 rounded-full bg-[#1B1B1B] border border-[#292929] flex items-center justify-center font-black text-[#D4AF37]">
                   {member.name.charAt(0)}
                 </div>
                 <div className="overflow-hidden">
-                  <p className="font-bold text-xs text-white truncate">{member.name}</p>
-                  <p className="text-[10px] text-[#B7C0BC]/70">
+                  <p className="font-bold text-xs text-[#FFFFFF] truncate">{member.name}</p>
+                  <p className="text-[10px] text-[#8A8A8A]">
                     {member.employeeCode} • {member.office || 'Raniganj'}
                   </p>
-                  <p className="text-[10px] text-[#B7C0BC]/50">{member.mobileNumber}</p>
+                  <p className="text-[10px] text-[#8A8A8A]">{member.mobileNumber}</p>
                 </div>
               </div>
             ))}
@@ -535,16 +535,16 @@ export const ProfileScreen: React.FC = () => {
       )}
 
       {/* System & Application Info */}
-      <Card className="p-4 bg-[#171B1F]/60 border border-[#3A4148] text-white rounded-[22px] flex flex-wrap items-center justify-between gap-3 shadow-md">
+      <Card className="p-4 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-[22px] flex flex-wrap items-center justify-between gap-3 shadow-md">
         <div className="flex items-center gap-2">
-          <Info className="w-4 h-4 text-[#18C98F]" />
-          <span className="text-xs font-bold text-[#B7C0BC]">OFFICE MANAGEMENT SYSTEM</span>
+          <Info className="w-4 h-4 text-[#D4AF37]" />
+          <span className="text-xs font-bold text-[#8A8A8A]">OFFICE MANAGEMENT SYSTEM</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#1D2329] text-[#B7C0BC] border border-[#3A4148]">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#101010] text-[#8A8A8A] border border-[#292929]">
             Version {APP_VERSION}
           </span>
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#1D2329] text-[#B7C0BC] border border-[#3A4148]">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#101010] text-[#8A8A8A] border border-[#292929]">
             Build 25
           </span>
         </div>
