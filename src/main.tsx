@@ -1,4 +1,15 @@
 // APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. OFFLINE MUST BOOT THE NORMAL APPLICATION SHELL.
+declare global {
+  interface Window {
+    __updateBootStatus?: (msg: string) => void;
+    __showFatalError?: (title: string, err: any) => void;
+  }
+}
+
+if (typeof window !== 'undefined' && window.__updateBootStatus) {
+  window.__updateBootStatus('BOOT: JavaScript loaded');
+}
+
 import './services/startup/startupPerformanceLogger';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
@@ -50,17 +61,35 @@ if (typeof window !== 'undefined') {
   }
 }
 
+if (typeof window !== 'undefined' && window.__updateBootStatus) {
+  window.__updateBootStatus('BOOT: React initialization');
+}
+
 const rootElement = document.getElementById('root');
 if (rootElement) {
-  createRoot(rootElement).render(
-    <StrictMode>
-      {(() => {
-        console.log('[OFFLINE-ROOT] React root mounted');
-        return <App />;
-      })()}
-    </StrictMode>,
-  );
+  try {
+    const root = createRoot(rootElement);
+    root.render(
+      <StrictMode>
+        {(() => {
+          if (typeof window !== 'undefined' && window.__updateBootStatus) {
+            window.__updateBootStatus('BOOT: React mounted');
+          }
+          console.log('[OFFLINE-ROOT] React root mounted');
+          return <App />;
+        })()}
+      </StrictMode>,
+    );
+  } catch (renderErr) {
+    console.error('[FATAL] Exception inside createRoot / render:', renderErr);
+    if (typeof window !== 'undefined' && window.__showFatalError) {
+      window.__showFatalError('React createRoot / render Exception', renderErr);
+    }
+  }
 } else {
   console.error('[FATAL] Root DOM element #root not found in document.');
+  if (typeof window !== 'undefined' && window.__showFatalError) {
+    window.__showFatalError('DOM Element Missing', '#root div not found in index.html');
+  }
 }
 

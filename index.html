@@ -11,34 +11,78 @@
     <meta name="apple-mobile-web-app-title" content="Exfin OMS" />
     <link rel="manifest" href="/manifest.json" />
     <title>Office Management System v6.0</title>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-            .then(function (registration) {
-              if (registration.active) {
-                console.log('[STARTUP_PERF] [PWA_CACHE_READY] Service worker active and cache ready');
-              }
-              registration.onupdatefound = function () {
-                var installingWorker = registration.installing;
-                if (installingWorker) {
-                  installingWorker.onstatechange = function () {
-                    if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                      console.log('[STARTUP_PERF] [SERVICE_WORKER_UPDATED] New service worker version installed');
-                    }
-                  };
-                }
-              };
-              registration.update().catch(function () {});
-            })
-            .catch(function (err) {
-              console.warn('Service worker registration failed:', err);
-            });
-        });
+    <style>
+      #exfin-boot-diagnostics {
+        position: fixed;
+        bottom: 8px;
+        left: 8px;
+        background: rgba(15, 16, 37, 0.92);
+        color: #10B981;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 11px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        z-index: 999999;
+        pointer-events: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
       }
+      #exfin-fatal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: #0F1025;
+        color: #F87171;
+        padding: 24px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 13px;
+        z-index: 1000000;
+        overflow: auto;
+      }
+    </style>
+    <script>
+      (function() {
+        window.__updateBootStatus = function(msg) {
+          console.log('[EXFIN-BOOT]', msg);
+          var el = document.getElementById('exfin-boot-diagnostics');
+          if (el) {
+            el.textContent = msg;
+          }
+        };
+
+        window.__showFatalError = function(title, err) {
+          console.error('[EXFIN-FATAL-BOOT]', title, err);
+          var overlay = document.getElementById('exfin-fatal-overlay');
+          if (overlay) {
+            overlay.style.display = 'block';
+            var errText = typeof err === 'object' && err !== null ? (err.stack || err.message || JSON.stringify(err)) : String(err);
+            // Sanitize potential tokens
+            errText = errText.replace(/AIza[0-9A-Za-z-_]{35}/g, '[REDACTED_API_KEY]');
+            overlay.innerHTML = '<div style="max-width: 600px; margin: 40px auto; background: #171938; padding: 20px; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.4);">' +
+              '<h2 style="color: #EF4444; margin-top: 0; font-size: 16px;">BOOT FAILURE: ' + title + '</h2>' +
+              '<pre style="white-space: pre-wrap; word-break: break-all; color: #FCA5A5; font-size: 11px; background: #0c0d1f; padding: 12px; border-radius: 8px;">' + errText + '</pre>' +
+              '<button onclick="window.location.reload()" style="margin-top: 12px; background: #10B981; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer;">Reload Application</button>' +
+              '</div>';
+          }
+        };
+
+        window.addEventListener('error', function(e) {
+          window.__showFatalError('Global window.onerror', e.error || e.message);
+        });
+
+        window.addEventListener('unhandledrejection', function(e) {
+          window.__showFatalError('Unhandled Promise Rejection', e.reason);
+        });
+      })();
+    </script>
+    <script>
+      // DIAGNOSTIC STEP: Service Worker Temporarily Disabled to isolate execution chain
+      console.log('[BOOT] Service worker registration bypassed for diagnostic execution testing');
     </script>
   </head>
   <body>
+    <div id="exfin-boot-diagnostics">BOOT: index.html loaded</div>
+    <div id="exfin-fatal-overlay"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
