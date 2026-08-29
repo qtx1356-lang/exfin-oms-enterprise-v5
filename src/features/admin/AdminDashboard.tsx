@@ -1078,7 +1078,7 @@ export const AdminDashboard: React.FC = () => {
       title: 'COMMUNICATION',
       items: [
         { id: 'chat' as AdminTab, label: 'Internal Chat', icon: MessageSquare, badge: totalUnreadChatCount, visible: true },
-        { id: 'dailyReport' as AdminTab, label: 'Daily Admin Email', icon: Mail, visible: canSeeAnnouncements || isSuperAdmin() || isAdmin() },
+        { id: 'dailyReport' as AdminTab, label: 'Daily Admin Email', icon: Mail, visible: isSuperAdmin() },
         { id: 'announcements' as AdminTab, label: 'Announcements & Alerts', icon: Megaphone, visible: canSeeAnnouncements },
       ],
     },
@@ -1609,8 +1609,8 @@ export const AdminDashboard: React.FC = () => {
         {/* ANNOUNCEMENTS & ALERTS TAB */}
         {activeTab === 'announcements' && canSeeAnnouncements && <NotificationManagement />}
 
-        {/* DAILY ADMIN REPORT TAB */}
-        {activeTab === 'dailyReport' && (canSeeAnnouncements || isSuperAdmin() || isAdmin()) && <DailyAdminReportTab />}
+        {/* DAILY ADMIN REPORT TAB (SUPER-ADMIN ONLY) */}
+        {activeTab === 'dailyReport' && isSuperAdmin() && <DailyAdminReportTab />}
 
         {/* FAQ TAB */}
         {activeTab === 'faq' && <AdminFAQScreen />}

@@ -702,14 +702,16 @@ export const NotificationManagement: React.FC = () => {
             <Send className="w-3.5 h-3.5 text-emerald-400" />
             <span>WhatsApp Settings</span>
           </Button>
-          <Button 
-            onClick={() => setActiveTab('daily_report')} 
-            variant={activeTab === 'daily_report' ? 'primary' : 'secondary'}
-            className="text-xs flex items-center gap-1.5"
-          >
-            <Mail className="w-3.5 h-3.5 text-purple-400" />
-            <span>Daily Admin Report</span>
-          </Button>
+          {isSuperAdmin && (
+            <Button 
+              onClick={() => setActiveTab('daily_report')} 
+              variant={activeTab === 'daily_report' ? 'primary' : 'secondary'}
+              className="text-xs flex items-center gap-1.5"
+            >
+              <Mail className="w-3.5 h-3.5 text-purple-400" />
+              <span>Daily Admin Report</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -736,8 +738,8 @@ export const NotificationManagement: React.FC = () => {
         </div>
       )}
 
-      {/* DAILY OPERATIONS ADMIN EMAIL REPORT TAB */}
-      {activeTab === 'daily_report' && <DailyAdminReportTab />}
+      {/* DAILY OPERATIONS ADMIN EMAIL REPORT TAB (SUPER-ADMIN ONLY) */}
+      {activeTab === 'daily_report' && isSuperAdmin && <DailyAdminReportTab />}
 
       {/* COMPOSE TAB */}
       {activeTab === 'compose' && (

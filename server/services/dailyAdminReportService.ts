@@ -99,13 +99,39 @@ export function getKolkataDateString(date: Date = new Date()): string {
 
 /**
  * Get the previous calendar day string in YYYY-MM-DD format for Asia/Kolkata
+ * Uses pure UTC calendar arithmetic on the parsed Kolkata date to avoid any DST or locale parsing issues.
  */
 export function getPreviousKolkataDateString(currentDate: Date = new Date()): string {
-  const tzString = 'Asia/Kolkata';
-  const kolkataStr = currentDate.toLocaleString('en-US', { timeZone: tzString });
-  const kolkataDate = new Date(kolkataStr);
-  kolkataDate.setDate(kolkataDate.getDate() - 1);
-  return getKolkataDateString(kolkataDate);
+  const todayKolkata = getKolkataDateString(currentDate);
+  const [yearStr, monthStr, dayStr] = todayKolkata.split('-');
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10) - 1;
+  const day = parseInt(dayStr, 10);
+  
+  const utc = new Date(Date.UTC(year, month, day));
+  utc.setUTCDate(utc.getUTCDate() - 1);
+  
+  const prevYear = utc.getUTCFullYear();
+  const prevMonth = String(utc.getUTCMonth() + 1).padStart(2, '0');
+  const prevDay = String(utc.getUTCDate()).padStart(2, '0');
+  return `${prevYear}-${prevMonth}-${prevDay}`;
+}
+
+/**
+ * Get the current time in minutes since midnight for Asia/Kolkata
+ */
+export function getKolkataCurrentMinutes(currentDate: Date = new Date()): number {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+  });
+  const parts = formatter.format(currentDate).split(':');
+  let hour = parseInt(parts[0], 10);
+  if (hour === 24) hour = 0;
+  const min = parseInt(parts[1], 10);
+  return hour * 60 + min;
 }
 
 /**
@@ -130,7 +156,7 @@ export function formatDateStringFriendly(dateStr: string): string {
 /**
  * Helper to parse a time string like "10:31 AM" or "14:15" to minutes since midnight
  */
-function parseTimeToMinutes(timeStr: string): number | null {
+export function parseTimeToMinutes(timeStr: string): number | null {
   if (!timeStr) return null;
   try {
     const trimmed = timeStr.trim().toUpperCase();
@@ -864,3 +890,56 @@ export async function sendDailyReportTestEmail(
     };
   }
 }
+
+/**
+ * Background automated runner: checks if the current time in Asia/Kolkata matches or exceeds
+ * the configured daily send time, and dispatches yesterday's operational summary report if not already sent.
+ */
+let isSchedulerExecuting = false;
+
+export async function checkAndRunScheduledDailyReport(db: Firestore | null): Promise<void> {
+  if (!db || isSchedulerExecuting) return;
+  try {
+    isSchedulerExecuting = true;
+    const config = await getDailyReportConfig(db);
+    if (!config.enabled || !config.adminEmails || config.adminEmails.length === 0) {
+      return;
+    }
+
+    const scheduledMinutes = parseTimeToMinutes(config.sendTime) ?? 420; // default 07:00 AM (420 mins)
+    const currentMinutes = getKolkataCurrentMinutes();
+
+    // Only proceed if current Kolkata time is at or after the scheduled send time
+    if (currentMinutes < scheduledMinutes) {
+      return;
+    }
+
+    const reportDate = getPreviousKolkataDateString();
+    const reportLogRef = db.collection('daily_admin_reports').doc(reportDate);
+    const logSnap = await reportLogRef.get();
+
+    if (logSnap.exists) {
+      const data = logSnap.data();
+      if (data?.status === 'SENT') {
+        // Already sent successfully for this date
+        return;
+      }
+      if (data?.status === 'SENDING') {
+        const startedAt = data.startedAt ? new Date(data.startedAt).getTime() : 0;
+        const diffMins = (Date.now() - startedAt) / 60000;
+        if (diffMins < 15) {
+          // Job is currently in progress
+          return;
+        }
+      }
+    }
+
+    console.log(`[DailyReport Scheduler] Dispatching automated morning report for date: ${reportDate} to ${config.adminEmails.length} recipients.`);
+    await generateAndSendDailyReport(db, reportDate, false, 'SYSTEM_SCHEDULER');
+  } catch (err) {
+    console.error('[DailyReport Scheduler] Error in automated scheduled check:', err);
+  } finally {
+    isSchedulerExecuting = false;
+  }
+}
+

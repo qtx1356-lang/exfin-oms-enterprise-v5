@@ -22,7 +22,8 @@ import {
   saveDailyReportConfig,
   generateAndSendDailyReport,
   sendDailyReportTestEmail,
-  validateAdminEmails
+  validateAdminEmails,
+  checkAndRunScheduledDailyReport
 } from "./server/services/dailyAdminReportService";
 
 const OFFICE_LAT = 23.616227;
@@ -1408,17 +1409,21 @@ async function startServer() {
 
   // =======================================================
   // DAILY OPERATIONS ADMIN EMAIL REPORT SYSTEM API ROUTES
+  // (RESTRICTED EXCLUSIVELY TO SUPER_ADMIN)
   // =======================================================
 
-  // 1. Get Daily Report Config (Admin/Super-Admin)
+  // 1. Get Daily Report Config (Super-Admin only)
   app.get(["/api/admin/daily-report/config", "/api/admin/daily-email-report/config"], async (req, res) => {
     const caller = await verifyCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return res.status(401).json({ error: "Unauthorized access: Valid Admin token required" });
+    if (!caller) {
+      return res.status(401).json({ success: false, error: "Authentication required: Please provide a valid token" });
+    }
+    if (caller.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ success: false, error: "Access Forbidden: Super-Admin authorization required" });
     }
 
     if (!db) {
-      return res.status(503).json({ error: "Database service unavailable" });
+      return res.status(503).json({ success: false, error: "Database service unavailable" });
     }
 
     try {
@@ -1429,19 +1434,22 @@ async function startServer() {
       });
     } catch (err: any) {
       console.error("[DailyReport API] Error fetching config:", err);
-      return res.status(500).json({ error: "Failed to fetch daily report configuration" });
+      return res.status(500).json({ success: false, error: "Failed to fetch daily report configuration" });
     }
   });
 
   // 2. Save Daily Report Config (Super-Admin only)
   app.post(["/api/admin/daily-report/config", "/api/admin/daily-email-report/config"], async (req, res) => {
     const caller = await verifyCaller(req);
-    if (!caller || caller.role !== "SUPER_ADMIN") {
-      return res.status(401).json({ error: "Unauthorized access: Super-Admin credentials required" });
+    if (!caller) {
+      return res.status(401).json({ success: false, error: "Authentication required: Please provide a valid token" });
+    }
+    if (caller.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ success: false, error: "Access Forbidden: Super-Admin authorization required" });
     }
 
     if (!db) {
-      return res.status(503).json({ error: "Database service unavailable" });
+      return res.status(503).json({ success: false, error: "Database service unavailable" });
     }
 
     try {
@@ -1449,7 +1457,7 @@ async function startServer() {
       if (req.body.adminEmails !== undefined) {
         const valResult = validateAdminEmails(req.body.adminEmails);
         if (!valResult.valid) {
-          return res.status(400).json({ error: valResult.error });
+          return res.status(400).json({ success: false, error: valResult.error });
         }
       }
 
@@ -1460,19 +1468,22 @@ async function startServer() {
       });
     } catch (err: any) {
       console.error("[DailyReport API] Error saving config:", err);
-      return res.status(400).json({ error: err.message || "Failed to save daily report configuration" });
+      return res.status(400).json({ success: false, error: err.message || "Failed to save daily report configuration" });
     }
   });
 
   // 3. Send Test Email (Super-Admin only)
   app.post(["/api/admin/daily-report/send-test", "/api/admin/daily-email-report/test"], async (req, res) => {
     const caller = await verifyCaller(req);
-    if (!caller || caller.role !== "SUPER_ADMIN") {
-      return res.status(401).json({ error: "Unauthorized access: Super-Admin credentials required" });
+    if (!caller) {
+      return res.status(401).json({ success: false, error: "Authentication required: Please provide a valid token" });
+    }
+    if (caller.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ success: false, error: "Access Forbidden: Super-Admin authorization required" });
     }
 
     if (!db) {
-      return res.status(503).json({ error: "Database service unavailable" });
+      return res.status(503).json({ success: false, error: "Database service unavailable" });
     }
 
     try {
@@ -1487,12 +1498,15 @@ async function startServer() {
   // 4. Send Yesterday's / Specific Date Report Manually (Super-Admin only)
   app.post(["/api/admin/daily-report/send-yesterday", "/api/admin/daily-email-report/send-yesterday"], async (req, res) => {
     const caller = await verifyCaller(req);
-    if (!caller || caller.role !== "SUPER_ADMIN") {
-      return res.status(401).json({ error: "Unauthorized access: Super-Admin credentials required" });
+    if (!caller) {
+      return res.status(401).json({ success: false, error: "Authentication required: Please provide a valid token" });
+    }
+    if (caller.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ success: false, error: "Access Forbidden: Super-Admin authorization required" });
     }
 
     if (!db) {
-      return res.status(503).json({ error: "Database service unavailable" });
+      return res.status(503).json({ success: false, error: "Database service unavailable" });
     }
 
     try {
@@ -1508,12 +1522,15 @@ async function startServer() {
   // 5. Get Daily Report Sending History (Super-Admin only)
   app.get(["/api/admin/daily-report/history", "/api/admin/daily-email-report/history"], async (req, res) => {
     const caller = await verifyCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return res.status(401).json({ error: "Unauthorized access: Valid Admin token required" });
+    if (!caller) {
+      return res.status(401).json({ success: false, error: "Authentication required: Please provide a valid token" });
+    }
+    if (caller.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ success: false, error: "Access Forbidden: Super-Admin authorization required" });
     }
 
     if (!db) {
-      return res.status(503).json({ error: "Database service unavailable" });
+      return res.status(503).json({ success: false, error: "Database service unavailable" });
     }
 
     try {
@@ -1536,7 +1553,7 @@ async function startServer() {
       });
     } catch (err: any) {
       console.error("[DailyReport API] Error fetching history:", err);
-      return res.status(500).json({ error: "Failed to fetch daily report history" });
+      return res.status(500).json({ success: false, error: "Failed to fetch daily report history" });
     }
   });
 
@@ -1616,10 +1633,16 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Office Management System Server running on http://0.0.0.0:${PORT}`);
-    // Run finalizer on boot and every 60 seconds
+    // Run finalizer and daily report scheduler on boot and every 60 seconds
     runServerAttendanceFinalizer().catch(() => {});
+    if (db) {
+      checkAndRunScheduledDailyReport(db).catch(() => {});
+    }
     setInterval(() => {
       runServerAttendanceFinalizer().catch(() => {});
+      if (db) {
+        checkAndRunScheduledDailyReport(db).catch(() => {});
+      }
     }, 60000);
   });
 }

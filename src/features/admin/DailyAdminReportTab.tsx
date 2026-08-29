@@ -124,6 +124,10 @@ export function DailyAdminReportTab() {
 
   // Load configuration & history
   const loadData = async () => {
+    if (!isSuperAdmin) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const headers: HeadersInit = {
@@ -154,10 +158,12 @@ export function DailyAdminReportTab() {
   };
 
   useEffect(() => {
-    if (adminToken) {
+    if (adminToken && isSuperAdmin) {
       loadData();
+    } else {
+      setLoading(false);
     }
-  }, [adminToken]);
+  }, [adminToken, isSuperAdmin]);
 
   // Save config handler
   const handleSaveConfig = async (e: React.FormEvent) => {
@@ -252,6 +258,20 @@ export function DailyAdminReportTab() {
       setManualTriggerLoading(false);
     }
   };
+
+  if (!isSuperAdmin) {
+    return (
+      <div className="p-8 bg-[#250F4C] border border-purple-500/20 rounded-2xl text-center space-y-4 max-w-xl mx-auto my-12 shadow-xl">
+        <div className="w-12 h-12 bg-rose-500/20 border border-rose-500/30 rounded-2xl flex items-center justify-center mx-auto text-rose-400">
+          <ShieldAlert className="w-6 h-6" />
+        </div>
+        <h2 className="text-base font-black uppercase tracking-wider text-white">Super-Admin Access Required</h2>
+        <p className="text-xs text-purple-300/80 leading-relaxed">
+          The Daily Admin Email Report module contains executive operational briefing data and recipient delivery configurations. This module is restricted exclusively to Super-Administrators.
+        </p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
