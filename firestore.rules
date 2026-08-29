@@ -87,6 +87,16 @@ service cloud.firestore {
       allow write: if isSuperAdmin();
     }
 
+    match /notification_settings/{settingId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
+    }
+
+    match /daily_admin_reports/{reportId} {
+      allow read: if isSuperAdmin();
+      allow write: if isSuperAdmin();
+    }
+
     match /efficiency_snapshots/{snapshotId} {
       allow read, create: if true;
       allow update, delete: if isSuperAdmin();

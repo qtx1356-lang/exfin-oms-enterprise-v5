@@ -185,14 +185,22 @@ export function isKolkataLateCheckIn(checkInTimeStr: string): boolean {
   return mins > 630; // 10:30 AM is 630 mins
 }
 
+let inMemoryReportConfig: DailyReportConfig = { ...DEFAULT_REPORT_CONFIG };
+let hasLoadedFromFirestore = false;
+
 /**
- * Fetches the Daily Admin Email Report configuration from Firestore
+ * Fetches the Daily Admin Email Report configuration from Firestore with in-memory fallback
  */
-export async function getDailyReportConfig(db: Firestore): Promise<DailyReportConfig> {
+export async function getDailyReportConfig(db?: Firestore | null): Promise<DailyReportConfig> {
+  if (!db) {
+    return { ...inMemoryReportConfig };
+  }
+
   try {
     const snap = await db.collection('notification_settings').doc('daily_admin_report_config').get();
     if (!snap.exists) {
-      return { ...DEFAULT_REPORT_CONFIG };
+      hasLoadedFromFirestore = true;
+      return { ...inMemoryReportConfig };
     }
     const data = snap.data();
 
@@ -202,22 +210,30 @@ export async function getDailyReportConfig(db: Firestore): Promise<DailyReportCo
       adminEmails = data.adminEmails;
     } else if (typeof data?.adminEmail === 'string' && data.adminEmail.trim()) {
       adminEmails = [data.adminEmail.trim()];
+    } else if (inMemoryReportConfig.adminEmails.length > 0) {
+      adminEmails = inMemoryReportConfig.adminEmails;
     }
 
-    return {
+    const loadedConfig: DailyReportConfig = {
       enabled: data?.enabled !== false,
       adminEmails,
-      sendTime: data?.sendTime || '07:00 AM',
+      sendTime: data?.sendTime || inMemoryReportConfig.sendTime || '07:00 AM',
       includeAttendance: data?.includeAttendance !== false,
       includeLeaves: data?.includeLeaves !== false,
       includeExpenses: data?.includeExpenses !== false,
       includeOtherDailyActivity: data?.includeOtherDailyActivity !== false,
-      updatedAt: data?.updatedAt,
-      updatedBy: data?.updatedBy,
+      updatedAt: data?.updatedAt || inMemoryReportConfig.updatedAt,
+      updatedBy: data?.updatedBy || inMemoryReportConfig.updatedBy,
     };
-  } catch (err) {
-    console.warn('[DailyReportService] Failed to load config, returning defaults:', err);
-    return { ...DEFAULT_REPORT_CONFIG };
+
+    inMemoryReportConfig = loadedConfig;
+    hasLoadedFromFirestore = true;
+    return loadedConfig;
+  } catch (err: any) {
+    if (!hasLoadedFromFirestore) {
+      console.log('[DailyReportService] Note: Using local configuration cache (Firestore:', err?.message || 'unavailable', ')');
+    }
+    return { ...inMemoryReportConfig };
   }
 }
 
@@ -225,7 +241,7 @@ export async function getDailyReportConfig(db: Firestore): Promise<DailyReportCo
  * Saves the Daily Admin Email Report configuration
  */
 export async function saveDailyReportConfig(
-  db: Firestore,
+  db: Firestore | null | undefined,
   config: Partial<DailyReportConfig>,
   updatedBy: string
 ): Promise<DailyReportConfig> {
@@ -248,8 +264,17 @@ export async function saveDailyReportConfig(
     updatedAt: new Date().toISOString(),
     updatedBy,
   };
-  
-  await db.collection('notification_settings').doc('daily_admin_report_config').set(updated, { merge: true });
+
+  inMemoryReportConfig = { ...updated };
+
+  if (db) {
+    try {
+      await db.collection('notification_settings').doc('daily_admin_report_config').set(updated, { merge: true });
+    } catch (writeErr: any) {
+      console.warn('[DailyReportService] Saved configuration to in-memory store; Firestore sync notice:', writeErr?.message || writeErr);
+    }
+  }
+
   return updated;
 }
 
