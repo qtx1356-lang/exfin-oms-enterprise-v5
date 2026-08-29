@@ -1,17 +1,7 @@
 // APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. OFFLINE MUST BOOT THE NORMAL APPLICATION SHELL.
-declare global {
-  interface Window {
-    __updateBootStatus?: (msg: string) => void;
-    __showFatalError?: (title: string, err: any) => void;
-  }
-}
-
-if (typeof window !== 'undefined' && window.__updateBootStatus) {
-  window.__updateBootStatus('BOOT: JavaScript loaded');
-}
 
 import './services/startup/startupPerformanceLogger';
-import {StrictMode} from 'react';
+import React, {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
@@ -61,8 +51,41 @@ if (typeof window !== 'undefined') {
   }
 }
 
-if (typeof window !== 'undefined' && window.__updateBootStatus) {
-  window.__updateBootStatus('BOOT: React initialization');
+// Simple Error Boundary for the root level to catch React rendering errors
+class RootErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('[FATAL] React Error Boundary caught an error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '20px', fontFamily: 'monospace', color: '#F87171', background: '#0F1025', minHeight: '100vh' }}>
+          <h2 style={{ color: '#EF4444' }}>Application Error</h2>
+          <p>The application encountered an unexpected error and could not render.</p>
+          <pre style={{ background: '#171938', padding: '12px', borderRadius: '8px', overflowX: 'auto', fontSize: '12px' }}>
+            {this.state.error?.toString()}
+          </pre>
+          <button 
+            onClick={() => window.location.reload()}
+            style={{ marginTop: '16px', background: '#10B981', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
+          >
+            Reload Application
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 const rootElement = document.getElementById('root');
@@ -71,25 +94,18 @@ if (rootElement) {
     const root = createRoot(rootElement);
     root.render(
       <StrictMode>
-        {(() => {
-          if (typeof window !== 'undefined' && window.__updateBootStatus) {
-            window.__updateBootStatus('BOOT: React mounted');
-          }
-          console.log('[OFFLINE-ROOT] React root mounted');
-          return <App />;
-        })()}
+        <RootErrorBoundary>
+          {(() => {
+            console.log('[OFFLINE-ROOT] React root mounted');
+            return <App />;
+          })()}
+        </RootErrorBoundary>
       </StrictMode>,
     );
   } catch (renderErr) {
     console.error('[FATAL] Exception inside createRoot / render:', renderErr);
-    if (typeof window !== 'undefined' && window.__showFatalError) {
-      window.__showFatalError('React createRoot / render Exception', renderErr);
-    }
   }
 } else {
   console.error('[FATAL] Root DOM element #root not found in document.');
-  if (typeof window !== 'undefined' && window.__showFatalError) {
-    window.__showFatalError('DOM Element Missing', '#root div not found in index.html');
-  }
 }
 
