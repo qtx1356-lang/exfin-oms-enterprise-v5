@@ -702,7 +702,7 @@ export const NotificationManagement: React.FC = () => {
             <Send className="w-3.5 h-3.5 text-emerald-400" />
             <span>WhatsApp Settings</span>
           </Button>
-          {isSuperAdmin && (
+          {isSuperAdmin() && (
             <Button 
               onClick={() => setActiveTab('daily_report')} 
               variant={activeTab === 'daily_report' ? 'primary' : 'secondary'}
@@ -739,7 +739,7 @@ export const NotificationManagement: React.FC = () => {
       )}
 
       {/* DAILY OPERATIONS ADMIN EMAIL REPORT TAB (SUPER-ADMIN ONLY) */}
-      {activeTab === 'daily_report' && isSuperAdmin && <DailyAdminReportTab />}
+      {activeTab === 'daily_report' && isSuperAdmin() && <DailyAdminReportTab />}
 
       {/* COMPOSE TAB */}
       {activeTab === 'compose' && (

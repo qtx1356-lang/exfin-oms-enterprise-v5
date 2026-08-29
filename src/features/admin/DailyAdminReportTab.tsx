@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { usePermission } from '../../context/PermissionContext';
+import { auth, getActiveAuth } from '../../services/firebase/config';
 import { API_BASE_URL } from '../../utils/apiConfig';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -49,8 +51,11 @@ interface ReportHistoryItem {
 }
 
 export function DailyAdminReportTab() {
-  const { adminToken, adminUser } = useAdminAuth();
-  const isSuperAdmin = adminUser?.role === 'SUPER_ADMIN';
+  const { user, role: adminRole, loading: authLoading } = useAdminAuth();
+  const { isSuperAdmin: checkIsSuperAdmin, currentRole, loading: permLoading } = usePermission();
+
+  const isAuthLoading = authLoading || permLoading;
+  const isSuperAdmin = adminRole === 'SUPER_ADMIN' || currentRole === 'SUPER_ADMIN' || (typeof checkIsSuperAdmin === 'function' && checkIsSuperAdmin());
 
   const [config, setConfig] = useState<DailyReportConfig | null>(null);
   const [history, setHistory] = useState<ReportHistoryItem[]>([]);
@@ -68,6 +73,26 @@ export function DailyAdminReportTab() {
   // New email input states
   const [newEmail, setNewEmail] = useState('');
   const [emailInputError, setEmailInputError] = useState('');
+
+  // Helper to reliably get Firebase Auth token
+  const getAuthToken = async (): Promise<string | null> => {
+    if (user) {
+      try {
+        return await user.getIdToken();
+      } catch (e) {
+        console.warn('Failed to get token from admin user:', e);
+      }
+    }
+    const activeAuth = getActiveAuth?.() || auth?.concrete || auth;
+    if (activeAuth?.currentUser) {
+      try {
+        return await activeAuth.currentUser.getIdToken();
+      } catch (e) {
+        console.warn('Failed to get token from activeAuth.currentUser:', e);
+      }
+    }
+    return null;
+  };
 
   const handleEmailInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewEmail(e.target.value);
@@ -130,8 +155,12 @@ export function DailyAdminReportTab() {
     }
     setLoading(true);
     try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Authentication token is unavailable. Please sign in again.');
+      }
       const headers: HeadersInit = {
-        'Authorization': `Bearer ${adminToken}`,
+        'Authorization': `Bearer ${token}`,
       };
 
       // Fetch config
@@ -158,12 +187,14 @@ export function DailyAdminReportTab() {
   };
 
   useEffect(() => {
-    if (adminToken && isSuperAdmin) {
-      loadData();
-    } else {
-      setLoading(false);
+    if (!isAuthLoading) {
+      if (isSuperAdmin) {
+        loadData();
+      } else {
+        setLoading(false);
+      }
     }
-  }, [adminToken, isSuperAdmin]);
+  }, [isAuthLoading, isSuperAdmin]);
 
   // Save config handler
   const handleSaveConfig = async (e: React.FormEvent) => {
@@ -174,10 +205,15 @@ export function DailyAdminReportTab() {
     setStatusMsg(null);
 
     try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Authentication token is unavailable. Please sign in again.');
+      }
+
       const res = await fetch(API_BASE_URL + '/api/admin/daily-report/config', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${adminToken}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(config),
@@ -205,10 +241,15 @@ export function DailyAdminReportTab() {
     setStatusMsg(null);
 
     try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Authentication token is unavailable. Please sign in again.');
+      }
+
       const res = await fetch(API_BASE_URL + '/api/admin/daily-report/send-test', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${adminToken}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
@@ -233,10 +274,15 @@ export function DailyAdminReportTab() {
     setStatusMsg(null);
 
     try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Authentication token is unavailable. Please sign in again.');
+      }
+
       const res = await fetch(API_BASE_URL + '/api/admin/daily-report/send-yesterday', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${adminToken}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ date: manualDate || undefined }),
@@ -258,6 +304,15 @@ export function DailyAdminReportTab() {
       setManualTriggerLoading(false);
     }
   };
+
+  if (isAuthLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 space-y-3 bg-[#1D093F] border border-purple-500/10 rounded-2xl min-h-[400px]">
+        <RefreshCw className="w-8 h-8 text-purple-400 animate-spin" />
+        <p className="text-purple-300 text-xs">Authenticating Super-Admin privileges...</p>
+      </div>
+    );
+  }
 
   if (!isSuperAdmin) {
     return (
