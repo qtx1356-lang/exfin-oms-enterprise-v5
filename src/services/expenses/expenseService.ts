@@ -2,6 +2,8 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { ExpenseRecord } from '../../types/expense';
 import { saveExpenseRecord, getStoredExpenseRecords } from './expenseStorage';
+import { createAuditLog, getClientDeviceInfo } from '../audit/auditService';
+import { sendNotification } from '../notification/centralNotificationService';
 
 export interface AdminActorInfo {
   id?: string;
@@ -114,7 +116,6 @@ export const approveExpenseClaim = async (
 
   // 5. Create Audit Log
   try {
-    const { createAuditLog, getClientDeviceInfo } = await import('../audit/auditService');
     await createAuditLog({
       action: 'Expense Approval',
       actionCategory: 'Expense',
@@ -144,7 +145,6 @@ export const approveExpenseClaim = async (
 
   // 6. Send push/in-app notification to the employee
   try {
-    const { sendNotification } = await import('../notification/centralNotificationService');
     await sendNotification({
       employeeCode: updatedRecord.employeeCode || updatedRecord.employeeId,
       type: 'EXPENSE_APPROVED',
@@ -237,7 +237,6 @@ export const rejectExpenseClaim = async (
 
   // Audit log
   try {
-    const { createAuditLog, getClientDeviceInfo } = await import('../audit/auditService');
     await createAuditLog({
       action: 'Expense Rejection',
       actionCategory: 'Expense',
@@ -267,7 +266,6 @@ export const rejectExpenseClaim = async (
 
   // Push / In-App Notification
   try {
-    const { sendNotification } = await import('../notification/centralNotificationService');
     await sendNotification({
       employeeCode: updatedRecord.employeeCode || updatedRecord.employeeId,
       type: 'EXPENSE_REJECTED',

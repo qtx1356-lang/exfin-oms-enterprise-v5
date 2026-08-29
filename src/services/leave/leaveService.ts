@@ -12,6 +12,7 @@ import {
   markLeaveSynced,
 } from './leaveStorage';
 import { createNotification } from '../notification/notificationService';
+import { sendNotification } from '../notification/centralNotificationService';
 import { NotificationType } from '../../types/notification';
 
 // OperationType for firestore error info conforming to skill guidelines
@@ -399,7 +400,6 @@ export const reviewLeaveRequest = async (
       }
 
       try {
-        const { sendNotification } = await import('../notification/centralNotificationService');
         await sendNotification({
           employeeCode: leave.employeeCode,
           type,
@@ -474,7 +474,6 @@ export const adminOverrideLeave = async (
 
       // Create notification
       try {
-        const { sendNotification } = await import('../notification/centralNotificationService');
         await sendNotification({
           employeeCode: leave.employeeCode,
           type: 'LEAVE_APPROVED',

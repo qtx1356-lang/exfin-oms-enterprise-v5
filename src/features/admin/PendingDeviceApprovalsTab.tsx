@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Smartphone, CheckCircle2, XCircle, Clock, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { createAuditLog, getClientDeviceInfo } from '../../services/audit/auditService';
+import { sendNotification } from '../../services/notification/centralNotificationService';
 import { ManagedUser } from '../../types/user';
 
 export const PendingDeviceApprovalsTab: React.FC = () => {
@@ -83,7 +84,6 @@ export const PendingDeviceApprovalsTab: React.FC = () => {
 
       // Send push & in-app notification
       try {
-        const { sendNotification } = await import('../../services/notification/centralNotificationService');
         await sendNotification({
           employeeCode: reg.employeeCode || reg.id,
           type: 'DEVICE_APPROVED',

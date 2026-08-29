@@ -3,6 +3,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import { usePermission } from '../../context/PermissionContext';
 import { db } from '../../services/firebase/config';
 import { createNotification } from '../../services/notification/notificationService';
+import { sendNotification } from '../../services/notification/centralNotificationService';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, setDoc, where, getDocs, getDoc, limit } from 'firebase/firestore';
 import {
   LogOut,
@@ -964,7 +965,6 @@ export const AdminDashboard: React.FC = () => {
       }
 
       try {
-        const { sendNotification } = await import('../../services/notification/centralNotificationService');
         await sendNotification({
           employeeCode: currentRecordData.employeeId,
           type: 'ATTENDANCE_CORRECTION',

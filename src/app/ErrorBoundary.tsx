@@ -11,7 +11,7 @@ interface State {
 
 export class ErrorBoundary extends React.Component<Props, State> {
   public state: State = {
-    hasError: false
+    hasError: false,
   };
 
   public static getDerivedStateFromError(error: Error): State {
@@ -19,28 +19,87 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
+    console.error('[EXFIN-FATAL] React Error Boundary caught unhandled error:', error, errorInfo);
+  }
+
+  private handleReload = () => {
+    try {
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem('exfin_chunk_reload_attempt');
+        window.sessionStorage.removeItem('exfin_recovery_attempts');
+        window.location.reload();
+      }
+    } catch {
+      window.location.reload();
+    }
+  };
+
+  private handleHardReset = async () => {
+    try {
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+      }
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((reg) => reg.unregister()));
+      }
+      window.sessionStorage.clear();
+      window.location.href = '/';
+    } catch {
+      window.location.reload();
+    }
+  };
+
+  private sanitizeErrorMessage(msg?: string): string {
+    if (!msg) return 'An unexpected application startup error occurred.';
+    return msg
+      .replace(/AIza[0-9A-Za-z-_]{35}/g, '[REDACTED_API_KEY]')
+      .replace(/eyJ[0-9A-Za-z-_]+\.[0-9A-Za-z-_]+\.[0-9A-Za-z-_]+/g, '[REDACTED_JWT]');
   }
 
   public render() {
     if (this.state.hasError) {
+      const sanitizedMessage = this.sanitizeErrorMessage(this.state.error?.message);
+
       return (
-        <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)] flex flex-col items-center justify-center p-4">
-          <div className="bg-[var(--card-bg)] p-6 rounded-2xl max-w-2xl w-full shadow-2xl border border-rose-500/40">
-            <h2 className="text-xl font-bold text-rose-400 mb-2">Application Exception Caught</h2>
-            <p className="text-sm text-[var(--text-secondary)] mb-4">The application encountered an unhandled runtime error:</p>
-            {this.state.error && (
-              <div className="bg-rose-950/80 p-4 rounded-xl text-xs text-rose-200 mb-4 overflow-auto max-h-96 font-mono whitespace-pre-wrap border border-rose-500/30">
-                <p className="font-bold text-rose-300 mb-1">ERROR: {this.state.error.message}</p>
-                <p className="text-rose-400/80 text-[11px] font-mono leading-relaxed">{this.state.error.stack}</p>
+        <div className="min-h-screen bg-[#0F1025] text-[#F8F8FF] flex flex-col items-center justify-center p-4 font-sans">
+          <div className="bg-[#171938] p-6 rounded-2xl max-w-xl w-full shadow-2xl border border-rose-500/40">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 font-black">
+                !
               </div>
-            )}
-            <button 
-              onClick={() => window.location.reload()}
-              className="bg-[var(--primary)] text-white px-5 py-2 rounded-xl font-bold text-sm hover:bg-[var(--primary-dark)] transition-colors shadow-lg"
-            >
-              Reload Application
-            </button>
+              <div>
+                <h2 className="text-lg font-bold text-white">Application Failed to Start</h2>
+                <p className="text-xs text-slate-400">A runtime error prevented the application from rendering.</p>
+              </div>
+            </div>
+
+            <div className="bg-[#0c0d1f] p-4 rounded-xl text-xs text-rose-200 mb-5 overflow-auto max-h-64 font-mono border border-rose-500/20">
+              <p className="font-bold text-rose-300 mb-1">ERROR: {sanitizedMessage}</p>
+              {this.state.error?.stack && (
+                <p className="text-slate-400 text-[11px] leading-relaxed whitespace-pre-wrap">
+                  {this.sanitizeErrorMessage(this.state.error.stack.split('\n').slice(0, 5).join('\n'))}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={this.handleReload}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors shadow-lg text-center"
+              >
+                Reload Application
+              </button>
+              <button
+                type="button"
+                onClick={this.handleHardReset}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 px-4 rounded-xl text-xs border border-slate-700 transition-colors text-center"
+              >
+                Clear Cache & Restart
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -48,3 +107,4 @@ export class ErrorBoundary extends React.Component<Props, State> {
     return (this as any).props.children;
   }
 }
+

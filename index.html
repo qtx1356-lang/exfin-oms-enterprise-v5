@@ -13,26 +13,28 @@
     <title>Office Management System v6.0</title>
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-          .then(function (registration) {
-            if (registration.active) {
-              console.log('[STARTUP_PERF] [PWA_CACHE_READY] Service worker active and cache ready');
-            }
-            registration.onupdatefound = function () {
-              var installingWorker = registration.installing;
-              if (installingWorker) {
-                installingWorker.onstatechange = function () {
-                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    console.log('[STARTUP_PERF] [SERVICE_WORKER_UPDATED] New service worker version installed');
-                  }
-                };
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+            .then(function (registration) {
+              if (registration.active) {
+                console.log('[STARTUP_PERF] [PWA_CACHE_READY] Service worker active and cache ready');
               }
-            };
-            registration.update().catch(function () {});
-          })
-          .catch(function (err) {
-            console.warn('Service worker registration failed:', err);
-          });
+              registration.onupdatefound = function () {
+                var installingWorker = registration.installing;
+                if (installingWorker) {
+                  installingWorker.onstatechange = function () {
+                    if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                      console.log('[STARTUP_PERF] [SERVICE_WORKER_UPDATED] New service worker version installed');
+                    }
+                  };
+                }
+              };
+              registration.update().catch(function () {});
+            })
+            .catch(function (err) {
+              console.warn('Service worker registration failed:', err);
+            });
+        });
       }
     </script>
   </head>
