@@ -230,6 +230,7 @@ self.addEventListener('fetch', (event) => {
 
   // EXCLUSIONS — NEVER INTERFERE WITH SENSITIVE API / FIRESTORE / AUTH / REVERSE GEOCODING / DOWNLOADS
   if (
+    url.pathname.startsWith('/api') ||
     url.pathname.includes('/api/') ||
     url.pathname.includes('/downloads/') ||
     url.pathname.endsWith('.apk') ||

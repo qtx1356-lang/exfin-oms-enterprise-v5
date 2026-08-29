@@ -160,11 +160,16 @@ export function DailyAdminReportTab() {
         throw new Error('Authentication token is unavailable. Please sign in again.');
       }
       const headers: HeadersInit = {
+        'Accept': 'application/json',
         'Authorization': `Bearer ${token}`,
       };
 
       // Fetch config
       const configRes = await fetch(API_BASE_URL + '/api/admin/daily-report/config', { headers });
+      if (!configRes.ok) {
+        const errJson = await configRes.json().catch(() => ({}));
+        throw new Error(errJson.error || `Failed to fetch config (HTTP ${configRes.status})`);
+      }
       const configData = await configRes.json();
       if (configData.success) {
         setConfig(configData.config);
@@ -174,9 +179,11 @@ export function DailyAdminReportTab() {
 
       // Fetch history
       const historyRes = await fetch(API_BASE_URL + '/api/admin/daily-report/history', { headers });
-      const historyData = await historyRes.json();
-      if (historyData.success) {
-        setHistory(historyData.history || []);
+      if (historyRes.ok) {
+        const historyData = await historyRes.json();
+        if (historyData.success) {
+          setHistory(historyData.history || []);
+        }
       }
     } catch (err: any) {
       console.error('Error loading report admin data:', err);
@@ -213,19 +220,20 @@ export function DailyAdminReportTab() {
       const res = await fetch(API_BASE_URL + '/api/admin/daily-report/config', {
         method: 'POST',
         headers: {
+          'Accept': 'application/json',
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(config),
       });
 
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         setConfig(data.config);
         setStatusMsg({ type: 'success', text: 'Daily Admin Report configuration saved successfully.' });
         loadData(); // Reload to refresh logs
       } else {
-        throw new Error(data.error || 'Failed to save config');
+        throw new Error(data.error || `Failed to save config (HTTP ${res.status})`);
       }
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Failed to save configuration.' });
@@ -249,16 +257,17 @@ export function DailyAdminReportTab() {
       const res = await fetch(API_BASE_URL + '/api/admin/daily-report/send-test', {
         method: 'POST',
         headers: {
+          'Accept': 'application/json',
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
 
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         setStatusMsg({ type: 'success', text: data.message || 'Test report email dispatched successfully.' });
       } else {
-        throw new Error(data.error || 'Test email delivery failed.');
+        throw new Error(data.error || `Test email delivery failed (HTTP ${res.status}).`);
       }
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Failed to send test email.' });
@@ -282,21 +291,22 @@ export function DailyAdminReportTab() {
       const res = await fetch(API_BASE_URL + '/api/admin/daily-report/send-yesterday', {
         method: 'POST',
         headers: {
+          'Accept': 'application/json',
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ date: manualDate || undefined }),
       });
 
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         setStatusMsg({ 
           type: 'success', 
           text: `Daily operations report generated and sent to admin for ${data.reportDate} (MessageId: ${data.messageId || 'simulated'}).` 
         });
         loadData(); // reload log history
       } else {
-        throw new Error(data.error || 'Manual report generation failed.');
+        throw new Error(data.error || `Manual report generation failed (HTTP ${res.status}).`);
       }
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Failed to generate manual report.' });
