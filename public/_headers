@@ -1,4 +1,9 @@
 # Cloudflare Pages Caching Headers for Exfin OMS PWA
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
+
 /index.html
   Cache-Control: no-cache, no-store, must-revalidate
   Pragma: no-cache

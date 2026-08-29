@@ -1,5 +1,3 @@
-# Cloudflare Pages API Routing & SPA Fallback Rules
-# 1. Never serve SPA index.html fallback for API requests
-/api/*  404
-# 2. SPA client navigation routes fallback to index.html
+# Cloudflare Pages SPA Routing Rules
 /*  /index.html  200
+
