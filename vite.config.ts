@@ -27,7 +27,15 @@ function swPrecachePlugin(): Plugin {
 
           let swContent = fs.readFileSync(swPath, 'utf-8');
           const precacheArrayStr = JSON.stringify(
-            ['/', '/index.html', '/manifest.json', '/favicon.ico', ...assetPaths],
+            [
+              '/',
+              '/index.html',
+              '/manifest.json',
+              '/manifest-icon-192.png',
+              '/manifest-icon-512.png',
+              '/favicon.ico',
+              ...assetPaths
+            ],
             null,
             2
           );

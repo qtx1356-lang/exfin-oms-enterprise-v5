@@ -1,15 +1,29 @@
 {
-  "name": "Office Management System",
-  "short_name": "Office Management System",
+  "name": "Exfin OMS",
+  "short_name": "Exfin OMS",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0F1025",
   "theme_color": "#0F1025",
   "icons": [
     {
-      "src": "https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/package/default/24px.svg",
+      "src": "/manifest-icon-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/manifest-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/manifest-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
