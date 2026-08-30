@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
-import { Bell, ChevronRight, CheckCheck, Info, User, Home, MapPin, Trash2, HelpCircle } from 'lucide-react';
+import { Bell, ChevronRight, CheckCheck, Info, User, Home, MapPin, Trash2 } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useLocationContext } from '../../context/LocationContext';
@@ -31,49 +31,59 @@ import { initTaskDeadlineMonitor } from '../../services/planner/taskDeadlineEngi
 const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
-  const [overflowDistance, setOverflowDistance] = useState(0);
+  const [overflowDist, setOverflowDist] = useState<number>(0);
 
   useEffect(() => {
-    const checkOverflow = () => {
+    let rafId: number;
+
+    const measure = () => {
       if (containerRef.current && textRef.current) {
         const containerWidth = containerRef.current.clientWidth;
         const textWidth = textRef.current.scrollWidth;
-        if (textWidth > containerWidth + 4) {
-          const newDist = textWidth - containerWidth + 12;
-          setOverflowDistance((prev) => (prev === newDist ? prev : newDist));
+
+        if (textWidth > containerWidth + 2) {
+          const dist = textWidth - containerWidth + 12;
+          setOverflowDist(dist);
         } else {
-          setOverflowDistance((prev) => (prev === 0 ? prev : 0));
+          setOverflowDist(0);
         }
       }
     };
 
-    checkOverflow();
+    rafId = requestAnimationFrame(measure);
 
-    const observer = new ResizeObserver(() => checkOverflow());
-    if (containerRef.current) observer.observe(containerRef.current);
-    if (textRef.current) observer.observe(textRef.current);
+    const resizeObserver = new ResizeObserver(() => {
+      measure();
+    });
 
-    return () => observer.disconnect();
+    if (containerRef.current) resizeObserver.observe(containerRef.current);
+    if (textRef.current) resizeObserver.observe(textRef.current);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      resizeObserver.disconnect();
+    };
   }, [address]);
 
-  const durationSec = Math.max(7, Math.round(overflowDistance / 18));
+  const durationSec = Math.max(6, Math.round(overflowDist / 15) + 3);
 
   return (
-    <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-secondary)] font-bold overflow-hidden bg-[var(--surface-elevated)]/80 border border-[var(--border)] px-2.5 py-1 rounded-xl min-w-[80px] flex-1 max-w-[150px] xs:max-w-[220px] sm:max-w-[320px] shadow-sm"
+    <div
+      className="flex items-center gap-1.5 text-[10px] text-[var(--text-secondary)] font-bold overflow-hidden glass-inner-tile border border-[var(--border)] px-2.5 py-1 rounded-xl min-w-[70px] flex-1 max-w-[170px] xs:max-w-[260px] sm:max-w-[360px] shadow-sm shrink"
       title={address}
     >
-      <MapPin className="w-3.5 h-3.5 text-[var(--success)] shrink-0 z-10" />
+      <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0 z-10" />
       <div ref={containerRef} className="overflow-hidden relative flex-1 min-w-0">
         <span
           ref={textRef}
-          className={`inline-block whitespace-nowrap text-[10px] tracking-tight ${
-            overflowDistance > 0 ? '' : 'truncate'
+          className={`inline-block whitespace-nowrap text-[10px] tracking-tight text-white/90 ${
+            overflowDist > 0 ? 'animate-marquee-smooth' : 'truncate'
           }`}
           style={
-            overflowDistance > 0
+            overflowDist > 0
               ? ({
-                  '--scroll-dist': `-${overflowDistance}px`,
-                  animation: `marqueeSmooth ${durationSec}s ease-in-out infinite`,
+                  '--scroll-dist': `-${overflowDist}px`,
+                  animationDuration: `${durationSec}s`,
                 } as React.CSSProperties)
               : undefined
           }
@@ -276,12 +286,12 @@ export const Layout: React.FC = () => {
 
       {/* Dynamic Header Bar with Frosted Glassmorphism */}
       <header className="fixed top-0 left-0 right-0 z-50 glass-nav border-b border-[var(--border)] shadow-lg text-white">
-        <div className="container mx-auto px-3 sm:px-5 py-2.5 max-w-3xl flex items-center justify-between gap-2">
+        <div className="container mx-auto px-2.5 sm:px-4 py-2 max-w-3xl flex items-center justify-between gap-1.5 sm:gap-2">
           {/* Left/Center Header Status & Location Controls */}
-          <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 overflow-hidden">
             {/* Live Distance Value Pill (Cyan / Blue Accent) */}
             <div
-              className="text-[10px] font-bold px-2.5 py-1 rounded-xl whitespace-nowrap shadow-sm flex items-center gap-1.5 shrink-0 uppercase tracking-tight glass-inner-tile border border-cyan-500/30 text-cyan-300"
+              className="text-[10px] font-bold px-2 py-1 rounded-xl whitespace-nowrap shadow-sm flex items-center gap-1 shrink-0 uppercase tracking-tight glass-inner-tile border border-cyan-500/30 text-cyan-300"
               title="Live distance from office"
             >
               <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
@@ -290,7 +300,7 @@ export const Layout: React.FC = () => {
 
             {/* Office Location Status Badge */}
             <div
-              className={`text-[9px] font-black px-2.5 py-1 rounded-xl border whitespace-nowrap flex items-center gap-1.5 shadow-sm select-none shrink-0 transition-all duration-300 ${
+              className={`text-[9px] font-black px-2 py-1 rounded-xl border whitespace-nowrap flex items-center gap-1 shadow-sm select-none shrink-0 transition-all duration-300 ${
                 isInsideGeofence
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.15)]'
                   : 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-[0_0_10px_rgba(244,63,94,0.15)]'
@@ -298,7 +308,7 @@ export const Layout: React.FC = () => {
               title={isInsideGeofence ? 'Inside office geofence' : 'Outside office geofence'}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-              <span className="tracking-[0.05em]">{isInsideGeofence ? 'GEOFENCE OK' : 'OUT OF RANGE'}</span>
+              <span className="tracking-[0.05em]">{isInsideGeofence ? 'INSIDE' : 'OUTSIDE'}</span>
             </div>
 
             {/* Global Sync Status */}
@@ -310,21 +320,11 @@ export const Layout: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Header Navigation Controls: [Help & Notification Bell] */}
+          {/* Right Header Navigation Controls: [Notification Bell] */}
           <div className="flex items-center gap-2 shrink-0">
             {currentUser && (
-              <>
-                {!adminUser && (
-                  <button
-                    onClick={() => navigate('/faq')}
-                    className="relative p-2 rounded-xl glass-inner-tile border border-[var(--border)] text-[#AAB8C7] hover:text-white hover:bg-white/10 transition-all cursor-pointer shadow-sm active:scale-95"
-                    aria-label="Help & FAQ"
-                  >
-                    <HelpCircle className="w-4.5 h-4.5" />
-                  </button>
-                )}
-                <div className="relative shrink-0 flex items-center" ref={dropdownRef}>
-                  {/* Bell Button */}
+              <div className="relative shrink-0 flex items-center" ref={dropdownRef}>
+                {/* Bell Button */}
                   <button
                     onClick={handleBellClick}
                     className="relative p-2 rounded-xl glass-inner-tile border border-[var(--border)] text-[#AAB8C7] hover:text-white hover:bg-white/10 transition-all cursor-pointer shadow-sm active:scale-95"
@@ -424,7 +424,6 @@ export const Layout: React.FC = () => {
                   )}
                 </AnimatePresence>
               </div>
-              </>
             )}
           </div>
         </div>

@@ -231,6 +231,27 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 -10px 30px rgba(3, 12, 22, 0.6) !important;
 }
 
+/* Location Chip Horizontal Smooth Marquee Animation */
+@keyframes marqueeSmooth {
+  0%, 15% {
+    transform: translate3d(0, 0, 0);
+  }
+  70%, 85% {
+    transform: translate3d(var(--scroll-dist, 0px), 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-marquee-smooth {
+  display: inline-block;
+  will-change: transform;
+  animation: marqueeSmooth 8s ease-in-out infinite;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
 /* Touch optimization */
 button, a, input, select, textarea, [role="button"] {
   touch-action: manipulation;
