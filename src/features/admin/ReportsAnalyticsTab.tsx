@@ -49,7 +49,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
 
   if (registrations.length === 0) {
     return (
-      <Card className="p-12 bg-[#2D1B5A] border border-purple-500/20 text-center">
+      <Card className="p-12 glass-card border border-purple-500/20 text-center">
         <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
         <h3 className="text-lg font-black text-white">No Corporate Data Detected</h3>
         <p className="text-sm text-purple-300 mt-2">The system cannot find any registered employee data to generate analytics.</p>
@@ -608,7 +608,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
             Analyze corporate attendance, expenses, and employee deliverables within your authorized scope.
           </p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#211044] border border-purple-500/30">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl glass-inner-tile border border-purple-500/30">
           <Shield className="w-4 h-4 text-amber-400 animate-pulse" />
           <div className="text-left">
             <div className="text-[9px] text-purple-300 uppercase font-bold tracking-wider">Access Clearance</div>
@@ -618,7 +618,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
       </div>
 
       {/* SECTION 2: ADVANCED FILTER MATRIX */}
-      <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20">
+      <Card className="p-5 glass-card border border-purple-500/20">
         <div className="flex items-center gap-2 border-b border-purple-500/20 pb-3 mb-4">
           <Filter className="w-4 h-4 text-purple-400" />
           <h3 className="text-xs font-black uppercase tracking-wider text-purple-200">Analytical Filter System</h3>
@@ -638,7 +638,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
                 setSelectedEmployeeCode('ALL'); // Reset employee when office changes
               }}
               disabled={!isSuperAdmin}
-              className="w-full px-3 py-2.5 rounded-xl bg-[#211044] border border-purple-500/30 text-white focus:ring-2 focus:ring-[#7C3AED] focus:outline-none disabled:opacity-60"
+              className="w-full px-3 py-2.5 rounded-xl glass-inner-tile border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] disabled:opacity-60"
             >
               {departments.map(dept => (
                 <option key={dept} value={dept}>{dept === 'ALL' ? 'All Departments' : dept}</option>
@@ -654,7 +654,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
             <select
               value={selectedTeamLeaderCode}
               onChange={(e) => setSelectedTeamLeaderCode(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-[#211044] border border-purple-500/30 text-white focus:ring-2 focus:ring-[#7C3AED] focus:outline-none"
+              className="w-full px-3 py-2.5 rounded-xl glass-inner-tile border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)]"
             >
               <option value="ALL">All Teams ({teamLeadersList.length} Leaders)</option>
               {teamLeadersList.map(tl => (
@@ -673,7 +673,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
             <select
               value={selectedEmployeeCode}
               onChange={(e) => setSelectedEmployeeCode(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-[#211044] border border-purple-500/30 text-white focus:ring-2 focus:ring-[#7C3AED] focus:outline-none"
+              className="w-full px-3 py-2.5 rounded-xl glass-inner-tile border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)]"
             >
               <option value="ALL">All Personnel ({activeEmployeesList.length})</option>
               {activeEmployeesList.map(emp => (
@@ -694,7 +694,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
               placeholder="Filter by code..."
               value={searchCode}
               onChange={(e) => setSearchCode(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-[#211044] border border-purple-500/30 text-white focus:ring-2 focus:ring-[#7C3AED] focus:outline-none placeholder-purple-300/40"
+              className="w-full px-3 py-2.5 rounded-xl glass-inner-tile border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] placeholder-purple-300/40"
             />
           </div>
 
@@ -707,7 +707,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-[#211044] border border-purple-500/30 text-white focus:ring-2 focus:ring-[#7C3AED] focus:outline-none"
+              className="w-full px-3 py-2.5 rounded-xl glass-inner-tile border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)]"
             />
           </div>
 
@@ -720,7 +720,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl bg-[#211044] border border-purple-500/30 text-white focus:ring-2 focus:ring-[#7C3AED] focus:outline-none"
+              className="w-full px-3 py-2.5 rounded-xl glass-inner-tile border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)]"
             />
           </div>
 
@@ -728,10 +728,10 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
 
         {/* Date Presets Panel */}
         <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-purple-500/10 text-[10px] font-black">
-          <button onClick={() => applyDatePreset(7)} className="px-3 py-1.5 rounded-lg bg-[#211044] border border-purple-500/10 hover:bg-[#3B2673] transition">THIS WEEK</button>
-          <button onClick={() => applyDatePreset(14)} className="px-3 py-1.5 rounded-lg bg-[#211044] border border-purple-500/10 hover:bg-[#3B2673] transition">LAST 14 DAYS</button>
+          <button onClick={() => applyDatePreset(7)} className="px-3 py-1.5 rounded-lg glass-inner-tile border border-purple-500/10 hover:bg-[#3B2673] transition">THIS WEEK</button>
+          <button onClick={() => applyDatePreset(14)} className="px-3 py-1.5 rounded-lg glass-inner-tile border border-purple-500/10 hover:bg-[#3B2673] transition">LAST 14 DAYS</button>
           <button onClick={() => applyDatePreset(30)} className="px-3 py-1.5 rounded-lg bg-[#3b2673] border border-purple-500/30 text-purple-200">LAST 30 DAYS</button>
-          <button onClick={() => applyDatePreset(90)} className="px-3 py-1.5 rounded-lg bg-[#211044] border border-purple-500/10 hover:bg-[#3B2673] transition">LAST 3 MONTHS</button>
+          <button onClick={() => applyDatePreset(90)} className="px-3 py-1.5 rounded-lg glass-inner-tile border border-purple-500/10 hover:bg-[#3B2673] transition">LAST 3 MONTHS</button>
         </div>
       </Card>
 
@@ -739,7 +739,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Core Export Downloader Buttons */}
-        <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20 flex flex-col justify-between">
+        <Card className="p-5 glass-card border border-purple-500/20 flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-black text-white flex items-center gap-2 border-b border-purple-500/15 pb-2.5 mb-3">
               <Download className="w-4 h-4 text-purple-300" /> 
@@ -753,7 +753,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
           <div className="grid grid-cols-2 gap-3 text-xs font-black">
             <button
               onClick={() => handleExport('attendance')}
-              className="flex items-center justify-between p-3 rounded-xl bg-[#211044] hover:bg-[#321c60] border border-purple-500/20 text-purple-100 transition text-left"
+              className="flex items-center justify-between p-3 rounded-xl glass-inner-tile hover:bg-[#321c60] border border-purple-500/20 text-purple-100 transition text-left"
             >
               <div>
                 <p className="font-black text-white">Attendance Log</p>
@@ -764,7 +764,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
 
             <button
               onClick={() => handleExport('expenses')}
-              className="flex items-center justify-between p-3 rounded-xl bg-[#211044] hover:bg-[#321c60] border border-purple-500/20 text-purple-100 transition text-left"
+              className="flex items-center justify-between p-3 rounded-xl glass-inner-tile hover:bg-[#321c60] border border-purple-500/20 text-purple-100 transition text-left"
             >
               <div>
                 <p className="font-black text-white">Expense Claims</p>
@@ -775,7 +775,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
 
             <button
               onClick={() => handleExport('planner')}
-              className="flex items-center justify-between p-3 rounded-xl bg-[#211044] hover:bg-[#321c60] border border-purple-500/20 text-purple-100 transition text-left"
+              className="flex items-center justify-between p-3 rounded-xl glass-inner-tile hover:bg-[#321c60] border border-purple-500/20 text-purple-100 transition text-left"
             >
               <div>
                 <p className="font-black text-white">Task Deliverables</p>
@@ -786,7 +786,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
 
             <button
               onClick={() => handleExport('leaves')}
-              className="flex items-center justify-between p-3 rounded-xl bg-[#211044] hover:bg-[#321c60] border border-purple-500/20 text-purple-100 transition text-left"
+              className="flex items-center justify-between p-3 rounded-xl glass-inner-tile hover:bg-[#321c60] border border-purple-500/20 text-purple-100 transition text-left"
             >
               <div>
                 <p className="font-black text-white">Leave Registers</p>
@@ -809,7 +809,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
         </Card>
 
         {/* Global Print & System PDF Engine */}
-        <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20 flex flex-col justify-between">
+        <Card className="p-5 glass-card border border-purple-500/20 flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-black text-white flex items-center gap-2 border-b border-purple-500/15 pb-2.5 mb-3">
               <Printer className="w-4 h-4 text-purple-300" />
@@ -832,7 +832,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
       </div>
 
       {/* SECTION 3.5: EMPLOYEE PERFORMANCE AUDIT REPORT TABLE */}
-      <Card className="p-5 bg-[#2D1B5A] border border-purple-500/30 space-y-4">
+      <Card className="p-5 glass-card border border-purple-500/30 space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-purple-500/20 pb-3">
           <div className="flex items-center gap-2">
             <Award className="w-5 h-5 text-amber-400" />
@@ -852,7 +852,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
             <select
               value={performanceRange}
               onChange={(e: any) => setPerformanceRange(e.target.value)}
-              className="px-3 py-1.5 rounded-xl bg-[#211044] border border-purple-500/30 text-white font-bold focus:outline-none"
+              className="px-3 py-1.5 rounded-xl glass-inner-tile border border-purple-500/30 text-white font-bold focus:outline-none"
             >
               <option value="ALL">All Scores</option>
               <option value="HIGH">High Performers (≥80%)</option>
@@ -940,7 +940,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         
         {/* Present Checkins */}
-        <Card className="p-4 bg-[#211044]/80 border border-purple-500/20">
+        <Card className="p-4 glass-inner-tile/80 border border-purple-500/20">
           <div className="flex justify-between items-start">
             <p className="text-[10px] text-purple-300 font-bold uppercase tracking-wider">Attendance logs</p>
             <Clock className="w-4 h-4 text-purple-400" />
@@ -955,7 +955,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
         </Card>
 
         {/* Approved Expenses */}
-        <Card className="p-4 bg-[#211044]/80 border border-purple-500/20">
+        <Card className="p-4 glass-inner-tile/80 border border-purple-500/20">
           <div className="flex justify-between items-start">
             <p className="text-[10px] text-purple-300 font-bold uppercase tracking-wider">Approved claims</p>
             <Coins className="w-4 h-4 text-emerald-400" />
@@ -968,7 +968,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
         </Card>
 
         {/* Deliverables/Tasks status */}
-        <Card className="p-4 bg-[#211044]/80 border border-purple-500/20">
+        <Card className="p-4 glass-inner-tile/80 border border-purple-500/20">
           <div className="flex justify-between items-start">
             <p className="text-[10px] text-purple-300 font-bold uppercase tracking-wider">Sprint Planner Status</p>
             <Briefcase className="w-4 h-4 text-purple-400" />
@@ -981,7 +981,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
         </Card>
 
         {/* Leave status */}
-        <Card className="p-4 bg-[#211044]/80 border border-purple-500/20">
+        <Card className="p-4 glass-inner-tile/80 border border-purple-500/20">
           <div className="flex justify-between items-start">
             <p className="text-[10px] text-purple-300 font-bold uppercase tracking-wider">Leave registers</p>
             <Star className="w-4 h-4 text-amber-400" />
@@ -999,7 +999,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Attendance Trends */}
-        <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20 flex flex-col justify-between">
+        <Card className="p-5 glass-card border border-purple-500/20 flex flex-col justify-between">
           <div>
             <h3 className="text-xs font-black uppercase tracking-wider text-purple-200 flex items-center gap-1.5 border-b border-purple-500/10 pb-2.5 mb-4">
               <TrendingUp className="w-4 h-4 text-purple-400" /> Check-In Trends (Attendance)
@@ -1038,7 +1038,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
         </Card>
 
         {/* Expense Disbursement Trends */}
-        <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20 flex flex-col justify-between">
+        <Card className="p-5 glass-card border border-purple-500/20 flex flex-col justify-between">
           <div>
             <h3 className="text-xs font-black uppercase tracking-wider text-purple-200 flex items-center gap-1.5 border-b border-purple-500/10 pb-2.5 mb-4">
               <Coins className="w-4 h-4 text-emerald-400" /> Disbursed Claims Trend
@@ -1077,7 +1077,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
         </Card>
 
         {/* Task Assignment Trends */}
-        <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20 flex flex-col justify-between">
+        <Card className="p-5 glass-card border border-purple-500/20 flex flex-col justify-between">
           <div>
             <h3 className="text-xs font-black uppercase tracking-wider text-purple-200 flex items-center gap-1.5 border-b border-purple-500/10 pb-2.5 mb-4">
               <ClipboardList className="w-4 h-4 text-purple-400" /> Deliverables Active Velocity
@@ -1119,7 +1119,7 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
 
       {/* SECTION 6: SUPER ADMIN DEPARTMENT COMPARISON MATRIX */}
       {isSuperAdmin && (
-        <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20">
+        <Card className="p-5 glass-card border border-purple-500/20">
           <div className="flex items-center gap-2 border-b border-purple-500/20 pb-3 mb-4">
             <Building className="w-4 h-4 text-amber-400" />
             <h3 className="text-xs font-black uppercase tracking-wider text-purple-200">Department Regional Summary & Performance Indexes</h3>

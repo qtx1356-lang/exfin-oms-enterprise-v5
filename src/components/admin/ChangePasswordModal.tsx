@@ -91,7 +91,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <Card className="max-w-lg w-full p-6 sm:p-8 bg-[var(--card-bg)] border border-[var(--border)] rounded-[28px] shadow-2xl space-y-6 text-[var(--text-primary)] my-8">
+      <Card className="max-w-lg w-full p-6 sm:p-8 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-[28px] shadow-2xl space-y-6 text-[var(--text-primary)] my-8">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">

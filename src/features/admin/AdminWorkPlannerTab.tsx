@@ -639,7 +639,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
           className={`p-3 rounded-2xl border flex flex-col items-center justify-center transition-all ${
             quickFilter === 'ALL'
               ? 'bg-[#7C3AED] border-purple-400 text-white shadow-md scale-[1.02]'
-              : 'bg-[#1A0B36] border-purple-500/20 text-purple-200 hover:bg-[#2D1B5A]'
+              : 'bg-[#1A0B36] border-purple-500/20 text-purple-200 hover:glass-card'
           }`}
         >
           <span className="text-[10px] font-black uppercase tracking-wider">Total Tasks</span>
@@ -651,7 +651,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
           className={`p-3 rounded-2xl border flex flex-col items-center justify-center transition-all ${
             quickFilter === 'DUE_TODAY'
               ? 'bg-[#7C3AED] border-purple-400 text-white shadow-md scale-[1.02]'
-              : 'bg-[#1A0B36] border-purple-500/20 text-purple-200 hover:bg-[#2D1B5A]'
+              : 'bg-[#1A0B36] border-purple-500/20 text-purple-200 hover:glass-card'
           }`}
         >
           <span className="text-[10px] font-black uppercase tracking-wider text-blue-300">Due Today</span>

@@ -68,7 +68,7 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 p-5 bg-[#2D1B5A] border border-purple-500/20 rounded-[22px] shadow-xl">
+      <div className="flex flex-wrap items-center justify-between gap-4 p-5 glass-card border border-purple-500/20 rounded-[22px] shadow-xl">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-purple-600/30 border border-purple-500/40 flex items-center justify-center text-purple-300">
             <Activity className="w-5 h-5 text-purple-400" />
@@ -95,7 +95,7 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
       {/* Admin Compact System Health Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Network Connectivity */}
-        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[20px] space-y-2">
+        <Card className="p-4 glass-card border border-purple-500/20 text-white rounded-[20px] space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-purple-300/70">
             <span>NETWORK</span>
             {isOnline ? (
@@ -116,7 +116,7 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
         </Card>
 
         {/* Firebase Firestore */}
-        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[20px] space-y-2">
+        <Card className="p-4 glass-card border border-purple-500/20 text-white rounded-[20px] space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-purple-300/70">
             <span>DATABASE</span>
             <Database className="w-4 h-4 text-purple-400" />
@@ -133,7 +133,7 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
         </Card>
 
         {/* Sync Queue */}
-        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[20px] space-y-2">
+        <Card className="p-4 glass-card border border-purple-500/20 text-white rounded-[20px] space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-purple-300/70">
             <span>SYNC QUEUE</span>
             {summary.totalFailed > 0 ? (
@@ -154,7 +154,7 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
         </Card>
 
         {/* App & Service Worker Version */}
-        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[20px] space-y-2">
+        <Card className="p-4 glass-card border border-purple-500/20 text-white rounded-[20px] space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-purple-300/70">
             <span>SOFTWARE VERSION</span>
             <Server className="w-4 h-4 text-purple-400" />
@@ -165,7 +165,7 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
       </div>
 
       {/* Backup & Recovery Indicator */}
-      <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px] space-y-3">
+      <Card className="p-5 glass-card border border-purple-500/20 text-white rounded-[22px] space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-amber-400" />
@@ -201,7 +201,7 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
               return (
                 <div
                   key={mod}
-                  className="p-3 bg-[#211044] border border-purple-500/15 rounded-xl space-y-1"
+                  className="p-3 glass-inner-tile border border-purple-500/15 rounded-xl space-y-1"
                 >
                   <span className="text-[10px] font-bold text-purple-300/70 block uppercase truncate">
                     {mod}
@@ -218,7 +218,7 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
           </div>
 
           {/* Resource Lifecycle & Anti-Leak Diagnostics */}
-          <div className="p-5 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px] space-y-4 shadow-xl">
+          <div className="p-5 glass-card border border-purple-500/20 text-white rounded-[22px] space-y-4 shadow-xl">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-black uppercase tracking-wider text-purple-200 flex items-center gap-2">
@@ -234,19 +234,19 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 bg-[#211044] border border-purple-500/15 rounded-xl text-center">
+              <div className="p-3 glass-inner-tile border border-purple-500/15 rounded-xl text-center">
                 <span className="text-[10px] font-bold text-purple-300/70 block uppercase">Active Watchers</span>
                 <span className="text-lg font-black text-purple-200">{resources.locationWatchers}</span>
               </div>
-              <div className="p-3 bg-[#211044] border border-purple-500/15 rounded-xl text-center">
+              <div className="p-3 glass-inner-tile border border-purple-500/15 rounded-xl text-center">
                 <span className="text-[10px] font-bold text-purple-300/70 block uppercase">Network Listeners</span>
                 <span className="text-lg font-black text-purple-200">{resources.onlineListeners + resources.offlineListeners}</span>
               </div>
-              <div className="p-3 bg-[#211044] border border-purple-500/15 rounded-xl text-center">
+              <div className="p-3 glass-inner-tile border border-purple-500/15 rounded-xl text-center">
                 <span className="text-[10px] font-bold text-purple-300/70 block uppercase">Active Timers</span>
                 <span className="text-lg font-black text-purple-200">{resources.syncTimers}</span>
               </div>
-              <div className="p-3 bg-[#211044] border border-purple-500/15 rounded-xl text-center">
+              <div className="p-3 glass-inner-tile border border-purple-500/15 rounded-xl text-center">
                 <span className="text-[10px] font-bold text-purple-300/70 block uppercase">Sync Concurrency</span>
                 <span className="text-lg font-black text-purple-200">{resources.isSyncEngineLocked ? '1 (Locked)' : '0 (Unlocked)'}</span>
               </div>
@@ -254,7 +254,7 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
           </div>
 
           {/* Error Logs Telemetry */}
-          <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px] space-y-4 shadow-xl">
+          <Card className="p-5 glass-card border border-purple-500/20 text-white rounded-[22px] space-y-4 shadow-xl">
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-black uppercase tracking-wider text-purple-200 flex items-center gap-2">

@@ -226,7 +226,7 @@ export const UserManagementTab: React.FC = () => {
       ) : (
         <>
           {/* Search and Filters */}
-      <div className="bg-[#2D1B5A] border border-purple-500/20 p-4 rounded-[20px] shadow-xl space-y-4">
+      <div className="glass-card border border-purple-500/20 p-4 rounded-[20px] shadow-xl space-y-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-purple-400" />
@@ -291,7 +291,7 @@ export const UserManagementTab: React.FC = () => {
       </div>
 
       {/* Employee Table */}
-      <div className="bg-[#2D1B5A] border border-purple-500/20 rounded-[20px] shadow-xl overflow-x-auto">
+      <div className="glass-card border border-purple-500/20 rounded-[20px] shadow-xl overflow-x-auto">
         <table className="w-full text-left min-w-max border-collapse">
           <thead>
             <tr className="bg-purple-900/30 border-b border-purple-500/20 text-[10px] font-black tracking-wider text-purple-300 uppercase">

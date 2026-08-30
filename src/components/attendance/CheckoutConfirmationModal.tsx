@@ -208,11 +208,11 @@ export const CheckoutConfirmationModal: React.FC = () => {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="relative w-full max-w-md bg-[#180e30] border border-purple-800/60 rounded-2xl shadow-2xl shadow-purple-950/80 overflow-hidden text-white"
+          className="relative w-full max-w-md glass-card border border-purple-800/60 rounded-2xl shadow-2xl shadow-purple-950/80 overflow-hidden text-white"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header Banner */}
-          <div className="bg-gradient-to-r from-purple-900/90 via-[#27154d] to-purple-950/90 px-6 pt-6 pb-5 border-b border-purple-800/40">
+          <div className="glass-card border-b border-[var(--border)] px-6 pt-6 pb-5">
             <div className="flex items-center gap-3.5 mb-2">
               <div className="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
                 <AlertTriangle className="w-6 h-6" />

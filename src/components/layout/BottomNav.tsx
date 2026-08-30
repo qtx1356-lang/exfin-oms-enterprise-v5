@@ -34,24 +34,24 @@ export const BottomNav: React.FC = () => {
               className="relative flex flex-col items-center justify-center w-16 h-14 cursor-pointer"
             >
               {isActive && (
-                <div className="absolute inset-0 bg-white/10 rounded-2xl pointer-events-none" />
+                <div className="absolute inset-0 bg-[var(--primary)]/10 rounded-2xl pointer-events-none" />
               )}
               <Icon 
                 className={`w-6 h-6 mb-1 transition-all duration-300 ${
                   isActive 
-                    ? 'text-white scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]' 
+                    ? 'text-[var(--primary)] scale-110' 
                     : 'text-[var(--text-muted)] scale-95'
                 }`}
               />
               <span 
                 className={`text-[10px] font-semibold tracking-wide transition-all duration-300 ${
-                  isActive ? 'text-white' : 'text-[var(--text-muted)]'
+                  isActive ? 'text-[var(--primary)]' : 'text-[var(--text-muted)]'
                 }`}
               >
                 {tab.label}
               </span>
               {isActive && (
-                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-[var(--primary-secondary)] rounded-b-full" />
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-[var(--primary)] rounded-b-full" />
               )}
             </button>
           );

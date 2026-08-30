@@ -314,7 +314,7 @@ export const ProfileScreen: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Personal Information (Editable via Change Request) */}
         <div className="glass-card-elevated p-5 text-white rounded-2xl space-y-4 shadow-xl">
-          <div className="flex justify-between items-center border-b border-white/10 pb-3">
+          <div className="flex justify-between items-center border-b border-[var(--border)] pb-3">
             <h2 className="text-xs font-black uppercase text-cyan-300 tracking-wider flex items-center gap-2">
               <User className="w-4 h-4 text-cyan-300" /> Personal Information
             </h2>
@@ -373,7 +373,7 @@ export const ProfileScreen: React.FC = () => {
 
         {/* Employment Information (Read-Only) */}
         <div className="glass-card-elevated p-5 text-white rounded-2xl space-y-4 shadow-xl">
-          <div className="flex justify-between items-center border-b border-white/10 pb-3">
+          <div className="flex justify-between items-center border-b border-[var(--border)] pb-3">
             <h2 className="text-xs font-black uppercase text-cyan-300 tracking-wider flex items-center gap-2">
               <Briefcase className="w-4 h-4 text-cyan-300" /> Employment Information
             </h2>
@@ -418,7 +418,7 @@ export const ProfileScreen: React.FC = () => {
 
       {/* 3. Access & Permissions Section */}
       <div className="glass-card-elevated p-5 text-white rounded-2xl space-y-3 shadow-xl">
-        <div className="flex justify-between items-center border-b border-white/10 pb-3">
+        <div className="flex justify-between items-center border-b border-[var(--border)] pb-3">
           <h2 className="text-xs font-black uppercase text-cyan-300 tracking-wider flex items-center gap-2">
             <Shield className="w-4 h-4 text-cyan-300" /> Access & Authorized Modules
           </h2>
@@ -443,7 +443,7 @@ export const ProfileScreen: React.FC = () => {
 
       {/* 4. My Profile Change Requests Section */}
       <div className="glass-card-elevated p-5 text-white rounded-2xl space-y-4 shadow-xl">
-        <div className="flex justify-between items-center border-b border-white/10 pb-3">
+        <div className="flex justify-between items-center border-b border-[var(--border)] pb-3">
           <h2 className="text-xs font-black uppercase text-cyan-300 tracking-wider flex items-center gap-2">
             <Clock className="w-4 h-4 text-cyan-300" /> My Profile Change Requests
           </h2>
@@ -500,7 +500,7 @@ export const ProfileScreen: React.FC = () => {
       {/* 5. Team Leader View: My Team Members Scope */}
       {((profile as any)?.isTeamLeader || currentRole === 'TEAM_LEADER') && (
         <div className="glass-card-elevated p-5 text-white rounded-2xl space-y-4 shadow-xl">
-          <div className="flex justify-between items-center border-b border-white/10 pb-3">
+          <div className="flex justify-between items-center border-b border-[var(--border)] pb-3">
             <h2 className="text-xs font-black uppercase text-cyan-300 tracking-wider flex items-center gap-2">
               <Users className="w-4 h-4 text-cyan-300" /> Assigned Team Directory ({teamMembers.length})
             </h2>

@@ -846,12 +846,12 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('OFFICE')}
             className={`p-4 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-28 relative overflow-hidden group cursor-pointer ${
               activeMode === 'OFFICE'
-                ? 'border-[var(--success)]/50 bg-[var(--surface-elevated)] aurora-glow-emerald ring-1 ring-[var(--success)]/20'
+                ? 'border-[var(--success)]/50 bg-[var(--surface-elevated)] ring-1 ring-[var(--success)]/20'
                 : 'border-[var(--border)] bg-[var(--surface-elevated)]/60 hover:border-[var(--success)]/30 hover:bg-[var(--surface-elevated)]'
             } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-start relative z-10">
-              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'OFFICE' ? 'bg-[var(--success)]/20' : 'bg-[var(--app-background)]'}`}>
+              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'OFFICE' ? 'bg-[var(--success)]/20' : 'bg-[var(--surface-inner)]'}`}>
                 <Building2 className={`w-5 h-5 ${activeMode === 'OFFICE' ? 'text-[var(--success)]' : 'text-[var(--text-secondary)]'}`} />
               </div>
               {activeMode === 'OFFICE' && (
@@ -873,12 +873,12 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('WFH')}
             className={`p-4 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-28 relative overflow-hidden group cursor-pointer ${
               activeMode === 'WFH'
-                ? 'border-[var(--teal)]/50 bg-[var(--surface-elevated)] aurora-glow-teal ring-1 ring-[var(--teal)]/20'
+                ? 'border-[var(--teal)]/50 bg-[var(--surface-elevated)] ring-1 ring-[var(--teal)]/20'
                 : 'border-[var(--border)] bg-[var(--surface-elevated)]/60 hover:border-[var(--teal)]/30 hover:bg-[var(--surface-elevated)]'
             } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-start relative z-10">
-              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'WFH' ? 'bg-[var(--teal)]/20' : 'bg-[var(--app-background)]'}`}>
+              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'WFH' ? 'bg-[var(--teal)]/20' : 'bg-[var(--surface-inner)]'}`}>
                 <Home className={`w-5 h-5 ${activeMode === 'WFH' ? 'text-[var(--teal)]' : 'text-[var(--text-secondary)]'}`} />
               </div>
               <div className="flex items-center gap-1.5">
@@ -905,12 +905,12 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('CLIENT_VISIT')}
             className={`p-4 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-28 relative overflow-hidden group cursor-pointer ${
               activeMode === 'CLIENT_VISIT'
-                ? 'border-[var(--cyan)]/50 bg-[var(--surface-elevated)] aurora-glow-teal ring-1 ring-[var(--cyan)]/20'
+                ? 'border-[var(--cyan)]/50 bg-[var(--surface-elevated)] ring-1 ring-[var(--cyan)]/20'
                 : 'border-[var(--border)] bg-[var(--surface-elevated)]/60 hover:border-[var(--cyan)]/30 hover:bg-[var(--surface-elevated)]'
             } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-start relative z-10">
-              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'CLIENT_VISIT' ? 'bg-[var(--cyan)]/20' : 'bg-[var(--app-background)]'}`}>
+              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'CLIENT_VISIT' ? 'bg-[var(--cyan)]/20' : 'bg-[var(--surface-inner)]'}`}>
                 <Users className={`w-5 h-5 ${activeMode === 'CLIENT_VISIT' ? 'text-[var(--cyan)]' : 'text-[var(--text-secondary)]'}`} />
               </div>
               {activeMode === 'CLIENT_VISIT' && (
@@ -932,12 +932,12 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('OUTDOOR')}
             className={`p-4 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-28 relative overflow-hidden group cursor-pointer ${
               activeMode === 'OUTDOOR'
-                ? 'border-[var(--success)]/50 bg-[var(--surface-elevated)] aurora-glow-emerald ring-1 ring-[var(--success)]/20'
+                ? 'border-[var(--success)]/50 bg-[var(--surface-elevated)] ring-1 ring-[var(--success)]/20'
                 : 'border-[var(--border)] bg-[var(--surface-elevated)]/60 hover:border-[var(--success)]/30 hover:bg-[var(--surface-elevated)]'
             } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-start relative z-10">
-              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'OUTDOOR' ? 'bg-[var(--success)]/20' : 'bg-[var(--app-background)]'}`}>
+              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'OUTDOOR' ? 'bg-[var(--success)]/20' : 'bg-[var(--surface-inner)]'}`}>
                 <Car className={`w-5 h-5 ${activeMode === 'OUTDOOR' ? 'text-[var(--success)]' : 'text-[var(--text-secondary)]'}`} />
               </div>
               {activeMode === 'OUTDOOR' && (
@@ -977,7 +977,7 @@ export const AttendanceScreen: React.FC = () => {
                     disabled={locationStatus !== 'success' || distance === null || distance > 25}
                     className={`w-full py-4 font-black text-sm rounded-2xl transition-all border cursor-pointer ${
                       locationStatus === 'success' && distance !== null && distance <= 25
-                        ? 'bg-[var(--button-primary)] text-white border-white/20 active:scale-[0.98] shadow-xl aurora-glow-emerald'
+                        ? 'bg-[var(--button-primary)] text-white border-[var(--border)] active:scale-[0.98] shadow-xl'
                         : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] border-[var(--border)] opacity-60 cursor-not-allowed shadow-none'
                     }`}
                   >
@@ -999,7 +999,7 @@ export const AttendanceScreen: React.FC = () => {
                         disabled={!isInsideGeofence}
                         className={`w-full py-4 font-black text-sm rounded-2xl transition-all shadow-xl cursor-pointer ${
                           isInsideGeofence 
-                            ? 'bg-[var(--danger)] hover:bg-[var(--danger)]/80 text-white border border-white/10 active:scale-[0.98]' 
+                            ? 'bg-[var(--danger)] hover:bg-[var(--danger)]/80 text-white border border-[var(--border)] active:scale-[0.98]' 
                             : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] border border-[var(--border)] cursor-not-allowed opacity-60'
                         }`}
                       >
@@ -1079,7 +1079,7 @@ export const AttendanceScreen: React.FC = () => {
                   <Button
                     type="submit"
                     disabled={currentWfhMonthCount >= 2}
-                    className="w-full py-4 bg-[var(--button-primary)] text-white font-black text-xs rounded-xl shadow-xl border border-white/20 active:scale-[0.98]"
+                    className="w-full py-4 bg-[var(--button-primary)] text-white font-black text-xs rounded-xl shadow-xl border border-[var(--border)] active:scale-[0.98]"
                   >
                     SUBMIT REMOTE ATTENDANCE
                   </Button>
@@ -1167,7 +1167,7 @@ export const AttendanceScreen: React.FC = () => {
 
                   <Button
                     type="submit"
-                    className="w-full py-4 bg-[var(--button-primary)] text-white font-black text-xs rounded-xl shadow-xl border border-white/20 active:scale-[0.98]"
+                    className="w-full py-4 bg-[var(--button-primary)] text-white font-black text-xs rounded-xl shadow-xl border border-[var(--border)] active:scale-[0.98]"
                   >
                     SUBMIT CLIENT VISIT SESSION
                   </Button>
@@ -1244,7 +1244,7 @@ export const AttendanceScreen: React.FC = () => {
 
                   <Button
                     type="submit"
-                    className="w-full py-4 bg-[var(--button-primary)] text-white font-black text-xs rounded-xl shadow-xl border border-white/20 active:scale-[0.98]"
+                    className="w-full py-4 bg-[var(--button-primary)] text-white font-black text-xs rounded-xl shadow-xl border border-[var(--border)] active:scale-[0.98]"
                   >
                     SUBMIT OUTDOOR ATTENDANCE
                   </Button>
@@ -1325,7 +1325,7 @@ export const AttendanceScreen: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  <h2 className="text-lg font-black text-white mt-1">
+                  <h2 className="text-lg font-black text-[var(--text-primary)] mt-1">
                     Checkout Resolution Required
                   </h2>
                 </div>
@@ -1333,7 +1333,7 @@ export const AttendanceScreen: React.FC = () => {
             </div>
 
             <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
-              Your checkout for <strong className="text-white">{activeUnresolvedRecord.date}</strong> was not recorded.
+              Your checkout for <strong className="text-[var(--text-primary)]">{activeUnresolvedRecord.date}</strong> was not recorded.
               Please submit your actual checkout time for Admin verification.
             </p>
 
@@ -1341,7 +1341,7 @@ export const AttendanceScreen: React.FC = () => {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 bg-[var(--surface-elevated)] rounded-2xl border border-[var(--border)] text-xs">
               <div>
                 <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase block tracking-wider">Date</span>
-                <span className="text-white font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
+                <span className="text-[var(--text-primary)] font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
               </div>
               <div>
                 <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase block tracking-wider">Check-in</span>

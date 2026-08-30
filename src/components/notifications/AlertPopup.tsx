@@ -115,7 +115,7 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
           id={`alert-popup-${notification.id}`}
-          className={`relative w-full max-w-lg bg-[var(--card-bg)] border rounded-[28px] shadow-[0_25px_70px_rgba(0,0,0,0.85)] overflow-hidden text-[var(--text-primary)] ${
+          className={`relative w-full max-w-lg bg-[var(--surface-elevated)] border rounded-[28px] shadow-[0_25px_70px_rgba(0,0,0,0.85)] overflow-hidden text-[var(--text-primary)] ${
             isUrgent
               ? 'border-rose-500/80 shadow-[0_0_50px_rgba(244,63,94,0.35)]'
               : isHigh

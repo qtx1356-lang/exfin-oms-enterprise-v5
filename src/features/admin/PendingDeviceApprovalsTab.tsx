@@ -328,7 +328,7 @@ export const PendingDeviceApprovalsTab: React.FC = () => {
             <div className="flex justify-end gap-3 pt-2">
               <Button
                 variant="outline"
-                className="text-xs bg-[#2D1B5A] border-purple-500/30 text-white"
+                className="text-xs glass-card border-purple-500/30 text-white"
                 onClick={() => {
                   setRejectModalReg(null);
                   setRejectReason('');

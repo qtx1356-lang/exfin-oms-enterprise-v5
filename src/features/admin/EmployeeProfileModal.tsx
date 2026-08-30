@@ -283,7 +283,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
       <div className="bg-[#1F103F] border border-purple-500/30 rounded-3xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-2xl relative overflow-hidden">
         
         {/* Modal Header */}
-        <div className="p-6 bg-[#2D1B5A] border-b border-purple-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="p-6 glass-card border-b border-purple-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-2xl bg-[#1A0B36] border-2 border-purple-500/40 overflow-hidden flex items-center justify-center shadow-inner">
               {employee.selfieUrl || employee.profilePhotoUrl ? (
@@ -360,7 +360,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
               onClick={() => setActiveTab(tab.id as any)}
               className={`px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'bg-[#2D1B5A] text-amber-400 border-t-2 border-amber-400 shadow-md'
+                  ? 'glass-card text-amber-400 border-t-2 border-amber-400 shadow-md'
                   : 'text-purple-300/70 hover:text-white hover:bg-purple-900/20'
               }`}
             >
@@ -380,7 +380,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
                 {/* Employee Card */}
-                <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 rounded-2xl space-y-3 shadow-lg">
+                <Card className="p-4 glass-card border border-purple-500/20 rounded-2xl space-y-3 shadow-lg">
                   <h3 className="text-xs font-black uppercase text-purple-300 tracking-wider flex items-center gap-2 border-b border-purple-500/10 pb-2">
                     <User className="w-4 h-4 text-purple-400" /> Employee Details
                   </h3>
@@ -393,7 +393,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 </Card>
 
                 {/* Today Attendance Card */}
-                <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 rounded-2xl space-y-3 shadow-lg">
+                <Card className="p-4 glass-card border border-purple-500/20 rounded-2xl space-y-3 shadow-lg">
                   <h3 className="text-xs font-black uppercase text-purple-300 tracking-wider flex items-center gap-2 border-b border-purple-500/10 pb-2">
                     <Clock className="w-4 h-4 text-emerald-400" /> Today Attendance
                   </h3>
@@ -423,7 +423,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 </Card>
 
                 {/* Device & Sync Status */}
-                <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 rounded-2xl space-y-3 shadow-lg">
+                <Card className="p-4 glass-card border border-purple-500/20 rounded-2xl space-y-3 shadow-lg">
                   <h3 className="text-xs font-black uppercase text-purple-300 tracking-wider flex items-center gap-2 border-b border-purple-500/10 pb-2">
                     <Smartphone className="w-4 h-4 text-amber-400" /> Device & Sync
                   </h3>
@@ -440,7 +440,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
                 {/* Attendance Summary (This Month) */}
-                <div className="p-4 bg-[#2D1B5A] border border-purple-500/20 rounded-2xl space-y-3">
+                <div className="p-4 glass-card border border-purple-500/20 rounded-2xl space-y-3">
                   <h4 className="text-xs font-bold text-purple-200 uppercase flex items-center gap-2">
                     <CalendarDays className="w-4 h-4 text-purple-400" /> This Month Attendance
                   </h4>
@@ -453,7 +453,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 </div>
 
                 {/* Task Summary */}
-                <div className="p-4 bg-[#2D1B5A] border border-purple-500/20 rounded-2xl space-y-3">
+                <div className="p-4 glass-card border border-purple-500/20 rounded-2xl space-y-3">
                   <h4 className="text-xs font-bold text-purple-200 uppercase flex items-center gap-2">
                     <CheckSquare className="w-4 h-4 text-purple-400" /> Task Summary
                   </h4>
@@ -466,7 +466,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                 </div>
 
                 {/* Leave Summary (Apr-Mar) */}
-                <div className="p-4 bg-[#2D1B5A] border border-purple-500/20 rounded-2xl space-y-3">
+                <div className="p-4 glass-card border border-purple-500/20 rounded-2xl space-y-3">
                   <h4 className="text-xs font-bold text-purple-200 uppercase flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-purple-400" /> Leave Balance (Apr–Mar)
                   </h4>
@@ -482,7 +482,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
               {/* Quick Attendance Table */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-purple-200 uppercase">Latest Attendance Records</h4>
-                <div className="bg-[#2D1B5A] border border-purple-500/20 rounded-2xl overflow-hidden">
+                <div className="glass-card border border-purple-500/20 rounded-2xl overflow-hidden">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-[#1A0B36] text-purple-300 text-[10px] uppercase">
                       <tr>
@@ -533,7 +533,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {activeTab === 'attendance' && (
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-purple-200 uppercase">All Attendance Logs ({attendanceRecords.length})</h3>
-              <div className="bg-[#2D1B5A] border border-purple-500/20 rounded-2xl overflow-hidden">
+              <div className="glass-card border border-purple-500/20 rounded-2xl overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-[#1A0B36] text-purple-300 text-[10px] uppercase">
                     <tr>
@@ -585,7 +585,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {tasks.length > 0 ? (
                   tasks.map((task: any) => (
-                    <div key={task.id} className="p-4 bg-[#2D1B5A] border border-purple-500/20 rounded-2xl space-y-2">
+                    <div key={task.id} className="p-4 glass-card border border-purple-500/20 rounded-2xl space-y-2">
                       <div className="flex justify-between items-start">
                         <h4 className="font-bold text-sm text-white">{task.title || task.name}</h4>
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -602,7 +602,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                     </div>
                   ))
                 ) : (
-                  <div className="col-span-2 p-8 text-center text-purple-300/60 italic bg-[#2D1B5A] rounded-2xl border border-purple-500/20">
+                  <div className="col-span-2 p-8 text-center text-purple-300/60 italic glass-card rounded-2xl border border-purple-500/20">
                     No tasks assigned to this employee.
                   </div>
                 )}
@@ -614,7 +614,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {activeTab === 'leave' && (
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-purple-200 uppercase">Leave History ({leaves.length})</h3>
-              <div className="bg-[#2D1B5A] border border-purple-500/20 rounded-2xl overflow-hidden">
+              <div className="glass-card border border-purple-500/20 rounded-2xl overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-[#1A0B36] text-purple-300 text-[10px] uppercase">
                     <tr>
@@ -658,7 +658,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
           {activeTab === 'expenses' && (
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-purple-200 uppercase">Expense Claims ({expenses.length})</h3>
-              <div className="bg-[#2D1B5A] border border-purple-500/20 rounded-2xl overflow-hidden">
+              <div className="glass-card border border-purple-500/20 rounded-2xl overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-[#1A0B36] text-purple-300 text-[10px] uppercase">
                     <tr>
@@ -745,7 +745,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
             <div className="space-y-4">
               <h3 className="text-xs font-bold text-purple-200 uppercase">Device Registration & Management</h3>
               
-              <div className="p-5 bg-[#2D1B5A] border border-purple-500/20 rounded-2xl space-y-4">
+              <div className="p-5 glass-card border border-purple-500/20 rounded-2xl space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div className="p-3 bg-[#1A0B36] rounded-xl flex justify-between">
                     <span className="text-purple-300">Device Status:</span> 
@@ -810,7 +810,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
               <div className="space-y-2">
                 {auditLogs.length > 0 ? (
                   auditLogs.map((log: any) => (
-                    <div key={log.id} className="p-3 bg-[#2D1B5A] border border-purple-500/20 rounded-xl text-xs flex justify-between items-center">
+                    <div key={log.id} className="p-3 glass-card border border-purple-500/20 rounded-xl text-xs flex justify-between items-center">
                       <div>
                         <span className="font-bold text-white">{log.performedByName || log.actorName || 'Admin'}</span>{' '}
                         <span className="text-purple-300/70">performed</span>{' '}
@@ -823,7 +823,7 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
                     </div>
                   ))
                 ) : (
-                  <div className="p-8 text-center text-purple-300/60 italic bg-[#2D1B5A] rounded-2xl border border-purple-500/20">
+                  <div className="p-8 text-center text-purple-300/60 italic glass-card rounded-2xl border border-purple-500/20">
                     No audit log entries for this employee yet.
                   </div>
                 )}

@@ -127,7 +127,7 @@ export const EmployeeProfilesTab: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Search & Header Stats */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#2D1B5A] p-4 rounded-[22px] border border-purple-500/20 shadow-xl">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 glass-card p-4 rounded-[22px] border border-purple-500/20 shadow-xl">
         <div className="relative w-full md:w-80">
           <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-purple-300/70" />
           <input
@@ -135,17 +135,17 @@ export const EmployeeProfilesTab: React.FC = () => {
             placeholder="Search employee, code, or office..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 rounded-2xl border border-purple-500/30 bg-[#211044] text-white text-xs font-medium focus:ring-2 focus:ring-[#7C3AED] focus:outline-none"
+            className="w-full pl-11 pr-4 py-2.5 rounded-2xl border border-purple-500/30 glass-inner-tile text-white text-xs font-medium focus:ring-2 focus:ring-[#7C3AED] focus:outline-none"
           />
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="bg-[#211044] px-4 py-2 rounded-xl border border-purple-500/20 text-center">
+          <div className="glass-inner-tile px-4 py-2 rounded-xl border border-purple-500/20 text-center">
             <span className="text-[10px] font-bold text-purple-300 uppercase block">Total Employees</span>
             <span className="text-lg font-black text-white">{employees.length}</span>
           </div>
 
-          <div className="bg-[#211044] px-4 py-2 rounded-xl border border-amber-500/30 text-center">
+          <div className="glass-inner-tile px-4 py-2 rounded-xl border border-amber-500/30 text-center">
             <span className="text-[10px] font-bold text-amber-300 uppercase block">Pending Requests</span>
             <span className="text-lg font-black text-amber-300">{pendingRequests.length}</span>
           </div>
@@ -154,7 +154,7 @@ export const EmployeeProfilesTab: React.FC = () => {
 
       {/* 1. Pending Profile Change Requests */}
       {pendingRequests.length > 0 && (
-        <Card className="p-5 bg-[#2D1B5A] border border-amber-500/30 text-white rounded-[22px] space-y-4 shadow-2xl">
+        <Card className="p-5 glass-card border border-amber-500/30 text-white rounded-[22px] space-y-4 shadow-2xl">
           <div className="flex items-center justify-between border-b border-purple-500/10 pb-3">
             <h2 className="text-xs font-black uppercase text-amber-300 tracking-wider flex items-center gap-2">
               <Clock className="w-4 h-4 animate-spin text-amber-400" /> Pending Profile Change Requests ({pendingRequests.length})
@@ -165,7 +165,7 @@ export const EmployeeProfilesTab: React.FC = () => {
             {pendingRequests.map((req) => (
               <div
                 key={req.id}
-                className="p-4 bg-[#211044] rounded-2xl border border-purple-500/20 flex flex-col justify-between gap-3"
+                className="p-4 glass-inner-tile rounded-2xl border border-purple-500/20 flex flex-col justify-between gap-3"
               >
                 <div className="space-y-1">
                   <div className="flex justify-between items-center">
@@ -225,7 +225,7 @@ export const EmployeeProfilesTab: React.FC = () => {
           {filteredEmps.map((emp) => (
             <Card
               key={emp.id}
-              className="p-4 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px] space-y-3 hover:border-purple-500/40 transition-all shadow-lg"
+              className="p-4 glass-card border border-purple-500/20 text-white rounded-[22px] space-y-3 hover:border-purple-500/40 transition-all shadow-lg"
             >
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-[#170B38] border border-[#7C3AED] overflow-hidden flex items-center justify-center">
@@ -268,7 +268,7 @@ export const EmployeeProfilesTab: React.FC = () => {
       </div>
 
       {/* 3. Audit Trail */}
-      <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px] space-y-3 shadow-xl">
+      <Card className="p-5 glass-card border border-purple-500/20 text-white rounded-[22px] space-y-3 shadow-xl">
         <h2 className="text-xs font-black uppercase text-purple-300 tracking-wider flex items-center gap-2 border-b border-purple-500/10 pb-2">
           <FileText className="w-4 h-4 text-[#A78BFA]" /> Profile Change Audit Trail
         </h2>
@@ -278,7 +278,7 @@ export const EmployeeProfilesTab: React.FC = () => {
             auditLogs.map((log) => (
               <div
                 key={log.id}
-                className="p-2.5 bg-[#211044] rounded-xl border border-purple-500/10 text-xs flex justify-between items-center"
+                className="p-2.5 glass-inner-tile rounded-xl border border-purple-500/10 text-xs flex justify-between items-center"
               >
                 <div>
                   <span className="font-bold text-white">{log.actorName}</span>{' '}
@@ -335,7 +335,7 @@ export const EmployeeProfilesTab: React.FC = () => {
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="State clear reason for rejecting this change request..."
-                className="w-full px-3 py-2 rounded-xl bg-[#211044] border border-purple-500/30 text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
+                className="w-full px-3 py-2 rounded-xl glass-inner-tile border border-purple-500/30 text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[#7C3AED]"
               />
             </div>
           )}

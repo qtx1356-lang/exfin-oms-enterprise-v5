@@ -102,7 +102,7 @@ export const DeleteEmployeeModal: React.FC<DeleteEmployeeModalProps> = ({
         {/* Step 1 & 2: Summary */}
         {step === 1 && (
           <div className="space-y-4">
-            <div className="p-4 bg-[#2D1B5A] border border-purple-500/30 rounded-2xl space-y-3">
+            <div className="p-4 glass-card border border-purple-500/30 rounded-2xl space-y-3">
               <div className="flex justify-between items-center border-b border-purple-500/20 pb-2">
                 <span className="text-xs text-purple-300">Employee Name:</span>
                 <span className="text-xs font-bold text-white">{employee.name || 'Unknown'}</span>
@@ -158,7 +158,7 @@ export const DeleteEmployeeModal: React.FC<DeleteEmployeeModalProps> = ({
             <div className="flex justify-end gap-3 pt-3">
               <Button
                 variant="outline"
-                className="bg-[#2D1B5A] border-purple-500/30 text-white text-xs"
+                className="glass-card border-purple-500/30 text-white text-xs"
                 onClick={onClose}
               >
                 Cancel
@@ -184,7 +184,7 @@ export const DeleteEmployeeModal: React.FC<DeleteEmployeeModalProps> = ({
                 className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
                   deletionType === 'DATA_ONLY' 
                     ? 'bg-purple-600/20 border-purple-400 shadow-lg' 
-                    : 'bg-[#2D1B5A] border-purple-500/30 hover:border-purple-400/50'
+                    : 'glass-card border-purple-500/30 hover:border-purple-400/50'
                 }`}
               >
                 <input 
@@ -207,7 +207,7 @@ export const DeleteEmployeeModal: React.FC<DeleteEmployeeModalProps> = ({
                 className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 ${
                   deletionType === 'COMPLETE' 
                     ? 'bg-rose-600/20 border-rose-500 shadow-lg' 
-                    : 'bg-[#2D1B5A] border-rose-500/30 hover:border-rose-400/50'
+                    : 'glass-card border-rose-500/30 hover:border-rose-400/50'
                 }`}
               >
                 <input 
@@ -229,7 +229,7 @@ export const DeleteEmployeeModal: React.FC<DeleteEmployeeModalProps> = ({
             <div className="flex justify-between pt-3">
               <Button
                 variant="outline"
-                className="bg-[#2D1B5A] border-purple-500/30 text-white text-xs"
+                className="glass-card border-purple-500/30 text-white text-xs"
                 onClick={() => setStep(1)}
               >
                 ← Back
@@ -272,7 +272,7 @@ export const DeleteEmployeeModal: React.FC<DeleteEmployeeModalProps> = ({
             <div className="flex justify-between pt-3">
               <Button
                 variant="outline"
-                className="bg-[#2D1B5A] border-purple-500/30 text-white text-xs"
+                className="glass-card border-purple-500/30 text-white text-xs"
                 onClick={() => setStep(2)}
               >
                 ← Back
@@ -312,7 +312,7 @@ export const DeleteEmployeeModal: React.FC<DeleteEmployeeModalProps> = ({
               <Button
                 variant="outline"
                 disabled={isExecuting}
-                className="bg-[#2D1B5A] border-purple-500/30 text-white text-xs"
+                className="glass-card border-purple-500/30 text-white text-xs"
                 onClick={() => setStep(3)}
               >
                 Cancel
@@ -340,7 +340,7 @@ export const DeleteEmployeeModal: React.FC<DeleteEmployeeModalProps> = ({
               <p className="text-xs text-emerald-300 font-semibold">{successResult}</p>
             </div>
 
-            <div className="p-4 bg-[#2D1B5A] border border-purple-500/20 rounded-2xl text-left space-y-1.5 text-xs text-purple-200">
+            <div className="p-4 glass-card border border-purple-500/20 rounded-2xl text-left space-y-1.5 text-xs text-purple-200">
               <div className="font-bold text-white pb-1 border-b border-purple-500/20">Summary of Actions:</div>
               <div>• Operational business data scanned & removed</div>
               <div>• Audit log recorded permanently</div>

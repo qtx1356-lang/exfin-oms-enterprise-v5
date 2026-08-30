@@ -368,7 +368,7 @@ export const MyDayTimeline: React.FC = () => {
 
   return (
     <>
-      <Card className="p-4 bg-[var(--card-bg)] border border-[var(--border)] shadow-md relative overflow-hidden">
+      <Card className="p-4 bg-[var(--surface-elevated)] border border-[var(--border)] shadow-md relative overflow-hidden">
         {/* Section Header */}
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--border)]">
           <div className="flex items-center gap-2">
@@ -384,7 +384,7 @@ export const MyDayTimeline: React.FC = () => {
           {/* Current Status Badge */}
           <div className="flex items-center gap-2">
             {!isOnline && (
-              <span className="text-[9px] font-bold text-[#F59E0B] bg-[#F59E0B]/10 px-2 py-0.5 rounded-full border border-[#F59E0B]/20 flex items-center gap-1">
+              <span className="text-[9px] font-bold text-[var(--warning)] bg-[var(--warning)]/10 px-2 py-0.5 rounded-full border border-[var(--warning)]/20 flex items-center gap-1">
                 <WifiOff className="w-2.5 h-2.5" /> Offline
               </span>
             )}
@@ -465,7 +465,7 @@ export const MyDayTimeline: React.FC = () => {
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="w-full max-w-lg bg-[var(--card-bg)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl overflow-hidden max-h-[85vh] flex flex-col"
+              className="w-full max-w-lg bg-[var(--surface-elevated)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl overflow-hidden max-h-[85vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}

@@ -150,7 +150,7 @@ export const PayslipScreen: React.FC = () => {
           <h1 className="text-lg font-black text-[var(--text-primary)] leading-none">Payslips</h1>
         </div>
 
-        <Card className="p-8 bg-[var(--card-bg)] border border-[var(--primary)]/20 text-center rounded-[24px] shadow-2xl flex flex-col items-center justify-center min-h-[40vh] mt-2">
+        <Card className="p-8 bg-[var(--surface-elevated)] border border-[var(--primary)]/20 text-center rounded-[24px] shadow-2xl flex flex-col items-center justify-center min-h-[40vh] mt-2">
           <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/20 rounded-full flex items-center justify-center mb-4">
             <AlertCircle className="w-8 h-8 text-amber-400" />
           </div>
@@ -199,7 +199,7 @@ export const PayslipScreen: React.FC = () => {
         <div className="flex items-center gap-3.5">
           <button 
             onClick={() => navigate('/')}
-            className="p-2 bg-[var(--card-surface)] border border-[var(--border)] rounded-xl hover:bg-[var(--card-bg)] hover:text-[var(--text-primary)] text-[var(--text-secondary)] transition cursor-pointer"
+            className="p-2 bg-[var(--surface-inner)] border border-[var(--border)] rounded-xl hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)] text-[var(--text-secondary)] transition cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
@@ -211,7 +211,7 @@ export const PayslipScreen: React.FC = () => {
           <div className="relative">
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-1.5 bg-[var(--card-surface)] border border-[var(--border)] px-3.5 py-1.5 rounded-full text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--card-bg)] transition cursor-pointer"
+              className="flex items-center gap-1.5 bg-[var(--surface-inner)] border border-[var(--border)] px-3.5 py-1.5 rounded-full text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-elevated)] transition cursor-pointer"
             >
               <Calendar className="w-3.5 h-3.5 text-[var(--primary-light)]" />
               <span>{currentMonthName} {currentYear}</span>
@@ -219,7 +219,7 @@ export const PayslipScreen: React.FC = () => {
             </button>
 
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-1.5 w-44 bg-[var(--card-surface)] border border-[var(--border)] rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-[var(--border)]">
+              <div className="absolute right-0 mt-1.5 w-44 bg-[var(--surface-inner)] border border-[var(--border)] rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-[var(--border)]">
                 {payslips.map((slip) => (
                   <button
                     key={slip.id}
@@ -227,8 +227,8 @@ export const PayslipScreen: React.FC = () => {
                       setSelectedPayslip(slip);
                       setIsDropdownOpen(false);
                     }}
-                    className={`w-full text-left p-2.5 text-xs font-bold hover:bg-[var(--card-bg)] transition flex items-center justify-between cursor-pointer ${
-                      selectedPayslip?.id === slip.id ? 'bg-[var(--card-bg)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'
+                    className={`w-full text-left p-2.5 text-xs font-bold hover:bg-[var(--surface-elevated)] transition flex items-center justify-between cursor-pointer ${
+                      selectedPayslip?.id === slip.id ? 'bg-[var(--surface-elevated)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'
                     }`}
                   >
                     <span>{MONTH_NAMES[slip.month]} {slip.year}</span>
@@ -247,7 +247,7 @@ export const PayslipScreen: React.FC = () => {
         <div className="flex flex-col gap-4">
           
           {/* Main Payslip Card */}
-          <Card className="p-6 bg-[var(--card-surface)] border border-[var(--border)] rounded-[24px] shadow-2xl space-y-6 relative overflow-hidden">
+          <Card className="p-6 bg-[var(--surface-inner)] border border-[var(--border)] rounded-[24px] shadow-2xl space-y-6 relative overflow-hidden">
             
             {/* Decors */}
             <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-[var(--primary)]/10 to-transparent rounded-bl-full pointer-events-none" />
@@ -270,7 +270,7 @@ export const PayslipScreen: React.FC = () => {
             </div>
 
             {/* Employee Details Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[var(--card-bg)] p-4 rounded-2xl border border-[var(--border)]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[var(--surface-elevated)] p-4 rounded-2xl border border-[var(--border)]">
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-[var(--primary-light)] shrink-0" />
@@ -313,27 +313,27 @@ export const PayslipScreen: React.FC = () => {
             <div className="space-y-2">
               <h3 className="text-[10px] font-black uppercase text-[var(--text-secondary)] tracking-wider">Attendance Breakdown</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="bg-[var(--card-bg)] border border-[var(--border)] p-2.5 rounded-xl text-center">
+                <div className="bg-[var(--surface-elevated)] border border-[var(--border)] p-2.5 rounded-xl text-center">
                   <span className="text-[9px] text-[var(--text-secondary)] block font-black uppercase">Office Present</span>
                   <strong className="text-sm font-black text-[var(--text-primary)]">{selectedPayslip.officePresentDays}</strong>
                 </div>
-                <div className="bg-[var(--card-bg)] border border-[var(--border)] p-2.5 rounded-xl text-center">
+                <div className="bg-[var(--surface-elevated)] border border-[var(--border)] p-2.5 rounded-xl text-center">
                   <span className="text-[9px] text-[var(--text-secondary)] block font-black uppercase">WFH Days</span>
                   <strong className="text-sm font-black text-[var(--text-primary)]">{selectedPayslip.wfhDays}</strong>
                 </div>
-                <div className="bg-[var(--card-bg)] border border-[var(--border)] p-2.5 rounded-xl text-center">
+                <div className="bg-[var(--surface-elevated)] border border-[var(--border)] p-2.5 rounded-xl text-center">
                   <span className="text-[9px] text-[var(--text-secondary)] block font-black uppercase">Client Visit</span>
                   <strong className="text-sm font-black text-[var(--text-primary)]">{selectedPayslip.clientVisitDays}</strong>
                 </div>
-                <div className="bg-[var(--card-bg)] border border-[var(--border)] p-2.5 rounded-xl text-center">
+                <div className="bg-[var(--surface-elevated)] border border-[var(--border)] p-2.5 rounded-xl text-center">
                   <span className="text-[9px] text-[var(--text-secondary)] block font-black uppercase">Outdoor Work</span>
                   <strong className="text-sm font-black text-[var(--text-primary)]">{selectedPayslip.outdoorDays}</strong>
                 </div>
-                <div className="bg-[var(--card-bg)] border border-[var(--border)] p-2.5 rounded-xl text-center">
+                <div className="bg-[var(--surface-elevated)] border border-[var(--border)] p-2.5 rounded-xl text-center">
                   <span className="text-[9px] text-[var(--text-secondary)] block font-black uppercase">Paid Leaves</span>
                   <strong className="text-sm font-black text-amber-400">{selectedPayslip.paidLeaveDays}</strong>
                 </div>
-                <div className="bg-[var(--card-bg)] border border-[var(--border)] p-2.5 rounded-xl text-center">
+                <div className="bg-[var(--surface-elevated)] border border-[var(--border)] p-2.5 rounded-xl text-center">
                   <span className="text-[9px] text-[var(--text-secondary)] block font-black uppercase">Sun / Holidays</span>
                   <strong className="text-sm font-black text-[var(--primary-light)]">{selectedPayslip.sundayHolidayDays}</strong>
                 </div>
@@ -353,7 +353,7 @@ export const PayslipScreen: React.FC = () => {
             {/* Financial Calculations Statement */}
             <div className="space-y-2">
               <h3 className="text-[10px] font-black uppercase text-[var(--text-secondary)] tracking-wider">Salary Breakdown</h3>
-              <div className="p-4 bg-[var(--card-bg)] rounded-2xl border border-[var(--border)] text-xs divide-y divide-[var(--border)]">
+              <div className="p-4 bg-[var(--surface-elevated)] rounded-2xl border border-[var(--border)] text-xs divide-y divide-[var(--border)]">
                 
                 {/* Gross / Base */}
                 <div className="flex justify-between py-2 items-center">
@@ -415,7 +415,7 @@ export const PayslipScreen: React.FC = () => {
             {/* Paid Leave Status of Selected Year */}
             <div className="space-y-2">
               <h3 className="text-[10px] font-black uppercase text-[var(--text-secondary)] tracking-wider">Leave Summary (Selected Year)</h3>
-              <div className="grid grid-cols-3 gap-3 text-center bg-[var(--card-bg)] border border-[var(--border)] p-3.5 rounded-2xl">
+              <div className="grid grid-cols-3 gap-3 text-center bg-[var(--surface-elevated)] border border-[var(--border)] p-3.5 rounded-2xl">
                 <div>
                   <span className="text-[8px] text-[var(--text-secondary)] block font-black uppercase leading-tight">Paid Leave Allocation</span>
                   <strong className="text-xs font-mono font-black text-[var(--text-primary)] block mt-1">

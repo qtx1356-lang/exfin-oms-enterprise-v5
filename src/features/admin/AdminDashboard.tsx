@@ -1567,7 +1567,7 @@ export const AdminDashboard: React.FC = () => {
           isSuperAdmin() ? (
             <AdminSecurityTab />
           ) : (
-            <Card className="p-8 bg-[#2D1B5A] border border-rose-500/30 text-center space-y-4">
+            <Card className="p-8 glass-card border border-rose-500/30 text-center space-y-4">
               <ShieldAlert className="w-12 h-12 text-rose-400 mx-auto" />
               <h2 className="text-lg font-bold text-white">Access Denied</h2>
               <p className="text-xs text-purple-200">Password management is restricted exclusively to Super Administrators.</p>
@@ -1623,7 +1623,7 @@ export const AdminDashboard: React.FC = () => {
           isSuperAdmin() ? (
             <AuditLogTab />
           ) : (
-            <Card className="p-8 bg-[#2D1B5A] border border-rose-500/30 text-center space-y-4">
+            <Card className="p-8 glass-card border border-rose-500/30 text-center space-y-4">
               <ShieldAlert className="w-12 h-12 text-rose-400 mx-auto" />
               <h2 className="text-lg font-bold text-white">Access Denied</h2>
               <p className="text-xs text-purple-200">The Audit Log is restricted exclusively to Super Administrators. You do not have permission to view this section.</p>
@@ -2056,7 +2056,7 @@ export const AdminDashboard: React.FC = () => {
                       <div className="text-[9px] text-purple-300/60 font-mono uppercase">{safeStringify(selectedAttendance.checkOutMode) || 'N/A'} Mode</div>
                     </div>
                   </div>
-                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex justify-between items-center">
+                  <div className="p-3 bg-white/5 border border-[var(--border)] rounded-xl flex justify-between items-center">
                     <span className="text-[11px] text-white/70 font-bold">Total Duration</span>
                     <span className="text-sm font-black text-white">
                       {(() => {

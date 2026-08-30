@@ -1,19 +1,22 @@
 @import "tailwindcss";
 
 @theme {
-  --color-app-bg: var(--app-background);
-  --color-app-bg-secondary: var(--app-background-secondary);
+  --color-app-bg: var(--app-bg);
+  --color-app-bg-secondary: var(--app-bg-secondary);
   
-  --color-card-bg: var(--surface-card);
-  --color-card-surface: var(--surface-elevated);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-inner: var(--surface-inner);
+  --color-surface-hover: var(--surface-hover);
   
   --color-primary: var(--primary);
-  --color-primary-light: var(--primary-secondary);
-  --color-accent: var(--accent);
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-light: var(--primary-light);
   
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-info: var(--info);
   
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
@@ -21,57 +24,51 @@
   
   --color-border: var(--border);
   --color-divider: var(--divider);
+  --color-shadow: var(--shadow);
 }
 
 :root {
   /* 1. LAYER 1 — APPLICATION BACKGROUND */
-  --app-background: linear-gradient(135deg, #F8FAFC 0%, #EEF2FF 45%, #F5F3FF 70%, #ECFEFF 100%);
-  --app-background-secondary: #FFFFFF;
+  --app-background: var(--app-bg);
+  --app-bg: linear-gradient(135deg, #F8FAFC 0%, #EEF2FF 45%, #F5F3FF 70%, #ECFEFF 100%);
+  --app-background-secondary: var(--app-bg-secondary);
+  --app-bg-secondary: #FFFFFF;
 
   /* 2. LAYER 2 — PRIMARY CARDS */
-  --surface-card: linear-gradient(135deg, #312E81 0%, #4338CA 50%, #2563EB 100%);
-  
-  /* 3. LAYER 3 — INNER CARDS */
-  --surface-elevated: linear-gradient(135deg, #172554 0%, #1E3A8A 100%);
-  --surface: #1E293B;
+  --surface: #FFFFFF;
+  --surface-elevated: #FFFFFF;
+  --surface-inner: #F8FAFC;
+  --surface-hover: #F1F5F9;
 
   /* TEXT SYSTEM */
-  /* These are for text on light backgrounds */
-  --text-primary: #0F172A;
-  --text-secondary: #334155;
-  --text-muted: #64748B;
-  
-  /* These are for text on dark/rich cards */
-  --card-text-primary: #FFFFFF;
-  --card-text-secondary: #E2E8F0;
-  --card-text-muted: #CBD5E1;
+  --text-primary: #0F172A;     /* dark navy */
+  --text-secondary: #334155;   /* dark slate */
+  --text-muted: #64748B;       /* readable gray/slate */
 
   /* GLOBAL ACCENT COLORS */
-  --primary: #4F46E5; /* INDIGO */
-  --primary-secondary: #2563EB; /* BLUE */
-  --accent: #7C3AED; /* VIOLET */
-  --cyan: #0891B2;
-  --teal: #0D9488;
+  --primary: #4F46E5;
+  --primary-dark: #3730A3;
+  --primary-light: #818CF8;
+
+  /* STATUS COLORS */
   --success: #059669; /* GREEN */
   --warning: #D97706; /* AMBER */
-  --orange: #EA580C;
   --danger: #E11D48; /* RED */
+  --info: #0891B2; /* CYAN */
 
   /* BORDERS & SHADOWS */
-  --border: rgba(255, 255, 255, 0.18);
-  --divider: rgba(203, 213, 225, 0.80);
+  --border: rgba(15, 23, 42, 0.08);
+  --divider: rgba(15, 23, 42, 0.04);
+  --shadow: 0 8px 30px rgba(15, 23, 42, 0.04);
   
   /* NAVIGATION & BUTTONS */
-  --nav-background: linear-gradient(135deg, #172554 0%, #312E81 100%);
+  --nav-bg: #FFFFFF;
   --button-primary: linear-gradient(135deg, #7C3AED 0%, #2563EB 100%);
-  --button-secondary: rgba(255, 255, 255, 0.1);
-  --button-success: linear-gradient(135deg, #059669 0%, #0D9488 100%);
-  --button-warning: linear-gradient(135deg, #D97706 0%, #EA580C 100%);
-  --button-danger: linear-gradient(135deg, #E11D48 0%, #BE123C 100%);
+  --button-secondary: #FFFFFF;
 }
 
 body {
-  background: var(--app-background);
+  background: var(--app-bg);
   background-attachment: fixed;
   color: var(--text-primary);
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -98,44 +95,34 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: rgba(15, 23, 42, 0.05) !important;
+  background-color: var(--surface-inner) !important;
   color: var(--text-primary) !important;
-  border: 1px solid var(--divider) !important;
+  border: 1px solid var(--border) !important;
   border-radius: 12px !important;
   transition: all 0.2s ease;
-}
-
-.glass-card input, .glass-card-elevated input, .glass-inner-tile input,
-.glass-card select, .glass-card-elevated select, .glass-inner-tile select,
-.glass-card textarea, .glass-card-elevated textarea, .glass-inner-tile textarea {
-  background-color: rgba(15, 23, 42, 0.75) !important;
-  color: var(--card-text-primary) !important;
-  border: 1px solid var(--border) !important;
 }
 
 input:focus, textarea:focus, select:focus {
   outline: none !important;
   border-color: var(--primary) !important;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.25) !important;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
 }
 
-/* 2. Main Glass Cards (Rich Indigo/Blue Gradient) */
+/* 2. Main Glass Cards */
 .glass-card, .glass-card-elevated {
-  background: var(--surface-card);
+  background: var(--surface-elevated);
   border: 1px solid var(--border);
-  box-shadow: 0 12px 30px rgba(49, 46, 129, 0.18);
-  border-radius: 16-24px; /* We will use Tailwind classes for radius but default here */
+  box-shadow: var(--shadow);
   border-radius: 20px;
-  color: var(--card-text-primary);
+  color: var(--text-primary);
 }
 
 /* 3. Inner Stat Tile Surfaces */
 .glass-inner-tile, .glass-card-inner {
-  background: var(--surface-elevated);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.35);
+  background: var(--surface-inner);
+  border: 1px solid var(--border);
   border-radius: 16px;
-  color: var(--card-text-primary);
+  color: var(--text-primary);
 }
 
 /* 4. Compact Premium Buttons (40-44px high) */
@@ -144,7 +131,7 @@ input:focus, textarea:focus, select:focus {
   color: #FFFFFF;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
   border-radius: 12px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 42px;
@@ -161,53 +148,53 @@ input:focus, textarea:focus, select:focus {
 
 .btn-secondary {
   background: var(--button-secondary);
-  color: var(--card-text-primary);
+  color: var(--text-primary);
   font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.20);
+  border: 1px solid var(--border);
   border-radius: 12px;
   transition: all 0.2s ease;
   min-height: 42px;
-  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.02);
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--surface-hover);
 }
 
 .btn-danger {
-  background: var(--button-danger);
+  background: var(--danger);
   color: #FFFFFF;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.25);
   border-radius: 12px;
   min-height: 42px;
 }
 
 .btn-success, .btn-emerald {
-  background: var(--button-success);
+  background: var(--success);
   color: #FFFFFF;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35);
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.25);
   border-radius: 12px;
   min-height: 42px;
 }
 
 .btn-warning {
-  background: var(--button-warning);
+  background: var(--warning);
   color: #FFFFFF;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35);
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.25);
   border-radius: 12px;
   min-height: 42px;
 }
 
 .glass-nav {
-  background: var(--nav-background);
+  background: var(--nav-bg);
   border-top: 1px solid var(--border);
-  box-shadow: 0 -10px 30px rgba(23, 37, 84, 0.40);
+  box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.06);
 }
 
 /* Touch optimization */

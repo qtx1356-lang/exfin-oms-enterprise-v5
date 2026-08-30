@@ -215,11 +215,11 @@ export const EmployeeFAQScreen: React.FC = () => {
   return (
     <div className="min-h-screen pb-32">
       {/* Header */}
-      <div className="bg-[var(--card-surface)]/90 backdrop-blur-md border-b border-[var(--border)] sticky top-0 z-30">
+      <div className="bg-[var(--surface-inner)]/90 backdrop-blur-md border-b border-[var(--border)] sticky top-0 z-30">
         <div className="container mx-auto px-4 py-3 flex items-center gap-3">
           <button 
             onClick={() => navigate(-1)}
-            className="p-2 rounded-xl bg-[var(--card-bg)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--card-surface)] transition-colors cursor-pointer"
+            className="p-2 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-inner)] transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -238,7 +238,7 @@ export const EmployeeFAQScreen: React.FC = () => {
             placeholder="Search FAQs..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-[var(--card-surface)] border border-[var(--border)] rounded-2xl py-3 pl-10 pr-4 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-[var(--primary)] transition-colors shadow-sm"
+            className="w-full bg-[var(--surface-inner)] border border-[var(--border)] rounded-2xl py-3 pl-10 pr-4 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-[var(--primary)] transition-colors shadow-sm"
           />
         </div>
 
@@ -264,8 +264,8 @@ export const EmployeeFAQScreen: React.FC = () => {
                         key={qIdx}
                         className={`overflow-hidden transition-all duration-300 ${
                           isExpanded 
-                            ? 'border-[var(--primary)]/50 bg-[var(--card-surface)] shadow-lg' 
-                            : 'border-[var(--border)] bg-[var(--card-bg)] hover:border-[var(--border-strong)]'
+                            ? 'border-[var(--primary)]/50 bg-[var(--surface-inner)] shadow-lg' 
+                            : 'border-[var(--border)] bg-[var(--surface-elevated)] hover:border-[var(--border-strong)]'
                         }`}
                       >
                         <button 

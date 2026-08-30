@@ -351,7 +351,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
   return (
     <div className="space-y-6">
       {/* Header Block */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#211044] p-6 rounded-[24px] border border-purple-500/15">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-inner-tile p-6 rounded-[24px] border border-purple-500/15">
         <div>
           <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider mb-1">
             <span className="flex h-2 w-2 relative">
@@ -383,7 +383,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
                   className="bg-transparent text-white font-black focus:outline-none cursor-pointer pr-1"
                 >
                   {departments.map(dept => (
-                    <option key={dept} value={dept} className="bg-[#2D1B5A] text-white">
+                    <option key={dept} value={dept} className="glass-card text-white">
                       {dept === 'ALL' ? 'All Locations' : dept}
                     </option>
                   ))}
@@ -416,7 +416,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
           className={`text-left transition-all duration-300 focus:outline-none rounded-[20px] p-4 border flex flex-col justify-between h-28 ${
             statusFilter === 'PRESENT'
               ? 'bg-emerald-500/15 border-emerald-500/50 shadow-[0_4px_20px_rgba(16,185,129,0.2)]'
-              : 'bg-[#2D1B5A] border-purple-500/20 hover:border-emerald-500/30 hover:bg-emerald-500/5'
+              : 'glass-card border-purple-500/20 hover:border-emerald-500/30 hover:bg-emerald-500/5'
           }`}
         >
           <div className="flex items-center justify-between w-full">
@@ -437,7 +437,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
           className={`text-left transition-all duration-300 focus:outline-none rounded-[20px] p-4 border flex flex-col justify-between h-28 ${
             statusFilter === 'WFH'
               ? 'bg-sky-500/15 border-sky-500/50 shadow-[0_4px_20px_rgba(14,165,233,0.2)]'
-              : 'bg-[#2D1B5A] border-purple-500/20 hover:border-sky-500/30 hover:bg-sky-500/5'
+              : 'glass-card border-purple-500/20 hover:border-sky-500/30 hover:bg-sky-500/5'
           }`}
         >
           <div className="flex items-center justify-between w-full">
@@ -458,7 +458,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
           className={`text-left transition-all duration-300 focus:outline-none rounded-[20px] p-4 border flex flex-col justify-between h-28 ${
             statusFilter === 'CLIENT'
               ? 'bg-amber-500/15 border-amber-500/50 shadow-[0_4px_20px_rgba(245,158,11,0.2)]'
-              : 'bg-[#2D1B5A] border-purple-500/20 hover:border-amber-500/30 hover:bg-amber-500/5'
+              : 'glass-card border-purple-500/20 hover:border-amber-500/30 hover:bg-amber-500/5'
           }`}
         >
           <div className="flex items-center justify-between w-full">
@@ -479,7 +479,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
           className={`text-left transition-all duration-300 focus:outline-none rounded-[20px] p-4 border flex flex-col justify-between h-28 ${
             statusFilter === 'OUTDOOR'
               ? 'bg-violet-500/15 border-violet-500/50 shadow-[0_4px_20px_rgba(139,92,246,0.2)]'
-              : 'bg-[#2D1B5A] border-purple-500/20 hover:border-violet-500/30 hover:bg-violet-500/5'
+              : 'glass-card border-purple-500/20 hover:border-violet-500/30 hover:bg-violet-500/5'
           }`}
         >
           <div className="flex items-center justify-between w-full">
@@ -500,7 +500,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
           className={`text-left transition-all duration-300 focus:outline-none rounded-[20px] p-4 border flex flex-col justify-between h-28 ${
             statusFilter === 'LATE'
               ? 'bg-yellow-500/15 border-yellow-500/50 shadow-[0_4px_20px_rgba(234,179,8,0.2)]'
-              : 'bg-[#2D1B5A] border-purple-500/20 hover:border-yellow-500/30 hover:bg-yellow-500/5'
+              : 'glass-card border-purple-500/20 hover:border-yellow-500/30 hover:bg-yellow-500/5'
           }`}
         >
           <div className="flex items-center justify-between w-full">
@@ -521,7 +521,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
           className={`text-left transition-all duration-300 focus:outline-none rounded-[20px] p-4 border flex flex-col justify-between h-28 ${
             statusFilter === 'NOT_CHECKED_IN'
               ? 'bg-zinc-500/20 border-zinc-500/50 shadow-[0_4px_20px_rgba(156,163,175,0.2)]'
-              : 'bg-[#2D1B5A] border-purple-500/20 hover:border-zinc-400/30 hover:bg-zinc-500/5'
+              : 'glass-card border-purple-500/20 hover:border-zinc-400/30 hover:bg-zinc-500/5'
           }`}
         >
           <div className="flex items-center justify-between w-full">
@@ -542,7 +542,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
           className={`text-left transition-all duration-300 focus:outline-none rounded-[20px] p-4 border flex flex-col justify-between h-28 ${
             statusFilter === 'ABSENT'
               ? 'bg-rose-500/15 border-rose-500/50 shadow-[0_4px_20px_rgba(244,63,94,0.2)]'
-              : 'bg-[#2D1B5A] border-purple-500/20 hover:border-rose-500/30 hover:bg-rose-500/5'
+              : 'glass-card border-purple-500/20 hover:border-rose-500/30 hover:bg-rose-500/5'
           }`}
         >
           <div className="flex items-center justify-between w-full">
@@ -714,7 +714,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
       {/* DETAIL MODAL WITH MULTI-EVENT TIMELINE */}
       {selectedEmployee && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-[#2D1B5A] border border-purple-500/30 w-full max-w-lg rounded-[28px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 text-white">
+          <div className="glass-card border border-purple-500/30 w-full max-w-lg rounded-[28px] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 text-white">
             
             {/* Modal Header */}
             <div className="bg-[#1A0B36] p-6 border-b border-purple-500/15 flex justify-between items-start">
@@ -804,7 +804,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
                     {/* Event 1: Check-In */}
                     <div className="relative">
                       {/* Timeline dot */}
-                      <div className="absolute -left-[31px] top-0.5 bg-[#2D1B5A] border-2 border-emerald-400 w-4.5 h-4.5 rounded-full flex items-center justify-center">
+                      <div className="absolute -left-[31px] top-0.5 glass-card border-2 border-emerald-400 w-4.5 h-4.5 rounded-full flex items-center justify-center">
                         <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div>
                       </div>
                       <div className="text-xs">
@@ -824,7 +824,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
                     {/* Event 2: Office Exit (If available) */}
                     {selectedEmployee.todayRecord?.exitTime && (
                       <div className="relative">
-                        <div className="absolute -left-[31px] top-0.5 bg-[#2D1B5A] border-2 border-amber-400 w-4.5 h-4.5 rounded-full flex items-center justify-center">
+                        <div className="absolute -left-[31px] top-0.5 glass-card border-2 border-amber-400 w-4.5 h-4.5 rounded-full flex items-center justify-center">
                           <div className="w-1.5 h-1.5 bg-amber-400 rounded-full"></div>
                         </div>
                         <div className="text-xs">
@@ -842,7 +842,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
                     {/* Event 3: Return to Office (If available) */}
                     {selectedEmployee.todayRecord?.returnTime && (
                       <div className="relative">
-                        <div className="absolute -left-[31px] top-0.5 bg-[#2D1B5A] border-2 border-blue-400 w-4.5 h-4.5 rounded-full flex items-center justify-center">
+                        <div className="absolute -left-[31px] top-0.5 glass-card border-2 border-blue-400 w-4.5 h-4.5 rounded-full flex items-center justify-center">
                           <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
                         </div>
                         <div className="text-xs">
@@ -860,7 +860,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
                     {/* Event 4: Check-Out (If available) */}
                     <div className="relative">
                       {/* Timeline dot */}
-                      <div className={`absolute -left-[31px] top-0.5 bg-[#2D1B5A] border-2 w-4.5 h-4.5 rounded-full flex items-center justify-center ${
+                      <div className={`absolute -left-[31px] top-0.5 glass-card border-2 w-4.5 h-4.5 rounded-full flex items-center justify-center ${
                         selectedEmployee.checkOutTime ? 'border-purple-400' : 'border-purple-500/40'
                       }`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${selectedEmployee.checkOutTime ? 'bg-purple-400' : 'bg-purple-500/20'}`}></div>

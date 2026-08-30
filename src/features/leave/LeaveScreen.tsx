@@ -247,9 +247,9 @@ export const LeaveScreen: React.FC = () => {
       case 'REJECTED':
         return 'bg-rose-500/20 text-rose-300 border border-rose-500/30';
       case 'CANCELLED':
-        return 'bg-[#1D2329] text-zinc-400 border border-[#3A4148]';
+        return 'bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]';
       default:
-        return 'bg-[#1D2329] text-[#B7C0BC] border border-[#3A4148]';
+        return 'bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]';
     }
   };
 
@@ -364,12 +364,12 @@ export const LeaveScreen: React.FC = () => {
                 </div>
 
                 {/* Progress Bar */}
-                <div className="h-3 w-full bg-[var(--card-surface)] rounded-full overflow-hidden flex mb-4 border border-white/10">
+                <div className="h-3 w-full bg-[var(--surface-hover)] rounded-full overflow-hidden flex mb-4 border border-[var(--border)]">
                   <div style={{ width: `${usedPercent}%` }} className="bg-emerald-400 h-full transition-all" />
                   <div style={{ width: `${pendingPercent}%` }} className="bg-amber-400 h-full transition-all" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[var(--border)]">
                   <div className="flex items-center gap-2.5">
                     <div className="w-3 h-3 rounded-full bg-emerald-400" />
                     <div>
@@ -413,7 +413,7 @@ export const LeaveScreen: React.FC = () => {
               
               {/* Dev Diagnostic */}
               {Boolean(typeof import.meta !== 'undefined' && import.meta?.env?.DEV) && (
-                <div className="p-3 bg-[var(--card-surface)] border border-white/10 rounded-xl text-[10px] font-mono text-[var(--text-secondary)] space-y-0.5">
+                <div className="p-3 bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl text-[10px] font-mono text-[var(--text-secondary)] space-y-0.5">
                   <p className="font-bold text-white">LEAVE CALENDAR DIAGNOSTIC</p>
                   <p>Employee: <span className="text-white">{empName} ({empId})</span></p>
                   <p>Leave Year: <span className="text-white">APR 1 — MAR 31</span></p>
@@ -432,13 +432,13 @@ export const LeaveScreen: React.FC = () => {
                     Leave Calendar
                   </h2>
                   <div className="flex gap-2">
-                    <button onClick={() => changeMonth(-1)} className="p-1.5 hover:bg-white/10 rounded-lg transition text-white glass-card-inner border border-white/10 cursor-pointer">
+                    <button onClick={() => changeMonth(-1)} className="p-1.5 hover:bg-white/10 rounded-lg transition text-white glass-card-inner border border-[var(--border)] cursor-pointer">
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <div className="px-3 py-1.5 glass-card-inner rounded-lg border border-white/10 text-xs font-bold text-white min-w-[100px] text-center">
+                    <div className="px-3 py-1.5 glass-card-inner rounded-lg border border-[var(--border)] text-xs font-bold text-white min-w-[100px] text-center">
                       {monthNames[cMonth]} {cYear}
                     </div>
-                    <button onClick={() => changeMonth(1)} className="p-1.5 hover:bg-white/10 rounded-lg transition text-white glass-card-inner border border-white/10 cursor-pointer">
+                    <button onClick={() => changeMonth(1)} className="p-1.5 hover:bg-white/10 rounded-lg transition text-white glass-card-inner border border-[var(--border)] cursor-pointer">
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
@@ -467,7 +467,7 @@ export const LeaveScreen: React.FC = () => {
                         return dayStr >= l.startDate && dayStr <= l.endDate && l.status !== 'CANCELLED';
                       });
 
-                      let cellClass = 'bg-white/5 border border-white/10 text-[var(--text-secondary)]';
+                      let cellClass = 'bg-white/5 border border-[var(--border)] text-[var(--text-secondary)]';
 
                       if (leaveOnDay) {
                          if (leaveOnDay.status === 'APPROVED') {
@@ -489,7 +489,7 @@ export const LeaveScreen: React.FC = () => {
                     })}
                   </div>
                   
-                  <div className="flex gap-4 justify-center mt-6 pt-4 border-t border-white/10">
+                  <div className="flex gap-4 justify-center mt-6 pt-4 border-t border-[var(--border)]">
                     <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-emerald-400 border border-emerald-400"></div><span className="text-[10px] text-[var(--text-secondary)] font-medium">Approved</span></div>
                     <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-amber-400 border border-amber-400"></div><span className="text-[10px] text-[var(--text-secondary)] font-medium">Pending</span></div>
                     <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-cyan-400 border border-cyan-400"></div><span className="text-[10px] text-[var(--text-secondary)] font-medium">Today</span></div>
@@ -506,7 +506,7 @@ export const LeaveScreen: React.FC = () => {
         {/* Left: Apply Leave Card */}
         <div className="lg:col-span-5 space-y-6">
           <div className="glass-card-elevated p-5 shadow-xl rounded-2xl text-white">
-            <h2 className="text-sm font-black text-white mb-4 flex items-center gap-2 border-b border-white/10 pb-2.5">
+            <h2 className="text-sm font-black text-white mb-4 flex items-center gap-2 border-b border-[var(--border)] pb-2.5">
               <CalendarDays className="w-4.5 h-4.5 text-[var(--primary-light)]" />
               Apply Leave Request
             </h2>
@@ -630,7 +630,7 @@ export const LeaveScreen: React.FC = () => {
                     <p className="text-white font-black">{endDate || 'Select end date...'}</p>
                   </div>
                   {requestedLeaveDaysCount > 0 && (
-                    <div className="col-span-2 pt-1 border-t border-white/10 mt-1 flex justify-between items-center text-xs">
+                    <div className="col-span-2 pt-1 border-t border-[var(--border)] mt-1 flex justify-between items-center text-xs">
                       <span className="text-[var(--text-secondary)] font-bold">Total Duration:</span>
                       <span className="text-cyan-300 font-black text-sm">{requestedLeaveDaysCount} Days</span>
                     </div>
@@ -682,7 +682,7 @@ export const LeaveScreen: React.FC = () => {
         {/* Right: History & List */}
         <div className="lg:col-span-7 space-y-4">
           <div className="glass-card-elevated p-5 shadow-xl rounded-2xl min-h-[400px] flex flex-col text-white">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-white/10 pb-4 mb-4">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-[var(--border)] pb-4 mb-4">
               <h2 className="text-sm font-black text-white flex items-center gap-2">
                 <FileText className="w-4.5 h-4.5 text-[var(--primary-light)]" />
                 My Leave History
@@ -733,7 +733,7 @@ export const LeaveScreen: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex sm:flex-col items-end gap-2 w-full sm:w-auto justify-between border-t border-white/10 sm:border-0 pt-2 sm:pt-0">
+                    <div className="flex sm:flex-col items-end gap-2 w-full sm:w-auto justify-between border-t border-[var(--border)] sm:border-0 pt-2 sm:pt-0">
                       <span className="text-sm font-black text-cyan-300 font-mono">
                         {leave.totalDays} Day{leave.totalDays > 1 ? 's' : ''}
                       </span>
@@ -773,7 +773,7 @@ export const LeaveScreen: React.FC = () => {
                 <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase">Total Duration</p>
                 <p className="text-xs font-black text-cyan-300 mt-0.5 font-mono">{selectedLeave.totalDays} Day(s)</p>
               </div>
-              <div className="col-span-2 pt-2 border-t border-white/10">
+              <div className="col-span-2 pt-2 border-t border-[var(--border)]">
                 <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase">Reason</p>
                 <p className="text-xs text-white mt-0.5">"{selectedLeave.reason}"</p>
               </div>
@@ -790,7 +790,7 @@ export const LeaveScreen: React.FC = () => {
                 </div>
                 
                 {selectedLeave.teamLeaderId && (
-                  <div className="pt-2 border-t border-white/10 space-y-1">
+                  <div className="pt-2 border-t border-[var(--border)] space-y-1">
                     <p className="font-bold text-white">Team Leader Review</p>
                     <div className="flex justify-between text-[11px]">
                       <span className="text-[var(--text-secondary)]">TL: {selectedLeave.teamLeaderName}</span>
@@ -804,7 +804,7 @@ export const LeaveScreen: React.FC = () => {
                   </div>
                 )}
 
-                <div className="pt-2 border-t border-white/10 space-y-1">
+                <div className="pt-2 border-t border-[var(--border)] space-y-1">
                   <p className="font-bold text-white">Admin Final Review</p>
                   <div className="flex justify-between text-[11px]">
                     <span className="text-[var(--text-secondary)]">Admin Status</span>
@@ -825,7 +825,7 @@ export const LeaveScreen: React.FC = () => {
 
                 {/* Override indicators */}
                 {selectedLeave.overrideBy && (
-                  <div className="pt-2 border-t border-white/10 space-y-1 bg-amber-500/10 p-2 rounded-xl border border-amber-500/20">
+                  <div className="pt-2 border-t border-[var(--border)] space-y-1 bg-amber-500/10 p-2 rounded-xl border border-amber-500/20">
                     <p className="font-bold text-amber-300 flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5" /> Admin Manual Override
                     </p>

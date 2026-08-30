@@ -332,7 +332,7 @@ export const PlannerScreen: React.FC = () => {
       case 'Low':
       default:
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black glass-card-inner text-slate-300 border border-white/10 uppercase tracking-wider">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black glass-card-inner text-slate-300 border border-[var(--border)] uppercase tracking-wider">
             Low
           </span>
         );
@@ -375,14 +375,14 @@ export const PlannerScreen: React.FC = () => {
         );
       case 'Cancelled':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black glass-card-inner text-slate-400 border border-white/10">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black glass-card-inner text-slate-400 border border-[var(--border)]">
             Cancelled
           </span>
         );
       case 'Assigned':
       default:
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black glass-card-inner text-slate-300 border border-white/10">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black glass-card-inner text-slate-300 border border-[var(--border)]">
             Assigned
           </span>
         );
@@ -486,7 +486,7 @@ export const PlannerScreen: React.FC = () => {
   return (
     <div className="flex flex-col gap-5 pb-16 text-[var(--text-primary)] max-w-5xl mx-auto font-sans">
       {/* Top Header */}
-      <div className="flex items-center justify-between pt-2 pb-2 border-b border-white/10">
+      <div className="flex items-center justify-between pt-2 pb-2 border-b border-[var(--border)]">
         <div>
           <h1 className="text-2xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-2">
             <CheckSquare className="w-7 h-7 text-cyan-400" /> Work Planner
@@ -505,7 +505,7 @@ export const PlannerScreen: React.FC = () => {
           <button
             onClick={handleTriggerSync}
             disabled={isSyncing}
-            className="p-2 glass-card-inner rounded-xl border border-white/10 hover:border-cyan-400/50 text-slate-300 hover:text-cyan-300 transition-all cursor-pointer shadow-sm"
+            className="p-2 glass-card-inner rounded-xl border border-[var(--border)] hover:border-cyan-400/50 text-slate-300 hover:text-cyan-300 transition-all cursor-pointer shadow-sm"
             title="Manual Sync"
           >
             <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-cyan-400' : ''}`} />
@@ -517,7 +517,7 @@ export const PlannerScreen: React.FC = () => {
       <Card variant="elevated" className="p-5 relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl glass-card-inner border border-white/10 flex items-center justify-center shadow-inner">
+            <div className="w-10 h-10 rounded-xl glass-card-inner border border-[var(--border)] flex items-center justify-center shadow-inner">
               <Briefcase className="w-5 h-5 text-cyan-400" />
             </div>
             <div>
@@ -536,7 +536,7 @@ export const PlannerScreen: React.FC = () => {
 
         {/* Progress Bar */}
         <div className="space-y-1.5">
-          <div className="w-full glass-card-inner h-3.5 rounded-full overflow-hidden border border-white/10 p-0.5">
+          <div className="w-full glass-card-inner h-3.5 rounded-full overflow-hidden border border-[var(--border)] p-0.5">
             <div 
               className="h-full bg-[var(--button-primary)] rounded-full transition-all duration-500 shadow-md"
               style={{ width: `${overallProgressPct}%` }}
@@ -558,7 +558,7 @@ export const PlannerScreen: React.FC = () => {
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'today'
               ? 'bg-[var(--button-primary)] border-cyan-400/50 text-white shadow-lg scale-[1.02]'
-              : 'glass-card-inner border-white/10 text-slate-400 hover:text-white hover:border-cyan-400/30'
+              : 'glass-card-inner border-[var(--border)] text-slate-400 hover:text-white hover:border-cyan-400/30'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -572,7 +572,7 @@ export const PlannerScreen: React.FC = () => {
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'upcoming'
               ? 'bg-[var(--button-primary)] border-cyan-400/50 text-white shadow-lg scale-[1.02]'
-              : 'glass-card-inner border-white/10 text-slate-400 hover:text-white hover:border-cyan-400/30'
+              : 'glass-card-inner border-[var(--border)] text-slate-400 hover:text-white hover:border-cyan-400/30'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -586,7 +586,7 @@ export const PlannerScreen: React.FC = () => {
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'overdue'
               ? 'button-gradient-danger border-rose-400 text-white shadow-lg scale-[1.02]'
-              : 'glass-card-inner border-white/10 text-rose-400 hover:border-rose-400/40'
+              : 'glass-card-inner border-[var(--border)] text-rose-400 hover:border-rose-400/40'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -600,7 +600,7 @@ export const PlannerScreen: React.FC = () => {
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'revision'
               ? 'button-gradient-gold border-amber-400 text-white shadow-lg scale-[1.02]'
-              : 'glass-card-inner border-white/10 text-amber-400 hover:border-amber-400/40'
+              : 'glass-card-inner border-[var(--border)] text-amber-400 hover:border-amber-400/40'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -614,7 +614,7 @@ export const PlannerScreen: React.FC = () => {
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'completed'
               ? 'button-gradient-success border-emerald-400 text-white shadow-lg scale-[1.02]'
-              : 'glass-card-inner border-white/10 text-emerald-400 hover:border-emerald-400/40'
+              : 'glass-card-inner border-[var(--border)] text-emerald-400 hover:border-emerald-400/40'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -628,7 +628,7 @@ export const PlannerScreen: React.FC = () => {
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'all'
               ? 'bg-[var(--button-primary)] border-cyan-400/50 text-white shadow-lg scale-[1.02]'
-              : 'glass-card-inner border-white/10 text-slate-400 hover:text-white hover:border-cyan-400/30'
+              : 'glass-card-inner border-[var(--border)] text-slate-400 hover:text-white hover:border-cyan-400/30'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -640,13 +640,13 @@ export const PlannerScreen: React.FC = () => {
 
       {/* View Mode Toggle & Filters */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between glass-card-elevated p-1.5 rounded-2xl border border-white/10">
+        <div className="flex items-center justify-between glass-card-elevated p-1.5 rounded-2xl border border-[var(--border)]">
           <div className="flex items-center gap-1 w-full">
             <button
               onClick={() => setViewMode('daily')}
               className={`flex-1 py-2 text-xs font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 viewMode === 'daily'
-                  ? 'bg-[var(--button-primary)] text-white shadow-md font-black border border-white/20'
+                  ? 'bg-[var(--button-primary)] text-white shadow-md font-black border border-[var(--border)]'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -656,7 +656,7 @@ export const PlannerScreen: React.FC = () => {
               onClick={() => setViewMode('weekly')}
               className={`flex-1 py-2 text-xs font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 viewMode === 'weekly'
-                  ? 'bg-[var(--button-primary)] text-white shadow-md font-black border border-white/20'
+                  ? 'bg-[var(--button-primary)] text-white shadow-md font-black border border-[var(--border)]'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -667,19 +667,19 @@ export const PlannerScreen: React.FC = () => {
 
         {/* Weekly View Strip */}
         {viewMode === 'weekly' && (
-          <div className="grid grid-cols-7 gap-1.5 glass-card-elevated p-2.5 rounded-2xl border border-white/10 text-center">
+          <div className="grid grid-cols-7 gap-1.5 glass-card-elevated p-2.5 rounded-2xl border border-[var(--border)] text-center">
             {weekDays.map((day) => (
               <div 
                 key={day.dateStr}
                 className={`p-2 rounded-xl border flex flex-col items-center justify-between ${
                   day.dateStr === todayDateStr
                     ? 'bg-cyan-500/20 border-cyan-400/60 shadow-md'
-                    : 'glass-card-inner border-white/10'
+                    : 'glass-card-inner border-[var(--border)]'
                 }`}
               >
                 <span className="text-[10px] font-bold text-slate-400">{day.dayName}</span>
                 <span className="text-xs font-black text-white my-0.5">{day.dayNum}</span>
-                <span className="text-[9px] font-extrabold text-cyan-300 glass-card-inner px-1.5 py-0.5 rounded-full border border-white/10">
+                <span className="text-[9px] font-extrabold text-cyan-300 glass-card-inner px-1.5 py-0.5 rounded-full border border-[var(--border)]">
                   {day.completed}/{day.total}
                 </span>
               </div>
@@ -700,7 +700,7 @@ export const PlannerScreen: React.FC = () => {
                 className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
                   priorityFilter === p
                     ? 'bg-[var(--button-primary)] text-white border-cyan-400/50 shadow-md'
-                    : 'glass-card-inner text-slate-400 border-white/10 hover:border-cyan-400/30 hover:text-white'
+                    : 'glass-card-inner text-slate-400 border-[var(--border)] hover:border-cyan-400/30 hover:text-white'
                 }`}
               >
                 {p}
@@ -720,7 +720,7 @@ export const PlannerScreen: React.FC = () => {
                   className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
                     statusFilter === s
                       ? 'bg-[var(--button-primary)] text-white border-cyan-400/50 shadow-md'
-                      : 'glass-card-inner text-slate-400 border-white/10 hover:border-cyan-400/30 hover:text-white'
+                      : 'glass-card-inner text-slate-400 border-[var(--border)] hover:border-cyan-400/30 hover:text-white'
                   }`}
                 >
                   {s}
@@ -812,7 +812,7 @@ export const PlannerScreen: React.FC = () => {
                 </div>
 
                 {/* Description */}
-                <p className="text-xs text-slate-300 line-clamp-2 glass-card-inner p-2.5 rounded-xl border border-white/10">
+                <p className="text-xs text-slate-300 line-clamp-2 glass-card-inner p-2.5 rounded-xl border border-[var(--border)]">
                   {task.description}
                 </p>
 
@@ -845,7 +845,7 @@ export const PlannerScreen: React.FC = () => {
                     <span>Progress</span>
                     <span className="text-white font-extrabold">{task.completionPercentage || 0}%</span>
                   </div>
-                  <div className="w-full glass-card-inner h-2 rounded-full overflow-hidden border border-white/10">
+                  <div className="w-full glass-card-inner h-2 rounded-full overflow-hidden border border-[var(--border)]">
                     <div
                       className={`h-full transition-all duration-300 ${
                         effectiveStatus === 'Completed'
@@ -862,7 +862,7 @@ export const PlannerScreen: React.FC = () => {
                 </div>
 
                 {/* ACTION BUTTONS */}
-                <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
+                <div className="pt-2 border-t border-[var(--border)] flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-[10px] text-slate-400">
                     <span className="flex items-center gap-1">
                       <User className="w-3 h-3 text-slate-400" /> By {task.createdByName || 'Admin'}
@@ -934,7 +934,7 @@ export const PlannerScreen: React.FC = () => {
             );
           })
         ) : (
-          <div className="py-12 glass-card-elevated rounded-2xl border border-dashed border-white/10">
+          <div className="py-12 glass-card-elevated rounded-2xl border border-dashed border-[var(--border)]">
             <EmptyState
               icon={CheckSquare}
               title="No tasks in this view"
@@ -957,7 +957,7 @@ export const PlannerScreen: React.FC = () => {
           return (
             <div className="space-y-4 text-xs text-[var(--text-primary)]">
               {/* Task Header info */}
-              <div className="p-4 glass-card-elevated rounded-2xl border border-white/10 space-y-3">
+              <div className="p-4 glass-card-elevated rounded-2xl border border-[var(--border)] space-y-3">
                 <div className="flex justify-between items-start gap-2">
                   <div>
                     <h3 className="font-extrabold text-base text-white">{selectedTask.title}</h3>
@@ -971,23 +971,23 @@ export const PlannerScreen: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-3 glass-card-inner rounded-xl text-slate-300 text-xs leading-relaxed border border-white/10">
+                <div className="p-3 glass-card-inner rounded-xl text-slate-300 text-xs leading-relaxed border border-[var(--border)]">
                   {selectedTask.description}
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
-                  <div className="glass-card-inner p-2 rounded-xl border border-white/10">
+                  <div className="glass-card-inner p-2 rounded-xl border border-[var(--border)]">
                     <span className="text-cyan-400 font-bold block">Due Date & Time</span>
                     <span className="font-semibold text-white">{selectedTask.dueDate} {selectedTask.dueTime || ''}</span>
                   </div>
-                  <div className="glass-card-inner p-2 rounded-xl border border-white/10">
+                  <div className="glass-card-inner p-2 rounded-xl border border-[var(--border)]">
                     <span className="text-cyan-400 font-bold block">Assigned Date</span>
                     <span className="font-semibold text-slate-300">
                       {selectedTask.assignedTime?.substring(0, 10) || selectedTask.createdAtDeviceTime?.substring(0, 10) || 'N/A'}
                     </span>
                   </div>
                   {selectedTask.expectedCompletionTime && (
-                    <div className="glass-card-inner p-2 rounded-xl border border-white/10">
+                    <div className="glass-card-inner p-2 rounded-xl border border-[var(--border)]">
                       <span className="text-cyan-400 font-bold block">Expected Completion</span>
                       <span className="font-semibold text-cyan-300">{selectedTask.expectedCompletionTime}</span>
                     </div>
@@ -1018,7 +1018,7 @@ export const PlannerScreen: React.FC = () => {
               )}
 
               {/* Employee Interactive Progress Slider */}
-              <div className="p-4 glass-card-elevated rounded-2xl border border-white/10 space-y-3">
+              <div className="p-4 glass-card-elevated rounded-2xl border border-[var(--border)] space-y-3">
                 <div className="flex justify-between items-center">
                   <label className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-cyan-400" /> Completion Percentage
@@ -1047,7 +1047,7 @@ export const PlannerScreen: React.FC = () => {
                       className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all border cursor-pointer ${
                         completionInput === pct
                           ? 'bg-[var(--button-primary)] text-white border-cyan-400/60 font-black shadow-sm'
-                          : 'glass-card-inner text-slate-400 border-white/10 hover:text-white'
+                          : 'glass-card-inner text-slate-400 border-[var(--border)] hover:text-white'
                       }`}
                     >
                       {pct}%
@@ -1070,7 +1070,7 @@ export const PlannerScreen: React.FC = () => {
                         className={`p-2.5 rounded-xl border text-xs space-y-1 ${
                           c.authorRole === 'ADMIN'
                             ? 'bg-cyan-500/15 border-cyan-500/30'
-                            : 'glass-card-inner border-white/10'
+                            : 'glass-card-inner border-[var(--border)]'
                         }`}
                       >
                         <div className="flex justify-between items-center text-[10px] font-bold">
@@ -1095,7 +1095,7 @@ export const PlannerScreen: React.FC = () => {
                     value={commentInput}
                     onChange={(e) => setCommentInput(e.target.value)}
                     placeholder="Add progress notes or questions..."
-                    className="flex-1 px-3 py-2 rounded-xl border border-white/10 glass-card-inner text-white text-xs focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                    className="flex-1 px-3 py-2 rounded-xl border border-[var(--border)] glass-card-inner text-white text-xs focus:outline-none focus:ring-1 focus:ring-cyan-400"
                   />
                   <Button 
                     type="button" 
@@ -1126,7 +1126,7 @@ export const PlannerScreen: React.FC = () => {
                       onClick={handleSaveTaskProgress}
                       disabled={isUpdating}
                       variant="tonal"
-                      className="flex-1 py-3 text-slate-200 border border-white/10 font-bold rounded-2xl cursor-pointer"
+                      className="flex-1 py-3 text-slate-200 border border-[var(--border)] font-bold rounded-2xl cursor-pointer"
                     >
                       {isUpdating ? 'Saving...' : 'Save Progress'}
                     </Button>
@@ -1154,7 +1154,7 @@ export const PlannerScreen: React.FC = () => {
       >
         {viewingRevisionsTask && (
           <div className="space-y-4 text-xs text-[var(--text-primary)]">
-            <div className="p-4 glass-card-elevated rounded-2xl border border-white/10">
+            <div className="p-4 glass-card-elevated rounded-2xl border border-[var(--border)]">
               <h4 className="font-bold text-sm text-white">{viewingRevisionsTask.title}</h4>
               <p className="text-[11px] text-slate-400 mt-0.5">
                 Total Revisions: <span className="font-bold text-amber-400">{viewingRevisionsTask.revisions?.length || viewingRevisionsTask.revisionCount || 0}</span>
@@ -1181,14 +1181,14 @@ export const PlannerScreen: React.FC = () => {
                         </div>
                       )}
                     </div>
-                    <div className="flex justify-between items-center text-[9px] text-slate-400 pt-1 border-t border-white/10">
+                    <div className="flex justify-between items-center text-[9px] text-slate-400 pt-1 border-t border-[var(--border)]">
                       <span>By {rev.requestedByName}</span>
                       {rev.resubmittedAt && <span>Resubmitted: {new Date(rev.resubmittedAt).toLocaleDateString()}</span>}
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="text-center py-10 glass-card-inner rounded-2xl border border-dashed border-white/10">
+                <div className="text-center py-10 glass-card-inner rounded-2xl border border-dashed border-[var(--border)]">
                   <RotateCcw className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-30" />
                   <p className="text-slate-400 italic">No revision history found.</p>
                 </div>
@@ -1198,7 +1198,7 @@ export const PlannerScreen: React.FC = () => {
             <Button
               variant="tonal"
               onClick={() => setViewingRevisionsTask(null)}
-              className="w-full text-slate-200 border border-white/10 rounded-xl font-bold py-2.5 cursor-pointer"
+              className="w-full text-slate-200 border border-[var(--border)] rounded-xl font-bold py-2.5 cursor-pointer"
             >
               Close History
             </Button>

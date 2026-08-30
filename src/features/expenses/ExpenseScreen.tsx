@@ -475,7 +475,7 @@ export const ExpenseScreen: React.FC = () => {
               className="w-full px-4 py-3 rounded-2xl glass-card-inner text-white text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400"
             >
               {EXPENSE_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat} className="bg-slate-900 text-white">{cat}</option>
+                <option key={cat} value={cat} className="bg-[var(--surface-inner)] text-[var(--text-primary)]">{cat}</option>
               ))}
             </select>
           </div>
@@ -563,7 +563,7 @@ export const ExpenseScreen: React.FC = () => {
                     setIsModalOpen(false);
                     setIsScannerOpen(true);
                   }}
-                  className="border-2 border-dashed border-white/20 hover:border-cyan-400 glass-card-inner rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-xs font-semibold text-[var(--text-secondary)] transition-colors cursor-pointer"
+                  className="border-2 border-dashed border-[var(--border)] hover:border-cyan-400 glass-card-inner rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-xs font-semibold text-[var(--text-secondary)] transition-colors cursor-pointer"
                 >
                   <Camera className="w-4 h-4 text-cyan-300" />
                   <span className="text-[11px] font-bold text-white">Scan with Camera</span>
@@ -571,14 +571,14 @@ export const ExpenseScreen: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-white/20 hover:border-cyan-400 glass-card-inner rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-xs font-semibold text-[var(--text-secondary)] transition-colors cursor-pointer"
+                  className="border-2 border-dashed border-[var(--border)] hover:border-cyan-400 glass-card-inner rounded-2xl p-3 flex flex-col items-center justify-center gap-1 text-xs font-semibold text-[var(--text-secondary)] transition-colors cursor-pointer"
                 >
                   <Paperclip className="w-4 h-4 text-white" />
                   <span className="text-[11px] font-bold text-white">Upload File / Photo</span>
                 </button>
               </div>
             ) : (
-              <div className="relative rounded-2xl overflow-hidden border border-white/10 h-32 bg-black/40">
+              <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] h-32 bg-black/40">
                 <img src={receiptUrl} alt="Receipt Preview" className="w-full h-full object-contain" />
                 <button
                   type="button"

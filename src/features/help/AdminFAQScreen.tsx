@@ -134,7 +134,7 @@ export const AdminFAQScreen: React.FC<AdminFAQScreenProps> = ({ onBack }) => {
               placeholder="Search admin FAQs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[#2D1B5A]/80 border border-purple-500/30 rounded-2xl py-3 pl-10 pr-4 text-sm text-white placeholder-purple-300 focus:outline-none focus:border-purple-500 transition-colors shadow-sm"
+              className="w-full glass-card/80 border border-purple-500/30 rounded-2xl py-3 pl-10 pr-4 text-sm text-white placeholder-purple-300 focus:outline-none focus:border-purple-500 transition-colors shadow-sm"
             />
           </div>
 
@@ -158,7 +158,7 @@ export const AdminFAQScreen: React.FC<AdminFAQScreenProps> = ({ onBack }) => {
                       return (
                         <Card 
                           key={qIdx}
-                          className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'border-purple-500/50 bg-[#2D1B5A]/90' : 'border-purple-500/20 bg-[#2D1B5A]/40'}`}
+                          className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'border-purple-500/50 glass-card/90' : 'border-purple-500/20 glass-card/40'}`}
                         >
                           <button 
                             className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left"

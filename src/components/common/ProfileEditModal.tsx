@@ -193,7 +193,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             {photoUrl ? (
               <img src={photoUrl} alt={user.name} className="w-full h-full object-cover" />
             ) : (
-              <User className="w-12 h-12 text-[#D4AF37]/60" />
+              <User className="w-12 h-12 text-[var(--primary)]/60" />
             )}
           </div>
           <label

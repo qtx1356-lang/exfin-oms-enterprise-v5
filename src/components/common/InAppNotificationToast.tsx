@@ -141,10 +141,10 @@ export const InAppNotificationToast: React.FC<Props> = ({
   const isHigh = priority === 'HIGH';
 
   const borderStyle = isCritical
-    ? 'border-2 border-rose-500/80 shadow-[0_0_25px_rgba(244,63,94,0.4)] bg-[#280D3D]'
+    ? 'border-2 border-rose-500/80 shadow-[0_0_25px_rgba(244,63,94,0.4)] glass-card'
     : isHigh
-    ? 'border-2 border-amber-500/70 shadow-[0_0_20px_rgba(245,158,11,0.3)] bg-[#211044]'
-    : 'border-2 border-purple-500/50 shadow-[0_10px_35px_rgba(0,0,0,0.7)] bg-[#211044]';
+    ? 'border-2 border-amber-500/70 shadow-[0_0_20px_rgba(245,158,11,0.3)] glass-inner-tile'
+    : 'border-2 border-purple-500/50 shadow-[0_10px_35px_rgba(0,0,0,0.7)] glass-inner-tile';
 
   return (
     <AnimatePresence>

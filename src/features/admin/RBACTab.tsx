@@ -151,7 +151,7 @@ export const RBACTab: React.FC = () => {
       {/* Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#211044] border border-purple-500/30 rounded-2xl max-w-md w-full p-6 space-y-4">
+          <div className="glass-inner-tile border border-purple-500/30 rounded-2xl max-w-md w-full p-6 space-y-4">
             <div className="flex items-center gap-3 text-amber-400">
               <AlertTriangle className="w-6 h-6 shrink-0" />
               <h3 className="text-lg font-bold text-white">Confirm Permission Changes</h3>
@@ -173,18 +173,18 @@ export const RBACTab: React.FC = () => {
 
       {/* DESKTOP MATRIX VIEW (md and up) */}
       <div className="hidden md:block">
-        <Card className="p-0 overflow-hidden bg-[#2D1B5A] border-purple-500/20">
+        <Card className="p-0 overflow-hidden glass-card border-purple-500/20">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr>
-                  <th className="p-4 border-b border-purple-500/20 text-white font-bold bg-[#211044] sticky left-0 z-20 min-w-[220px]">
+                  <th className="p-4 border-b border-purple-500/20 text-white font-bold glass-inner-tile sticky left-0 z-20 min-w-[220px]">
                     Feature Module
                   </th>
                   {ROLES.map(role => (
                     <th
                       key={role}
-                      className="p-4 border-b border-purple-500/20 text-center text-purple-200 font-extrabold bg-[#211044] min-w-[130px] uppercase text-xs tracking-wider"
+                      className="p-4 border-b border-purple-500/20 text-center text-purple-200 font-extrabold glass-inner-tile min-w-[130px] uppercase text-xs tracking-wider"
                     >
                       {role.replace('_', ' ')}
                     </th>
@@ -194,7 +194,7 @@ export const RBACTab: React.FC = () => {
               <tbody>
                 {FEATURE_REGISTRY.map((feature, idx) => (
                   <tr key={feature.id} className={idx % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.02]'}>
-                    <td className="p-4 border-b border-purple-500/10 sticky left-0 z-10 whitespace-nowrap bg-[#2D1B5A]">
+                    <td className="p-4 border-b border-purple-500/10 sticky left-0 z-10 whitespace-nowrap glass-card">
                       <div className="font-bold text-white text-xs sm:text-sm">{feature.name}</div>
                       <div className="text-[10px] text-purple-300/60 max-w-xs truncate">{feature.description}</div>
                     </td>
@@ -246,7 +246,7 @@ export const RBACTab: React.FC = () => {
               className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
                 selectedMobileRole === role
                   ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
-                  : 'bg-[#211044] text-purple-300/70 hover:bg-white/5 border border-purple-500/20'
+                  : 'glass-inner-tile text-purple-300/70 hover:bg-white/5 border border-purple-500/20'
               }`}
             >
               {role.replace('_', ' ')}
@@ -265,7 +265,7 @@ export const RBACTab: React.FC = () => {
             return (
               <Card
                 key={feature.id}
-                className="p-4 bg-[#2D1B5A] border-purple-500/20 flex items-center justify-between gap-3"
+                className="p-4 glass-card border-purple-500/20 flex items-center justify-between gap-3"
               >
                 <div>
                   <div className="font-bold text-white text-xs">{feature.name}</div>

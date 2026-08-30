@@ -870,7 +870,7 @@ export const SalaryManagementTab: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* HEADER BAR AND FILTERS */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-[#2D1B5A] p-6 rounded-[24px] border border-purple-500/20 shadow-xl">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 glass-card p-6 rounded-[24px] border border-purple-500/20 shadow-xl">
         <div className="space-y-1">
           <h2 className="text-base font-black uppercase text-purple-200 tracking-wider flex items-center gap-2">
             <Coins className="w-5 h-5 text-amber-400" /> Salary Disbursal & Generation (Stage 2)
@@ -953,7 +953,7 @@ export const SalaryManagementTab: React.FC = () => {
       {/* SUMMARY DASHBOARD GRID */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Period Card */}
-        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px] flex items-center justify-between">
+        <Card className="p-4 glass-card border border-purple-500/20 text-white rounded-[22px] flex items-center justify-between">
           <div>
             <span className="text-[10px] font-bold text-purple-300 uppercase block tracking-wider">Leave / Financial Year</span>
             <span className="text-sm font-black text-amber-300 font-mono">
@@ -969,7 +969,7 @@ export const SalaryManagementTab: React.FC = () => {
         </Card>
 
         {/* Generation Coverage */}
-        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px] flex items-center justify-between">
+        <Card className="p-4 glass-card border border-purple-500/20 text-white rounded-[22px] flex items-center justify-between">
           <div>
             <span className="text-[10px] font-bold text-purple-300 uppercase block tracking-wider">Disbursal Progress</span>
             <span className="text-sm font-black text-emerald-400">
@@ -985,7 +985,7 @@ export const SalaryManagementTab: React.FC = () => {
         </Card>
 
         {/* Total Advances */}
-        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px] flex items-center justify-between">
+        <Card className="p-4 glass-card border border-purple-500/20 text-white rounded-[22px] flex items-center justify-between">
           <div>
             <span className="text-[10px] font-bold text-purple-300 uppercase block tracking-wider">Monthly Advance Claims</span>
             <span className="text-sm font-black text-amber-400">
@@ -1001,7 +1001,7 @@ export const SalaryManagementTab: React.FC = () => {
         </Card>
 
         {/* Disbursed Amount */}
-        <Card className="p-4 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px] flex items-center justify-between">
+        <Card className="p-4 glass-card border border-purple-500/20 text-white rounded-[22px] flex items-center justify-between">
           <div>
             <span className="text-[10px] font-bold text-purple-300 uppercase block tracking-wider">Net Disbursal (Stage 2)</span>
             <span className="text-sm font-black text-white">
@@ -1034,7 +1034,7 @@ export const SalaryManagementTab: React.FC = () => {
       </div>
 
       {/* CORE SALARY LISTING AND CALCULATION GRID */}
-      <Card className="p-6 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[24px] shadow-2xl">
+      <Card className="p-6 glass-card border border-purple-500/20 text-white rounded-[24px] shadow-2xl">
         <div className="overflow-x-auto">
           {loading ? (
             <div className="py-16 flex flex-col items-center justify-center gap-3">

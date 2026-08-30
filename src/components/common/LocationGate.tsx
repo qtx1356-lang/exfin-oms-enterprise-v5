@@ -69,7 +69,7 @@ export const LocationGate: React.FC = () => {
 
           {/* Animated Glowing Icon Header */}
           <div className="relative flex justify-center pt-2">
-            <div className="relative w-20 h-20 glass-card-inner border border-white/20 rounded-3xl flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.25)]">
+            <div className="relative w-20 h-20 glass-card-inner border border-[var(--border)] rounded-3xl flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.25)]">
               {showPermissionDenied && (
                 <ShieldAlert className="w-10 h-10 text-amber-300 animate-pulse" />
               )}
@@ -105,7 +105,7 @@ export const LocationGate: React.FC = () => {
           </div>
 
           {/* Explanatory Message / Warning */}
-          <div className="glass-card-inner border border-white/10 p-3.5 rounded-2xl">
+          <div className="glass-card-inner border border-[var(--border)] p-3.5 rounded-2xl">
             <p className="text-[11px] text-slate-300 leading-normal font-medium">
               {showPermissionDenied && 'Without permission, the app cannot track your geofence status or process automatic check-ins.'}
               {showGpsOff && 'Your attendance cannot be processed until Location Services are enabled on your device.'}
@@ -118,7 +118,7 @@ export const LocationGate: React.FC = () => {
             <button
               onClick={handleAction}
               disabled={loading || locationStatus === 'loading'}
-              className="w-full py-4 bg-[var(--button-primary)] hover:opacity-95 active:scale-[0.98] disabled:opacity-50 text-white font-black rounded-2xl text-xs uppercase tracking-wider transition-all duration-200 shadow-xl flex items-center justify-center gap-2 cursor-pointer border border-white/20"
+              className="w-full py-4 bg-[var(--button-primary)] hover:opacity-95 active:scale-[0.98] disabled:opacity-50 text-white font-black rounded-2xl text-xs uppercase tracking-wider transition-all duration-200 shadow-xl flex items-center justify-center gap-2 cursor-pointer border border-[var(--border)]"
             >
               {(loading || locationStatus === 'loading') ? (
                 <>

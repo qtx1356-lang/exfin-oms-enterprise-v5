@@ -24,7 +24,7 @@ export const SuspendedNoticeScreen: React.FC = () => {
         </p>
         <button 
           onClick={resetRegistration} 
-          className="w-full py-4 px-6 rounded-2xl border border-[var(--border)] text-[var(--text-primary)] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[var(--card-surface)] transition-all shadow-md"
+          className="w-full py-4 px-6 rounded-2xl border border-[var(--border)] text-[var(--text-primary)] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[var(--surface-inner)] transition-all shadow-md"
         >
           Different Credentials
         </button>

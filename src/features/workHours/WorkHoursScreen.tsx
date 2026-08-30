@@ -339,10 +339,10 @@ export const WorkHoursScreen: React.FC = () => {
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="flex-1 sm:flex-none text-xs font-bold text-[var(--text-primary)] bg-[var(--card-surface)] border border-[var(--border)] rounded-2xl px-3.5 py-2.5 outline-none cursor-pointer focus:border-[var(--success)] transition-all shadow-md"
+            className="flex-1 sm:flex-none text-xs font-bold text-[var(--text-primary)] bg-[var(--surface-inner)] border border-[var(--border)] rounded-2xl px-3.5 py-2.5 outline-none cursor-pointer focus:border-[var(--success)] transition-all shadow-md"
           >
             {monthOptions.map((opt) => (
-              <option key={opt.val} value={opt.val} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+              <option key={opt.val} value={opt.val} className="bg-[var(--surface-elevated)] text-[var(--text-primary)]">
                 {opt.label}
               </option>
             ))}
@@ -351,7 +351,7 @@ export const WorkHoursScreen: React.FC = () => {
           <Button
             onClick={handleExportPDF}
             disabled={isFutureMonth || monthlyRecords.length === 0}
-            className="w-full sm:w-auto text-xs py-2.5 bg-[var(--button-primary)] hover:opacity-95 font-bold rounded-2xl flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all text-white border border-white/20"
+            className="w-full sm:w-auto text-xs py-2.5 bg-[var(--button-primary)] hover:opacity-95 font-bold rounded-2xl flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all text-white border border-[var(--border)]"
           >
             <Download className="w-4 h-4" /> Export PDF
           </Button>
@@ -443,12 +443,12 @@ export const WorkHoursScreen: React.FC = () => {
                     const heightPercent = Math.min(100, Math.max(8, (d.hours / 12) * 100));
                     return (
                       <div key={index} className="flex-1 flex flex-col items-center group relative h-full justify-end">
-                        <div className="absolute bottom-full mb-1 bg-[var(--card-surface)] border border-[var(--border)] text-[8.5px] font-bold text-[var(--text-primary)] px-1.5 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg">
+                        <div className="absolute bottom-full mb-1 bg-[var(--surface-inner)] border border-[var(--border)] text-[8.5px] font-bold text-[var(--text-primary)] px-1.5 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg">
                           {d.hours} hrs
                         </div>
                         <div
                           style={{ height: `${heightPercent}%` }}
-                          className="w-full bg-[var(--button-primary)] rounded-t-sm hover:opacity-90 transition-all cursor-pointer border-t border-white/30"
+                          className="w-full bg-[var(--button-primary)] rounded-t-sm hover:opacity-90 transition-all cursor-pointer border-t border-[var(--border)]"
                         />
                         <span className="text-[8.5px] font-bold text-[var(--text-secondary)] mt-1.5">
                           {d.day}
@@ -482,11 +482,11 @@ export const WorkHoursScreen: React.FC = () => {
               <div className="grid grid-cols-7 gap-1.5">
                 {calendarDays.map((item, idx) => {
                   if (!item) {
-                    return <div key={`empty-${idx}`} className="aspect-square bg-[var(--card-surface)]/20 rounded-xl" />;
+                    return <div key={`empty-${idx}`} className="aspect-square bg-[var(--surface-inner)]/20 rounded-xl" />;
                   }
 
                   const { day, record } = item;
-                  let bgClass = 'bg-[var(--card-surface)]/40 text-[var(--text-secondary)] border border-[var(--border)] hover:border-[var(--success)]/30';
+                  let bgClass = 'bg-[var(--surface-inner)]/40 text-[var(--text-secondary)] border border-[var(--border)] hover:border-[var(--success)]/30';
                   
                   if (record) {
                     const isCompleted = !!(record.checkOutTime && record.checkOutTime !== '--:--');
@@ -553,7 +553,7 @@ export const WorkHoursScreen: React.FC = () => {
                   <span>In Progress</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded bg-[var(--card-surface)] border border-[var(--border)]" />
+                  <span className="w-2.5 h-2.5 rounded bg-[var(--surface-inner)] border border-[var(--border)]" />
                   <span>No Log</span>
                 </div>
               </div>
@@ -766,7 +766,7 @@ export const WorkHoursScreen: React.FC = () => {
                 setShowDetailModal(false);
                 setSelectedRecord(null);
               }}
-              className="w-full py-3.5 bg-[var(--button-primary)] text-white font-bold rounded-2xl text-xs transition-all shadow-lg active:scale-95 border border-white/20 cursor-pointer"
+              className="w-full py-3.5 bg-[var(--button-primary)] text-white font-bold rounded-2xl text-xs transition-all shadow-lg active:scale-95 border border-[var(--border)] cursor-pointer"
             >
               Close Details
             </button>

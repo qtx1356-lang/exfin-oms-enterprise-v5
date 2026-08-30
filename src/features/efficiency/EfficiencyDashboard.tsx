@@ -847,10 +847,10 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
     <div className="space-y-6 font-sans text-[var(--text-primary)] pb-16 max-w-7xl mx-auto">
       
       {/* HEADER BAR */}
-      <div className="bg-[var(--card-surface)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-[var(--surface-inner)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--primary-light)]">
+            <div className="w-9 h-9 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--border)] flex items-center justify-center text-[var(--primary-light)]">
               <BarChart3 className="w-5 h-5" />
             </div>
             <h1 className="text-xl font-black text-[var(--text-primary)] tracking-wide uppercase">
@@ -866,7 +866,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
           {/* VIEW TOGGLE FOR TEAM LEADERS & ADMINS */}
           {(isTeamLeader || isAdmin) && (
-            <div className="bg-[var(--card-bg)] p-1 rounded-2xl border border-[var(--border)] flex items-center gap-1">
+            <div className="bg-[var(--surface-elevated)] p-1 rounded-2xl border border-[var(--border)] flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setViewMode('MY_PERFORMANCE')}
@@ -915,10 +915,10 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               <select
                 value={selectedEmployeeCode}
                 onChange={(e) => setSelectedEmployeeCode(e.target.value)}
-                className="bg-[var(--card-bg)] text-[var(--text-primary)] text-xs font-bold px-3 py-2 rounded-2xl border border-[var(--border)] focus:outline-none focus:border-[var(--primary)] cursor-pointer pr-8"
+                className="bg-[var(--surface-elevated)] text-[var(--text-primary)] text-xs font-bold px-3 py-2 rounded-2xl border border-[var(--border)] focus:outline-none focus:border-[var(--primary)] cursor-pointer pr-8"
               >
                 {authorizedEmployees.map(emp => (
-                  <option key={emp.employeeCode} value={emp.employeeCode} className="bg-[var(--card-surface)]">
+                  <option key={emp.employeeCode} value={emp.employeeCode} className="bg-[var(--surface-inner)]">
                     {emp.name} ({emp.employeeCode})
                   </option>
                 ))}
@@ -927,7 +927,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
           )}
 
           {/* PERIOD FILTER SELECTOR */}
-          <div className="bg-[var(--card-bg)] p-1 rounded-2xl border border-[var(--border)] flex items-center gap-1 text-xs">
+          <div className="bg-[var(--surface-elevated)] p-1 rounded-2xl border border-[var(--border)] flex items-center gap-1 text-xs">
             <button
               type="button"
               onClick={() => setPeriodFilter('THIS_WEEK')}
@@ -961,7 +961,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
           <button
             type="button"
             onClick={handleExportPDF}
-            className="px-3 py-2 rounded-2xl bg-[var(--card-bg)] hover:bg-[var(--card-surface)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-extrabold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+            className="px-3 py-2 rounded-2xl bg-[var(--surface-elevated)] hover:bg-[var(--surface-inner)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-extrabold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
             title="Download Performance Report"
           >
             <Download className="w-3.5 h-3.5 text-[var(--primary-light)]" />
@@ -972,14 +972,14 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
       {/* CUSTOM DATE RANGE PICKER (If selected) */}
       {periodFilter === 'CUSTOM' && (
-        <div className="bg-[var(--card-surface)] p-3.5 rounded-2xl border border-[var(--border)] flex flex-wrap items-center gap-4 text-xs">
+        <div className="bg-[var(--surface-inner)] p-3.5 rounded-2xl border border-[var(--border)] flex flex-wrap items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
             <span className="text-[var(--text-secondary)] font-bold">Start:</span>
             <input
               type="date"
               value={customStartDate}
               onChange={(e) => setCustomStartDate(e.target.value)}
-              className="bg-[var(--card-bg)] text-[var(--text-primary)] px-2.5 py-1 rounded-xl border border-[var(--border)] font-mono focus:border-[var(--primary)] focus:outline-none"
+              className="bg-[var(--surface-elevated)] text-[var(--text-primary)] px-2.5 py-1 rounded-xl border border-[var(--border)] font-mono focus:border-[var(--primary)] focus:outline-none"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -988,7 +988,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               type="date"
               value={customEndDate}
               onChange={(e) => setCustomEndDate(e.target.value)}
-              className="bg-[var(--card-bg)] text-[var(--text-primary)] px-2.5 py-1 rounded-xl border border-[var(--border)] font-mono focus:border-[var(--primary)] focus:outline-none"
+              className="bg-[var(--surface-elevated)] text-[var(--text-primary)] px-2.5 py-1 rounded-xl border border-[var(--border)] font-mono focus:border-[var(--primary)] focus:outline-none"
             />
           </div>
         </div>
@@ -1001,7 +1001,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
         <>
           {/* EMPTY DATA STATE NOTICE */}
           {!loading && taskMetrics.assigned === 0 && workHoursMetrics.daysWithWork === 0 && (
-            <div className="bg-[var(--card-surface)] border border-amber-500/30 rounded-2xl p-4 flex items-center gap-3 text-amber-300 text-xs shadow-md">
+            <div className="bg-[var(--surface-inner)] border border-amber-500/30 rounded-2xl p-4 flex items-center gap-3 text-amber-300 text-xs shadow-md">
               <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-400" />
               <div>
                 <p className="font-bold text-amber-300">No Efficiency Data Available For Selected Period</p>
@@ -1016,7 +1016,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             
             {/* 1. Overall Efficiency Score */}
-            <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-md">
+            <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-md">
               <div className="flex items-center justify-between text-[var(--text-secondary)]">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">Efficiency</span>
                 <Sparkles className="w-3.5 h-3.5 text-[var(--primary-light)]" />
@@ -1035,7 +1035,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
             </div>
 
             {/* 2. Total Work Hours */}
-            <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
+            <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
               <div className="flex items-center justify-between text-[var(--text-secondary)]">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">Work Hours</span>
                 <Clock className="w-3.5 h-3.5 text-[var(--primary-light)]" />
@@ -1054,7 +1054,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
             </div>
 
             {/* 3. Average Daily Work Hours */}
-            <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
+            <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
               <div className="flex items-center justify-between text-[var(--text-secondary)]">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">Avg Daily Hours</span>
                 <Activity className="w-3.5 h-3.5 text-[var(--primary-light)]" />
@@ -1068,7 +1068,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
             </div>
 
             {/* 4. Monthly Work Hours */}
-            <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
+            <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
               <div className="flex items-center justify-between text-[var(--text-secondary)]">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">Monthly Hours</span>
                 <Calendar className="w-3.5 h-3.5 text-[var(--primary-light)]" />
@@ -1082,7 +1082,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
             </div>
 
             {/* 5. Tasks Assigned / Completed */}
-            <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
+            <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
               <div className="flex items-center justify-between text-[var(--text-secondary)]">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">Task Status</span>
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
@@ -1101,7 +1101,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
             </div>
 
             {/* 6. Overdue & Revisions */}
-            <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
+            <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
               <div className="flex items-center justify-between text-[var(--text-secondary)]">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">Quality Logs</span>
                 <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
@@ -1121,9 +1121,9 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
           {/* MONTHLY COMPARISON CARD */}
           {monthlyComparisonStats && (
-            <div className="bg-[var(--card-surface)] p-5 rounded-3xl border border-[var(--border)] shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="bg-[var(--surface-inner)] p-5 rounded-3xl border border-[var(--border)] shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--primary-light)]">
+                <div className="w-12 h-12 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--border)] flex items-center justify-center text-[var(--primary-light)]">
                   <TrendingUp className="w-6 h-6" />
                 </div>
                 <div>
@@ -1147,7 +1147,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                   ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' 
                   : monthlyComparisonStats.statusWording === 'Needs Attention'
                   ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-                  : 'bg-[var(--card-bg)] text-[var(--text-secondary)] border-[var(--border)]'
+                  : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] border-[var(--border)]'
               }`}>
                 {monthlyComparisonStats.statusWording === 'Improved' && <ArrowUpRight className="w-4 h-4 text-emerald-400" />}
                 {monthlyComparisonStats.statusWording === 'Needs Attention' && <ArrowDownRight className="w-4 h-4 text-amber-300" />}
@@ -1172,7 +1172,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               
               {/* Card 1: Attendance Punctuality */}
-              <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+              <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
                 <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                   <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
                     <UserCheck className="w-4 h-4 text-[var(--primary-light)]" /> 1. Attendance Punctuality
@@ -1197,7 +1197,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                       {bd ? bd.lateArrivalsCount : 0}
                     </span>
                   </div>
-                  <div className="w-full bg-[var(--card-bg)] h-2 rounded-full overflow-hidden border border-[var(--border)]">
+                  <div className="w-full bg-[var(--surface-elevated)] h-2 rounded-full overflow-hidden border border-[var(--border)]">
                     <div 
                       className="bg-[var(--primary)] h-full rounded-full transition-all"
                       style={{ width: `${bd ? Math.max(0, bd.punctualityScore) : 0}%` }}
@@ -1207,7 +1207,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               </div>
 
               {/* Card 2: Work-Hour Consistency */}
-              <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+              <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
                 <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                   <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
                     <Clock className="w-4 h-4 text-[var(--primary-light)]" /> 2. Work-Hour Consistency
@@ -1232,7 +1232,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                       {workHoursMetrics.unresolvedCount > 0 ? `${workHoursMetrics.unresolvedCount} (0 hrs credit)` : 'Clean'}
                     </span>
                   </div>
-                  <div className="w-full bg-[var(--card-bg)] h-2 rounded-full overflow-hidden border border-[var(--border)]">
+                  <div className="w-full bg-[var(--surface-elevated)] h-2 rounded-full overflow-hidden border border-[var(--border)]">
                     <div 
                       className="bg-[var(--primary)] h-full rounded-full transition-all"
                       style={{ width: `${bd ? Math.max(0, bd.workloadScore) : 0}%` }}
@@ -1242,7 +1242,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               </div>
 
               {/* Card 3: Task Completion */}
-              <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+              <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
                 <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                   <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" /> 3. Task Completion
@@ -1265,7 +1265,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                     <span className="text-[var(--text-secondary)]">On-time Completion:</span>
                     <span className="font-extrabold text-emerald-400">{bd ? bd.onTimeTasksCount : 0} Tasks</span>
                   </div>
-                  <div className="w-full bg-[var(--card-bg)] h-2 rounded-full overflow-hidden border border-[var(--border)]">
+                  <div className="w-full bg-[var(--surface-elevated)] h-2 rounded-full overflow-hidden border border-[var(--border)]">
                     <div 
                       className="bg-emerald-400 h-full rounded-full transition-all"
                       style={{ width: `${bd ? Math.max(0, bd.taskCompletionScore) : 0}%` }}
@@ -1275,7 +1275,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               </div>
 
               {/* Card 4: Overdue-Task Penalty */}
-              <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+              <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
                 <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                   <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
                     <ShieldAlert className="w-4 h-4 text-red-400" /> 4. Overdue Penalty
@@ -1301,7 +1301,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               </div>
 
               {/* Card 5: Revision Penalty */}
-              <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+              <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
                 <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                   <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
                     <RotateCcw className="w-4 h-4 text-amber-400" /> 5. Revision Penalty
@@ -1328,7 +1328,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               </div>
 
               {/* Card 6: Overall Efficiency Summary */}
-              <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+              <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
                 <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                   <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
                     <Award className="w-4 h-4 text-[var(--primary-light)]" /> 6. Overall Score
@@ -1373,10 +1373,10 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
         <div className="space-y-5">
           {/* TEAM SUMMARY CARD */}
           {teamMetricsSummary ? (
-            <div className="bg-[var(--card-surface)] p-5 rounded-3xl border border-[var(--border)] shadow-xl space-y-4">
+            <div className="bg-[var(--surface-inner)] p-5 rounded-3xl border border-[var(--border)] shadow-xl space-y-4">
               <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--primary-light)]">
+                  <div className="w-10 h-10 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--border)] flex items-center justify-center text-[var(--primary-light)]">
                     <Users className="w-5 h-5" />
                   </div>
                   <div>
@@ -1399,36 +1399,36 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
               {/* TEAM METRICS GRID */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center">
-                <div className="bg-[var(--card-bg)] p-3 rounded-2xl border border-[var(--border)]">
+                <div className="bg-[var(--surface-elevated)] p-3 rounded-2xl border border-[var(--border)]">
                   <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Team Members</p>
                   <p className="text-lg font-black text-[var(--text-primary)]">{myTeamMembers.length}</p>
                 </div>
-                <div className="bg-[var(--card-bg)] p-3 rounded-2xl border border-[var(--border)]">
+                <div className="bg-[var(--surface-elevated)] p-3 rounded-2xl border border-[var(--border)]">
                   <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Total Work Hours</p>
                   <p className="text-lg font-black text-[var(--text-primary)]">{teamMetricsSummary.totalTeamWorkHoursFormatted}</p>
                 </div>
-                <div className="bg-[var(--card-bg)] p-3 rounded-2xl border border-[var(--border)]">
+                <div className="bg-[var(--surface-elevated)] p-3 rounded-2xl border border-[var(--border)]">
                   <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Tasks Completed</p>
                   <p className="text-lg font-black text-emerald-400">
                     {teamMetricsSummary.totalTeamCompleted} / {teamMetricsSummary.totalTeamAssigned}
                   </p>
                 </div>
-                <div className="bg-[var(--card-bg)] p-3 rounded-2xl border border-[var(--border)]">
+                <div className="bg-[var(--surface-elevated)] p-3 rounded-2xl border border-[var(--border)]">
                   <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Overdue Tasks</p>
                   <p className="text-lg font-black text-red-400">{teamMetricsSummary.totalTeamOverdue}</p>
                 </div>
-                <div className="bg-[var(--card-bg)] p-3 rounded-2xl border border-[var(--border)]">
+                <div className="bg-[var(--surface-elevated)] p-3 rounded-2xl border border-[var(--border)]">
                   <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Total Revisions</p>
                   <p className="text-lg font-black text-amber-400">{teamMetricsSummary.totalTeamRevisions}</p>
                 </div>
-                <div className="bg-[var(--card-bg)] p-3 rounded-2xl border border-[var(--border)]">
+                <div className="bg-[var(--surface-elevated)] p-3 rounded-2xl border border-[var(--border)]">
                   <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Punctuality</p>
                   <p className="text-lg font-black text-blue-400">{teamMetricsSummary.teamPunctualityPct}%</p>
                 </div>
               </div>
             </div>
           ) : (
-            <Card className="p-8 bg-[var(--card-surface)] border border-[var(--border)] text-center">
+            <Card className="p-8 bg-[var(--surface-inner)] border border-[var(--border)] text-center">
               <Users className="w-10 h-10 text-[var(--primary-light)] mx-auto mb-2 opacity-50" />
               <h3 className="text-base font-bold text-[var(--text-primary)]">No Team Members Assigned</h3>
               <p className="text-xs text-[var(--text-secondary)] mt-1">
@@ -1439,8 +1439,8 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
           {/* TEAM MEMBERS DETAILED BREAKDOWN TABLE */}
           {teamMetricsSummary && teamMetricsSummary.memberBreakdowns.length > 0 && (
-            <div className="bg-[var(--card-surface)] rounded-3xl border border-[var(--border)] overflow-hidden shadow-xl">
-              <div className="p-4 bg-[var(--card-bg)] border-b border-[var(--border)] flex items-center justify-between">
+            <div className="bg-[var(--surface-inner)] rounded-3xl border border-[var(--border)] overflow-hidden shadow-xl">
+              <div className="p-4 bg-[var(--surface-elevated)] border-b border-[var(--border)] flex items-center justify-between">
                 <h3 className="text-xs font-black uppercase text-[var(--text-primary)] tracking-wider">
                   Team Member Individual Performance
                 </h3>
@@ -1452,7 +1452,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="bg-[var(--card-bg)] text-[var(--text-secondary)] font-extrabold uppercase text-[9.5px] tracking-wider border-b border-[var(--border)]">
+                    <tr className="bg-[var(--surface-elevated)] text-[var(--text-secondary)] font-extrabold uppercase text-[9.5px] tracking-wider border-b border-[var(--border)]">
                       <th className="py-3 px-4">Member</th>
                       <th className="py-3 px-4">Code</th>
                       <th className="py-3 px-4">Work Hours</th>
@@ -1466,7 +1466,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                   </thead>
                   <tbody className="divide-y divide-[var(--border)] font-medium">
                     {teamMetricsSummary.memberBreakdowns.map((item) => (
-                      <tr key={item.member.employeeCode} className="hover:bg-[var(--card-bg)]/50 transition">
+                      <tr key={item.member.employeeCode} className="hover:bg-[var(--surface-elevated)]/50 transition">
                         <td className="py-3.5 px-4 font-black text-[var(--text-primary)]">
                           {item.member.name}
                         </td>
@@ -1501,7 +1501,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                               setSelectedEmployeeCode(item.member.employeeCode);
                               setViewMode('MY_PERFORMANCE');
                             }}
-                            className="px-2.5 py-1 rounded-xl bg-[var(--card-bg)] hover:bg-[var(--card-surface)] border border-[var(--border)] text-[var(--text-primary)] hover:text-[var(--primary-light)] text-[10px] font-bold transition cursor-pointer"
+                            className="px-2.5 py-1 rounded-xl bg-[var(--surface-elevated)] hover:bg-[var(--surface-inner)] border border-[var(--border)] text-[var(--text-primary)] hover:text-[var(--primary-light)] text-[10px] font-bold transition cursor-pointer"
                           >
                             Inspect
                           </button>
@@ -1520,7 +1520,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       {/* VIEW 3: SETTINGS (ADMIN WEIGHTAGES CONFIG) */}
       {/* ==================================================== */}
       {viewMode === 'SETTINGS' && isAdmin && (
-        <Card className="p-6 bg-[var(--card-surface)] border border-[var(--border)] rounded-3xl space-y-5">
+        <Card className="p-6 bg-[var(--surface-inner)] border border-[var(--border)] rounded-3xl space-y-5">
           <div className="flex items-center gap-3 border-b border-[var(--border)] pb-4">
             <Sliders className="w-6 h-6 text-[var(--primary-light)]" />
             <div>
@@ -1543,7 +1543,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                   type="number"
                   value={adminWeights.taskCompletion}
                   onChange={(e) => setAdminWeights({ ...adminWeights, taskCompletion: Number(e.target.value) })}
-                  className="w-full bg-[var(--card-bg)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
+                  className="w-full bg-[var(--surface-elevated)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
                   min="0"
                   max="100"
                 />
@@ -1557,7 +1557,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                   type="number"
                   value={adminWeights.onTimeCompletion}
                   onChange={(e) => setAdminWeights({ ...adminWeights, onTimeCompletion: Number(e.target.value) })}
-                  className="w-full bg-[var(--card-bg)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
+                  className="w-full bg-[var(--surface-elevated)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
                   min="0"
                   max="100"
                 />
@@ -1571,7 +1571,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                   type="number"
                   value={adminWeights.quality}
                   onChange={(e) => setAdminWeights({ ...adminWeights, quality: Number(e.target.value) })}
-                  className="w-full bg-[var(--card-bg)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
+                  className="w-full bg-[var(--surface-elevated)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
                   min="0"
                   max="100"
                 />
@@ -1585,7 +1585,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                   type="number"
                   value={adminWeights.punctuality}
                   onChange={(e) => setAdminWeights({ ...adminWeights, punctuality: Number(e.target.value) })}
-                  className="w-full bg-[var(--card-bg)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
+                  className="w-full bg-[var(--surface-elevated)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
                   min="0"
                   max="100"
                 />
@@ -1599,7 +1599,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                   type="number"
                   value={adminWeights.workload}
                   onChange={(e) => setAdminWeights({ ...adminWeights, workload: Number(e.target.value) })}
-                  className="w-full bg-[var(--card-bg)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
+                  className="w-full bg-[var(--surface-elevated)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
                   min="0"
                   max="100"
                 />
@@ -1628,7 +1628,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               <button
                 type="button"
                 onClick={() => setAdminWeights(DEFAULT_WEIGHTAGES)}
-                className="px-4 py-2.5 bg-[var(--card-bg)] hover:bg-[var(--card-surface)] text-[var(--text-primary)] text-xs font-bold rounded-xl border border-[var(--border)] cursor-pointer"
+                className="px-4 py-2.5 bg-[var(--surface-elevated)] hover:bg-[var(--surface-inner)] text-[var(--text-primary)] text-xs font-bold rounded-xl border border-[var(--border)] cursor-pointer"
               >
                 Reset Defaults
               </button>

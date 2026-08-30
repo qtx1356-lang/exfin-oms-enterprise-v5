@@ -108,8 +108,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         
         {/* Central Logo / Icon */}
         <div className="relative flex items-center justify-center my-1">
-          <div className="w-20 h-20 rounded-full border border-[var(--success)]/30 bg-[var(--card-surface)]/80 backdrop-blur-[14px] flex items-center justify-center shadow-2xl">
-            <div className="w-16 h-16 rounded-full bg-[var(--card-bg)] border border-[var(--success)]/50 flex items-center justify-center shadow-lg">
+          <div className="w-20 h-20 rounded-full border border-[var(--success)]/30 bg-[var(--surface-inner)]/80 backdrop-blur-[14px] flex items-center justify-center shadow-2xl">
+            <div className="w-16 h-16 rounded-full bg-[var(--surface-elevated)] border border-[var(--success)]/50 flex items-center justify-center shadow-lg">
               {isRegistered ? (
                 <UserCheck className="w-8 h-8 text-[var(--success)]" />
               ) : (
@@ -155,8 +155,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
           isLocationLoading
             ? 'border-[var(--border)]'
             : isInsideGeofence
-              ? 'border-[var(--success)]/40 aurora-glow-emerald'
-              : 'border-[var(--danger)]/40 aurora-glow-teal opacity-90'
+              ? 'border-[var(--success)]/40'
+              : 'border-[var(--danger)]/40 opacity-90'
         }`}>
           {/* Header */}
           <div className="flex items-center gap-2 mb-4 border-b border-[var(--border)] pb-3">
@@ -258,7 +258,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         <div className="w-full glass-card p-4 rounded-2xl grid grid-cols-4 gap-2 text-center shadow-lg border-[var(--border)]">
           {/* Secure Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[var(--card-surface)] text-[var(--success)] flex items-center justify-center mb-1 border border-[var(--border)]">
+            <div className="w-8 h-8 rounded-xl bg-[var(--surface-inner)] text-[var(--success)] flex items-center justify-center mb-1 border border-[var(--border)]">
               <Lock className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-black text-[var(--text-primary)] block leading-tight">Secure</span>
@@ -266,7 +266,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
           {/* Smart Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[var(--card-surface)] text-[var(--teal)] flex items-center justify-center mb-1 border border-[var(--border)]">
+            <div className="w-8 h-8 rounded-xl bg-[var(--surface-inner)] text-[var(--teal)] flex items-center justify-center mb-1 border border-[var(--border)]">
               <Zap className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-black text-[var(--text-primary)] block leading-tight">Smart</span>
@@ -274,7 +274,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
           {/* Accurate Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[var(--card-surface)] text-[var(--cyan)] flex items-center justify-center mb-1 border border-[var(--border)]">
+            <div className="w-8 h-8 rounded-xl bg-[var(--surface-inner)] text-[var(--cyan)] flex items-center justify-center mb-1 border border-[var(--border)]">
               <Target className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-black text-[var(--text-primary)] block leading-tight">Precise</span>
@@ -282,7 +282,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
           {/* Reliable Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[var(--card-surface)] text-[var(--success)] flex items-center justify-center mb-1 border border-[var(--border)]">
+            <div className="w-8 h-8 rounded-xl bg-[var(--surface-inner)] text-[var(--success)] flex items-center justify-center mb-1 border border-[var(--border)]">
               <Check className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-black text-[var(--text-primary)] block leading-tight">Verified</span>
@@ -295,7 +295,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       <div className="w-full max-w-sm pt-2 pb-4 relative z-10">
         <button
           onClick={onProceed}
-          className="w-full min-h-[56px] py-4 px-6 bg-[var(--button-primary)] text-white font-black uppercase tracking-[0.1em] text-sm sm:text-base rounded-2xl shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer border border-white/20 active:scale-[0.98] aurora-glow-emerald"
+          className="w-full min-h-[56px] py-4 px-6 bg-[var(--button-primary)] text-white font-black uppercase tracking-[0.1em] text-sm sm:text-base rounded-2xl shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer border border-[var(--border)] active:scale-[0.98]"
         >
           <span>{status === 'unregistered' ? 'Proceed to Setup' : 'Enter Workspace'}</span>
           <ArrowRight className="w-5 h-5 text-white" />

@@ -62,7 +62,7 @@ export const MobileRecoveryScreen: React.FC = () => {
                   value={localMobile}
                   onChange={(e) => setLocalMobile(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   placeholder="9876543210"
-                  className="w-full pl-14 pr-4 py-3.5 rounded-2xl border border-[var(--border)] bg-[var(--card-surface)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--success)] focus:ring-1 focus:ring-[var(--success)] text-sm font-mono tracking-wider"
+                  className="w-full pl-14 pr-4 py-3.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-inner)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--success)] focus:ring-1 focus:ring-[var(--success)] text-sm font-mono tracking-wider"
                   required
                   maxLength={10}
                   autoFocus
@@ -83,7 +83,7 @@ export const MobileRecoveryScreen: React.FC = () => {
             <button
               type="submit"
               disabled={recoveryLoading || localMobile.length < 10}
-              className="w-full py-4 text-xs font-black uppercase tracking-[0.15em] rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-[var(--button-primary)] text-white border border-white/20 active:scale-[0.98] transition-all aurora-glow-emerald disabled:opacity-50 cursor-pointer"
+              className="w-full py-4 text-xs font-black uppercase tracking-[0.15em] rounded-2xl shadow-xl flex items-center justify-center gap-2 bg-[var(--button-primary)] text-white border border-[var(--border)] active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
             >
               <span>{recoveryLoading ? 'Verifying Account...' : 'Continue'}</span>
               <ArrowRight className="w-4 h-4 text-white" />

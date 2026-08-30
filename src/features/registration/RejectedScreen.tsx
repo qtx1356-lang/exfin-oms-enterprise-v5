@@ -24,7 +24,7 @@ export const RejectedScreen: React.FC = () => {
         </p>
         <button 
           onClick={resetRegistration} 
-          className="w-full py-4 bg-[var(--button-primary)] text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl border border-white/20 active:scale-[0.98] transition-all aurora-glow-emerald"
+          className="w-full py-4 bg-[var(--button-primary)] text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl border border-[var(--border)] active:scale-[0.98] transition-all"
         >
           Restart Registration
         </button>

@@ -187,7 +187,7 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
             </div>
             <div className="flex justify-between items-center">
               <span>Check-in Time:</span>
-              <span className="font-bold text-[#D4AF37]">{unresolvedRecord.checkInTime}</span>
+              <span className="font-bold text-[var(--warning)]">{unresolvedRecord.checkInTime}</span>
             </div>
           </div>
 
@@ -199,21 +199,21 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
           )}
 
           <div>
-            <label className="block text-xs font-bold text-[#A7B0BE] mb-1">Enter Previous Day Checkout Time</label>
+            <label className="block text-xs font-bold text-[var(--text-muted)] mb-1">Enter Previous Day Checkout Time</label>
             <div className="relative">
-              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B5CF6]" />
+              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--primary)]" />
               <input
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-[var(--app-background)] border border-[var(--border)] text-[var(--text-primary)] rounded-xl focus:outline-none focus:border-[#00F5FF] transition-colors"
+                className="w-full pl-9 pr-4 py-2.5 bg-[var(--app-background)] border border-[var(--border)] text-[var(--text-primary)] rounded-xl focus:outline-none focus:border-[var(--info)] transition-colors"
               />
             </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setIsOpen(false)}>Dismiss for now</Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-[rgba(0,245,255,0.12)] text-[#00F5FF] border border-[rgba(0,245,255,0.55)] hover:bg-[rgba(0,245,255,0.2)] hover:text-[#67F9FF] shadow-[0_0_15px_rgba(0,245,255,0.15)] flex items-center gap-1">
+            <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-[var(--info)]/10 text-[var(--info)] border border-[var(--info)]/50 hover:bg-[var(--info)]/20 hover:text-[var(--info)] shadow-[0_0_15px_rgba(0,245,255,0.15)] flex items-center gap-1">
               <Check className="w-4 h-4" />
               {isSubmitting ? 'Submitting...' : 'Enter Checkout Time'}
             </Button>

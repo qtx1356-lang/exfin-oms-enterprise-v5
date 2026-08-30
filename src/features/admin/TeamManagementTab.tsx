@@ -435,7 +435,7 @@ export const TeamManagementTab: React.FC = () => {
                 placeholder="Search Team Leader by name or code..."
                 value={leaderSearch}
                 onChange={(e) => setLeaderSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#211044] border border-purple-500/30 text-white text-xs font-medium placeholder-purple-400/60 focus:outline-none focus:border-amber-400"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-inner-tile border border-purple-500/30 text-white text-xs font-medium placeholder-purple-400/60 focus:outline-none focus:border-amber-400"
               />
             </div>
           </div>
@@ -585,7 +585,7 @@ export const TeamManagementTab: React.FC = () => {
                     placeholder="Filter current team..."
                     value={currentMemberSearch}
                     onChange={(e) => setCurrentMemberSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#211044] border border-purple-500/30 text-white text-xs font-medium placeholder-purple-400/60 focus:outline-none focus:border-purple-400"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl glass-inner-tile border border-purple-500/30 text-white text-xs font-medium placeholder-purple-400/60 focus:outline-none focus:border-purple-400"
                   />
                 </div>
 
@@ -682,14 +682,14 @@ export const TeamManagementTab: React.FC = () => {
                       placeholder="Search by name, code..."
                       value={availableMemberSearch}
                       onChange={(e) => setAvailableMemberSearch(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-[#211044] border border-purple-500/30 text-white text-xs font-medium placeholder-purple-400/60 focus:outline-none focus:border-amber-400"
+                      className="w-full pl-9 pr-3 py-2 rounded-xl glass-inner-tile border border-purple-500/30 text-white text-xs font-medium placeholder-purple-400/60 focus:outline-none focus:border-amber-400"
                     />
                   </div>
 
                   <select
                     value={availableFilter}
                     onChange={(e: any) => setAvailableFilter(e.target.value)}
-                    className="px-3 py-2 rounded-xl bg-[#211044] border border-purple-500/30 text-white text-xs font-bold focus:outline-none focus:border-amber-400"
+                    className="px-3 py-2 rounded-xl glass-inner-tile border border-purple-500/30 text-white text-xs font-bold focus:outline-none focus:border-amber-400"
                   >
                     <option value="ALL">All Available</option>
                     <option value="UNASSIGNED">Unassigned Only</option>

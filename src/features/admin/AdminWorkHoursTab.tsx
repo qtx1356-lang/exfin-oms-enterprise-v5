@@ -1019,7 +1019,7 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
       {/* DAILY POPUP DETAIL */}
       {showDetailModal && selectedRecord && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-[#211044] border border-purple-500/30 rounded-[28px] max-w-sm w-full p-6 space-y-5 shadow-2xl relative text-white">
+          <div className="glass-inner-tile border border-purple-500/30 rounded-[28px] max-w-sm w-full p-6 space-y-5 shadow-2xl relative text-white">
             <button
               onClick={() => {
                 setShowDetailModal(false);

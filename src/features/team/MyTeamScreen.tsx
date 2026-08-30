@@ -731,7 +731,7 @@ export const MyTeamScreen: React.FC = () => {
                       </div>
 
                       {/* Visual Workload Bar */}
-                      <div className="w-full bg-slate-900/60 h-2.5 rounded-full overflow-hidden border border-white/10 flex">
+                      <div className="w-full bg-[var(--surface-hover)] h-2.5 rounded-full overflow-hidden border border-[var(--border)] flex">
                         <div className="bg-emerald-400 h-full" style={{ width: `${mPct}%` }} title={`Completed: ${mPct}%`} />
                         <div className="bg-cyan-400 h-full" style={{ width: `${mTasks.length > 0 ? Math.round((mActive / mTasks.length) * 100) : 0}%` }} title={`Active: ${mActive}`} />
                       </div>
@@ -799,7 +799,7 @@ export const MyTeamScreen: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-white/10">
+                  <div className="flex items-center justify-between pt-1 border-t border-[var(--border)]">
                     <span className="text-xs font-bold text-[var(--text-secondary)]">{mPct}% Work Completed</span>
                     <Button
                       onClick={() => setSelectedMemberForReport(member)}
@@ -838,14 +838,14 @@ export const MyTeamScreen: React.FC = () => {
                 placeholder="Search team tasks..."
                 value={taskSearchTerm}
                 onChange={(e) => setTaskSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-white/10 glass-card-inner text-white focus:outline-none focus:border-cyan-400"
+                className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-[var(--border)] glass-card-inner text-white focus:outline-none focus:border-cyan-400"
               />
             </div>
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="glass-card-inner text-white px-3 py-1.5 rounded-xl border border-white/10 font-bold focus:outline-none focus:border-cyan-400"
+              className="glass-card-inner text-white px-3 py-1.5 rounded-xl border border-[var(--border)] font-bold focus:outline-none focus:border-cyan-400"
             >
               <option value="All">All Statuses</option>
               <option value="PENDING">PENDING</option>
@@ -858,7 +858,7 @@ export const MyTeamScreen: React.FC = () => {
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="glass-card-inner text-white px-3 py-1.5 rounded-xl border border-white/10 font-bold focus:outline-none focus:border-cyan-400"
+              className="glass-card-inner text-white px-3 py-1.5 rounded-xl border border-[var(--border)] font-bold focus:outline-none focus:border-cyan-400"
             >
               <option value="All">All Priorities</option>
               <option value="URGENT">URGENT</option>
@@ -1113,7 +1113,7 @@ export const MyTeamScreen: React.FC = () => {
 
           {/* Filters and List */}
           <div className="glass-card-elevated p-5 rounded-2xl space-y-4 shadow-xl">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-white/10 pb-4">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-[var(--border)] pb-4">
               <h4 className="text-xs font-extrabold uppercase tracking-wider text-cyan-300">
                 Team Leave Requests History
               </h4>
@@ -1179,7 +1179,7 @@ export const MyTeamScreen: React.FC = () => {
                           </p>
                         </div>
 
-                        <div className="flex sm:flex-col items-end gap-2 w-full sm:w-auto justify-between border-t border-white/10 sm:border-0 pt-2 sm:pt-0">
+                        <div className="flex sm:flex-col items-end gap-2 w-full sm:w-auto justify-between border-t border-[var(--border)] sm:border-0 pt-2 sm:pt-0">
                           <span className="text-xs text-[var(--text-secondary)]">
                             {new Date(leave.createdAtDeviceTime).toLocaleDateString()}
                           </span>
@@ -1227,7 +1227,7 @@ export const MyTeamScreen: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[var(--border)]">
                 <div>
                   <p className="text-[10px] text-[var(--text-secondary)] font-extrabold uppercase tracking-wider">Duration</p>
                   <p className="text-xs font-black text-white">{selectedLeaveForReview.totalDays} Days</p>
@@ -1238,7 +1238,7 @@ export const MyTeamScreen: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-white/10">
+              <div className="pt-2 border-t border-[var(--border)]">
                 <p className="text-[10px] text-[var(--text-secondary)] font-extrabold uppercase tracking-wider">Reason</p>
                 <p className="text-xs text-white leading-normal mt-0.5">"{selectedLeaveForReview.reason}"</p>
               </div>
@@ -1261,7 +1261,7 @@ export const MyTeamScreen: React.FC = () => {
 
             {/* Decision panel if still pending TL action */}
             {selectedLeaveForReview.status === 'PENDING' && selectedLeaveForReview.currentApproverRole === 'TEAM_LEADER' ? (
-              <div className="space-y-3.5 pt-2 border-t border-white/10">
+              <div className="space-y-3.5 pt-2 border-t border-[var(--border)]">
                 <div>
                   <label className="block text-xs font-extrabold uppercase text-[var(--text-secondary)] mb-1.5">
                     Review Remark / Notes
@@ -1336,10 +1336,10 @@ export const MyTeamScreen: React.FC = () => {
                 onChange={(e) => setTaskPriority(e.target.value as TaskPriority)}
                 className="w-full p-3 rounded-xl glass-card-inner text-white font-bold text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
               >
-                <option value="LOW" className="bg-slate-900 text-white">LOW</option>
-                <option value="MEDIUM" className="bg-slate-900 text-white">MEDIUM</option>
-                <option value="HIGH" className="bg-slate-900 text-white">HIGH</option>
-                <option value="URGENT" className="bg-slate-900 text-white">URGENT</option>
+                <option value="LOW" className="bg-[var(--surface-inner)] text-[var(--text-primary)]">LOW</option>
+                <option value="MEDIUM" className="bg-[var(--surface-inner)] text-[var(--text-primary)]">MEDIUM</option>
+                <option value="HIGH" className="bg-[var(--surface-inner)] text-[var(--text-primary)]">HIGH</option>
+                <option value="URGENT" className="bg-[var(--surface-inner)] text-[var(--text-primary)]">URGENT</option>
               </select>
             </div>
 
@@ -1350,9 +1350,9 @@ export const MyTeamScreen: React.FC = () => {
                 onChange={(e) => setTaskAssignmentType(e.target.value as AssignmentType)}
                 className="w-full p-3 rounded-xl glass-card-inner text-white font-bold text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
               >
-                <option value="EMPLOYEE" className="bg-slate-900 text-white">Single Team Member</option>
-                <option value="MULTIPLE_EMPLOYEES" className="bg-slate-900 text-white">Multiple Team Members</option>
-                <option value="DEPARTMENT" className="bg-slate-900 text-white">Entire Team</option>
+                <option value="EMPLOYEE" className="bg-[var(--surface-inner)] text-[var(--text-primary)]">Single Team Member</option>
+                <option value="MULTIPLE_EMPLOYEES" className="bg-[var(--surface-inner)] text-[var(--text-primary)]">Multiple Team Members</option>
+                <option value="DEPARTMENT" className="bg-[var(--surface-inner)] text-[var(--text-primary)]">Entire Team</option>
               </select>
             </div>
           </div>
@@ -1513,7 +1513,7 @@ export const MyTeamScreen: React.FC = () => {
 
               <div className="p-3 glass-card-inner rounded-xl">
                 <p className="font-bold text-[var(--text-secondary)] mb-1">Completion Rate: {mPct}%</p>
-                <div className="w-full bg-slate-900/60 h-2.5 rounded-full overflow-hidden border border-white/10">
+                <div className="w-full bg-[var(--surface-hover)] h-2.5 rounded-full overflow-hidden border border-[var(--border)]">
                   <div className="bg-emerald-400 h-full" style={{ width: `${mPct}%` }} />
                 </div>
               </div>

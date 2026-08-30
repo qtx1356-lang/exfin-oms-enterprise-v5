@@ -173,7 +173,7 @@ export const AuditLogTab: React.FC = () => {
   };
 
   const getCategoryBadgeStyle = (category: string) => {
-    return 'bg-[#2D1B5A] text-purple-200 border-purple-500/30';
+    return 'glass-card text-purple-200 border-purple-500/30';
   };
 
   return (
@@ -192,7 +192,7 @@ export const AuditLogTab: React.FC = () => {
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
-            className="text-xs bg-[#2D1B5A] border-purple-500/30 text-purple-200 hover:bg-[#3D237A]"
+            className="text-xs glass-card border-purple-500/30 text-purple-200 hover:bg-[#3D237A]"
             onClick={() => {
               setLoading(true);
               setTimeout(() => setLoading(false), 500);
@@ -358,7 +358,7 @@ export const AuditLogTab: React.FC = () => {
           <div className="p-4 border-t border-purple-500/20 text-center">
             <Button
               variant="outline"
-              className="text-xs bg-[#2D1B5A] border-purple-500/30 text-purple-200"
+              className="text-xs glass-card border-purple-500/30 text-purple-200"
               onClick={() => setDisplayLimit((prev) => prev + 50)}
             >
               Load More ({filteredLogs.length - displayLimit} remaining)
@@ -388,7 +388,7 @@ export const AuditLogTab: React.FC = () => {
             </div>
 
             <div className="p-6 space-y-5 text-xs text-purple-200 flex-1">
-              <div className="grid grid-cols-2 gap-4 bg-[#2D1B5A]/60 p-4 rounded-xl border border-purple-500/20">
+              <div className="grid grid-cols-2 gap-4 glass-card/60 p-4 rounded-xl border border-purple-500/20">
                 <div>
                   <p className="text-[10px] uppercase font-bold text-purple-300/60">Performed By</p>
                   <p className="text-sm font-black text-white mt-0.5">{activeLog.performedByName} {activeLog.employeeCode ? `(${activeLog.employeeCode})` : ''}</p>
@@ -414,7 +414,7 @@ export const AuditLogTab: React.FC = () => {
               </div>
 
               {activeLog.targetUserName && (
-                <div className="bg-[#2D1B5A]/40 p-3 rounded-xl border border-purple-500/20">
+                <div className="glass-card/40 p-3 rounded-xl border border-purple-500/20">
                   <p className="text-[10px] uppercase font-bold text-purple-300/60">Target Entity</p>
                   <p className="font-bold text-white text-sm mt-0.5">{activeLog.targetUserName} {activeLog.employeeCode ? `(Code: ${activeLog.employeeCode})` : ''}</p>
                 </div>
@@ -458,7 +458,7 @@ export const AuditLogTab: React.FC = () => {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4 bg-[#2D1B5A]/40 p-4 rounded-xl border border-purple-500/20">
+              <div className="grid grid-cols-2 gap-4 glass-card/40 p-4 rounded-xl border border-purple-500/20">
                 <div>
                   <p className="text-[10px] uppercase font-bold text-purple-300/60">Source</p>
                   <p className="font-bold text-white mt-0.5">{activeLog.source}</p>
@@ -490,7 +490,7 @@ export const AuditLogTab: React.FC = () => {
             <div className="p-4 border-t border-purple-500/20 bg-[#1A0B36] flex justify-end">
               <Button
                 variant="outline"
-                className="text-xs bg-[#2D1B5A] border-purple-500/30 text-white"
+                className="text-xs glass-card border-purple-500/30 text-white"
                 onClick={() => {
                   setActiveLog(null);
                   setShowTechDetails(false);

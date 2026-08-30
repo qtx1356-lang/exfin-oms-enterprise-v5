@@ -93,7 +93,7 @@ export const HRManagementTab: React.FC = () => {
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="p-4 bg-[#2D1B5A] border-purple-500/20 flex items-center gap-3">
+        <Card className="p-4 glass-card border-purple-500/20 flex items-center gap-3">
           <div className="p-3 bg-purple-500/20 rounded-xl text-purple-300">
             <Users className="w-6 h-6" />
           </div>
@@ -103,7 +103,7 @@ export const HRManagementTab: React.FC = () => {
           </div>
         </Card>
 
-        <Card className="p-4 bg-[#2D1B5A] border-purple-500/20 flex items-center gap-3">
+        <Card className="p-4 glass-card border-purple-500/20 flex items-center gap-3">
           <div className="p-3 bg-emerald-500/20 rounded-xl text-emerald-300">
             <CheckCircle2 className="w-6 h-6" />
           </div>
@@ -113,7 +113,7 @@ export const HRManagementTab: React.FC = () => {
           </div>
         </Card>
 
-        <Card className="p-4 bg-[#2D1B5A] border-purple-500/20 flex items-center gap-3">
+        <Card className="p-4 glass-card border-purple-500/20 flex items-center gap-3">
           <div className="p-3 bg-amber-500/20 rounded-xl text-amber-300">
             <Clock className="w-6 h-6" />
           </div>
@@ -125,7 +125,7 @@ export const HRManagementTab: React.FC = () => {
       </div>
 
       {/* Search and Filters */}
-      <Card className="p-4 bg-[#2D1B5A] border-purple-500/20 flex flex-col sm:flex-row gap-3">
+      <Card className="p-4 glass-card border-purple-500/20 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-3 text-purple-300/50" />
           <input
@@ -133,14 +133,14 @@ export const HRManagementTab: React.FC = () => {
             placeholder="Search employee by name, code, mobile..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-[#211044] border border-purple-500/30 rounded-xl text-xs text-white placeholder-purple-300/40 focus:outline-none focus:border-purple-400"
+            className="w-full pl-9 pr-3 py-2 glass-inner-tile border border-purple-500/30 rounded-xl text-xs text-white placeholder-purple-300/40 focus:outline-none focus:border-purple-400"
           />
         </div>
 
         <select
           value={deptFilter}
           onChange={(e) => setDeptFilter(e.target.value)}
-          className="px-3 py-2 bg-[#211044] border border-purple-500/30 rounded-xl text-xs text-white focus:outline-none focus:border-purple-400"
+          className="px-3 py-2 glass-inner-tile border border-purple-500/30 rounded-xl text-xs text-white focus:outline-none focus:border-purple-400"
         >
           <option value="ALL">All Departments</option>
           {departments.map((d) => (
@@ -152,7 +152,7 @@ export const HRManagementTab: React.FC = () => {
       </Card>
 
       {/* Directory Table */}
-      <Card className="p-0 overflow-hidden bg-[#2D1B5A] border-purple-500/20">
+      <Card className="p-0 overflow-hidden glass-card border-purple-500/20">
         {loading ? (
           <div className="p-8 text-center text-purple-300/60 text-xs">Loading HR employee directory...</div>
         ) : filteredEmployees.length === 0 ? (
@@ -161,7 +161,7 @@ export const HRManagementTab: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-[#211044] text-purple-200 text-xs font-bold uppercase tracking-wider border-b border-purple-500/20">
+                <tr className="glass-inner-tile text-purple-200 text-xs font-bold uppercase tracking-wider border-b border-purple-500/20">
                   <th className="p-3">Employee Code</th>
                   <th className="p-3">Full Name</th>
                   <th className="p-3">Role</th>

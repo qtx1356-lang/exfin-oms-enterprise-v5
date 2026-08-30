@@ -151,12 +151,12 @@ export const DeviceRegistration: React.FC = () => {
                     <button 
                       type="button" 
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-xl text-xs font-black uppercase tracking-widest"
+                      className="px-4 py-2 bg-white/10 backdrop-blur-md border border-[var(--border)] text-white rounded-xl text-xs font-black uppercase tracking-widest"
                     >
                       Retake Photo
                     </button>
                   </div>
-                  <div className="absolute top-3 right-3 bg-[var(--success)] text-white p-1.5 rounded-full shadow-lg border border-white/20">
+                  <div className="absolute top-3 right-3 bg-[var(--success)] text-white p-1.5 rounded-full shadow-lg border border-[var(--border)]">
                     <CheckCircle2 className="w-5 h-5 stroke-[3]" />
                   </div>
                 </div>
@@ -172,7 +172,7 @@ export const DeviceRegistration: React.FC = () => {
             <button
               type="submit"
               disabled={loading || !name || !mobileNumber || !selfieBase64}
-              className="w-full py-4 text-xs font-black uppercase tracking-[0.2em] bg-[var(--button-primary)] text-white rounded-2xl shadow-xl mt-2 cursor-pointer border border-white/20 active:scale-[0.98] transition-all aurora-glow-emerald disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 text-xs font-black uppercase tracking-[0.2em] bg-[var(--button-primary)] text-white rounded-2xl shadow-xl mt-2 cursor-pointer border border-[var(--border)] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Processing Setup...' : 'Register Device'}
             </button>

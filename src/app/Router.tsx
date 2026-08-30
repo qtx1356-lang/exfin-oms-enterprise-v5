@@ -58,7 +58,7 @@ const AdminProtectedRoute = () => {
           <div className="pt-2">
             <button
               onClick={() => logout()}
-              className="w-full py-4 bg-[var(--button-primary)] text-white font-black rounded-2xl text-xs transition-all shadow-xl active:scale-[0.98] uppercase tracking-widest border border-white/20"
+              className="w-full py-4 bg-[var(--button-primary)] text-white font-black rounded-2xl text-xs transition-all shadow-xl active:scale-[0.98] uppercase tracking-widest border border-[var(--border)]"
             >
               Sign Out & Return
             </button>

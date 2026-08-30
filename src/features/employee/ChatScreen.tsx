@@ -79,7 +79,7 @@ const AttachmentViewer: React.FC<{ attachment: ChatAttachment }> = ({ attachment
 
   if (loading) {
     return (
-      <div className="mb-2 bg-[var(--card-bg)]/80 border border-[var(--primary)]/15 p-3 rounded-xl flex items-center justify-between gap-3 min-w-[220px]">
+      <div className="mb-2 bg-[var(--surface-elevated)]/80 border border-[var(--primary)]/15 p-3 rounded-xl flex items-center justify-between gap-3 min-w-[220px]">
         <div className="flex items-center gap-2">
           <Loader2 className="w-4 h-4 text-[var(--primary)] animate-spin" />
           <span className="text-xs text-[var(--text-secondary)] font-mono">Loading attachment...</span>
@@ -90,7 +90,7 @@ const AttachmentViewer: React.FC<{ attachment: ChatAttachment }> = ({ attachment
 
   if (error || !blobUrl) {
     return (
-      <div className="mb-2 bg-[var(--card-bg)]/80 border border-rose-500/20 p-3 rounded-xl flex items-center justify-between gap-2 min-w-[220px] text-rose-300">
+      <div className="mb-2 bg-[var(--surface-elevated)]/80 border border-rose-500/20 p-3 rounded-xl flex items-center justify-between gap-2 min-w-[220px] text-rose-300">
         <div className="flex items-center gap-2 min-w-0">
           <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
           <span className="text-xs truncate">{attachment.fileName} (Failed to load)</span>
@@ -107,7 +107,7 @@ const AttachmentViewer: React.FC<{ attachment: ChatAttachment }> = ({ attachment
   }
 
   return (
-    <div className="mb-2 bg-[var(--card-bg)]/80 border border-[var(--primary)]/15 p-2.5 rounded-xl flex flex-col gap-2 shadow-inner min-w-[220px]">
+    <div className="mb-2 bg-[var(--surface-elevated)]/80 border border-[var(--primary)]/15 p-2.5 rounded-xl flex flex-col gap-2 shadow-inner min-w-[220px]">
       <div className="flex items-center gap-2.5">
         {isImage ? (
           <div className="relative group overflow-hidden rounded-lg border border-[var(--primary)]/10 max-h-48 w-full flex items-center justify-center bg-black/40">
@@ -812,7 +812,7 @@ export const ChatScreen: React.FC = () => {
                           className={`max-w-[80%] rounded-[20px] px-4 py-2.5 text-xs font-bold leading-relaxed shadow-lg border ${
                             isOwn
                               ? 'bg-[var(--primary)] border-[var(--primary-light)] text-white rounded-tr-none'
-                              : 'bg-[var(--card-bg)]/90 border-[var(--primary)]/20 text-[var(--text-primary)] rounded-tl-none'
+                              : 'bg-[var(--surface-elevated)]/90 border-[var(--primary)]/20 text-[var(--text-primary)] rounded-tl-none'
                           }`}
                         >
                           {msg.attachment && (
@@ -902,7 +902,7 @@ export const ChatScreen: React.FC = () => {
 
                 {/* Pre-send Attachment Preview Card */}
                 {selectedFile && (
-                  <div className="mb-2.5 p-2.5 bg-[var(--card-bg)]/90 border border-[var(--primary)]/20 rounded-xl flex items-center justify-between gap-3">
+                  <div className="mb-2.5 p-2.5 bg-[var(--surface-elevated)]/90 border border-[var(--primary)]/20 rounded-xl flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       {previewUrl ? (
                         <img src={previewUrl} className="w-10 h-10 object-cover rounded-lg border border-[var(--primary)]/30 shrink-0" />
@@ -992,7 +992,7 @@ export const ChatScreen: React.FC = () => {
       >
         <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2 scrollbar-thin">
           {/* Chat Type Selection */}
-          <div className="flex bg-[var(--card-bg)] p-1 rounded-xl border border-[var(--border)]">
+          <div className="flex bg-[var(--surface-elevated)] p-1 rounded-xl border border-[var(--border)]">
             <button
               onClick={() => {
                 setChatType('DIRECT');
@@ -1026,7 +1026,7 @@ export const ChatScreen: React.FC = () => {
                 placeholder="Enter group subject..."
                 value={groupTitle}
                 onChange={(e) => setGroupTitle(e.target.value)}
-                className="w-full bg-[var(--card-bg)] border border-[var(--border)] rounded-xl py-2 px-3 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
+                className="w-full bg-[var(--surface-elevated)] border border-[var(--border)] rounded-xl py-2 px-3 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
               />
             </div>
           )}
@@ -1041,7 +1041,7 @@ export const ChatScreen: React.FC = () => {
                 placeholder="Search by name or code..."
                 value={contactSearch}
                 onChange={(e) => setContactSearch(e.target.value)}
-                className="w-full bg-[var(--card-bg)] border border-[var(--border)] rounded-xl py-2 pl-9 pr-3 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
+                className="w-full bg-[var(--surface-elevated)] border border-[var(--border)] rounded-xl py-2 pl-9 pr-3 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
               />
             </div>
           </div>
@@ -1062,7 +1062,7 @@ export const ChatScreen: React.FC = () => {
                       key={c.id}
                       onClick={() => toggleContactSelect(c.id)}
                       className={`py-2 px-3 flex items-center justify-between rounded-lg cursor-pointer transition ${
-                        isSelected ? 'bg-[var(--primary)]/15 border border-[var(--primary)]/30' : 'hover:bg-[var(--card-bg)]'
+                        isSelected ? 'bg-[var(--primary)]/15 border border-[var(--primary)]/30' : 'hover:bg-[var(--surface-elevated)]'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">

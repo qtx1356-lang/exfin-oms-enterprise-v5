@@ -408,7 +408,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
               {/* Camera Requesting / Loading State */}
               {cameraState === 'requesting' && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center bg-black/80">
-                  <div className="w-12 h-12 rounded-full bg-[var(--card-bg)] border border-[var(--border)] flex items-center justify-center animate-pulse">
+                  <div className="w-12 h-12 rounded-full bg-[var(--surface-elevated)] border border-[var(--border)] flex items-center justify-center animate-pulse">
                     <Camera className="w-6 h-6 text-[var(--primary-light)]" />
                   </div>
                   <div>
@@ -445,7 +445,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                     <button
                       type="button"
                       onClick={() => fileInputGalleryRef.current?.click()}
-                      className="w-full py-2.5 px-4 bg-[var(--card-bg)] hover:bg-[var(--card-surface)] text-[var(--text-secondary)] hover:text-white font-bold text-xs rounded-xl border border-[var(--border)] flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                      className="w-full py-2.5 px-4 bg-[var(--surface-elevated)] hover:bg-[var(--surface-inner)] text-[var(--text-secondary)] hover:text-white font-bold text-xs rounded-xl border border-[var(--border)] flex items-center justify-center gap-2 cursor-pointer transition-colors"
                     >
                       <Upload className="w-4 h-4" />
                       <span>Choose from Gallery / Files</span>
@@ -482,7 +482,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                 <button
                   type="button"
                   onClick={() => fileInputGalleryRef.current?.click()}
-                  className="flex-1 py-3 px-3 bg-[var(--card-surface)] hover:bg-[var(--card-bg)] active:scale-95 border border-[var(--border)] rounded-2xl flex flex-col items-center justify-center gap-1 text-[var(--text-secondary)] hover:text-white transition-colors cursor-pointer"
+                  className="flex-1 py-3 px-3 bg-[var(--surface-inner)] hover:bg-[var(--surface-elevated)] active:scale-95 border border-[var(--border)] rounded-2xl flex flex-col items-center justify-center gap-1 text-[var(--text-secondary)] hover:text-white transition-colors cursor-pointer"
                 >
                   <Upload className="w-4 h-4 text-[var(--primary-light)]" />
                   <span className="text-[10px] font-bold">Gallery</span>
@@ -503,7 +503,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                 <button
                   type="button"
                   onClick={() => fileInputCameraRef.current?.click()}
-                  className="flex-1 py-3 px-3 bg-[var(--card-surface)] hover:bg-[var(--card-bg)] active:scale-95 border border-[var(--border)] rounded-2xl flex flex-col items-center justify-center gap-1 text-[var(--text-secondary)] hover:text-white transition-colors cursor-pointer"
+                  className="flex-1 py-3 px-3 bg-[var(--surface-inner)] hover:bg-[var(--surface-elevated)] active:scale-95 border border-[var(--border)] rounded-2xl flex flex-col items-center justify-center gap-1 text-[var(--text-secondary)] hover:text-white transition-colors cursor-pointer"
                 >
                   <Camera className="w-4 h-4 text-[var(--primary-light)]" />
                   <span className="text-[10px] font-bold">Native App</span>
@@ -528,7 +528,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                   <button
                     type="button"
                     onClick={() => setZoomScale((s) => Math.max(0.75, s - 0.25))}
-                    className="p-1 bg-[var(--card-surface)] hover:bg-[var(--card-bg)] text-[var(--text-secondary)] rounded text-xs"
+                    className="p-1 bg-[var(--surface-inner)] hover:bg-[var(--surface-elevated)] text-[var(--text-secondary)] rounded text-xs"
                     title="Zoom Out"
                   >
                     <ZoomOut className="w-3.5 h-3.5" />
@@ -539,7 +539,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                   <button
                     type="button"
                     onClick={() => setZoomScale((s) => Math.min(2.5, s + 0.25))}
-                    className="p-1 bg-[var(--card-surface)] hover:bg-[var(--card-bg)] text-[var(--text-secondary)] rounded text-xs"
+                    className="p-1 bg-[var(--surface-inner)] hover:bg-[var(--surface-elevated)] text-[var(--text-secondary)] rounded text-xs"
                     title="Zoom In"
                   >
                     <ZoomIn className="w-3.5 h-3.5" />
@@ -569,7 +569,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
             </div>
 
             {/* Quick Review Form Fields */}
-            <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+            <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
               <div className="flex items-center justify-between pb-1 border-b border-[var(--border)]">
                 <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-[var(--primary-light)]" /> Receipt Details Verification
@@ -607,7 +607,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                     className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-black/40 text-white text-xs font-semibold focus:outline-none focus:border-[var(--primary-light)]"
                   >
                     {EXPENSE_CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat} className="bg-slate-900 text-white">
+                      <option key={cat} value={cat} className="bg-[var(--surface-inner)] text-[var(--text-primary)]">
                         {cat}
                       </option>
                     ))}

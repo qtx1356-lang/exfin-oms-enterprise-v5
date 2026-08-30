@@ -157,11 +157,11 @@ export const NotificationSettingsCard: React.FC = () => {
   };
 
   return (
-    <Card className="p-5 bg-[#2D1B5A] border border-purple-500/20 text-white rounded-[22px] space-y-4 shadow-xl">
+    <Card className="p-5 glass-card border border-purple-500/20 text-white rounded-[22px] space-y-4 shadow-xl">
       {/* Header */}
       <div className="flex justify-between items-center border-b border-purple-500/10 pb-3">
         <h2 className="text-xs font-black uppercase text-purple-300 tracking-wider flex items-center gap-2">
-          <Bell className="w-4 h-4 text-[#A78BFA]" /> Push & Sound Preferences
+          <Bell className="w-4 h-4 text-[var(--primary-light)]" /> Push & Sound Preferences
         </h2>
         <span className="text-[10px] text-purple-300/60 font-semibold">
           Real-Time Controls
@@ -227,7 +227,7 @@ export const NotificationSettingsCard: React.FC = () => {
         </div>
       ) : (
         /* PROMPT / OPTIONAL STATE */
-        <div className="p-3 bg-[#211044] border border-purple-500/30 rounded-xl space-y-2">
+        <div className="p-3 glass-inner-tile border border-purple-500/30 rounded-xl space-y-2">
           <div className="flex items-start gap-2">
             <Smartphone className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
             <div className="text-xs">
@@ -257,7 +257,7 @@ export const NotificationSettingsCard: React.FC = () => {
       )}
 
       {/* DEVICE OS PERMISSION STATUS BADGE */}
-      <div className="flex items-center justify-between bg-[#211044] p-3 rounded-xl border border-purple-500/10">
+      <div className="flex items-center justify-between glass-inner-tile p-3 rounded-xl border border-purple-500/10">
         <div className="flex items-center gap-2">
           <Smartphone className="w-4 h-4 text-purple-400" />
           <span className="text-xs font-bold text-white">Device Push Permission</span>
@@ -276,7 +276,7 @@ export const NotificationSettingsCard: React.FC = () => {
       </div>
 
       {/* TEST PUSH NOTIFICATION BUTTON */}
-      <div className="bg-[#211044] p-3 rounded-xl border border-purple-500/10 space-y-2">
+      <div className="glass-inner-tile p-3 rounded-xl border border-purple-500/10 space-y-2">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-white">Test Notification System</p>
@@ -320,7 +320,7 @@ export const NotificationSettingsCard: React.FC = () => {
       {/* MASTER CONTROLS */}
       <div className="space-y-3 pt-1">
         {/* Push Notifications Switch */}
-        <div className="flex items-center justify-between bg-[#211044] p-3 rounded-xl border border-purple-500/10">
+        <div className="flex items-center justify-between glass-inner-tile p-3 rounded-xl border border-purple-500/10">
           <div>
             <p className="text-xs font-bold text-white">Push Notifications</p>
             <p className="text-[10px] text-purple-300/70">
@@ -343,7 +343,7 @@ export const NotificationSettingsCard: React.FC = () => {
 
         {/* Sound Toggle */}
         <div className="space-y-1">
-          <div className="flex items-center justify-between bg-[#211044] p-3 rounded-xl border border-purple-500/10">
+          <div className="flex items-center justify-between glass-inner-tile p-3 rounded-xl border border-purple-500/10">
             <div className="flex items-center gap-2">
               {settings.soundEnabled ? (
                 <Volume2 className="w-4 h-4 text-emerald-400" />
@@ -383,7 +383,7 @@ export const NotificationSettingsCard: React.FC = () => {
         </div>
 
         {/* Vibration Toggle */}
-        <div className="flex items-center justify-between bg-[#211044] p-3 rounded-xl border border-purple-500/10">
+        <div className="flex items-center justify-between glass-inner-tile p-3 rounded-xl border border-purple-500/10">
           <div className="flex items-center gap-2">
             <Vibrate className="w-4 h-4 text-purple-400" />
             <div>
@@ -415,7 +415,7 @@ export const NotificationSettingsCard: React.FC = () => {
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-          <div className="flex items-center justify-between bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
+          <div className="flex items-center justify-between glass-inner-tile p-2.5 rounded-xl border border-purple-500/10">
             <div className="flex items-center gap-2">
               <ClipboardList className="w-3.5 h-3.5 text-blue-400" />
               <span className="font-bold text-white">Task Assignments</span>
@@ -428,7 +428,7 @@ export const NotificationSettingsCard: React.FC = () => {
             />
           </div>
 
-          <div className="flex items-center justify-between bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
+          <div className="flex items-center justify-between glass-inner-tile p-2.5 rounded-xl border border-purple-500/10">
             <div className="flex items-center gap-2">
               <FileText className="w-3.5 h-3.5 text-orange-400" />
               <span className="font-bold text-white">Leave Updates</span>
@@ -441,7 +441,7 @@ export const NotificationSettingsCard: React.FC = () => {
             />
           </div>
 
-          <div className="flex items-center justify-between bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
+          <div className="flex items-center justify-between glass-inner-tile p-2.5 rounded-xl border border-purple-500/10">
             <div className="flex items-center gap-2">
               <Users className="w-3.5 h-3.5 text-pink-400" />
               <span className="font-bold text-white">Team & Admin</span>
@@ -454,7 +454,7 @@ export const NotificationSettingsCard: React.FC = () => {
             />
           </div>
 
-          <div className="flex items-center justify-between bg-[#211044] p-2.5 rounded-xl border border-purple-500/10">
+          <div className="flex items-center justify-between glass-inner-tile p-2.5 rounded-xl border border-purple-500/10">
             <div className="flex items-center gap-2">
               <Calendar className="w-3.5 h-3.5 text-emerald-400" />
               <span className="font-bold text-white">Attendance</span>
@@ -467,7 +467,7 @@ export const NotificationSettingsCard: React.FC = () => {
             />
           </div>
 
-          <div className="flex items-center justify-between bg-[#211044] p-2.5 rounded-xl border border-emerald-500/20 sm:col-span-2">
+          <div className="flex items-center justify-between glass-inner-tile p-2.5 rounded-xl border border-emerald-500/20 sm:col-span-2">
             <div className="flex items-center gap-2">
               <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
               <div>

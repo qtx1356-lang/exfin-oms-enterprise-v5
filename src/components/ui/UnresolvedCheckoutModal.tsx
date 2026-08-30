@@ -78,28 +78,28 @@ export const UnresolvedCheckoutModal: React.FC<Props> = ({ isOpen, onClose, reco
         </p>
 
         {error && (
-          <div className="text-xs text-[#EF4444] font-bold flex items-center gap-1.5 p-2.5 bg-[#EF4444]/10 rounded-xl border border-[#EF4444]/30">
+          <div className="text-xs text-[var(--danger)] font-bold flex items-center gap-1.5 p-2.5 bg-[var(--danger)]/10 rounded-xl border border-[var(--danger)]/30">
             <AlertCircle className="w-4 h-4" />
             <span>{error}</span>
           </div>
         )}
 
         <div>
-          <label className="block text-xs font-bold text-[#8A8AA3] uppercase tracking-wider mb-1.5">Checkout Time</label>
+          <label className="block text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1.5">Checkout Time</label>
           <div className="relative">
-            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#818CF8]" />
+            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--primary-light)]" />
             <input
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-[var(--app-background)] border border-[var(--border)] text-[var(--text-primary)] rounded-xl focus:outline-none focus:border-[#6366F1] transition-colors"
+              className="w-full pl-9 pr-4 py-2.5 bg-[var(--app-background)] border border-[var(--border)] text-[var(--text-primary)] rounded-xl focus:outline-none focus:border-[var(--primary)] transition-colors"
             />
           </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outlined" onClick={onClose} className="border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--app-background-secondary)] cursor-pointer">Cancel</Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting} variant="filled" className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white font-bold flex items-center gap-1 cursor-pointer">
+          <Button onClick={handleSubmit} disabled={isSubmitting} variant="filled" className="btn-primary text-white font-bold flex items-center gap-1 cursor-pointer">
             <Check className="w-4 h-4" />
             {isSubmitting ? 'Submitting...' : 'Enter Checkout Time'}
           </Button>

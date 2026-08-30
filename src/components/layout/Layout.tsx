@@ -59,7 +59,7 @@ const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
   const durationSec = Math.max(7, Math.round(overflowDistance / 18));
 
   return (
-    <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-secondary)] font-bold overflow-hidden bg-[var(--card-bg)]/80 border border-[var(--border)] px-2.5 py-1 rounded-xl min-w-[80px] flex-1 max-w-[150px] xs:max-w-[220px] sm:max-w-[320px] shadow-sm"
+    <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-secondary)] font-bold overflow-hidden bg-[var(--surface-elevated)]/80 border border-[var(--border)] px-2.5 py-1 rounded-xl min-w-[80px] flex-1 max-w-[150px] xs:max-w-[220px] sm:max-w-[320px] shadow-sm"
       title={address}
     >
       <MapPin className="w-3.5 h-3.5 text-[var(--success)] shrink-0 z-10" />
@@ -270,9 +270,9 @@ export const Layout: React.FC = () => {
   return (
     <div className="min-h-screen bg-transparent text-[var(--text-primary)] pb-20 relative overflow-x-hidden">
       {/* Premium Ambient Gradient Glows */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[320px] bg-[#8B5CF6]/25 rounded-full blur-[140px] pointer-events-none -z-10" />
-      <div className="fixed bottom-10 right-1/4 w-[450px] h-[450px] bg-[#2563EB]/20 rounded-full blur-[160px] pointer-events-none -z-10" />
-      <div className="fixed top-1/2 left-0 w-[350px] h-[500px] bg-[#06B6D4]/15 rounded-full blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[320px] bg-[var(--primary)]/5 rounded-full blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed bottom-10 right-1/4 w-[450px] h-[450px] bg-[var(--primary-light)]/5 rounded-full blur-[160px] pointer-events-none -z-10" />
+      <div className="fixed top-1/2 left-0 w-[350px] h-[500px] bg-[var(--info)]/5 rounded-full blur-[140px] pointer-events-none -z-10" />
 
       {/* Dynamic Header Bar with Frosted Glassmorphism */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-[20px] border-b border-indigo-100/80 shadow-[0_4px_20px_rgba(30,41,100,0.06)] text-slate-800">
@@ -333,7 +333,7 @@ export const Layout: React.FC = () => {
                   >
                     <Bell className="w-4.5 h-4.5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#E11D48] text-[9px] font-black text-white ring-2 ring-white shadow-md animate-bounce-subtle">
+                      <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--danger)] text-[9px] font-black text-white ring-2 ring-white shadow-md animate-bounce-subtle">
                         {unreadCount}
                       </span>
                     )}
@@ -347,16 +347,16 @@ export const Layout: React.FC = () => {
                        animate={{ opacity: 1, y: 0, scale: 1 }}
                        exit={{ opacity: 0, y: 12, scale: 0.95 }}
                        transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-                       className="absolute right-0 mt-3 w-[320px] xs:w-[380px] glass-card border border-white/20 rounded-2xl z-50 overflow-hidden text-white shadow-[0_20px_50px_rgba(30,41,100,0.35)]"
+                       className="absolute right-0 mt-3 w-[320px] xs:w-[380px] glass-card border border-[var(--border)] rounded-2xl z-50 overflow-hidden text-[var(--text-primary)] shadow-lg"
                        id="notification-bell-dropdown"
                     >
-                      <div className="p-4 border-b border-white/15 flex items-center justify-between bg-black/20">
-                        <span className="font-black text-xs uppercase tracking-widest text-white">Intelligence Alerts</span>
+                      <div className="p-4 border-b border-[var(--border)] flex items-center justify-between bg-black/20">
+                        <span className="font-black text-xs uppercase tracking-widest text-[var(--text-primary)]">Intelligence Alerts</span>
                         <div className="flex items-center gap-2">
                           {unreadCount > 0 && (
                             <button
                               onClick={handleMarkAllRead}
-                              className="text-[9px] text-[#38BDF8] hover:underline font-black flex items-center gap-1 bg-[#38BDF8]/15 border border-[#38BDF8]/30 px-2.5 py-1 rounded-lg transition-all uppercase tracking-wider cursor-pointer"
+                              className="text-[9px] text-[var(--primary)] hover:underline font-black flex items-center gap-1 bg-[var(--primary)]/10 border border-[var(--primary)]/20 px-2.5 py-1 rounded-lg transition-all uppercase tracking-wider cursor-pointer"
                               id="mark-all-read-btn"
                             >
                               <CheckCheck className="w-3 h-3" />
@@ -366,13 +366,13 @@ export const Layout: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="max-h-80 overflow-y-auto divide-y divide-white/10 bg-[#172554]/80">
+                      <div className="max-h-80 overflow-y-auto divide-y divide-white/10 bg-[var(--surface-inner)]">
                         {recentNotifs.length === 0 ? (
                           <div className="p-10 text-center flex flex-col items-center gap-3">
-                            <div className="w-12 h-12 rounded-full bg-white/10 border border-white/15 flex items-center justify-center">
-                              <Bell className="w-5 h-5 text-[#CBD5E1]" />
+                            <div className="w-12 h-12 rounded-full bg-white/10 border border-[var(--border)] flex items-center justify-center">
+                              <Bell className="w-5 h-5 text-[var(--text-muted)]" />
                             </div>
-                            <span className="text-[10px] text-[#CBD5E1] font-bold uppercase tracking-widest">System Clear</span>
+                            <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest">System Clear</span>
                           </div>
                         ) : (
                           recentNotifs.map((notif) => (
@@ -384,25 +384,25 @@ export const Layout: React.FC = () => {
                               }`}
                             >
                               {!notif.read && (
-                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#38BDF8]" />
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--primary)]" />
                               )}
                               <div className={`mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
-                                notif.read ? 'bg-white/10 border-white/10' : 'bg-[#8B5CF6]/20 border-[#8B5CF6]/40'
+                                notif.read ? 'bg-white/10 border-[var(--border)]' : 'bg-[var(--primary)]/10 border-[var(--primary)]/20'
                               }`}>
-                                <Info className={`w-4 h-4 ${notif.read ? 'text-[#CBD5E1]' : 'text-[#38BDF8]'}`} />
+                                <Info className={`w-4 h-4 ${notif.read ? 'text-[var(--text-muted)]' : 'text-[var(--primary)]'}`} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-xs font-black uppercase tracking-tight leading-tight ${notif.read ? 'text-[#CBD5E1]' : 'text-white'}`}>
+                                <p className={`text-xs font-black uppercase tracking-tight leading-tight ${notif.read ? 'text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}>
                                   {notif.title}
                                 </p>
-                                <p className="text-[11px] text-[#CBD5E1] mt-1 leading-relaxed line-clamp-2">
+                                <p className="text-[11px] text-[var(--text-muted)] mt-1 leading-relaxed line-clamp-2">
                                   {notif.message}
                                 </p>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <button
                                   onClick={(e) => handleDeleteNotification(e, notif.id)}
-                                  className="p-1.5 rounded-lg hover:bg-rose-500/20 text-[#CBD5E1] hover:text-rose-400 transition-colors"
+                                  className="p-1.5 rounded-lg hover:bg-rose-500/20 text-[var(--text-muted)] hover:text-rose-400 transition-colors"
                                   title="Remove"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -415,7 +415,7 @@ export const Layout: React.FC = () => {
 
                       <button
                         onClick={handleViewAll}
-                        className="w-full py-4 bg-black/25 hover:bg-black/35 text-center text-[10px] font-black text-[#38BDF8] transition-all border-t border-white/15 flex items-center justify-center gap-2 cursor-pointer uppercase tracking-[0.2em]"
+                        className="w-full py-4 bg-black/25 hover:bg-black/35 text-center text-[10px] font-black text-[var(--primary)] transition-all border-t border-[var(--border)] flex items-center justify-center gap-2 cursor-pointer uppercase tracking-[0.2em]"
                       >
                         <span>Portal Intelligence Center</span>
                         <ChevronRight className="w-3.5 h-3.5" />

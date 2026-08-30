@@ -943,9 +943,10 @@ export async function sendDailyReportTestEmail(
  * the configured daily send time, and dispatches yesterday's operational summary report if not already sent.
  */
 let isSchedulerExecuting = false;
+let isSchedulerDisabled = false;
 
 export async function checkAndRunScheduledDailyReport(db: Firestore | null): Promise<void> {
-  if (!db || isSchedulerExecuting) return;
+  if (!db || isSchedulerExecuting || isSchedulerDisabled) return;
   try {
     isSchedulerExecuting = true;
     const config = await getDailyReportConfig(db);
@@ -985,6 +986,10 @@ export async function checkAndRunScheduledDailyReport(db: Firestore | null): Pro
     await generateAndSendDailyReport(db, reportDate, false, 'SYSTEM_SCHEDULER');
   } catch (err) {
     console.error('[DailyReport Scheduler] Error in automated scheduled check:', err);
+    if (err && err.message && err.message.includes('PERMISSION_DENIED')) {
+      console.warn('[DailyReport Scheduler] Disabling scheduler due to missing Firebase Admin permissions.');
+      isSchedulerDisabled = true;
+    }
   } finally {
     isSchedulerExecuting = false;
   }
