@@ -34,6 +34,41 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     return '';
   });
 
+  // Load today's latest attendance status from localStorage or state
+  const [latestAttendanceText, setLatestAttendanceText] = useState<{ label: string; time: string }>({ label: 'Attendance', time: 'No attendance yet' });
+
+  useEffect(() => {
+    try {
+      const attendanceKey = 'exfin_offline_attendance_log';
+      const rawAtt = localStorage.getItem(attendanceKey);
+      const todayStr = new Date().toISOString().substring(0, 10);
+      if (rawAtt) {
+        const list = JSON.parse(rawAtt);
+        const todayLogs = list.filter((l: any) => (l.date || '').startsWith(todayStr) || (l.timestamp || '').startsWith(todayStr));
+        if (todayLogs.length > 0) {
+          // Sort descending by timestamp
+          todayLogs.sort((a: any, b: any) => new Date(b.timestamp || b.checkInTime || 0).getTime() - new Date(a.timestamp || a.checkInTime || 0).getTime());
+          const latest = todayLogs[0];
+          const type = (latest.type || latest.action || 'CHECK_IN').toUpperCase();
+          const ts = latest.timestamp || latest.checkInTime || new Date().toISOString();
+          let timeFormatted = ts;
+          try {
+            const d = new Date(ts);
+            if (!isNaN(d.getTime())) {
+              timeFormatted = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+            }
+          } catch (err) {}
+
+          if (type.includes('OUT') || type.includes('CHECK_OUT')) {
+            setLatestAttendanceText({ label: 'Latest Check-out', time: `Today, ${timeFormatted}` });
+          } else {
+            setLatestAttendanceText({ label: 'Latest Check-in', time: `Today, ${timeFormatted}` });
+          }
+        }
+      }
+    } catch (e) {}
+  }, []);
+
   useEffect(() => {
     logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
   }, []);
@@ -98,204 +133,186 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const isLocationError = (locationStatus === 'error' || isPermissionDenied || isGpsOff || isLocationUnavailable || isOffline) && distance === null;
 
   return (
-    <div className="fixed inset-0 bg-[var(--app-background)] flex flex-col items-center justify-between p-4 sm:p-6 z-40 text-[var(--text-primary)] overflow-y-auto relative overflow-hidden">
-      {/* Emerald Aurora Ambient Lighting */}
-      <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[var(--success)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
-      <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[var(--teal)]/8 rounded-full blur-[140px] pointer-events-none -z-10" />
+    <div className="fixed inset-0 bg-[#071A2B] flex flex-col items-center justify-between p-4 sm:p-6 z-40 text-[#F8FAFC] overflow-y-auto relative overflow-hidden">
+      {/* Subtle Teal/Emerald Atmospheric Gradient Glow */}
+      <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[#10B981]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[#0A2638]/60 rounded-full blur-[140px] pointer-events-none -z-10" />
 
       {/* Main Content Container */}
       <div className="w-full max-w-sm my-auto py-2 flex flex-col items-center text-center relative z-10 space-y-5">
         
-        {/* Central Logo / Icon */}
+        {/* Central Logo / Icon (Verified User Icon) */}
         <div className="relative flex items-center justify-center my-1">
-          <div className="w-20 h-20 rounded-full border border-[var(--success)]/30 bg-[var(--surface-inner)]/80 backdrop-blur-[14px] flex items-center justify-center shadow-2xl">
-            <div className="w-16 h-16 rounded-full bg-[var(--surface-elevated)] border border-[var(--success)]/50 flex items-center justify-center shadow-lg">
+          <div className="w-20 h-20 rounded-full border border-[#10B981]/30 bg-[#092438]/80 backdrop-blur-[14px] flex items-center justify-center shadow-2xl">
+            <div className="w-16 h-16 rounded-full bg-[#0D3045] border border-[#10B981]/50 flex items-center justify-center shadow-lg">
               {isRegistered ? (
-                <UserCheck className="w-8 h-8 text-[var(--success)]" />
+                <UserCheck className="w-8 h-8 text-[#10B981]" />
               ) : (
-                <Building2 className="w-8 h-8 text-[var(--success)]" />
+                <Building2 className="w-8 h-8 text-[#10B981]" />
               )}
             </div>
           </div>
         </div>
 
-        {/* Time-Aware Greeting */}
-        <div>
-          <div className="text-[var(--text-secondary)] text-sm sm:text-base font-semibold tracking-wide flex items-center justify-center gap-1.5">
-            <span className="text-[var(--success)] text-xl">☀️</span>
+        {/* Time-Aware Greeting & Employee Name */}
+        <div className="flex flex-col items-center text-center">
+          <div className="text-[#94A3B8] text-sm sm:text-base font-semibold tracking-wide flex items-center justify-center gap-1.5">
+            <span className="text-[#10B981] text-xl">☀️</span>
             <span>{greetingInfo.label} 👋</span>
           </div>
 
-          {/* Generic Welcome */}
-          <h1 className="mt-1 text-2xl sm:text-3xl font-black text-[var(--text-primary)] tracking-tight leading-tight uppercase aurora-text">
+          <h1 className="mt-1 text-2xl sm:text-3xl font-black text-[#F8FAFC] tracking-tight leading-tight uppercase">
             {status === 'unregistered' ? (
               <>Register Device</>
             ) : (
-              <>{displayName || 'Welcome Back'}</>
+              <>{displayName || 'SANJIV SINHA'}</>
             )}
           </h1>
-          <p className="text-[11px] font-bold text-[var(--success)] tracking-widest uppercase mt-2">
-            EXFIN OMS • EMERALD AURORA
+          <p className="mt-2 text-[11px] font-bold text-[#10B981] tracking-widest uppercase">
+            EXFIN OMS • SMART APP
           </p>
         </div>
 
-        {/* Automation Banner Card */}
-        <div className="w-full py-4 px-4 glass-card border-[var(--success)]/20 text-center shadow-lg">
-          <p className="text-xs sm:text-sm font-bold text-[var(--success)] tracking-wider flex items-center justify-center gap-1.5 uppercase">
-            <Sparkles className="w-4 h-4 text-[var(--success)] shrink-0" />
+        {/* 1. Automatic Attendance Card */}
+        <div className="w-full py-4 px-4 bg-[#0D3045] border border-[#16465A] rounded-2xl flex flex-col items-center text-center shadow-lg">
+          <p className="text-xs sm:text-sm font-bold text-[#10B981] tracking-wider flex items-center justify-center gap-1.5 uppercase">
+            <Sparkles className="w-4 h-4 text-[#10B981] shrink-0" />
             <span>AUTOMATIC ATTENDANCE</span>
           </p>
-          <p className="text-[11px] text-[var(--text-secondary)] mt-1 font-medium italic">
+          <p className="text-[11px] text-[#94A3B8] mt-1 font-medium">
             Check-in & checkout handled automatically
           </p>
         </div>
 
-        {/* Compact Location & Attendance Status Card */}
-        <div className={`w-full glass-card-elevated p-5 rounded-2xl border text-left shadow-xl transition-all ${
-          isLocationLoading
-            ? 'border-[var(--border)]'
-            : isInsideGeofence
-              ? 'border-[var(--success)]/40'
-              : 'border-[var(--danger)]/40 opacity-90'
-        }`}>
-          {/* Header */}
-          <div className="flex items-center gap-2 mb-4 border-b border-[var(--border)] pb-3">
-            <MapPin className={`w-4 h-4 ${isLocationLoading ? 'text-[var(--success)]' : isInsideGeofence ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`} />
-            <span className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)]">
-              Location Intelligence
+        {/* 2. Location / Attendance Intelligence Card */}
+        <div className="w-full bg-[#0D3045] p-5 rounded-2xl border border-[#16465A] text-center shadow-xl">
+          {/* Header Centered */}
+          <div className="flex items-center justify-center gap-2 mb-4 border-b border-[#16465A] pb-3">
+            <MapPin className="w-4 h-4 text-[#F43F5E]" />
+            <span className="text-xs font-black uppercase tracking-widest text-[#94A3B8]">
+              LOCATION INTELLIGENCE
             </span>
           </div>
 
-          {/* Grid Info - 2x2 Unified Layout */}
+          {/* 2-Column Metric Layout - All Centered */}
           <div className="grid grid-cols-2 gap-x-4 gap-y-4">
             
-            {/* Row 1, Col 1: Location Status */}
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">
-                Status
+            {/* Left Top: Status */}
+            <div className="flex flex-col items-center text-center space-y-1">
+              <span className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider block">
+                STATUS
               </span>
               {isLocationLoading ? (
-                <span className="text-sm font-bold text-[var(--text-secondary)] block">
+                <span className="text-sm font-bold text-[#94A3B8] block">
                   Locating...
                 </span>
               ) : distance === null ? (
-                <span className="text-sm font-bold text-[var(--text-secondary)] block">
+                <span className="text-sm font-bold text-[#94A3B8] block">
                   {isGpsOff || isPermissionDenied || isLocationError ? 'GPS Unavailable' : 'Locating...'}
                 </span>
               ) : isInsideGeofence ? (
-                <span className="text-sm font-bold text-[var(--success)] flex items-center gap-1">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" /> IN OFFICE
+                <span className="text-sm font-bold text-[#10B981] flex items-center justify-center gap-1">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" /> INSIDE
                 </span>
               ) : (
-                <span className="text-sm font-bold text-[var(--danger)] flex items-center gap-1">
+                <span className="text-sm font-bold text-[#F43F5E] flex items-center justify-center gap-1">
                   <MapPin className="w-4 h-4 shrink-0" /> OUTSIDE
                 </span>
               )}
             </div>
 
-            {/* Row 1, Col 2: Distance */}
-            <div className="space-y-1 border-l border-[var(--border)] pl-4">
-              <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">
-                Distance
+            {/* Right Top: Distance */}
+            <div className="flex flex-col items-center text-center space-y-1 border-l border-[#16465A] pl-4">
+              <span className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider block">
+                DISTANCE
               </span>
               {distance !== null ? (
-                <span className="text-sm font-bold text-[var(--text-primary)] block">
+                <span className="text-sm font-bold text-[#F8FAFC] block">
                   {formattedDistance}
                 </span>
               ) : isLocationLoading ? (
-                <span className="text-sm font-bold text-[var(--text-secondary)] block">
+                <span className="text-sm font-bold text-[#94A3B8] block">
                   Locating...
                 </span>
               ) : isGpsOff || isPermissionDenied || isLocationError ? (
-                <span className="text-sm font-bold text-[var(--warning)] block leading-tight">
+                <span className="text-sm font-bold text-[#F59E0B] block leading-tight">
                   GPS unavailable
                 </span>
               ) : (
-                <span className="text-sm font-bold text-[var(--danger)] block leading-tight">
+                <span className="text-sm font-bold text-[#F43F5E] block leading-tight">
                   Unavailable
                 </span>
               )}
             </div>
 
-            {/* Row 2, Col 1: Office Radius */}
-            <div className="space-y-1 pt-3 border-t border-[var(--border)]">
-              <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">
-                Radius
+            {/* Left Bottom: Radius */}
+            <div className="flex flex-col items-center text-center space-y-1 pt-3 border-t border-[#16465A]">
+              <span className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider block">
+                RADIUS
               </span>
-              <span className="text-sm font-bold text-[var(--text-primary)] block">
+              <span className="text-sm font-bold text-[#F8FAFC] block">
                 25 m
               </span>
             </div>
 
-            {/* Row 2, Col 2: Geofence */}
-            <div className="space-y-1 pt-3 border-t border-l border-[var(--border)] pl-4">
-              <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block">
-                Geofence
+            {/* Right Bottom: Attendance (Replaced Geofence with dynamic latest check-in/out) */}
+            <div className="flex flex-col items-center text-center space-y-1 pt-3 border-t border-l border-[#16465A] pl-4">
+              <span className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider block">
+                ATTENDANCE
               </span>
-              {isLocationLoading ? (
-                <span className="text-sm font-bold text-[var(--text-secondary)] block">
-                  Checking...
-                </span>
-              ) : distance === null ? (
-                <span className="text-sm font-bold text-[var(--danger)] block text-[10px]">
-                  UNAVAILABLE
-                </span>
-              ) : isInsideGeofence ? (
-                <span className="text-sm font-bold text-[var(--success)] block">
-                  VERIFIED
-                </span>
-              ) : (
-                <span className="text-sm font-bold text-[var(--danger)] block">
-                  FAILED
-                </span>
-              )}
+              <span className="text-xs font-bold text-[#10B981] block leading-snug">
+                {latestAttendanceText.label}
+              </span>
+              <span className="text-[11px] font-medium text-[#F8FAFC] block leading-tight">
+                {latestAttendanceText.time}
+              </span>
             </div>
 
           </div>
         </div>
 
-        {/* Feature Highlights Grid */}
-        <div className="w-full glass-card p-4 rounded-2xl grid grid-cols-4 gap-2 text-center shadow-lg border-[var(--border)]">
+        {/* 3. Feature Card (4 equal-width features: Secure, Smart, Precise, Verified) */}
+        <div className="w-full bg-[#0D3045] p-4 rounded-2xl grid grid-cols-4 gap-2 text-center shadow-lg border border-[#16465A]">
           {/* Secure Tile */}
-          <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[var(--surface-inner)] text-[var(--success)] flex items-center justify-center mb-1 border border-[var(--border)]">
+          <div className="flex flex-col items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-[#092438] text-[#10B981] flex items-center justify-center mb-1 border border-[#16465A]">
               <Lock className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-black text-[var(--text-primary)] block leading-tight">Secure</span>
+            <span className="text-[10px] font-black text-[#F8FAFC] block leading-tight">Secure</span>
           </div>
 
           {/* Smart Tile */}
-          <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[var(--surface-inner)] text-[var(--teal)] flex items-center justify-center mb-1 border border-[var(--border)]">
+          <div className="flex flex-col items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-[#092438] text-[#22D3EE] flex items-center justify-center mb-1 border border-[#16465A]">
               <Zap className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-black text-[var(--text-primary)] block leading-tight">Smart</span>
+            <span className="text-[10px] font-black text-[#F8FAFC] block leading-tight">Smart</span>
           </div>
 
-          {/* Accurate Tile */}
-          <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[var(--surface-inner)] text-[var(--cyan)] flex items-center justify-center mb-1 border border-[var(--border)]">
+          {/* Precise Tile */}
+          <div className="flex flex-col items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-[#092438] text-[#22D3EE] flex items-center justify-center mb-1 border border-[#16465A]">
               <Target className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-black text-[var(--text-primary)] block leading-tight">Precise</span>
+            <span className="text-[10px] font-black text-[#F8FAFC] block leading-tight">Precise</span>
           </div>
 
-          {/* Reliable Tile */}
-          <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[var(--surface-inner)] text-[var(--success)] flex items-center justify-center mb-1 border border-[var(--border)]">
+          {/* Verified Tile */}
+          <div className="flex flex-col items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-[#092438] text-[#10B981] flex items-center justify-center mb-1 border border-[#16465A]">
               <Check className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-black text-[var(--text-primary)] block leading-tight">Verified</span>
+            <span className="text-[10px] font-black text-[#F8FAFC] block leading-tight">Verified</span>
           </div>
         </div>
 
       </div>
 
-      {/* Bottom CTA Button */}
+      {/* 4. Enter Workspace Button */}
       <div className="w-full max-w-sm pt-2 pb-4 relative z-10">
         <button
           onClick={onProceed}
-          className="w-full min-h-[56px] py-4 px-6 bg-[var(--button-primary)] text-white font-black uppercase tracking-[0.1em] text-sm sm:text-base rounded-2xl shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer border border-[var(--border)] active:scale-[0.98]"
+          className="w-full min-h-[56px] py-4 px-6 bg-gradient-to-r from-[#10B981] to-[#22D3EE] text-white font-black uppercase tracking-[0.1em] text-sm sm:text-base rounded-2xl shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer border border-white/20 active:scale-[0.98]"
         >
           <span>{status === 'unregistered' ? 'Proceed to Setup' : 'Enter Workspace'}</span>
           <ArrowRight className="w-5 h-5 text-white" />
@@ -304,3 +321,4 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     </div>
   );
 };
+
