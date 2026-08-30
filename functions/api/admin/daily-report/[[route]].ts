@@ -39,21 +39,63 @@ export async function onRequest(context) {
     });
   }
 
-  function unwrap(val) {
+  function unwrapFields(fields) {
+    if (!fields) return {};
+    const res = {};
+    for (const k in fields) {
+      res[k] = unwrapValue(fields[k]);
+    }
+    return res;
+  }
+
+  function unwrapValue(val) {
     if (!val) return null;
     if ('stringValue' in val) return val.stringValue;
     if ('booleanValue' in val) return val.booleanValue;
     if ('integerValue' in val) return parseInt(val.integerValue, 10);
     if ('doubleValue' in val) return val.doubleValue;
-    if ('arrayValue' in val) return (val.arrayValue.values || []).map(unwrap);
-    if ('mapValue' in val) {
-        const res = {};
-        for (const k in val.mapValue.fields) res[k] = unwrap(val.mapValue.fields[k]);
-        return res;
-    }
+    if ('arrayValue' in val) return (val.arrayValue?.values || []).map(unwrapValue);
+    if ('mapValue' in val) return unwrapFields(val.mapValue?.fields);
     if ('timestampValue' in val) return val.timestampValue;
     if ('nullValue' in val) return null;
     return val;
+  }
+
+  async function safeQueryCollection(collectionId: string, queryBody: any = {}): Promise<Record<string, any>[]> {
+    try {
+      const res = await firestoreQuery(collectionId, queryBody);
+      if (!res.ok) {
+        return [];
+      }
+      const data: any = await res.json();
+      if (!Array.isArray(data)) return [];
+      return data.map((d: any) => {
+        if (!d || !d.document) return null;
+        const docName = d.document.name || '';
+        const id = docName.split('/').pop();
+        const fields = unwrapFields(d.document.fields || {});
+        return { id, ...fields } as Record<string, any>;
+      }).filter(Boolean) as Record<string, any>[];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function getPreviousKolkataDateString() {
+    try {
+      const now = new Date();
+      const kolkataStr = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+      const d = new Date(kolkataStr);
+      d.setDate(d.getDate() - 1);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    } catch (e) {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return d.toISOString().split('T')[0];
+    }
   }
 
   const DEFAULT_TARGET_RECIPIENTS = [
@@ -387,62 +429,126 @@ export async function onRequest(context) {
     }
 
     if (request.method === 'POST' && pathStr === 'send-yesterday') {
-      const body = await request.json().catch(() => ({}));
-      const res = await firestoreFetch('system_settings/daily_admin_report');
-      let fsData = null;
-      if (res.ok) {
-        fsData = await res.json();
-      }
-      const recipientRes = getEffectiveRecipients(fsData);
-      if (!recipientRes.valid) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: recipientRes.error
-        }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-      }
-      const recipients = recipientRes.recipients;
-      const targetDate = body.date || new Date().toISOString().split('T')[0];
-
-      // Fetch Employees
-      const empRes = await firestoreQuery('registrations', {});
-      const emps = (await empRes.json() || []).map(d => d.document ? { id: d.document.name.split('/').pop(), ...unwrap(d.document) } : null).filter(Boolean);
-      const totalEmployeesCount = emps.filter(e => e.status === 'Approved' && e.role !== 'ADMIN' && e.role !== 'SUPER_ADMIN').length;
-
-      // Fetch Attendance
-      const attRes = await firestoreQuery('attendance', { where: { fieldFilter: { field: { fieldPath: 'date' }, op: 'EQUAL', value: { stringValue: targetDate } } } });
-      const attendance = (await attRes.json() || []).map(d => d.document ? { id: d.document.name.split('/').pop(), ...unwrap(d.document) } : null).filter(Boolean);
-      
-      const presentCount = attendance.length;
-      const absentCount = Math.max(0, totalEmployeesCount - presentCount);
-
-      // Fetch Leaves
-      const lvRes = await firestoreQuery('leave_requests', { where: { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: { stringValue: 'Approved' } } } });
-      const leaves = (await lvRes.json() || []).map(d => d.document ? { id: d.document.name.split('/').pop(), ...unwrap(d.document) } : null).filter(Boolean);
-      const activeLeaves = leaves.filter(l => l.startDate <= targetDate && l.endDate >= targetDate).length;
-
-      // Fetch Expenses
-      const expRes = await firestoreQuery('expense_claims', { where: { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: { stringValue: 'Pending' } } } });
-      const expenses = (await expRes.json() || []).map(d => d.document ? { id: d.document.name.split('/').pop(), ...unwrap(d.document) } : null).filter(Boolean);
-      
-      const unresolvedCheckouts = attendance.filter(a => !a.checkOutTime).length;
-      const totalExpensesSum = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-
-      const html = `<!DOCTYPE html><html><body style="font-family: Arial, sans-serif; background-color: #f1f5f9; padding: 20px;"><div style="max-width: 800px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgb(0 0 0 / 0.1);"><div style="background: linear-gradient(135deg, #1e1b4b 0%, #31105e 100%); color: white; padding: 30px; text-align: center;"><h1 style="margin: 0; font-size: 26px;">EXFIN OMS</h1><p style="margin: 5px 0 0 0; color: #c084fc;">Daily Operations Report</p><div style="margin-top: 15px; font-weight: bold;">Report Date: ${targetDate}</div></div><div style="padding: 25px;"><h3 style="border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">Summary Overview</h3><div style="display: flex; gap: 12px; flex-wrap: wrap;">
-        <div style="flex: 1 1 120px; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 12px; border-radius: 10px; text-align: center;"><div style="color: #047857; font-weight: bold; font-size: 11px;">PRESENT</div><div style="font-size: 24px; color: #065f46; font-weight: bold;">${presentCount}</div></div>
-        <div style="flex: 1 1 120px; background: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 10px; text-align: center;"><div style="color: #b91c1c; font-weight: bold; font-size: 11px;">ABSENT</div><div style="font-size: 24px; color: #991b1b; font-weight: bold;">${absentCount}</div></div>
-        <div style="flex: 1 1 120px; background: #fffbeb; border: 1px solid #fde68a; padding: 12px; border-radius: 10px; text-align: center;"><div style="color: #d97706; font-weight: bold; font-size: 11px;">ACTIVE LEAVES</div><div style="font-size: 24px; color: #92400e; font-weight: bold;">${activeLeaves}</div></div>
-        <div style="flex: 1 1 120px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 10px; text-align: center;"><div style="color: #475569; font-weight: bold; font-size: 11px;">EXPENSES</div><div style="font-size: 24px; color: #0f172a; font-weight: bold;">₹${totalExpensesSum.toLocaleString()}</div></div>
-      </div>
-      
-      <div style="margin-top: 20px; color: #475569; font-size: 14px;">
-        <p><strong>Pending Expense Claims:</strong> ${expenses.length}</p>
-        <p><strong>Unresolved Checkouts:</strong> ${unresolvedCheckouts}</p>
-      </div>
-      </div></div></body></html>`;
-
+      let currentStage = 'REQUEST_RECEIVED';
+      let targetDate = '';
       try {
-        const sendRes = await sendEmailViaGmailSmtp(recipients, `EXFIN OMS — Daily Admin Report — ${targetDate}`, html);
+        const body = await request.json().catch(() => ({}));
 
+        // STEP 1: RECIPIENTS_LOADED
+        currentStage = 'RECIPIENTS_LOADED';
+        const res = await firestoreFetch('system_settings/daily_admin_report');
+        let fsData = null;
+        if (res.ok) {
+          fsData = await res.json();
+        }
+        const recipientRes = getEffectiveRecipients(fsData);
+        if (!recipientRes.valid) {
+          return new Response(JSON.stringify({
+            success: false,
+            stage: currentStage,
+            error: recipientRes.error
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        }
+        const recipients = recipientRes.recipients;
+        if (recipients.length === 0) {
+          return new Response(JSON.stringify({
+            success: false,
+            stage: currentStage,
+            error: 'No valid email recipients are configured.'
+          }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        }
+
+        // STEP 2: REPORT_DATE_CALCULATED
+        currentStage = 'REPORT_DATE_CALCULATED';
+        targetDate = (body.date && typeof body.date === 'string' && body.date.trim()) 
+          ? body.date.trim() 
+          : getPreviousKolkataDateString();
+
+        // STEP 3: ATTENDANCE_DATA_LOADED
+        currentStage = 'ATTENDANCE_DATA_LOADED';
+        const emps = await safeQueryCollection('registrations');
+        const approvedEmps = emps.filter(e => e.status === 'Approved' && e.role !== 'ADMIN' && e.role !== 'SUPER_ADMIN');
+        const totalEmployeesCount = approvedEmps.length;
+
+        const attendance = await safeQueryCollection('attendance', {
+          where: { fieldFilter: { field: { fieldPath: 'date' }, op: 'EQUAL', value: { stringValue: targetDate } } }
+        });
+        const presentCount = attendance.length;
+        const absentCount = Math.max(0, totalEmployeesCount - presentCount);
+        const unresolvedCheckouts = attendance.filter(a => !a.checkOutTime).length;
+
+        const leaves = await safeQueryCollection('leave_requests', {
+          where: { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: { stringValue: 'Approved' } } }
+        });
+        const activeLeaves = leaves.filter(l => l.startDate <= targetDate && l.endDate >= targetDate).length;
+
+        // STEP 4: EXPENSE_DATA_LOADED
+        currentStage = 'EXPENSE_DATA_LOADED';
+        const expenses = await safeQueryCollection('expense_claims', {
+          where: { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: { stringValue: 'Pending' } } }
+        });
+        const totalExpensesSum = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+
+        // STEP 5: REPORT_HTML_GENERATED
+        currentStage = 'REPORT_HTML_GENERATED';
+        const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>EXFIN OMS Daily Operational Report</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f1f5f9; padding: 20px; margin: 0;">
+  <div style="max-width: 800px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgb(0 0 0 / 0.1);">
+    <div style="background: linear-gradient(135deg, #1e1b4b 0%, #31105e 100%); color: white; padding: 30px; text-align: center;">
+      <h1 style="margin: 0; font-size: 26px; font-weight: bold;">EXFIN OMS</h1>
+      <p style="margin: 5px 0 0 0; color: #c084fc; font-size: 14px;">Daily Operations & Administration Report</p>
+      <div style="margin-top: 15px; font-weight: bold; background: rgba(255,255,255,0.15); display: inline-block; padding: 5px 16px; border-radius: 20px; font-size: 13px;">
+        Report Date: ${targetDate} (Asia/Kolkata)
+      </div>
+    </div>
+    <div style="padding: 25px;">
+      <h3 style="border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; color: #0f172a; text-transform: uppercase; font-size: 14px; margin-top: 0;">Summary Overview</h3>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+        <div style="flex: 1 1 120px; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 12px; border-radius: 10px; text-align: center;">
+          <div style="color: #047857; font-weight: bold; font-size: 11px;">PRESENT</div>
+          <div style="font-size: 24px; color: #065f46; font-weight: bold;">${presentCount}</div>
+        </div>
+        <div style="flex: 1 1 120px; background: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 10px; text-align: center;">
+          <div style="color: #b91c1c; font-weight: bold; font-size: 11px;">ABSENT</div>
+          <div style="font-size: 24px; color: #991b1b; font-weight: bold;">${absentCount}</div>
+        </div>
+        <div style="flex: 1 1 120px; background: #fffbeb; border: 1px solid #fde68a; padding: 12px; border-radius: 10px; text-align: center;">
+          <div style="color: #d97706; font-weight: bold; font-size: 11px;">ACTIVE LEAVES</div>
+          <div style="font-size: 24px; color: #92400e; font-weight: bold;">${activeLeaves}</div>
+        </div>
+        <div style="flex: 1 1 120px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 10px; text-align: center;">
+          <div style="color: #475569; font-weight: bold; font-size: 11px;">PENDING EXPENSES</div>
+          <div style="font-size: 24px; color: #0f172a; font-weight: bold;">₹${totalExpensesSum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+        </div>
+      </div>
+      
+      <div style="margin-top: 20px; color: #334155; font-size: 14px; line-height: 1.8; border-top: 1px solid #f1f5f9; padding-top: 15px;">
+        <p style="margin: 4px 0;"><strong>Total Active Employees:</strong> ${totalEmployeesCount}</p>
+        <p style="margin: 4px 0;"><strong>Pending Expense Claims:</strong> ${expenses.length}</p>
+        <p style="margin: 4px 0;"><strong>Unresolved Checkouts:</strong> ${unresolvedCheckouts}</p>
+      </div>
+    </div>
+    <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 15px; text-align: center; color: #64748b; font-size: 12px;">
+      EXFIN Office Management System — Generated Daily Operational Briefing
+    </div>
+  </div>
+</body>
+</html>`;
+
+        const htmlSizeBytes = new TextEncoder().encode(html).length;
+        const subject = `EXFIN OMS — Previous Day Admin Report — ${targetDate}`;
+
+        // STEP 7: GMAIL_SEND_STARTED
+        currentStage = 'GMAIL_SEND_STARTED';
+        const sendRes = await sendEmailViaGmailSmtp(recipients, subject, html);
+
+        // STEP 8: GMAIL_SEND_COMPLETED
+        currentStage = 'GMAIL_SEND_COMPLETED';
         const reportLogRef = `daily_admin_reports/${targetDate}`;
         await firestoreFetch(reportLogRef, 'PATCH', {
           fields: {
@@ -458,14 +564,30 @@ export async function onRequest(context) {
 
         return new Response(JSON.stringify({ 
           success: true, 
+          stage: 'GMAIL_SEND_COMPLETED',
           message: "Email accepted by Gmail SMTP",
+          reportDate: targetDate,
           recipientCount: recipients.length,
           recipients,
-          reportDate: targetDate,
-          messageId: sendRes.messageId
+          messageId: sendRes.messageId,
+          htmlSizeBytes,
+          stats: {
+            totalEmployees: totalEmployeesCount,
+            present: presentCount,
+            absent: absentCount,
+            activeLeaves: activeLeaves,
+            pendingExpenses: expenses.length,
+            totalExpenseSum: totalExpensesSum,
+            unresolvedCheckouts
+          }
         }), { headers: { 'Content-Type': 'application/json' } });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message || 'Failed to dispatch report' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({
+          success: false,
+          stage: currentStage,
+          reportDate: targetDate,
+          error: err.message || 'Failed to dispatch report'
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } });
       }
     }
 

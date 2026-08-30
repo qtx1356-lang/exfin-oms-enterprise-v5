@@ -307,11 +307,12 @@ export function DailyAdminReportTab() {
       if (data.success) {
         setStatusMsg({ 
           type: 'success', 
-          text: `Daily operations report generated and sent to admin for ${data.reportDate} (MessageId: ${data.messageId || 'simulated'}).` 
+          text: `Previous Day Report sent successfully for ${data.reportDate} to ${data.recipientCount || (data.recipients?.length || 0)} recipient(s). (MessageId: ${data.messageId || 'simulated'}).` 
         });
         loadData(); // reload log history
       } else {
-        throw new Error(data.error || `Manual report generation failed`);
+        const stageInfo = data.stage ? `[Stage: ${data.stage}] ` : '';
+        throw new Error(`${stageInfo}${data.error || 'Previous Day Report failed'}`);
       }
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: err.message || 'Failed to generate manual report.' });
