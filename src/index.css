@@ -28,16 +28,16 @@
 }
 
 :root {
-  /* 1. GLOBAL PAGE BACKGROUND — EMERALD AURORA GRADIENT */
+  /* 1. GLOBAL PAGE BACKGROUND — EMERALD AURORA GRADIENT (LOCKED) */
   --app-background: linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%);
   --app-bg: linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%);
   --app-bg-secondary: #082838;
 
-  /* 2. CARD SURFACES */
-  --surface: rgba(10, 36, 54, 0.92);        /* Primary Card: #0A2436 */
-  --surface-elevated: rgba(9, 34, 56, 0.92); /* Secondary Card: #092238 */
-  --surface-inner: rgba(6, 27, 45, 0.92);    /* Inner Statistic Card: #061B2D */
-  --surface-hover: rgba(14, 46, 68, 0.92);   /* #0E2E44 */
+  /* 2. CARD SURFACES — PREMIUM DARK GOLD GRADIENT */
+  --surface: linear-gradient(145deg, rgba(31, 25, 14, 0.94) 0%, rgba(44, 34, 18, 0.94) 50%, rgba(26, 20, 11, 0.94) 100%);        /* Primary Gold Card */
+  --surface-elevated: linear-gradient(145deg, rgba(25, 19, 11, 0.94) 0%, rgba(38, 29, 15, 0.94) 60%, rgba(20, 15, 8, 0.94) 100%); /* Secondary Gold Card */
+  --surface-inner: linear-gradient(145deg, rgba(18, 14, 8, 0.94) 0%, rgba(28, 21, 11, 0.94) 100%);    /* Inner Stat Gold Tile */
+  --surface-hover: linear-gradient(145deg, rgba(38, 30, 17, 0.94) 0%, rgba(52, 40, 21, 0.94) 50%, rgba(32, 24, 13, 0.94) 100%);
 
   /* TYPOGRAPHY */
   --text-primary: #F8FAFC;     /* Primary text: #F8FAFC */
@@ -48,23 +48,24 @@
   --primary: #22D3EE;          /* Cyan / Info */
   --primary-dark: #2563EB;     /* Blue */
   --primary-light: #38BDF8;    /* Sky Cyan */
+  --gold: #D4AF37;             /* Elegant Metallic Gold */
 
   /* STATUS COLORS */
   --success: #10B981; /* Emerald Green: #10B981 */
-  --warning: #F59E0B; /* Amber: #F59E0B */
+  --warning: #F59E0B; /* Amber / Orange: #F59E0B */
   --danger: #F43F5E;  /* Red / Error: #F43F5E */
   --info: #22D3EE;    /* Cyan: #22D3EE */
   --purple: #8B5CF6;  /* Purple: #8B5CF6 */
 
   /* BORDERS & SHADOWS */
-  --border: rgba(80, 220, 190, 0.14);
-  --divider: rgba(80, 220, 190, 0.10);
-  --shadow: 0 10px 30px rgba(3, 12, 22, 0.6);
+  --border: rgba(212, 175, 55, 0.22);
+  --divider: rgba(212, 175, 55, 0.12);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 215, 0, 0.10);
   
   /* NAVIGATION & BUTTONS */
-  --nav-bg: rgba(6, 27, 43, 0.92); /* #061B2B translucent */
+  --nav-bg: rgba(6, 27, 43, 0.94); /* #061B2B translucent */
   --button-primary: linear-gradient(135deg, #10B981 0%, #06B6D4 50%, #2563EB 100%);
-  --button-secondary: rgba(10, 36, 54, 0.85);
+  --button-secondary: rgba(28, 22, 12, 0.85);
 }
 
 body {
@@ -96,42 +97,43 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: rgba(6, 27, 45, 0.92) !important;
+  background: linear-gradient(145deg, rgba(18, 14, 8, 0.94) 0%, rgba(28, 21, 11, 0.94) 100%) !important;
   color: #F8FAFC !important;
-  border: 1px solid rgba(80, 220, 190, 0.18) !important;
+  border: 1px solid rgba(212, 175, 55, 0.22) !important;
   border-radius: 12px !important;
   transition: all 0.2s ease;
 }
 
 input:focus, textarea:focus, select:focus {
   outline: none !important;
-  border-color: #22D3EE !important;
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.25) !important;
+  border-color: #D4AF37 !important;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.25) !important;
 }
 
-/* 2. Main Glass Cards: Primary #0A2436 */
+/* 2. Main Premium Gold Cards */
 .glass-card, .glass-card-elevated {
-  background: rgba(10, 36, 54, 0.92) !important;
+  background: linear-gradient(145deg, rgba(31, 25, 14, 0.94) 0%, rgba(44, 34, 18, 0.94) 50%, rgba(26, 20, 11, 0.94) 100%) !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(80, 220, 190, 0.14) !important;
-  box-shadow: 0 10px 30px rgba(3, 12, 22, 0.6) !important;
+  border: 1px solid rgba(212, 175, 55, 0.22) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 215, 0, 0.10) !important;
   border-radius: 20px;
   color: #F8FAFC !important;
 }
 
-/* Secondary Surface Card: #092238 */
+/* Secondary Gold Surface Card */
 .card-secondary {
-  background: rgba(9, 34, 56, 0.92) !important;
-  border: 1px solid rgba(80, 220, 190, 0.14) !important;
+  background: linear-gradient(145deg, rgba(25, 19, 11, 0.94) 0%, rgba(38, 29, 15, 0.94) 60%, rgba(20, 15, 8, 0.94) 100%) !important;
+  border: 1px solid rgba(212, 175, 55, 0.18) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 215, 0, 0.08) !important;
   border-radius: 20px;
   color: #F8FAFC !important;
 }
 
-/* 3. Inner Stat Tile Surfaces: #061B2D */
+/* 3. Inner Stat Tile Gold Surfaces */
 .glass-inner-tile, .glass-card-inner {
-  background: rgba(6, 27, 45, 0.92) !important;
-  border: 1px solid rgba(80, 220, 190, 0.12) !important;
+  background: linear-gradient(145deg, rgba(18, 14, 8, 0.94) 0%, rgba(28, 21, 11, 0.94) 100%) !important;
+  border: 1px solid rgba(212, 175, 55, 0.14) !important;
   border-radius: 16px;
   color: #F8FAFC !important;
 }
@@ -158,19 +160,19 @@ input:focus, textarea:focus, select:focus {
 }
 
 .btn-secondary {
-  background: rgba(10, 36, 54, 0.85) !important;
+  background: rgba(28, 22, 12, 0.85) !important;
   color: #F8FAFC !important;
   font-weight: 600;
-  border: 1px solid rgba(80, 220, 190, 0.20) !important;
+  border: 1px solid rgba(212, 175, 55, 0.25) !important;
   border-radius: 12px;
   transition: all 0.2s ease;
   min-height: 42px;
-  box-shadow: 0 2px 8px rgba(3, 12, 22, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .btn-secondary:hover {
-  background: rgba(14, 46, 68, 0.90) !important;
-  border-color: rgba(80, 220, 190, 0.35) !important;
+  background: rgba(38, 30, 17, 0.90) !important;
+  border-color: rgba(212, 175, 55, 0.40) !important;
 }
 
 .btn-danger {
