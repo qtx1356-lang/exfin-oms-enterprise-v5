@@ -567,6 +567,169 @@ export async function generateAndSendDailyReport(
       }
     }
 
+    // 8.5. Efficiency & Performance Section Computation
+    const employeesList = Array.from(employeesMap.values()).filter(
+      (r) => r.status === 'Approved' && r.role !== 'ADMIN' && r.role !== 'SUPER_ADMIN'
+    );
+
+    const tasksSnap = await db.collection('tasks').get();
+    const allTasks: any[] = [];
+    tasksSnap.forEach(tDoc => allTasks.push({ id: tDoc.id, ...tDoc.data() }));
+
+    const attSnapForEff = await db.collection('attendance').where('date', '==', reportDate).get();
+    const attendanceMap = new Map<string, any>();
+    attSnapForEff.forEach(aDoc => {
+      const a = aDoc.data();
+      if (a.employeeCode) attendanceMap.set(a.employeeCode, a);
+      if (a.employeeId) attendanceMap.set(a.employeeId, a);
+    });
+
+    const evaluatedEmployees: any[] = [];
+    let evaluatedCount = 0;
+    let aboveTargetCount = 0;
+    let belowTargetCount = 0;
+    let insufficientDataCount = 0;
+    let totalScoreSum = 0;
+
+    employeesList.forEach(emp => {
+      const empCode = emp.employeeCode || emp.id;
+      const empName = emp.name || empCode;
+      const dept = emp.department || 'Operations';
+      const att = attendanceMap.get(empCode) || attendanceMap.get(emp.id);
+
+      const empTasks = allTasks.filter(t => {
+        const matchCode = t.assignedToEmployeeCodes && t.assignedToEmployeeCodes.includes(empCode);
+        const matchId = t.assignedToEmployeeIds && (t.assignedToEmployeeIds.includes(emp.id) || t.assignedToEmployeeIds.includes(empCode));
+        const tDate = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime ? t.createdAtDeviceTime.substring(0, 10) : '');
+        return (matchCode || matchId) && tDate === reportDate;
+      });
+
+      const hasAttendance = !!att && att.checkInTime;
+      const hasTasks = empTasks.length > 0;
+
+      if (!hasAttendance && !hasTasks) {
+        insufficientDataCount++;
+        evaluatedEmployees.push({
+          empCode,
+          empName,
+          dept,
+          efficiency: 0,
+          workHours: 'N/A',
+          tasksCompleted: 0,
+          tasksTotal: 0,
+          insufficientData: true,
+          reason: 'Insufficient data'
+        });
+        return;
+      }
+
+      evaluatedCount++;
+      const tasksTotal = empTasks.length;
+      const tasksCompleted = empTasks.filter(t => {
+        const s = (t.status || '').toUpperCase().trim();
+        return s === 'COMPLETED' || t.approvalStatus === 'APPROVED';
+      }).length;
+
+      const taskScore = tasksTotal > 0 ? (tasksCompleted / tasksTotal) * 100 : 100;
+      const isLate = att?.isLate === true || (att?.checkInTime && isKolkataLateCheckIn(att.checkInTime));
+      const punctualityScore = !hasAttendance ? 0 : (isLate ? 70 : 100);
+      const workHoursStr = att?.workingHours || '8h 0m';
+
+      const efficiency = Math.round(taskScore * 0.5 + punctualityScore * 0.5);
+      totalScoreSum += efficiency;
+
+      if (efficiency >= 75) {
+        aboveTargetCount++;
+      } else {
+        belowTargetCount++;
+      }
+
+      let reason = 'Normal performance';
+      if (!hasAttendance) reason = 'Attendance issue / absent';
+      else if (isLate) reason = 'Late arrival affecting punctuality';
+      else if (tasksTotal > 0 && tasksCompleted === 0) reason = 'Low task completion';
+      else if (efficiency < 60) reason = 'High idle time / low productivity';
+
+      evaluatedEmployees.push({
+        empCode,
+        empName,
+        dept,
+        efficiency,
+        workHours: workHoursStr,
+        tasksCompleted,
+        tasksTotal,
+        insufficientData: false,
+        reason,
+        isLate,
+        hasAttendance
+      });
+    });
+
+    const validEvaluated = evaluatedEmployees.filter(e => !e.insufficientData);
+    const overallAvgEfficiency = validEvaluated.length > 0 ? Math.round(totalScoreSum / validEvaluated.length) : 0;
+    const sortedByEff = [...validEvaluated].sort((a, b) => b.efficiency - a.efficiency);
+    const highestEff = sortedByEff.length > 0 ? sortedByEff[0].efficiency : 0;
+    const lowestEff = sortedByEff.length > 0 ? sortedByEff[sortedByEff.length - 1].efficiency : 0;
+
+    const topPerformers = sortedByEff.slice(0, 5);
+    const bottomPerformers = [...validEvaluated].sort((a, b) => a.efficiency - b.efficiency).slice(0, 5);
+
+    const dist = {
+      excellent: validEvaluated.filter(e => e.efficiency >= 90).length,
+      good: validEvaluated.filter(e => e.efficiency >= 75 && e.efficiency < 90).length,
+      needsImprovement: validEvaluated.filter(e => e.efficiency >= 60 && e.efficiency < 75).length,
+      critical: validEvaluated.filter(e => e.efficiency < 60).length,
+      insufficient: insufficientDataCount
+    };
+
+    const teamMap = new Map<string, { totalScore: number; count: number; above: number; needAttention: number }>();
+    evaluatedEmployees.forEach(e => {
+      if (e.insufficientData) return;
+      const d = e.dept;
+      if (!teamMap.has(d)) {
+        teamMap.set(d, { totalScore: 0, count: 0, above: 0, needAttention: 0 });
+      }
+      const t = teamMap.get(d)!;
+      t.count++;
+      t.totalScore += e.efficiency;
+      if (e.efficiency >= 75) t.above++;
+      else t.needAttention++;
+    });
+
+    const teamRowsHtml: string[] = [];
+    teamMap.forEach((val, teamName) => {
+      const avg = Math.round(val.totalScore / val.count);
+      teamRowsHtml.push(`
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 10px; font-weight: bold; color: #1e293b;">${teamName}</td>
+          <td style="padding: 10px; font-weight: bold; color: ${avg >= 75 ? '#059669' : '#d97706'};">${avg}%</td>
+          <td style="padding: 10px; color: #334155;">${val.count}</td>
+          <td style="padding: 10px; color: #059669; font-weight: 500;">${val.above}</td>
+          <td style="padding: 10px; color: #dc2626; font-weight: 500;">${val.needAttention}</td>
+        </tr>
+      `);
+    });
+
+    const topPerformersRowsHtml = topPerformers.map((p, idx) => `
+      <tr style="border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 10px; font-weight: bold; color: #1e293b;">#${idx + 1}</td>
+        <td style="padding: 10px; color: #334155;">${p.empName} <span style="font-size: 11px; color: #64748b;">(${p.empCode})</span></td>
+        <td style="padding: 10px; font-weight: bold; color: #059669;">${p.efficiency}%</td>
+        <td style="padding: 10px; color: #334155;">${p.workHours}</td>
+        <td style="padding: 10px; color: #334155;">${p.tasksCompleted}/${p.tasksTotal} tasks</td>
+      </tr>
+    `).join('');
+
+    const bottomPerformersRowsHtml = bottomPerformers.map((p) => `
+      <tr style="border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 10px; color: #334155;">${p.empName} <span style="font-size: 11px; color: #64748b;">(${p.empCode})</span></td>
+        <td style="padding: 10px; font-weight: bold; color: #dc2626;">${p.efficiency}%</td>
+        <td style="padding: 10px; color: #334155;">${p.workHours}</td>
+        <td style="padding: 10px; color: #334155;">${p.tasksCompleted}/${p.tasksTotal} tasks</td>
+        <td style="padding: 10px; font-size: 12px; color: #b91c1c;">${p.reason}</td>
+      </tr>
+    `).join('');
+
     // 9. Generate Complete HTML Content
     const emailHtml = `
 <!DOCTYPE html>
@@ -711,9 +874,153 @@ export async function generateAndSendDailyReport(
         `}
       </div>
 
+      <!-- ========================================================== -->
+      <!-- 4. DAILY EFFICIENCY & PERFORMANCE SECTION -->
+      <!-- ========================================================== -->
+      <div style="margin-top: 40px; border-top: 3px solid #6366f1; padding-top: 25px;">
+        <h2 style="color: #1e1b4b; font-size: 20px; font-weight: 800; text-transform: uppercase; margin-bottom: 15px; letter-spacing: -0.5px;">DAILY EFFICIENCY & PERFORMANCE</h2>
+
+        <!-- Executive Summary -->
+        <div style="background: #f8fafc; border-left: 4px solid #6366f1; padding: 15px; border-radius: 8px; margin-bottom: 25px;">
+          <h4 style="margin: 0 0 8px 0; color: #1e293b; font-size: 14px; text-transform: uppercase;">Daily Executive Summary</h4>
+          <p style="margin: 0; font-size: 13px; color: #334155; line-height: 1.6;">
+            Today's overall average efficiency was <strong>${overallAvgEfficiency}%</strong>, with <strong>${aboveTargetCount}</strong> of <strong>${evaluatedCount}</strong> evaluated employees meeting or exceeding the expected performance level. The highest recorded efficiency was <strong>${highestEff}%</strong>, while <strong>${belowTargetCount}</strong> employees require attention due to low productivity or attendance indicators. (${insufficientDataCount} employees had insufficient tracking data).
+          </p>
+        </div>
+
+        <!-- Efficiency Summary -->
+        <div style="margin-bottom: 25px;">
+          <h3 style="color: #0f172a; font-size: 15px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">1. Efficiency Summary</h3>
+          <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px;">
+            <div style="flex: 1 1 130px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center;">
+              <div style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Overall Avg</div>
+              <div style="font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 2px;">${overallAvgEfficiency}%</div>
+            </div>
+            <div style="flex: 1 1 130px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px; text-align: center;">
+              <div style="font-size: 10px; font-weight: bold; color: #047857; text-transform: uppercase;">Highest</div>
+              <div style="font-size: 20px; font-weight: 800; color: #065f46; margin-top: 2px;">${highestEff}%</div>
+            </div>
+            <div style="flex: 1 1 130px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px; text-align: center;">
+              <div style="font-size: 10px; font-weight: bold; color: #b91c1c; text-transform: uppercase;">Lowest</div>
+              <div style="font-size: 20px; font-weight: 800; color: #991b1b; margin-top: 2px;">${lowestEff}%</div>
+            </div>
+            <div style="flex: 1 1 130px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px; text-align: center;">
+              <div style="font-size: 10px; font-weight: bold; color: #1d4ed8; text-transform: uppercase;">Above Target</div>
+              <div style="font-size: 20px; font-weight: 800; color: #1e40af; margin-top: 2px;">${aboveTargetCount}</div>
+            </div>
+            <div style="flex: 1 1 130px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px; text-align: center;">
+              <div style="font-size: 10px; font-weight: bold; color: #b45309; text-transform: uppercase;">Needs Attention</div>
+              <div style="font-size: 20px; font-weight: 800; color: #92400e; margin-top: 2px;">${belowTargetCount}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Efficiency Performers -->
+        <div style="margin-bottom: 25px;">
+          <h3 style="color: #0f172a; font-size: 15px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">2. Top Efficiency Performers</h3>
+          ${topPerformers.length === 0 ? '<p style="color: #64748b; font-size: 13px;">No sufficient performance data available for today.</p>' : `
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; margin-top: 10px;">
+              <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
+                  <th style="padding: 10px;">Rank</th>
+                  <th style="padding: 10px;">Employee</th>
+                  <th style="padding: 10px;">Efficiency</th>
+                  <th style="padding: 10px;">Work Hours</th>
+                  <th style="padding: 10px;">Tasks</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${topPerformersRowsHtml}
+              </tbody>
+            </table>
+          `}
+        </div>
+
+        <!-- Efficiency Needs Attention -->
+        <div style="margin-bottom: 25px;">
+          <h3 style="color: #0f172a; font-size: 15px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">3. Efficiency Needs Attention</h3>
+          ${bottomPerformers.length === 0 ? '<p style="color: #64748b; font-size: 13px;">No low-efficiency performers flagged today.</p>' : `
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; margin-top: 10px;">
+              <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
+                  <th style="padding: 10px;">Employee</th>
+                  <th style="padding: 10px;">Efficiency</th>
+                  <th style="padding: 10px;">Work Hours</th>
+                  <th style="padding: 10px;">Tasks</th>
+                  <th style="padding: 10px;">Exception / Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${bottomPerformersRowsHtml}
+              </tbody>
+            </table>
+          `}
+        </div>
+
+        <!-- Efficiency Distribution -->
+        <div style="margin-bottom: 25px;">
+          <h3 style="color: #0f172a; font-size: 15px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">4. Efficiency Distribution</h3>
+          <table style="width: 100%; max-width: 400px; border-collapse: collapse; font-size: 13px; margin-top: 10px;">
+            <tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-weight: 600;">Excellent (90%+)</td><td style="padding: 8px; text-align: right; font-weight: bold; color: #059669;">${dist.excellent} employees</td></tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-weight: 600;">Good (75% - 89%)</td><td style="padding: 8px; text-align: right; font-weight: bold; color: #2563eb;">${dist.good} employees</td></tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-weight: 600;">Needs Improvement (60% - 74%)</td><td style="padding: 8px; text-align: right; font-weight: bold; color: #d97706;">${dist.needsImprovement} employees</td></tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-weight: 600;">Critical (&lt;60%)</td><td style="padding: 8px; text-align: right; font-weight: bold; color: #dc2626;">${dist.critical} employees</td></tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-weight: 600;">Insufficient Data</td><td style="padding: 8px; text-align: right; font-weight: bold; color: #64748b;">${dist.insufficient} employees</td></tr>
+          </table>
+        </div>
+
+        <!-- Team Performance -->
+        ${teamRowsHtml.length > 0 ? `
+          <div style="margin-bottom: 25px;">
+            <h3 style="color: #0f172a; font-size: 15px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">5. Team Performance</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; margin-top: 10px;">
+              <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
+                  <th style="padding: 10px;">Department / Team</th>
+                  <th style="padding: 10px;">Avg Efficiency</th>
+                  <th style="padding: 10px;">Evaluated</th>
+                  <th style="padding: 10px;">Above Target</th>
+                  <th style="padding: 10px;">Needs Attention</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${teamRowsHtml.join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        <!-- Productivity Highlights -->
+        <div style="margin-bottom: 25px;">
+          <h3 style="color: #0f172a; font-size: 15px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">6. Productivity Highlights</h3>
+          <ul style="margin: 10px 0 0 0; padding-left: 20px; font-size: 13px; color: #334155; line-height: 1.6;">
+            <li>Highest efficiency recorded today: <strong>${highestEff}%</strong></li>
+            <li>Number of employees meeting or exceeding performance targets: <strong>${aboveTargetCount} / ${evaluatedCount}</strong></li>
+            <li>Active attendance tracking operational across all departments with <strong>${presentCount}</strong> present today.</li>
+          </ul>
+        </div>
+
+        <!-- Action Required -->
+        <div style="margin-bottom: 25px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 15px;">
+          <h3 style="color: #92400e; font-size: 14px; font-weight: 700; text-transform: uppercase; margin: 0 0 8px 0;">7. Action Required</h3>
+          <p style="margin: 0; font-size: 13px; color: #b45309; line-height: 1.5;">
+            Review employees falling into the critical or needs improvement categories. Follow up on attendance exceptions and investigate missing activity logs for employees with insufficient tracking data.
+          </p>
+        </div>
+
+        <!-- Recognition -->
+        <div style="margin-bottom: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 15px;">
+          <h3 style="color: #047857; font-size: 14px; font-weight: 700; text-transform: uppercase; margin: 0 0 8px 0;">8. Recognition</h3>
+          <p style="margin: 0; font-size: 13px; color: #065f46; line-height: 1.5;">
+            🏆 <strong>Top Efficiency Recognition:</strong> Commending our top performers who demonstrated strong productivity and task completion today, maintaining high operational standards across EXFIN OMS.
+          </p>
+        </div>
+
+      </div>
+
       <!-- Other Activity -->
-      <div style="margin-bottom: 10px;">
-        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase;">4. Other Daily Operational Data</h3>
+      <div style="margin-top: 30px; margin-bottom: 10px;">
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase;">Other Daily Operational Data</h3>
         ${otherDataHtml}
       </div>
 
