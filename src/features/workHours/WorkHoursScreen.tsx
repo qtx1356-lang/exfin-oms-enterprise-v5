@@ -325,12 +325,12 @@ export const WorkHoursScreen: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* HEADER SECTION */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#151515] border border-[#292929] p-4 rounded-3xl backdrop-blur-md">
+      <div className="glass-card-elevated p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
-            <Clock className="w-6 h-6 text-[#D4AF37]" /> WORK HOURS
+          <h1 className="text-xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-2">
+            <Clock className="w-6 h-6 text-[var(--aurora-emerald)]" /> WORK HOURS
           </h1>
-          <p className="text-xs text-[#C7C7C7] mt-1">
+          <p className="text-xs text-[var(--text-secondary)] mt-1 font-medium">
             Authoritative attendance hours analysis & breakdown
           </p>
         </div>
@@ -339,10 +339,10 @@ export const WorkHoursScreen: React.FC = () => {
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="flex-1 sm:flex-none text-xs font-bold text-white bg-[#101010] border border-[#292929] rounded-2xl px-3 py-2.5 outline-none cursor-pointer focus:border-[#D4AF37] transition-all shadow-md"
+            className="flex-1 sm:flex-none text-xs font-bold text-[var(--text-primary)] bg-[var(--card-surface)] border border-[var(--border)] rounded-2xl px-3.5 py-2.5 outline-none cursor-pointer focus:border-[var(--aurora-emerald)] transition-all shadow-md"
           >
             {monthOptions.map((opt) => (
-              <option key={opt.val} value={opt.val} className="bg-[#101010]">
+              <option key={opt.val} value={opt.val} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
                 {opt.label}
               </option>
             ))}
@@ -351,7 +351,7 @@ export const WorkHoursScreen: React.FC = () => {
           <Button
             onClick={handleExportPDF}
             disabled={isFutureMonth || monthlyRecords.length === 0}
-            className="w-full sm:w-auto text-xs py-2.5 bg-[#D4AF37] hover:bg-[#B5922F] font-bold rounded-2xl flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all text-black"
+            className="w-full sm:w-auto text-xs py-2.5 aurora-bg hover:opacity-95 font-bold rounded-2xl flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all text-white border border-white/20"
           >
             <Download className="w-4 h-4" /> Export PDF
           </Button>
@@ -359,116 +359,116 @@ export const WorkHoursScreen: React.FC = () => {
       </div>
 
       {isFutureMonth ? (
-        <Card className="p-8 text-center bg-[#171B1F] border border-[#3A4148] text-[#B7C0BC]">
-          <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-2 animate-bounce" />
+        <div className="glass-card-elevated p-8 text-center text-[var(--text-secondary)]">
+          <AlertTriangle className="w-8 h-8 text-[var(--warning)] mx-auto mb-2 animate-bounce" />
           <p className="text-sm font-bold">Future month selected. No work hour metrics have been generated yet.</p>
-        </Card>
+        </div>
       ) : (
         <>
           {/* STATS OVERVIEW SECTION */}
           <div>
-            <h2 className="text-xs font-black text-[#C7C7C7] uppercase tracking-widest mb-3">
+            <h2 className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest mb-3">
               MONTHLY METRIC AGGREGATORS
             </h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <Card className="p-4 bg-[#151515] border border-[#292929] space-y-2 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-[#D4AF37]/5 rounded-bl-full group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] font-black text-[#D4AF37] uppercase tracking-wider block">
+              <div className="glass-card-elevated p-4 space-y-2 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-[var(--aurora-emerald)]/10 rounded-bl-full group-hover:scale-110 transition-transform" />
+                <span className="text-[10px] font-black text-[var(--aurora-emerald)] uppercase tracking-wider block">
                   TOTAL HOURS
                 </span>
-                <span className="text-xl sm:text-2xl font-black text-white tracking-tight block">
+                <span className="text-xl sm:text-2xl font-black text-[var(--text-primary)] tracking-tight block">
                   {formatMinutesToDuration(stats.totalMinutes)}
                 </span>
-                <p className="text-[10px] text-[#8A8A8A]">Cumulative work logged</p>
-              </Card>
+                <p className="text-[10px] text-[var(--text-secondary)] font-medium">Cumulative work logged</p>
+              </div>
 
-              <Card className="p-4 bg-[#151515] border border-[#292929] space-y-2 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-bl-full group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] font-black text-blue-400 uppercase tracking-wider block">
+              <div className="glass-card-elevated p-4 space-y-2 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-[var(--aurora-cyan)]/10 rounded-bl-full group-hover:scale-110 transition-transform" />
+                <span className="text-[10px] font-black text-[var(--aurora-cyan)] uppercase tracking-wider block">
                   WORKING DAYS
                 </span>
-                <span className="text-xl sm:text-2xl font-black text-white tracking-tight block">
+                <span className="text-xl sm:text-2xl font-black text-[var(--text-primary)] tracking-tight block">
                   {stats.workingDays}
                 </span>
-                <p className="text-[10px] text-[#8A8A8A]">Active attendances</p>
-              </Card>
+                <p className="text-[10px] text-[var(--text-secondary)] font-medium">Active attendances</p>
+              </div>
 
-              <Card className="p-4 bg-[#151515] border border-[#292929] space-y-2 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-[#E6C766]/5 rounded-bl-full group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] font-black text-[#E6C766] uppercase tracking-wider block">
+              <div className="glass-card-elevated p-4 space-y-2 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-[var(--aurora-teal)]/10 rounded-bl-full group-hover:scale-110 transition-transform" />
+                <span className="text-[10px] font-black text-[var(--aurora-teal)] uppercase tracking-wider block">
                   AVERAGE HOURS
                 </span>
-                <span className="text-xl sm:text-2xl font-black text-white tracking-tight block">
+                <span className="text-xl sm:text-2xl font-black text-[var(--text-primary)] tracking-tight block">
                   {formatMinutesToDuration(stats.averageMinutesPerDay)}
                 </span>
-                <p className="text-[10px] text-[#8A8A8A]">Hours per day logged</p>
-              </Card>
+                <p className="text-[10px] text-[var(--text-secondary)] font-medium">Hours per day logged</p>
+              </div>
 
-              <Card className="p-4 bg-[#151515] border border-[#292929] space-y-2 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-teal-500/5 rounded-bl-full group-hover:scale-110 transition-transform" />
+              <div className="glass-card-elevated p-4 space-y-2 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-teal-500/10 rounded-bl-full group-hover:scale-110 transition-transform" />
                 <span className="text-[10px] font-black text-teal-400 uppercase tracking-wider block">
                   BREAKDOWN
                 </span>
-                <div className="grid grid-cols-2 gap-1.5 text-[9.5px] font-bold text-[#C7C7C7] pt-1">
+                <div className="grid grid-cols-2 gap-1.5 text-[9.5px] font-bold text-[var(--text-secondary)] pt-1">
                   <div className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--aurora-emerald)]" />
                     <span>Office: {stats.officeDays}d</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--aurora-teal)]" />
                     <span>WFH: {stats.wfhDays}d</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--aurora-cyan)]" />
                     <span>Client: {stats.clientDays}d</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                     <span>Outdoor: {stats.outdoorDays}d</span>
                   </div>
                 </div>
-              </Card>
+              </div>
             </div>
           </div>
 
           {/* DYNAMIC COMPACT HISTOGRAM CHART */}
           {chartData.length > 0 && (
             <div>
-              <h2 className="text-xs font-black text-[#C7C7C7] uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-[#D4AF37]" /> Completed Daily Hours Chart
+              <h2 className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                <TrendingUp className="w-4 h-4 text-[var(--aurora-emerald)]" /> Completed Daily Hours Chart
               </h2>
-              <Card className="p-4 bg-[#151515] border border-[#292929]">
+              <div className="glass-card-elevated p-4">
                 <div className="h-44 w-full flex items-end gap-1.5">
                   {chartData.map((d, index) => {
                     const heightPercent = Math.min(100, Math.max(8, (d.hours / 12) * 100));
                     return (
                       <div key={index} className="flex-1 flex flex-col items-center group relative h-full justify-end">
-                        <div className="absolute bottom-full mb-1 bg-[#121212] border border-[#292929] text-[8.5px] font-bold text-white px-1.5 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg">
+                        <div className="absolute bottom-full mb-1 bg-[var(--card-surface)] border border-[var(--border)] text-[8.5px] font-bold text-[var(--text-primary)] px-1.5 py-0.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg">
                           {d.hours} hrs
                         </div>
                         <div
                           style={{ height: `${heightPercent}%` }}
-                          className="w-full bg-[#D4AF37] rounded-t-sm group-hover:bg-[#E6C766] transition-all cursor-pointer border-t border-[#D4AF37]/30"
+                          className="w-full aurora-bg rounded-t-sm hover:opacity-90 transition-all cursor-pointer border-t border-white/30"
                         />
-                        <span className="text-[8.5px] font-bold text-[#8A8A8A] mt-1.5">
+                        <span className="text-[8.5px] font-bold text-[var(--text-secondary)] mt-1.5">
                           {d.day}
                         </span>
                       </div>
                     );
                   })}
                 </div>
-              </Card>
+              </div>
             </div>
           )}
 
           {/* MONTHLY CALENDAR VIEW */}
           <div>
-            <h2 className="text-xs font-black text-[#C7C7C7] uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <CalendarIcon className="w-4 h-4 text-[#D4AF37]" /> Monthly Attendance Board
+            <h2 className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <CalendarIcon className="w-4 h-4 text-[var(--aurora-emerald)]" /> Monthly Attendance Board
             </h2>
-            <Card className="p-4 bg-[#151515] border border-[#292929]">
+            <div className="glass-card-elevated p-4">
               {/* Calendar Grid Header */}
-              <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-black text-[#C7C7C7] uppercase tracking-wider mb-2">
+              <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wider mb-2">
                 <div>Sun</div>
                 <div>Mon</div>
                 <div>Tue</div>
@@ -482,11 +482,11 @@ export const WorkHoursScreen: React.FC = () => {
               <div className="grid grid-cols-7 gap-1.5">
                 {calendarDays.map((item, idx) => {
                   if (!item) {
-                    return <div key={`empty-${idx}`} className="aspect-square bg-[#121212]/30 rounded-xl" />;
+                    return <div key={`empty-${idx}`} className="aspect-square bg-[var(--card-surface)]/20 rounded-xl" />;
                   }
 
                   const { day, record } = item;
-                  let bgClass = 'bg-[#121212]/40 text-[#8A8A8A] border border-[#292929] hover:border-[#3A3A3A]';
+                  let bgClass = 'bg-[var(--card-surface)]/40 text-[var(--text-secondary)] border border-[var(--border)] hover:border-[var(--aurora-emerald)]/30';
                   
                   if (record) {
                     const isCompleted = !!(record.checkOutTime && record.checkOutTime !== '--:--');
@@ -497,16 +497,16 @@ export const WorkHoursScreen: React.FC = () => {
                     } else {
                       switch (record.attendanceType) {
                         case 'OFFICE':
-                          bgClass = 'bg-[#D4AF37]/10 border-[#D4AF37]/30 text-[#D4AF37] hover:bg-[#D4AF37]/20'; // Gold: Office
+                          bgClass = 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25';
                           break;
                         case 'WFH':
-                          bgClass = 'bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20'; // Blue: WFH
+                          bgClass = 'bg-[var(--aurora-teal)]/15 border-[var(--aurora-teal)]/30 text-[var(--aurora-teal)] hover:bg-[var(--aurora-teal)]/25';
                           break;
                         case 'CLIENT_VISIT':
-                          bgClass = 'bg-teal-500/10 border-teal-500/30 text-teal-300 hover:bg-teal-500/20'; // Teal: Client Visit
+                          bgClass = 'bg-[var(--aurora-cyan)]/15 border-[var(--aurora-cyan)]/30 text-[var(--aurora-cyan)] hover:bg-[var(--aurora-cyan)]/25';
                           break;
                         case 'OUTDOOR':
-                          bgClass = 'bg-orange-500/10 border-orange-500/30 text-orange-300 hover:bg-orange-500/20'; // Orange: Outdoor
+                          bgClass = 'bg-teal-500/15 border-teal-500/30 text-teal-300 hover:bg-teal-500/25';
                           break;
                       }
                     }
@@ -531,21 +531,21 @@ export const WorkHoursScreen: React.FC = () => {
               </div>
 
               {/* Legend Indicator */}
-              <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4 pt-3 border-t border-[#292929] text-[9.5px] font-bold text-[#C7C7C7]">
+              <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4 pt-3 border-t border-[var(--border)] text-[9.5px] font-bold text-[var(--text-secondary)]">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded bg-[#D4AF37]/20 border border-[#D4AF37]/30" />
+                  <span className="w-2.5 h-2.5 rounded bg-emerald-500/40 border border-emerald-500/50" />
                   <span>Office</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded bg-blue-500/20 border border-blue-500/30" />
+                  <span className="w-2.5 h-2.5 rounded bg-[var(--aurora-teal)]/40 border border-[var(--aurora-teal)]/50" />
                   <span>WFH</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded bg-teal-500/20 border border-teal-500/30" />
+                  <span className="w-2.5 h-2.5 rounded bg-[var(--aurora-cyan)]/40 border border-[var(--aurora-cyan)]/50" />
                   <span>Client Visit</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded bg-orange-500/20 border border-orange-500/30" />
+                  <span className="w-2.5 h-2.5 rounded bg-teal-500/40 border border-teal-500/50" />
                   <span>Outdoor</span>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -553,86 +553,86 @@ export const WorkHoursScreen: React.FC = () => {
                   <span>In Progress</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded bg-[#111417]/40 border border-[#3A4148]" />
+                  <span className="w-2.5 h-2.5 rounded bg-[var(--card-surface)] border border-[var(--border)]" />
                   <span>No Log</span>
                 </div>
               </div>
-            </Card>
+            </div>
           </div>
 
           {/* MODE BREAKDOWN DETAILED PANEL */}
           <div>
-            <h2 className="text-xs font-black text-[#C7C7C7] uppercase tracking-widest mb-3">
+            <h2 className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest mb-3">
               WORK TYPE INSIGHTS
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="p-4 rounded-2xl bg-[#151515] border border-[#292929] flex items-center justify-between">
+              <div className="p-4 rounded-2xl glass-card-elevated flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/15 border border-[#D4AF37]/20 flex items-center justify-center text-[#D4AF37]">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
                     <MapPin className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-black text-white">OFFICE WORK</h3>
-                    <p className="text-[10px] text-[#8A8A8A] mt-0.5">{stats.officeDays} Active Days</p>
+                    <h3 className="text-xs font-black text-[var(--text-primary)]">OFFICE WORK</h3>
+                    <p className="text-[10px] text-[var(--text-secondary)] font-medium mt-0.5">{stats.officeDays} Active Days</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-sm font-black text-white block">{formatMinutesToDuration(stats.officeMinutes)}</span>
-                  <span className="text-[9px] text-[#D4AF37] uppercase font-black tracking-wider">
+                  <span className="text-sm font-black text-[var(--text-primary)] block">{formatMinutesToDuration(stats.officeMinutes)}</span>
+                  <span className="text-[9px] text-emerald-400 uppercase font-black tracking-wider">
                     Avg {stats.officeDays > 0 ? formatMinutesToDuration(Math.round(stats.officeMinutes / stats.officeDays)) : '0h'}
                   </span>
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-[#151515] border border-[#292929] flex items-center justify-between">
+              <div className="p-4 rounded-2xl glass-card-elevated flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--aurora-teal)]/15 border border-[var(--aurora-teal)]/20 flex items-center justify-center text-[var(--aurora-teal)]">
                     <Laptop className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-black text-white">WORK FROM HOME</h3>
-                    <p className="text-[10px] text-[#8A8A8A] mt-0.5">{stats.wfhDays} Active Days</p>
+                    <h3 className="text-xs font-black text-[var(--text-primary)]">WORK FROM HOME</h3>
+                    <p className="text-[10px] text-[var(--text-secondary)] font-medium mt-0.5">{stats.wfhDays} Active Days</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-sm font-black text-white block">{formatMinutesToDuration(stats.wfhMinutes)}</span>
-                  <span className="text-[9px] text-blue-400 uppercase font-black tracking-wider">
+                  <span className="text-sm font-black text-[var(--text-primary)] block">{formatMinutesToDuration(stats.wfhMinutes)}</span>
+                  <span className="text-[9px] text-[var(--aurora-teal)] uppercase font-black tracking-wider">
                     Avg {stats.wfhDays > 0 ? formatMinutesToDuration(Math.round(stats.wfhMinutes / stats.wfhDays)) : '0h'}
                   </span>
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-[#151515] border border-[#292929] flex items-center justify-between">
+              <div className="p-4 rounded-2xl glass-card-elevated flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-teal-500/15 border border-teal-500/20 flex items-center justify-center text-teal-400">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--aurora-cyan)]/15 border border-[var(--aurora-cyan)]/20 flex items-center justify-center text-[var(--aurora-cyan)]">
                     <Users className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-black text-white">CLIENT VISIT</h3>
-                    <p className="text-[10px] text-[#8A8A8A] mt-0.5">{stats.clientDays} Active Days</p>
+                    <h3 className="text-xs font-black text-[var(--text-primary)]">CLIENT VISIT</h3>
+                    <p className="text-[10px] text-[var(--text-secondary)] font-medium mt-0.5">{stats.clientDays} Active Days</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-sm font-black text-white block">{formatMinutesToDuration(stats.clientMinutes)}</span>
-                  <span className="text-[9px] text-teal-400 uppercase font-black tracking-wider">
+                  <span className="text-sm font-black text-[var(--text-primary)] block">{formatMinutesToDuration(stats.clientMinutes)}</span>
+                  <span className="text-[9px] text-[var(--aurora-cyan)] uppercase font-black tracking-wider">
                     Avg {stats.clientDays > 0 ? formatMinutesToDuration(Math.round(stats.clientMinutes / stats.clientDays)) : '0h'}
                   </span>
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-[#151515] border border-[#292929] flex items-center justify-between">
+              <div className="p-4 rounded-2xl glass-card-elevated flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-orange-500/15 border border-orange-500/20 flex items-center justify-center text-orange-400">
+                  <div className="w-10 h-10 rounded-xl bg-teal-500/15 border border-teal-500/20 flex items-center justify-center text-teal-400">
                     <Briefcase className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-black text-white">OUTDOOR WORK</h3>
-                    <p className="text-[10px] text-[#8A8A8A] mt-0.5">{stats.outdoorDays} Active Days</p>
+                    <h3 className="text-xs font-black text-[var(--text-primary)]">OUTDOOR WORK</h3>
+                    <p className="text-[10px] text-[var(--text-secondary)] font-medium mt-0.5">{stats.outdoorDays} Active Days</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-sm font-black text-white block">{formatMinutesToDuration(stats.outdoorMinutes)}</span>
-                  <span className="text-[9px] text-orange-400 uppercase font-black tracking-wider">
+                  <span className="text-sm font-black text-[var(--text-primary)] block">{formatMinutesToDuration(stats.outdoorMinutes)}</span>
+                  <span className="text-[9px] text-teal-400 uppercase font-black tracking-wider">
                     Avg {stats.outdoorDays > 0 ? formatMinutesToDuration(Math.round(stats.outdoorMinutes / stats.outdoorDays)) : '0h'}
                   </span>
                 </div>
@@ -642,7 +642,7 @@ export const WorkHoursScreen: React.FC = () => {
 
           {/* HISTORICAL RECORDS LIST */}
           <div>
-            <h2 className="text-xs font-black text-[#C7C7C7] uppercase tracking-widest mb-3">
+            <h2 className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest mb-3">
               DAILY WORK TIMELINE
             </h2>
             <div className="flex flex-col gap-2.5">
@@ -653,16 +653,16 @@ export const WorkHoursScreen: React.FC = () => {
                     <button
                       key={r.id || r.docId || r.date}
                       onClick={() => handleDayTap(r)}
-                      className="p-4 rounded-2xl bg-[#151515] border border-[#292929] flex items-center justify-between text-left hover:border-[#D4AF37] hover:bg-[#1B1B1B] transition-all cursor-pointer group"
+                      className="p-4 rounded-2xl glass-card-elevated flex items-center justify-between text-left hover:border-[var(--aurora-emerald)]/40 transition-all cursor-pointer group"
                     >
                       <div className="space-y-1">
-                        <span className="text-[10px] font-black text-[#D4AF37] block uppercase">
+                        <span className="text-[10px] font-black text-[var(--aurora-emerald)] block uppercase">
                           {r.date}
                         </span>
-                        <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <h4 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
                           {r.attendanceType}
                         </h4>
-                        <div className="flex gap-3 text-[10px] text-[#8A8A8A] font-semibold">
+                        <div className="flex gap-3 text-[10px] text-[var(--text-secondary)] font-semibold">
                           <span>In: {r.checkInTime}</span>
                           <span>•</span>
                           <span>Out: {details.checkoutText}</span>
@@ -671,10 +671,10 @@ export const WorkHoursScreen: React.FC = () => {
 
                       <div className="flex items-center gap-4">
                         <div className="text-right">
-                          <span className="text-xs font-black text-white block group-hover:text-[#D4AF37] transition-colors">
+                          <span className="text-xs font-black text-[var(--text-primary)] block group-hover:text-[var(--aurora-emerald)] transition-colors">
                             {details.duration}
                           </span>
-                          <span className="text-[8.5px] font-black tracking-wider uppercase text-[#C7C7C7] block mt-0.5">
+                          <span className="text-[8.5px] font-black tracking-wider uppercase text-[var(--text-muted)] block mt-0.5">
                             {getAttendanceSource(r)}
                           </span>
                         </div>
@@ -686,9 +686,9 @@ export const WorkHoursScreen: React.FC = () => {
                   );
                 })
               ) : (
-                <Card className="p-8 text-center bg-[#151515] border border-[#292929] text-[#8A8A8A]">
+                <div className="glass-card-elevated p-8 text-center text-[var(--text-secondary)]">
                   <p className="text-xs font-semibold">No attendance work-hour records are available for this month.</p>
-                </Card>
+                </div>
               )}
             </div>
           </div>
@@ -698,63 +698,63 @@ export const WorkHoursScreen: React.FC = () => {
       {/* DETAILED DAILY WORK HOURS MODAL */}
       {showDetailModal && selectedRecord && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-[#151515] border border-[#292929] rounded-[28px] max-w-sm w-full p-6 space-y-5 shadow-2xl relative">
+          <div className="glass-card-elevated border border-[var(--border)] rounded-[28px] max-w-sm w-full p-6 space-y-5 shadow-2xl relative">
             <button
               onClick={() => {
                 setShowDetailModal(false);
                 setSelectedRecord(null);
               }}
-              className="absolute top-4 right-4 text-[#8A8A8A] hover:text-white p-1 rounded-full hover:bg-white/5 transition-colors"
+              className="absolute top-4 right-4 text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1 rounded-full hover:bg-white/5 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="text-center space-y-1.5 pb-2 border-b border-[#292929]">
-              <span className="text-[10px] font-black text-[#D4AF37] uppercase tracking-widest">
+            <div className="text-center space-y-1.5 pb-2 border-b border-[var(--border)]">
+              <span className="text-[10px] font-black text-[var(--aurora-emerald)] uppercase tracking-widest">
                 DAILY ATTENDANCE DETAIL
               </span>
-              <h3 className="text-base font-black text-white">{selectedRecord.date}</h3>
+              <h3 className="text-base font-black text-[var(--text-primary)]">{selectedRecord.date}</h3>
             </div>
 
             <div className="space-y-3 text-xs font-semibold">
-              <div className="flex justify-between items-center py-2 border-b border-[#292929]/50">
-                <span className="text-[#8A8A8A]">Attendance Mode</span>
-                <span className="text-white font-black uppercase">{selectedRecord.attendanceType}</span>
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]/50">
+                <span className="text-[var(--text-secondary)]">Attendance Mode</span>
+                <span className="text-[var(--text-primary)] font-black uppercase">{selectedRecord.attendanceType}</span>
               </div>
 
-              <div className="flex justify-between items-center py-2 border-b border-[#292929]/50">
-                <span className="text-[#8A8A8A]">Check-in</span>
-                <span className="text-white font-black">{selectedRecord.checkInTime}</span>
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]/50">
+                <span className="text-[var(--text-secondary)]">Check-in</span>
+                <span className="text-[var(--text-primary)] font-black">{selectedRecord.checkInTime}</span>
               </div>
 
-              <div className="flex justify-between items-center py-2 border-b border-[#292929]/50">
-                <span className="text-[#8A8A8A]">Check-out</span>
-                <span className="text-white font-black">{selectedRecord.checkOutTime || 'In Progress'}</span>
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]/50">
+                <span className="text-[var(--text-secondary)]">Check-out</span>
+                <span className="text-[var(--text-primary)] font-black">{selectedRecord.checkOutTime || 'In Progress'}</span>
               </div>
 
-              <div className="flex justify-between items-center py-2 border-b border-[#292929]/50">
-                <span className="text-[#8A8A8A]">Total Work Hours</span>
-                <span className="text-[#D4AF37] font-black">
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]/50">
+                <span className="text-[var(--text-secondary)]">Total Work Hours</span>
+                <span className="text-[var(--aurora-emerald)] font-black">
                   {getRecordStatusDetails(selectedRecord).duration}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center py-2 border-b border-[#292929]/50">
-                <span className="text-[#8A8A8A]">Attendance Source</span>
-                <span className="text-white font-black">
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]/50">
+                <span className="text-[var(--text-secondary)]">Attendance Source</span>
+                <span className="text-[var(--text-primary)] font-black">
                   {getAttendanceSource(selectedRecord)}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center py-2 border-b border-[#292929]/50">
-                <span className="text-[#8A8A8A]">Tracking Distance</span>
-                <span className="text-white font-black">
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]/50">
+                <span className="text-[var(--text-secondary)]">Tracking Distance</span>
+                <span className="text-[var(--text-primary)] font-black">
                   {Math.round(selectedRecord.distance)} meters from office
                 </span>
               </div>
 
-              <div className="flex justify-between items-center py-2 border-b border-[#292929]/50">
-                <span className="text-[#8A8A8A]">Status</span>
+              <div className="flex justify-between items-center py-2 border-b border-[var(--border)]/50">
+                <span className="text-[var(--text-secondary)]">Status</span>
                 <span className={`px-2 py-0.5 rounded-full border text-[9px] font-black uppercase ${getRecordStatusDetails(selectedRecord).colorClass}`}>
                   {getRecordStatusDetails(selectedRecord).label}
                 </span>
@@ -766,7 +766,7 @@ export const WorkHoursScreen: React.FC = () => {
                 setShowDetailModal(false);
                 setSelectedRecord(null);
               }}
-              className="w-full py-3 bg-[#D4AF37] hover:bg-[#E6C766] text-[#080808] font-bold rounded-2xl text-xs transition-all shadow-lg active:scale-95"
+              className="w-full py-3.5 aurora-bg text-white font-bold rounded-2xl text-xs transition-all shadow-lg active:scale-95 border border-white/20 cursor-pointer"
             >
               Close Details
             </button>

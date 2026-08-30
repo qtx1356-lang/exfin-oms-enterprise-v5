@@ -551,40 +551,41 @@ export const MyTeamScreen: React.FC = () => {
   });
 
   return (
-    <div className="flex flex-col gap-5 pb-12 text-[#FFFFFF]">
+    <div className="flex flex-col gap-5 pb-12 text-white font-sans">
       {/* Top Title & Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-2">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-[#101010] border border-[#D4AF37]/40 flex items-center justify-center text-[#D4AF37] shadow-lg shadow-[#D4AF37]/10">
+          <div className="w-11 h-11 rounded-2xl glass-card-inner flex items-center justify-center text-cyan-300 shadow-md">
             <Users className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-[#FFFFFF]">MY TEAM</h1>
-              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#D4AF37] text-[#080808] shadow-sm">
+              <h1 className="text-xl font-black text-slate-900">MY TEAM</h1>
+              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-sm">
                 TEAM LEADER
               </span>
             </div>
-            <p className="text-xs text-[#8A8A8A]">
-              Managing team members & work planner reviews for <span className="font-bold text-[#FFFFFF]">{employeeData?.name}</span>
+            <p className="text-xs text-slate-600">
+              Managing team members & work planner reviews for <span className="font-bold text-slate-900">{employeeData?.name}</span>
             </p>
           </div>
         </div>
 
         <Button
           onClick={() => setShowCreateTaskModal(true)}
-          className="bg-[#D4AF37] hover:bg-[#C5A028] text-[#080808] font-extrabold text-xs px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-1.5 cursor-pointer"
+          variant="filled"
+          className="font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 cursor-pointer"
         >
           <Plus className="w-4 h-4" /> Assign Team Task
         </Button>
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex overflow-x-auto gap-2 p-1.5 bg-[#151515] rounded-2xl border border-[#292929] text-xs font-bold no-scrollbar">
+      <div className="flex overflow-x-auto gap-2 p-1.5 bg-white/70 backdrop-blur-md rounded-2xl border border-slate-200 text-xs font-bold no-scrollbar">
         <button
           onClick={() => setActiveTab('overview')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'overview' ? 'bg-[#D4AF37] text-[#080808] shadow-md' : 'text-[#8A8A8A] hover:text-[#FFFFFF]'
+            activeTab === 'overview' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <TrendingUp className="w-3.5 h-3.5" /> Overview
@@ -593,7 +594,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('members')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'members' ? 'bg-[#D4AF37] text-[#080808] shadow-md' : 'text-[#8A8A8A] hover:text-[#FFFFFF]'
+            activeTab === 'members' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <Users className="w-3.5 h-3.5" /> Team Members ({totalTeamMembers})
@@ -602,7 +603,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('tasks')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'tasks' ? 'bg-[#D4AF37] text-[#080808] shadow-md' : 'text-[#8A8A8A] hover:text-[#FFFFFF]'
+            activeTab === 'tasks' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <CheckSquare className="w-3.5 h-3.5" /> Team Tasks ({teamTasks.length})
@@ -611,12 +612,12 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('approvals')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'approvals' ? 'bg-[#D4AF37] text-[#080808] shadow-md' : 'text-[#8A8A8A] hover:text-[#FFFFFF]'
+            activeTab === 'approvals' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <Clock className="w-3.5 h-3.5" /> Review Queue
           {pendingApprovalsCount > 0 && (
-            <span className="bg-amber-400 text-[#080808] text-[10px] px-2 py-0.2 rounded-full font-black animate-pulse">
+            <span className="bg-amber-400 text-slate-950 text-[10px] px-2 py-0.2 rounded-full font-black animate-pulse">
               {pendingApprovalsCount}
             </span>
           )}
@@ -625,7 +626,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('reports')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'reports' ? 'bg-[#D4AF37] text-[#080808] shadow-md' : 'text-[#8A8A8A] hover:text-[#FFFFFF]'
+            activeTab === 'reports' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <BarChart3 className="w-3.5 h-3.5" /> Team Reports
@@ -634,12 +635,12 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('leaves')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'leaves' ? 'bg-[#D4AF37] text-[#080808] shadow-md' : 'text-[#8A8A8A] hover:text-[#FFFFFF]'
+            activeTab === 'leaves' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <Calendar className="w-3.5 h-3.5" /> Team Leaves ({teamLeaves.length})
           {pendingTeamLeavesCount > 0 && (
-            <span className="bg-amber-400 text-[#080808] text-[10px] px-2 py-0.5 rounded-full font-black ml-1 animate-pulse">
+            <span className="bg-amber-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black ml-1 animate-pulse">
               {pendingTeamLeavesCount}
             </span>
           )}
@@ -651,54 +652,55 @@ export const MyTeamScreen: React.FC = () => {
         <div className="space-y-5">
           {/* Summary Metric Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Card className="p-3.5 bg-[#151515] border border-[#292929] text-center text-[#FFFFFF]">
-              <p className="text-[10px] font-bold text-[#8A8A8A] uppercase">Total Members</p>
-              <p className="text-2xl font-black text-[#FFFFFF] mt-0.5">{totalTeamMembers}</p>
-            </Card>
+            <div className="glass-card-elevated p-4 text-center rounded-2xl">
+              <p className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Total Members</p>
+              <p className="text-2xl font-black text-white mt-0.5">{totalTeamMembers}</p>
+            </div>
 
-            <Card className="p-3.5 bg-[#151515] border border-[#292929] text-center text-[#FFFFFF]">
-              <p className="text-[10px] font-bold text-amber-400 uppercase">Pending Approvals</p>
-              <p className="text-2xl font-black text-amber-400 mt-0.5">{pendingApprovalsCount}</p>
-            </Card>
+            <div className="glass-card-elevated p-4 text-center rounded-2xl">
+              <p className="text-[10px] font-bold text-amber-300 uppercase">Pending Approvals</p>
+              <p className="text-2xl font-black text-amber-300 mt-0.5">{pendingApprovalsCount}</p>
+            </div>
 
-            <Card className="p-3.5 bg-[#151515] border border-[#292929] text-center text-[#FFFFFF]">
-              <p className="text-[10px] font-bold text-[#D4AF37] uppercase">Active Tasks</p>
-              <p className="text-2xl font-black text-[#D4AF37] mt-0.5">{activeTasksCount}</p>
-            </Card>
+            <div className="glass-card-elevated p-4 text-center rounded-2xl">
+              <p className="text-[10px] font-bold text-cyan-300 uppercase">Active Tasks</p>
+              <p className="text-2xl font-black text-cyan-300 mt-0.5">{activeTasksCount}</p>
+            </div>
 
-            <Card className="p-3.5 bg-[#151515] border border-[#292929] text-center text-[#FFFFFF]">
-              <p className="text-[10px] font-bold text-emerald-400 uppercase">Team Completion</p>
-              <p className="text-2xl font-black text-emerald-400 mt-0.5">{teamCompletionPct}%</p>
-            </Card>
+            <div className="glass-card-elevated p-4 text-center rounded-2xl">
+              <p className="text-[10px] font-bold text-emerald-300 uppercase">Team Completion</p>
+              <p className="text-2xl font-black text-emerald-300 mt-0.5">{teamCompletionPct}%</p>
+            </div>
           </div>
 
           {/* Pending Approvals Quick Alert Banner */}
           {pendingApprovalsCount > 0 && (
-            <Card className="p-4 bg-[#151515] border border-amber-500/40 rounded-2xl flex items-center justify-between text-[#FFFFFF]">
+            <div className="glass-card-elevated p-4 border border-amber-400/40 rounded-2xl flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Clock className="w-6 h-6 text-amber-400 animate-pulse flex-shrink-0" />
+                <Clock className="w-6 h-6 text-amber-300 animate-pulse flex-shrink-0" />
                 <div>
-                  <h3 className="font-extrabold text-xs text-amber-400">
+                  <h3 className="font-extrabold text-xs text-amber-300">
                     {pendingApprovalsCount} Task{pendingApprovalsCount > 1 ? 's' : ''} Awaiting Your Team Leader Review!
                   </h3>
-                  <p className="text-[11px] text-[#8A8A8A]">
+                  <p className="text-[11px] text-[var(--text-secondary)]">
                     Team members completed work items requiring review and sign-off.
                   </p>
                 </div>
               </div>
               <Button
                 onClick={() => setActiveTab('approvals')}
-                className="bg-[#D4AF37] hover:bg-[#C5A028] text-[#080808] font-extrabold text-xs px-3 py-1.5 rounded-xl whitespace-nowrap cursor-pointer"
+                variant="gold"
+                className="font-extrabold text-xs px-3 py-1.5 rounded-xl whitespace-nowrap cursor-pointer shadow-md"
               >
                 Review Now
               </Button>
-            </Card>
+            </div>
           )}
 
           {/* Team Workload Visual Bar */}
-          <Card className="p-4 bg-[#151515] border border-[#292929] space-y-4 text-[#FFFFFF]">
-            <h3 className="text-xs font-black uppercase tracking-wider text-[#D4AF37] flex items-center gap-1.5">
-              <BarChart3 className="w-4 h-4 text-[#D4AF37]" /> Team Member Workload Summary
+          <div className="glass-card-elevated p-5 rounded-2xl space-y-4 shadow-xl">
+            <h3 className="text-xs font-black uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+              <BarChart3 className="w-4 h-4 text-cyan-300" /> Team Member Workload Summary
             </h3>
 
             <div className="space-y-3">
@@ -714,35 +716,35 @@ export const MyTeamScreen: React.FC = () => {
                   const mPct = mTasks.length > 0 ? Math.round((mCompleted / mTasks.length) * 100) : 0;
 
                   return (
-                    <div key={member.id} className="bg-[#101010] p-3 rounded-xl border border-[#292929] space-y-2">
+                    <div key={member.id} className="glass-card-inner p-3.5 rounded-xl space-y-2">
                       <div className="flex justify-between items-center text-xs">
                         <div>
-                          <span className="font-bold text-[#FFFFFF]">{member.name}</span>
-                          <span className="text-[10px] text-[#8A8A8A] font-mono ml-2">({member.employeeCode})</span>
+                          <span className="font-bold text-white">{member.name}</span>
+                          <span className="text-[10px] text-[var(--text-secondary)] font-mono ml-2">({member.employeeCode})</span>
                         </div>
                         <div className="flex items-center gap-3 text-[11px]">
-                          <span className="text-[#8A8A8A]">{mTasks.length} Assigned</span>
-                          <span className="text-[#D4AF37]">{mActive} Active</span>
-                          <span className="text-emerald-400 font-bold">{mCompleted} Done ({mPct}%)</span>
-                          {mOverdue > 0 && <span className="text-rose-400 font-bold">{mOverdue} Overdue</span>}
+                          <span className="text-[var(--text-secondary)]">{mTasks.length} Assigned</span>
+                          <span className="text-cyan-300">{mActive} Active</span>
+                          <span className="text-emerald-300 font-bold">{mCompleted} Done ({mPct}%)</span>
+                          {mOverdue > 0 && <span className="text-rose-300 font-bold">{mOverdue} Overdue</span>}
                         </div>
                       </div>
 
                       {/* Visual Workload Bar */}
-                      <div className="w-full bg-[#1B1B1B] h-2.5 rounded-full overflow-hidden border border-[#292929] flex">
+                      <div className="w-full bg-slate-900/60 h-2.5 rounded-full overflow-hidden border border-white/10 flex">
                         <div className="bg-emerald-400 h-full" style={{ width: `${mPct}%` }} title={`Completed: ${mPct}%`} />
-                        <div className="bg-[#D4AF37] h-full" style={{ width: `${mTasks.length > 0 ? Math.round((mActive / mTasks.length) * 100) : 0}%` }} title={`Active: ${mActive}`} />
+                        <div className="bg-cyan-400 h-full" style={{ width: `${mTasks.length > 0 ? Math.round((mActive / mTasks.length) * 100) : 0}%` }} title={`Active: ${mActive}`} />
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <p className="text-xs text-[#8A8A8A] italic text-center py-4">
+                <p className="text-xs text-[var(--text-secondary)] italic text-center py-4">
                   No assigned team members currently found. Use the Admin Panel to designate team membership.
                 </p>
               )}
             </div>
-          </Card>
+          </div>
         </div>
       )}
 
@@ -761,58 +763,58 @@ export const MyTeamScreen: React.FC = () => {
               const mPct = mTasks.length > 0 ? Math.round((mCompleted / mTasks.length) * 100) : 0;
 
               return (
-                <Card key={member.id} className="p-4 bg-[#173A32] border border-[#2A5B50] rounded-2xl flex flex-col justify-between gap-3 text-[#F4FAF7]">
+                <div key={member.id} className="glass-card-elevated p-4 rounded-2xl flex flex-col justify-between gap-3 shadow-xl">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-2xl bg-[#112C26] border border-[#2A5B50] overflow-hidden flex-shrink-0 flex items-center justify-center">
+                      <div className="w-11 h-11 rounded-2xl glass-card-inner overflow-hidden flex-shrink-0 flex items-center justify-center">
                         {member.selfieUrl ? (
                           <img src={member.selfieUrl} alt={member.name} className="w-full h-full object-cover" />
                         ) : (
-                          <UserCheck className="w-6 h-6 text-[#19C7C0]" />
+                          <UserCheck className="w-6 h-6 text-cyan-300" />
                         )}
                       </div>
                       <div>
-                        <h3 className="font-bold text-sm text-[#F4FAF7]">{member.name}</h3>
-                        <p className="text-[10px] font-mono text-[#C7DAD3]">{member.employeeCode}</p>
-                        <p className="text-[10px] text-[#C7DAD3]">{member.department || 'Operations'} • {member.designation || 'Executive'}</p>
+                        <h3 className="font-bold text-sm text-white">{member.name}</h3>
+                        <p className="text-[10px] font-mono text-[var(--text-secondary)]">{member.employeeCode}</p>
+                        <p className="text-[10px] text-[var(--text-secondary)]">{member.department || 'Operations'} • {member.designation || 'Executive'}</p>
                       </div>
                     </div>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#19C7C0]/20 text-[#19C7C0] border border-[#19C7C0]/30">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                       {member.status || 'Approved'}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 bg-[#112C26] p-2.5 rounded-xl border border-[#2A5B50] text-center text-xs">
+                  <div className="grid grid-cols-3 gap-2 glass-card-inner p-2.5 rounded-xl text-center text-xs">
                     <div>
-                      <p className="text-[9px] text-[#C7DAD3] uppercase font-bold">Active</p>
-                      <p className="font-bold text-[#19C7C0]">{mActive}</p>
+                      <p className="text-[9px] text-[var(--text-secondary)] uppercase font-bold">Active</p>
+                      <p className="font-bold text-cyan-300">{mActive}</p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-[#C7DAD3] uppercase font-bold">Completed</p>
-                      <p className="font-bold text-[#35C98A]">{mCompleted}</p>
+                      <p className="text-[9px] text-[var(--text-secondary)] uppercase font-bold">Completed</p>
+                      <p className="font-bold text-emerald-300">{mCompleted}</p>
                     </div>
                     <div>
-                      <p className="text-[9px] text-[#C7DAD3] uppercase font-bold">Overdue</p>
-                      <p className="font-bold text-[#EF6B73]">{mOverdue}</p>
+                      <p className="text-[9px] text-[var(--text-secondary)] uppercase font-bold">Overdue</p>
+                      <p className="font-bold text-rose-300">{mOverdue}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-[#2A5B50]">
-                    <span className="text-xs font-bold text-[#C7DAD3]">{mPct}% Work Completed</span>
+                  <div className="flex items-center justify-between pt-1 border-t border-white/10">
+                    <span className="text-xs font-bold text-[var(--text-secondary)]">{mPct}% Work Completed</span>
                     <Button
                       onClick={() => setSelectedMemberForReport(member)}
-                      variant="outlined"
-                      className="border-[#2A5B50] text-[#C7DAD3] hover:text-[#19C7C0] hover:border-[#19C7C0] text-[10px] px-2.5 py-1 rounded-lg bg-transparent cursor-pointer"
+                      variant="tonal"
+                      className="text-[10px] px-2.5 py-1 rounded-lg cursor-pointer"
                     >
                       <Eye className="w-3 h-3 mr-1" /> Workload Report
                     </Button>
                   </div>
-                </Card>
+                </div>
               );
             })}
 
             {teamMembers.length === 0 && (
-              <div className="col-span-full py-12 bg-[#173A32] rounded-2xl border border-dashed border-[#2A5B50]">
+              <div className="col-span-full py-12 glass-card-elevated rounded-2xl">
                 <EmptyState
                   icon={Users}
                   title="No Team Members Assigned"
@@ -828,22 +830,22 @@ export const MyTeamScreen: React.FC = () => {
       {activeTab === 'tasks' && (
         <div className="space-y-4">
           {/* Filters Bar */}
-          <div className="flex flex-wrap items-center gap-3 bg-[#173A32] p-3 rounded-2xl border border-[#2A5B50] text-xs">
+          <div className="flex flex-wrap items-center gap-3 glass-card-elevated p-3.5 rounded-2xl text-xs">
             <div className="relative flex-1 min-w-[200px]">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#C7DAD3]" />
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" />
               <input
                 type="text"
                 placeholder="Search team tasks..."
                 value={taskSearchTerm}
                 onChange={(e) => setTaskSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-[#2A5B50] bg-[#112C26] text-[#F4FAF7] focus:outline-none focus:border-[#19C7C0]"
+                className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-white/10 glass-card-inner text-white focus:outline-none focus:border-cyan-400"
               />
             </div>
 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-[#112C26] text-[#F4FAF7] px-3 py-1.5 rounded-xl border border-[#2A5B50] font-bold focus:outline-none focus:border-[#19C7C0]"
+              className="glass-card-inner text-white px-3 py-1.5 rounded-xl border border-white/10 font-bold focus:outline-none focus:border-cyan-400"
             >
               <option value="All">All Statuses</option>
               <option value="PENDING">PENDING</option>
@@ -856,7 +858,7 @@ export const MyTeamScreen: React.FC = () => {
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className="bg-[#112C26] text-[#F4FAF7] px-3 py-1.5 rounded-xl border border-[#2A5B50] font-bold focus:outline-none focus:border-[#19C7C0]"
+              className="glass-card-inner text-white px-3 py-1.5 rounded-xl border border-white/10 font-bold focus:outline-none focus:border-cyan-400"
             >
               <option value="All">All Priorities</option>
               <option value="URGENT">URGENT</option>
@@ -872,53 +874,53 @@ export const MyTeamScreen: React.FC = () => {
               const effStatus = getEffectiveTaskStatus(t);
 
               return (
-                <Card key={t.id} className="p-4 bg-[#173A32] border border-[#2A5B50] rounded-2xl space-y-3 text-[#F4FAF7]">
+                <div key={t.id} className="glass-card-elevated p-4 rounded-2xl space-y-3 shadow-xl">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-bold text-sm text-[#F4FAF7]">{t.title}</h3>
-                      <p className="text-xs text-[#C7DAD3] mt-0.5 line-clamp-2">{t.description}</p>
+                      <h3 className="font-bold text-sm text-white">{t.title}</h3>
+                      <p className="text-xs text-[var(--text-secondary)] mt-0.5 line-clamp-2">{t.description}</p>
                     </div>
 
                     <div className="flex flex-col items-end gap-1">
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
-                        effStatus === 'Completed' ? 'bg-[#35C98A]/20 text-[#35C98A] border-[#35C98A]/30' :
-                        effStatus === 'Overdue' ? 'bg-[#EF6B73]/20 text-[#EF6B73] border-[#EF6B73]/40 animate-pulse' :
-                        t.approvalStatus === 'PENDING_REVIEW' ? 'bg-[#F2C75C]/20 text-[#F2C75C] border-[#F2C75C]/30 animate-pulse' :
-                        'bg-[#19C7C0]/20 text-[#19C7C0] border-[#19C7C0]/30'
+                        effStatus === 'Completed' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+                        effStatus === 'Overdue' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse' :
+                        t.approvalStatus === 'PENDING_REVIEW' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse' :
+                        'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
                       }`}>
                         {t.approvalStatus === 'PENDING_REVIEW' ? 'PENDING REVIEW' : effStatus}
                       </span>
 
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${
-                        t.priority === 'URGENT' ? 'bg-[#EF6B73]/20 text-[#EF6B73] border-[#EF6B73]/30' :
-                        t.priority === 'HIGH' ? 'bg-[#F2C75C]/20 text-[#F2C75C] border-[#F2C75C]/30' :
-                        'bg-[#19C7C0]/20 text-[#19C7C0] border-[#19C7C0]/30'
+                        t.priority === 'URGENT' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
+                        t.priority === 'HIGH' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
+                        'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
                       }`}>
                         {t.priority} Priority
                       </span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-[#112C26] p-2.5 rounded-xl border border-[#2A5B50] text-xs text-[#C7DAD3]">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 glass-card-inner p-2.5 rounded-xl text-xs text-[var(--text-secondary)]">
                     <div>
-                      <span className="text-[#0A4D3C] block text-[10px]">Assigned To:</span>
-                      <span className="font-bold text-[#F4FAF7] font-mono">{(t.assignedToEmployeeCodes || []).join(', ') || 'Team'}</span>
+                      <span className="text-cyan-300 block text-[10px]">Assigned To:</span>
+                      <span className="font-bold text-white font-mono">{(t.assignedToEmployeeCodes || []).join(', ') || 'Team'}</span>
                     </div>
 
                     <div>
-                      <span className="text-[#0A4D3C] block text-[10px]">Due Date:</span>
-                      <span className="font-bold text-[#F4FAF7]">{t.dueDate} {t.dueTime || ''}</span>
+                      <span className="text-cyan-300 block text-[10px]">Due Date:</span>
+                      <span className="font-bold text-white">{t.dueDate} {t.dueTime || ''}</span>
                     </div>
 
                     <div>
-                      <span className="text-[#0A4D3C] block text-[10px]">Progress:</span>
-                      <span className="font-bold text-[#19C7C0]">{t.completionPercentage || 0}%</span>
+                      <span className="text-cyan-300 block text-[10px]">Progress:</span>
+                      <span className="font-bold text-cyan-300">{t.completionPercentage || 0}%</span>
                     </div>
                   </div>
 
                   {t.reviewRemark && (
-                    <div className="p-2.5 bg-[#F2C75C]/15 border border-[#F2C75C]/30 rounded-xl text-xs text-[#F2C75C]">
-                      <span className="font-bold block text-[#F2C75C]">TL Review Remark:</span>
+                    <div className="p-2.5 bg-amber-500/15 border border-amber-500/30 rounded-xl text-xs text-amber-300">
+                      <span className="font-bold block text-amber-300">TL Review Remark:</span>
                       {t.reviewRemark}
                     </div>
                   )}
@@ -927,7 +929,8 @@ export const MyTeamScreen: React.FC = () => {
                     <div className="flex gap-2 pt-1">
                       <Button
                         onClick={() => handleApproveTask(t)}
-                        className="flex-1 bg-[#35C98A] hover:bg-[#2CB078] text-[#0A2923] font-bold text-xs py-2 cursor-pointer"
+                        variant="success"
+                        className="flex-1 font-bold text-xs py-2 cursor-pointer shadow-md"
                       >
                         <CheckCircle className="w-3.5 h-3.5 mr-1" /> Approve Completion
                       </Button>
@@ -937,18 +940,19 @@ export const MyTeamScreen: React.FC = () => {
                           setSelectedTaskForReview(t);
                           setShowRevisionModal(true);
                         }}
-                        className="flex-1 bg-[#F2C75C] hover:bg-[#D9AF43] text-[#0A2923] font-bold text-xs py-2 cursor-pointer"
+                        variant="warning"
+                        className="flex-1 font-bold text-xs py-2 cursor-pointer shadow-md"
                       >
                         <RotateCcw className="w-3.5 h-3.5 mr-1" /> Return for Revision
                       </Button>
                     </div>
                   )}
-                </Card>
+                </div>
               );
             })}
 
             {filteredTasks.length === 0 && (
-              <div className="py-12 bg-[#173A32] rounded-2xl border border-dashed border-[#2A5B50]">
+              <div className="py-12 glass-card-elevated rounded-2xl">
                 <EmptyState
                   icon={CheckSquare}
                   title="No Team Tasks Found"
@@ -963,48 +967,49 @@ export const MyTeamScreen: React.FC = () => {
       {/* REVIEW QUEUE PANEL */}
       {activeTab === 'approvals' && (
         <div className="space-y-4">
-          <div className="p-3.5 bg-[#173A32] rounded-2xl border border-[#2A5B50] text-[#F4FAF7]">
-            <h2 className="text-xs font-black text-[#C7DAD3] uppercase tracking-wider mb-1 flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-[#F2C75C]" /> Pending Task Review Queue
+          <div className="p-3.5 glass-card-elevated rounded-2xl">
+            <h2 className="text-xs font-black text-cyan-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-amber-300" /> Pending Task Review Queue
             </h2>
-            <p className="text-xs text-[#C7DAD3]">
+            <p className="text-xs text-[var(--text-secondary)]">
               When team members complete tasks, they enter this queue for your approval or revision request.
             </p>
           </div>
 
           <div className="space-y-3">
             {teamTasks.filter((t) => t.approvalStatus === 'PENDING_REVIEW').map((t) => (
-              <Card key={t.id} className="p-4 bg-[#173A32] border-2 border-[#F2C75C]/40 rounded-2xl space-y-3 shadow-xl text-[#F4FAF7]">
+              <div key={t.id} className="glass-card-elevated p-4 border-2 border-amber-400/40 rounded-2xl space-y-3 shadow-xl">
                 <div className="flex justify-between items-start">
                   <div>
-                    <span className="text-[10px] font-black uppercase text-[#F2C75C] bg-[#F2C75C]/20 px-2 py-0.5 rounded-full border border-[#F2C75C]/30">
+                    <span className="text-[10px] font-black uppercase text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
                       PENDING TL REVIEW
                     </span>
-                    <h3 className="font-bold text-base text-[#F4FAF7] mt-1.5">{t.title}</h3>
-                    <p className="text-xs text-[#C7DAD3] mt-1">{t.description}</p>
+                    <h3 className="font-bold text-base text-white mt-1.5">{t.title}</h3>
+                    <p className="text-xs text-[var(--text-secondary)] mt-1">{t.description}</p>
                   </div>
 
-                  <span className="font-black text-[#35C98A] text-sm bg-[#35C98A]/10 px-3 py-1 rounded-full border border-[#35C98A]/20">
+                  <span className="font-black text-emerald-300 text-sm bg-emerald-500/20 px-3 py-1 rounded-full border border-emerald-500/30">
                     100% Completed
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 bg-[#111217] p-3 rounded-xl border border-[#2A5B50] text-xs text-[#C7DAD3]">
+                <div className="grid grid-cols-2 gap-2 glass-card-inner p-3 rounded-xl text-xs text-[var(--text-secondary)]">
                   <div>
-                    <span className="text-[#0A4D3C] block text-[10px]">Submitted By:</span>
-                    <span className="font-bold text-[#F4FAF7] font-mono">{(t.assignedToEmployeeCodes || []).join(', ') || 'Employee'}</span>
+                    <span className="text-cyan-300 block text-[10px]">Submitted By:</span>
+                    <span className="font-bold text-white font-mono">{(t.assignedToEmployeeCodes || []).join(', ') || 'Employee'}</span>
                   </div>
 
                   <div>
-                    <span className="text-[#0A4D3C] block text-[10px]">Due Date:</span>
-                    <span className="font-bold text-[#F4FAF7]">{t.dueDate} {t.dueTime || ''}</span>
+                    <span className="text-cyan-300 block text-[10px]">Due Date:</span>
+                    <span className="font-bold text-white">{t.dueDate} {t.dueTime || ''}</span>
                   </div>
                 </div>
 
                 <div className="flex gap-3 pt-2">
                   <Button
                     onClick={() => handleApproveTask(t)}
-                    className="flex-1 bg-[#35C98A] hover:bg-[#2CB078] text-[#0A2923] font-bold text-xs py-2.5 rounded-xl shadow-lg cursor-pointer"
+                    variant="success"
+                    className="flex-1 font-bold text-xs py-2.5 rounded-xl shadow-lg cursor-pointer"
                   >
                     <CheckCircle className="w-4 h-4 mr-1.5" /> APPROVE
                   </Button>
@@ -1014,16 +1019,17 @@ export const MyTeamScreen: React.FC = () => {
                       setSelectedTaskForReview(t);
                       setShowRevisionModal(true);
                     }}
-                    className="flex-1 bg-[#F2C75C] hover:bg-[#D9AF43] text-[#0A2923] font-bold text-xs py-2.5 rounded-xl shadow-lg cursor-pointer"
+                    variant="warning"
+                    className="flex-1 font-bold text-xs py-2.5 rounded-xl shadow-lg cursor-pointer"
                   >
                     <RotateCcw className="w-4 h-4 mr-1.5" /> RETURN FOR REVISION
                   </Button>
                 </div>
-              </Card>
+              </div>
             ))}
 
             {teamTasks.filter((t) => t.approvalStatus === 'PENDING_REVIEW').length === 0 && (
-              <div className="py-12 bg-[#173A32] rounded-2xl border border-dashed border-[#2A5B50]">
+              <div className="py-12 glass-card-elevated rounded-2xl">
                 <EmptyState
                   icon={CheckCircle}
                   title="Review Queue Clear!"
@@ -1038,33 +1044,33 @@ export const MyTeamScreen: React.FC = () => {
       {/* TEAM REPORTS PANEL */}
       {activeTab === 'reports' && (
         <div className="space-y-4">
-          <Card className="p-5 bg-[#173A32] border border-[#2A5B50] rounded-2xl space-y-4 text-[#F4FAF7]">
-            <h3 className="text-sm font-black uppercase text-[#C7DAD3] tracking-wider flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-[#19C7C0]" /> Executive Team Performance Metrics
+          <div className="glass-card-elevated p-5 rounded-2xl space-y-4 shadow-xl">
+            <h3 className="text-sm font-black uppercase text-cyan-300 tracking-wider flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-cyan-300" /> Executive Team Performance Metrics
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-[#112C26] p-3.5 rounded-xl border border-[#2A5B50] text-center">
-                <p className="text-[10px] text-[#C7DAD3] font-bold uppercase">Total Team Tasks</p>
-                <p className="text-xl font-black text-[#F4FAF7]">{teamTasks.length}</p>
+              <div className="glass-card-inner p-3.5 rounded-xl text-center">
+                <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase">Total Team Tasks</p>
+                <p className="text-xl font-black text-white">{teamTasks.length}</p>
               </div>
 
-              <div className="bg-[#112C26] p-3.5 rounded-xl border border-[#35C98A]/30 text-center">
-                <p className="text-[10px] text-[#35C98A] font-bold uppercase">Completed</p>
-                <p className="text-xl font-black text-[#35C98A]">{completedTasksCount}</p>
+              <div className="glass-card-inner p-3.5 rounded-xl text-center">
+                <p className="text-[10px] text-emerald-300 font-bold uppercase">Completed</p>
+                <p className="text-xl font-black text-emerald-300">{completedTasksCount}</p>
               </div>
 
-              <div className="bg-[#112C26] p-3.5 rounded-xl border border-[#19C7C0]/30 text-center">
-                <p className="text-[10px] text-[#19C7C0] font-bold uppercase">On-Time Completion</p>
-                <p className="text-xl font-black text-[#19C7C0]">{onTimePct}%</p>
+              <div className="glass-card-inner p-3.5 rounded-xl text-center">
+                <p className="text-[10px] text-cyan-300 font-bold uppercase">On-Time Completion</p>
+                <p className="text-xl font-black text-cyan-300">{onTimePct}%</p>
               </div>
 
-              <div className="bg-[#112C26] p-3.5 rounded-xl border border-[#F2C75C]/30 text-center">
-                <p className="text-[10px] text-[#F2C75C] font-bold uppercase">Revisions Requested</p>
-                <p className="text-xl font-black text-[#F2C75C]">{revisionRequiredCount}</p>
+              <div className="glass-card-inner p-3.5 rounded-xl text-center">
+                <p className="text-[10px] text-amber-300 font-bold uppercase">Revisions Requested</p>
+                <p className="text-xl font-black text-amber-300">{revisionRequiredCount}</p>
               </div>
             </div>
-          </Card>
+          </div>
           
           <EfficiencyDashboard />
         </div>
@@ -1073,53 +1079,53 @@ export const MyTeamScreen: React.FC = () => {
       {/* TEAM LEAVES REVIEW PANEL */}
       {activeTab === 'leaves' && (
         <div className="space-y-4">
-          <Card className="p-5 bg-[#173A32] border border-[#2A5B50] rounded-2xl space-y-4 text-[#F4FAF7]">
-            <h3 className="text-sm font-black uppercase text-[#C7DAD3] tracking-wider flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-[#19C7C0]" /> Team Leave Management
+          <div className="glass-card-elevated p-5 rounded-2xl space-y-4 shadow-xl">
+            <h3 className="text-sm font-black uppercase text-cyan-300 tracking-wider flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-cyan-300" /> Team Leave Management
             </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-[#112C26] p-3.5 rounded-xl border border-[#2A5B50] text-center">
-                <p className="text-[10px] text-[#C7DAD3] font-bold uppercase">Total Requests</p>
-                <p className="text-xl font-black text-[#F4FAF7]">{teamLeaves.length}</p>
+              <div className="glass-card-inner p-3.5 rounded-xl text-center">
+                <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase">Total Requests</p>
+                <p className="text-xl font-black text-white">{teamLeaves.length}</p>
               </div>
 
-              <div className="bg-[#112C26] p-3.5 rounded-xl border border-[#F2C75C]/30 text-center">
-                <p className="text-[10px] text-[#F2C75C] font-bold uppercase">Pending TL Review</p>
-                <p className="text-xl font-black text-[#F2C75C]">{pendingTeamLeavesCount}</p>
+              <div className="glass-card-inner p-3.5 rounded-xl text-center">
+                <p className="text-[10px] text-amber-300 font-bold uppercase">Pending TL Review</p>
+                <p className="text-xl font-black text-amber-300">{pendingTeamLeavesCount}</p>
               </div>
 
-              <div className="bg-[#112C26] p-3.5 rounded-xl border border-[#35C98A]/30 text-center">
-                <p className="text-[10px] text-[#35C98A] font-bold uppercase">TL Approved</p>
-                <p className="text-xl font-black text-[#35C98A]">
+              <div className="glass-card-inner p-3.5 rounded-xl text-center">
+                <p className="text-[10px] text-emerald-300 font-bold uppercase">TL Approved</p>
+                <p className="text-xl font-black text-emerald-300">
                   {teamLeaves.filter((l) => l.approvalStatus === 'TEAM_LEADER_APPROVED' || l.approvalStatus === 'APPROVED').length}
                 </p>
               </div>
 
-              <div className="bg-[#112C26] p-3.5 rounded-xl border border-[#EF6B73]/30 text-center">
-                <p className="text-[10px] text-[#EF6B73] font-bold uppercase">Rejected</p>
-                <p className="text-xl font-black text-[#EF6B73]">
+              <div className="glass-card-inner p-3.5 rounded-xl text-center">
+                <p className="text-[10px] text-rose-300 font-bold uppercase">Rejected</p>
+                <p className="text-xl font-black text-rose-300">
                   {teamLeaves.filter((l) => l.status === 'REJECTED').length}
                 </p>
               </div>
             </div>
-          </Card>
+          </div>
 
           {/* Filters and List */}
-          <Card className="p-5 bg-[#173A32] border border-[#2A5B50] rounded-2xl space-y-4 shadow-xl text-[#F4FAF7]">
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-[#2A5B50] pb-4">
-              <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#C7DAD3]">
+          <div className="glass-card-elevated p-5 rounded-2xl space-y-4 shadow-xl">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-white/10 pb-4">
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-cyan-300">
                 Team Leave Requests History
               </h4>
-              <div className="flex gap-1 bg-[#112C26] p-1 rounded-xl border border-[#2A5B50] text-xs self-start">
+              <div className="flex gap-1 glass-card-inner p-1 rounded-xl text-xs self-start">
                 {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map((status) => (
                   <button
                     key={status}
                     onClick={() => setLeaveStatusFilter(status)}
                     className={`px-3 py-1.5 rounded-lg transition-all font-semibold cursor-pointer ${
                       leaveStatusFilter === status
-                        ? 'bg-[#19C7C0] text-[#0A2923] shadow-md'
-                        : 'text-[#C7DAD3] hover:text-[#F4FAF7]'
+                        ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md'
+                        : 'text-[var(--text-secondary)] hover:text-white'
                     }`}
                   >
                     {status.charAt(0) + status.slice(1).toLowerCase()}
@@ -1145,40 +1151,40 @@ export const MyTeamScreen: React.FC = () => {
                       <div
                         key={leave.id}
                         onClick={() => setSelectedLeaveForReview(leave)}
-                        className="p-4 bg-[#112C26] hover:bg-[#21483E] rounded-2xl border border-[#2A5B50] transition cursor-pointer flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center text-[#F4FAF7]"
+                        className="p-4 glass-card-inner hover:border-cyan-400/50 rounded-2xl transition cursor-pointer flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center text-white"
                       >
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-[#F4FAF7]">
+                            <span className="text-xs font-black text-white">
                               {leave.employeeName} ({leave.employeeCode})
                             </span>
                             <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
-                              leave.status === 'APPROVED' ? 'bg-[#35C98A]/20 text-[#35C98A] border border-[#35C98A]/30' :
-                              leave.status === 'PENDING' ? 'bg-[#F2C75C]/20 text-[#F2C75C] border border-[#F2C75C]/30' :
-                              'bg-[#EF6B73]/20 text-[#EF6B73] border border-[#EF6B73]/30'
+                              leave.status === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                              leave.status === 'PENDING' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                              'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                             }`}>
                               {leave.status}
                             </span>
                             {isPendingMyReview && (
-                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-[#19C7C0] text-[#0A2923] animate-pulse">
+                              <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-cyan-400 text-slate-950 animate-pulse">
                                 Action Required
                               </span>
                             )}
                           </div>
-                          <p className="text-xs font-semibold text-[#C7DAD3]">
+                          <p className="text-xs font-semibold text-[var(--text-secondary)]">
                             Range: {leave.startDate} to {leave.endDate} ({leave.totalDays} Days)
                           </p>
-                          <p className="text-[11px] text-[#C7DAD3] leading-tight line-clamp-1">
+                          <p className="text-[11px] text-[var(--text-secondary)] leading-tight line-clamp-1">
                             Reason: "{leave.reason}"
                           </p>
                         </div>
 
-                        <div className="flex sm:flex-col items-end gap-2 w-full sm:w-auto justify-between border-t border-[#2A5B50]/30 sm:border-0 pt-2 sm:pt-0">
-                          <span className="text-xs text-[#C7DAD3]">
+                        <div className="flex sm:flex-col items-end gap-2 w-full sm:w-auto justify-between border-t border-white/10 sm:border-0 pt-2 sm:pt-0">
+                          <span className="text-xs text-[var(--text-secondary)]">
                             {new Date(leave.createdAtDeviceTime).toLocaleDateString()}
                           </span>
-                          <span className="text-xs font-bold text-[#19C7C0]">
-                            {leave.approvalStatus === 'TEAM_LEADER_APPROVED' ? 'TL Approved &rarr; Admin' : 
+                          <span className="text-xs font-bold text-cyan-300">
+                            {leave.approvalStatus === 'TEAM_LEADER_APPROVED' ? 'TL Approved → Admin' : 
                              leave.approvalStatus === 'APPROVED' ? 'Fully Approved' : 
                              leave.approvalStatus}
                           </span>
@@ -1187,7 +1193,7 @@ export const MyTeamScreen: React.FC = () => {
                     );
                   })
               ) : (
-                <div className="py-12 bg-[#173A32] rounded-2xl border border-dashed border-[#2A5B50]">
+                <div className="py-12 glass-card-elevated rounded-2xl">
                   <EmptyState
                     icon={Calendar}
                     title="No Leaves Found"
@@ -1196,7 +1202,7 @@ export const MyTeamScreen: React.FC = () => {
                 </div>
               )}
             </div>
-          </Card>
+          </div>
         </div>
       )}
 
@@ -1207,57 +1213,57 @@ export const MyTeamScreen: React.FC = () => {
           onClose={() => setSelectedLeaveForReview(null)}
           title="Team Leave Request Audit"
         >
-          <div className="space-y-4 text-xs text-[#F4FAF7]">
-            <div className="bg-[#112C26] p-4 rounded-2xl border border-[#2A5B50] space-y-2">
+          <div className="space-y-4 text-xs text-white">
+            <div className="glass-card-inner p-4 rounded-2xl space-y-2">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-[10px] text-[#C7DAD3] font-extrabold uppercase tracking-wider">Employee</p>
-                  <p className="text-xs font-black text-[#F4FAF7]">{selectedLeaveForReview.employeeName}</p>
-                  <p className="text-[10px] text-[#C7DAD3]">Code: {selectedLeaveForReview.employeeCode}</p>
+                  <p className="text-[10px] text-[var(--text-secondary)] font-extrabold uppercase tracking-wider">Employee</p>
+                  <p className="text-xs font-black text-white">{selectedLeaveForReview.employeeName}</p>
+                  <p className="text-[10px] text-[var(--text-secondary)]">Code: {selectedLeaveForReview.employeeCode}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-[#C7DAD3] font-extrabold uppercase tracking-wider">Department</p>
-                  <p className="text-xs font-black text-[#F4FAF7]">{selectedLeaveForReview.department}</p>
+                  <p className="text-[10px] text-[var(--text-secondary)] font-extrabold uppercase tracking-wider">Department</p>
+                  <p className="text-xs font-black text-white">{selectedLeaveForReview.department}</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#2A5B50]">
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
                 <div>
-                  <p className="text-[10px] text-[#C7DAD3] font-extrabold uppercase tracking-wider">Duration</p>
-                  <p className="text-xs font-black text-[#F4FAF7]">{selectedLeaveForReview.totalDays} Days</p>
+                  <p className="text-[10px] text-[var(--text-secondary)] font-extrabold uppercase tracking-wider">Duration</p>
+                  <p className="text-xs font-black text-white">{selectedLeaveForReview.totalDays} Days</p>
                 </div>
                 <div>
-                  <p className="text-[10px] text-[#C7DAD3] font-extrabold uppercase tracking-wider">Date Range</p>
-                  <p className="text-xs font-black text-[#F4FAF7]">{selectedLeaveForReview.startDate} — {selectedLeaveForReview.endDate}</p>
+                  <p className="text-[10px] text-[var(--text-secondary)] font-extrabold uppercase tracking-wider">Date Range</p>
+                  <p className="text-xs font-black text-white">{selectedLeaveForReview.startDate} — {selectedLeaveForReview.endDate}</p>
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-[#2A5B50]">
-                <p className="text-[10px] text-[#C7DAD3] font-extrabold uppercase tracking-wider">Reason</p>
-                <p className="text-xs text-[#F4FAF7] leading-normal mt-0.5">"{selectedLeaveForReview.reason}"</p>
+              <div className="pt-2 border-t border-white/10">
+                <p className="text-[10px] text-[var(--text-secondary)] font-extrabold uppercase tracking-wider">Reason</p>
+                <p className="text-xs text-white leading-normal mt-0.5">"{selectedLeaveForReview.reason}"</p>
               </div>
             </div>
 
             {/* Existing Remarks Info */}
             {selectedLeaveForReview.teamLeaderRemark && (
-              <div className="bg-[#112C26] p-3 rounded-xl border border-[#2A5B50] space-y-1">
-                <p className="font-bold text-[#C7DAD3]">Team Leader Remark</p>
-                <p className="italic text-[#F4FAF7]">"{selectedLeaveForReview.teamLeaderRemark}"</p>
+              <div className="glass-card-inner p-3 rounded-xl space-y-1">
+                <p className="font-bold text-[var(--text-secondary)]">Team Leader Remark</p>
+                <p className="italic text-white">"{selectedLeaveForReview.teamLeaderRemark}"</p>
               </div>
             )}
             
             {selectedLeaveForReview.adminRemark && (
-              <div className="bg-[#112C26] p-3 rounded-xl border border-[#2A5B50] space-y-1">
-                <p className="font-bold text-[#C7DAD3]">Admin Remark</p>
-                <p className="italic text-[#F4FAF7]">"{selectedLeaveForReview.adminRemark}"</p>
+              <div className="glass-card-inner p-3 rounded-xl space-y-1">
+                <p className="font-bold text-[var(--text-secondary)]">Admin Remark</p>
+                <p className="italic text-white">"{selectedLeaveForReview.adminRemark}"</p>
               </div>
             )}
 
             {/* Decision panel if still pending TL action */}
             {selectedLeaveForReview.status === 'PENDING' && selectedLeaveForReview.currentApproverRole === 'TEAM_LEADER' ? (
-              <div className="space-y-3.5 pt-2 border-t border-[#2A5B50]">
+              <div className="space-y-3.5 pt-2 border-t border-white/10">
                 <div>
-                  <label className="block text-xs font-extrabold uppercase text-[#C7DAD3] mb-1.5">
+                  <label className="block text-xs font-extrabold uppercase text-[var(--text-secondary)] mb-1.5">
                     Review Remark / Notes
                   </label>
                   <textarea
@@ -1265,7 +1271,7 @@ export const MyTeamScreen: React.FC = () => {
                     onChange={(e) => setLeaveReviewRemark(e.target.value)}
                     placeholder="Enter review notes or rejection reason (rejection reason is mandatory)..."
                     rows={3}
-                    className="w-full bg-[#112C26] border border-[#2A5B50] focus:border-[#19C7C0] rounded-xl p-3 text-xs text-[#F4FAF7] focus:outline-none placeholder-[#C7DAD3]/50"
+                    className="w-full glass-card-inner rounded-xl p-3 text-xs text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 placeholder-white/30"
                   />
                 </div>
 
@@ -1273,7 +1279,8 @@ export const MyTeamScreen: React.FC = () => {
                   <Button
                     onClick={() => handleReviewLeave('REJECT')}
                     disabled={isReviewingLeave}
-                    className="flex-1 bg-[#EF6B73] hover:bg-[#D9555D] text-[#0A2923] font-bold p-3 rounded-xl transition flex justify-center items-center gap-1 shadow-lg cursor-pointer"
+                    variant="danger"
+                    className="flex-1 font-bold p-3 rounded-xl transition flex justify-center items-center gap-1 shadow-lg cursor-pointer"
                   >
                     <XCircle className="w-4 h-4" /> Reject
                   </Button>
@@ -1281,14 +1288,15 @@ export const MyTeamScreen: React.FC = () => {
                   <Button
                     onClick={() => handleReviewLeave('APPROVE')}
                     disabled={isReviewingLeave}
-                    className="flex-1 bg-[#35C98A] hover:bg-[#2CB078] text-[#0A2923] font-bold p-3 rounded-xl transition flex justify-center items-center gap-1 shadow-lg cursor-pointer"
+                    variant="success"
+                    className="flex-1 font-bold p-3 rounded-xl transition flex justify-center items-center gap-1 shadow-lg cursor-pointer"
                   >
                     <CheckCircle className="w-4 h-4" /> Approve & Forward
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-2.5 bg-[#112C26] border border-[#2A5B50] rounded-xl text-[#C7DAD3] font-semibold">
+              <div className="text-center py-2.5 glass-card-inner rounded-xl text-[var(--text-secondary)] font-semibold">
                 Status: {selectedLeaveForReview.status} — Awaiting: {selectedLeaveForReview.currentApproverRole}
               </div>
             )}
@@ -1298,65 +1306,65 @@ export const MyTeamScreen: React.FC = () => {
 
       {/* CREATE TASK DIALOG */}
       <Dialog isOpen={showCreateTaskModal} onClose={() => setShowCreateTaskModal(false)} title="Assign Task to Team">
-        <div className="space-y-4 text-xs text-[#F4FAF7] max-h-[75vh] overflow-y-auto pr-1">
+        <div className="space-y-4 text-xs text-white max-h-[75vh] overflow-y-auto pr-1">
           <div className="space-y-1">
-            <label className="font-extrabold text-[#C7DAD3] uppercase block">Task Title *</label>
+            <label className="font-extrabold text-[var(--text-secondary)] uppercase block">Task Title *</label>
             <input
               type="text"
               value={taskTitle}
               onChange={(e) => setTaskTitle(e.target.value)}
               placeholder="e.g. Daily Operations Checklist & Audit"
-              className="w-full p-3 rounded-xl border border-[#2A5B50] bg-[#112C26] text-[#F4FAF7] font-bold text-xs focus:outline-none focus:border-[#19C7C0]"
+              className="w-full p-3 rounded-xl glass-card-inner text-white font-bold text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="font-extrabold text-[#C7DAD3] uppercase block">Description & Guidelines *</label>
+            <label className="font-extrabold text-[var(--text-secondary)] uppercase block">Description & Guidelines *</label>
             <textarea
               value={taskDescription}
               onChange={(e) => setTaskDescription(e.target.value)}
               placeholder="Provide clear steps for your team member(s)..."
-              className="w-full p-3 rounded-xl border border-[#2A5B50] bg-[#112C26] text-[#F4FAF7] text-xs min-h-[70px] focus:outline-none focus:border-[#19C7C0]"
+              className="w-full p-3 rounded-xl glass-card-inner text-white text-xs min-h-[70px] focus:outline-none focus:ring-2 focus:ring-cyan-400"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="font-extrabold text-[#C7DAD3] uppercase block">Priority *</label>
+              <label className="font-extrabold text-[var(--text-secondary)] uppercase block">Priority *</label>
               <select
                 value={taskPriority}
                 onChange={(e) => setTaskPriority(e.target.value as TaskPriority)}
-                className="w-full p-3 rounded-xl border border-[#2A5B50] bg-[#112C26] text-[#F4FAF7] font-bold text-xs focus:outline-none focus:border-[#19C7C0]"
+                className="w-full p-3 rounded-xl glass-card-inner text-white font-bold text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
               >
-                <option value="LOW">LOW</option>
-                <option value="MEDIUM">MEDIUM</option>
-                <option value="HIGH">HIGH</option>
-                <option value="URGENT">URGENT</option>
+                <option value="LOW" className="bg-slate-900 text-white">LOW</option>
+                <option value="MEDIUM" className="bg-slate-900 text-white">MEDIUM</option>
+                <option value="HIGH" className="bg-slate-900 text-white">HIGH</option>
+                <option value="URGENT" className="bg-slate-900 text-white">URGENT</option>
               </select>
             </div>
 
             <div className="space-y-1">
-              <label className="font-extrabold text-[#C7DAD3] uppercase block">Assignment Scope *</label>
+              <label className="font-extrabold text-[var(--text-secondary)] uppercase block">Assignment Scope *</label>
               <select
                 value={taskAssignmentType}
                 onChange={(e) => setTaskAssignmentType(e.target.value as AssignmentType)}
-                className="w-full p-3 rounded-xl border border-[#2A5B50] bg-[#112C26] text-[#F4FAF7] font-bold text-xs focus:outline-none focus:border-[#19C7C0]"
+                className="w-full p-3 rounded-xl glass-card-inner text-white font-bold text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
               >
-                <option value="EMPLOYEE">Single Team Member</option>
-                <option value="MULTIPLE_EMPLOYEES">Multiple Team Members</option>
-                <option value="DEPARTMENT">Entire Team</option>
+                <option value="EMPLOYEE" className="bg-slate-900 text-white">Single Team Member</option>
+                <option value="MULTIPLE_EMPLOYEES" className="bg-slate-900 text-white">Multiple Team Members</option>
+                <option value="DEPARTMENT" className="bg-slate-900 text-white">Entire Team</option>
               </select>
             </div>
           </div>
 
           {taskAssignmentType !== 'DEPARTMENT' && (
             <div className="space-y-1">
-              <label className="font-extrabold text-[#C7DAD3] uppercase block">Select Team Member(s) *</label>
-              <div className="max-h-36 overflow-y-auto bg-[#112C26] p-2 rounded-xl border border-[#2A5B50] space-y-1">
+              <label className="font-extrabold text-[var(--text-secondary)] uppercase block">Select Team Member(s) *</label>
+              <div className="max-h-36 overflow-y-auto glass-card-inner p-2 rounded-xl space-y-1">
                 {teamMembers.map((m) => {
                   const isChecked = selectedMemberIds.includes(m.id) || selectedMemberIds.includes(m.employeeCode);
                   return (
-                    <label key={m.id} className="flex items-center gap-2.5 p-2 hover:bg-[#173A32] rounded-lg cursor-pointer">
+                    <label key={m.id} className="flex items-center gap-2.5 p-2 hover:bg-white/10 rounded-lg cursor-pointer">
                       <input
                         type={taskAssignmentType === 'EMPLOYEE' ? 'radio' : 'checkbox'}
                         name="teamAssignee"
@@ -1369,11 +1377,11 @@ export const MyTeamScreen: React.FC = () => {
                             else setSelectedMemberIds(selectedMemberIds.filter((id) => id !== m.id));
                           }
                         }}
-                        className="accent-[#19C7C0]"
+                        className="accent-cyan-400"
                       />
                       <div>
-                        <p className="font-bold text-[#F4FAF7] text-xs">{m.name}</p>
-                        <p className="text-[10px] text-[#C7DAD3] font-mono">{m.employeeCode}</p>
+                        <p className="font-bold text-white text-xs">{m.name}</p>
+                        <p className="text-[10px] text-[var(--text-secondary)] font-mono">{m.employeeCode}</p>
                       </div>
                     </label>
                   );
@@ -1384,45 +1392,46 @@ export const MyTeamScreen: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="font-extrabold text-[#C7DAD3] uppercase block">Due Date *</label>
+              <label className="font-extrabold text-[var(--text-secondary)] uppercase block">Due Date *</label>
               <input
                 type="date"
                 value={taskDueDate}
                 onChange={(e) => setTaskDueDate(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-[#2A5B50] bg-[#112C26] text-[#F4FAF7] text-xs font-bold focus:outline-none focus:border-[#19C7C0]"
+                className="w-full p-2.5 rounded-xl glass-card-inner text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="font-extrabold text-[#C7DAD3] uppercase block">Due Time</label>
+              <label className="font-extrabold text-[var(--text-secondary)] uppercase block">Due Time</label>
               <input
                 type="time"
                 value={taskDueTime}
                 onChange={(e) => setTaskDueTime(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-[#2A5B50] bg-[#112C26] text-[#F4FAF7] text-xs font-bold focus:outline-none focus:border-[#19C7C0]"
+                className="w-full p-2.5 rounded-xl glass-card-inner text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="font-extrabold text-[#C7DAD3] uppercase block">Team Leader Remark</label>
+            <label className="font-extrabold text-[var(--text-secondary)] uppercase block">Team Leader Remark</label>
             <input
               type="text"
               value={taskRemark}
               onChange={(e) => setTaskRemark(e.target.value)}
               placeholder="Directives or additional guidance..."
-              className="w-full p-3 rounded-xl border border-[#2A5B50] bg-[#112C26] text-[#F4FAF7] text-xs focus:outline-none focus:border-[#19C7C0]"
+              className="w-full p-3 rounded-xl glass-card-inner text-white text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
             />
           </div>
 
           <div className="flex gap-3 pt-2">
-            <Button variant="text" onClick={() => setShowCreateTaskModal(false)} className="flex-1 text-[#C7DAD3] hover:text-[#F4FAF7] cursor-pointer">
+            <Button variant="tonal" onClick={() => setShowCreateTaskModal(false)} className="flex-1 cursor-pointer">
               Cancel
             </Button>
             <Button
               onClick={handleCreateTask}
+              variant="filled"
               disabled={!taskTitle.trim() || !taskDescription.trim() || !taskDueDate || (taskAssignmentType !== 'DEPARTMENT' && selectedMemberIds.length === 0)}
-              className="flex-1 bg-[#19C7C0] hover:bg-[#15ADA7] text-[#0A2923] font-bold cursor-pointer"
+              className="flex-1 font-bold cursor-pointer"
             >
               Assign Task
             </Button>
@@ -1432,24 +1441,25 @@ export const MyTeamScreen: React.FC = () => {
 
       {/* RETURN FOR REVISION MODAL */}
       <Dialog isOpen={showRevisionModal} onClose={() => setShowRevisionModal(false)} title="Return Task for Revision">
-        <div className="space-y-4 text-xs text-[#F4FAF7]">
-          <p className="text-[#C7DAD3]">
+        <div className="space-y-4 text-xs text-white">
+          <p className="text-[var(--text-secondary)]">
             Provide specific directives for what the team member needs to fix or update:
           </p>
           <textarea
             value={revisionRemarkInput}
             onChange={(e) => setRevisionRemarkInput(e.target.value)}
             placeholder="e.g. Please update client figures in section 2 and attach updated PDF..."
-            className="w-full p-3 rounded-xl border border-[#F2C75C]/40 bg-[#112C26] text-[#F4FAF7] text-xs min-h-[90px] focus:outline-none focus:border-[#19C7C0]"
+            className="w-full p-3 rounded-xl glass-card-inner text-white text-xs min-h-[90px] focus:outline-none focus:ring-2 focus:ring-cyan-400"
           />
           <div className="flex gap-3 pt-2">
-            <Button variant="text" onClick={() => setShowRevisionModal(false)} className="flex-1 text-[#C7DAD3] hover:text-[#F4FAF7] cursor-pointer">
+            <Button variant="tonal" onClick={() => setShowRevisionModal(false)} className="flex-1 cursor-pointer">
               Cancel
             </Button>
             <Button
               onClick={handleReturnForRevision}
+              variant="warning"
               disabled={!revisionRemarkInput.trim()}
-              className="flex-1 bg-[#F2C75C] hover:bg-[#D9AF43] text-[#0A2923] font-bold cursor-pointer"
+              className="flex-1 font-bold cursor-pointer"
             >
               Confirm Return for Revision
             </Button>
@@ -1471,59 +1481,59 @@ export const MyTeamScreen: React.FC = () => {
           const mPct = mTasks.length > 0 ? Math.round((mCompleted / mTasks.length) * 100) : 0;
 
           return (
-            <div className="space-y-4 text-xs text-[#F4FAF7] max-h-[75vh] overflow-y-auto pr-1">
-              <div className="p-3 bg-[#112C26] rounded-2xl border border-[#2A5B50] flex justify-between items-center">
+            <div className="space-y-4 text-xs text-white max-h-[75vh] overflow-y-auto pr-1">
+              <div className="p-3.5 glass-card-inner rounded-2xl flex justify-between items-center">
                 <div>
-                  <h3 className="font-bold text-sm text-[#F4FAF7]">{selectedMemberForReport.name}</h3>
-                  <p className="text-[10px] text-[#C7DAD3] font-mono">Code: {selectedMemberForReport.employeeCode}</p>
+                  <h3 className="font-bold text-sm text-white">{selectedMemberForReport.name}</h3>
+                  <p className="text-[10px] text-[var(--text-secondary)] font-mono">Code: {selectedMemberForReport.employeeCode}</p>
                 </div>
-                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-[#19C7C0]/20 text-[#19C7C0] border border-[#19C7C0]/30">
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                   {selectedMemberForReport.department || 'Operations'}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-                <div className="bg-[#112C26] p-2.5 rounded-xl border border-[#2A5B50]">
-                  <p className="text-[9px] text-[#C7DAD3] uppercase font-bold">Assigned</p>
-                  <p className="font-black text-[#F4FAF7] text-sm">{mTasks.length}</p>
+                <div className="glass-card-inner p-2.5 rounded-xl">
+                  <p className="text-[9px] text-[var(--text-secondary)] uppercase font-bold">Assigned</p>
+                  <p className="font-black text-white text-sm">{mTasks.length}</p>
                 </div>
-                <div className="bg-[#112C26] p-2.5 rounded-xl border border-[#2A5B50]">
-                  <p className="text-[9px] text-[#35C98A] uppercase font-bold">Completed</p>
-                  <p className="font-black text-[#35C98A] text-sm">{mCompleted}</p>
+                <div className="glass-card-inner p-2.5 rounded-xl">
+                  <p className="text-[9px] text-emerald-300 uppercase font-bold">Completed</p>
+                  <p className="font-black text-emerald-300 text-sm">{mCompleted}</p>
                 </div>
-                <div className="bg-[#112C26] p-2.5 rounded-xl border border-[#2A5B50]">
-                  <p className="text-[9px] text-[#19C7C0] uppercase font-bold">In Progress</p>
-                  <p className="font-black text-[#19C7C0] text-sm">{mInProgress + mPending}</p>
+                <div className="glass-card-inner p-2.5 rounded-xl">
+                  <p className="text-[9px] text-cyan-300 uppercase font-bold">In Progress</p>
+                  <p className="font-black text-cyan-300 text-sm">{mInProgress + mPending}</p>
                 </div>
-                <div className="bg-[#112C26] p-2.5 rounded-xl border border-[#2A5B50]">
-                  <p className="text-[9px] text-[#EF6B73] uppercase font-bold">Overdue</p>
-                  <p className="font-black text-[#EF6B73] text-sm">{mOverdue}</p>
+                <div className="glass-card-inner p-2.5 rounded-xl">
+                  <p className="text-[9px] text-rose-300 uppercase font-bold">Overdue</p>
+                  <p className="font-black text-rose-300 text-sm">{mOverdue}</p>
                 </div>
               </div>
 
-              <div className="p-3 bg-[#112C26] rounded-xl border border-[#2A5B50]">
-                <p className="font-bold text-[#C7DAD3] mb-1">Completion Rate: {mPct}%</p>
-                <div className="w-full bg-[#173A32] h-2.5 rounded-full overflow-hidden border border-[#2A5B50]">
-                  <div className="bg-[#35C98A] h-full" style={{ width: `${mPct}%` }} />
+              <div className="p-3 glass-card-inner rounded-xl">
+                <p className="font-bold text-[var(--text-secondary)] mb-1">Completion Rate: {mPct}%</p>
+                <div className="w-full bg-slate-900/60 h-2.5 rounded-full overflow-hidden border border-white/10">
+                  <div className="bg-emerald-400 h-full" style={{ width: `${mPct}%` }} />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <h4 className="font-extrabold text-xs text-[#C7DAD3] uppercase tracking-wider">Recent Tasks ({mTasks.length})</h4>
+                <h4 className="font-extrabold text-xs text-cyan-300 uppercase tracking-wider">Recent Tasks ({mTasks.length})</h4>
                 <div className="max-h-40 overflow-y-auto space-y-2">
                   {mTasks.map((t) => (
-                    <div key={t.id} className="p-2.5 bg-[#112C26] rounded-xl border border-[#2A5B50] text-xs flex justify-between items-center">
+                    <div key={t.id} className="p-2.5 glass-card-inner rounded-xl text-xs flex justify-between items-center">
                       <div>
-                        <p className="font-bold text-[#F4FAF7]">{t.title}</p>
-                        <p className="text-[10px] text-[#C7DAD3]">Due: {t.dueDate}</p>
+                        <p className="font-bold text-white">{t.title}</p>
+                        <p className="text-[10px] text-[var(--text-secondary)]">Due: {t.dueDate}</p>
                       </div>
-                      <span className="text-[10px] font-bold text-[#C7DAD3]">{getEffectiveTaskStatus(t)}</span>
+                      <span className="text-[10px] font-bold text-[var(--text-secondary)]">{getEffectiveTaskStatus(t)}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <Button onClick={() => setSelectedMemberForReport(null)} className="w-full bg-[#173A32] hover:bg-[#21483E] border border-[#2A5B50] text-[#F4FAF7] py-2.5 cursor-pointer">
+              <Button onClick={() => setSelectedMemberForReport(null)} variant="tonal" className="w-full py-2.5 cursor-pointer">
                 Close Report
               </Button>
             </div>

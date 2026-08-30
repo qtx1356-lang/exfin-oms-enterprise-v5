@@ -992,14 +992,14 @@ export const ChatScreen: React.FC = () => {
       >
         <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2 scrollbar-thin">
           {/* Chat Type Selection */}
-          <div className="flex bg-[#15092E] p-1 rounded-xl border border-purple-500/20">
+          <div className="flex bg-[var(--card-bg)] p-1 rounded-xl border border-[var(--border)]">
             <button
               onClick={() => {
                 setChatType('DIRECT');
                 setSelectedContacts([]);
               }}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                chatType === 'DIRECT' ? 'bg-purple-600 text-white' : 'text-purple-300'
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                chatType === 'DIRECT' ? 'aurora-bg text-white shadow-md' : 'text-[var(--text-secondary)]'
               }`}
             >
               Direct Chat
@@ -1009,8 +1009,8 @@ export const ChatScreen: React.FC = () => {
                 setChatType('GROUP');
                 setSelectedContacts([]);
               }}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                chatType === 'GROUP' ? 'bg-purple-600 text-white' : 'text-purple-300'
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                chatType === 'GROUP' ? 'aurora-bg text-white shadow-md' : 'text-[var(--text-secondary)]'
               }`}
             >
               Group Space
@@ -1020,40 +1020,40 @@ export const ChatScreen: React.FC = () => {
           {/* Group Specific Fields */}
           {chatType === 'GROUP' && (
             <div className="space-y-1.5">
-              <label className="text-[10px] text-purple-300/60 uppercase font-black tracking-wider">Group Name</label>
+              <label className="text-[10px] text-[var(--text-secondary)] uppercase font-black tracking-wider">Group Name</label>
               <input
                 type="text"
                 placeholder="Enter group subject..."
                 value={groupTitle}
                 onChange={(e) => setGroupTitle(e.target.value)}
-                className="w-full bg-[#15092E] border border-purple-500/20 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-purple-500/50"
+                className="w-full bg-[var(--card-bg)] border border-[var(--border)] rounded-xl py-2 px-3 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
               />
             </div>
           )}
 
           {/* Contact Search */}
           <div className="space-y-1.5">
-            <label className="text-[10px] text-purple-300/60 uppercase font-black tracking-wider">Search Contacts</label>
+            <label className="text-[10px] text-[var(--text-secondary)] uppercase font-black tracking-wider">Search Contacts</label>
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 w-4 h-4 text-purple-300/50" />
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-[var(--text-secondary)]" />
               <input
                 type="text"
                 placeholder="Search by name or code..."
                 value={contactSearch}
                 onChange={(e) => setContactSearch(e.target.value)}
-                className="w-full bg-[#15092E] border border-purple-500/20 rounded-xl py-2 pl-9 pr-3 text-xs text-white focus:outline-none"
+                className="w-full bg-[var(--card-bg)] border border-[var(--border)] rounded-xl py-2 pl-9 pr-3 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
               />
             </div>
           </div>
 
           {/* Contacts List */}
           <div className="space-y-1.5">
-            <span className="text-[10px] text-purple-300/60 uppercase font-black tracking-wider">
+            <span className="text-[10px] text-[var(--text-secondary)] uppercase font-black tracking-wider">
               {chatType === 'DIRECT' ? 'Select Recipient' : 'Select Group Members'}
             </span>
-            <div className="space-y-1 divide-y divide-purple-500/5 max-h-48 overflow-y-auto pr-1">
+            <div className="space-y-1 divide-y divide-[var(--border)]/30 max-h-48 overflow-y-auto pr-1">
               {filteredContacts.length === 0 ? (
-                <div className="text-center py-6 text-xs text-purple-300/40">No eligible contacts found</div>
+                <div className="text-center py-6 text-xs text-[var(--text-secondary)]/60">No eligible contacts found</div>
               ) : (
                 filteredContacts.map(c => {
                   const isSelected = selectedContacts.includes(c.id);
@@ -1062,20 +1062,20 @@ export const ChatScreen: React.FC = () => {
                       key={c.id}
                       onClick={() => toggleContactSelect(c.id)}
                       className={`py-2 px-3 flex items-center justify-between rounded-lg cursor-pointer transition ${
-                        isSelected ? 'bg-purple-600/10' : 'hover:bg-white/[0.02]'
+                        isSelected ? 'bg-[var(--primary)]/15 border border-[var(--primary)]/30' : 'hover:bg-[var(--card-bg)]'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-300 text-xs font-bold">
+                        <div className="w-8 h-8 rounded-lg bg-[var(--primary)]/15 border border-[var(--primary)]/20 flex items-center justify-center text-[var(--primary)] text-xs font-bold">
                           {c.name.charAt(0)}
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-white">{c.name}</p>
-                          <p className="text-[9px] text-purple-300/50 font-mono">{c.id.toUpperCase()} • {c.role}</p>
+                          <p className="text-xs font-bold text-[var(--text-primary)]">{c.name}</p>
+                          <p className="text-[9px] text-[var(--text-secondary)] font-mono">{c.id.toUpperCase()} • {c.role}</p>
                         </div>
                       </div>
                       <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                        isSelected ? 'bg-purple-600 border-purple-500' : 'border-purple-500/30'
+                        isSelected ? 'aurora-bg border-[var(--primary)] text-white' : 'border-[var(--border)]'
                       }`}>
                         {isSelected && <Check className="w-3 h-3 text-white" />}
                       </div>
@@ -1091,7 +1091,7 @@ export const ChatScreen: React.FC = () => {
             <Button
               onClick={handleStartChat}
               disabled={selectedContacts.length < 1 || (chatType === 'GROUP' && !groupTitle.trim())}
-              className="w-full bg-purple-600 hover:bg-purple-500 h-10 rounded-xl text-xs font-bold shadow-lg"
+              className="w-full aurora-bg hover:opacity-90 h-10 rounded-xl text-xs font-bold shadow-lg text-white"
             >
               {chatType === 'DIRECT' ? 'Start Conversation' : 'Create Group Space'}
             </Button>
@@ -1106,19 +1106,19 @@ export const ChatScreen: React.FC = () => {
         title={callModal.type === 'video' ? 'Video Conference' : 'Voice Connection'}
       >
         <div className="space-y-4 text-center p-4">
-          <div className="w-16 h-16 rounded-full bg-purple-500/10 border border-purple-500/30 flex items-center justify-center mx-auto text-purple-300">
+          <div className="w-16 h-16 rounded-full bg-[var(--primary)]/15 border border-[var(--primary)]/30 flex items-center justify-center mx-auto text-[var(--primary)]">
             {callModal.type === 'video' ? <Video className="w-8 h-8" /> : <Phone className="w-8 h-8" />}
           </div>
           <div className="space-y-2">
-            <h4 className="text-base font-black text-white">Call Integration Sandbox</h4>
-            <p className="text-xs text-purple-300/80 leading-relaxed max-w-sm mx-auto">
+            <h4 className="text-base font-black text-[var(--text-primary)]">Call Integration Sandbox</h4>
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed max-w-sm mx-auto">
               Real-time video and audio calling requires integration with a WebRTC or communication provider (e.g., Twilio, Zoom, or Jitsi). This UI shell is ready for deployment once credentials are configured.
             </p>
           </div>
           <div className="pt-2">
             <Button
               onClick={() => setCallModal({ isOpen: false, type: null })}
-              className="bg-purple-600 hover:bg-purple-500 w-full rounded-xl"
+              className="aurora-bg hover:opacity-90 w-full rounded-xl text-white"
             >
               Close Call Sandbox
             </Button>

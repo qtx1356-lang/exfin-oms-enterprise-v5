@@ -312,27 +312,27 @@ export const PlannerScreen: React.FC = () => {
     switch (canon) {
       case 'Critical':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/40 uppercase tracking-wider flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/40 uppercase tracking-wider flex items-center gap-1 shadow-sm">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
             Critical
           </span>
         );
       case 'High':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/40 uppercase tracking-wider">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase tracking-wider shadow-sm">
             High
           </span>
         );
       case 'Medium':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[var(--emerald)]/20 text-[var(--emerald-bright)] border border-[var(--emerald)]/40 uppercase tracking-wider">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 uppercase tracking-wider shadow-sm">
             Medium
           </span>
         );
       case 'Low':
       default:
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[var(--background-card)] text-[var(--text-secondary)] border border-[var(--border-color)] uppercase tracking-wider">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black glass-card-inner text-slate-300 border border-white/10 uppercase tracking-wider">
             Low
           </span>
         );
@@ -345,44 +345,44 @@ export const PlannerScreen: React.FC = () => {
     switch (status) {
       case 'Completed':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 shadow-sm">
             <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Completed
           </span>
         );
       case 'Revision Requested':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse flex items-center gap-1 shadow-sm">
             <RotateCcw className="w-3 h-3 text-amber-400" /> Revision Requested
           </span>
         );
       case 'Submitted':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[var(--emerald)]/20 text-[var(--emerald-bright)] border border-[var(--emerald)]/40 flex items-center gap-1">
-            <FileCheck2 className="w-3 h-3 text-[var(--emerald-bright)]" /> Submitted
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center gap-1 shadow-sm">
+            <FileCheck2 className="w-3 h-3 text-cyan-400" /> Submitted
           </span>
         );
       case 'Overdue':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse flex items-center gap-1">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse flex items-center gap-1 shadow-sm">
             <AlertTriangle className="w-3 h-3 text-rose-400" /> Overdue
           </span>
         );
       case 'In Progress':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1">
-            <Clock className="w-3 h-3 text-blue-400" /> In Progress
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 flex items-center gap-1 shadow-sm">
+            <Clock className="w-3 h-3 text-indigo-400" /> In Progress
           </span>
         );
       case 'Cancelled':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[var(--background-card-hover)] text-[var(--text-secondary)] border border-[var(--border-color)]">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black glass-card-inner text-slate-400 border border-white/10">
             Cancelled
           </span>
         );
       case 'Assigned':
       default:
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[var(--background-card)] text-[var(--text-secondary)] border border-[var(--border-color)]">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black glass-card-inner text-slate-300 border border-white/10">
             Assigned
           </span>
         );
@@ -486,52 +486,65 @@ export const PlannerScreen: React.FC = () => {
   return (
     <div className="flex flex-col gap-5 pb-16 text-[var(--text-primary)] max-w-5xl mx-auto font-sans">
       {/* Top Header */}
-      <div className="flex items-center justify-between pt-2 pb-2 border-b border-[var(--border-color)]">
+      <div className="flex items-center justify-between pt-2 pb-2 border-b border-white/10">
         <div>
           <h1 className="text-2xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-2">
-            <CheckSquare className="w-7 h-7 text-[var(--emerald-bright)]" /> Work Planner
+            <CheckSquare className="w-7 h-7 text-cyan-400" /> Work Planner
           </h1>
           <p className="text-xs text-[var(--text-secondary)] font-medium mt-0.5">
-            Operational Deliverables & Tasks for <span className="text-[var(--emerald-bright)] font-bold">{empDept}</span>
+            Operational Deliverables & Tasks for <span className="text-cyan-300 font-bold">{empDept}</span>
           </p>
         </div>
 
         <div className="flex items-center gap-2">
+          {pendingSyncCount > 0 && (
+            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+              <RefreshCw className="w-3 h-3 animate-spin text-amber-300" /> {pendingSyncCount} offline changes
+            </span>
+          )}
+          <button
+            onClick={handleTriggerSync}
+            disabled={isSyncing}
+            className="p-2 glass-card-inner rounded-xl border border-white/10 hover:border-cyan-400/50 text-slate-300 hover:text-cyan-300 transition-all cursor-pointer shadow-sm"
+            title="Manual Sync"
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-cyan-400' : ''}`} />
+          </button>
         </div>
       </div>
 
       {/* Feature Card: WORK COMPLETION SUMMARY */}
-      <Card className="p-5 bg-[var(--background-card)] border border-[var(--border-color)] shadow-xl rounded-2xl relative overflow-hidden text-[var(--text-primary)]">
+      <Card variant="elevated" className="p-5 relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[var(--background-card-hover)] border border-[var(--border-color)] flex items-center justify-center">
-              <Briefcase className="w-5 h-5 text-[var(--emerald-bright)]" />
+            <div className="w-10 h-10 rounded-xl glass-card-inner border border-white/10 flex items-center justify-center shadow-inner">
+              <Briefcase className="w-5 h-5 text-cyan-400" />
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-secondary)]">Sprint Delivery Rate</span>
-              <h2 className="text-lg font-black text-[var(--text-primary)] leading-none mt-0.5 tracking-wide">TASK PROGRESS & CADENCE</h2>
+              <span className="text-[10px] font-black uppercase tracking-widest text-cyan-300/80">Sprint Delivery Rate</span>
+              <h2 className="text-lg font-black text-white leading-none mt-0.5 tracking-wide">TASK PROGRESS & CADENCE</h2>
             </div>
           </div>
 
           <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-end">
             <div className="text-right">
-              <p className="text-xs font-bold text-[var(--text-secondary)]">Completion Score</p>
-              <p className="text-2xl font-black text-[var(--emerald-bright)] font-mono">{overallProgressPct}%</p>
+              <p className="text-xs font-bold text-slate-400">Completion Score</p>
+              <p className="text-2xl font-black text-cyan-300 font-mono">{overallProgressPct}%</p>
             </div>
           </div>
         </div>
 
         {/* Progress Bar */}
         <div className="space-y-1.5">
-          <div className="w-full bg-[var(--background-card)] h-3 rounded-full overflow-hidden border border-[var(--border-color)] p-0.5">
+          <div className="w-full glass-card-inner h-3.5 rounded-full overflow-hidden border border-white/10 p-0.5">
             <div 
-              className="h-full bg-gradient-to-r from-[var(--emerald)] to-[var(--emerald-bright)] rounded-full transition-all duration-500"
+              className="h-full aurora-bg rounded-full transition-all duration-500 shadow-md"
               style={{ width: `${overallProgressPct}%` }}
             />
           </div>
-          <div className="flex justify-between items-center text-[10px] font-bold text-[var(--text-secondary)]">
+          <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
             <span>{completedCount} of {totalAssignedTasks} tasks completed</span>
-            <span className={categoryCounts.overdue > 0 ? 'text-rose-400 font-bold' : 'text-[var(--text-secondary)]'}>
+            <span className={categoryCounts.overdue > 0 ? 'text-rose-400 font-bold' : 'text-slate-400'}>
               {categoryCounts.overdue > 0 ? `${categoryCounts.overdue} overdue items need attention` : 'All tasks on schedule'}
             </span>
           </div>
@@ -544,36 +557,36 @@ export const PlannerScreen: React.FC = () => {
           onClick={() => setActiveCategory('today')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'today'
-              ? 'bg-[var(--emerald)] border-[var(--emerald)] text-white shadow-lg scale-[1.02]'
-              : 'bg-[var(--background-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--background-card-hover)] hover:text-[var(--text-primary)]'
+              ? 'aurora-bg border-cyan-400/50 text-white shadow-lg scale-[1.02]'
+              : 'glass-card-inner border-white/10 text-slate-400 hover:text-white hover:border-cyan-400/30'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
             <CalendarCheck className="w-3.5 h-3.5" /> Today's
           </div>
-          <span className={`text-lg font-black mt-1 font-mono ${activeCategory === 'today' ? 'text-white' : 'text-[var(--text-primary)]'}`}>{categoryCounts.today}</span>
+          <span className={`text-lg font-black mt-1 font-mono ${activeCategory === 'today' ? 'text-white' : 'text-slate-200'}`}>{categoryCounts.today}</span>
         </button>
 
         <button
           onClick={() => setActiveCategory('upcoming')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'upcoming'
-              ? 'bg-[var(--emerald)] border-[var(--emerald)] text-white shadow-lg scale-[1.02]'
-              : 'bg-[var(--background-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--background-card-hover)] hover:text-[var(--text-primary)]'
+              ? 'aurora-bg border-cyan-400/50 text-white shadow-lg scale-[1.02]'
+              : 'glass-card-inner border-white/10 text-slate-400 hover:text-white hover:border-cyan-400/30'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
             <CalendarClock className="w-3.5 h-3.5" /> Upcoming
           </div>
-          <span className={`text-lg font-black mt-1 font-mono ${activeCategory === 'upcoming' ? 'text-white' : 'text-[var(--emerald-bright)]'}`}>{categoryCounts.upcoming}</span>
+          <span className={`text-lg font-black mt-1 font-mono ${activeCategory === 'upcoming' ? 'text-white' : 'text-cyan-300'}`}>{categoryCounts.upcoming}</span>
         </button>
 
         <button
           onClick={() => setActiveCategory('overdue')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'overdue'
-              ? 'bg-rose-500 border-rose-500 text-white shadow-lg scale-[1.02]'
-              : 'bg-[var(--background-card)] border-[var(--border-color)] text-rose-400 hover:bg-[var(--background-card-hover)]'
+              ? 'button-gradient-danger border-rose-400 text-white shadow-lg scale-[1.02]'
+              : 'glass-card-inner border-white/10 text-rose-400 hover:border-rose-400/40'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -586,8 +599,8 @@ export const PlannerScreen: React.FC = () => {
           onClick={() => setActiveCategory('revision')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'revision'
-              ? 'bg-amber-500 border-amber-500 text-white shadow-lg scale-[1.02]'
-              : 'bg-[var(--background-card)] border-[var(--border-color)] text-amber-400 hover:bg-[var(--background-card-hover)]'
+              ? 'button-gradient-gold border-amber-400 text-white shadow-lg scale-[1.02]'
+              : 'glass-card-inner border-white/10 text-amber-400 hover:border-amber-400/40'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -600,8 +613,8 @@ export const PlannerScreen: React.FC = () => {
           onClick={() => setActiveCategory('completed')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'completed'
-              ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg scale-[1.02]'
-              : 'bg-[var(--background-card)] border-[var(--border-color)] text-emerald-400 hover:bg-[var(--background-card-hover)]'
+              ? 'button-gradient-success border-emerald-400 text-white shadow-lg scale-[1.02]'
+              : 'glass-card-inner border-white/10 text-emerald-400 hover:border-emerald-400/40'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
@@ -614,27 +627,27 @@ export const PlannerScreen: React.FC = () => {
           onClick={() => setActiveCategory('all')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'all'
-              ? 'bg-[var(--emerald)] border-[var(--emerald)] text-white shadow-lg scale-[1.02]'
-              : 'bg-[var(--background-card)] border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--background-card-hover)] hover:text-[var(--text-primary)]'
+              ? 'aurora-bg border-cyan-400/50 text-white shadow-lg scale-[1.02]'
+              : 'glass-card-inner border-white/10 text-slate-400 hover:text-white hover:border-cyan-400/30'
           }`}
         >
           <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider">
             <Layers className="w-3.5 h-3.5" /> All Tasks
           </div>
-          <span className={`text-lg font-black mt-1 font-mono ${activeCategory === 'all' ? 'text-white' : 'text-[var(--text-primary)]'}`}>{categoryCounts.total}</span>
+          <span className={`text-lg font-black mt-1 font-mono ${activeCategory === 'all' ? 'text-white' : 'text-slate-200'}`}>{categoryCounts.total}</span>
         </button>
       </div>
 
       {/* View Mode Toggle & Filters */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between bg-[var(--background-card)] p-1.5 rounded-2xl border border-[var(--border-color)]">
+        <div className="flex items-center justify-between glass-card-elevated p-1.5 rounded-2xl border border-white/10">
           <div className="flex items-center gap-1 w-full">
             <button
               onClick={() => setViewMode('daily')}
               className={`flex-1 py-2 text-xs font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 viewMode === 'daily'
-                  ? 'bg-[var(--emerald)] text-white shadow-md font-black'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  ? 'aurora-bg text-white shadow-md font-black border border-white/20'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               <Calendar className="w-3.5 h-3.5" /> Category View
@@ -643,8 +656,8 @@ export const PlannerScreen: React.FC = () => {
               onClick={() => setViewMode('weekly')}
               className={`flex-1 py-2 text-xs font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 viewMode === 'weekly'
-                  ? 'bg-[var(--emerald)] text-white shadow-md font-black'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  ? 'aurora-bg text-white shadow-md font-black border border-white/20'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               <Layers className="w-3.5 h-3.5" /> Weekly Cadence
@@ -654,19 +667,19 @@ export const PlannerScreen: React.FC = () => {
 
         {/* Weekly View Strip */}
         {viewMode === 'weekly' && (
-          <div className="grid grid-cols-7 gap-1.5 bg-[var(--background-card)] p-2.5 rounded-2xl border border-[var(--border-color)] text-center">
+          <div className="grid grid-cols-7 gap-1.5 glass-card-elevated p-2.5 rounded-2xl border border-white/10 text-center">
             {weekDays.map((day) => (
               <div 
                 key={day.dateStr}
                 className={`p-2 rounded-xl border flex flex-col items-center justify-between ${
                   day.dateStr === todayDateStr
-                    ? 'bg-[var(--emerald)]/20 border-[var(--emerald)]'
-                    : 'bg-[var(--background-card-hover)] border-[var(--border-color)]'
+                    ? 'bg-cyan-500/20 border-cyan-400/60 shadow-md'
+                    : 'glass-card-inner border-white/10'
                 }`}
               >
-                <span className="text-[10px] font-bold text-[var(--text-secondary)]">{day.dayName}</span>
-                <span className="text-xs font-black text-[var(--text-primary)] my-0.5">{day.dayNum}</span>
-                <span className="text-[9px] font-extrabold text-[var(--emerald-bright)] bg-[var(--background-card)] px-1.5 py-0.5 rounded-full border border-[var(--border-color)]">
+                <span className="text-[10px] font-bold text-slate-400">{day.dayName}</span>
+                <span className="text-xs font-black text-white my-0.5">{day.dayNum}</span>
+                <span className="text-[9px] font-extrabold text-cyan-300 glass-card-inner px-1.5 py-0.5 rounded-full border border-white/10">
                   {day.completed}/{day.total}
                 </span>
               </div>
@@ -677,8 +690,8 @@ export const PlannerScreen: React.FC = () => {
         {/* Sub-Filters for Priority & Status */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-            <span className="text-[10px] font-extrabold text-[var(--emerald-bright)] uppercase tracking-wider flex items-center gap-1 flex-shrink-0">
-              <Filter className="w-3 h-3 text-[var(--emerald-bright)]" /> Priority:
+            <span className="text-[10px] font-extrabold text-cyan-400 uppercase tracking-wider flex items-center gap-1 flex-shrink-0">
+              <Filter className="w-3 h-3 text-cyan-400" /> Priority:
             </span>
             {['All', 'Critical', 'High', 'Medium', 'Low'].map((p) => (
               <button
@@ -686,8 +699,8 @@ export const PlannerScreen: React.FC = () => {
                 onClick={() => setPriorityFilter(p)}
                 className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
                   priorityFilter === p
-                    ? 'bg-[var(--emerald)] text-white border-[var(--emerald)] shadow-md'
-                    : 'bg-[var(--background-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:bg-[var(--background-card-hover)] hover:text-[var(--text-primary)]'
+                    ? 'aurora-bg text-white border-cyan-400/50 shadow-md'
+                    : 'glass-card-inner text-slate-400 border-white/10 hover:border-cyan-400/30 hover:text-white'
                 }`}
               >
                 {p}
@@ -697,7 +710,7 @@ export const PlannerScreen: React.FC = () => {
 
           {activeCategory === 'all' && (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar ml-auto">
-              <span className="text-[10px] font-extrabold text-[var(--emerald-bright)] uppercase tracking-wider flex items-center gap-1 flex-shrink-0">
+              <span className="text-[10px] font-extrabold text-cyan-400 uppercase tracking-wider flex items-center gap-1 flex-shrink-0">
                 Status:
               </span>
               {['All', 'Assigned', 'In Progress', 'Submitted', 'Completed', 'Revision Requested', 'Overdue', 'Cancelled'].map((s) => (
@@ -706,8 +719,8 @@ export const PlannerScreen: React.FC = () => {
                   onClick={() => setStatusFilter(s)}
                   className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
                     statusFilter === s
-                      ? 'bg-[var(--emerald)] text-white border-[var(--emerald)] shadow-md'
-                      : 'bg-[var(--background-card)] text-[var(--text-secondary)] border-[var(--border-color)] hover:bg-[var(--background-card-hover)] hover:text-[var(--text-primary)]'
+                      ? 'aurora-bg text-white border-cyan-400/50 shadow-md'
+                      : 'glass-card-inner text-slate-400 border-white/10 hover:border-cyan-400/30 hover:text-white'
                   }`}
                 >
                   {s}
@@ -720,7 +733,7 @@ export const PlannerScreen: React.FC = () => {
 
       {/* Task List */}
       <div className="space-y-3">
-        <h2 className="text-xs font-extrabold text-[var(--emerald-bright)] uppercase tracking-wider flex items-center justify-between">
+        <h2 className="text-xs font-extrabold text-cyan-400 uppercase tracking-wider flex items-center justify-between">
           <span>
             {activeCategory === 'today' && "Today's Deliverables"}
             {activeCategory === 'upcoming' && 'Upcoming Deliverables'}
@@ -744,22 +757,23 @@ export const PlannerScreen: React.FC = () => {
             return (
               <Card
                 key={task.id}
+                variant="elevated"
                 onClick={() => handleOpenTask(task)}
-                className={`p-4.5 bg-[var(--background-card)] border rounded-2xl shadow-md cursor-pointer transition-all space-y-3 group text-[var(--text-primary)] ${
+                className={`p-4.5 cursor-pointer transition-all space-y-3 group ${
                   effectiveStatus === 'Revision Requested'
-                    ? 'border-amber-500/50 hover:border-amber-500'
+                    ? 'border-amber-500/50 hover:border-amber-400'
                     : effectiveStatus === 'Overdue'
-                    ? 'border-rose-500/50 hover:border-rose-500'
+                    ? 'border-rose-500/50 hover:border-rose-400'
                     : effectiveStatus === 'Completed'
-                    ? 'border-emerald-500/30 hover:border-emerald-500/60'
-                    : 'border-[var(--border-color)] hover:border-[var(--emerald)]'
+                    ? 'border-emerald-500/40 hover:border-emerald-400'
+                    : 'hover:border-cyan-400/60'
                 }`}
               >
                 {/* Top Row: Title, Priority, Status Badge */}
                 <div className="flex justify-between items-start gap-2">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-bold text-base text-[var(--text-primary)] group-hover:text-[var(--emerald-bright)] transition-colors">
+                      <h3 className="font-bold text-base text-white group-hover:text-cyan-300 transition-colors">
                         {task.title}
                       </h3>
                       {getPriorityBadge(task.priority)}
@@ -767,29 +781,29 @@ export const PlannerScreen: React.FC = () => {
                     </div>
 
                     {/* Metadata Grid */}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-[var(--text-secondary)] pt-0.5">
-                      <span className="flex items-center gap-1 font-semibold text-[var(--text-secondary)]">
-                        <Calendar className="w-3.5 h-3.5 text-[var(--emerald-bright)]" /> Assigned: {assignedDateDisplay}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400 pt-0.5">
+                      <span className="flex items-center gap-1 font-semibold text-slate-300">
+                        <Calendar className="w-3.5 h-3.5 text-cyan-400" /> Assigned: {assignedDateDisplay}
                       </span>
 
-                      <span className="flex items-center gap-1 font-semibold text-amber-400">
+                      <span className="flex items-center gap-1 font-semibold text-amber-300">
                         <Clock className="w-3.5 h-3.5 text-amber-400" /> Due: {task.dueDate} {task.dueTime ? `@ ${task.dueTime}` : ''}
                       </span>
 
                       {task.expectedCompletionTime && (
-                        <span className="flex items-center gap-1 font-semibold text-[var(--emerald-bright)]">
-                          <Clock className="w-3.5 h-3.5 text-[var(--emerald-bright)]" /> Expected: {task.expectedCompletionTime}
+                        <span className="flex items-center gap-1 font-semibold text-cyan-300">
+                          <Clock className="w-3.5 h-3.5 text-cyan-400" /> Expected: {task.expectedCompletionTime}
                         </span>
                       )}
 
                       {task.completedAt && (
-                        <span className="flex items-center gap-1 font-semibold text-emerald-400">
+                        <span className="flex items-center gap-1 font-semibold text-emerald-300">
                           <Check className="w-3.5 h-3.5 text-emerald-400" /> Completed: {new Date(task.completedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                         </span>
                       )}
 
                       {revisionsCount > 0 && (
-                        <span className="flex items-center gap-1 font-black text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-md border border-amber-500/30">
+                        <span className="flex items-center gap-1 font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-md border border-amber-500/40">
                           <RotateCcw className="w-3 h-3" /> Revisions: {revisionsCount}
                         </span>
                       )}
@@ -798,7 +812,7 @@ export const PlannerScreen: React.FC = () => {
                 </div>
 
                 {/* Description */}
-                <p className="text-xs text-[var(--text-secondary)] line-clamp-2 bg-[var(--background-card)] p-2.5 rounded-xl border border-[var(--border-color)]">
+                <p className="text-xs text-slate-300 line-clamp-2 glass-card-inner p-2.5 rounded-xl border border-white/10">
                   {task.description}
                 </p>
 
@@ -806,7 +820,7 @@ export const PlannerScreen: React.FC = () => {
                 {effectiveStatus === 'Revision Requested' && (
                   <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="font-extrabold text-amber-400 text-xs flex items-center gap-1.5">
+                      <span className="font-extrabold text-amber-300 text-xs flex items-center gap-1.5">
                         <RotateCcw className="w-3.5 h-3.5 text-amber-400 animate-spin" /> Revision Requested by {task.revisions?.[task.revisions.length - 1]?.requestedByName || 'Supervisor'}
                       </span>
                       <button
@@ -814,12 +828,12 @@ export const PlannerScreen: React.FC = () => {
                           e.stopPropagation();
                           setViewingRevisionsTask(task);
                         }}
-                        className="text-[10px] font-bold text-amber-400 underline hover:text-[var(--text-primary)] cursor-pointer"
+                        className="text-[10px] font-bold text-amber-300 underline hover:text-white cursor-pointer"
                       >
                         View Full History
                       </button>
                     </div>
-                    <p className="text-xs text-[var(--text-primary)] italic">
+                    <p className="text-xs text-slate-200 italic">
                       "{task.revisions?.[task.revisions.length - 1]?.reason || task.currentRevisionReason || task.reviewRemark || 'Please review and resubmit with requested corrections.'}"
                     </p>
                   </div>
@@ -827,11 +841,11 @@ export const PlannerScreen: React.FC = () => {
 
                 {/* Progress Bar */}
                 <div className="space-y-1 pt-1">
-                  <div className="flex justify-between items-center text-[10px] font-bold text-[var(--text-secondary)]">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
                     <span>Progress</span>
-                    <span className="text-[var(--text-primary)] font-extrabold">{task.completionPercentage || 0}%</span>
+                    <span className="text-white font-extrabold">{task.completionPercentage || 0}%</span>
                   </div>
-                  <div className="w-full bg-[var(--background-card)] h-2 rounded-full overflow-hidden border border-[var(--border-color)]">
+                  <div className="w-full glass-card-inner h-2 rounded-full overflow-hidden border border-white/10">
                     <div
                       className={`h-full transition-all duration-300 ${
                         effectiveStatus === 'Completed'
@@ -840,7 +854,7 @@ export const PlannerScreen: React.FC = () => {
                           ? 'bg-rose-500'
                           : effectiveStatus === 'Revision Requested'
                           ? 'bg-amber-500'
-                          : 'bg-[var(--emerald)]'
+                          : 'aurora-bg'
                       }`}
                       style={{ width: `${task.completionPercentage || 0}%` }}
                     />
@@ -848,14 +862,14 @@ export const PlannerScreen: React.FC = () => {
                 </div>
 
                 {/* ACTION BUTTONS */}
-                <div className="pt-2 border-t border-[var(--border-color)] flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)]">
+                <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-[10px] text-slate-400">
                     <span className="flex items-center gap-1">
-                      <User className="w-3 h-3 text-[var(--text-secondary)]" /> By {task.createdByName || 'Admin'}
+                      <User className="w-3 h-3 text-slate-400" /> By {task.createdByName || 'Admin'}
                     </span>
                     {(task.comments || []).length > 0 && (
-                      <span className="flex items-center gap-1 text-[var(--emerald-bright)]">
-                        <MessageSquare className="w-3 h-3 text-[var(--emerald-bright)]" /> {(task.comments || []).length} comments
+                      <span className="flex items-center gap-1 text-cyan-300">
+                        <MessageSquare className="w-3 h-3 text-cyan-400" /> {(task.comments || []).length} comments
                       </span>
                     )}
                   </div>
@@ -865,12 +879,12 @@ export const PlannerScreen: React.FC = () => {
                     {revisionsCount > 0 && (
                       <Button
                         size="sm"
-                        variant="secondary"
+                        variant="gold"
                         onClick={(e) => {
                           e.stopPropagation();
                           setViewingRevisionsTask(task);
                         }}
-                        className="py-1 px-2.5 text-[11px] font-bold bg-amber-500/20 text-amber-400 border-amber-500/40 hover:bg-amber-500/30 flex items-center gap-1 rounded-xl cursor-pointer"
+                        className="py-1 px-2.5 text-[11px] font-bold flex items-center gap-1 rounded-xl cursor-pointer"
                       >
                         <History className="w-3 h-3" /> Revisions ({revisionsCount})
                       </Button>
@@ -880,8 +894,9 @@ export const PlannerScreen: React.FC = () => {
                     {effectiveStatus === 'Assigned' && (
                       <Button
                         size="sm"
+                        variant="filled"
                         onClick={(e) => handleStartTask(task, e)}
-                        className="py-1 px-3 text-[11px] font-bold bg-[var(--emerald)] hover:bg-[var(--emerald-bright)] text-white flex items-center gap-1 rounded-xl cursor-pointer shadow-md"
+                        className="py-1 px-3 text-[11px] font-bold flex items-center gap-1 rounded-xl cursor-pointer shadow-md"
                       >
                         <Play className="w-3 h-3" /> Start Task
                       </Button>
@@ -891,11 +906,12 @@ export const PlannerScreen: React.FC = () => {
                     {(effectiveStatus === 'In Progress' || effectiveStatus === 'Revision Requested' || effectiveStatus === 'Overdue') && (
                       <Button
                         size="sm"
+                        variant="filled"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleOpenTask(task);
                         }}
-                        className="py-1 px-3 text-[11px] font-bold bg-[var(--emerald)] hover:bg-[var(--emerald-bright)] text-white flex items-center gap-1 rounded-xl cursor-pointer shadow-md"
+                        className="py-1 px-3 text-[11px] font-bold flex items-center gap-1 rounded-xl cursor-pointer shadow-md"
                       >
                         <Send className="w-3 h-3" /> {effectiveStatus === 'Revision Requested' ? 'Resubmit Task' : 'Submit Task'}
                       </Button>
@@ -905,8 +921,9 @@ export const PlannerScreen: React.FC = () => {
                     {effectiveStatus !== 'Completed' && effectiveStatus !== 'Cancelled' && (
                       <Button
                         size="sm"
+                        variant="success"
                         onClick={(e) => handleMarkCompleted(task, e)}
-                        className="py-1 px-2.5 text-[11px] font-bold bg-emerald-500/20 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/40 flex items-center gap-1 rounded-xl cursor-pointer"
+                        className="py-1 px-2.5 text-[11px] font-bold flex items-center gap-1 rounded-xl cursor-pointer"
                       >
                         <CheckCircle2 className="w-3 h-3" /> Mark Completed
                       </Button>
@@ -917,7 +934,7 @@ export const PlannerScreen: React.FC = () => {
             );
           })
         ) : (
-          <div className="py-12 bg-[var(--background-card)] rounded-2xl border border-dashed border-[var(--border-color)]">
+          <div className="py-12 glass-card-elevated rounded-2xl border border-dashed border-white/10">
             <EmptyState
               icon={CheckSquare}
               title="No tasks in this view"
@@ -940,11 +957,11 @@ export const PlannerScreen: React.FC = () => {
           return (
             <div className="space-y-4 text-xs text-[var(--text-primary)]">
               {/* Task Header info */}
-              <div className="p-3 bg-[var(--background-card)] rounded-2xl border border-[var(--border-color)] space-y-2">
+              <div className="p-4 glass-card-elevated rounded-2xl border border-white/10 space-y-3">
                 <div className="flex justify-between items-start gap-2">
                   <div>
-                    <h3 className="font-extrabold text-base text-[var(--text-primary)]">{selectedTask.title}</h3>
-                    <p className="text-[10px] text-[var(--text-secondary)] font-semibold mt-0.5">
+                    <h3 className="font-extrabold text-base text-white">{selectedTask.title}</h3>
+                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
                       Dept: {selectedTask.assignedToDepartment} • Assigned by {selectedTask.createdByName}
                     </p>
                   </div>
@@ -954,25 +971,25 @@ export const PlannerScreen: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-[var(--background-card)] rounded-xl text-[var(--text-secondary)] text-xs leading-relaxed border border-[var(--border-color)]">
+                <div className="p-3 glass-card-inner rounded-xl text-slate-300 text-xs leading-relaxed border border-white/10">
                   {selectedTask.description}
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-[var(--text-secondary)]">
-                  <div>
-                    <span className="text-[var(--emerald-bright)] font-bold block">Due Date & Time</span>
-                    <span className="font-semibold text-[var(--text-primary)]">{selectedTask.dueDate} {selectedTask.dueTime || ''}</span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
+                  <div className="glass-card-inner p-2 rounded-xl border border-white/10">
+                    <span className="text-cyan-400 font-bold block">Due Date & Time</span>
+                    <span className="font-semibold text-white">{selectedTask.dueDate} {selectedTask.dueTime || ''}</span>
                   </div>
-                  <div>
-                    <span className="text-[var(--emerald-bright)] font-bold block">Assigned Date</span>
-                    <span className="font-semibold text-[var(--text-secondary)]">
+                  <div className="glass-card-inner p-2 rounded-xl border border-white/10">
+                    <span className="text-cyan-400 font-bold block">Assigned Date</span>
+                    <span className="font-semibold text-slate-300">
                       {selectedTask.assignedTime?.substring(0, 10) || selectedTask.createdAtDeviceTime?.substring(0, 10) || 'N/A'}
                     </span>
                   </div>
                   {selectedTask.expectedCompletionTime && (
-                    <div>
-                      <span className="text-[var(--emerald-bright)] font-bold block">Expected Completion</span>
-                      <span className="font-semibold text-[var(--emerald-bright)]">{selectedTask.expectedCompletionTime}</span>
+                    <div className="glass-card-inner p-2 rounded-xl border border-white/10">
+                      <span className="text-cyan-400 font-bold block">Expected Completion</span>
+                      <span className="font-semibold text-cyan-300">{selectedTask.expectedCompletionTime}</span>
                     </div>
                   )}
                 </div>
@@ -980,33 +997,33 @@ export const PlannerScreen: React.FC = () => {
 
               {/* Revision note / request banner if revision requested */}
               {isRevision && (
-                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-2">
+                <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl space-y-2">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-amber-400" />
-                    <span className="font-bold text-amber-400">Supervisor Revision Instructions:</span>
+                    <span className="font-bold text-amber-300">Supervisor Revision Instructions:</span>
                   </div>
-                  <p className="text-xs text-[var(--text-primary)] bg-[var(--background-card)] p-2 rounded-xl border border-amber-500/30">
+                  <p className="text-xs text-slate-200 glass-card-inner p-2.5 rounded-xl border border-amber-500/30">
                     {selectedTask.revisions?.[selectedTask.revisions.length - 1]?.reason || selectedTask.currentRevisionReason || selectedTask.reviewRemark || 'Please review deliverable specifications and update.'}
                   </p>
                   <div className="space-y-1 pt-1">
-                    <label className="font-bold text-amber-400 text-[11px]">Resubmission Note for Reviewer:</label>
+                    <label className="font-bold text-amber-300 text-[11px]">Resubmission Note for Reviewer:</label>
                     <textarea
                       value={resubmissionNote}
                       onChange={(e) => setResubmissionNote(e.target.value)}
                       placeholder="Explain how you addressed the revision request..."
-                      className="w-full bg-[var(--background-card)] border border-amber-500/40 rounded-xl p-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-amber-500 min-h-[60px]"
+                      className="w-full glass-card-inner border border-amber-500/40 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-amber-400 min-h-[60px]"
                     />
                   </div>
                 </div>
               )}
 
               {/* Employee Interactive Progress Slider */}
-              <div className="p-3 bg-[var(--background-card)] rounded-2xl border border-[var(--border-color)] space-y-3">
+              <div className="p-4 glass-card-elevated rounded-2xl border border-white/10 space-y-3">
                 <div className="flex justify-between items-center">
-                  <label className="font-extrabold text-xs text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
-                    <Sliders className="w-3.5 h-3.5 text-[var(--emerald-bright)]" /> Completion Percentage
+                  <label className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-cyan-400" /> Completion Percentage
                   </label>
-                  <span className="text-sm font-black text-[var(--emerald-bright)] bg-[var(--emerald)]/20 px-2.5 py-0.5 rounded-full border border-[var(--emerald)]/30 font-mono">
+                  <span className="text-sm font-black text-cyan-300 glass-card-inner px-2.5 py-0.5 rounded-full border border-cyan-500/40 font-mono">
                     {completionInput}%
                   </span>
                 </div>
@@ -1018,7 +1035,7 @@ export const PlannerScreen: React.FC = () => {
                   step="5"
                   value={completionInput}
                   onChange={(e) => setCompletionInput(Number(e.target.value))}
-                  className="w-full accent-[var(--emerald)] cursor-pointer"
+                  className="w-full accent-cyan-400 cursor-pointer"
                 />
 
                 <div className="flex justify-between gap-1">
@@ -1029,8 +1046,8 @@ export const PlannerScreen: React.FC = () => {
                       onClick={() => setCompletionInput(pct)}
                       className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all border cursor-pointer ${
                         completionInput === pct
-                          ? 'bg-[var(--emerald)] text-white border-[var(--emerald)] font-black'
-                          : 'bg-[var(--background-card)] text-[var(--text-secondary)] border-[var(--border-color)]'
+                          ? 'aurora-bg text-white border-cyan-400/60 font-black shadow-sm'
+                          : 'glass-card-inner text-slate-400 border-white/10 hover:text-white'
                       }`}
                     >
                       {pct}%
@@ -1041,7 +1058,7 @@ export const PlannerScreen: React.FC = () => {
 
               {/* Comments Thread */}
               <div className="space-y-2">
-                <h4 className="font-extrabold text-xs text-[var(--text-secondary)] uppercase tracking-wider">
+                <h4 className="font-extrabold text-xs text-slate-400 uppercase tracking-wider">
                   Discussion & Notes ({(selectedTask.comments || []).length})
                 </h4>
 
@@ -1052,23 +1069,23 @@ export const PlannerScreen: React.FC = () => {
                         key={c.id}
                         className={`p-2.5 rounded-xl border text-xs space-y-1 ${
                           c.authorRole === 'ADMIN'
-                            ? 'bg-[var(--emerald)]/15 border-[var(--emerald)]/40'
-                            : 'bg-[var(--background-card)] border-[var(--border-color)]'
+                            ? 'bg-cyan-500/15 border-cyan-500/30'
+                            : 'glass-card-inner border-white/10'
                         }`}
                       >
                         <div className="flex justify-between items-center text-[10px] font-bold">
-                          <span className={c.authorRole === 'ADMIN' ? 'text-[var(--emerald-bright)]' : 'text-emerald-400'}>
+                          <span className={c.authorRole === 'ADMIN' ? 'text-cyan-300' : 'text-emerald-400'}>
                             {c.authorName} ({c.authorRole})
                           </span>
-                          <span className="text-[var(--text-secondary)] font-mono">
+                          <span className="text-slate-400 font-mono">
                             {new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        <p className="text-[var(--text-primary)]">{c.content}</p>
+                        <p className="text-slate-200">{c.content}</p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-[11px] text-[var(--text-secondary)] italic text-center py-2">No comments yet.</p>
+                    <p className="text-[11px] text-slate-400 italic text-center py-2">No comments yet.</p>
                   )}
                 </div>
 
@@ -1078,13 +1095,14 @@ export const PlannerScreen: React.FC = () => {
                     value={commentInput}
                     onChange={(e) => setCommentInput(e.target.value)}
                     placeholder="Add progress notes or questions..."
-                    className="flex-1 px-3 py-2 rounded-xl border border-[var(--border-color)] bg-[var(--background-card)] text-[var(--text-primary)] text-xs focus:outline-none focus:ring-1 focus:ring-[var(--emerald)]"
+                    className="flex-1 px-3 py-2 rounded-xl border border-white/10 glass-card-inner text-white text-xs focus:outline-none focus:ring-1 focus:ring-cyan-400"
                   />
                   <Button 
                     type="button" 
+                    variant="filled"
                     onClick={handleAddComment} 
                     disabled={!commentInput.trim()}
-                    className="px-3 bg-[var(--emerald)] hover:bg-[var(--emerald-bright)] text-white font-bold cursor-pointer"
+                    className="px-3 text-white font-bold cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
                   </Button>
@@ -1095,9 +1113,10 @@ export const PlannerScreen: React.FC = () => {
               <div className="flex gap-2 pt-2">
                 {isRevision ? (
                   <Button
+                    variant="gold"
                     onClick={() => handleSubmitTask(selectedTask, resubmissionNote)}
                     disabled={isUpdating}
-                    className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-2xl flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-1 py-3 text-white font-bold rounded-2xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg"
                   >
                     <RotateCcw className="w-4 h-4" /> {isUpdating ? 'Submitting...' : 'Resubmit Deliverable'}
                   </Button>
@@ -1106,15 +1125,16 @@ export const PlannerScreen: React.FC = () => {
                     <Button
                       onClick={handleSaveTaskProgress}
                       disabled={isUpdating}
-                      variant="secondary"
-                      className="flex-1 py-3 bg-[var(--background-card-hover)] hover:bg-[var(--background-card)] text-[var(--text-primary)] border border-[var(--border-color)] font-bold rounded-2xl cursor-pointer"
+                      variant="tonal"
+                      className="flex-1 py-3 text-slate-200 border border-white/10 font-bold rounded-2xl cursor-pointer"
                     >
                       {isUpdating ? 'Saving...' : 'Save Progress'}
                     </Button>
                     <Button
+                      variant="filled"
                       onClick={() => handleSubmitTask(selectedTask)}
                       disabled={isUpdating}
-                      className="flex-1 py-3 bg-[var(--emerald)] hover:bg-[var(--emerald-bright)] text-white font-bold rounded-2xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg"
+                      className="flex-1 py-3 text-white font-bold rounded-2xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg"
                     >
                       <Send className="w-4 h-4" /> Submit Task (100%)
                     </Button>
@@ -1134,9 +1154,9 @@ export const PlannerScreen: React.FC = () => {
       >
         {viewingRevisionsTask && (
           <div className="space-y-4 text-xs text-[var(--text-primary)]">
-            <div className="p-3 bg-[var(--background-card)] rounded-2xl border border-[var(--border-color)]">
-              <h4 className="font-bold text-sm text-[var(--text-primary)]">{viewingRevisionsTask.title}</h4>
-              <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+            <div className="p-4 glass-card-elevated rounded-2xl border border-white/10">
+              <h4 className="font-bold text-sm text-white">{viewingRevisionsTask.title}</h4>
+              <p className="text-[11px] text-slate-400 mt-0.5">
                 Total Revisions: <span className="font-bold text-amber-400">{viewingRevisionsTask.revisions?.length || viewingRevisionsTask.revisionCount || 0}</span>
               </p>
             </div>
@@ -1144,40 +1164,41 @@ export const PlannerScreen: React.FC = () => {
             <div className="space-y-3 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
               {(viewingRevisionsTask.revisions || []).length > 0 ? (
                 viewingRevisionsTask.revisions!.map((rev, idx) => (
-                  <div key={idx} className="p-3 bg-[var(--background-card)] rounded-xl border border-amber-500/30 space-y-2">
+                  <div key={idx} className="p-3 glass-card-inner rounded-xl border border-amber-500/30 space-y-2">
                     <div className="flex justify-between items-center text-[10px] font-bold">
-                      <span className="text-amber-400">Revision #{idx + 1}</span>
-                      <span className="text-[var(--text-secondary)] font-mono">{new Date(rev.requestedAt).toLocaleDateString()}</span>
+                      <span className="text-amber-300">Revision #{idx + 1}</span>
+                      <span className="text-slate-400 font-mono">{new Date(rev.requestedAt).toLocaleDateString()}</span>
                     </div>
                     <div className="space-y-1.5">
                       <div className="p-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                        <span className="text-[9px] font-black text-amber-400 uppercase tracking-widest block mb-0.5">Supervisor Instruction:</span>
-                        <p className="text-[var(--text-primary)] leading-relaxed italic">"{rev.reason}"</p>
+                        <span className="text-[9px] font-black text-amber-300 uppercase tracking-widest block mb-0.5">Supervisor Instruction:</span>
+                        <p className="text-slate-200 leading-relaxed italic">"{rev.reason}"</p>
                       </div>
                       {rev.resubmittedAt && (
-                        <div className="p-2 bg-[var(--emerald)]/10 rounded-lg border border-[var(--emerald)]/20">
-                          <span className="text-[9px] font-black text-[var(--emerald-bright)] uppercase tracking-widest block mb-0.5">Your Response:</span>
-                          <p className="text-[var(--text-primary)] leading-relaxed italic">"{rev.resubmissionNote || 'No note provided'}"</p>
+                        <div className="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
+                          <span className="text-[9px] font-black text-cyan-300 uppercase tracking-widest block mb-0.5">Your Response:</span>
+                          <p className="text-slate-200 leading-relaxed italic">"{rev.resubmissionNote || 'No note provided'}"</p>
                         </div>
                       )}
                     </div>
-                    <div className="flex justify-between items-center text-[9px] text-[var(--text-secondary)] pt-1 border-t border-[var(--border-color)]">
+                    <div className="flex justify-between items-center text-[9px] text-slate-400 pt-1 border-t border-white/10">
                       <span>By {rev.requestedByName}</span>
                       {rev.resubmittedAt && <span>Resubmitted: {new Date(rev.resubmittedAt).toLocaleDateString()}</span>}
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="text-center py-10 bg-[var(--background-card)] rounded-2xl border border-dashed border-[var(--border-color)]">
-                  <RotateCcw className="w-8 h-8 text-[var(--text-secondary)] mx-auto mb-2 opacity-20" />
-                  <p className="text-[var(--text-secondary)] italic">No revision history found.</p>
+                <div className="text-center py-10 glass-card-inner rounded-2xl border border-dashed border-white/10">
+                  <RotateCcw className="w-8 h-8 text-slate-400 mx-auto mb-2 opacity-30" />
+                  <p className="text-slate-400 italic">No revision history found.</p>
                 </div>
               )}
             </div>
 
             <Button
+              variant="tonal"
               onClick={() => setViewingRevisionsTask(null)}
-              className="w-full bg-[var(--background-card-hover)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-xl font-bold py-2.5 cursor-pointer"
+              className="w-full text-slate-200 border border-white/10 rounded-xl font-bold py-2.5 cursor-pointer"
             >
               Close History
             </Button>

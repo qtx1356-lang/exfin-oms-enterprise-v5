@@ -6,7 +6,7 @@
   
   /* Primary & Secondary Cards */
   --color-card-bg: var(--card-bg);
-  --color-card-elevated: var(--card-surface);
+  --color-card-elevated: var(--card-elevated);
   --color-card-surface: var(--card-surface);
   --color-border-subtle: var(--border);
   
@@ -18,14 +18,14 @@
   --color-on-primary: #FFFFFF;
   
   /* Text inside Cards & Canvas */
-  --color-card-text: var(--text-primary);
-  --color-card-text-secondary: var(--text-secondary);
-  --color-card-text-muted: var(--text-muted);
+  --color-card-text: #FFFFFF;
+  --color-card-text-secondary: #E2E8F0;
+  --color-card-text-muted: #CBD5E1;
 
-  /* Text on Canvas */
-  --color-bg-text: var(--text-primary);
-  --color-bg-text-secondary: var(--text-secondary);
-  --color-bg-text-muted: var(--text-muted);
+  /* Text on Light Canvas */
+  --color-bg-text: #111827;
+  --color-bg-text-secondary: #475569;
+  --color-bg-text-muted: #64748B;
 
   /* Status Colors */
   --color-success: #10B981;
@@ -38,88 +38,77 @@
   --color-surface: var(--card-bg);
   --color-surface-elevated: var(--card-surface);
   --color-surface-variant: var(--card-surface);
-  --color-on-surface: var(--text-primary);
-  --color-on-surface-variant: var(--text-secondary);
+  --color-on-surface: #FFFFFF;
+  --color-on-surface-variant: #E2E8F0;
   --color-outline: var(--border);
-  --color-muted: var(--text-muted);
+  --color-muted: #64748B;
 }
 
 :root {
-  /* PREMIUM COLORFUL GRADIENT THEME (Indigo/Violet #11104A -> Deep Violet #24105C -> Blue-Indigo #102B63 -> Navy/Teal #062F3B) */
-  --bg-primary: #11104A;
-  --bg-secondary: #24105C;
-  --bg-tertiary: #102B63;
-  --app-bg: #11104A;
-  --app-bg-secondary: rgba(24, 32, 79, 0.90);
+  /* 1. APPLICATION BACKGROUND (LIGHT AURORA GRADIENT) */
+  --app-bg: #F4F7FB;
+  --app-bg-gradient: linear-gradient(135deg, #F4F7FB 0%, #E9EEF7 45%, #F4F1FA 75%, #EAF6F7 100%);
+  --app-bg-secondary: #FFFFFF;
 
-  --card-bg: linear-gradient(135deg, rgba(76, 29, 149, 0.80) 0%, rgba(30, 41, 100, 0.90) 100%);
-  --card-elevated: linear-gradient(135deg, rgba(88, 28, 135, 0.90) 0%, rgba(30, 58, 138, 0.90) 100%);
-  --card-surface: rgba(24, 32, 79, 0.95);
+  /* 2. MAIN CARDS (RICH INDIGO / BLUE GRADIENT) */
+  --card-bg: linear-gradient(135deg, #312E81 0%, #4338CA 45%, #2563EB 100%);
+  --card-elevated: linear-gradient(135deg, #4C1D95 0%, #5B21B6 45%, #2563EB 100%);
+  --card-surface: linear-gradient(135deg, #172554 0%, #1E3A8A 100%);
+  --card-inner: linear-gradient(135deg, #172554 0%, #1E3A8A 100%);
 
-  --border: rgba(167, 139, 250, 0.25);
-  --border-subtle: rgba(255, 255, 255, 0.12);
-  --border-active: rgba(139, 92, 246, 0.50);
+  /* 3. BORDERS & SHADOWS */
+  --border: rgba(255, 255, 255, 0.18);
+  --border-subtle: rgba(255, 255, 255, 0.10);
+  --border-light: rgba(203, 213, 225, 0.80);
+  --shadow-card: 0 10px 30px rgba(30, 41, 100, 0.18);
+  --shadow-inner: 0 4px 16px rgba(15, 23, 42, 0.35);
 
-  --primary: #8B5CF6;
-  --primary-dark: #6D28D9;
+  /* 4. PRIMARY ACCENTS */
+  --primary: #7C3AED;
+  --primary-dark: #5B21B6;
   --primary-light: #38BDF8;
   --primary-soft: #A78BFA;
 
+  /* 5. TEXT CONTRAST SYSTEM */
   --text-primary: #FFFFFF;
   --text-secondary: #E2E8F0;
-  --text-muted: #A8B0C5;
+  --text-muted: #CBD5E1;
+  
+  --text-light-primary: #111827;
+  --text-light-secondary: #475569;
+  --text-light-muted: #64748B;
 
+  /* 6. SEMANTIC STATUS ACCENTS */
   --success: #10B981;
   --warning: #F59E0B;
   --danger: #F43F5E;
   --info: #38BDF8;
 
-  /* Centralized Gradient System Tokens */
-  --gradient-primary: linear-gradient(135deg, #8B5CF6 0%, #2563EB 100%);
+  /* 7. CENTRALIZED GRADIENTS */
+  --gradient-primary: linear-gradient(135deg, #7C3AED 0%, #2563EB 100%);
   --gradient-secondary: linear-gradient(135deg, #4F46E5 0%, #06B6D4 100%);
-  --gradient-success: linear-gradient(135deg, #10B981 0%, #06B6D4 100%);
+  --gradient-success: linear-gradient(135deg, #059669 0%, #0D9488 100%);
   --gradient-warning: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%);
-  --gradient-danger: linear-gradient(135deg, #F43F5E 0%, #EF4444 100%);
-  --gradient-card: linear-gradient(135deg, rgba(76, 29, 149, 0.80) 0%, rgba(30, 41, 100, 0.90) 100%);
-  --gradient-card-inner: linear-gradient(135deg, #18204F 0%, #20205D 100%);
-  --gradient-nav: linear-gradient(135deg, rgba(45, 27, 100, 0.95) 0%, rgba(20, 42, 91, 0.95) 100%);
+  --gradient-danger: linear-gradient(135deg, #E11D48 0%, #DC2626 100%);
+  --gradient-card: linear-gradient(135deg, #312E81 0%, #4338CA 45%, #2563EB 100%);
+  --gradient-card-inner: linear-gradient(135deg, #172554 0%, #1E3A8A 100%);
+  --gradient-nav: linear-gradient(135deg, #172554 0%, #312E81 100%);
 
-  --aurora-deep: #4F46E5;
-  --aurora-emerald: #8B5CF6;
-  --aurora-teal: #2563EB;
-  --aurora-cyan: #06B6D4;
-  --aurora-gradient: var(--gradient-primary);
-
-  --pill-location-bg: rgba(139, 92, 246, 0.25);
-  --pill-location-border: rgba(167, 139, 250, 0.35);
-  --pill-location-text: #FFFFFF;
-
-  /* Legacy & Employee Compatibility Tokens */
-  --employee-bg: var(--app-bg);
-  --employee-surface: var(--card-bg);
-  --employee-surface-strong: var(--card-surface);
-  --employee-indigo: var(--primary);
-  --employee-indigo-hover: #7C3AED;
-  --employee-gold: #38BDF8;
-  --employee-gold-hover: #0EA5E9;
-  --employee-text-card: var(--text-primary);
-  --employee-text-card-secondary: var(--text-secondary);
-  --employee-text-card-muted: var(--text-muted);
-  --employee-text-bg: var(--text-primary);
-  --employee-text-bg-secondary: var(--text-secondary);
-  --employee-text-bg-muted: var(--text-muted);
-  --employee-border: var(--border);
+  /* Navigation & Badges */
+  --pill-location-bg: rgba(6, 182, 212, 0.15);
+  --pill-location-border: rgba(6, 182, 212, 0.35);
+  --pill-location-text: #0284C7;
 }
 
 body {
-  background-color: #11104A;
+  background-color: #F4F7FB;
   background-image: 
-    radial-gradient(circle at 15% 10%, rgba(124, 58, 237, 0.35) 0%, transparent 40%),
-    radial-gradient(circle at 90% 60%, rgba(37, 99, 235, 0.25) 0%, transparent 40%),
-    radial-gradient(circle at 50% 90%, rgba(6, 182, 212, 0.20) 0%, transparent 50%),
-    linear-gradient(145deg, #11104A 0%, #24105C 35%, #102B63 70%, #062F3B 100%);
+    radial-gradient(circle at 10% 10%, rgba(99, 102, 241, 0.12) 0%, transparent 35%),
+    radial-gradient(circle at 90% 80%, rgba(20, 184, 166, 0.10) 0%, transparent 35%),
+    radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+    linear-gradient(135deg, #F4F7FB 0%, #E9EEF7 45%, #F4F1FA 75%, #EAF6F7 100%);
   background-attachment: fixed;
-  color: var(--text-primary);
+  color: #111827;
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   margin: 0;
   padding: 0;
@@ -162,21 +151,12 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
-.aurora-bg {
-  background: var(--gradient-primary);
-}
-
-.aurora-text {
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
 .glass-nav {
-  background: linear-gradient(135deg, rgba(45, 27, 100, 0.95) 0%, rgba(20, 42, 91, 0.95) 100%);
+  background: linear-gradient(135deg, #172554 0%, #312E81 100%);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(167, 139, 250, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 35px rgba(23, 37, 84, 0.40);
 }
 
 /* Touch optimization */
@@ -191,17 +171,17 @@ button, a, input, select, textarea, [role="button"] {
   height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #11104A;
+  background: #F1F5F9;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.40);
+  background: rgba(99, 102, 241, 0.40);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(56, 189, 248, 0.60);
+  background: rgba(37, 99, 235, 0.60);
 }
 
-/* Premium Dark Inputs */
+/* Inputs on Light Surfaces vs Inside Cards */
 input[type="text"],
 input[type="number"],
 input[type="email"],
@@ -210,9 +190,9 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: rgba(20, 26, 60, 0.85) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid rgba(167, 139, 250, 0.25) !important;
+  background-color: rgba(15, 23, 42, 0.75) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
   border-radius: 10px !important;
   transition: all 0.2s ease;
 }
@@ -232,49 +212,56 @@ select:focus {
 
 input::placeholder,
 textarea::placeholder {
-  color: #A8B0C5 !important;
+  color: #CBD5E1 !important;
 }
 
-/* Compact Glass Card Utilities */
+/* 2. Main Glass Cards (Rich Indigo/Blue Gradient) */
 .glass-card {
-  background: linear-gradient(135deg, rgba(76, 29, 149, 0.80) 0%, rgba(30, 41, 100, 0.90) 100%);
-  border: 1px solid rgba(167, 139, 250, 0.25);
-  box-shadow: 0 8px 32px rgba(17, 16, 74, 0.50);
+  background: linear-gradient(135deg, #312E81 0%, #4338CA 45%, #2563EB 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 30px rgba(30, 41, 100, 0.18);
   border-radius: 16px;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  color: #FFFFFF;
 }
 
 .glass-card-elevated {
-  background: linear-gradient(135deg, rgba(88, 28, 135, 0.90) 0%, rgba(30, 58, 138, 0.90) 100%);
-  border: 1px solid rgba(167, 139, 250, 0.40);
-  box-shadow: 0 12px 36px rgba(17, 16, 74, 0.65);
+  background: linear-gradient(135deg, #4C1D95 0%, #5B21B6 45%, #2563EB 100%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 14px 36px rgba(30, 41, 100, 0.24);
   border-radius: 16px;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  color: #FFFFFF;
 }
 
-/* Compact Premium Buttons */
-.btn-primary, .btn-indigo, .btn-emerald, .btn-gold {
-  background: linear-gradient(135deg, #8B5CF6 0%, #2563EB 100%);
+/* 3. Inner Stat Tile Surfaces */
+.glass-inner-tile {
+  background: linear-gradient(135deg, #172554 0%, #1E3A8A 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.35);
+  border-radius: 12px;
+  color: #FFFFFF;
+}
+
+/* 4. Compact Premium Buttons (40-44px high) */
+.btn-primary, .btn-indigo, .btn-gold {
+  background: linear-gradient(135deg, #7C3AED 0%, #2563EB 100%);
   color: #FFFFFF;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.40);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
   border-radius: 10px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  min-height: 40px;
+  min-height: 42px;
 }
 
-.btn-primary:hover, .btn-indigo:hover, .btn-emerald:hover, .btn-gold:hover {
-  background: linear-gradient(135deg, #7C3AED 0%, #1D4ED8 100%);
-  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.55);
+.btn-primary:hover, .btn-indigo:hover, .btn-gold:hover {
+  background: linear-gradient(135deg, #6D28D9 0%, #1D4ED8 100%);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.50);
   transform: translateY(-1px);
 }
 
-.btn-primary:active, .btn-indigo:active, .btn-emerald:active, .btn-gold:active {
+.btn-primary:active, .btn-indigo:active, .btn-gold:active {
   transform: translateY(1px);
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.25);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
 }
 
 .btn-secondary {
@@ -285,7 +272,7 @@ textarea::placeholder {
   box-shadow: 0 4px 14px rgba(6, 182, 212, 0.30);
   border-radius: 10px;
   transition: all 0.2s ease;
-  min-height: 40px;
+  min-height: 42px;
 }
 
 .btn-secondary:hover {
@@ -295,65 +282,54 @@ textarea::placeholder {
 }
 
 .btn-danger {
-  background: linear-gradient(135deg, #F43F5E 0%, #EF4444 100%);
+  background: linear-gradient(135deg, #E11D48 0%, #DC2626 100%);
   color: #FFFFFF;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.35);
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
   border-radius: 10px;
   transition: all 0.2s ease;
-  min-height: 40px;
+  min-height: 42px;
 }
 
 .btn-danger:hover {
-  background: linear-gradient(135deg, #E11D48 0%, #DC2626 100%);
-  box-shadow: 0 6px 18px rgba(244, 63, 94, 0.50);
+  background: linear-gradient(135deg, #BE123C 0%, #B91C1C 100%);
+  box-shadow: 0 6px 18px rgba(225, 29, 72, 0.50);
   transform: translateY(-1px);
 }
 
-.btn-success {
-  background: linear-gradient(135deg, #10B981 0%, #06B6D4 100%);
+.btn-success, .btn-emerald {
+  background: linear-gradient(135deg, #059669 0%, #0D9488 100%);
   color: #FFFFFF;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.35);
   border-radius: 10px;
   transition: all 0.2s ease;
-  min-height: 40px;
+  min-height: 42px;
 }
 
-.btn-success:hover {
-  background: linear-gradient(135deg, #059669 0%, #0891B2 100%);
-  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.50);
+.btn-success:hover, .btn-emerald:hover {
+  background: linear-gradient(135deg, #047857 0%, #0F766E 100%);
+  box-shadow: 0 6px 18px rgba(5, 150, 105, 0.50);
   transform: translateY(-1px);
 }
 
-/* Badges */
-.emerald-badge, .indigo-badge, .gold-badge, .violet-badge {
-  background: rgba(139, 92, 246, 0.20);
-  border: 1px solid rgba(167, 139, 250, 0.35);
+.btn-warning {
+  background: linear-gradient(135deg, #F59E0B 0%, #EA580C 100%);
   color: #FFFFFF;
-  font-weight: 700;
-  border-radius: 9999px;
-  padding: 2px 8px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  min-height: 42px;
 }
 
-@keyframes subtlePulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.85;
-    transform: scale(0.98);
-  }
-}
-
-.animate-subtle-pulse {
-  animation: subtlePulse 3s ease-in-out infinite;
+.btn-warning:hover {
+  background: linear-gradient(135deg, #D97706 0%, #C2410C 100%);
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.50);
+  transform: translateY(-1px);
 }
 
 @keyframes marqueeSmooth {
@@ -367,6 +343,7 @@ textarea::placeholder {
     transform: translateX(0);
   }
 }
+
 
 
 

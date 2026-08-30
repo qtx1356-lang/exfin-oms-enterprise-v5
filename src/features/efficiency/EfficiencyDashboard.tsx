@@ -844,20 +844,20 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   console.log(`[EFFICIENCY_RENDER] #${effDashRenderCount} elapsedSinceMount=${renderElapsedMs}ms loading=${loading} tasksCount=${tasks.length} attCount=${attendance.length} empsCount=${allEmployees.length} viewMode=${viewMode} period=${periodFilter} selectedEmp=${selectedEmployeeCode}`);
 
   return (
-    <div className="space-y-6 font-sans text-white pb-12 max-w-7xl mx-auto">
+    <div className="space-y-6 font-sans text-[var(--text-primary)] pb-16 max-w-7xl mx-auto">
       
       {/* HEADER BAR */}
-      <div className="bg-[#151515] border border-[#292929] rounded-3xl p-5 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-[var(--card-surface)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-[#1B1B1B] border border-[#292929] flex items-center justify-center text-[#D4AF37]">
+            <div className="w-9 h-9 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--primary-light)]">
               <BarChart3 className="w-5 h-5" />
             </div>
-            <h1 className="text-xl font-black text-white tracking-wide uppercase">
+            <h1 className="text-xl font-black text-[var(--text-primary)] tracking-wide uppercase">
               EMPLOYEE PERFORMANCE DASHBOARD
             </h1>
           </div>
-          <p className="text-xs text-[#8A8A8A] mt-1 font-medium">
+          <p className="text-xs text-[var(--text-secondary)] mt-1 font-medium">
             Office Management System Real-time Efficiency & Work Analytics Engine
           </p>
         </div>
@@ -866,14 +866,14 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
         <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
           {/* VIEW TOGGLE FOR TEAM LEADERS & ADMINS */}
           {(isTeamLeader || isAdmin) && (
-            <div className="bg-[#121212] p-1 rounded-2xl border border-[#292929] flex items-center gap-1">
+            <div className="bg-[var(--card-bg)] p-1 rounded-2xl border border-[var(--border)] flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setViewMode('MY_PERFORMANCE')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                   viewMode === 'MY_PERFORMANCE'
-                    ? 'bg-[#D4AF37] text-[#080808] shadow-md'
-                    : 'text-[#8A8A8A] hover:text-white'
+                    ? 'aurora-bg text-white shadow-md'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 Individual
@@ -884,8 +884,8 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                   onClick={() => setViewMode('MY_TEAM_PERFORMANCE')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
                     viewMode === 'MY_TEAM_PERFORMANCE'
-                      ? 'bg-[#D4AF37] text-[#080808] shadow-md'
-                      : 'text-[#8A8A8A] hover:text-white'
+                      ? 'aurora-bg text-white shadow-md'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   <Users className="w-3.5 h-3.5" />
@@ -898,8 +898,8 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                   onClick={() => setViewMode('SETTINGS')}
                   className={`px-2.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                     viewMode === 'SETTINGS'
-                      ? 'bg-[#D4AF37] text-[#080808] shadow-md'
-                      : 'text-[#8A8A8A] hover:text-white'
+                      ? 'aurora-bg text-white shadow-md'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                   title="Weightage Settings"
                 >
@@ -915,10 +915,10 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               <select
                 value={selectedEmployeeCode}
                 onChange={(e) => setSelectedEmployeeCode(e.target.value)}
-                className="bg-[#121212] text-white text-xs font-bold px-3 py-2 rounded-2xl border border-[#292929] focus:outline-none focus:border-[#D4AF37] cursor-pointer pr-8"
+                className="bg-[var(--card-bg)] text-[var(--text-primary)] text-xs font-bold px-3 py-2 rounded-2xl border border-[var(--border)] focus:outline-none focus:border-[var(--primary)] cursor-pointer pr-8"
               >
                 {authorizedEmployees.map(emp => (
-                  <option key={emp.employeeCode} value={emp.employeeCode} className="bg-[#151515]">
+                  <option key={emp.employeeCode} value={emp.employeeCode} className="bg-[var(--card-surface)]">
                     {emp.name} ({emp.employeeCode})
                   </option>
                 ))}
@@ -927,12 +927,12 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
           )}
 
           {/* PERIOD FILTER SELECTOR */}
-          <div className="bg-[#121212] p-1 rounded-2xl border border-[#292929] flex items-center gap-1 text-xs">
+          <div className="bg-[var(--card-bg)] p-1 rounded-2xl border border-[var(--border)] flex items-center gap-1 text-xs">
             <button
               type="button"
               onClick={() => setPeriodFilter('THIS_WEEK')}
               className={`px-2.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                periodFilter === 'THIS_WEEK' ? 'bg-[#D4AF37] text-[#080808]' : 'text-[#8A8A8A] hover:text-white'
+                periodFilter === 'THIS_WEEK' ? 'aurora-bg text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               This Week
@@ -941,7 +941,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               type="button"
               onClick={() => setPeriodFilter('THIS_MONTH')}
               className={`px-2.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                periodFilter === 'THIS_MONTH' ? 'bg-[#D4AF37] text-[#080808]' : 'text-[#8A8A8A] hover:text-white'
+                periodFilter === 'THIS_MONTH' ? 'aurora-bg text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               This Month
@@ -950,7 +950,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               type="button"
               onClick={() => setPeriodFilter('PREVIOUS_MONTH')}
               className={`px-2.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                periodFilter === 'PREVIOUS_MONTH' ? 'bg-[#D4AF37] text-[#080808]' : 'text-[#8A8A8A] hover:text-white'
+                periodFilter === 'PREVIOUS_MONTH' ? 'aurora-bg text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               Prev Month
@@ -961,10 +961,10 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
           <button
             type="button"
             onClick={handleExportPDF}
-            className="px-3 py-2 rounded-2xl bg-[#1B1B1B] hover:bg-[#292929] border border-[#292929] text-[#C7C7C7] hover:text-white text-xs font-extrabold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+            className="px-3 py-2 rounded-2xl bg-[var(--card-bg)] hover:bg-[var(--card-surface)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-extrabold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
             title="Download Performance Report"
           >
-            <Download className="w-3.5 h-3.5 text-[#D4AF37]" />
+            <Download className="w-3.5 h-3.5 text-[var(--primary-light)]" />
             <span>Export</span>
           </button>
         </div>
@@ -972,23 +972,23 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
       {/* CUSTOM DATE RANGE PICKER (If selected) */}
       {periodFilter === 'CUSTOM' && (
-        <div className="bg-[#151515] p-3.5 rounded-2xl border border-[#292929] flex flex-wrap items-center gap-4 text-xs">
+        <div className="bg-[var(--card-surface)] p-3.5 rounded-2xl border border-[var(--border)] flex flex-wrap items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
-            <span className="text-[#8A8A8A] font-bold">Start:</span>
+            <span className="text-[var(--text-secondary)] font-bold">Start:</span>
             <input
               type="date"
               value={customStartDate}
               onChange={(e) => setCustomStartDate(e.target.value)}
-              className="bg-[#121212] text-white px-2.5 py-1 rounded-xl border border-[#292929] font-mono focus:border-[#D4AF37] focus:outline-none"
+              className="bg-[var(--card-bg)] text-[var(--text-primary)] px-2.5 py-1 rounded-xl border border-[var(--border)] font-mono focus:border-[var(--primary)] focus:outline-none"
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[#8A8A8A] font-bold">End:</span>
+            <span className="text-[var(--text-secondary)] font-bold">End:</span>
             <input
               type="date"
               value={customEndDate}
               onChange={(e) => setCustomEndDate(e.target.value)}
-              className="bg-[#121212] text-white px-2.5 py-1 rounded-xl border border-[#292929] font-mono focus:border-[#D4AF37] focus:outline-none"
+              className="bg-[var(--card-bg)] text-[var(--text-primary)] px-2.5 py-1 rounded-xl border border-[var(--border)] font-mono focus:border-[var(--primary)] focus:outline-none"
             />
           </div>
         </div>
@@ -1001,11 +1001,11 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
         <>
           {/* EMPTY DATA STATE NOTICE */}
           {!loading && taskMetrics.assigned === 0 && workHoursMetrics.daysWithWork === 0 && (
-            <div className="bg-[#151515] border border-[#F59E0B]/30 rounded-2xl p-4 flex items-center gap-3 text-[#F59E0B] text-xs shadow-md">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 text-[#F59E0B]" />
+            <div className="bg-[var(--card-surface)] border border-amber-500/30 rounded-2xl p-4 flex items-center gap-3 text-amber-300 text-xs shadow-md">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 text-amber-400" />
               <div>
-                <p className="font-bold text-[#F59E0B]">No Efficiency Data Available For Selected Period</p>
-                <p className="text-[11px] text-[#8A8A8A] mt-0.5">
+                <p className="font-bold text-amber-300">No Efficiency Data Available For Selected Period</p>
+                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
                   {selectedEmployee?.name || targetEmpCode} ({targetEmpCode}) has no recorded attendance or task activity for {periodLabel}.
                 </p>
               </div>
@@ -1016,125 +1016,125 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             
             {/* 1. Overall Efficiency Score */}
-            <div className="bg-[#151515] p-4 rounded-2xl border border-[#292929] flex flex-col justify-between shadow-md">
-              <div className="flex items-center justify-between text-[#8A8A8A]">
+            <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-md">
+              <div className="flex items-center justify-between text-[var(--text-secondary)]">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">Efficiency</span>
-                <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <Sparkles className="w-3.5 h-3.5 text-[var(--primary-light)]" />
               </div>
               <div className="my-2">
-                <p className="text-2xl font-black text-white leading-none">
+                <p className="text-2xl font-black text-[var(--text-primary)] leading-none">
                   {currentCalculation ? `${currentCalculation.finalScore}%` : 'N/A'}
                 </p>
-                <p className="text-[10px] font-bold text-[#D4AF37] mt-1">
+                <p className="text-[10px] font-bold text-[var(--primary-light)] mt-1">
                   Grade: {currentCalculation ? currentCalculation.grade : 'N/A'}
                 </p>
               </div>
-              <p className="text-[9px] text-[#8A8A8A] font-mono">
+              <p className="text-[9px] text-[var(--text-secondary)] font-mono">
                 {currentRank ? `Rank #${currentRank} in company` : 'Standard Rating'}
               </p>
             </div>
 
             {/* 2. Total Work Hours */}
-            <div className="bg-[#151515] p-4 rounded-2xl border border-[#292929] flex flex-col justify-between shadow-sm">
-              <div className="flex items-center justify-between text-[#8A8A8A]">
+            <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
+              <div className="flex items-center justify-between text-[var(--text-secondary)]">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">Work Hours</span>
-                <Clock className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <Clock className="w-3.5 h-3.5 text-[var(--primary-light)]" />
               </div>
               <div className="my-2">
-                <p className="text-xl font-black text-white leading-none">
+                <p className="text-xl font-black text-[var(--text-primary)] leading-none">
                   {workHoursMetrics.totalFormatted}
                 </p>
                 {workHoursMetrics.unresolvedCount > 0 && (
-                  <p className="text-[9px] font-bold text-[#EF4444] mt-1">
+                  <p className="text-[9px] font-bold text-red-400 mt-1">
                     {workHoursMetrics.unresolvedCount} Unresolved
                   </p>
                 )}
               </div>
-              <p className="text-[9px] text-[#8A8A8A]">{periodLabel}</p>
+              <p className="text-[9px] text-[var(--text-secondary)]">{periodLabel}</p>
             </div>
 
             {/* 3. Average Daily Work Hours */}
-            <div className="bg-[#151515] p-4 rounded-2xl border border-[#292929] flex flex-col justify-between shadow-sm">
-              <div className="flex items-center justify-between text-[#8A8A8A]">
+            <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
+              <div className="flex items-center justify-between text-[var(--text-secondary)]">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">Avg Daily Hours</span>
-                <Activity className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <Activity className="w-3.5 h-3.5 text-[var(--primary-light)]" />
               </div>
               <div className="my-2">
-                <p className="text-xl font-black text-white leading-none">
+                <p className="text-xl font-black text-[var(--text-primary)] leading-none">
                   {workHoursMetrics.avgFormatted}
                 </p>
               </div>
-              <p className="text-[9px] text-[#8A8A8A]">{workHoursMetrics.daysWithWork} Active Days</p>
+              <p className="text-[9px] text-[var(--text-secondary)]">{workHoursMetrics.daysWithWork} Active Days</p>
             </div>
 
             {/* 4. Monthly Work Hours */}
-            <div className="bg-[#151515] p-4 rounded-2xl border border-[#292929] flex flex-col justify-between shadow-sm">
-              <div className="flex items-center justify-between text-[#8A8A8A]">
+            <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
+              <div className="flex items-center justify-between text-[var(--text-secondary)]">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">Monthly Hours</span>
-                <Calendar className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <Calendar className="w-3.5 h-3.5 text-[var(--primary-light)]" />
               </div>
               <div className="my-2">
-                <p className="text-xl font-black text-white leading-none">
+                <p className="text-xl font-black text-[var(--text-primary)] leading-none">
                   {workHoursMetrics.monthlyTotalFormatted}
                 </p>
               </div>
-              <p className="text-[9px] text-[#8A8A8A]">Current Calendar Month</p>
+              <p className="text-[9px] text-[var(--text-secondary)]">Current Calendar Month</p>
             </div>
 
             {/* 5. Tasks Assigned / Completed */}
-            <div className="bg-[#151515] p-4 rounded-2xl border border-[#292929] flex flex-col justify-between shadow-sm">
-              <div className="flex items-center justify-between text-[#8A8A8A]">
+            <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
+              <div className="flex items-center justify-between text-[var(--text-secondary)]">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">Task Status</span>
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#22C55E]" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               </div>
               <div className="my-2">
-                <p className="text-xl font-black text-[#22C55E] leading-none">
+                <p className="text-xl font-black text-emerald-400 leading-none">
                   {taskMetrics.completed} / {taskMetrics.assigned}
                 </p>
-                <p className="text-[9px] text-[#8A8A8A] font-bold mt-1">
+                <p className="text-[9px] text-[var(--text-secondary)] font-bold mt-1">
                   {taskMetrics.pending} Pending
                 </p>
               </div>
-              <p className="text-[9px] text-[#8A8A8A]">
+              <p className="text-[9px] text-[var(--text-secondary)]">
                 {taskMetrics.assigned > 0 ? `${Math.round((taskMetrics.completed / taskMetrics.assigned) * 100)}% Rate` : 'No Tasks'}
               </p>
             </div>
 
             {/* 6. Overdue & Revisions */}
-            <div className="bg-[#151515] p-4 rounded-2xl border border-[#292929] flex flex-col justify-between shadow-sm">
-              <div className="flex items-center justify-between text-[#8A8A8A]">
+            <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] flex flex-col justify-between shadow-sm">
+              <div className="flex items-center justify-between text-[var(--text-secondary)]">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">Quality Logs</span>
-                <AlertCircle className="w-3.5 h-3.5 text-[#F59E0B]" />
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
               </div>
               <div className="my-2">
-                <p className="text-xl font-black text-white leading-none">
-                  <span className={taskMetrics.overdue > 0 ? 'text-[#EF4444]' : 'text-white'}>{taskMetrics.overdue}</span> Overdue
+                <p className="text-xl font-black text-[var(--text-primary)] leading-none">
+                  <span className={taskMetrics.overdue > 0 ? 'text-red-400' : 'text-[var(--text-primary)]'}>{taskMetrics.overdue}</span> Overdue
                 </p>
-                <p className="text-[9px] text-[#D4AF37] font-bold mt-1">
+                <p className="text-[9px] text-[var(--primary-light)] font-bold mt-1">
                   {taskMetrics.revisionRequestsCount} Revisions
                 </p>
               </div>
-              <p className="text-[9px] text-[#8A8A8A]">Penalties Applied</p>
+              <p className="text-[9px] text-[var(--text-secondary)]">Penalties Applied</p>
             </div>
 
           </div>
 
           {/* MONTHLY COMPARISON CARD */}
           {monthlyComparisonStats && (
-            <div className="bg-[#151515] p-5 rounded-3xl border border-[#292929] shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="bg-[var(--card-surface)] p-5 rounded-3xl border border-[var(--border)] shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-[#1B1B1B] border border-[#292929] flex items-center justify-center text-[#D4AF37]">
+                <div className="w-12 h-12 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--primary-light)]">
                   <TrendingUp className="w-6 h-6" />
                 </div>
                 <div>
-                  <span className="text-[10px] font-black text-[#8A8A8A] uppercase tracking-widest">
+                  <span className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-widest">
                     PERIOD COMPARISON
                   </span>
-                  <h3 className="text-lg font-black text-white">
+                  <h3 className="text-lg font-black text-[var(--text-primary)]">
                     Current Score: {monthlyComparisonStats.currScore}% vs Previous: {monthlyComparisonStats.prevScore}%
                   </h3>
-                  <p className="text-xs text-[#8A8A8A] mt-0.5">
-                    Difference: <strong className={monthlyComparisonStats.diff >= 0 ? 'text-[#22C55E]' : 'text-[#EF4444]'}>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                    Difference: <strong className={monthlyComparisonStats.diff >= 0 ? 'text-emerald-400' : 'text-red-400'}>
                       {monthlyComparisonStats.diff >= 0 ? `+${monthlyComparisonStats.diff}%` : `${monthlyComparisonStats.diff}%`}
                     </strong> ({monthlyComparisonStats.pctImprovement >= 0 ? `+${monthlyComparisonStats.pctImprovement}%` : `${monthlyComparisonStats.pctImprovement}%`} relative)
                   </p>
@@ -1144,14 +1144,14 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               {/* Neutral Wording Status Badge */}
               <div className={`px-4 py-2 rounded-2xl text-xs font-black border flex items-center gap-2 ${
                 monthlyComparisonStats.statusWording === 'Improved' 
-                  ? 'bg-[#22C55E]/15 text-[#22C55E] border-[#22C55E]/30' 
+                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' 
                   : monthlyComparisonStats.statusWording === 'Needs Attention'
-                  ? 'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/30'
-                  : 'bg-[#1B1B1B] text-[#C7C7C7] border-[#292929]'
+                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                  : 'bg-[var(--card-bg)] text-[var(--text-secondary)] border-[var(--border)]'
               }`}>
-                {monthlyComparisonStats.statusWording === 'Improved' && <ArrowUpRight className="w-4 h-4 text-[#22C55E]" />}
-                {monthlyComparisonStats.statusWording === 'Needs Attention' && <ArrowDownRight className="w-4 h-4 text-[#F59E0B]" />}
-                {monthlyComparisonStats.statusWording === 'Stable' && <Minus className="w-4 h-4 text-[#8A8A8A]" />}
+                {monthlyComparisonStats.statusWording === 'Improved' && <ArrowUpRight className="w-4 h-4 text-emerald-400" />}
+                {monthlyComparisonStats.statusWording === 'Needs Attention' && <ArrowDownRight className="w-4 h-4 text-amber-300" />}
+                {monthlyComparisonStats.statusWording === 'Stable' && <Minus className="w-4 h-4 text-[var(--text-secondary)]" />}
                 <span>{monthlyComparisonStats.statusWording}</span>
               </div>
             </div>
@@ -1160,11 +1160,11 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
           {/* PERFORMANCE BREAKDOWN CARDS (6 CARDS WITH EXISTING WEIGHTAGES) */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-black uppercase text-[#C7C7C7] tracking-wider flex items-center gap-2">
-                <Layers className="w-4 h-4 text-[#D4AF37]" />
+              <h2 className="text-sm font-black uppercase text-[var(--text-primary)] tracking-wider flex items-center gap-2">
+                <Layers className="w-4 h-4 text-[var(--primary-light)]" />
                 Performance Breakdown
               </h2>
-              <span className="text-[10px] text-[#8A8A8A] font-mono">
+              <span className="text-[10px] text-[var(--text-secondary)] font-mono">
                 Formula Weightages Totalling 100%
               </span>
             </div>
@@ -1172,34 +1172,34 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               
               {/* Card 1: Attendance Punctuality */}
-              <div className="bg-[#151515] p-4 rounded-2xl border border-[#292929] space-y-3">
-                <div className="flex items-center justify-between border-b border-[#292929] pb-2">
-                  <span className="text-xs font-black text-[#C7C7C7] uppercase tracking-wider flex items-center gap-1.5">
-                    <UserCheck className="w-4 h-4 text-[#D4AF37]" /> 1. Attendance Punctuality
+              <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+                <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                  <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                    <UserCheck className="w-4 h-4 text-[var(--primary-light)]" /> 1. Attendance Punctuality
                   </span>
-                  <span className="text-xs font-black text-[#D4AF37] font-mono">
+                  <span className="text-xs font-black text-[var(--primary-light)] font-mono">
                     {weightages.punctuality}% Weight
                   </span>
                 </div>
 
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Punctuality Score:</span>
-                    <span className="font-black text-white">{bd ? `${bd.punctualityScore}%` : 'N/A'}</span>
+                    <span className="text-[var(--text-secondary)]">Punctuality Score:</span>
+                    <span className="font-black text-[var(--text-primary)]">{bd ? `${bd.punctualityScore}%` : 'N/A'}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Days Logged:</span>
-                    <span className="font-extrabold text-[#C7C7C7]">{bd ? bd.attendanceDaysCount : 0}</span>
+                    <span className="text-[var(--text-secondary)]">Days Logged:</span>
+                    <span className="font-extrabold text-[var(--text-primary)]">{bd ? bd.attendanceDaysCount : 0}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Late Arrivals:</span>
-                    <span className={`font-extrabold ${bd && bd.lateArrivalsCount > 0 ? 'text-[#F59E0B]' : 'text-[#22C55E]'}`}>
+                    <span className="text-[var(--text-secondary)]">Late Arrivals:</span>
+                    <span className={`font-extrabold ${bd && bd.lateArrivalsCount > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
                       {bd ? bd.lateArrivalsCount : 0}
                     </span>
                   </div>
-                  <div className="w-full bg-[#121212] h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-[var(--card-bg)] h-2 rounded-full overflow-hidden border border-[var(--border)]">
                     <div 
-                      className="bg-[#D4AF37] h-full rounded-full transition-all"
+                      className="bg-[var(--primary)] h-full rounded-full transition-all"
                       style={{ width: `${bd ? Math.max(0, bd.punctualityScore) : 0}%` }}
                     />
                   </div>
@@ -1207,34 +1207,34 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               </div>
 
               {/* Card 2: Work-Hour Consistency */}
-              <div className="bg-[#151515] p-4 rounded-2xl border border-[#292929] space-y-3">
-                <div className="flex items-center justify-between border-b border-[#292929] pb-2">
-                  <span className="text-xs font-black text-[#C7C7C7] uppercase tracking-wider flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-[#D4AF37]" /> 2. Work-Hour Consistency
+              <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+                <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                  <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-[var(--primary-light)]" /> 2. Work-Hour Consistency
                   </span>
-                  <span className="text-xs font-black text-[#D4AF37] font-mono">
+                  <span className="text-xs font-black text-[var(--primary-light)] font-mono">
                     {weightages.workload}% Weight
                   </span>
                 </div>
 
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Logged Duration:</span>
-                    <span className="font-black text-white">{workHoursMetrics.totalFormatted}</span>
+                    <span className="text-[var(--text-secondary)]">Logged Duration:</span>
+                    <span className="font-black text-[var(--text-primary)]">{workHoursMetrics.totalFormatted}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Avg Daily Duration:</span>
-                    <span className="font-extrabold text-[#C7C7C7]">{workHoursMetrics.avgFormatted}</span>
+                    <span className="text-[var(--text-secondary)]">Avg Daily Duration:</span>
+                    <span className="font-extrabold text-[var(--text-primary)]">{workHoursMetrics.avgFormatted}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Unresolved Checkout:</span>
-                    <span className={`font-extrabold ${workHoursMetrics.unresolvedCount > 0 ? 'text-[#EF4444]' : 'text-[#22C55E]'}`}>
+                    <span className="text-[var(--text-secondary)]">Unresolved Checkout:</span>
+                    <span className={`font-extrabold ${workHoursMetrics.unresolvedCount > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                       {workHoursMetrics.unresolvedCount > 0 ? `${workHoursMetrics.unresolvedCount} (0 hrs credit)` : 'Clean'}
                     </span>
                   </div>
-                  <div className="w-full bg-[#121212] h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-[var(--card-bg)] h-2 rounded-full overflow-hidden border border-[var(--border)]">
                     <div 
-                      className="bg-[#D4AF37] h-full rounded-full transition-all"
+                      className="bg-[var(--primary)] h-full rounded-full transition-all"
                       style={{ width: `${bd ? Math.max(0, bd.workloadScore) : 0}%` }}
                     />
                   </div>
@@ -1242,32 +1242,32 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               </div>
 
               {/* Card 3: Task Completion */}
-              <div className="bg-[#151515] p-4 rounded-2xl border border-[#292929] space-y-3">
-                <div className="flex items-center justify-between border-b border-[#292929] pb-2">
-                  <span className="text-xs font-black text-[#C7C7C7] uppercase tracking-wider flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-[#22C55E]" /> 3. Task Completion
+              <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+                <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                  <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" /> 3. Task Completion
                   </span>
-                  <span className="text-xs font-black text-[#22C55E] font-mono">
+                  <span className="text-xs font-black text-emerald-400 font-mono">
                     {weightages.taskCompletion}% Weight
                   </span>
                 </div>
 
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Completion Score:</span>
-                    <span className="font-black text-white">{bd ? `${bd.taskCompletionScore}%` : 'N/A'}</span>
+                    <span className="text-[var(--text-secondary)]">Completion Score:</span>
+                    <span className="font-black text-[var(--text-primary)]">{bd ? `${bd.taskCompletionScore}%` : 'N/A'}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Completed vs Assigned:</span>
-                    <span className="font-extrabold text-[#C7C7C7]">{taskMetrics.completed} / {taskMetrics.assigned}</span>
+                    <span className="text-[var(--text-secondary)]">Completed vs Assigned:</span>
+                    <span className="font-extrabold text-[var(--text-primary)]">{taskMetrics.completed} / {taskMetrics.assigned}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">On-time Completion:</span>
-                    <span className="font-extrabold text-[#22C55E]">{bd ? bd.onTimeTasksCount : 0} Tasks</span>
+                    <span className="text-[var(--text-secondary)]">On-time Completion:</span>
+                    <span className="font-extrabold text-emerald-400">{bd ? bd.onTimeTasksCount : 0} Tasks</span>
                   </div>
-                  <div className="w-full bg-[#121212] h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-[var(--card-bg)] h-2 rounded-full overflow-hidden border border-[var(--border)]">
                     <div 
-                      className="bg-[#22C55E] h-full rounded-full transition-all"
+                      className="bg-emerald-400 h-full rounded-full transition-all"
                       style={{ width: `${bd ? Math.max(0, bd.taskCompletionScore) : 0}%` }}
                     />
                   </div>
@@ -1275,86 +1275,86 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               </div>
 
               {/* Card 4: Overdue-Task Penalty */}
-              <div className="bg-[#151515] p-4 rounded-2xl border border-[#292929] space-y-3">
-                <div className="flex items-center justify-between border-b border-[#292929] pb-2">
-                  <span className="text-xs font-black text-[#C7C7C7] uppercase tracking-wider flex items-center gap-1.5">
-                    <ShieldAlert className="w-4 h-4 text-[#EF4444]" /> 4. Overdue Penalty
+              <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+                <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                  <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-red-400" /> 4. Overdue Penalty
                   </span>
-                  <span className="text-xs font-black text-[#EF4444] font-mono">
+                  <span className="text-xs font-black text-red-400 font-mono">
                     Deduction
                   </span>
                 </div>
 
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Overdue Tasks:</span>
-                    <span className="font-black text-[#EF4444]">{taskMetrics.overdue}</span>
+                    <span className="text-[var(--text-secondary)]">Overdue Tasks:</span>
+                    <span className="font-black text-red-400">{taskMetrics.overdue}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Applied Deduction:</span>
-                    <span className="font-black text-[#EF4444]">-{bd ? bd.overduePenalty : 0} pts</span>
+                    <span className="text-[var(--text-secondary)]">Applied Deduction:</span>
+                    <span className="font-black text-red-400">-{bd ? bd.overduePenalty : 0} pts</span>
                   </div>
-                  <p className="text-[10px] text-[#8A8A8A] italic pt-1">
+                  <p className="text-[10px] text-[var(--text-secondary)] italic pt-1">
                     Graduated deduction based on overdue task volume.
                   </p>
                 </div>
               </div>
 
               {/* Card 5: Revision Penalty */}
-              <div className="bg-[#151515] p-4 rounded-2xl border border-[#292929] space-y-3">
-                <div className="flex items-center justify-between border-b border-[#292929] pb-2">
-                  <span className="text-xs font-black text-[#C7C7C7] uppercase tracking-wider flex items-center gap-1.5">
-                    <RotateCcw className="w-4 h-4 text-[#F59E0B]" /> 5. Revision Penalty
+              <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+                <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                  <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                    <RotateCcw className="w-4 h-4 text-amber-400" /> 5. Revision Penalty
                   </span>
-                  <span className="text-xs font-black text-[#F59E0B] font-mono">
+                  <span className="text-xs font-black text-amber-400 font-mono">
                     Quality ({weightages.quality}%)
                   </span>
                 </div>
 
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Total Revisions:</span>
-                    <span className="font-black text-[#F59E0B]">{taskMetrics.revisionRequestsCount}</span>
+                    <span className="text-[var(--text-secondary)]">Total Revisions:</span>
+                    <span className="font-black text-amber-400">{taskMetrics.revisionRequestsCount}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Applied Deduction:</span>
-                    <span className="font-black text-[#EF4444]">-{bd ? bd.revisionPenalty : 0} pts</span>
+                    <span className="text-[var(--text-secondary)]">Applied Deduction:</span>
+                    <span className="font-black text-red-400">-{bd ? bd.revisionPenalty : 0} pts</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Quality Score:</span>
-                    <span className="font-extrabold text-[#C7C7C7]">{bd ? `${bd.qualityScore}%` : 'N/A'}</span>
+                    <span className="text-[var(--text-secondary)]">Quality Score:</span>
+                    <span className="font-extrabold text-[var(--text-primary)]">{bd ? `${bd.qualityScore}%` : 'N/A'}</span>
                   </div>
                 </div>
               </div>
 
               {/* Card 6: Overall Efficiency Summary */}
-              <div className="bg-[#151515] p-4 rounded-2xl border border-[#292929] space-y-3">
-                <div className="flex items-center justify-between border-b border-[#292929] pb-2">
-                  <span className="text-xs font-black text-[#C7C7C7] uppercase tracking-wider flex items-center gap-1.5">
-                    <Award className="w-4 h-4 text-[#D4AF37]" /> 6. Overall Score
+              <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+                <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                  <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                    <Award className="w-4 h-4 text-[var(--primary-light)]" /> 6. Overall Score
                   </span>
-                  <span className="text-xs font-black text-[#D4AF37] font-mono">
+                  <span className="text-xs font-black text-[var(--primary-light)] font-mono">
                     Composite 100%
                   </span>
                 </div>
 
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Final Score:</span>
-                    <span className="font-black text-xl text-white">
+                    <span className="text-[var(--text-secondary)]">Final Score:</span>
+                    <span className="font-black text-xl text-[var(--text-primary)]">
                       {currentCalculation ? `${currentCalculation.finalScore}%` : 'N/A'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#8A8A8A]">Performance Standing:</span>
-                    <span className="font-bold text-[#D4AF37]">
+                    <span className="text-[var(--text-secondary)]">Performance Standing:</span>
+                    <span className="font-bold text-[var(--primary-light)]">
                       {currentCalculation ? currentCalculation.grade : 'N/A'}
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={handleSaveSnapshot}
-                    className="w-full mt-2 py-1.5 bg-[#D4AF37] hover:bg-[#E6C766] text-[#080808] rounded-xl font-bold text-xs transition cursor-pointer"
+                    className="w-full mt-2 py-1.5 aurora-bg hover:opacity-95 text-white rounded-xl font-bold text-xs transition cursor-pointer shadow-md"
                   >
                     Save Snapshot
                   </button>
@@ -1373,25 +1373,25 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
         <div className="space-y-5">
           {/* TEAM SUMMARY CARD */}
           {teamMetricsSummary ? (
-            <div className="bg-[#151515] p-5 rounded-3xl border border-[#292929] shadow-xl space-y-4">
-              <div className="flex items-center justify-between border-b border-[#292929] pb-3">
+            <div className="bg-[var(--card-surface)] p-5 rounded-3xl border border-[var(--border)] shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-[#1B1B1B] border border-[#292929] flex items-center justify-center text-[#D4AF37]">
+                  <div className="w-10 h-10 rounded-2xl bg-[var(--card-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--primary-light)]">
                     <Users className="w-5 h-5" />
                   </div>
                   <div>
-                    <h2 className="text-base font-black text-white uppercase tracking-wide">
+                    <h2 className="text-base font-black text-[var(--text-primary)] uppercase tracking-wide">
                       MY TEAM PERFORMANCE SUMMARY
                     </h2>
-                    <p className="text-xs text-[#8A8A8A]">
+                    <p className="text-xs text-[var(--text-secondary)]">
                       {myTeamMembers.length} Assigned Team Members • {periodLabel}
                     </p>
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-[10px] text-[#8A8A8A] font-bold uppercase">Avg Team Efficiency</span>
-                  <p className="text-2xl font-black text-[#D4AF37] leading-none mt-0.5">
+                  <span className="text-[10px] text-[var(--text-secondary)] font-bold uppercase">Avg Team Efficiency</span>
+                  <p className="text-2xl font-black text-[var(--primary-light)] leading-none mt-0.5">
                     {teamMetricsSummary.avgTeamScore}%
                   </p>
                 </div>
@@ -1399,39 +1399,39 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
               {/* TEAM METRICS GRID */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-center">
-                <div className="bg-[#121212] p-3 rounded-2xl border border-[#292929]">
-                  <p className="text-[9px] font-bold text-[#8A8A8A] uppercase">Team Members</p>
-                  <p className="text-lg font-black text-white">{myTeamMembers.length}</p>
+                <div className="bg-[var(--card-bg)] p-3 rounded-2xl border border-[var(--border)]">
+                  <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Team Members</p>
+                  <p className="text-lg font-black text-[var(--text-primary)]">{myTeamMembers.length}</p>
                 </div>
-                <div className="bg-[#121212] p-3 rounded-2xl border border-[#292929]">
-                  <p className="text-[9px] font-bold text-[#8A8A8A] uppercase">Total Work Hours</p>
-                  <p className="text-lg font-black text-white">{teamMetricsSummary.totalTeamWorkHoursFormatted}</p>
+                <div className="bg-[var(--card-bg)] p-3 rounded-2xl border border-[var(--border)]">
+                  <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Total Work Hours</p>
+                  <p className="text-lg font-black text-[var(--text-primary)]">{teamMetricsSummary.totalTeamWorkHoursFormatted}</p>
                 </div>
-                <div className="bg-[#121212] p-3 rounded-2xl border border-[#292929]">
-                  <p className="text-[9px] font-bold text-[#8A8A8A] uppercase">Tasks Completed</p>
-                  <p className="text-lg font-black text-[#22C55E]">
+                <div className="bg-[var(--card-bg)] p-3 rounded-2xl border border-[var(--border)]">
+                  <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Tasks Completed</p>
+                  <p className="text-lg font-black text-emerald-400">
                     {teamMetricsSummary.totalTeamCompleted} / {teamMetricsSummary.totalTeamAssigned}
                   </p>
                 </div>
-                <div className="bg-[#121212] p-3 rounded-2xl border border-[#292929]">
-                  <p className="text-[9px] font-bold text-[#8A8A8A] uppercase">Overdue Tasks</p>
-                  <p className="text-lg font-black text-[#EF4444]">{teamMetricsSummary.totalTeamOverdue}</p>
+                <div className="bg-[var(--card-bg)] p-3 rounded-2xl border border-[var(--border)]">
+                  <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Overdue Tasks</p>
+                  <p className="text-lg font-black text-red-400">{teamMetricsSummary.totalTeamOverdue}</p>
                 </div>
-                <div className="bg-[#121212] p-3 rounded-2xl border border-[#292929]">
-                  <p className="text-[9px] font-bold text-[#8A8A8A] uppercase">Total Revisions</p>
-                  <p className="text-lg font-black text-[#F59E0B]">{teamMetricsSummary.totalTeamRevisions}</p>
+                <div className="bg-[var(--card-bg)] p-3 rounded-2xl border border-[var(--border)]">
+                  <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Total Revisions</p>
+                  <p className="text-lg font-black text-amber-400">{teamMetricsSummary.totalTeamRevisions}</p>
                 </div>
-                <div className="bg-[#121212] p-3 rounded-2xl border border-[#292929]">
-                  <p className="text-[9px] font-bold text-[#8A8A8A] uppercase">Punctuality</p>
-                  <p className="text-lg font-black text-[#60A5FA]">{teamMetricsSummary.teamPunctualityPct}%</p>
+                <div className="bg-[var(--card-bg)] p-3 rounded-2xl border border-[var(--border)]">
+                  <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase">Punctuality</p>
+                  <p className="text-lg font-black text-blue-400">{teamMetricsSummary.teamPunctualityPct}%</p>
                 </div>
               </div>
             </div>
           ) : (
-            <Card className="p-8 bg-[#151515] border border-[#292929] text-center">
-              <Users className="w-10 h-10 text-[#D4AF37] mx-auto mb-2 opacity-50" />
-              <h3 className="text-base font-bold text-white">No Team Members Assigned</h3>
-              <p className="text-xs text-[#8A8A8A] mt-1">
+            <Card className="p-8 bg-[var(--card-surface)] border border-[var(--border)] text-center">
+              <Users className="w-10 h-10 text-[var(--primary-light)] mx-auto mb-2 opacity-50" />
+              <h3 className="text-base font-bold text-[var(--text-primary)]">No Team Members Assigned</h3>
+              <p className="text-xs text-[var(--text-secondary)] mt-1">
                 There are currently no team members registered with you as their Team Leader.
               </p>
             </Card>
@@ -1439,12 +1439,12 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
           {/* TEAM MEMBERS DETAILED BREAKDOWN TABLE */}
           {teamMetricsSummary && teamMetricsSummary.memberBreakdowns.length > 0 && (
-            <div className="bg-[#151515] rounded-3xl border border-[#292929] overflow-hidden shadow-xl">
-              <div className="p-4 bg-[#121212] border-b border-[#292929] flex items-center justify-between">
-                <h3 className="text-xs font-black uppercase text-[#C7C7C7] tracking-wider">
+            <div className="bg-[var(--card-surface)] rounded-3xl border border-[var(--border)] overflow-hidden shadow-xl">
+              <div className="p-4 bg-[var(--card-bg)] border-b border-[var(--border)] flex items-center justify-between">
+                <h3 className="text-xs font-black uppercase text-[var(--text-primary)] tracking-wider">
                   Team Member Individual Performance
                 </h3>
-                <span className="text-[10px] text-[#8A8A8A] font-mono">
+                <span className="text-[10px] text-[var(--text-secondary)] font-mono">
                   Privacy Enforced • Assigned Team Only
                 </span>
               </div>
@@ -1452,7 +1452,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="bg-[#121212] text-[#8A8A8A] font-extrabold uppercase text-[9.5px] tracking-wider border-b border-[#292929]">
+                    <tr className="bg-[var(--card-bg)] text-[var(--text-secondary)] font-extrabold uppercase text-[9.5px] tracking-wider border-b border-[var(--border)]">
                       <th className="py-3 px-4">Member</th>
                       <th className="py-3 px-4">Code</th>
                       <th className="py-3 px-4">Work Hours</th>
@@ -1464,34 +1464,34 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                       <th className="py-3 px-4 text-center">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#292929] font-medium">
+                  <tbody className="divide-y divide-[var(--border)] font-medium">
                     {teamMetricsSummary.memberBreakdowns.map((item) => (
-                      <tr key={item.member.employeeCode} className="hover:bg-[#1B1B1B]/50 transition">
-                        <td className="py-3.5 px-4 font-black text-white">
+                      <tr key={item.member.employeeCode} className="hover:bg-[var(--card-bg)]/50 transition">
+                        <td className="py-3.5 px-4 font-black text-[var(--text-primary)]">
                           {item.member.name}
                         </td>
-                        <td className="py-3.5 px-4 font-mono text-[#8A8A8A]">
+                        <td className="py-3.5 px-4 font-mono text-[var(--text-secondary)]">
                           {item.member.employeeCode}
                         </td>
-                        <td className="py-3.5 px-4 text-[#C7C7C7] font-bold">
+                        <td className="py-3.5 px-4 text-[var(--text-primary)] font-bold">
                           {item.workHoursFormatted}
                           {item.unresolvedCount > 0 && (
-                            <span className="block text-[9px] text-[#EF4444]">({item.unresolvedCount} unresolved)</span>
+                            <span className="block text-[9px] text-red-400">({item.unresolvedCount} unresolved)</span>
                           )}
                         </td>
-                        <td className="py-3.5 px-4 text-[#22C55E] font-black">
+                        <td className="py-3.5 px-4 text-emerald-400 font-black">
                           {item.tasksCompleted} / {item.tasksAssigned}
                         </td>
-                        <td className="py-3.5 px-4 text-[#EF4444] font-bold">
+                        <td className="py-3.5 px-4 text-red-400 font-bold">
                           {item.overdueTasks}
                         </td>
-                        <td className="py-3.5 px-4 text-[#F59E0B] font-bold">
+                        <td className="py-3.5 px-4 text-amber-400 font-bold">
                           {item.revisions}
                         </td>
-                        <td className="py-3.5 px-4 text-[#8A8A8A]">
+                        <td className="py-3.5 px-4 text-[var(--text-secondary)]">
                           {item.lateArrivals}
                         </td>
-                        <td className="py-3.5 px-4 text-right font-black text-[#D4AF37] text-sm">
+                        <td className="py-3.5 px-4 text-right font-black text-[var(--primary-light)] text-sm">
                           {item.score}% ({item.grade})
                         </td>
                         <td className="py-3.5 px-4 text-center">
@@ -1501,7 +1501,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                               setSelectedEmployeeCode(item.member.employeeCode);
                               setViewMode('MY_PERFORMANCE');
                             }}
-                            className="px-2.5 py-1 rounded-xl bg-[#1B1B1B] hover:bg-[#292929] border border-[#292929] text-white hover:text-[#D4AF37] text-[10px] font-bold transition cursor-pointer"
+                            className="px-2.5 py-1 rounded-xl bg-[var(--card-bg)] hover:bg-[var(--card-surface)] border border-[var(--border)] text-[var(--text-primary)] hover:text-[var(--primary-light)] text-[10px] font-bold transition cursor-pointer"
                           >
                             Inspect
                           </button>
@@ -1520,14 +1520,14 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       {/* VIEW 3: SETTINGS (ADMIN WEIGHTAGES CONFIG) */}
       {/* ==================================================== */}
       {viewMode === 'SETTINGS' && isAdmin && (
-        <Card className="p-6 bg-[#151515] border border-[#292929] rounded-3xl space-y-5">
-          <div className="flex items-center gap-3 border-b border-[#292929] pb-4">
-            <Sliders className="w-6 h-6 text-[#D4AF37]" />
+        <Card className="p-6 bg-[var(--card-surface)] border border-[var(--border)] rounded-3xl space-y-5">
+          <div className="flex items-center gap-3 border-b border-[var(--border)] pb-4">
+            <Sliders className="w-6 h-6 text-[var(--primary-light)]" />
             <div>
-              <h2 className="text-base font-black text-white uppercase tracking-wider">
+              <h2 className="text-base font-black text-[var(--text-primary)] uppercase tracking-wider">
                 Configure Efficiency Weightages
               </h2>
-              <p className="text-xs text-[#8A8A8A]">
+              <p className="text-xs text-[var(--text-secondary)]">
                 Adjust the weights for the 5 efficiency parameters. Total must equal 100%.
               </p>
             </div>
@@ -1536,70 +1536,70 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
           <form onSubmit={handleSaveWeightages} className="space-y-4 max-w-lg">
             <div className="space-y-3 text-xs">
               <div>
-                <label className="block text-[#C7C7C7] font-bold mb-1">
+                <label className="block text-[var(--text-primary)] font-bold mb-1">
                   Task Completion Weight (%):
                 </label>
                 <input
                   type="number"
                   value={adminWeights.taskCompletion}
                   onChange={(e) => setAdminWeights({ ...adminWeights, taskCompletion: Number(e.target.value) })}
-                  className="w-full bg-[#121212] text-white p-2.5 rounded-xl border border-[#292929] focus:border-[#D4AF37] focus:outline-none"
+                  className="w-full bg-[var(--card-bg)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
                   min="0"
                   max="100"
                 />
               </div>
 
               <div>
-                <label className="block text-[#C7C7C7] font-bold mb-1">
+                <label className="block text-[var(--text-primary)] font-bold mb-1">
                   On-Time Completion Weight (%):
                 </label>
                 <input
                   type="number"
                   value={adminWeights.onTimeCompletion}
                   onChange={(e) => setAdminWeights({ ...adminWeights, onTimeCompletion: Number(e.target.value) })}
-                  className="w-full bg-[#121212] text-white p-2.5 rounded-xl border border-[#292929] focus:border-[#D4AF37] focus:outline-none"
+                  className="w-full bg-[var(--card-bg)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
                   min="0"
                   max="100"
                 />
               </div>
 
               <div>
-                <label className="block text-[#C7C7C7] font-bold mb-1">
+                <label className="block text-[var(--text-primary)] font-bold mb-1">
                   Quality Score Weight (%):
                 </label>
                 <input
                   type="number"
                   value={adminWeights.quality}
                   onChange={(e) => setAdminWeights({ ...adminWeights, quality: Number(e.target.value) })}
-                  className="w-full bg-[#121212] text-white p-2.5 rounded-xl border border-[#292929] focus:border-[#D4AF37] focus:outline-none"
+                  className="w-full bg-[var(--card-bg)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
                   min="0"
                   max="100"
                 />
               </div>
 
               <div>
-                <label className="block text-[#C7C7C7] font-bold mb-1">
+                <label className="block text-[var(--text-primary)] font-bold mb-1">
                   Attendance Punctuality Weight (%):
                 </label>
                 <input
                   type="number"
                   value={adminWeights.punctuality}
                   onChange={(e) => setAdminWeights({ ...adminWeights, punctuality: Number(e.target.value) })}
-                  className="w-full bg-[#121212] text-white p-2.5 rounded-xl border border-[#292929] focus:border-[#D4AF37] focus:outline-none"
+                  className="w-full bg-[var(--card-bg)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
                   min="0"
                   max="100"
                 />
               </div>
 
               <div>
-                <label className="block text-[#C7C7C7] font-bold mb-1">
+                <label className="block text-[var(--text-primary)] font-bold mb-1">
                   Workload / Consistency Weight (%):
                 </label>
                 <input
                   type="number"
                   value={adminWeights.workload}
                   onChange={(e) => setAdminWeights({ ...adminWeights, workload: Number(e.target.value) })}
-                  className="w-full bg-[#121212] text-white p-2.5 rounded-xl border border-[#292929] focus:border-[#D4AF37] focus:outline-none"
+                  className="w-full bg-[var(--card-bg)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
                   min="0"
                   max="100"
                 />
@@ -1607,13 +1607,13 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
             </div>
 
             {weightsError && (
-              <p className="text-xs text-[#EF4444] font-bold bg-[#EF4444]/10 p-2.5 rounded-xl border border-[#EF4444]/30">
+              <p className="text-xs text-red-400 font-bold bg-red-500/10 p-2.5 rounded-xl border border-red-500/30">
                 {weightsError}
               </p>
             )}
 
             {weightsSuccess && (
-              <p className="text-xs text-[#22C55E] font-bold bg-[#22C55E]/10 p-2.5 rounded-xl border border-[#22C55E]/30">
+              <p className="text-xs text-emerald-400 font-bold bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/30">
                 Weightages saved successfully!
               </p>
             )}
@@ -1621,14 +1621,14 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
             <div className="flex gap-3 pt-2">
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-[#D4AF37] hover:bg-[#E6C766] text-[#080808] font-extrabold text-xs rounded-xl transition shadow-lg cursor-pointer"
+                className="px-5 py-2.5 aurora-bg hover:opacity-95 text-white font-extrabold text-xs rounded-xl transition shadow-lg cursor-pointer"
               >
                 Save Weightages
               </button>
               <button
                 type="button"
                 onClick={() => setAdminWeights(DEFAULT_WEIGHTAGES)}
-                className="px-4 py-2.5 bg-[#1B1B1B] hover:bg-[#292929] text-white text-xs font-bold rounded-xl border border-[#292929] cursor-pointer"
+                className="px-4 py-2.5 bg-[var(--card-bg)] hover:bg-[var(--card-surface)] text-[var(--text-primary)] text-xs font-bold rounded-xl border border-[var(--border)] cursor-pointer"
               >
                 Reset Defaults
               </button>

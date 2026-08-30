@@ -248,11 +248,12 @@ export const ProfileScreen: React.FC = () => {
   if (!profile && !employeeData) {
     return (
       <div className="py-16 text-center space-y-4 max-w-md mx-auto">
-        <div className="p-4 bg-[rgba(17,24,39,0.92)] rounded-2xl border border-[rgba(148,163,184,0.22)] text-white space-y-3 shadow-lg">
-          <p className="text-sm font-bold text-[#CBD5E1]">Profile information is temporarily unavailable.</p>
+        <div className="glass-card-elevated p-6 rounded-2xl text-white space-y-3 shadow-lg">
+          <p className="text-sm font-bold text-[var(--text-secondary)]">Profile information is temporarily unavailable.</p>
           <Button
+            variant="cyan"
             onClick={() => window.location.reload()}
-            className="w-full bg-[#22D3EE] hover:bg-[#67E8F9] text-[#041014] text-xs font-black py-2 rounded-xl"
+            className="w-full text-xs font-black py-2 rounded-xl"
           >
             Retry / Refresh
           </Button>
@@ -262,19 +263,13 @@ export const ProfileScreen: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 pb-24 max-w-4xl mx-auto relative">
-      {/* Background ambient lighting */}
-      <div className="fixed top-20 right-10 w-96 h-96 bg-[rgba(139,92,246,0.06)] rounded-full blur-[120px] pointer-events-none" />
-      <div className="fixed bottom-20 left-10 w-96 h-96 bg-[rgba(34,211,238,0.05)] rounded-full blur-[120px] pointer-events-none" />
-
+    <div className="space-y-6 pb-24 max-w-4xl mx-auto relative font-sans">
       {/* 1. Header Card */}
-      <Card className="p-6 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-[24px] shadow-2xl relative overflow-hidden">
-        <div className="absolute -top-12 -right-12 w-48 h-48 bg-[#D4AF37]/10 rounded-full blur-3xl pointer-events-none" />
-
+      <div className="glass-card-elevated p-6 text-white rounded-2xl shadow-xl relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-center gap-6 relative z-10">
           {/* Avatar Container */}
           <div className="relative group">
-            <div className="w-24 h-24 rounded-full bg-[#101010] border-2 border-[#D4AF37] overflow-hidden flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.2)]">
+            <div className="w-24 h-24 rounded-full glass-card-inner border-2 border-cyan-400 overflow-hidden flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.3)]">
               {profile?.profilePhotoUrl || profile?.localPhotoData ? (
                 <img
                   src={profile.profilePhotoUrl || profile.localPhotoData!}
@@ -282,7 +277,7 @@ export const ProfileScreen: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <User className="w-12 h-12 text-[#8A8A8A]" />
+                <User className="w-12 h-12 text-[var(--text-secondary)]" />
               )}
             </div>
           </div>
@@ -290,169 +285,169 @@ export const ProfileScreen: React.FC = () => {
           {/* User Basic Info */}
           <div className="text-center sm:text-left space-y-1.5 flex-1">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-              <h1 className="text-2xl font-black text-[#FFFFFF]">{profile?.name || employeeData?.name || 'Employee Name'}</h1>
-              <span className="px-3 py-0.5 rounded-full text-xs font-black bg-[#D4AF37] text-[#080808] shadow-md">
+              <h1 className="text-2xl font-black text-white">{profile?.name || employeeData?.name || 'Employee Name'}</h1>
+              <span className="px-3 py-0.5 rounded-full text-xs font-black bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-md">
                 {profile?.employeeCode || employeeData?.employeeCode}
               </span>
             </div>
 
-            <p className="text-sm font-bold text-[#8A8A8A]">
+            <p className="text-sm font-bold text-[var(--text-secondary)]">
               {profile?.designation} • {profile?.department}
             </p>
 
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
-              <span className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-[#101010] text-[#FFFFFF] border border-[#292929] flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <span className="px-2.5 py-1 rounded-xl text-[11px] font-black glass-card-inner text-white flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-cyan-300" />
                 Role: {getRoleDisplayName(profile?.role || currentRole)}
               </span>
 
-              <span className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+              <span className="px-2.5 py-1 rounded-xl text-[11px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Status: {profile?.employmentStatus || 'Active'}
               </span>
             </div>
           </div>
         </div>
-      </Card>
+      </div>
 
       {/* 2. Main Grid Sections */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Personal Information (Editable via Change Request) */}
-        <Card className="p-5 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-[22px] space-y-4 shadow-xl">
-          <div className="flex justify-between items-center border-b border-[#292929] pb-3">
-            <h2 className="text-xs font-black uppercase text-[#D4AF37] tracking-wider flex items-center gap-2">
-              <User className="w-4 h-4 text-[#D4AF37]" /> Personal Information
+        <div className="glass-card-elevated p-5 text-white rounded-2xl space-y-4 shadow-xl">
+          <div className="flex justify-between items-center border-b border-white/10 pb-3">
+            <h2 className="text-xs font-black uppercase text-cyan-300 tracking-wider flex items-center gap-2">
+              <User className="w-4 h-4 text-cyan-300" /> Personal Information
             </h2>
-            <span className="text-[10px] text-[#8A8A8A] font-semibold">Editable via Request</span>
+            <span className="text-[10px] text-[var(--text-secondary)] font-semibold">Editable via Request</span>
           </div>
 
-          <div className="space-y-3.5 text-xs">
-            <div className="flex justify-between items-center bg-[#101010] p-3 rounded-xl border border-[#292929]">
+          <div className="space-y-3 text-xs">
+            <div className="flex justify-between items-center glass-card-inner p-3 rounded-xl">
               <div>
-                <p className="text-[10px] font-bold text-[#8A8A8A]">MOBILE NUMBER</p>
-                <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.mobileNumber || 'Not Set'}</p>
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">MOBILE NUMBER</p>
+                <p className="text-sm font-bold text-white mt-0.5">{profile?.mobileNumber || 'Not Set'}</p>
               </div>
               <button
                 onClick={() => openEditModal('mobileNumber', 'Mobile Number', profile?.mobileNumber || '')}
-                className="p-2 rounded-lg bg-[#1B1B1B] text-[#8A8A8A] hover:text-[#FFFFFF] transition-all cursor-pointer"
+                className="p-2 rounded-lg glass-card-inner text-[var(--text-secondary)] hover:text-white hover:border-cyan-400/50 transition-all cursor-pointer"
                 title="Request Mobile Change"
               >
                 <Edit2 className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="flex justify-between items-center bg-[#101010] p-3 rounded-xl border border-[#292929]">
+            <div className="flex justify-between items-center glass-card-inner p-3 rounded-xl">
               <div>
-                <p className="text-[10px] font-bold text-[#8A8A8A]">EMAIL ADDRESS</p>
-                <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.email || 'Not Set'}</p>
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">EMAIL ADDRESS</p>
+                <p className="text-sm font-bold text-white mt-0.5">{profile?.email || 'Not Set'}</p>
               </div>
               <button
                 onClick={() => openEditModal('email', 'Email Address', profile?.email || '')}
-                className="p-2 rounded-lg bg-[#1B1B1B] text-[#8A8A8A] hover:text-[#FFFFFF] transition-all cursor-pointer"
+                className="p-2 rounded-lg glass-card-inner text-[var(--text-secondary)] hover:text-white hover:border-cyan-400/50 transition-all cursor-pointer"
                 title="Request Email Change"
               >
                 <Edit2 className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="flex justify-between items-center bg-[#101010] p-3 rounded-xl border border-[#292929]">
+            <div className="flex justify-between items-center glass-card-inner p-3 rounded-xl">
               <div>
-                <p className="text-[10px] font-bold text-[#8A8A8A]">EMERGENCY CONTACT</p>
-                <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.emergencyContact || 'Not Provided'}</p>
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">EMERGENCY CONTACT</p>
+                <p className="text-sm font-bold text-white mt-0.5">{profile?.emergencyContact || 'Not Provided'}</p>
               </div>
               <button
                 onClick={() => openEditModal('emergencyContact', 'Emergency Contact', profile?.emergencyContact || '')}
-                className="p-2 rounded-lg bg-[#1B1B1B] text-[#8A8A8A] hover:text-[#FFFFFF] transition-all cursor-pointer"
+                className="p-2 rounded-lg glass-card-inner text-[var(--text-secondary)] hover:text-white hover:border-cyan-400/50 transition-all cursor-pointer"
                 title="Request Emergency Contact Change"
               >
                 <Edit2 className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="bg-[#101010] p-3 rounded-xl border border-[#292929]">
-              <p className="text-[10px] font-bold text-[#8A8A8A]">OFFICE LOCATION</p>
-              <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.officeLocation || profile?.workLocation || 'Raniganj HQ'}</p>
+            <div className="glass-card-inner p-3 rounded-xl">
+              <p className="text-[10px] font-bold text-[var(--text-secondary)]">OFFICE LOCATION</p>
+              <p className="text-sm font-bold text-white mt-0.5">{profile?.officeLocation || profile?.workLocation || 'Raniganj HQ'}</p>
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Employment Information (Read-Only) */}
-        <Card className="p-5 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-[22px] space-y-4 shadow-xl">
-          <div className="flex justify-between items-center border-b border-[#292929] pb-3">
-            <h2 className="text-xs font-black uppercase text-[#D4AF37] tracking-wider flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-[#D4AF37]" /> Employment Information
+        <div className="glass-card-elevated p-5 text-white rounded-2xl space-y-4 shadow-xl">
+          <div className="flex justify-between items-center border-b border-white/10 pb-3">
+            <h2 className="text-xs font-black uppercase text-cyan-300 tracking-wider flex items-center gap-2">
+              <Briefcase className="w-4 h-4 text-cyan-300" /> Employment Information
             </h2>
-            <span className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+            <span className="text-[10px] text-amber-300 font-bold bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
               READ ONLY
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="bg-[#101010] p-3 rounded-xl border border-[#292929]">
-              <p className="text-[10px] font-bold text-[#8A8A8A]">EMPLOYEE CODE</p>
-              <p className="text-sm font-black text-[#FFFFFF] mt-0.5">{profile?.employeeCode}</p>
+            <div className="glass-card-inner p-3 rounded-xl">
+              <p className="text-[10px] font-bold text-[var(--text-secondary)]">EMPLOYEE CODE</p>
+              <p className="text-sm font-black text-white mt-0.5">{profile?.employeeCode}</p>
             </div>
 
-            <div className="bg-[#101010] p-3 rounded-xl border border-[#292929]">
-              <p className="text-[10px] font-bold text-[#8A8A8A]">DEPARTMENT</p>
-              <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.department}</p>
+            <div className="glass-card-inner p-3 rounded-xl">
+              <p className="text-[10px] font-bold text-[var(--text-secondary)]">DEPARTMENT</p>
+              <p className="text-sm font-bold text-white mt-0.5">{profile?.department}</p>
             </div>
 
-            <div className="bg-[#101010] p-3 rounded-xl border border-[#292929]">
-              <p className="text-[10px] font-bold text-[#8A8A8A]">DESIGNATION</p>
-              <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.designation}</p>
+            <div className="glass-card-inner p-3 rounded-xl">
+              <p className="text-[10px] font-bold text-[var(--text-secondary)]">DESIGNATION</p>
+              <p className="text-sm font-bold text-white mt-0.5">{profile?.designation}</p>
             </div>
 
-            <div className="bg-[#101010] p-3 rounded-xl border border-[#292929]">
-              <p className="text-[10px] font-bold text-[#8A8A8A]">TEAM LEADER</p>
-              <p className="text-sm font-bold text-[#8A8A8A] mt-0.5">{profile?.teamLeaderName || 'Branch Admin'}</p>
+            <div className="glass-card-inner p-3 rounded-xl">
+              <p className="text-[10px] font-bold text-[var(--text-secondary)]">TEAM LEADER</p>
+              <p className="text-sm font-bold text-[var(--text-secondary)] mt-0.5">{profile?.teamLeaderName || 'Branch Admin'}</p>
             </div>
 
-            <div className="bg-[#101010] p-3 rounded-xl border border-[#292929]">
-              <p className="text-[10px] font-bold text-[#8A8A8A]">JOINING DATE</p>
-              <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.joiningDate}</p>
+            <div className="glass-card-inner p-3 rounded-xl">
+              <p className="text-[10px] font-bold text-[var(--text-secondary)]">JOINING DATE</p>
+              <p className="text-sm font-bold text-white mt-0.5">{profile?.joiningDate}</p>
             </div>
 
-            <div className="bg-[#101010] p-3 rounded-xl border border-[#292929]">
-              <p className="text-[10px] font-bold text-[#8A8A8A]">REPORTING MANAGER</p>
-              <p className="text-sm font-bold text-[#FFFFFF] mt-0.5">{profile?.reportingManager || 'Branch Admin'}</p>
+            <div className="glass-card-inner p-3 rounded-xl">
+              <p className="text-[10px] font-bold text-[var(--text-secondary)]">REPORTING MANAGER</p>
+              <p className="text-sm font-bold text-white mt-0.5">{profile?.reportingManager || 'Branch Admin'}</p>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* 3. Access & Permissions Section */}
-      <Card className="p-5 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-[22px] space-y-3 shadow-xl">
-        <div className="flex justify-between items-center border-b border-[#292929] pb-3">
-          <h2 className="text-xs font-black uppercase text-[#D4AF37] tracking-wider flex items-center gap-2">
-            <Shield className="w-4 h-4 text-[#D4AF37]" /> Access & Authorized Modules
+      <div className="glass-card-elevated p-5 text-white rounded-2xl space-y-3 shadow-xl">
+        <div className="flex justify-between items-center border-b border-white/10 pb-3">
+          <h2 className="text-xs font-black uppercase text-cyan-300 tracking-wider flex items-center gap-2">
+            <Shield className="w-4 h-4 text-cyan-300" /> Access & Authorized Modules
           </h2>
-          <span className="text-[10px] text-[#8A8A8A] font-semibold">RBAC Governed</span>
+          <span className="text-[10px] text-[var(--text-secondary)] font-semibold">RBAC Governed</span>
         </div>
 
         <div className="flex flex-wrap gap-2 pt-1">
           {activeModules.map((m) => (
             <span
               key={m.key}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#101010] text-[#8A8A8A] border border-[#292929] flex items-center gap-1.5 shadow-sm"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold glass-card-inner text-white flex items-center gap-1.5 shadow-sm"
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
               {m.label}
             </span>
           ))}
         </div>
-      </Card>
+      </div>
 
       {/* Notification Preferences Card */}
       <NotificationSettingsCard />
 
       {/* 4. My Profile Change Requests Section */}
-      <Card className="p-5 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-[22px] space-y-4 shadow-xl">
-        <div className="flex justify-between items-center border-b border-[#292929] pb-3">
-          <h2 className="text-xs font-black uppercase text-[#D4AF37] tracking-wider flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[#D4AF37]" /> My Profile Change Requests
+      <div className="glass-card-elevated p-5 text-white rounded-2xl space-y-4 shadow-xl">
+        <div className="flex justify-between items-center border-b border-white/10 pb-3">
+          <h2 className="text-xs font-black uppercase text-cyan-300 tracking-wider flex items-center gap-2">
+            <Clock className="w-4 h-4 text-cyan-300" /> My Profile Change Requests
           </h2>
-          <span className="text-[10px] text-[#8A8A8A] font-semibold">
+          <span className="text-[10px] text-[var(--text-secondary)] font-semibold">
             {changeRequests.length} Total Requests
           </span>
         </div>
@@ -462,96 +457,96 @@ export const ProfileScreen: React.FC = () => {
             changeRequests.map((req) => (
               <div
                 key={req.id}
-                className="p-3.5 bg-[#101010] rounded-xl border border-[#292929] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2"
+                className="p-3.5 glass-card-inner rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2"
               >
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-xs text-[#FFFFFF]">{req.fieldLabel}</span>
+                    <span className="font-extrabold text-xs text-white">{req.fieldLabel}</span>
                     <span
                       className={`px-2 py-0.5 rounded-full text-[9px] font-black border ${
                         req.status === 'Approved'
-                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
                           : req.status === 'Rejected'
-                          ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
-                          : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                          : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                       }`}
                     >
                       {req.status.toUpperCase()}
                     </span>
                   </div>
-                  <p className="text-[11px] text-[#8A8A8A]">
-                    Requested: <span className="text-[#FFFFFF] font-bold">{req.requestedValue}</span> (Reason: {req.reason})
+                  <p className="text-[11px] text-[var(--text-secondary)]">
+                    Requested: <span className="text-white font-bold">{req.requestedValue}</span> (Reason: {req.reason})
                   </p>
                   {req.rejectionReason && (
-                    <p className="text-[10px] text-rose-400 font-semibold">
+                    <p className="text-[10px] text-rose-300 font-semibold">
                       Rejection Reason: {req.rejectionReason}
                     </p>
                   )}
                 </div>
 
-                <span className="text-[10px] text-[#8A8A8A] font-mono">
+                <span className="text-[10px] text-[var(--text-secondary)] font-mono">
                   {new Date(req.createdAtDeviceTime).toLocaleDateString()}
                 </span>
               </div>
             ))
           ) : (
-            <p className="text-xs text-[#8A8A8A] py-4 text-center">
+            <p className="text-xs text-[var(--text-secondary)] py-4 text-center">
               No profile change requests submitted yet.
             </p>
           )}
         </div>
-      </Card>
+      </div>
 
       {/* 5. Team Leader View: My Team Members Scope */}
       {((profile as any)?.isTeamLeader || currentRole === 'TEAM_LEADER') && (
-        <Card className="p-5 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-[22px] space-y-4 shadow-xl">
-          <div className="flex justify-between items-center border-b border-[#292929] pb-3">
-            <h2 className="text-xs font-black uppercase text-[#D4AF37] tracking-wider flex items-center gap-2">
-              <Users className="w-4 h-4 text-[#D4AF37]" /> Assigned Team Directory ({teamMembers.length})
+        <div className="glass-card-elevated p-5 text-white rounded-2xl space-y-4 shadow-xl">
+          <div className="flex justify-between items-center border-b border-white/10 pb-3">
+            <h2 className="text-xs font-black uppercase text-cyan-300 tracking-wider flex items-center gap-2">
+              <Users className="w-4 h-4 text-cyan-300" /> Assigned Team Directory ({teamMembers.length})
             </h2>
-            <span className="text-[10px] text-[#8A8A8A] font-semibold">Team Leader Scope</span>
+            <span className="text-[10px] text-[var(--text-secondary)] font-semibold">Team Leader Scope</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {teamMembers.map((member) => (
               <div
                 key={member.id}
-                className="p-3 bg-[#101010] rounded-xl border border-[#292929] flex items-center gap-3"
+                className="p-3 glass-card-inner rounded-xl flex items-center gap-3"
               >
-                <div className="w-10 h-10 rounded-full bg-[#1B1B1B] border border-[#292929] flex items-center justify-center font-black text-[#D4AF37]">
+                <div className="w-10 h-10 rounded-full glass-card-inner flex items-center justify-center font-black text-cyan-300">
                   {member.name.charAt(0)}
                 </div>
                 <div className="overflow-hidden">
-                  <p className="font-bold text-xs text-[#FFFFFF] truncate">{member.name}</p>
-                  <p className="text-[10px] text-[#8A8A8A]">
+                  <p className="font-bold text-xs text-white truncate">{member.name}</p>
+                  <p className="text-[10px] text-[var(--text-secondary)]">
                     {member.employeeCode} • {member.office || 'Raniganj'}
                   </p>
-                  <p className="text-[10px] text-[#8A8A8A]">{member.mobileNumber}</p>
+                  <p className="text-[10px] text-[var(--text-secondary)]">{member.mobileNumber}</p>
                 </div>
               </div>
             ))}
           </div>
-        </Card>
+        </div>
       )}
 
       {/* System & Application Info */}
-      <Card className="p-4 bg-[#151515] border border-[#292929] text-[#FFFFFF] rounded-[22px] flex flex-wrap items-center justify-between gap-3 shadow-md">
+      <div className="glass-card-elevated p-4 text-white rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-md">
         <div className="flex items-center gap-2">
-          <Info className="w-4 h-4 text-[#D4AF37]" />
-          <span className="text-xs font-bold text-[#8A8A8A]">OFFICE MANAGEMENT SYSTEM</span>
+          <Info className="w-4 h-4 text-cyan-300" />
+          <span className="text-xs font-bold text-[var(--text-secondary)]">OFFICE MANAGEMENT SYSTEM</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#101010] text-[#D4AF37] border border-[#D4AF37]/30">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black glass-card-inner text-amber-300">
             EXFIN BUILD: {EXFIN_BUILD_MARKER}
           </span>
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#101010] text-[#8A8A8A] border border-[#292929]">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black glass-card-inner text-[var(--text-secondary)]">
             Version {APP_VERSION}
           </span>
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#101010] text-[#8A8A8A] border border-[#292929]">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black glass-card-inner text-[var(--text-secondary)]">
             Build 25
           </span>
         </div>
-      </Card>
+      </div>
 
       {/* Profile Edit Modal */}
       <Dialog
@@ -560,49 +555,49 @@ export const ProfileScreen: React.FC = () => {
         title={`Request ${fieldLabel} Change`}
       >
         <form onSubmit={handleSubmitChangeRequest} className="space-y-4">
-          <p className="text-xs text-[#B7C0BC]/80">
+          <p className="text-xs text-[var(--text-secondary)]">
             For security, edits to personal details require approval from HR or Administration. Your request will be queued securely.
           </p>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase text-[#B7C0BC]">CURRENT VALUE</label>
+            <label className="text-[10px] font-bold uppercase text-[var(--text-secondary)]">CURRENT VALUE</label>
             <input
               type="text"
               readOnly
               value={currentValue || 'Not Set'}
-              className="w-full px-3 py-2 rounded-xl bg-[#111417] border border-[#3A4148] text-[#B7C0BC]/70 text-xs font-bold"
+              className="w-full px-3 py-2 rounded-xl glass-card-inner text-white/70 text-xs font-bold"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase text-[#B7C0BC]">REQUESTED NEW {fieldLabel}</label>
+            <label className="text-[10px] font-bold uppercase text-[var(--text-secondary)]">REQUESTED NEW {fieldLabel}</label>
             <input
               type="text"
               required
               value={requestedValue}
               onChange={(e) => setRequestedValue(e.target.value)}
               placeholder={`Enter new ${fieldLabel.toLowerCase()}`}
-              className="w-full px-3 py-2 rounded-xl bg-[#111417] border border-[#3A4148] text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              className="w-full px-3 py-2 rounded-xl glass-card-inner text-white text-xs font-bold focus:outline-none focus:ring-2 focus:ring-cyan-400"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase text-[#B7C0BC]">REASON FOR CHANGE</label>
+            <label className="text-[10px] font-bold uppercase text-[var(--text-secondary)]">REASON FOR CHANGE</label>
             <textarea
               required
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="State clear reason for requesting this update..."
-              className="w-full px-3 py-2 rounded-xl bg-[#111417] border border-[#3A4148] text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              className="w-full px-3 py-2 rounded-xl glass-card-inner text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-cyan-400"
             />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="text" onClick={() => setShowEditModal(false)}>
+            <Button variant="tonal" onClick={() => setShowEditModal(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submittingRequest}>
+            <Button type="submit" variant="filled">
               <Send className="w-3.5 h-3.5 mr-1.5" />
               {submittingRequest ? 'Submitting...' : 'Submit Request'}
             </Button>

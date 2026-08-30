@@ -213,45 +213,46 @@ export const EmployeeFAQScreen: React.FC = () => {
   })).filter(section => section.questions.length > 0);
 
   return (
-    <div className="min-h-screen bg-background pb-32">
-      <div className="bg-[#1D113B]/90 backdrop-blur-md border-b border-purple-500/10 sticky top-0 z-30">
+    <div className="min-h-screen pb-32">
+      {/* Header */}
+      <div className="bg-[var(--card-surface)]/90 backdrop-blur-md border-b border-[var(--border)] sticky top-0 z-30">
         <div className="container mx-auto px-4 py-3 flex items-center gap-3">
           <button 
             onClick={() => navigate(-1)}
-            className="p-1.5 rounded-full bg-purple-500/10 text-purple-300 hover:text-white hover:bg-purple-500/20 transition-colors"
+            className="p-2 rounded-xl bg-[var(--card-bg)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--card-surface)] transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
-            <h1 className="text-sm font-black text-white">Help & FAQ</h1>
-            <p className="text-[10px] text-purple-300">Find quick answers about using Office Management System</p>
+            <h1 className="text-base font-black text-[var(--text-primary)] tracking-wide">Help & FAQ</h1>
+            <p className="text-[11px] text-[var(--text-secondary)]">Find quick answers about using Office Management System</p>
           </div>
         </div>
       </div>
 
       <div className="container mx-auto px-4 pt-6 max-w-2xl space-y-6">
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
           <input 
             type="text" 
             placeholder="Search FAQs..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-[#2D1B5A]/80 border border-purple-500/30 rounded-2xl py-3 pl-10 pr-4 text-sm text-white placeholder-purple-300 focus:outline-none focus:border-purple-500 transition-colors shadow-sm"
+            className="w-full bg-[var(--card-surface)] border border-[var(--border)] rounded-2xl py-3 pl-10 pr-4 text-sm text-[var(--text-primary)] placeholder-[var(--text-secondary)]/50 focus:outline-none focus:border-[var(--primary)] transition-colors shadow-sm"
           />
         </div>
 
         {filteredData.length === 0 ? (
           <div className="text-center py-10">
-            <HelpCircle className="w-10 h-10 text-purple-500/40 mx-auto mb-3" />
-            <p className="text-sm font-bold text-purple-200">No matching FAQs found</p>
-            <p className="text-xs text-purple-400 mt-1">Try searching with different keywords</p>
+            <HelpCircle className="w-10 h-10 text-[var(--primary)]/40 mx-auto mb-3" />
+            <p className="text-sm font-bold text-[var(--text-primary)]">No matching FAQs found</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-1">Try searching with different keywords</p>
           </div>
         ) : (
           <div className="space-y-6">
             {filteredData.map((section, idx) => (
               <div key={idx} className="space-y-3">
-                <h3 className="text-[11px] font-black tracking-wider text-purple-300 uppercase px-1">
+                <h3 className="text-[11px] font-black tracking-wider text-[var(--primary-light)] uppercase px-1">
                   {section.category}
                 </h3>
                 <div className="space-y-2">
@@ -261,20 +262,24 @@ export const EmployeeFAQScreen: React.FC = () => {
                     return (
                       <Card 
                         key={qIdx}
-                        className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'border-purple-500/50 bg-[#2D1B5A]/90' : 'border-purple-500/20 bg-[#2D1B5A]/40'}`}
+                        className={`overflow-hidden transition-all duration-300 ${
+                          isExpanded 
+                            ? 'border-[var(--primary)]/50 bg-[var(--card-surface)] shadow-lg' 
+                            : 'border-[var(--border)] bg-[var(--card-bg)] hover:border-[var(--border-strong)]'
+                        }`}
                       >
                         <button 
-                          className="w-full px-4 py-3.5 flex items-center justify-between gap-4 text-left"
+                          className="w-full px-4 py-3.5 flex items-center justify-between gap-4 text-left cursor-pointer"
                           onClick={() => toggleAccordion(id)}
                         >
-                          <span className={`text-xs font-bold ${isExpanded ? 'text-white' : 'text-purple-100'}`}>
+                          <span className={`text-xs font-bold ${isExpanded ? 'text-white' : 'text-[var(--text-primary)]'}`}>
                             {item.q}
                           </span>
-                          <ChevronDown className={`w-4 h-4 shrink-0 transition-transform duration-300 ${isExpanded ? 'rotate-180 text-purple-300' : 'text-purple-500'}`} />
+                          <ChevronDown className={`w-4 h-4 shrink-0 transition-transform duration-300 ${isExpanded ? 'rotate-180 text-[var(--primary)]' : 'text-[var(--text-secondary)]'}`} />
                         </button>
                         {isExpanded && (
-                          <div className="px-4 pb-4 pt-1">
-                            <p className="text-[11px] leading-relaxed text-purple-200/90 whitespace-pre-wrap">
+                          <div className="px-4 pb-4 pt-1 border-t border-[var(--border)]/40 mt-1">
+                            <p className="text-xs leading-relaxed text-[var(--text-secondary)] whitespace-pre-wrap">
                               {item.a}
                             </p>
                           </div>
@@ -288,13 +293,13 @@ export const EmployeeFAQScreen: React.FC = () => {
           </div>
         )}
 
-        <div className="mt-8 pt-6 border-t border-purple-500/20 text-center space-y-3 pb-8">
-          <div className="w-10 h-10 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto">
-            <MessageSquare className="w-5 h-5 text-purple-400" />
+        <div className="mt-8 pt-6 border-t border-[var(--border)] text-center space-y-3 pb-8">
+          <div className="w-10 h-10 bg-[var(--primary)]/15 border border-[var(--primary)]/30 rounded-full flex items-center justify-center mx-auto text-[var(--primary)]">
+            <MessageSquare className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-white mb-1">Still need help?</h4>
-            <p className="text-[11px] text-purple-300">Contact your administrator</p>
+            <h4 className="text-sm font-bold text-[var(--text-primary)] mb-1">Still need help?</h4>
+            <p className="text-[11px] text-[var(--text-secondary)]">Contact your administrator</p>
           </div>
         </div>
       </div>

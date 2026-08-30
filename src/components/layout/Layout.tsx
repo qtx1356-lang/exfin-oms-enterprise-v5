@@ -274,30 +274,30 @@ export const Layout: React.FC = () => {
       <div className="fixed bottom-10 right-1/4 w-[450px] h-[450px] bg-[#2563EB]/20 rounded-full blur-[160px] pointer-events-none -z-10" />
       <div className="fixed top-1/2 left-0 w-[350px] h-[500px] bg-[#06B6D4]/15 rounded-full blur-[140px] pointer-events-none -z-10" />
 
-      {/* Dynamic Header Bar with Glassmorphism */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[linear-gradient(135deg,rgba(36,16,92,0.92),rgba(16,43,99,0.92))] backdrop-blur-[24px] border-b border-[#A78BFA]/25 shadow-xl text-white">
+      {/* Dynamic Header Bar with Frosted Glassmorphism */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-[20px] border-b border-indigo-100/80 shadow-[0_4px_20px_rgba(30,41,100,0.06)] text-slate-800">
         <div className="container mx-auto px-3 sm:px-5 py-2.5 max-w-3xl flex items-center justify-between gap-2">
           {/* Left/Center Header Status & Location Controls */}
           <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
-            {/* Live Distance Value Pill */}
+            {/* Live Distance Value Pill (Cyan / Blue Accent) */}
             <div
-              className="text-[10px] font-black px-2.5 py-1 rounded-xl whitespace-nowrap shadow-sm flex items-center gap-1.5 shrink-0 uppercase tracking-tight transition-all duration-300 bg-[linear-gradient(135deg,rgba(139,92,246,0.30),rgba(37,99,235,0.30))] border border-[#A78BFA]/35 text-white"
+              className="text-[10px] font-bold px-2.5 py-1 rounded-xl whitespace-nowrap shadow-sm flex items-center gap-1.5 shrink-0 uppercase tracking-tight bg-sky-50 border border-sky-200 text-sky-700"
               title="Live distance from office"
             >
-              <MapPin className="w-3.5 h-3.5 text-[#38BDF8]" />
+              <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0" />
               <span>{formattedDistance}</span>
             </div>
 
             {/* Office Location Status Badge */}
             <div
-              className={`text-[9px] font-black px-2.5 py-1 rounded-xl border whitespace-nowrap flex items-center gap-1.5 shadow-sm select-none shrink-0 transition-all duration-500 ${
+              className={`text-[9px] font-black px-2.5 py-1 rounded-xl border whitespace-nowrap flex items-center gap-1.5 shadow-sm select-none shrink-0 transition-all duration-300 ${
                 isInsideGeofence
-                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/35 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
-                  : 'bg-rose-500/20 text-rose-300 border-rose-400/35 shadow-[0_0_12px_rgba(244,63,94,0.25)]'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.15)]'
+                  : 'bg-rose-50 text-rose-700 border-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.15)]'
               }`}
               title={isInsideGeofence ? 'Inside office geofence' : 'Outside office geofence'}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
               <span className="tracking-[0.05em]">{isInsideGeofence ? 'GEOFENCE OK' : 'OUT OF RANGE'}</span>
             </div>
 
@@ -310,14 +310,14 @@ export const Layout: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Header Navigation Controls: [Notification Bell] */}
+          {/* Right Header Navigation Controls: [Help & Notification Bell] */}
           <div className="flex items-center gap-2 shrink-0">
             {currentUser && (
               <>
                 {!adminUser && (
                   <button
                     onClick={() => navigate('/faq')}
-                    className="relative p-2 rounded-xl bg-white/10 border border-white/15 text-[#E2E8F0] hover:text-white hover:border-[#A78BFA]/40 hover:bg-white/15 transition-all cursor-pointer shadow-sm active:scale-95"
+                    className="relative p-2 rounded-xl bg-slate-100/90 border border-slate-200 text-slate-700 hover:text-indigo-600 hover:bg-slate-200/80 transition-all cursor-pointer shadow-sm active:scale-95"
                     aria-label="Help & FAQ"
                   >
                     <HelpCircle className="w-4.5 h-4.5" />
@@ -327,13 +327,13 @@ export const Layout: React.FC = () => {
                   {/* Bell Button */}
                   <button
                     onClick={handleBellClick}
-                    className="relative p-2 rounded-xl bg-white/10 border border-white/15 text-[#E2E8F0] hover:text-white hover:border-[#A78BFA]/40 hover:bg-white/15 transition-all cursor-pointer shadow-sm active:scale-95"
+                    className="relative p-2 rounded-xl bg-slate-100/90 border border-slate-200 text-slate-700 hover:text-indigo-600 hover:bg-slate-200/80 transition-all cursor-pointer shadow-sm active:scale-95"
                     aria-label="Toggle notifications"
                     id="notification-bell-btn"
                   >
                     <Bell className="w-4.5 h-4.5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#F43F5E] text-[9px] font-black text-white ring-2 ring-[#24105C] shadow-lg animate-bounce-subtle">
+                      <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#E11D48] text-[9px] font-black text-white ring-2 ring-white shadow-md animate-bounce-subtle">
                         {unreadCount}
                       </span>
                     )}
@@ -347,10 +347,10 @@ export const Layout: React.FC = () => {
                        animate={{ opacity: 1, y: 0, scale: 1 }}
                        exit={{ opacity: 0, y: 12, scale: 0.95 }}
                        transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-                       className="absolute right-0 mt-3 w-[320px] xs:w-[380px] glass-card-elevated z-50 overflow-hidden text-white shadow-2xl"
+                       className="absolute right-0 mt-3 w-[320px] xs:w-[380px] bg-[linear-gradient(135deg,#312E81_0%,#4338CA_45%,#2563EB_100%)] border border-white/20 rounded-2xl z-50 overflow-hidden text-white shadow-[0_20px_50px_rgba(30,41,100,0.35)]"
                        id="notification-bell-dropdown"
                     >
-                      <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#18204F]/90">
+                      <div className="p-4 border-b border-white/15 flex items-center justify-between bg-black/20">
                         <span className="font-black text-xs uppercase tracking-widest text-white">Intelligence Alerts</span>
                         <div className="flex items-center gap-2">
                           {unreadCount > 0 && (
@@ -366,13 +366,13 @@ export const Layout: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="max-h-80 overflow-y-auto divide-y divide-white/10">
+                      <div className="max-h-80 overflow-y-auto divide-y divide-white/10 bg-[#172554]/80">
                         {recentNotifs.length === 0 ? (
                           <div className="p-10 text-center flex flex-col items-center gap-3">
                             <div className="w-12 h-12 rounded-full bg-white/10 border border-white/15 flex items-center justify-center">
-                              <Bell className="w-5 h-5 text-[#A8B0C5]" />
+                              <Bell className="w-5 h-5 text-[#CBD5E1]" />
                             </div>
-                            <span className="text-[10px] text-[#A8B0C5] font-bold uppercase tracking-widest">System Clear</span>
+                            <span className="text-[10px] text-[#CBD5E1] font-bold uppercase tracking-widest">System Clear</span>
                           </div>
                         ) : (
                           recentNotifs.map((notif) => (
@@ -380,7 +380,7 @@ export const Layout: React.FC = () => {
                               key={notif.id}
                               onClick={() => handleNotificationClick(notif)}
                               className={`p-4 hover:bg-white/10 transition-all cursor-pointer flex items-start gap-4 text-left group relative ${
-                                notif.read ? 'opacity-50' : 'bg-transparent'
+                                notif.read ? 'opacity-60' : 'bg-transparent'
                               }`}
                             >
                               {!notif.read && (
@@ -389,7 +389,7 @@ export const Layout: React.FC = () => {
                               <div className={`mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
                                 notif.read ? 'bg-white/10 border-white/10' : 'bg-[#8B5CF6]/20 border-[#8B5CF6]/40'
                               }`}>
-                                <Info className={`w-4 h-4 ${notif.read ? 'text-[#A8B0C5]' : 'text-[#38BDF8]'}`} />
+                                <Info className={`w-4 h-4 ${notif.read ? 'text-[#CBD5E1]' : 'text-[#38BDF8]'}`} />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className={`text-xs font-black uppercase tracking-tight leading-tight ${notif.read ? 'text-[#CBD5E1]' : 'text-white'}`}>
@@ -402,7 +402,7 @@ export const Layout: React.FC = () => {
                               <div className="flex items-center gap-2 shrink-0">
                                 <button
                                   onClick={(e) => handleDeleteNotification(e, notif.id)}
-                                  className="p-1.5 rounded-lg hover:bg-rose-500/20 text-[#A8B0C5] hover:text-rose-400 transition-colors"
+                                  className="p-1.5 rounded-lg hover:bg-rose-500/20 text-[#CBD5E1] hover:text-rose-400 transition-colors"
                                   title="Remove"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -415,7 +415,7 @@ export const Layout: React.FC = () => {
 
                       <button
                         onClick={handleViewAll}
-                        className="w-full py-4 bg-[#18204F]/90 hover:bg-[#18204F] text-center text-[10px] font-black text-[#38BDF8] transition-all border-t border-white/10 flex items-center justify-center gap-2 cursor-pointer uppercase tracking-[0.2em]"
+                        className="w-full py-4 bg-black/25 hover:bg-black/35 text-center text-[10px] font-black text-[#38BDF8] transition-all border-t border-white/15 flex items-center justify-center gap-2 cursor-pointer uppercase tracking-[0.2em]"
                       >
                         <span>Portal Intelligence Center</span>
                         <ChevronRight className="w-3.5 h-3.5" />

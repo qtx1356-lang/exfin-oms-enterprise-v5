@@ -407,27 +407,27 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
 
               {/* Camera Requesting / Loading State */}
               {cameraState === 'requesting' && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center bg-[#111111]/90">
-                  <div className="w-12 h-12 rounded-full bg-[#151515] border border-[#292929] flex items-center justify-center animate-pulse">
-                    <Camera className="w-6 h-6 text-[#C7C7C7]" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center bg-black/80">
+                  <div className="w-12 h-12 rounded-full bg-[var(--card-bg)] border border-[var(--border)] flex items-center justify-center animate-pulse">
+                    <Camera className="w-6 h-6 text-[var(--primary-light)]" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Starting Camera Scanner...</h3>
-                    <p className="text-xs text-[#C7C7C7]/70 mt-1">Please allow camera permissions if prompted</p>
+                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Starting Camera Scanner...</h3>
+                    <p className="text-xs text-[var(--text-secondary)] mt-1">Please allow camera permissions if prompted</p>
                   </div>
-                  <RefreshCw className="w-5 h-5 text-[#D4AF37] animate-spin mt-2" />
+                  <RefreshCw className="w-5 h-5 text-[var(--primary-light)] animate-spin mt-2" />
                 </div>
               )}
 
               {/* Camera Error / Fallback State */}
               {cameraState === 'error' && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center bg-[#111111]">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center bg-black/90">
                   <div className="w-12 h-12 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center">
                     <AlertTriangle className="w-6 h-6 text-rose-400" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Camera Access Notice</h3>
-                    <p className="text-xs text-[#C7C7C7]/80 mt-1 max-w-xs leading-relaxed">
+                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Camera Access Notice</h3>
+                    <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-xs leading-relaxed">
                       {errorMessage || 'Unable to open live camera stream.'}
                     </p>
                   </div>
@@ -436,7 +436,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                     <button
                       type="button"
                       onClick={() => fileInputCameraRef.current?.click()}
-                      className="w-full py-2.5 px-4 bg-[#D4AF37] hover:bg-[#E6C766] active:bg-[#9C7B20] text-[#080808] font-bold text-xs rounded-xl shadow border border-[#292929] flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                      className="w-full py-2.5 px-4 bg-[var(--gradient-primary)] hover:opacity-90 active:scale-95 text-white font-bold text-xs rounded-xl shadow border border-[var(--border)] flex items-center justify-center gap-2 cursor-pointer transition-all"
                     >
                       <Camera className="w-4 h-4" />
                       <span>Take Photo with System Camera</span>
@@ -445,7 +445,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                     <button
                       type="button"
                       onClick={() => fileInputGalleryRef.current?.click()}
-                      className="w-full py-2.5 px-4 bg-[#1B1B1B] hover:bg-[#252525] text-[#C7C7C7] hover:text-white font-bold text-xs rounded-xl border border-[#292929] flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                      className="w-full py-2.5 px-4 bg-[var(--card-bg)] hover:bg-[var(--card-surface)] text-[var(--text-secondary)] hover:text-white font-bold text-xs rounded-xl border border-[var(--border)] flex items-center justify-center gap-2 cursor-pointer transition-colors"
                     >
                       <Upload className="w-4 h-4" />
                       <span>Choose from Gallery / Files</span>
@@ -454,7 +454,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                     <button
                       type="button"
                       onClick={startCamera}
-                      className="text-xs text-[#C7C7C7]/80 hover:text-[#D4AF37] underline mt-1"
+                      className="text-xs text-[var(--primary-light)] hover:underline mt-1"
                     >
                       Retry Live Camera
                     </button>
@@ -467,7 +467,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                 <button
                   type="button"
                   onClick={handleToggleCamera}
-                  className="absolute top-3 right-3 p-2.5 bg-black/60 hover:bg-black/80 backdrop-blur-md rounded-full border border-[#D4AF37]/60 text-[#C7C7C7] hover:text-white shadow-lg cursor-pointer transition-all"
+                  className="absolute top-3 right-3 p-2.5 bg-black/60 hover:bg-black/80 backdrop-blur-md rounded-full border border-[var(--border)] text-[var(--text-secondary)] hover:text-white shadow-lg cursor-pointer transition-all"
                   title="Switch Camera"
                 >
                   <SwitchCamera className="w-4 h-4" />
@@ -482,9 +482,9 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                 <button
                   type="button"
                   onClick={() => fileInputGalleryRef.current?.click()}
-                  className="flex-1 py-3 px-3 bg-[#151515] hover:bg-[#1B1B1B] active:bg-[#151515] border border-[#292929] rounded-2xl flex flex-col items-center justify-center gap-1 text-[#C7C7C7] hover:text-white transition-colors cursor-pointer"
+                  className="flex-1 py-3 px-3 bg-[var(--card-surface)] hover:bg-[var(--card-bg)] active:scale-95 border border-[var(--border)] rounded-2xl flex flex-col items-center justify-center gap-1 text-[var(--text-secondary)] hover:text-white transition-colors cursor-pointer"
                 >
-                  <Upload className="w-4 h-4 text-[#D4AF37]" />
+                  <Upload className="w-4 h-4 text-[var(--primary-light)]" />
                   <span className="text-[10px] font-bold">Gallery</span>
                 </button>
 
@@ -493,7 +493,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                   type="button"
                   id="shutter-capture-button"
                   onClick={handleCaptureSnapshot}
-                  className="w-16 h-16 rounded-full bg-[#D4AF37] hover:bg-[#E6C766] active:scale-95 shadow-xl shadow-amber-950/60 border-4 border-white/80 flex items-center justify-center cursor-pointer transition-transform"
+                  className="w-16 h-16 rounded-full bg-[var(--gradient-primary)] hover:opacity-90 active:scale-95 shadow-xl shadow-indigo-950/60 border-4 border-white/80 flex items-center justify-center cursor-pointer transition-transform"
                   title="Capture Receipt Photo"
                 >
                   <div className="w-8 h-8 rounded-full bg-white/20 border-2 border-white" />
@@ -503,9 +503,9 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                 <button
                   type="button"
                   onClick={() => fileInputCameraRef.current?.click()}
-                  className="flex-1 py-3 px-3 bg-[#151515] hover:bg-[#1B1B1B] active:bg-[#151515] border border-[#292929] rounded-2xl flex flex-col items-center justify-center gap-1 text-[#C7C7C7] hover:text-white transition-colors cursor-pointer"
+                  className="flex-1 py-3 px-3 bg-[var(--card-surface)] hover:bg-[var(--card-bg)] active:scale-95 border border-[var(--border)] rounded-2xl flex flex-col items-center justify-center gap-1 text-[var(--text-secondary)] hover:text-white transition-colors cursor-pointer"
                 >
-                  <Camera className="w-4 h-4 text-[#D4AF37]" />
+                  <Camera className="w-4 h-4 text-[var(--primary-light)]" />
                   <span className="text-[10px] font-bold">Native App</span>
                 </button>
               </div>
@@ -521,25 +521,25 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
             {/* Captured Image Preview with Zoom Controls */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#E6C766] uppercase tracking-wider flex items-center gap-1.5">
-                  <Check className="w-4 h-4 text-[#D4AF37]" /> Captured Receipt Preview
+                <span className="text-xs font-bold text-[var(--primary-light)] uppercase tracking-wider flex items-center gap-1.5">
+                  <Check className="w-4 h-4 text-emerald-400" /> Captured Receipt Preview
                 </span>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => setZoomScale((s) => Math.max(0.75, s - 0.25))}
-                    className="p-1 bg-[#1B1B1B] hover:bg-[#252525] text-[#C7C7C7] rounded text-xs"
+                    className="p-1 bg-[var(--card-surface)] hover:bg-[var(--card-bg)] text-[var(--text-secondary)] rounded text-xs"
                     title="Zoom Out"
                   >
                     <ZoomOut className="w-3.5 h-3.5" />
                   </button>
-                  <span className="text-[10px] font-mono text-[#C7C7C7] w-10 text-center">
+                  <span className="text-[10px] font-mono text-[var(--text-secondary)] w-10 text-center">
                     {Math.round(zoomScale * 100)}%
                   </span>
                   <button
                     type="button"
                     onClick={() => setZoomScale((s) => Math.min(2.5, s + 0.25))}
-                    className="p-1 bg-[#1B1B1B] hover:bg-[#252525] text-[#C7C7C7] rounded text-xs"
+                    className="p-1 bg-[var(--card-surface)] hover:bg-[var(--card-bg)] text-[var(--text-secondary)] rounded text-xs"
                     title="Zoom In"
                   >
                     <ZoomIn className="w-3.5 h-3.5" />
@@ -547,7 +547,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                 </div>
               </div>
 
-              <div className="relative bg-[#111111] rounded-2xl overflow-hidden border border-[#292929] h-48 max-h-52 flex items-center justify-center p-1">
+              <div className="relative bg-black/60 rounded-2xl overflow-hidden border border-[var(--border)] h-48 max-h-52 flex items-center justify-center p-1">
                 <img
                   src={capturedImage}
                   alt="Scanned Receipt"
@@ -560,28 +560,28 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                   type="button"
                   id="btn-retake-receipt"
                   onClick={handleRetake}
-                  className="absolute bottom-2 right-2 px-3 py-1.5 bg-black/70 hover:bg-black/90 backdrop-blur-md text-[#C7C7C7] hover:text-white rounded-full border border-[#D4AF37]/60 text-xs font-bold flex items-center gap-1.5 shadow-lg transition-colors cursor-pointer"
+                  className="absolute bottom-2 right-2 px-3 py-1.5 bg-black/70 hover:bg-black/90 backdrop-blur-md text-[var(--text-secondary)] hover:text-white rounded-full border border-[var(--border)] text-xs font-bold flex items-center gap-1.5 shadow-lg transition-colors cursor-pointer"
                 >
-                  <RotateCcw className="w-3.5 h-3.5 text-[#E6C766]" />
+                  <RotateCcw className="w-3.5 h-3.5 text-[var(--primary-light)]" />
                   <span>Retake</span>
                 </button>
               </div>
             </div>
 
             {/* Quick Review Form Fields */}
-            <div className="bg-[#151515] p-4 rounded-2xl border border-[#292929] space-y-3">
-              <div className="flex items-center justify-between pb-1 border-b border-[#292929]">
-                <span className="text-xs font-black text-[#C7C7C7] uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" /> Receipt Details Verification
+            <div className="bg-[var(--card-surface)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+              <div className="flex items-center justify-between pb-1 border-b border-[var(--border)]">
+                <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-[var(--primary-light)]" /> Receipt Details Verification
                 </span>
-                <span className="text-[10px] text-[#8A8A8A]">Review before confirming</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">Review before confirming</span>
               </div>
 
               {/* Amount & Category */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-[#C7C7C7] uppercase flex items-center gap-1">
-                    <IndianRupee className="w-3 h-3 text-[#D4AF37]" /> Amount (₹) <span className="text-rose-400">*</span>
+                  <label className="text-[11px] font-bold text-[var(--text-secondary)] uppercase flex items-center gap-1">
+                    <IndianRupee className="w-3 h-3 text-[var(--primary-light)]" /> Amount (₹) <span className="text-rose-400">*</span>
                   </label>
                   <input
                     id="scanned-receipt-amount"
@@ -592,22 +592,22 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="e.g. 550"
                     required
-                    className="w-full px-3 py-2 rounded-xl border border-[#292929] bg-[#121212] text-white text-xs font-bold focus:outline-none focus:border-[#D4AF37]"
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-black/40 text-white text-xs font-bold focus:outline-none focus:border-[var(--primary-light)]"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-[#C7C7C7] uppercase flex items-center gap-1">
-                    <Briefcase className="w-3 h-3 text-[#D4AF37]" /> Category <span className="text-rose-400">*</span>
+                  <label className="text-[11px] font-bold text-[var(--text-secondary)] uppercase flex items-center gap-1">
+                    <Briefcase className="w-3 h-3 text-[var(--primary-light)]" /> Category <span className="text-rose-400">*</span>
                   </label>
                   <select
                     id="scanned-receipt-category"
                     value={category}
                     onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#292929] bg-[#121212] text-white text-xs font-semibold focus:outline-none focus:border-[#D4AF37]/60"
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-black/40 text-white text-xs font-semibold focus:outline-none focus:border-[var(--primary-light)]"
                   >
                     {EXPENSE_CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
+                      <option key={cat} value={cat} className="bg-slate-900 text-white">
                         {cat}
                       </option>
                     ))}
@@ -618,21 +618,21 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
               {/* Date & Merchant */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-[#C7C7C7] uppercase flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-[#D4AF37]" /> Receipt Date <span className="text-rose-400">*</span>
+                  <label className="text-[11px] font-bold text-[var(--text-secondary)] uppercase flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-[var(--primary-light)]" /> Receipt Date <span className="text-rose-400">*</span>
                   </label>
                   <input
                     id="scanned-receipt-date"
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-[#292929] bg-[#121212] text-white text-xs font-semibold focus:outline-none focus:border-[#D4AF37]/60"
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-black/40 text-white text-xs font-semibold focus:outline-none focus:border-[var(--primary-light)]"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-[#C7C7C7] uppercase flex items-center gap-1">
-                    <Store className="w-3 h-3 text-[#D4AF37]" /> Merchant / Vendor
+                  <label className="text-[11px] font-bold text-[var(--text-secondary)] uppercase flex items-center gap-1">
+                    <Store className="w-3 h-3 text-[var(--primary-light)]" /> Merchant / Vendor
                   </label>
                   <input
                     id="scanned-receipt-merchant"
@@ -640,7 +640,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                     value={merchant}
                     onChange={(e) => setMerchant(e.target.value)}
                     placeholder="e.g. Indian Oil / Hotel Taj"
-                    className="w-full px-3 py-2 rounded-xl border border-[#292929] bg-[#121212] text-white text-xs focus:outline-none focus:border-[#D4AF37]/60"
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-black/40 text-white text-xs focus:outline-none focus:border-[var(--primary-light)]"
                   />
                 </div>
               </div>
@@ -648,8 +648,8 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
               {/* Bill Number & GST */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-[#C7C7C7] uppercase flex items-center gap-1">
-                    <FileText className="w-3 h-3 text-[#D4AF37]" /> Bill / Invoice #
+                  <label className="text-[11px] font-bold text-[var(--text-secondary)] uppercase flex items-center gap-1">
+                    <FileText className="w-3 h-3 text-[var(--primary-light)]" /> Bill / Invoice #
                   </label>
                   <input
                     id="scanned-receipt-billnum"
@@ -657,13 +657,13 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                     value={receiptNumber}
                     onChange={(e) => setReceiptNumber(e.target.value)}
                     placeholder="e.g. INV-2026-981"
-                    className="w-full px-3 py-2 rounded-xl border border-[#292929] bg-[#121212] text-white text-xs focus:outline-none focus:border-[#D4AF37]/60"
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-black/40 text-white text-xs focus:outline-none focus:border-[var(--primary-light)]"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-[#C7C7C7] uppercase flex items-center gap-1">
-                    <Percent className="w-3 h-3 text-[#D4AF37]" /> GST / Tax (₹)
+                  <label className="text-[11px] font-bold text-[var(--text-secondary)] uppercase flex items-center gap-1">
+                    <Percent className="w-3 h-3 text-[var(--primary-light)]" /> GST / Tax (₹)
                   </label>
                   <input
                     id="scanned-receipt-gst"
@@ -673,7 +673,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                     value={gstAmount}
                     onChange={(e) => setGstAmount(e.target.value)}
                     placeholder="Optional"
-                    className="w-full px-3 py-2 rounded-xl border border-[#292929] bg-[#121212] text-white text-xs focus:outline-none focus:border-[#D4AF37]/60"
+                    className="w-full px-3 py-2 rounded-xl border border-[var(--border)] bg-black/40 text-white text-xs focus:outline-none focus:border-[var(--primary-light)]"
                   />
                 </div>
               </div>
@@ -701,7 +701,7 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({
                 type="button"
                 id="btn-confirm-scanned-receipt"
                 onClick={handleConfirmReceipt}
-                className="flex-[2] py-2.5 px-4 bg-[#D4AF37] hover:bg-[#E6C766] text-[#080808] font-bold text-xs rounded-xl shadow-lg border border-[#292929] flex items-center justify-center gap-2 cursor-pointer transition-all"
+                className="flex-[2] py-2.5 px-4 bg-[var(--gradient-primary)] hover:opacity-90 text-white font-bold text-xs rounded-xl shadow-lg border border-[var(--border)] flex items-center justify-center gap-2 cursor-pointer transition-all"
               >
                 <Check className="w-4 h-4" />
                 <span>Use Receipt & Fill Form</span>

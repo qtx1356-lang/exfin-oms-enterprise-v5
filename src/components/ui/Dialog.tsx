@@ -12,25 +12,25 @@ export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-[#0B0D2C]/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-[linear-gradient(135deg,rgba(45,27,100,0.98),rgba(20,42,91,0.98))] backdrop-blur-[20px] border border-[#A78BFA]/35 w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col rounded-2xl p-0 shadow-[0_16px_40px_rgba(17,16,74,0.70)] animate-in zoom-in-95 duration-200 text-white">
-        <div className="p-4 flex-shrink-0 border-b border-[#A78BFA]/20 flex items-center justify-between bg-[#18204F]/80">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-[linear-gradient(135deg,#312E81_0%,#4338CA_45%,#2563EB_100%)] border border-white/25 w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col rounded-2xl p-0 shadow-[0_20px_50px_rgba(30,41,100,0.35)] animate-in zoom-in-95 duration-200 text-white">
+        <div className="p-4 flex-shrink-0 border-b border-white/15 flex items-center justify-between bg-black/20">
           <h2 className="text-sm font-bold text-white tracking-tight">{title}</h2>
           <button 
             onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-[#A8B0C5] hover:text-white hover:bg-white/15 transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-[#CBD5E1] hover:text-white hover:bg-white/15 transition-colors cursor-pointer"
           >
             ✕
           </button>
         </div>
-        <div className="p-4 overflow-y-auto text-[#E2E8F0] text-sm leading-relaxed break-words min-h-0 bg-[#18204F]/60">
+        <div className="p-4 overflow-y-auto text-[#E2E8F0] text-sm leading-relaxed break-words min-h-0 bg-[#172554]/70">
           {children}
         </div>
         {!hideDefaultFooter && (
-          <div className="p-3.5 flex-shrink-0 border-t border-[#A78BFA]/20 flex justify-end gap-2 bg-[#18204F]/80">
+          <div className="p-3.5 flex-shrink-0 border-t border-white/15 flex justify-end gap-2 bg-black/20">
             <button 
               onClick={onClose}
-              className="px-4 py-1.5 text-xs font-semibold text-[#E2E8F0] rounded-xl hover:bg-white/15 hover:text-white transition-colors cursor-pointer border border-[#A78BFA]/20"
+              className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-white/15 hover:bg-white/25 transition-colors cursor-pointer border border-white/20"
             >
               Close
             </button>
@@ -40,3 +40,4 @@ export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children
     </div>
   );
 };
+

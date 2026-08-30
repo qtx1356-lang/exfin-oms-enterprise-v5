@@ -148,18 +148,18 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   });
 
   return (
-    <Card className={`p-4 sm:p-5 bg-[linear-gradient(135deg,rgba(76,29,149,0.80),rgba(30,41,100,0.90))] backdrop-blur-[16px] border ${statusBorderColor} shadow-[0_8px_32px_rgba(17,16,74,0.50)] relative overflow-hidden transition-all duration-300 text-white`}>
+    <Card className={`p-4 sm:p-5 bg-[linear-gradient(135deg,#312E81_0%,#4338CA_45%,#2563EB_100%)] border border-white/20 shadow-[0_10px_30px_rgba(30,41,100,0.18)] relative overflow-hidden transition-all duration-300 text-white`}>
       {/* Background Subtle Glow */}
-      <div className="absolute top-0 right-0 w-48 h-48 bg-[#8B5CF6]/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header Row */}
-      <div className="flex items-center justify-between pb-3 border-b border-[#A78BFA]/20 mb-4">
+      <div className="flex items-center justify-between pb-3 border-b border-white/15 mb-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[linear-gradient(135deg,#18204F,#20205D)] border border-[#A78BFA]/30 flex items-center justify-center shadow-sm">
+          <div className="w-8 h-8 rounded-xl bg-[linear-gradient(135deg,#172554_0%,#1E3A8A_100%)] border border-white/20 flex items-center justify-center shadow-sm">
             <StateIcon className="w-4 h-4 text-[#38BDF8]" />
           </div>
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-wider text-white">TODAY'S ATTENDANCE</h2>
+            <h2 className="text-xs font-black uppercase tracking-wider text-white">TODAY'S ATTENDANCE</h2>
             <p className="text-[10px] text-[#CBD5E1] font-medium">{todayDateFormatted}</p>
           </div>
         </div>
@@ -183,13 +183,13 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
 
           <div className="mt-2 text-xs font-medium text-[#CBD5E1]">
             {isCheckedOut ? (
-              <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+              <span className="text-emerald-300 font-bold flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Checked in {todayRecord.checkInTime} — Checked out {todayRecord.checkOutTime}
               </span>
             ) : isCheckedIn ? (
               <span className="text-white flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-emerald-400" />
-                Checked in at <strong className="text-emerald-400 font-mono">{todayRecord.checkInTime}</strong>
+                Checked in at <strong className="text-emerald-300 font-mono">{todayRecord.checkInTime}</strong>
               </span>
             ) : (
               <span className="text-[#CBD5E1]">
@@ -200,7 +200,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
         </div>
 
         {/* Working Time Badge */}
-        <div className="bg-[linear-gradient(135deg,#18204F,#20205D)] p-3.5 rounded-2xl border border-[#F59E0B]/30 flex flex-col items-start sm:items-end justify-center shadow-md">
+        <div className="bg-[linear-gradient(135deg,#172554_0%,#1E3A8A_100%)] p-3.5 rounded-2xl border border-amber-400/30 flex flex-col items-start sm:items-end justify-center shadow-[0_4px_16px_rgba(15,23,42,0.35)]">
           <span className="text-[10px] font-bold uppercase tracking-widest text-[#F59E0B] flex items-center gap-1 mb-0.5">
             <Activity className="w-3.5 h-3.5 text-[#F59E0B]" />
             WORKING TIME
@@ -212,30 +212,30 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
       </div>
 
       {/* Check-In & Checkout Display Cards */}
-      <div className="pt-3 border-t border-[#A78BFA]/20">
+      <div className="pt-3 border-t border-white/15">
         <div className="grid grid-cols-2 gap-3">
           {/* Check-In Box */}
-          <div className="bg-[linear-gradient(135deg,#18204F,#20205D)] p-3 rounded-xl border border-[#A78BFA]/20 space-y-1 shadow-sm">
+          <div className="bg-[linear-gradient(135deg,#172554_0%,#1E3A8A_100%)] p-3 rounded-xl border border-white/15 space-y-1 shadow-sm">
             <span className="text-[10px] font-bold text-[#CBD5E1] uppercase tracking-wider block">
               CHECK-IN
             </span>
             <span className="text-base sm:text-lg font-black font-mono text-white block">
               {todayRecord?.checkInTime || 'Not recorded'}
             </span>
-            <span className="text-[10px] text-[#A8B0C5] font-medium block truncate">
+            <span className="text-[10px] text-[#94A3B8] font-medium block truncate">
               {isCheckedIn ? (attendanceType === 'OFFICE' ? 'Office HQ' : attendanceType.replace('_', ' ')) : 'Awaiting check-in'}
             </span>
           </div>
 
           {/* Checkout Box */}
-          <div className="bg-[linear-gradient(135deg,#18204F,#20205D)] p-3 rounded-xl border border-[#A78BFA]/20 space-y-1 shadow-sm">
+          <div className="bg-[linear-gradient(135deg,#172554_0%,#1E3A8A_100%)] p-3 rounded-xl border border-white/15 space-y-1 shadow-sm">
             <span className="text-[10px] font-bold text-[#CBD5E1] uppercase tracking-wider block">
               CHECKOUT
             </span>
             <span className="text-base sm:text-lg font-black font-mono text-white block">
               {todayRecord?.checkOutTime || 'Not recorded'}
             </span>
-            <span className="text-[10px] text-[#A8B0C5] font-medium block truncate">
+            <span className="text-[10px] text-[#94A3B8] font-medium block truncate">
               {isCheckedOut ? 'Checkout recorded' : isCheckedIn ? 'Session in progress' : 'Not recorded'}
             </span>
           </div>
