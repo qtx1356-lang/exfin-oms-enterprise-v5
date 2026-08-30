@@ -75,7 +75,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               </div>
             </div>
 
-            <div className="bg-slate-100 p-4 rounded-xl text-xs text-rose-200 mb-5 overflow-auto max-h-64 font-mono border border-rose-500/20">
+            <div className="glass-inner-tile p-4 rounded-xl text-xs text-rose-200 mb-5 overflow-auto max-h-64 font-mono border border-rose-500/20">
               <p className="font-bold text-rose-300 mb-1">ERROR: {sanitizedMessage}</p>
               {this.state.error?.stack && (
                 <p className="text-slate-400 text-[11px] leading-relaxed whitespace-pre-wrap">

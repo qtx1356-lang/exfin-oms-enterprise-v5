@@ -42,6 +42,7 @@
   --app-background: linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%);
   --app-bg: linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%);
   --app-bg-secondary: linear-gradient(145deg, rgba(25, 19, 11, 0.98) 0%, rgba(38, 29, 15, 0.98) 60%, rgba(20, 15, 8, 0.98) 100%);
+  --app-background-secondary: linear-gradient(145deg, rgba(25, 19, 11, 0.98) 0%, rgba(38, 29, 15, 0.98) 60%, rgba(20, 15, 8, 0.98) 100%);
 
   /* 2. CARD SURFACES — AUTHORITATIVE OPAQUE PREMIUM DARK GOLD SYSTEM */
   --card-bg-primary: #1F190E;

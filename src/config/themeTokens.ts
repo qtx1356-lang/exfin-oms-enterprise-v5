@@ -1,97 +1,79 @@
 /**
- * EXFIN OMS — Premium Gradient UI Design System Tokens
- * 4-Layer Architecture:
- * 1. Light Aurora Background
- * 2. Rich Indigo/Blue Gradient Cards
- * 3. Dark Blue/Navy Inner Stat Cards
- * 4. Vibrant Semantic Action Buttons & Accents
+ * EXFIN OMS — Premium Dark Gold & Emerald UI Design System Tokens
+ * Architecture:
+ * 1. Deep Teal / Emerald Aurora Background
+ * 2. Premium Dark Gold / Metallic Bronze Gradient Cards
+ * 3. Deeper Bronze Inner Stat Cards
+ * 4. High-Contrast White Text & Semantic Accents
  */
 
 export const THEME_TOKENS = {
-  // 1. Application Backgrounds (Light Aurora Palette)
+  // 1. Application Backgrounds & Card Gradients
   bg: {
-    app: '#F4F7FB',
-    appGradient: 'linear-gradient(135deg, #F4F7FB 0%, #E9EEF7 45%, #F4F1FA 75%, #EAF6F7 100%)',
-    header: 'linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(240, 244, 255, 0.92) 100%)',
-    card: 'linear-gradient(135deg, #312E81 0%, #4338CA 45%, #2563EB 100%)',
-    cardPurple: 'linear-gradient(135deg, #4C1D95 0%, #5B21B6 45%, #2563EB 100%)',
-    cardInner: 'linear-gradient(135deg, #172554 0%, #1E3A8A 100%)',
-    cardInnerDark: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
-    nav: 'linear-gradient(135deg, #172554 0%, #312E81 100%)',
-    input: '#FFFFFF',
-    inputDark: 'rgba(15, 23, 42, 0.75)',
+    app: '#061A28',
+    appGradient: 'linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%)',
+    header: 'rgba(6, 27, 43, 0.95)',
+    card: 'linear-gradient(145deg, rgba(31, 25, 14, 0.98) 0%, rgba(44, 34, 18, 0.98) 50%, rgba(26, 20, 11, 0.98) 100%)',
+    cardElevated: 'linear-gradient(145deg, rgba(25, 19, 11, 0.98) 0%, rgba(38, 29, 15, 0.98) 60%, rgba(20, 15, 8, 0.98) 100%)',
+    cardInner: 'linear-gradient(145deg, rgba(18, 14, 8, 0.98) 0%, rgba(28, 21, 11, 0.98) 100%)',
+    nav: 'rgba(6, 27, 43, 0.95)',
+    input: '#120E08',
   },
 
   // 2. Borders
   border: {
-    card: 'rgba(255, 255, 255, 0.18)',
-    cardSubtle: 'rgba(255, 255, 255, 0.10)',
-    cardInner: 'rgba(255, 255, 255, 0.12)',
-    light: 'rgba(203, 213, 225, 0.80)',
-    accent: '#8B5CF6',
-    cyan: '#06B6D4',
+    card: 'rgba(212, 175, 55, 0.22)',
+    cardSubtle: 'rgba(212, 175, 55, 0.14)',
+    cardInner: 'rgba(212, 175, 55, 0.14)',
+    accent: '#22D3EE',
+    gold: '#D4AF37',
   },
 
-  // 3. Semantic Accents (Consistent across entire app)
+  // 3. Semantic Accents
   accent: {
-    attendance: '#38BDF8',   // Cyan / Blue
-    attendanceAlt: '#06B6D4',
+    attendance: '#22D3EE',   // Cyan / Blue
     workingTime: '#F59E0B',  // Amber / Orange
-    workingTimeAlt: '#EA580C',
-    tasks: '#A78BFA',        // Violet
-    tasksAlt: '#8B5CF6',
-    progress: '#10B981',     // Emerald / Teal
-    progressAlt: '#14B8A6',
+    tasks: '#8B5CF6',        // Violet
+    progress: '#10B981',     // Emerald Green
     expenses: '#F97316',     // Orange
-    leave: '#F43F5E',        // Rose
-    location: '#06B6D4',     // Cyan
-    notifications: '#8B5CF6',// Violet
-    admin: '#4F46E5',        // Indigo
+    leave: '#22D3EE',        // Cyan
+    danger: '#F43F5E',       // Rose / Red
   },
 
-  // 4. Action Button & Container Gradients
+  // 4. Action Button Gradients
   gradients: {
-    primaryButton: 'linear-gradient(135deg, #7C3AED 0%, #2563EB 100%)',
-    successButton: 'linear-gradient(135deg, #059669 0%, #0D9488 100%)',
-    warningButton: 'linear-gradient(135deg, #F59E0B 0%, #EA580C 100%)',
-    dangerButton: 'linear-gradient(135deg, #E11D48 0%, #DC2626 100%)',
+    primaryButton: 'linear-gradient(135deg, #10B981 0%, #06B6D4 50%, #2563EB 100%)',
+    successButton: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+    warningButton: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+    dangerButton: 'linear-gradient(135deg, #F43F5E 0%, #E11D48 100%)',
     
-    cardPrimary: 'linear-gradient(135deg, #312E81 0%, #4338CA 45%, #2563EB 100%)',
-    cardSecondary: 'linear-gradient(135deg, #4C1D95 0%, #5B21B6 45%, #2563EB 100%)',
-    cardInner: 'linear-gradient(135deg, #172554 0%, #1E3A8A 100%)',
-    nav: 'linear-gradient(135deg, #172554 0%, #312E81 100%)',
-    bg: 'linear-gradient(135deg, #F4F7FB 0%, #E9EEF7 45%, #F4F1FA 75%, #EAF6F7 100%)',
+    cardPrimary: 'linear-gradient(145deg, rgba(31, 25, 14, 0.98) 0%, rgba(44, 34, 18, 0.98) 50%, rgba(26, 20, 11, 0.98) 100%)',
+    cardInner: 'linear-gradient(145deg, rgba(18, 14, 8, 0.98) 0%, rgba(28, 21, 11, 0.98) 100%)',
+    bg: 'linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%)',
   },
 
   // 5. Shadows
   shadow: {
-    card: '0 10px 30px rgba(30, 41, 100, 0.18)',
-    cardHover: '0 14px 36px rgba(30, 41, 100, 0.24)',
-    inner: '0 4px 16px rgba(15, 23, 42, 0.35)',
-    button: '0 4px 14px rgba(99, 102, 241, 0.35)',
-    nav: '0 10px 35px rgba(23, 37, 84, 0.40)',
+    card: '0 10px 30px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 215, 0, 0.10)',
+    inner: '0 4px 16px rgba(0, 0, 0, 0.45)',
+    button: '0 4px 14px rgba(16, 185, 129, 0.35)',
+    nav: '0 -10px 30px rgba(3, 12, 22, 0.60)',
   },
 
   // 6. Text Contrast System
   text: {
-    // On Light Aurora Canvas
-    lightPrimary: '#111827',
-    lightSecondary: '#475569',
-    lightMuted: '#64748B',
-
-    // On Dark Gradient Cards
-    cardPrimary: '#FFFFFF',
-    cardSecondary: '#E2E8F0',
-    cardMuted: '#CBD5E1',
+    primary: '#F8FAFC',    // White / Light
+    secondary: '#CBD5E1',  // Muted light slate
+    muted: '#94A3B8',      // Muted slate
   },
 
   // 7. Border Radius Hierarchy
   radius: {
     sm: '8px',
     md: '12px',
-    card: '16px',
-    inner: '12px',
-    button: '10px',
+    card: '20px',
+    inner: '16px',
+    button: '12px',
     pill: '9999px',
   },
 } as const;

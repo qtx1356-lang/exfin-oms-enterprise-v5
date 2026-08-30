@@ -320,17 +320,17 @@ export const NotificationSettingsCard: React.FC = () => {
       {/* MASTER CONTROLS */}
       <div className="space-y-3 pt-1">
         {/* Push Notifications Switch */}
-        <div className="flex items-center justify-between glass-inner-tile p-3 rounded-xl border border-purple-500/10">
+        <div className="flex items-center justify-between glass-inner-tile p-3 rounded-xl border border-[var(--border)]">
           <div>
             <p className="text-xs font-bold text-white">Push Notifications</p>
-            <p className="text-[10px] text-purple-300/70">
+            <p className="text-[10px] text-[var(--text-secondary)]">
               Receive alerts when app is minimized or closed
             </p>
           </div>
           <button
             onClick={() => handleToggle('pushEnabled')}
             className={`w-12 h-6 rounded-full transition-colors p-0.5 relative cursor-pointer ${
-              settings.pushEnabled ? 'bg-purple-600' : 'bg-slate-700'
+              settings.pushEnabled ? 'bg-emerald-600' : 'bg-slate-700'
             }`}
           >
             <div
@@ -343,7 +343,7 @@ export const NotificationSettingsCard: React.FC = () => {
 
         {/* Sound Toggle */}
         <div className="space-y-1">
-          <div className="flex items-center justify-between glass-inner-tile p-3 rounded-xl border border-purple-500/10">
+          <div className="flex items-center justify-between glass-inner-tile p-3 rounded-xl border border-[var(--border)]">
             <div className="flex items-center gap-2">
               {settings.soundEnabled ? (
                 <Volume2 className="w-4 h-4 text-emerald-400" />
@@ -352,7 +352,7 @@ export const NotificationSettingsCard: React.FC = () => {
               )}
               <div>
                 <p className="text-xs font-bold text-white">Notification Sound</p>
-                <p className="text-[10px] text-purple-300/70">
+                <p className="text-[10px] text-[var(--text-secondary)]">
                   Play audio chime for new alerts
                 </p>
               </div>
@@ -360,7 +360,7 @@ export const NotificationSettingsCard: React.FC = () => {
             <button
               onClick={() => handleToggle('soundEnabled')}
               className={`w-12 h-6 rounded-full transition-colors p-0.5 relative cursor-pointer ${
-                settings.soundEnabled ? 'bg-purple-600' : 'bg-slate-700'
+                settings.soundEnabled ? 'bg-emerald-600' : 'bg-slate-700'
               }`}
             >
               <div
@@ -372,8 +372,8 @@ export const NotificationSettingsCard: React.FC = () => {
           </div>
 
           {/* Clarification Explanation */}
-          <div className="px-2 pt-0.5 flex items-start gap-1.5 text-[10px] text-purple-300/60 leading-tight">
-            <Info className="w-3 h-3 text-purple-400 shrink-0 mt-0.5" />
+          <div className="px-2 pt-0.5 flex items-start gap-1.5 text-[10px] text-[var(--text-muted)] leading-tight">
+            <Info className="w-3 h-3 text-[var(--primary)] shrink-0 mt-0.5" />
             <span>
               OS permission allows Android to show alert popups. Notification Sound
               controls app audio chime preferences. System channel settings
@@ -383,12 +383,12 @@ export const NotificationSettingsCard: React.FC = () => {
         </div>
 
         {/* Vibration Toggle */}
-        <div className="flex items-center justify-between glass-inner-tile p-3 rounded-xl border border-purple-500/10">
+        <div className="flex items-center justify-between glass-inner-tile p-3 rounded-xl border border-[var(--border)]">
           <div className="flex items-center gap-2">
-            <Vibrate className="w-4 h-4 text-purple-400" />
+            <Vibrate className="w-4 h-4 text-[var(--primary)]" />
             <div>
               <p className="text-xs font-bold text-white">Haptic Vibration</p>
-              <p className="text-[10px] text-purple-300/70">
+              <p className="text-[10px] text-[var(--text-secondary)]">
                 Vibrate device on high-priority notifications
               </p>
             </div>
@@ -396,7 +396,7 @@ export const NotificationSettingsCard: React.FC = () => {
           <button
             onClick={() => handleToggle('vibrationEnabled')}
             className={`w-12 h-6 rounded-full transition-colors p-0.5 relative cursor-pointer ${
-              settings.vibrationEnabled ? 'bg-purple-600' : 'bg-slate-700'
+              settings.vibrationEnabled ? 'bg-emerald-600' : 'bg-slate-700'
             }`}
           >
             <div
@@ -409,13 +409,13 @@ export const NotificationSettingsCard: React.FC = () => {
       </div>
 
       {/* CATEGORY TOGGLES */}
-      <div className="pt-2 border-t border-purple-500/10 space-y-2">
-        <p className="text-[10px] font-black uppercase tracking-wider text-purple-300">
+      <div className="pt-2 border-t border-[var(--border)] space-y-2">
+        <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">
           Notification Categories
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-          <div className="flex items-center justify-between glass-inner-tile p-2.5 rounded-xl border border-purple-500/10">
+          <div className="flex items-center justify-between glass-inner-tile p-2.5 rounded-xl border border-[var(--border)]">
             <div className="flex items-center gap-2">
               <ClipboardList className="w-3.5 h-3.5 text-blue-400" />
               <span className="font-bold text-white">Task Assignments</span>
@@ -424,11 +424,11 @@ export const NotificationSettingsCard: React.FC = () => {
               type="checkbox"
               checked={settings.taskNotifs}
               onChange={() => handleToggle('taskNotifs')}
-              className="accent-purple-500 w-4 h-4 rounded cursor-pointer"
+              className="accent-emerald-500 w-4 h-4 rounded cursor-pointer"
             />
           </div>
 
-          <div className="flex items-center justify-between glass-inner-tile p-2.5 rounded-xl border border-purple-500/10">
+          <div className="flex items-center justify-between glass-inner-tile p-2.5 rounded-xl border border-[var(--border)]">
             <div className="flex items-center gap-2">
               <FileText className="w-3.5 h-3.5 text-orange-400" />
               <span className="font-bold text-white">Leave Updates</span>
@@ -437,11 +437,11 @@ export const NotificationSettingsCard: React.FC = () => {
               type="checkbox"
               checked={settings.leaveNotifs}
               onChange={() => handleToggle('leaveNotifs')}
-              className="accent-purple-500 w-4 h-4 rounded cursor-pointer"
+              className="accent-emerald-500 w-4 h-4 rounded cursor-pointer"
             />
           </div>
 
-          <div className="flex items-center justify-between glass-inner-tile p-2.5 rounded-xl border border-purple-500/10">
+          <div className="flex items-center justify-between glass-inner-tile p-2.5 rounded-xl border border-[var(--border)]">
             <div className="flex items-center gap-2">
               <Users className="w-3.5 h-3.5 text-pink-400" />
               <span className="font-bold text-white">Team & Admin</span>
@@ -450,8 +450,9 @@ export const NotificationSettingsCard: React.FC = () => {
               type="checkbox"
               checked={settings.teamNotifs}
               onChange={() => handleToggle('teamNotifs')}
-              className="accent-purple-500 w-4 h-4 rounded cursor-pointer"
+              className="accent-emerald-500 w-4 h-4 rounded cursor-pointer"
             />
+
           </div>
 
           <div className="flex items-center justify-between glass-inner-tile p-2.5 rounded-xl border border-purple-500/10">

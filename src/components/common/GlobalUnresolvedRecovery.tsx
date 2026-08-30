@@ -236,7 +236,7 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
             </div>
             <button 
               onClick={() => setIsOpen(true)}
-              className="px-3 py-1.5 bg-white text-rose-600 font-bold text-xs rounded-lg hover:bg-rose-50 transition-colors shadow-sm"
+              className="px-3 py-1.5 btn-danger text-white font-bold text-xs rounded-lg transition-colors shadow-sm"
             >
               Resolve Now
             </button>
