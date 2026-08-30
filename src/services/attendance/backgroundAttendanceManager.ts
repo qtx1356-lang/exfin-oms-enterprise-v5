@@ -11,7 +11,6 @@ import {
   trackResourceCleaned,
 } from '../monitoring/performanceDiagnostics';
 import { registerNativeOfficeGeofence, initNativeGeofenceListener, reconcileNativeGeofenceEvents } from './nativeGeofenceBridge';
-import { isMedianApp, initializeMedianBackgroundLocation, startMedianBackgroundLocation } from './medianBackgroundLocation';
 import { isAdminContextActive } from '../../utils/attendanceUtils';
 import { reconcileAttendanceOnResume } from './resumeReconciliation';
 
@@ -187,13 +186,6 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
     registerNativeOfficeGeofence();
   });
 
-  // If running inside Median native app, start Median Background Location
-  let cleanupMedian: (() => void) | null = null;
-  if (isMedianApp()) {
-    logStartupTag('MEDIAN_INIT', 'Initializing Median native background location');
-    cleanupMedian = initializeMedianBackgroundLocation(getEmployeeInfo);
-  }
-
   // Run initial end-of-day finalizer check
   runAutoCheckoutFinalizer();
 
@@ -230,9 +222,6 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
     const info = getEmployeeInfo();
     if (info?.id) {
       safeReconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ').then(() => {
-        if (isMedianApp()) {
-          startMedianBackgroundLocation(getEmployeeInfo);
-        }
         reconcileAttendanceOnResume(info.id, info.name, info.townCity || 'Raniganj HQ').catch((err) => {
           console.warn('[BackgroundAttendanceManager] Resume reconciliation error:', err);
         });
@@ -279,7 +268,6 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
     trackResourceCleaned('SYNC_TIMER', timerKey);
     clearInterval(intervalId);
     if (cleanupNativeListener) cleanupNativeListener();
-    if (cleanupMedian) cleanupMedian();
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     window.removeEventListener('focus', handleFocus);
     window.removeEventListener('pageshow', handlePageShow);
