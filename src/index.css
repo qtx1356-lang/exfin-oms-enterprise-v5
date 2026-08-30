@@ -31,7 +31,7 @@
   /* 1. GLOBAL PAGE BACKGROUND — EMERALD AURORA GRADIENT (LOCKED) */
   --app-background: linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%);
   --app-bg: linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%);
-  --app-bg-secondary: #082838;
+  --app-bg-secondary: linear-gradient(145deg, rgba(25, 19, 11, 0.94) 0%, rgba(38, 29, 15, 0.94) 60%, rgba(20, 15, 8, 0.94) 100%);
 
   /* 2. CARD SURFACES — PREMIUM DARK GOLD GRADIENT */
   --surface: linear-gradient(145deg, rgba(31, 25, 14, 0.94) 0%, rgba(44, 34, 18, 0.94) 50%, rgba(26, 20, 11, 0.94) 100%);        /* Primary Gold Card */
@@ -219,3 +219,41 @@ button, a, input, select, textarea, [role="button"] {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Legacy Purple & Custom Hardcoded Hex Class Overrides -> Unified Gold Surface System */
+.bg-\[\#250F4C\],
+.bg-\[\#1A0B36\],
+.bg-\[\#1D093F\],
+.bg-\[\#14062B\],
+.bg-\[\#120824\],
+.bg-\[\#1C1036\],
+.bg-\[\#120726\],
+.bg-\[\#1A0B2E\],
+.bg-\[\#170B38\],
+.bg-\[\#1E1145\],
+.bg-\[\#23154C\],
+.bg-\[\#210D44\],
+.bg-\[\#170932\],
+.bg-\[\#110526\],
+.bg-\[\#1D113B\],
+.bg-\[\#1A0B36\]\/80,
+.bg-\[\#1D093F\]\/80,
+.bg-\[\#1D093F\]\/60,
+.bg-\[\#14062B\]\/60,
+.bg-\[\#120726\]\/40 {
+  background: linear-gradient(145deg, rgba(31, 25, 14, 0.94) 0%, rgba(44, 34, 18, 0.94) 50%, rgba(26, 20, 11, 0.94) 100%) !important;
+  border-color: rgba(212, 175, 55, 0.22) !important;
+  color: #F8FAFC !important;
+}
+
+/* Hardcoded purple border overrides */
+.border-purple-500\/10,
+.border-purple-500\/15,
+.border-purple-500\/20,
+.border-purple-500\/25,
+.border-purple-500\/30,
+.border-purple-500\/40,
+.border-purple-500\/50 {
+  border-color: rgba(212, 175, 55, 0.22) !important;
+}
+
