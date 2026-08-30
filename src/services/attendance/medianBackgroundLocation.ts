@@ -122,105 +122,21 @@ export const processMedianLocationEvent = (
 
 /**
  * Starts Median Background Location with high-accuracy settings for 25m office geofence monitoring
+ * Stubbed out to avoid paid native plugin requirements while maintaining compilation compatibility.
  */
 export const startMedianBackgroundLocation = async (
   getEmployeeInfo: () => { id: string; name: string; townCity?: string } | null
 ): Promise<boolean> => {
-  if (!isMedianApp()) {
-    console.log('[MedianBridge] Running in standard browser/PWA. Median native background location skipped.');
-    return false;
-  }
-
-  const employee = getEmployeeInfo();
-  const empId = employee?.id || 'ANONYMOUS';
-
-  // Construct secure background postUrl targeting the server API (avoiding localhost/capacitor origins in native app)
-  const rawOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://exfin-oms-enterprise-v5.pages.dev';
-  const origin = (rawOrigin.includes('localhost') || rawOrigin.includes('capacitor://')) ? 'https://exfin-oms-enterprise-v5.pages.dev' : rawOrigin;
-  const postUrl = `${origin}/api/median-background-location?emp=${encodeURIComponent(empId)}&source=MEDIAN_BACKGROUND_LOCATION`;
-
-  const config = {
-    // Background server POST endpoint
-    postUrl,
-    // Android Configuration for 25m boundary detection
-    androidInterval: 5000, // 5s fast interval
-    androidFastestInterval: 2000, // 2s fastest
-    androidPriority: 'highAccuracy' as const, // High Accuracy GPS
-    androidSmallestDisplacement: 0, // 0 meters filter for instant boundary crossing detection
-    androidNotificationTitle: 'EXFIN OMS Attendance Active',
-    androidNotificationText: 'Monitoring 25m office boundary for automatic attendance',
-    // iOS Configuration if applicable
-    iosBackgroundIndicator: true,
-    iosDistanceFilter: 0,
-    iosDesiredAccuracy: 'best' as const,
-    // JS Callback for foreground updates and app resume reconciliation
-    callback: (data: any) => {
-      console.log('[MedianBridge] Foreground/Resume location received:', data);
-      processMedianLocationEvent(data, getEmployeeInfo);
-    }
-  };
-
-  try {
-    const win = window as any;
-
-    // Attach global callback for Median Android WebView bridge
-    win.median_background_location_callback = (data: any) => {
-      processMedianLocationEvent(data, getEmployeeInfo);
-    };
-    win.gonative_background_location_callback = win.median_background_location_callback;
-
-    // Trigger start via median-js-bridge or window.median / window.gonative
-    if (win.median?.backgroundLocation?.start) {
-      win.median.backgroundLocation.start(config);
-    } else if (win.gonative?.backgroundLocation?.start) {
-      win.gonative.backgroundLocation.start(config);
-    } else if (median?.backgroundLocation?.start) {
-      median.backgroundLocation.start(config);
-    } else {
-      // Fallback bridge URL scheme for Median container
-      const jsonParam = encodeURIComponent(JSON.stringify(config));
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = `median://backgroundLocation/start?data=${jsonParam}`;
-      document.body.appendChild(iframe);
-      setTimeout(() => document.body.removeChild(iframe), 500);
-    }
-
-    isMedianServiceRunning = true;
-    logAttendanceEvent('GEOFENCE_ENTER', empId, 'Median Native Background Location service started successfully.');
-    return true;
-  } catch (err: any) {
-    console.warn('[MedianBridge] Failed to start Median Background Location:', err);
-    return false;
-  }
+  console.log('[MedianBridge] Paid Background Location plugin is disabled in this APK. Standard PWA tracking active.');
+  return false;
 };
 
 /**
  * Stops Median Background Location
+ * Stubbed out to avoid paid native plugin requirements while maintaining compilation compatibility.
  */
 export const stopMedianBackgroundLocation = (): void => {
-  if (!isMedianApp()) return;
-
-  try {
-    const win = window as any;
-    if (win.median?.backgroundLocation?.stop) {
-      win.median.backgroundLocation.stop();
-    } else if (win.gonative?.backgroundLocation?.stop) {
-      win.gonative.backgroundLocation.stop();
-    } else if (median?.backgroundLocation?.stop) {
-      median.backgroundLocation.stop();
-    } else {
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = 'median://backgroundLocation/stop';
-      document.body.appendChild(iframe);
-      setTimeout(() => document.body.removeChild(iframe), 500);
-    }
-    isMedianServiceRunning = false;
-    logAttendanceEvent('GEOFENCE_EXIT', 'SYSTEM', 'Median Native Background Location stopped.');
-  } catch (err) {
-    console.warn('[MedianBridge] Failed to stop Median Background Location:', err);
-  }
+  // No-op stub
 };
 
 /**
@@ -243,32 +159,12 @@ export const requestMedianLocationPermission = async (): Promise<void> => {
 
 /**
  * Initializes Median Background Location lifecycle and registers event listeners
+ * Stubbed out to avoid paid native plugin requirements while maintaining compilation compatibility.
  */
 export const initializeMedianBackgroundLocation = (
   getEmployeeInfo: () => { id: string; name: string; townCity?: string } | null
 ): (() => void) => {
-  if (!isMedianApp()) {
-    return () => {};
-  }
-
-  // Start background location tracking on Median
-  startMedianBackgroundLocation(getEmployeeInfo);
-
-  // Handle app resumed event from Median bridge
-  const handleAppResumed = () => {
-    logAttendanceEvent('GEOFENCE_ENTER', 'SYSTEM', '[MedianBridge] App resumed. Re-verifying background location status.');
-    const emp = getEmployeeInfo();
-    if (emp?.id) {
-      startMedianBackgroundLocation(getEmployeeInfo);
-    }
-  };
-
-  const win = window as any;
-  if (win.median?.appResumed) {
-    win.median.appResumed(handleAppResumed);
-  }
-
   return () => {
-    // Clean up if needed
+    // No-op cleanup
   };
 };

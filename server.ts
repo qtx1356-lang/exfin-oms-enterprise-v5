@@ -816,18 +816,12 @@ async function startServer() {
       const employeeName = empData.name || "Employee";
       const townCity = empData.townCity || "Raniganj HQ";
 
-      // Calculate distance to office
-      const distance = isLocationUnavailable ? null : (payload.distance !== undefined && typeof payload.distance === "number" ? payload.distance : calculateDistanceInMeters(latitude, longitude, OFFICE_LAT, OFFICE_LNG));
+      // Calculate distance to office authoritatively (ignoring client-supplied distance/isInside/isExit/geofenceState)
+      const distance = isLocationUnavailable ? null : calculateDistanceInMeters(latitude, longitude, OFFICE_LAT, OFFICE_LNG);
       
       let isInside = false;
       let isExit = false;
-      if (eventTypeParam === "EXIT" || eventTypeParam === "GEOFENCE_EXIT") {
-        isInside = false;
-        isExit = true;
-      } else if (eventTypeParam === "ENTER" || eventTypeParam === "GEOFENCE_RETURN") {
-        isInside = true;
-        isExit = false;
-      } else if (isLocationUnavailable) {
+      if (isLocationUnavailable) {
         isInside = false;
         isExit = false;
       } else {
