@@ -275,16 +275,16 @@ export const Layout: React.FC = () => {
       <div className="fixed top-1/2 left-0 w-[350px] h-[500px] bg-[var(--info)]/5 rounded-full blur-[140px] pointer-events-none -z-10" />
 
       {/* Dynamic Header Bar with Frosted Glassmorphism */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-[20px] border-b border-indigo-100/80 shadow-[0_4px_20px_rgba(30,41,100,0.06)] text-slate-800">
+      <header className="fixed top-0 left-0 right-0 z-50 glass-nav border-b border-purple-500/25 shadow-lg text-white">
         <div className="container mx-auto px-3 sm:px-5 py-2.5 max-w-3xl flex items-center justify-between gap-2">
           {/* Left/Center Header Status & Location Controls */}
           <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
             {/* Live Distance Value Pill (Cyan / Blue Accent) */}
             <div
-              className="text-[10px] font-bold px-2.5 py-1 rounded-xl whitespace-nowrap shadow-sm flex items-center gap-1.5 shrink-0 uppercase tracking-tight bg-sky-50 border border-sky-200 text-sky-700"
+              className="text-[10px] font-bold px-2.5 py-1 rounded-xl whitespace-nowrap shadow-sm flex items-center gap-1.5 shrink-0 uppercase tracking-tight glass-inner-tile border border-cyan-500/30 text-cyan-300"
               title="Live distance from office"
             >
-              <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+              <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
               <span>{formattedDistance}</span>
             </div>
 
@@ -292,12 +292,12 @@ export const Layout: React.FC = () => {
             <div
               className={`text-[9px] font-black px-2.5 py-1 rounded-xl border whitespace-nowrap flex items-center gap-1.5 shadow-sm select-none shrink-0 transition-all duration-300 ${
                 isInsideGeofence
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.15)]'
-                  : 'bg-rose-50 text-rose-700 border-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.15)]'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.15)]'
+                  : 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-[0_0_10px_rgba(244,63,94,0.15)]'
               }`}
               title={isInsideGeofence ? 'Inside office geofence' : 'Outside office geofence'}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
               <span className="tracking-[0.05em]">{isInsideGeofence ? 'GEOFENCE OK' : 'OUT OF RANGE'}</span>
             </div>
 
@@ -317,7 +317,7 @@ export const Layout: React.FC = () => {
                 {!adminUser && (
                   <button
                     onClick={() => navigate('/faq')}
-                    className="relative p-2 rounded-xl bg-slate-100/90 border border-slate-200 text-slate-700 hover:text-indigo-600 hover:bg-slate-200/80 transition-all cursor-pointer shadow-sm active:scale-95"
+                    className="relative p-2 rounded-xl glass-inner-tile border border-purple-500/20 text-purple-200 hover:text-white hover:bg-white/10 transition-all cursor-pointer shadow-sm active:scale-95"
                     aria-label="Help & FAQ"
                   >
                     <HelpCircle className="w-4.5 h-4.5" />
@@ -327,7 +327,7 @@ export const Layout: React.FC = () => {
                   {/* Bell Button */}
                   <button
                     onClick={handleBellClick}
-                    className="relative p-2 rounded-xl bg-slate-100/90 border border-slate-200 text-slate-700 hover:text-indigo-600 hover:bg-slate-200/80 transition-all cursor-pointer shadow-sm active:scale-95"
+                    className="relative p-2 rounded-xl glass-inner-tile border border-purple-500/20 text-purple-200 hover:text-white hover:bg-white/10 transition-all cursor-pointer shadow-sm active:scale-95"
                     aria-label="Toggle notifications"
                     id="notification-bell-btn"
                   >

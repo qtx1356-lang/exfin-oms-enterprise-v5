@@ -595,25 +595,25 @@ export const EmployeeDashboard: React.FC = () => {
       icon: HelpCircle, 
       label: 'FAQ & Help', 
       onClick: () => navigate('/faq'), 
-      bg: 'bg-slate-100 text-slate-700 border-slate-200' 
+      bg: 'glass-inner-tile text-purple-200 border-purple-500/20' 
     },
     { 
       icon: User, 
       label: 'Profile', 
       onClick: () => navigate('/profile'), 
-      bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+      bg: 'glass-inner-tile text-emerald-300 border-emerald-500/20' 
     },
     { 
       icon: Activity, 
       label: 'Work Pulse', 
       onClick: () => setActiveView('workpulse'), 
-      bg: 'bg-indigo-50 text-indigo-700 border-indigo-200' 
+      bg: 'glass-inner-tile text-indigo-300 border-indigo-500/20' 
     },
     { 
       icon: Clock, 
       label: 'Work Hours', 
       onClick: () => navigate('/work-hours'), 
-      bg: 'bg-indigo-50 text-indigo-700 border-indigo-200' 
+      bg: 'glass-inner-tile text-indigo-300 border-indigo-500/20' 
     },
   ];
 
@@ -633,7 +633,7 @@ export const EmployeeDashboard: React.FC = () => {
   );
 
   let attendanceStatusLabel = 'Not Checked In';
-  let attendanceBadgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
+  let attendanceBadgeColor = 'glass-inner-tile text-purple-200 border-purple-500/20';
 
   if (todayAttendanceRec) {
     if (todayAttendanceRec.attendanceType === 'WFH') {
@@ -906,24 +906,24 @@ export const EmployeeDashboard: React.FC = () => {
               )}
             </div>
             <div>
-              <h1 className="text-lg font-black text-slate-900 leading-tight">
+              <h1 className="text-lg font-black text-white leading-tight">
                 {employeeData.name || 'Employee'}
               </h1>
-              <p className="text-xs text-slate-600 font-medium mt-0.5">
-                Code: <span className="text-indigo-600 font-bold">{employeeData.employeeCode || 'N/A'}</span>
+              <p className="text-xs text-purple-200/80 font-medium mt-0.5">
+                Code: <span className="text-cyan-300 font-bold">{employeeData.employeeCode || 'N/A'}</span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-white/80 border border-slate-200/90 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-700 shadow-sm">
-            <MapPin className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+          <div className="flex items-center gap-1.5 glass-inner-tile border border-purple-500/20 px-3 py-1.5 rounded-full text-xs font-semibold text-purple-200 shadow-sm">
+            <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
             <span className="truncate max-w-[130px]">{employeeData.officeLocation || employeeData.workLocation || 'Raniganj HQ'}</span>
           </div>
         </div>
 
         {/* Greeting Banner */}
         <div className="text-left py-0.5">
-          <h2 className="text-xl sm:text-2xl font-black text-indigo-900 tracking-tight uppercase">
+          <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight uppercase">
             {greetingPrefix}
           </h2>
         </div>
@@ -1175,7 +1175,7 @@ export const EmployeeDashboard: React.FC = () => {
               </div>
             </div>
           )}
-          <h2 className="text-xs font-black text-indigo-900 uppercase tracking-widest mb-3">
+          <h2 className="text-xs font-black text-purple-200 uppercase tracking-widest mb-3">
             QUICK ACTIONS
           </h2>
           <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
@@ -1204,8 +1204,8 @@ export const EmployeeDashboard: React.FC = () => {
         {/* Announcements */}
         <div>
           <div className="flex justify-between items-center mb-2.5">
-            <h2 className="text-xs font-black text-indigo-900 uppercase tracking-widest flex items-center gap-1.5">
-              <Megaphone className="w-4 h-4 text-indigo-600" />
+            <h2 className="text-xs font-black text-purple-200 uppercase tracking-widest flex items-center gap-1.5">
+              <Megaphone className="w-4 h-4 text-cyan-400" />
               ANNOUNCEMENTS
             </h2>
           </div>
@@ -1225,7 +1225,7 @@ export const EmployeeDashboard: React.FC = () => {
                 </Card>
               ))
             ) : (
-              <div className="text-center py-5 text-slate-500 bg-white/70 rounded-2xl border border-dashed border-indigo-200">
+              <div className="text-center py-5 text-purple-300 glass-inner-tile rounded-2xl border border-dashed border-purple-500/30">
                 <p className="text-xs font-semibold">No recent announcements</p>
               </div>
             )}
@@ -1243,7 +1243,7 @@ export const EmployeeDashboard: React.FC = () => {
             className="fixed inset-0 z-50 bg-[var(--app-background)] overflow-y-auto"
           >
             <div className="container mx-auto p-4 max-w-3xl">
-              <div className="flex flex-col gap-5 pb-8 text-slate-900 min-h-screen">
+              <div className="flex flex-col gap-5 pb-8 text-white min-h-screen">
                 {/* Work Pulse Header */}
                 <div className="flex flex-col gap-4 pt-2">
                   <button 
@@ -1254,15 +1254,15 @@ export const EmployeeDashboard: React.FC = () => {
                   </button>
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                        <Activity className="w-3.5 h-3.5 text-indigo-600" /> WORK PULSE
+                      <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                        <Activity className="w-3.5 h-3.5 text-cyan-400" /> WORK PULSE
                       </p>
-                      <h1 className="text-2xl font-black text-slate-900 leading-tight">
+                      <h1 className="text-2xl font-black text-white leading-tight">
                         Your Work Pulse Snapshot
                       </h1>
-                      <p className="text-xs text-slate-600 mt-1">Here's your personal work snapshot 👋</p>
+                      <p className="text-xs text-purple-200/80 mt-1">Here's your personal work snapshot 👋</p>
                     </div>
-                    <div className="bg-white/80 border border-slate-200/90 px-3 py-1.5 rounded-full text-[10px] font-bold text-slate-700 mt-1 shadow-sm">
+                    <div className="glass-inner-tile border border-purple-500/30 px-3 py-1.5 rounded-full text-[10px] font-bold text-purple-200 mt-1 shadow-sm">
                       {monthName} {currentYear}
                     </div>
                   </div>
@@ -1467,7 +1467,7 @@ export const EmployeeDashboard: React.FC = () => {
 
                 {/* 5. Quick Navigation Links */}
                 <div>
-                  <h2 className="text-xs font-black text-indigo-900 uppercase tracking-widest mb-3">
+                  <h2 className="text-xs font-black text-purple-200 uppercase tracking-widest mb-3">
                     Quick Links
                   </h2>
                   <div className="grid grid-cols-2 gap-3">

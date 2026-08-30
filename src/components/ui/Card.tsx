@@ -22,7 +22,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       inner: 'glass-inner-tile',
       filled: 'glass-inner-tile',
       
-      outlined: 'bg-white/80 backdrop-blur-md border border-slate-200/90 shadow-sm text-slate-900',
+      outlined: 'glass-card border border-[var(--border)] text-white',
     };
 
     return (

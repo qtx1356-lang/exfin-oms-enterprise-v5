@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, ClipboardCheck, CalendarRange, Target, Users } from 'lucide-react';
+import { useRegistration } from '../../context/RegistrationContext';
 
 const TABS = [
   { id: 'dashboard', path: '/employee-dashboard', icon: Home, label: 'Home' },
@@ -13,13 +14,22 @@ const TABS = [
 export const BottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { employeeData } = useRegistration();
 
-  // All 5 tabs are retained permanently across all mobile and desktop layouts
-  const visibleTabs = TABS;
+  // "My Team" must be displayed ONLY when employee is assigned/designated as a Team Leader
+  const isTeamLeader = Boolean(
+    employeeData?.isTeamLeader ||
+    employeeData?.isManager ||
+    employeeData?.role === 'MANAGER' ||
+    employeeData?.role === 'ADMIN' ||
+    employeeData?.role === 'TEAM_LEADER'
+  );
+
+  const visibleTabs = TABS.filter(tab => tab.id !== 'team' || isTeamLeader);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 glass-nav z-[90] pb-safe pt-1.5 px-1 sm:px-4">
-      <div className="flex justify-between items-center h-16 max-w-md mx-auto">
+      <div className="flex justify-between items-center h-16 max-w-md mx-auto gap-1">
         {visibleTabs.map((tab) => {
           const isActive = location.pathname === tab.path;
           const Icon = tab.icon;
@@ -30,17 +40,17 @@ export const BottomNav: React.FC = () => {
               className={`relative flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-2xl transition-all duration-300 cursor-pointer select-none ${
                 isActive
                   ? 'bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-500 text-white shadow-md shadow-purple-500/25 scale-[1.02]'
-                  : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/60'
+                  : 'text-purple-200/80 hover:text-white hover:bg-white/10'
               }`}
             >
               <Icon 
                 className={`w-5 h-5 transition-transform duration-300 ${
-                  isActive ? 'text-white scale-110 drop-shadow' : 'text-slate-700'
+                  isActive ? 'text-white scale-110 drop-shadow' : 'text-purple-200/80'
                 }`}
               />
               <span 
                 className={`text-[10px] tracking-tight leading-tight mt-0.5 transition-all duration-300 whitespace-nowrap ${
-                  isActive ? 'text-white font-extrabold' : 'text-slate-700 font-bold'
+                  isActive ? 'text-white font-extrabold' : 'text-purple-200/80 font-semibold'
                 }`}
               >
                 {tab.label}

@@ -560,13 +560,13 @@ export const MyTeamScreen: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-slate-900">MY TEAM</h1>
+              <h1 className="text-xl font-black text-white">MY TEAM</h1>
               <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-sm">
                 TEAM LEADER
               </span>
             </div>
-            <p className="text-xs text-slate-600">
-              Managing team members & work planner reviews for <span className="font-bold text-slate-900">{employeeData?.name}</span>
+            <p className="text-xs text-purple-200/80">
+              Managing team members & work planner reviews for <span className="font-bold text-white">{employeeData?.name}</span>
             </p>
           </div>
         </div>
@@ -581,11 +581,11 @@ export const MyTeamScreen: React.FC = () => {
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex overflow-x-auto gap-2 p-1.5 bg-white/70 backdrop-blur-md rounded-2xl border border-slate-200 text-xs font-bold no-scrollbar">
+      <div className="flex overflow-x-auto gap-2 p-1.5 glass-card rounded-2xl border border-[var(--border)] text-xs font-bold no-scrollbar">
         <button
           onClick={() => setActiveTab('overview')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'overview' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
+            activeTab === 'overview' ? 'btn-primary text-white shadow-md' : 'text-purple-200 hover:text-white'
           }`}
         >
           <TrendingUp className="w-3.5 h-3.5" /> Overview
@@ -594,7 +594,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('members')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'members' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
+            activeTab === 'members' ? 'btn-primary text-white shadow-md' : 'text-purple-200 hover:text-white'
           }`}
         >
           <Users className="w-3.5 h-3.5" /> Team Members ({totalTeamMembers})
@@ -603,7 +603,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('tasks')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'tasks' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
+            activeTab === 'tasks' ? 'btn-primary text-white shadow-md' : 'text-purple-200 hover:text-white'
           }`}
         >
           <CheckSquare className="w-3.5 h-3.5" /> Team Tasks ({teamTasks.length})
@@ -612,7 +612,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('approvals')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'approvals' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
+            activeTab === 'approvals' ? 'btn-primary text-white shadow-md' : 'text-purple-200 hover:text-white'
           }`}
         >
           <Clock className="w-3.5 h-3.5" /> Review Queue
@@ -626,7 +626,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('reports')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'reports' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
+            activeTab === 'reports' ? 'btn-primary text-white shadow-md' : 'text-purple-200 hover:text-white'
           }`}
         >
           <BarChart3 className="w-3.5 h-3.5" /> Team Reports
@@ -635,7 +635,7 @@ export const MyTeamScreen: React.FC = () => {
         <button
           onClick={() => setActiveTab('leaves')}
           className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-            activeTab === 'leaves' ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900'
+            activeTab === 'leaves' ? 'btn-primary text-white shadow-md' : 'text-purple-200 hover:text-white'
           }`}
         >
           <Calendar className="w-3.5 h-3.5" /> Team Leaves ({teamLeaves.length})
