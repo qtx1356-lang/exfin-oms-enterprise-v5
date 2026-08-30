@@ -28,9 +28,9 @@
 }
 
 :root {
-  /* 1. LAYER 1 — APPLICATION BACKGROUND */
+  /* 1. LAYER 1 — APPLICATION BACKGROUND (LIGHT GRADIENT) */
   --app-background: var(--app-bg);
-  --app-bg: linear-gradient(135deg, #F8FAFC 0%, #EEF2FF 45%, #F5F3FF 70%, #ECFEFF 100%);
+  --app-bg: linear-gradient(135deg, #E0E7FF 0%, #EEF2FF 35%, #F3E8FF 70%, #E0F2FE 100%);
   --app-background-secondary: var(--app-bg-secondary);
   --app-bg-secondary: #FFFFFF;
 
@@ -40,15 +40,15 @@
   --surface-inner: #F8FAFC;
   --surface-hover: #F1F5F9;
 
-  /* TEXT SYSTEM */
+  /* TEXT SYSTEM (HIGH CONTRAST ON LIGHT) */
   --text-primary: #0F172A;     /* dark navy */
   --text-secondary: #334155;   /* dark slate */
-  --text-muted: #64748B;       /* readable gray/slate */
+  --text-muted: #64748B;       /* readable slate-500 */
 
   /* GLOBAL ACCENT COLORS */
   --primary: #4F46E5;
   --primary-dark: #3730A3;
-  --primary-light: #818CF8;
+  --primary-light: #6366F1;
 
   /* STATUS COLORS */
   --success: #059669; /* GREEN */
@@ -57,18 +57,18 @@
   --info: #0891B2; /* CYAN */
 
   /* BORDERS & SHADOWS */
-  --border: rgba(15, 23, 42, 0.08);
-  --divider: rgba(15, 23, 42, 0.04);
-  --shadow: 0 8px 30px rgba(15, 23, 42, 0.04);
+  --border: rgba(203, 213, 225, 0.85);
+  --divider: rgba(226, 232, 240, 0.8);
+  --shadow: 0 6px 24px -2px rgba(30, 41, 100, 0.08), 0 2px 8px -1px rgba(30, 41, 100, 0.04);
   
   /* NAVIGATION & BUTTONS */
-  --nav-bg: #FFFFFF;
-  --button-primary: linear-gradient(135deg, #7C3AED 0%, #2563EB 100%);
+  --nav-bg: rgba(255, 255, 255, 0.95);
+  --button-primary: linear-gradient(135deg, #9333EA 0%, #2563EB 50%, #06B6D4 100%);
   --button-secondary: #FFFFFF;
 }
 
 body {
-  background: var(--app-bg);
+  background: linear-gradient(135deg, #E0E7FF 0%, #EEF2FF 35%, #F3E8FF 70%, #E0F2FE 100%);
   background-attachment: fixed;
   color: var(--text-primary);
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

@@ -103,40 +103,40 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
 
   let statusTitle = 'NOT CHECKED IN';
   let statusBadgeText = 'Not Started';
-  let statusBorderColor = 'border-indigo-500/20';
-  let badgeStyle = 'bg-slate-800 text-slate-400 border-indigo-500/20';
+  let statusBorderColor = 'border-slate-300';
+  let badgeStyle = 'bg-slate-100 text-slate-700 border-slate-200/90';
   let StateIcon = Clock;
 
   if (isCheckedOut) {
     statusTitle = 'CHECKED OUT';
     statusBadgeText = 'Workday Completed';
-    statusBorderColor = 'border-emerald-500/30';
-    badgeStyle = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+    statusBorderColor = 'border-emerald-300';
+    badgeStyle = 'bg-emerald-50 text-emerald-700 border-emerald-200';
     StateIcon = CheckCircle2;
   } else if (isCheckedIn) {
     if (attendanceType === 'WFH') {
       statusTitle = 'WORK FROM HOME';
       statusBadgeText = 'WFH Active';
-      statusBorderColor = 'border-[var(--primary)]/40';
-      badgeStyle = 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30';
+      statusBorderColor = 'border-indigo-300';
+      badgeStyle = 'bg-indigo-50 text-indigo-700 border-indigo-200';
       StateIcon = Home;
     } else if (attendanceType === 'CLIENT_VISIT') {
       statusTitle = 'CLIENT VISIT';
       statusBadgeText = todayRecord.clientName ? `Client: ${todayRecord.clientName}` : 'On-Site Visit';
-      statusBorderColor = 'border-[var(--primary)]/40';
-      badgeStyle = 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30';
+      statusBorderColor = 'border-indigo-300';
+      badgeStyle = 'bg-indigo-50 text-indigo-700 border-indigo-200';
       StateIcon = MapPin;
     } else if (attendanceType === 'OUTDOOR') {
       statusTitle = 'OUTDOOR WORK';
       statusBadgeText = todayRecord.outdoorType || 'Field Duty';
-      statusBorderColor = 'border-amber-500/40';
-      badgeStyle = 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+      statusBorderColor = 'border-amber-300';
+      badgeStyle = 'bg-amber-50 text-amber-800 border-amber-200';
       StateIcon = Briefcase;
     } else {
       statusTitle = 'PRESENT';
       statusBadgeText = todayRecord.checkInMode === 'AUTO' ? 'Auto Check-In' : 'Office Attendance';
-      statusBorderColor = 'border-emerald-500/30';
-      badgeStyle = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+      statusBorderColor = 'border-emerald-300';
+      badgeStyle = 'bg-emerald-50 text-emerald-700 border-emerald-200';
       StateIcon = CheckCircle2;
     }
   }
@@ -148,23 +148,23 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   });
 
   return (
-    <Card className={`p-4 sm:p-5 glass-card border border-[var(--border)] shadow-[0_10px_30px_rgba(30,41,100,0.18)] relative overflow-hidden transition-all duration-300 text-[var(--text-primary)]`}>
+    <Card className={`p-4 sm:p-5 glass-card border border-[var(--border)] shadow-md relative overflow-hidden transition-all duration-300 text-[var(--text-primary)]`}>
       {/* Background Subtle Glow */}
-      <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-50/50 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header Row */}
       <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] mb-4">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl glass-inner-tile border border-[var(--border)] flex items-center justify-center shadow-sm">
-            <StateIcon className="w-4 h-4 text-[var(--primary-light)]" />
+            <StateIcon className="w-4 h-4 text-indigo-600" />
           </div>
           <div>
-            <h2 className="text-xs font-black uppercase tracking-wider text-[var(--text-primary)]">TODAY'S ATTENDANCE</h2>
-            <p className="text-[10px] text-[var(--text-muted)] font-medium">{todayDateFormatted}</p>
+            <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">TODAY'S ATTENDANCE</h2>
+            <p className="text-[10px] text-slate-500 font-medium">{todayDateFormatted}</p>
           </div>
         </div>
 
-        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${badgeStyle} flex items-center gap-1.5`}>
+        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${badgeStyle} flex items-center gap-1.5 shadow-sm`}>
           <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
           {statusBadgeText}
         </span>
@@ -173,26 +173,26 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
       {/* Main Status Title & Details */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center mb-4">
         <div>
-          <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider block mb-0.5">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">
             Current Status
           </span>
 
-          <h1 className="text-2xl sm:text-3xl font-black text-[var(--text-primary)] tracking-tight leading-none">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
             {statusTitle}
           </h1>
 
-          <div className="mt-2 text-xs font-medium text-[var(--text-muted)]">
+          <div className="mt-2 text-xs font-medium text-slate-600">
             {isCheckedOut ? (
-              <span className="text-emerald-300 font-bold flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Checked in {todayRecord.checkInTime} — Checked out {todayRecord.checkOutTime}
+              <span className="text-emerald-700 font-bold flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Checked in {todayRecord.checkInTime} — Checked out {todayRecord.checkOutTime}
               </span>
             ) : isCheckedIn ? (
-              <span className="text-[var(--text-primary)] flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-emerald-400" />
-                Checked in at <strong className="text-emerald-300 font-mono">{todayRecord.checkInTime}</strong>
+              <span className="text-slate-800 font-semibold flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                Checked in at <strong className="text-emerald-700 font-mono font-bold">{todayRecord.checkInTime}</strong>
               </span>
             ) : (
-              <span className="text-[var(--text-muted)]">
+              <span className="text-slate-500">
                 Check-in not yet recorded today
               </span>
             )}

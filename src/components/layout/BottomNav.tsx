@@ -1,7 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, ClipboardCheck, CalendarRange, Target, Users } from 'lucide-react';
-import { useRegistration } from '../../context/RegistrationContext';
 
 const TABS = [
   { id: 'dashboard', path: '/employee-dashboard', icon: Home, label: 'Home' },
@@ -14,16 +13,13 @@ const TABS = [
 export const BottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { employeeData } = useRegistration();
 
-  // Show "My Team" only for managers or specific roles, or always if you want
-  const hasTeam = employeeData?.role === 'MANAGER' || employeeData?.role === 'ADMIN' || employeeData?.isManager === true;
-  
-  const visibleTabs = TABS.filter(tab => tab.id !== 'team' || hasTeam);
+  // All 5 tabs are retained permanently across all mobile and desktop layouts
+  const visibleTabs = TABS;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 glass-nav z-[90] pb-safe pt-2">
-      <div className="flex justify-around items-center h-16 px-2">
+    <nav className="fixed bottom-0 left-0 right-0 glass-nav z-[90] pb-safe pt-1.5 px-1 sm:px-4">
+      <div className="flex justify-between items-center h-16 max-w-md mx-auto">
         {visibleTabs.map((tab) => {
           const isActive = location.pathname === tab.path;
           const Icon = tab.icon;
@@ -31,27 +27,26 @@ export const BottomNav: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => navigate(tab.path)}
-              className="relative flex flex-col items-center justify-center w-16 h-14 cursor-pointer"
+              className={`relative flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-2xl transition-all duration-300 cursor-pointer select-none ${
+                isActive
+                  ? 'bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-500 text-white shadow-md shadow-purple-500/25 scale-[1.02]'
+                  : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100/60'
+              }`}
             >
-              {isActive && (
-                <div className="absolute inset-0 bg-[var(--primary)]/10 rounded-2xl pointer-events-none" />
-              )}
               <Icon 
-                className={`w-6 h-6 mb-1 transition-all duration-300 ${
-                  isActive 
-                    ? 'text-[var(--primary)] scale-110' 
-                    : 'text-[var(--text-muted)] scale-95'
+                className={`w-5 h-5 transition-transform duration-300 ${
+                  isActive ? 'text-white scale-110 drop-shadow' : 'text-slate-700'
                 }`}
               />
               <span 
-                className={`text-[10px] font-semibold tracking-wide transition-all duration-300 ${
-                  isActive ? 'text-[var(--primary)]' : 'text-[var(--text-muted)]'
+                className={`text-[10px] tracking-tight leading-tight mt-0.5 transition-all duration-300 whitespace-nowrap ${
+                  isActive ? 'text-white font-extrabold' : 'text-slate-700 font-bold'
                 }`}
               >
                 {tab.label}
               </span>
               {isActive && (
-                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-[var(--primary)] rounded-b-full" />
+                <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-6 h-1 bg-cyan-400 rounded-full shadow-sm" />
               )}
             </button>
           );
@@ -60,3 +55,4 @@ export const BottomNav: React.FC = () => {
     </nav>
   );
 };
+

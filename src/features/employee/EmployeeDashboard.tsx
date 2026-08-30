@@ -582,38 +582,38 @@ export const EmployeeDashboard: React.FC = () => {
       icon: MessageSquare, 
       label: 'Chat', 
       onClick: () => navigate('/chat'), 
-      bg: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' 
+      bg: 'bg-cyan-50 text-cyan-700 border-cyan-200' 
     },
     { 
       icon: Bell, 
       label: 'Notifications', 
       badge: unreadNotificationCount > 0 ? unreadNotificationCount : null,
       onClick: () => navigate('/notifications'), 
-      bg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' 
+      bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' 
     },
     { 
       icon: HelpCircle, 
       label: 'FAQ & Help', 
       onClick: () => navigate('/faq'), 
-      bg: 'bg-slate-500/15 text-slate-300 border-slate-500/30' 
+      bg: 'bg-slate-100 text-slate-700 border-slate-200' 
     },
     { 
       icon: User, 
       label: 'Profile', 
       onClick: () => navigate('/profile'), 
-      bg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' 
+      bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' 
     },
     { 
       icon: Activity, 
       label: 'Work Pulse', 
       onClick: () => setActiveView('workpulse'), 
-      bg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' 
+      bg: 'bg-indigo-50 text-indigo-700 border-indigo-200' 
     },
     { 
       icon: Clock, 
       label: 'Work Hours', 
       onClick: () => navigate('/work-hours'), 
-      bg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' 
+      bg: 'bg-indigo-50 text-indigo-700 border-indigo-200' 
     },
   ];
 
@@ -633,28 +633,28 @@ export const EmployeeDashboard: React.FC = () => {
   );
 
   let attendanceStatusLabel = 'Not Checked In';
-  let attendanceBadgeColor = 'glass-inner-tile text-purple-200 border-purple-500/20';
+  let attendanceBadgeColor = 'bg-slate-100 text-slate-700 border-slate-200';
 
   if (todayAttendanceRec) {
     if (todayAttendanceRec.attendanceType === 'WFH') {
       attendanceStatusLabel = 'WFH';
-      attendanceBadgeColor = 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+      attendanceBadgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
     } else if (todayAttendanceRec.attendanceType === 'CLIENT_VISIT') {
       attendanceStatusLabel = 'Client Visit';
-      attendanceBadgeColor = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30';
+      attendanceBadgeColor = 'bg-indigo-50 text-indigo-700 border-indigo-200';
     } else if (todayAttendanceRec.attendanceType === 'OUTDOOR') {
       attendanceStatusLabel = 'Outdoor Work';
-      attendanceBadgeColor = 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+      attendanceBadgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
     } else if (todayAttendanceRec.checkOutTime && todayAttendanceRec.checkOutTime !== '--:--') {
       attendanceStatusLabel = 'Checked Out';
-      attendanceBadgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+      attendanceBadgeColor = 'bg-amber-50 text-amber-800 border-amber-200';
     } else {
       attendanceStatusLabel = 'Checked In';
-      attendanceBadgeColor = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+      attendanceBadgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
     }
   } else if (hasApprovedLeaveToday) {
     attendanceStatusLabel = 'On Leave';
-    attendanceBadgeColor = 'bg-pink-500/20 text-pink-300 border-pink-500/30';
+    attendanceBadgeColor = 'bg-pink-50 text-pink-700 border-pink-200';
   }
 
   // Working Time duration
@@ -1279,13 +1279,13 @@ export const EmployeeDashboard: React.FC = () => {
                         </span>
                       )}
                       <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider
-                        ${todayStatus === 'Present' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30' :
-                          todayStatus === 'WFH' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/30' :
-                          todayStatus === 'Client Visit' ? 'bg-sky-500/20 text-sky-300 border border-sky-400/30' :
-                          todayStatus === 'Outdoor Work' ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30' :
-                          todayStatus === 'Leave' ? 'bg-amber-500/20 text-amber-300 border border-amber-400/30' :
-                          todayStatus === 'Absent' ? 'bg-rose-500/20 text-rose-300 border border-rose-400/30' :
-                          'bg-[var(--surface-inner)] text-[var(--text-primary)] border border-[var(--border)]'}`}
+                        ${todayStatus === 'Present' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                          todayStatus === 'WFH' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
+                          todayStatus === 'Client Visit' ? 'bg-sky-50 text-sky-700 border border-sky-200' :
+                          todayStatus === 'Outdoor Work' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                          todayStatus === 'Leave' ? 'bg-amber-50 text-amber-800 border border-amber-200' :
+                          todayStatus === 'Absent' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                          'bg-slate-100 text-slate-700 border border-slate-200'}`}
                       >
                         {todayStatus}
                       </span>
