@@ -63,22 +63,26 @@ export async function onRequest(context) {
   ];
 
   function getEffectiveRecipients(fsData) {
+    // 1. Persisted Firestore Configuration is the SINGLE SOURCE OF TRUTH if present
+    if (fsData?.fields?.adminEmails?.arrayValue) {
+      const fsList = (fsData.fields.adminEmails.arrayValue.values || [])
+        .map(v => v.stringValue?.trim())
+        .filter(Boolean);
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const valid = fsList.filter(e => emailRegex.test(e));
+      return { valid: true, recipients: valid, error: null };
+    }
+
+    // 2. Initial Fallback to environment variable ONLY if no saved configuration document exists
     const rawEnv = env?.EMAIL_RECIPIENTS || (typeof process !== 'undefined' ? process.env?.EMAIL_RECIPIENTS : undefined);
     if (rawEnv && typeof rawEnv === 'string' && rawEnv.trim().length > 0) {
       const envList = rawEnv.split(',').map(s => s.trim()).filter(Boolean);
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       const valid = envList.filter(e => emailRegex.test(e));
-      if (valid.length === 3) return { valid: true, recipients: valid, error: null };
-      return { valid: false, recipients: [], error: 'EMAIL_RECIPIENTS contains invalid recipient configuration.' };
+      return { valid: true, recipients: valid, error: null };
     }
 
-    if (fsData?.fields?.adminEmails?.arrayValue?.values) {
-      const fsList = fsData.fields.adminEmails.arrayValue.values.map(v => v.stringValue?.trim()).filter(Boolean);
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const valid = fsList.filter(e => emailRegex.test(e));
-      if (valid.length === 3) return { valid: true, recipients: valid, error: null };
-    }
-
+    // 3. Fallback to DEFAULT_TARGET_RECIPIENTS on initial unconfigured state
     return { valid: true, recipients: [...DEFAULT_TARGET_RECIPIENTS], error: null };
   }
 
@@ -95,8 +99,8 @@ export async function onRequest(context) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const validRecipients = (recipients || []).map(r => String(r).trim()).filter(r => emailRegex.test(r));
 
-    if (validRecipients.length !== 3) {
-      throw new Error('EMAIL_RECIPIENTS contains invalid recipient configuration.');
+    if (validRecipients.length === 0) {
+      throw new Error('No valid email recipients are configured.');
     }
 
     let socket;
@@ -233,12 +237,43 @@ export async function onRequest(context) {
 
     if (request.method === 'POST' && pathStr === 'config') {
       const body = await request.json();
-      const recipients = (body.adminEmails && body.adminEmails.length === 3) ? body.adminEmails : DEFAULT_TARGET_RECIPIENTS;
+      const rawEmails = Array.isArray(body.adminEmails) ? body.adminEmails : [];
+      
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const cleanedRecipients = [];
+      const seen = new Set();
+      for (const raw of rawEmails) {
+        if (typeof raw === 'string') {
+          const trimmed = raw.trim();
+          if (emailRegex.test(trimmed)) {
+            const lower = trimmed.toLowerCase();
+            if (!seen.has(lower)) {
+              seen.add(lower);
+              cleanedRecipients.push(trimmed);
+            }
+          }
+        }
+      }
+
+      if (cleanedRecipients.length === 0) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'At least one valid email recipient is required before saving configuration.'
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      if (cleanedRecipients.length > 20) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Maximum 20 email recipients are allowed.'
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+
       const firestoreBody = {
         fields: {
           enabled: { booleanValue: !!body.enabled },
           sendTime: { stringValue: body.sendTime || '07:00 AM' },
-          adminEmails: { arrayValue: { values: recipients.map(e => ({ stringValue: e })) } },
+          adminEmails: { arrayValue: { values: cleanedRecipients.map(e => ({ stringValue: e })) } },
           includeAttendance: { booleanValue: !!body.includeAttendance },
           includeLeaves: { booleanValue: !!body.includeLeaves },
           includeExpenses: { booleanValue: !!body.includeExpenses },
@@ -251,7 +286,7 @@ export async function onRequest(context) {
         const err = await res.json().catch(() => ({}));
         return new Response(JSON.stringify({ success: false, error: err.error?.message || 'Failed to save config' }), { status: res.status, headers: { 'Content-Type': 'application/json' } });
       }
-      return new Response(JSON.stringify({ success: true, config: { ...body, adminEmails: recipients } }), { headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ success: true, config: { ...body, adminEmails: cleanedRecipients } }), { headers: { 'Content-Type': 'application/json' } });
     }
 
     if (request.method === 'GET' && pathStr === 'history') {
@@ -268,14 +303,16 @@ export async function onRequest(context) {
         if (!d.document) return null;
         const doc = d.document;
         const fields = doc.fields || {};
+        const rcptStr = fields.recipient?.stringValue || '';
+        const rcptList = rcptStr ? rcptStr.split(', ') : (fields.recipients?.arrayValue?.values?.map(v => v.stringValue) || []);
         return {
           id: doc.name.split('/').pop(),
           status: fields.status?.stringValue,
           startedAt: fields.startedAt?.stringValue || fields.createdAt?.timestampValue,
           completedAt: fields.completedAt?.stringValue,
           reportDate: fields.reportDate?.stringValue,
-          recipientCount: fields.recipientCount?.integerValue || 3,
-          recipients: DEFAULT_TARGET_RECIPIENTS,
+          recipientCount: fields.recipientCount?.integerValue || rcptList.length,
+          recipients: rcptList,
           recipient: fields.recipient?.stringValue,
           error: fields.error?.stringValue
         };
@@ -298,6 +335,13 @@ export async function onRequest(context) {
       }
       const recipients = recipientRes.recipients;
 
+      if (recipients.length === 0) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'No valid email recipients are configured.'
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+
       const emailHtml = `<!DOCTYPE html><html><body style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;"><div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgb(0 0 0 / 0.05); border-top: 4px solid #6366f1;"><h2 style="color: #1e1b4b; margin-top: 0;">EXFIN OMS — Connection Verification</h2><p>This is a <strong>Test Daily Report</strong> designed to verify that the EXFIN OMS backend email server configuration is fully operational.</p><p>Details:</p><table style="width: 100%; border-collapse: collapse; font-size: 13px;"><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Status</td><td style="padding: 8px 0; color: #10b981;">ACTIVE / OPERATIONAL</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Recipients</td><td style="padding: 8px 0;">${recipients.join(', ')}</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Recipient Count</td><td style="padding: 8px 0;">${recipients.length}</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Dispatched From</td><td style="padding: 8px 0;">EXFIN OMS CF Pages Server</td></tr></table></div></body></html>`;
 
       try {
@@ -313,7 +357,7 @@ export async function onRequest(context) {
 
         return new Response(JSON.stringify({ 
           success: true, 
-          message: `Test email sent to 3 recipients`,
+          message: `Test email sent to ${recipients.length} recipient${recipients.length === 1 ? '' : 's'}`,
           recipientCount: recipients.length,
           recipients,
           messageId: sendRes.messageId

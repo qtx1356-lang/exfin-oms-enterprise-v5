@@ -179,7 +179,7 @@ export function DailyAdminReportTab() {
       };
 
       // Fetch config
-      const configData = await safeFetchJson(API_BASE_URL + '/api/admin/daily-report/config', { headers });
+      const configData = await safeFetchJson(API_BASE_URL + `/api/admin/daily-report/config?t=${Date.now()}`, { headers });
       if (configData.success) {
         setConfig(configData.config);
       } else {
@@ -187,7 +187,7 @@ export function DailyAdminReportTab() {
       }
 
       // Fetch history
-      const historyData = await safeFetchJson(API_BASE_URL + '/api/admin/daily-report/history', { headers });
+      const historyData = await safeFetchJson(API_BASE_URL + `/api/admin/daily-report/history?t=${Date.now()}`, { headers });
       if (historyData.success) {
         setHistory(historyData.history || []);
       }
@@ -213,6 +213,11 @@ export function DailyAdminReportTab() {
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isSuperAdmin || !config) return;
+
+    if (!config.adminEmails || config.adminEmails.length === 0) {
+      setStatusMsg({ type: 'error', text: 'At least one email recipient is required before saving configuration.' });
+      return;
+    }
 
     setSaving(true);
     setStatusMsg(null);

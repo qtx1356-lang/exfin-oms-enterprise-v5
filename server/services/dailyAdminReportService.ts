@@ -36,14 +36,14 @@ export const DEFAULT_TARGET_RECIPIENTS = [
 ];
 
 export function getCentralizedRecipients(configEmails?: string[]): string[] {
+  if (Array.isArray(configEmails)) {
+    return configEmails;
+  }
   if (process.env.EMAIL_RECIPIENTS) {
     const envList = process.env.EMAIL_RECIPIENTS.split(',').map(s => s.trim()).filter(Boolean);
-    if (envList.length === 3) {
+    if (envList.length > 0) {
       return envList;
     }
-  }
-  if (configEmails && configEmails.length === 3) {
-    return configEmails;
   }
   return [...DEFAULT_TARGET_RECIPIENTS];
 }
@@ -219,6 +219,12 @@ export async function getDailyReportConfig(db?: Firestore | null): Promise<Daily
   try {
     const snap = await db.collection('notification_settings').doc('daily_admin_report_config').get();
     if (!snap.exists) {
+      if (process.env.EMAIL_RECIPIENTS) {
+        const envList = process.env.EMAIL_RECIPIENTS.split(',').map(s => s.trim()).filter(Boolean);
+        if (envList.length > 0) {
+          inMemoryReportConfig.adminEmails = envList;
+        }
+      }
       hasLoadedFromFirestore = true;
       return { ...inMemoryReportConfig };
     }
@@ -230,7 +236,7 @@ export async function getDailyReportConfig(db?: Firestore | null): Promise<Daily
       adminEmails = data.adminEmails;
     } else if (typeof data?.adminEmail === 'string' && data.adminEmail.trim()) {
       adminEmails = [data.adminEmail.trim()];
-    } else if (inMemoryReportConfig.adminEmails.length > 0) {
+    } else {
       adminEmails = inMemoryReportConfig.adminEmails;
     }
 
