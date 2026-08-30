@@ -841,7 +841,7 @@ export async function sendDailyReportTestEmail(
   if (recipients.length !== 3 || recipients.some(r => !emailRegex.test(r))) {
     return {
       success: false,
-      message: 'Email recipient configuration is missing or invalid.',
+      message: 'EMAIL_RECIPIENTS contains invalid recipient configuration.',
       recipientCount: 0,
       recipients: []
     };

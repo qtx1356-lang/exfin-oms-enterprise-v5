@@ -29,7 +29,7 @@ export async function sendMail(payload: EmailPayload): Promise<SendEmailResult> 
     return {
       success: false,
       simulated: false,
-      error: 'Email recipient configuration is missing or invalid.'
+      error: 'SMTP_USER or SMTP_PASSWORD is not configured in the production environment.'
     };
   }
 
@@ -48,7 +48,7 @@ export async function sendMail(payload: EmailPayload): Promise<SendEmailResult> 
     return {
       success: false,
       simulated: false,
-      error: 'Email recipient configuration is missing or invalid.'
+      error: 'EMAIL_RECIPIENTS contains invalid recipient configuration.'
     };
   }
 

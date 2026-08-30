@@ -63,32 +63,40 @@ export async function onRequest(context) {
   ];
 
   function getEffectiveRecipients(fsData) {
-    if (env.EMAIL_RECIPIENTS) {
-      const envList = env.EMAIL_RECIPIENTS.split(',').map(s => s.trim()).filter(Boolean);
-      if (envList.length === 3) return envList;
+    const rawEnv = env?.EMAIL_RECIPIENTS || (typeof process !== 'undefined' ? process.env?.EMAIL_RECIPIENTS : undefined);
+    if (rawEnv && typeof rawEnv === 'string' && rawEnv.trim().length > 0) {
+      const envList = rawEnv.split(',').map(s => s.trim()).filter(Boolean);
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const valid = envList.filter(e => emailRegex.test(e));
+      if (valid.length === 3) return { valid: true, recipients: valid, error: null };
+      return { valid: false, recipients: [], error: 'EMAIL_RECIPIENTS contains invalid recipient configuration.' };
     }
+
     if (fsData?.fields?.adminEmails?.arrayValue?.values) {
       const fsList = fsData.fields.adminEmails.arrayValue.values.map(v => v.stringValue?.trim()).filter(Boolean);
-      if (fsList.length === 3) return fsList;
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const valid = fsList.filter(e => emailRegex.test(e));
+      if (valid.length === 3) return { valid: true, recipients: valid, error: null };
     }
-    return [...DEFAULT_TARGET_RECIPIENTS];
+
+    return { valid: true, recipients: [...DEFAULT_TARGET_RECIPIENTS], error: null };
   }
 
   async function sendEmailViaGmailSmtp(recipients, subject, html) {
-    const host = env.SMTP_HOST || 'smtp.gmail.com';
-    const port = parseInt(env.SMTP_PORT || '465', 10);
-    const user = env.SMTP_USER;
-    const pass = env.SMTP_PASSWORD || env.SMTP_PASS;
+    const host = env.SMTP_HOST || (typeof process !== 'undefined' ? process.env?.SMTP_HOST : undefined) || 'smtp.gmail.com';
+    const port = parseInt(env.SMTP_PORT || (typeof process !== 'undefined' ? process.env?.SMTP_PORT : undefined) || '465', 10);
+    const user = env.SMTP_USER || (typeof process !== 'undefined' ? process.env?.SMTP_USER : undefined);
+    const pass = env.SMTP_PASSWORD || env.SMTP_PASS || (typeof process !== 'undefined' ? (process.env?.SMTP_PASSWORD || process.env?.SMTP_PASS) : undefined);
 
     if (!user || !pass) {
-      throw new Error('Email recipient configuration is missing or invalid.');
+      throw new Error('SMTP_USER or SMTP_PASSWORD is not configured in the production environment.');
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const validRecipients = (recipients || []).map(r => String(r).trim()).filter(r => emailRegex.test(r));
 
     if (validRecipients.length !== 3) {
-      throw new Error('Email recipient configuration is missing or invalid.');
+      throw new Error('EMAIL_RECIPIENTS contains invalid recipient configuration.');
     }
 
     let socket;
@@ -209,7 +217,8 @@ export async function onRequest(context) {
       if (res.ok) {
         fsData = await res.json();
       }
-      const recipients = getEffectiveRecipients(fsData);
+      const recipientRes = getEffectiveRecipients(fsData);
+      const recipients = recipientRes.recipients || DEFAULT_TARGET_RECIPIENTS;
       const config = {
         enabled: fsData?.fields?.enabled?.booleanValue ?? true,
         sendTime: fsData?.fields?.sendTime?.stringValue ?? '07:00 AM',
@@ -280,7 +289,14 @@ export async function onRequest(context) {
       if (res.ok) {
         fsData = await res.json();
       }
-      const recipients = getEffectiveRecipients(fsData);
+      const recipientRes = getEffectiveRecipients(fsData);
+      if (!recipientRes.valid) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: recipientRes.error
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+      const recipients = recipientRes.recipients;
 
       const emailHtml = `<!DOCTYPE html><html><body style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;"><div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgb(0 0 0 / 0.05); border-top: 4px solid #6366f1;"><h2 style="color: #1e1b4b; margin-top: 0;">EXFIN OMS — Connection Verification</h2><p>This is a <strong>Test Daily Report</strong> designed to verify that the EXFIN OMS backend email server configuration is fully operational.</p><p>Details:</p><table style="width: 100%; border-collapse: collapse; font-size: 13px;"><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Status</td><td style="padding: 8px 0; color: #10b981;">ACTIVE / OPERATIONAL</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Recipients</td><td style="padding: 8px 0;">${recipients.join(', ')}</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Recipient Count</td><td style="padding: 8px 0;">${recipients.length}</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Dispatched From</td><td style="padding: 8px 0;">EXFIN OMS CF Pages Server</td></tr></table></div></body></html>`;
 
@@ -314,7 +330,14 @@ export async function onRequest(context) {
       if (res.ok) {
         fsData = await res.json();
       }
-      const recipients = getEffectiveRecipients(fsData);
+      const recipientRes = getEffectiveRecipients(fsData);
+      if (!recipientRes.valid) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: recipientRes.error
+        }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+      const recipients = recipientRes.recipients;
       const targetDate = body.date || new Date().toISOString().split('T')[0];
 
       // Fetch Employees
