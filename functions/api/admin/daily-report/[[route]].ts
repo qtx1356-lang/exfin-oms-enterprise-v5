@@ -93,21 +93,21 @@ export async function onRequest(context) {
     const pass = env.SMTP_PASSWORD || env.SMTP_PASS || (typeof process !== 'undefined' ? (process.env?.SMTP_PASSWORD || process.env?.SMTP_PASS) : undefined);
 
     if (!user || !pass) {
-      throw new Error('SMTP_USER or SMTP_PASSWORD is not configured in the production environment.');
+      throw new Error('MISSING_CREDENTIAL: SMTP_USER or SMTP_PASSWORD is not configured in Cloudflare Production environment.');
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const validRecipients = (recipients || []).map(r => String(r).trim()).filter(r => emailRegex.test(r));
 
     if (validRecipients.length === 0) {
-      throw new Error('No valid email recipients are configured.');
+      throw new Error('INVALID_RECIPIENTS: No valid recipient email addresses configured.');
     }
 
     let socket;
     try {
       socket = connect({ hostname: host, port }, { secureTransport: "on" });
     } catch (err) {
-      throw new Error('Unable to connect to Gmail SMTP.');
+      throw new Error(`CONNECTION_FAILED: Unable to open TLS socket to ${host}:${port}: ${err.message || String(err)}`);
     }
 
     const writer = socket.writable.getWriter();
@@ -134,49 +134,67 @@ export async function onRequest(context) {
       return line;
     }
 
+    // Properly handles multi-line SMTP responses (e.g. 250-line1\r\n250 line2\r\n)
+    async function readResponse() {
+      const lines = [];
+      while (true) {
+        const line = await readLine();
+        if (!line) break;
+        lines.push(line);
+        // In SMTP, a hyphen at character index 3 indicates intermediate multi-line response.
+        if (line.length < 4 || line.charAt(3) !== '-') {
+          break;
+        }
+      }
+      return lines.join("\n");
+    }
+
     async function sendCmd(cmd) {
       await writer.write(encoder.encode(cmd + "\r\n"));
-      return await readLine();
+      return await readResponse();
     }
 
     try {
-      const greeting = await readLine();
+      const greeting = await readResponse();
       if (!greeting.startsWith("220")) {
-        throw new Error('Unable to connect to Gmail SMTP.');
+        throw new Error(`SMTP_SERVER_ERROR: Unexpected greeting from ${host}:${port}: ${greeting}`);
       }
 
-      await sendCmd("EHLO localhost");
+      const ehloResp = await sendCmd("EHLO localhost");
+      if (!ehloResp.startsWith("250")) {
+        throw new Error(`SMTP_EHLO_FAILED: EHLO command rejected by ${host}: ${ehloResp}`);
+      }
 
       const authResp = await sendCmd("AUTH LOGIN");
       if (!authResp.startsWith("334")) {
-        throw new Error('Gmail SMTP authentication failed.');
+        throw new Error(`GMAIL_REJECTED_AUTH: AUTH LOGIN prompt failed: ${authResp}`);
       }
 
       const userResp = await sendCmd(btoa(user));
       if (!userResp.startsWith("334")) {
-        throw new Error('Gmail SMTP authentication failed.');
+        throw new Error(`GMAIL_REJECTED_AUTH: Gmail rejected SMTP_USER username. Response: ${userResp}`);
       }
 
       const passResp = await sendCmd(btoa(pass));
       if (!passResp.startsWith("235")) {
-        throw new Error('Gmail SMTP authentication failed.');
+        throw new Error(`GMAIL_REJECTED_AUTH: Gmail authentication failed. Response: ${passResp}`);
       }
 
       const mailFromResp = await sendCmd(`MAIL FROM:<${user}>`);
       if (!mailFromResp.startsWith("250")) {
-        throw new Error('Gmail SMTP authentication failed.');
+        throw new Error(`SMTP_MAIL_FROM_FAILED: MAIL FROM:<${user}> rejected: ${mailFromResp}`);
       }
 
       for (const rcpt of validRecipients) {
         const rcptResp = await sendCmd(`RCPT TO:<${rcpt}>`);
         if (!rcptResp.startsWith("250") && !rcptResp.startsWith("251")) {
-          throw new Error('Gmail rejected one or more recipients.');
+          throw new Error(`SMTP_RCPT_FAILED: Gmail rejected recipient <${rcpt}>: ${rcptResp}`);
         }
       }
 
       const dataResp = await sendCmd("DATA");
       if (!dataResp.startsWith("354")) {
-        throw new Error('Gmail rejected one or more recipients.');
+        throw new Error(`SMTP_DATA_FAILED: DATA command rejected: ${dataResp}`);
       }
 
       const messageData = [
@@ -192,14 +210,13 @@ export async function onRequest(context) {
 
       const dataResult = await sendCmd(messageData);
       if (!dataResult.startsWith("250")) {
-        throw new Error('Gmail rejected one or more recipients.');
+        throw new Error(`SMTP_DISPATCH_FAILED: Email payload rejected by server: ${dataResult}`);
       }
 
       const msgIdMatch = dataResult.match(/250\s+2\.0\.0\s+OK\s+(.+)$/);
       const messageId = msgIdMatch ? msgIdMatch[1] : `msg_cf_${Date.now()}`;
 
       await sendCmd("QUIT").catch(() => {});
-      try { writer.close(); reader.cancel(); } catch (e) {}
 
       return {
         success: true,
@@ -208,9 +225,11 @@ export async function onRequest(context) {
         recipients: validRecipients,
         messageId
       };
-    } catch (err) {
-      try { writer.close(); reader.cancel(); } catch (e) {}
-      throw err;
+    } finally {
+      try {
+        writer.close();
+        reader.cancel();
+      } catch (e) {}
     }
   }
 
