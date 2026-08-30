@@ -1,13 +1,23 @@
 @import "tailwindcss";
 
+@utility bg-surface {
+  background-color: #1F190E !important;
+  background-image: linear-gradient(145deg, rgba(31, 25, 14, 0.98) 0%, rgba(44, 34, 18, 0.98) 50%, rgba(26, 20, 11, 0.98) 100%) !important;
+}
+
+@utility bg-surface-elevated {
+  background-color: #19130B !important;
+  background-image: linear-gradient(145deg, rgba(25, 19, 11, 0.98) 0%, rgba(38, 29, 15, 0.98) 60%, rgba(20, 15, 8, 0.98) 100%) !important;
+}
+
+@utility bg-surface-inner {
+  background-color: #120E08 !important;
+  background-image: linear-gradient(145deg, rgba(18, 14, 8, 0.98) 0%, rgba(28, 21, 11, 0.98) 100%) !important;
+}
+
 @theme {
   --color-app-bg: var(--app-bg);
   --color-app-bg-secondary: var(--app-bg-secondary);
-  
-  --color-surface: var(--surface);
-  --color-surface-elevated: var(--surface-elevated);
-  --color-surface-inner: var(--surface-inner);
-  --color-surface-hover: var(--surface-hover);
   
   --color-primary: var(--primary);
   --color-primary-dark: var(--primary-dark);
@@ -31,13 +41,14 @@
   /* 1. GLOBAL PAGE BACKGROUND — EMERALD AURORA GRADIENT (LOCKED) */
   --app-background: linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%);
   --app-bg: linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%);
-  --app-bg-secondary: linear-gradient(145deg, rgba(25, 19, 11, 0.94) 0%, rgba(38, 29, 15, 0.94) 60%, rgba(20, 15, 8, 0.94) 100%);
+  --app-bg-secondary: linear-gradient(145deg, rgba(25, 19, 11, 0.98) 0%, rgba(38, 29, 15, 0.98) 60%, rgba(20, 15, 8, 0.98) 100%);
 
-  /* 2. CARD SURFACES — PREMIUM DARK GOLD GRADIENT */
-  --surface: linear-gradient(145deg, rgba(31, 25, 14, 0.94) 0%, rgba(44, 34, 18, 0.94) 50%, rgba(26, 20, 11, 0.94) 100%);        /* Primary Gold Card */
-  --surface-elevated: linear-gradient(145deg, rgba(25, 19, 11, 0.94) 0%, rgba(38, 29, 15, 0.94) 60%, rgba(20, 15, 8, 0.94) 100%); /* Secondary Gold Card */
-  --surface-inner: linear-gradient(145deg, rgba(18, 14, 8, 0.94) 0%, rgba(28, 21, 11, 0.94) 100%);    /* Inner Stat Gold Tile */
-  --surface-hover: linear-gradient(145deg, rgba(38, 30, 17, 0.94) 0%, rgba(52, 40, 21, 0.94) 50%, rgba(32, 24, 13, 0.94) 100%);
+  /* 2. CARD SURFACES — AUTHORITATIVE OPAQUE PREMIUM DARK GOLD SYSTEM */
+  --card-bg-primary: #1F190E;
+  --surface: linear-gradient(145deg, rgba(31, 25, 14, 0.98) 0%, rgba(44, 34, 18, 0.98) 50%, rgba(26, 20, 11, 0.98) 100%);        /* Primary Gold Card */
+  --surface-elevated: linear-gradient(145deg, rgba(25, 19, 11, 0.98) 0%, rgba(38, 29, 15, 0.98) 60%, rgba(20, 15, 8, 0.98) 100%); /* Secondary Gold Card */
+  --surface-inner: linear-gradient(145deg, rgba(18, 14, 8, 0.98) 0%, rgba(28, 21, 11, 0.98) 100%);    /* Inner Stat Gold Tile */
+  --surface-hover: linear-gradient(145deg, rgba(38, 30, 17, 0.98) 0%, rgba(52, 40, 21, 0.98) 50%, rgba(32, 24, 13, 0.98) 100%);
 
   /* TYPOGRAPHY */
   --text-primary: #F8FAFC;     /* Primary text: #F8FAFC */
@@ -88,7 +99,7 @@ body {
   color: #F8FAFC;
 }
 
-/* Base Inputs */
+/* Base Inputs & Form Controls */
 input[type="text"],
 input[type="number"],
 input[type="email"],
@@ -97,7 +108,8 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background: linear-gradient(145deg, rgba(18, 14, 8, 0.94) 0%, rgba(28, 21, 11, 0.94) 100%) !important;
+  background-color: #120E08 !important;
+  background: linear-gradient(145deg, rgba(18, 14, 8, 0.98) 0%, rgba(28, 21, 11, 0.98) 100%) !important;
   color: #F8FAFC !important;
   border: 1px solid rgba(212, 175, 55, 0.22) !important;
   border-radius: 12px !important;
@@ -110,9 +122,10 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.25) !important;
 }
 
-/* 2. Main Premium Gold Cards */
-.glass-card, .glass-card-elevated {
-  background: linear-gradient(145deg, rgba(31, 25, 14, 0.94) 0%, rgba(44, 34, 18, 0.94) 50%, rgba(26, 20, 11, 0.94) 100%) !important;
+/* 2. Main Authoritative Premium Gold Cards */
+.glass-card, .glass-card-elevated, .card-gold {
+  background-color: #1F190E !important;
+  background: linear-gradient(145deg, rgba(31, 25, 14, 0.98) 0%, rgba(44, 34, 18, 0.98) 50%, rgba(26, 20, 11, 0.98) 100%) !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(212, 175, 55, 0.22) !important;
@@ -123,22 +136,24 @@ input:focus, textarea:focus, select:focus {
 
 /* Secondary Gold Surface Card */
 .card-secondary {
-  background: linear-gradient(145deg, rgba(25, 19, 11, 0.94) 0%, rgba(38, 29, 15, 0.94) 60%, rgba(20, 15, 8, 0.94) 100%) !important;
+  background-color: #19130B !important;
+  background: linear-gradient(145deg, rgba(25, 19, 11, 0.98) 0%, rgba(38, 29, 15, 0.98) 60%, rgba(20, 15, 8, 0.98) 100%) !important;
   border: 1px solid rgba(212, 175, 55, 0.18) !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 215, 0, 0.08) !important;
   border-radius: 20px;
   color: #F8FAFC !important;
 }
 
-/* 3. Inner Stat Tile Gold Surfaces */
+/* 3. Deeper Inner Tile Gold Surfaces */
 .glass-inner-tile, .glass-card-inner {
-  background: linear-gradient(145deg, rgba(18, 14, 8, 0.94) 0%, rgba(28, 21, 11, 0.94) 100%) !important;
+  background-color: #120E08 !important;
+  background: linear-gradient(145deg, rgba(18, 14, 8, 0.98) 0%, rgba(28, 21, 11, 0.98) 100%) !important;
   border: 1px solid rgba(212, 175, 55, 0.14) !important;
   border-radius: 16px;
   color: #F8FAFC !important;
 }
 
-/* 4. Compact Premium Buttons: Emerald -> Cyan -> Blue gradient */
+/* 4. Buttons & Compact Controls */
 .btn-primary, .btn-indigo, .btn-gold {
   background: linear-gradient(135deg, #10B981 0%, #06B6D4 50%, #2563EB 100%) !important;
   color: #FFFFFF !important;
@@ -160,7 +175,8 @@ input:focus, textarea:focus, select:focus {
 }
 
 .btn-secondary {
-  background: rgba(28, 22, 12, 0.85) !important;
+  background-color: #1C160C !important;
+  background: rgba(28, 22, 12, 0.95) !important;
   color: #F8FAFC !important;
   font-weight: 600;
   border: 1px solid rgba(212, 175, 55, 0.25) !important;
@@ -171,7 +187,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .btn-secondary:hover {
-  background: rgba(38, 30, 17, 0.90) !important;
+  background: rgba(38, 30, 17, 0.95) !important;
   border-color: rgba(212, 175, 55, 0.40) !important;
 }
 
@@ -207,7 +223,7 @@ input:focus, textarea:focus, select:focus {
 
 /* Navigation Surface: #061B2B translucent */
 .glass-nav {
-  background: rgba(6, 27, 43, 0.92) !important;
+  background: rgba(6, 27, 43, 0.95) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid rgba(80, 220, 190, 0.14) !important;
@@ -235,13 +251,9 @@ button, a, input, select, textarea, [role="button"] {
 .bg-\[\#210D44\],
 .bg-\[\#170932\],
 .bg-\[\#110526\],
-.bg-\[\#1D113B\],
-.bg-\[\#1A0B36\]\/80,
-.bg-\[\#1D093F\]\/80,
-.bg-\[\#1D093F\]\/60,
-.bg-\[\#14062B\]\/60,
-.bg-\[\#120726\]\/40 {
-  background: linear-gradient(145deg, rgba(31, 25, 14, 0.94) 0%, rgba(44, 34, 18, 0.94) 50%, rgba(26, 20, 11, 0.94) 100%) !important;
+.bg-\[\#1D113B\] {
+  background-color: #1F190E !important;
+  background: linear-gradient(145deg, rgba(31, 25, 14, 0.98) 0%, rgba(44, 34, 18, 0.98) 50%, rgba(26, 20, 11, 0.98) 100%) !important;
   border-color: rgba(212, 175, 55, 0.22) !important;
   color: #F8FAFC !important;
 }
@@ -256,4 +268,3 @@ button, a, input, select, textarea, [role="button"] {
 .border-purple-500\/50 {
   border-color: rgba(212, 175, 55, 0.22) !important;
 }
-

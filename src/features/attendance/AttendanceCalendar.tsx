@@ -412,37 +412,37 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
             let textColor = 'text-[var(--text-secondary)]';
 
             if (isFuture) {
-              bgStyle = 'bg-[var(--surface-inner)] border-[var(--primary)]/10 opacity-30';
+              bgStyle = 'glass-inner-tile border-[var(--primary)]/10 opacity-30';
               statusIcon = '○';
               statusLabel = 'Future';
               textColor = 'text-[var(--text-secondary)]/40';
             } else if (info.category === 'OFFICE') {
-              bgStyle = 'bg-emerald-500/10 hover:bg-emerald-500/15 border-emerald-500/40 shadow-sm';
+              bgStyle = 'glass-inner-tile border-emerald-500/40 shadow-sm';
               statusIcon = '✓';
               statusLabel = 'Office';
-              textColor = 'text-emerald-700';
+              textColor = 'text-emerald-400';
             } else if (info.category === 'WFH') {
-              bgStyle = 'bg-[var(--primary)]/10 hover:bg-[var(--primary)]/15 border-[var(--primary)]/40 shadow-[0_0_10px_rgba(16,185,129,0.15)]';
+              bgStyle = 'glass-inner-tile border-cyan-500/40 shadow-sm';
               statusIcon = '🏠';
               statusLabel = 'WFH';
-              textColor = 'text-[var(--primary-light)]';
+              textColor = 'text-cyan-400';
             } else if (info.category === 'CLIENT_VISIT') {
-              bgStyle = 'bg-amber-50 hover:bg-amber-100 border-amber-200 shadow-sm';
+              bgStyle = 'glass-inner-tile border-amber-500/40 shadow-sm';
               statusIcon = '📍';
               statusLabel = 'Client';
               textColor = 'text-amber-300';
             } else if (info.category === 'OUTDOOR') {
-              bgStyle = 'bg-blue-50 hover:bg-blue-100 border-blue-200';
+              bgStyle = 'glass-inner-tile border-blue-500/40 shadow-sm';
               statusIcon = '🚗';
               statusLabel = 'Outdoor';
               textColor = 'text-blue-300';
             } else if (info.category === 'LEAVE') {
-              bgStyle = 'bg-cyan-50 hover:bg-cyan-100 border-cyan-200';
+              bgStyle = 'glass-inner-tile border-cyan-500/40 shadow-sm';
               statusIcon = '🏖';
               statusLabel = 'Leave';
               textColor = 'text-cyan-300';
             } else if (info.category === 'ABSENT') {
-              bgStyle = 'bg-rose-50 hover:bg-rose-100 border-rose-200';
+              bgStyle = 'glass-inner-tile border-rose-500/40 shadow-sm';
               statusIcon = '○';
               statusLabel = 'Absent';
               textColor = 'text-rose-300';
@@ -546,7 +546,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
             <div className="p-4 rounded-2xl bg-[var(--surface-inner)] border border-[var(--border)] flex items-center justify-between">
               <span className="text-xs font-bold text-[var(--text-secondary)]">Status</span>
               <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
-                selectedDayDetail.category === 'OFFICE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                selectedDayDetail.category === 'OFFICE' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' :
                 selectedDayDetail.category === 'WFH' ? 'bg-[var(--primary)]/15 text-[var(--primary-light)] border-[var(--primary)]/40' :
                 selectedDayDetail.category === 'CLIENT_VISIT' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :
                 selectedDayDetail.category === 'OUTDOOR' ? 'bg-blue-500/20 text-blue-300 border-blue-500/40' :

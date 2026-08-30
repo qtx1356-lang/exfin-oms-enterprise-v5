@@ -345,32 +345,32 @@ export const PlannerScreen: React.FC = () => {
     switch (status) {
       case 'Completed':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-300 flex items-center gap-1 shadow-sm">
-            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Completed
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 shadow-sm">
+            <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Completed
           </span>
         );
       case 'Revision Requested':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-300 animate-pulse flex items-center gap-1 shadow-sm">
-            <RotateCcw className="w-3 h-3 text-amber-600" /> Revision Requested
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse flex items-center gap-1 shadow-sm">
+            <RotateCcw className="w-3 h-3 text-amber-400" /> Revision Requested
           </span>
         );
       case 'Submitted':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-cyan-50 text-cyan-700 border border-cyan-300 flex items-center gap-1 shadow-sm">
-            <FileCheck2 className="w-3 h-3 text-cyan-600" /> Submitted
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center gap-1 shadow-sm">
+            <FileCheck2 className="w-3 h-3 text-cyan-400" /> Submitted
           </span>
         );
       case 'Overdue':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-300 animate-pulse flex items-center gap-1 shadow-sm">
-            <AlertTriangle className="w-3 h-3 text-rose-600" /> Overdue
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse flex items-center gap-1 shadow-sm">
+            <AlertTriangle className="w-3 h-3 text-rose-400" /> Overdue
           </span>
         );
       case 'In Progress':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-300 flex items-center gap-1 shadow-sm">
-            <Clock className="w-3 h-3 text-indigo-600" /> In Progress
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-500/20 text-blue-300 border border-blue-500/40 flex items-center gap-1 shadow-sm">
+            <Clock className="w-3 h-3 text-blue-400" /> In Progress
           </span>
         );
       case 'Cancelled':
