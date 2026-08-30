@@ -629,18 +629,18 @@ export const ChatScreen: React.FC = () => {
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden glass-card border border-[var(--border)] rounded-2xl shadow-xl">
         {/* LEFT COLUMN: Conversation List (Hidden on mobile when chat is active) */}
-        <div className={`w-full md:w-80 border-r border-[var(--primary)]/20 flex flex-col bg-[var(--app-background-secondary)]/50 ${activeConv ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`w-full md:w-80 border-r border-[var(--border)] flex flex-col glass-card ${activeConv ? 'hidden md:flex' : 'flex'}`}>
           {/* Header */}
-          <div className="p-4 border-b border-[var(--primary)]/20 space-y-3">
+          <div className="p-4 border-b border-[var(--border)] space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-black flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-[var(--primary)]" /> Communications
               </h2>
               <button
                 onClick={() => setIsNewChatOpen(true)}
-                className="w-8 h-8 rounded-full bg-[var(--primary)] hover:bg-[var(--primary-light)] flex items-center justify-center transition shadow-lg text-white"
+                className="w-8 h-8 rounded-full btn-primary flex items-center justify-center transition shadow-lg text-white cursor-pointer"
                 title="New Chat"
               >
                 <Plus className="w-4 h-4" />
@@ -654,15 +654,15 @@ export const ChatScreen: React.FC = () => {
                 placeholder="Search conversations..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[var(--app-bg-primary)] border border-[var(--primary)]/20 rounded-xl py-1.5 pl-9 pr-4 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]/55"
+                className="w-full glass-inner-tile border border-[var(--border)] rounded-xl py-1.5 pl-9 pr-4 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
               />
             </div>
           </div>
 
           {/* Conversation list */}
-          <div className="flex-1 overflow-y-auto divide-y divide-[var(--primary)]/10">
+          <div className="flex-1 overflow-y-auto divide-y divide-[var(--border)]/40">
             {filteredConversations.length === 0 ? (
-              <div className="text-center py-12 text-xs text-[var(--text-secondary)]/40 font-bold">
+              <div className="text-center py-12 text-xs text-[var(--text-secondary)]/60 font-bold">
                 No conversations found. Tap the '+' button above to start chatting!
               </div>
             ) : (
@@ -675,7 +675,7 @@ export const ChatScreen: React.FC = () => {
                     key={conv.id}
                     onClick={() => setActiveConv(conv)}
                     className={`p-3.5 flex items-center gap-3 cursor-pointer transition ${
-                      isSelected ? 'bg-[var(--primary)]/20 border-l-4 border-[var(--primary)]' : 'hover:bg-white/[0.02]'
+                      isSelected ? 'bg-[var(--primary)]/20 border-l-4 border-[var(--primary)]' : 'hover:bg-white/[0.04]'
                     }`}
                   >
                     {/* Icon */}
@@ -725,15 +725,15 @@ export const ChatScreen: React.FC = () => {
         </div>
 
         {/* RIGHT COLUMN: Chat Area */}
-        <div className={`flex-1 flex flex-col bg-[var(--app-bg-primary)]/40 ${!activeConv ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`flex-1 flex flex-col glass-inner-tile ${!activeConv ? 'hidden md:flex' : 'flex'}`}>
           {activeConv ? (
             <>
               {/* Active Conversation Header */}
-              <div className="p-4 border-b border-[var(--primary)]/20 bg-[var(--app-background-secondary)]/40 flex items-center justify-between">
+              <div className="p-4 border-b border-[var(--border)] glass-inner-tile flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setActiveConv(null)}
-                    className="md:hidden p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition"
+                    className="md:hidden p-1.5 rounded-lg glass-inner-tile border border-[var(--border)] hover:bg-white/10 transition"
                   >
                     <ArrowLeft className="w-4 h-4" />
                   </button>
@@ -750,7 +750,7 @@ export const ChatScreen: React.FC = () => {
                     <h3 className="text-xs font-bold text-[var(--text-primary)] leading-tight">
                       {getRecipientName(activeConv)}
                     </h3>
-                    <p className="text-[9px] text-[var(--text-secondary)]/50 uppercase font-black tracking-wider mt-0.5">
+                    <p className="text-[9px] text-[var(--text-secondary)]/70 uppercase font-black tracking-wider mt-0.5">
                       {activeConv.type === 'ALL_EMPLOYEES' ? 'Broadcast Channel' : activeConv.type === 'GROUP' ? 'Group Space' : 'Direct Correspondence'}
                     </p>
                   </div>
@@ -760,14 +760,14 @@ export const ChatScreen: React.FC = () => {
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => setCallModal({ isOpen: true, type: 'audio' })}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[var(--text-secondary)] transition"
+                    className="p-2 rounded-xl glass-inner-tile hover:bg-white/10 border border-[var(--border)] text-[var(--text-secondary)] transition cursor-pointer"
                     title="Audio Call"
                   >
                     <Phone className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setCallModal({ isOpen: true, type: 'video' })}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[var(--text-secondary)] transition"
+                    className="p-2 rounded-xl glass-inner-tile hover:bg-white/10 border border-[var(--border)] text-[var(--text-secondary)] transition cursor-pointer"
                     title="Video Call"
                   >
                     <Video className="w-4 h-4" />

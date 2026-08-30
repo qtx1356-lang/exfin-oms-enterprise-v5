@@ -178,7 +178,7 @@ export const NotificationSettingsCard: React.FC = () => {
               <p className="font-bold text-emerald-200">
                 ✓ Android Notifications Enabled
               </p>
-              <p className="text-purple-200/80 text-[11px] mt-0.5">
+              <p className="text-[var(--text-secondary)] text-[11px] mt-0.5">
                 Office Management System notifications are allowed and real-time push alerts are
                 active on this device.
               </p>
@@ -195,7 +195,7 @@ export const NotificationSettingsCard: React.FC = () => {
 
             <button
               onClick={handleOpenSettings}
-              className="px-3 py-2 bg-purple-900/50 hover:bg-purple-800/60 text-purple-200 border border-purple-500/30 font-bold text-xs rounded-lg transition-colors flex items-center gap-1 shrink-0"
+              className="px-3 py-2 btn-secondary font-bold text-xs rounded-lg transition-colors flex items-center gap-1 shrink-0"
               title="Open Android Settings"
             >
               <ExternalLink className="w-3.5 h-3.5" />
@@ -205,21 +205,21 @@ export const NotificationSettingsCard: React.FC = () => {
         </div>
       ) : permState === 'denied' ? (
         /* DENIED / OPTIONAL DISABLED STATE */
-        <div className="p-3 bg-purple-900/20 border border-purple-500/20 rounded-xl space-y-2">
+        <div className="p-3 glass-inner-tile border border-[var(--border)] rounded-xl space-y-2">
           <div className="flex items-start gap-2">
-            <Info className="w-4 h-4 text-purple-300 shrink-0 mt-0.5" />
+            <Info className="w-4 h-4 text-[var(--primary)] shrink-0 mt-0.5" />
             <div className="text-xs">
               <p className="font-bold text-white">
                 Android Push Notifications (Optional)
               </p>
-              <p className="text-purple-200/80 text-[11px] mt-0.5">
+              <p className="text-[var(--text-secondary)] text-[11px] mt-0.5">
                 Android device push alerts are currently disabled. In-App and Email notifications remain fully active.
               </p>
             </div>
           </div>
           <button
             onClick={handleOpenSettings}
-            className="w-full py-2 bg-purple-800/50 hover:bg-purple-700/60 text-purple-200 font-bold text-xs rounded-lg transition-colors border border-purple-500/30 flex items-center justify-center gap-2"
+            className="w-full py-2 btn-secondary text-[var(--text-primary)] font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             Open Android Notification Settings
@@ -227,14 +227,14 @@ export const NotificationSettingsCard: React.FC = () => {
         </div>
       ) : (
         /* PROMPT / OPTIONAL STATE */
-        <div className="p-3 glass-inner-tile border border-purple-500/30 rounded-xl space-y-2">
+        <div className="p-3 glass-inner-tile border border-[var(--border)] rounded-xl space-y-2">
           <div className="flex items-start gap-2">
-            <Smartphone className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+            <Smartphone className="w-4 h-4 text-[var(--primary)] shrink-0 mt-0.5" />
             <div className="text-xs">
-              <p className="font-bold text-purple-200">
+              <p className="font-bold text-white">
                 Enable Android Device Push Alerts (Optional)
               </p>
-              <p className="text-purple-200/80 text-[11px] mt-0.5">
+              <p className="text-[var(--text-secondary)] text-[11px] mt-0.5">
                 Allow Android device push notifications for instant heads-up alerts.
               </p>
             </div>
@@ -242,7 +242,7 @@ export const NotificationSettingsCard: React.FC = () => {
           <button
             onClick={handleGrantPermission}
             disabled={requestingPerm}
-            className="w-full py-2 bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white font-bold text-xs rounded-lg transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full py-2 btn-primary text-white font-bold text-xs rounded-lg transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {requestingPerm ? (
               <>
@@ -257,16 +257,16 @@ export const NotificationSettingsCard: React.FC = () => {
       )}
 
       {/* DEVICE OS PERMISSION STATUS BADGE */}
-      <div className="flex items-center justify-between glass-inner-tile p-3 rounded-xl border border-purple-500/10">
+      <div className="flex items-center justify-between glass-inner-tile p-3 rounded-xl border border-[var(--border)]">
         <div className="flex items-center gap-2">
-          <Smartphone className="w-4 h-4 text-purple-400" />
+          <Smartphone className="w-4 h-4 text-[var(--primary)]" />
           <span className="text-xs font-bold text-white">Device Push Permission</span>
         </div>
         <span
           className={`text-[10px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider border ${
             permState === 'granted'
               ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-              : 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+              : 'glass-inner-tile text-[var(--text-secondary)] border-[var(--border)]'
           }`}
         >
           {permState === 'granted'
@@ -276,18 +276,18 @@ export const NotificationSettingsCard: React.FC = () => {
       </div>
 
       {/* TEST PUSH NOTIFICATION BUTTON */}
-      <div className="glass-inner-tile p-3 rounded-xl border border-purple-500/10 space-y-2">
+      <div className="glass-inner-tile p-3 rounded-xl border border-[var(--border)] space-y-2">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-white">Test Notification System</p>
-            <p className="text-[10px] text-purple-300/70">
+            <p className="text-[10px] text-[var(--text-muted)]">
               Verify local notification chime & OS alert delivery
             </p>
           </div>
           <button
             onClick={handleSendTestNotification}
             disabled={testingNotif}
-            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white font-bold text-xs rounded-lg transition-all shadow flex items-center gap-1.5 disabled:opacity-50"
+            className="px-3 py-1.5 btn-primary text-white font-bold text-xs rounded-lg transition-all shadow flex items-center gap-1.5 disabled:opacity-50"
           >
             {testingNotif ? (
               <Loader2 className="w-3 h-3 animate-spin" />

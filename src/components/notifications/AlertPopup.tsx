@@ -154,7 +154,7 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
                     ? 'bg-rose-950/70 border-rose-500/50 shadow-[0_0_20px_rgba(244,63,94,0.3)]'
                     : isHigh
                     ? 'bg-amber-950/70 border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.25)]'
-                    : 'bg-emerald-950/80 border-[var(--primary)]/40 shadow-[0_0_20px_rgba(5,150,105,0.25)]'
+                    : 'bg-cyan-500/20 border-[var(--primary)]/40 shadow-[0_0_20px_rgba(34,211,238,0.25)]'
                 }`}
               >
                 {renderCategoryIcon()}

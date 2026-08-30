@@ -352,7 +352,7 @@ export const NotificationCenter: React.FC = () => {
               <p className="text-sm font-semibold">Synchronizing notifications...</p>
             </div>
           ) : filteredNotifications.length === 0 ? (
-            <div className="bg-white/70 backdrop-blur-md p-8 border border-slate-300 rounded-2xl shadow-sm">
+            <div className="glass-card p-8 border border-[var(--border)] rounded-2xl shadow-sm">
               <EmptyState
                 icon={Bell}
                 title="All Clear"

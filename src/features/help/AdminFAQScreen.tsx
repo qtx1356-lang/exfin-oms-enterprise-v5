@@ -109,8 +109,8 @@ export const AdminFAQScreen: React.FC<AdminFAQScreenProps> = ({ onBack }) => {
   })).filter(section => section.questions.length > 0);
 
   return (
-    <div className="w-full bg-[#1D113B] rounded-[24px] border border-purple-500/10 overflow-hidden flex flex-col h-[calc(100vh-140px)]">
-      <div className="p-5 border-b border-purple-500/10 flex items-center gap-3 sticky top-0 bg-[#1D113B] z-10">
+    <div className="w-full glass-card rounded-[24px] border border-[var(--border)] overflow-hidden flex flex-col h-[calc(100vh-140px)]">
+      <div className="p-5 border-b border-[var(--border)] flex items-center gap-3 sticky top-0 bg-[var(--surface-inner)] z-10">
         {onBack && (
           <button 
             onClick={onBack}

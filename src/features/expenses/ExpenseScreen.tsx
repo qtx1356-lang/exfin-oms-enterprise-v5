@@ -430,7 +430,7 @@ export const ExpenseScreen: React.FC = () => {
             );
           })
         ) : (
-          <div className="py-8 bg-white/70 backdrop-blur-md rounded-2xl border border-dashed border-slate-300 shadow-sm">
+          <div className="py-8 glass-card rounded-2xl border border-dashed border-[var(--border)] shadow-sm">
             <EmptyState
               icon={Receipt}
               title="No expense claims found"
