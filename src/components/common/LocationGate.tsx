@@ -53,9 +53,9 @@ export const LocationGate: React.FC = () => {
   const showUnavailable = isLocationUnavailable || (!showPermissionDenied && !showGpsOff);
 
   return (
-    <div className="fixed inset-0 z-[9999] min-h-screen bg-[#0F1025] flex flex-col items-center justify-center p-4 text-[#F8F8FF]">
+    <div className="fixed inset-0 z-[9999] min-h-screen bg-[linear-gradient(135deg,#F8FAFC_0%,#EEF2FF_45%,#F5F3FF_70%,#ECFEFF_100%)] flex flex-col items-center justify-center p-4 text-slate-900">
       {/* Background ambient lighting */}
-      <div className="fixed top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-[#D4AF37]/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="fixed top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none" />
 
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
@@ -63,50 +63,50 @@ export const LocationGate: React.FC = () => {
         transition={{ duration: 0.3 }}
         className="max-w-md w-full relative z-10"
       >
-        <Card className="w-full p-8 space-y-6 bg-[#151515] border border-[#292929] shadow-2xl rounded-3xl text-center relative overflow-hidden">
-          {/* Top Gold Accent Bar */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent" />
+        <Card variant="elevated" className="w-full p-8 space-y-6 shadow-2xl rounded-3xl text-center relative overflow-hidden text-white">
+          {/* Top Blue Accent Bar */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
 
           {/* Animated Glowing Icon Header */}
           <div className="relative flex justify-center pt-2">
-            <div className="relative w-20 h-20 bg-[#1B1B1B] border border-[#D4AF37]/30 rounded-3xl flex items-center justify-center shadow-[0_0_30px_rgba(212,175,55,0.15)]">
+            <div className="relative w-20 h-20 glass-card-inner border border-white/20 rounded-3xl flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.25)]">
               {showPermissionDenied && (
-                <ShieldAlert className="w-10 h-10 text-[#D4AF37] animate-pulse" />
+                <ShieldAlert className="w-10 h-10 text-amber-300 animate-pulse" />
               )}
               {showGpsOff && (
-                <MapPin className="w-10 h-10 text-[#D4AF37] animate-bounce" style={{ animationDuration: '2s' }} />
+                <MapPin className="w-10 h-10 text-cyan-300 animate-bounce" style={{ animationDuration: '2s' }} />
               )}
               {showUnavailable && (
-                <Compass className="w-10 h-10 text-[#D4AF37] animate-spin" style={{ animationDuration: '8s' }} />
+                <Compass className="w-10 h-10 text-sky-300 animate-spin" style={{ animationDuration: '8s' }} />
               )}
               {/* Outer Pulse Rings */}
-              <div className="absolute inset-0 border border-[#D4AF37]/20 rounded-3xl animate-ping opacity-30" style={{ animationDuration: '3s' }} />
+              <div className="absolute inset-0 border border-cyan-400/30 rounded-3xl animate-ping opacity-30" style={{ animationDuration: '3s' }} />
             </div>
           </div>
 
           {/* Core Warning Headline & Description */}
           <div className="space-y-3">
-            <h1 className="text-xl font-black tracking-wide text-[#FFFFFF] uppercase flex items-center justify-center gap-2">
-              <span className="text-[#D4AF37]">📍</span>
+            <h1 className="text-xl font-black tracking-wide text-white uppercase flex items-center justify-center gap-2">
+              <span className="text-cyan-300">📍</span>
               {showPermissionDenied && 'Permission Required'}
               {showGpsOff && 'Location Turned Off'}
               {showUnavailable && 'Location Services'}
             </h1>
 
-            <p className="text-[#C7C7C7] text-sm font-semibold leading-relaxed px-2">
+            <p className="text-slate-200 text-sm font-semibold leading-relaxed px-2">
               {showPermissionDenied && 'EXFIN OMS requires your permission to access device location to use Attendance features.'}
               {showGpsOff && 'Please turn on Location Services to continue using Attendance features.'}
               {showUnavailable && 'EXFIN OMS requires your device location to be turned ON to use Attendance features.'}
             </p>
 
-            <p className="text-[#8A8A8A] text-xs leading-relaxed px-4">
+            <p className="text-slate-300/80 text-xs leading-relaxed px-4">
               Location is required for automatic attendance, 25-meter geofence verification and check-in/check-out.
             </p>
           </div>
 
           {/* Explanatory Message / Warning */}
-          <div className="bg-[#121212] border border-[#292929] p-3.5 rounded-2xl">
-            <p className="text-[11px] text-[#8A8A8A] leading-normal font-medium">
+          <div className="glass-card-inner border border-white/10 p-3.5 rounded-2xl">
+            <p className="text-[11px] text-slate-300 leading-normal font-medium">
               {showPermissionDenied && 'Without permission, the app cannot track your geofence status or process automatic check-ins.'}
               {showGpsOff && 'Your attendance cannot be processed until Location Services are enabled on your device.'}
               {showUnavailable && 'We are currently unable to obtain your current location. Please check your GPS signal strength.'}
@@ -118,11 +118,11 @@ export const LocationGate: React.FC = () => {
             <button
               onClick={handleAction}
               disabled={loading || locationStatus === 'loading'}
-              className="w-full py-4 bg-[#D4AF37] hover:bg-[#E6C766] active:bg-[#B3922E] disabled:opacity-50 text-[#080808] font-black rounded-2xl text-xs uppercase tracking-wider transition-all duration-200 shadow-lg shadow-[#D4AF37]/15 flex items-center justify-center gap-2 cursor-pointer border border-[#D4AF37]/50"
+              className="w-full py-4 bg-[linear-gradient(135deg,#7C3AED_0%,#2563EB_100%)] hover:opacity-95 active:scale-[0.98] disabled:opacity-50 text-white font-black rounded-2xl text-xs uppercase tracking-wider transition-all duration-200 shadow-xl flex items-center justify-center gap-2 cursor-pointer border border-white/20"
             >
               {(loading || locationStatus === 'loading') ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-[#080808]" />
+                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
                   <span>Verifying State...</span>
                 </>
               ) : (
@@ -135,7 +135,7 @@ export const LocationGate: React.FC = () => {
             </button>
 
             {/* Subtle Fallback Info */}
-            <p className="text-[10px] text-[#8A8A8A] font-mono">
+            <p className="text-[10px] text-slate-300 font-mono">
               EXFIN OMS • 25m GPS Geofenced Verification
             </p>
           </div>
