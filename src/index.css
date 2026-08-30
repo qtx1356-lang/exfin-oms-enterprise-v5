@@ -28,48 +28,49 @@
 }
 
 :root {
-  /* 1. LAYER 1 — APPLICATION BACKGROUND (EMERALD AURORA GRADIENT) */
-  --app-background: linear-gradient(135deg, #020B1C 0%, #061A32 50%, #063D35 100%);
-  --app-bg: linear-gradient(135deg, #020B1C 0%, #061A32 50%, #063D35 100%);
-  --app-bg-secondary: #0A1D35;
+  /* 1. GLOBAL PAGE BACKGROUND — EMERALD AURORA GRADIENT */
+  --app-background: linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%);
+  --app-bg: linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%);
+  --app-bg-secondary: #082838;
 
-  /* 2. LAYER 2 — PRIMARY CARDS (DEEP NAVY SURFACES) */
-  --surface: rgba(11, 35, 64, 0.85);        /* #0B2340 */
-  --surface-elevated: rgba(13, 41, 72, 0.90);/* #0D2948 */
-  --surface-inner: rgba(7, 26, 48, 0.85);    /* #071A30 */
-  --surface-hover: rgba(16, 43, 70, 0.90);   /* #102B46 */
+  /* 2. CARD SURFACES */
+  --surface: rgba(10, 36, 54, 0.92);        /* Primary Card: #0A2436 */
+  --surface-elevated: rgba(9, 34, 56, 0.92); /* Secondary Card: #092238 */
+  --surface-inner: rgba(6, 27, 45, 0.92);    /* Inner Statistic Card: #061B2D */
+  --surface-hover: rgba(14, 46, 68, 0.92);   /* #0E2E44 */
 
-  /* TEXT SYSTEM */
-  --text-primary: #FFFFFF;     /* pure crisp white */
-  --text-secondary: #AAB8C7;   /* secondary slate/cyan-tint */
-  --text-muted: #718096;       /* muted text */
+  /* TYPOGRAPHY */
+  --text-primary: #F8FAFC;     /* Primary text: #F8FAFC */
+  --text-secondary: #CBD5E1;   /* Secondary text: #CBD5E1 */
+  --text-muted: #94A3B8;       /* Muted text: #94A3B8 */
 
   /* ACCENT COLORS */
-  --primary: #22D3EE;          /* Cyan / Electric blue */
+  --primary: #22D3EE;          /* Cyan / Info */
   --primary-dark: #2563EB;     /* Blue */
-  --primary-light: #6366F1;    /* Indigo */
+  --primary-light: #38BDF8;    /* Sky Cyan */
 
   /* STATUS COLORS */
-  --success: #10B981; /* Emerald Green */
-  --warning: #F59E0B; /* Amber */
-  --danger: #F43F5E;  /* Coral / Red */
-  --info: #22D3EE;    /* Electric Cyan */
+  --success: #10B981; /* Emerald Green: #10B981 */
+  --warning: #F59E0B; /* Amber: #F59E0B */
+  --danger: #F43F5E;  /* Red / Error: #F43F5E */
+  --info: #22D3EE;    /* Cyan: #22D3EE */
+  --purple: #8B5CF6;  /* Purple: #8B5CF6 */
 
   /* BORDERS & SHADOWS */
-  --border: rgba(100, 180, 210, 0.20);
-  --divider: rgba(100, 180, 210, 0.12);
-  --shadow: 0 10px 30px rgba(2, 11, 28, 0.6);
+  --border: rgba(80, 220, 190, 0.14);
+  --divider: rgba(80, 220, 190, 0.10);
+  --shadow: 0 10px 30px rgba(3, 12, 22, 0.6);
   
   /* NAVIGATION & BUTTONS */
-  --nav-bg: rgba(11, 35, 64, 0.95);
-  --button-primary: linear-gradient(135deg, #6366F1 0%, #2563EB 50%, #22D3EE 100%);
-  --button-secondary: rgba(11, 35, 64, 0.85);
+  --nav-bg: rgba(6, 27, 43, 0.92); /* #061B2B translucent */
+  --button-primary: linear-gradient(135deg, #10B981 0%, #06B6D4 50%, #2563EB 100%);
+  --button-secondary: rgba(10, 36, 54, 0.85);
 }
 
 body {
-  background: linear-gradient(135deg, #020B1C 0%, #061A32 50%, #063D35 100%) !important;
+  background: linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%) !important;
   background-attachment: fixed !important;
-  color: var(--text-primary) !important;
+  color: #F8FAFC !important;
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   margin: 0;
   padding: 0;
@@ -83,7 +84,7 @@ body {
 #root {
   background-color: transparent !important;
   min-height: 100vh;
-  color: #FFFFFF;
+  color: #F8FAFC;
 }
 
 /* Base Inputs */
@@ -95,9 +96,9 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: rgba(7, 26, 48, 0.85) !important;
-  color: #FFFFFF !important;
-  border: 1px solid rgba(100, 180, 210, 0.25) !important;
+  background-color: rgba(6, 27, 45, 0.92) !important;
+  color: #F8FAFC !important;
+  border: 1px solid rgba(80, 220, 190, 0.18) !important;
   border-radius: 12px !important;
   transition: all 0.2s ease;
 }
@@ -108,32 +109,40 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.25) !important;
 }
 
-/* 2. Main Glass Cards */
+/* 2. Main Glass Cards: Primary #0A2436 */
 .glass-card, .glass-card-elevated {
-  background: rgba(11, 35, 64, 0.85) !important;
+  background: rgba(10, 36, 54, 0.92) !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(100, 180, 210, 0.20) !important;
-  box-shadow: 0 10px 30px rgba(2, 11, 28, 0.6) !important;
+  border: 1px solid rgba(80, 220, 190, 0.14) !important;
+  box-shadow: 0 10px 30px rgba(3, 12, 22, 0.6) !important;
   border-radius: 20px;
-  color: #FFFFFF !important;
+  color: #F8FAFC !important;
 }
 
-/* 3. Inner Stat Tile Surfaces */
+/* Secondary Surface Card: #092238 */
+.card-secondary {
+  background: rgba(9, 34, 56, 0.92) !important;
+  border: 1px solid rgba(80, 220, 190, 0.14) !important;
+  border-radius: 20px;
+  color: #F8FAFC !important;
+}
+
+/* 3. Inner Stat Tile Surfaces: #061B2D */
 .glass-inner-tile, .glass-card-inner {
-  background: rgba(7, 26, 48, 0.85) !important;
-  border: 1px solid rgba(100, 180, 210, 0.15) !important;
+  background: rgba(6, 27, 45, 0.92) !important;
+  border: 1px solid rgba(80, 220, 190, 0.12) !important;
   border-radius: 16px;
-  color: #FFFFFF !important;
+  color: #F8FAFC !important;
 }
 
-/* 4. Compact Premium Buttons (40-44px high) */
+/* 4. Compact Premium Buttons: Emerald -> Cyan -> Blue gradient */
 .btn-primary, .btn-indigo, .btn-gold {
-  background: var(--button-primary) !important;
+  background: linear-gradient(135deg, #10B981 0%, #06B6D4 50%, #2563EB 100%) !important;
   color: #FFFFFF !important;
-  font-weight: 600;
+  font-weight: 700;
   border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
   border-radius: 12px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 42px;
@@ -149,22 +158,23 @@ input:focus, textarea:focus, select:focus {
 }
 
 .btn-secondary {
-  background: rgba(11, 35, 64, 0.85) !important;
-  color: #FFFFFF !important;
+  background: rgba(10, 36, 54, 0.85) !important;
+  color: #F8FAFC !important;
   font-weight: 600;
-  border: 1px solid rgba(100, 180, 210, 0.25) !important;
+  border: 1px solid rgba(80, 220, 190, 0.20) !important;
   border-radius: 12px;
   transition: all 0.2s ease;
   min-height: 42px;
-  box-shadow: 0 2px 8px rgba(2, 11, 28, 0.4);
+  box-shadow: 0 2px 8px rgba(3, 12, 22, 0.4);
 }
 
 .btn-secondary:hover {
-  background: rgba(16, 43, 70, 0.9) !important;
+  background: rgba(14, 46, 68, 0.90) !important;
+  border-color: rgba(80, 220, 190, 0.35) !important;
 }
 
 .btn-danger {
-  background: var(--danger);
+  background: #F43F5E !important;
   color: #FFFFFF !important;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.20);
@@ -174,7 +184,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .btn-success, .btn-emerald {
-  background: var(--success);
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
   color: #FFFFFF !important;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.20);
@@ -184,7 +194,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .btn-warning {
-  background: var(--warning);
+  background: #F59E0B !important;
   color: #FFFFFF !important;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.20);
@@ -193,12 +203,13 @@ input:focus, textarea:focus, select:focus {
   min-height: 42px;
 }
 
+/* Navigation Surface: #061B2B translucent */
 .glass-nav {
-  background: rgba(11, 35, 64, 0.95) !important;
+  background: rgba(6, 27, 43, 0.92) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(100, 180, 210, 0.20) !important;
-  box-shadow: 0 -10px 30px rgba(2, 11, 28, 0.6) !important;
+  border-top: 1px solid rgba(80, 220, 190, 0.14) !important;
+  box-shadow: 0 -10px 30px rgba(3, 12, 22, 0.6) !important;
 }
 
 /* Touch optimization */

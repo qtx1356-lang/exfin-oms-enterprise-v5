@@ -39,24 +39,24 @@ export const BottomNav: React.FC = () => {
               onClick={() => navigate(tab.path)}
               className={`relative flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-2xl transition-all duration-300 cursor-pointer select-none ${
                 isActive
-                  ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/20 scale-[1.02]'
-                  : 'text-[#AAB8C7] hover:text-white hover:bg-white/5'
+                  ? 'bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-600 text-white shadow-md shadow-emerald-500/20 scale-[1.02]'
+                  : 'text-[#CBD5E1] hover:text-white hover:bg-white/5'
               }`}
             >
               <Icon 
                 className={`w-5 h-5 transition-transform duration-300 ${
-                  isActive ? 'text-white scale-110 drop-shadow' : 'text-[#AAB8C7]'
+                  isActive ? 'text-white scale-110 drop-shadow' : 'text-[#CBD5E1]'
                 }`}
               />
               <span 
                 className={`text-[10px] tracking-tight leading-tight mt-0.5 transition-all duration-300 whitespace-nowrap ${
-                  isActive ? 'text-white font-extrabold' : 'text-[#AAB8C7] font-semibold'
+                  isActive ? 'text-white font-extrabold' : 'text-[#CBD5E1] font-semibold'
                 }`}
               >
                 {tab.label}
               </span>
               {isActive && (
-                <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-6 h-1 bg-cyan-400 rounded-full shadow-sm" />
+                <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-6 h-1 bg-emerald-400 rounded-full shadow-sm" />
               )}
             </button>
           );
