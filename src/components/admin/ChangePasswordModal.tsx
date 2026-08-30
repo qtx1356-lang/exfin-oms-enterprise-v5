@@ -160,7 +160,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 required
                 disabled={loading || !!success}
                 placeholder="Enter current password"
-                className="w-full pl-4 pr-11 py-3 bg-[var(--app-bg-secondary)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] text-xs sm:text-sm focus:outline-none focus:border-[var(--primary)] transition-colors"
+                className="w-full pl-4 pr-11 py-3 bg-[var(--app-background-secondary)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] text-xs sm:text-sm focus:outline-none focus:border-[var(--primary)] transition-colors"
               />
               <button
                 type="button"
@@ -186,7 +186,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 required
                 disabled={loading || !!success}
                 placeholder="Enter new strong password"
-                className="w-full pl-4 pr-11 py-3 bg-[var(--app-bg-secondary)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] text-xs sm:text-sm focus:outline-none focus:border-[var(--primary)] transition-colors"
+                className="w-full pl-4 pr-11 py-3 bg-[var(--app-background-secondary)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] text-xs sm:text-sm focus:outline-none focus:border-[var(--primary)] transition-colors"
               />
               <button
                 type="button"
@@ -211,7 +211,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                     {strength.strengthLabel}
                   </span>
                 </div>
-                <div className="w-full h-1.5 bg-[var(--app-bg-secondary)] rounded-full overflow-hidden flex gap-1">
+                <div className="w-full h-1.5 bg-[var(--app-background-secondary)] rounded-full overflow-hidden flex gap-1">
                   <div className={`h-full rounded-full transition-all duration-300 ${strength.score >= 1 ? getStrengthBarColor() : 'bg-transparent'}`} style={{ width: '25%' }} />
                   <div className={`h-full rounded-full transition-all duration-300 ${strength.score >= 2 ? getStrengthBarColor() : 'bg-transparent'}`} style={{ width: '25%' }} />
                   <div className={`h-full rounded-full transition-all duration-300 ${strength.score >= 3 ? getStrengthBarColor() : 'bg-transparent'}`} style={{ width: '25%' }} />
@@ -246,7 +246,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 required
                 disabled={loading || !!success}
                 placeholder="Re-enter new password"
-                className={`w-full pl-4 pr-11 py-3 bg-[var(--app-bg-secondary)] border rounded-xl text-[var(--text-primary)] text-xs sm:text-sm focus:outline-none transition-colors ${
+                className={`w-full pl-4 pr-11 py-3 bg-[var(--app-background-secondary)] border rounded-xl text-[var(--text-primary)] text-xs sm:text-sm focus:outline-none transition-colors ${
                   isMismatch ? 'border-rose-500/70 focus:border-rose-500' :
                   isMatch ? 'border-emerald-500/70 focus:border-emerald-500' :
                   'border-[var(--border)] focus:border-[var(--primary)]'
@@ -264,7 +264,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
           </div>
 
           {/* Checklist */}
-          <div className="p-3.5 bg-[var(--app-bg-secondary)] border border-[var(--border)] rounded-2xl space-y-1.5 text-[11px] text-[var(--text-secondary)]/90">
+          <div className="p-3.5 bg-[var(--app-background-secondary)] border border-[var(--border)] rounded-2xl space-y-1.5 text-[11px] text-[var(--text-secondary)]/90">
             <p className="font-bold text-[var(--text-primary)] uppercase text-[10px] tracking-wider mb-1 flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-[var(--primary)]" /> Security Standards
             </p>

@@ -42,14 +42,14 @@ const AdminProtectedRoute = () => {
 
   if (adminProfileError || (role !== 'ADMIN' && role !== 'SUPER_ADMIN' && role !== 'HR')) {
     return (
-      <div className="min-h-screen bg-[var(--app-bg)] flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      <div className="min-h-screen bg-[var(--app-background)] flex flex-col items-center justify-center p-4 relative overflow-hidden">
         {/* Emerald Aurora Ambient Lighting */}
-        <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[var(--aurora-emerald)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
-        <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[var(--aurora-teal)]/8 rounded-full blur-[140px] pointer-events-none -z-10" />
+        <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[var(--success)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+        <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[var(--teal)]/8 rounded-full blur-[140px] pointer-events-none -z-10" />
 
         <div className="glass-card-elevated max-w-md w-full p-8 space-y-6 text-center relative">
-          <div className="w-16 h-16 bg-[var(--aurora-emerald)]/10 border border-[var(--aurora-emerald)]/30 rounded-2xl flex items-center justify-center mx-auto shadow-xl">
-            <ShieldAlert className="w-9 h-9 text-[var(--aurora-emerald)]" />
+          <div className="w-16 h-16 bg-[var(--success)]/10 border border-[var(--success)]/30 rounded-2xl flex items-center justify-center mx-auto shadow-xl">
+            <ShieldAlert className="w-9 h-9 text-[var(--success)]" />
           </div>
           <h1 className="text-xl font-black text-[var(--text-primary)] uppercase tracking-tight">Admin Access Restricted</h1>
           <p className="text-[var(--text-secondary)] text-xs leading-relaxed font-medium">
@@ -58,7 +58,7 @@ const AdminProtectedRoute = () => {
           <div className="pt-2">
             <button
               onClick={() => logout()}
-              className="w-full py-4 aurora-bg text-white font-black rounded-2xl text-xs transition-all shadow-xl active:scale-[0.98] uppercase tracking-widest border border-white/20"
+              className="w-full py-4 bg-[var(--button-primary)] text-white font-black rounded-2xl text-xs transition-all shadow-xl active:scale-[0.98] uppercase tracking-widest border border-white/20"
             >
               Sign Out & Return
             </button>
@@ -150,7 +150,7 @@ const FeatureGuard: React.FC<{ feature: FeatureKey; children: React.ReactNode }>
     return (
       <div className="py-6 h-[calc(100vh-120px)] flex flex-col relative overflow-hidden">
         {/* Emerald Aurora Ambient Lighting */}
-        <div className="absolute top-20 right-10 w-[300px] h-[300px] bg-[var(--aurora-emerald)]/10 rounded-full blur-[100px] pointer-events-none -z-10" />
+        <div className="absolute top-20 right-10 w-[300px] h-[300px] bg-[var(--success)]/10 rounded-full blur-[100px] pointer-events-none -z-10" />
         
         <div className="flex-1 glass-card-elevated p-8 flex flex-col items-center justify-center text-center relative">
           <div className="w-16 h-16 bg-[var(--danger)]/10 border border-[var(--danger)]/20 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
@@ -163,7 +163,7 @@ const FeatureGuard: React.FC<{ feature: FeatureKey; children: React.ReactNode }>
           <div className="mt-8 flex gap-3">
              <button 
                onClick={() => window.history.back()}
-               className="px-6 py-3 rounded-xl border border-[var(--border)] text-[var(--text-primary)] text-xs font-black uppercase tracking-widest hover:bg-[var(--card-surface)] transition-all"
+               className="px-6 py-3 rounded-xl border border-[var(--border)] text-[var(--text-primary)] text-xs font-black uppercase tracking-widest hover:bg-[var(--surface-elevated)] transition-all"
              >
                Go Back
              </button>

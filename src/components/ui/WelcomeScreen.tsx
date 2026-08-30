@@ -98,22 +98,22 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const isLocationError = (locationStatus === 'error' || isPermissionDenied || isGpsOff || isLocationUnavailable || isOffline) && distance === null;
 
   return (
-    <div className="fixed inset-0 bg-[var(--app-bg)] flex flex-col items-center justify-between p-4 sm:p-6 z-40 text-[var(--text-primary)] overflow-y-auto relative overflow-hidden">
+    <div className="fixed inset-0 bg-[var(--app-background)] flex flex-col items-center justify-between p-4 sm:p-6 z-40 text-[var(--text-primary)] overflow-y-auto relative overflow-hidden">
       {/* Emerald Aurora Ambient Lighting */}
-      <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[var(--aurora-emerald)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
-      <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[var(--aurora-teal)]/8 rounded-full blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[var(--success)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[var(--teal)]/8 rounded-full blur-[140px] pointer-events-none -z-10" />
 
       {/* Main Content Container */}
       <div className="w-full max-w-sm my-auto py-2 flex flex-col items-center text-center relative z-10 space-y-5">
         
         {/* Central Logo / Icon */}
         <div className="relative flex items-center justify-center my-1">
-          <div className="w-20 h-20 rounded-full border border-[var(--aurora-emerald)]/30 bg-[var(--card-surface)]/80 backdrop-blur-[14px] flex items-center justify-center shadow-2xl">
-            <div className="w-16 h-16 rounded-full bg-[var(--card-bg)] border border-[var(--aurora-emerald)]/50 flex items-center justify-center shadow-lg">
+          <div className="w-20 h-20 rounded-full border border-[var(--success)]/30 bg-[var(--card-surface)]/80 backdrop-blur-[14px] flex items-center justify-center shadow-2xl">
+            <div className="w-16 h-16 rounded-full bg-[var(--card-bg)] border border-[var(--success)]/50 flex items-center justify-center shadow-lg">
               {isRegistered ? (
-                <UserCheck className="w-8 h-8 text-[var(--aurora-emerald)]" />
+                <UserCheck className="w-8 h-8 text-[var(--success)]" />
               ) : (
-                <Building2 className="w-8 h-8 text-[var(--aurora-emerald)]" />
+                <Building2 className="w-8 h-8 text-[var(--success)]" />
               )}
             </div>
           </div>
@@ -122,7 +122,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         {/* Time-Aware Greeting */}
         <div>
           <div className="text-[var(--text-secondary)] text-sm sm:text-base font-semibold tracking-wide flex items-center justify-center gap-1.5">
-            <span className="text-[var(--aurora-emerald)] text-xl">☀️</span>
+            <span className="text-[var(--success)] text-xl">☀️</span>
             <span>{greetingInfo.label} 👋</span>
           </div>
 
@@ -134,15 +134,15 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
               <>{displayName || 'Welcome Back'}</>
             )}
           </h1>
-          <p className="text-[11px] font-bold text-[var(--aurora-emerald)] tracking-widest uppercase mt-2">
+          <p className="text-[11px] font-bold text-[var(--success)] tracking-widest uppercase mt-2">
             EXFIN OMS • EMERALD AURORA
           </p>
         </div>
 
         {/* Automation Banner Card */}
-        <div className="w-full py-4 px-4 glass-card border-[var(--aurora-emerald)]/20 text-center shadow-lg">
-          <p className="text-xs sm:text-sm font-bold text-[var(--aurora-emerald)] tracking-wider flex items-center justify-center gap-1.5 uppercase">
-            <Sparkles className="w-4 h-4 text-[var(--aurora-emerald)] shrink-0" />
+        <div className="w-full py-4 px-4 glass-card border-[var(--success)]/20 text-center shadow-lg">
+          <p className="text-xs sm:text-sm font-bold text-[var(--success)] tracking-wider flex items-center justify-center gap-1.5 uppercase">
+            <Sparkles className="w-4 h-4 text-[var(--success)] shrink-0" />
             <span>AUTOMATIC ATTENDANCE</span>
           </p>
           <p className="text-[11px] text-[var(--text-secondary)] mt-1 font-medium italic">
@@ -160,7 +160,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         }`}>
           {/* Header */}
           <div className="flex items-center gap-2 mb-4 border-b border-[var(--border)] pb-3">
-            <MapPin className={`w-4 h-4 ${isLocationLoading ? 'text-[var(--aurora-emerald)]' : isInsideGeofence ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`} />
+            <MapPin className={`w-4 h-4 ${isLocationLoading ? 'text-[var(--success)]' : isInsideGeofence ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`} />
             <span className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)]">
               Location Intelligence
             </span>
@@ -258,7 +258,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         <div className="w-full glass-card p-4 rounded-2xl grid grid-cols-4 gap-2 text-center shadow-lg border-[var(--border)]">
           {/* Secure Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[var(--card-surface)] text-[var(--aurora-emerald)] flex items-center justify-center mb-1 border border-[var(--border)]">
+            <div className="w-8 h-8 rounded-xl bg-[var(--card-surface)] text-[var(--success)] flex items-center justify-center mb-1 border border-[var(--border)]">
               <Lock className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-black text-[var(--text-primary)] block leading-tight">Secure</span>
@@ -266,7 +266,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
           {/* Smart Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[var(--card-surface)] text-[var(--aurora-teal)] flex items-center justify-center mb-1 border border-[var(--border)]">
+            <div className="w-8 h-8 rounded-xl bg-[var(--card-surface)] text-[var(--teal)] flex items-center justify-center mb-1 border border-[var(--border)]">
               <Zap className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-black text-[var(--text-primary)] block leading-tight">Smart</span>
@@ -274,7 +274,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
           {/* Accurate Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[var(--card-surface)] text-[var(--aurora-cyan)] flex items-center justify-center mb-1 border border-[var(--border)]">
+            <div className="w-8 h-8 rounded-xl bg-[var(--card-surface)] text-[var(--cyan)] flex items-center justify-center mb-1 border border-[var(--border)]">
               <Target className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-black text-[var(--text-primary)] block leading-tight">Precise</span>
@@ -282,7 +282,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
           {/* Reliable Tile */}
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-xl bg-[var(--card-surface)] text-[var(--aurora-emerald)] flex items-center justify-center mb-1 border border-[var(--border)]">
+            <div className="w-8 h-8 rounded-xl bg-[var(--card-surface)] text-[var(--success)] flex items-center justify-center mb-1 border border-[var(--border)]">
               <Check className="w-4 h-4" />
             </div>
             <span className="text-[10px] font-black text-[var(--text-primary)] block leading-tight">Verified</span>
@@ -295,7 +295,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       <div className="w-full max-w-sm pt-2 pb-4 relative z-10">
         <button
           onClick={onProceed}
-          className="w-full min-h-[56px] py-4 px-6 aurora-bg text-white font-black uppercase tracking-[0.1em] text-sm sm:text-base rounded-2xl shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer border border-white/20 active:scale-[0.98] aurora-glow-emerald"
+          className="w-full min-h-[56px] py-4 px-6 bg-[var(--button-primary)] text-white font-black uppercase tracking-[0.1em] text-sm sm:text-base rounded-2xl shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer border border-white/20 active:scale-[0.98] aurora-glow-emerald"
         >
           <span>{status === 'unregistered' ? 'Proceed to Setup' : 'Enter Workspace'}</span>
           <ArrowRight className="w-5 h-5 text-white" />

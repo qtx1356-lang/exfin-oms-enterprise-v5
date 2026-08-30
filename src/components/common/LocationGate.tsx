@@ -53,7 +53,7 @@ export const LocationGate: React.FC = () => {
   const showUnavailable = isLocationUnavailable || (!showPermissionDenied && !showGpsOff);
 
   return (
-    <div className="fixed inset-0 z-[9999] min-h-screen bg-[linear-gradient(135deg,#F8FAFC_0%,#EEF2FF_45%,#F5F3FF_70%,#ECFEFF_100%)] flex flex-col items-center justify-center p-4 text-slate-900">
+    <div className="fixed inset-0 z-[9999] min-h-screen bg-[var(--app-background)] flex flex-col items-center justify-center p-4 text-[var(--text-primary)]">
       {/* Background ambient lighting */}
       <div className="fixed top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none" />
 
@@ -118,7 +118,7 @@ export const LocationGate: React.FC = () => {
             <button
               onClick={handleAction}
               disabled={loading || locationStatus === 'loading'}
-              className="w-full py-4 bg-[linear-gradient(135deg,#7C3AED_0%,#2563EB_100%)] hover:opacity-95 active:scale-[0.98] disabled:opacity-50 text-white font-black rounded-2xl text-xs uppercase tracking-wider transition-all duration-200 shadow-xl flex items-center justify-center gap-2 cursor-pointer border border-white/20"
+              className="w-full py-4 bg-[var(--button-primary)] hover:opacity-95 active:scale-[0.98] disabled:opacity-50 text-white font-black rounded-2xl text-xs uppercase tracking-wider transition-all duration-200 shadow-xl flex items-center justify-center gap-2 cursor-pointer border border-white/20"
             >
               {(loading || locationStatus === 'loading') ? (
                 <>

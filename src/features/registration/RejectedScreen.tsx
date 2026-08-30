@@ -8,10 +8,10 @@ export const RejectedScreen: React.FC = () => {
   const { rejectionReason, resetRegistration } = useRegistration();
 
   return (
-    <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)] p-4 flex flex-col items-center justify-center font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-[var(--app-background)] text-[var(--text-primary)] p-4 flex flex-col items-center justify-center font-sans relative overflow-hidden">
       {/* Emerald Aurora Ambient Lighting */}
-      <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[var(--aurora-emerald)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
-      <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[var(--aurora-teal)]/8 rounded-full blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[var(--success)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[var(--teal)]/8 rounded-full blur-[140px] pointer-events-none -z-10" />
 
       <div className="max-w-md w-full glass-card-elevated p-10 text-center flex flex-col items-center relative z-10">
         <div className="w-20 h-20 bg-[var(--danger)]/10 border border-[var(--danger)]/20 rounded-full flex items-center justify-center mb-8 shadow-2xl relative">
@@ -24,7 +24,7 @@ export const RejectedScreen: React.FC = () => {
         </p>
         <button 
           onClick={resetRegistration} 
-          className="w-full py-4 aurora-bg text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl border border-white/20 active:scale-[0.98] transition-all aurora-glow-emerald"
+          className="w-full py-4 bg-[var(--button-primary)] text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl border border-white/20 active:scale-[0.98] transition-all aurora-glow-emerald"
         >
           Restart Registration
         </button>

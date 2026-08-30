@@ -872,7 +872,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                 onClick={() => setViewMode('MY_PERFORMANCE')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                   viewMode === 'MY_PERFORMANCE'
-                    ? 'aurora-bg text-white shadow-md'
+                    ? 'bg-[var(--button-primary)] text-white shadow-md'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
@@ -884,7 +884,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                   onClick={() => setViewMode('MY_TEAM_PERFORMANCE')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
                     viewMode === 'MY_TEAM_PERFORMANCE'
-                      ? 'aurora-bg text-white shadow-md'
+                      ? 'bg-[var(--button-primary)] text-white shadow-md'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
@@ -898,7 +898,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                   onClick={() => setViewMode('SETTINGS')}
                   className={`px-2.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                     viewMode === 'SETTINGS'
-                      ? 'aurora-bg text-white shadow-md'
+                      ? 'bg-[var(--button-primary)] text-white shadow-md'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                   title="Weightage Settings"
@@ -932,7 +932,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               type="button"
               onClick={() => setPeriodFilter('THIS_WEEK')}
               className={`px-2.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                periodFilter === 'THIS_WEEK' ? 'aurora-bg text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                periodFilter === 'THIS_WEEK' ? 'bg-[var(--button-primary)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               This Week
@@ -941,7 +941,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               type="button"
               onClick={() => setPeriodFilter('THIS_MONTH')}
               className={`px-2.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                periodFilter === 'THIS_MONTH' ? 'aurora-bg text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                periodFilter === 'THIS_MONTH' ? 'bg-[var(--button-primary)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               This Month
@@ -950,7 +950,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
               type="button"
               onClick={() => setPeriodFilter('PREVIOUS_MONTH')}
               className={`px-2.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                periodFilter === 'PREVIOUS_MONTH' ? 'aurora-bg text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                periodFilter === 'PREVIOUS_MONTH' ? 'bg-[var(--button-primary)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
               Prev Month
@@ -1354,7 +1354,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                   <button
                     type="button"
                     onClick={handleSaveSnapshot}
-                    className="w-full mt-2 py-1.5 aurora-bg hover:opacity-95 text-white rounded-xl font-bold text-xs transition cursor-pointer shadow-md"
+                    className="w-full mt-2 py-1.5 bg-[var(--button-primary)] hover:opacity-95 text-white rounded-xl font-bold text-xs transition cursor-pointer shadow-md"
                   >
                     Save Snapshot
                   </button>
@@ -1621,7 +1621,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
             <div className="flex gap-3 pt-2">
               <button
                 type="submit"
-                className="px-5 py-2.5 aurora-bg hover:opacity-95 text-white font-extrabold text-xs rounded-xl transition shadow-lg cursor-pointer"
+                className="px-5 py-2.5 bg-[var(--button-primary)] hover:opacity-95 text-white font-extrabold text-xs rounded-xl transition shadow-lg cursor-pointer"
               >
                 Save Weightages
               </button>

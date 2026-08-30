@@ -372,7 +372,7 @@ export const MyDayTimeline: React.FC = () => {
         {/* Section Header */}
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--border)]">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-[var(--app-bg-secondary)] border border-[var(--border)] flex items-center justify-center text-[var(--primary-light)]">
+            <div className="w-7 h-7 rounded-lg bg-[var(--app-background-secondary)] border border-[var(--border)] flex items-center justify-center text-[var(--primary-light)]">
               <Clock className="w-4 h-4" />
             </div>
             <div>
@@ -410,7 +410,7 @@ export const MyDayTimeline: React.FC = () => {
                   </div>
 
                   {/* Event Card Content */}
-                  <div className="flex-1 bg-[var(--app-bg-secondary)] p-2.5 rounded-xl border border-[var(--border)] flex items-start justify-between gap-2">
+                  <div className="flex-1 bg-[var(--app-background-secondary)] p-2.5 rounded-xl border border-[var(--border)] flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="text-[11px] font-black text-[var(--text-primary)] truncate">{evt.title}</span>
@@ -431,7 +431,7 @@ export const MyDayTimeline: React.FC = () => {
           </div>
         ) : (
           /* Empty State */
-          <div className="py-6 px-4 text-center bg-[var(--app-bg-secondary)] rounded-2xl border border-dashed border-[var(--border)]">
+          <div className="py-6 px-4 text-center bg-[var(--app-background-secondary)] rounded-2xl border border-dashed border-[var(--border)]">
             <Sparkles className="w-6 h-6 text-[var(--primary-light)] mx-auto mb-2" />
             <p className="text-xs font-bold text-[var(--text-primary)] mb-0.5">Your workday hasn't started yet</p>
             <p className="text-[11px] text-[var(--text-secondary)]">No attendance or activity recorded today.</p>
@@ -458,7 +458,7 @@ export const MyDayTimeline: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-[var(--app-bg)]/80 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-[var(--app-background)]/80 backdrop-blur-sm flex items-center justify-center p-4"
             onClick={() => setShowFullDayModal(false)}
           >
             <motion.div
@@ -482,7 +482,7 @@ export const MyDayTimeline: React.FC = () => {
 
                 <button
                   onClick={() => setShowFullDayModal(false)}
-                  className="p-1.5 rounded-full bg-[var(--app-bg-secondary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
+                  className="p-1.5 rounded-full bg-[var(--app-background-secondary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -498,7 +498,7 @@ export const MyDayTimeline: React.FC = () => {
                         <IconComp className="w-2.5 h-2.5" />
                       </div>
 
-                      <div className="flex-1 bg-[var(--app-bg-secondary)] p-3 rounded-xl border border-[var(--border)] flex items-start justify-between gap-2">
+                      <div className="flex-1 bg-[var(--app-background-secondary)] p-3 rounded-xl border border-[var(--border)] flex items-start justify-between gap-2">
                         <div>
                           <p className="text-xs font-black text-[var(--text-primary)]">{evt.title}</p>
                           <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{evt.description}</p>

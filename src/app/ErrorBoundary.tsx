@@ -63,8 +63,8 @@ export class ErrorBoundary extends React.Component<Props, State> {
       const sanitizedMessage = this.sanitizeErrorMessage(this.state.error?.message);
 
       return (
-        <div className="min-h-screen bg-[#0F1025] text-[#F8F8FF] flex flex-col items-center justify-center p-4 font-sans">
-          <div className="bg-[#171938] p-6 rounded-2xl max-w-xl w-full shadow-2xl border border-rose-500/40">
+        <div className="min-h-screen bg-[var(--app-background)] text-[var(--text-primary)] flex flex-col items-center justify-center p-4 font-sans">
+          <div className="bg-[var(--app-background-secondary)] p-6 rounded-2xl max-w-xl w-full shadow-2xl border border-rose-500/40">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 font-black">
                 !
@@ -75,7 +75,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               </div>
             </div>
 
-            <div className="bg-[#0c0d1f] p-4 rounded-xl text-xs text-rose-200 mb-5 overflow-auto max-h-64 font-mono border border-rose-500/20">
+            <div className="bg-slate-100 p-4 rounded-xl text-xs text-rose-200 mb-5 overflow-auto max-h-64 font-mono border border-rose-500/20">
               <p className="font-bold text-rose-300 mb-1">ERROR: {sanitizedMessage}</p>
               {this.state.error?.stack && (
                 <p className="text-slate-400 text-[11px] leading-relaxed whitespace-pre-wrap">

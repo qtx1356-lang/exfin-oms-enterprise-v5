@@ -180,7 +180,7 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
             </p>
           </div>
 
-          <div className="text-xs text-[#C7C7C7] bg-[#101010] p-3 rounded-xl border border-[#292929]">
+          <div className="text-xs text-[var(--text-muted)] bg-[var(--surface-elevated)] p-3 rounded-xl border border-[var(--border)]">
             <div className="flex justify-between items-center mb-1">
               <span>Date:</span>
               <span className="font-bold text-white">{unresolvedRecord.date}</span>
@@ -206,7 +206,7 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-[#080B0F] border border-[rgba(167,139,250,0.3)] text-[#F8FAFC] rounded-xl focus:outline-none focus:border-[#00F5FF] transition-colors"
+                className="w-full pl-9 pr-4 py-2.5 bg-[var(--app-background)] border border-[var(--border)] text-[var(--text-primary)] rounded-xl focus:outline-none focus:border-[#00F5FF] transition-colors"
               />
             </div>
           </div>

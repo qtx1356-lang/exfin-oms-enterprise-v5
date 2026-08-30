@@ -781,17 +781,17 @@ export const AttendanceScreen: React.FC = () => {
   return (
     <div className="p-3 sm:p-6 pb-32 max-w-5xl mx-auto space-y-5 font-sans relative">
       {/* Emerald Aurora Ambient Lighting */}
-      <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[var(--aurora-emerald)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
-      <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[var(--aurora-teal)]/8 rounded-full blur-[140px] pointer-events-none -z-10" />
-      <div className="fixed top-1/2 left-1/4 w-[300px] h-[300px] bg-[var(--aurora-cyan)]/5 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="fixed top-20 right-10 w-[500px] h-[500px] bg-[var(--success)]/10 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="fixed bottom-20 left-10 w-[400px] h-[400px] bg-[var(--teal)]/8 rounded-full blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed top-1/2 left-1/4 w-[300px] h-[300px] bg-[var(--cyan)]/5 rounded-full blur-[120px] pointer-events-none -z-10" />
       
       {/* ==================================================== */}
       {/* 1. CLEAN PAGE TITLE & EMPLOYEE HEADER */}
       {/* ==================================================== */}
       <div className="pb-4 border-b border-[var(--border)] space-y-1 relative">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-xl bg-[var(--aurora-emerald)]/15 border border-[var(--aurora-emerald)]/20">
-            <Clock className="w-6 h-6 text-[var(--aurora-emerald)]" />
+          <div className="p-2 rounded-xl bg-[var(--success)]/15 border border-[var(--success)]/20">
+            <Clock className="w-6 h-6 text-[var(--success)]" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-[var(--text-primary)] tracking-tight uppercase aurora-text">
             Attendance
@@ -831,7 +831,7 @@ export const AttendanceScreen: React.FC = () => {
             ATTENDANCE MODE
           </h2>
           {todayRecord && (
-            <span className="text-[10px] bg-[var(--card-bg)] text-[var(--primary-light)] font-extrabold px-2.5 py-0.5 rounded-full border border-[var(--primary)]/20">
+            <span className="text-[10px] bg-[var(--surface-elevated)] text-[var(--primary-secondary)] font-extrabold px-2.5 py-0.5 rounded-full border border-[var(--primary)]/20">
               Mode Locked for Today
             </span>
           )}
@@ -846,16 +846,16 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('OFFICE')}
             className={`p-4 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-28 relative overflow-hidden group cursor-pointer ${
               activeMode === 'OFFICE'
-                ? 'border-[var(--aurora-emerald)]/50 bg-[var(--card-surface)] aurora-glow-emerald ring-1 ring-[var(--aurora-emerald)]/20'
-                : 'border-[var(--border)] bg-[var(--card-bg)]/60 hover:border-[var(--aurora-emerald)]/30 hover:bg-[var(--card-surface)]'
+                ? 'border-[var(--success)]/50 bg-[var(--surface-elevated)] aurora-glow-emerald ring-1 ring-[var(--success)]/20'
+                : 'border-[var(--border)] bg-[var(--surface-elevated)]/60 hover:border-[var(--success)]/30 hover:bg-[var(--surface-elevated)]'
             } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-start relative z-10">
-              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'OFFICE' ? 'bg-[var(--aurora-emerald)]/20' : 'bg-[var(--app-bg)]'}`}>
-                <Building2 className={`w-5 h-5 ${activeMode === 'OFFICE' ? 'text-[var(--aurora-emerald)]' : 'text-[var(--text-secondary)]'}`} />
+              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'OFFICE' ? 'bg-[var(--success)]/20' : 'bg-[var(--app-background)]'}`}>
+                <Building2 className={`w-5 h-5 ${activeMode === 'OFFICE' ? 'text-[var(--success)]' : 'text-[var(--text-secondary)]'}`} />
               </div>
               {activeMode === 'OFFICE' && (
-                <div className="w-5 h-5 rounded-full aurora-bg text-white flex items-center justify-center shadow-lg">
+                <div className="w-5 h-5 rounded-full bg-[var(--button-primary)] text-white flex items-center justify-center shadow-lg">
                   <Check className="w-3.5 h-3.5 stroke-[3]" />
                 </div>
               )}
@@ -873,21 +873,21 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('WFH')}
             className={`p-4 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-28 relative overflow-hidden group cursor-pointer ${
               activeMode === 'WFH'
-                ? 'border-[var(--aurora-teal)]/50 bg-[var(--card-surface)] aurora-glow-teal ring-1 ring-[var(--aurora-teal)]/20'
-                : 'border-[var(--border)] bg-[var(--card-bg)]/60 hover:border-[var(--aurora-teal)]/30 hover:bg-[var(--card-surface)]'
+                ? 'border-[var(--teal)]/50 bg-[var(--surface-elevated)] aurora-glow-teal ring-1 ring-[var(--teal)]/20'
+                : 'border-[var(--border)] bg-[var(--surface-elevated)]/60 hover:border-[var(--teal)]/30 hover:bg-[var(--surface-elevated)]'
             } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-start relative z-10">
-              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'WFH' ? 'bg-[var(--aurora-teal)]/20' : 'bg-[var(--app-bg)]'}`}>
-                <Home className={`w-5 h-5 ${activeMode === 'WFH' ? 'text-[var(--aurora-teal)]' : 'text-[var(--text-secondary)]'}`} />
+              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'WFH' ? 'bg-[var(--teal)]/20' : 'bg-[var(--app-background)]'}`}>
+                <Home className={`w-5 h-5 ${activeMode === 'WFH' ? 'text-[var(--teal)]' : 'text-[var(--text-secondary)]'}`} />
               </div>
               <div className="flex items-center gap-1.5">
                 {activeMode === 'WFH' && (
-                  <div className="w-5 h-5 rounded-full bg-[var(--aurora-teal)] text-white flex items-center justify-center shadow-lg">
+                  <div className="w-5 h-5 rounded-full bg-[var(--teal)] text-white flex items-center justify-center shadow-lg">
                     <Check className="w-3.5 h-3.5 stroke-[3]" />
                   </div>
                 )}
-                <span className="text-[9px] font-black bg-[var(--aurora-teal)]/10 text-[var(--aurora-teal)] px-1.5 py-0.5 rounded border border-[var(--aurora-teal)]/20">
+                <span className="text-[9px] font-black bg-[var(--teal)]/10 text-[var(--teal)] px-1.5 py-0.5 rounded border border-[var(--teal)]/20">
                   {currentWfhMonthCount}/2
                 </span>
               </div>
@@ -905,16 +905,16 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('CLIENT_VISIT')}
             className={`p-4 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-28 relative overflow-hidden group cursor-pointer ${
               activeMode === 'CLIENT_VISIT'
-                ? 'border-[var(--aurora-cyan)]/50 bg-[var(--card-surface)] aurora-glow-teal ring-1 ring-[var(--aurora-cyan)]/20'
-                : 'border-[var(--border)] bg-[var(--card-bg)]/60 hover:border-[var(--aurora-cyan)]/30 hover:bg-[var(--card-surface)]'
+                ? 'border-[var(--cyan)]/50 bg-[var(--surface-elevated)] aurora-glow-teal ring-1 ring-[var(--cyan)]/20'
+                : 'border-[var(--border)] bg-[var(--surface-elevated)]/60 hover:border-[var(--cyan)]/30 hover:bg-[var(--surface-elevated)]'
             } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-start relative z-10">
-              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'CLIENT_VISIT' ? 'bg-[var(--aurora-cyan)]/20' : 'bg-[var(--app-bg)]'}`}>
-                <Users className={`w-5 h-5 ${activeMode === 'CLIENT_VISIT' ? 'text-[var(--aurora-cyan)]' : 'text-[var(--text-secondary)]'}`} />
+              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'CLIENT_VISIT' ? 'bg-[var(--cyan)]/20' : 'bg-[var(--app-background)]'}`}>
+                <Users className={`w-5 h-5 ${activeMode === 'CLIENT_VISIT' ? 'text-[var(--cyan)]' : 'text-[var(--text-secondary)]'}`} />
               </div>
               {activeMode === 'CLIENT_VISIT' && (
-                <div className="w-5 h-5 rounded-full bg-[var(--aurora-cyan)] text-white flex items-center justify-center shadow-lg">
+                <div className="w-5 h-5 rounded-full bg-[var(--cyan)] text-white flex items-center justify-center shadow-lg">
                   <Check className="w-3.5 h-3.5 stroke-[3]" />
                 </div>
               )}
@@ -932,16 +932,16 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('OUTDOOR')}
             className={`p-4 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-28 relative overflow-hidden group cursor-pointer ${
               activeMode === 'OUTDOOR'
-                ? 'border-[var(--aurora-emerald)]/50 bg-[var(--card-surface)] aurora-glow-emerald ring-1 ring-[var(--aurora-emerald)]/20'
-                : 'border-[var(--border)] bg-[var(--card-bg)]/60 hover:border-[var(--aurora-emerald)]/30 hover:bg-[var(--card-surface)]'
+                ? 'border-[var(--success)]/50 bg-[var(--surface-elevated)] aurora-glow-emerald ring-1 ring-[var(--success)]/20'
+                : 'border-[var(--border)] bg-[var(--surface-elevated)]/60 hover:border-[var(--success)]/30 hover:bg-[var(--surface-elevated)]'
             } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-start relative z-10">
-              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'OUTDOOR' ? 'bg-[var(--aurora-emerald)]/20' : 'bg-[var(--app-bg)]'}`}>
-                <Car className={`w-5 h-5 ${activeMode === 'OUTDOOR' ? 'text-[var(--aurora-emerald)]' : 'text-[var(--text-secondary)]'}`} />
+              <div className={`p-2 rounded-xl transition-colors ${activeMode === 'OUTDOOR' ? 'bg-[var(--success)]/20' : 'bg-[var(--app-background)]'}`}>
+                <Car className={`w-5 h-5 ${activeMode === 'OUTDOOR' ? 'text-[var(--success)]' : 'text-[var(--text-secondary)]'}`} />
               </div>
               {activeMode === 'OUTDOOR' && (
-                <div className="w-5 h-5 rounded-full bg-[var(--aurora-emerald)] text-white flex items-center justify-center shadow-lg">
+                <div className="w-5 h-5 rounded-full bg-[var(--success)] text-white flex items-center justify-center shadow-lg">
                   <Check className="w-3.5 h-3.5 stroke-[3]" />
                 </div>
               )}
@@ -959,7 +959,7 @@ export const AttendanceScreen: React.FC = () => {
             <div className="space-y-3">
               {/* AUTO CHECK-IN active status */}
               {!todayRecord && locationState === 'INSIDE_OFFICE' && (
-                <div className="bg-[var(--app-bg-secondary)]/80 rounded-2xl border border-emerald-500/40 p-4 text-center space-y-2">
+                <div className="bg-[var(--app-background-secondary)]/80 rounded-2xl border border-emerald-500/40 p-4 text-center space-y-2">
                   <div className="flex items-center justify-center gap-2 text-emerald-400 text-xs font-extrabold uppercase tracking-wider">
                     <Radio className="w-4 h-4 text-emerald-400 animate-spin" /> Auto Check-In Active
                   </div>
@@ -977,8 +977,8 @@ export const AttendanceScreen: React.FC = () => {
                     disabled={locationStatus !== 'success' || distance === null || distance > 25}
                     className={`w-full py-4 font-black text-sm rounded-2xl transition-all border cursor-pointer ${
                       locationStatus === 'success' && distance !== null && distance <= 25
-                        ? 'aurora-bg text-white border-white/20 active:scale-[0.98] shadow-xl aurora-glow-emerald'
-                        : 'bg-[var(--card-bg)] text-[var(--text-secondary)] border-[var(--border)] opacity-60 cursor-not-allowed shadow-none'
+                        ? 'bg-[var(--button-primary)] text-white border-white/20 active:scale-[0.98] shadow-xl aurora-glow-emerald'
+                        : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] border-[var(--border)] opacity-60 cursor-not-allowed shadow-none'
                     }`}
                   >
                     <UserCheck className="w-5 h-5 mr-2" /> 
@@ -1000,7 +1000,7 @@ export const AttendanceScreen: React.FC = () => {
                         className={`w-full py-4 font-black text-sm rounded-2xl transition-all shadow-xl cursor-pointer ${
                           isInsideGeofence 
                             ? 'bg-[var(--danger)] hover:bg-[var(--danger)]/80 text-white border border-white/10 active:scale-[0.98]' 
-                            : 'bg-[var(--card-bg)] text-[var(--text-secondary)] border border-[var(--border)] cursor-not-allowed opacity-60'
+                            : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] border border-[var(--border)] cursor-not-allowed opacity-60'
                         }`}
                       >
                         <LogOut className="w-5 h-5 mr-2" /> CHECK OUT
@@ -1026,8 +1026,8 @@ export const AttendanceScreen: React.FC = () => {
             <div className="glass-card-elevated p-5 space-y-4">
               <div className="flex justify-between items-center border-b border-[var(--border)] pb-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-[var(--aurora-teal)]/15">
-                    <Home className="w-5 h-5 text-[var(--aurora-teal)]" />
+                  <div className="p-2 rounded-xl bg-[var(--teal)]/15">
+                    <Home className="w-5 h-5 text-[var(--teal)]" />
                   </div>
                   <div>
                     <h3 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider">Remote Attendance</h3>
@@ -1035,7 +1035,7 @@ export const AttendanceScreen: React.FC = () => {
                   </div>
                 </div>
                 <div className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${
-                  currentWfhMonthCount >= 2 ? 'bg-[var(--danger)]/10 text-[var(--danger)] border-[var(--danger)]/20' : 'bg-[var(--aurora-teal)]/10 text-[var(--aurora-teal)] border-[var(--aurora-teal)]/20'
+                  currentWfhMonthCount >= 2 ? 'bg-[var(--danger)]/10 text-[var(--danger)] border-[var(--danger)]/20' : 'bg-[var(--teal)]/10 text-[var(--teal)] border-[var(--teal)]/20'
                 }`}>
                   {currentWfhMonthCount} / 2 MONTHLY LIMIT
                 </div>
@@ -1059,7 +1059,7 @@ export const AttendanceScreen: React.FC = () => {
                       value={wfhReason}
                       onChange={(e) => setWfhReason(e.target.value)}
                       placeholder="e.g., Personal errand / Doctor visit"
-                      className="w-full px-4 py-3 bg-[var(--card-surface)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)]"
+                      className="w-full px-4 py-3 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)]"
                     />
                   </div>
 
@@ -1072,20 +1072,20 @@ export const AttendanceScreen: React.FC = () => {
                       onChange={(e) => setWfhWorkPlan(e.target.value)}
                       rows={3}
                       placeholder="Detail your planned deliverables for today..."
-                      className="w-full px-4 py-3 bg-[var(--card-surface)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)]"
+                      className="w-full px-4 py-3 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)]"
                     />
                   </div>
 
                   <Button
                     type="submit"
                     disabled={currentWfhMonthCount >= 2}
-                    className="w-full py-4 aurora-bg text-white font-black text-xs rounded-xl shadow-xl border border-white/20 active:scale-[0.98]"
+                    className="w-full py-4 bg-[var(--button-primary)] text-white font-black text-xs rounded-xl shadow-xl border border-white/20 active:scale-[0.98]"
                   >
                     SUBMIT REMOTE ATTENDANCE
                   </Button>
                 </form>
               ) : (
-                <div className="p-4 bg-[var(--card-surface)] rounded-xl border border-[var(--border)] text-xs space-y-2">
+                <div className="p-4 bg-[var(--surface-elevated)] rounded-xl border border-[var(--border)] text-xs space-y-2">
                   <div className="flex items-center gap-2 text-[var(--success)] font-black uppercase tracking-widest">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Remote Session Active</span>
@@ -1108,8 +1108,8 @@ export const AttendanceScreen: React.FC = () => {
           {activeMode === 'CLIENT_VISIT' && (
             <div className="glass-card-elevated p-5 space-y-4">
               <div className="flex items-center gap-2.5 border-b border-[var(--border)] pb-3">
-                <div className="p-2 rounded-xl bg-[var(--aurora-cyan)]/15">
-                  <Users className="w-5 h-5 text-[var(--aurora-cyan)]" />
+                <div className="p-2 rounded-xl bg-[var(--cyan)]/15">
+                  <Users className="w-5 h-5 text-[var(--cyan)]" />
                 </div>
                 <div>
                   <h3 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider">Client Visit</h3>
@@ -1135,7 +1135,7 @@ export const AttendanceScreen: React.FC = () => {
                       value={clientName}
                       onChange={(e) => setClientName(e.target.value)}
                       placeholder="e.g., Tata Steel Ltd"
-                      className="w-full px-4 py-3 bg-[var(--card-surface)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)]"
+                      className="w-full px-4 py-3 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)]"
                     />
                   </div>
 
@@ -1148,7 +1148,7 @@ export const AttendanceScreen: React.FC = () => {
                       value={clientLocation}
                       onChange={(e) => setClientLocation(e.target.value)}
                       placeholder="e.g., Durgapur Industrial Complex"
-                      className="w-full px-4 py-3 bg-[var(--card-surface)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)]"
+                      className="w-full px-4 py-3 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)]"
                     />
                   </div>
 
@@ -1161,20 +1161,20 @@ export const AttendanceScreen: React.FC = () => {
                       onChange={(e) => setClientPurpose(e.target.value)}
                       rows={3}
                       placeholder="Detail the meeting objective..."
-                      className="w-full px-4 py-3 bg-[var(--card-surface)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)]"
+                      className="w-full px-4 py-3 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)]"
                     />
                   </div>
 
                   <Button
                     type="submit"
-                    className="w-full py-4 aurora-bg text-white font-black text-xs rounded-xl shadow-xl border border-white/20 active:scale-[0.98]"
+                    className="w-full py-4 bg-[var(--button-primary)] text-white font-black text-xs rounded-xl shadow-xl border border-white/20 active:scale-[0.98]"
                   >
                     SUBMIT CLIENT VISIT SESSION
                   </Button>
                 </form>
               ) : (
-                <div className="p-4 bg-[var(--card-surface)] rounded-xl border border-[var(--border)] text-xs space-y-2">
-                  <div className="flex items-center gap-2 text-[var(--aurora-cyan)] font-black uppercase tracking-widest">
+                <div className="p-4 bg-[var(--surface-elevated)] rounded-xl border border-[var(--border)] text-xs space-y-2">
+                  <div className="flex items-center gap-2 text-[var(--cyan)] font-black uppercase tracking-widest">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Client Visit Active</span>
                   </div>
@@ -1196,8 +1196,8 @@ export const AttendanceScreen: React.FC = () => {
           {activeMode === 'OUTDOOR' && (
             <div className="glass-card-elevated p-5 space-y-4">
               <div className="flex items-center gap-2.5 border-b border-[var(--border)] pb-3">
-                <div className="p-2 rounded-xl bg-[var(--aurora-emerald)]/15">
-                  <Car className="w-5 h-5 text-[var(--aurora-emerald)]" />
+                <div className="p-2 rounded-xl bg-[var(--success)]/15">
+                  <Car className="w-5 h-5 text-[var(--success)]" />
                 </div>
                 <div>
                   <h3 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider">Field Duty</h3>
@@ -1221,10 +1221,10 @@ export const AttendanceScreen: React.FC = () => {
                     <select
                       value={outdoorType}
                       onChange={(e) => setOutdoorType(e.target.value as OutdoorWorkTypeOption)}
-                      className="w-full px-4 py-3 bg-[var(--card-surface)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)]"
+                      className="w-full px-4 py-3 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)]"
                     >
                       {OUTDOOR_TYPE_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt} className="bg-[var(--card-bg)] text-[var(--text-primary)]">{opt}</option>
+                        <option key={opt} value={opt} className="bg-[var(--surface-elevated)] text-[var(--text-primary)]">{opt}</option>
                       ))}
                     </select>
                   </div>
@@ -1238,20 +1238,20 @@ export const AttendanceScreen: React.FC = () => {
                       onChange={(e) => setOutdoorDescription(e.target.value)}
                       rows={3}
                       placeholder="Detail your field assignments..."
-                      className="w-full px-4 py-3 bg-[var(--card-surface)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)]"
+                      className="w-full px-4 py-3 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)]"
                     />
                   </div>
 
                   <Button
                     type="submit"
-                    className="w-full py-4 aurora-bg text-white font-black text-xs rounded-xl shadow-xl border border-white/20 active:scale-[0.98]"
+                    className="w-full py-4 bg-[var(--button-primary)] text-white font-black text-xs rounded-xl shadow-xl border border-white/20 active:scale-[0.98]"
                   >
                     SUBMIT OUTDOOR ATTENDANCE
                   </Button>
                 </form>
               ) : (
-                <div className="p-4 bg-[var(--card-surface)] rounded-xl border border-[var(--border)] text-xs space-y-2">
-                  <div className="flex items-center gap-2 text-[var(--aurora-emerald)] font-black uppercase tracking-widest">
+                <div className="p-4 bg-[var(--surface-elevated)] rounded-xl border border-[var(--border)] text-xs space-y-2">
+                  <div className="flex items-center gap-2 text-[var(--success)] font-black uppercase tracking-widest">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Field Duty Active</span>
                   </div>
@@ -1275,7 +1275,7 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {/* 3. CHECKED OUT / LIVE STATUS STRIP */}
       {/* ==================================================== */}
-      <div className="p-3.5 rounded-2xl bg-[var(--app-bg-secondary)] border border-[var(--primary)]/20 flex items-center justify-between shadow-md text-[var(--text-primary)]">
+      <div className="p-3.5 rounded-2xl bg-[var(--app-background-secondary)] border border-[var(--primary)]/20 flex items-center justify-between shadow-md text-[var(--text-primary)]">
         <div className="flex items-center gap-3">
           {ribbonInfo.icon}
           <div>
@@ -1287,14 +1287,14 @@ export const AttendanceScreen: React.FC = () => {
             </span>
           </div>
         </div>
-        <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-[var(--card-bg)] text-[var(--primary-light)] border border-[var(--primary)]/20 shrink-0">
+        <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-[var(--surface-elevated)] text-[var(--primary-secondary)] border border-[var(--primary)]/20 shrink-0">
           LIVE STATUS
         </span>
       </div>
 
       {/* Action Feedback Banner */}
       {actionFeedback && (
-        <div className="p-3.5 bg-[var(--app-bg-secondary)] border border-[var(--primary)]/20 text-[var(--text-primary)] rounded-2xl text-xs font-bold flex justify-between items-center shadow-sm animate-fade-in">
+        <div className="p-3.5 bg-[var(--app-background-secondary)] border border-[var(--primary)]/20 text-[var(--text-primary)] rounded-2xl text-xs font-bold flex justify-between items-center shadow-sm animate-fade-in">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[var(--primary)]" />
             <span>{actionFeedback}</span>
@@ -1308,48 +1308,48 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {activeUnresolvedRecord && (
         <div className="space-y-5 animate-fade-in">
-          <div className="p-5 sm:p-6 rounded-3xl bg-[#151515] border border-[#F59E0B]/40 shadow-xl space-y-4">
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#292929]">
+          <div className="p-5 sm:p-6 rounded-3xl bg-[var(--surface-elevated)] border border-amber-500/40 shadow-xl space-y-4">
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#F59E0B]/10 border border-[#F59E0B]/30 flex items-center justify-center text-[#F59E0B] flex-shrink-0">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 flex-shrink-0">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase font-black tracking-widest px-2.5 py-0.5 rounded-full bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30">
+                    <span className="text-[10px] uppercase font-black tracking-widest px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30">
                       CHECKOUT PENDING
                     </span>
                     {unresolvedPastRecords.length > 1 && (
-                      <span className="text-[10px] font-bold text-[#F59E0B]">
+                      <span className="text-[10px] font-bold text-amber-500">
                         ({unresolvedPastRecords.length} pending)
                       </span>
                     )}
                   </div>
-                  <h2 className="text-lg font-black text-[#FFFFFF] mt-1">
+                  <h2 className="text-lg font-black text-white mt-1">
                     Checkout Resolution Required
                   </h2>
                 </div>
               </div>
             </div>
 
-            <p className="text-xs text-[#C7C7C7] leading-relaxed font-medium">
-              Your checkout for <strong className="text-[#FFFFFF]">{activeUnresolvedRecord.date}</strong> was not recorded.
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
+              Your checkout for <strong className="text-white">{activeUnresolvedRecord.date}</strong> was not recorded.
               Please submit your actual checkout time for Admin verification.
             </p>
 
             {/* Session Details */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 bg-[#121212] rounded-2xl border border-[#292929] text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-3.5 bg-[var(--surface-elevated)] rounded-2xl border border-[var(--border)] text-xs">
               <div>
-                <span className="text-[10px] text-[#8A8A8A] font-bold uppercase block tracking-wider">Date</span>
-                <span className="text-[#FFFFFF] font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
+                <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase block tracking-wider">Date</span>
+                <span className="text-white font-extrabold text-sm">{activeUnresolvedRecord.date}</span>
               </div>
               <div>
-                <span className="text-[10px] text-[#8A8A8A] font-bold uppercase block tracking-wider">Check-in</span>
-                <span className="text-[#22C55E] font-mono font-extrabold text-sm">{activeUnresolvedRecord.checkInTime || '--:--'}</span>
+                <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase block tracking-wider">Check-in</span>
+                <span className="text-emerald-500 font-mono font-extrabold text-sm">{activeUnresolvedRecord.checkInTime || '--:--'}</span>
               </div>
               <div className="col-span-2 sm:col-span-1">
-                <span className="text-[10px] text-[#8A8A8A] font-bold uppercase block tracking-wider">Checkout</span>
-                <span className={`font-extrabold text-sm ${activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'text-[#F59E0B]' : 'text-[#EF4444]'}`}>
+                <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase block tracking-wider">Checkout</span>
+                <span className={`font-extrabold text-sm ${activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'text-amber-500' : 'text-rose-500'}`}>
                   {activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' ? 'Reported (Pending)' : 'Unresolved'}
                 </span>
               </div>
@@ -1357,17 +1357,17 @@ export const AttendanceScreen: React.FC = () => {
 
             {/* Resolution Form / Pending State */}
             {activeUnresolvedRecord.checkoutSource === 'EMPLOYEE_REPORTED' && !isEditingProposal ? (
-              <div className="p-4 rounded-2xl bg-[#F59E0B]/10 border border-[#F59E0B]/30 space-y-3">
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-[#F59E0B] text-xs font-black">
+                  <div className="flex items-center gap-2 text-amber-500 text-xs font-black">
                     <Clock className="w-4 h-4" />
                     <span>Reported Checkout: {activeUnresolvedRecord.checkOutTime || activeUnresolvedRecord.employeeProposedCheckoutTime || 'Submitted'}</span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]/40">
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500/20 text-amber-500 border border-amber-500/40">
                     REPORTED
                   </span>
                 </div>
-                <p className="text-xs text-[#F59E0B]/90 leading-relaxed font-bold">
+                <p className="text-xs text-amber-500/90 leading-relaxed font-bold">
                   Your proposed checkout time has been submitted and is currently pending Admin verification.
                 </p>
                 <div className="flex justify-end pt-1">
@@ -1377,14 +1377,14 @@ export const AttendanceScreen: React.FC = () => {
                       setIsEditingProposal(true);
                       setProposedTimeInput(activeUnresolvedRecord.employeeProposedCheckoutTime || '');
                     }}
-                    className="px-3 py-1.5 bg-[var(--app-bg-primary)] hover:bg-[var(--card-bg)] text-[#F59E0B] text-xs font-bold rounded-xl border border-[#F59E0B]/30 transition-all cursor-pointer"
+                    className="px-3 py-1.5 bg-[var(--app-background-secondary)] hover:bg-[var(--surface-elevated)] text-amber-500 text-xs font-bold rounded-xl border border-amber-500/30 transition-all cursor-pointer"
                   >
                     Edit Proposed Time
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="space-y-3 p-4 rounded-2xl bg-[var(--app-bg-primary)] border border-[var(--primary)]/20">
+              <div className="space-y-3 p-4 rounded-2xl bg-[var(--app-background-secondary)] border border-[var(--primary)]/20">
                 <label className="text-xs font-bold text-[var(--text-primary)] block">
                   Select your actual checkout time for {activeUnresolvedRecord.date}:
                 </label>
@@ -1394,7 +1394,7 @@ export const AttendanceScreen: React.FC = () => {
                     type="time"
                     value={proposedTimeInput}
                     onChange={(e) => setProposedTimeInput(e.target.value)}
-                    className="flex-1 px-3.5 py-2.5 bg-[var(--app-bg-secondary)] border border-[var(--primary)]/20 text-[var(--text-primary)] rounded-xl text-xs focus:ring-2 focus:ring-[var(--primary)] focus:outline-none"
+                    className="flex-1 px-3.5 py-2.5 bg-[var(--app-background-secondary)] border border-[var(--primary)]/20 text-[var(--text-primary)] rounded-xl text-xs focus:ring-2 focus:ring-[var(--primary)] focus:outline-none"
                   />
                   <div className="flex flex-wrap gap-1.5">
                     {['17:30', '18:00', '18:10', '18:30', '19:00', '19:30'].map((preset) => {
@@ -1409,7 +1409,7 @@ export const AttendanceScreen: React.FC = () => {
                           className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
                             proposedTimeInput === preset
                               ? 'bg-[var(--primary)] text-white border-[var(--primary)]'
-                              : 'bg-[var(--card-bg)] text-[var(--text-secondary)] border-[var(--primary)]/20 hover:bg-[var(--app-bg-secondary)]'
+                              : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] border-[var(--primary)]/20 hover:bg-[var(--app-background-secondary)]'
                           }`}
                         >
                           {label}
@@ -1420,7 +1420,7 @@ export const AttendanceScreen: React.FC = () => {
                 </div>
 
                 {proposalError && (
-                  <div className="text-xs text-[#EF4444] font-bold flex items-center gap-1.5">
+                  <div className="text-xs text-rose-500 font-bold flex items-center gap-1.5">
                     <AlertCircle className="w-3.5 h-3.5" />
                     <span>{proposalError}</span>
                   </div>
@@ -1431,7 +1431,7 @@ export const AttendanceScreen: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsEditingProposal(false)}
-                      className="px-4 py-2 bg-[var(--card-bg)] hover:bg-[var(--app-bg-secondary)] text-[var(--text-secondary)] text-xs font-bold rounded-xl border border-[var(--primary)]/20 transition-all cursor-pointer"
+                      className="px-4 py-2 bg-[var(--surface-elevated)] hover:bg-[var(--app-background-secondary)] text-[var(--text-secondary)] text-xs font-bold rounded-xl border border-[var(--primary)]/20 transition-all cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -1439,7 +1439,7 @@ export const AttendanceScreen: React.FC = () => {
                   <Button
                     onClick={handleSubmitProposedTime}
                     disabled={isSubmittingProposal}
-                    className="bg-[var(--primary)] hover:bg-[var(--primary-light)] text-white text-xs font-black px-6 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
+                    className="bg-[var(--primary)] hover:bg-[var(--primary-secondary)] text-white text-xs font-black px-6 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
                   >
                     <Check className="w-4 h-4 stroke-[3]" />
                     {isSubmittingProposal ? 'SUBMITTING...' : 'RESOLVE CHECKOUT'}
@@ -1480,7 +1480,7 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {/* 5. LOCATION STATUS CARD */}
       {/* ==================================================== */}
-      <Card className="p-4 sm:p-5 bg-[var(--app-bg-secondary)] border border-[var(--primary)]/20 rounded-2xl shadow-md space-y-3 text-[var(--text-primary)]">
+      <Card className="p-4 sm:p-5 bg-[var(--app-background-secondary)] border border-[var(--primary)]/20 rounded-2xl shadow-md space-y-3 text-[var(--text-primary)]">
         <div className="flex items-center justify-between border-b border-[var(--primary)]/20 pb-2.5">
           <div className="flex items-center gap-2">
             <Compass className="w-4 h-4 text-[var(--primary)]" />
@@ -1492,8 +1492,8 @@ export const AttendanceScreen: React.FC = () => {
             isInsideGeofence || (distance !== null && distance <= 25)
               ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
               : locationStatus === 'error'
-              ? 'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/40'
-              : 'bg-[#EF4444]/15 text-[#EF4444] border-[#EF4444]/40'
+              ? 'bg-amber-500/15 text-amber-500 border-amber-500/40'
+              : 'bg-rose-500/15 text-rose-500 border-rose-500/40'
           }`}>
             {isInsideGeofence || (distance !== null && distance <= 25)
               ? 'Inside Office'
@@ -1540,7 +1540,7 @@ export const AttendanceScreen: React.FC = () => {
       {/* 3. TODAY'S DETAILS */}
       {/* ==================================================== */}
       {todayRecord && ['WFH', 'CLIENT_VISIT', 'OUTDOOR'].includes(todayRecord.attendanceType || '') && (
-        <Card className="p-5 bg-[var(--app-bg-secondary)] border border-[var(--primary)]/20 text-xs rounded-2xl space-y-3 text-[var(--text-primary)]">
+        <Card className="p-5 bg-[var(--app-background-secondary)] border border-[var(--primary)]/20 text-xs rounded-2xl space-y-3 text-[var(--text-primary)]">
           <h3 className="text-xs font-extrabold text-[var(--text-secondary)] uppercase tracking-widest border-b border-[var(--primary)]/20 pb-2">
             📝 Today's Details
           </h3>
@@ -1553,7 +1553,7 @@ export const AttendanceScreen: React.FC = () => {
           )}
           {todayRecord.attendanceType === 'CLIENT_VISIT' && (
             <div className="space-y-1.5">
-              <p className="font-bold text-[var(--primary-light)]">Client Visit</p>
+              <p className="font-bold text-[var(--primary-secondary)]">Client Visit</p>
               <p><span className="text-[var(--text-secondary)] font-bold">Client:</span> {todayRecord.clientName || 'N/A'}</p>
               <p><span className="text-[var(--text-secondary)] font-bold">Location:</span> {todayRecord.clientLocation || 'N/A'}</p>
               <p><span className="text-[var(--text-secondary)] font-bold">Purpose:</span> {todayRecord.purpose || 'N/A'}</p>
@@ -1561,7 +1561,7 @@ export const AttendanceScreen: React.FC = () => {
           )}
           {todayRecord.attendanceType === 'OUTDOOR' && (
             <div className="space-y-1.5">
-              <p className="font-bold text-[var(--primary-light)]">Outdoor Work</p>
+              <p className="font-bold text-[var(--primary-secondary)]">Outdoor Work</p>
               <p><span className="text-[var(--text-secondary)] font-bold">Type:</span> {todayRecord.outdoorType || 'N/A'}</p>
               <p><span className="text-[var(--text-secondary)] font-bold">Description:</span> {todayRecord.description || 'N/A'}</p>
             </div>
@@ -1582,7 +1582,7 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {/* 6. MONTHLY SUMMARY */}
       {/* ==================================================== */}
-      <Card className="p-5 bg-[var(--app-bg-secondary)] border border-[var(--primary)]/20 shadow-md rounded-2xl text-[var(--text-primary)]">
+      <Card className="p-5 bg-[var(--app-background-secondary)] border border-[var(--primary)]/20 shadow-md rounded-2xl text-[var(--text-primary)]">
         <h3 className="text-xs font-extrabold text-[var(--text-secondary)] uppercase tracking-widest border-b border-[var(--primary)]/20 pb-2 mb-4 flex items-center justify-between">
           <span>📊 THIS MONTH</span>
           <span className="text-[10px] text-[var(--text-secondary)] font-mono font-bold uppercase">SUMMARY</span>
@@ -1601,7 +1601,7 @@ export const AttendanceScreen: React.FC = () => {
             </div>
             <div className="flex justify-between font-bold">
               <span className="text-[var(--text-secondary)] ml-3">🏠 WFH</span>
-              <span className="text-[var(--primary-light)]">{monthlyStats.wfh}</span>
+              <span className="text-[var(--primary-secondary)]">{monthlyStats.wfh}</span>
             </div>
             <div className="flex justify-between font-bold">
               <span className="text-[var(--text-secondary)] ml-3">🤝 Client Visit</span>
@@ -1609,7 +1609,7 @@ export const AttendanceScreen: React.FC = () => {
             </div>
             <div className="flex justify-between font-bold">
               <span className="text-[var(--text-secondary)] ml-3">🚗 Outdoor Work</span>
-              <span className="text-[var(--primary-light)]">{monthlyStats.outdoor}</span>
+              <span className="text-[var(--primary-secondary)]">{monthlyStats.outdoor}</span>
             </div>
             <div className="flex justify-between font-bold">
               <span className="text-[var(--text-secondary)]">🏖 Leave</span>
@@ -1629,7 +1629,7 @@ export const AttendanceScreen: React.FC = () => {
             <div className="relative w-20 h-20 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                 <path
-                  className="text-[var(--card-bg)]"
+                  className="text-[var(--surface-elevated)]"
                   strokeWidth="3"
                   stroke="currentColor"
                   fill="none"
@@ -1672,10 +1672,10 @@ export const AttendanceScreen: React.FC = () => {
       {/* ==================================================== */}
       {/* 7. ATTENDANCE HISTORY LOGS */}
       {/* ==================================================== */}
-      <div className="bg-[var(--app-bg-secondary)] rounded-2xl border border-[var(--primary)]/20 overflow-hidden shadow-md text-[var(--text-primary)]">
+      <div className="bg-[var(--app-background-secondary)] rounded-2xl border border-[var(--primary)]/20 overflow-hidden shadow-md text-[var(--text-primary)]">
         <div 
           onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
-          className="p-5 flex items-center justify-between cursor-pointer hover:bg-[var(--card-bg)] transition select-none"
+          className="p-5 flex items-center justify-between cursor-pointer hover:bg-[var(--surface-elevated)] transition select-none"
         >
           <div>
             <h3 className="text-sm font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
@@ -1685,7 +1685,7 @@ export const AttendanceScreen: React.FC = () => {
               {isHistoryExpanded ? 'Search and filter local & synchronized records' : 'Click to expand historical logs'}
             </p>
           </div>
-          <div className="w-7 h-7 rounded-lg bg-[var(--app-bg-primary)] border border-[var(--primary)]/20 flex items-center justify-center text-[var(--primary)]">
+          <div className="w-7 h-7 rounded-lg bg-[var(--app-background-secondary)] border border-[var(--primary)]/20 flex items-center justify-center text-[var(--primary)]">
             <span className={`transform transition-transform duration-200 ${isHistoryExpanded ? 'rotate-90' : ''}`}>
               &rarr;
             </span>
@@ -1693,7 +1693,7 @@ export const AttendanceScreen: React.FC = () => {
         </div>
 
         {isHistoryExpanded && (
-          <div className="p-6 border-t border-[var(--primary)]/20 bg-[var(--card-bg)]/40 space-y-4">
+          <div className="p-6 border-t border-[var(--primary)]/20 bg-[var(--surface-elevated)]/40 space-y-4">
             {/* Search and Filters Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="relative">
@@ -1702,7 +1702,7 @@ export const AttendanceScreen: React.FC = () => {
                   placeholder="Search date, client, location..."
                   value={historySearchTerm}
                   onChange={(e) => setHistorySearchTerm(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 bg-[var(--card-bg)] border border-[var(--primary)]/20 rounded-xl text-xs text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--primary)]"
+                  className="w-full pl-8 pr-3 py-2 bg-[var(--surface-elevated)] border border-[var(--primary)]/20 rounded-xl text-xs text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--primary)]"
                 />
                 <span className="absolute left-2.5 top-2.5 text-[var(--text-secondary)] text-xs">🔍</span>
               </div>
@@ -1711,7 +1711,7 @@ export const AttendanceScreen: React.FC = () => {
                 <select
                   value={historyTypeFilter}
                   onChange={(e) => setHistoryTypeFilter(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-[var(--card-bg)] border border-[var(--primary)]/20 rounded-xl text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
+                  className="w-full px-3 py-2 bg-[var(--surface-elevated)] border border-[var(--primary)]/20 rounded-xl text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]"
                 >
                   <option value="ALL">All Modes</option>
                   <option value="OFFICE">🏢 Office</option>
@@ -1736,7 +1736,7 @@ export const AttendanceScreen: React.FC = () => {
                   return (
                     <div 
                       key={rec.id} 
-                      className="p-4 bg-[var(--card-bg)] rounded-2xl border border-[var(--primary)]/20 text-xs flex flex-col gap-3 hover:border-[var(--primary)]/40 transition-all"
+                      className="p-4 bg-[var(--surface-elevated)] rounded-2xl border border-[var(--primary)]/20 text-xs flex flex-col gap-3 hover:border-[var(--primary)]/40 transition-all"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
@@ -1757,7 +1757,7 @@ export const AttendanceScreen: React.FC = () => {
                               const calculated = calculateWorkingHours(rec.checkInTime, rec.checkOutTime);
                               if (calculated) {
                                   return (
-                                    <span className="text-[11px] text-[var(--text-primary)] font-mono font-bold bg-[var(--app-bg-secondary)] px-2 py-0.5 rounded-md border border-[var(--primary)]/20">
+                                    <span className="text-[11px] text-[var(--text-primary)] font-mono font-bold bg-[var(--app-background-secondary)] px-2 py-0.5 rounded-md border border-[var(--primary)]/20">
                                       ⏱️ {calculated}
                                     </span>
                                   );
@@ -1777,13 +1777,13 @@ export const AttendanceScreen: React.FC = () => {
                         <p className="text-[11px] text-emerald-400 font-bold">WFH Reason: {rec.wfhReason}</p>
                       )}
                       {rec.outdoorType && (
-                        <p className="text-[11px] text-[var(--primary-light)] font-bold">Outdoor: {rec.outdoorType} - {rec.description}</p>
+                        <p className="text-[11px] text-[var(--primary-secondary)] font-bold">Outdoor: {rec.outdoorType} - {rec.description}</p>
                       )}
 
                       {/* Separate Check-in, Checkout & Current Location */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1 pt-2 border-t border-[var(--primary)]/20">
                         {/* Check-In Block */}
-                        <div className="bg-[var(--app-bg-secondary)] p-2.5 rounded-xl border border-[var(--primary)]/20 space-y-0.5">
+                        <div className="bg-[var(--app-background-secondary)] p-2.5 rounded-xl border border-[var(--primary)]/20 space-y-0.5">
                           <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
                             <span>Check-in Location</span>
                             <span className="font-mono text-emerald-400">{checkInLoc.time}</span>
@@ -1799,7 +1799,7 @@ export const AttendanceScreen: React.FC = () => {
                         </div>
 
                         {/* Checkout Block */}
-                        <div className="bg-[var(--app-bg-secondary)] p-2.5 rounded-xl border border-[var(--primary)]/20 space-y-0.5">
+                        <div className="bg-[var(--app-background-secondary)] p-2.5 rounded-xl border border-[var(--primary)]/20 space-y-0.5">
                           <div className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center justify-between">
                             <span>Checkout Location</span>
                             <span className="font-mono text-rose-400">{checkoutLoc.time}</span>
@@ -1815,12 +1815,12 @@ export const AttendanceScreen: React.FC = () => {
                         </div>
 
                         {/* Current Location Block */}
-                        <div className="bg-[var(--app-bg-secondary)] p-2.5 rounded-xl border border-[var(--primary)]/20 space-y-0.5">
-                          <div className="text-[10px] font-bold text-[var(--primary-light)] uppercase tracking-wider flex items-center justify-between">
+                        <div className="bg-[var(--app-background-secondary)] p-2.5 rounded-xl border border-[var(--primary)]/20 space-y-0.5">
+                          <div className="text-[10px] font-bold text-[var(--primary-secondary)] uppercase tracking-wider flex items-center justify-between">
                             <span>Current Location</span>
                             <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
                               currentLoc.status === 'LIVE' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 animate-pulse' :
-                              currentLoc.status === 'RECENT' ? 'bg-[var(--primary)]/15 text-[var(--primary-light)] border border-[var(--primary)]/30' :
+                              currentLoc.status === 'RECENT' ? 'bg-[var(--primary)]/15 text-[var(--primary-secondary)] border border-[var(--primary)]/30' :
                               currentLoc.status === 'STALE' ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' :
                               'bg-rose-500/15 text-rose-400 border border-rose-500/30'
                             }`}>
@@ -1828,7 +1828,7 @@ export const AttendanceScreen: React.FC = () => {
                             </span>
                           </div>
                           <div className="text-[var(--text-primary)] font-medium truncate flex items-center gap-1" title={currentLoc.location}>
-                            <span className="text-[var(--primary-light)]">📍</span> {currentLoc.location}
+                            <span className="text-[var(--primary-secondary)]">📍</span> {currentLoc.location}
                           </div>
                           {currentLoc.distance && (
                             <div className="text-[10px] text-[var(--text-secondary)] font-mono font-bold">

@@ -189,7 +189,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
     <Dialog isOpen={isOpen} onClose={onClose} title={`Edit Employee Profile: ${user.name || 'Unknown'}`}>
       <div className="flex flex-col items-center mb-5">
         <div className="relative group">
-          <div className="w-24 h-24 rounded-full bg-[#151515] border-2 border-[#D4AF37] overflow-hidden flex items-center justify-center shadow-lg">
+          <div className="w-24 h-24 rounded-full bg-[var(--surface-elevated)] border-2 border-[var(--primary)] overflow-hidden flex items-center justify-center shadow-lg">
             {photoUrl ? (
               <img src={photoUrl} alt={user.name} className="w-full h-full object-cover" />
             ) : (
@@ -198,7 +198,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
           </div>
           <label
             className={`absolute bottom-0 right-0 p-2 ${
-              uploadingPhoto ? 'bg-[#B5922F]' : 'bg-[#D4AF37] hover:bg-[#B5922F]'
+              uploadingPhoto ? 'bg-[var(--button-primary)]' : 'bg-[var(--button-primary)] hover:opacity-90'
             } text-black rounded-full cursor-pointer shadow-md transition-all scale-95 group-hover:scale-105`}
           >
             {uploadingPhoto ? (
@@ -215,7 +215,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             />
           </label>
         </div>
-        <p className="text-[10px] text-purple-300/70 mt-2 font-bold uppercase tracking-wider">
+        <p className="text-[10px] text-[var(--text-muted)] mt-2 font-bold uppercase tracking-wider">
           Profile Photo (Admin Only)
         </p>
       </div>
@@ -230,7 +230,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             type="text"
             readOnly
             value={user.employeeCode || 'N/A'}
-            className="w-full px-3 py-2 rounded-xl bg-[#170B38] border border-purple-500/20 text-purple-300/70 text-xs font-mono font-bold"
+            className="w-full px-3 py-2 rounded-xl bg-[var(--app-background-secondary)] border border-[var(--border)] text-[var(--text-muted)] text-xs font-mono font-bold"
           />
         </div>
 
@@ -243,7 +243,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 rounded-xl bg-[#211044] border border-purple-500/30 text-white text-xs font-bold focus:outline-none focus:border-purple-400"
+              className="w-full px-3 py-2 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border)] text-white text-xs font-bold focus:outline-none focus:border-purple-400"
             />
           </div>
 
@@ -254,7 +254,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
                 type="text"
                 value={formData.mobileNumber}
                 onChange={(e) => setFormData({ ...formData, mobileNumber: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-[#211044] border border-purple-500/30 text-white text-xs font-bold focus:outline-none focus:border-purple-400"
+                className="w-full px-3 py-2 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border)] text-white text-xs font-bold focus:outline-none focus:border-purple-400"
               />
             </div>
             <div className="space-y-1">
@@ -263,7 +263,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-[#211044] border border-purple-500/30 text-white text-xs font-bold focus:outline-none focus:border-purple-400"
+                className="w-full px-3 py-2 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border)] text-white text-xs font-bold focus:outline-none focus:border-purple-400"
               />
             </div>
           </div>
@@ -276,7 +276,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
                 required
                 value={formData.office}
                 onChange={(e) => setFormData({ ...formData, office: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-[#211044] border border-purple-500/30 text-white text-xs font-bold focus:outline-none focus:border-purple-400"
+                className="w-full px-3 py-2 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border)] text-white text-xs font-bold focus:outline-none focus:border-purple-400"
               >
                 <option value="">Select Department</option>
                 {departments.map((d) => (
@@ -292,7 +292,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
               <select
                 value={formData.designation}
                 onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-[#211044] border border-purple-500/30 text-white text-xs font-bold focus:outline-none focus:border-purple-400"
+                className="w-full px-3 py-2 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border)] text-white text-xs font-bold focus:outline-none focus:border-purple-400"
               >
                 <option value="">Select Designation</option>
                 {designations.map((d) => (
@@ -311,7 +311,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
               <select
                 value={formData.role}
                 onChange={(e) => handleRoleChange(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-[#211044] border border-purple-500/30 text-white text-xs font-bold focus:outline-none focus:border-purple-400"
+                className="w-full px-3 py-2 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border)] text-white text-xs font-bold focus:outline-none focus:border-purple-400"
               >
                 <option value="EMPLOYEE">Employee</option>
                 <option value="TEAM_LEADER">Team Leader</option>
@@ -326,7 +326,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
               <select
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-[#211044] border border-purple-500/30 text-white text-xs font-bold focus:outline-none focus:border-purple-400"
+                className="w-full px-3 py-2 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border)] text-white text-xs font-bold focus:outline-none focus:border-purple-400"
               >
                 <option value="Pending Approval">Pending Approval</option>
                 <option value="Approved">Approved</option>
@@ -337,7 +337,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
           </div>
 
           {/* Team Leader Designate Checkbox */}
-          <div className="p-3 bg-[#170B38] border border-purple-500/20 rounded-xl flex items-center justify-between">
+          <div className="p-3 bg-[var(--app-background-secondary)] border border-[var(--border)] rounded-xl flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-amber-400" />
               <div>
@@ -362,7 +362,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
               <select
                 value={formData.assignedTeamLeaderId}
                 onChange={(e) => setFormData({ ...formData, assignedTeamLeaderId: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-[#211044] border border-purple-500/30 text-white text-xs font-bold focus:outline-none focus:border-purple-400"
+                className="w-full px-3 py-2 rounded-xl bg-[var(--surface-elevated)] border border-[var(--border)] text-white text-xs font-bold focus:outline-none focus:border-purple-400"
               >
                 <option value="">No Team Leader</option>
                 {candidateTeamLeaders.map((tl) => (
@@ -375,7 +375,7 @@ export const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
           )}
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t border-purple-500/20">
+        <div className="flex justify-end gap-2 pt-4 border-t border-[var(--border)]">
           <Button
             type="button"
             variant="text"

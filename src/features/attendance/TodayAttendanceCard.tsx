@@ -103,8 +103,8 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
 
   let statusTitle = 'NOT CHECKED IN';
   let statusBadgeText = 'Not Started';
-  let statusBorderColor = 'border-[#6366F1]/20';
-  let badgeStyle = 'bg-[#171936] text-[#B9B9D0] border-[#6366F1]/20';
+  let statusBorderColor = 'border-indigo-500/20';
+  let badgeStyle = 'bg-slate-800 text-slate-400 border-indigo-500/20';
   let StateIcon = Clock;
 
   if (isCheckedOut) {
@@ -118,13 +118,13 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
       statusTitle = 'WORK FROM HOME';
       statusBadgeText = 'WFH Active';
       statusBorderColor = 'border-[#6366F1]/40';
-      badgeStyle = 'bg-[#4F46E5]/15 text-[#818CF8] border-[#6366F1]/30';
+      badgeStyle = 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30';
       StateIcon = Home;
     } else if (attendanceType === 'CLIENT_VISIT') {
       statusTitle = 'CLIENT VISIT';
       statusBadgeText = todayRecord.clientName ? `Client: ${todayRecord.clientName}` : 'On-Site Visit';
       statusBorderColor = 'border-[#6366F1]/40';
-      badgeStyle = 'bg-[#4F46E5]/15 text-[#818CF8] border-[#6366F1]/30';
+      badgeStyle = 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30';
       StateIcon = MapPin;
     } else if (attendanceType === 'OUTDOOR') {
       statusTitle = 'OUTDOOR WORK';
@@ -148,19 +148,19 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   });
 
   return (
-    <Card className={`p-4 sm:p-5 bg-[linear-gradient(135deg,#312E81_0%,#4338CA_45%,#2563EB_100%)] border border-white/20 shadow-[0_10px_30px_rgba(30,41,100,0.18)] relative overflow-hidden transition-all duration-300 text-white`}>
+    <Card className={`p-4 sm:p-5 glass-card border border-white/20 shadow-[0_10px_30px_rgba(30,41,100,0.18)] relative overflow-hidden transition-all duration-300 text-white`}>
       {/* Background Subtle Glow */}
       <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header Row */}
       <div className="flex items-center justify-between pb-3 border-b border-white/15 mb-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[linear-gradient(135deg,#172554_0%,#1E3A8A_100%)] border border-white/20 flex items-center justify-center shadow-sm">
-            <StateIcon className="w-4 h-4 text-[#38BDF8]" />
+          <div className="w-8 h-8 rounded-xl glass-inner-tile border border-white/20 flex items-center justify-center shadow-sm">
+            <StateIcon className="w-4 h-4 text-[var(--primary-light)]" />
           </div>
           <div>
             <h2 className="text-xs font-black uppercase tracking-wider text-white">TODAY'S ATTENDANCE</h2>
-            <p className="text-[10px] text-[#CBD5E1] font-medium">{todayDateFormatted}</p>
+            <p className="text-[10px] text-[var(--card-text-muted)] font-medium">{todayDateFormatted}</p>
           </div>
         </div>
 
@@ -173,7 +173,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
       {/* Main Status Title & Details */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center mb-4">
         <div>
-          <span className="text-[10px] font-bold text-[#CBD5E1] uppercase tracking-wider block mb-0.5">
+          <span className="text-[10px] font-bold text-[var(--card-text-muted)] uppercase tracking-wider block mb-0.5">
             Current Status
           </span>
 
@@ -181,7 +181,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
             {statusTitle}
           </h1>
 
-          <div className="mt-2 text-xs font-medium text-[#CBD5E1]">
+          <div className="mt-2 text-xs font-medium text-[var(--card-text-muted)]">
             {isCheckedOut ? (
               <span className="text-emerald-300 font-bold flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Checked in {todayRecord.checkInTime} — Checked out {todayRecord.checkOutTime}
@@ -192,7 +192,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
                 Checked in at <strong className="text-emerald-300 font-mono">{todayRecord.checkInTime}</strong>
               </span>
             ) : (
-              <span className="text-[#CBD5E1]">
+              <span className="text-[var(--card-text-muted)]">
                 Check-in not yet recorded today
               </span>
             )}
@@ -200,9 +200,9 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
         </div>
 
         {/* Working Time Badge */}
-        <div className="bg-[linear-gradient(135deg,#172554_0%,#1E3A8A_100%)] p-3.5 rounded-2xl border border-amber-400/30 flex flex-col items-start sm:items-end justify-center shadow-[0_4px_16px_rgba(15,23,42,0.35)]">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-[#F59E0B] flex items-center gap-1 mb-0.5">
-            <Activity className="w-3.5 h-3.5 text-[#F59E0B]" />
+        <div className="glass-inner-tile p-3.5 rounded-2xl border border-amber-400/30 flex flex-col items-start sm:items-end justify-center shadow-[0_4px_16px_rgba(15,23,42,0.35)]">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500 flex items-center gap-1 mb-0.5">
+            <Activity className="w-3.5 h-3.5 text-amber-500" />
             WORKING TIME
           </span>
           <span className="text-xl sm:text-2xl font-black font-mono text-white tracking-tight">
@@ -215,27 +215,27 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
       <div className="pt-3 border-t border-white/15">
         <div className="grid grid-cols-2 gap-3">
           {/* Check-In Box */}
-          <div className="bg-[linear-gradient(135deg,#172554_0%,#1E3A8A_100%)] p-3 rounded-xl border border-white/15 space-y-1 shadow-sm">
-            <span className="text-[10px] font-bold text-[#CBD5E1] uppercase tracking-wider block">
+          <div className="glass-inner-tile p-3 rounded-xl border border-white/15 space-y-1 shadow-sm">
+            <span className="text-[10px] font-bold text-[var(--card-text-muted)] uppercase tracking-wider block">
               CHECK-IN
             </span>
             <span className="text-base sm:text-lg font-black font-mono text-white block">
               {todayRecord?.checkInTime || 'Not recorded'}
             </span>
-            <span className="text-[10px] text-[#94A3B8] font-medium block truncate">
+            <span className="text-[10px] text-[var(--card-text-muted)] font-medium block truncate">
               {isCheckedIn ? (attendanceType === 'OFFICE' ? 'Office HQ' : attendanceType.replace('_', ' ')) : 'Awaiting check-in'}
             </span>
           </div>
 
           {/* Checkout Box */}
-          <div className="bg-[linear-gradient(135deg,#172554_0%,#1E3A8A_100%)] p-3 rounded-xl border border-white/15 space-y-1 shadow-sm">
-            <span className="text-[10px] font-bold text-[#CBD5E1] uppercase tracking-wider block">
+          <div className="glass-inner-tile p-3 rounded-xl border border-white/15 space-y-1 shadow-sm">
+            <span className="text-[10px] font-bold text-[var(--card-text-muted)] uppercase tracking-wider block">
               CHECKOUT
             </span>
             <span className="text-base sm:text-lg font-black font-mono text-white block">
               {todayRecord?.checkOutTime || 'Not recorded'}
             </span>
-            <span className="text-[10px] text-[#94A3B8] font-medium block truncate">
+            <span className="text-[10px] text-[var(--card-text-muted)] font-medium block truncate">
               {isCheckedOut ? 'Checkout recorded' : isCheckedIn ? 'Session in progress' : 'Not recorded'}
             </span>
           </div>

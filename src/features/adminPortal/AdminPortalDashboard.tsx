@@ -15,7 +15,7 @@ export const AdminPortalDashboard: React.FC = () => {
   if (adminProfileError || (role !== 'ADMIN' && role !== 'SUPER_ADMIN' && role !== 'HR')) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#14082B] via-[#1D0C3C] to-[#250F4C] flex flex-col items-center justify-center p-4 text-white">
-        <Card className="max-w-md w-full p-8 space-y-6 bg-[#250F4C] border border-purple-500/35 shadow-2xl rounded-[28px] text-center">
+        <Card className="max-w-md w-full p-8 space-y-6 glass-card border border-purple-500/35 shadow-2xl rounded-[28px] text-center">
           <div className="w-16 h-16 bg-amber-500/20 border border-amber-500/40 rounded-2xl flex items-center justify-center mx-auto shadow-[0_0_25px_rgba(245,158,11,0.3)]">
             <ShieldAlert className="w-9 h-9 text-amber-400" />
           </div>

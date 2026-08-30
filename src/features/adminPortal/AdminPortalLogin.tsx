@@ -39,7 +39,7 @@ export const AdminPortalLogin: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#14082B] via-[#1D0C3C] to-[#250F4C] flex flex-col items-center justify-center p-4 text-white">
-      <Card className="max-w-md w-full p-8 space-y-6 bg-[#250F4C] border border-amber-500/30 shadow-2xl rounded-[28px]">
+      <Card className="max-w-md w-full p-8 space-y-6 glass-card border border-amber-500/30 shadow-2xl rounded-[28px]">
         <div className="text-center">
           <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_0_25px_rgba(245,158,11,0.4)]">
             <ShieldCheck className="w-9 h-9 text-white" />
@@ -57,7 +57,7 @@ export const AdminPortalLogin: React.FC = () => {
               type="text"
               value={loginId}
               onChange={(e) => setLoginId(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[#1A0B36] text-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+              className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[var(--surface-elevated)] text-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
               placeholder="Enter Login ID"
               required
             />
@@ -71,7 +71,7 @@ export const AdminPortalLogin: React.FC = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[#1A0B36] text-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+              className="w-full px-4 py-3 rounded-2xl border border-purple-500/30 bg-[var(--surface-elevated)] text-white focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
               placeholder="••••••••"
               required
             />

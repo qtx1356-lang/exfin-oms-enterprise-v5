@@ -398,7 +398,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
     <>
       <div 
         onClick={() => setShowDetailModal(true)}
-        className="bg-gradient-to-br from-[var(--app-bg)] via-[var(--app-bg-secondary)] to-[var(--app-bg)] border border-[var(--border)] rounded-[26px] p-5 shadow-lg cursor-pointer hover:border-[var(--primary)]/50 transition-all group relative overflow-hidden text-[var(--text-primary)] font-sans"
+        className="bg-gradient-to-br from-[var(--app-background)] via-[var(--app-background-secondary)] to-[var(--app-background)] border border-[var(--border)] rounded-[26px] p-5 shadow-lg cursor-pointer hover:border-[var(--primary)]/50 transition-all group relative overflow-hidden text-[var(--text-primary)] font-sans"
       >
         <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--primary)]/10 rounded-full blur-2xl pointer-events-none" />
 
@@ -418,7 +418,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[var(--text-secondary)] bg-[var(--app-bg-secondary)] px-3 py-1 rounded-full border border-[var(--border)] group-hover:text-[var(--primary)] transition">
+          <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[var(--text-secondary)] bg-[var(--app-background-secondary)] px-3 py-1 rounded-full border border-[var(--border)] group-hover:text-[var(--primary)] transition">
             <span>View Details</span>
             <ChevronRight className="w-3.5 h-3.5 text-[var(--primary)] group-hover:translate-x-1 transition-transform" />
           </div>
@@ -428,13 +428,13 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           
           {/* 1. PERFORMANCE RING (Efficiency Score) */}
-          <div className="bg-[var(--app-bg-secondary)] rounded-2xl p-3.5 border border-[var(--border)] flex items-center gap-3.5 shadow-sm">
+          <div className="bg-[var(--app-background-secondary)] rounded-2xl p-3.5 border border-[var(--border)] flex items-center gap-3.5 shadow-sm">
             <div className="relative w-14 h-14 flex-shrink-0 flex items-center justify-center">
               {efficiencyResult ? (
                 <>
                   <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                     <path
-                      className="text-[var(--app-bg)]"
+                      className="text-[var(--app-background)]"
                       strokeWidth="3.5"
                       stroke="currentColor"
                       fill="none"
@@ -455,7 +455,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
                   </div>
                 </>
               ) : (
-                <div className="w-12 h-12 rounded-full bg-[var(--app-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)]">
+                <div className="w-12 h-12 rounded-full bg-[var(--app-background)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)]">
                   <BarChart3 className="w-5 h-5 opacity-50" />
                 </div>
               )}
@@ -479,7 +479,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
           </div>
 
           {/* 2. TASK PERFORMANCE */}
-          <div className="bg-[var(--app-bg-secondary)] rounded-2xl p-3.5 border border-[var(--border)] flex flex-col justify-between shadow-sm">
+          <div className="bg-[var(--app-background-secondary)] rounded-2xl p-3.5 border border-[var(--border)] flex flex-col justify-between shadow-sm">
             <div className="flex justify-between items-center mb-1">
               <span className="text-[10px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Tasks
@@ -495,7 +495,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
                   <span className="text-[var(--text-secondary)]">Completed:</span>
                   <span className="font-black text-[var(--text-primary)]">{taskStats.completed} / {taskStats.assigned}</span>
                 </div>
-                <div className="w-full bg-[var(--app-bg)] h-1.5 rounded-full overflow-hidden border border-[var(--border)]">
+                <div className="w-full bg-[var(--app-background)] h-1.5 rounded-full overflow-hidden border border-[var(--border)]">
                   <div 
                     className="bg-emerald-500 h-full rounded-full transition-all duration-500"
                     style={{ width: `${taskStats.completionRate}%` }}
@@ -510,7 +510,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
           </div>
 
           {/* 3. ATTENDANCE PERFORMANCE */}
-          <div className="bg-[var(--app-bg-secondary)] rounded-2xl p-3.5 border border-[var(--border)] flex flex-col justify-between shadow-sm">
+          <div className="bg-[var(--app-background-secondary)] rounded-2xl p-3.5 border border-[var(--border)] flex flex-col justify-between shadow-sm">
             <div className="flex justify-between items-center mb-1">
               <span className="text-[10px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1">
                 <UserCheck className="w-3 h-3 text-[var(--primary)]" /> Attendance
@@ -521,7 +521,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
             </div>
 
             <div className="grid grid-cols-4 gap-1 text-center my-1">
-              <div className="bg-[var(--app-bg)] p-1 rounded-lg border border-[var(--border)]">
+              <div className="bg-[var(--app-background)] p-1 rounded-lg border border-[var(--border)]">
                 <p className="text-[8px] text-[var(--text-secondary)] font-bold">Present</p>
                 <p className="text-xs font-black text-[var(--text-primary)]">{attendanceCounts.present}</p>
               </div>
@@ -541,7 +541,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
           </div>
 
           {/* 4. PERFORMANCE TREND */}
-          <div className="bg-[var(--app-bg-secondary)] rounded-2xl p-3.5 border border-[var(--border)] flex flex-col justify-between shadow-sm">
+          <div className="bg-[var(--app-background-secondary)] rounded-2xl p-3.5 border border-[var(--border)] flex flex-col justify-between shadow-sm">
             <span className="text-[10px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1 mb-1">
               <TrendingUp className="w-3 h-3 text-[var(--primary)]" /> Trend
             </span>
@@ -605,7 +605,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.2 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-2xl bg-[var(--app-bg)] border border-[var(--border)] rounded-[28px] p-5 sm:p-6 shadow-2xl text-[var(--text-primary)] space-y-5 max-h-[90vh] overflow-y-auto relative font-sans"
+              className="w-full max-w-2xl bg-[var(--app-background)] border border-[var(--border)] rounded-[28px] p-5 sm:p-6 shadow-2xl text-[var(--text-primary)] space-y-5 max-h-[90vh] overflow-y-auto relative font-sans"
             >
               {/* Header */}
               <div className="flex justify-between items-start border-b border-[var(--border)] pb-4">
@@ -624,7 +624,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
 
                 <button
                   onClick={() => setShowDetailModal(false)}
-                  className="p-2 rounded-xl bg-[var(--app-bg-secondary)] hover:bg-[var(--primary)]/10 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--border)] cursor-pointer"
+                  className="p-2 rounded-xl bg-[var(--app-background-secondary)] hover:bg-[var(--primary)]/10 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--border)] cursor-pointer"
                   aria-label="Close"
                 >
                   <X className="w-5 h-5" />
@@ -632,13 +632,13 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
               </div>
 
               {/* Overall Efficiency Card */}
-              <div className="p-4 rounded-2xl bg-[var(--app-bg-secondary)] border border-[var(--border)] flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="p-4 rounded-2xl bg-[var(--app-background-secondary)] border border-[var(--border)] flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
                     {efficiencyResult ? (
                       <>
                         <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                          <circle cx="18" cy="18" r="15.9155" className="stroke-[var(--app-bg)] fill-none stroke-[3.5]" />
+                          <circle cx="18" cy="18" r="15.9155" className="stroke-[var(--app-background)] fill-none stroke-[3.5]" />
                           <circle 
                             cx="18" 
                             cy="18" 
@@ -653,7 +653,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
                         </div>
                       </>
                     ) : (
-                      <div className="w-14 h-14 rounded-full bg-[var(--app-bg)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] text-xs font-bold">
+                      <div className="w-14 h-14 rounded-full bg-[var(--app-background)] border border-[var(--border)] flex items-center justify-center text-[var(--text-secondary)] text-xs font-bold">
                         N/A
                       </div>
                     )}
@@ -672,14 +672,14 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
                   </div>
                 </div>
 
-                <div className="text-right text-xs bg-[var(--app-bg)] p-3 rounded-xl border border-[var(--border)] w-full sm:w-auto">
+                <div className="text-right text-xs bg-[var(--app-background)] p-3 rounded-xl border border-[var(--border)] w-full sm:w-auto">
                   <p className="text-[10px] text-[var(--text-secondary)] font-bold uppercase">Period</p>
                   <p className="font-mono text-[var(--text-primary)] font-bold mt-0.5">{monthName} {currentYear}</p>
                 </div>
               </div>
 
               {/* Task Performance Detailed Breakdown */}
-              <div className="p-4 bg-[var(--app-bg-secondary)] rounded-2xl border border-[var(--border)] space-y-3">
+              <div className="p-4 bg-[var(--app-background-secondary)] rounded-2xl border border-[var(--border)] space-y-3">
                 <div className="flex justify-between items-center border-b border-[var(--border)] pb-2">
                   <span className="text-xs font-black text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Task Performance
@@ -690,7 +690,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="p-2.5 bg-[var(--app-bg)] rounded-xl border border-[var(--border)]">
+                  <div className="p-2.5 bg-[var(--app-background)] rounded-xl border border-[var(--border)]">
                     <p className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Assigned</p>
                     <p className="text-base font-black text-[var(--text-primary)]">{taskStats.assigned}</p>
                   </div>
@@ -706,7 +706,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
               </div>
 
               {/* Attendance Detailed Breakdown */}
-              <div className="p-4 bg-[var(--app-bg-secondary)] rounded-2xl border border-[var(--border)] space-y-3">
+              <div className="p-4 bg-[var(--app-background-secondary)] rounded-2xl border border-[var(--border)] space-y-3">
                 <div className="flex justify-between items-center border-b border-[var(--border)] pb-2">
                   <span className="text-xs font-black text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1.5">
                     <UserCheck className="w-4 h-4 text-[var(--primary)]" /> Attendance Breakdown
@@ -717,7 +717,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
                 </div>
 
                 <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                  <div className="p-2.5 bg-[var(--app-bg)] rounded-xl border border-[var(--border)]">
+                  <div className="p-2.5 bg-[var(--app-background)] rounded-xl border border-[var(--border)]">
                     <p className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Office</p>
                     <p className="text-base font-black text-[var(--text-primary)]">{attendanceCounts.office}</p>
                   </div>
@@ -737,7 +737,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
               </div>
 
               {/* Weekly Progress Bar Chart */}
-              <div className="p-4 bg-[var(--app-bg-secondary)] rounded-2xl border border-[var(--border)] space-y-3">
+              <div className="p-4 bg-[var(--app-background-secondary)] rounded-2xl border border-[var(--border)] space-y-3">
                 <div className="flex justify-between items-center border-b border-[var(--border)] pb-2">
                   <span className="text-xs font-black text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1.5">
                     <Calendar className="w-4 h-4 text-[var(--primary)]" /> Weekly Progress (This Week)
@@ -749,7 +749,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
                     {weeklyProgress.weekDays.map(day => (
                       <div key={day.dateStr} className="flex items-center gap-3 text-xs">
                         <span className="w-8 font-bold text-[var(--text-secondary)]">{day.label}</span>
-                        <div className="flex-1 bg-[var(--app-bg)] h-3 rounded-full overflow-hidden border border-[var(--border)]">
+                        <div className="flex-1 bg-[var(--app-background)] h-3 rounded-full overflow-hidden border border-[var(--border)]">
                           <div 
                             className={`h-full rounded-full transition-all duration-500 ${day.isFuture ? 'bg-[var(--border)]' : 'bg-[var(--primary)]'}`}
                             style={{ width: `${day.completionRate}%` }}
@@ -769,7 +769,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
               </div>
 
               {/* Performance Trend Detail */}
-              <div className="p-4 bg-[var(--app-bg-secondary)] rounded-2xl border border-[var(--border)] flex justify-between items-center text-xs">
+              <div className="p-4 bg-[var(--app-background-secondary)] rounded-2xl border border-[var(--border)] flex justify-between items-center text-xs">
                 <div>
                   <span className="text-[var(--text-secondary)] font-bold uppercase text-[10px]">Performance Trend</span>
                   <p className="font-black text-[var(--text-primary)] text-sm mt-0.5">

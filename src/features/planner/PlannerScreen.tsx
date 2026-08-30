@@ -538,7 +538,7 @@ export const PlannerScreen: React.FC = () => {
         <div className="space-y-1.5">
           <div className="w-full glass-card-inner h-3.5 rounded-full overflow-hidden border border-white/10 p-0.5">
             <div 
-              className="h-full aurora-bg rounded-full transition-all duration-500 shadow-md"
+              className="h-full bg-[var(--button-primary)] rounded-full transition-all duration-500 shadow-md"
               style={{ width: `${overallProgressPct}%` }}
             />
           </div>
@@ -557,7 +557,7 @@ export const PlannerScreen: React.FC = () => {
           onClick={() => setActiveCategory('today')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'today'
-              ? 'aurora-bg border-cyan-400/50 text-white shadow-lg scale-[1.02]'
+              ? 'bg-[var(--button-primary)] border-cyan-400/50 text-white shadow-lg scale-[1.02]'
               : 'glass-card-inner border-white/10 text-slate-400 hover:text-white hover:border-cyan-400/30'
           }`}
         >
@@ -571,7 +571,7 @@ export const PlannerScreen: React.FC = () => {
           onClick={() => setActiveCategory('upcoming')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'upcoming'
-              ? 'aurora-bg border-cyan-400/50 text-white shadow-lg scale-[1.02]'
+              ? 'bg-[var(--button-primary)] border-cyan-400/50 text-white shadow-lg scale-[1.02]'
               : 'glass-card-inner border-white/10 text-slate-400 hover:text-white hover:border-cyan-400/30'
           }`}
         >
@@ -627,7 +627,7 @@ export const PlannerScreen: React.FC = () => {
           onClick={() => setActiveCategory('all')}
           className={`p-2.5 rounded-xl border flex flex-col items-center justify-between text-center transition-all cursor-pointer ${
             activeCategory === 'all'
-              ? 'aurora-bg border-cyan-400/50 text-white shadow-lg scale-[1.02]'
+              ? 'bg-[var(--button-primary)] border-cyan-400/50 text-white shadow-lg scale-[1.02]'
               : 'glass-card-inner border-white/10 text-slate-400 hover:text-white hover:border-cyan-400/30'
           }`}
         >
@@ -646,7 +646,7 @@ export const PlannerScreen: React.FC = () => {
               onClick={() => setViewMode('daily')}
               className={`flex-1 py-2 text-xs font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 viewMode === 'daily'
-                  ? 'aurora-bg text-white shadow-md font-black border border-white/20'
+                  ? 'bg-[var(--button-primary)] text-white shadow-md font-black border border-white/20'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -656,7 +656,7 @@ export const PlannerScreen: React.FC = () => {
               onClick={() => setViewMode('weekly')}
               className={`flex-1 py-2 text-xs font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 viewMode === 'weekly'
-                  ? 'aurora-bg text-white shadow-md font-black border border-white/20'
+                  ? 'bg-[var(--button-primary)] text-white shadow-md font-black border border-white/20'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -699,7 +699,7 @@ export const PlannerScreen: React.FC = () => {
                 onClick={() => setPriorityFilter(p)}
                 className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
                   priorityFilter === p
-                    ? 'aurora-bg text-white border-cyan-400/50 shadow-md'
+                    ? 'bg-[var(--button-primary)] text-white border-cyan-400/50 shadow-md'
                     : 'glass-card-inner text-slate-400 border-white/10 hover:border-cyan-400/30 hover:text-white'
                 }`}
               >
@@ -719,7 +719,7 @@ export const PlannerScreen: React.FC = () => {
                   onClick={() => setStatusFilter(s)}
                   className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
                     statusFilter === s
-                      ? 'aurora-bg text-white border-cyan-400/50 shadow-md'
+                      ? 'bg-[var(--button-primary)] text-white border-cyan-400/50 shadow-md'
                       : 'glass-card-inner text-slate-400 border-white/10 hover:border-cyan-400/30 hover:text-white'
                   }`}
                 >
@@ -854,7 +854,7 @@ export const PlannerScreen: React.FC = () => {
                           ? 'bg-rose-500'
                           : effectiveStatus === 'Revision Requested'
                           ? 'bg-amber-500'
-                          : 'aurora-bg'
+                          : 'bg-[var(--button-primary)]'
                       }`}
                       style={{ width: `${task.completionPercentage || 0}%` }}
                     />
@@ -1046,7 +1046,7 @@ export const PlannerScreen: React.FC = () => {
                       onClick={() => setCompletionInput(pct)}
                       className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all border cursor-pointer ${
                         completionInput === pct
-                          ? 'aurora-bg text-white border-cyan-400/60 font-black shadow-sm'
+                          ? 'bg-[var(--button-primary)] text-white border-cyan-400/60 font-black shadow-sm'
                           : 'glass-card-inner text-slate-400 border-white/10 hover:text-white'
                       }`}
                     >

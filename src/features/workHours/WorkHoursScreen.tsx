@@ -328,7 +328,7 @@ export const WorkHoursScreen: React.FC = () => {
       <div className="glass-card-elevated p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-2">
-            <Clock className="w-6 h-6 text-[var(--aurora-emerald)]" /> WORK HOURS
+            <Clock className="w-6 h-6 text-[var(--success)]" /> WORK HOURS
           </h1>
           <p className="text-xs text-[var(--text-secondary)] mt-1 font-medium">
             Authoritative attendance hours analysis & breakdown
@@ -339,7 +339,7 @@ export const WorkHoursScreen: React.FC = () => {
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="flex-1 sm:flex-none text-xs font-bold text-[var(--text-primary)] bg-[var(--card-surface)] border border-[var(--border)] rounded-2xl px-3.5 py-2.5 outline-none cursor-pointer focus:border-[var(--aurora-emerald)] transition-all shadow-md"
+            className="flex-1 sm:flex-none text-xs font-bold text-[var(--text-primary)] bg-[var(--card-surface)] border border-[var(--border)] rounded-2xl px-3.5 py-2.5 outline-none cursor-pointer focus:border-[var(--success)] transition-all shadow-md"
           >
             {monthOptions.map((opt) => (
               <option key={opt.val} value={opt.val} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
@@ -351,7 +351,7 @@ export const WorkHoursScreen: React.FC = () => {
           <Button
             onClick={handleExportPDF}
             disabled={isFutureMonth || monthlyRecords.length === 0}
-            className="w-full sm:w-auto text-xs py-2.5 aurora-bg hover:opacity-95 font-bold rounded-2xl flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all text-white border border-white/20"
+            className="w-full sm:w-auto text-xs py-2.5 bg-[var(--button-primary)] hover:opacity-95 font-bold rounded-2xl flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all text-white border border-white/20"
           >
             <Download className="w-4 h-4" /> Export PDF
           </Button>
@@ -372,8 +372,8 @@ export const WorkHoursScreen: React.FC = () => {
             </h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <div className="glass-card-elevated p-4 space-y-2 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-[var(--aurora-emerald)]/10 rounded-bl-full group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] font-black text-[var(--aurora-emerald)] uppercase tracking-wider block">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-[var(--success)]/10 rounded-bl-full group-hover:scale-110 transition-transform" />
+                <span className="text-[10px] font-black text-[var(--success)] uppercase tracking-wider block">
                   TOTAL HOURS
                 </span>
                 <span className="text-xl sm:text-2xl font-black text-[var(--text-primary)] tracking-tight block">
@@ -383,8 +383,8 @@ export const WorkHoursScreen: React.FC = () => {
               </div>
 
               <div className="glass-card-elevated p-4 space-y-2 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-[var(--aurora-cyan)]/10 rounded-bl-full group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] font-black text-[var(--aurora-cyan)] uppercase tracking-wider block">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-[var(--cyan)]/10 rounded-bl-full group-hover:scale-110 transition-transform" />
+                <span className="text-[10px] font-black text-[var(--cyan)] uppercase tracking-wider block">
                   WORKING DAYS
                 </span>
                 <span className="text-xl sm:text-2xl font-black text-[var(--text-primary)] tracking-tight block">
@@ -394,8 +394,8 @@ export const WorkHoursScreen: React.FC = () => {
               </div>
 
               <div className="glass-card-elevated p-4 space-y-2 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-[var(--aurora-teal)]/10 rounded-bl-full group-hover:scale-110 transition-transform" />
-                <span className="text-[10px] font-black text-[var(--aurora-teal)] uppercase tracking-wider block">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-[var(--teal)]/10 rounded-bl-full group-hover:scale-110 transition-transform" />
+                <span className="text-[10px] font-black text-[var(--teal)] uppercase tracking-wider block">
                   AVERAGE HOURS
                 </span>
                 <span className="text-xl sm:text-2xl font-black text-[var(--text-primary)] tracking-tight block">
@@ -411,15 +411,15 @@ export const WorkHoursScreen: React.FC = () => {
                 </span>
                 <div className="grid grid-cols-2 gap-1.5 text-[9.5px] font-bold text-[var(--text-secondary)] pt-1">
                   <div className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--aurora-emerald)]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" />
                     <span>Office: {stats.officeDays}d</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--aurora-teal)]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--teal)]" />
                     <span>WFH: {stats.wfhDays}d</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--aurora-cyan)]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--cyan)]" />
                     <span>Client: {stats.clientDays}d</span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -435,7 +435,7 @@ export const WorkHoursScreen: React.FC = () => {
           {chartData.length > 0 && (
             <div>
               <h2 className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-[var(--aurora-emerald)]" /> Completed Daily Hours Chart
+                <TrendingUp className="w-4 h-4 text-[var(--success)]" /> Completed Daily Hours Chart
               </h2>
               <div className="glass-card-elevated p-4">
                 <div className="h-44 w-full flex items-end gap-1.5">
@@ -448,7 +448,7 @@ export const WorkHoursScreen: React.FC = () => {
                         </div>
                         <div
                           style={{ height: `${heightPercent}%` }}
-                          className="w-full aurora-bg rounded-t-sm hover:opacity-90 transition-all cursor-pointer border-t border-white/30"
+                          className="w-full bg-[var(--button-primary)] rounded-t-sm hover:opacity-90 transition-all cursor-pointer border-t border-white/30"
                         />
                         <span className="text-[8.5px] font-bold text-[var(--text-secondary)] mt-1.5">
                           {d.day}
@@ -464,7 +464,7 @@ export const WorkHoursScreen: React.FC = () => {
           {/* MONTHLY CALENDAR VIEW */}
           <div>
             <h2 className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest mb-3 flex items-center gap-1.5">
-              <CalendarIcon className="w-4 h-4 text-[var(--aurora-emerald)]" /> Monthly Attendance Board
+              <CalendarIcon className="w-4 h-4 text-[var(--success)]" /> Monthly Attendance Board
             </h2>
             <div className="glass-card-elevated p-4">
               {/* Calendar Grid Header */}
@@ -486,7 +486,7 @@ export const WorkHoursScreen: React.FC = () => {
                   }
 
                   const { day, record } = item;
-                  let bgClass = 'bg-[var(--card-surface)]/40 text-[var(--text-secondary)] border border-[var(--border)] hover:border-[var(--aurora-emerald)]/30';
+                  let bgClass = 'bg-[var(--card-surface)]/40 text-[var(--text-secondary)] border border-[var(--border)] hover:border-[var(--success)]/30';
                   
                   if (record) {
                     const isCompleted = !!(record.checkOutTime && record.checkOutTime !== '--:--');
@@ -500,10 +500,10 @@ export const WorkHoursScreen: React.FC = () => {
                           bgClass = 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25';
                           break;
                         case 'WFH':
-                          bgClass = 'bg-[var(--aurora-teal)]/15 border-[var(--aurora-teal)]/30 text-[var(--aurora-teal)] hover:bg-[var(--aurora-teal)]/25';
+                          bgClass = 'bg-[var(--teal)]/15 border-[var(--teal)]/30 text-[var(--teal)] hover:bg-[var(--teal)]/25';
                           break;
                         case 'CLIENT_VISIT':
-                          bgClass = 'bg-[var(--aurora-cyan)]/15 border-[var(--aurora-cyan)]/30 text-[var(--aurora-cyan)] hover:bg-[var(--aurora-cyan)]/25';
+                          bgClass = 'bg-[var(--cyan)]/15 border-[var(--cyan)]/30 text-[var(--cyan)] hover:bg-[var(--cyan)]/25';
                           break;
                         case 'OUTDOOR':
                           bgClass = 'bg-teal-500/15 border-teal-500/30 text-teal-300 hover:bg-teal-500/25';
@@ -537,11 +537,11 @@ export const WorkHoursScreen: React.FC = () => {
                   <span>Office</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded bg-[var(--aurora-teal)]/40 border border-[var(--aurora-teal)]/50" />
+                  <span className="w-2.5 h-2.5 rounded bg-[var(--teal)]/40 border border-[var(--teal)]/50" />
                   <span>WFH</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded bg-[var(--aurora-cyan)]/40 border border-[var(--aurora-cyan)]/50" />
+                  <span className="w-2.5 h-2.5 rounded bg-[var(--cyan)]/40 border border-[var(--cyan)]/50" />
                   <span>Client Visit</span>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -586,7 +586,7 @@ export const WorkHoursScreen: React.FC = () => {
 
               <div className="p-4 rounded-2xl glass-card-elevated flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[var(--aurora-teal)]/15 border border-[var(--aurora-teal)]/20 flex items-center justify-center text-[var(--aurora-teal)]">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--teal)]/15 border border-[var(--teal)]/20 flex items-center justify-center text-[var(--teal)]">
                     <Laptop className="w-5 h-5" />
                   </div>
                   <div>
@@ -596,7 +596,7 @@ export const WorkHoursScreen: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <span className="text-sm font-black text-[var(--text-primary)] block">{formatMinutesToDuration(stats.wfhMinutes)}</span>
-                  <span className="text-[9px] text-[var(--aurora-teal)] uppercase font-black tracking-wider">
+                  <span className="text-[9px] text-[var(--teal)] uppercase font-black tracking-wider">
                     Avg {stats.wfhDays > 0 ? formatMinutesToDuration(Math.round(stats.wfhMinutes / stats.wfhDays)) : '0h'}
                   </span>
                 </div>
@@ -604,7 +604,7 @@ export const WorkHoursScreen: React.FC = () => {
 
               <div className="p-4 rounded-2xl glass-card-elevated flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[var(--aurora-cyan)]/15 border border-[var(--aurora-cyan)]/20 flex items-center justify-center text-[var(--aurora-cyan)]">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--cyan)]/15 border border-[var(--cyan)]/20 flex items-center justify-center text-[var(--cyan)]">
                     <Users className="w-5 h-5" />
                   </div>
                   <div>
@@ -614,7 +614,7 @@ export const WorkHoursScreen: React.FC = () => {
                 </div>
                 <div className="text-right">
                   <span className="text-sm font-black text-[var(--text-primary)] block">{formatMinutesToDuration(stats.clientMinutes)}</span>
-                  <span className="text-[9px] text-[var(--aurora-cyan)] uppercase font-black tracking-wider">
+                  <span className="text-[9px] text-[var(--cyan)] uppercase font-black tracking-wider">
                     Avg {stats.clientDays > 0 ? formatMinutesToDuration(Math.round(stats.clientMinutes / stats.clientDays)) : '0h'}
                   </span>
                 </div>
@@ -653,10 +653,10 @@ export const WorkHoursScreen: React.FC = () => {
                     <button
                       key={r.id || r.docId || r.date}
                       onClick={() => handleDayTap(r)}
-                      className="p-4 rounded-2xl glass-card-elevated flex items-center justify-between text-left hover:border-[var(--aurora-emerald)]/40 transition-all cursor-pointer group"
+                      className="p-4 rounded-2xl glass-card-elevated flex items-center justify-between text-left hover:border-[var(--success)]/40 transition-all cursor-pointer group"
                     >
                       <div className="space-y-1">
-                        <span className="text-[10px] font-black text-[var(--aurora-emerald)] block uppercase">
+                        <span className="text-[10px] font-black text-[var(--success)] block uppercase">
                           {r.date}
                         </span>
                         <h4 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
@@ -671,7 +671,7 @@ export const WorkHoursScreen: React.FC = () => {
 
                       <div className="flex items-center gap-4">
                         <div className="text-right">
-                          <span className="text-xs font-black text-[var(--text-primary)] block group-hover:text-[var(--aurora-emerald)] transition-colors">
+                          <span className="text-xs font-black text-[var(--text-primary)] block group-hover:text-[var(--success)] transition-colors">
                             {details.duration}
                           </span>
                           <span className="text-[8.5px] font-black tracking-wider uppercase text-[var(--text-muted)] block mt-0.5">
@@ -710,7 +710,7 @@ export const WorkHoursScreen: React.FC = () => {
             </button>
 
             <div className="text-center space-y-1.5 pb-2 border-b border-[var(--border)]">
-              <span className="text-[10px] font-black text-[var(--aurora-emerald)] uppercase tracking-widest">
+              <span className="text-[10px] font-black text-[var(--success)] uppercase tracking-widest">
                 DAILY ATTENDANCE DETAIL
               </span>
               <h3 className="text-base font-black text-[var(--text-primary)]">{selectedRecord.date}</h3>
@@ -734,7 +734,7 @@ export const WorkHoursScreen: React.FC = () => {
 
               <div className="flex justify-between items-center py-2 border-b border-[var(--border)]/50">
                 <span className="text-[var(--text-secondary)]">Total Work Hours</span>
-                <span className="text-[var(--aurora-emerald)] font-black">
+                <span className="text-[var(--success)] font-black">
                   {getRecordStatusDetails(selectedRecord).duration}
                 </span>
               </div>
@@ -766,7 +766,7 @@ export const WorkHoursScreen: React.FC = () => {
                 setShowDetailModal(false);
                 setSelectedRecord(null);
               }}
-              className="w-full py-3.5 aurora-bg text-white font-bold rounded-2xl text-xs transition-all shadow-lg active:scale-95 border border-white/20 cursor-pointer"
+              className="w-full py-3.5 bg-[var(--button-primary)] text-white font-bold rounded-2xl text-xs transition-all shadow-lg active:scale-95 border border-white/20 cursor-pointer"
             >
               Close Details
             </button>

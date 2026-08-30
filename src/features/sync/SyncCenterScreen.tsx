@@ -204,7 +204,7 @@ export const SyncCenterScreen: React.FC = () => {
           <Button
             onClick={handleRetryAll}
             disabled={isSyncing || records.length === 0 || !navigator.onLine}
-            className="text-xs aurora-bg hover:opacity-90 text-white font-bold"
+            className="text-xs bg-[var(--button-primary)] hover:opacity-90 text-white font-bold"
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-1 ${isSyncing ? 'animate-spin' : ''}`} />
             Retry All Records
@@ -316,7 +316,7 @@ export const SyncCenterScreen: React.FC = () => {
                             <button
                               onClick={() => handleRetryOne(rec)}
                               disabled={isSyncing || !navigator.onLine}
-                              className="px-2.5 py-1 rounded-lg aurora-bg hover:opacity-90 text-white font-bold transition-all flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg bg-[var(--button-primary)] hover:opacity-90 text-white font-bold transition-all flex items-center gap-1 disabled:opacity-50 cursor-pointer"
                             >
                               <RefreshCw className="w-3 h-3" /> Retry
                             </button>
@@ -367,7 +367,7 @@ export const SyncCenterScreen: React.FC = () => {
                   setSelectedRecord(null);
                 }}
                 disabled={!navigator.onLine}
-                className="aurora-bg text-white hover:opacity-90 font-bold"
+                className="bg-[var(--button-primary)] text-white hover:opacity-90 font-bold"
               >
                 Retry Synchronization
               </Button>

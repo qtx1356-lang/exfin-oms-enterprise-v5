@@ -138,7 +138,7 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
           <button
             onClick={onDismiss}
             id="alert-popup-close-btn"
-            className="absolute top-4 right-4 p-2 rounded-xl bg-[var(--app-bg-secondary)]/60 border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--primary)]/20 transition-colors z-10"
+            className="absolute top-4 right-4 p-2 rounded-xl bg-[var(--app-background-secondary)]/60 border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--primary)]/20 transition-colors z-10"
             title="Dismiss popup"
             aria-label="Close alert"
           >
@@ -185,7 +185,7 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
                   )}
 
                   {notification.category && (
-                    <span className="text-[9px] font-bold uppercase text-[var(--text-secondary)]/80 bg-[var(--app-bg-secondary)] px-2 py-0.5 rounded-full border border-[var(--border)]">
+                    <span className="text-[9px] font-bold uppercase text-[var(--text-secondary)]/80 bg-[var(--app-background-secondary)] px-2 py-0.5 rounded-full border border-[var(--border)]">
                       {notification.category}
                     </span>
                   )}
@@ -210,14 +210,14 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
             {/* Notification Message */}
             <div
               id="alert-popup-message-body"
-              className="bg-[var(--app-bg-secondary)]/80 border border-[var(--border)] rounded-2xl p-4 max-h-56 sm:max-h-64 overflow-y-auto text-[var(--text-primary)] text-xs sm:text-sm leading-relaxed whitespace-pre-line select-text"
+              className="bg-[var(--app-background-secondary)]/80 border border-[var(--border)] rounded-2xl p-4 max-h-56 sm:max-h-64 overflow-y-auto text-[var(--text-primary)] text-xs sm:text-sm leading-relaxed whitespace-pre-line select-text"
             >
               {notification.message}
             </div>
 
             {/* Queue info if multiple alerts waiting */}
             {queueCount > 0 && (
-              <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]/80 bg-[var(--app-bg-secondary)]/50 border border-[var(--border)] px-3 py-1.5 rounded-xl">
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]/80 bg-[var(--app-background-secondary)]/50 border border-[var(--border)] px-3 py-1.5 rounded-xl">
                 <Sparkles className="w-3.5 h-3.5 text-[var(--primary)]" />
                 <span>
                   +{queueCount} more alert{queueCount > 1 ? 's' : ''} in queue
@@ -241,7 +241,7 @@ export const AlertPopup: React.FC<AlertPopupProps> = ({
                 type="button"
                 onClick={onDismiss}
                 id="alert-popup-dismiss-btn"
-                className="py-3.5 px-5 rounded-2xl bg-[var(--app-bg-secondary)]/70 hover:bg-[var(--app-bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] text-xs sm:text-sm font-bold transition-colors cursor-pointer"
+                className="py-3.5 px-5 rounded-2xl bg-[var(--app-background-secondary)]/70 hover:bg-[var(--app-background-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] text-xs sm:text-sm font-bold transition-colors cursor-pointer"
               >
                 Close
               </button>

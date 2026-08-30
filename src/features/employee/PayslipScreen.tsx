@@ -143,7 +143,7 @@ export const PayslipScreen: React.FC = () => {
         <div className="flex items-center gap-3.5 pt-2">
           <button 
             onClick={() => navigate('/')}
-            className="p-2 bg-[var(--app-bg-secondary)] border border-[var(--primary)]/20 rounded-xl hover:bg-[var(--primary)]/20 hover:text-white transition cursor-pointer"
+            className="p-2 bg-[var(--app-background-secondary)] border border-[var(--primary)]/20 rounded-xl hover:bg-[var(--primary)]/20 hover:text-white transition cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>

@@ -314,7 +314,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
   };
 
   return (
-    <div className="bg-[var(--app-bg-secondary)] rounded-2xl border border-[var(--primary)]/20 p-4 sm:p-6 shadow-2xl space-y-5 text-[var(--text-primary)] font-sans">
+    <div className="bg-[var(--app-background-secondary)] rounded-2xl border border-[var(--primary)]/20 p-4 sm:p-6 shadow-2xl space-y-5 text-[var(--text-primary)] font-sans">
       
       {/* ==================================================== */}
       {/* HEADER & MONTH NAVIGATION */}
@@ -343,7 +343,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
         <div className="flex items-center justify-between sm:justify-end gap-2 bg-[var(--app-bg-primary)] p-1.5 rounded-2xl border border-[var(--primary)]/20">
           <button
             onClick={handlePrevMonth}
-            className="p-2 rounded-xl bg-[var(--card-bg)] hover:bg-[var(--app-bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--primary)]/20 active:scale-95 cursor-pointer"
+            className="p-2 rounded-xl bg-[var(--card-bg)] hover:bg-[var(--app-background-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--primary)]/20 active:scale-95 cursor-pointer"
             title="Previous Month"
             aria-label="Previous Month"
           >
@@ -356,7 +356,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
 
           <button
             onClick={handleNextMonth}
-            className="p-2 rounded-xl bg-[var(--card-bg)] hover:bg-[var(--app-bg-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--primary)]/20 active:scale-95 cursor-pointer"
+            className="p-2 rounded-xl bg-[var(--card-bg)] hover:bg-[var(--app-background-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--primary)]/20 active:scale-95 cursor-pointer"
             title="Next Month"
             aria-label="Next Month"
           >
@@ -453,7 +453,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                 key={dateStr}
                 onClick={() => handleDayClick(dayNumber)}
                 className={`relative h-16 sm:h-20 p-1.5 sm:p-2 rounded-2xl border text-left transition-all duration-200 flex flex-col justify-between group active:scale-95 cursor-pointer ${bgStyle} ${
-                  isToday ? 'ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--app-bg-secondary)] border-[var(--primary)]/20' : ''
+                  isToday ? 'ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--app-background-secondary)] border-[var(--primary)]/20' : ''
                 }`}
               >
                 {/* Date Number + Today Highlight Badge */}
@@ -515,7 +515,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       {selectedDayDetail && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
           <div 
-            className="w-full max-w-lg bg-[var(--app-bg-secondary)] border border-[var(--primary)]/20 rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl space-y-5 animate-slide-up text-[var(--text-primary)] relative max-h-[90vh] overflow-y-auto"
+            className="w-full max-w-lg bg-[var(--app-background-secondary)] border border-[var(--primary)]/20 rounded-t-2xl sm:rounded-2xl p-6 shadow-2xl space-y-5 animate-slide-up text-[var(--text-primary)] relative max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

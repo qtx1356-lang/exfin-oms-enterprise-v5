@@ -62,7 +62,7 @@ const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
     <div className="flex items-center gap-1.5 text-[10px] text-[var(--text-secondary)] font-bold overflow-hidden bg-[var(--card-bg)]/80 border border-[var(--border)] px-2.5 py-1 rounded-xl min-w-[80px] flex-1 max-w-[150px] xs:max-w-[220px] sm:max-w-[320px] shadow-sm"
       title={address}
     >
-      <MapPin className="w-3.5 h-3.5 text-[var(--aurora-emerald)] shrink-0 z-10" />
+      <MapPin className="w-3.5 h-3.5 text-[var(--success)] shrink-0 z-10" />
       <div ref={containerRef} className="overflow-hidden relative flex-1 min-w-0">
         <span
           ref={textRef}
@@ -347,7 +347,7 @@ export const Layout: React.FC = () => {
                        animate={{ opacity: 1, y: 0, scale: 1 }}
                        exit={{ opacity: 0, y: 12, scale: 0.95 }}
                        transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-                       className="absolute right-0 mt-3 w-[320px] xs:w-[380px] bg-[linear-gradient(135deg,#312E81_0%,#4338CA_45%,#2563EB_100%)] border border-white/20 rounded-2xl z-50 overflow-hidden text-white shadow-[0_20px_50px_rgba(30,41,100,0.35)]"
+                       className="absolute right-0 mt-3 w-[320px] xs:w-[380px] glass-card border border-white/20 rounded-2xl z-50 overflow-hidden text-white shadow-[0_20px_50px_rgba(30,41,100,0.35)]"
                        id="notification-bell-dropdown"
                     >
                       <div className="p-4 border-b border-white/15 flex items-center justify-between bg-black/20">

@@ -631,7 +631,7 @@ export const ChatScreen: React.FC = () => {
 
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT COLUMN: Conversation List (Hidden on mobile when chat is active) */}
-        <div className={`w-full md:w-80 border-r border-[var(--primary)]/20 flex flex-col bg-[var(--app-bg-secondary)]/50 ${activeConv ? 'hidden md:flex' : 'flex'}`}>
+        <div className={`w-full md:w-80 border-r border-[var(--primary)]/20 flex flex-col bg-[var(--app-background-secondary)]/50 ${activeConv ? 'hidden md:flex' : 'flex'}`}>
           {/* Header */}
           <div className="p-4 border-b border-[var(--primary)]/20 space-y-3">
             <div className="flex items-center justify-between">
@@ -729,7 +729,7 @@ export const ChatScreen: React.FC = () => {
           {activeConv ? (
             <>
               {/* Active Conversation Header */}
-              <div className="p-4 border-b border-[var(--primary)]/20 bg-[var(--app-bg-secondary)]/40 flex items-center justify-between">
+              <div className="p-4 border-b border-[var(--primary)]/20 bg-[var(--app-background-secondary)]/40 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setActiveConv(null)}
@@ -847,7 +847,7 @@ export const ChatScreen: React.FC = () => {
               </div>
 
               {/* Message Input controls */}
-              <div className="p-4 border-t border-[var(--primary)]/20 bg-[var(--app-bg-secondary)]/30">
+              <div className="p-4 border-t border-[var(--primary)]/20 bg-[var(--app-background-secondary)]/30">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -999,7 +999,7 @@ export const ChatScreen: React.FC = () => {
                 setSelectedContacts([]);
               }}
               className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                chatType === 'DIRECT' ? 'aurora-bg text-white shadow-md' : 'text-[var(--text-secondary)]'
+                chatType === 'DIRECT' ? 'bg-[var(--button-primary)] text-white shadow-md' : 'text-[var(--text-secondary)]'
               }`}
             >
               Direct Chat
@@ -1010,7 +1010,7 @@ export const ChatScreen: React.FC = () => {
                 setSelectedContacts([]);
               }}
               className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                chatType === 'GROUP' ? 'aurora-bg text-white shadow-md' : 'text-[var(--text-secondary)]'
+                chatType === 'GROUP' ? 'bg-[var(--button-primary)] text-white shadow-md' : 'text-[var(--text-secondary)]'
               }`}
             >
               Group Space
@@ -1075,7 +1075,7 @@ export const ChatScreen: React.FC = () => {
                         </div>
                       </div>
                       <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                        isSelected ? 'aurora-bg border-[var(--primary)] text-white' : 'border-[var(--border)]'
+                        isSelected ? 'bg-[var(--button-primary)] border-[var(--primary)] text-white' : 'border-[var(--border)]'
                       }`}>
                         {isSelected && <Check className="w-3 h-3 text-white" />}
                       </div>
@@ -1091,7 +1091,7 @@ export const ChatScreen: React.FC = () => {
             <Button
               onClick={handleStartChat}
               disabled={selectedContacts.length < 1 || (chatType === 'GROUP' && !groupTitle.trim())}
-              className="w-full aurora-bg hover:opacity-90 h-10 rounded-xl text-xs font-bold shadow-lg text-white"
+              className="w-full bg-[var(--button-primary)] hover:opacity-90 h-10 rounded-xl text-xs font-bold shadow-lg text-white"
             >
               {chatType === 'DIRECT' ? 'Start Conversation' : 'Create Group Space'}
             </Button>
@@ -1118,7 +1118,7 @@ export const ChatScreen: React.FC = () => {
           <div className="pt-2">
             <Button
               onClick={() => setCallModal({ isOpen: false, type: null })}
-              className="aurora-bg hover:opacity-90 w-full rounded-xl text-white"
+              className="bg-[var(--button-primary)] hover:opacity-90 w-full rounded-xl text-white"
             >
               Close Call Sandbox
             </Button>
