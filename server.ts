@@ -1135,6 +1135,177 @@ async function startServer() {
     }
   });
 
+  // Secure /api/background-location alias endpoint matching Median background configuration
+  app.post("/api/background-location", async (req, res) => {
+    // Delegate to the robust median-background-location handler
+    req.url = "/api/median-background-location";
+    return app._router.handle(req, res);
+  });
+
+  // GET /api/attendance/today — Returns today's authoritative attendance state for the authenticated employee
+  app.get("/api/attendance/today", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) {
+      return res.status(401).json({ error: "Unauthorized: Valid authentication required" });
+    }
+    if (!db) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+
+    try {
+      const employeeId = (req.query.employeeId || caller.employeeId || caller.uid || "").toString().trim();
+      const todayStr = new Date().toISOString().substring(0, 10);
+      const attDocId = `${employeeId}_${todayStr}`;
+
+      const attSnap = await db.collection("attendance").doc(attDocId).get();
+      const liveSnap = await db.collection("live_locations").doc(employeeId).get();
+
+      let liveData = liveSnap.exists ? liveSnap.data() || {} : {};
+      let attData = attSnap.exists ? attSnap.data() || {} : {};
+
+      return res.json({
+        date: todayStr,
+        employeeId,
+        currentGeofenceState: liveData.distanceFromOffice !== undefined && typeof liveData.distanceFromOffice === "number" ? (liveData.distanceFromOffice <= 25 ? "INSIDE" : "OUTSIDE") : "UNKNOWN",
+        currentDistanceMeters: liveData.distanceFromOffice ?? null,
+        lastLocationAt: liveData.timestamp || null,
+        checkInAt: attData.checkInTime || null,
+        checkOutAt: attData.checkOutTime || attData.exitTime || null,
+        workedDuration: attData.workingHours || "00:00:00",
+        attendanceSource: attData.checkInMode || "AUTOMATIC_GEOFENCE",
+        status: attData.currentState || (attData.checkInTime ? "CHECKED_IN" : "ABSENT")
+      });
+    } catch (err: any) {
+      console.error("[Attendance Today API] Error:", err);
+      return res.status(500).json({ error: "Internal server error fetching today's attendance" });
+    }
+  });
+
+  // GET /api/attendance/latest — Returns latest attendance event for employee (used by Welcome screen)
+  app.get("/api/attendance/latest", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) {
+      return res.status(401).json({ error: "Unauthorized: Valid authentication required" });
+    }
+    if (!db) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+
+    try {
+      const employeeId = (req.query.employeeId || caller.employeeId || caller.uid || "").toString().trim();
+      const eventsSnap = await db.collection("attendance_events")
+        .where("employeeId", "==", employeeId)
+        .orderBy("serverSyncTime", "desc")
+        .limit(1)
+        .get();
+
+      if (eventsSnap.empty) {
+        // Fallback to today's attendance doc
+        const todayStr = new Date().toISOString().substring(0, 10);
+        const attSnap = await db.collection("attendance").doc(`${employeeId}_${todayStr}`).get();
+        if (attSnap.exists) {
+          const data = attSnap.data() || {};
+          return res.json({
+            eventType: data.checkOutTime ? "CHECK_OUT" : "CHECK_IN",
+            timestamp: data.updatedAt || new Date().toISOString(),
+            timeStr: data.checkOutTime || data.checkInTime || "No attendance yet",
+            source: "AUTOMATIC_GEOFENCE"
+          });
+        }
+        return res.json({ eventType: "NONE", timestamp: null, timeStr: "No attendance yet", source: "NONE" });
+      }
+
+      const latestEvent = eventsSnap.docs[0].data();
+      return res.json({
+        eventType: latestEvent.eventType,
+        timestamp: latestEvent.eventTime || latestEvent.syncedAt,
+        timeStr: latestEvent.eventTime,
+        source: latestEvent.source
+      });
+    } catch (err: any) {
+      console.error("[Attendance Latest API] Error:", err);
+      return res.status(500).json({ error: "Internal server error fetching latest attendance" });
+    }
+  });
+
+  // GET /api/attendance/history — Paginated attendance history
+  app.get("/api/attendance/history", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) {
+      return res.status(401).json({ error: "Unauthorized: Valid authentication required" });
+    }
+    if (!db) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+
+    try {
+      const employeeId = (req.query.employeeId || caller.employeeId || caller.uid || "").toString().trim();
+      const limit = parseInt(req.query.limit as string || "30", 10);
+
+      const qSnap = await db.collection("attendance")
+        .where("employeeId", "==", employeeId)
+        .limit(limit)
+        .get();
+
+      const history = qSnap.docs.map(doc => doc.data());
+      return res.json({ success: true, count: history.length, history });
+    } catch (err: any) {
+      console.error("[Attendance History API] Error:", err);
+      return res.status(500).json({ error: "Internal server error fetching attendance history" });
+    }
+  });
+
+  // GET /api/reports/daily — Daily report summary and metrics for management decision making
+  app.get("/api/reports/daily", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) {
+      return res.status(401).json({ error: "Unauthorized: Valid authentication required" });
+    }
+    if (!db) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+
+    try {
+      const dateStr = (req.query.date || new Date().toISOString().substring(0, 10)).toString();
+      const regSnap = await db.collection("registrations").get();
+      const totalEmployees = regSnap.size;
+
+      const attSnap = await db.collection("attendance").where("date", "==", dateStr).get();
+      const presentCount = attSnap.size;
+
+      return res.json({
+        date: dateStr,
+        summary: {
+          totalEmployees,
+          present: presentCount,
+          absent: Math.max(0, totalEmployees - presentCount),
+          late: 0,
+          earlyDeparture: 0
+        },
+        efficiency: {
+          top: [],
+          bottom: []
+        },
+        attendance: {
+          best: [],
+          exceptions: []
+        },
+        workingHours: {
+          highest: [],
+          lowest: []
+        },
+        tasks: {
+          highestCompletion: [],
+          lowestCompletion: [],
+          overdue: []
+        }
+      });
+    } catch (err: any) {
+      console.error("[Daily Reports API] Error:", err);
+      return res.status(500).json({ error: "Internal server error generating daily report" });
+    }
+  });
+
   // ==========================================
   // WHATSAPP REAL-TIME NOTIFICATION API ROUTES
   // ==========================================
