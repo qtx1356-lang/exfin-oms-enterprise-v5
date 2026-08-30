@@ -758,9 +758,7 @@ export async function generateAndSendDailyReport(
 
       return {
         success: true,
-        message: hasRejections
-          ? `Daily Admin Report partially sent to ${accepted.length} recipients, but failed for ${rejected.length} recipients.`
-          : 'Daily Admin Report generated and sent successfully.',
+        message: hasRejections ? `Email accepted by Gmail SMTP. Message ID: ${emailRes.messageId}. Failed for ${rejected.length} recipients.` : `Email accepted by provider. Message ID: ${emailRes.messageId}`,
         reportDate,
         recipient: primaryRecipient,
         messageId: emailRes.messageId,
@@ -801,7 +799,7 @@ export async function generateAndSendDailyReport(
 
     return {
       success: false,
-      message: err.message || 'Failed to generate and dispatch daily report.',
+      error: err.message || 'Failed to generate and dispatch daily report.',
       reportDate,
       recipient: primaryRecipient,
     };
@@ -901,15 +899,15 @@ export async function sendDailyReportTestEmail(
     return {
       success: true,
       message: hasRejections
-        ? `Test email sent to ${accepted.length} recipients, but failed for ${rejected.length} recipients.`
-        : `Test email sent to ${recipients.length} recipients.`,
+        ? `Email accepted by Gmail SMTP. Message ID: ${emailRes.messageId}. Failed for ${rejected.length} recipients.`
+        : `Email accepted by provider. Message ID: ${emailRes.messageId}`,
       recipientCount: recipients.length,
       recipients,
     };
   } else {
     return {
       success: false,
-      message: emailRes.error || 'Failed to dispatch verification email',
+      error: emailRes.error || 'Failed to dispatch verification email',
       recipientCount: recipients.length,
       recipients,
     };

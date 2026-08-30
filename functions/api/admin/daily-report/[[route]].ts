@@ -129,7 +129,7 @@ export async function onRequest(context) {
 
     async function sendEmailViaResend(to, bcc, subject, html) {
       if (!resendApiKey) {
-        return { success: true, simulated: true, messageId: `sim_${Date.now()}` };
+        throw new Error('Email provider configuration missing: RESEND_API_KEY environment variable is not set in Cloudflare Pages.');
       }
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -178,9 +178,7 @@ export async function onRequest(context) {
 
         return new Response(JSON.stringify({ 
           success: true, 
-          message: sendRes.simulated 
-            ? `Test email simulated for ${adminEmails.length} recipients (No Resend API Key configured).`
-            : `Test email sent to ${adminEmails.length} recipients.`,
+          message: `Email accepted by provider. Message ID: ${sendRes.messageId}`,
           recipientCount: adminEmails.length,
           recipients: adminEmails
         }), { headers: { 'Content-Type': 'application/json' } });
@@ -259,9 +257,7 @@ export async function onRequest(context) {
 
         return new Response(JSON.stringify({ 
           success: true, 
-          message: sendRes.simulated 
-            ? `Report simulated for ${adminEmails.length} recipients.`
-            : `Report sent successfully to ${adminEmails.length} recipients.`,
+          message: `Email accepted by provider. Message ID: ${sendRes.messageId}`,
           reportDate: targetDate
         }), { headers: { 'Content-Type': 'application/json' } });
       } catch (err) {

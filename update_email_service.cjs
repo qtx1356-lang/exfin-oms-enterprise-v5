@@ -1,4 +1,6 @@
-import nodemailer from 'nodemailer';
+const fs = require('fs');
+
+let code = `import nodemailer from 'nodemailer';
 
 export interface EmailPayload {
   to: string;
@@ -47,10 +49,10 @@ export async function sendMail(payload: EmailPayload): Promise<SendEmailResult> 
     // Explicitly verify the connection first
     try {
       await transporter.verify();
-      console.log(`[SMTP Email Dispatcher] Verification successful with ${host}:${port}`);
+      console.log(\`[SMTP Email Dispatcher] Verification successful with \${host}:\${port}\`);
     } catch (verifyErr: any) {
-      console.error(`[SMTP Email Dispatcher] Connection/Authentication failed:`, verifyErr);
-      throw new Error(`SMTP verification failed: ${verifyErr.message}`);
+      console.error(\`[SMTP Email Dispatcher] Connection/Authentication failed:\`, verifyErr);
+      throw new Error(\`SMTP verification failed: \${verifyErr.message}\`);
     }
 
     const info = await transporter.sendMail({
@@ -61,7 +63,7 @@ export async function sendMail(payload: EmailPayload): Promise<SendEmailResult> 
       html: payload.html,
     });
 
-    console.log(`[SMTP Email Dispatcher] Sent email successfully to ${payload.to}. MessageId: ${info.messageId}`);
+    console.log(\`[SMTP Email Dispatcher] Sent email successfully to \${payload.to}. MessageId: \${info.messageId}\`);
 
     return {
       success: true,
@@ -71,7 +73,7 @@ export async function sendMail(payload: EmailPayload): Promise<SendEmailResult> 
       rejected: (info.rejected || []) as string[]
     };
   } catch (err: any) {
-    console.error(`[SMTP Email Dispatcher] Failed to send email to ${payload.to}:`, err);
+    console.error(\`[SMTP Email Dispatcher] Failed to send email to \${payload.to}:\`, err);
     return {
       success: false,
       simulated: false,
@@ -79,3 +81,6 @@ export async function sendMail(payload: EmailPayload): Promise<SendEmailResult> 
     };
   }
 }
+`;
+
+fs.writeFileSync('server/services/emailService.ts', code);
