@@ -13,21 +13,21 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'filled', ...props }, ref) => {
     const variants = {
-      // Primary Indigo Glass CTA
-      filled: 'bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white font-bold border border-[#818CF8]/40 shadow-[0_4px_16px_rgba(79,70,229,0.35)] hover:from-[#6366F1] hover:to-[#818CF8] hover:shadow-[0_6px_24px_rgba(99,102,241,0.45)] active:from-[#312E81] active:to-[#4F46E5] rounded-xl',
-      gold: 'bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white font-bold border border-[#818CF8]/40 shadow-[0_4px_16px_rgba(79,70,229,0.35)] hover:from-[#6366F1] hover:to-[#818CF8] hover:shadow-[0_6px_24px_rgba(99,102,241,0.45)] active:from-[#312E81] active:to-[#4F46E5] rounded-xl',
-      cyan: 'bg-[#6366F1]/15 border border-[#6366F1]/30 text-[#818CF8] hover:bg-[#6366F1]/25 hover:text-white hover:border-[#6366F1]/60 font-bold rounded-xl',
-      outlined: 'bg-[#1E1F41]/60 border border-[#6366F1]/20 text-[#F8F8FF] hover:bg-[#1E1F41]/90 hover:border-[#6366F1]/50 hover:text-[#818CF8] rounded-xl',
-      text: 'text-[#B9B9D0] hover:text-[#F8F8FF] hover:bg-[#1E1F41]/50 rounded-xl',
-      elevated: 'bg-[#171936] border border-[#6366F1]/25 text-[#F8F8FF] hover:bg-[#1E1F41] hover:border-[#6366F1]/50 shadow-[0_4px_16px_rgba(15,16,37,0.4)] rounded-xl',
-      tonal: 'bg-[#4F46E5]/15 border border-[#4F46E5]/30 text-[#818CF8] hover:bg-[#4F46E5]/25 hover:text-white rounded-xl',
+      // Primary Violet -> Blue Gradient CTA
+      filled: 'bg-gradient-to-r from-[#7C3AED] to-[#2563EB] text-white font-semibold border border-white/15 shadow-[0_4px_14px_rgba(124,58,237,0.30)] hover:from-[#6D28D9] hover:to-[#1D4ED8] active:scale-[0.98] rounded-xl',
+      gold: 'bg-gradient-to-r from-[#7C3AED] to-[#2563EB] text-white font-semibold border border-white/15 shadow-[0_4px_14px_rgba(124,58,237,0.30)] hover:from-[#6D28D9] hover:to-[#1D4ED8] active:scale-[0.98] rounded-xl',
+      cyan: 'bg-[#2563EB]/15 border border-[#2563EB]/30 text-[#06B6D4] hover:bg-[#2563EB]/25 hover:text-white font-semibold rounded-xl',
+      outlined: 'bg-white/5 border border-white/10 text-[#F8FAFC] hover:bg-white/10 hover:border-white/20 rounded-xl',
+      text: 'text-[#CBD5E1] hover:text-[#F8FAFC] hover:bg-white/5 rounded-xl',
+      elevated: 'bg-[#191E3A] border border-white/10 text-[#F8FAFC] hover:bg-[#232A4D] shadow-md rounded-xl',
+      tonal: 'bg-[#7C3AED]/15 border border-[#7C3AED]/30 text-[#DDD6FE] hover:bg-[#7C3AED]/25 hover:text-white rounded-xl',
     };
 
     return (
       <button
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center rounded-xl min-h-[44px] px-5 py-2.5 text-sm font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#6366F1] disabled:bg-[#171936]/50 disabled:text-[#8A8AA3] disabled:border-[#6366F1]/10 disabled:shadow-none disabled:cursor-not-allowed cursor-pointer active:scale-[0.98]',
+          'inline-flex items-center justify-center rounded-xl min-h-[40px] px-4 py-2 text-sm font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7C3AED] disabled:bg-white/5 disabled:text-[#64748B] disabled:border-white/5 disabled:shadow-none disabled:cursor-not-allowed cursor-pointer active:scale-[0.98]',
           variants[variant],
           className
         )}

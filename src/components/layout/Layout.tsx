@@ -268,14 +268,14 @@ export const Layout: React.FC = () => {
       : (!isOnline ? 'Offline' : 'Raniganj HQ');
 
   return (
-    <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)] pb-20 relative overflow-x-hidden">
-      {/* Emerald Aurora Ambient Lighting */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-[var(--aurora-emerald)]/15 rounded-full blur-[140px] pointer-events-none -z-10" />
-      <div className="fixed bottom-10 right-1/4 w-[400px] h-[400px] bg-[var(--aurora-teal)]/10 rounded-full blur-[160px] pointer-events-none -z-10" />
-      <div className="fixed top-1/2 left-0 w-[300px] h-[500px] bg-[var(--aurora-cyan)]/5 rounded-full blur-[120px] pointer-events-none -z-10" />
+    <div className="min-h-screen bg-[#070B1A] text-[var(--text-primary)] pb-20 relative overflow-x-hidden">
+      {/* Premium Ambient Gradient Glows */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-[#7C3AED]/15 rounded-full blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed bottom-10 right-1/4 w-[400px] h-[400px] bg-[#2563EB]/10 rounded-full blur-[160px] pointer-events-none -z-10" />
+      <div className="fixed top-1/2 left-0 w-[300px] h-[500px] bg-[#06B6D4]/5 rounded-full blur-[120px] pointer-events-none -z-10" />
 
       {/* Dynamic Header Bar with Glassmorphism */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[var(--card-surface)]/70 backdrop-blur-[24px] border-b border-[var(--border)] shadow-xl text-[var(--text-primary)]">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#11152D]/85 backdrop-blur-[24px] border-b border-[var(--border)] shadow-xl text-[var(--text-primary)]">
         <div className="container mx-auto px-3 sm:px-5 py-2.5 max-w-3xl flex items-center justify-between gap-2">
           {/* Left/Center Header Status & Location Controls */}
           <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
@@ -284,7 +284,7 @@ export const Layout: React.FC = () => {
               className="text-[10px] font-black px-2.5 py-1 rounded-xl whitespace-nowrap shadow-sm flex items-center gap-1.5 shrink-0 uppercase tracking-tight transition-all duration-300 bg-[var(--pill-location-bg)] border border-[var(--pill-location-border)] text-[var(--pill-location-text)]"
               title="Live distance from office"
             >
-              <MapPin className="w-3.5 h-3.5 text-[var(--aurora-emerald)]" />
+              <MapPin className="w-3.5 h-3.5 text-[#A78BFA]" />
               <span>{formattedDistance}</span>
             </div>
 

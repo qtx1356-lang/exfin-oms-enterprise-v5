@@ -13,16 +13,16 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant = 'elevated', ...props }, ref) => {
     const variants = {
-      elevated: 'bg-[var(--card-elevated)] backdrop-blur-[14px] border border-[var(--border-active)] shadow-lg text-[var(--text-primary)]',
-      filled: 'bg-[var(--card-bg)] backdrop-blur-[12px] border border-[var(--border)] shadow-md text-[var(--text-primary)]',
-      outlined: 'bg-transparent backdrop-blur-[10px] border border-[var(--border)] text-[var(--text-primary)]',
-      gold: 'bg-[var(--card-elevated)] backdrop-blur-[16px] border border-[var(--primary)]/40 shadow-xl text-[var(--text-primary)]',
+      elevated: 'bg-[linear-gradient(135deg,rgba(42,35,86,0.95),rgba(20,31,61,0.95))] backdrop-blur-[16px] border border-[#7C3AED]/25 shadow-xl text-[var(--text-primary)]',
+      filled: 'bg-[rgba(25,30,58,0.88)] backdrop-blur-[12px] border border-white/8 shadow-md text-[var(--text-primary)]',
+      outlined: 'bg-transparent backdrop-blur-[10px] border border-white/10 text-[var(--text-primary)]',
+      gold: 'bg-[linear-gradient(135deg,rgba(42,35,86,0.95),rgba(20,31,61,0.95))] backdrop-blur-[16px] border border-[#7C3AED]/35 shadow-xl text-[var(--text-primary)]',
     };
 
     return (
       <div
         ref={ref}
-        className={cn('rounded-[16px] overflow-hidden', variants[variant], className)}
+        className={cn('rounded-2xl overflow-hidden', variants[variant], className)}
         {...props}
       />
     );

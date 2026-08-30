@@ -31,7 +31,7 @@ export const BottomNav: React.FC = React.memo(() => {
   };
 
   return (
-    <nav aria-label="Main Navigation" className="fixed bottom-4 left-4 right-4 max-w-md mx-auto h-18 glass-card-elevated rounded-3xl flex items-center justify-around px-3 z-[100] shadow-2xl pointer-events-auto border-[var(--aurora-emerald)]/10">
+    <nav aria-label="Main Navigation" className="fixed bottom-3 left-4 right-4 max-w-md mx-auto h-16 bg-[#11152D]/90 backdrop-blur-2xl rounded-2xl flex items-center justify-around px-2 z-[100] shadow-2xl pointer-events-auto border border-white/10">
       {navItems.map((item) => {
         const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
         return (
@@ -39,32 +39,32 @@ export const BottomNav: React.FC = React.memo(() => {
             key={item.path}
             type="button"
             onClick={(e) => handleNavClick(e, item.path)}
-            className={`flex flex-col items-center justify-center flex-1 h-14 rounded-2xl transition-all duration-300 touch-manipulation cursor-pointer relative group ${
-              isActive ? 'text-[var(--aurora-emerald)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+            className={`flex flex-col items-center justify-center flex-1 h-12 rounded-xl transition-all duration-300 touch-manipulation cursor-pointer relative group ${
+              isActive ? 'text-[#A78BFA]' : 'text-[#94A3B8] hover:text-[#F8FAFC]'
             }`}
           >
             {isActive && (
               <motion.div 
                 layoutId="nav-active"
-                className="absolute inset-0 bg-[var(--aurora-emerald)]/10 border border-[var(--aurora-emerald)]/20 rounded-2xl -z-10"
+                className="absolute inset-0 bg-gradient-to-r from-[#7C3AED]/20 to-[#2563EB]/20 border border-[#7C3AED]/30 rounded-xl -z-10"
                 transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
               />
             )}
             
             <div className={`transition-transform duration-300 ${isActive ? 'scale-110 -translate-y-0.5' : 'scale-100 group-hover:scale-105'}`}>
-              <item.icon className={`w-5 h-5 ${
-                isActive ? 'stroke-[var(--aurora-emerald)] stroke-[2.5] drop-shadow-[0_0_8px_var(--aurora-emerald)]' : 'stroke-[var(--text-muted)] group-hover:stroke-[var(--text-secondary)]'
+              <item.icon className={`w-4.5 h-4.5 ${
+                isActive ? 'stroke-[#A78BFA] stroke-[2.5]' : 'stroke-[#94A3B8] group-hover:stroke-[#CBD5E1]'
               }`} />
             </div>
             
-            <span className={`text-[9px] font-black uppercase tracking-widest mt-1.5 transition-colors duration-300 ${
-              isActive ? 'text-[var(--aurora-emerald)]' : 'text-[var(--text-muted)]'
+            <span className={`text-[9px] font-black uppercase tracking-widest mt-1 transition-colors duration-300 ${
+              isActive ? 'text-[#A78BFA]' : 'text-[#94A3B8]'
             }`}>
               {item.label}
             </span>
 
             {isActive && (
-              <div className="absolute -bottom-1 w-1 h-1 bg-[var(--aurora-emerald)] rounded-full shadow-[0_0_8px_var(--aurora-emerald)]" />
+              <div className="absolute -bottom-0.5 w-1 h-1 bg-[#7C3AED] rounded-full shadow-[0_0_8px_#7C3AED]" />
             )}
           </button>
         );

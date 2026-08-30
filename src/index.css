@@ -6,19 +6,18 @@
   
   /* Primary & Secondary Cards */
   --color-card-bg: var(--card-bg);
-  --color-card-elevated: var(--card-elevated);
+  --color-card-elevated: var(--card-surface);
   --color-card-surface: var(--card-surface);
-  --color-border-emerald: rgba(5, 150, 105, 0.40);
   --color-border-subtle: var(--border);
   
-  /* Primary Accent: Emerald Office */
-  --color-primary: #059669;
-  --color-primary-dark: #064E3B;
-  --color-primary-light: #10B981;
-  --color-primary-soft: #34D399;
+  /* Primary Accent: Violet / Blue Gradient Accent */
+  --color-primary: #7C3AED;
+  --color-primary-dark: #5B21B6;
+  --color-primary-light: #2563EB;
+  --color-primary-soft: #A78BFA;
   --color-on-primary: #FFFFFF;
   
-  /* Text inside Emerald Cards & Canvas */
+  /* Text inside Cards & Canvas */
   --color-card-text: var(--text-primary);
   --color-card-text-secondary: var(--text-secondary);
   --color-card-text-muted: var(--text-muted);
@@ -30,14 +29,14 @@
 
   /* Status Colors */
   --color-success: #10B981;
-  --color-warning: #D97706;
-  --color-danger: #DC2626;
-  --color-info: #059669;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #3B82F6;
   --color-offline: #D97706;
   
   --color-background: var(--app-bg);
   --color-surface: var(--card-bg);
-  --color-surface-elevated: var(--card-elevated);
+  --color-surface-elevated: var(--card-surface);
   --color-surface-variant: var(--card-surface);
   --color-on-surface: var(--text-primary);
   --color-on-surface-variant: var(--text-secondary);
@@ -46,42 +45,56 @@
 }
 
 :root {
-  /* EMERALD AURORA DARK MODE (Default) */
-  --app-bg: #031712;
-  --app-bg-secondary: #06251D;
-  --card-bg: #06251D;
-  --card-elevated: #0D4032;
-  --card-surface: #09352A;
-  --border: rgba(255, 255, 255, 0.07);
-  --border-subtle: rgba(255, 255, 255, 0.04);
-  --border-active: rgba(16, 185, 129, 0.30);
-  --primary: #059669;
-  --primary-dark: #022C22;
-  --primary-light: #10B981;
+  /* PREMIUM GRADIENT THEME (Navy #070B1A -> Deep Violet #11152D -> Subtle Indigo #1B1240) */
+  --bg-primary: #070B1A;
+  --bg-secondary: #11152D;
+  --bg-tertiary: #1B1240;
+  --app-bg: #070B1A;
+  --app-bg-secondary: #11152D;
+
+  --card-bg: rgba(25, 30, 58, 0.88);
+  --card-elevated: linear-gradient(135deg, rgba(42, 35, 86, 0.95), rgba(20, 31, 61, 0.95));
+  --card-surface: rgba(30, 36, 68, 0.85);
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-active: rgba(124, 58, 237, 0.35);
+
+  --primary: #7C3AED;
+  --primary-dark: #5B21B6;
+  --primary-light: #2563EB;
+
   --text-primary: #F8FAFC;
-  --text-secondary: #D1FAE5;
+  --text-secondary: #CBD5E1;
   --text-muted: #94A3B8;
+
   --success: #10B981;
   --warning: #F59E0B;
   --danger: #EF4444;
-  --info: #059669;
-  
-  /* Aurora Specifics */
-  --aurora-deep: #064E3B;
-  --aurora-emerald: #059669;
-  --aurora-teal: #14B8A6;
-  --aurora-cyan: #22D3EE;
-  --aurora-gradient: linear-gradient(135deg, var(--aurora-deep) 0%, var(--aurora-emerald) 40%, var(--aurora-teal) 75%, var(--aurora-cyan) 100%);
-  
-  /* Premium Location Pill */
-  --pill-location-bg: rgba(16, 185, 129, 0.10);
-  --pill-location-border: rgba(52, 211, 153, 0.20);
-  --pill-location-text: #A7F3D0;
-  
-  /* Legacy Employee Mappings (Functional Protection) */
+  --info: #3B82F6;
+
+  /* Centralized Gradient System Tokens */
+  --gradient-primary: linear-gradient(135deg, #7C3AED 0%, #2563EB 100%);
+  --gradient-secondary: linear-gradient(135deg, #2563EB 0%, #06B6D4 100%);
+  --gradient-success: linear-gradient(135deg, #059669 0%, #0D9488 100%);
+  --gradient-warning: linear-gradient(135deg, #D97706 0%, #EA580C 100%);
+  --gradient-danger: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
+  --gradient-card: linear-gradient(135deg, rgba(42, 35, 86, 0.95), rgba(20, 31, 61, 0.95));
+
+  --aurora-deep: #4F46E5;
+  --aurora-emerald: #7C3AED;
+  --aurora-teal: #2563EB;
+  --aurora-cyan: #06B6D4;
+  --aurora-gradient: var(--gradient-primary);
+
+  --pill-location-bg: rgba(124, 58, 237, 0.12);
+  --pill-location-border: rgba(124, 58, 237, 0.25);
+  --pill-location-text: #DDD6FE;
+
+  /* Legacy & Employee Compatibility Tokens */
   --employee-bg: var(--app-bg);
   --employee-surface: var(--card-bg);
-  --employee-surface-strong: var(--card-elevated);
+  --employee-surface-strong: var(--card-surface);
   --employee-indigo: var(--primary);
   --employee-indigo-hover: var(--primary-light);
   --employee-gold: var(--primary);
@@ -95,46 +108,14 @@
   --employee-border: var(--border);
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --app-bg: #F5FAF7;
-    --app-bg-secondary: #FFFFFF;
-    --card-bg: #FFFFFF;
-    --card-elevated: #FFFFFF;
-    --card-surface: #F8FAFC;
-    --border: #DDEBE5;
-    --border-subtle: #EDF2F7;
-    --border-active: rgba(5, 150, 105, 0.30);
-    --primary: #059669;
-    --primary-dark: #047857;
-    --primary-light: #10B981;
-    --text-primary: #0F172A;
-    --text-secondary: #475569;
-    --text-muted: #64748B;
-    
-    --pill-location-bg: #ECFDF5;
-    --pill-location-border: #A7F3D0;
-    --pill-location-text: #047857;
-
-    --employee-bg: var(--app-bg);
-    --employee-surface: var(--card-bg);
-    --employee-surface-strong: var(--card-elevated);
-    --employee-indigo: var(--primary);
-    --employee-indigo-hover: var(--primary-light);
-    --employee-gold: var(--primary);
-    --employee-gold-hover: var(--primary-light);
-    --employee-text-card: var(--text-primary);
-    --employee-text-card-secondary: var(--text-secondary);
-    --employee-text-card-muted: var(--text-muted);
-    --employee-text-bg: var(--text-primary);
-    --employee-text-bg-secondary: var(--text-secondary);
-    --employee-text-bg-muted: var(--text-muted);
-    --employee-border: var(--border);
-  }
-}
-
 body {
-  background-color: var(--app-bg);
+  background-color: #070B1A;
+  background-image: 
+    radial-gradient(circle at 80% 0%, rgba(124, 58, 237, 0.15) 0%, transparent 45%),
+    radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.12) 0%, transparent 50%),
+    radial-gradient(circle at 50% 100%, rgba(27, 18, 64, 0.80) 0%, transparent 60%),
+    linear-gradient(160deg, #070B1A 0%, #11152D 50%, #1B1240 100%);
+  background-attachment: fixed;
   color: var(--text-primary);
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   margin: 0;
@@ -146,78 +127,78 @@ body {
   overflow-x: hidden;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    background-image: 
-      radial-gradient(circle at 80% 0%, rgba(34, 211, 238, 0.03) 0%, transparent 40%),
-      radial-gradient(circle at 20% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
-      radial-gradient(circle at 50% 100%, rgba(6, 78, 59, 0.05) 0%, transparent 50%);
-    background-attachment: fixed;
-  }
-}
-
 #root {
   background-color: transparent;
   min-height: 100vh;
 }
 
-/* Aurora Signature Utilities */
-.aurora-bg {
-  background: var(--aurora-gradient);
+/* Reusable Gradient Utilities */
+.gradient-bg-primary {
+  background: var(--gradient-primary);
 }
 
-.aurora-text {
-  background: var(--aurora-gradient);
+.gradient-bg-secondary {
+  background: var(--gradient-secondary);
+}
+
+.gradient-bg-success {
+  background: var(--gradient-success);
+}
+
+.gradient-bg-warning {
+  background: var(--gradient-warning);
+}
+
+.gradient-bg-danger {
+  background: var(--gradient-danger);
+}
+
+.gradient-text-primary {
+  background: var(--gradient-primary);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-.aurora-glow-emerald {
-  box-shadow: 0 0 40px rgba(16, 185, 129, 0.12);
+.aurora-bg {
+  background: var(--gradient-primary);
 }
 
-.aurora-glow-teal {
-  box-shadow: 0 0 40px rgba(20, 184, 166, 0.08);
+.aurora-text {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .glass-nav {
-  background: rgba(6, 37, 29, 0.72);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(17, 21, 45, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-@media (prefers-color-scheme: light) {
-  .glass-nav {
-    background: rgba(255, 255, 255, 0.85);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-  }
-}
-
-/* Touch optimization for instant button feedback */
+/* Touch optimization */
 button, a, input, select, textarea, [role="button"] {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Custom scrollbar for Emerald Aurora theme */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--app-bg);
+  background: #070B1A;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(5, 150, 105, 0.20);
+  background: rgba(124, 58, 237, 0.30);
   border-radius: 9999px;
-  border: 1px solid var(--app-bg-secondary);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-light);
+  background: rgba(37, 99, 235, 0.50);
 }
 
-/* Emerald Form Inputs default styling */
+/* Premium Dark Inputs */
 input[type="text"],
 input[type="number"],
 input[type="email"],
@@ -226,11 +207,11 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: var(--card-bg) !important;
+  background-color: rgba(15, 23, 42, 0.75) !important;
   color: var(--text-primary) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 12px !important;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 10px !important;
+  transition: all 0.2s ease;
 }
 
 input[type="text"]:focus,
@@ -242,80 +223,103 @@ input[type="time"]:focus,
 textarea:focus,
 select:focus {
   outline: none !important;
-  border-color: var(--aurora-emerald) !important;
-  box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.12) !important;
+  border-color: #7C3AED !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.25) !important;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: var(--text-muted) !important;
+  color: #94A3B8 !important;
 }
 
-/* Emerald Card Utilities */
+/* Compact Glass Card Utilities */
 .glass-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-  border-radius: 16px;
-}
-
-@media (prefers-color-scheme: dark) {
-  .glass-card {
-    background: rgba(6, 37, 29, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-  }
+  background: rgba(25, 30, 58, 0.88);
+  background-image: linear-gradient(135deg, rgba(42, 35, 86, 0.40), rgba(20, 31, 61, 0.40));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.30);
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .glass-card-elevated {
-  background: var(--card-elevated);
-  border: 1px solid var(--border-active);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(42, 35, 86, 0.95), rgba(20, 31, 61, 0.95));
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  border-radius: 14px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-@media (prefers-color-scheme: dark) {
-  .glass-card-elevated {
-    background: rgba(13, 64, 50, 0.92);
-    border: 1px solid rgba(16, 185, 129, 0.25);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.40);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-}
-
-/* Emerald button utilities & backward compatibility */
-.btn-primary, .btn-emerald, .btn-indigo, .btn-gold {
-  background: linear-gradient(135deg, var(--aurora-deep) 0%, var(--aurora-emerald) 100%);
+/* Compact Premium Buttons */
+.btn-primary, .btn-indigo, .btn-emerald, .btn-gold {
+  background: linear-gradient(135deg, #7C3AED 0%, #2563EB 100%);
   color: #FFFFFF;
   font-weight: 600;
-  border: 1px solid rgba(16, 185, 129, 0.30);
-  box-shadow: 0 4px 16px rgba(5, 150, 105, 0.25);
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.30);
+  border-radius: 10px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 40px;
 }
 
-.btn-primary:hover, .btn-emerald:hover, .btn-indigo:hover, .btn-gold:hover {
-  background: linear-gradient(135deg, var(--aurora-emerald) 0%, var(--aurora-teal) 100%);
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+.btn-primary:hover, .btn-indigo:hover, .btn-emerald:hover, .btn-gold:hover {
+  background: linear-gradient(135deg, #6D28D9 0%, #1D4ED8 100%);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.45);
   transform: translateY(-1px);
 }
 
-.btn-primary:active, .btn-emerald:active, .btn-indigo:active, .btn-gold:active {
+.btn-primary:active, .btn-indigo:active, .btn-emerald:active, .btn-gold:active {
   transform: translateY(1px);
-  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.20);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.20);
 }
 
-/* Emerald badge utility */
-.emerald-badge, .indigo-badge, .gold-badge {
-  background: rgba(5, 150, 105, 0.12);
-  border: 1px solid rgba(5, 150, 105, 0.20);
-  color: var(--primary-light);
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: #F8FAFC;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  min-height: 40px;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.20);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
+  color: #FFFFFF;
+  font-weight: 600;
+  border: 1px solid rgba(239, 68, 68, 0.30);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.30);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  min-height: 40px;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #059669 0%, #0D9488 100%);
+  color: #FFFFFF;
+  font-weight: 600;
+  border: 1px solid rgba(16, 185, 129, 0.30);
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.30);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  min-height: 40px;
+}
+
+/* Badges */
+.emerald-badge, .indigo-badge, .gold-badge, .violet-badge {
+  background: rgba(124, 58, 237, 0.15);
+  border: 1px solid rgba(124, 58, 237, 0.30);
+  color: #DDD6FE;
   font-weight: 600;
   border-radius: 9999px;
-  padding: 2px 10px;
+  padding: 2px 8px;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -347,6 +351,7 @@ textarea::placeholder {
     transform: translateX(0);
   }
 }
+
 
 
 
