@@ -28,10 +28,30 @@ export interface ReportStatusRecord {
   updatedAt: any;
 }
 
+// Centralized Target Recipients
+export const DEFAULT_TARGET_RECIPIENTS = [
+  'hr@exfinsolution.com',
+  'ceo@exfinsolution.com',
+  'sanjivsinha06@gmail.com'
+];
+
+export function getCentralizedRecipients(configEmails?: string[]): string[] {
+  if (process.env.EMAIL_RECIPIENTS) {
+    const envList = process.env.EMAIL_RECIPIENTS.split(',').map(s => s.trim()).filter(Boolean);
+    if (envList.length === 3) {
+      return envList;
+    }
+  }
+  if (configEmails && configEmails.length === 3) {
+    return configEmails;
+  }
+  return [...DEFAULT_TARGET_RECIPIENTS];
+}
+
 // Default Configuration values
 export const DEFAULT_REPORT_CONFIG: DailyReportConfig = {
   enabled: true,
-  adminEmails: [],
+  adminEmails: [...DEFAULT_TARGET_RECIPIENTS],
   sendTime: '07:00 AM',
   includeAttendance: true,
   includeLeaves: true,
@@ -286,7 +306,7 @@ export async function generateAndSendDailyReport(
   targetDateStr?: string, // optional manual override
   isManualSend = false,
   triggerBy = 'SYSTEM_SCHEDULER'
-): Promise<{ success: boolean; message: string; reportDate: string; recipient?: string; messageId?: string }> {
+): Promise<{ success: boolean; message: string; reportDate: string; recipientCount?: number; recipients?: string[]; recipient?: string; messageId?: string; error?: string }> {
   
   // 1. Resolve target date (previous calendar day in Asia/Kolkata by default)
   const reportDate = targetDateStr || getPreviousKolkataDateString();
@@ -706,11 +726,9 @@ export async function generateAndSendDailyReport(
 
     // 10. Send the Mail via backend email service
     const subject = `EXFIN OMS — Daily Admin Report — ${formatDateStringFriendly(reportDate)}`;
-    const bccRecipients = recipients.slice(1);
 
     const emailRes = await sendMail({
-      to: primaryRecipient,
-      bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
+      to: recipients,
       subject,
       html: emailHtml,
     });
@@ -758,9 +776,11 @@ export async function generateAndSendDailyReport(
 
       return {
         success: true,
-        message: hasRejections ? `Email accepted by Gmail SMTP. Message ID: ${emailRes.messageId}. Failed for ${rejected.length} recipients.` : `Email accepted by provider. Message ID: ${emailRes.messageId}`,
+        message: 'Email accepted by Gmail SMTP',
         reportDate,
-        recipient: primaryRecipient,
+        recipientCount: recipients.length,
+        recipients,
+        recipient: recipients.join(', '),
         messageId: emailRes.messageId,
       };
     } else {
@@ -799,6 +819,7 @@ export async function generateAndSendDailyReport(
 
     return {
       success: false,
+      message: err.message || 'Failed to generate and dispatch daily report.',
       error: err.message || 'Failed to generate and dispatch daily report.',
       reportDate,
       recipient: primaryRecipient,
@@ -812,15 +833,19 @@ export async function generateAndSendDailyReport(
 export async function sendDailyReportTestEmail(
   db: Firestore,
   triggerBy = 'SUPER_ADMIN'
-): Promise<{ success: boolean; message: string; recipientCount?: number; recipients?: string[] }> {
+): Promise<{ success: boolean; message: string; recipientCount?: number; recipients?: string[]; messageId?: string }> {
   const config = await getDailyReportConfig(db);
-  const recipients = config.adminEmails || [];
-  if (recipients.length === 0) {
-    return { success: false, message: 'No Admin email recipients are configured.' };
-  }
+  const recipients = getCentralizedRecipients(config.adminEmails);
 
-  const primaryRecipient = recipients[0];
-  const bccRecipients = recipients.slice(1);
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (recipients.length !== 3 || recipients.some(r => !emailRegex.test(r))) {
+    return {
+      success: false,
+      message: 'Email recipient configuration is missing or invalid.',
+      recipientCount: 0,
+      recipients: []
+    };
+  }
 
   const subject = `EXFIN OMS — Test Daily Report`;
   const html = `
@@ -837,12 +862,8 @@ export async function sendDailyReportTestEmail(
         <td style="padding: 8px 0; color: #10b981;">ACTIVE / OPERATIONAL</td>
       </tr>
       <tr style="border-bottom: 1px solid #e2e8f0;">
-        <td style="padding: 8px 0; font-weight: bold;">Primary Recipient</td>
-        <td style="padding: 8px 0;">${primaryRecipient}</td>
-      </tr>
-      <tr style="border-bottom: 1px solid #e2e8f0;">
-        <td style="padding: 8px 0; font-weight: bold;">BCC Recipients</td>
-        <td style="padding: 8px 0;">${bccRecipients.length > 0 ? bccRecipients.join(', ') : 'None'}</td>
+        <td style="padding: 8px 0; font-weight: bold;">Recipients</td>
+        <td style="padding: 8px 0;">${recipients.join(', ')}</td>
       </tr>
       <tr style="border-bottom: 1px solid #e2e8f0;">
         <td style="padding: 8px 0; font-weight: bold;">Recipient Count</td>
@@ -866,8 +887,7 @@ export async function sendDailyReportTestEmail(
   `;
 
   const emailRes = await sendMail({
-    to: primaryRecipient,
-    bcc: bccRecipients.length > 0 ? bccRecipients : undefined,
+    to: recipients,
     subject,
     html,
   });
@@ -875,7 +895,6 @@ export async function sendDailyReportTestEmail(
   if (emailRes.success) {
     const accepted = emailRes.accepted || [];
     const rejected = emailRes.rejected || [];
-    const hasRejections = rejected.length > 0;
 
     // Audit Log
     try {
@@ -898,16 +917,15 @@ export async function sendDailyReportTestEmail(
 
     return {
       success: true,
-      message: hasRejections
-        ? `Email accepted by Gmail SMTP. Message ID: ${emailRes.messageId}. Failed for ${rejected.length} recipients.`
-        : `Email accepted by provider. Message ID: ${emailRes.messageId}`,
+      message: 'Test email sent to 3 recipients',
       recipientCount: recipients.length,
       recipients,
+      messageId: emailRes.messageId,
     };
   } else {
     return {
       success: false,
-      error: emailRes.error || 'Failed to dispatch verification email',
+      message: emailRes.error || 'Failed to dispatch verification email',
       recipientCount: recipients.length,
       recipients,
     };

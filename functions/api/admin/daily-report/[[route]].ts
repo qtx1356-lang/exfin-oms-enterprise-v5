@@ -1,3 +1,6 @@
+// @ts-ignore
+import { connect } from 'cloudflare:sockets';
+
 export async function onRequest(context) {
   const { request, env, params } = context;
   const route = params.route || [];
@@ -14,7 +17,6 @@ export async function onRequest(context) {
   const token = authHeader.split('Bearer ')[1].trim();
 
   const projectId = env.FIREBASE_PROJECT_ID || 'exfin-oms-production';
-  const resendApiKey = env.RESEND_API_KEY;
 
   async function firestoreFetch(docPath, method = 'GET', body = null) {
     const fUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${docPath}`;
@@ -54,36 +56,180 @@ export async function onRequest(context) {
     return val;
   }
 
+  const DEFAULT_TARGET_RECIPIENTS = [
+    'hr@exfinsolution.com',
+    'ceo@exfinsolution.com',
+    'sanjivsinha06@gmail.com'
+  ];
+
+  function getEffectiveRecipients(fsData) {
+    if (env.EMAIL_RECIPIENTS) {
+      const envList = env.EMAIL_RECIPIENTS.split(',').map(s => s.trim()).filter(Boolean);
+      if (envList.length === 3) return envList;
+    }
+    if (fsData?.fields?.adminEmails?.arrayValue?.values) {
+      const fsList = fsData.fields.adminEmails.arrayValue.values.map(v => v.stringValue?.trim()).filter(Boolean);
+      if (fsList.length === 3) return fsList;
+    }
+    return [...DEFAULT_TARGET_RECIPIENTS];
+  }
+
+  async function sendEmailViaGmailSmtp(recipients, subject, html) {
+    const host = env.SMTP_HOST || 'smtp.gmail.com';
+    const port = parseInt(env.SMTP_PORT || '465', 10);
+    const user = env.SMTP_USER;
+    const pass = env.SMTP_PASSWORD || env.SMTP_PASS;
+
+    if (!user || !pass) {
+      throw new Error('Email recipient configuration is missing or invalid.');
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const validRecipients = (recipients || []).map(r => String(r).trim()).filter(r => emailRegex.test(r));
+
+    if (validRecipients.length !== 3) {
+      throw new Error('Email recipient configuration is missing or invalid.');
+    }
+
+    let socket;
+    try {
+      socket = connect({ hostname: host, port }, { secureTransport: "on" });
+    } catch (err) {
+      throw new Error('Unable to connect to Gmail SMTP.');
+    }
+
+    const writer = socket.writable.getWriter();
+    const reader = socket.readable.getReader();
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+
+    let readBuffer = "";
+
+    async function readLine() {
+      while (!readBuffer.includes("\r\n")) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        readBuffer += decoder.decode(value, { stream: true });
+      }
+      const idx = readBuffer.indexOf("\r\n");
+      if (idx !== -1) {
+        const line = readBuffer.slice(0, idx);
+        readBuffer = readBuffer.slice(idx + 2);
+        return line;
+      }
+      const line = readBuffer;
+      readBuffer = "";
+      return line;
+    }
+
+    async function sendCmd(cmd) {
+      await writer.write(encoder.encode(cmd + "\r\n"));
+      return await readLine();
+    }
+
+    try {
+      const greeting = await readLine();
+      if (!greeting.startsWith("220")) {
+        throw new Error('Unable to connect to Gmail SMTP.');
+      }
+
+      await sendCmd("EHLO localhost");
+
+      const authResp = await sendCmd("AUTH LOGIN");
+      if (!authResp.startsWith("334")) {
+        throw new Error('Gmail SMTP authentication failed.');
+      }
+
+      const userResp = await sendCmd(btoa(user));
+      if (!userResp.startsWith("334")) {
+        throw new Error('Gmail SMTP authentication failed.');
+      }
+
+      const passResp = await sendCmd(btoa(pass));
+      if (!passResp.startsWith("235")) {
+        throw new Error('Gmail SMTP authentication failed.');
+      }
+
+      const mailFromResp = await sendCmd(`MAIL FROM:<${user}>`);
+      if (!mailFromResp.startsWith("250")) {
+        throw new Error('Gmail SMTP authentication failed.');
+      }
+
+      for (const rcpt of validRecipients) {
+        const rcptResp = await sendCmd(`RCPT TO:<${rcpt}>`);
+        if (!rcptResp.startsWith("250") && !rcptResp.startsWith("251")) {
+          throw new Error('Gmail rejected one or more recipients.');
+        }
+      }
+
+      const dataResp = await sendCmd("DATA");
+      if (!dataResp.startsWith("354")) {
+        throw new Error('Gmail rejected one or more recipients.');
+      }
+
+      const messageData = [
+        `From: EXFIN OMS Operations <${user}>`,
+        `To: ${validRecipients.join(", ")}`,
+        `Subject: ${subject}`,
+        `MIME-Version: 1.0`,
+        `Content-Type: text/html; charset=utf-8`,
+        ``,
+        html,
+        `.`
+      ].join("\r\n");
+
+      const dataResult = await sendCmd(messageData);
+      if (!dataResult.startsWith("250")) {
+        throw new Error('Gmail rejected one or more recipients.');
+      }
+
+      const msgIdMatch = dataResult.match(/250\s+2\.0\.0\s+OK\s+(.+)$/);
+      const messageId = msgIdMatch ? msgIdMatch[1] : `msg_cf_${Date.now()}`;
+
+      await sendCmd("QUIT").catch(() => {});
+      try { writer.close(); reader.cancel(); } catch (e) {}
+
+      return {
+        success: true,
+        message: "Email accepted by Gmail SMTP",
+        recipientCount: validRecipients.length,
+        recipients: validRecipients,
+        messageId
+      };
+    } catch (err) {
+      try { writer.close(); reader.cancel(); } catch (e) {}
+      throw err;
+    }
+  }
+
   try {
     if (request.method === 'GET' && pathStr === 'config') {
       const res = await firestoreFetch('system_settings/daily_admin_report');
-      if (res.status === 404) {
-        return new Response(JSON.stringify({ success: true, config: { enabled: false, sendTime: '07:00', adminEmails: [] } }), { headers: { 'Content-Type': 'application/json' } });
+      let fsData = null;
+      if (res.ok) {
+        fsData = await res.json();
       }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        return new Response(JSON.stringify({ success: false, error: err.error?.message || 'Failed to fetch config' }), { status: res.status, headers: { 'Content-Type': 'application/json' } });
-      }
-      const data = await res.json();
+      const recipients = getEffectiveRecipients(fsData);
       const config = {
-        enabled: data.fields?.enabled?.booleanValue ?? false,
-        sendTime: data.fields?.sendTime?.stringValue ?? '07:00',
-        adminEmails: data.fields?.adminEmails?.arrayValue?.values?.map(v => v.stringValue) ?? [],
-        includeAttendance: data.fields?.includeAttendance?.booleanValue ?? true,
-        includeLeaves: data.fields?.includeLeaves?.booleanValue ?? true,
-        includeExpenses: data.fields?.includeExpenses?.booleanValue ?? true,
-        includeOtherDailyActivity: data.fields?.includeOtherDailyActivity?.booleanValue ?? true,
+        enabled: fsData?.fields?.enabled?.booleanValue ?? true,
+        sendTime: fsData?.fields?.sendTime?.stringValue ?? '07:00 AM',
+        adminEmails: recipients,
+        includeAttendance: fsData?.fields?.includeAttendance?.booleanValue ?? true,
+        includeLeaves: fsData?.fields?.includeLeaves?.booleanValue ?? true,
+        includeExpenses: fsData?.fields?.includeExpenses?.booleanValue ?? true,
+        includeOtherDailyActivity: fsData?.fields?.includeOtherDailyActivity?.booleanValue ?? true,
       };
       return new Response(JSON.stringify({ success: true, config }), { headers: { 'Content-Type': 'application/json' } });
     }
 
     if (request.method === 'POST' && pathStr === 'config') {
       const body = await request.json();
+      const recipients = (body.adminEmails && body.adminEmails.length === 3) ? body.adminEmails : DEFAULT_TARGET_RECIPIENTS;
       const firestoreBody = {
         fields: {
           enabled: { booleanValue: !!body.enabled },
-          sendTime: { stringValue: body.sendTime || '07:00' },
-          adminEmails: { arrayValue: { values: (body.adminEmails || []).map(e => ({ stringValue: e })) } },
+          sendTime: { stringValue: body.sendTime || '07:00 AM' },
+          adminEmails: { arrayValue: { values: recipients.map(e => ({ stringValue: e })) } },
           includeAttendance: { booleanValue: !!body.includeAttendance },
           includeLeaves: { booleanValue: !!body.includeLeaves },
           includeExpenses: { booleanValue: !!body.includeExpenses },
@@ -96,7 +242,7 @@ export async function onRequest(context) {
         const err = await res.json().catch(() => ({}));
         return new Response(JSON.stringify({ success: false, error: err.error?.message || 'Failed to save config' }), { status: res.status, headers: { 'Content-Type': 'application/json' } });
       }
-      return new Response(JSON.stringify({ success: true, config: body }), { headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ success: true, config: { ...body, adminEmails: recipients } }), { headers: { 'Content-Type': 'application/json' } });
     }
 
     if (request.method === 'GET' && pathStr === 'history') {
@@ -119,7 +265,8 @@ export async function onRequest(context) {
           startedAt: fields.startedAt?.stringValue || fields.createdAt?.timestampValue,
           completedAt: fields.completedAt?.stringValue,
           reportDate: fields.reportDate?.stringValue,
-          recipientCount: fields.recipientCount?.integerValue,
+          recipientCount: fields.recipientCount?.integerValue || 3,
+          recipients: DEFAULT_TARGET_RECIPIENTS,
           recipient: fields.recipient?.stringValue,
           error: fields.error?.stringValue
         };
@@ -127,46 +274,18 @@ export async function onRequest(context) {
       return new Response(JSON.stringify({ success: true, history }), { headers: { 'Content-Type': 'application/json' } });
     }
 
-    async function sendEmailViaResend(to, bcc, subject, html) {
-      if (!resendApiKey) {
-        throw new Error('Email provider configuration missing: RESEND_API_KEY environment variable is not set in Cloudflare Pages.');
-      }
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: env.RESEND_FROM || 'EXFIN OMS <noreply@exfin-oms.internal>',
-          to,
-          bcc: bcc && bcc.length > 0 ? bcc : undefined,
-          subject,
-          html
-        })
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Failed to send via Resend');
-      }
-      const data = await res.json();
-      return { success: true, simulated: false, messageId: data.id };
-    }
-
     if (request.method === 'POST' && pathStr === 'send-test') {
       const res = await firestoreFetch('system_settings/daily_admin_report');
-      let adminEmails = [];
-      let sendTime = '07:00';
+      let fsData = null;
       if (res.ok) {
-        const data = await res.json();
-        adminEmails = data.fields?.adminEmails?.arrayValue?.values?.map(v => v.stringValue) ?? [];
-        sendTime = data.fields?.sendTime?.stringValue ?? '07:00';
+        fsData = await res.json();
       }
-      if (adminEmails.length === 0) {
-        return new Response(JSON.stringify({ success: false, error: 'No Admin email recipients configured' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-      }
+      const recipients = getEffectiveRecipients(fsData);
 
-      const emailHtml = `<!DOCTYPE html><html><body style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;"><div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgb(0 0 0 / 0.05); border-top: 4px solid #6366f1;"><h2 style="color: #1e1b4b; margin-top: 0;">EXFIN OMS — Connection Verification</h2><p>This is a <strong>Test Daily Report</strong> designed to verify that the EXFIN OMS backend email server configuration is fully operational.</p><p>Details:</p><table style="width: 100%; border-collapse: collapse; font-size: 13px;"><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Status</td><td style="padding: 8px 0; color: #10b981;">ACTIVE / OPERATIONAL</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Primary Recipient</td><td style="padding: 8px 0;">${adminEmails[0]}</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">BCC Recipients</td><td style="padding: 8px 0;">${adminEmails.length > 1 ? adminEmails.slice(1).join(', ') : 'None'}</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Recipient Count</td><td style="padding: 8px 0;">${adminEmails.length}</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Send Time Setting</td><td style="padding: 8px 0;">${sendTime} (Asia/Kolkata)</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Dispatched From</td><td style="padding: 8px 0;">EXFIN OMS CF Pages Server</td></tr></table></div></body></html>`;
+      const emailHtml = `<!DOCTYPE html><html><body style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;"><div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgb(0 0 0 / 0.05); border-top: 4px solid #6366f1;"><h2 style="color: #1e1b4b; margin-top: 0;">EXFIN OMS — Connection Verification</h2><p>This is a <strong>Test Daily Report</strong> designed to verify that the EXFIN OMS backend email server configuration is fully operational.</p><p>Details:</p><table style="width: 100%; border-collapse: collapse; font-size: 13px;"><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Status</td><td style="padding: 8px 0; color: #10b981;">ACTIVE / OPERATIONAL</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Recipients</td><td style="padding: 8px 0;">${recipients.join(', ')}</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Recipient Count</td><td style="padding: 8px 0;">${recipients.length}</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Dispatched From</td><td style="padding: 8px 0;">EXFIN OMS CF Pages Server</td></tr></table></div></body></html>`;
 
       try {
-        const sendRes = await sendEmailViaResend(adminEmails[0], adminEmails.slice(1), 'EXFIN OMS — Test Daily Report', emailHtml);
+        const sendRes = await sendEmailViaGmailSmtp(recipients, 'EXFIN OMS — Test Daily Report', emailHtml);
         
         await firestoreFetch(`audit_logs/${Date.now()}`, 'PATCH', {
           fields: {
@@ -178,28 +297,24 @@ export async function onRequest(context) {
 
         return new Response(JSON.stringify({ 
           success: true, 
-          message: `Email accepted by provider. Message ID: ${sendRes.messageId}`,
-          recipientCount: adminEmails.length,
-          recipients: adminEmails
+          message: `Test email sent to 3 recipients`,
+          recipientCount: recipients.length,
+          recipients,
+          messageId: sendRes.messageId
         }), { headers: { 'Content-Type': 'application/json' } });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ success: false, error: err.message || 'Failed to send test email' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
       }
     }
 
     if (request.method === 'POST' && pathStr === 'send-yesterday') {
       const body = await request.json().catch(() => ({}));
       const res = await firestoreFetch('system_settings/daily_admin_report');
-      let adminEmails = [];
+      let fsData = null;
       if (res.ok) {
-        const data = await res.json();
-        adminEmails = data.fields?.adminEmails?.arrayValue?.values?.map(v => v.stringValue) ?? [];
+        fsData = await res.json();
       }
-      
-      if (adminEmails.length === 0) {
-        return new Response(JSON.stringify({ success: false, error: 'No Admin email recipients configured' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-      }
-
+      const recipients = getEffectiveRecipients(fsData);
       const targetDate = body.date || new Date().toISOString().split('T')[0];
 
       // Fetch Employees
@@ -240,7 +355,7 @@ export async function onRequest(context) {
       </div></div></body></html>`;
 
       try {
-        const sendRes = await sendEmailViaResend(adminEmails[0], adminEmails.slice(1), `EXFIN OMS — Daily Admin Report — ${targetDate}`, html);
+        const sendRes = await sendEmailViaGmailSmtp(recipients, `EXFIN OMS — Daily Admin Report — ${targetDate}`, html);
 
         const reportLogRef = `daily_admin_reports/${targetDate}`;
         await firestoreFetch(reportLogRef, 'PATCH', {
@@ -249,19 +364,22 @@ export async function onRequest(context) {
             status: { stringValue: 'SENT' },
             startedAt: { stringValue: new Date().toISOString() },
             completedAt: { stringValue: new Date().toISOString() },
-            recipientCount: { integerValue: adminEmails.length },
-            recipient: { stringValue: adminEmails[0] },
+            recipientCount: { integerValue: recipients.length },
+            recipient: { stringValue: recipients.join(', ') },
             messageId: { stringValue: sendRes.messageId || 'simulated' }
           }
         });
 
         return new Response(JSON.stringify({ 
           success: true, 
-          message: `Email accepted by provider. Message ID: ${sendRes.messageId}`,
-          reportDate: targetDate
+          message: "Email accepted by Gmail SMTP",
+          recipientCount: recipients.length,
+          recipients,
+          reportDate: targetDate,
+          messageId: sendRes.messageId
         }), { headers: { 'Content-Type': 'application/json' } });
       } catch (err) {
-        return new Response(JSON.stringify({ success: false, error: err.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ success: false, error: err.message || 'Failed to dispatch report' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
       }
     }
 

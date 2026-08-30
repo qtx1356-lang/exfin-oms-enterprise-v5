@@ -1,7 +1,7 @@
 // APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. OFFLINE MUST BOOT THE NORMAL APPLICATION SHELL.
 
 import './services/startup/startupPerformanceLogger';
-import React, {StrictMode} from 'react';
+import React, { Component, StrictMode } from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
@@ -51,9 +51,21 @@ if (typeof window !== 'undefined') {
   }
 }
 
+interface RootErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface RootErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
 // Simple Error Boundary for the root level to catch React rendering errors
-class RootErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: Error | null}> {
-  constructor(props: {children: React.ReactNode}) {
+class RootErrorBoundary extends Component<RootErrorBoundaryProps, RootErrorBoundaryState> {
+  public state: RootErrorBoundaryState;
+  public declare props: RootErrorBoundaryProps;
+
+  constructor(props: RootErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
   }

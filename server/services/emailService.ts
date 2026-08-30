@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 
 export interface EmailPayload {
-  to: string;
+  to: string | string[];
   bcc?: string | string[];
   subject: string;
   html: string;
@@ -11,71 +11,163 @@ export interface SendEmailResult {
   success: boolean;
   simulated: boolean;
   messageId?: string;
+  message?: string;
   error?: string;
+  recipientCount?: number;
+  recipients?: string[];
   accepted?: string[];
   rejected?: string[];
 }
 
 export async function sendMail(payload: EmailPayload): Promise<SendEmailResult> {
-  const host = process.env.SMTP_HOST;
-  const portStr = process.env.SMTP_PORT || '587';
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const portStr = process.env.SMTP_PORT || '465';
   const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || 'EXFIN OMS <noreply@exfin-oms.internal>';
+  const pass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
 
-  const isConfigured = !!(host && user && pass);
-
-  if (!isConfigured) {
-    throw new Error('Email provider configuration missing: SMTP credentials are not configured in environment.');
+  if (!user || !pass) {
+    return {
+      success: false,
+      simulated: false,
+      error: 'Email recipient configuration is missing or invalid.'
+    };
   }
+
+  // Extract recipients array
+  let toList: string[] = [];
+  if (Array.isArray(payload.to)) {
+    toList = payload.to.map(s => s.trim()).filter(Boolean);
+  } else if (typeof payload.to === 'string') {
+    toList = payload.to.split(',').map(s => s.trim()).filter(Boolean);
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const validRecipients = toList.filter(e => emailRegex.test(e));
+
+  if (validRecipients.length !== 3) {
+    return {
+      success: false,
+      simulated: false,
+      error: 'Email recipient configuration is missing or invalid.'
+    };
+  }
+
+  // Set sender to the authenticated Gmail account
+  const from = process.env.SMTP_FROM || `EXFIN OMS Operations <${user}>`;
 
   try {
     const port = parseInt(portStr, 10);
+    const isSecure = port === 465 || process.env.SMTP_SECURE === 'true';
+
     const transporter = nodemailer.createTransport({
       host,
       port,
-      secure: port === 465, // Use SSL for port 465
+      secure: isSecure,
       auth: {
         user,
         pass,
       },
       tls: {
-        rejectUnauthorized: false // Helps avoid some strict cert issues
+        rejectUnauthorized: false
       }
     });
 
-    // Explicitly verify the connection first
     try {
       await transporter.verify();
-      console.log(`[SMTP Email Dispatcher] Verification successful with ${host}:${port}`);
+      console.log(`[SMTP Email Dispatcher] Verified connection with ${host}:${port}`);
     } catch (verifyErr: any) {
       console.error(`[SMTP Email Dispatcher] Connection/Authentication failed:`, verifyErr);
-      throw new Error(`SMTP verification failed: ${verifyErr.message}`);
+      const msg = verifyErr.message || String(verifyErr);
+      if (
+        msg.includes('535') ||
+        msg.toLowerCase().includes('auth') ||
+        msg.toLowerCase().includes('credential') ||
+        msg.toLowerCase().includes('invalid login')
+      ) {
+        return {
+          success: false,
+          simulated: false,
+          error: 'Gmail SMTP authentication failed.'
+        };
+      }
+      return {
+        success: false,
+        simulated: false,
+        error: 'Unable to connect to Gmail SMTP.'
+      };
     }
 
     const info = await transporter.sendMail({
       from,
-      to: payload.to,
+      to: validRecipients.join(', '),
       bcc: payload.bcc,
       subject: payload.subject,
       html: payload.html,
     });
 
-    console.log(`[SMTP Email Dispatcher] Sent email successfully to ${payload.to}. MessageId: ${info.messageId}`);
+    const accepted = (info.accepted || []) as string[];
+    const rejected = (info.rejected || []) as string[];
+
+    if (rejected.length > 0) {
+      return {
+        success: false,
+        simulated: false,
+        error: 'Gmail rejected one or more recipients.',
+        accepted,
+        rejected
+      };
+    }
+
+    console.log(`[SMTP Email Dispatcher] Email accepted by Gmail SMTP to ${validRecipients.join(', ')}. MessageId: ${info.messageId}`);
 
     return {
       success: true,
       simulated: false,
+      message: 'Email accepted by Gmail SMTP',
       messageId: info.messageId,
-      accepted: (info.accepted || []) as string[],
-      rejected: (info.rejected || []) as string[]
+      recipientCount: validRecipients.length,
+      recipients: validRecipients,
+      accepted,
+      rejected
     };
   } catch (err: any) {
-    console.error(`[SMTP Email Dispatcher] Failed to send email to ${payload.to}:`, err);
+    console.error(`[SMTP Email Dispatcher] Failed to send email:`, err);
+    const msg = err.message || String(err);
+    if (
+      msg.includes('535') ||
+      msg.toLowerCase().includes('auth') ||
+      msg.toLowerCase().includes('credential') ||
+      msg.toLowerCase().includes('invalid login')
+    ) {
+      return {
+        success: false,
+        simulated: false,
+        error: 'Gmail SMTP authentication failed.'
+      };
+    }
+    if (
+      msg.toLowerCase().includes('connect') ||
+      msg.toLowerCase().includes('econnrefused') ||
+      msg.toLowerCase().includes('timeout') ||
+      msg.toLowerCase().includes('enotfound')
+    ) {
+      return {
+        success: false,
+        simulated: false,
+        error: 'Unable to connect to Gmail SMTP.'
+      };
+    }
+    if (msg.toLowerCase().includes('recipient') || msg.includes('550') || msg.includes('553')) {
+      return {
+        success: false,
+        simulated: false,
+        error: 'Gmail rejected one or more recipients.'
+      };
+    }
     return {
       success: false,
       simulated: false,
-      error: err.message || String(err)
+      error: msg
     };
   }
 }
