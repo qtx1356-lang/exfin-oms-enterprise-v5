@@ -829,9 +829,9 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-slate-800 space-y-3 font-sans">
-        <Sparkles className="w-10 h-10 text-cyan-500 animate-spin" />
-        <p className="text-sm font-bold text-slate-500 animate-pulse">
+      <div className="flex flex-col items-center justify-center py-20 text-white space-y-3 font-sans">
+        <Sparkles className="w-10 h-10 text-cyan-400 animate-spin" />
+        <p className="text-sm font-bold text-[#AAB8C7] animate-pulse">
           Loading Performance Intelligence...
         </p>
       </div>

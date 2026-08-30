@@ -275,7 +275,7 @@ export const Layout: React.FC = () => {
       <div className="fixed top-1/2 left-0 w-[350px] h-[500px] bg-[var(--info)]/5 rounded-full blur-[140px] pointer-events-none -z-10" />
 
       {/* Dynamic Header Bar with Frosted Glassmorphism */}
-      <header className="fixed top-0 left-0 right-0 z-50 glass-nav border-b border-purple-500/25 shadow-lg text-white">
+      <header className="fixed top-0 left-0 right-0 z-50 glass-nav border-b border-[var(--border)] shadow-lg text-white">
         <div className="container mx-auto px-3 sm:px-5 py-2.5 max-w-3xl flex items-center justify-between gap-2">
           {/* Left/Center Header Status & Location Controls */}
           <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
@@ -317,7 +317,7 @@ export const Layout: React.FC = () => {
                 {!adminUser && (
                   <button
                     onClick={() => navigate('/faq')}
-                    className="relative p-2 rounded-xl glass-inner-tile border border-purple-500/20 text-purple-200 hover:text-white hover:bg-white/10 transition-all cursor-pointer shadow-sm active:scale-95"
+                    className="relative p-2 rounded-xl glass-inner-tile border border-[var(--border)] text-[#AAB8C7] hover:text-white hover:bg-white/10 transition-all cursor-pointer shadow-sm active:scale-95"
                     aria-label="Help & FAQ"
                   >
                     <HelpCircle className="w-4.5 h-4.5" />
@@ -327,7 +327,7 @@ export const Layout: React.FC = () => {
                   {/* Bell Button */}
                   <button
                     onClick={handleBellClick}
-                    className="relative p-2 rounded-xl glass-inner-tile border border-purple-500/20 text-purple-200 hover:text-white hover:bg-white/10 transition-all cursor-pointer shadow-sm active:scale-95"
+                    className="relative p-2 rounded-xl glass-inner-tile border border-[var(--border)] text-[#AAB8C7] hover:text-white hover:bg-white/10 transition-all cursor-pointer shadow-sm active:scale-95"
                     aria-label="Toggle notifications"
                     id="notification-bell-btn"
                   >

@@ -211,12 +211,12 @@ export const MyTeamScreen: React.FC = () => {
 
   if (!isTeamLeader) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center text-slate-900">
-        <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4 border border-red-500/20">
-          <ShieldAlert className="w-8 h-8 text-red-600" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center text-white">
+        <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mb-4 border border-rose-500/20">
+          <ShieldAlert className="w-8 h-8 text-rose-500" />
         </div>
-        <h2 className="text-xl font-black text-red-600 mb-2">Access Restricted</h2>
-        <p className="text-xs text-slate-600 max-w-md">
+        <h2 className="text-xl font-black text-rose-400 mb-2">Access Restricted</h2>
+        <p className="text-xs text-[#AAB8C7] max-w-md">
           You are not designated as a Team Leader. The "My Team" module is automatically unlocked when an Administrator assigns you Team Leader status.
         </p>
       </div>

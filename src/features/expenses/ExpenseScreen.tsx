@@ -237,12 +237,12 @@ export const ExpenseScreen: React.FC = () => {
   return (
     <div className="flex flex-col gap-5 pb-12 max-w-5xl mx-auto font-sans">
       {/* Top Bar with Offline/Sync Indicator */}
-      <div className="flex items-center justify-between pt-2 pb-2 border-b border-slate-200">
+      <div className="flex items-center justify-between pt-2 pb-2 border-b border-[var(--border)]">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Wallet className="w-7 h-7 text-indigo-600" /> Expense Claims
+          <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+            <Wallet className="w-7 h-7 text-cyan-400" /> Expense Claims
           </h1>
-          <p className="text-xs text-slate-600 font-medium mt-0.5">
+          <p className="text-xs text-[#AAB8C7] font-medium mt-0.5">
             Submit & track reimbursement requests in Indian Rupees (₹)
           </p>
         </div>
@@ -250,8 +250,8 @@ export const ExpenseScreen: React.FC = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="glass-card-elevated p-4 shadow-lg flex flex-col justify-between rounded-2xl text-white">
-          <p className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
+        <div className="glass-card-elevated p-4 shadow-lg flex flex-col justify-between rounded-2xl text-white border border-[var(--border)]">
+          <p className="text-[10px] font-extrabold uppercase tracking-wider text-[#AAB8C7]">
             Total Submitted
           </p>
           <p className="text-xl font-black text-white mt-1 tracking-tight font-mono">
@@ -259,7 +259,7 @@ export const ExpenseScreen: React.FC = () => {
           </p>
         </div>
 
-        <div className="glass-card-elevated p-4 shadow-lg flex flex-col justify-between rounded-2xl text-white">
+        <div className="glass-card-elevated p-4 shadow-lg flex flex-col justify-between rounded-2xl text-white border border-[var(--border)]">
           <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-300">
             Pending
           </p>
@@ -268,7 +268,7 @@ export const ExpenseScreen: React.FC = () => {
           </p>
         </div>
 
-        <div className="glass-card-elevated p-4 shadow-lg flex flex-col justify-between rounded-2xl text-white">
+        <div className="glass-card-elevated p-4 shadow-lg flex flex-col justify-between rounded-2xl text-white border border-[var(--border)]">
           <p className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-300">
             Approved
           </p>
@@ -304,13 +304,13 @@ export const ExpenseScreen: React.FC = () => {
       {/* Filters Section */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+          <span className="text-xs font-extrabold text-[#AAB8C7] uppercase tracking-wider">
             Filter History
           </span>
           {dateFilter && (
             <button 
               onClick={() => setDateFilter('')} 
-              className="text-[11px] font-bold text-indigo-600 hover:underline cursor-pointer"
+              className="text-[11px] font-bold text-cyan-400 hover:underline cursor-pointer"
             >
               Clear Date Filter
             </button>
@@ -324,8 +324,8 @@ export const ExpenseScreen: React.FC = () => {
               onClick={() => setStatusFilter(status)}
               className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border cursor-pointer ${
                 statusFilter === status
-                  ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white border-transparent shadow-md'
-                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                  ? 'btn-primary text-white shadow-md'
+                  : 'glass-inner-tile text-[#AAB8C7] border-[var(--border)] hover:text-white'
               }`}
             >
               {status}
@@ -337,11 +337,11 @@ export const ExpenseScreen: React.FC = () => {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-indigo-500 shadow-sm"
+            className="w-full px-3 py-2 rounded-xl border border-[var(--border)] glass-inner-tile text-white text-xs font-semibold focus:outline-none focus:border-cyan-400 shadow-sm"
           >
-            <option value="All">All Categories</option>
+            <option value="All" className="bg-[#071A30] text-white">All Categories</option>
             {EXPENSE_CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
+              <option key={cat} value={cat} className="bg-[#071A30] text-white">{cat}</option>
             ))}
           </select>
 
@@ -349,14 +349,14 @@ export const ExpenseScreen: React.FC = () => {
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-indigo-500 shadow-sm"
+            className="w-full px-3 py-2 rounded-xl border border-[var(--border)] glass-inner-tile text-white text-xs font-semibold focus:outline-none focus:border-cyan-400 shadow-sm"
           />
         </div>
       </div>
 
       {/* Expense History List */}
       <div className="space-y-3">
-        <h2 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+        <h2 className="text-xs font-extrabold text-[#AAB8C7] uppercase tracking-wider">
           Expense Records ({filteredExpenses.length})
         </h2>
 

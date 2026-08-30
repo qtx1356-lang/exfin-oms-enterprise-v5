@@ -595,7 +595,7 @@ export const EmployeeDashboard: React.FC = () => {
       icon: HelpCircle, 
       label: 'FAQ & Help', 
       onClick: () => navigate('/faq'), 
-      bg: 'glass-inner-tile text-purple-200 border-purple-500/20' 
+      bg: 'glass-inner-tile text-[#AAB8C7] border-[var(--border)]' 
     },
     { 
       icon: User, 
@@ -607,13 +607,13 @@ export const EmployeeDashboard: React.FC = () => {
       icon: Activity, 
       label: 'Work Pulse', 
       onClick: () => setActiveView('workpulse'), 
-      bg: 'glass-inner-tile text-indigo-300 border-indigo-500/20' 
+      bg: 'glass-inner-tile text-cyan-300 border-cyan-500/20' 
     },
     { 
       icon: Clock, 
       label: 'Work Hours', 
       onClick: () => navigate('/work-hours'), 
-      bg: 'glass-inner-tile text-indigo-300 border-indigo-500/20' 
+      bg: 'glass-inner-tile text-cyan-300 border-cyan-500/20' 
     },
   ];
 
@@ -633,21 +633,21 @@ export const EmployeeDashboard: React.FC = () => {
   );
 
   let attendanceStatusLabel = 'Not Checked In';
-  let attendanceBadgeColor = 'glass-inner-tile text-purple-200 border-purple-500/20';
+  let attendanceBadgeColor = 'glass-inner-tile text-[#AAB8C7] border-[var(--border)]';
 
   if (todayAttendanceRec) {
     if (todayAttendanceRec.attendanceType === 'WFH') {
       attendanceStatusLabel = 'WFH';
-      attendanceBadgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
+      attendanceBadgeColor = 'bg-blue-500/20 text-blue-300 border-blue-500/30';
     } else if (todayAttendanceRec.attendanceType === 'CLIENT_VISIT') {
       attendanceStatusLabel = 'Client Visit';
-      attendanceBadgeColor = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+      attendanceBadgeColor = 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30';
     } else if (todayAttendanceRec.attendanceType === 'OUTDOOR') {
       attendanceStatusLabel = 'Outdoor Work';
-      attendanceBadgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
+      attendanceBadgeColor = 'bg-purple-500/20 text-purple-300 border-purple-500/30';
     } else if (todayAttendanceRec.checkOutTime && todayAttendanceRec.checkOutTime !== '--:--') {
       attendanceStatusLabel = 'Checked Out';
-      attendanceBadgeColor = 'bg-amber-50 text-amber-800 border-amber-200';
+      attendanceBadgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
     } else {
       attendanceStatusLabel = 'Checked In';
       attendanceBadgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -909,13 +909,13 @@ export const EmployeeDashboard: React.FC = () => {
               <h1 className="text-lg font-black text-white leading-tight">
                 {employeeData.name || 'Employee'}
               </h1>
-              <p className="text-xs text-purple-200/80 font-medium mt-0.5">
+              <p className="text-xs text-[#AAB8C7] font-medium mt-0.5">
                 Code: <span className="text-cyan-300 font-bold">{employeeData.employeeCode || 'N/A'}</span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 glass-inner-tile border border-purple-500/20 px-3 py-1.5 rounded-full text-xs font-semibold text-purple-200 shadow-sm">
+          <div className="flex items-center gap-1.5 glass-inner-tile border border-[var(--border)] px-3 py-1.5 rounded-full text-xs font-semibold text-[#AAB8C7] shadow-sm">
             <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
             <span className="truncate max-w-[130px]">{employeeData.officeLocation || employeeData.workLocation || 'Raniganj HQ'}</span>
           </div>
@@ -1175,7 +1175,7 @@ export const EmployeeDashboard: React.FC = () => {
               </div>
             </div>
           )}
-          <h2 className="text-xs font-black text-purple-200 uppercase tracking-widest mb-3">
+          <h2 className="text-xs font-black text-[#AAB8C7] uppercase tracking-widest mb-3">
             QUICK ACTIONS
           </h2>
           <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
@@ -1204,7 +1204,7 @@ export const EmployeeDashboard: React.FC = () => {
         {/* Announcements */}
         <div>
           <div className="flex justify-between items-center mb-2.5">
-            <h2 className="text-xs font-black text-purple-200 uppercase tracking-widest flex items-center gap-1.5">
+            <h2 className="text-xs font-black text-[#AAB8C7] uppercase tracking-widest flex items-center gap-1.5">
               <Megaphone className="w-4 h-4 text-cyan-400" />
               ANNOUNCEMENTS
             </h2>
@@ -1225,7 +1225,7 @@ export const EmployeeDashboard: React.FC = () => {
                 </Card>
               ))
             ) : (
-              <div className="text-center py-5 text-purple-300 glass-inner-tile rounded-2xl border border-dashed border-purple-500/30">
+              <div className="text-center py-5 text-[#AAB8C7] glass-inner-tile rounded-2xl border border-dashed border-[var(--border)]">
                 <p className="text-xs font-semibold">No recent announcements</p>
               </div>
             )}
@@ -1279,13 +1279,13 @@ export const EmployeeDashboard: React.FC = () => {
                         </span>
                       )}
                       <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider
-                        ${todayStatus === 'Present' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                          todayStatus === 'WFH' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
-                          todayStatus === 'Client Visit' ? 'bg-sky-50 text-sky-700 border border-sky-200' :
-                          todayStatus === 'Outdoor Work' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
-                          todayStatus === 'Leave' ? 'bg-amber-50 text-amber-800 border border-amber-200' :
-                          todayStatus === 'Absent' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
-                          'bg-slate-100 text-slate-700 border border-slate-200'}`}
+                        ${todayStatus === 'Present' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                          todayStatus === 'WFH' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                          todayStatus === 'Client Visit' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
+                          todayStatus === 'Outdoor Work' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
+                          todayStatus === 'Leave' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                          todayStatus === 'Absent' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                          'glass-inner-tile text-[#AAB8C7] border border-[var(--border)]'}`}
                       >
                         {todayStatus}
                       </span>

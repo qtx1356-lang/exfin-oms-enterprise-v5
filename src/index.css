@@ -28,46 +28,46 @@
 }
 
 :root {
-  /* 1. LAYER 1 — APPLICATION BACKGROUND (DARK GRADIENT) */
-  --app-background: linear-gradient(135deg, #13072E 0%, #1F0B42 45%, #180838 75%, #0F0523 100%);
-  --app-bg: linear-gradient(135deg, #13072E 0%, #1F0B42 45%, #180838 75%, #0F0523 100%);
-  --app-bg-secondary: #1A0B36;
+  /* 1. LAYER 1 — APPLICATION BACKGROUND (EMERALD AURORA GRADIENT) */
+  --app-background: linear-gradient(135deg, #020B1C 0%, #061A32 50%, #063D35 100%);
+  --app-bg: linear-gradient(135deg, #020B1C 0%, #061A32 50%, #063D35 100%);
+  --app-bg-secondary: #0A1D35;
 
-  /* 2. LAYER 2 — PRIMARY CARDS */
-  --surface: rgba(37, 15, 76, 0.75);
-  --surface-elevated: rgba(37, 15, 76, 0.85);
-  --surface-inner: rgba(26, 11, 54, 0.85);
-  --surface-hover: rgba(55, 23, 110, 0.85);
+  /* 2. LAYER 2 — PRIMARY CARDS (DEEP NAVY SURFACES) */
+  --surface: rgba(11, 35, 64, 0.85);        /* #0B2340 */
+  --surface-elevated: rgba(13, 41, 72, 0.90);/* #0D2948 */
+  --surface-inner: rgba(7, 26, 48, 0.85);    /* #071A30 */
+  --surface-hover: rgba(16, 43, 70, 0.90);   /* #102B46 */
 
-  /* TEXT SYSTEM (PRIMARY IS CRISP WHITE) */
+  /* TEXT SYSTEM */
   --text-primary: #FFFFFF;     /* pure crisp white */
-  --text-secondary: #E9D5FF;   /* soft purple/light lavender */
-  --text-muted: #C084FC;       /* readable lavender/light purple */
+  --text-secondary: #AAB8C7;   /* secondary slate/cyan-tint */
+  --text-muted: #718096;       /* muted text */
 
-  /* GLOBAL ACCENT COLORS */
-  --primary: #9333EA;
-  --primary-dark: #6B21A8;
-  --primary-light: #A855F7;
+  /* ACCENT COLORS */
+  --primary: #22D3EE;          /* Cyan / Electric blue */
+  --primary-dark: #2563EB;     /* Blue */
+  --primary-light: #6366F1;    /* Indigo */
 
   /* STATUS COLORS */
-  --success: #10B981; /* GREEN */
-  --warning: #F59E0B; /* AMBER */
-  --danger: #F43F5E;  /* RED */
-  --info: #06B6D4;    /* CYAN */
+  --success: #10B981; /* Emerald Green */
+  --warning: #F59E0B; /* Amber */
+  --danger: #F43F5E;  /* Coral / Red */
+  --info: #22D3EE;    /* Electric Cyan */
 
   /* BORDERS & SHADOWS */
-  --border: rgba(168, 85, 247, 0.25);
-  --divider: rgba(168, 85, 247, 0.15);
-  --shadow: 0 10px 30px rgba(10, 3, 25, 0.5);
+  --border: rgba(100, 180, 210, 0.20);
+  --divider: rgba(100, 180, 210, 0.12);
+  --shadow: 0 10px 30px rgba(2, 11, 28, 0.6);
   
   /* NAVIGATION & BUTTONS */
-  --nav-bg: rgba(20, 8, 44, 0.95);
-  --button-primary: linear-gradient(135deg, #9333EA 0%, #2563EB 50%, #06B6D4 100%);
-  --button-secondary: rgba(37, 15, 76, 0.85);
+  --nav-bg: rgba(11, 35, 64, 0.95);
+  --button-primary: linear-gradient(135deg, #6366F1 0%, #2563EB 50%, #22D3EE 100%);
+  --button-secondary: rgba(11, 35, 64, 0.85);
 }
 
 body {
-  background: linear-gradient(135deg, #13072E 0%, #1F0B42 45%, #180838 75%, #0F0523 100%) !important;
+  background: linear-gradient(135deg, #020B1C 0%, #061A32 50%, #063D35 100%) !important;
   background-attachment: fixed !important;
   color: var(--text-primary) !important;
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -95,45 +95,45 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: rgba(26, 11, 54, 0.85) !important;
+  background-color: rgba(7, 26, 48, 0.85) !important;
   color: #FFFFFF !important;
-  border: 1px solid rgba(168, 85, 247, 0.3) !important;
+  border: 1px solid rgba(100, 180, 210, 0.25) !important;
   border-radius: 12px !important;
   transition: all 0.2s ease;
 }
 
 input:focus, textarea:focus, select:focus {
   outline: none !important;
-  border-color: #A855F7 !important;
-  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.25) !important;
+  border-color: #22D3EE !important;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.25) !important;
 }
 
 /* 2. Main Glass Cards */
 .glass-card, .glass-card-elevated {
-  background: rgba(37, 15, 76, 0.80) !important;
+  background: rgba(11, 35, 64, 0.85) !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(168, 85, 247, 0.25) !important;
-  box-shadow: 0 10px 30px rgba(10, 3, 25, 0.5) !important;
+  border: 1px solid rgba(100, 180, 210, 0.20) !important;
+  box-shadow: 0 10px 30px rgba(2, 11, 28, 0.6) !important;
   border-radius: 20px;
   color: #FFFFFF !important;
 }
 
 /* 3. Inner Stat Tile Surfaces */
 .glass-inner-tile, .glass-card-inner {
-  background: rgba(26, 11, 54, 0.85) !important;
-  border: 1px solid rgba(168, 85, 247, 0.20) !important;
+  background: rgba(7, 26, 48, 0.85) !important;
+  border: 1px solid rgba(100, 180, 210, 0.15) !important;
   border-radius: 16px;
   color: #FFFFFF !important;
 }
 
 /* 4. Compact Premium Buttons (40-44px high) */
 .btn-primary, .btn-indigo, .btn-gold {
-  background: var(--button-primary);
+  background: var(--button-primary) !important;
   color: #FFFFFF !important;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 4px 14px rgba(147, 51, 234, 0.35);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
   border-radius: 12px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 42px;
@@ -149,18 +149,18 @@ input:focus, textarea:focus, select:focus {
 }
 
 .btn-secondary {
-  background: rgba(37, 15, 76, 0.85) !important;
+  background: rgba(11, 35, 64, 0.85) !important;
   color: #FFFFFF !important;
   font-weight: 600;
-  border: 1px solid rgba(168, 85, 247, 0.3) !important;
+  border: 1px solid rgba(100, 180, 210, 0.25) !important;
   border-radius: 12px;
   transition: all 0.2s ease;
   min-height: 42px;
-  box-shadow: 0 2px 8px rgba(10, 3, 25, 0.3);
+  box-shadow: 0 2px 8px rgba(2, 11, 28, 0.4);
 }
 
 .btn-secondary:hover {
-  background: rgba(55, 23, 110, 0.9) !important;
+  background: rgba(16, 43, 70, 0.9) !important;
 }
 
 .btn-danger {
@@ -168,7 +168,7 @@ input:focus, textarea:focus, select:focus {
   color: #FFFFFF !important;
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.35);
   border-radius: 12px;
   min-height: 42px;
 }
@@ -194,11 +194,11 @@ input:focus, textarea:focus, select:focus {
 }
 
 .glass-nav {
-  background: rgba(20, 8, 44, 0.95) !important;
+  background: rgba(11, 35, 64, 0.95) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(168, 85, 247, 0.25) !important;
-  box-shadow: 0 -10px 30px rgba(10, 3, 25, 0.6) !important;
+  border-top: 1px solid rgba(100, 180, 210, 0.20) !important;
+  box-shadow: 0 -10px 30px rgba(2, 11, 28, 0.6) !important;
 }
 
 /* Touch optimization */

@@ -375,14 +375,14 @@ export const PlannerScreen: React.FC = () => {
         );
       case 'Cancelled':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-700 border border-slate-300">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black glass-inner-tile text-[#AAB8C7] border border-[var(--border)]">
             Cancelled
           </span>
         );
       case 'Assigned':
       default:
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-700 border border-slate-300">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black glass-inner-tile text-cyan-300 border border-cyan-500/30">
             Assigned
           </span>
         );

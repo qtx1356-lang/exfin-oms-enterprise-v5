@@ -103,8 +103,8 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
 
   let statusTitle = 'NOT CHECKED IN';
   let statusBadgeText = 'Not Started';
-  let statusBorderColor = 'border-purple-500/30';
-  let badgeStyle = 'glass-inner-tile text-purple-200 border-purple-500/30';
+  let statusBorderColor = 'border-[var(--border)]';
+  let badgeStyle = 'glass-inner-tile text-[#AAB8C7] border-[var(--border)]';
   let StateIcon = Clock;
 
   if (isCheckedOut) {
@@ -117,8 +117,8 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
     if (attendanceType === 'WFH') {
       statusTitle = 'WORK FROM HOME';
       statusBadgeText = 'WFH Active';
-      statusBorderColor = 'border-indigo-500/40';
-      badgeStyle = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40';
+      statusBorderColor = 'border-blue-500/40';
+      badgeStyle = 'bg-blue-500/20 text-blue-300 border-blue-500/40';
       StateIcon = Home;
     } else if (attendanceType === 'CLIENT_VISIT') {
       statusTitle = 'CLIENT VISIT';
@@ -150,7 +150,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   return (
     <Card className={`p-4 sm:p-5 glass-card border border-[var(--border)] shadow-md relative overflow-hidden transition-all duration-300 text-[var(--text-primary)]`}>
       {/* Background Subtle Glow */}
-      <div className="absolute top-0 right-0 w-48 h-48 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header Row */}
       <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] mb-4">
@@ -160,7 +160,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
           </div>
           <div>
             <h2 className="text-xs font-black uppercase tracking-wider text-white">TODAY'S ATTENDANCE</h2>
-            <p className="text-[10px] text-purple-200/80 font-medium">{todayDateFormatted}</p>
+            <p className="text-[10px] text-[#AAB8C7] font-medium">{todayDateFormatted}</p>
           </div>
         </div>
 
@@ -173,7 +173,7 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
       {/* Main Status Title & Details */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center mb-4">
         <div>
-          <span className="text-[10px] font-bold text-purple-200/80 uppercase tracking-wider block mb-0.5">
+          <span className="text-[10px] font-bold text-[#AAB8C7] uppercase tracking-wider block mb-0.5">
             Current Status
           </span>
 
@@ -181,18 +181,18 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
             {statusTitle}
           </h1>
 
-          <div className="mt-2 text-xs font-medium text-purple-200">
+          <div className="mt-2 text-xs font-medium text-[#AAB8C7]">
             {isCheckedOut ? (
               <span className="text-emerald-300 font-bold flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Checked in {todayRecord.checkInTime} — Checked out {todayRecord.checkOutTime}
               </span>
             ) : isCheckedIn ? (
-              <span className="text-purple-100 font-semibold flex items-center gap-1.5">
+              <span className="text-white font-semibold flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-emerald-400" />
                 Checked in at <strong className="text-emerald-300 font-mono font-bold">{todayRecord.checkInTime}</strong>
               </span>
             ) : (
-              <span className="text-purple-200/80">
+              <span className="text-[#AAB8C7]">
                 Check-in not yet recorded today
               </span>
             )}

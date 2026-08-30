@@ -39,18 +39,18 @@ export const BottomNav: React.FC = () => {
               onClick={() => navigate(tab.path)}
               className={`relative flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-2xl transition-all duration-300 cursor-pointer select-none ${
                 isActive
-                  ? 'bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-500 text-white shadow-md shadow-purple-500/25 scale-[1.02]'
-                  : 'text-purple-200/80 hover:text-white hover:bg-white/10'
+                  ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/20 scale-[1.02]'
+                  : 'text-[#AAB8C7] hover:text-white hover:bg-white/5'
               }`}
             >
               <Icon 
                 className={`w-5 h-5 transition-transform duration-300 ${
-                  isActive ? 'text-white scale-110 drop-shadow' : 'text-purple-200/80'
+                  isActive ? 'text-white scale-110 drop-shadow' : 'text-[#AAB8C7]'
                 }`}
               />
               <span 
                 className={`text-[10px] tracking-tight leading-tight mt-0.5 transition-all duration-300 whitespace-nowrap ${
-                  isActive ? 'text-white font-extrabold' : 'text-purple-200/80 font-semibold'
+                  isActive ? 'text-white font-extrabold' : 'text-[#AAB8C7] font-semibold'
                 }`}
               >
                 {tab.label}

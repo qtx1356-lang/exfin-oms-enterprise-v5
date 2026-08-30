@@ -272,13 +272,13 @@ export const NotificationCenter: React.FC = () => {
 
   return (
     <div className="py-6 min-h-[calc(100vh-120px)] space-y-6 max-w-5xl mx-auto font-sans">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[var(--border)]">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-            <Bell className="w-7 h-7 text-indigo-600" />
+          <h1 className="text-2xl font-black text-white flex items-center gap-2">
+            <Bell className="w-7 h-7 text-cyan-400" />
             Notification Center
           </h1>
-          <p className="text-slate-600 text-xs font-medium mt-0.5">
+          <p className="text-[#AAB8C7] text-xs font-medium mt-0.5">
             Centralized notification feed and actionable real-time alerts
           </p>
         </div>
@@ -289,20 +289,20 @@ export const NotificationCenter: React.FC = () => {
             variant="tonal"
             className="rounded-xl flex items-center gap-2 text-xs font-bold shadow-sm"
           >
-            <CheckCheck className="w-4 h-4 text-indigo-600" />
+            <CheckCheck className="w-4 h-4 text-cyan-400" />
             Mark all read
           </Button>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-200 gap-6">
+      <div className="flex border-b border-[var(--border)] gap-6">
         {(['ALL', 'UNREAD', 'IMPORTANT', 'SETTINGS'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`pb-3 font-bold text-sm relative transition-all duration-200 cursor-pointer ${
-              activeTab === tab ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-900'
+              activeTab === tab ? 'text-white font-black' : 'text-[#AAB8C7] hover:text-white'
             }`}
           >
             {tab === 'ALL' && 'All Alerts'}
@@ -310,7 +310,7 @@ export const NotificationCenter: React.FC = () => {
             {tab === 'IMPORTANT' && 'Critical & High'}
             {tab === 'SETTINGS' && 'Preferences'}
             {activeTab === tab && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-400 rounded-full" />
             )}
           </button>
         ))}
@@ -336,8 +336,8 @@ export const NotificationCenter: React.FC = () => {
                 onClick={() => setActiveCategory(cat.key)}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border whitespace-nowrap cursor-pointer ${
                   activeCategory === cat.key
-                    ? 'bg-gradient-to-r from-indigo-600 to-blue-600 border-transparent text-white shadow-md'
-                    : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                    ? 'btn-primary text-white shadow-md'
+                    : 'glass-inner-tile border-[var(--border)] text-[#AAB8C7] hover:text-white'
                 }`}
               >
                 {cat.label}
