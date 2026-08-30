@@ -14,13 +14,13 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'filled', ...props }, ref) => {
     const variants = {
       // Primary Violet -> Blue Gradient CTA
-      filled: 'bg-gradient-to-r from-[#7C3AED] to-[#2563EB] text-white font-semibold border border-white/15 shadow-[0_4px_14px_rgba(124,58,237,0.30)] hover:from-[#6D28D9] hover:to-[#1D4ED8] active:scale-[0.98] rounded-xl',
-      gold: 'bg-gradient-to-r from-[#7C3AED] to-[#2563EB] text-white font-semibold border border-white/15 shadow-[0_4px_14px_rgba(124,58,237,0.30)] hover:from-[#6D28D9] hover:to-[#1D4ED8] active:scale-[0.98] rounded-xl',
-      cyan: 'bg-[#2563EB]/15 border border-[#2563EB]/30 text-[#06B6D4] hover:bg-[#2563EB]/25 hover:text-white font-semibold rounded-xl',
-      outlined: 'bg-white/5 border border-white/10 text-[#F8FAFC] hover:bg-white/10 hover:border-white/20 rounded-xl',
-      text: 'text-[#CBD5E1] hover:text-[#F8FAFC] hover:bg-white/5 rounded-xl',
-      elevated: 'bg-[#191E3A] border border-white/10 text-[#F8FAFC] hover:bg-[#232A4D] shadow-md rounded-xl',
-      tonal: 'bg-[#7C3AED]/15 border border-[#7C3AED]/30 text-[#DDD6FE] hover:bg-[#7C3AED]/25 hover:text-white rounded-xl',
+      filled: 'bg-gradient-to-r from-[#8B5CF6] to-[#2563EB] text-white font-semibold border border-white/20 shadow-[0_4px_16px_rgba(139,92,246,0.40)] hover:from-[#7C3AED] hover:to-[#1D4ED8] active:scale-[0.98] rounded-xl',
+      gold: 'bg-gradient-to-r from-[#8B5CF6] to-[#2563EB] text-white font-semibold border border-white/20 shadow-[0_4px_16px_rgba(139,92,246,0.40)] hover:from-[#7C3AED] hover:to-[#1D4ED8] active:scale-[0.98] rounded-xl',
+      cyan: 'bg-gradient-to-r from-[#4F46E5] to-[#06B6D4] text-white border border-white/20 shadow-[0_4px_14px_rgba(6,182,212,0.30)] hover:brightness-110 font-semibold rounded-xl',
+      outlined: 'bg-white/10 border border-white/20 text-white hover:bg-white/20 hover:border-white/30 rounded-xl',
+      text: 'text-[#E2E8F0] hover:text-white hover:bg-white/10 rounded-xl',
+      elevated: 'bg-[linear-gradient(135deg,rgba(76,29,149,0.85),rgba(30,41,100,0.95))] border border-[#A78BFA]/30 text-white hover:brightness-110 shadow-md rounded-xl',
+      tonal: 'bg-[#8B5CF6]/20 border border-[#A78BFA]/30 text-[#DDD6FE] hover:bg-[#8B5CF6]/30 hover:text-white rounded-xl',
     };
 
     return (

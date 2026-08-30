@@ -13,10 +13,10 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant = 'elevated', ...props }, ref) => {
     const variants = {
-      elevated: 'bg-[linear-gradient(135deg,rgba(42,35,86,0.95),rgba(20,31,61,0.95))] backdrop-blur-[16px] border border-[#7C3AED]/25 shadow-xl text-[var(--text-primary)]',
-      filled: 'bg-[rgba(25,30,58,0.88)] backdrop-blur-[12px] border border-white/8 shadow-md text-[var(--text-primary)]',
-      outlined: 'bg-transparent backdrop-blur-[10px] border border-white/10 text-[var(--text-primary)]',
-      gold: 'bg-[linear-gradient(135deg,rgba(42,35,86,0.95),rgba(20,31,61,0.95))] backdrop-blur-[16px] border border-[#7C3AED]/35 shadow-xl text-[var(--text-primary)]',
+      elevated: 'bg-[linear-gradient(135deg,rgba(76,29,149,0.80),rgba(30,41,100,0.90))] backdrop-blur-[16px] border border-[#A78BFA]/25 shadow-[0_8px_32px_rgba(17,16,74,0.50)] text-white',
+      filled: 'bg-[linear-gradient(135deg,#18204F,#20205D)] backdrop-blur-[12px] border border-[#A78BFA]/20 shadow-md text-white',
+      outlined: 'bg-transparent backdrop-blur-[10px] border border-[#A78BFA]/25 text-white',
+      gold: 'bg-[linear-gradient(135deg,rgba(88,28,135,0.90),rgba(30,58,138,0.90))] backdrop-blur-[16px] border border-[#A78BFA]/35 shadow-[0_12px_36px_rgba(17,16,74,0.65)] text-white',
     };
 
     return (

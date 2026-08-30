@@ -268,23 +268,23 @@ export const Layout: React.FC = () => {
       : (!isOnline ? 'Offline' : 'Raniganj HQ');
 
   return (
-    <div className="min-h-screen bg-[#070B1A] text-[var(--text-primary)] pb-20 relative overflow-x-hidden">
+    <div className="min-h-screen bg-transparent text-[var(--text-primary)] pb-20 relative overflow-x-hidden">
       {/* Premium Ambient Gradient Glows */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-[#7C3AED]/15 rounded-full blur-[140px] pointer-events-none -z-10" />
-      <div className="fixed bottom-10 right-1/4 w-[400px] h-[400px] bg-[#2563EB]/10 rounded-full blur-[160px] pointer-events-none -z-10" />
-      <div className="fixed top-1/2 left-0 w-[300px] h-[500px] bg-[#06B6D4]/5 rounded-full blur-[120px] pointer-events-none -z-10" />
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[320px] bg-[#8B5CF6]/25 rounded-full blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed bottom-10 right-1/4 w-[450px] h-[450px] bg-[#2563EB]/20 rounded-full blur-[160px] pointer-events-none -z-10" />
+      <div className="fixed top-1/2 left-0 w-[350px] h-[500px] bg-[#06B6D4]/15 rounded-full blur-[140px] pointer-events-none -z-10" />
 
       {/* Dynamic Header Bar with Glassmorphism */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#11152D]/85 backdrop-blur-[24px] border-b border-[var(--border)] shadow-xl text-[var(--text-primary)]">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[linear-gradient(135deg,rgba(36,16,92,0.92),rgba(16,43,99,0.92))] backdrop-blur-[24px] border-b border-[#A78BFA]/25 shadow-xl text-white">
         <div className="container mx-auto px-3 sm:px-5 py-2.5 max-w-3xl flex items-center justify-between gap-2">
           {/* Left/Center Header Status & Location Controls */}
           <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
             {/* Live Distance Value Pill */}
             <div
-              className="text-[10px] font-black px-2.5 py-1 rounded-xl whitespace-nowrap shadow-sm flex items-center gap-1.5 shrink-0 uppercase tracking-tight transition-all duration-300 bg-[var(--pill-location-bg)] border border-[var(--pill-location-border)] text-[var(--pill-location-text)]"
+              className="text-[10px] font-black px-2.5 py-1 rounded-xl whitespace-nowrap shadow-sm flex items-center gap-1.5 shrink-0 uppercase tracking-tight transition-all duration-300 bg-[linear-gradient(135deg,rgba(139,92,246,0.30),rgba(37,99,235,0.30))] border border-[#A78BFA]/35 text-white"
               title="Live distance from office"
             >
-              <MapPin className="w-3.5 h-3.5 text-[#A78BFA]" />
+              <MapPin className="w-3.5 h-3.5 text-[#38BDF8]" />
               <span>{formattedDistance}</span>
             </div>
 
@@ -292,12 +292,12 @@ export const Layout: React.FC = () => {
             <div
               className={`text-[9px] font-black px-2.5 py-1 rounded-xl border whitespace-nowrap flex items-center gap-1.5 shadow-sm select-none shrink-0 transition-all duration-500 ${
                 isInsideGeofence
-                  ? 'bg-[var(--success)]/10 text-[var(--success)] border-[var(--success)]/20 shadow-[0_0_12px_rgba(34,197,94,0.15)]'
-                  : 'bg-[var(--danger)]/10 text-[var(--danger)] border-[var(--danger)]/20 shadow-[0_0_12px_rgba(239,68,68,0.15)]'
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/35 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
+                  : 'bg-rose-500/20 text-rose-300 border-rose-400/35 shadow-[0_0_12px_rgba(244,63,94,0.25)]'
               }`}
               title={isInsideGeofence ? 'Inside office geofence' : 'Outside office geofence'}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-[var(--success)] animate-pulse' : 'bg-[var(--danger)]'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${isInsideGeofence ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
               <span className="tracking-[0.05em]">{isInsideGeofence ? 'GEOFENCE OK' : 'OUT OF RANGE'}</span>
             </div>
 
@@ -317,7 +317,7 @@ export const Layout: React.FC = () => {
                 {!adminUser && (
                   <button
                     onClick={() => navigate('/faq')}
-                    className="relative p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--aurora-emerald)]/30 transition-all cursor-pointer shadow-sm active:scale-95"
+                    className="relative p-2 rounded-xl bg-white/10 border border-white/15 text-[#E2E8F0] hover:text-white hover:border-[#A78BFA]/40 hover:bg-white/15 transition-all cursor-pointer shadow-sm active:scale-95"
                     aria-label="Help & FAQ"
                   >
                     <HelpCircle className="w-4.5 h-4.5" />
@@ -327,13 +327,13 @@ export const Layout: React.FC = () => {
                   {/* Bell Button */}
                   <button
                     onClick={handleBellClick}
-                    className="relative p-2 rounded-xl bg-[var(--card-bg)]/80 border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--aurora-emerald)]/30 transition-all cursor-pointer shadow-sm active:scale-95"
+                    className="relative p-2 rounded-xl bg-white/10 border border-white/15 text-[#E2E8F0] hover:text-white hover:border-[#A78BFA]/40 hover:bg-white/15 transition-all cursor-pointer shadow-sm active:scale-95"
                     aria-label="Toggle notifications"
                     id="notification-bell-btn"
                   >
                     <Bell className="w-4.5 h-4.5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--danger)] text-[9px] font-black text-white ring-2 ring-[var(--card-bg)] shadow-lg animate-bounce-subtle">
+                      <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#F43F5E] text-[9px] font-black text-white ring-2 ring-[#24105C] shadow-lg animate-bounce-subtle">
                         {unreadCount}
                       </span>
                     )}
@@ -347,16 +347,16 @@ export const Layout: React.FC = () => {
                        animate={{ opacity: 1, y: 0, scale: 1 }}
                        exit={{ opacity: 0, y: 12, scale: 0.95 }}
                        transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-                       className="absolute right-0 mt-3 w-[320px] xs:w-[380px] glass-card-elevated z-50 overflow-hidden text-[var(--text-primary)] shadow-2xl"
+                       className="absolute right-0 mt-3 w-[320px] xs:w-[380px] glass-card-elevated z-50 overflow-hidden text-white shadow-2xl"
                        id="notification-bell-dropdown"
                     >
-                      <div className="p-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--card-surface)]/90">
-                        <span className="font-black text-xs uppercase tracking-widest text-[var(--text-primary)]">Intelligence Alerts</span>
+                      <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#18204F]/90">
+                        <span className="font-black text-xs uppercase tracking-widest text-white">Intelligence Alerts</span>
                         <div className="flex items-center gap-2">
                           {unreadCount > 0 && (
                             <button
                               onClick={handleMarkAllRead}
-                              className="text-[9px] text-[var(--aurora-emerald)] hover:underline font-black flex items-center gap-1 bg-[var(--aurora-emerald)]/10 border border-[var(--aurora-emerald)]/20 px-2.5 py-1 rounded-lg transition-all uppercase tracking-wider"
+                              className="text-[9px] text-[#38BDF8] hover:underline font-black flex items-center gap-1 bg-[#38BDF8]/15 border border-[#38BDF8]/30 px-2.5 py-1 rounded-lg transition-all uppercase tracking-wider cursor-pointer"
                               id="mark-all-read-btn"
                             >
                               <CheckCheck className="w-3 h-3" />
@@ -366,43 +366,43 @@ export const Layout: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="max-h-80 overflow-y-auto divide-y divide-[var(--border)]">
+                      <div className="max-h-80 overflow-y-auto divide-y divide-white/10">
                         {recentNotifs.length === 0 ? (
                           <div className="p-10 text-center flex flex-col items-center gap-3">
-                            <div className="w-12 h-12 rounded-full bg-[var(--card-surface)] border border-[var(--border)] flex items-center justify-center">
-                              <Bell className="w-5 h-5 text-[var(--text-muted)]" />
+                            <div className="w-12 h-12 rounded-full bg-white/10 border border-white/15 flex items-center justify-center">
+                              <Bell className="w-5 h-5 text-[#A8B0C5]" />
                             </div>
-                            <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest">System Clear</span>
+                            <span className="text-[10px] text-[#A8B0C5] font-bold uppercase tracking-widest">System Clear</span>
                           </div>
                         ) : (
                           recentNotifs.map((notif) => (
                             <div
                               key={notif.id}
                               onClick={() => handleNotificationClick(notif)}
-                              className={`p-4 hover:bg-[var(--card-surface)] transition-all cursor-pointer flex items-start gap-4 text-left group relative ${
+                              className={`p-4 hover:bg-white/10 transition-all cursor-pointer flex items-start gap-4 text-left group relative ${
                                 notif.read ? 'opacity-50' : 'bg-transparent'
                               }`}
                             >
                               {!notif.read && (
-                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--aurora-emerald)]" />
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#38BDF8]" />
                               )}
                               <div className={`mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
-                                notif.read ? 'bg-[var(--card-bg)] border-[var(--border)]' : 'bg-[var(--aurora-emerald)]/10 border-[var(--aurora-emerald)]/20'
+                                notif.read ? 'bg-white/10 border-white/10' : 'bg-[#8B5CF6]/20 border-[#8B5CF6]/40'
                               }`}>
-                                <Info className={`w-4 h-4 ${notif.read ? 'text-[var(--text-muted)]' : 'text-[var(--aurora-emerald)]'}`} />
+                                <Info className={`w-4 h-4 ${notif.read ? 'text-[#A8B0C5]' : 'text-[#38BDF8]'}`} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-xs font-black uppercase tracking-tight leading-tight ${notif.read ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'}`}>
+                                <p className={`text-xs font-black uppercase tracking-tight leading-tight ${notif.read ? 'text-[#CBD5E1]' : 'text-white'}`}>
                                   {notif.title}
                                 </p>
-                                <p className="text-[11px] text-[var(--text-secondary)] mt-1 leading-relaxed line-clamp-2">
+                                <p className="text-[11px] text-[#CBD5E1] mt-1 leading-relaxed line-clamp-2">
                                   {notif.message}
                                 </p>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <button
                                   onClick={(e) => handleDeleteNotification(e, notif.id)}
-                                  className="p-1.5 rounded-lg hover:bg-[var(--danger)]/10 text-[var(--text-muted)] hover:text-[var(--danger)] transition-colors"
+                                  className="p-1.5 rounded-lg hover:bg-rose-500/20 text-[#A8B0C5] hover:text-rose-400 transition-colors"
                                   title="Remove"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -415,7 +415,7 @@ export const Layout: React.FC = () => {
 
                       <button
                         onClick={handleViewAll}
-                        className="w-full py-4 bg-[var(--card-surface)] hover:bg-[var(--card-bg)] text-center text-[10px] font-black text-[var(--aurora-emerald)] transition-all border-t border-[var(--border)] flex items-center justify-center gap-2 cursor-pointer uppercase tracking-[0.2em]"
+                        className="w-full py-4 bg-[#18204F]/90 hover:bg-[#18204F] text-center text-[10px] font-black text-[#38BDF8] transition-all border-t border-white/10 flex items-center justify-center gap-2 cursor-pointer uppercase tracking-[0.2em]"
                       >
                         <span>Portal Intelligence Center</span>
                         <ChevronRight className="w-3.5 h-3.5" />

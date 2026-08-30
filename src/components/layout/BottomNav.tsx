@@ -31,7 +31,7 @@ export const BottomNav: React.FC = React.memo(() => {
   };
 
   return (
-    <nav aria-label="Main Navigation" className="fixed bottom-3 left-4 right-4 max-w-md mx-auto h-16 bg-[#11152D]/90 backdrop-blur-2xl rounded-2xl flex items-center justify-around px-2 z-[100] shadow-2xl pointer-events-auto border border-white/10">
+    <nav aria-label="Main Navigation" className="fixed bottom-3 left-4 right-4 max-w-md mx-auto h-16 bg-[linear-gradient(135deg,rgba(45,27,100,0.95),rgba(20,42,91,0.95))] backdrop-blur-2xl rounded-2xl flex items-center justify-around px-2 z-[100] shadow-[0_8px_32px_rgba(17,16,74,0.60)] pointer-events-auto border border-[#A78BFA]/25">
       {navItems.map((item) => {
         const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
         return (
@@ -40,31 +40,31 @@ export const BottomNav: React.FC = React.memo(() => {
             type="button"
             onClick={(e) => handleNavClick(e, item.path)}
             className={`flex flex-col items-center justify-center flex-1 h-12 rounded-xl transition-all duration-300 touch-manipulation cursor-pointer relative group ${
-              isActive ? 'text-[#A78BFA]' : 'text-[#94A3B8] hover:text-[#F8FAFC]'
+              isActive ? 'text-white' : 'text-[#A8B0C5] hover:text-white'
             }`}
           >
             {isActive && (
               <motion.div 
                 layoutId="nav-active"
-                className="absolute inset-0 bg-gradient-to-r from-[#7C3AED]/20 to-[#2563EB]/20 border border-[#7C3AED]/30 rounded-xl -z-10"
+                className="absolute inset-0 bg-gradient-to-r from-[#8B5CF6]/35 to-[#2563EB]/35 border border-[#A78BFA]/40 rounded-xl -z-10 shadow-[0_0_12px_rgba(139,92,246,0.3)]"
                 transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
               />
             )}
             
             <div className={`transition-transform duration-300 ${isActive ? 'scale-110 -translate-y-0.5' : 'scale-100 group-hover:scale-105'}`}>
               <item.icon className={`w-4.5 h-4.5 ${
-                isActive ? 'stroke-[#A78BFA] stroke-[2.5]' : 'stroke-[#94A3B8] group-hover:stroke-[#CBD5E1]'
+                isActive ? 'stroke-[#38BDF8] stroke-[2.5]' : 'stroke-[#A8B0C5] group-hover:stroke-white'
               }`} />
             </div>
             
             <span className={`text-[9px] font-black uppercase tracking-widest mt-1 transition-colors duration-300 ${
-              isActive ? 'text-[#A78BFA]' : 'text-[#94A3B8]'
+              isActive ? 'text-[#38BDF8]' : 'text-[#A8B0C5]'
             }`}>
               {item.label}
             </span>
 
             {isActive && (
-              <div className="absolute -bottom-0.5 w-1 h-1 bg-[#7C3AED] rounded-full shadow-[0_0_8px_#7C3AED]" />
+              <div className="absolute -bottom-0.5 w-1.5 h-1.5 bg-[#38BDF8] rounded-full shadow-[0_0_10px_#38BDF8]" />
             )}
           </button>
         );

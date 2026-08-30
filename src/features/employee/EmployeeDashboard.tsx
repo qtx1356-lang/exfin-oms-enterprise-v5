@@ -894,52 +894,52 @@ export const EmployeeDashboard: React.FC = () => {
 
   return (
     <>
-      <div className="flex flex-col gap-5 pb-8 text-[var(--text-primary)]">
+      <div className="flex flex-col gap-5 pb-8 text-white">
         {/* Top Header */}
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-[var(--app-bg-secondary)] border-2 border-[var(--primary)]/50 flex-shrink-0 shadow-lg">
+            <div className="w-12 h-12 rounded-2xl overflow-hidden bg-[linear-gradient(135deg,#18204F,#20205D)] border-2 border-[#A78BFA]/50 flex-shrink-0 shadow-lg">
               {employeeData.selfieUrl ? (
                 <img src={employeeData.selfieUrl} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                <UserCheck className="w-6 h-6 m-auto mt-3 text-[var(--primary)]" />
+                <UserCheck className="w-6 h-6 m-auto mt-3 text-[#38BDF8]" />
               )}
             </div>
             <div>
-              <h1 className="text-lg font-black text-[var(--text-primary)] leading-tight">
+              <h1 className="text-lg font-black text-white leading-tight">
                 {employeeData.name || 'Employee'}
               </h1>
-              <p className="text-xs text-[var(--text-secondary)] font-medium mt-0.5">
-                Code: <span className="text-[var(--primary-light)] font-bold">{employeeData.employeeCode || 'N/A'}</span>
+              <p className="text-xs text-[#CBD5E1] font-medium mt-0.5">
+                Code: <span className="text-[#38BDF8] font-bold">{employeeData.employeeCode || 'N/A'}</span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 bg-[var(--app-bg-secondary)]/80 border border-[var(--primary)]/20 px-3 py-1.5 rounded-full text-xs font-semibold text-[var(--text-primary)] shadow-sm">
-            <MapPin className="w-3.5 h-3.5 text-[var(--primary)] shrink-0" />
+          <div className="flex items-center gap-1.5 bg-[linear-gradient(135deg,rgba(139,92,246,0.30),rgba(37,99,235,0.30))] border border-[#A78BFA]/35 px-3 py-1.5 rounded-full text-xs font-semibold text-white shadow-sm">
+            <MapPin className="w-3.5 h-3.5 text-[#38BDF8] shrink-0" />
             <span className="truncate max-w-[130px]">{employeeData.officeLocation || employeeData.workLocation || 'Raniganj HQ'}</span>
           </div>
         </div>
 
         {/* Greeting Banner */}
         <div className="text-left py-0.5">
-          <h2 className="text-xl sm:text-2xl font-black text-[var(--primary-light)] tracking-tight uppercase">
+          <h2 className="text-xl sm:text-2xl font-black text-[#A78BFA] tracking-tight uppercase">
             {greetingPrefix}
           </h2>
         </div>
 
         {/* TODAY OVERVIEW CARD */}
-        <Card className="p-4 sm:p-5 bg-[var(--card-bg)] backdrop-blur-[14px] border border-[var(--primary)]/20 shadow-xl rounded-2xl relative overflow-hidden text-[var(--text-primary)]">
-          <div className="border-b border-[var(--primary)]/20 pb-3 mb-3.5 flex items-center justify-between">
+        <Card className="p-4 sm:p-5 bg-[linear-gradient(135deg,rgba(76,29,149,0.80),rgba(30,41,100,0.90))] backdrop-blur-[16px] border border-[#A78BFA]/25 shadow-[0_8px_32px_rgba(17,16,74,0.50)] rounded-2xl relative overflow-hidden text-white">
+          <div className="border-b border-[#A78BFA]/20 pb-3 mb-3.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-[var(--primary)]/15 border border-[var(--primary)]/30 text-[var(--primary-light)]">
+              <div className="p-1.5 rounded-lg bg-[linear-gradient(135deg,#18204F,#20205D)] border border-[#A78BFA]/30 text-[#38BDF8]">
                 <Calendar className="w-4 h-4" />
               </div>
-              <h3 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-widest">
+              <h3 className="text-xs font-black text-white uppercase tracking-widest">
                 TODAY OVERVIEW
               </h3>
             </div>
-            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-[var(--app-bg-secondary)] border border-[var(--primary)]/20 text-[var(--text-secondary)] uppercase tracking-wider font-mono">
+            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-[linear-gradient(135deg,#18204F,#20205D)] border border-[#A78BFA]/25 text-[#CBD5E1] uppercase tracking-wider font-mono">
               {todayDate}
             </span>
           </div>
@@ -947,72 +947,72 @@ export const EmployeeDashboard: React.FC = () => {
           {/* 2-Column Grid */}
           <div className="grid grid-cols-2 gap-3 text-xs font-bold">
             {/* ATTENDANCE MINI-CARD */}
-            <div className="p-3 rounded-xl border border-[var(--primary)]/20 bg-[var(--app-bg-secondary)]/90 text-[var(--text-primary)] flex flex-col justify-between">
+            <div className="p-3 rounded-xl border border-[#A78BFA]/20 bg-[linear-gradient(135deg,#18204F,#20205D)] text-white flex flex-col justify-between shadow-sm">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] uppercase font-black tracking-wider text-[var(--text-secondary)]">
+                <span className="text-[10px] uppercase font-black tracking-wider text-[#CBD5E1]">
                   ATTENDANCE
                 </span>
-                <UserCheck className="w-4 h-4 text-emerald-500" />
+                <UserCheck className="w-4 h-4 text-emerald-400" />
               </div>
               <div>
-                <p className="text-sm font-black tracking-tight truncate">
+                <p className="text-sm font-black tracking-tight truncate text-white">
                   {attendanceStatusLabel}
                 </p>
-                <p className="text-[10px] font-medium text-[var(--text-secondary)] mt-0.5 truncate">
+                <p className="text-[10px] font-medium text-[#A8B0C5] mt-0.5 truncate">
                   {checkInTimeStr && checkInTimeStr !== '--:--' ? `In at ${checkInTimeStr}` : 'Shift active'}
                 </p>
               </div>
             </div>
 
             {/* WORKING TIME MINI-CARD */}
-            <div className="p-3 rounded-xl border border-[var(--primary)]/20 bg-[var(--app-bg-secondary)]/90 text-[var(--text-primary)] flex flex-col justify-between">
+            <div className="p-3 rounded-xl border border-[#A78BFA]/20 bg-[linear-gradient(135deg,#18204F,#20205D)] text-white flex flex-col justify-between shadow-sm">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] uppercase font-black tracking-wider text-amber-500">
+                <span className="text-[10px] uppercase font-black tracking-wider text-[#F59E0B]">
                   WORKING TIME
                 </span>
-                <Clock className="w-4 h-4 text-amber-500" />
+                <Clock className="w-4 h-4 text-[#F59E0B]" />
               </div>
               <div>
-                <p className="text-sm font-black tracking-tight text-amber-500">
+                <p className="text-sm font-black tracking-tight text-[#F59E0B]">
                   {workingDurationStr}
                 </p>
-                <p className="text-[10px] font-medium text-[var(--text-secondary)] mt-0.5">
+                <p className="text-[10px] font-medium text-[#A8B0C5] mt-0.5">
                   Logged duration
                 </p>
               </div>
             </div>
 
             {/* TASKS MINI-CARD */}
-            <div className="p-3 rounded-xl border border-[var(--primary)]/20 bg-[var(--app-bg-secondary)]/90 text-[var(--text-primary)] flex flex-col justify-between">
+            <div className="p-3 rounded-xl border border-[#A78BFA]/20 bg-[linear-gradient(135deg,#18204F,#20205D)] text-white flex flex-col justify-between shadow-sm">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] uppercase font-black tracking-wider text-[var(--primary)]">
+                <span className="text-[10px] uppercase font-black tracking-wider text-[#38BDF8]">
                   TASKS
                 </span>
-                <CheckSquare className="w-4 h-4 text-[var(--primary)]" />
+                <CheckSquare className="w-4 h-4 text-[#38BDF8]" />
               </div>
               <div>
-                <p className="text-sm font-black tracking-tight text-[var(--primary-light)]">
+                <p className="text-sm font-black tracking-tight text-[#38BDF8]">
                   {completedTaskCount} / {assignedTaskCount} completed
                 </p>
-                <p className="text-[10px] font-medium text-[var(--text-secondary)] mt-0.5">
+                <p className="text-[10px] font-medium text-[#A8B0C5] mt-0.5">
                   {assignedTaskCount - completedTaskCount > 0 ? `${assignedTaskCount - completedTaskCount} remaining` : 'All tasks completed'}
                 </p>
               </div>
             </div>
 
             {/* WORK PROGRESS MINI-CARD */}
-            <div className="p-3 rounded-xl border border-[var(--primary)]/20 bg-[var(--app-bg-secondary)]/90 text-[var(--text-primary)] flex flex-col justify-between">
+            <div className="p-3 rounded-xl border border-[#A78BFA]/20 bg-[linear-gradient(135deg,#18204F,#20205D)] text-white flex flex-col justify-between shadow-sm">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] uppercase font-black tracking-wider text-emerald-500">
+                <span className="text-[10px] uppercase font-black tracking-wider text-emerald-400">
                   WORK PROGRESS
                 </span>
-                <BarChart3 className="w-4 h-4 text-emerald-500" />
+                <BarChart3 className="w-4 h-4 text-emerald-400" />
               </div>
               <div>
-                <p className="text-sm font-black tracking-tight text-emerald-500">
+                <p className="text-sm font-black tracking-tight text-emerald-400">
                   {taskProgressPercentage}%
                 </p>
-                <p className="text-[10px] font-medium text-[var(--text-secondary)] mt-0.5">
+                <p className="text-[10px] font-medium text-[#A8B0C5] mt-0.5">
                   Completion rate
                 </p>
               </div>
@@ -1027,16 +1027,16 @@ export const EmployeeDashboard: React.FC = () => {
 
           if (importantAlertsCount === 0) {
             return (
-              <Card className="p-4 bg-[var(--card-bg)] border border-[var(--primary)]/20 shadow-md rounded-2xl flex items-center justify-between text-[var(--text-primary)]">
+              <Card className="p-4 bg-[linear-gradient(135deg,rgba(76,29,149,0.70),rgba(30,41,100,0.80))] border border-[#A78BFA]/25 shadow-md rounded-2xl flex items-center justify-between text-white">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                   </div>
                   <div>
-                    <h4 className="font-extrabold text-xs text-emerald-500 flex items-center gap-1.5">
+                    <h4 className="font-extrabold text-xs text-emerald-400 flex items-center gap-1.5">
                       <span>✓ All caught up</span>
                     </h4>
-                    <p className="text-[11px] text-[var(--text-secondary)] font-medium mt-0.5">
+                    <p className="text-[11px] text-[#CBD5E1] font-medium mt-0.5">
                       No action required right now.
                     </p>
                   </div>
@@ -1046,31 +1046,31 @@ export const EmployeeDashboard: React.FC = () => {
           }
 
           return (
-            <Card className="p-4 sm:p-5 bg-[var(--card-bg)] border border-amber-500/40 shadow-md rounded-2xl text-[var(--text-primary)]">
-              <div className="flex items-center justify-between border-b border-[var(--primary)]/20 pb-2.5 mb-3">
+            <Card className="p-4 sm:p-5 bg-[linear-gradient(135deg,rgba(76,29,149,0.80),rgba(30,41,100,0.90))] border border-amber-500/40 shadow-md rounded-2xl text-white">
+              <div className="flex items-center justify-between border-b border-[#A78BFA]/20 pb-2.5 mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-500">
+                  <div className="p-1.5 rounded-lg bg-amber-500/20 border border-amber-400/30 text-amber-400">
                     <AlertCircle className="w-4 h-4" />
                   </div>
-                  <h3 className="text-xs font-black text-amber-500 uppercase tracking-widest">
+                  <h3 className="text-xs font-black text-amber-400 uppercase tracking-widest">
                     ⚠️ ACTION REQUIRED
                   </h3>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
                   {dueTodayTasks.length} {dueTodayTasks.length === 1 ? 'Item' : 'Items'}
                 </span>
               </div>
               
               <div className="space-y-2">
                 {dueTodayTasks.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between gap-3 bg-[var(--app-bg-secondary)] p-3 rounded-xl border border-[var(--primary)]/20 text-xs">
+                  <div key={task.id} className="flex items-center justify-between gap-3 bg-[linear-gradient(135deg,#18204F,#20205D)] p-3 rounded-xl border border-[#A78BFA]/20 text-xs">
                     <div className="truncate min-w-0 flex-1">
-                      <p className="text-[var(--text-primary)] font-extrabold truncate">{task.title}</p>
-                      <p className="text-[10px] text-amber-500 font-medium mt-0.5">Due today • High Priority</p>
+                      <p className="text-white font-extrabold truncate">{task.title}</p>
+                      <p className="text-[10px] text-amber-400 font-medium mt-0.5">Due today • High Priority</p>
                     </div>
                     <button 
                       onClick={() => navigate('/planner')} 
-                      className="text-[11px] font-black bg-[var(--primary-dark)] text-white hover:bg-[var(--primary)] active:scale-95 px-3.5 py-1.5 rounded-xl transition shadow-md flex-shrink-0 flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] font-black bg-gradient-to-r from-[#8B5CF6] to-[#2563EB] text-white hover:brightness-110 active:scale-95 px-3.5 py-1.5 rounded-xl transition shadow-md flex-shrink-0 flex items-center gap-1 cursor-pointer border border-white/20"
                     >
                       <span>Start</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -1083,50 +1083,50 @@ export const EmployeeDashboard: React.FC = () => {
         })()}
 
         {/* TODAY'S WORK CARD */}
-        <Card className="p-4 sm:p-5 bg-[var(--card-bg)] border border-[var(--primary)]/20 shadow-md rounded-2xl relative overflow-hidden text-[var(--text-primary)]">
-          <div className="border-b border-[var(--primary)]/20 pb-3 mb-3.5 flex items-center justify-between">
+        <Card className="p-4 sm:p-5 bg-[linear-gradient(135deg,rgba(76,29,149,0.80),rgba(30,41,100,0.90))] border border-[#A78BFA]/25 shadow-md rounded-2xl relative overflow-hidden text-white">
+          <div className="border-b border-[#A78BFA]/20 pb-3 mb-3.5 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-[var(--primary-dark)]/15 border border-[var(--primary-dark)]/30 text-[var(--primary-light)]">
+              <div className="p-1.5 rounded-lg bg-[linear-gradient(135deg,#18204F,#20205D)] border border-[#A78BFA]/30 text-[#38BDF8]">
                 <BarChart3 className="w-4 h-4" />
               </div>
-              <h3 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-widest">
+              <h3 className="text-xs font-black text-white uppercase tracking-widest">
                 📈 TODAY'S WORK
               </h3>
             </div>
-            <span className="text-[var(--primary-light)] font-mono text-sm font-black bg-[var(--app-bg-secondary)] px-2.5 py-0.5 rounded-full border border-[var(--primary)]/20">
+            <span className="text-[#38BDF8] font-mono text-sm font-black bg-[linear-gradient(135deg,#18204F,#20205D)] px-2.5 py-0.5 rounded-full border border-[#A78BFA]/25">
               {taskProgressPercentage}%
             </span>
           </div>
           
           {/* Progress Bar */}
-          <div className="w-full bg-[#171936] h-3 rounded-full overflow-hidden border border-[#6366F1]/20 mb-4 p-0.5">
+          <div className="w-full bg-[#18204F] h-3 rounded-full overflow-hidden border border-[#A78BFA]/20 mb-4 p-0.5">
             <div 
-              className="h-full bg-gradient-to-r from-[#4F46E5] to-[#6366F1] rounded-full transition-all duration-500"
+              className="h-full bg-gradient-to-r from-[#8B5CF6] via-[#2563EB] to-[#06B6D4] rounded-full transition-all duration-500 shadow-[0_0_12px_rgba(6,182,212,0.4)]"
               style={{ width: `${taskProgressPercentage}%` }}
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3 text-xs font-semibold text-[#B9B9D0] mb-2">
-            <div className="p-2.5 rounded-xl bg-[#171936] border border-[#6366F1]/20">
-              <span className="text-[#B9B9D0] text-[10px] uppercase font-bold block mb-0.5">Tasks Assigned</span>
-              <span className="text-[#F8F8FF] font-black text-sm">{assignedTaskCount} Total Tasks</span>
+          <div className="grid grid-cols-2 gap-3 text-xs font-semibold text-[#CBD5E1] mb-2">
+            <div className="p-2.5 rounded-xl bg-[linear-gradient(135deg,#18204F,#20205D)] border border-[#A78BFA]/20 shadow-sm">
+              <span className="text-[#A8B0C5] text-[10px] uppercase font-bold block mb-0.5">Tasks Assigned</span>
+              <span className="text-white font-black text-sm">{assignedTaskCount} Total Tasks</span>
             </div>
-            <div className="p-2.5 rounded-xl bg-[#171936] border border-[#6366F1]/20">
-              <span className="text-[#B9B9D0] text-[10px] uppercase font-bold block mb-0.5">Tasks Completed</span>
-              <span className="text-[#16A34A] font-black text-sm">{completedTaskCount} Completed</span>
+            <div className="p-2.5 rounded-xl bg-[linear-gradient(135deg,#18204F,#20205D)] border border-[#A78BFA]/20 shadow-sm">
+              <span className="text-[#A8B0C5] text-[10px] uppercase font-bold block mb-0.5">Tasks Completed</span>
+              <span className="text-emerald-400 font-black text-sm">{completedTaskCount} Completed</span>
             </div>
           </div>
 
           {/* Next Task Focus if incomplete tasks exist */}
           {nextTask && (
-            <div className="mt-2 p-3 rounded-xl bg-[#171936] border border-[#6366F1]/20 flex items-center justify-between text-xs">
+            <div className="mt-2 p-3 rounded-xl bg-[linear-gradient(135deg,#18204F,#20205D)] border border-[#A78BFA]/20 flex items-center justify-between text-xs shadow-sm">
               <div className="truncate min-w-0 pr-2">
-                <span className="text-[10px] uppercase font-extrabold text-[#818CF8] tracking-wider block">Next Priority Task</span>
-                <p className="text-[#F8F8FF] font-bold truncate mt-0.5">{nextTask.title}</p>
+                <span className="text-[10px] uppercase font-extrabold text-[#38BDF8] tracking-wider block">Next Priority Task</span>
+                <p className="text-white font-bold truncate mt-0.5">{nextTask.title}</p>
               </div>
               <button
                 onClick={() => navigate('/planner')}
-                className="px-3 py-1.5 bg-[#4F46E5]/20 hover:bg-[#4F46E5]/30 text-[#818CF8] border border-[#4F46E5]/30 rounded-xl text-[10px] font-extrabold shrink-0 transition cursor-pointer"
+                className="px-3 py-1.5 bg-[#8B5CF6]/20 hover:bg-[#8B5CF6]/30 text-[#A78BFA] border border-[#A78BFA]/30 rounded-xl text-[10px] font-extrabold shrink-0 transition cursor-pointer"
               >
                 View
               </button>
@@ -1135,30 +1135,30 @@ export const EmployeeDashboard: React.FC = () => {
         </Card>
 
         {/* MY DAY TIMELINE */}
-        <div className="bg-[#1E1F41]/80 border border-[#6366F1]/20 rounded-2xl overflow-hidden shadow-md text-[#F8F8FF]">
+        <div className="bg-[linear-gradient(135deg,rgba(76,29,149,0.80),rgba(30,41,100,0.90))] border border-[#A78BFA]/25 rounded-2xl overflow-hidden shadow-md text-white">
           <div 
             onClick={() => setIsTimelineExpanded(!isTimelineExpanded)}
-            className="p-4 flex items-center justify-between cursor-pointer hover:bg-[#171936] transition select-none"
+            className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition select-none"
           >
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#171936] border border-[#6366F1]/20 flex items-center justify-center text-[#818CF8]">
+              <div className="w-8 h-8 rounded-xl bg-[linear-gradient(135deg,#18204F,#20205D)] border border-[#A78BFA]/30 flex items-center justify-center text-[#38BDF8]">
                 <Clock className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-xs font-black text-[#F8F8FF] uppercase tracking-wider">TODAY'S TIMELINE</h3>
-                <p className="text-[10px] text-[#B9B9D0] font-semibold mt-0.5">
+                <h3 className="text-xs font-black text-white uppercase tracking-wider">TODAY'S TIMELINE</h3>
+                <p className="text-[10px] text-[#CBD5E1] font-semibold mt-0.5">
                   {isTimelineExpanded ? 'Interactive hourly agenda and activity log' : 'Click to expand agenda tracker'}
                 </p>
               </div>
             </div>
-            <div className="w-7 h-7 rounded-lg bg-[#171936] border border-[#6366F1]/20 flex items-center justify-center text-[#818CF8]">
+            <div className="w-7 h-7 rounded-lg bg-[linear-gradient(135deg,#18204F,#20205D)] border border-[#A78BFA]/30 flex items-center justify-center text-[#38BDF8]">
               <span className={`transform transition-transform duration-200 ${isTimelineExpanded ? 'rotate-90' : ''}`}>
                 &rarr;
               </span>
             </div>
           </div>
           {isTimelineExpanded && (
-            <div className="border-t border-[#6366F1]/20 p-4 bg-[#171936]">
+            <div className="border-t border-[#A78BFA]/20 p-4 bg-[linear-gradient(135deg,#18204F,#20205D)]">
               <MyDayTimeline />
             </div>
           )}
@@ -1167,15 +1167,15 @@ export const EmployeeDashboard: React.FC = () => {
         {/* Quick Actions Grid */}
         <div>
           {showUnavailableMessage && (
-            <div className="bg-[#DC2626]/10 border border-[#DC2626]/40 rounded-2xl p-3.5 flex items-start gap-3 text-xs text-[#DC2626] mb-4 shadow-md">
-              <AlertCircle className="w-4 h-4 text-[#DC2626] shrink-0 mt-0.5" />
+            <div className="bg-rose-500/20 border border-rose-500/40 rounded-2xl p-3.5 flex items-start gap-3 text-xs text-rose-300 mb-4 shadow-md">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
               <div>
-                <p className="font-extrabold text-[#F8F8FF]">Payslip Not Available Yet</p>
-                <p className="text-[#B9B9D0] mt-1">Your salary record has not been generated by the administrator for any month yet.</p>
+                <p className="font-extrabold text-white">Payslip Not Available Yet</p>
+                <p className="text-[#CBD5E1] mt-1">Your salary record has not been generated by the administrator for any month yet.</p>
               </div>
             </div>
           )}
-          <h2 className="text-xs font-black text-[#818CF8] uppercase tracking-widest mb-3">
+          <h2 className="text-xs font-black text-[#A78BFA] uppercase tracking-widest mb-3">
             QUICK ACTIONS
           </h2>
           <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
@@ -1183,17 +1183,17 @@ export const EmployeeDashboard: React.FC = () => {
               <button 
                 key={idx}
                 onClick={action.onClick}
-                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-[#1E1F41]/70 hover:bg-[#1E1F41]/90 backdrop-blur-[12px] border border-[#6366F1]/20 hover:border-[#6366F1]/50 transition-all hover:scale-105 active:scale-95 shadow-md group relative cursor-pointer text-[#F8F8FF]"
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-[linear-gradient(135deg,rgba(76,29,149,0.75),rgba(30,41,100,0.85))] hover:bg-[linear-gradient(135deg,rgba(88,28,135,0.90),rgba(37,99,235,0.90))] backdrop-blur-[12px] border border-[#A78BFA]/25 hover:border-[#A78BFA]/50 transition-all hover:scale-105 active:scale-95 shadow-[0_4px_16px_rgba(17,16,74,0.4)] group relative cursor-pointer text-white"
               >
                 {action.badge && (
-                  <span className="absolute top-2 right-2 px-1.5 py-0.5 text-[9px] font-black bg-[#DC2626] text-white rounded-full shadow-md animate-pulse">
+                  <span className="absolute top-2 right-2 px-1.5 py-0.5 text-[9px] font-black bg-rose-500 text-white rounded-full shadow-md animate-pulse">
                     {action.badge}
                   </span>
                 )}
-                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-2 border bg-[#4F46E5]/15 border-[#4F46E5]/30 text-[#818CF8]">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-2 border bg-[linear-gradient(135deg,#18204F,#20205D)] border-[#A78BFA]/30 text-[#38BDF8]">
                   <action.icon className="w-5 h-5 transition-transform group-hover:scale-110" />
                 </div>
-                <span className="text-[10.5px] sm:text-[11.5px] font-extrabold text-[#F8F8FF] text-center leading-tight">
+                <span className="text-[10.5px] sm:text-[11.5px] font-extrabold text-white text-center leading-tight">
                   {action.label}
                 </span>
               </button>
@@ -1204,28 +1204,28 @@ export const EmployeeDashboard: React.FC = () => {
         {/* Announcements */}
         <div>
           <div className="flex justify-between items-center mb-2.5">
-            <h2 className="text-xs font-black text-[#818CF8] uppercase tracking-widest flex items-center gap-1.5">
-              <Megaphone className="w-4 h-4 text-[#818CF8]" />
+            <h2 className="text-xs font-black text-[#A78BFA] uppercase tracking-widest flex items-center gap-1.5">
+              <Megaphone className="w-4 h-4 text-[#A78BFA]" />
               ANNOUNCEMENTS
             </h2>
           </div>
           <div className="flex flex-col gap-2.5">
             {announcements.length > 0 ? (
               announcements.map((ann) => (
-                <Card key={ann.id} className="p-3.5 bg-[#1E1F41]/80 border border-[#6366F1]/20 shadow-md text-[#F8F8FF]">
+                <Card key={ann.id} className="p-3.5 bg-[linear-gradient(135deg,rgba(76,29,149,0.80),rgba(30,41,100,0.90))] border border-[#A78BFA]/25 shadow-md text-white">
                   <div className="flex justify-between items-start mb-1">
-                    <h3 className="font-bold text-xs text-[#F8F8FF]">{ann.title}</h3>
-                    <span className="text-[10px] font-semibold text-[#B9B9D0] bg-[#171936] px-2 py-0.5 rounded-full border border-[#6366F1]/20">
+                    <h3 className="font-bold text-xs text-white">{ann.title}</h3>
+                    <span className="text-[10px] font-semibold text-[#CBD5E1] bg-[linear-gradient(135deg,#18204F,#20205D)] px-2 py-0.5 rounded-full border border-[#A78BFA]/20">
                       {new Date(ann.date).toLocaleDateString()}
                     </span>
                   </div>
-                  <p className="text-xs text-[#B9B9D0] leading-relaxed line-clamp-2">
+                  <p className="text-xs text-[#CBD5E1] leading-relaxed line-clamp-2">
                     {ann.content}
                   </p>
                 </Card>
               ))
             ) : (
-              <div className="text-center py-5 text-[#B9B9D0] bg-[#1E1F41]/60 rounded-2xl border border-dashed border-[#6366F1]/20">
+              <div className="text-center py-5 text-[#A8B0C5] bg-[linear-gradient(135deg,#18204F,#20205D)] rounded-2xl border border-dashed border-[#A78BFA]/20">
                 <p className="text-xs font-semibold">No recent announcements</p>
               </div>
             )}
@@ -1240,92 +1240,92 @@ export const EmployeeDashboard: React.FC = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed inset-0 z-50 bg-[#EAF7EE] overflow-y-auto"
+            className="fixed inset-0 z-50 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(124,58,237,0.4),rgba(11,13,44,0.98)),linear-gradient(180deg,#18204F_0%,#111538_50%,#0B0D2C_100%)] overflow-y-auto"
           >
             <div className="container mx-auto p-4 max-w-3xl">
-              <div className="flex flex-col gap-5 pb-8 text-[#0F172A] min-h-screen">
+              <div className="flex flex-col gap-5 pb-8 text-white min-h-screen">
                 {/* Work Pulse Header */}
                 <div className="flex flex-col gap-4 pt-2">
                   <button 
                     onClick={() => setActiveView('dashboard')} 
-                    className="self-start p-2 px-3 bg-[#173A32] border border-[#2A5B50] rounded-xl hover:bg-[#21483E] transition font-bold text-xs flex items-center gap-1.5 shadow-md text-[#F4FAF7] cursor-pointer"
+                    className="self-start p-2 px-3 bg-[linear-gradient(135deg,#8B5CF6,#2563EB)] border border-white/20 rounded-xl hover:brightness-110 transition font-bold text-xs flex items-center gap-1.5 shadow-md text-white cursor-pointer"
                   >
                     &larr; Back
                   </button>
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-[10px] font-black text-[#0A4D3C] uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                        <Activity className="w-3.5 h-3.5 text-[#19C7C0]" /> WORK PULSE
+                      <p className="text-[10px] font-black text-[#38BDF8] uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                        <Activity className="w-3.5 h-3.5 text-[#38BDF8]" /> WORK PULSE
                       </p>
-                      <h1 className="text-2xl font-black text-[#0F172A] leading-tight">
+                      <h1 className="text-2xl font-black text-white leading-tight">
                         Your Work Pulse Snapshot
                       </h1>
-                      <p className="text-xs text-[#334155] mt-1">Here's your personal work snapshot 👋</p>
+                      <p className="text-xs text-[#CBD5E1] mt-1">Here's your personal work snapshot 👋</p>
                     </div>
-                    <div className="bg-[#173A32] border border-[#2A5B50] px-3 py-1.5 rounded-full text-[10px] font-bold text-[#C7DAD3] mt-1">
+                    <div className="bg-[linear-gradient(135deg,#18204F,#20205D)] border border-[#A78BFA]/30 px-3 py-1.5 rounded-full text-[10px] font-bold text-[#CBD5E1] mt-1">
                       {monthName} {currentYear}
                     </div>
                   </div>
                 </div>
 
                 {/* 1. Today's Attendance Status Card */}
-                <Card className="p-4 bg-[#173A32] border border-[#2A5B50] shadow-md relative overflow-hidden text-[#F4FAF7]">
-                  <div className="flex justify-between items-center mb-4 border-b border-[#2A5B50] pb-2.5">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#C7DAD3]">Today's Attendance Status</span>
+                <Card className="p-4 bg-[linear-gradient(135deg,rgba(76,29,149,0.85),rgba(30,41,100,0.95))] border border-[#A78BFA]/30 shadow-md relative overflow-hidden text-white">
+                  <div className="flex justify-between items-center mb-4 border-b border-[#A78BFA]/20 pb-2.5">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#CBD5E1]">Today's Attendance Status</span>
                     <div className="flex items-center gap-1.5">
                       {isCorrected && (
-                        <span className="text-[10px] font-extrabold text-[#C7DAD3] bg-[#112C26] px-2 py-0.5 rounded border border-[#2A5B50]">
+                        <span className="text-[10px] font-extrabold text-[#CBD5E1] bg-[linear-gradient(135deg,#18204F,#20205D)] px-2 py-0.5 rounded border border-[#A78BFA]/30">
                           Corrected
                         </span>
                       )}
                       <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider
-                        ${todayStatus === 'Present' ? 'bg-[#35C98A]/20 text-[#35C98A] border border-[#35C98A]/30' :
-                          todayStatus === 'WFH' ? 'bg-[#19C7C0]/20 text-[#19C7C0] border border-[#19C7C0]/30' :
-                          todayStatus === 'Client Visit' ? 'bg-[#19C7C0]/20 text-[#19C7C0] border border-[#19C7C0]/30' :
-                          todayStatus === 'Outdoor Work' ? 'bg-[#19C7C0]/20 text-[#19C7C0] border border-[#19C7C0]/30' :
-                          todayStatus === 'Leave' ? 'bg-[#F2C75C]/20 text-[#F2C75C] border border-[#F2C75C]/30' :
-                          todayStatus === 'Absent' ? 'bg-[#EF6B73]/20 text-[#EF6B73] border border-[#EF6B73]/30' :
-                          'bg-[#C7DAD3]/20 text-[#C7DAD3] border border-[#C7DAD3]/30'}`}
+                        ${todayStatus === 'Present' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-400/30' :
+                          todayStatus === 'WFH' ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/30' :
+                          todayStatus === 'Client Visit' ? 'bg-sky-500/20 text-sky-300 border border-sky-400/30' :
+                          todayStatus === 'Outdoor Work' ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30' :
+                          todayStatus === 'Leave' ? 'bg-amber-500/20 text-amber-300 border border-amber-400/30' :
+                          todayStatus === 'Absent' ? 'bg-rose-500/20 text-rose-300 border border-rose-400/30' :
+                          'bg-white/10 text-white border border-white/20'}`}
                       >
                         {todayStatus}
                       </span>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="bg-[#112C26] p-3 rounded-xl border border-[#2A5B50]">
-                      <p className="text-[10px] text-[#C7DAD3] font-semibold mb-0.5">Check-In</p>
-                      <p className="font-extrabold text-sm text-[#F4FAF7]">{todayCheckIn}</p>
+                    <div className="bg-[linear-gradient(135deg,#18204F,#20205D)] p-3 rounded-xl border border-[#A78BFA]/20">
+                      <p className="text-[10px] text-[#A8B0C5] font-semibold mb-0.5">Check-In</p>
+                      <p className="font-extrabold text-sm text-white">{todayCheckIn}</p>
                     </div>
-                    <div className="bg-[#112C26] p-3 rounded-xl border border-[#2A5B50]">
-                      <p className="text-[10px] text-[#C7DAD3] font-semibold mb-0.5">Check-Out</p>
-                      <p className="font-extrabold text-sm text-[#F4FAF7]">{todayCheckOut}</p>
+                    <div className="bg-[linear-gradient(135deg,#18204F,#20205D)] p-3 rounded-xl border border-[#A78BFA]/20">
+                      <p className="text-[10px] text-[#A8B0C5] font-semibold mb-0.5">Check-Out</p>
+                      <p className="font-extrabold text-sm text-white">{todayCheckOut}</p>
                     </div>
-                    <div className="bg-[#112C26] p-3 rounded-xl border border-[#2A5B50]">
-                      <p className="text-[10px] text-[#C7DAD3] font-semibold mb-0.5">Mode</p>
-                      <p className="font-extrabold text-sm text-[#F4FAF7]">{todayMode}</p>
+                    <div className="bg-[linear-gradient(135deg,#18204F,#20205D)] p-3 rounded-xl border border-[#A78BFA]/20">
+                      <p className="text-[10px] text-[#A8B0C5] font-semibold mb-0.5">Mode</p>
+                      <p className="font-extrabold text-sm text-white">{todayMode}</p>
                     </div>
                   </div>
                 </Card>
 
                 {/* 2. Monthly Attendance Summary Card */}
-                <Card className="p-4 bg-[#173A32] border border-[#2A5B50] shadow-md text-[#F4FAF7]">
-                  <div className="flex justify-between items-center mb-4 border-b border-[#2A5B50] pb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#C7DAD3]">Monthly Attendance Summary</span>
-                    <span className="text-[10px] text-[#C7DAD3] font-semibold">{monthName} Tracker</span>
+                <Card className="p-4 bg-[linear-gradient(135deg,rgba(76,29,149,0.85),rgba(30,41,100,0.95))] border border-[#A78BFA]/30 shadow-md text-white">
+                  <div className="flex justify-between items-center mb-4 border-b border-[#A78BFA]/20 pb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#CBD5E1]">Monthly Attendance Summary</span>
+                    <span className="text-[10px] text-[#38BDF8] font-semibold">{monthName} Tracker</span>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                    <div className="flex items-center gap-4 bg-[#112C26] p-3 rounded-xl border border-[#2A5B50]">
+                    <div className="flex items-center gap-4 bg-[linear-gradient(135deg,#18204F,#20205D)] p-3 rounded-xl border border-[#A78BFA]/20">
                       <div className="relative w-16 h-16 flex-shrink-0">
                         <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                           <path
-                            className="text-[#21483E]"
+                            className="text-white/10"
                             strokeWidth="3.5"
                             stroke="currentColor"
                             fill="none"
                             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                           />
                           <path
-                            className="text-[#19C7C0]"
+                            className="text-[#38BDF8]"
                             strokeDasharray={`${attendancePercentage}, 100`}
                             strokeWidth="3.5"
                             strokeLinecap="round"
@@ -1335,27 +1335,27 @@ export const EmployeeDashboard: React.FC = () => {
                           />
                         </svg>
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-xs font-black text-[#F4FAF7]">{attendancePercentage}%</span>
+                          <span className="text-xs font-black text-white">{attendancePercentage}%</span>
                         </div>
                       </div>
                       <div>
-                        <p className="text-xs font-black text-[#F4FAF7]">Attendance Rate</p>
-                        <p className="text-[10px] text-[#C7DAD3] mt-1">Logged <span className="text-[#F4FAF7] font-bold">{presentDaysCount}</span> out of <span className="text-[#F4FAF7] font-bold">{expectedWorkingDays}</span> expected working days</p>
+                        <p className="text-xs font-black text-white">Attendance Rate</p>
+                        <p className="text-[10px] text-[#CBD5E1] mt-1">Logged <span className="text-white font-bold">{presentDaysCount}</span> out of <span className="text-white font-bold">{expectedWorkingDays}</span> expected working days</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-[#112C26] p-2.5 rounded-xl border border-[#2A5B50] text-center">
-                        <p className="text-[9px] text-[#F2C75C] font-bold mb-0.5">Late Days</p>
-                        <p className="text-base font-black text-[#F2C75C]">{lateDaysCount}</p>
+                      <div className="bg-[linear-gradient(135deg,#18204F,#20205D)] p-2.5 rounded-xl border border-[#A78BFA]/20 text-center">
+                        <p className="text-[9px] text-[#F59E0B] font-bold mb-0.5">Late Days</p>
+                        <p className="text-base font-black text-[#F59E0B]">{lateDaysCount}</p>
                       </div>
-                      <div className="bg-[#112C26] p-2.5 rounded-xl border border-[#2A5B50] text-center">
-                        <p className="text-[9px] text-[#EF6B73] font-bold mb-0.5">Absent Days</p>
-                        <p className="text-base font-black text-[#EF6B73]">{actualAbsentDays}</p>
+                      <div className="bg-[linear-gradient(135deg,#18204F,#20205D)] p-2.5 rounded-xl border border-[#A78BFA]/20 text-center">
+                        <p className="text-[9px] text-rose-400 font-bold mb-0.5">Absent Days</p>
+                        <p className="text-base font-black text-rose-400">{actualAbsentDays}</p>
                       </div>
-                      <div className="bg-[#112C26] p-2.5 rounded-xl border border-[#2A5B50] text-center">
-                        <p className="text-[9px] text-[#C7DAD3] font-bold mb-0.5">Present Days</p>
-                        <p className="text-base font-black text-[#F4FAF7]">{presentDaysCount}</p>
+                      <div className="bg-[linear-gradient(135deg,#18204F,#20205D)] p-2.5 rounded-xl border border-[#A78BFA]/20 text-center">
+                        <p className="text-[9px] text-emerald-400 font-bold mb-0.5">Present Days</p>
+                        <p className="text-base font-black text-white">{presentDaysCount}</p>
                       </div>
                     </div>
                   </div>
@@ -1363,71 +1363,71 @@ export const EmployeeDashboard: React.FC = () => {
 
                 {/* 3. Detailed Pulse Snapshot Sections */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Card className="p-4 bg-[#173A32] border border-[#2A5B50] shadow-md text-[#F4FAF7]">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#C7DAD3] block mb-3.5 border-b border-[#2A5B50] pb-2">
+                  <Card className="p-4 bg-[linear-gradient(135deg,rgba(76,29,149,0.85),rgba(30,41,100,0.95))] border border-[#A78BFA]/30 shadow-md text-white">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#CBD5E1] block mb-3.5 border-b border-[#A78BFA]/20 pb-2">
                       Leave & WFH Limits
                     </span>
                     <div className="flex flex-col gap-4">
                       <div>
                         <div className="flex justify-between items-center text-xs font-bold mb-1">
-                          <span className="text-[#C7DAD3]">Work From Home (WFH)</span>
-                          <span className={wfhDaysCount >= 2 ? 'text-[#EF6B73]' : 'text-[#19C7C0]'}>{wfhDaysCount} / 2 Used</span>
+                          <span className="text-[#CBD5E1]">Work From Home (WFH)</span>
+                          <span className={wfhDaysCount >= 2 ? 'text-rose-400' : 'text-[#38BDF8]'}>{wfhDaysCount} / 2 Used</span>
                         </div>
-                        <div className="w-full bg-[#112C26] h-2.5 rounded-full overflow-hidden border border-[#2A5B50]">
+                        <div className="w-full bg-[#18204F] h-2.5 rounded-full overflow-hidden border border-[#A78BFA]/20">
                           <div 
-                            className={`h-full rounded-full transition-all duration-500 ${wfhDaysCount >= 2 ? 'bg-[#EF6B73]' : 'bg-[#19C7C0]'}`}
+                            className={`h-full rounded-full transition-all duration-500 ${wfhDaysCount >= 2 ? 'bg-rose-500' : 'bg-gradient-to-r from-[#8B5CF6] to-[#38BDF8]'}`}
                             style={{ width: `${Math.min(100, (wfhDaysCount / 2) * 100)}%` }}
                           />
                         </div>
-                        <p className="text-[9px] text-[#C7DAD3] mt-1">Maximum limit is 2 WFH sessions allowed per month</p>
+                        <p className="text-[9px] text-[#A8B0C5] mt-1">Maximum limit is 2 WFH sessions allowed per month</p>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 mt-1">
-                        <div className="bg-[#112C26] p-2.5 rounded-xl border border-[#2A5B50] text-center">
-                          <p className="text-[9px] text-[#19C7C0] font-bold mb-0.5">Client Visits</p>
-                          <p className="text-sm font-black text-[#19C7C0]">{clientVisitDaysCount} Days</p>
+                        <div className="bg-[linear-gradient(135deg,#18204F,#20205D)] p-2.5 rounded-xl border border-[#A78BFA]/20 text-center">
+                          <p className="text-[9px] text-[#38BDF8] font-bold mb-0.5">Client Visits</p>
+                          <p className="text-sm font-black text-[#38BDF8]">{clientVisitDaysCount} Days</p>
                         </div>
-                        <div className="bg-[#112C26] p-2.5 rounded-xl border border-[#2A5B50] text-center">
-                          <p className="text-[9px] text-[#35C98A] font-bold mb-0.5">Outdoor Work</p>
-                          <p className="text-sm font-black text-[#35C98A]">{outdoorDaysCount} Days</p>
+                        <div className="bg-[linear-gradient(135deg,#18204F,#20205D)] p-2.5 rounded-xl border border-[#A78BFA]/20 text-center">
+                          <p className="text-[9px] text-emerald-400 font-bold mb-0.5">Outdoor Work</p>
+                          <p className="text-sm font-black text-emerald-400">{outdoorDaysCount} Days</p>
                         </div>
                       </div>
                     </div>
                   </Card>
 
-                  <Card className="p-4 bg-[#173A32] border border-[#2A5B50] shadow-md text-[#F4FAF7]">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#C7DAD3] block mb-3.5 border-b border-[#2A5B50] pb-2">
+                  <Card className="p-4 bg-[linear-gradient(135deg,rgba(76,29,149,0.85),rgba(30,41,100,0.95))] border border-[#A78BFA]/30 shadow-md text-white">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#CBD5E1] block mb-3.5 border-b border-[#A78BFA]/20 pb-2">
                       Tasks & Expense Status
                     </span>
                     <div className="flex flex-col gap-4">
                       <div>
                         <div className="flex justify-between items-center text-xs font-bold mb-1">
-                          <span className="text-[#C7DAD3]">Tasks Completed</span>
-                          <span className="text-[#C7DAD3]">{completedTasksCount} / {assignedTasksCount} Completed</span>
+                          <span className="text-[#CBD5E1]">Tasks Completed</span>
+                          <span className="text-[#CBD5E1]">{completedTasksCount} / {assignedTasksCount} Completed</span>
                         </div>
                         {assignedTasksCount > 0 ? (
                           <>
-                            <div className="w-full bg-[#112C26] h-2.5 rounded-full overflow-hidden border border-[#2A5B50]">
+                            <div className="w-full bg-[#18204F] h-2.5 rounded-full overflow-hidden border border-[#A78BFA]/20">
                               <div 
-                                className="h-full bg-[#19C7C0] rounded-full transition-all duration-500"
+                                className="h-full bg-gradient-to-r from-[#8B5CF6] to-[#06B6D4] rounded-full transition-all duration-500"
                                 style={{ width: `${(completedTasksCount / assignedTasksCount) * 100}%` }}
                               />
                             </div>
-                            <p className="text-[9px] text-[#C7DAD3] mt-1">Completion Rate: {Math.round((completedTasksCount / assignedTasksCount) * 100)}%</p>
+                            <p className="text-[9px] text-[#A8B0C5] mt-1">Completion Rate: {Math.round((completedTasksCount / assignedTasksCount) * 100)}%</p>
                           </>
                         ) : (
-                          <p className="text-xs text-[#C7DAD3] font-semibold italic bg-[#112C26] p-2 rounded-lg text-center border border-[#2A5B50] mt-1.5">No tasks assigned this month</p>
+                          <p className="text-xs text-[#A8B0C5] font-semibold italic bg-[linear-gradient(135deg,#18204F,#20205D)] p-2 rounded-lg text-center border border-[#A78BFA]/20 mt-1.5">No tasks assigned this month</p>
                         )}
                       </div>
 
-                      <div className="bg-[#112C26] p-3 rounded-xl border border-[#2A5B50] flex items-center justify-between">
+                      <div className="bg-[linear-gradient(135deg,#18204F,#20205D)] p-3 rounded-xl border border-[#A78BFA]/20 flex items-center justify-between">
                         <div>
-                          <p className="text-[10px] text-[#C7DAD3] font-semibold">Total Expenses Requested</p>
-                          <p className="font-black text-base text-[#F4FAF7]">₹{totalExpenseAmount.toLocaleString()}</p>
+                          <p className="text-[10px] text-[#A8B0C5] font-semibold">Total Expenses Requested</p>
+                          <p className="font-black text-base text-white">₹{totalExpenseAmount.toLocaleString()}</p>
                         </div>
-                        <div className="flex flex-col items-end gap-1 text-[9px] font-bold text-[#C7DAD3]">
-                          <span className="text-[#35C98A]">Approved: ₹{totalApprovedAmount.toLocaleString()}</span>
-                          <span className="text-[#F2C75C]">Pending: ₹{totalPendingAmount.toLocaleString()}</span>
+                        <div className="flex flex-col items-end gap-1 text-[9px] font-bold text-[#CBD5E1]">
+                          <span className="text-emerald-400">Approved: ₹{totalApprovedAmount.toLocaleString()}</span>
+                          <span className="text-[#F59E0B]">Pending: ₹{totalPendingAmount.toLocaleString()}</span>
                         </div>
                       </div>
                     </div>
@@ -1435,31 +1435,31 @@ export const EmployeeDashboard: React.FC = () => {
                 </div>
 
                 {/* 4. Performance Snapshot Card */}
-                <Card className="p-4 bg-[#173A32] border border-[#2A5B50] shadow-md text-[#F4FAF7]">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#C7DAD3] block mb-3.5 border-b border-[#2A5B50] pb-2">
+                <Card className="p-4 bg-[linear-gradient(135deg,rgba(76,29,149,0.85),rgba(30,41,100,0.95))] border border-[#A78BFA]/30 shadow-md text-white">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#CBD5E1] block mb-3.5 border-b border-[#A78BFA]/20 pb-2">
                     Performance Snapshot
                   </span>
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 bg-[#112C26] p-3.5 rounded-xl border border-[#2A5B50] flex-1">
-                      <div className="w-14 h-14 rounded-xl bg-[#19C7C0]/15 flex items-center justify-center text-[#19C7C0] font-black text-xl border border-[#19C7C0]/30 shrink-0 shadow-inner">
+                    <div className="flex items-center gap-4 bg-[linear-gradient(135deg,#18204F,#20205D)] p-3.5 rounded-xl border border-[#A78BFA]/20 flex-1">
+                      <div className="w-14 h-14 rounded-xl bg-[#8B5CF6]/20 flex items-center justify-center text-[#38BDF8] font-black text-xl border border-[#A78BFA]/30 shrink-0 shadow-inner">
                         {efficiencyResult.finalScore === -1 ? 'N/A' : efficiencyResult.grade}
                       </div>
                       <div>
-                        <p className="text-sm font-black text-[#F4FAF7]">Efficiency Score</p>
-                        <p className="text-lg font-black text-[#19C7C0] mt-0.5">
+                        <p className="text-sm font-black text-white">Efficiency Score</p>
+                        <p className="text-lg font-black text-[#38BDF8] mt-0.5">
                           {efficiencyResult.finalScore === -1 ? 'NO DATA' : `${efficiencyResult.finalScore}%`}
                         </p>
                       </div>
                     </div>
                     
-                    <div className="flex-1 bg-[#112C26] p-3 rounded-xl border border-[#2A5B50] text-[10px] font-semibold text-[#C7DAD3]">
-                      <p className="font-extrabold text-[#F4FAF7] text-xs mb-1.5 border-b border-[#2A5B50] pb-1">Applied Weightages</p>
+                    <div className="flex-1 bg-[linear-gradient(135deg,#18204F,#20205D)] p-3 rounded-xl border border-[#A78BFA]/20 text-[10px] font-semibold text-[#CBD5E1]">
+                      <p className="font-extrabold text-white text-xs mb-1.5 border-b border-[#A78BFA]/20 pb-1">Applied Weightages</p>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                        <div className="flex justify-between"><span>Task Completion:</span> <span className="text-[#F4FAF7] font-bold">{weightages.taskCompletion}%</span></div>
-                        <div className="flex justify-between"><span>On-Time:</span> <span className="text-[#F4FAF7] font-bold">{weightages.onTimeCompletion}%</span></div>
-                        <div className="flex justify-between"><span>Quality:</span> <span className="text-[#F4FAF7] font-bold">{weightages.quality}%</span></div>
-                        <div className="flex justify-between"><span>Punctuality:</span> <span className="text-[#F4FAF7] font-bold">{weightages.punctuality}%</span></div>
-                        <div className="flex justify-between"><span>Workload:</span> <span className="text-[#F4FAF7] font-bold">{weightages.workload}%</span></div>
+                        <div className="flex justify-between"><span>Task Completion:</span> <span className="text-white font-bold">{weightages.taskCompletion}%</span></div>
+                        <div className="flex justify-between"><span>On-Time:</span> <span className="text-white font-bold">{weightages.onTimeCompletion}%</span></div>
+                        <div className="flex justify-between"><span>Quality:</span> <span className="text-white font-bold">{weightages.quality}%</span></div>
+                        <div className="flex justify-between"><span>Punctuality:</span> <span className="text-white font-bold">{weightages.punctuality}%</span></div>
+                        <div className="flex justify-between"><span>Workload:</span> <span className="text-white font-bold">{weightages.workload}%</span></div>
                       </div>
                     </div>
                   </div>
@@ -1467,37 +1467,37 @@ export const EmployeeDashboard: React.FC = () => {
 
                 {/* 5. Quick Navigation Links */}
                 <div>
-                  <h2 className="text-xs font-extrabold text-[#0A4D3C] uppercase tracking-wider mb-3">
+                  <h2 className="text-xs font-black text-[#A78BFA] uppercase tracking-widest mb-3">
                     Quick Links
                   </h2>
                   <div className="grid grid-cols-2 gap-3">
                     <button 
                       onClick={() => navigate('/attendance')}
-                      className="p-3.5 bg-[#173A32] hover:bg-[#21483E] border border-[#2A5B50] rounded-xl font-bold text-xs text-[#C7DAD3] transition text-left flex items-center justify-between group shadow-md cursor-pointer"
+                      className="p-3.5 bg-[linear-gradient(135deg,rgba(76,29,149,0.75),rgba(30,41,100,0.85))] hover:bg-[linear-gradient(135deg,rgba(88,28,135,0.90),rgba(37,99,235,0.90))] border border-[#A78BFA]/25 rounded-xl font-bold text-xs text-[#CBD5E1] transition text-left flex items-center justify-between group shadow-md cursor-pointer"
                     >
                       <span>View Attendance History</span>
-                      <span className="text-[#19C7C0] group-hover:translate-x-1.5 transition-transform">&rarr;</span>
+                      <span className="text-[#38BDF8] group-hover:translate-x-1.5 transition-transform">&rarr;</span>
                     </button>
                     <button 
                       onClick={() => navigate('/leave')}
-                      className="p-3.5 bg-[#173A32] hover:bg-[#21483E] border border-[#2A5B50] rounded-xl font-bold text-xs text-[#C7DAD3] transition text-left flex items-center justify-between group shadow-md cursor-pointer"
+                      className="p-3.5 bg-[linear-gradient(135deg,rgba(76,29,149,0.75),rgba(30,41,100,0.85))] hover:bg-[linear-gradient(135deg,rgba(88,28,135,0.90),rgba(37,99,235,0.90))] border border-[#A78BFA]/25 rounded-xl font-bold text-xs text-[#CBD5E1] transition text-left flex items-center justify-between group shadow-md cursor-pointer"
                     >
                       <span>View Leave Status</span>
-                      <span className="text-[#19C7C0] group-hover:translate-x-1.5 transition-transform">&rarr;</span>
+                      <span className="text-[#38BDF8] group-hover:translate-x-1.5 transition-transform">&rarr;</span>
                     </button>
                     <button 
                       onClick={() => navigate('/expenses')}
-                      className="p-3.5 bg-[#173A32] hover:bg-[#21483E] border border-[#2A5B50] rounded-xl font-bold text-xs text-[#C7DAD3] transition text-left flex items-center justify-between group shadow-md cursor-pointer"
+                      className="p-3.5 bg-[linear-gradient(135deg,rgba(76,29,149,0.75),rgba(30,41,100,0.85))] hover:bg-[linear-gradient(135deg,rgba(88,28,135,0.90),rgba(37,99,235,0.90))] border border-[#A78BFA]/25 rounded-xl font-bold text-xs text-[#CBD5E1] transition text-left flex items-center justify-between group shadow-md cursor-pointer"
                     >
                       <span>View Expenses</span>
-                      <span className="text-[#19C7C0] group-hover:translate-x-1.5 transition-transform">&rarr;</span>
+                      <span className="text-[#38BDF8] group-hover:translate-x-1.5 transition-transform">&rarr;</span>
                     </button>
                     <button 
                       onClick={() => navigate('/planner')}
-                      className="p-3.5 bg-[#173A32] hover:bg-[#21483E] border border-[#2A5B50] rounded-xl font-bold text-xs text-[#C7DAD3] transition text-left flex items-center justify-between group shadow-md cursor-pointer"
+                      className="p-3.5 bg-[linear-gradient(135deg,rgba(76,29,149,0.75),rgba(30,41,100,0.85))] hover:bg-[linear-gradient(135deg,rgba(88,28,135,0.90),rgba(37,99,235,0.90))] border border-[#A78BFA]/25 rounded-xl font-bold text-xs text-[#CBD5E1] transition text-left flex items-center justify-between group shadow-md cursor-pointer"
                     >
                       <span>View Tasks</span>
-                      <span className="text-[#19C7C0] group-hover:translate-x-1.5 transition-transform">&rarr;</span>
+                      <span className="text-[#38BDF8] group-hover:translate-x-1.5 transition-transform">&rarr;</span>
                     </button>
                   </div>
                 </div>
