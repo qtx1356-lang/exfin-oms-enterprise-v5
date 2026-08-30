@@ -846,8 +846,8 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('OFFICE')}
             className={`p-4 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-28 relative overflow-hidden group cursor-pointer ${
               activeMode === 'OFFICE'
-                ? 'border-[var(--success)]/50 bg-[var(--surface-elevated)] ring-1 ring-[var(--success)]/20'
-                : 'border-[var(--border)] bg-[var(--surface-elevated)]/60 hover:border-[var(--success)]/30 hover:bg-[var(--surface-elevated)]'
+                ? 'border-[var(--success)]/60 bg-[var(--surface-elevated)] ring-1 ring-[var(--success)]/30'
+                : 'border-[var(--border)] bg-[var(--surface-elevated)] hover:border-[var(--success)]/40 hover:bg-[var(--surface-inner)]'
             } ${todayRecord && (todayRecord.attendanceType || 'OFFICE') !== 'OFFICE' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-start relative z-10">
@@ -873,8 +873,8 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('WFH')}
             className={`p-4 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-28 relative overflow-hidden group cursor-pointer ${
               activeMode === 'WFH'
-                ? 'border-[var(--teal)]/50 bg-[var(--surface-elevated)] ring-1 ring-[var(--teal)]/20'
-                : 'border-[var(--border)] bg-[var(--surface-elevated)]/60 hover:border-[var(--teal)]/30 hover:bg-[var(--surface-elevated)]'
+                ? 'border-[var(--teal)]/60 bg-[var(--surface-elevated)] ring-1 ring-[var(--teal)]/30'
+                : 'border-[var(--border)] bg-[var(--surface-elevated)] hover:border-[var(--teal)]/40 hover:bg-[var(--surface-inner)]'
             } ${todayRecord && todayRecord.attendanceType !== 'WFH' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-start relative z-10">
@@ -905,8 +905,8 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('CLIENT_VISIT')}
             className={`p-4 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-28 relative overflow-hidden group cursor-pointer ${
               activeMode === 'CLIENT_VISIT'
-                ? 'border-[var(--cyan)]/50 bg-[var(--surface-elevated)] ring-1 ring-[var(--cyan)]/20'
-                : 'border-[var(--border)] bg-[var(--surface-elevated)]/60 hover:border-[var(--cyan)]/30 hover:bg-[var(--surface-elevated)]'
+                ? 'border-[var(--cyan)]/60 bg-[var(--surface-elevated)] ring-1 ring-[var(--cyan)]/30'
+                : 'border-[var(--border)] bg-[var(--surface-elevated)] hover:border-[var(--cyan)]/40 hover:bg-[var(--surface-inner)]'
             } ${todayRecord && todayRecord.attendanceType !== 'CLIENT_VISIT' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-start relative z-10">
@@ -932,8 +932,8 @@ export const AttendanceScreen: React.FC = () => {
             onClick={() => setActiveMode('OUTDOOR')}
             className={`p-4 rounded-2xl border text-left transition-all duration-300 flex flex-col justify-between h-28 relative overflow-hidden group cursor-pointer ${
               activeMode === 'OUTDOOR'
-                ? 'border-[var(--success)]/50 bg-[var(--surface-elevated)] ring-1 ring-[var(--success)]/20'
-                : 'border-[var(--border)] bg-[var(--surface-elevated)]/60 hover:border-[var(--success)]/30 hover:bg-[var(--surface-elevated)]'
+                ? 'border-[var(--success)]/60 bg-[var(--surface-elevated)] ring-1 ring-[var(--success)]/30'
+                : 'border-[var(--border)] bg-[var(--surface-elevated)] hover:border-[var(--success)]/40 hover:bg-[var(--surface-inner)]'
             } ${todayRecord && todayRecord.attendanceType !== 'OUTDOOR' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
           >
             <div className="flex justify-between items-start relative z-10">

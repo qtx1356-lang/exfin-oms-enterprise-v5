@@ -367,8 +367,8 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
 
       {/* Offline Warning Banner if selected month has no cached data offline */}
       {!isOnline && !hasDataForMonth && (
-        <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl text-xs font-medium flex items-center gap-2.5 shadow-sm">
-          <Info className="w-4 h-4 text-amber-600 flex-shrink-0" />
+        <div className="p-3.5 glass-inner-tile border border-amber-500/30 text-amber-300 rounded-2xl text-xs font-medium flex items-center gap-2.5 shadow-sm">
+          <Info className="w-4 h-4 text-amber-400 flex-shrink-0" />
           <span>Attendance history for this month isn't available offline.</span>
         </div>
       )}
@@ -614,7 +614,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
 
                 {/* Mode Specific Additional Info */}
                 {selectedDayDetail.attendanceRecord.attendanceType === 'WFH' && (
-                  <div className="p-4 bg-[var(--primary)]/10 rounded-2xl border border-[var(--border)] text-xs space-y-2">
+                  <div className="p-4 glass-inner-tile rounded-2xl border border-[var(--border)] text-xs space-y-2">
                     <p className="font-bold text-[var(--primary-light)] uppercase tracking-wider text-[10px]">Work From Home Details</p>
                     <p><strong className="text-[var(--text-secondary)] font-bold">Reason:</strong> {selectedDayDetail.attendanceRecord.wfhReason || 'N/A'}</p>
                     <p><strong className="text-[var(--text-secondary)] font-bold">Work Plan:</strong> {selectedDayDetail.attendanceRecord.workPlan || 'N/A'}</p>
@@ -622,7 +622,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                 )}
 
                 {selectedDayDetail.attendanceRecord.attendanceType === 'CLIENT_VISIT' && (
-                  <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20 text-xs space-y-2">
+                  <div className="p-4 glass-inner-tile rounded-2xl border border-amber-500/30 text-xs space-y-2">
                     <p className="font-bold text-amber-300 uppercase tracking-wider text-[10px]">Client Visit Details</p>
                     <p><strong className="text-[var(--text-secondary)] font-bold">Client:</strong> {selectedDayDetail.attendanceRecord.clientName || 'N/A'}</p>
                     <p><strong className="text-[var(--text-secondary)] font-bold">Location:</strong> {selectedDayDetail.attendanceRecord.clientLocation || 'N/A'}</p>
@@ -631,7 +631,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                 )}
 
                 {selectedDayDetail.attendanceRecord.attendanceType === 'OUTDOOR' && (
-                  <div className="p-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 text-xs space-y-2">
+                  <div className="p-4 glass-inner-tile rounded-2xl border border-blue-500/30 text-xs space-y-2">
                     <p className="font-bold text-blue-300 uppercase tracking-wider text-[10px]">Outdoor Work Details</p>
                     <p><strong className="text-[var(--text-secondary)] font-bold">Type:</strong> {selectedDayDetail.attendanceRecord.outdoorType || 'N/A'}</p>
                     <p><strong className="text-[var(--text-secondary)] font-bold">Description:</strong> {selectedDayDetail.attendanceRecord.description || 'N/A'}</p>
@@ -639,7 +639,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                 )}
               </div>
             ) : selectedDayDetail.leaveRecord ? (
-              <div className="p-4 bg-cyan-500/10 rounded-2xl border border-cyan-500/20 text-xs space-y-2">
+              <div className="p-4 glass-inner-tile rounded-2xl border border-cyan-500/30 text-xs space-y-2">
                 <p className="font-bold text-cyan-300 uppercase tracking-wider text-[10px]">Approved Leave Details</p>
                 <p><strong className="text-[var(--text-secondary)] font-bold">Duration:</strong> {selectedDayDetail.leaveRecord.startDate} to {selectedDayDetail.leaveRecord.endDate} ({selectedDayDetail.leaveRecord.totalDays} Days)</p>
                 <p><strong className="text-[var(--text-secondary)] font-bold">Reason:</strong> {selectedDayDetail.leaveRecord.reason}</p>

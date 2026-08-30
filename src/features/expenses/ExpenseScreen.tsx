@@ -339,9 +339,9 @@ export const ExpenseScreen: React.FC = () => {
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="w-full px-3 py-2 rounded-xl border border-[var(--border)] glass-inner-tile text-white text-xs font-semibold focus:outline-none focus:border-cyan-400 shadow-sm"
           >
-            <option value="All" className="bg-[#071A30] text-white">All Categories</option>
+            <option value="All" className="bg-[#120E08] text-white">All Categories</option>
             {EXPENSE_CATEGORIES.map((cat) => (
-              <option key={cat} value={cat} className="bg-[#071A30] text-white">{cat}</option>
+              <option key={cat} value={cat} className="bg-[#120E08] text-white">{cat}</option>
             ))}
           </select>
 

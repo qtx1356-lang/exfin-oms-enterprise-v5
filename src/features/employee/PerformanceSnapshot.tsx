@@ -398,7 +398,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
     <>
       <div 
         onClick={() => setShowDetailModal(true)}
-        className="bg-gradient-to-br from-[var(--app-background)] via-[var(--app-background-secondary)] to-[var(--app-background)] border border-[var(--border)] rounded-[26px] p-5 shadow-lg cursor-pointer hover:border-[var(--primary)]/50 transition-all group relative overflow-hidden text-[var(--text-primary)] font-sans"
+        className="glass-card border border-[var(--border)] rounded-[26px] p-5 shadow-lg cursor-pointer hover:border-[var(--primary)]/50 transition-all group relative overflow-hidden text-[var(--text-primary)] font-sans"
       >
         <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--primary)]/10 rounded-full blur-2xl pointer-events-none" />
 
