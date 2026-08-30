@@ -8,7 +8,9 @@
  * 3. Relative empty string ('') when running in full-stack Express container where SPA and API share origin.
  */
 export function getApiBaseUrl(): string {
-  const envUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  const envUrl = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_API_BASE_URL)
+    ? String(import.meta.env.VITE_API_BASE_URL).trim()
+    : '';
   if (envUrl !== '') {
     return envUrl.replace(/\/$/, '');
   }

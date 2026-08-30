@@ -412,7 +412,7 @@ export const LeaveScreen: React.FC = () => {
               </Card>
               
               {/* Dev Diagnostic */}
-              {import.meta.env.DEV && (
+              {Boolean(typeof import.meta !== 'undefined' && import.meta?.env?.DEV) && (
                 <div className="p-3 bg-[#111417] border border-[#3A4148] rounded-xl text-[10px] font-mono text-[#B7C0BC]/60 space-y-0.5">
                   <p className="font-bold text-[#F5F7F6]">LEAVE CALENDAR DIAGNOSTIC</p>
                   <p>Employee: <span className="text-white">{empName} ({empId})</span></p>

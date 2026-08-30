@@ -37,6 +37,11 @@ const counters: PerfCounters = {
 const MAX_TRACKED_RESOURCES = 200;
 const activeResourceMap = new Map<string, { type: PerfResourceType; createdAt: number; label?: string }>();
 
+const isPerfDebugEnabled = () => {
+  const isDev = typeof import.meta !== 'undefined' && Boolean(import.meta?.env?.DEV);
+  return isDev || (typeof window !== 'undefined' && Boolean((window as any).__EXFIN_PERF_DEBUG__));
+};
+
 export const trackResourceCreated = (type: PerfResourceType, id: string, label?: string): void => {
   switch (type) {
     case 'LOCATION_WATCH':
@@ -72,7 +77,7 @@ export const trackResourceCreated = (type: PerfResourceType, id: string, label?:
 
   activeResourceMap.set(id, { type, createdAt: Date.now(), label });
 
-  if (import.meta.env.DEV || (window as any).__EXFIN_PERF_DEBUG__) {
+  if (isPerfDebugEnabled()) {
     console.log(`[PERF_RESOURCE_CREATED] ${type} (ID: ${id}) | Active count:`, getActiveCountForType(type));
   }
 };
@@ -104,7 +109,7 @@ export const trackResourceCleaned = (type: PerfResourceType, id: string): void =
         break;
     }
 
-    if (import.meta.env.DEV || (window as any).__EXFIN_PERF_DEBUG__) {
+    if (isPerfDebugEnabled()) {
       console.log(`[PERF_RESOURCE_CLEANED] ${type} (ID: ${id}) | Active count:`, getActiveCountForType(type));
     }
   }
@@ -118,7 +123,7 @@ export const logPerfSyncEvent = (
   event: 'PERF_SYNC_STARTED' | 'PERF_SYNC_SKIPPED_ALREADY_RUNNING' | 'PERF_SYNC_COMPLETED',
   details?: string
 ): void => {
-  if (import.meta.env.DEV || (window as any).__EXFIN_PERF_DEBUG__) {
+  if (isPerfDebugEnabled()) {
     console.log(`[${event}]`, details || '');
   }
 };
