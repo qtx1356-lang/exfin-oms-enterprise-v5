@@ -38,51 +38,44 @@
 }
 
 :root {
-  /* 1. GLOBAL PAGE BACKGROUND — EMERALD AURORA GRADIENT (LOCKED) */
-  --app-background: linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%);
-  --app-bg: linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%);
-  --app-bg-secondary: linear-gradient(145deg, rgba(25, 19, 11, 0.98) 0%, rgba(38, 29, 15, 0.98) 60%, rgba(20, 15, 8, 0.98) 100%);
-  --app-background-secondary: linear-gradient(145deg, rgba(25, 19, 11, 0.98) 0%, rgba(38, 29, 15, 0.98) 60%, rgba(20, 15, 8, 0.98) 100%);
+  /* EXACT REQUIRED DESIGN SYSTEM TOKENS */
+  --app-background: #071A2B;
+  --app-bg: #071A2B;
+  --app-bg-secondary: #0A2638;
+  --app-background-secondary: #0A2638;
 
-  /* 2. CARD SURFACES — AUTHORITATIVE OPAQUE PREMIUM DARK GOLD SYSTEM */
-  --card-bg-primary: #1F190E;
-  --surface: linear-gradient(145deg, rgba(31, 25, 14, 0.98) 0%, rgba(44, 34, 18, 0.98) 50%, rgba(26, 20, 11, 0.98) 100%);        /* Primary Gold Card */
-  --surface-elevated: linear-gradient(145deg, rgba(25, 19, 11, 0.98) 0%, rgba(38, 29, 15, 0.98) 60%, rgba(20, 15, 8, 0.98) 100%); /* Secondary Gold Card */
-  --surface-inner: linear-gradient(145deg, rgba(18, 14, 8, 0.98) 0%, rgba(28, 21, 11, 0.98) 100%);    /* Inner Stat Gold Tile */
-  --surface-hover: linear-gradient(145deg, rgba(38, 30, 17, 0.98) 0%, rgba(52, 40, 21, 0.98) 50%, rgba(32, 24, 13, 0.98) 100%);
+  --card-bg-primary: #0D3045;
+  --surface: #0D3045;
+  --surface-elevated: #0D3045;
+  --surface-inner: #092438;
+  --surface-hover: #113852;
 
-  /* TYPOGRAPHY */
-  --text-primary: #F8FAFC;     /* Primary text: #F8FAFC */
-  --text-secondary: #CBD5E1;   /* Secondary text: #CBD5E1 */
-  --text-muted: #94A3B8;       /* Muted text: #94A3B8 */
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
 
-  /* ACCENT COLORS */
-  --primary: #22D3EE;          /* Cyan / Info */
-  --primary-dark: #2563EB;     /* Blue */
-  --primary-light: #38BDF8;    /* Sky Cyan */
-  --gold: #D4AF37;             /* Elegant Metallic Gold */
+  --primary: #22D3EE;
+  --primary-dark: #3B82F6;
+  --primary-light: #22D3EE;
 
-  /* STATUS COLORS */
-  --success: #10B981; /* Emerald Green: #10B981 */
-  --warning: #F59E0B; /* Amber / Orange: #F59E0B */
-  --danger: #F43F5E;  /* Red / Error: #F43F5E */
-  --info: #22D3EE;    /* Cyan: #22D3EE */
-  --purple: #8B5CF6;  /* Purple: #8B5CF6 */
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #F43F5E;
+  --info: #22D3EE;
+  --blue-accent: #3B82F6;
 
-  /* BORDERS & SHADOWS */
-  --border: rgba(212, 175, 55, 0.22);
-  --divider: rgba(212, 175, 55, 0.12);
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 215, 0, 0.10);
-  
-  /* NAVIGATION & BUTTONS */
-  --nav-bg: rgba(6, 27, 43, 0.94); /* #061B2B translucent */
-  --button-primary: linear-gradient(135deg, #10B981 0%, #06B6D4 50%, #2563EB 100%);
-  --button-secondary: rgba(28, 22, 12, 0.85);
+  --border: #16465A;
+  --divider: rgba(22, 70, 90, 0.6);
+  --shadow: 0 10px 25px rgba(3, 12, 22, 0.5);
+
+  --nav-bg: #071A2B;
+  --button-primary: linear-gradient(135deg, #10B981 0%, #22D3EE 100%);
+  --button-secondary: #0A2638;
 }
 
 body {
-  background: linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%) !important;
-  background-attachment: fixed !important;
+  background-color: #071A2B !important;
+  background: #071A2B !important;
   color: #F8FAFC !important;
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   margin: 0;
@@ -109,58 +102,55 @@ input[type="date"],
 input[type="time"],
 textarea,
 select {
-  background-color: #120E08 !important;
-  background: linear-gradient(145deg, rgba(18, 14, 8, 0.98) 0%, rgba(28, 21, 11, 0.98) 100%) !important;
+  background-color: #092438 !important;
+  background: #092438 !important;
   color: #F8FAFC !important;
-  border: 1px solid rgba(212, 175, 55, 0.22) !important;
+  border: 1px solid #16465A !important;
   border-radius: 12px !important;
   transition: all 0.2s ease;
 }
 
 input:focus, textarea:focus, select:focus {
   outline: none !important;
-  border-color: #D4AF37 !important;
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.25) !important;
+  border-color: #22D3EE !important;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2) !important;
 }
 
-/* 2. Main Authoritative Premium Gold Cards */
+/* Primary Cards */
 .glass-card, .glass-card-elevated, .card-gold {
-  background-color: #1F190E !important;
-  background: linear-gradient(145deg, rgba(31, 25, 14, 0.98) 0%, rgba(44, 34, 18, 0.98) 50%, rgba(26, 20, 11, 0.98) 100%) !important;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(212, 175, 55, 0.22) !important;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 215, 0, 0.10) !important;
+  background-color: #0D3045 !important;
+  background: #0D3045 !important;
+  border: 1px solid #16465A !important;
+  box-shadow: 0 10px 25px rgba(3, 12, 22, 0.4) !important;
   border-radius: 20px;
   color: #F8FAFC !important;
 }
 
-/* Secondary Gold Surface Card */
 .card-secondary {
-  background-color: #19130B !important;
-  background: linear-gradient(145deg, rgba(25, 19, 11, 0.98) 0%, rgba(38, 29, 15, 0.98) 60%, rgba(20, 15, 8, 0.98) 100%) !important;
-  border: 1px solid rgba(212, 175, 55, 0.18) !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 215, 0, 0.08) !important;
+  background-color: #0D3045 !important;
+  background: #0D3045 !important;
+  border: 1px solid #16465A !important;
+  box-shadow: 0 8px 20px rgba(3, 12, 22, 0.3) !important;
   border-radius: 20px;
   color: #F8FAFC !important;
 }
 
-/* 3. Deeper Inner Tile Gold Surfaces */
+/* Inner Tiles */
 .glass-inner-tile, .glass-card-inner {
-  background-color: #120E08 !important;
-  background: linear-gradient(145deg, rgba(18, 14, 8, 0.98) 0%, rgba(28, 21, 11, 0.98) 100%) !important;
-  border: 1px solid rgba(212, 175, 55, 0.14) !important;
+  background-color: #092438 !important;
+  background: #092438 !important;
+  border: 1px solid #16465A !important;
   border-radius: 16px;
   color: #F8FAFC !important;
 }
 
-/* 4. Buttons & Compact Controls */
+/* Buttons */
 .btn-primary, .btn-indigo, .btn-gold {
-  background: linear-gradient(135deg, #10B981 0%, #06B6D4 50%, #2563EB 100%) !important;
+  background: linear-gradient(135deg, #10B981 0%, #22D3EE 100%) !important;
   color: #FFFFFF !important;
   font-weight: 700;
-  border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
   border-radius: 12px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 42px;
@@ -171,43 +161,38 @@ input:focus, textarea:focus, select:focus {
   transform: translateY(-1px);
 }
 
-.btn-primary:active, .btn-indigo:active, .btn-gold:active {
-  transform: translateY(1px);
-}
-
 .btn-secondary {
-  background-color: #1C160C !important;
-  background: rgba(28, 22, 12, 0.95) !important;
+  background-color: #0A2638 !important;
+  background: #0A2638 !important;
   color: #F8FAFC !important;
   font-weight: 600;
-  border: 1px solid rgba(212, 175, 55, 0.25) !important;
+  border: 1px solid #16465A !important;
   border-radius: 12px;
   transition: all 0.2s ease;
   min-height: 42px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .btn-secondary:hover {
-  background: rgba(38, 30, 17, 0.95) !important;
-  border-color: rgba(212, 175, 55, 0.40) !important;
+  background-color: #113852 !important;
+  border-color: #22D3EE !important;
 }
 
 .btn-danger {
   background: #F43F5E !important;
   color: #FFFFFF !important;
   font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.35);
+  border: none;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.3);
   border-radius: 12px;
   min-height: 42px;
 }
 
 .btn-success, .btn-emerald {
-  background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+  background: #10B981 !important;
   color: #FFFFFF !important;
   font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  border: none;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
   border-radius: 12px;
   min-height: 42px;
 }
@@ -216,19 +201,17 @@ input:focus, textarea:focus, select:focus {
   background: #F59E0B !important;
   color: #FFFFFF !important;
   font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.20);
-  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+  border: none;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
   border-radius: 12px;
   min-height: 42px;
 }
 
-/* Navigation Surface: #061B2B translucent */
+/* Navigation Surface */
 .glass-nav {
-  background: rgba(6, 27, 43, 0.95) !important;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(80, 220, 190, 0.14) !important;
-  box-shadow: 0 -10px 30px rgba(3, 12, 22, 0.6) !important;
+  background: #071A2B !important;
+  border-top: 1px solid #16465A !important;
+  box-shadow: 0 -10px 25px rgba(3, 12, 22, 0.6) !important;
 }
 
 /* Location Chip Horizontal Smooth Marquee Animation */
@@ -258,7 +241,7 @@ button, a, input, select, textarea, [role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Legacy Purple & Custom Hardcoded Hex Class Overrides -> Unified Gold Surface System */
+/* Legacy Overrides -> Unified Deep Navy & Dark Navy Card System (#0D3045) */
 .bg-\[\#250F4C\],
 .bg-\[\#1A0B36\],
 .bg-\[\#1D093F\],
@@ -274,19 +257,20 @@ button, a, input, select, textarea, [role="button"] {
 .bg-\[\#170932\],
 .bg-\[\#110526\],
 .bg-\[\#1D113B\] {
-  background-color: #1F190E !important;
-  background: linear-gradient(145deg, rgba(31, 25, 14, 0.98) 0%, rgba(44, 34, 18, 0.98) 50%, rgba(26, 20, 11, 0.98) 100%) !important;
-  border-color: rgba(212, 175, 55, 0.22) !important;
+  background-color: #0D3045 !important;
+  background: #0D3045 !important;
+  border-color: #16465A !important;
   color: #F8FAFC !important;
 }
 
-/* Hardcoded purple border overrides */
+/* Border overrides */
 .border-purple-500\/10,
 .border-purple-500\/15,
 .border-purple-500\/20,
 .border-purple-500\/25,
 .border-purple-500\/30,
 .border-purple-500\/40,
-.border-purple-500\/50 {
-  border-color: rgba(212, 175, 55, 0.22) !important;
+.border-purple-500\/50,
+.border-\[\#D4AF37\]\/22 {
+  border-color: #16465A !important;
 }
