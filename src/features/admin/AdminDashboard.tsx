@@ -1,7 +1,7 @@
 import React, { useEffect, useState, Suspense, useMemo } from 'react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { usePermission } from '../../context/PermissionContext';
-import { db } from '../../services/firebase/config';
+import { getAdminDb } from '../../services/firebase/config';
 import {
   LogOut,
   Clock,
@@ -105,7 +105,7 @@ export const AdminDashboard: React.FC = () => {
   const [showSelfChangePasswordModal, setShowSelfChangePasswordModal] = useState(false);
 
   useEffect(() => {
-    if (!db || !loginId) return;
+    if (!loginId) return;
     const unsub = listenConversations(loginId, (convs) => {
       const sum = convs.reduce((acc, c) => acc + (c.unreadCounts?.[loginId] || 0), 0);
       setTotalUnreadChatCount(sum);
@@ -151,18 +151,27 @@ export const AdminDashboard: React.FC = () => {
   const [activeEmpCodes, setActiveEmpCodes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!db) return;
-    const unsub = onSnapshot(collection(db, 'registrations'), (snap) => {
-      const codes = new Set<string>();
-      snap.forEach(doc => {
-        const data = doc.data();
-        if (data.employeeCode) codes.add(String(data.employeeCode));
-        if (data.employeeId) codes.add(String(data.employeeId));
-        codes.add(doc.id);
+    let isMounted = true;
+    let unsub: (() => void) | null = null;
+
+    getAdminDb().then((activeDb) => {
+      if (!isMounted || !activeDb) return;
+      unsub = onSnapshot(collection(activeDb, 'registrations'), (snap) => {
+        const codes = new Set<string>();
+        snap.forEach(doc => {
+          const data = doc.data();
+          if (data.employeeCode) codes.add(String(data.employeeCode));
+          if (data.employeeId) codes.add(String(data.employeeId));
+          codes.add(doc.id);
+        });
+        setActiveEmpCodes(codes);
       });
-      setActiveEmpCodes(codes);
-    });
-    return () => unsub();
+    }).catch(err => console.warn('AdminDashboard registrations listener error:', err));
+
+    return () => {
+      isMounted = false;
+      if (unsub) unsub();
+    };
   }, []);
 
   const handleSmartBriefNavigation = (tabName: AdminTab, _filter?: string) => {

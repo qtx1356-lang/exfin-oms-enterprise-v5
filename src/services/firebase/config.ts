@@ -30,12 +30,12 @@ let employeeAuth: any = null;
 let adminAuth: any = null;
 
 // 3. Lazy Getters
-const getEmployeeAuth = () => {
+export const getEmployeeAuth = () => {
   if (!employeeAuth) employeeAuth = getAuth(getDefaultApp());
   return employeeAuth;
 };
 
-const getAdminAuth = () => {
+export const getAdminAuth = () => {
   if (!adminAuth) adminAuth = getAuth(getAdminApp());
   return adminAuth;
 };

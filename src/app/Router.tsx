@@ -199,6 +199,10 @@ export const AppRouter: React.FC = () => {
             </Route>
           </Route>
 
+          {/* Admin Routes Fallbacks */}
+          <Route path="/admin/*" element={<Navigate to="/admin-portal/login" replace />} />
+          <Route path="/admin" element={<Navigate to="/admin-portal/login" replace />} />
+
           {/* Super Admin Routes (Backward Compatibility Redirect) */}
           <Route path="/super-admin/*" element={<Navigate to="/x7Kp9/dashboard" replace />} />
 

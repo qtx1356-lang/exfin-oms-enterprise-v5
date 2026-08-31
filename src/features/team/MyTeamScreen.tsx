@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRegistration } from '../../context/RegistrationContext';
-import { db } from '../../services/firebase/config';
+import { getEmployeeDb } from '../../services/firebase/config';
 import { createNotification } from '../../services/notification/notificationService';
 import { collection, query, onSnapshot, doc, setDoc, updateDoc, where, limit } from 'firebase/firestore';
 import { 
@@ -101,99 +101,113 @@ export const MyTeamScreen: React.FC = () => {
 
   // Listen to Firestore team members and tasks with scoped queries
   useEffect(() => {
-    if (!db || !isTeamLeader) return;
+    if (!isTeamLeader) return;
+    let isMounted = true;
+    let unsubRegs: (() => void) | null = null;
+    let unsubTasks: (() => void) | null = null;
 
-    // 1. Fetch registrations assigned to this team leader
-    const qRegs = query(
-      collection(db, 'registrations'),
-      where('status', '==', 'Approved'),
-      limit(200)
-    );
+    getEmployeeDb().then((activeDb) => {
+      if (!isMounted || !activeDb) return;
 
-    const unsubRegs = onSnapshot(qRegs, (snapshot) => {
-      const fetchedMembers: TeamMember[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        const matchesLeader = 
-          (currentLeaderCode && data.teamLeaderCode === currentLeaderCode) || 
-          (currentLeaderCode && data.assignedTeamLeaderCode === currentLeaderCode) || 
-          (currentLeaderId && data.teamLeaderId === currentLeaderId) ||
-          (currentLeaderId && data.assignedTeamLeaderId === currentLeaderId) ||
-          (currentLeaderId && data.teamLeaderUid === currentLeaderId) ||
-          (Array.isArray(employeeData?.teamMemberUids) && employeeData.teamMemberUids.includes(docSnap.id));
+      // 1. Fetch registrations assigned to this team leader
+      const qRegs = query(
+        collection(activeDb, 'registrations'),
+        where('status', '==', 'Approved'),
+        limit(200)
+      );
 
-        if (matchesLeader) {
-          fetchedMembers.push({ id: docSnap.id, ...data } as TeamMember);
-        }
-      });
-      setTeamMembers(fetchedMembers);
-    }, (err) => console.warn('MyTeamScreen regs snapshot error:', err));
+      unsubRegs = onSnapshot(qRegs, (snapshot) => {
+        const fetchedMembers: TeamMember[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const matchesLeader = 
+            (currentLeaderCode && data.teamLeaderCode === currentLeaderCode) || 
+            (currentLeaderCode && data.assignedTeamLeaderCode === currentLeaderCode) || 
+            (currentLeaderId && data.teamLeaderId === currentLeaderId) ||
+            (currentLeaderId && data.assignedTeamLeaderId === currentLeaderId) ||
+            (currentLeaderId && data.teamLeaderUid === currentLeaderId) ||
+            (Array.isArray(employeeData?.teamMemberUids) && employeeData.teamMemberUids.includes(docSnap.id));
 
-    // 2. Fetch tasks for this team leader / team
-    const qTasks = query(
-      collection(db, 'tasks'),
-      limit(200)
-    );
+          if (matchesLeader) {
+            fetchedMembers.push({ id: docSnap.id, ...data } as TeamMember);
+          }
+        });
+        setTeamMembers(fetchedMembers);
+      }, (err) => console.warn('MyTeamScreen regs snapshot error:', err));
 
-    const unsubTasks = onSnapshot(qTasks, (snapshot) => {
-      const allFirestoreTasks: TaskRecord[] = [];
-      snapshot.forEach((docSnap) => {
-        allFirestoreTasks.push({ id: docSnap.id, ...docSnap.data() } as TaskRecord);
-      });
+      // 2. Fetch tasks for this team leader / team
+      const qTasks = query(
+        collection(activeDb, 'tasks'),
+        limit(200)
+      );
 
-      const localTasks = getStoredTasks();
-      const mergedMap = new Map<string, TaskRecord>();
-      allFirestoreTasks.forEach((t) => mergedMap.set(t.id, t));
-      localTasks.forEach((t) => {
-        if (!mergedMap.has(t.id)) mergedMap.set(t.id, t);
-      });
+      unsubTasks = onSnapshot(qTasks, (snapshot) => {
+        const allFirestoreTasks: TaskRecord[] = [];
+        snapshot.forEach((docSnap) => {
+          allFirestoreTasks.push({ id: docSnap.id, ...docSnap.data() } as TaskRecord);
+        });
 
-      const combined = Array.from(mergedMap.values());
-      
-      const teamMemberCodes = new Set([currentLeaderCode]);
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        if (data.teamLeaderCode === currentLeaderCode || data.teamLeaderId === currentLeaderId) {
-          if (data.employeeCode) teamMemberCodes.add(data.employeeCode);
-        }
-      });
+        const localTasks = getStoredTasks();
+        const mergedMap = new Map<string, TaskRecord>();
+        allFirestoreTasks.forEach((t) => mergedMap.set(t.id, t));
+        localTasks.forEach((t) => {
+          if (!mergedMap.has(t.id)) mergedMap.set(t.id, t);
+        });
 
-      const filteredTeamTasks = combined.filter((t) => {
-        if (t.createdBy === currentLeaderId || t.createdBy === currentLeaderCode) return true;
-        if (t.teamLeaderCode === currentLeaderCode || t.teamLeaderId === currentLeaderId) return true;
-        const isAssignedToMember = (t.assignedToEmployeeCodes || []).some((code) => teamMemberCodes.has(code));
-        return isAssignedToMember;
-      });
+        const combined = Array.from(mergedMap.values());
+        
+        const teamMemberCodes = new Set([currentLeaderCode]);
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.teamLeaderCode === currentLeaderCode || data.teamLeaderId === currentLeaderId) {
+            if (data.employeeCode) teamMemberCodes.add(data.employeeCode);
+          }
+        });
 
-      filteredTeamTasks.sort((a, b) => new Date(b.createdAtDeviceTime).getTime() - new Date(a.createdAtDeviceTime).getTime());
-      setTeamTasks(filteredTeamTasks);
-    }, (err) => console.warn('MyTeamScreen tasks snapshot error:', err));
+        const filteredTeamTasks = combined.filter((t) => {
+          if (t.createdBy === currentLeaderId || t.createdBy === currentLeaderCode) return true;
+          if (t.teamLeaderCode === currentLeaderCode || t.teamLeaderId === currentLeaderId) return true;
+          const isAssignedToMember = (t.assignedToEmployeeCodes || []).some((code) => teamMemberCodes.has(code));
+          return isAssignedToMember;
+        });
+
+        filteredTeamTasks.sort((a, b) => new Date(b.createdAtDeviceTime).getTime() - new Date(a.createdAtDeviceTime).getTime());
+        setTeamTasks(filteredTeamTasks);
+      }, (err) => console.warn('MyTeamScreen tasks snapshot error:', err));
+    }).catch(err => console.warn('MyTeamScreen db error:', err));
 
     return () => {
-      unsubRegs();
-      unsubTasks();
+      isMounted = false;
+      if (unsubRegs) unsubRegs();
+      if (unsubTasks) unsubTasks();
     };
-  }, [db, isTeamLeader, currentLeaderCode, currentLeaderId]);
+  }, [isTeamLeader, currentLeaderCode, currentLeaderId]);
 
   // Fetch leaves assigned to this Team Leader's members
   useEffect(() => {
-    if (!db || !isTeamLeader) return;
+    if (!isTeamLeader) return;
+    let isMounted = true;
+    let unsub: (() => void) | null = null;
 
-    const qLeaves = query(collection(db, 'leaves'), limit(200));
-    const unsub = onSnapshot(qLeaves, (snapshot) => {
-      const fetchedLeaves: LeaveRecord[] = [];
-      snapshot.forEach((docSnap) => {
-        fetchedLeaves.push(docSnap.data() as LeaveRecord);
+    getEmployeeDb().then((activeDb) => {
+      if (!isMounted || !activeDb) return;
+      const qLeaves = query(collection(activeDb, 'leaves'), limit(200));
+      unsub = onSnapshot(qLeaves, (snapshot) => {
+        const fetchedLeaves: LeaveRecord[] = [];
+        snapshot.forEach((docSnap) => {
+          fetchedLeaves.push(docSnap.data() as LeaveRecord);
+        });
+        setRawLeaves(fetchedLeaves);
+      }, (err) => {
+        console.warn('Error listening to team leaves:', err);
       });
-      setRawLeaves(fetchedLeaves);
-    }, (err) => {
-      console.warn('Error listening to team leaves:', err);
-    });
+    }).catch(err => console.warn('MyTeamScreen leaves db error:', err));
 
     return () => {
-      unsub();
+      isMounted = false;
+      if (unsub) unsub();
     };
-  }, [db, isTeamLeader]);
+  }, [isTeamLeader]);
 
   // Team Leaves computed via useMemo to avoid tearing down the snapshot listener on every teamMembers update
   const teamLeaves = useMemo(() => {
@@ -313,9 +327,10 @@ export const MyTeamScreen: React.FC = () => {
 
     saveTaskRecord(newTask);
 
-    if (db) {
-      try {
-        await setDoc(doc(db, 'tasks', taskId), newTask);
+    try {
+      const activeDb = await getEmployeeDb();
+      if (activeDb) {
+        await setDoc(doc(activeDb, 'tasks', taskId), newTask);
 
         // Send notification to each assigned team member
         for (const code of assignedCodes) {
@@ -330,9 +345,9 @@ export const MyTeamScreen: React.FC = () => {
             entityType: 'TASK',
           });
         }
-      } catch (err) {
-        console.error('Error creating team task in Firestore:', err);
       }
+    } catch (err) {
+      console.error('Error creating team task in Firestore:', err);
     }
 
     setTaskTitle('');
@@ -373,9 +388,10 @@ export const MyTeamScreen: React.FC = () => {
 
     saveTaskRecord(updatedTask);
 
-    if (db) {
-      try {
-        await updateDoc(doc(db, 'tasks', task.id), {
+    try {
+      const activeDbpytest = await getEmployeeDb();
+      if (activeDbpytest) {
+        await updateDoc(doc(activeDbpytest, 'tasks', task.id), {
           status: 'Completed',
           approvalStatus: 'APPROVED',
           approvedBy: currentLeaderId,
@@ -401,9 +417,9 @@ export const MyTeamScreen: React.FC = () => {
             entityType: 'TASK',
           });
         }
-      } catch (err) {
-        console.error('Error approving task in Firestore:', err);
       }
+    } catch (err) {
+      console.error('Error approving task in Firestore:', err);
     }
 
     setSelectedTaskForReview(null);
@@ -463,9 +479,10 @@ export const MyTeamScreen: React.FC = () => {
 
     saveTaskRecord(updatedTask);
 
-    if (db) {
-      try {
-        await updateDoc(doc(db, 'tasks', selectedTaskForReview.id), {
+    try {
+      const activeDb = await getEmployeeDb();
+      if (activeDb) {
+        await updateDoc(doc(activeDb, 'tasks', selectedTaskForReview.id), {
           status: 'Revision Requested',
           approvalStatus: 'REVISION_REQUIRED',
           reviewedBy: employeeData?.name || 'Team Leader',
@@ -491,9 +508,9 @@ export const MyTeamScreen: React.FC = () => {
             entityType: 'TASK',
           });
         }
-      } catch (err) {
-        console.error('Error returning task for revision:', err);
       }
+    } catch (err) {
+      console.error('Error returning task for revision:', err);
     }
 
     setShowRevisionModal(false);
