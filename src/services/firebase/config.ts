@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { getActiveDbSync } from './db_sync';
 import firebaseAppConfig from '../../../firebase-applet-config.json';
 
 console.log('Firebase config raw import:', firebaseAppConfig);
@@ -17,11 +18,7 @@ export const getDefaultApp = () => {
 };
 
 export const getAdminApp = () => {
-  if (!adminAppInstance) {
-    console.log('Initializing Admin Firebase App');
-    adminAppInstance = initializeApp(firebaseAppConfig, 'admin');
-  }
-  return adminAppInstance;
+  return getDefaultApp();
 };
 
 // 2. Service Singletons
@@ -51,28 +48,15 @@ export const isAdminContext = (): boolean => {
 
 export const getActiveAuth = () => isAdminContext() ? getAdminAuth() : getEmployeeAuth();
 
-let cachedDbSync: any = null;
-
 /**
  * Compatibility Proxy for 'db'
  * 
  * This proxy allows existing code to continue importing 'db' from config.ts.
  * It will resolve to either the Admin or Employee Firestore instance on-demand.
- * 
- * It dynamically imports the synchronization layer only when accessed to avoid 
- * pulling Firestore into the initial bundle.
  */
 export const db = new Proxy({}, {
   get(target, prop) {
-    if (!cachedDbSync) {
-      // Trigger the dynamic import of the database sync layer.
-      // Note: The first few calls might return undefined until the import resolves.
-      // However, all critical startup paths now use await getDb() which is safe.
-      import('./db_sync').then(m => { cachedDbSync = m; });
-      return undefined;
-    }
-
-    const activeDb = cachedDbSync.getActiveDbSync();
+    const activeDb = getActiveDbSync();
     if (!activeDb) return undefined;
 
     if (prop === 'concrete' || prop === '_concrete') {

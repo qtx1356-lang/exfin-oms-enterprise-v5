@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { db } from '../../services/firebase/config';
+import { getAdminDb } from '../../services/firebase/config';
 import { collection, query, limit, onSnapshot, orderBy } from 'firebase/firestore';
 import { Card } from '../../components/ui/Card';
 import { 
@@ -37,7 +37,8 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
 
   // Firestore Subscriptions
   useEffect(() => {
-    if (!db) return;
+    let isMounted = true;
+    const unsubs: (() => void)[] = [];
 
     let regsLoaded = false;
     let attLoaded = false;
@@ -46,67 +47,76 @@ export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
     let leavesLoaded = false;
 
     const checkAllLoaded = () => {
-      if (regsLoaded && attLoaded && expLoaded && tasksLoaded && leavesLoaded) {
+      if (regsLoaded && attLoaded && expLoaded && tasksLoaded && leavesLoaded && isMounted) {
         setIsLoading(false);
       }
     };
 
-    // 1. Registrations
-    const qRegs = query(collection(db, 'registrations'), limit(500));
-    const unsubRegs = onSnapshot(qRegs, (snap) => {
-      const list: any[] = [];
-      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-      setRegistrations(list);
-      regsLoaded = true;
-      checkAllLoaded();
-    }, () => { regsLoaded = true; checkAllLoaded(); });
+    getAdminDb().then((activeDb) => {
+      if (!isMounted || !activeDb) return;
 
-    // 2. Attendance
-    const qAtt = query(collection(db, 'attendance'), limit(1500));
-    const unsubAtt = onSnapshot(qAtt, (snap) => {
-      const list: any[] = [];
-      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-      setAttendanceRecords(list);
-      attLoaded = true;
-      checkAllLoaded();
-    }, () => { attLoaded = true; checkAllLoaded(); });
+      // 1. Registrations
+      const qRegs = query(collection(activeDb, 'registrations'), limit(500));
+      unsubs.push(onSnapshot(qRegs, (snap) => {
+        if (!isMounted) return;
+        const list: any[] = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+        setRegistrations(list);
+        regsLoaded = true;
+        checkAllLoaded();
+      }, () => { regsLoaded = true; checkAllLoaded(); }));
 
-    // 3. Expenses
-    const qExp = query(collection(db, 'expenses'), limit(500));
-    const unsubExp = onSnapshot(qExp, (snap) => {
-      const list: any[] = [];
-      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-      setExpenseRecords(list);
-      expLoaded = true;
-      checkAllLoaded();
-    }, () => { expLoaded = true; checkAllLoaded(); });
+      // 2. Attendance
+      const qAtt = query(collection(activeDb, 'attendance'), limit(1500));
+      unsubs.push(onSnapshot(qAtt, (snap) => {
+        if (!isMounted) return;
+        const list: any[] = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+        setAttendanceRecords(list);
+        attLoaded = true;
+        checkAllLoaded();
+      }, () => { attLoaded = true; checkAllLoaded(); }));
 
-    // 4. Tasks
-    const qTasks = query(collection(db, 'tasks'), limit(1000));
-    const unsubTasks = onSnapshot(qTasks, (snap) => {
-      const list: any[] = [];
-      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-      setTasks(list);
-      tasksLoaded = true;
-      checkAllLoaded();
-    }, () => { tasksLoaded = true; checkAllLoaded(); });
+      // 3. Expenses
+      const qExp = query(collection(activeDb, 'expenses'), limit(500));
+      unsubs.push(onSnapshot(qExp, (snap) => {
+        if (!isMounted) return;
+        const list: any[] = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+        setExpenseRecords(list);
+        expLoaded = true;
+        checkAllLoaded();
+      }, () => { expLoaded = true; checkAllLoaded(); }));
 
-    // 5. Leaves
-    const qLeaves = query(collection(db, 'leaves'), limit(500));
-    const unsubLeaves = onSnapshot(qLeaves, (snap) => {
-      const list: any[] = [];
-      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-      setLeaves(list);
-      leavesLoaded = true;
-      checkAllLoaded();
-    }, () => { leavesLoaded = true; checkAllLoaded(); });
+      // 4. Tasks
+      const qTasks = query(collection(activeDb, 'tasks'), limit(1000));
+      unsubs.push(onSnapshot(qTasks, (snap) => {
+        if (!isMounted) return;
+        const list: any[] = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+        setTasks(list);
+        tasksLoaded = true;
+        checkAllLoaded();
+      }, () => { tasksLoaded = true; checkAllLoaded(); }));
+
+      // 5. Leaves
+      const qLeaves = query(collection(activeDb, 'leaves'), limit(500));
+      unsubs.push(onSnapshot(qLeaves, (snap) => {
+        if (!isMounted) return;
+        const list: any[] = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+        setLeaves(list);
+        leavesLoaded = true;
+        checkAllLoaded();
+      }, () => { leavesLoaded = true; checkAllLoaded(); }));
+    }).catch(err => {
+      console.warn('ReportsAnalyticsTab db load error:', err);
+      if (isMounted) setIsLoading(false);
+    });
 
     return () => {
-      unsubRegs();
-      unsubAtt();
-      unsubExp();
-      unsubTasks();
-      unsubLeaves();
+      isMounted = false;
+      unsubs.forEach(unsub => unsub());
     };
   }, []);
 

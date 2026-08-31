@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../../services/firebase/config';
+import { getAdminDb } from '../../services/firebase/config';
 import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -18,37 +18,50 @@ export const PendingDeviceApprovalsTab: React.FC = () => {
   const [rejectReason, setRejectReason] = useState('');
 
   useEffect(() => {
-    if (!db) {
-      setLoading(false);
-      return;
-    }
+    let isMounted = true;
+    let unsub: (() => void) | null = null;
 
-    const unsub = onSnapshot(collection(db, 'registrations'), (snapshot) => {
-      const pending: ManagedUser[] = [];
-      snapshot.docs.forEach((d) => {
-        const data = d.data() as ManagedUser;
-        const status = data.status || 'Pending Approval';
-        if (status === 'Pending Approval' || (status as string) === 'Pending' || (status as string).toLowerCase().includes('pending')) {
-          pending.push({ id: d.id, ...data });
-        }
+    getAdminDb().then((activeDb) => {
+      if (!isMounted || !activeDb) {
+        if (isMounted) setLoading(false);
+        return;
+      }
+
+      unsub = onSnapshot(collection(activeDb, 'registrations'), (snapshot) => {
+        if (!isMounted) return;
+        const pending: ManagedUser[] = [];
+        snapshot.docs.forEach((d) => {
+          const data = d.data() as ManagedUser;
+          const status = data.status || 'Pending Approval';
+          if (status === 'Pending Approval' || (status as string) === 'Pending' || (status as string).toLowerCase().includes('pending')) {
+            pending.push({ id: d.id, ...data });
+          }
+        });
+        // Sort by registrationDate desc if available
+        pending.sort((a, b) => new Date(b.registrationDate || 0).getTime() - new Date(a.registrationDate || 0).getTime());
+        setPendingRegistrations(pending);
+        setLoading(false);
+      }, (err) => {
+        console.error('Failed to load pending registrations:', err);
+        if (isMounted) setLoading(false);
       });
-      // Sort by registrationDate desc if available
-      pending.sort((a, b) => new Date(b.registrationDate || 0).getTime() - new Date(a.registrationDate || 0).getTime());
-      setPendingRegistrations(pending);
-      setLoading(false);
-    }, (err) => {
-      console.error('Failed to load pending registrations:', err);
-      setLoading(false);
+    }).catch(err => {
+      console.warn('PendingDeviceApprovalsTab db load error:', err);
+      if (isMounted) setLoading(false);
     });
 
-    return () => unsub();
+    return () => {
+      isMounted = false;
+      if (unsub) unsub();
+    };
   }, []);
 
   const handleApprove = async (reg: ManagedUser) => {
-    if (!db) return;
     setActionLoadingId(reg.id);
     try {
-      const regRef = doc(db, 'registrations', reg.id);
+      const activeDb = await getAdminDb();
+      if (!activeDb) throw new Error('Database connection unavailable');
+      const regRef = doc(activeDb, 'registrations', reg.id);
       await updateDoc(regRef, {
         status: 'Approved',
         approvedAt: new Date().toISOString(),
@@ -126,12 +139,14 @@ export const PendingDeviceApprovalsTab: React.FC = () => {
   };
 
   const handleRejectConfirm = async () => {
-    if (!db || !rejectModalReg) return;
+    if (!rejectModalReg) return;
     const reg = rejectModalReg;
     setActionLoadingId(reg.id);
 
     try {
-      const regRef = doc(db, 'registrations', reg.id);
+      const activeDb = await getAdminDb();
+      if (!activeDb) throw new Error('Database connection unavailable');
+      const regRef = doc(activeDb, 'registrations', reg.id);
       await updateDoc(regRef, {
         status: 'Rejected',
         rejectionReason: rejectReason.trim() || 'Registration rejected by administrator',

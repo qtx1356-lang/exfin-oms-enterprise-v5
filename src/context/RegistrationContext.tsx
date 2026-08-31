@@ -80,7 +80,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
   const [status, setStatus] = useState<RegistrationStatus>(() => {
     const savedRegId = localStorage.getItem('registrationId');
-    if (!savedRegId) return 'mobile_recovery';
+    if (!savedRegId) return 'unregistered';
     try {
       const raw = localStorage.getItem('cached_registration_data');
       if (raw) {
@@ -298,7 +298,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       } else {
         // No saved registration ID -> Prompt "Welcome Back" mobile number recovery
         if (isMounted) {
-          setStatus('mobile_recovery');
+          setStatus('unregistered');
         }
         return;
       }
@@ -386,7 +386,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 localStorage.removeItem('cached_registration_data');
                 setLocalRegId(null);
                 setEmployeeData(null);
-                setStatus('mobile_recovery');
+                setStatus('unregistered');
               }
             }, (error) => {
               console.warn('Realtime registration snapshot error (retaining local state):', error);
@@ -401,7 +401,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             if (isMounted) {
               setLocalRegId(null);
               setEmployeeData(null);
-              setStatus('mobile_recovery');
+              setStatus('unregistered');
             }
           }
         }

@@ -149,6 +149,7 @@ export const AdminDashboard: React.FC = () => {
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [activeEmpCodes, setActiveEmpCodes] = useState<Set<string>>(new Set());
+  const [isDbReady, setIsDbReady] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -156,6 +157,7 @@ export const AdminDashboard: React.FC = () => {
 
     getAdminDb().then((activeDb) => {
       if (!isMounted || !activeDb) return;
+      setIsDbReady(true);
       unsub = onSnapshot(collection(activeDb, 'registrations'), (snap) => {
         const codes = new Set<string>();
         snap.forEach(doc => {
@@ -475,6 +477,12 @@ export const AdminDashboard: React.FC = () => {
 
         {/* Main Content Body */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6">
+          {!isDbReady ? (
+            <div className="flex flex-col items-center justify-center py-20 space-y-4">
+              <RefreshCw className="w-12 h-12 text-purple-500 animate-spin" />
+              <div className="text-purple-300 font-bold animate-pulse uppercase tracking-widest text-[10px]">Connecting to Governance Database...</div>
+            </div>
+          ) : (
           <Suspense fallback={
             <div className="flex flex-col items-center justify-center py-20 space-y-4">
               <RefreshCw className="w-12 h-12 text-purple-500 animate-spin" />
@@ -627,6 +635,7 @@ export const AdminDashboard: React.FC = () => {
               <RegistrationsTab />
             )}
           </Suspense>
+          )}
         </main>
 
         {/* Admin Self Change Password Modal */}

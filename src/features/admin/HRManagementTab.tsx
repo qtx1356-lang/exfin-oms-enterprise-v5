@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, getDocs } from 'firebase/firestore';
-import { db } from '../../services/firebase/config';
+import { getAdminDb } from '../../services/firebase/config';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import {
@@ -34,30 +34,45 @@ export const HRManagementTab: React.FC = () => {
   const [deptFilter, setDeptFilter] = useState('ALL');
 
   useEffect(() => {
-    if (!db) {
-      setLoading(false);
-      return;
-    }
+    let isMounted = true;
+    let unsub: (() => void) | null = null;
 
-    const unsub = onSnapshot(collection(db, 'registrations'), (snapshot) => {
-      const emps: HREmployeeRecord[] = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          employeeCode: data.employeeCode || docSnap.id,
-          name: data.name || 'Unnamed Employee',
-          mobileNumber: data.mobileNumber || 'N/A',
-          office: data.office || 'Raniganj',
-          role: data.role || (data.isTeamLeader ? 'TEAM_LEADER' : 'EMPLOYEE'),
-          status: data.status || 'Approved',
-          registrationDate: data.registrationDate || '',
-        };
+    getAdminDb().then((activeDb) => {
+      if (!isMounted || !activeDb) {
+        if (isMounted) setLoading(false);
+        return;
+      }
+
+      unsub = onSnapshot(collection(activeDb, 'registrations'), (snapshot) => {
+        if (!isMounted) return;
+        const emps: HREmployeeRecord[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            employeeCode: data.employeeCode || docSnap.id,
+            name: data.name || 'Unnamed Employee',
+            mobileNumber: data.mobileNumber || 'N/A',
+            office: data.office || 'Raniganj',
+            role: data.role || (data.isTeamLeader ? 'TEAM_LEADER' : 'EMPLOYEE'),
+            status: data.status || 'Approved',
+            registrationDate: data.registrationDate || '',
+          };
+        });
+        setEmployees(emps);
+        setLoading(false);
+      }, (err) => {
+        console.warn('HRManagementTab snap error:', err);
+        if (isMounted) setLoading(false);
       });
-      setEmployees(emps);
-      setLoading(false);
+    }).catch(err => {
+      console.warn('HRManagementTab db load error:', err);
+      if (isMounted) setLoading(false);
     });
 
-    return () => unsub();
+    return () => {
+      isMounted = false;
+      if (unsub) unsub();
+    };
   }, []);
 
   const departments = Array.from(new Set(employees.map((e) => e.office || 'Raniganj')));

@@ -8,7 +8,7 @@ import {
   Activity, 
   KeyRound 
 } from 'lucide-react';
-import { db } from '../../services/firebase/config';
+import { getAdminDb } from '../../services/firebase/config';
 import { collection, query, where, onSnapshot, limit, orderBy } from 'firebase/firestore';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -54,76 +54,84 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
   const [isDataLoading, setIsDataLoading] = useState(true);
 
   useEffect(() => {
-    if (!db) return;
+    let isMounted = true;
+    const unsubs: (() => void)[] = [];
 
     setIsDataLoading(true);
 
-    // Unresolved Attendance
-    const unresolvedQuery = query(
-      collection(db, 'attendance'),
-      where('status', '==', 'MISSING_CHECKOUT')
-    );
-    const unsubUnresolved = onSnapshot(unresolvedQuery, (snap) => {
-      setUnresolvedAttendanceCount(snap.size);
-    });
+    getAdminDb().then((activeDb) => {
+      if (!isMounted || !activeDb) return;
 
-    // Pending Registrations
-    const regQuery = query(
-      collection(db, 'registrations'),
-      where('status', '==', 'Pending')
-    );
-    const unsubReg = onSnapshot(regQuery, (snap) => {
-      setPendingRegCount(snap.size);
-      const regs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setRegistrations(regs);
-    });
+      // Unresolved Attendance
+      const unresolvedQuery = query(
+        collection(activeDb, 'attendance'),
+        where('status', '==', 'MISSING_CHECKOUT')
+      );
+      unsubs.push(onSnapshot(unresolvedQuery, (snap) => {
+        if (isMounted) setUnresolvedAttendanceCount(snap.size);
+      }, (err) => console.warn('AdminOverviewTab unresolved attendance error:', err)));
 
-    // All Registrations (for counts)
-    const allRegQuery = query(collection(db, 'registrations'));
-    const unsubAllReg = onSnapshot(allRegQuery, (snap) => {
-      const regs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setRegistrations(regs);
-    });
+      // Pending Registrations
+      const regQuery = query(
+        collection(activeDb, 'registrations'),
+        where('status', '==', 'Pending')
+      );
+      unsubs.push(onSnapshot(regQuery, (snap) => {
+        if (!isMounted) return;
+        setPendingRegCount(snap.size);
+        const regs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setRegistrations(regs);
+      }, (err) => console.warn('AdminOverviewTab pending regs error:', err)));
 
-    // Today's Attendance
-    const today = new Date().toISOString().split('T')[0];
-    const todayQuery = query(
-      collection(db, 'attendance'),
-      where('date', '==', today)
-    );
-    const unsubToday = onSnapshot(todayQuery, (snap) => {
-      setTodayAttendanceCount(snap.size);
-      setAttendanceRecords(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+      // All Registrations (for counts)
+      const allRegQuery = query(collection(activeDb, 'registrations'));
+      unsubs.push(onSnapshot(allRegQuery, (snap) => {
+        if (!isMounted) return;
+        const regs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setRegistrations(regs);
+      }, (err) => console.warn('AdminOverviewTab all regs error:', err)));
 
-    // Pending Expenses
-    const expenseQuery = query(
-      collection(db, 'expenses'),
-      where('status', '==', 'Pending')
-    );
-    const unsubExpense = onSnapshot(expenseQuery, (snap) => {
-      setPendingExpenseCount(snap.size);
-    });
+      // Today's Attendance
+      const today = new Date().toISOString().split('T')[0];
+      const todayQuery = query(
+        collection(activeDb, 'attendance'),
+        where('date', '==', today)
+      );
+      unsubs.push(onSnapshot(todayQuery, (snap) => {
+        if (!isMounted) return;
+        setTodayAttendanceCount(snap.size);
+        setAttendanceRecords(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      }, (err) => console.warn('AdminOverviewTab today attendance error:', err)));
 
-    // Pending Leaves
-    const leaveQuery = query(
-      collection(db, 'leaves'),
-      where('status', '==', 'Pending')
-    );
-    const unsubLeave = onSnapshot(leaveQuery, (snap) => {
-      setPendingLeaveCount(snap.size);
-      setLeaves(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+      // Pending Expenses
+      const expenseQuery = query(
+        collection(activeDb, 'expenses'),
+        where('status', '==', 'Pending')
+      );
+      unsubs.push(onSnapshot(expenseQuery, (snap) => {
+        if (isMounted) setPendingExpenseCount(snap.size);
+      }, (err) => console.warn('AdminOverviewTab pending expenses error:', err)));
 
-    setIsDataLoading(false);
+      // Pending Leaves
+      const leaveQuery = query(
+        collection(activeDb, 'leaves'),
+        where('status', '==', 'Pending')
+      );
+      unsubs.push(onSnapshot(leaveQuery, (snap) => {
+        if (!isMounted) return;
+        setPendingLeaveCount(snap.size);
+        setLeaves(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      }, (err) => console.warn('AdminOverviewTab pending leaves error:', err)));
+
+      if (isMounted) setIsDataLoading(false);
+    }).catch(err => {
+      console.warn('AdminOverviewTab db load error:', err);
+      if (isMounted) setIsDataLoading(false);
+    });
 
     return () => {
-      unsubUnresolved();
-      unsubReg();
-      unsubAllReg();
-      unsubToday();
-      unsubExpense();
-      unsubLeave();
+      isMounted = false;
+      unsubs.forEach(unsub => unsub());
     };
   }, []);
 

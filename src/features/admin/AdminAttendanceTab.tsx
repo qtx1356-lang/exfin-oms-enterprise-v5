@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { db } from '../../services/firebase/config';
+import { getAdminDb } from '../../services/firebase/config';
 import { 
   collection, 
   onSnapshot, 
@@ -66,57 +66,79 @@ export const AdminAttendanceTab: React.FC<AdminAttendanceTabProps> = ({ role, is
 
   // Firestore Subscriptions
   useEffect(() => {
-    if (!db) return;
+    let isMounted = true;
+    const unsubs: (() => void)[] = [];
 
     let attLoaded = false;
     let regsLoaded = false;
     let locsLoaded = false;
 
     const checkAllLoaded = () => {
-      if (attLoaded && regsLoaded && locsLoaded) {
+      if (attLoaded && regsLoaded && locsLoaded && isMounted) {
         setIsLoading(false);
       }
     };
 
-    // 1. Attendance (Last 1000 records)
-    const qAtt = query(collection(db, 'attendance'), orderBy('date', 'desc'), limit(1000));
-    const unsubAtt = onSnapshot(qAtt, (snap) => {
-      const list: AttendanceRecord[] = [];
-      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as AttendanceRecord));
-      setAttendanceRecords(list);
-      attLoaded = true;
-      checkAllLoaded();
-    }, () => { attLoaded = true; checkAllLoaded(); });
+    getAdminDb().then((activeDb) => {
+      if (!isMounted || !activeDb) return;
 
-    // 2. Registrations
-    const qRegs = query(collection(db, 'registrations'), limit(500));
-    const unsubRegs = onSnapshot(qRegs, (snap) => {
-      const list: ManagedUser[] = [];
-      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as ManagedUser));
-      setRegistrations(list);
-      regsLoaded = true;
-      checkAllLoaded();
-    }, () => { regsLoaded = true; checkAllLoaded(); });
+      // 1. Attendance (Last 1000 records)
+      const qAtt = query(collection(activeDb, 'attendance'), orderBy('date', 'desc'), limit(1000));
+      unsubs.push(onSnapshot(qAtt, (snap) => {
+        if (!isMounted) return;
+        const list: AttendanceRecord[] = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as AttendanceRecord));
+        setAttendanceRecords(list);
+        attLoaded = true;
+        checkAllLoaded();
+      }, (err) => {
+        console.warn('AdminAttendanceTab attendance error:', err);
+        attLoaded = true;
+        checkAllLoaded();
+      }));
 
-    // 3. Live Locations
-    const qLocs = query(collection(db, 'live_locations'), limit(500));
-    const unsubLocs = onSnapshot(qLocs, (snap) => {
-      const map = new Map<string, any>();
-      snap.forEach(doc => {
-        const data = doc.data();
-        if (data.employeeCode) {
-          map.set(data.employeeCode.trim().toLowerCase(), data);
-        }
-      });
-      setLiveLocationByEmployee(map);
-      locsLoaded = true;
-      checkAllLoaded();
-    }, () => { locsLoaded = true; checkAllLoaded(); });
+      // 2. Registrations
+      const qRegs = query(collection(activeDb, 'registrations'), limit(500));
+      unsubs.push(onSnapshot(qRegs, (snap) => {
+        if (!isMounted) return;
+        const list: ManagedUser[] = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as ManagedUser));
+        setRegistrations(list);
+        regsLoaded = true;
+        checkAllLoaded();
+      }, (err) => {
+        console.warn('AdminAttendanceTab registrations error:', err);
+        regsLoaded = true;
+        checkAllLoaded();
+      }));
+
+      // 3. Live Locations
+      const qLocs = query(collection(activeDb, 'live_locations'), limit(500));
+      unsubs.push(onSnapshot(qLocs, (snap) => {
+        if (!isMounted) return;
+        const map = new Map<string, any>();
+        snap.forEach(doc => {
+          const data = doc.data();
+          if (data.employeeCode) {
+            map.set(data.employeeCode.trim().toLowerCase(), data);
+          }
+        });
+        setLiveLocationByEmployee(map);
+        locsLoaded = true;
+        checkAllLoaded();
+      }, (err) => {
+        console.warn('AdminAttendanceTab live locations error:', err);
+        locsLoaded = true;
+        checkAllLoaded();
+      }));
+    }).catch(err => {
+      console.warn('AdminAttendanceTab db load error:', err);
+      if (isMounted) setIsLoading(false);
+    });
 
     return () => {
-      unsubAtt();
-      unsubRegs();
-      unsubLocs();
+      isMounted = false;
+      unsubs.forEach(unsub => unsub());
     };
   }, []);
 
@@ -237,8 +259,9 @@ export const AdminAttendanceTab: React.FC<AdminAttendanceTabProps> = ({ role, is
     setCorrectionMessage('Verifying authoritative record state...');
 
     try {
-      const docRef = doc(db, 'attendance', selectedForRectify.id || selectedForRectify.docId || '');
-      const docSnap = await getDocs(query(collection(db, 'attendance'), where('id', '==', selectedForRectify.id)));
+      const activeDb = await getAdminDb();
+      if (!activeDb) throw new Error('Admin database connection unavailable.');
+      const docSnap = await getDocs(query(collection(activeDb, 'attendance'), where('id', '==', selectedForRectify.id)));
       
       if (docSnap.empty) {
         throw new Error('Record not found in database.');

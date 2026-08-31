@@ -109,6 +109,20 @@ const EmployeeGuard = () => {
     }
   });
 
+  const [isDbReady, setIsDbReady] = React.useState(false);
+
+  React.useEffect(() => {
+    import('../services/firebase/db').then(({ getEmployeeDb }) => {
+      getEmployeeDb().then((db) => {
+        if (db) setIsDbReady(true);
+      }).catch(err => {
+        console.warn('Failed to init employee db', err);
+        // Fallback to true so we don't hang if offline
+        setIsDbReady(true);
+      });
+    });
+  }, []);
+
   React.useEffect(() => {
     console.log(`[FLICKER-TRACE] EmployeeGuard MOUNT ${getTime()}`);
     return () => console.log(`[FLICKER-TRACE] EmployeeGuard UNMOUNT ${getTime()}`);
@@ -139,6 +153,8 @@ const EmployeeGuard = () => {
   if (status === 'Pending Approval') return <PendingApproval />;
   if (status === 'Rejected') return <RejectedScreen />;
   if (status === 'suspended_notice') return <SuspendedNoticeScreen />;
+
+  if (!isDbReady) return <LoadingScreen />;
 
   return <Outlet />;
 };

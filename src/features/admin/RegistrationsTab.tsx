@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { db } from '../../services/firebase/config';
+import { getAdminDb } from '../../services/firebase/config';
 import { collection, query, limit, onSnapshot } from 'firebase/firestore';
 import { Card } from '../../components/ui/Card';
 import { Smartphone, RefreshCw } from 'lucide-react';
@@ -10,20 +10,33 @@ export const RegistrationsTab: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!db) return;
-    const qRegs = query(collection(db, 'registrations'), limit(500));
-    const unsub = onSnapshot(qRegs, (snapshot) => {
-      const regs: Registration[] = [];
-      snapshot.forEach((doc) => {
-        regs.push({ id: doc.id, ...doc.data() } as Registration);
+    let isMounted = true;
+    let unsub: (() => void) | null = null;
+
+    getAdminDb().then((activeDb) => {
+      if (!isMounted || !activeDb) return;
+      const qRegs = query(collection(activeDb, 'registrations'), limit(500));
+      unsub = onSnapshot(qRegs, (snapshot) => {
+        if (!isMounted) return;
+        const regs: Registration[] = [];
+        snapshot.forEach((doc) => {
+          regs.push({ id: doc.id, ...doc.data() } as Registration);
+        });
+        setRegistrations(regs);
+        setIsLoading(false);
+      }, (err) => {
+        console.error('Failed to fetch registrations:', err);
+        if (isMounted) setIsLoading(false);
       });
-      setRegistrations(regs);
-      setIsLoading(false);
-    }, (err) => {
-      console.error('Failed to fetch registrations:', err);
-      setIsLoading(false);
+    }).catch(err => {
+      console.warn('RegistrationsTab db load error:', err);
+      if (isMounted) setIsLoading(false);
     });
-    return () => unsub();
+
+    return () => {
+      isMounted = false;
+      if (unsub) unsub();
+    };
   }, []);
 
   const deduplicatedRegistrations = React.useMemo(() => {
