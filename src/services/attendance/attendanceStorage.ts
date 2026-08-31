@@ -308,6 +308,10 @@ export const saveAttendanceRecord = (record: AttendanceRecord): void => {
     cachedRecordsMemory[getStorageKey()] = records;
     localStorage.setItem(getStorageKey(), JSON.stringify(records));
 
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+    }
+
     logAttendanceWriteDiagnostic(
       record.isAdminRectified || record.manualRectified ? 'ADMIN_ATTENDANCE_CORRECTION' : ((record as any).source || record.checkInMode || 'LocalStorage'),
       record.employeeId,

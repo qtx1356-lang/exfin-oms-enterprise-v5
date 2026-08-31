@@ -6,6 +6,9 @@ import { useLocationContext } from '../../context/LocationContext';
 import { logStartupTag } from '../../services/startup/startupPerformanceLogger';
 import { speakWelcomeGreeting } from '../../services/notification/alertSoundService';
 import { GreetingPeriodKey } from '../../services/voice/greetingAssets';
+import { getTodayAttendanceRecord } from '../../services/attendance/attendanceStorage';
+import { getFormattedDateStr, parseAttendanceTimeToMinutes, getFormattedTimeStr } from '../../services/attendance/automaticAttendanceEngine';
+import { AttendanceRecord } from '../../types/attendance';
 
 interface WelcomeScreenProps {
   onProceed?: () => void;
@@ -34,40 +37,94 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     return '';
   });
 
-  // Load today's latest attendance status from localStorage or state
-  const [latestAttendanceText, setLatestAttendanceText] = useState<{ label: string; time: string }>({ label: 'Attendance', time: 'No attendance yet' });
+  // Load today's authoritative attendance record
+  const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
+  const [liveDuration, setLiveDuration] = useState<string>('');
+
+  const refreshAttendance = React.useCallback(() => {
+    if (!employeeData) return;
+    const empId = employeeData.employeeCode || employeeData.uid || employeeData.id;
+    const today = getFormattedDateStr();
+    const record = getTodayAttendanceRecord(empId, today);
+    setAttendance(record);
+    
+    // Diagnostic logging as requested
+    console.log('[WelcomeAttendance]', {
+      employeeCode: employeeData.employeeCode,
+      todayDate: today,
+      attendanceRecordFound: !!record,
+      status: record?.currentState || record?.status || (record?.checkOutTime ? 'CHECKED_OUT' : (record?.checkInTime ? 'CHECKED_IN' : 'N/A')),
+      checkInTime: record?.checkInTime,
+      checkOutTime: record?.checkOutTime
+    });
+  }, [employeeData]);
 
   useEffect(() => {
-    try {
-      const attendanceKey = 'exfin_offline_attendance_log';
-      const rawAtt = localStorage.getItem(attendanceKey);
-      const todayStr = new Date().toISOString().substring(0, 10);
-      if (rawAtt) {
-        const list = JSON.parse(rawAtt);
-        const todayLogs = list.filter((l: any) => (l.date || '').startsWith(todayStr) || (l.timestamp || '').startsWith(todayStr));
-        if (todayLogs.length > 0) {
-          // Sort descending by timestamp
-          todayLogs.sort((a: any, b: any) => new Date(b.timestamp || b.checkInTime || 0).getTime() - new Date(a.timestamp || a.checkInTime || 0).getTime());
-          const latest = todayLogs[0];
-          const type = (latest.type || latest.action || 'CHECK_IN').toUpperCase();
-          const ts = latest.timestamp || latest.checkInTime || new Date().toISOString();
-          let timeFormatted = ts;
-          try {
-            const d = new Date(ts);
-            if (!isNaN(d.getTime())) {
-              timeFormatted = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-            }
-          } catch (err) {}
+    refreshAttendance();
 
-          if (type.includes('OUT') || type.includes('CHECK_OUT')) {
-            setLatestAttendanceText({ label: 'Latest Check-out', time: `Today, ${timeFormatted}` });
-          } else {
-            setLatestAttendanceText({ label: 'Latest Check-in', time: `Today, ${timeFormatted}` });
-          }
-        }
+    // Subscribe to attendance updates
+    const handleUpdate = () => refreshAttendance();
+    window.addEventListener('exfin-attendance-updated', handleUpdate);
+    window.addEventListener('exfin-checkout-confirmation-needed', handleUpdate);
+    
+    // Fallback refresh on resume
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refreshAttendance();
+    });
+    window.addEventListener('focus', handleUpdate);
+    window.addEventListener('online', handleUpdate);
+    window.addEventListener('pageshow', handleUpdate);
+
+    return () => {
+      window.removeEventListener('exfin-attendance-updated', handleUpdate);
+      window.removeEventListener('exfin-checkout-confirmation-needed', handleUpdate);
+      window.removeEventListener('visibilitychange', handleUpdate);
+      window.removeEventListener('focus', handleUpdate);
+      window.removeEventListener('online', handleUpdate);
+      window.removeEventListener('pageshow', handleUpdate);
+    };
+  }, [refreshAttendance]);
+
+  // Live Duration Update
+  useEffect(() => {
+    if (!attendance || !attendance.checkInTime || attendance.checkOutTime) {
+      setLiveDuration('');
+      return;
+    }
+
+    const updateDuration = () => {
+      const inMins = parseAttendanceTimeToMinutes(attendance.checkInTime);
+      if (inMins === null) return;
+      
+      const now = new Date();
+      // Use Asia/Kolkata minutes for "now" consistent with the engine
+      try {
+        const formatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'Asia/Kolkata',
+          hour: 'numeric',
+          minute: 'numeric',
+          hour12: false
+        });
+        const parts = formatter.formatToParts(now);
+        const h = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+        const m = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+        const nowMins = h * 60 + m;
+        
+        let diff = nowMins - inMins;
+        if (diff < 0) diff = 0; 
+        
+        const hh = Math.floor(diff / 60);
+        const mm = diff % 60;
+        setLiveDuration(`${hh}h ${mm}m`);
+      } catch (e) {
+        setLiveDuration('--');
       }
-    } catch (e) {}
-  }, []);
+    };
+
+    updateDuration();
+    const interval = setInterval(updateDuration, 60000);
+    return () => clearInterval(interval);
+  }, [attendance]);
 
   useEffect(() => {
     logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
@@ -260,12 +317,37 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
               <span className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider block">
                 ATTENDANCE
               </span>
-              <span className="text-xs font-bold text-[#10B981] block leading-snug">
-                {latestAttendanceText.label}
-              </span>
-              <span className="text-[11px] font-medium text-[#F8FAFC] block leading-tight">
-                {latestAttendanceText.time}
-              </span>
+              {!attendance ? (
+                <>
+                  <span className="text-xs font-bold text-[#94A3B8] block leading-snug">
+                    Attendance
+                  </span>
+                  <span className="text-[11px] font-medium text-[#94A3B8] block leading-tight">
+                    No attendance yet
+                  </span>
+                </>
+              ) : attendance.checkOutTime ? (
+                <>
+                  <span className="text-xs font-bold text-[#F43F5E] block leading-snug">
+                    CHECKED OUT
+                  </span>
+                  <div className="text-[10px] text-[#F8FAFC] flex flex-col gap-0.5 mt-0.5">
+                    <span>In: {attendance.checkInTime}</span>
+                    <span>Out: {attendance.checkOutTime}</span>
+                    <span className="text-[#10B981] font-bold">Total: {attendance.workingHours || '--'}</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <span className="text-xs font-bold text-[#10B981] block leading-snug">
+                    CHECKED IN
+                  </span>
+                  <div className="text-[10px] text-[#F8FAFC] flex flex-col gap-0.5 mt-0.5">
+                    <span>In: {attendance.checkInTime}</span>
+                    <span className="text-cyan-400 font-bold">Duration: {liveDuration || '--'}</span>
+                  </div>
+                </>
+              )}
             </div>
 
           </div>
