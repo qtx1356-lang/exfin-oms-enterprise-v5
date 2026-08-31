@@ -40,7 +40,7 @@ import { AttendanceRecord } from '../../types/attendance';
 import { EfficiencyBreakdown, EfficiencyGrade, EfficiencySnapshot, EfficiencyWeightages } from '../../types/efficiency';
 import { calculateEfficiency } from '../../services/efficiency/efficiencyCalculator';
 import { DEFAULT_WEIGHTAGES, getSavedWeightages, saveWeightages, getEfficiencySnapshots, saveEfficiencySnapshot } from '../../services/efficiency/efficiencyService';
-import { getRecordWorkingMinutes, formatMinutesToDuration, calculateMonthlySummary } from '../../utils/workHoursCalc';
+import { getRecordWorkingMinutes, formatMinutesToDuration, calculateMonthlySummary, getKolkataDateStr } from '../../utils/workHoursCalc';
 import { isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
 
 interface EfficiencyDashboardProps {
@@ -121,59 +121,59 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   });
 
   // Dates Calculation based on period selection
-  const { startDate, endDate, prevStartDate, prevEndDate, periodLabel } = useMemo(() => {
-    const today = new Date();
-    const todayStr = today.toISOString().substring(0, 10);
+  const { startDate, endDate, prevStartDate, prevEndDate, periodLabel, timezone } = useMemo(() => {
+    const kolkataTodayStr = getKolkataDateStr();
+    const [kYear, kMonth, kDay] = kolkataTodayStr.split('-').map(Number);
+    const referenceDate = new Date(kYear, kMonth - 1, kDay);
 
     let start = '';
-    let end = todayStr;
+    let end = kolkataTodayStr;
     let prevStart = '';
     let prevEnd = '';
     let label = 'This Month';
 
     if (periodFilter === 'THIS_WEEK') {
       label = 'This Week';
-      const dayOfWeek = today.getDay(); // 0 = Sun, 1 = Mon...
+      const dayOfWeek = referenceDate.getDay(); // 0 = Sun, 1 = Mon...
       const distToMon = (dayOfWeek + 6) % 7;
-      const mon = new Date(today);
-      mon.setDate(today.getDate() - distToMon);
-      start = mon.toISOString().substring(0, 10);
-      end = todayStr;
+      const mon = new Date(referenceDate);
+      mon.setDate(referenceDate.getDate() - distToMon);
+      start = `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, '0')}-${String(mon.getDate()).padStart(2, '0')}`;
+      end = kolkataTodayStr;
 
       // Previous Week
       const prevMon = new Date(mon);
       prevMon.setDate(mon.getDate() - 7);
-      prevStart = prevMon.toISOString().substring(0, 10);
+      prevStart = `${prevMon.getFullYear()}-${String(prevMon.getMonth() + 1).padStart(2, '0')}-${String(prevMon.getDate()).padStart(2, '0')}`;
 
       const prevSun = new Date(mon);
       prevSun.setDate(mon.getDate() - 1);
-      prevEnd = prevSun.toISOString().substring(0, 10);
+      prevEnd = `${prevSun.getFullYear()}-${String(prevSun.getMonth() + 1).padStart(2, '0')}-${String(prevSun.getDate()).padStart(2, '0')}`;
     } else if (periodFilter === 'THIS_MONTH') {
       label = 'This Month';
-      const mStart = new Date(today.getFullYear(), today.getMonth(), 1);
-      start = mStart.toISOString().substring(0, 10);
-      end = todayStr;
+      start = `${kYear}-${String(kMonth).padStart(2, '0')}-01`;
+      end = kolkataTodayStr;
 
       // Previous Month
-      const pmStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      prevStart = pmStart.toISOString().substring(0, 10);
+      const pmStart = new Date(kYear, kMonth - 2, 1);
+      prevStart = `${pmStart.getFullYear()}-${String(pmStart.getMonth() + 1).padStart(2, '0')}-01`;
 
-      const pmEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-      prevEnd = pmEnd.toISOString().substring(0, 10);
+      const pmEnd = new Date(kYear, kMonth - 1, 0);
+      prevEnd = `${pmEnd.getFullYear()}-${String(pmEnd.getMonth() + 1).padStart(2, '0')}-${String(pmEnd.getDate()).padStart(2, '0')}`;
     } else if (periodFilter === 'PREVIOUS_MONTH') {
       label = 'Previous Month';
-      const pmStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      start = pmStart.toISOString().substring(0, 10);
+      const pmStart = new Date(kYear, kMonth - 2, 1);
+      start = `${pmStart.getFullYear()}-${String(pmStart.getMonth() + 1).padStart(2, '0')}-01`;
 
-      const pmEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-      end = pmEnd.toISOString().substring(0, 10);
+      const pmEnd = new Date(kYear, kMonth - 1, 0);
+      end = `${pmEnd.getFullYear()}-${String(pmEnd.getMonth() + 1).padStart(2, '0')}-${String(pmEnd.getDate()).padStart(2, '0')}`;
 
       // Two Months Ago
-      const p2mStart = new Date(today.getFullYear(), today.getMonth() - 2, 1);
-      prevStart = p2mStart.toISOString().substring(0, 10);
+      const p2mStart = new Date(kYear, kMonth - 3, 1);
+      prevStart = `${p2mStart.getFullYear()}-${String(p2mStart.getMonth() + 1).padStart(2, '0')}-01`;
 
-      const p2mEnd = new Date(today.getFullYear(), today.getMonth() - 1, 0);
-      prevEnd = p2mEnd.toISOString().substring(0, 10);
+      const p2mEnd = new Date(kYear, kMonth - 2, 0);
+      prevEnd = `${p2mEnd.getFullYear()}-${String(p2mEnd.getMonth() + 1).padStart(2, '0')}-${String(p2mEnd.getDate()).padStart(2, '0')}`;
     } else {
       label = 'Custom Period';
       start = customStartDate;
@@ -196,7 +196,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       }
     }
 
-    return { startDate: start, endDate: end, prevStartDate: prevStart, prevEndDate: prevEnd, periodLabel: label };
+    return { startDate: start, endDate: end, prevStartDate: prevStart, prevEndDate: prevEnd, periodLabel: label, timezone: 'Asia/Kolkata' };
   }, [periodFilter, customStartDate, customEndDate]);
 
   // Administration State
@@ -370,16 +370,15 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
     const avgMinutesPerDay = daysWithWork > 0 ? Math.round(totalMinutes / daysWithWork) : 0;
 
-    // Monthly Work Hours for current calendar month
-    const today = new Date();
-    const currentMonthPrefix = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    // Monthly Work Hours for the month of the selected period
+    const targetMonthPrefix = startDate.substring(0, 7);
     const monthlySummary = calculateMonthlySummary(
       attendance.filter(r => {
         const matchCode = r.employeeCode && (r.employeeCode === targetEmpCode || r.employeeCode === targetEmpId);
         const matchId = r.employeeId && (r.employeeId === targetEmpCode || r.employeeId === targetEmpId);
         return matchCode || matchId;
       }),
-      currentMonthPrefix
+      targetMonthPrefix
     );
 
     return {
@@ -390,7 +389,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       unresolvedCount,
       monthlyTotalFormatted: formatMinutesToDuration(monthlySummary.totalMinutes)
     };
-  }, [selectedEmployeeAttendance, attendance, targetEmpCode, targetEmpId]);
+  }, [selectedEmployeeAttendance, attendance, targetEmpCode, targetEmpId, startDate]);
 
   // ----------------------------------------------------
   // EFFICIENCY COMPUTATIONS
@@ -460,6 +459,16 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   * Punctuality Score: ${calcResult.breakdown.punctualityScore}% (attendance: ${calcResult.breakdown.attendanceDaysCount}, late: ${calcResult.breakdown.lateArrivalsCount})
   * Workload Score: ${calcResult.breakdown.workloadScore}% (overdue: ${calcResult.breakdown.overdueTasksCount})
 `);
+
+    console.log(`EFFICIENCY PERIOD DEBUG
+Selected period: ${periodFilter}
+Start: ${startDate}
+End: ${endDate}
+Timezone: Asia/Kolkata
+Attendance records: ${filteredAttendance.length}
+Task records: ${filteredTasks.length}
+Work sessions: ${calcResult.breakdown.validCheckOutsCount}
+Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
 
     return calcResult;
   }, [selectedEmployee, targetEmpCode, targetEmpId, startDate, endDate, tasks, attendance, weightages]);
@@ -1078,7 +1087,11 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
                   {workHoursMetrics.monthlyTotalFormatted}
                 </p>
               </div>
-              <p className="text-[9px] text-[var(--text-secondary)]">Current Calendar Month</p>
+              <p className="text-[9px] text-[var(--text-secondary)]">
+                {periodFilter === 'THIS_MONTH' ? 'Current Calendar Month' : 
+                 periodFilter === 'PREVIOUS_MONTH' ? 'Previous Calendar Month' : 
+                 periodFilter === 'THIS_WEEK' ? 'Current Week' : 'Custom Period'}
+              </p>
             </div>
 
             {/* 5. Tasks Assigned / Completed */}
