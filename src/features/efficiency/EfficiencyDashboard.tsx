@@ -100,7 +100,10 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   const [allEmployees, setAllEmployees] = useState<any[]>(() => employeeData ? [employeeData] : []);
   const [weightages, setWeightages] = useState<EfficiencyWeightages>(DEFAULT_WEIGHTAGES);
   const [historicalSnapshots, setHistoricalSnapshots] = useState<EfficiencySnapshot[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [tasksLoaded, setTasksLoaded] = useState(false);
+  const [attendanceLoaded, setAttendanceLoaded] = useState(false);
+  const [registrationsLoaded, setRegistrationsLoaded] = useState(false);
   const [offlineMode, setOfflineMode] = useState(false);
 
   // Report generation state
@@ -209,11 +212,13 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   // ----------------------------------------------------
   const selectedEmployee = useMemo(() => {
     if (!selectedEmployeeCode) return employeeData || null;
-    return allEmployees.find(e => 
-      e.employeeCode === selectedEmployeeCode || 
-      e.id === selectedEmployeeCode || 
-      e.uid === selectedEmployeeCode
-    ) || (selectedEmployeeCode === activeEmployeeCode ? employeeData : null);
+    const searchCode = String(selectedEmployeeCode).trim().toUpperCase();
+    return allEmployees.find(e => {
+      const eCode = String(e.employeeCode || '').trim().toUpperCase();
+      const eId = String(e.id || '').trim().toUpperCase();
+      const eUid = String(e.uid || '').trim().toUpperCase();
+      return eCode === searchCode || eId === searchCode || eUid === searchCode;
+    }) || (searchCode === String(activeEmployeeCode).toUpperCase() ? employeeData : null);
   }, [allEmployees, selectedEmployeeCode, activeEmployeeCode, employeeData]);
 
   // Fallback Rule: IF selected employee exists THEN use selected employee. ELSE use current logged-in employee.
@@ -239,6 +244,11 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       return;
     }
 
+    setLoading(true);
+    setTasksLoaded(false);
+    setAttendanceLoaded(false);
+    setRegistrationsLoaded(false);
+
     getSavedWeightages().then(w => {
       setWeightages(w);
       setAdminWeights(w);
@@ -249,6 +259,9 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
     if (!targetCode) {
       setLoading(false);
+      setTasksLoaded(true);
+      setAttendanceLoaded(true);
+      setRegistrationsLoaded(true);
       return;
     }
 
@@ -259,28 +272,31 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       const unsubRegs = onSnapshot(collection(db, 'registrations'), (snap) => {
         const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setAllEmployees(list);
+        setRegistrationsLoaded(true);
       }, (err) => {
         console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=registrations notice:', err);
+        setRegistrationsLoaded(true);
       });
       unsubs.push(unsubRegs);
     } else if (employeeData) {
       setAllEmployees([employeeData]);
+      setRegistrationsLoaded(true);
+    } else {
+      setRegistrationsLoaded(true);
     }
 
     // 2. UNIFIED TASKS & ATTENDANCE LISTENERS FOR ADMINS & TEAM LEADERS
     if (isAdmin || isTeamLeader) {
-      setLoading(true);
-
       const unsubTasks = onSnapshot(collection(db, 'tasks'), (snap) => {
         const list: TaskRecord[] = [];
         snap.docs.forEach(doc => {
           list.push({ id: doc.id, ...doc.data() } as TaskRecord);
         });
         setTasks(list);
-        setLoading(false);
+        setTasksLoaded(true);
       }, (err) => {
         console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks notice:', err);
-        setLoading(false);
+        setTasksLoaded(true);
       });
       unsubs.push(unsubTasks);
 
@@ -290,15 +306,18 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
           list.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
         });
         setAttendance(list);
-        setLoading(false);
+        setAttendanceLoaded(true);
       }, (err) => {
         console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance notice:', err);
-        setLoading(false);
+        setAttendanceLoaded(true);
       });
       unsubs.push(unsubAtt);
     } else {
       // If we are inspecting ourselves as a standard employee, our local sync hook does the work
-      setLoading(false);
+      setTasks(syncTasks);
+      setAttendance(syncAttendance);
+      setTasksLoaded(true);
+      setAttendanceLoaded(true);
     }
 
     return () => {
@@ -307,7 +326,11 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
     };
   }, [targetEmpCode, targetEmpId, activeEmployeeCode, isAdmin, isTeamLeader]);
 
-  // Fetch snapshots
+  useEffect(() => {
+    if (tasksLoaded && attendanceLoaded && registrationsLoaded) {
+      setLoading(false);
+    }
+  }, [tasksLoaded, attendanceLoaded, registrationsLoaded]);
   useEffect(() => {
     if (targetEmpCode) {
       getEfficiencySnapshots(targetEmpCode).then(snaps => {
@@ -342,10 +365,21 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   // WORK HOURS COMPUTATION (Respecting Unresolved Checkouts)
   // ----------------------------------------------------
   const selectedEmployeeAttendance = useMemo(() => {
-    if (!targetEmpCode) return [];
+    if (!targetEmpCode && !targetEmpId) return [];
+    
+    // Normalize target IDs to strings and trim
+    const tCode = String(targetEmpCode || '').trim();
+    const tId = String(targetEmpId || '').trim();
+
     return attendance.filter(r => {
-      const matchCode = r.employeeCode && (r.employeeCode === targetEmpCode || r.employeeCode === targetEmpId);
-      const matchId = r.employeeId && (r.employeeId === targetEmpCode || r.employeeId === targetEmpId);
+      if (!r.date) return false;
+      
+      const rCode = String(r.employeeCode || '').trim();
+      const rId = String(r.employeeId || '').trim();
+      
+      const matchCode = rCode && (rCode === tCode || rCode === tId);
+      const matchId = rId && (rId === tCode || rId === tId);
+      
       const isEmp = matchCode || matchId;
       return isEmp && r.date >= startDate && r.date <= endDate;
     });
@@ -558,17 +592,23 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
 
   // Task Breakdown Counts
   const periodTasks = useMemo(() => {
-    if (!targetEmpCode) return [];
+    if (!targetEmpCode && !targetEmpId) return [];
+
+    const tCode = String(targetEmpCode || '').trim().toUpperCase();
+    const tId = String(targetEmpId || '').trim().toUpperCase();
+
     return tasks.filter(t => {
-      const matchCode = t.assignedToEmployeeCodes && (
-        t.assignedToEmployeeCodes.includes(targetEmpCode) ||
-        (targetEmpId && t.assignedToEmployeeCodes.includes(targetEmpId))
-      );
-      const matchId = t.assignedToEmployeeIds && (
-        t.assignedToEmployeeIds.includes(targetEmpCode) ||
-        (targetEmpId && t.assignedToEmployeeIds.includes(targetEmpId))
-      );
-      const isAssigned = matchCode || matchId;
+      const assignedCodes = Array.isArray(t.assignedToEmployeeCodes) ? t.assignedToEmployeeCodes.map(c => String(c).trim().toUpperCase()) : [];
+      const assignedIds = Array.isArray(t.assignedToEmployeeIds) ? t.assignedToEmployeeIds.map(i => String(i).trim().toUpperCase()) : [];
+      const creatorId = String(t.employeeId || '').trim().toUpperCase();
+      
+      const isAssigned = (tCode && assignedCodes.includes(tCode)) || 
+                         (tId && assignedCodes.includes(tId)) || 
+                         (tCode && assignedIds.includes(tCode)) || 
+                         (tId && assignedIds.includes(tId)) ||
+                         (tCode && creatorId === tCode) ||
+                         (tId && creatorId === tId);
+
       if (!isAssigned) return false;
       const tDate = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime ? t.createdAtDeviceTime.substring(0, 10) : '');
       return tDate >= startDate && tDate <= endDate;
