@@ -12,6 +12,7 @@ export interface DailyReportConfig {
   includeOtherDailyActivity: boolean;
   updatedAt?: string;
   updatedBy?: string;
+  lastSchedulerTick?: string;
 }
 
 export interface ReportStatusRecord {
@@ -323,6 +324,7 @@ export async function getDailyReportConfig(db?: Firestore | null): Promise<Daily
       includeOtherDailyActivity: data?.includeOtherDailyActivity !== false,
       updatedAt: data?.updatedAt || inMemoryReportConfig.updatedAt,
       updatedBy: data?.updatedBy || inMemoryReportConfig.updatedBy,
+      lastSchedulerTick: data?.lastSchedulerTick || inMemoryReportConfig.lastSchedulerTick,
     };
 
     inMemoryReportConfig = loadedConfig;

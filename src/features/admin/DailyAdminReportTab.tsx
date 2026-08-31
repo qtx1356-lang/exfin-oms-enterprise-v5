@@ -811,11 +811,21 @@ export function DailyAdminReportTab() {
                 </div>
 
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-purple-300 font-medium">Scheduler Process</span>
-                  <span className="text-emerald-400 font-mono flex items-center gap-1">
+                  <span className="text-purple-300 font-medium">Scheduler Mode</span>
+                  <span className="text-amber-300 font-mono font-bold">EXTERNAL CRON</span>
+                </div>
+
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-purple-300 font-medium">Endpoint Status</span>
+                  <span className="text-emerald-400 font-mono font-bold flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    ACTIVE
+                    READY
                   </span>
+                </div>
+
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-purple-300 font-medium">Last Scheduler Tick</span>
+                  <span className="text-purple-200 font-mono text-[11px] font-bold">{diagnostics.lastSchedulerTick || 'NEVER CALLED'}</span>
                 </div>
 
                 <div className="border-t border-purple-500/10 my-1 pt-2 space-y-2">

@@ -29,6 +29,7 @@ import {
   formatDateStringFriendly,
   getKolkataCurrentMinutes,
   getKolkataDateString,
+  getPreviousKolkataDateString,
   parseTimeToMinutes
 } from "./server/services/dailyAdminReportService";
 
@@ -1811,6 +1812,24 @@ async function startServer() {
         hour12: true
       }).format(new Date());
 
+      let lastSchedulerTickFormatted = "NEVER CALLED";
+      if (config.lastSchedulerTick) {
+        try {
+          const tickDate = new Date(config.lastSchedulerTick);
+          lastSchedulerTickFormatted = new Intl.DateTimeFormat('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          }).format(tickDate);
+        } catch (e) {
+          lastSchedulerTickFormatted = config.lastSchedulerTick;
+        }
+      }
+
       return res.json({
         success: true,
         diagnostics: {
@@ -1821,7 +1840,9 @@ async function startServer() {
           nextRun,
           lastRun,
           lastStatus,
-          schedulerProcessActive: true
+          schedulerMode: "EXTERNAL CRON",
+          endpointStatus: "READY",
+          lastSchedulerTick: lastSchedulerTickFormatted
         }
       });
     } catch (err: any) {
@@ -1839,7 +1860,14 @@ async function startServer() {
     // Secure via Header checking against CRON_SECRET env variable
     const authHeader = req.headers.authorization;
     const queryToken = req.query.token;
-    const expectedSecret = process.env.CRON_SECRET || "exfin_oms_secure_scheduler_token_2026";
+    
+    // Fallback secret only allowed in non-production environments
+    const expectedSecret = process.env.CRON_SECRET || (process.env.NODE_ENV !== "production" ? "exfin_oms_secure_scheduler_token_2026" : undefined);
+
+    if (!expectedSecret) {
+      console.error("[DailyReport Scheduler] CRON_SECRET environment variable is missing in production!");
+      return res.status(500).json({ error: "Server Configuration Error: CRON_SECRET not configured in production." });
+    }
 
     const isAuthorized = 
       (authHeader === `Bearer ${expectedSecret}`) || 
@@ -1851,19 +1879,80 @@ async function startServer() {
     }
 
     try {
-      console.log(`[DailyReport Scheduler] Scheduler triggered report dispatch process...`);
-      const targetDate = req.body?.date || req.query?.date; // Allows passing a custom date for testing/re-running
+      const config = await getDailyReportConfig(db);
+      const currentKolkataTimeStr = new Intl.DateTimeFormat('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      }).format(new Date());
+
+      const scheduledMinutes = parseTimeToMinutes(config.sendTime) ?? 420;
+      const currentMinutes = getKolkataCurrentMinutes();
+      const targetDate = getPreviousKolkataDateString();
+
+      let alreadySent = false;
+      try {
+        const logSnap = await db.collection('daily_admin_reports').doc(targetDate).get();
+        if (logSnap.exists && logSnap.data()?.status === 'SENT') {
+          alreadySent = true;
+        }
+      } catch (e) {
+        // Log query failure safely
+      }
+
+      let action = "SKIP";
+      if (!config.enabled) {
+        action = "SKIP (Disabled)";
+      } else if (currentMinutes < scheduledMinutes) {
+        action = "SKIP (Too Early)";
+      } else if (alreadySent) {
+        action = "SKIP (Already Sent)";
+      } else {
+        action = "SEND";
+      }
+
+      console.log("=========================================");
+      console.log("Daily report scheduler tick received");
+      console.log(`Kolkata time: ${currentKolkataTimeStr}`);
+      console.log(`Configured time: ${config.sendTime}`);
+      console.log(`Target report date: ${targetDate}`);
+      console.log(`Already sent: ${alreadySent}`);
+      console.log(`Action: ${action}`);
+      console.log("=========================================");
+
+      // Record last scheduler tick timestamp in Firestore settings for UI diagnostics
+      try {
+        await db.collection("system_settings").doc("daily_admin_report").set({
+          lastSchedulerTick: new Date().toISOString()
+        }, { merge: true });
+      } catch (e) {
+        console.error("[DailyReport Scheduler] Failed to save scheduler tick to Firestore:", e);
+      }
+
+      const passedDate = req.body?.date || req.query?.date; // Allows passing a custom date for testing/re-running
       
-      if (targetDate) {
+      if (passedDate) {
         // Force manual execution for specific date (bypass time check and lock for testing)
-        const result = await generateAndSendDailyReport(db, targetDate, false, "AUTOMATED_SCHEDULER");
+        const result = await generateAndSendDailyReport(db, passedDate, false, "AUTOMATED_SCHEDULER");
         return res.json(result);
       } else {
         // Run standard scheduled check (handles sendTime, timezone, and transactional locks)
         await checkAndRunScheduledDailyReport(db);
         return res.json({ 
           success: true, 
-          message: "Standard scheduled daily report verification executed successfully" 
+          message: "Standard scheduled daily report verification executed successfully",
+          tick: {
+            kolkataTime: currentKolkataTimeStr,
+            configuredTime: config.sendTime,
+            targetReportDate: targetDate,
+            alreadySent,
+            action
+          }
         });
       }
     } catch (err: any) {
@@ -1920,12 +2009,18 @@ async function startServer() {
     console.log(`Office Management System Server running on http://0.0.0.0:${PORT}`);
     // Run finalizer and daily report scheduler on boot and every 60 seconds
     runServerAttendanceFinalizer().catch(() => {});
-    if (db) {
+    
+    // In-memory scheduler runs ONLY in local development to preserve resources/reliability on serverless Cloud Run
+    if (process.env.NODE_ENV !== "production" && db) {
+      console.log("[DailyReport Scheduler] In-memory local development scheduler active.");
       checkAndRunScheduledDailyReport(db).catch(() => {});
+    } else {
+      console.log("[DailyReport Scheduler] Production Mode: Relying entirely on external CRON trigger endpoint.");
     }
+
     setInterval(() => {
       runServerAttendanceFinalizer().catch(() => {});
-      if (db) {
+      if (process.env.NODE_ENV !== "production" && db) {
         checkAndRunScheduledDailyReport(db).catch(() => {});
       }
     }, 60000);
