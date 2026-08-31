@@ -1,6 +1,5 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getActiveDbSync } from './db_sync';
 import firebaseAppConfig from '../../../firebase-applet-config.json';
 
 console.log('Firebase config raw import:', firebaseAppConfig);

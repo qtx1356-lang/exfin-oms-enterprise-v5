@@ -1,41 +1,54 @@
 import { getDefaultApp, getAdminApp, isAdminContext } from './config';
 
-let employeeDb: any = null;
+let employeeDbInstance: any = null;
 let employeeDbPromise: Promise<any> | null = null;
 
-let adminDb: any = null;
+let adminDbInstance: any = null;
 let adminDbPromise: Promise<any> | null = null;
 
 /**
  * Returns the cached employee Firestore instance if it exists.
- * This is used for internal synchronous access by the proxy.
+ * Used strictly for diagnostic/status checks.
  */
-export const getEmployeeDbCached = () => employeeDb;
+export const getEmployeeDbCached = () => employeeDbInstance;
 
 /**
  * Returns the cached admin Firestore instance if it exists.
+ * Used strictly for diagnostic/status checks.
  */
-export const getAdminDbCached = () => adminDb;
+export const getAdminDbCached = () => adminDbInstance;
 
-export const getEmployeeDb = async () => {
-  if (employeeDb) return employeeDb;
+/**
+ * Promise singleton for Employee database.
+ * Resolves to the real, valid FirebaseFirestore instance.
+ */
+export const getEmployeeDb = (): Promise<any> => {
+  if (employeeDbInstance) {
+    return Promise.resolve(employeeDbInstance);
+  }
+
   if (!employeeDbPromise) {
     employeeDbPromise = (async () => {
       try {
         const { getFirestore, enableIndexedDbPersistence } = await import('firebase/firestore');
         const app = getDefaultApp();
+        if (!app) throw new Error('Default Firebase App not initialized');
+
         const instance = (app as any).firestoreDatabaseId
           ? getFirestore(app, (app as any).firestoreDatabaseId)
           : getFirestore(app);
-        
-        // Enable persistence once on first access
+
+        if (!instance) throw new Error('getFirestore returned null/undefined instance');
+
+        // Enable persistence once on first access for the employee app
         await enableIndexedDbPersistence(instance).catch((err) => {
           console.warn('Firestore persistence warning:', err.code || err);
         });
-        
-        employeeDb = instance;
+
+        employeeDbInstance = instance;
         return instance;
       } catch (err) {
+        console.error('Fatal Employee Firestore initialization error:', err);
         employeeDbPromise = null; // Allow retry on failure
         throw err;
       }
@@ -44,20 +57,32 @@ export const getEmployeeDb = async () => {
   return employeeDbPromise;
 };
 
-export const getAdminDb = async () => {
-  if (adminDb) return adminDb;
+/**
+ * Promise singleton for Admin database.
+ * Resolves to the real, valid FirebaseFirestore instance.
+ */
+export const getAdminDb = (): Promise<any> => {
+  if (adminDbInstance) {
+    return Promise.resolve(adminDbInstance);
+  }
+
   if (!adminDbPromise) {
     adminDbPromise = (async () => {
       try {
         const { getFirestore } = await import('firebase/firestore');
         const app = getAdminApp();
+        if (!app) throw new Error('Admin Firebase App not initialized');
+
         const instance = (app as any).firestoreDatabaseId
           ? getFirestore(app, (app as any).firestoreDatabaseId)
           : getFirestore(app);
-        
-        adminDb = instance;
+
+        if (!instance) throw new Error('getFirestore returned null/undefined instance');
+
+        adminDbInstance = instance;
         return instance;
       } catch (err) {
+        console.error('Fatal Admin Firestore initialization error:', err);
         adminDbPromise = null; // Allow retry on failure
         throw err;
       }
@@ -66,6 +91,11 @@ export const getAdminDb = async () => {
   return adminDbPromise;
 };
 
-export const getDb = async () => {
-  return isAdminContext() ? await getAdminDb() : await getEmployeeDb();
+/**
+ * Unified context-aware asynchronous getter.
+ * Guarantees a real FirebaseFirestore instance or valid reference is returned.
+ */
+export const getDb = (): Promise<any> => {
+  return isAdminContext() ? getAdminDb() : getEmployeeDb();
 };
+
