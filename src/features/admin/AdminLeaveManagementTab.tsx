@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getActiveDbSync } from '../../services/firebase/db_sync';
+import { getDb } from '../../services/firebase/db';
 import { collection, query, limit, onSnapshot } from 'firebase/firestore';
 import { LeaveRecord } from '../../types/leave';
 import { reviewLeaveRequest } from '../../services/leave/leaveService';
@@ -37,20 +37,36 @@ export const AdminLeaveManagementTab: React.FC<AdminLeaveManagementTabProps> = (
 
   // Firestore Subscription
   useEffect(() => {
-    if (!getActiveDbSync()) return;
-    const qLeaves = query(collection(getActiveDbSync(), 'leaves'), limit(500));
-    const unsub = onSnapshot(qLeaves, (snapshot) => {
-      const records: LeaveRecord[] = [];
-      snapshot.forEach((doc) => {
-        records.push({ id: doc.id, ...doc.data() } as LeaveRecord);
+    let isMounted = true;
+    let unsub = () => {};
+
+    getDb().then((activeDb) => {
+      if (!isMounted || !activeDb) {
+        setIsLoading(false);
+        return;
+      }
+
+      const qLeaves = query(collection(activeDb, 'leaves'), limit(500));
+      unsub = onSnapshot(qLeaves, (snapshot) => {
+        if (!isMounted) return;
+        const records: LeaveRecord[] = [];
+        snapshot.forEach((doc) => {
+          records.push({ id: doc.id, ...doc.data() } as LeaveRecord);
+        });
+        setLeaves(records);
+        setIsLoading(false);
+      }, (err) => {
+        console.error('Error listening to leaves:', err);
+        if (isMounted) setIsLoading(false);
       });
-      setLeaves(records);
-      setIsLoading(false);
-    }, (err) => {
-      console.error('Error listening to leaves:', err);
-      setIsLoading(false);
+    }).catch(() => {
+      if (isMounted) setIsLoading(false);
     });
-    return () => unsub();
+
+    return () => {
+      isMounted = false;
+      unsub();
+    };
   }, []);
 
   // Filters & Search

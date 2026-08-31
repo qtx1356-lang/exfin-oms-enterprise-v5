@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, limit } from 'firebase/firestore';
-import { getActiveDbSync } from '../../services/firebase/db_sync';
+import { getDb } from '../../services/firebase/db';
 import { Department, Designation } from '../../types/organization';
 import { ManagedUser } from '../../types/user';
 import {
@@ -38,43 +38,57 @@ export const OrganizationSettingsTab: React.FC<OrganizationSettingsTabProps> = (
 
   // Subscribe to data
   useEffect(() => {
-    if (!getActiveDbSync()) return;
+    let isMounted = true;
+    const unsubs: (() => void)[] = [];
 
-    let deptsLoaded = false;
-    let desigsLoaded = false;
-    let usersLoaded = false;
-
-    const checkAllLoaded = () => {
-      if (deptsLoaded && desigsLoaded && usersLoaded) {
+    getDb().then((activeDb) => {
+      if (!isMounted || !activeDb) {
         setLoading(false);
+        return;
       }
-    };
 
-    const unsubDepts = onSnapshot(collection(getActiveDbSync(), 'departments'), (snap) => {
-      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
-      setDepartments(list);
-      deptsLoaded = true;
-      checkAllLoaded();
-    }, () => { deptsLoaded = true; checkAllLoaded(); });
+      let deptsLoaded = false;
+      let desigsLoaded = false;
+      let usersLoaded = false;
 
-    const unsubDesigs = onSnapshot(collection(getActiveDbSync(), 'designations'), (snap) => {
-      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Designation));
-      setDesignations(list);
-      desigsLoaded = true;
-      checkAllLoaded();
-    }, () => { desigsLoaded = true; checkAllLoaded(); });
+      const checkAllLoaded = () => {
+        if (deptsLoaded && desigsLoaded && usersLoaded && isMounted) {
+          setLoading(false);
+        }
+      };
 
-    const unsubUsers = onSnapshot(query(collection(getActiveDbSync(), 'registrations'), limit(500)), (snap) => {
-      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ManagedUser));
-      setUsers(list);
-      usersLoaded = true;
-      checkAllLoaded();
-    }, () => { usersLoaded = true; checkAllLoaded(); });
+      unsubs.push(onSnapshot(collection(activeDb, 'departments'), (snap) => {
+        if (!isMounted) return;
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
+        list.sort((a, b) => a.name.localeCompare(b.name));
+        setDepartments(list);
+        deptsLoaded = true;
+        checkAllLoaded();
+      }, () => { deptsLoaded = true; checkAllLoaded(); }));
+
+      unsubs.push(onSnapshot(collection(activeDb, 'designations'), (snap) => {
+        if (!isMounted) return;
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Designation));
+        list.sort((a, b) => a.name.localeCompare(b.name));
+        setDesignations(list);
+        desigsLoaded = true;
+        checkAllLoaded();
+      }, () => { desigsLoaded = true; checkAllLoaded(); }));
+
+      unsubs.push(onSnapshot(query(collection(activeDb, 'registrations'), limit(500)), (snap) => {
+        if (!isMounted) return;
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ManagedUser));
+        setUsers(list);
+        usersLoaded = true;
+        checkAllLoaded();
+      }, () => { usersLoaded = true; checkAllLoaded(); }));
+    }).catch(() => {
+      if (isMounted) setLoading(false);
+    });
 
     return () => {
-      unsubDepts();
-      unsubDesigs();
-      unsubUsers();
+      isMounted = false;
+      unsubs.forEach(u => u());
     };
   }, []);
 
@@ -98,61 +112,6 @@ export const OrganizationSettingsTab: React.FC<OrganizationSettingsTabProps> = (
   const [desigError, setDesigError] = useState<string | null>(null);
 
   const [actionLoading, setActionLoading] = useState(false);
-
-  // Realtime listeners for Departments and Designations
-  useEffect(() => {
-    if (!getActiveDbSync()) {
-      setLoading(false);
-      return;
-    }
-
-    const unsubDepts = onSnapshot(collection(getActiveDbSync(), 'departments'), (snapshot) => {
-      const depts: Department[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        depts.push({
-          id: docSnap.id,
-          name: data.name || '',
-          description: data.description || '',
-          active: data.active !== false,
-          createdAt: data.createdAt || '',
-          updatedAt: data.updatedAt || '',
-        });
-      });
-      // Sort alphabetically
-      depts.sort((a, b) => a.name.localeCompare(b.name));
-      setDepartments(depts);
-    }, (err) => {
-      console.error('Error fetching departments:', err);
-    });
-
-    const unsubDesigs = onSnapshot(collection(getActiveDbSync(), 'designations'), (snapshot) => {
-      const desigs: Designation[] = [];
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        desigs.push({
-          id: docSnap.id,
-          name: data.name || '',
-          description: data.description || '',
-          active: data.active !== false,
-          createdAt: data.createdAt || '',
-          updatedAt: data.updatedAt || '',
-        });
-      });
-      // Sort alphabetically
-      desigs.sort((a, b) => a.name.localeCompare(b.name));
-      setDesignations(desigs);
-      setLoading(false);
-    }, (err) => {
-      console.error('Error fetching designations:', err);
-      setLoading(false);
-    });
-
-    return () => {
-      unsubDepts();
-      unsubDesigs();
-    };
-  }, []);
 
   // Compute stats: active employee counts
   const getDeptEmployeeCount = (dept: Department) => {

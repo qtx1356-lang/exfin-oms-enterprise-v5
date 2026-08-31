@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { getActiveDbSync } from '../../services/firebase/db_sync';
 import { AppRole, RoleFeaturePermissions, DEFAULT_ROLE_PERMISSIONS } from '../../types/roles';
 import { FEATURE_REGISTRY, FeatureDefinition } from '../../config/featureRegistry';
 import { saveRolePermissionsToFirestore } from '../../services/rbac/rbacService';

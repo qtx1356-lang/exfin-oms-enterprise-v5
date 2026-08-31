@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { getActiveDbSync } from '../../services/firebase/db_sync';
+import { getDb } from '../../services/firebase/db';
 import { collection, query, limit, onSnapshot } from 'firebase/firestore';
 import { ExpenseRecord, ExpenseCategory, EXPENSE_CATEGORIES } from '../../types/expense';
 import { 
@@ -49,20 +49,36 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
 
   // Firestore Subscription
   useEffect(() => {
-    if (!getActiveDbSync()) return;
-    const qExpenses = query(collection(getActiveDbSync(), 'expenses'), limit(500));
-    const unsub = onSnapshot(qExpenses, (snapshot) => {
-      const records: ExpenseRecord[] = [];
-      snapshot.forEach((doc) => {
-        records.push({ id: doc.id, ...doc.data() } as ExpenseRecord);
+    let isMounted = true;
+    let unsub = () => {};
+
+    getDb().then((activeDb) => {
+      if (!isMounted || !activeDb) {
+        setIsLoading(false);
+        return;
+      }
+
+      const qExpenses = query(collection(activeDb, 'expenses'), limit(500));
+      unsub = onSnapshot(qExpenses, (snapshot) => {
+        if (!isMounted) return;
+        const records: ExpenseRecord[] = [];
+        snapshot.forEach((doc) => {
+          records.push({ id: doc.id, ...doc.data() } as ExpenseRecord);
+        });
+        setExpenseRecords(records);
+        setIsLoading(false);
+      }, (err) => {
+        console.error('Error listening to expenses:', err);
+        if (isMounted) setIsLoading(false);
       });
-      setExpenseRecords(records);
-      setIsLoading(false);
-    }, (err) => {
-      console.error('Error listening to expenses:', err);
-      setIsLoading(false);
+    }).catch(() => {
+      if (isMounted) setIsLoading(false);
     });
-    return () => unsub();
+
+    return () => {
+      isMounted = false;
+      unsub();
+    };
   }, []);
 
   // Filters

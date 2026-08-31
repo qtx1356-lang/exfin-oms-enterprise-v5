@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { getActiveDbSync } from '../../services/firebase/db_sync';
+import { getDb } from '../../services/firebase/db';
 import { collection, query, limit, onSnapshot } from 'firebase/firestore';
 import { 
   Users, CheckCircle, Smartphone, UserCheck, Calendar, Clock, AlertTriangle, 
@@ -31,54 +31,64 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
 
   // Firestore Subscriptions
   useEffect(() => {
-    if (!getActiveDbSync()) return;
+    let isMounted = true;
+    const unsubs: (() => void)[] = [];
 
-    let regsLoaded = false;
-    let attLoaded = false;
-    let leavesLoaded = false;
-
-    const checkAllLoaded = () => {
-      if (regsLoaded && attLoaded && leavesLoaded) {
+    getDb().then((activeDb) => {
+      if (!isMounted || !activeDb) {
         setIsLoading(false);
+        return;
       }
-    };
 
-    // 1. Registrations
-    const qRegs = query(collection(getActiveDbSync(), 'registrations'), limit(500));
-    const unsubRegs = onSnapshot(qRegs, (snap) => {
-      const list: ManagedUser[] = [];
-      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as ManagedUser));
-      setRegistrations(list);
-      regsLoaded = true;
-      checkAllLoaded();
-    }, () => { regsLoaded = true; checkAllLoaded(); });
+      let regsLoaded = false;
+      let attLoaded = false;
+      let leavesLoaded = false;
 
-    // 2. Attendance (Today's attendance usually, but we fetch latest 500 for pulse)
-    // Actually today's attendance is preferred.
-    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-    const qAtt = query(collection(getActiveDbSync(), 'attendance'), limit(1000));
-    const unsubAtt = onSnapshot(qAtt, (snap) => {
-      const list: any[] = [];
-      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-      setAttendanceRecords(list);
-      attLoaded = true;
-      checkAllLoaded();
-    }, () => { attLoaded = true; checkAllLoaded(); });
+      const checkAllLoaded = () => {
+        if (regsLoaded && attLoaded && leavesLoaded && isMounted) {
+          setIsLoading(false);
+        }
+      };
 
-    // 3. Leaves
-    const qLeaves = query(collection(getActiveDbSync(), 'leaves'), limit(300));
-    const unsubLeaves = onSnapshot(qLeaves, (snap) => {
-      const list: any[] = [];
-      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-      setLeaves(list);
-      leavesLoaded = true;
-      checkAllLoaded();
-    }, () => { leavesLoaded = true; checkAllLoaded(); });
+      // 1. Registrations
+      const qRegs = query(collection(activeDb, 'registrations'), limit(500));
+      unsubs.push(onSnapshot(qRegs, (snap) => {
+        if (!isMounted) return;
+        const list: ManagedUser[] = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as ManagedUser));
+        setRegistrations(list);
+        regsLoaded = true;
+        checkAllLoaded();
+      }, () => { regsLoaded = true; checkAllLoaded(); }));
+
+      // 2. Attendance (Today's attendance usually, but we fetch latest 500 for pulse)
+      const qAtt = query(collection(activeDb, 'attendance'), limit(1000));
+      unsubs.push(onSnapshot(qAtt, (snap) => {
+        if (!isMounted) return;
+        const list: any[] = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+        setAttendanceRecords(list);
+        attLoaded = true;
+        checkAllLoaded();
+      }, () => { attLoaded = true; checkAllLoaded(); }));
+
+      // 3. Leaves
+      const qLeaves = query(collection(activeDb, 'leaves'), limit(300));
+      unsubs.push(onSnapshot(qLeaves, (snap) => {
+        if (!isMounted) return;
+        const list: any[] = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+        setLeaves(list);
+        leavesLoaded = true;
+        checkAllLoaded();
+      }, () => { leavesLoaded = true; checkAllLoaded(); }));
+    }).catch(() => {
+      if (isMounted) setIsLoading(false);
+    });
 
     return () => {
-      unsubRegs();
-      unsubAtt();
-      unsubLeaves();
+      isMounted = false;
+      unsubs.forEach(unsub => unsub());
     };
   }, []);
 
