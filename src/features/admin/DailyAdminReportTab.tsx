@@ -74,6 +74,66 @@ export function DailyAdminReportTab() {
   const [newEmail, setNewEmail] = useState('');
   const [emailInputError, setEmailInputError] = useState('');
 
+  // Diagnostic states
+  const [diagnostics, setDiagnostics] = useState<any | null>(null);
+  const [selectedHour, setSelectedHour] = useState('07');
+  const [selectedMinute, setSelectedMinute] = useState('00');
+  const [selectedPeriod, setSelectedPeriod] = useState<'AM' | 'PM'>('AM');
+
+  // Helper to parse 24h string to 12h parts
+  const to12HourFormat = (time24: string): { hour: string; minute: string; period: 'AM' | 'PM' } => {
+    if (!time24) return { hour: '07', minute: '00', period: 'AM' };
+    try {
+      const trimmed = time24.trim().toUpperCase();
+      const match = trimmed.match(/^(\d+):(\d+)\s*(AM|PM)?$/);
+      if (!match) {
+        return { hour: '07', minute: '00', period: 'AM' };
+      }
+      
+      let hours = parseInt(match[1], 10);
+      const minutes = parseInt(match[2], 10);
+      let period: 'AM' | 'PM' = match[3] as 'AM' | 'PM' || 'AM';
+      
+      if (!match[3]) {
+        if (hours >= 12) {
+          period = 'PM';
+          if (hours > 12) hours -= 12;
+        } else {
+          period = 'AM';
+          if (hours === 0) hours = 12;
+        }
+      } else {
+        if (hours > 12) {
+          hours = hours % 12 || 12;
+        }
+      }
+      
+      return {
+        hour: String(hours).padStart(2, '0'),
+        minute: String(minutes).padStart(2, '0'),
+        period
+      };
+    } catch (e) {
+      return { hour: '07', minute: '00', period: 'AM' };
+    }
+  };
+
+  // Helper to convert 12h components back to 24h string
+  const to24HourFormat = (hour: string, minute: string, period: 'AM' | 'PM'): string => {
+    let hours = parseInt(hour, 10);
+    if (isNaN(hours)) hours = 7;
+    const mins = parseInt(minute, 10);
+    const minStr = String(isNaN(mins) ? 0 : mins).padStart(2, '0');
+    
+    if (period === 'PM' && hours < 12) {
+      hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hours = 0;
+    }
+    
+    return `${String(hours).padStart(2, '0')}:${minStr}`;
+  };
+
   // Helper to reliably get Firebase Auth token
   const getAuthToken = async (): Promise<string | null> => {
     if (user) {
@@ -182,8 +242,22 @@ export function DailyAdminReportTab() {
       const configData = await safeFetchJson(API_BASE_URL + `/api/admin/daily-report/config?t=${Date.now()}`, { headers });
       if (configData.success) {
         setConfig(configData.config);
+        const { hour, minute, period } = to12HourFormat(configData.config.sendTime);
+        setSelectedHour(hour);
+        setSelectedMinute(minute);
+        setSelectedPeriod(period);
       } else {
         throw new Error(configData.error || 'Failed to fetch config');
+      }
+
+      // Fetch diagnostics
+      try {
+        const diagData = await safeFetchJson(API_BASE_URL + `/api/admin/daily-report/diagnostics?t=${Date.now()}`, { headers });
+        if (diagData.success) {
+          setDiagnostics(diagData.diagnostics);
+        }
+      } catch (e) {
+        console.warn('Could not fetch report diagnostics:', e);
       }
 
       // Fetch history
@@ -228,6 +302,12 @@ export function DailyAdminReportTab() {
         throw new Error('Authentication token is unavailable. Please sign in again.');
       }
 
+      const updatedSendTime = to24HourFormat(selectedHour, selectedMinute, selectedPeriod);
+      const updatedConfig = {
+        ...config,
+        sendTime: updatedSendTime
+      };
+
       const data = await safeFetchJson(API_BASE_URL + '/api/admin/daily-report/config', {
         method: 'POST',
         headers: {
@@ -235,12 +315,16 @@ export function DailyAdminReportTab() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(config),
+        body: JSON.stringify(updatedConfig),
       });
       if (data.success) {
         setConfig(data.config);
+        const parsed = to12HourFormat(data.config.sendTime);
+        setSelectedHour(parsed.hour);
+        setSelectedMinute(parsed.minute);
+        setSelectedPeriod(parsed.period);
         setStatusMsg({ type: 'success', text: 'Daily Admin Report configuration saved successfully.' });
-        loadData(); // Reload to refresh logs
+        loadData(); // Reload to refresh logs and diagnostics
       } else {
         throw new Error(data.error || `Failed to save config`);
       }
@@ -533,27 +617,69 @@ export function DailyAdminReportTab() {
                 {/* Schedule details */}
                 <div className="p-4 bg-[#1D093F]/60 rounded-xl border border-purple-500/10 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-black text-purple-200 uppercase tracking-wider block mb-1">
-                      Send Time
+                    <label className="text-xs font-black text-purple-200 uppercase tracking-wider block mb-2">
+                      Send Time (12-Hour Format)
                     </label>
-                    <input 
-                      type="text"
-                      placeholder="07:00 AM"
-                      disabled={!isSuperAdmin}
-                      value={config.sendTime}
-                      onChange={(e) => setConfig({ ...config, sendTime: e.target.value })}
-                      className="w-full bg-[#14062B] border border-purple-500/30 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 disabled:opacity-50"
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        value={selectedHour}
+                        disabled={!isSuperAdmin}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSelectedHour(val);
+                          const newT = to24HourFormat(val, selectedMinute, selectedPeriod);
+                          setConfig({ ...config, sendTime: newT });
+                        }}
+                        className="bg-[#14062B] border border-purple-500/30 rounded-xl px-2.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 disabled:opacity-50"
+                      >
+                        {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(h => (
+                          <option key={h} value={h}>{h}</option>
+                        ))}
+                      </select>
+                      <span className="text-purple-300 font-bold font-mono">:</span>
+                      <select
+                        value={selectedMinute}
+                        disabled={!isSuperAdmin}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSelectedMinute(val);
+                          const newT = to24HourFormat(selectedHour, val, selectedPeriod);
+                          setConfig({ ...config, sendTime: newT });
+                        }}
+                        className="bg-[#14062B] border border-purple-500/30 rounded-xl px-2.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 disabled:opacity-50"
+                      >
+                        {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={selectedPeriod}
+                        disabled={!isSuperAdmin}
+                        onChange={(e) => {
+                          const val = e.target.value as 'AM' | 'PM';
+                          setSelectedPeriod(val);
+                          const newT = to24HourFormat(selectedHour, selectedMinute, val);
+                          setConfig({ ...config, sendTime: newT });
+                        }}
+                        className="bg-[#14062B] border border-purple-500/30 rounded-xl px-2.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 disabled:opacity-50"
+                      >
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                      </select>
+                      <span className="text-[10px] text-purple-300/50 font-mono ml-1">
+                        (Stored: {config.sendTime})
+                      </span>
+                    </div>
                   </div>
                   <div>
-                    <label className="text-xs font-black text-purple-200 uppercase tracking-wider block mb-1">
+                    <label className="text-xs font-black text-purple-200 uppercase tracking-wider block mb-2">
                       Timezone
                     </label>
                     <input 
                       type="text"
                       disabled
                       value="Asia/Kolkata (IST +05:30)"
-                      className="w-full bg-[#14062B]/60 border border-purple-500/20 rounded-xl px-4 py-2.5 text-xs text-purple-300 font-mono cursor-not-allowed"
+                      className="w-full bg-[#14062B]/60 border border-purple-500/20 rounded-xl px-4 py-2 text-xs text-purple-300 font-mono cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -651,6 +777,77 @@ export function DailyAdminReportTab() {
 
         {/* Right Side: Manual Operations & Test Dispatch */}
         <div className="space-y-6">
+          {diagnostics && (
+            <Card className="p-6 bg-[#250F4C] border border-purple-500/20 text-white space-y-4">
+              <h3 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2 border-b border-purple-500/20 pb-2.5">
+                <Settings className="w-4 h-4 text-purple-400" /> SCHEDULER DIAGNOSTICS
+              </h3>
+              
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-purple-300">Automatic Daily Report</span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                    diagnostics.enabled 
+                      ? 'bg-emerald-500/20 text-emerald-300' 
+                      : 'bg-rose-500/20 text-rose-300'
+                  }`}>
+                    {diagnostics.enabled ? 'ON' : 'OFF'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-purple-300">Scheduled Time</span>
+                  <span className="font-mono text-white font-bold">{diagnostics.configuredTime}</span>
+                </div>
+
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-purple-300">Timezone</span>
+                  <span className="font-mono text-purple-200">{diagnostics.timezone}</span>
+                </div>
+
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-purple-300">Server Clock (Kolkata)</span>
+                  <span className="font-mono text-purple-200">{diagnostics.currentTimeInTimezone}</span>
+                </div>
+
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-purple-300 font-medium">Scheduler Process</span>
+                  <span className="text-emerald-400 font-mono flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    ACTIVE
+                  </span>
+                </div>
+
+                <div className="border-t border-purple-500/10 my-1 pt-2 space-y-2">
+                  <div className="text-xs">
+                    <span className="text-purple-300/60 block text-[10px] uppercase font-black">Next Scheduled Execution:</span>
+                    <span className="font-mono text-purple-200 text-xs block mt-0.5">{diagnostics.nextRun}</span>
+                  </div>
+
+                  <div className="text-xs pt-1">
+                    <span className="text-purple-300/60 block text-[10px] uppercase font-black">Last Execution Run:</span>
+                    <span className="font-mono text-purple-200 text-xs block mt-0.5">{diagnostics.lastRun}</span>
+                  </div>
+
+                  <div className="text-xs pt-1 flex justify-between items-center">
+                    <span className="text-purple-300/60 text-[10px] uppercase font-black">Last Run Status:</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                      diagnostics.lastStatus === 'SENT' || diagnostics.lastStatus === 'SUCCESS'
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        : diagnostics.lastStatus === 'FAILED'
+                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                        : diagnostics.lastStatus === 'SENDING'
+                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse'
+                        : 'bg-slate-700 text-slate-300'
+                    }`}>
+                      {diagnostics.lastStatus}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+
           <Card className="p-6 bg-[#250F4C] border border-purple-500/20 text-white space-y-4">
             <h3 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
               <Play className="w-4 h-4 text-emerald-400" /> On-Demand Actions

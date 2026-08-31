@@ -23,7 +23,13 @@ import {
   generateAndSendDailyReport,
   sendDailyReportTestEmail,
   validateAdminEmails,
-  checkAndRunScheduledDailyReport
+  checkAndRunScheduledDailyReport,
+  to12HourFormat,
+  to24HourFormat,
+  formatDateStringFriendly,
+  getKolkataCurrentMinutes,
+  getKolkataDateString,
+  parseTimeToMinutes
 } from "./server/services/dailyAdminReportService";
 
 const OFFICE_LAT = 23.616227;
@@ -1722,7 +1728,109 @@ async function startServer() {
     }
   });
 
-  // 6. Automated Scheduler Endpoint: POST /api/internal/daily-admin-report
+  // 6. Get Daily Report Scheduler Diagnostics (Super-Admin only)
+  app.get(["/api/admin/daily-report/diagnostics", "/api/admin/daily-email-report/diagnostics"], async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) {
+      return res.status(401).json({ success: false, error: "Authentication required: Please provide a valid token" });
+    }
+    if (caller.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ success: false, error: "Access Forbidden: Super-Admin authorization required" });
+    }
+
+    if (!db) {
+      return res.status(503).json({ success: false, error: "Database service unavailable" });
+    }
+
+    try {
+      const config = await getDailyReportConfig(db);
+      const currentMinutes = getKolkataCurrentMinutes();
+      const scheduledMinutes = parseTimeToMinutes ? (parseTimeToMinutes(config.sendTime) ?? 420) : 420;
+      const todayKolkata = getKolkataDateString();
+      
+      // Calculate next run date
+      let nextRunDateStr = todayKolkata;
+      if (currentMinutes >= scheduledMinutes) {
+        const [yearStr, monthStr, dayStr] = todayKolkata.split('-');
+        const year = parseInt(yearStr, 10);
+        const month = parseInt(monthStr, 10) - 1;
+        const day = parseInt(dayStr, 10);
+        const utc = new Date(Date.UTC(year, month, day));
+        utc.setUTCDate(utc.getUTCDate() + 1);
+        const nextYear = utc.getUTCFullYear();
+        const nextMonth = String(utc.getUTCMonth() + 1).padStart(2, '0');
+        const nextDay = String(utc.getUTCDate()).padStart(2, '0');
+        nextRunDateStr = `${nextYear}-${nextMonth}-${nextDay}`;
+      }
+
+      // Convert stored sendTime to friendly 12-hour format
+      const { hour, minute, period } = to12HourFormat(config.sendTime);
+      const formattedSendTime = `${hour}:${minute} ${period}`;
+      const nextRun = `${formatDateStringFriendly(nextRunDateStr)}, ${formattedSendTime}`;
+
+      // Fetch last run from daily_admin_reports
+      const lastRunSnap = await db.collection("daily_admin_reports")
+        .orderBy("startedAt", "desc")
+        .limit(1)
+        .get();
+
+      let lastRun = "NEVER RUN";
+      let lastStatus = "NOT RUN";
+
+      if (!lastRunSnap.empty) {
+        const doc = lastRunSnap.docs[0];
+        const data = doc.data();
+        const reportDate = data.reportDate || doc.id;
+        const completedAtStr = data.completedAt || data.startedAt;
+        
+        let completedFormatted = "";
+        if (completedAtStr) {
+          try {
+            const completedDate = new Date(completedAtStr);
+            const kTimeStr = completedDate.toLocaleTimeString("en-IN", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+              timeZone: "Asia/Kolkata",
+            });
+            completedFormatted = ` (Sent At: ${kTimeStr})`;
+          } catch (e) {}
+        }
+
+        lastRun = `${formatDateStringFriendly(reportDate)}${completedFormatted}`;
+        lastStatus = data.status || "UNKNOWN";
+      }
+
+      const currentKolkataTimeStr = new Intl.DateTimeFormat('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }).format(new Date());
+
+      return res.json({
+        success: true,
+        diagnostics: {
+          enabled: config.enabled,
+          configuredTime: formattedSendTime,
+          timezone: "Asia/Kolkata",
+          currentTimeInTimezone: currentKolkataTimeStr,
+          nextRun,
+          lastRun,
+          lastStatus,
+          schedulerProcessActive: true
+        }
+      });
+    } catch (err: any) {
+      console.error("[DailyReport API] Error generating diagnostics:", err);
+      return res.status(500).json({ success: false, error: err.message || "Failed to generate diagnostics" });
+    }
+  });
+
+  // 7. Automated Scheduler Endpoint: POST /api/internal/daily-admin-report
   app.post("/api/internal/daily-admin-report", async (req, res) => {
     if (!db) {
       return res.status(503).json({ error: "Database service unavailable" });
@@ -1745,8 +1853,19 @@ async function startServer() {
     try {
       console.log(`[DailyReport Scheduler] Scheduler triggered report dispatch process...`);
       const targetDate = req.body?.date || req.query?.date; // Allows passing a custom date for testing/re-running
-      const result = await generateAndSendDailyReport(db, targetDate, false, "AUTOMATED_SCHEDULER");
-      return res.json(result);
+      
+      if (targetDate) {
+        // Force manual execution for specific date (bypass time check and lock for testing)
+        const result = await generateAndSendDailyReport(db, targetDate, false, "AUTOMATED_SCHEDULER");
+        return res.json(result);
+      } else {
+        // Run standard scheduled check (handles sendTime, timezone, and transactional locks)
+        await checkAndRunScheduledDailyReport(db);
+        return res.json({ 
+          success: true, 
+          message: "Standard scheduled daily report verification executed successfully" 
+        });
+      }
     } catch (err: any) {
       console.error("[DailyReport Scheduler] Error in scheduled report execution:", err);
       return res.status(500).json({ error: err.message || "Failed to execute scheduled report process" });

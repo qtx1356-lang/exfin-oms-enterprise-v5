@@ -203,6 +203,66 @@ export function parseTimeToMinutes(timeStr: string): number | null {
 }
 
 /**
+ * Convert a 24-hour HH:mm (or potential legacy AM/PM format) string to 12-hour components
+ */
+export function to12HourFormat(time24: string): { hour: string; minute: string; period: 'AM' | 'PM' } {
+  if (!time24) return { hour: '07', minute: '00', period: 'AM' };
+  try {
+    const trimmed = time24.trim().toUpperCase();
+    const match = trimmed.match(/^(\d+):(\d+)\s*(AM|PM)?$/);
+    if (!match) {
+      return { hour: '07', minute: '00', period: 'AM' };
+    }
+    
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    let period: 'AM' | 'PM' = match[3] as 'AM' | 'PM' || 'AM';
+    
+    if (!match[3]) {
+      // 24-hour standard string
+      if (hours >= 12) {
+        period = 'PM';
+        if (hours > 12) hours -= 12;
+      } else {
+        period = 'AM';
+        if (hours === 0) hours = 12;
+      }
+    } else {
+      // Already has AM/PM suffix, keep but make sure hour is normalized 1-12
+      if (hours > 12) {
+        hours = hours % 12 || 12;
+      }
+    }
+    
+    return {
+      hour: String(hours).padStart(2, '0'),
+      minute: String(minutes).padStart(2, '0'),
+      period
+    };
+  } catch (e) {
+    return { hour: '07', minute: '00', period: 'AM' };
+  }
+}
+
+/**
+ * Convert 12-hour components back to 24-hour HH:mm string
+ */
+export function to24HourFormat(hour: string, minute: string, period: 'AM' | 'PM'): string {
+  let hours = parseInt(hour, 10);
+  if (isNaN(hours)) hours = 7;
+  const mins = parseInt(minute, 10);
+  const minStr = String(isNaN(mins) ? 0 : mins).padStart(2, '0');
+  
+  if (period === 'PM' && hours < 12) {
+    hours += 12;
+  } else if (period === 'AM' && hours === 12) {
+    hours = 0;
+  }
+  
+  return `${String(hours).padStart(2, '0')}:${minStr}`;
+}
+
+/**
  * Determine if an attendance record indicates a late check-in (after 10:30 AM IST)
  */
 export function isKolkataLateCheckIn(checkInTimeStr: string): boolean {
