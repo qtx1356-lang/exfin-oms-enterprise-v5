@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
-import { db } from '../../services/firebase/config';
+import { getDb } from '../../services/firebase/db';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { logStartupTag } from '../../services/startup/startupPerformanceLogger';
@@ -381,31 +380,43 @@ export const EmployeeDashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!db || !employeeData?.employeeCode || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
+    if (!employeeData?.employeeCode || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
     
-    const q = query(
-      collection(db, 'salaries'),
-      where('employeeCode', '==', employeeData.employeeCode),
-      limit(1)
-    );
-    
-    const unsub = onSnapshot(q, (snap) => {
-      const exists = !snap.empty;
-      setHasPayslips(exists);
-      try {
-        if (typeof localStorage !== 'undefined' && employeeData.employeeCode) {
-          localStorage.setItem(`exfin_cached_has_payslips_${employeeData.employeeCode}`, String(exists));
-          localStorage.setItem('exfin_cached_has_payslips', String(exists));
+    let isMounted = true;
+    let unsub: (() => void) | null = null;
+
+    getDb().then(async (activeDb) => {
+      if (!isMounted || !activeDb) return;
+      const { collection, query, where, limit, onSnapshot } = await import('firebase/firestore');
+
+      const q = query(
+        collection(activeDb, 'salaries'),
+        where('employeeCode', '==', employeeData.employeeCode),
+        limit(1)
+      );
+      
+      unsub = onSnapshot(q, (snap) => {
+        if (!isMounted) return;
+        const exists = !snap.empty;
+        setHasPayslips(exists);
+        try {
+          if (typeof localStorage !== 'undefined' && employeeData.employeeCode) {
+            localStorage.setItem(`exfin_cached_has_payslips_${employeeData.employeeCode}`, String(exists));
+            localStorage.setItem('exfin_cached_has_payslips', String(exists));
+          }
+        } catch {}
+      }, (err) => {
+        console.error("Error checking payslips availability:", err);
+        if (typeof navigator !== 'undefined' && navigator.onLine && isMounted) {
+          setHasPayslips(false);
         }
-      } catch {}
-    }, (err) => {
-      console.error("Error checking payslips availability:", err);
-      if (typeof navigator !== 'undefined' && navigator.onLine) {
-        setHasPayslips(false);
-      }
-    });
+      });
+    }).catch(err => console.warn('Failed to load db for payslips check:', err));
     
-    return () => unsub();
+    return () => {
+      isMounted = false;
+      if (unsub) unsub();
+    };
   }, [employeeData?.employeeCode]);
 
   useEffect(() => {
@@ -441,93 +452,109 @@ export const EmployeeDashboard: React.FC = () => {
     setNotificationsLoading(true);
     setNotificationsError(null);
 
-    if (!db || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
       setNotificationsLoading(false);
       return;
     }
 
-    // Fetch announcements in real-time
-    const announcementsQ = query(
-      collection(db, 'announcements'),
-      limit(50)
-    );
-    const unsubAnnouncements = onSnapshot(announcementsQ, (snapshot) => {
-      const allAnnouncements = snapshot.docs.map(doc => {
-        const d = doc.data();
-        const dateStr = d.date || d.createdAt || d.timestamp || d.createdAtDeviceTime || '';
-        return {
-          id: doc.id,
-          ...d,
-          date: dateStr,
-          createdAt: dateStr
-        };
-      }) as any[];
+    let isMounted = true;
+    let unsubAnnouncements: (() => void) | null = null;
 
-      // Filter targeted announcements for this employee
-      const filtered = allAnnouncements.filter((ann) => {
-        if (!employeeData) return false;
-        const status = (employeeData.status || 'Approved').toString().trim().toLowerCase();
-        if (status !== 'approved') return false;
-        if (employeeData.role === 'SUPER_ADMIN' || employeeData.role === 'ADMIN') return false;
-
-        if (!ann.targetType || ann.targetType === 'ALL') {
-          return true;
-        }
-
-        if (ann.targetType === 'DEPARTMENT') {
-          const userDept = (employeeData.department || '').toLowerCase().trim();
-          const userOffice = (employeeData.office || '').toLowerCase().trim();
-          const targetVal = String(ann.targetValue || '').toLowerCase().trim();
-          return userDept === targetVal || userOffice === targetVal;
-        }
-
-        if (ann.targetType === 'DESIGNATION') {
-          const userDesig = (employeeData.designation || '').toLowerCase().trim();
-          const targetVal = String(ann.targetValue || '').toLowerCase().trim();
-          return userDesig === targetVal;
-        }
-
-        if (ann.targetType === 'SELECTED') {
-          const selectedCodes = Array.isArray(ann.targetValue)
-            ? ann.targetValue.map((c: any) => String(c).trim().toLowerCase())
-            : [String(ann.targetValue || '').trim().toLowerCase()];
-          const userCode = String(employeeData.employeeCode || '').trim().toLowerCase();
-          const userId = String(employeeData.id || '').trim().toLowerCase();
-          return selectedCodes.includes(userCode) || selectedCodes.includes(userId);
-        }
-
-        return true;
-      });
-
-      // Sort announcements descending by time
-      filtered.sort((a, b) => {
-        const timeA = new Date(a.date || a.createdAt || a.timestamp || 0).getTime();
-        const timeB = new Date(b.date || b.createdAt || b.timestamp || 0).getTime();
-        return timeB - timeA;
-      });
-
-      const topAnnouncements = filtered.slice(0, 3);
-      setAnnouncements(topAnnouncements);
-      setNotificationsLoading(false);
-
-      // Persist to local cache for instant offline startup
-      try {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem('exfin_cached_announcements', JSON.stringify(topAnnouncements));
-          if (employeeData.employeeCode) {
-            localStorage.setItem(`exfin_cached_announcements_${employeeData.employeeCode}`, JSON.stringify(topAnnouncements));
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to cache announcements locally:', err);
+    getDb().then(async (activeDb) => {
+      if (!isMounted || !activeDb) {
+        if (isMounted) setNotificationsLoading(false);
+        return;
       }
-    }, (error) => {
-      console.error('Error fetching announcements:', error);
-      setNotificationsLoading(false);
+      const { collection, query, limit, onSnapshot } = await import('firebase/firestore');
+
+      // Fetch announcements in real-time
+      const announcementsQ = query(
+        collection(activeDb, 'announcements'),
+        limit(50)
+      );
+      unsubAnnouncements = onSnapshot(announcementsQ, (snapshot) => {
+        if (!isMounted) return;
+        const allAnnouncements = snapshot.docs.map(doc => {
+          const d = doc.data();
+          const dateStr = d.date || d.createdAt || d.timestamp || d.createdAtDeviceTime || '';
+          return {
+            id: doc.id,
+            ...d,
+            date: dateStr,
+            createdAt: dateStr
+          };
+        }) as any[];
+
+        // Filter targeted announcements for this employee
+        const filtered = allAnnouncements.filter((ann) => {
+          if (!employeeData) return false;
+          const status = (employeeData.status || 'Approved').toString().trim().toLowerCase();
+          if (status !== 'approved') return false;
+          if (employeeData.role === 'SUPER_ADMIN' || employeeData.role === 'ADMIN') return false;
+
+          if (!ann.targetType || ann.targetType === 'ALL') {
+            return true;
+          }
+
+          if (ann.targetType === 'DEPARTMENT') {
+            const userDept = (employeeData.department || '').toLowerCase().trim();
+            const userOffice = (employeeData.office || '').toLowerCase().trim();
+            const targetVal = String(ann.targetValue || '').toLowerCase().trim();
+            return userDept === targetVal || userOffice === targetVal;
+          }
+
+          if (ann.targetType === 'DESIGNATION') {
+            const userDesig = (employeeData.designation || '').toLowerCase().trim();
+            const targetVal = String(ann.targetValue || '').toLowerCase().trim();
+            return userDesig === targetVal;
+          }
+
+          if (ann.targetType === 'SELECTED') {
+            const selectedCodes = Array.isArray(ann.targetValue)
+              ? ann.targetValue.map((c: any) => String(c).trim().toLowerCase())
+              : [String(ann.targetValue || '').trim().toLowerCase()];
+            const userCode = String(employeeData.employeeCode || '').trim().toLowerCase();
+            const userId = String(employeeData.id || '').trim().toLowerCase();
+            return selectedCodes.includes(userCode) || selectedCodes.includes(userId);
+          }
+
+          return true;
+        });
+
+        // Sort announcements descending by time
+        filtered.sort((a, b) => {
+          const timeA = new Date(a.date || a.createdAt || a.timestamp || 0).getTime();
+          const timeB = new Date(b.date || b.createdAt || b.timestamp || 0).getTime();
+          return timeB - timeA;
+        });
+
+        const topAnnouncements = filtered.slice(0, 3);
+        setAnnouncements(topAnnouncements);
+        setNotificationsLoading(false);
+
+        // Persist to local cache for instant offline startup
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('exfin_cached_announcements', JSON.stringify(topAnnouncements));
+            if (employeeData.employeeCode) {
+              localStorage.setItem(`exfin_cached_announcements_${employeeData.employeeCode}`, JSON.stringify(topAnnouncements));
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to cache announcements locally:', err);
+        }
+      }, (error) => {
+        console.error('Error fetching announcements:', error);
+        if (isMounted) setNotificationsLoading(false);
+      });
+    }).catch(err => {
+      console.warn('Failed to load db for announcements:', err);
+      if (isMounted) setNotificationsLoading(false);
     });
 
     return () => {
-      unsubAnnouncements();
+      isMounted = false;
+      if (unsubAnnouncements) unsubAnnouncements();
     };
   }, [employeeData?.employeeCode, employeeData?.department, employeeData?.office, employeeData?.designation, employeeData?.status, employeeData?.role]);
 

@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
-import { collection, onSnapshot, query } from 'firebase/firestore';
-import { db } from '../services/firebase/config';
+import { getDb } from '../services/firebase/db';
 import { AppRole, FeatureKey, RoleFeaturePermissions, DEFAULT_ROLE_PERMISSIONS } from '../types/roles';
 import { useAdminAuth } from './AdminAuthContext';
 import { useRegistration } from './RegistrationContext';
@@ -66,15 +65,8 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     let isMounted = true;
     let timerId: NodeJS.Timeout | null = null;
+    let unsub = () => {};
 
-    console.log('PermissionContext useEffect: db is', db, 'type is', typeof db);
-
-    if (!db || typeof db !== 'object') {
-      console.warn('PermissionContext: db is not a valid object!', db);
-      setLoading(false);
-      return;
-    }
-    
     // Check if we have cached roles in localStorage for fast offline startup
     const localRoles = localStorage.getItem('roles_cache');
     if (localRoles) {
@@ -96,7 +88,6 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setLoading(false);
     }, 5000);
 
-    let unsub = () => {};
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       if (timerId) {
         clearTimeout(timerId);
@@ -106,39 +97,58 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return unsub;
     }
 
-    try {
-      const q = query(collection(db, 'roles'));
-      unsub = onSnapshot(q, (snapshot) => {
-        if (!isMounted) return;
+    getDb().then(async (activeDb) => {
+      if (!isMounted || !activeDb) {
         if (timerId) {
           clearTimeout(timerId);
           timerId = null;
         }
-        const newRoles = { ...rolesCache };
-        snapshot.docs.forEach(doc => {
-          const data = doc.data() as RoleFeaturePermissions;
-          newRoles[data.roleId] = data;
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { collection, onSnapshot, query } = await import('firebase/firestore');
+        const q = query(collection(activeDb, 'roles'));
+        unsub = onSnapshot(q, (snapshot) => {
+          if (!isMounted) return;
+          if (timerId) {
+            clearTimeout(timerId);
+            timerId = null;
+          }
+          const newRoles = { ...rolesCache };
+          snapshot.docs.forEach(doc => {
+            const data = doc.data() as RoleFeaturePermissions;
+            newRoles[data.roleId] = data;
+          });
+          setRolesCache(newRoles);
+          localStorage.setItem('roles_cache', JSON.stringify(newRoles));
+          setLoading(false);
+        }, (error) => {
+          if (!isMounted) return;
+          console.error('Error fetching roles:', error);
+          if (timerId) {
+            clearTimeout(timerId);
+            timerId = null;
+          }
+          setLoading(false);
         });
-        setRolesCache(newRoles);
-        localStorage.setItem('roles_cache', JSON.stringify(newRoles));
-        setLoading(false);
-      }, (error) => {
-        if (!isMounted) return;
-        console.error('Error fetching roles:', error);
+      } catch (error) {
+        console.error('Failed to initialize roles snapshot listener:', error);
         if (timerId) {
           clearTimeout(timerId);
           timerId = null;
         }
         setLoading(false);
-      });
-    } catch (error) {
-      console.error('Failed to initialize roles snapshot listener:', error);
+      }
+    }).catch((err) => {
+      console.warn('Failed to load activeDb in PermissionContext:', err);
       if (timerId) {
         clearTimeout(timerId);
         timerId = null;
       }
       setLoading(false);
-    }
+    });
 
     // Invalidate stale permission cache on network reconnection
     const unsubscribeNetwork = networkStatusService.subscribe((status) => {

@@ -266,7 +266,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return;
       }
 
-      const { doc, getDoc, onSnapshot } = firestore;
+      const { doc, getDoc, onSnapshot, updateDoc } = firestore;
 
       try {
         const savedRegId = localStorage.getItem('registrationId');

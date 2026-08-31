@@ -40,6 +40,8 @@ const getAdminAuth = () => {
   return adminAuth;
 };
 
+export { getDb, getEmployeeDb, getAdminDb } from './db';
+
 // 4. Dynamic Context Resolver Helper
 export const isAdminContext = (): boolean => {
   if (typeof window === 'undefined') return false;

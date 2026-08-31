@@ -1,13 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  orderBy,
-  limit,
-} from 'firebase/firestore';
-import { db } from '../services/firebase/config';
+import { getDb } from '../services/firebase/db';
 import { useRegistration } from './RegistrationContext';
 import { TaskRecord } from '../types/planner';
 import { LeaveRecord } from '../types/leave';
@@ -228,7 +220,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Setup real-time listeners for current employee identity strictly
   useEffect(() => {
-    if (!empCode || !db || !isOnline) {
+    if (!empCode || !isOnline) {
       cleanupListeners();
       setNotifications([]);
       setUnreadNotificationCount(0);
@@ -236,13 +228,18 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     cleanupListeners();
+    let isMounted = true;
 
-    // 1. Tasks Listener (Identity isolated to assignedToEmployeeCodes with limit bound)
-    const tasksQ = query(
-      collection(db, 'tasks'),
-      where('assignedToEmployeeCodes', 'array-contains', empCode),
-      limit(100)
-    );
+    getDb().then(async (activeDb) => {
+      if (!isMounted || !activeDb) return;
+      const { collection, query, where, onSnapshot, limit } = await import('firebase/firestore');
+
+      // 1. Tasks Listener (Identity isolated to assignedToEmployeeCodes with limit bound)
+      const tasksQ = query(
+        collection(activeDb, 'tasks'),
+        where('assignedToEmployeeCodes', 'array-contains', empCode),
+        limit(100)
+      );
 
     const unsubTasks = onSnapshot(
       tasksQ,
@@ -278,7 +275,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // 2. Leaves Listener (Identity isolated to employeeCode with limit bound)
     const leavesQ = query(
-      collection(db, 'leaves'),
+      collection(activeDb, 'leaves'),
       where('employeeCode', '==', empCode),
       limit(100)
     );
@@ -314,19 +311,19 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     const attendanceQueries = [];
     if (empCode) {
       attendanceQueries.push(
-        query(collection(db, 'attendance'), where('employeeId', '==', empCode), limit(365))
+        query(collection(activeDb, 'attendance'), where('employeeId', '==', empCode), limit(365))
       );
       attendanceQueries.push(
-        query(collection(db, 'attendance'), where('employeeCode', '==', empCode), limit(365))
+        query(collection(activeDb, 'attendance'), where('employeeCode', '==', empCode), limit(365))
       );
     }
     const currentUserId = employeeData?.id || '';
     if (currentUserId && currentUserId !== empCode) {
       attendanceQueries.push(
-        query(collection(db, 'attendance'), where('employeeId', '==', currentUserId), limit(365))
+        query(collection(activeDb, 'attendance'), where('employeeId', '==', currentUserId), limit(365))
       );
       attendanceQueries.push(
-        query(collection(db, 'attendance'), where('employeeCode', '==', currentUserId), limit(365))
+        query(collection(activeDb, 'attendance'), where('employeeCode', '==', currentUserId), limit(365))
       );
     }
 
@@ -489,7 +486,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // 4. Expenses Listener (Identity isolated to employeeCode with limit bound)
     const expQ = query(
-      collection(db, 'expenses'),
+      collection(activeDb, 'expenses'),
       where('employeeCode', '==', empCode),
       limit(100)
     );
@@ -526,7 +523,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     if (empCode) {
       notifQueries.push(
         query(
-          collection(db, 'notifications'),
+          collection(activeDb, 'notifications'),
           where('recipientEmployeeCode', '==', empCode),
           limit(50)
         )
@@ -536,7 +533,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     if (empId && empId !== empCode) {
       notifQueries.push(
         query(
-          collection(db, 'notifications'),
+          collection(activeDb, 'notifications'),
           where('recipientUserId', '==', empId),
           limit(50)
         )
@@ -546,7 +543,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       if (empId) {
         notifQueries.push(
           query(
-            collection(db, 'notifications'),
+            collection(activeDb, 'notifications'),
             where('recipientTeamLeaderId', '==', empId),
             limit(50)
           )
@@ -555,7 +552,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       if (empCode && empCode !== empId) {
         notifQueries.push(
           query(
-            collection(db, 'notifications'),
+            collection(activeDb, 'notifications'),
             where('recipientTeamLeaderId', '==', empCode),
             limit(50)
           )
@@ -680,12 +677,18 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       );
     });
 
-    activeUnsubsRef.current.push(...unsubNotifsList);
+    if (isMounted) {
+      activeUnsubsRef.current.push(...unsubNotifsList);
+    }
+  }).catch((err) => {
+    console.warn('RealtimeSync: Failed to load activeDb:', err);
+  });
 
-    return () => {
-      cleanupListeners();
-    };
-  }, [empCode, employeeData?.id, employeeData?.isTeamLeader, isOnline]);
+  return () => {
+    isMounted = false;
+    cleanupListeners();
+  };
+}, [empCode, employeeData?.id, employeeData?.isTeamLeader, isOnline]);
 
   // OPTIMISTIC TASK UPDATE
   const updateTaskOptimistically = useCallback(

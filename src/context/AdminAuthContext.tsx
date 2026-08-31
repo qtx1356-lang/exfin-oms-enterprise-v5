@@ -116,8 +116,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      const activeDb = db.concrete || db;
-      if (u && activeDb) {
+      if (u) {
         // Check for cached admin profile for instant / offline boot
         const cachedAdminRaw = localStorage.getItem(`cached_admin_profile_${u.uid}`);
         if (cachedAdminRaw) {
@@ -183,9 +182,10 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const login = async (emailOrLoginId: string, password: string) => {
-    const activeAuth = auth.concrete || auth;
-    const activeDb = db.concrete || db;
-    if (!activeAuth || !activeDb) throw new Error('Firebase services not initialized');
+    const { getDb } = await import('../services/firebase/db');
+    const { doc, getDoc } = await import('firebase/firestore');
+    const activeDb = await getDb();
+    if (!auth || !activeDb) throw new Error('Firebase services not initialized');
     
     const inputCleaned = emailOrLoginId.trim();
     const normalizedLoginId = inputCleaned.toLowerCase().replace(/\s+/g, '');
@@ -218,7 +218,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Attempt Firebase Authentication
     let userCredential;
     try {
-      userCredential = await signInWithEmailAndPassword(activeAuth, emailToAuth, password);
+      userCredential = await signInWithEmailAndPassword(auth, emailToAuth, password);
     } catch (err: any) {
       // Provide user-friendly errors for common auth failures
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
@@ -230,7 +230,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Security Verification: Check if authenticated UID matches the expected UID from mapping
     const u = userCredential.user;
     if (expectedUid && u.uid !== expectedUid) {
-      await signOut(activeAuth);
+      await signOut(auth);
       throw new Error('Security violation: Authenticated user does not match the mapped Login ID profile.');
     }
 
@@ -242,21 +242,21 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const data = adminDoc.data();
         const isActive = data.active !== false && data.status !== 'Suspended';
         if (!isActive) {
-          await signOut(activeAuth);
+          await signOut(auth);
           throw new Error('Your account is inactive. Please contact the administrator.');
         }
         setMustChangePassword(!!data.mustChangePassword);
         setPasswordChangedAt(data.passwordChangedAt || null);
         setPasswordResetAt(data.passwordResetAt || null);
       } else {
-        await signOut(activeAuth);
+        await signOut(auth);
         throw new Error('Admin profile not found. Access denied.');
       }
     } catch (err: any) {
       if (err.message.includes('inactive') || err.message.includes('not found') || err.message.includes('denied')) {
         throw err;
       }
-      await signOut(activeAuth);
+      await signOut(auth);
       throw new Error(`Profile verification failed: ${err.message}`);
     }
   };
