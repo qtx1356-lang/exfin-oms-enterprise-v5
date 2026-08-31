@@ -368,14 +368,14 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
     if (!targetEmpCode && !targetEmpId) return [];
     
     // Normalize target IDs to strings and trim
-    const tCode = String(targetEmpCode || '').trim();
-    const tId = String(targetEmpId || '').trim();
+    const tCode = String(targetEmpCode || '').trim().toUpperCase();
+    const tId = String(targetEmpId || '').trim().toUpperCase();
 
     return attendance.filter(r => {
       if (!r.date) return false;
       
-      const rCode = String(r.employeeCode || '').trim();
-      const rId = String(r.employeeId || '').trim();
+      const rCode = String(r.employeeCode || '').trim().toUpperCase();
+      const rId = String(r.employeeId || '').trim().toUpperCase();
       
       const matchCode = rCode && (rCode === tCode || rCode === tId);
       const matchId = rId && (rId === tCode || rId === tId);
@@ -407,12 +407,10 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
     // Monthly Work Hours for the month of the selected period
     const targetMonthPrefix = startDate.substring(0, 7);
     const monthlySummary = calculateMonthlySummary(
-      attendance.filter(r => {
-        const matchCode = r.employeeCode && (r.employeeCode === targetEmpCode || r.employeeCode === targetEmpId);
-        const matchId = r.employeeId && (r.employeeId === targetEmpCode || r.employeeId === targetEmpId);
-        return matchCode || matchId;
-      }),
-      targetMonthPrefix
+      attendance,
+      targetMonthPrefix,
+      targetEmpId,
+      targetEmpCode
     );
 
     return {
@@ -895,6 +893,47 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
   return (
     <div className="space-y-6 font-sans text-[var(--text-primary)] pb-16 max-w-7xl mx-auto">
       
+      {/* DIAGNOSTIC PANEL (Temporary) */}
+      {isAdmin && (
+        <div className="bg-slate-900/50 border border-slate-700 rounded-2xl p-4 text-[10px] font-mono text-slate-400 space-y-2">
+          <p className="text-white font-bold mb-1 flex items-center gap-2">
+            <Activity className="w-3 h-3 text-cyan-400" />
+            REAL-TIME DATA DIAGNOSTICS
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-slate-500">Target Identity:</p>
+              <p className="text-cyan-300">Code: {targetEmpCode || 'N/A'}</p>
+              <p className="text-cyan-300">ID: {targetEmpId || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-slate-500">Period Boundaries:</p>
+              <p>Start: {startDate}</p>
+              <p>End: {endDate}</p>
+            </div>
+            <div>
+              <p className="text-slate-500">Collection Counts:</p>
+              <p>Attendance: {attendance.length}</p>
+              <p>Tasks: {tasks.length}</p>
+            </div>
+            <div>
+              <p className="text-slate-500">Filtered Counts:</p>
+              <p>Attendance: {selectedEmployeeAttendance.length}</p>
+              <p>Tasks: {periodTasks.length}</p>
+            </div>
+          </div>
+          <div className="pt-2 border-t border-slate-800">
+            <p className="text-slate-500">Loading States:</p>
+            <p className={loading ? "text-amber-400" : "text-emerald-400"}>
+              Loading: {String(loading)} | 
+              Tasks: {String(tasksLoaded)} | 
+              Attendance: {String(attendanceLoaded)} | 
+              Regs: {String(registrationsLoaded)}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* HEADER BAR */}
       <div className="bg-[var(--surface-inner)] border border-[var(--border)] rounded-3xl p-5 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>

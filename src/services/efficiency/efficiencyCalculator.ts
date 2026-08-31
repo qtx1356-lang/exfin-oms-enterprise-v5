@@ -90,36 +90,49 @@ export const calculateEfficiency = (
   
   // Filter attendance records in period
   const periodAttendance = attendanceRecords.filter(rec => {
-    const matchId = rec.employeeId && (rec.employeeId === employeeCode || (employeeId && rec.employeeId === employeeId));
-    const matchCode = rec.employeeCode && (rec.employeeCode === employeeCode || (employeeId && rec.employeeCode === employeeId));
+    const rId = String(rec.employeeId || '').trim().toUpperCase();
+    const rCode = String(rec.employeeCode || '').trim().toUpperCase();
+    const tId = String(employeeId || '').trim().toUpperCase();
+    const tCode = String(employeeCode || '').trim().toUpperCase();
+
+    const matchId = rId && (rId === tCode || (tId && rId === tId));
+    const matchCode = rCode && (rCode === tCode || (tId && rCode === tId));
     const isEmp = matchId || matchCode;
     return isEmp && rec.date >= startDateStr && rec.date <= endDateStr;
   });
 
   // Filter tasks in period
   const periodTasks = tasks.filter(task => {
-    const matchCodeArr = task.assignedToEmployeeCodes && (
-      task.assignedToEmployeeCodes.includes(employeeCode) || 
-      (employeeId && task.assignedToEmployeeCodes.includes(employeeId))
-    );
-    const matchIdArr = task.assignedToEmployeeIds && (
-      (employeeId && task.assignedToEmployeeIds.includes(employeeId)) || 
-      task.assignedToEmployeeIds.includes(employeeCode)
-    );
-    const matchAssigneeCode = (task as any).assigneeCode && (
-      (task as any).assigneeCode === employeeCode || (employeeId && (task as any).assigneeCode === employeeId)
-    );
-    const matchAssigneeId = (task as any).assigneeId && (
-      (employeeId && (task as any).assigneeId === employeeId) || (task as any).assigneeId === employeeCode
-    );
-    const matchAssignedTo = (task as any).assignedTo && (
-      (task as any).assignedTo === employeeCode || (employeeId && (task as any).assignedTo === employeeId)
-    );
-    const matchEmpCode = (task as any).employeeCode && (
-      (task as any).employeeCode === employeeCode || (employeeId && (task as any).employeeCode === employeeId)
-    );
+    const tId = String(employeeId || '').trim().toUpperCase();
+    const tCode = String(employeeCode || '').trim().toUpperCase();
 
-    const isAssigned = matchCodeArr || matchIdArr || matchAssigneeCode || matchAssigneeId || matchAssignedTo || matchEmpCode;
+    const assignedCodes = Array.isArray(task.assignedToEmployeeCodes) 
+      ? task.assignedToEmployeeCodes.map(c => String(c).trim().toUpperCase()) 
+      : [];
+    const assignedIds = Array.isArray(task.assignedToEmployeeIds) 
+      ? task.assignedToEmployeeIds.map(i => String(i).trim().toUpperCase()) 
+      : [];
+    
+    const creatorId = String(task.createdBy || '').trim().toUpperCase();
+    const assigneeCode = String((task as any).assigneeCode || '').trim().toUpperCase();
+    const assigneeId = String((task as any).assigneeId || '').trim().toUpperCase();
+    const assignedTo = String((task as any).assignedTo || '').trim().toUpperCase();
+    const empCodeField = String((task as any).employeeCode || '').trim().toUpperCase();
+
+    const isAssigned = (tCode && assignedCodes.includes(tCode)) || 
+                       (tId && assignedCodes.includes(tId)) || 
+                       (tCode && assignedIds.includes(tCode)) || 
+                       (tId && assignedIds.includes(tId)) ||
+                       (tCode && creatorId === tCode) ||
+                       (tId && creatorId === tId) ||
+                       (tCode && assigneeCode === tCode) ||
+                       (tId && assigneeCode === tId) ||
+                       (tCode && assigneeId === tCode) ||
+                       (tId && assigneeId === tId) ||
+                       (tCode && assignedTo === tCode) ||
+                       (tId && assignedTo === tId) ||
+                       (tCode && empCodeField === tCode) ||
+                       (tId && empCodeField === tId);
     
     if (!isAssigned) return false;
     

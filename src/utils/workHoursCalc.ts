@@ -167,9 +167,27 @@ export interface WorkHoursSummary {
 // Compute stats for a given month (format: YYYY-MM)
 export const calculateMonthlySummary = (
   records: AttendanceRecord[],
-  monthYYYYMM: string
+  monthYYYYMM: string,
+  targetEmpId?: string,
+  targetEmpCode?: string
 ): WorkHoursSummary => {
-  const filtered = records.filter((r) => r.date && r.date.startsWith(monthYYYYMM));
+  const tId = String(targetEmpId || '').trim().toUpperCase();
+  const tCode = String(targetEmpCode || '').trim().toUpperCase();
+
+  const filtered = records.filter((r) => {
+    const dateMatch = r.date && r.date.startsWith(monthYYYYMM);
+    if (!dateMatch) return false;
+
+    if (!tId && !tCode) return true; // No employee filter requested
+
+    const rId = String(r.employeeId || '').trim().toUpperCase();
+    const rCode = String(r.employeeCode || '').trim().toUpperCase();
+    
+    const matchId = rId && (rId === tCode || (tId && rId === tId));
+    const matchCode = rCode && (rCode === tCode || (tId && rCode === tId));
+    
+    return matchId || matchCode;
+  });
   
   let totalMinutes = 0;
   let workingDays = 0;
