@@ -1,5 +1,5 @@
 import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { getDb } from '../firebase/config';
 import { APP_VERSION } from '../../config/version';
 
 export interface ErrorLogEntry {
@@ -100,10 +100,17 @@ export const logError = (
     }
 
     // Best effort Firestore sync
-    if (navigator.onLine && db && severity === 'critical') {
-      addDoc(collection(db, 'system_error_logs'), entry).catch((e) => {
-        console.warn('Firestore error log upload failed:', e);
-      });
+    if (navigator.onLine && severity === 'critical') {
+      (async () => {
+        try {
+          const activeDb = await getDb();
+          if (activeDb) {
+            await addDoc(collection(activeDb, 'system_error_logs'), entry);
+          }
+        } catch (e) {
+          console.warn('Firestore error log upload failed:', e);
+        }
+      })();
     }
   } catch (outerErr) {
     // Non-blocking catch all

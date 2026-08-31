@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { db } from '../../services/firebase/config';
+import { getActiveDbSync } from '../../services/firebase/db_sync';
 import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import {
   Search,
@@ -45,8 +45,8 @@ export const EmployeeProfilesTab: React.FC = () => {
 
   // 1. Listen to Registrations (Employees)
   useEffect(() => {
-    if (!db) return;
-    const qEmps = query(collection(db, 'registrations'));
+    if (!getActiveDbSync()) return;
+    const qEmps = query(collection(getActiveDbSync(), 'registrations'));
     const unsub = onSnapshot(qEmps, (snap) => {
       const list: any[] = [];
       snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
@@ -57,8 +57,8 @@ export const EmployeeProfilesTab: React.FC = () => {
 
   // 2. Listen to Profile Change Requests
   useEffect(() => {
-    if (!db) return;
-    const qReqs = query(collection(db, 'profile_change_requests'));
+    if (!getActiveDbSync()) return;
+    const qReqs = query(collection(getActiveDbSync(), 'profile_change_requests'));
     const unsub = onSnapshot(qReqs, (snap) => {
       const list: ProfileChangeRequest[] = [];
       snap.forEach((d) => list.push({ id: d.id, ...d.data() } as ProfileChangeRequest));
@@ -74,8 +74,8 @@ export const EmployeeProfilesTab: React.FC = () => {
 
   // 3. Listen to Audit Logs
   useEffect(() => {
-    if (!db) return;
-    const qAudit = query(collection(db, 'audit_logs'));
+    if (!getActiveDbSync()) return;
+    const qAudit = query(collection(getActiveDbSync(), 'audit_logs'));
     const unsub = onSnapshot(qAudit, (snap) => {
       const list: AuditLogEntry[] = [];
       snap.forEach((d) => list.push({ id: d.id, ...d.data() } as AuditLogEntry));

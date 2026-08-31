@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../../services/firebase/config';
+import { getActiveDbSync } from '../../services/firebase/db_sync';
 import { collection, query, limit, onSnapshot } from 'firebase/firestore';
 import { LeaveRecord } from '../../types/leave';
 import { reviewLeaveRequest } from '../../services/leave/leaveService';
@@ -37,8 +37,8 @@ export const AdminLeaveManagementTab: React.FC<AdminLeaveManagementTabProps> = (
 
   // Firestore Subscription
   useEffect(() => {
-    if (!db) return;
-    const qLeaves = query(collection(db, 'leaves'), limit(500));
+    if (!getActiveDbSync()) return;
+    const qLeaves = query(collection(getActiveDbSync(), 'leaves'), limit(500));
     const unsub = onSnapshot(qLeaves, (snapshot) => {
       const records: LeaveRecord[] = [];
       snapshot.forEach((doc) => {

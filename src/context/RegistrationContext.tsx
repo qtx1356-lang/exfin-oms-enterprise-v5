@@ -570,7 +570,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const { doc, setDoc, runTransaction, collection, query, where, getDocs } = await import('firebase/firestore');
     const { getDb } = await import('../services/firebase/db');
     const activeDb = await getDb();
-    const activeAuth = auth.concrete || auth;
+    const activeAuth = auth || auth;
     if (!activeDb) throw new Error('Firestore not initialized');
     
     console.log(`[Registration] Submitting for ${name} (${mobileNumber})`);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, limit } from 'firebase/firestore';
-import { db } from '../../services/firebase/config';
+import { getActiveDbSync } from '../../services/firebase/db_sync';
 import { Department, Designation } from '../../types/organization';
 import { ManagedUser } from '../../types/user';
 import {
@@ -38,7 +38,7 @@ export const OrganizationSettingsTab: React.FC<OrganizationSettingsTabProps> = (
 
   // Subscribe to data
   useEffect(() => {
-    if (!db) return;
+    if (!getActiveDbSync()) return;
 
     let deptsLoaded = false;
     let desigsLoaded = false;
@@ -50,21 +50,21 @@ export const OrganizationSettingsTab: React.FC<OrganizationSettingsTabProps> = (
       }
     };
 
-    const unsubDepts = onSnapshot(collection(db, 'departments'), (snap) => {
+    const unsubDepts = onSnapshot(collection(getActiveDbSync(), 'departments'), (snap) => {
       const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
       setDepartments(list);
       deptsLoaded = true;
       checkAllLoaded();
     }, () => { deptsLoaded = true; checkAllLoaded(); });
 
-    const unsubDesigs = onSnapshot(collection(db, 'designations'), (snap) => {
+    const unsubDesigs = onSnapshot(collection(getActiveDbSync(), 'designations'), (snap) => {
       const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Designation));
       setDesignations(list);
       desigsLoaded = true;
       checkAllLoaded();
     }, () => { desigsLoaded = true; checkAllLoaded(); });
 
-    const unsubUsers = onSnapshot(query(collection(db, 'registrations'), limit(500)), (snap) => {
+    const unsubUsers = onSnapshot(query(collection(getActiveDbSync(), 'registrations'), limit(500)), (snap) => {
       const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ManagedUser));
       setUsers(list);
       usersLoaded = true;
@@ -101,12 +101,12 @@ export const OrganizationSettingsTab: React.FC<OrganizationSettingsTabProps> = (
 
   // Realtime listeners for Departments and Designations
   useEffect(() => {
-    if (!db) {
+    if (!getActiveDbSync()) {
       setLoading(false);
       return;
     }
 
-    const unsubDepts = onSnapshot(collection(db, 'departments'), (snapshot) => {
+    const unsubDepts = onSnapshot(collection(getActiveDbSync(), 'departments'), (snapshot) => {
       const depts: Department[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
@@ -126,7 +126,7 @@ export const OrganizationSettingsTab: React.FC<OrganizationSettingsTabProps> = (
       console.error('Error fetching departments:', err);
     });
 
-    const unsubDesigs = onSnapshot(collection(db, 'designations'), (snapshot) => {
+    const unsubDesigs = onSnapshot(collection(getActiveDbSync(), 'designations'), (snapshot) => {
       const desigs: Designation[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();

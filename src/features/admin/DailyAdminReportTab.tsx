@@ -143,7 +143,7 @@ export function DailyAdminReportTab() {
         console.warn('Failed to get token from admin user:', e);
       }
     }
-    const activeAuth = getActiveAuth?.() || auth?.concrete || auth;
+    const activeAuth = getActiveAuth?.() || auth || auth;
     if (activeAuth?.currentUser) {
       try {
         return await activeAuth.currentUser.getIdToken();

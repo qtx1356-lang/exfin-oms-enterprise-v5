@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { db } from '../../services/firebase/config';
+import { getDb } from '../../services/firebase/config';
 import { collection, query, limit, onSnapshot, orderBy } from 'firebase/firestore';
 import { AttendanceRecord, AttendanceType } from '../../types/attendance';
 import { isAttendanceCheckoutUnresolved, isSameEmployee } from '../../utils/attendanceUtils';
@@ -49,40 +49,47 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = () => {
 
   // Firestore Subscriptions
   useEffect(() => {
-    if (!db) return;
+    let unsubRegs: (() => void) | null = null;
+    let unsubAtt: (() => void) | null = null;
+    let cancelled = false;
 
-    let regsLoaded = false;
-    let attLoaded = false;
+    getDb().then((activeDb) => {
+      if (cancelled || !activeDb) return;
 
-    const checkAllLoaded = () => {
-      if (regsLoaded && attLoaded) {
-        setIsLoading(false);
-      }
-    };
+      let regsLoaded = false;
+      let attLoaded = false;
 
-    // 1. Registrations
-    const qRegs = query(collection(db, 'registrations'), limit(500));
-    const unsubRegs = onSnapshot(qRegs, (snap) => {
-      const list: any[] = [];
-      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-      setRegistrations(list);
-      regsLoaded = true;
-      checkAllLoaded();
-    }, () => { regsLoaded = true; checkAllLoaded(); });
+      const checkAllLoaded = () => {
+        if (regsLoaded && attLoaded) {
+          setIsLoading(false);
+        }
+      };
 
-    // 2. Attendance (Bounded limit for work hours analysis)
-    const qAtt = query(collection(db, 'attendance'), orderBy('date', 'desc'), limit(1500));
-    const unsubAtt = onSnapshot(qAtt, (snap) => {
-      const list: AttendanceRecord[] = [];
-      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as AttendanceRecord));
-      setAttendanceRecords(list);
-      attLoaded = true;
-      checkAllLoaded();
-    }, () => { attLoaded = true; checkAllLoaded(); });
+      // 1. Registrations
+      const qRegs = query(collection(activeDb, 'registrations'), limit(500));
+      unsubRegs = onSnapshot(qRegs, (snap) => {
+        const list: any[] = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+        setRegistrations(list);
+        regsLoaded = true;
+        checkAllLoaded();
+      }, () => { regsLoaded = true; checkAllLoaded(); });
+
+      // 2. Attendance (Bounded limit for work hours analysis)
+      const qAtt = query(collection(activeDb, 'attendance'), orderBy('date', 'desc'), limit(1500));
+      unsubAtt = onSnapshot(qAtt, (snap) => {
+        const list: AttendanceRecord[] = [];
+        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as AttendanceRecord));
+        setAttendanceRecords(list);
+        attLoaded = true;
+        checkAllLoaded();
+      }, () => { attLoaded = true; checkAllLoaded(); });
+    }).catch(() => {});
 
     return () => {
-      unsubRegs();
-      unsubAtt();
+      cancelled = true;
+      if (unsubRegs) unsubRegs();
+      if (unsubAtt) unsubAtt();
     };
   }, []);
 

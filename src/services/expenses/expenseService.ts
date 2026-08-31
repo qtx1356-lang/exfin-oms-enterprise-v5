@@ -1,5 +1,5 @@
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { getDb } from '../firebase/config';
 import { ExpenseRecord } from '../../types/expense';
 import { saveExpenseRecord, getStoredExpenseRecords } from './expenseStorage';
 import { createAuditLog, getClientDeviceInfo } from '../audit/auditService';
@@ -56,10 +56,11 @@ export const approveExpenseClaim = async (
     existingRecord = fromLocal;
   }
 
-  // If db available, try fetching current authoritative state from Firestore
-  if (db) {
+  // If getDb() available, try fetching current authoritative state from Firestore
+  const activeDb = await getDb();
+  if (activeDb) {
     try {
-      const docRef = doc(db, 'expenses', expenseId);
+      const docRef = doc(activeDb, 'expenses', expenseId);
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         existingRecord = { id: snap.id, ...snap.data() } as ExpenseRecord;
@@ -86,11 +87,11 @@ export const approveExpenseClaim = async (
   };
 
   // 2. Persist to authoritative Firestore database
-  if (!db) {
+  if (!activeDb) {
     throw new Error('Firestore database instance is not available.');
   }
 
-  const docRef = doc(db, 'expenses', expenseId);
+  const docRef = doc(activeDb, 'expenses', expenseId);
   await setDoc(docRef, updatedPayload, { merge: true });
 
   // 3. Construct updated full record
@@ -185,9 +186,10 @@ export const rejectExpenseClaim = async (
   const fromLocal = stored.find((r) => r.id === expenseId);
   if (fromLocal) existingRecord = fromLocal;
 
-  if (db) {
+  const activeDb = await getDb();
+  if (activeDb) {
     try {
-      const docRef = doc(db, 'expenses', expenseId);
+      const docRef = doc(activeDb, 'expenses', expenseId);
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         existingRecord = { id: snap.id, ...snap.data() } as ExpenseRecord;
@@ -209,11 +211,11 @@ export const rejectExpenseClaim = async (
     serverSyncTime: nowIso,
   };
 
-  if (!db) {
+  if (!activeDb) {
     throw new Error('Firestore database instance is not available.');
   }
 
-  const docRef = doc(db, 'expenses', expenseId);
+  const docRef = doc(activeDb, 'expenses', expenseId);
   await setDoc(docRef, updatedPayload, { merge: true });
 
   const updatedRecord: ExpenseRecord = {

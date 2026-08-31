@@ -1,4 +1,4 @@
-import { db } from '../firebase/config';
+import { getDb } from '../firebase/config';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { NotificationCategory } from '../../types/notification';
 import { createAuditLog } from '../audit/auditService';
@@ -246,13 +246,16 @@ function normalizeMatrix(rawMatrix: EventNotificationConfig[]): EventNotificatio
  */
 export async function getAdminNotificationMatrix(): Promise<EventNotificationConfig[]> {
   try {
-    if (typeof window !== 'undefined' && navigator.onLine && db) {
-      const docRef = doc(db, CONFIG_DOC_PATH);
-      const snap = await getDoc(docRef);
-      if (snap.exists() && snap.data()?.matrix) {
-        const matrix = normalizeMatrix(snap.data().matrix as EventNotificationConfig[]);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(matrix));
-        return matrix;
+    if (typeof window !== 'undefined' && navigator.onLine) {
+      const activeDb = await getDb();
+      if (activeDb) {
+        const docRef = doc(activeDb, CONFIG_DOC_PATH);
+        const snap = await getDoc(docRef);
+        if (snap.exists() && snap.data()?.matrix) {
+          const matrix = normalizeMatrix(snap.data().matrix as EventNotificationConfig[]);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(matrix));
+          return matrix;
+        }
       }
     }
   } catch (err) {
@@ -285,14 +288,17 @@ export async function saveAdminNotificationMatrix(
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newMatrix));
 
   // Save to Firestore if online
-  if (typeof window !== 'undefined' && navigator.onLine && db) {
+  if (typeof window !== 'undefined' && navigator.onLine) {
     try {
-      const docRef = doc(db, CONFIG_DOC_PATH);
-      await setDoc(docRef, {
-        matrix: newMatrix,
-        updatedAt: new Date().toISOString(),
-        updatedBy: adminUser.name || 'Admin',
-      }, { merge: true });
+      const activeDb = await getDb();
+      if (activeDb) {
+        const docRef = doc(activeDb, CONFIG_DOC_PATH);
+        await setDoc(docRef, {
+          matrix: newMatrix,
+          updatedAt: new Date().toISOString(),
+          updatedBy: adminUser.name || 'Admin',
+        }, { merge: true });
+      }
     } catch (err) {
       console.warn('Failed to save notification matrix to Firestore:', err);
     }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, doc, setDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
-import { db } from '../../services/firebase/config';
+import { getActiveDbSync } from '../../services/firebase/db_sync';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { usePermission } from '../../context/PermissionContext';
 import { 
@@ -100,9 +100,9 @@ export const AdminWorkPlannerTab: React.FC = () => {
 
   // Load Tasks and Employees from Firestore
   useEffect(() => {
-    if (!db) return;
+    if (!getActiveDbSync()) return;
 
-    const qTasks = query(collection(db, 'tasks'), orderBy('createdAtDeviceTime', 'desc'));
+    const qTasks = query(collection(getActiveDbSync(), 'tasks'), orderBy('createdAtDeviceTime', 'desc'));
     const unsubTasks = onSnapshot(qTasks, (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskRecord));
       setTasks(data);
@@ -112,7 +112,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
       setLoading(false);
     });
 
-    const unsubRegs = onSnapshot(collection(db, 'registrations'), (snap) => {
+    const unsubRegs = onSnapshot(collection(getActiveDbSync(), 'registrations'), (snap) => {
       const emps: EmployeeOption[] = [];
       snap.docs.forEach(d => {
         const data = d.data();
@@ -190,7 +190,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
           details: `Edited task details (Priority: ${taskPriority}, Due: ${taskDueDate})`
         };
 
-        await updateDoc(doc(db, 'tasks', editingTaskId), {
+        await updateDoc(doc(getActiveDbSync(), 'tasks', editingTaskId), {
           title: taskTitle.trim(),
           description: taskDescription.trim(),
           priority: taskPriority,
@@ -248,7 +248,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
           syncStatus: 'Synced',
         };
 
-        await setDoc(doc(db, 'tasks', taskId), newTask);
+        await setDoc(doc(getActiveDbSync(), 'tasks', taskId), newTask);
 
         // Send Push Notification to Employee
         await createNotification({
@@ -299,7 +299,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
         details: `Reassigned from ${prevEmpCode} to ${newEmp.name} (${newEmp.employeeCode})`
       };
 
-      await updateDoc(doc(db, 'tasks', reassignTargetTask.id), {
+      await updateDoc(doc(getActiveDbSync(), 'tasks', reassignTargetTask.id), {
         assignedToEmployeeIds: [newEmp.id],
         assignedToEmployeeCodes: [newEmp.employeeCode],
         assignedToDepartment: newEmp.department,
@@ -345,7 +345,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
         details: 'Task cancelled by admin'
       };
 
-      await updateDoc(doc(db, 'tasks', task.id), {
+      await updateDoc(doc(getActiveDbSync(), 'tasks', task.id), {
         status: 'Cancelled',
         history: [...(task.history || []), historyEntry],
         updatedAtDeviceTime: nowIso,
@@ -390,7 +390,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
         details: `Revision #${newRevNumber} requested: "${revisionReasonInput.trim()}"`
       };
 
-      await updateDoc(doc(db, 'tasks', revisionTargetTask.id), {
+      await updateDoc(doc(getActiveDbSync(), 'tasks', revisionTargetTask.id), {
         status: 'Revision Requested',
         approvalStatus: 'REVISION_REQUIRED',
         revisionCount: newRevNumber,
@@ -438,7 +438,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
         details: 'Approved and marked 100% completed by admin'
       };
 
-      await updateDoc(doc(db, 'tasks', task.id), {
+      await updateDoc(doc(getActiveDbSync(), 'tasks', task.id), {
         status: 'Completed',
         approvalStatus: 'APPROVED',
         completionPercentage: 100,
@@ -461,7 +461,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
   const handleDeleteTask = async (taskId: string) => {
     if (!window.confirm("Are you sure you want to permanently delete this task?")) return;
     try {
-      await deleteDoc(doc(db, 'tasks', taskId));
+      await deleteDoc(doc(getActiveDbSync(), 'tasks', taskId));
     } catch (err) {
       console.error('Error deleting task:', err);
       alert('Failed to delete task. You might not have permission.');

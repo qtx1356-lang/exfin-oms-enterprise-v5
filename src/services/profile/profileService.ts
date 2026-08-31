@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, where, addDoc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { db } from '../firebase/config';
+import { getDb } from '../firebase/config';
 import { storage } from '../firebase/storage';
 import { EmployeeProfile, ProfileChangeRequest, AuditLogEntry } from '../../types/profile';
 import {
@@ -68,39 +68,42 @@ export const loadProfile = async (uid: string, employeeCode?: string): Promise<E
   if (!uid) return null;
 
   // Attempt online load
-  if (navigator.onLine && db) {
+  if (navigator.onLine) {
     try {
-      const docRef = doc(db, 'registrations', uid);
-      const docSnap = await getDoc(docRef);
+      const activeDb = await getDb();
+      if (activeDb) {
+        const docRef = doc(activeDb, 'registrations', uid);
+        const docSnap = await getDoc(docRef);
 
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        const profile: EmployeeProfile = {
-          id: docSnap.id,
-          uid: data.uid || uid,
-          employeeCode: data.employeeCode || employeeCode || 'EXFRNG000',
-          name: data.name || 'Employee',
-          mobileNumber: data.mobileNumber || '',
-          email: data.email || `${(data.employeeCode || 'employee').toLowerCase()}@company.internal`,
-          department: data.department || data.departmentName || data.office || 'Operations',
-          designation: data.designation || (data.isTeamLeader ? 'Team Leader' : 'Executive'),
-          teamLeaderCode: data.teamLeaderCode || null,
-          teamLeaderName: data.teamLeaderName || null,
-          joiningDate: data.registrationDate ? new Date(data.registrationDate).toLocaleDateString() : 'N/A',
-          employmentStatus: data.status === 'Approved' ? 'Active' : data.status || 'Active',
-          profilePhotoUrl: data.profilePhotoUrl || data.selfieUrl || null,
-          officeLocation: data.officeLocation || data.workLocation || 'Raniganj HQ',
-          reportingManager: data.teamLeaderName || 'Branch Admin',
-          workLocation: data.workLocation || data.officeLocation || 'Raniganj HQ',
-          emergencyContact: data.emergencyContact || 'Not Provided',
-          role: data.role || (data.isTeamLeader ? 'TEAM_LEADER' : 'EMPLOYEE'),
-          baseSalary: data.baseSalary !== undefined ? data.baseSalary : undefined,
-          createdAt: data.registrationDate,
-          updatedAt: new Date().toISOString(),
-        };
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const profile: EmployeeProfile = {
+            id: docSnap.id,
+            uid: data.uid || uid,
+            employeeCode: data.employeeCode || employeeCode || 'EXFRNG000',
+            name: data.name || 'Employee',
+            mobileNumber: data.mobileNumber || '',
+            email: data.email || `${(data.employeeCode || 'employee').toLowerCase()}@company.internal`,
+            department: data.department || data.departmentName || data.office || 'Operations',
+            designation: data.designation || (data.isTeamLeader ? 'Team Leader' : 'Executive'),
+            teamLeaderCode: data.teamLeaderCode || null,
+            teamLeaderName: data.teamLeaderName || null,
+            joiningDate: data.registrationDate ? new Date(data.registrationDate).toLocaleDateString() : 'N/A',
+            employmentStatus: data.status === 'Approved' ? 'Active' : data.status || 'Active',
+            profilePhotoUrl: data.profilePhotoUrl || data.selfieUrl || null,
+            officeLocation: data.officeLocation || data.workLocation || 'Raniganj HQ',
+            reportingManager: data.teamLeaderName || 'Branch Admin',
+            workLocation: data.workLocation || data.officeLocation || 'Raniganj HQ',
+            emergencyContact: data.emergencyContact || 'Not Provided',
+            role: data.role || (data.isTeamLeader ? 'TEAM_LEADER' : 'EMPLOYEE'),
+            baseSalary: data.baseSalary !== undefined ? data.baseSalary : undefined,
+            createdAt: data.registrationDate,
+            updatedAt: new Date().toISOString(),
+          };
 
-        saveCachedProfile(profile);
-        return profile;
+          saveCachedProfile(profile);
+          return profile;
+        }
       }
     } catch (err) {
       console.warn('Failed to fetch profile online, loading cached fallback:', err);
@@ -118,50 +121,53 @@ export const uploadProfilePhoto = async (
 ): Promise<{ success: boolean; photoUrl?: string }> => {
   const uploadId = `photo_${Date.now()}`;
 
-  if (navigator.onLine && storage && db) {
+  if (navigator.onLine && storage) {
     try {
-      const storagePath = `profile_photos/${uid}/profile_${Date.now()}.jpg`;
-      const storageRef = ref(storage, storagePath);
+      const activeDb = await getDb();
+      if (activeDb) {
+        const storagePath = `profile_photos/${uid}/profile_${Date.now()}.jpg`;
+        const storageRef = ref(storage, storagePath);
 
-      console.log(`Profile Service: Uploading photo to Storage path: ${storagePath}`);
-      await uploadString(storageRef, imageBase64, 'data_url');
-      const downloadUrl = await getDownloadURL(storageRef);
+        console.log(`Profile Service: Uploading photo to Storage path: ${storagePath}`);
+        await uploadString(storageRef, imageBase64, 'data_url');
+        const downloadUrl = await getDownloadURL(storageRef);
 
-      // Update Firestore registration document
-      try {
-        const regRef = doc(db, 'registrations', uid);
-        await updateDoc(regRef, {
-          profilePhotoUrl: downloadUrl,
-          selfieUrl: downloadUrl,
-          updatedAt: new Date().toISOString(),
+        // Update Firestore registration document
+        try {
+          const regRef = doc(activeDb, 'registrations', uid);
+          await updateDoc(regRef, {
+            profilePhotoUrl: downloadUrl,
+            selfieUrl: downloadUrl,
+            updatedAt: new Date().toISOString(),
+          });
+        } catch (firestoreErr) {
+          console.error('Profile photo Firestore update error:', firestoreErr);
+          throw new Error('STORAGE_SUCCESS_FIRESTORE_FAIL');
+        }
+
+        // Update local cached profile
+        const cached = getCachedProfile(uid);
+        if (cached) {
+          cached.profilePhotoUrl = downloadUrl;
+          cached.localPhotoData = null;
+          saveCachedProfile(cached);
+        }
+
+        await createNotification({
+          recipientEmployeeCode: employeeCode,
+          recipientUserId: uid,
+          type: 'SYSTEM_ALERT',
+          category: 'SYSTEM',
+          priority: 'NORMAL',
+          title: 'Profile Photo Updated',
+          message: 'Your profile photo has been successfully updated.',
+          entityId: uid,
+          entityType: 'PROFILE',
         });
-      } catch (firestoreErr) {
-        console.error('Profile photo Firestore update error:', firestoreErr);
-        throw new Error('STORAGE_SUCCESS_FIRESTORE_FAIL');
+
+        recordSyncSuccess('Attendance', uploadId);
+        return { success: true, photoUrl: downloadUrl };
       }
-
-      // Update local cached profile
-      const cached = getCachedProfile(uid);
-      if (cached) {
-        cached.profilePhotoUrl = downloadUrl;
-        cached.localPhotoData = null;
-        saveCachedProfile(cached);
-      }
-
-      await createNotification({
-        recipientEmployeeCode: employeeCode,
-        recipientUserId: uid,
-        type: 'SYSTEM_ALERT',
-        category: 'SYSTEM',
-        priority: 'NORMAL',
-        title: 'Profile Photo Updated',
-        message: 'Your profile photo has been successfully updated.',
-        entityId: uid,
-        entityType: 'PROFILE',
-      });
-
-      recordSyncSuccess('Attendance', uploadId);
-      return { success: true, photoUrl: downloadUrl };
     } catch (uploadErr: any) {
       console.error('Profile photo upload error:', uploadErr);
       recordSyncFailure('Attendance', uploadId, uploadErr?.message || 'Photo upload failed', 'Profile photo upload');
@@ -169,7 +175,7 @@ export const uploadProfilePhoto = async (
     }
   }
 
-  // If we reach here, we are either offline or storage/db was not available
+  // If we reach here, we are either offline or storage/getActiveDbSync() was not available
   if (!navigator.onLine) {
     // Save for offline synchronization
     savePendingPhotoUpload({
@@ -206,24 +212,30 @@ export const submitProfileChangeRequest = async (
     syncStatus: navigator.onLine ? 'Synced' : 'Pending Sync',
   };
 
-  if (navigator.onLine && db) {
+  if (navigator.onLine) {
     try {
-      await setDoc(doc(db, 'profile_change_requests', reqId), changeRequest);
+      const activeDb = await getDb();
+      if (activeDb) {
+        await setDoc(doc(activeDb, 'profile_change_requests', reqId), changeRequest);
 
-      // Notify Employee
-      await createNotification({
-        recipientEmployeeCode: changeRequest.employeeCode,
-        recipientUserId: changeRequest.uid,
-        type: 'SYSTEM_ALERT',
-        category: 'SYSTEM',
-        priority: 'NORMAL',
-        title: 'Profile Change Requested',
-        message: `Your request to update ${changeRequest.fieldLabel} has been submitted for admin approval.`,
-        entityId: reqId,
-        entityType: 'PROFILE',
-      });
+        // Notify Employee
+        await createNotification({
+          recipientEmployeeCode: changeRequest.employeeCode,
+          recipientUserId: changeRequest.uid,
+          type: 'SYSTEM_ALERT',
+          category: 'SYSTEM',
+          priority: 'NORMAL',
+          title: 'Profile Change Requested',
+          message: `Your request to update ${changeRequest.fieldLabel} has been submitted for admin approval.`,
+          entityId: reqId,
+          entityType: 'PROFILE',
+        });
 
-      recordSyncSuccess('Attendance', reqId);
+        recordSyncSuccess('Attendance', reqId);
+      } else {
+        changeRequest.syncStatus = 'Pending Sync';
+        savePendingProfileRequest(changeRequest);
+      }
     } catch (err: any) {
       console.error('Failed to submit profile change request to Firestore:', err);
       changeRequest.syncStatus = 'Pending Sync';
@@ -245,9 +257,10 @@ export const reviewProfileChangeRequest = async (
   action: 'APPROVE' | 'REJECT',
   rejectionReason?: string
 ): Promise<void> => {
-  if (!db) throw new Error('Database not connected');
+  const activeDb = await getDb();
+  if (!activeDb) throw new Error('Database not connected');
 
-  const reqRef = doc(db, 'profile_change_requests', requestId);
+  const reqRef = doc(activeDb, 'profile_change_requests', requestId);
   const reqSnap = await getDoc(reqRef);
 
   if (!reqSnap.exists()) {
@@ -267,7 +280,7 @@ export const reviewProfileChangeRequest = async (
 
   // If approved, update authoritative employee registration record
   if (action === 'APPROVE') {
-    const regRef = doc(db, 'registrations', reqData.uid);
+    const regRef = doc(activeDb, 'registrations', reqData.uid);
     const updatePayload: Record<string, any> = {
       updatedAt: now,
     };
@@ -321,7 +334,7 @@ export const reviewProfileChangeRequest = async (
     reason: rejectionReason || (action === 'APPROVE' ? 'Approved by Admin' : 'Rejected by Admin'),
   };
 
-  await addDoc(collection(db, 'audit_logs'), auditEntry);
+  await addDoc(collection(activeDb, 'audit_logs'), auditEntry);
 };
 
 export const syncPendingProfileChanges = async (): Promise<{ syncedCount: number; errorsCount: number }> => {
@@ -347,10 +360,11 @@ export const syncPendingProfileChanges = async (): Promise<{ syncedCount: number
 
   // 2. Sync pending profile change requests
   const pendingRequests = getPendingProfileRequests();
+  const activeDb = await getDb();
   for (const req of pendingRequests) {
     try {
-      if (db) {
-        await setDoc(doc(db, 'profile_change_requests', req.id), {
+      if (activeDb) {
+        await setDoc(doc(activeDb, 'profile_change_requests', req.id), {
           ...req,
           syncStatus: 'Synced',
         });

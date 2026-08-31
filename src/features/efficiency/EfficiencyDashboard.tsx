@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { collection, onSnapshot, query, where, limit } from 'firebase/firestore';
-import { db } from '../../services/firebase/config';
+import { getDb } from '../../services/firebase/config';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
@@ -262,11 +262,8 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
     effDashEffectCount++;
     activeListeners++;
 
-    if (!db) {
-      setOfflineMode(true);
-      setLoading(false);
-      return;
-    }
+    let cancelled = false;
+    const unsubs: (() => void)[] = [];
 
     setLoading(true);
     setTasksLoaded(false);
@@ -274,6 +271,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
     setRegistrationsLoaded(false);
 
     getSavedWeightages().then(w => {
+      if (cancelled) return;
       setWeightages(w);
       setAdminWeights(w);
     });
@@ -289,62 +287,84 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       return;
     }
 
-    const unsubs: (() => void)[] = [];
-
-    // 1. REGISTRATIONS LISTENER (Background view for Admin / Team Leader only, non-blocking)
-    if (isAdmin || isTeamLeader) {
-      const unsubRegs = onSnapshot(collection(db, 'registrations'), (snap) => {
-        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setAllEmployees(list);
-        setRegistrationsLoaded(true);
-      }, (err) => {
-        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=registrations notice:', err);
-        setRegistrationsLoaded(true);
-      });
-      unsubs.push(unsubRegs);
-    } else if (employeeData) {
-      setAllEmployees([employeeData]);
-      setRegistrationsLoaded(true);
-    } else {
-      setRegistrationsLoaded(true);
-    }
-
-    // 2. UNIFIED TASKS & ATTENDANCE LISTENERS FOR ADMINS & TEAM LEADERS
-    if (isAdmin || isTeamLeader) {
-      const unsubTasks = onSnapshot(collection(db, 'tasks'), (snap) => {
-        const list: TaskRecord[] = [];
-        snap.docs.forEach(doc => {
-          list.push({ id: doc.id, ...doc.data() } as TaskRecord);
-        });
-        setTasks(list);
+    getDb().then((activeDb) => {
+      if (cancelled) return;
+      if (!activeDb) {
+        setOfflineMode(true);
+        setLoading(false);
         setTasksLoaded(true);
-      }, (err) => {
-        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks notice:', err);
-        setTasksLoaded(true);
-      });
-      unsubs.push(unsubTasks);
+        setAttendanceLoaded(true);
+        setRegistrationsLoaded(true);
+        return;
+      }
 
-      const unsubAtt = onSnapshot(collection(db, 'attendance'), (snap) => {
-        const list: AttendanceRecord[] = [];
-        snap.docs.forEach(doc => {
-          list.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
+      // 1. REGISTRATIONS LISTENER (Background view for Admin / Team Leader only, non-blocking)
+      if (isAdmin || isTeamLeader) {
+        const unsubRegs = onSnapshot(collection(activeDb, 'registrations'), (snap) => {
+          if (cancelled) return;
+          const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setAllEmployees(list);
+          setRegistrationsLoaded(true);
+        }, (err) => {
+          console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=registrations notice:', err);
+          if (!cancelled) setRegistrationsLoaded(true);
         });
-        setAttendance(list);
+        unsubs.push(unsubRegs);
+      } else if (employeeData) {
+        setAllEmployees([employeeData]);
+        setRegistrationsLoaded(true);
+      } else {
+        setRegistrationsLoaded(true);
+      }
+
+      // 2. UNIFIED TASKS & ATTENDANCE LISTENERS FOR ADMINS & TEAM LEADERS
+      if (isAdmin || isTeamLeader) {
+        const unsubTasks = onSnapshot(collection(activeDb, 'tasks'), (snap) => {
+          if (cancelled) return;
+          const list: TaskRecord[] = [];
+          snap.docs.forEach(doc => {
+            list.push({ id: doc.id, ...doc.data() } as TaskRecord);
+          });
+          setTasks(list);
+          setTasksLoaded(true);
+        }, (err) => {
+          console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks notice:', err);
+          if (!cancelled) setTasksLoaded(true);
+        });
+        unsubs.push(unsubTasks);
+
+        const unsubAtt = onSnapshot(collection(activeDb, 'attendance'), (snap) => {
+          if (cancelled) return;
+          const list: AttendanceRecord[] = [];
+          snap.docs.forEach(doc => {
+            list.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
+          });
+          setAttendance(list);
+          setAttendanceLoaded(true);
+        }, (err) => {
+          console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance notice:', err);
+          if (!cancelled) setAttendanceLoaded(true);
+        });
+        unsubs.push(unsubAtt);
+      } else {
+        // If we are inspecting ourselves as a standard employee, our local sync hook does the work
+        setTasks(syncTasks);
+        setAttendance(syncAttendance);
+        setTasksLoaded(true);
         setAttendanceLoaded(true);
-      }, (err) => {
-        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance notice:', err);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setOfflineMode(true);
+        setLoading(false);
+        setTasksLoaded(true);
         setAttendanceLoaded(true);
-      });
-      unsubs.push(unsubAtt);
-    } else {
-      // If we are inspecting ourselves as a standard employee, our local sync hook does the work
-      setTasks(syncTasks);
-      setAttendance(syncAttendance);
-      setTasksLoaded(true);
-      setAttendanceLoaded(true);
-    }
+        setRegistrationsLoaded(true);
+      }
+    });
 
     return () => {
+      cancelled = true;
       activeListeners--;
       unsubs.forEach(unsub => unsub());
     };

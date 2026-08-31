@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { db } from '../../services/firebase/config';
+import { getActiveDbSync } from '../../services/firebase/db_sync';
 import { collection, query, limit, onSnapshot } from 'firebase/firestore';
 import { ExpenseRecord, ExpenseCategory, EXPENSE_CATEGORIES } from '../../types/expense';
 import { 
@@ -49,8 +49,8 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
 
   // Firestore Subscription
   useEffect(() => {
-    if (!db) return;
-    const qExpenses = query(collection(db, 'expenses'), limit(500));
+    if (!getActiveDbSync()) return;
+    const qExpenses = query(collection(getActiveDbSync(), 'expenses'), limit(500));
     const unsub = onSnapshot(qExpenses, (snapshot) => {
       const records: ExpenseRecord[] = [];
       snapshot.forEach((doc) => {

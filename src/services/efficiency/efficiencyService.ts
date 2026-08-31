@@ -9,7 +9,7 @@ import {
   where,
   serverTimestamp 
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { getDb } from '../firebase/config';
 import { EfficiencyWeightages, EfficiencySnapshot, SystemSettings } from '../../types/efficiency';
 
 const WEIGHTS_LOCAL_KEY = 'exfin_efficiency_weights';
@@ -39,7 +39,8 @@ export const getSavedWeightages = async (): Promise<EfficiencyWeightages> => {
     console.warn('Failed to read cached weightages:', err);
   }
 
-  if (!db) {
+  const activeDb = await getDb();
+  if (!activeDb) {
     return cached || DEFAULT_WEIGHTAGES;
   }
 
@@ -53,7 +54,7 @@ export const getSavedWeightages = async (): Promise<EfficiencyWeightages> => {
 
   try {
     // 2. Fetch from Firestore
-    const docRef = doc(db, 'system_settings', 'efficiency_config');
+    const docRef = doc(activeDb, 'system_settings', 'efficiency_config');
     const snap = await getDoc(docRef);
     clearTimeout(pendingTimer);
     const elapsedMs = Math.round((performance.now() - startTime) * 100) / 100;
@@ -102,12 +103,13 @@ export const saveWeightages = async (
   // Update local storage first (offline-first)
   localStorage.setItem(WEIGHTS_LOCAL_KEY, JSON.stringify(weightages));
 
-  if (!db) {
+  const activeDb = await getDb();
+  if (!activeDb) {
     throw new Error('Database is offline. Settings cached locally.');
   }
 
   try {
-    const docRef = doc(db, 'system_settings', 'efficiency_config');
+    const docRef = doc(activeDb, 'system_settings', 'efficiency_config');
     const settingsPayload: any = {
       id: 'efficiency_config',
       efficiencyTaskCompletionWeight: taskCompletion,
@@ -173,13 +175,14 @@ export const saveEfficiencySnapshot = async (snapshot: EfficiencySnapshot): Prom
   saveLocalSnapshots(localList);
 
   // 2. Try Firestore upload
-  if (!db) {
+  const activeDb = await getDb();
+  if (!activeDb) {
     console.log('Database not available, snapshot saved locally (pending sync)');
     return;
   }
 
   try {
-    const docRef = doc(db, 'efficiency_snapshots', snapshotId);
+    const docRef = doc(activeDb, 'efficiency_snapshots', snapshotId);
     
     // Server payload has serverSyncTime added without overwriting calculatedAtDeviceTime
     const serverPayload = {
@@ -212,7 +215,8 @@ export const getEfficiencySnapshots = async (employeeCode?: string): Promise<Eff
     ? localSnapshots.filter(s => s.employeeCode === employeeCode)
     : localSnapshots;
 
-  if (!db) {
+  const activeDb = await getDb();
+  if (!activeDb) {
     return filteredLocal;
   }
 
@@ -226,7 +230,7 @@ export const getEfficiencySnapshots = async (employeeCode?: string): Promise<Eff
   }, 5000);
 
   try {
-    const snapshotsCol = collection(db, 'efficiency_snapshots');
+    const snapshotsCol = collection(activeDb, 'efficiency_snapshots');
     let q = snapshotsCol;
     if (employeeCode) {
       q = query(snapshotsCol, where('employeeCode', '==', employeeCode)) as any;
@@ -277,7 +281,8 @@ export const getEfficiencySnapshots = async (employeeCode?: string): Promise<Eff
  * Automatically syncs any pending offline snapshots to Firestore.
  */
 export const syncPendingSnapshots = async (): Promise<void> => {
-  if (!db) return;
+  const activeDb = await getDb();
+  if (!activeDb) return;
   
   const locals = getLocalSnapshots();
   const pendings = locals.filter(s => s.syncStatus === 'Pending');
@@ -289,7 +294,7 @@ export const syncPendingSnapshots = async (): Promise<void> => {
   for (const snap of pendings) {
     try {
       const snapshotId = snap.id || `${snap.employeeCode}_${snap.periodStart}_${snap.periodEnd}`;
-      const docRef = doc(db, 'efficiency_snapshots', snapshotId);
+      const docRef = doc(activeDb, 'efficiency_snapshots', snapshotId);
       
       const serverPayload = {
         ...snap,

@@ -49,65 +49,29 @@ export const isAdminContext = (): boolean => {
 export const getActiveAuth = () => isAdminContext() ? getAdminAuth() : getEmployeeAuth();
 
 /**
- * Compatibility Proxy for 'db'
+ * Compatibility Proxy for 'getActiveDbSync()'
  * 
- * This proxy allows existing code to continue importing 'db' from config.ts.
+ * This proxy allows existing code to continue importing 'getActiveDbSync()' from config.ts.
  * It will resolve to either the Admin or Employee Firestore instance on-demand.
  */
-export const db = new Proxy({}, {
+
+export const app: any = new Proxy({}, {
   get(target, prop) {
-    const activeDb = getActiveDbSync();
-    if (!activeDb) return undefined;
-
-    if (prop === 'concrete' || prop === '_concrete') {
-      return activeDb;
+    const activeApp = isAdminContext() ? getAdminApp() : getDefaultApp();
+    if (!activeApp) return undefined;
+    if (typeof activeApp[prop] === 'function') {
+      return activeApp[prop].bind(activeApp);
     }
-    const value = Reflect.get(activeDb, prop);
-    if (typeof value === 'function') {
-      return value.bind(activeDb);
-    }
-    return value;
+    return activeApp[prop];
   }
-}) as any;
-
-// 5. Robust JS Proxy for auth
-export const auth = new Proxy({}, {
-  get(target, prop, receiver) {
-    const activeTarget = isAdminContext() ? getAdminAuth() : getEmployeeAuth();
-    if (prop === 'concrete' || prop === '_concrete') {
-      return activeTarget;
-    }
-    const value = Reflect.get(activeTarget, prop);
-    if (typeof value === 'function') {
-      return value.bind(activeTarget);
-    }
-    return value;
-  },
-  set(target, prop, value) {
-    const activeTarget = isAdminContext() ? getAdminAuth() : getEmployeeAuth();
-    return Reflect.set(activeTarget, prop, value);
-  },
-  getPrototypeOf() {
-    return Reflect.getPrototypeOf(isAdminContext() ? getAdminAuth() : getEmployeeAuth());
-  },
-  has(target, prop) {
-    return Reflect.has(isAdminContext() ? getAdminAuth() : getEmployeeAuth(), prop);
-  }
-}) as any;
-
-// Export app and adminApp as proxies as well
-export const app = new Proxy({}, {
+});
+export const auth: any = new Proxy({}, {
   get(target, prop) {
-    const activeTarget = getDefaultApp();
-    return Reflect.get(activeTarget, prop);
+    const activeAuth = getActiveAuth();
+    if (!activeAuth) return undefined;
+    if (typeof activeAuth[prop] === 'function') {
+      return activeAuth[prop].bind(activeAuth);
+    }
+    return activeAuth[prop];
   }
-}) as any;
-
-export const adminApp = new Proxy({}, {
-  get(target, prop) {
-    const activeTarget = getAdminApp();
-    return Reflect.get(activeTarget, prop);
-  }
-}) as any;
-
-console.log('Firebase config initialized dynamic proxies for auth.');
+});

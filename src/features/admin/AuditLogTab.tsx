@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { db } from '../../services/firebase/config';
+import { getActiveDbSync } from '../../services/firebase/db_sync';
 import { collection, query, orderBy, limit, getDocs, onSnapshot } from 'firebase/firestore';
 import { AuditLogRecord, AuditActionCategory, AuditSource, AuditResult } from '../../types/audit';
 import { formatIstTimestamp } from '../../services/audit/auditService';
@@ -45,9 +45,9 @@ export const AuditLogTab: React.FC = () => {
   const [displayLimit, setDisplayLimit] = useState(50);
 
   useEffect(() => {
-    if (!db) {
+    if (!getActiveDbSync()) {
       setLoading(false);
-      // Load local fallback if db is not connected
+      // Load local fallback if getActiveDbSync() is not connected
       try {
         const local = JSON.parse(localStorage.getItem('exfin_audit_logs_local') || '[]');
         setLogs(local);
@@ -56,7 +56,7 @@ export const AuditLogTab: React.FC = () => {
     }
 
     try {
-      const q = query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(500));
+      const q = query(collection(getActiveDbSync(), 'audit_logs'), orderBy('timestamp', 'desc'), limit(500));
       const unsub = onSnapshot(q, (snapshot) => {
         const fetched: AuditLogRecord[] = [];
         snapshot.docs.forEach((doc) => {

@@ -53,7 +53,8 @@ const getDatetimeLocalString = (val: any): string => {
   
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
-import { db, auth } from '../../services/firebase/config';
+import { auth } from '../../services/firebase/config';
+import { getActiveDbSync } from '../../services/firebase/db_sync';
 import { usePermission } from '../../context/PermissionContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { Card } from '../../components/ui/Card';
@@ -148,12 +149,12 @@ export const NotificationManagement: React.FC = () => {
 
   // 1. Fetch registrations, departments, designations, campaigns
   useEffect(() => {
-    if (!db) {
+    if (!getActiveDbSync()) {
       setLoading(false);
       return;
     }
 
-    const unsubRegs = onSnapshot(collection(db, 'registrations'), (snap) => {
+    const unsubRegs = onSnapshot(collection(getActiveDbSync(), 'registrations'), (snap) => {
       const list: Registration[] = [];
       snap.forEach((docSnap) => {
         const d = docSnap.data();
@@ -171,7 +172,7 @@ export const NotificationManagement: React.FC = () => {
       setRegistrations(list);
     });
 
-    const unsubDepts = onSnapshot(collection(db, 'departments'), (snap) => {
+    const unsubDepts = onSnapshot(collection(getActiveDbSync(), 'departments'), (snap) => {
       const list: { id: string; name: string }[] = [];
       snap.forEach((docSnap) => {
         const d = docSnap.data();
@@ -181,7 +182,7 @@ export const NotificationManagement: React.FC = () => {
       setDepartments(list);
     });
 
-    const unsubDesigs = onSnapshot(collection(db, 'designations'), (snap) => {
+    const unsubDesigs = onSnapshot(collection(getActiveDbSync(), 'designations'), (snap) => {
       const list: { id: string; name: string }[] = [];
       snap.forEach((docSnap) => {
         const d = docSnap.data();
@@ -191,7 +192,7 @@ export const NotificationManagement: React.FC = () => {
       setDesignations(list);
     });
 
-    const unsubCampaigns = onSnapshot(collection(db, 'notification_campaigns'), (snap) => {
+    const unsubCampaigns = onSnapshot(collection(getActiveDbSync(), 'notification_campaigns'), (snap) => {
       const list: Campaign[] = [];
       snap.forEach((docSnap) => {
         list.push({ id: docSnap.id, ...docSnap.data() } as Campaign);
@@ -211,7 +212,7 @@ export const NotificationManagement: React.FC = () => {
 
   // 2. Fetch real-time delivery and read stats from the notifications collection for SENT campaigns
   useEffect(() => {
-    if (!db || campaigns.length === 0) return;
+    if (!getActiveDbSync() || campaigns.length === 0) return;
 
     const sentCampaignIds = campaigns
       .filter((c) => c.status === 'SENT' && c.type === 'NOTIFICATION')
@@ -220,7 +221,7 @@ export const NotificationManagement: React.FC = () => {
     if (sentCampaignIds.length === 0) return;
 
     // Listen to notifications collection where campaignId is present
-    const unsubStats = onSnapshot(collection(db, 'notifications'), (snap) => {
+    const unsubStats = onSnapshot(collection(getActiveDbSync(), 'notifications'), (snap) => {
       const stats: Record<string, { total: number; read: number }> = {};
       
       snap.forEach((docSnap) => {
@@ -398,7 +399,7 @@ export const NotificationManagement: React.FC = () => {
         }
       }
 
-      await setDoc(doc(db, 'notification_campaigns', campaignId), campaignPayload);
+      await setDoc(doc(getActiveDbSync(), 'notification_campaigns', campaignId), campaignPayload);
 
       if (!isScheduled) {
         // Send immediately!
@@ -438,13 +439,13 @@ export const NotificationManagement: React.FC = () => {
 
     if (campaign.type === 'NOTIFICATION' || campaign.type === 'ANNOUNCEMENT') {
       // Create batch or individual documents in notifications collection for both notifications and announcements
-      const batch = writeBatch(db);
+      const batch = writeBatch(getActiveDbSync());
       
       recipients.forEach((rec) => {
         const empCode = rec.employeeCode || rec.id;
         const recId = rec.id || rec.employeeCode;
         const notifId = `notif_${campaign.id}_${empCode}`;
-        const ref = doc(db, 'notifications', notifId);
+        const ref = doc(getActiveDbSync(), 'notifications', notifId);
         
         const payload: NotificationRecord & { channels?: string[] } = {
           id: notifId,
@@ -476,7 +477,7 @@ export const NotificationManagement: React.FC = () => {
       // Also create announcement entry in announcements collection for announcements section display
       if (campaign.type === 'ANNOUNCEMENT') {
         const announcementId = `ann_${campaign.id}`;
-        await setDoc(doc(db, 'announcements', announcementId), {
+        await setDoc(doc(getActiveDbSync(), 'announcements', announcementId), {
           id: announcementId,
           title: campaign.title,
           content: campaign.message,
@@ -493,7 +494,7 @@ export const NotificationManagement: React.FC = () => {
     } else {
       // Create a single document in announcements collection
       const announcementId = `ann_${campaign.id}`;
-      await setDoc(doc(db, 'announcements', announcementId), {
+      await setDoc(doc(getActiveDbSync(), 'announcements', announcementId), {
         id: announcementId,
         title: campaign.title,
         content: campaign.message,
@@ -509,7 +510,7 @@ export const NotificationManagement: React.FC = () => {
     }
 
     // Update campaign status to SENT
-    await setDoc(doc(db, 'notification_campaigns', campaign.id), {
+    await setDoc(doc(getActiveDbSync(), 'notification_campaigns', campaign.id), {
       status: 'SENT',
       sentAt: nowIso,
       recipientCount: recipients.length
@@ -519,7 +520,7 @@ export const NotificationManagement: React.FC = () => {
   // Cancel scheduled campaign
   const handleCancelCampaign = async (campaignId: string) => {
     try {
-      await setDoc(doc(db, 'notification_campaigns', campaignId), {
+      await setDoc(doc(getActiveDbSync(), 'notification_campaigns', campaignId), {
         status: 'CANCELLED'
       }, { merge: true });
       setSuccessMessage('Scheduled notification/announcement cancelled successfully.');
@@ -534,20 +535,20 @@ export const NotificationManagement: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this notification record? This will also remove the notification from employee feeds.')) return;
     try {
       // 1. Delete campaign meta doc
-      await deleteDoc(doc(db, 'notification_campaigns', campaign.id));
+      await deleteDoc(doc(getActiveDbSync(), 'notification_campaigns', campaign.id));
 
       if (campaign.type === 'NOTIFICATION') {
         // Find and delete individual sent notifications in batch
-        const qNotifs = query(collection(db, 'notifications'), where('campaignId', '==', campaign.id));
+        const qNotifs = query(collection(getActiveDbSync(), 'notifications'), where('campaignId', '==', campaign.id));
         const snapshots = await getDocs(qNotifs);
-        const batch = writeBatch(db);
+        const batch = writeBatch(getActiveDbSync());
         snapshots.forEach((docSnap) => {
           batch.delete(docSnap.ref);
         });
         await batch.commit();
       } else {
         // Delete from announcements collection
-        await deleteDoc(doc(db, 'announcements', `ann_${campaign.id}`));
+        await deleteDoc(doc(getActiveDbSync(), 'announcements', `ann_${campaign.id}`));
       }
 
       setSuccessMessage('Campaign record deleted successfully.');
@@ -569,7 +570,7 @@ export const NotificationManagement: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const ref = doc(db, 'notification_campaigns', editingCampaign.id);
+      const ref = doc(getActiveDbSync(), 'notification_campaigns', editingCampaign.id);
       
       const updatePayload: any = {
         title: editingCampaign.title.trim(),

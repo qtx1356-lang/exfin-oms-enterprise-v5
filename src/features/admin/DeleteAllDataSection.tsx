@@ -3,7 +3,7 @@ import { ShieldAlert, Trash2, AlertTriangle, CheckCircle, RefreshCw, Lock } from
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
-import { db } from '../../services/firebase/config';
+import { getDb } from '../../services/firebase/config';
 import { collection, getDocs, writeBatch, doc, getDoc, setDoc } from 'firebase/firestore';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 
@@ -31,7 +31,8 @@ export const DeleteAllDataSection: React.FC = () => {
 
   const handleExecuteReset = async () => {
     if (confirmText !== 'DELETE') return;
-    if (!db) {
+    const activeDb = await getDb();
+    if (!activeDb) {
       alert('Firestore database is not initialized.');
       return;
     }
@@ -74,7 +75,7 @@ export const DeleteAllDataSection: React.FC = () => {
       for (const colName of deletableCollections) {
         setProgressMessage(`Clearing collection: ${colName}...`);
         try {
-          const colRef = collection(db, colName);
+          const colRef = collection(activeDb, colName);
           const snapshot = await getDocs(colRef);
           
           if (snapshot.empty) {
@@ -82,7 +83,7 @@ export const DeleteAllDataSection: React.FC = () => {
             continue;
           }
 
-          let batch = writeBatch(db);
+          let batch = writeBatch(activeDb);
           let countInBatch = 0;
           let colDeleted = 0;
 
@@ -94,7 +95,7 @@ export const DeleteAllDataSection: React.FC = () => {
 
             if (countInBatch >= 400) {
               await batch.commit();
-              batch = writeBatch(db);
+              batch = writeBatch(activeDb);
               countInBatch = 0;
             }
           }
@@ -112,7 +113,7 @@ export const DeleteAllDataSection: React.FC = () => {
 
       const auditId = `reset_audit_${Date.now()}`;
       try {
-        await setDoc(doc(db, 'auditLogs', auditId), {
+        await setDoc(doc(activeDb, 'auditLogs', auditId), {
           id: auditId,
           operation: 'DELETE_ALL_APPLICATION_DATA',
           timestamp: new Date().toISOString(),

@@ -1,0 +1,57 @@
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+src/components/IdentityDiagnosticScreen.tsx(2,10): error TS2305: Module '"../services/firebase/config"' has no exported member 'db'.
+src/components/IdentityDiagnosticScreen.tsx(2,14): error TS2305: Module '"../services/firebase/config"' has no exported member 'auth'.
+src/components/common/NotificationSettingsCard.tsx(22,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/context/RegistrationContext.tsx(4,10): error TS2305: Module '"../services/firebase/config"' has no exported member 'auth'.
+src/features/admin/AdminChatTab.tsx(3,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/AdminExpensesTab.tsx(2,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/AdminLeaveManagementTab.tsx(2,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/AdminWorkHoursTab.tsx(2,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/AdminWorkPlannerTab.tsx(3,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/AttendanceIntelligence.tsx(2,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/AuditLogTab.tsx(2,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/DailyAdminReportTab.tsx(4,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'auth'.
+src/features/admin/DeleteAllDataSection.tsx(6,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/EmployeeProfileModal.tsx(9,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/EmployeeProfilesTab.tsx(2,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/NotificationDeliveryLog.tsx(3,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/NotificationManagement.tsx(56,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/NotificationManagement.tsx(56,14): error TS2305: Module '"../../services/firebase/config"' has no exported member 'auth'.
+src/features/admin/OfficePulse.tsx(2,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/OrganizationSettingsTab.tsx(3,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/RBACTab.tsx(2,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/admin/SystemHealthSection.tsx(25,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/adminPortal/AdminPortalLogin.tsx(7,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'app'.
+src/features/efficiency/EfficiencyDashboard.tsx(3,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/employee/ChatScreen.tsx(4,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/employee/PayslipScreen.tsx(3,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/features/profile/ProfileScreen.tsx(37,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/services/admin/adminPasswordService.ts(2,10): error TS2305: Module '"../firebase/config"' has no exported member 'auth'.
+src/services/admin/adminPasswordService.ts(2,16): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/admin/adminProfileService.ts(2,10): error TS2305: Module '"../../services/firebase/config"' has no exported member 'db'.
+src/services/admin/employeeDeletionService.ts(1,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/audit/auditService.ts(1,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/chat/chatService.ts(16,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/chat/chatService.ts(16,14): error TS2305: Module '"../firebase/config"' has no exported member 'auth'.
+src/services/efficiency/efficiencyService.ts(12,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/expenses/expenseService.ts(2,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/expenses/expenseSyncEngine.ts(3,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/leave/leaveService.ts(2,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/leave/leaveService.ts(2,14): error TS2305: Module '"../firebase/config"' has no exported member 'auth'.
+src/services/leave/leaveSyncEngine.ts(2,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/monitoring/errorLogger.ts(2,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/notification/adminNotificationConfig.ts(1,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/notification/centralNotificationService.ts(7,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/notification/notificationService.ts(15,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/notification/notificationService.ts(15,14): error TS2305: Module '"../firebase/config"' has no exported member 'auth'.
+src/services/notification/whatsappService.ts(2,10): error TS2305: Module '"../firebase/config"' has no exported member 'auth'.
+src/services/organization/organizationService.ts(11,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/organization/organizationService.ts(11,14): error TS2305: Module '"../firebase/config"' has no exported member 'auth'.
+src/services/planner/taskDeadlineEngine.ts(1,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/planner/taskSyncEngine.ts(2,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/profile/profileService.ts(3,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/rbac/rbacService.ts(2,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
+src/services/salary/salaryService.ts(1,10): error TS2305: Module '"../firebase/config"' has no exported member 'db'.

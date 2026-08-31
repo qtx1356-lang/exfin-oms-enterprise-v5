@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { db } from '../../services/firebase/config';
+import { getActiveDbSync } from '../../services/firebase/db_sync';
 import { collection, query, limit, onSnapshot } from 'firebase/firestore';
 import { 
   Users, CheckCircle, Smartphone, UserCheck, Calendar, Clock, AlertTriangle, 
@@ -31,7 +31,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
 
   // Firestore Subscriptions
   useEffect(() => {
-    if (!db) return;
+    if (!getActiveDbSync()) return;
 
     let regsLoaded = false;
     let attLoaded = false;
@@ -44,7 +44,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
     };
 
     // 1. Registrations
-    const qRegs = query(collection(db, 'registrations'), limit(500));
+    const qRegs = query(collection(getActiveDbSync(), 'registrations'), limit(500));
     const unsubRegs = onSnapshot(qRegs, (snap) => {
       const list: ManagedUser[] = [];
       snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as ManagedUser));
@@ -56,7 +56,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
     // 2. Attendance (Today's attendance usually, but we fetch latest 500 for pulse)
     // Actually today's attendance is preferred.
     const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-    const qAtt = query(collection(db, 'attendance'), limit(1000));
+    const qAtt = query(collection(getActiveDbSync(), 'attendance'), limit(1000));
     const unsubAtt = onSnapshot(qAtt, (snap) => {
       const list: any[] = [];
       snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
@@ -66,7 +66,7 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
     }, () => { attLoaded = true; checkAllLoaded(); });
 
     // 3. Leaves
-    const qLeaves = query(collection(db, 'leaves'), limit(300));
+    const qLeaves = query(collection(getActiveDbSync(), 'leaves'), limit(300));
     const unsubLeaves = onSnapshot(qLeaves, (snap) => {
       const list: any[] = [];
       snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));

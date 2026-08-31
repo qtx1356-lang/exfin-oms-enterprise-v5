@@ -1,6 +1,6 @@
 import { doc, setDoc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { db } from '../firebase/config';
+import { getDb } from '../firebase/config';
 import { storage } from '../firebase/storage';
 import { ExpenseRecord } from '../../types/expense';
 import {
@@ -24,8 +24,9 @@ export const syncPendingExpenseRecords = async (): Promise<{ syncedCount: number
     return { syncedCount: 0, errorsCount: 0 };
   }
 
-  if (!db) {
-    console.warn('Expense Sync Engine: Firestore db instance unavailable.');
+  const activeDb = await getDb();
+  if (!activeDb) {
+    console.warn('Expense Sync Engine: Firestore getDb() instance unavailable.');
     return { syncedCount: 0, errorsCount: 0 };
   }
 
@@ -76,7 +77,7 @@ export const syncPendingExpenseRecords = async (): Promise<{ syncedCount: number
         }
 
         logSyncServerWrite('Expenses', record.id);
-        const docRef = doc(db, 'expenses', record.id);
+        const docRef = doc(activeDb, 'expenses', record.id);
         const serverSyncTime = new Date().toISOString();
 
         const { localReceiptData, ...cleanPayload } = record;

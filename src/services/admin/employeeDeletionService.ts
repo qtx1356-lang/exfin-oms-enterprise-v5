@@ -1,4 +1,4 @@
-import { db } from '../firebase/config';
+import { getDb } from '../firebase/config';
 import { 
   collection, 
   doc, 
@@ -23,20 +23,21 @@ export interface DeletionSummary {
 }
 
 export async function fetchEmployeeDeletionSummary(employee: { id: string; employeeCode?: string; name?: string }): Promise<DeletionSummary> {
-  if (!db) return { attendanceCount: 0, expensesCount: 0, leavesCount: 0, tasksCount: 0, efficiencyCount: 0, notificationsCount: 0, hasRegistration: false };
+  const activeDb = await getDb();
+  if (!activeDb) return { attendanceCount: 0, expensesCount: 0, leavesCount: 0, tasksCount: 0, efficiencyCount: 0, notificationsCount: 0, hasRegistration: false };
 
   const empId = employee.id;
   const empCode = employee.employeeCode;
 
   try {
     const [attSnap, expSnap, leaveSnap, taskSnap, effSnap, notifSnap, regSnap] = await Promise.all([
-      getDocs(query(collection(db, 'attendance'), where('employeeId', '==', empId))),
-      getDocs(query(collection(db, 'expenses'), where('employeeId', '==', empId))),
-      getDocs(query(collection(db, 'leaves'), where('employeeId', '==', empId))),
-      getDocs(query(collection(db, 'tasks'), where('assigneeId', '==', empId))),
-      empCode ? getDocs(query(collection(db, 'efficiency_snapshots'), where('employeeCode', '==', empCode))) : Promise.resolve({ size: 0, docs: [] } as any),
-      empCode ? getDocs(query(collection(db, 'notifications'), where('recipientEmployeeCode', '==', empCode))) : Promise.resolve({ size: 0, docs: [] } as any),
-      getDocs(query(collection(db, 'registrations'), where('employeeCode', '==', empCode)))
+      getDocs(query(collection(activeDb, 'attendance'), where('employeeId', '==', empId))),
+      getDocs(query(collection(activeDb, 'expenses'), where('employeeId', '==', empId))),
+      getDocs(query(collection(activeDb, 'leaves'), where('employeeId', '==', empId))),
+      getDocs(query(collection(activeDb, 'tasks'), where('assigneeId', '==', empId))),
+      empCode ? getDocs(query(collection(activeDb, 'efficiency_snapshots'), where('employeeCode', '==', empCode))) : Promise.resolve({ size: 0, docs: [] } as any),
+      empCode ? getDocs(query(collection(activeDb, 'notifications'), where('recipientEmployeeCode', '==', empCode))) : Promise.resolve({ size: 0, docs: [] } as any),
+      getDocs(query(collection(activeDb, 'registrations'), where('employeeCode', '==', empCode)))
     ]);
 
     // Also check employeeCode-based queries if employeeId didn't cover all
@@ -47,10 +48,10 @@ export async function fetchEmployeeDeletionSummary(employee: { id: string; emplo
 
     if (empCode && empCode !== empId) {
       const [attCodeSnap, expCodeSnap, leaveCodeSnap, taskCodeSnap] = await Promise.all([
-        getDocs(query(collection(db, 'attendance'), where('employeeCode', '==', empCode))),
-        getDocs(query(collection(db, 'expenses'), where('employeeCode', '==', empCode))),
-        getDocs(query(collection(db, 'leaves'), where('employeeCode', '==', empCode))),
-        getDocs(query(collection(db, 'tasks'), where('assigneeCode', '==', empCode)))
+        getDocs(query(collection(activeDb, 'attendance'), where('employeeCode', '==', empCode))),
+        getDocs(query(collection(activeDb, 'expenses'), where('employeeCode', '==', empCode))),
+        getDocs(query(collection(activeDb, 'leaves'), where('employeeCode', '==', empCode))),
+        getDocs(query(collection(activeDb, 'tasks'), where('assigneeCode', '==', empCode)))
       ]);
       
       // Deduplicate by ID
@@ -96,7 +97,8 @@ export async function executeEmployeeDeletion(params: {
   adminUser: { uid: string; email?: string; displayName?: string; role?: string };
 }): Promise<{ success: boolean; message: string; details: Record<string, boolean> }> {
   const { employee, deletionType, adminUser } = params;
-  if (!db) throw new Error('Database not initialized');
+  const activeDb = await getDb();
+  if (!activeDb) throw new Error('Database not initialized');
 
   const empId = employee.id;
   const empCode = employee.employeeCode;
@@ -113,19 +115,19 @@ export async function executeEmployeeDeletion(params: {
   try {
     // 1. Fetch all records associated with employee
     const [attSnap1, attSnap2, expSnap1, expSnap2, leaveSnap1, leaveSnap2, taskSnap1, taskSnap2, taskSnap3, taskSnap4, effSnap, notifSnap1, notifSnap2] = await Promise.all([
-      getDocs(query(collection(db, 'attendance'), where('employeeId', '==', empId))),
-      empCode ? getDocs(query(collection(db, 'attendance'), where('employeeId', '==', empCode))) : Promise.resolve({ docs: [] } as any),
-      getDocs(query(collection(db, 'expenses'), where('employeeId', '==', empId))),
-      empCode ? getDocs(query(collection(db, 'expenses'), where('employeeId', '==', empCode))) : Promise.resolve({ docs: [] } as any),
-      getDocs(query(collection(db, 'leaves'), where('employeeId', '==', empId))),
-      empCode ? getDocs(query(collection(db, 'leaves'), where('employeeId', '==', empCode))) : Promise.resolve({ docs: [] } as any),
-      getDocs(query(collection(db, 'tasks'), where('assigneeId', '==', empId))),
-      empCode ? getDocs(query(collection(db, 'tasks'), where('assigneeCode', '==', empCode))) : Promise.resolve({ docs: [] } as any),
-      getDocs(query(collection(db, 'tasks'), where('assignedToEmployeeIds', 'array-contains', empId))),
-      empCode ? getDocs(query(collection(db, 'tasks'), where('assignedToEmployeeCodes', 'array-contains', empCode))) : Promise.resolve({ docs: [] } as any),
-      empCode ? getDocs(query(collection(db, 'efficiency_snapshots'), where('employeeCode', '==', empCode))) : Promise.resolve({ docs: [] } as any),
-      empCode ? getDocs(query(collection(db, 'notifications'), where('recipientEmployeeCode', '==', empCode))) : Promise.resolve({ docs: [] } as any),
-      getDocs(query(collection(db, 'notifications'), where('recipientId', '==', empId)))
+      getDocs(query(collection(activeDb, 'attendance'), where('employeeId', '==', empId))),
+      empCode ? getDocs(query(collection(activeDb, 'attendance'), where('employeeId', '==', empCode))) : Promise.resolve({ docs: [] } as any),
+      getDocs(query(collection(activeDb, 'expenses'), where('employeeId', '==', empId))),
+      empCode ? getDocs(query(collection(activeDb, 'expenses'), where('employeeId', '==', empCode))) : Promise.resolve({ docs: [] } as any),
+      getDocs(query(collection(activeDb, 'leaves'), where('employeeId', '==', empId))),
+      empCode ? getDocs(query(collection(activeDb, 'leaves'), where('employeeId', '==', empCode))) : Promise.resolve({ docs: [] } as any),
+      getDocs(query(collection(activeDb, 'tasks'), where('assigneeId', '==', empId))),
+      empCode ? getDocs(query(collection(activeDb, 'tasks'), where('assigneeCode', '==', empCode))) : Promise.resolve({ docs: [] } as any),
+      getDocs(query(collection(activeDb, 'tasks'), where('assignedToEmployeeIds', 'array-contains', empId))),
+      empCode ? getDocs(query(collection(activeDb, 'tasks'), where('assignedToEmployeeCodes', 'array-contains', empCode))) : Promise.resolve({ docs: [] } as any),
+      empCode ? getDocs(query(collection(activeDb, 'efficiency_snapshots'), where('employeeCode', '==', empCode))) : Promise.resolve({ docs: [] } as any),
+      empCode ? getDocs(query(collection(activeDb, 'notifications'), where('recipientEmployeeCode', '==', empCode))) : Promise.resolve({ docs: [] } as any),
+      getDocs(query(collection(activeDb, 'notifications'), where('recipientId', '==', empId)))
     ]);
 
     // Also query by employeeCode if available
@@ -136,10 +138,10 @@ export async function executeEmployeeDeletion(params: {
 
     if (empCode && empCode !== empId) {
       const [attCodeSnap, expCodeSnap, leaveCodeSnap, taskCodeSnap] = await Promise.all([
-        getDocs(query(collection(db, 'attendance'), where('employeeCode', '==', empCode))),
-        getDocs(query(collection(db, 'expenses'), where('employeeCode', '==', empCode))),
-        getDocs(query(collection(db, 'leaves'), where('employeeCode', '==', empCode))),
-        getDocs(query(collection(db, 'tasks'), where('assigneeCode', '==', empCode)))
+        getDocs(query(collection(activeDb, 'attendance'), where('employeeCode', '==', empCode))),
+        getDocs(query(collection(activeDb, 'expenses'), where('employeeCode', '==', empCode))),
+        getDocs(query(collection(activeDb, 'leaves'), where('employeeCode', '==', empCode))),
+        getDocs(query(collection(activeDb, 'tasks'), where('assigneeCode', '==', empCode)))
       ]);
 
       const attMap = new Map();
@@ -179,13 +181,13 @@ export async function executeEmployeeDeletion(params: {
     allNotifDocs = dedup(allNotifDocs);
 
     // Execute deletions in batches (max 500 per batch)
-    let batch = writeBatch(db);
+    let batch = writeBatch(activeDb);
     let operationCount = 0;
 
     const commitBatchIfNeeded = async () => {
       if (operationCount >= 400) {
         await batch.commit();
-        batch = writeBatch(db);
+        batch = writeBatch(activeDb);
         operationCount = 0;
       }
     };
@@ -250,12 +252,12 @@ export async function executeEmployeeDeletion(params: {
     // If COMPLETE deletion, delete registration document as well
     if (deletionType === 'COMPLETE') {
       // Check registration doc by ID or employeeCode query
-      const regDocRef = doc(db, 'registrations', empId);
+      const regDocRef = doc(activeDb, 'registrations', empId);
       batch.delete(regDocRef);
       operationCount++;
 
       if (empCode && empCode !== empId) {
-        const regQuery = await getDocs(query(collection(db, 'registrations'), where('employeeCode', '==', empCode)));
+        const regQuery = await getDocs(query(collection(activeDb, 'registrations'), where('employeeCode', '==', empCode)));
         for (const regDoc of regQuery.docs) {
           batch.delete(regDoc.ref);
           operationCount++;

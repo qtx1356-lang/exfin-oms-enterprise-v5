@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRegistration } from '../../context/RegistrationContext';
-import { db } from '../../services/firebase/config';
+import { getDb } from '../../services/firebase/config';
 import { storage } from '../../services/firebase/storage';
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import {
@@ -359,10 +359,13 @@ export const ChatScreen: React.FC = () => {
 
   // Fetch approved contacts for starting new chats
   useEffect(() => {
-    if (!isNewChatOpen || !db) return;
+    if (!isNewChatOpen) return;
 
     const fetchContacts = async () => {
       try {
+        const activeDb = await getDb();
+        if (!activeDb) return;
+
         const list: ChatParticipant[] = [];
 
         // 1. Add Admin and HR as potential direct targets (System Accounts)
@@ -370,7 +373,7 @@ export const ChatScreen: React.FC = () => {
         list.push({ id: 'hr_exec', name: 'HR Department', role: 'HR' });
 
         // 2. Fetch approved employees from registrations collection
-        const q = query(collection(db, 'registrations'), where('status', '==', 'Approved'));
+        const q = query(collection(activeDb, 'registrations'), where('status', '==', 'Approved'));
         const snap = await getDocs(q);
         
         snap.forEach(docSnap => {

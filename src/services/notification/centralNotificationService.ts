@@ -4,7 +4,7 @@ import { sendPushNotification } from './pushNotificationService';
 import { dispatchEmailNotification } from './emailService';
 import { dispatchSmsNotification } from './smsService';
 import { getAdminNotificationMatrix } from './adminNotificationConfig';
-import { db } from '../firebase/config';
+import { getDb } from '../firebase/config';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { 
   NotificationCategory, 
@@ -48,15 +48,18 @@ export async function sendNotification(payload: CentralNotificationPayload): Pro
   let email: string | undefined = payload.recipientEmail;
   let mobile: string | undefined = payload.recipientMobile;
 
-  if (db && payload.employeeCode) {
+  if (payload.employeeCode) {
     try {
-      const q = query(collection(db, 'registrations'), where('employeeCode', '==', payload.employeeCode));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        const reg = snap.docs[0].data();
-        userId = snap.docs[0].id;
-        if (!email) email = reg.email || reg.officialEmail;
-        if (!mobile) mobile = reg.phone || reg.mobileNumber || reg.whatsappNumber;
+      const activeDb = await getDb();
+      if (activeDb) {
+        const q = query(collection(activeDb, 'registrations'), where('employeeCode', '==', payload.employeeCode));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const reg = snap.docs[0].data();
+          userId = snap.docs[0].id;
+          if (!email) email = reg.email || reg.officialEmail;
+          if (!mobile) mobile = reg.phone || reg.mobileNumber || reg.whatsappNumber;
+        }
       }
     } catch (err) {
       console.warn('Could not resolve employee details for notification routing:', err);

@@ -1,5 +1,5 @@
 import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { getDb } from '../firebase/config';
 import { TaskRecord } from '../../types/planner';
 import {
   getPendingTasks,
@@ -49,8 +49,9 @@ export const syncPendingTasks = async (): Promise<{ syncedCount: number; errorsC
     return { syncedCount: 0, errorsCount: 0 };
   }
 
-  if (!db) {
-    console.warn('Task Sync Engine: Firestore db instance unavailable.');
+  const activeDb = await getDb();
+  if (!activeDb) {
+    console.warn('Task Sync Engine: Firestore getDb() instance unavailable.');
     return { syncedCount: 0, errorsCount: 0 };
   }
 
@@ -72,7 +73,7 @@ export const syncPendingTasks = async (): Promise<{ syncedCount: number; errorsC
       attempt++;
       try {
         logSyncServerWrite('WorkPlanner', task.id);
-        const docRef = doc(db, 'tasks', task.id);
+        const docRef = doc(activeDb, 'tasks', task.id);
         const serverSyncTime = new Date().toISOString();
 
         // Direct surgical merge write without roundtrip getDoc

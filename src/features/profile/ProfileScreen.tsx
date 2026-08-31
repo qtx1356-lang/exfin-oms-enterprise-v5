@@ -34,7 +34,7 @@ import {
   uploadProfilePhoto,
   submitProfileChangeRequest,
 } from '../../services/profile/profileService';
-import { db } from '../../services/firebase/config';
+import { getDb } from '../../services/firebase/config';
 import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestore';
 
 import { APP_VERSION, SERVICE_WORKER_VERSION, EXFIN_BUILD_MARKER } from '../../config/version';
@@ -114,60 +114,76 @@ export const ProfileScreen: React.FC = () => {
 
   // 2. Real-time Listen to User's Change Requests
   useEffect(() => {
-    if (!db || !profileEmpCode) return;
+    if (!profileEmpCode) return;
 
-    const q = query(
-      collection(db, 'profile_change_requests'),
-      where('employeeCode', '==', profileEmpCode)
-    );
+    let unsub: (() => void) | null = null;
+    let cancelled = false;
 
-    const unsub = onSnapshot(
-      q,
-      (snapshot) => {
-        const reqs: ProfileChangeRequest[] = [];
-        snapshot.forEach((doc) => {
-          reqs.push({ id: doc.id, ...doc.data() } as ProfileChangeRequest);
-        });
-        reqs.sort(
-          (a, b) =>
-            new Date(b.createdAtDeviceTime).getTime() -
-            new Date(a.createdAtDeviceTime).getTime()
-        );
-        setChangeRequests(reqs);
-      },
-      (err) => {
-        console.warn('Error fetching change requests:', err);
-      }
-    );
+    getDb().then((activeDb) => {
+      if (cancelled || !activeDb) return;
 
-    return () => unsub();
+      const q = query(
+        collection(activeDb, 'profile_change_requests'),
+        where('employeeCode', '==', profileEmpCode)
+      );
+
+      unsub = onSnapshot(
+        q,
+        (snapshot) => {
+          if (cancelled) return;
+          const reqs: ProfileChangeRequest[] = [];
+          snapshot.forEach((doc) => {
+            reqs.push({ id: doc.id, ...doc.data() } as ProfileChangeRequest);
+          });
+          reqs.sort(
+            (a, b) =>
+              new Date(b.createdAtDeviceTime).getTime() -
+              new Date(a.createdAtDeviceTime).getTime()
+          );
+          setChangeRequests(reqs);
+        },
+        (err) => {
+          console.warn('Error fetching change requests:', err);
+        }
+      );
+    }).catch(() => {});
+
+    return () => {
+      cancelled = true;
+      if (unsub) unsub();
+    };
   }, [profileEmpCode]);
 
   // 3. Team Leader Scope: Fetch Team Members (Stabilized Dependencies)
   useEffect(() => {
-    if (!db || !isTeamLeader) return;
+    if (!isTeamLeader) return;
 
     let isMounted = true;
-    const qTeam = query(
-      collection(db, 'registrations'),
-      where('office', '==', officeDept)
-    );
 
-    getDocs(qTeam)
-      .then((snap) => {
-        if (!isMounted) return;
-        const members: any[] = [];
-        snap.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (data.employeeCode !== profileEmpCode) {
-            members.push({ id: docSnap.id, ...data });
-          }
+    getDb().then((activeDb) => {
+      if (!isMounted || !activeDb) return;
+
+      const qTeam = query(
+        collection(activeDb, 'registrations'),
+        where('office', '==', officeDept)
+      );
+
+      getDocs(qTeam)
+        .then((snap) => {
+          if (!isMounted) return;
+          const members: any[] = [];
+          snap.forEach((docSnap) => {
+            const data = docSnap.data();
+            if (data.employeeCode !== profileEmpCode) {
+              members.push({ id: docSnap.id, ...data });
+            }
+          });
+          setTeamMembers(members);
+        })
+        .catch((err) => {
+          console.warn('Error fetching team members:', err);
         });
-        setTeamMembers(members);
-      })
-      .catch((err) => {
-        console.warn('Error fetching team members:', err);
-      });
+    }).catch(() => {});
 
     return () => {
       isMounted = false;

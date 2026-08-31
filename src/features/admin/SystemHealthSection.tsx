@@ -22,7 +22,7 @@ import { getSyncSummary } from '../../services/sync/syncFailureService';
 import { getRecentErrors, getLastError, clearErrorLogs, ErrorLogEntry } from '../../services/monitoring/errorLogger';
 import { getResourceSnapshot, ResourceSnapshot } from '../../services/monitoring/performanceDiagnostics';
 import { SyncSummary } from '../../types/sync';
-import { db } from '../../services/firebase/config';
+import { getActiveDbSync } from '../../services/firebase/db_sync';
 import { usePermission } from '../../context/PermissionContext';
 import { DeleteAllDataSection } from './DeleteAllDataSection';
 
@@ -56,7 +56,7 @@ export const SystemHealthSection: React.FC<SystemHealthSectionProps> = ({ isSupe
   }, []);
 
   const isOnline = navigator.onLine;
-  const firebaseConnected = !!db && isOnline;
+  const firebaseConnected = !!getActiveDbSync() && isOnline;
 
   const handleClearLogs = () => {
     if (window.confirm('Clear local system error logs?')) {
