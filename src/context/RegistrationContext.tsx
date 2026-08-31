@@ -111,6 +111,66 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => unsubAuth();
   }, []);
 
+  // ROOT-CAUSE IDENTITY FLOW FIX: Auto-link authenticated user (Admin/TL) to Employee Registration
+  useEffect(() => {
+    let isMounted = true;
+    const activeDb = db.concrete || db;
+    
+    if (authUser && status === 'mobile_recovery' && !localRegId && activeDb && navigator.onLine) {
+      const autoLink = async () => {
+        try {
+          console.log(`[REGISTRATION_AUTO_LINK] Attempting to link authenticated user: ${authUser.uid}`);
+          const regsRef = collection(activeDb, 'registrations');
+          
+          // 1. Try UID mapping
+          const qUid = query(regsRef, where('uid', '==', authUser.uid));
+          const snapUid = await getDocs(qUid);
+          
+          let foundDoc = null;
+          if (!snapUid.empty) {
+            foundDoc = snapUid.docs[0];
+          } else if (authUser.email) {
+            // 2. Try Email mapping fallback
+            const qEmail = query(regsRef, where('email', '==', authUser.email));
+            const snapEmail = await getDocs(qEmail);
+            if (!snapEmail.empty) {
+              foundDoc = snapEmail.docs[0];
+            }
+          }
+
+          if (foundDoc && isMounted) {
+            const data = foundDoc.data();
+            const regId = foundDoc.id;
+            console.log(`[REGISTRATION_AUTO_LINK] Success! Linked to: ${data.name} (${regId})`);
+            
+            localStorage.setItem('registrationId', regId);
+            localStorage.setItem('cached_registration_data', JSON.stringify({ ...data, id: regId }));
+            
+            setLocalRegId(regId);
+            setEmployeeDataIfChanged(data);
+            const regStatus = data.status || 'Approved';
+            if (regStatus === 'Suspended' || regStatus === 'Blocked' || regStatus === 'INACTIVE') {
+              setStatus('suspended_notice');
+              setRejectionReason(data.rejectionReason || `Account status is ${regStatus}.`);
+            } else if (regStatus === 'Rejected') {
+              setStatus('Rejected');
+            } else if (regStatus === 'Pending Approval') {
+              setStatus('Pending Approval');
+            } else {
+              setStatus('Approved');
+            }
+          }
+        } catch (err) {
+          console.warn('[REGISTRATION_AUTO_LINK] Error:', err);
+        }
+      };
+      
+      autoLink();
+    }
+    
+    return () => { isMounted = false; };
+  }, [authUser, status, localRegId]);
+
   const getOrGenerateSyncDeviceId = (): string => {
     let dId = localStorage.getItem('deviceId') || '';
     if (!dId || dId === 'default' || dId === 'unknown' || dId === 'device' || dId === 'EXFIN_DEVICE') {

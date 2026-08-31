@@ -61,16 +61,28 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   effDashRenderCount++;
 
   const { employeeData } = useRegistration();
-  const { user: adminUser } = useAdminAuth();
+  const { user: adminUser, loginId: adminLoginId } = useAdminAuth();
 
   // Active role detection
   const isAdmin = Boolean(adminUser);
   const isTeamLeader = Boolean(employeeData?.isTeamLeader) || employeeData?.role === 'TEAM_LEADER';
-  const activeEmployeeCode = employeeData?.employeeCode || '';
-  const activeEmployeeId = employeeData?.id || '';
+
+  // ROOT-CAUSE IDENTITY FLOW FIX:
+  // If we are in the Admin Portal, we might not have 'employeeData' (registrationId).
+  // We MUST fallback to the admin profile loginId as the authoritative employee code.
+  const activeEmployeeCode = employeeData?.employeeCode || adminLoginId || '';
+  const activeEmployeeId = employeeData?.id || adminUser?.uid || '';
 
   // Selected Employee Code
   const [selectedEmployeeCode, setSelectedEmployeeCode] = useState<string>(customEmployeeCode || activeEmployeeCode);
+
+  // ROOT-CAUSE IDENTITY FLOW FIX: Synchronize selectedEmployeeCode when identity arrives
+  useEffect(() => {
+    if (!selectedEmployeeCode && activeEmployeeCode && !customEmployeeCode) {
+      console.log(`[EFFICIENCY_IDENTITY_FIX] Identity resolved: ${activeEmployeeCode}. Syncing selectedEmployeeCode.`);
+      setSelectedEmployeeCode(activeEmployeeCode);
+    }
+  }, [activeEmployeeCode, selectedEmployeeCode, customEmployeeCode]);
 
   useEffect(() => {
     effDashMountCount++;
@@ -211,15 +223,27 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   // TARGET EMPLOYEE IDENTITY RESOLUTION
   // ----------------------------------------------------
   const selectedEmployee = useMemo(() => {
-    if (!selectedEmployeeCode) return employeeData || null;
+    if (!selectedEmployeeCode) {
+      return employeeData || (adminUser ? {
+        id: adminUser.uid,
+        employeeCode: adminLoginId,
+        name: adminUser.displayName || adminLoginId || 'Administrator',
+        role: 'ADMIN'
+      } : null);
+    }
     const searchCode = String(selectedEmployeeCode).trim().toUpperCase();
     return allEmployees.find(e => {
       const eCode = String(e.employeeCode || '').trim().toUpperCase();
       const eId = String(e.id || '').trim().toUpperCase();
       const eUid = String(e.uid || '').trim().toUpperCase();
       return eCode === searchCode || eId === searchCode || eUid === searchCode;
-    }) || (searchCode === String(activeEmployeeCode).toUpperCase() ? employeeData : null);
-  }, [allEmployees, selectedEmployeeCode, activeEmployeeCode, employeeData]);
+    }) || (searchCode === String(activeEmployeeCode).toUpperCase() ? (employeeData || (adminUser ? {
+      id: adminUser.uid,
+      employeeCode: adminLoginId,
+      name: adminUser.displayName || adminLoginId || 'Administrator',
+      role: 'ADMIN'
+    } : null)) : null);
+  }, [allEmployees, selectedEmployeeCode, activeEmployeeCode, employeeData, adminUser, adminLoginId]);
 
   // Fallback Rule: IF selected employee exists THEN use selected employee. ELSE use current logged-in employee.
   const targetEmpCode = selectedEmployee?.employeeCode || selectedEmployeeCode || activeEmployeeCode;
@@ -901,6 +925,11 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
             REAL-TIME DATA DIAGNOSTICS
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-slate-500">Active Identity:</p>
+              <p className="text-cyan-300">Code: {activeEmployeeCode || 'N/A'}</p>
+              <p className="text-cyan-300">ID: {activeEmployeeId || 'N/A'}</p>
+            </div>
             <div>
               <p className="text-slate-500">Target Identity:</p>
               <p className="text-cyan-300">Code: {targetEmpCode || 'N/A'}</p>
