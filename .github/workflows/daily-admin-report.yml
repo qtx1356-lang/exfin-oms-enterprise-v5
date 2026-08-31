@@ -1,0 +1,48 @@
+name: Daily Admin Report Scheduler
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  trigger-daily-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Daily Admin Report Scheduler
+        env:
+          DAILY_REPORT_URL: ${{ secrets.DAILY_REPORT_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -e
+
+          echo "Triggering Daily Admin Report scheduler..."
+
+          if [ -z "$DAILY_REPORT_URL" ]; then
+            echo "Error: DAILY_REPORT_URL secret is missing."
+            exit 1
+          fi
+
+          if [ -z "$CRON_SECRET" ]; then
+            echo "Error: CRON_SECRET secret is missing."
+            exit 1
+          fi
+
+          HTTP_STATUS=$(curl -sS -o response.json -w "%{http_code}" \
+            -X POST \
+            "$DAILY_REPORT_URL/api/internal/daily-admin-report" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            --data '{}')
+
+          echo "HTTP status: $HTTP_STATUS"
+          echo "Response:"
+          cat response.json
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "Daily Admin Report scheduler request failed."
+            exit 1
+          fi
+
+          echo "Daily Admin Report scheduler request completed successfully."
