@@ -108,13 +108,17 @@ export function validateAdminEmails(emails: any): { valid: boolean; error?: stri
  * Helper to get the formatted Date string (YYYY-MM-DD) for Asia/Kolkata timezone
  */
 export function getKolkataDateString(date: Date = new Date()): string {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
+  const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Kolkata',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   });
-  return formatter.format(date);
+  const parts = formatter.formatToParts(date);
+  const year = parts.find(p => p.type === 'year')?.value;
+  const month = parts.find(p => p.type === 'month')?.value;
+  const day = parts.find(p => p.type === 'day')?.value;
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -147,10 +151,12 @@ export function getKolkataCurrentMinutes(currentDate: Date = new Date()): number
     minute: 'numeric',
     hour12: false,
   });
-  const parts = formatter.format(currentDate).split(':');
-  let hour = parseInt(parts[0], 10);
+  const parts = formatter.formatToParts(currentDate);
+  const hourPart = parts.find(p => p.type === 'hour');
+  const minutePart = parts.find(p => p.type === 'minute');
+  let hour = hourPart ? parseInt(hourPart.value, 10) : 0;
   if (hour === 24) hour = 0;
-  const min = parseInt(parts[1], 10);
+  const min = minutePart ? parseInt(minutePart.value, 10) : 0;
   return hour * 60 + min;
 }
 
@@ -217,7 +223,14 @@ export async function getDailyReportConfig(db?: Firestore | null): Promise<Daily
   }
 
   try {
-    const snap = await db.collection('notification_settings').doc('daily_admin_report_config').get();
+    // Read from primary 'system_settings' collection used by Cloudflare Pages
+    let snap = await db.collection('system_settings').doc('daily_admin_report').get();
+    
+    // Fallback to 'notification_settings' collection
+    if (!snap.exists) {
+      snap = await db.collection('notification_settings').doc('daily_admin_report_config').get();
+    }
+
     if (!snap.exists) {
       if (process.env.EMAIL_RECIPIENTS) {
         const envList = process.env.EMAIL_RECIPIENTS.split(',').map(s => s.trim()).filter(Boolean);
@@ -295,6 +308,19 @@ export async function saveDailyReportConfig(
 
   if (db) {
     try {
+      // Save to both collections to guarantee perfect synchronization across all Express and Cloudflare components
+      await db.collection('system_settings').doc('daily_admin_report').set({
+        enabled: updated.enabled,
+        sendTime: updated.sendTime,
+        adminEmails: updated.adminEmails,
+        includeAttendance: updated.includeAttendance,
+        includeLeaves: updated.includeLeaves,
+        includeExpenses: updated.includeExpenses,
+        includeOtherDailyActivity: updated.includeOtherDailyActivity,
+        updatedAt: updated.updatedAt,
+        updatedBy: updated.updatedBy,
+      }, { merge: true });
+
       await db.collection('notification_settings').doc('daily_admin_report_config').set(updated, { merge: true });
     } catch (writeErr: any) {
       console.warn('[DailyReportService] Saved configuration to in-memory store; Firestore sync notice:', writeErr?.message || writeErr);
@@ -1253,19 +1279,49 @@ let isSchedulerExecuting = false;
 let isSchedulerDisabled = false;
 
 export async function checkAndRunScheduledDailyReport(db: Firestore | null): Promise<void> {
-  if (!db || isSchedulerExecuting || isSchedulerDisabled) return;
+  if (!db) {
+    console.log('[DailyReport Scheduler] Database is not initialized. Skipping scheduled check.');
+    return;
+  }
+  if (isSchedulerExecuting) {
+    console.log('[DailyReport Scheduler] Scheduler is already executing. Skipping concurrent check.');
+    return;
+  }
+  if (isSchedulerDisabled) {
+    console.log('[DailyReport Scheduler] Scheduler is disabled due to previous authorization errors. Skipping check.');
+    return;
+  }
+
   try {
     isSchedulerExecuting = true;
     const config = await getDailyReportConfig(db);
-    if (!config.enabled || !config.adminEmails || config.adminEmails.length === 0) {
+    
+    const currentKolkataTime = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }).format(new Date());
+
+    if (!config.enabled) {
+      console.log(`[DailyReport Scheduler] Check completed at ${currentKolkataTime} IST: Automated delivery is DISABLED in configuration.`);
+      return;
+    }
+
+    if (!config.adminEmails || config.adminEmails.length === 0) {
+      console.log(`[DailyReport Scheduler] Check completed at ${currentKolkataTime} IST: No admin email recipients are configured.`);
       return;
     }
 
     const scheduledMinutes = parseTimeToMinutes(config.sendTime) ?? 420; // default 07:00 AM (420 mins)
     const currentMinutes = getKolkataCurrentMinutes();
 
+    console.log(`[DailyReport Scheduler] Check at ${currentKolkataTime} IST | Configured Time: ${config.sendTime} (${scheduledMinutes}m) | Current Time: ${currentMinutes}m`);
+
     // Only proceed if current Kolkata time is at or after the scheduled send time
     if (currentMinutes < scheduledMinutes) {
+      console.log(`[DailyReport Scheduler] Too early to run. Remaining time: ${scheduledMinutes - currentMinutes} minute(s).`);
       return;
     }
 
@@ -1276,22 +1332,25 @@ export async function checkAndRunScheduledDailyReport(db: Firestore | null): Pro
     if (logSnap.exists) {
       const data = logSnap.data();
       if (data?.status === 'SENT') {
-        // Already sent successfully for this date
+        console.log(`[DailyReport Scheduler] Automated report for date ${reportDate} was already successfully SENT. Skipping.`);
         return;
       }
       if (data?.status === 'SENDING') {
         const startedAt = data.startedAt ? new Date(data.startedAt).getTime() : 0;
         const diffMins = (Date.now() - startedAt) / 60000;
         if (diffMins < 15) {
-          // Job is currently in progress
+          console.log(`[DailyReport Scheduler] Automated report for date ${reportDate} is currently SENDING (active lock since ${diffMins.toFixed(1)} mins ago). Skipping.`);
           return;
+        } else {
+          console.log(`[DailyReport Scheduler] Found stale SENDING lock for date ${reportDate} from ${diffMins.toFixed(1)} mins ago. Overriding lock.`);
         }
       }
     }
 
-    console.log(`[DailyReport Scheduler] Dispatching automated morning report for date: ${reportDate} to ${config.adminEmails.length} recipients.`);
-    await generateAndSendDailyReport(db, reportDate, false, 'SYSTEM_SCHEDULER');
-  } catch (err) {
+    console.log(`[DailyReport Scheduler] CRON Triggered: Dispatching automated morning report for date: ${reportDate} to ${config.adminEmails.length} recipient(s).`);
+    const result = await generateAndSendDailyReport(db, reportDate, false, 'SYSTEM_SCHEDULER');
+    console.log(`[DailyReport Scheduler] Report run completed for ${reportDate}. Result success: ${result.success}`);
+  } catch (err: any) {
     console.error('[DailyReport Scheduler] Error in automated scheduled check:', err);
     if (err && err.message && err.message.includes('PERMISSION_DENIED')) {
       console.warn('[DailyReport Scheduler] Disabling scheduler due to missing Firebase Admin permissions.');
