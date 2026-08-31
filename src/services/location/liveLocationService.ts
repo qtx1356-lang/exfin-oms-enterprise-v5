@@ -203,6 +203,7 @@ const executeLiveLocationWrite = async (params: UpdateLiveLocationParams): Promi
     const { doc, setDoc } = await import('firebase/firestore');
     const { getDb } = await import('../firebase/db');
     const db = await getDb();
+    if (!db) return false;
     const docRef = doc(db, 'live_locations', employeeId.trim());
     await setDoc(docRef, liveDocPayload, { merge: true });
 
