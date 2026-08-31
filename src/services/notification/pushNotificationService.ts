@@ -1,14 +1,3 @@
-import { db } from '../firebase/config';
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  doc,
-  setDoc,
-  deleteDoc,
-  getDocs,
-} from 'firebase/firestore';
 import { NotificationRecord, NotificationPriority } from '../../types/notification';
 import { getNotificationSettings } from './notificationSettings';
 import { initializeAlertBaseline } from './alertDeduplication';
@@ -205,9 +194,13 @@ export const registerEmployeeDeviceToken = async (
   employeeCode: string,
   deviceId: string
 ): Promise<void> => {
-  if (!employeeCode || !deviceId || !db) return;
+  if (!employeeCode || !deviceId) return;
 
   try {
+    const { doc, setDoc } = await import('firebase/firestore');
+    const { getDb } = await import('../firebase/db');
+    const db = await getDb();
+    if (!db) return;
     // Generate or retrieve device push token
     let token = localStorage.getItem(DEVICE_TOKEN_KEY);
     if (!token) {
@@ -245,9 +238,13 @@ export const invalidateEmployeeDeviceToken = async (
   employeeCode: string,
   deviceId: string
 ): Promise<void> => {
-  if (!db || !deviceId) return;
+  if (!deviceId) return;
 
   try {
+    const { doc, collection, query, where, getDocs, deleteDoc } = await import('firebase/firestore');
+    const { getDb } = await import('../firebase/db');
+    const db = await getDb();
+    if (!db) return;
     localStorage.removeItem(DEVICE_TOKEN_KEY);
 
     // 1. Delete token by docId if employeeCode is known
@@ -749,82 +746,102 @@ export const initRealtimePushListener = (
   currentUser: { id?: string; employeeCode?: string },
   onInAppToast: (toastData: any) => void
 ): (() => void) => {
-  if (!db || !currentUser || !currentUser.employeeCode) {
+  if (!currentUser || !currentUser.employeeCode) {
     return () => {};
   }
 
   const empCode = currentUser.employeeCode;
   const startTime = Date.now() - 30000; // Look back up to 30s to catch newly created items
 
-  // Query notifications created specifically for this employee (Identity Isolation)
-  const q = query(
-    collection(db, 'notifications'),
-    where('recipientEmployeeCode', '==', empCode)
-  );
+  let unsub: (() => void) | null = null;
+  let isCancelled = false;
 
-  const unsub = onSnapshot(
-    q,
-    (snapshot) => {
-      const incoming: NotificationRecord[] = [];
+  const startListener = async () => {
+    try {
+      const { collection, query, where, onSnapshot } = await import('firebase/firestore');
+      const { getDb } = await import('../firebase/db');
+      const db = await getDb();
+      
+      if (isCancelled || !db) return;
 
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added' || change.type === 'modified') {
-          const docData = change.doc.data();
-          const notif: NotificationRecord = {
-            id: change.doc.id,
-            ...docData,
-          } as NotificationRecord;
+      // Query notifications created specifically for this employee (Identity Isolation)
+      const q = query(
+        collection(db, 'notifications'),
+        where('recipientEmployeeCode', '==', empCode)
+      );
 
-          // 1. Strict Identity Isolation Check
-          if (
-            notif.recipientEmployeeCode &&
-            notif.recipientEmployeeCode !== empCode
-          ) {
-            return;
+      unsub = onSnapshot(
+        q,
+        (snapshot) => {
+          const incoming: NotificationRecord[] = [];
+
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added' || change.type === 'modified') {
+              const docData = change.doc.data();
+              const notif: NotificationRecord = {
+                id: change.doc.id,
+                ...docData,
+              } as NotificationRecord;
+
+              // 1. Strict Identity Isolation Check
+              if (
+                notif.recipientEmployeeCode &&
+                notif.recipientEmployeeCode !== empCode
+              ) {
+                return;
+              }
+
+              // 2. Skip system technical logs
+              if (isSystemTechnicalNotification(notif)) {
+                return;
+              }
+
+              // 3. Check duplicate protection
+              if (isNotificationProcessed(notif.id)) {
+                return;
+              }
+
+              // Check timestamp freshness
+              const notifTime = new Date(
+                notif.timestamp ||
+                  notif.createdAt ||
+                  notif.createdAtDeviceTime ||
+                  Date.now()
+              ).getTime();
+
+              // If old notification loaded during initial fetch, mark processed & don't ring
+              if (notifTime < startTime) {
+                markNotificationProcessed(notif.id);
+                return;
+              }
+
+              // 4. Check Category user preference settings
+              if (!isCategoryEnabled(notif.category)) {
+                markNotificationProcessed(notif.id);
+                return;
+              }
+
+              incoming.push(notif);
+            }
+          });
+
+          if (incoming.length > 0) {
+            processIncomingNotifications(incoming, onInAppToast);
           }
-
-          // 2. Skip system technical logs
-          if (isSystemTechnicalNotification(notif)) {
-            return;
-          }
-
-          // 3. Check duplicate protection
-          if (isNotificationProcessed(notif.id)) {
-            return;
-          }
-
-          // Check timestamp freshness
-          const notifTime = new Date(
-            notif.timestamp ||
-              notif.createdAt ||
-              notif.createdAtDeviceTime ||
-              Date.now()
-          ).getTime();
-
-          // If old notification loaded during initial fetch, mark processed & don't ring
-          if (notifTime < startTime) {
-            markNotificationProcessed(notif.id);
-            return;
-          }
-
-          // 4. Check Category user preference settings
-          if (!isCategoryEnabled(notif.category)) {
-            markNotificationProcessed(notif.id);
-            return;
-          }
-
-          incoming.push(notif);
+        },
+        (err) => {
+          console.warn('Real-time push notification listener warning:', err);
         }
-      });
-
-      if (incoming.length > 0) {
-        processIncomingNotifications(incoming, onInAppToast);
-      }
-    },
-    (err) => {
-      console.warn('Real-time push notification listener warning:', err);
+      );
+    } catch (err) {
+      console.warn('Failed to start real-time push listener:', err);
     }
-  );
+  };
 
-  return unsub;
+  startListener();
+
+  return () => {
+    isCancelled = true;
+    if (unsub) unsub();
+  };
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, limit } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { Department, Designation } from '../../types/organization';
 import { ManagedUser } from '../../types/user';
@@ -23,16 +23,60 @@ import {
   XCircle,
   AlertTriangle,
   Users,
+  RefreshCw
 } from 'lucide-react';
 
 interface OrganizationSettingsTabProps {
-  users: ManagedUser[];
+  // users: ManagedUser[]; // Now fetched locally
 }
 
-export const OrganizationSettingsTab: React.FC<OrganizationSettingsTabProps> = ({ users }) => {
+export const OrganizationSettingsTab: React.FC<OrganizationSettingsTabProps> = () => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
+  const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Subscribe to data
+  useEffect(() => {
+    if (!db) return;
+
+    let deptsLoaded = false;
+    let desigsLoaded = false;
+    let usersLoaded = false;
+
+    const checkAllLoaded = () => {
+      if (deptsLoaded && desigsLoaded && usersLoaded) {
+        setLoading(false);
+      }
+    };
+
+    const unsubDepts = onSnapshot(collection(db, 'departments'), (snap) => {
+      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
+      setDepartments(list);
+      deptsLoaded = true;
+      checkAllLoaded();
+    }, () => { deptsLoaded = true; checkAllLoaded(); });
+
+    const unsubDesigs = onSnapshot(collection(db, 'designations'), (snap) => {
+      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Designation));
+      setDesignations(list);
+      desigsLoaded = true;
+      checkAllLoaded();
+    }, () => { desigsLoaded = true; checkAllLoaded(); });
+
+    const unsubUsers = onSnapshot(query(collection(db, 'registrations'), limit(500)), (snap) => {
+      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ManagedUser));
+      setUsers(list);
+      usersLoaded = true;
+      checkAllLoaded();
+    }, () => { usersLoaded = true; checkAllLoaded(); });
+
+    return () => {
+      unsubDepts();
+      unsubDesigs();
+      unsubUsers();
+    };
+  }, []);
 
   // Search terms
   const [deptSearch, setDeptSearch] = useState('');

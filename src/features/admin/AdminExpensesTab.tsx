@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { db } from '../../services/firebase/config';
+import { collection, query, limit, onSnapshot } from 'firebase/firestore';
 import { ExpenseRecord, ExpenseCategory, EXPENSE_CATEGORIES } from '../../types/expense';
 import { 
   approveExpenseClaim, 
@@ -11,6 +13,7 @@ import { useAdminAuth } from '../../context/AdminAuthContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
+import { EmptyState } from '../../components/ui/EmptyState';
 import {
   Wallet,
   CheckCircle2,
@@ -34,15 +37,33 @@ import {
 } from 'lucide-react';
 
 interface AdminExpensesTabProps {
-  expenseRecords: ExpenseRecord[];
   activeEmpCodes?: Set<string>;
 }
 
 export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
-  expenseRecords,
   activeEmpCodes = new Set(),
 }) => {
   const { user, role = 'ADMIN', loginId } = useAdminAuth();
+  const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Firestore Subscription
+  useEffect(() => {
+    if (!db) return;
+    const qExpenses = query(collection(db, 'expenses'), limit(500));
+    const unsub = onSnapshot(qExpenses, (snapshot) => {
+      const records: ExpenseRecord[] = [];
+      snapshot.forEach((doc) => {
+        records.push({ id: doc.id, ...doc.data() } as ExpenseRecord);
+      });
+      setExpenseRecords(records);
+      setIsLoading(false);
+    }, (err) => {
+      console.error('Error listening to expenses:', err);
+      setIsLoading(false);
+    });
+    return () => unsub();
+  }, []);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
@@ -218,6 +239,15 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
     setPreviewReceiptTitle(title);
     setZoomScale(1);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+        <RefreshCw className="w-10 h-10 text-purple-500 animate-spin" />
+        <p className="text-purple-300 font-bold animate-pulse uppercase tracking-widest text-[10px]">Fetching Expenses...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" id="admin-expenses-tab">

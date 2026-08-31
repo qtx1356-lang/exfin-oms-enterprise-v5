@@ -92,6 +92,12 @@ export default defineConfig(() => {
           manualChunks(id) {
             if (id.includes('node_modules')) {
               if (id.includes('firebase')) {
+                if (id.includes('firebase/storage') || id.includes('firebase-storage')) {
+                  return 'vendor-firebase-storage';
+                }
+                if (id.includes('firebase/firestore') || id.includes('firebase-firestore')) {
+                  return 'vendor-firebase-firestore';
+                }
                 return 'vendor-firebase';
               }
               if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('dompurify')) {

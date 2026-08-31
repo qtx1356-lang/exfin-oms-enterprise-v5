@@ -13,7 +13,8 @@ import {
   updateDoc,
   Timestamp
 } from 'firebase/firestore';
-import { db, auth, storage } from '../firebase/config';
+import { db, auth } from '../firebase/config';
+import { storage } from '../firebase/storage';
 import { ChatConversation, ChatMessage, ChatType, ChatAttachment } from '../../types/chat';
 import { ref, uploadBytesResumable, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signInAnonymously } from 'firebase/auth';

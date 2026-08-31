@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { db } from '../../services/firebase/config';
+import { collection, query, limit, onSnapshot, orderBy } from 'firebase/firestore';
 import { Card } from '../../components/ui/Card';
 import { 
   BarChart3, FileText, Download, Printer, Calendar, Users, Filter, 
@@ -17,25 +19,96 @@ import { isAttendanceCheckoutUnresolved, isSameEmployee } from '../../utils/atte
 interface ReportsAnalyticsTabProps {
   role: 'ADMIN' | 'SUPER_ADMIN';
   authorizedOffice: string;
-  registrations: any[];
-  attendanceRecords: any[];
-  expenseRecords: any[];
-  tasks: any[];
-  leaves: any[];
-  isLoading?: boolean;
 }
 
 export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
   role,
   authorizedOffice,
-  registrations,
-  attendanceRecords,
-  expenseRecords,
-  tasks,
-  leaves,
-  isLoading = false
 }) => {
   const isSuperAdmin = role === 'SUPER_ADMIN';
+
+  // State for all data
+  const [registrations, setRegistrations] = useState<any[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
+  const [expenseRecords, setExpenseRecords] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [leaves, setLeaves] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Firestore Subscriptions
+  useEffect(() => {
+    if (!db) return;
+
+    let regsLoaded = false;
+    let attLoaded = false;
+    let expLoaded = false;
+    let tasksLoaded = false;
+    let leavesLoaded = false;
+
+    const checkAllLoaded = () => {
+      if (regsLoaded && attLoaded && expLoaded && tasksLoaded && leavesLoaded) {
+        setIsLoading(false);
+      }
+    };
+
+    // 1. Registrations
+    const qRegs = query(collection(db, 'registrations'), limit(500));
+    const unsubRegs = onSnapshot(qRegs, (snap) => {
+      const list: any[] = [];
+      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+      setRegistrations(list);
+      regsLoaded = true;
+      checkAllLoaded();
+    }, () => { regsLoaded = true; checkAllLoaded(); });
+
+    // 2. Attendance
+    const qAtt = query(collection(db, 'attendance'), limit(1500));
+    const unsubAtt = onSnapshot(qAtt, (snap) => {
+      const list: any[] = [];
+      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+      setAttendanceRecords(list);
+      attLoaded = true;
+      checkAllLoaded();
+    }, () => { attLoaded = true; checkAllLoaded(); });
+
+    // 3. Expenses
+    const qExp = query(collection(db, 'expenses'), limit(500));
+    const unsubExp = onSnapshot(qExp, (snap) => {
+      const list: any[] = [];
+      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+      setExpenseRecords(list);
+      expLoaded = true;
+      checkAllLoaded();
+    }, () => { expLoaded = true; checkAllLoaded(); });
+
+    // 4. Tasks
+    const qTasks = query(collection(db, 'tasks'), limit(1000));
+    const unsubTasks = onSnapshot(qTasks, (snap) => {
+      const list: any[] = [];
+      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+      setTasks(list);
+      tasksLoaded = true;
+      checkAllLoaded();
+    }, () => { tasksLoaded = true; checkAllLoaded(); });
+
+    // 5. Leaves
+    const qLeaves = query(collection(db, 'leaves'), limit(500));
+    const unsubLeaves = onSnapshot(qLeaves, (snap) => {
+      const list: any[] = [];
+      snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
+      setLeaves(list);
+      leavesLoaded = true;
+      checkAllLoaded();
+    }, () => { leavesLoaded = true; checkAllLoaded(); });
+
+    return () => {
+      unsubRegs();
+      unsubAtt();
+      unsubExp();
+      unsubTasks();
+      unsubLeaves();
+    };
+  }, []);
 
   // 1. LOADING & EMPTY STATES
   if (isLoading) {

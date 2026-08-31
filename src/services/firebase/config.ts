@@ -1,52 +1,93 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 import firebaseAppConfig from '../../../firebase-applet-config.json';
 
 console.log('Firebase config raw import:', firebaseAppConfig);
 
-// 1. Initialize Default App (Employee)
-export const app = initializeApp(firebaseAppConfig);
-const employeeAuth = getAuth(app);
-const employeeDb = (firebaseAppConfig as any).firestoreDatabaseId
-  ? getFirestore(app, (firebaseAppConfig as any).firestoreDatabaseId)
-  : getFirestore(app);
-const employeeStorage = getStorage(app);
+// 1. App Singletons
+let defaultApp: any = null;
+let adminAppInstance: any = null;
 
-if (employeeDb) {
-  try {
-    enableIndexedDbPersistence(employeeDb).catch((err) => {
-      console.warn('Firestore persistence warning:', err.code || err);
-    });
-  } catch (e) {
-    console.warn('Firestore enableIndexedDbPersistence catch:', e);
+export const getDefaultApp = () => {
+  if (!defaultApp) {
+    console.log('Initializing Default Firebase App');
+    defaultApp = initializeApp(firebaseAppConfig);
   }
-}
-
-// 2. Initialize Named App (Admin)
-export const adminApp = initializeApp(firebaseAppConfig, 'admin');
-const adminAuth = getAuth(adminApp);
-const adminDb = (firebaseAppConfig as any).firestoreDatabaseId
-  ? getFirestore(adminApp, (firebaseAppConfig as any).firestoreDatabaseId)
-  : getFirestore(adminApp);
-const adminStorage = getStorage(adminApp);
-
-// 3. Dynamic Context Resolver Helper
-const isAdminContext = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  const path = window.location.pathname;
-  return path.startsWith('/x7Kp9') || path.startsWith('/admin-portal');
+  return defaultApp;
 };
 
-export const getActiveAuth = () => isAdminContext() ? adminAuth : employeeAuth;
-export const getActiveDb = () => isAdminContext() ? adminDb : employeeDb;
-export const getActiveStorage = () => isAdminContext() ? adminStorage : employeeStorage;
+export const getAdminApp = () => {
+  if (!adminAppInstance) {
+    console.log('Initializing Admin Firebase App');
+    adminAppInstance = initializeApp(firebaseAppConfig, 'admin');
+  }
+  return adminAppInstance;
+};
 
-// 4. Robust JS Proxies for auth, db, and storage
+// 2. Service Singletons
+let employeeAuth: any = null;
+
+let adminAuth: any = null;
+
+// 3. Lazy Getters
+const getEmployeeAuth = () => {
+  if (!employeeAuth) employeeAuth = getAuth(getDefaultApp());
+  return employeeAuth;
+};
+
+const getAdminAuth = () => {
+  if (!adminAuth) adminAuth = getAuth(getAdminApp());
+  return adminAuth;
+};
+
+// 4. Dynamic Context Resolver Helper
+export const isAdminContext = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname;
+  return path.startsWith('/x7Kp9') || path.startsWith('/admin-portal') || path.startsWith('/admin');
+};
+
+export const getActiveAuth = () => isAdminContext() ? getAdminAuth() : getEmployeeAuth();
+
+let cachedDbSync: any = null;
+
+/**
+ * Compatibility Proxy for 'db'
+ * 
+ * This proxy allows existing code to continue importing 'db' from config.ts.
+ * It will resolve to either the Admin or Employee Firestore instance on-demand.
+ * 
+ * It dynamically imports the synchronization layer only when accessed to avoid 
+ * pulling Firestore into the initial bundle.
+ */
+export const db = new Proxy({}, {
+  get(target, prop) {
+    if (!cachedDbSync) {
+      // Trigger the dynamic import of the database sync layer.
+      // Note: The first few calls might return undefined until the import resolves.
+      // However, all critical startup paths now use await getDb() which is safe.
+      import('./db_sync').then(m => { cachedDbSync = m; });
+      return undefined;
+    }
+
+    const activeDb = cachedDbSync.getActiveDbSync();
+    if (!activeDb) return undefined;
+
+    if (prop === 'concrete' || prop === '_concrete') {
+      return activeDb;
+    }
+    const value = Reflect.get(activeDb, prop);
+    if (typeof value === 'function') {
+      return value.bind(activeDb);
+    }
+    return value;
+  }
+}) as any;
+
+// 5. Robust JS Proxy for auth
 export const auth = new Proxy({}, {
   get(target, prop, receiver) {
-    const activeTarget = isAdminContext() ? adminAuth : employeeAuth;
+    const activeTarget = isAdminContext() ? getAdminAuth() : getEmployeeAuth();
     if (prop === 'concrete' || prop === '_concrete') {
       return activeTarget;
     }
@@ -57,63 +98,30 @@ export const auth = new Proxy({}, {
     return value;
   },
   set(target, prop, value) {
-    const activeTarget = isAdminContext() ? adminAuth : employeeAuth;
+    const activeTarget = isAdminContext() ? getAdminAuth() : getEmployeeAuth();
     return Reflect.set(activeTarget, prop, value);
   },
   getPrototypeOf() {
-    return Reflect.getPrototypeOf(isAdminContext() ? adminAuth : employeeAuth);
+    return Reflect.getPrototypeOf(isAdminContext() ? getAdminAuth() : getEmployeeAuth());
   },
   has(target, prop) {
-    return Reflect.has(isAdminContext() ? adminAuth : employeeAuth, prop);
+    return Reflect.has(isAdminContext() ? getAdminAuth() : getEmployeeAuth(), prop);
   }
 }) as any;
 
-export const db = new Proxy({}, {
-  get(target, prop, receiver) {
-    const activeTarget = isAdminContext() ? adminDb : employeeDb;
-    if (prop === 'concrete' || prop === '_concrete') {
-      return activeTarget;
-    }
-    const value = Reflect.get(activeTarget, prop);
-    if (typeof value === 'function') {
-      return value.bind(activeTarget);
-    }
-    return value;
-  },
-  set(target, prop, value) {
-    const activeTarget = isAdminContext() ? adminDb : employeeDb;
-    return Reflect.set(activeTarget, prop, value);
-  },
-  getPrototypeOf() {
-    return Reflect.getPrototypeOf(isAdminContext() ? adminDb : employeeDb);
-  },
-  has(target, prop) {
-    return Reflect.has(isAdminContext() ? adminDb : employeeDb, prop);
+// Export app and adminApp as proxies as well
+export const app = new Proxy({}, {
+  get(target, prop) {
+    const activeTarget = getDefaultApp();
+    return Reflect.get(activeTarget, prop);
   }
 }) as any;
 
-export const storage = new Proxy({}, {
-  get(target, prop, receiver) {
-    const activeTarget = isAdminContext() ? adminStorage : employeeStorage;
-    if (prop === 'concrete' || prop === '_concrete') {
-      return activeTarget;
-    }
-    const value = Reflect.get(activeTarget, prop);
-    if (typeof value === 'function') {
-      return value.bind(activeTarget);
-    }
-    return value;
-  },
-  set(target, prop, value) {
-    const activeTarget = isAdminContext() ? adminStorage : employeeStorage;
-    return Reflect.set(activeTarget, prop, value);
-  },
-  getPrototypeOf() {
-    return Reflect.getPrototypeOf(isAdminContext() ? adminStorage : employeeStorage);
-  },
-  has(target, prop) {
-    return Reflect.has(isAdminContext() ? adminStorage : employeeStorage, prop);
+export const adminApp = new Proxy({}, {
+  get(target, prop) {
+    const activeTarget = getAdminApp();
+    return Reflect.get(activeTarget, prop);
   }
 }) as any;
 
-console.log('Firebase config initialized dynamic proxies for auth, db, storage.');
+console.log('Firebase config initialized dynamic proxies for auth.');

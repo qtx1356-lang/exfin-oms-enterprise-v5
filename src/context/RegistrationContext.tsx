@@ -1,8 +1,7 @@
 // APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. OFFLINE MUST BOOT THE NORMAL APPLICATION SHELL.
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { doc, getDoc, onSnapshot, runTransaction, setDoc, collection, query, where, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
-import { db, auth } from '../services/firebase/config';
+import { auth } from '../services/firebase/config';
 import { Device } from '@capacitor/device';
 import { logStartupTag } from '../services/startup/startupPerformanceLogger';
 import {
@@ -103,6 +102,31 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [recoveryLoading, setRecoveryLoading] = useState<boolean>(false);
 
+  // Lazy Firestore SDK loading
+  const [firestore, setFirestore] = useState<any>(null);
+  const [activeDb, setActiveDb] = useState<any>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadSDK = async () => {
+      try {
+        const [sdk, { getDb }] = await Promise.all([
+          import('firebase/firestore'),
+          import('../services/firebase/db')
+        ]);
+        if (isMounted) {
+          setFirestore(sdk);
+          const dbInstance = await getDb();
+          if (isMounted) setActiveDb(dbInstance);
+        }
+      } catch (err) {
+        console.error('Failed to load Firestore SDK dynamically:', err);
+      }
+    };
+    loadSDK();
+    return () => { isMounted = false; };
+  }, []);
+
   useEffect(() => {
     if (!auth) return;
     const unsubAuth = onAuthStateChanged(auth, (user) => {
@@ -114,9 +138,9 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // ROOT-CAUSE IDENTITY FLOW FIX: Auto-link authenticated user (Admin/TL) to Employee Registration
   useEffect(() => {
     let isMounted = true;
-    const activeDb = db.concrete || db;
     
-    if (authUser && status === 'mobile_recovery' && !localRegId && activeDb && navigator.onLine) {
+    if (authUser && status === 'mobile_recovery' && !localRegId && activeDb && firestore && navigator.onLine) {
+      const { collection, query, where, getDocs } = firestore;
       const autoLink = async () => {
         try {
           console.log(`[REGISTRATION_AUTO_LINK] Attempting to link authenticated user: ${authUser.uid}`);
@@ -235,13 +259,14 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     let unsubSnapshot: (() => void) | null = null;
 
     const initializeRegistration = async () => {
-      const activeDb = db.concrete || db;
       logStartupTag('REGISTRATION_CHECK_START', 'Checking registration via local session / mobile recovery');
 
-      if (!activeDb) {
+      if (!activeDb || !firestore) {
         if (isMounted) setStatus('unregistered');
         return;
       }
+
+      const { doc, getDoc, onSnapshot } = firestore;
 
       try {
         const savedRegId = localStorage.getItem('registrationId');
@@ -444,7 +469,10 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Verify mobile number for reinstall recovery
   const verifyMobileForRecovery = async (mobile: string): Promise<boolean> => {
-    const activeDb = db.concrete || db;
+    const { collection, query, where, getDocs, doc, updateDoc } = await import('firebase/firestore');
+    const { getDb } = await import('../services/firebase/db');
+    const activeDb = await getDb();
+    
     if (!activeDb) return false;
     const canonical = normalizeMobile(mobile);
     
@@ -587,7 +615,9 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const submitRegistration = async (name: string, mobileNumber: string, selfieBase64: string) => {
-    const activeDb = db.concrete || db;
+    const { doc, setDoc, runTransaction, collection, query, where, getDocs } = await import('firebase/firestore');
+    const { getDb } = await import('../services/firebase/db');
+    const activeDb = await getDb();
     const activeAuth = auth.concrete || auth;
     if (!activeDb) throw new Error('Firestore not initialized');
     

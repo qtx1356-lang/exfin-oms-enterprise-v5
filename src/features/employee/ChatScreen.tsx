@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRegistration } from '../../context/RegistrationContext';
-import { db, storage } from '../../services/firebase/config';
+import { db } from '../../services/firebase/config';
+import { storage } from '../../services/firebase/storage';
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import {
   MessageSquare,

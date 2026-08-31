@@ -109,6 +109,21 @@ export interface AttendanceCorrection {
   correctedAt: string;
 }
 
+export interface Registration {
+  id: string;
+  employeeCode: string;
+  name: string;
+  office: string;
+  department?: string;
+  designation?: string;
+  role: string;
+  status: string;
+  deviceId?: string;
+  deviceModel?: string;
+  androidVersion?: string;
+  registrationDate?: string;
+}
+
 export interface AttendanceRecord {
   id: string; // UUID
   docId: string; // Key: ${employeeId}_${date} e.g. EMP101_2026-08-07

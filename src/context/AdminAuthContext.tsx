@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../services/firebase/config';
+import { auth } from '../services/firebase/config';
 import { clearNotificationStorageForUser, dispatchNotificationsUpdated } from '../services/notification/notificationStorage';
 import { AppRole } from '../types/roles';
 import { changeOwnPassword as executeChangeOwnPassword } from '../services/admin/adminPasswordService';
@@ -43,13 +42,16 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [passwordResetAt, setPasswordResetAt] = useState<string | null>(null);
 
   const fetchAdminProfile = useCallback(async (u: User) => {
-    const activeDb = db.concrete || db;
+    const { doc, getDoc } = await import('firebase/firestore');
+    const { getDb } = await import('../services/firebase/db');
+    const activeDb = await getDb();
+    
     if (!activeDb) return;
 
     try {
       const adminDoc = await getDoc(doc(activeDb, 'admin_users', u.uid));
 
-      if (adminDoc.exists()) {
+      if (adminDoc && adminDoc.exists()) {
         const data = adminDoc.data();
         const isActive = data.active !== false && data.status !== 'Suspended';
         const userRole = (data.role as AppRole) || 'ADMIN';

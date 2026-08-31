@@ -1,6 +1,7 @@
 import { doc, setDoc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase/config';
+import { db } from '../firebase/config';
+import { storage } from '../firebase/storage';
 import { ExpenseRecord } from '../../types/expense';
 import {
   getPendingExpenseRecords,

@@ -82,17 +82,7 @@ import {
   Mail
 } from 'lucide-react';
 import { NotificationType, NotificationCategory, NotificationPriority, NotificationRecord } from '../../types/notification';
-
-interface Registration {
-  id: string;
-  employeeCode: string;
-  name: string;
-  office: string;
-  department?: string;
-  designation?: string;
-  role: string;
-  status: string;
-}
+import { Registration } from '../../types/attendance';
 
 interface Campaign {
   id: string;

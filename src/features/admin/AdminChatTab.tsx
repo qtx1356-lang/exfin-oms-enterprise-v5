@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
-import { db, storage } from '../../services/firebase/config';
+import { db } from '../../services/firebase/config';
+import { storage } from '../../services/firebase/storage';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import {
   MessageSquare,
