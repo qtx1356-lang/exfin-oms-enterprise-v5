@@ -19,7 +19,7 @@ import {
   Info,
   XCircle,
 } from 'lucide-react';
-import { getDb } from '../../services/firebase/config';
+import { db } from '../../services/firebase/config';
 import { doc, updateDoc } from 'firebase/firestore';
 import {
   getNotificationSettings,
@@ -94,9 +94,8 @@ export const NotificationSettingsCard: React.FC = () => {
     if (key === 'whatsappOptIn') {
       try {
         const regId = localStorage.getItem('registrationId');
-        const activeDb = await getDb();
-        if (regId && activeDb) {
-          const regRef = doc(activeDb, 'registrations', regId);
+        if (regId && db) {
+          const regRef = doc(db, 'registrations', regId);
           await updateDoc(regRef, {
             whatsappConsent: updated.whatsappOptIn ? 'YES' : 'NO',
             whatsappConsentUpdatedAt: new Date().toISOString()

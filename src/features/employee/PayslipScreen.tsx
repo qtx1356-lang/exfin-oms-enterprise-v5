@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { getDb } from '../../services/firebase/config';
+import { db } from '../../services/firebase/config';
 import { useRegistration } from '../../context/RegistrationContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -78,12 +78,10 @@ export const PayslipScreen: React.FC = () => {
 
     // 2. Silently refresh latest payslips from Firestore in background
     const fetchPayslips = async () => {
+      if (!db) return;
       try {
-        const activeDb = await getDb();
-        if (!activeDb) return;
-
         const q = query(
-          collection(activeDb, 'salaries'),
+          collection(db, 'salaries'),
           where('employeeCode', '==', employeeCode)
         );
         const querySnapshot = await getDocs(q);

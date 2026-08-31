@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '@/src/utils/apiConfig';
-import { auth, getAdminDb } from '../firebase/config';
+import { auth, db } from '../firebase/config';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { doc, getDoc, setDoc, getDocs, collection } from 'firebase/firestore';
 import { logAuditEvent } from '../rbac/rbacService';
@@ -134,11 +134,10 @@ export async function changeOwnPassword(currentPassword: string, newPassword: st
   }
 
   // Also update client-side Firestore if permitted
-  try {
-    const activeDb = await getAdminDb();
-    if (activeDb) {
+  if (db) {
+    try {
       await setDoc(
-        doc(activeDb, 'admin_users', user.uid),
+        doc(db, 'admin_users', user.uid),
         {
           mustChangePassword: false,
           passwordChangedAt: nowIso,
@@ -147,20 +146,20 @@ export async function changeOwnPassword(currentPassword: string, newPassword: st
         },
         { merge: true }
       );
-
-      // Log audit event
-      await logAuditEvent({
-        actorEmail: email,
-        actorUid: user.uid,
-        action: 'ADMIN_PASSWORD_CHANGED',
-        targetType: 'USER',
-        targetId: user.uid,
-        newValue: { mustChangePassword: false, passwordChangedAt: nowIso },
-        deviceInfo: navigator.userAgent,
-      });
+    } catch (e) {
+      console.warn('Direct Firestore admin_users update skipped/failed:', e);
     }
-  } catch (e) {
-    console.warn('Direct Firestore admin_users update skipped/failed:', e);
+
+    // Log audit event
+    await logAuditEvent({
+      actorEmail: email,
+      actorUid: user.uid,
+      action: 'ADMIN_PASSWORD_CHANGED',
+      targetType: 'USER',
+      targetId: user.uid,
+      newValue: { mustChangePassword: false, passwordChangedAt: nowIso },
+      deviceInfo: navigator.userAgent,
+    });
   }
 }
 
@@ -218,9 +217,8 @@ export async function fetchAdminSecurityUsers(): Promise<AdminSecurityUser[]> {
   }
 
   // Fallback to client Firestore if Super Admin
-  const activeDb = await getAdminDb();
-  if (!activeDb) return [];
-  const adminSnap = await getDocs(collection(activeDb, 'admin_users'));
+  if (!db) return [];
+  const adminSnap = await getDocs(collection(db, 'admin_users'));
   const list: AdminSecurityUser[] = [];
   adminSnap.forEach((d) => {
     const data = d.data();

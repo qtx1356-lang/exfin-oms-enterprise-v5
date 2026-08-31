@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getDb } from '../../services/firebase/db';
+import { db } from '../../services/firebase/config';
 import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import {
   Search,
@@ -45,68 +45,44 @@ export const EmployeeProfilesTab: React.FC = () => {
 
   // 1. Listen to Registrations (Employees)
   useEffect(() => {
-    let isMounted = true;
-    let unsub = () => {};
-    getDb().then((activeDb) => {
-      if (!isMounted || !activeDb) return;
-      const qEmps = query(collection(activeDb, 'registrations'));
-      unsub = onSnapshot(qEmps, (snap) => {
-        if (!isMounted) return;
-        const list: any[] = [];
-        snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
-        setEmployees(list);
-      });
+    if (!db) return;
+    const qEmps = query(collection(db, 'registrations'));
+    const unsub = onSnapshot(qEmps, (snap) => {
+      const list: any[] = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+      setEmployees(list);
     });
-    return () => {
-      isMounted = false;
-      unsub();
-    };
+    return () => unsub();
   }, []);
 
   // 2. Listen to Profile Change Requests
   useEffect(() => {
-    let isMounted = true;
-    let unsub = () => {};
-    getDb().then((activeDb) => {
-      if (!isMounted || !activeDb) return;
-      const qReqs = query(collection(activeDb, 'profile_change_requests'));
-      unsub = onSnapshot(qReqs, (snap) => {
-        if (!isMounted) return;
-        const list: ProfileChangeRequest[] = [];
-        snap.forEach((d) => list.push({ id: d.id, ...d.data() } as ProfileChangeRequest));
-        list.sort(
-          (a, b) =>
-            new Date(b.createdAtDeviceTime).getTime() -
-            new Date(a.createdAtDeviceTime).getTime()
-        );
-        setChangeRequests(list);
-      });
+    if (!db) return;
+    const qReqs = query(collection(db, 'profile_change_requests'));
+    const unsub = onSnapshot(qReqs, (snap) => {
+      const list: ProfileChangeRequest[] = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() } as ProfileChangeRequest));
+      list.sort(
+        (a, b) =>
+          new Date(b.createdAtDeviceTime).getTime() -
+          new Date(a.createdAtDeviceTime).getTime()
+      );
+      setChangeRequests(list);
     });
-    return () => {
-      isMounted = false;
-      unsub();
-    };
+    return () => unsub();
   }, []);
 
   // 3. Listen to Audit Logs
   useEffect(() => {
-    let isMounted = true;
-    let unsub = () => {};
-    getDb().then((activeDb) => {
-      if (!isMounted || !activeDb) return;
-      const qAudit = query(collection(activeDb, 'audit_logs'));
-      unsub = onSnapshot(qAudit, (snap) => {
-        if (!isMounted) return;
-        const list: AuditLogEntry[] = [];
-        snap.forEach((d) => list.push({ id: d.id, ...d.data() } as AuditLogEntry));
-        list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        setAuditLogs(list);
-      });
+    if (!db) return;
+    const qAudit = query(collection(db, 'audit_logs'));
+    const unsub = onSnapshot(qAudit, (snap) => {
+      const list: AuditLogEntry[] = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() } as AuditLogEntry));
+      list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setAuditLogs(list);
     });
-    return () => {
-      isMounted = false;
-      unsub();
-    };
+    return () => unsub();
   }, []);
 
   const handleReview = async () => {

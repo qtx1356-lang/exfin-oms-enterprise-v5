@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
-import { getDb } from '../../services/firebase/config';
-import { storage } from '../../services/firebase/storage';
+import { db, storage } from '../../services/firebase/config';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import {
   MessageSquare,
@@ -355,17 +354,14 @@ export const AdminChatTab: React.FC = () => {
 
   // Fetch approved employees as contacts
   useEffect(() => {
-    if (!isNewChatOpen) return;
+    if (!isNewChatOpen || !db) return;
 
     const fetchContacts = async () => {
       try {
-        const activeDb = await getDb();
-        if (!activeDb) return;
-
         const list: ChatParticipant[] = [];
 
         // Query approved registrations
-        const q = query(collection(activeDb, 'registrations'), where('status', '==', 'Approved'));
+        const q = query(collection(db, 'registrations'), where('status', '==', 'Approved'));
         const snap = await getDocs(q);
 
         snap.forEach(docSnap => {

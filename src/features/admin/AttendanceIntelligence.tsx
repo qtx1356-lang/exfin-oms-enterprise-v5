@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getDb } from '../../services/firebase/db';
-import { collection, query, limit, onSnapshot } from 'firebase/firestore';
 import { 
   Brain, Sparkles, AlertTriangle, TrendingUp, TrendingDown, Filter, 
   Download, User, Clock, ArrowUpRight, Activity, Building2, Users, 
   CheckCircle, Calendar, WifiOff, FileText, ChevronRight, Info, 
-  ShieldCheck, ArrowRight, Eye, ShieldAlert, HeartHandshake, ListCollapse, CheckSquare, RefreshCw
+  ShieldCheck, ArrowRight, Eye, ShieldAlert, HeartHandshake, ListCollapse, CheckSquare
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -17,6 +15,9 @@ import { exportToCSV } from '../../services/reports/exportService';
 import { fetchDepartments } from '../../services/organization/organizationService';
 
 interface AttendanceIntelligenceProps {
+  registrations: ManagedUser[];
+  attendanceRecords: AttendanceRecord[];
+  leaves: any[];
   role: 'ADMIN' | 'SUPER_ADMIN' | 'HR' | string;
   authorizedOffice: string;
   onViewAttendanceDetails: (record: AttendanceRecord) => void;
@@ -24,81 +25,15 @@ interface AttendanceIntelligenceProps {
 }
 
 export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
+  registrations,
+  attendanceRecords,
+  leaves,
   role,
   authorizedOffice,
   onViewAttendanceDetails,
   onRectifyAttendance
 }) => {
   const isSuperAdmin = role === 'SUPER_ADMIN';
-
-  // State for data
-  const [registrations, setRegistrations] = useState<ManagedUser[]>([]);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [leaves, setLeaves] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Firestore Subscriptions
-  useEffect(() => {
-    let isMounted = true;
-    const unsubs: (() => void)[] = [];
-
-    getDb().then((activeDb) => {
-      if (!isMounted || !activeDb) {
-        setIsLoading(false);
-        return;
-      }
-
-      let regsLoaded = false;
-      let attLoaded = false;
-      let leavesLoaded = false;
-
-      const checkAllLoaded = () => {
-        if (regsLoaded && attLoaded && leavesLoaded && isMounted) {
-          setIsLoading(false);
-        }
-      };
-
-      // 1. Registrations
-      const qRegs = query(collection(activeDb, 'registrations'), limit(500));
-      unsubs.push(onSnapshot(qRegs, (snap) => {
-        if (!isMounted) return;
-        const list: ManagedUser[] = [];
-        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as ManagedUser));
-        setRegistrations(list);
-        regsLoaded = true;
-        checkAllLoaded();
-      }, () => { regsLoaded = true; checkAllLoaded(); }));
-
-      // 2. Attendance (Last 1500 records for intelligence analysis)
-      const qAtt = query(collection(activeDb, 'attendance'), limit(1500));
-      unsubs.push(onSnapshot(qAtt, (snap) => {
-        if (!isMounted) return;
-        const list: AttendanceRecord[] = [];
-        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as AttendanceRecord));
-        setAttendanceRecords(list);
-        attLoaded = true;
-        checkAllLoaded();
-      }, () => { attLoaded = true; checkAllLoaded(); }));
-
-      // 3. Leaves
-      const qLeaves = query(collection(activeDb, 'leaves'), limit(300));
-      unsubs.push(onSnapshot(qLeaves, (snap) => {
-        if (!isMounted) return;
-        const list: any[] = [];
-        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-        setLeaves(list);
-        leavesLoaded = true;
-        checkAllLoaded();
-      }, () => { leavesLoaded = true; checkAllLoaded(); }));
-    }).catch(() => {
-      if (isMounted) setIsLoading(false);
-    });
-
-    return () => {
-      isMounted = false;
-      unsubs.forEach(unsub => unsub());
-    };
-  }, []);
 
   // Filters state
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month'>('today');
@@ -842,15 +777,6 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
     const filename = `Attendance_Intelligence_${dateRange}_${selectedDept}_${getKolkataDate(0)}`;
     exportToCSV(filename, headers, rows);
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 space-y-4">
-        <RefreshCw className="w-10 h-10 text-indigo-500 animate-spin" />
-        <p className="text-indigo-300 font-bold animate-pulse uppercase tracking-widest text-[10px]">Processing Attendance Intelligence...</p>
-      </div>
-    );
-  }
 
   return (
     <div id="attendance-intelligence-tab" className="space-y-6">

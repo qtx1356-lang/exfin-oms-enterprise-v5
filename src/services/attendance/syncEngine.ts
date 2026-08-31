@@ -1,4 +1,6 @@
 import { API_BASE_URL } from '@/src/utils/apiConfig';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase/config';
 import { AttendanceRecord } from '../../types/attendance';
 import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic } from '../../utils/attendanceUtils';
 import {
@@ -43,9 +45,7 @@ function sanitizeFirestorePayload<T extends Record<string, any>>(obj: T): T {
 }
 
 export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: number; errorsCount: number }> => {
-  const { doc, getDoc, setDoc, serverTimestamp } = await import('firebase/firestore');
-  const { getDb } = await import('../firebase/db');
-  const activeDb = await getDb();
+  const activeDb = db.concrete || db;
 
   if (!navigator.onLine) {
     console.log('Sync Engine: Device is offline. Changes saved locally.');

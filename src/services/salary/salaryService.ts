@@ -1,3 +1,4 @@
+import { db } from '../firebase/config';
 import { collection, doc, setDoc, getDocs, deleteDoc, query, where } from 'firebase/firestore';
 
 export interface SalaryRecord {

@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { getDb } from '../../services/firebase/db';
-import { collection, query, limit, onSnapshot } from 'firebase/firestore';
+import React, { useState } from 'react';
 import { LeaveRecord } from '../../types/leave';
 import { reviewLeaveRequest } from '../../services/leave/leaveService';
 import { useAdminAuth } from '../../context/AdminAuthContext';
@@ -23,51 +21,15 @@ import {
   Check,
   X,
   Info,
-  RefreshCw,
 } from 'lucide-react';
 
 interface AdminLeaveManagementTabProps {
+  leaves: LeaveRecord[];
   activeEmpCodes?: Set<string>;
 }
 
-export const AdminLeaveManagementTab: React.FC<AdminLeaveManagementTabProps> = ({ activeEmpCodes }) => {
+export const AdminLeaveManagementTab: React.FC<AdminLeaveManagementTabProps> = ({ leaves, activeEmpCodes }) => {
   const { user, role = 'ADMIN', loginId } = useAdminAuth();
-  const [leaves, setLeaves] = useState<LeaveRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Firestore Subscription
-  useEffect(() => {
-    let isMounted = true;
-    let unsub = () => {};
-
-    getDb().then((activeDb) => {
-      if (!isMounted || !activeDb) {
-        setIsLoading(false);
-        return;
-      }
-
-      const qLeaves = query(collection(activeDb, 'leaves'), limit(500));
-      unsub = onSnapshot(qLeaves, (snapshot) => {
-        if (!isMounted) return;
-        const records: LeaveRecord[] = [];
-        snapshot.forEach((doc) => {
-          records.push({ id: doc.id, ...doc.data() } as LeaveRecord);
-        });
-        setLeaves(records);
-        setIsLoading(false);
-      }, (err) => {
-        console.error('Error listening to leaves:', err);
-        if (isMounted) setIsLoading(false);
-      });
-    }).catch(() => {
-      if (isMounted) setIsLoading(false);
-    });
-
-    return () => {
-      isMounted = false;
-      unsub();
-    };
-  }, []);
 
   // Filters & Search
   const [statusFilter, setStatusFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('PENDING');
@@ -274,15 +236,6 @@ export const AdminLeaveManagementTab: React.FC<AdminLeaveManagementTabProps> = (
       setActionLoadingId(null);
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 space-y-4">
-        <RefreshCw className="w-10 h-10 text-purple-500 animate-spin" />
-        <p className="text-purple-300 font-bold animate-pulse uppercase tracking-widest text-[10px]">Fetching Leave Requests...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">

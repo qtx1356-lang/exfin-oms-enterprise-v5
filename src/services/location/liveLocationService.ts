@@ -1,3 +1,5 @@
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 import { OFFICE_LOCATION, getDistanceFromLatLonInM } from '../attendance/smartAttendanceEngine';
 import { LiveEmployeeLocation } from '../../types/attendance';
 
@@ -200,10 +202,6 @@ const executeLiveLocationWrite = async (params: UpdateLiveLocationParams): Promi
   };
 
   try {
-    const { doc, setDoc } = await import('firebase/firestore');
-    const { getDb } = await import('../firebase/db');
-    const db = await getDb();
-    if (!db) return false;
     const docRef = doc(db, 'live_locations', employeeId.trim());
     await setDoc(docRef, liveDocPayload, { merge: true });
 

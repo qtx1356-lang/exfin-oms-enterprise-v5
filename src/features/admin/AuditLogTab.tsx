@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { getDb } from '../../services/firebase/db';
+import { db } from '../../services/firebase/config';
 import { collection, query, orderBy, limit, getDocs, onSnapshot } from 'firebase/firestore';
 import { AuditLogRecord, AuditActionCategory, AuditSource, AuditResult } from '../../types/audit';
 import { formatIstTimestamp } from '../../services/audit/auditService';
@@ -45,55 +45,42 @@ export const AuditLogTab: React.FC = () => {
   const [displayLimit, setDisplayLimit] = useState(50);
 
   useEffect(() => {
-    let isMounted = true;
-    let unsub = () => {};
+    if (!db) {
+      setLoading(false);
+      // Load local fallback if db is not connected
+      try {
+        const local = JSON.parse(localStorage.getItem('exfin_audit_logs_local') || '[]');
+        setLogs(local);
+      } catch (e) {}
+      return;
+    }
 
-    getDb().then((activeDb) => {
-      if (!isMounted || !activeDb) {
+    try {
+      const q = query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(500));
+      const unsub = onSnapshot(q, (snapshot) => {
+        const fetched: AuditLogRecord[] = [];
+        snapshot.docs.forEach((doc) => {
+          fetched.push(doc.data() as AuditLogRecord);
+        });
+        setLogs(fetched);
+        setLoading(false);
+        setError(null);
+      }, (err) => {
+        console.error('Error fetching audit logs:', err);
+        setError('Failed to fetch authoritative audit logs. Showing cached logs.');
         setLoading(false);
         try {
           const local = JSON.parse(localStorage.getItem('exfin_audit_logs_local') || '[]');
           setLogs(local);
         } catch (e) {}
-        return;
-      }
+      });
 
-      try {
-        const q = query(collection(activeDb, 'audit_logs'), orderBy('timestamp', 'desc'), limit(500));
-        unsub = onSnapshot(q, (snapshot) => {
-          if (!isMounted) return;
-          const fetched: AuditLogRecord[] = [];
-          snapshot.docs.forEach((doc) => {
-            fetched.push(doc.data() as AuditLogRecord);
-          });
-          setLogs(fetched);
-          setLoading(false);
-          setError(null);
-        }, (err) => {
-          console.error('Error fetching audit logs:', err);
-          if (!isMounted) return;
-          setError('Failed to fetch authoritative audit logs. Showing cached logs.');
-          setLoading(false);
-          try {
-            const local = JSON.parse(localStorage.getItem('exfin_audit_logs_local') || '[]');
-            setLogs(local);
-          } catch (e) {}
-        });
-      } catch (err: any) {
-        console.error('Audit log listener error:', err);
-        if (isMounted) {
-          setError(err.message || 'Error initializing audit log');
-          setLoading(false);
-        }
-      }
-    }).catch(() => {
-      if (isMounted) setLoading(false);
-    });
-
-    return () => {
-      isMounted = false;
-      unsub();
-    };
+      return () => unsub();
+    } catch (err: any) {
+      console.error('Audit log listener error:', err);
+      setError(err.message || 'Error initializing audit log');
+      setLoading(false);
+    }
   }, []);
 
   // Summary metrics

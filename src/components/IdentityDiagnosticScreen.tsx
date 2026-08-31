@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { auth, getDb } from '../services/firebase/config';
+import { db, auth } from '../services/firebase/config';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Device } from '@capacitor/device';
 import { ShieldAlert, Terminal, RefreshCw, Trash2 } from 'lucide-react';
@@ -50,10 +50,9 @@ export const IdentityDiagnosticScreen: React.FC = () => {
       let regStatusFound = 'NONE';
       let startupSource = 'Device ID query against registrations collection (src/context/RegistrationContext.tsx)';
 
-      const activeDb = await getDb();
-      if (activeDb) {
+      if (db) {
         try {
-          const regsRef = collection(activeDb, 'registrations');
+          const regsRef = collection(db, 'registrations');
           const q = query(regsRef, where('deviceId', '==', deviceId));
           const snap = await getDocs(q);
           if (!snap.empty) {

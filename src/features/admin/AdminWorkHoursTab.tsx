@@ -1,6 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { getDb } from '../../services/firebase/config';
-import { collection, query, limit, onSnapshot, orderBy } from 'firebase/firestore';
+import React, { useState, useMemo } from 'react';
 import { AttendanceRecord, AttendanceType } from '../../types/attendance';
 import { isAttendanceCheckoutUnresolved, isSameEmployee } from '../../utils/attendanceUtils';
 import { Card } from '../../components/ui/Card';
@@ -30,68 +28,19 @@ import {
   Users,
   CheckCircle,
   TrendingUp,
-  RefreshCw
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 
 interface AdminWorkHoursTabProps {
-  // registrations: any[]; // Now fetched locally
-  // attendanceRecords: AttendanceRecord[]; // Now fetched locally
+  registrations: any[];
+  attendanceRecords: AttendanceRecord[];
 }
 
-export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = () => {
+export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
+  registrations = [],
+  attendanceRecords = [],
+}) => {
   const todayStr = getKolkataDateStr();
-
-  // State for data
-  const [registrations, setRegistrations] = useState<any[]>([]);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Firestore Subscriptions
-  useEffect(() => {
-    let unsubRegs: (() => void) | null = null;
-    let unsubAtt: (() => void) | null = null;
-    let cancelled = false;
-
-    getDb().then((activeDb) => {
-      if (cancelled || !activeDb) return;
-
-      let regsLoaded = false;
-      let attLoaded = false;
-
-      const checkAllLoaded = () => {
-        if (regsLoaded && attLoaded) {
-          setIsLoading(false);
-        }
-      };
-
-      // 1. Registrations
-      const qRegs = query(collection(activeDb, 'registrations'), limit(500));
-      unsubRegs = onSnapshot(qRegs, (snap) => {
-        const list: any[] = [];
-        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-        setRegistrations(list);
-        regsLoaded = true;
-        checkAllLoaded();
-      }, () => { regsLoaded = true; checkAllLoaded(); });
-
-      // 2. Attendance (Bounded limit for work hours analysis)
-      const qAtt = query(collection(activeDb, 'attendance'), orderBy('date', 'desc'), limit(1500));
-      unsubAtt = onSnapshot(qAtt, (snap) => {
-        const list: AttendanceRecord[] = [];
-        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as AttendanceRecord));
-        setAttendanceRecords(list);
-        attLoaded = true;
-        checkAllLoaded();
-      }, () => { attLoaded = true; checkAllLoaded(); });
-    }).catch(() => {});
-
-    return () => {
-      cancelled = true;
-      if (unsubRegs) unsubRegs();
-      if (unsubAtt) unsubAtt();
-    };
-  }, []);
 
   // Selected Month
   const [selectedMonth, setSelectedMonth] = useState<string>(() => todayStr.substring(0, 7)); // "YYYY-MM"
@@ -561,15 +510,6 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = () => {
       };
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 space-y-4">
-        <RefreshCw className="w-10 h-10 text-purple-500 animate-spin" />
-        <p className="text-purple-300 font-bold animate-pulse uppercase tracking-widest text-[10px]">Syncing Work Hours Directory...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">

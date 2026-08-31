@@ -1,6 +1,0 @@
-
-> react-example@0.0.0 lint
-> tsc --noEmit
-
-src/services/admin/adminPasswordService.ts(2,16): error TS2305: Module '"../firebase/config"' has no exported member 'db'.
-src/services/firebase/db_sync.ts(2,82): error TS2307: Cannot find module './getActiveDbSync()' or its corresponding type declarations.

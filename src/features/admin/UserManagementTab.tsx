@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Edit, Search, Filter, User, CheckCircle2, ShieldCheck, Mail, Phone, Building2, Briefcase, Trash2, Users, Eye, KeyRound } from "lucide-react";
 import { useAdminAuth } from "../../context/AdminAuthContext";
-import { getAdminDb } from "../../services/firebase/config";
+import { db } from "../../services/firebase/config";
 import { collection, onSnapshot, getDocs, doc, deleteDoc } from "firebase/firestore";
 import { ProfileEditModal } from "../../components/common/ProfileEditModal";
 import { DeleteEmployeeModal } from "./DeleteEmployeeModal";
@@ -37,53 +37,37 @@ export const UserManagementTab: React.FC = () => {
   const [passwordResetAdmin, setPasswordResetAdmin] = useState<AdminSecurityUser | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
-    const unsubs: (() => void)[] = [];
+    if (!db) return;
     
-    getAdminDb().then((activeDb) => {
-      if (!isMounted || !activeDb) return;
+    // Load Departments
+    const unsubDepts = onSnapshot(collection(db, 'departments'), (snap) => {
+      const depts: any[] = [];
+      snap.forEach(d => depts.push({ id: d.id, ...d.data() }));
+      setDepartments(depts);
+    });
 
-      // Load Departments
-      const unsubDepts = onSnapshot(collection(activeDb, 'departments'), (snap) => {
-        if (!isMounted) return;
-        const depts: any[] = [];
-        snap.forEach(d => depts.push({ id: d.id, ...d.data() }));
-        setDepartments(depts);
-      }, (err) => console.warn('UserManagementTab depts error:', err));
-      unsubs.push(unsubDepts);
+    // Load Designations
+    const unsubDesigs = onSnapshot(collection(db, 'designations'), (snap) => {
+      const desigs: any[] = [];
+      snap.forEach(d => desigs.push({ id: d.id, ...d.data() }));
+      setDesignations(desigs);
+    });
 
-      // Load Designations
-      const unsubDesigs = onSnapshot(collection(activeDb, 'designations'), (snap) => {
-        if (!isMounted) return;
-        const desigs: any[] = [];
-        snap.forEach(d => desigs.push({ id: d.id, ...d.data() }));
-        setDesignations(desigs);
-      }, (err) => console.warn('UserManagementTab desigs error:', err));
-      unsubs.push(unsubDesigs);
-
-      // Load Employees
-      const unsubEmps = onSnapshot(collection(activeDb, 'registrations'), (snap) => {
-        if (!isMounted) return;
-        const emps: ManagedUser[] = [];
-        snap.forEach(d => {
-          const data = d.data();
-          emps.push({ id: d.id, ...data } as ManagedUser);
-        });
-        setEmployees(emps);
-        setLoading(false);
-      }, (err) => {
-        console.warn('UserManagementTab emps error:', err);
-        if (isMounted) setLoading(false);
+    // Load Employees
+    const unsubEmps = onSnapshot(collection(db, 'registrations'), (snap) => {
+      const emps: ManagedUser[] = [];
+      snap.forEach(d => {
+        const data = d.data();
+        emps.push({ id: d.id, ...data } as ManagedUser);
       });
-      unsubs.push(unsubEmps);
-    }).catch(err => {
-      console.warn('UserManagementTab db load error:', err);
-      if (isMounted) setLoading(false);
+      setEmployees(emps);
+      setLoading(false);
     });
 
     return () => {
-      isMounted = false;
-      unsubs.forEach(unsub => unsub());
+      unsubDepts();
+      unsubDesigs();
+      unsubEmps();
     };
   }, []);
 

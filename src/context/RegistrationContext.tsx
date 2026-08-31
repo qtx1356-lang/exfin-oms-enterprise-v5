@@ -1,7 +1,8 @@
 // APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. OFFLINE MUST BOOT THE NORMAL APPLICATION SHELL.
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { doc, getDoc, onSnapshot, runTransaction, setDoc, collection, query, where, getDocs, deleteDoc, updateDoc } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '../services/firebase/config';
+import { db, auth } from '../services/firebase/config';
 import { Device } from '@capacitor/device';
 import { logStartupTag } from '../services/startup/startupPerformanceLogger';
 import {
@@ -80,7 +81,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
   const [status, setStatus] = useState<RegistrationStatus>(() => {
     const savedRegId = localStorage.getItem('registrationId');
-    if (!savedRegId) return 'unregistered';
+    if (!savedRegId) return 'mobile_recovery';
     try {
       const raw = localStorage.getItem('cached_registration_data');
       if (raw) {
@@ -102,31 +103,6 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [recoveryLoading, setRecoveryLoading] = useState<boolean>(false);
 
-  // Lazy Firestore SDK loading
-  const [firestore, setFirestore] = useState<any>(null);
-  const [activeDb, setActiveDb] = useState<any>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    const loadSDK = async () => {
-      try {
-        const [sdk, { getDb }] = await Promise.all([
-          import('firebase/firestore'),
-          import('../services/firebase/db')
-        ]);
-        if (isMounted) {
-          setFirestore(sdk);
-          const dbInstance = await getDb();
-          if (isMounted) setActiveDb(dbInstance);
-        }
-      } catch (err) {
-        console.error('Failed to load Firestore SDK dynamically:', err);
-      }
-    };
-    loadSDK();
-    return () => { isMounted = false; };
-  }, []);
-
   useEffect(() => {
     if (!auth) return;
     const unsubAuth = onAuthStateChanged(auth, (user) => {
@@ -138,9 +114,9 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // ROOT-CAUSE IDENTITY FLOW FIX: Auto-link authenticated user (Admin/TL) to Employee Registration
   useEffect(() => {
     let isMounted = true;
+    const activeDb = db.concrete || db;
     
-    if (authUser && status === 'mobile_recovery' && !localRegId && activeDb && firestore && navigator.onLine) {
-      const { collection, query, where, getDocs } = firestore;
+    if (authUser && status === 'mobile_recovery' && !localRegId && activeDb && navigator.onLine) {
       const autoLink = async () => {
         try {
           console.log(`[REGISTRATION_AUTO_LINK] Attempting to link authenticated user: ${authUser.uid}`);
@@ -259,23 +235,188 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     let unsubSnapshot: (() => void) | null = null;
 
     const initializeRegistration = async () => {
+      const activeDb = db.concrete || db;
       logStartupTag('REGISTRATION_CHECK_START', 'Checking registration via local session / mobile recovery');
 
-      const savedRegId = localStorage.getItem('registrationId');
-      const cachedDataRaw = localStorage.getItem('cached_registration_data');
+      if (!activeDb) {
+        if (isMounted) setStatus('unregistered');
+        return;
+      }
 
-      // 1. Immediately restore state from local storage cache
-      if (savedRegId) {
-        if (cachedDataRaw) {
+      try {
+        const savedRegId = localStorage.getItem('registrationId');
+        
+        if (savedRegId) {
+          // Pre-populate with locally cached registration data if available
+          const cachedDataRaw = localStorage.getItem('cached_registration_data');
+          if (cachedDataRaw) {
+            try {
+              const cachedData = JSON.parse(cachedDataRaw);
+              if (cachedData && isMounted) {
+                setLocalRegId(savedRegId);
+                setEmployeeDataIfChanged(cachedData);
+                const regStatus = cachedData.status || 'Approved';
+                if (regStatus === 'Suspended' || regStatus === 'Blocked' || regStatus === 'INACTIVE') {
+                  setStatus('suspended_notice');
+                  setRejectionReason(cachedData.rejectionReason || `Account status is ${regStatus}.`);
+                } else if (regStatus === 'Rejected') {
+                  setStatus('Rejected');
+                } else if (regStatus === 'Pending Approval') {
+                  setStatus('Pending Approval');
+                } else {
+                  setStatus('Approved');
+                }
+              }
+            } catch (e) {
+              console.warn('Failed to parse cached_registration_data:', e);
+            }
+          } else if (isMounted) {
+            setLocalRegId(savedRegId);
+            setStatus('Approved');
+          }
+
+          // If offline, preserve the local cached session without throwing network errors
+          if (!navigator.onLine) {
+            return;
+          }
+
+          const { deviceId } = await getDeviceInfo();
+
+          // Verify saved registration with Firestore
           try {
-            const cachedData = JSON.parse(cachedDataRaw);
-            if (cachedData && isMounted) {
+            const regDocRef = doc(activeDb, 'registrations', savedRegId);
+            const regSnap = await getDoc(regDocRef);
+            if (regSnap.exists()) {
+              const data = regSnap.data();
+              const regStatus = data.status || 'Pending Approval';
+              
+              // Cache latest data
+              try {
+                localStorage.setItem('cached_registration_data', JSON.stringify({ ...data, id: savedRegId }));
+              } catch (e) {}
+
+              // Check status restrictions
+              if (regStatus === 'Rejected') {
+                if (isMounted) {
+                  setStatus('Rejected');
+                  setEmployeeDataIfChanged(data);
+                }
+                return;
+              }
+
+              if (regStatus === 'Suspended' || regStatus === 'Blocked' || regStatus === 'INACTIVE') {
+                if (isMounted) {
+                  setStatus('suspended_notice');
+                  setRejectionReason(data.rejectionReason || `Account status is ${regStatus}. Please contact your administrator.`);
+                  setEmployeeDataIfChanged(data);
+                }
+                return;
+              }
+
+              // Update deviceId association on session startup for tracking (Mobile = Identity, Device = Info)
+              if (data.deviceId !== deviceId) {
+                await updateDoc(regDocRef, { deviceId, deviceModel: (await getDeviceInfo()).deviceModel, lastSyncTime: new Date().toISOString() });
+              }
+
+              if (isMounted) {
+                setLocalRegId(savedRegId);
+                setEmployeeDataIfChanged(data);
+                setStatus(regStatus === 'Approved' ? 'Approved' : regStatus);
+              }
+
+              // Realtime listener (only when online)
+              if (isMounted && typeof navigator !== 'undefined' && navigator.onLine) {
+                const unsub = onSnapshot(regDocRef, (docSnap) => {
+                  if (!isMounted) {
+                    unsub();
+                    return;
+                  }
+                  if (docSnap.exists()) {
+                    const liveData = docSnap.data();
+                    const liveStatus = liveData.status || 'Pending Approval';
+                    try {
+                      localStorage.setItem('cached_registration_data', JSON.stringify({ ...liveData, id: savedRegId }));
+                    } catch (e) {}
+                    if (liveStatus === 'Suspended' || liveStatus === 'Blocked' || liveStatus === 'INACTIVE' || liveStatus === 'Rejected') {
+                      setStatus('suspended_notice');
+                      setRejectionReason(liveData.rejectionReason || `Account status is ${liveStatus}.`);
+                    } else {
+                      setStatus(liveStatus === 'Approved' ? 'Approved' : liveStatus);
+                    }
+                    setEmployeeDataIfChanged(liveData);
+                  } else {
+                    localStorage.removeItem('registrationId');
+                    localStorage.removeItem('cached_registration_data');
+                    setLocalRegId(null);
+                    setEmployeeData(null);
+                    setStatus('unregistered');
+                  }
+                }, (error) => {
+                  console.warn('Realtime registration snapshot error (retaining local state):', error);
+                });
+                unsubSnapshot = unsub;
+              }
+              return;
+            } else {
+              // Doc explicitly does not exist on server
+              if (navigator.onLine) {
+                localStorage.removeItem('registrationId');
+                localStorage.removeItem('cached_registration_data');
+                if (isMounted) {
+                  setLocalRegId(null);
+                  setEmployeeData(null);
+                  setStatus('mobile_recovery');
+                }
+                return;
+              }
+            }
+          } catch (netErr) {
+            console.warn('Firestore registration check failed (retaining cached session):', netErr);
+            if (isMounted) {
               setLocalRegId(savedRegId);
+              if (cachedDataRaw) {
+                try {
+                  const cachedData = JSON.parse(cachedDataRaw);
+                  const regStatus = cachedData.status || 'Approved';
+                  if (regStatus === 'Suspended' || regStatus === 'Blocked' || regStatus === 'INACTIVE') {
+                    setStatus('suspended_notice');
+                  } else if (regStatus === 'Rejected') {
+                    setStatus('Rejected');
+                  } else if (regStatus === 'Pending Approval') {
+                    setStatus('Pending Approval');
+                  } else {
+                    setStatus('Approved');
+                  }
+                } catch (e) {
+                  setStatus('Approved');
+                }
+              } else {
+                setStatus('Approved');
+              }
+            }
+            return;
+          }
+        } else {
+          // No saved registration ID -> Prompt "Welcome Back" mobile number recovery
+          if (isMounted) {
+            setStatus('mobile_recovery');
+          }
+        }
+
+      } catch (err: any) {
+        console.error('Registration init error:', err);
+        // Fallback for offline / network timeout: preserve local session if registration ID exists
+        const savedRegId = localStorage.getItem('registrationId');
+        if (savedRegId && isMounted) {
+          setLocalRegId(savedRegId);
+          const cachedDataRaw = localStorage.getItem('cached_registration_data');
+          if (cachedDataRaw) {
+            try {
+              const cachedData = JSON.parse(cachedDataRaw);
               setEmployeeDataIfChanged(cachedData);
               const regStatus = cachedData.status || 'Approved';
               if (regStatus === 'Suspended' || regStatus === 'Blocked' || regStatus === 'INACTIVE') {
                 setStatus('suspended_notice');
-                setRejectionReason(cachedData.rejectionReason || `Account status is ${regStatus}.`);
               } else if (regStatus === 'Rejected') {
                 setStatus('Rejected');
               } else if (regStatus === 'Pending Approval') {
@@ -283,131 +424,13 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               } else {
                 setStatus('Approved');
               }
-            }
-          } catch (e) {
-            console.warn('Failed to parse cached_registration_data:', e);
-            if (isMounted) {
-              setLocalRegId(savedRegId);
-              setStatus('Approved');
-            }
+              return;
+            } catch (e) {}
           }
-        } else if (isMounted) {
-          setLocalRegId(savedRegId);
           setStatus('Approved');
+          return;
         }
-      } else {
-        // No saved registration ID -> Prompt "Welcome Back" mobile number recovery
-        if (isMounted) {
-          setStatus('unregistered');
-        }
-        return;
-      }
-
-      // If offline, preserve the local cached session without throwing network errors
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        return;
-      }
-
-      // 2. Asynchronously verify with Firestore in background when online
-      try {
-        const [firestoreSdk, { getEmployeeDb }] = await Promise.all([
-          import('firebase/firestore'),
-          import('../services/firebase/db')
-        ]);
-        const employeeDbInstance = await getEmployeeDb();
-        if (!isMounted || !employeeDbInstance) return;
-
-        const { doc, getDoc, onSnapshot, updateDoc } = firestoreSdk;
-        const { deviceId, deviceModel } = await getDeviceInfo();
-
-        const regDocRef = doc(employeeDbInstance, 'registrations', savedRegId);
-        const regSnap = await getDoc(regDocRef);
-
-        if (regSnap.exists()) {
-          const data = regSnap.data();
-          const regStatus = data.status || 'Pending Approval';
-          
-          // Cache latest data
-          try {
-            localStorage.setItem('cached_registration_data', JSON.stringify({ ...data, id: savedRegId }));
-          } catch (e) {}
-
-          // Check status restrictions
-          if (regStatus === 'Rejected') {
-            if (isMounted) {
-              setStatus('Rejected');
-              setEmployeeDataIfChanged(data);
-            }
-            return;
-          }
-
-          if (regStatus === 'Suspended' || regStatus === 'Blocked' || regStatus === 'INACTIVE') {
-            if (isMounted) {
-              setStatus('suspended_notice');
-              setRejectionReason(data.rejectionReason || `Account status is ${regStatus}. Please contact your administrator.`);
-              setEmployeeDataIfChanged(data);
-            }
-            return;
-          }
-
-          // Update deviceId association on session startup for tracking (Mobile = Identity, Device = Info)
-          if (data.deviceId !== deviceId) {
-            await updateDoc(regDocRef, { deviceId, deviceModel, lastSyncTime: new Date().toISOString() });
-          }
-
-          if (isMounted) {
-            setLocalRegId(savedRegId);
-            setEmployeeDataIfChanged(data);
-            setStatus(regStatus === 'Approved' ? 'Approved' : regStatus);
-          }
-
-          // Realtime listener (only when online)
-          if (isMounted && typeof navigator !== 'undefined' && navigator.onLine) {
-            const unsub = onSnapshot(regDocRef, (docSnap) => {
-              if (!isMounted) {
-                unsub();
-                return;
-              }
-              if (docSnap.exists()) {
-                const liveData = docSnap.data();
-                const liveStatus = liveData.status || 'Pending Approval';
-                try {
-                  localStorage.setItem('cached_registration_data', JSON.stringify({ ...liveData, id: savedRegId }));
-                } catch (e) {}
-                if (liveStatus === 'Suspended' || liveStatus === 'Blocked' || liveStatus === 'INACTIVE' || liveStatus === 'Rejected') {
-                  setStatus('suspended_notice');
-                  setRejectionReason(liveData.rejectionReason || `Account status is ${liveStatus}.`);
-                } else {
-                  setStatus(liveStatus === 'Approved' ? 'Approved' : liveStatus);
-                }
-                setEmployeeDataIfChanged(liveData);
-              } else {
-                localStorage.removeItem('registrationId');
-                localStorage.removeItem('cached_registration_data');
-                setLocalRegId(null);
-                setEmployeeData(null);
-                setStatus('unregistered');
-              }
-            }, (error) => {
-              console.warn('Realtime registration snapshot error (retaining local state):', error);
-            });
-            unsubSnapshot = unsub;
-          }
-        } else {
-          // Doc explicitly does not exist on server
-          if (navigator.onLine) {
-            localStorage.removeItem('registrationId');
-            localStorage.removeItem('cached_registration_data');
-            if (isMounted) {
-              setLocalRegId(null);
-              setEmployeeData(null);
-              setStatus('unregistered');
-            }
-          }
-        }
-      } catch (netErr) {
-        console.warn('Firestore registration check failed (retaining cached session):', netErr);
-        // Retain local cached session - do not reset status to unregistered
+        if (isMounted) setStatus('mobile_recovery');
       }
     };
 
@@ -421,10 +444,7 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Verify mobile number for reinstall recovery
   const verifyMobileForRecovery = async (mobile: string): Promise<boolean> => {
-    const { collection, query, where, getDocs, doc, updateDoc } = await import('firebase/firestore');
-    const { getDb } = await import('../services/firebase/db');
-    const activeDb = await getDb();
-    
+    const activeDb = db.concrete || db;
     if (!activeDb) return false;
     const canonical = normalizeMobile(mobile);
     
@@ -567,10 +587,8 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const submitRegistration = async (name: string, mobileNumber: string, selfieBase64: string) => {
-    const { doc, setDoc, runTransaction, collection, query, where, getDocs } = await import('firebase/firestore');
-    const { getDb } = await import('../services/firebase/db');
-    const activeDb = await getDb();
-    const activeAuth = auth || auth;
+    const activeDb = db.concrete || db;
+    const activeAuth = auth.concrete || auth;
     if (!activeDb) throw new Error('Firestore not initialized');
     
     console.log(`[Registration] Submitting for ${name} (${mobileNumber})`);

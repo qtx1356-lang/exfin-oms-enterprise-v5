@@ -6,7 +6,7 @@ import {
   CheckCircle2, XCircle, Clock, AlertTriangle, FileText, Activity, Check, X, 
   Lock, Unlock, ShieldAlert, CheckSquare, DollarSign, CalendarDays 
 } from 'lucide-react';
-import { getDb } from '../../services/firebase/config';
+import { db } from '../../services/firebase/config';
 import { collection, query, where, getDocs, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { ManagedUser } from '../../types/user';
 import { createAuditLog } from '../../services/audit/auditService';
@@ -51,98 +51,76 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
   const empId = employee?.id || '';
 
   useEffect(() => {
-    if (!isOpen || !empCode) {
+    if (!isOpen || !db || !empCode) {
       setLoadingData(false);
       return;
     }
     setLoadingData(true);
 
-    let unsubAtt: (() => void) | null = null;
-    let unsubTasks: (() => void) | null = null;
-    let unsubLeaves: (() => void) | null = null;
-    let unsubExp: (() => void) | null = null;
-    let unsubAudit: (() => void) | null = null;
-    let cancelled = false;
-
-    getDb().then((activeDb) => {
-      if (cancelled || !activeDb) {
-        setLoadingData(false);
-        return;
+    const unsubAtt = onSnapshot(
+      query(collection(db, 'attendance'), where('employeeCode', '==', empCode)),
+      (snap) => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setAttendanceRecords(list);
+      },
+      (err) => {
+        console.warn('Attendance listener error in Profile Modal:', err);
       }
+    );
 
-      unsubAtt = onSnapshot(
-        query(collection(activeDb, 'attendance'), where('employeeCode', '==', empCode)),
-        (snap) => {
-          if (cancelled) return;
-          const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setAttendanceRecords(list);
-        },
-        (err) => {
-          console.warn('Attendance listener error in Profile Modal:', err);
-        }
-      );
+    const unsubTasks = onSnapshot(
+      query(collection(db, 'tasks'), where('assignedToEmployeeCodes', 'array-contains', empCode)),
+      (snap) => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setTasks(list);
+      },
+      (err) => {
+        console.warn('Tasks listener error in Profile Modal:', err);
+      }
+    );
 
-      unsubTasks = onSnapshot(
-        query(collection(activeDb, 'tasks'), where('assignedToEmployeeCodes', 'array-contains', empCode)),
-        (snap) => {
-          if (cancelled) return;
-          const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setTasks(list);
-        },
-        (err) => {
-          console.warn('Tasks listener error in Profile Modal:', err);
-        }
-      );
+    const unsubLeaves = onSnapshot(
+      query(collection(db, 'leaves'), where('employeeCode', '==', empCode)),
+      (snap) => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setLeaves(list);
+      },
+      (err) => {
+        console.warn('Leaves listener error in Profile Modal:', err);
+      }
+    );
 
-      unsubLeaves = onSnapshot(
-        query(collection(activeDb, 'leaves'), where('employeeCode', '==', empCode)),
-        (snap) => {
-          if (cancelled) return;
-          const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setLeaves(list);
-        },
-        (err) => {
-          console.warn('Leaves listener error in Profile Modal:', err);
-        }
-      );
+    const unsubExp = onSnapshot(
+      query(collection(db, 'expenses'), where('employeeCode', '==', empCode)),
+      (snap) => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setExpenses(list);
+      },
+      (err) => {
+        console.warn('Expenses listener error in Profile Modal:', err);
+      }
+    );
 
-      unsubExp = onSnapshot(
-        query(collection(activeDb, 'expenses'), where('employeeCode', '==', empCode)),
-        (snap) => {
-          if (cancelled) return;
-          const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          setExpenses(list);
-        },
-        (err) => {
-          console.warn('Expenses listener error in Profile Modal:', err);
-        }
-      );
-
-      unsubAudit = onSnapshot(
-        query(collection(activeDb, 'audit_logs'), where('employeeCode', '==', empCode)),
-        (snap) => {
-          if (cancelled) return;
-          const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-          list.sort((a: any, b: any) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
-          setAuditLogs(list);
-          setLoadingData(false);
-        },
-        (err) => {
-          console.warn('Audit logs listener error in Profile Modal:', err);
-          if (!cancelled) setLoadingData(false);
-        }
-      );
-    }).catch(() => {
-      if (!cancelled) setLoadingData(false);
-    });
+    const unsubAudit = onSnapshot(
+      query(collection(db, 'audit_logs'), where('employeeCode', '==', empCode)),
+      (snap) => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        list.sort((a: any, b: any) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+        setAuditLogs(list);
+        setLoadingData(false);
+      },
+      (err) => {
+        console.warn('Audit logs listener error in Profile Modal:', err);
+        setLoadingData(false);
+      }
+    );
 
     return () => {
-      cancelled = true;
-      if (unsubAtt) unsubAtt();
-      if (unsubTasks) unsubTasks();
-      if (unsubLeaves) unsubLeaves();
-      if (unsubExp) unsubExp();
-      if (unsubAudit) unsubAudit();
+      unsubAtt();
+      unsubTasks();
+      unsubLeaves();
+      unsubExp();
+      unsubAudit();
     };
   }, [isOpen, empCode]);
 
@@ -217,13 +195,12 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
   // Handle Employee Status Change
   const handleStatusChange = async (newStatus: string) => {
-    const activeDb = await getDb();
-    if (!activeDb) return;
+    if (!db) return;
     setIsUpdatingStatus(true);
     setActionMessage(null);
 
     try {
-      const regRef = doc(activeDb, 'registrations', employee.id);
+      const regRef = doc(db, 'registrations', employee.id);
       await updateDoc(regRef, {
         status: newStatus,
         statusUpdatedBy: adminUser.displayName || adminUser.email || 'Admin',
@@ -260,13 +237,12 @@ export const EmployeeProfileModal: React.FC<EmployeeProfileModalProps> = ({
 
   // Handle Device Action (Approve, Reject, Block, Unblock)
   const handleDeviceAction = async (action: 'Approved' | 'Rejected' | 'Blocked' | 'Active') => {
-    const activeDb = await getDb();
-    if (!activeDb) return;
+    if (!db) return;
     setIsUpdatingStatus(true);
     setActionMessage(null);
 
     try {
-      const regRef = doc(activeDb, 'registrations', employee.id);
+      const regRef = doc(db, 'registrations', employee.id);
       await updateDoc(regRef, {
         status: action,
         deviceStatus: action,

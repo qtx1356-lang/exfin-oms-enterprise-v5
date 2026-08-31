@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAdminDb } from '../../services/firebase/config';
+import { db } from '../../services/firebase/config';
 import { collection, doc, setDoc, getDocs, onSnapshot, query, where, writeBatch, deleteDoc } from 'firebase/firestore';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -113,63 +113,44 @@ export const SalaryManagementTab: React.FC = () => {
 
   // 1. Fetch Approved Employees from Registrations
   useEffect(() => {
-    let isMounted = true;
-    let unsub: (() => void) | null = null;
-
-    getAdminDb().then((activeDb) => {
-      if (!isMounted || !activeDb) return;
-      const q = query(collection(activeDb, 'registrations'), where('status', '==', 'Approved'));
-      unsub = onSnapshot(q, (snap) => {
-        if (!isMounted) return;
-        const list: EmployeeWithSalary[] = [];
-        snap.forEach((d) => {
-          const data = d.data();
-          list.push({
-            id: d.id,
-            employeeCode: data.employeeCode || '',
-            name: data.name || '',
-            office: data.office || 'Raniganj',
-            status: data.status || 'Approved',
-            baseSalary: typeof data.baseSalary === 'number' ? data.baseSalary : 0,
-          });
+    if (!db) return;
+    const q = query(collection(db, 'registrations'), where('status', '==', 'Approved'));
+    const unsub = onSnapshot(q, (snap) => {
+      const list: EmployeeWithSalary[] = [];
+      snap.forEach((d) => {
+        const data = d.data();
+        list.push({
+          id: d.id,
+          employeeCode: data.employeeCode || '',
+          name: data.name || '',
+          office: data.office || 'Raniganj',
+          status: data.status || 'Approved',
+          baseSalary: typeof data.baseSalary === 'number' ? data.baseSalary : 0,
         });
-        list.sort((a, b) => a.employeeCode.localeCompare(b.employeeCode));
-        setEmployees(list);
-      }, (err) => {
-        console.warn('SalaryManagementTab registrations snap error:', err);
       });
-    }).catch(err => {
-      console.warn('SalaryManagementTab db load error:', err);
+      list.sort((a, b) => a.employeeCode.localeCompare(b.employeeCode));
+      setEmployees(list);
     });
 
-    return () => {
-      isMounted = false;
-      if (unsub) unsub();
-    };
+    return () => unsub();
   }, []);
 
   // 2. Fetch and synchronize core calculation inputs whenever Selected Period changes
   useEffect(() => {
-    if (employees.length === 0) return;
+    if (!db || employees.length === 0) return;
 
     let active = true;
     setLoading(true);
 
     const loadData = async () => {
       try {
-        const activeDb = await getAdminDb();
-        if (!activeDb || !active) {
-          if (active) setLoading(false);
-          return;
-        }
-
         const monthStr = selectedMonth < 10 ? `0${selectedMonth}` : `${selectedMonth}`;
         const startOfPrefix = `${selectedYear}-${monthStr}-01`;
         const endOfPrefix = `${selectedYear}-${monthStr}-${daysInMonth}`;
 
         // A. Load existing saved salaries
         const qSalaries = query(
-          collection(activeDb, 'salaries'),
+          collection(db, 'salaries'),
           where('month', '==', selectedMonth),
           where('year', '==', selectedYear)
         );
@@ -182,7 +163,7 @@ export const SalaryManagementTab: React.FC = () => {
 
         // B. Load Salary Employee Configs for current Leave Year
         const qConfigs = query(
-          collection(activeDb, 'salary_employee_configs'),
+          collection(db, 'salary_employee_configs'),
           where('leaveYear', '==', leaveYear)
         );
         const configSnap = await getDocs(qConfigs);
@@ -194,7 +175,7 @@ export const SalaryManagementTab: React.FC = () => {
 
         // C. Load Salary Leave Audits for current Leave Year
         const qAudits = query(
-          collection(activeDb, 'salary_leave_audits'),
+          collection(db, 'salary_leave_audits'),
           where('leaveYear', '==', leaveYear)
         );
         const auditSnap = await getDocs(qAudits);
@@ -209,7 +190,7 @@ export const SalaryManagementTab: React.FC = () => {
 
         // D. Load Attendance records covering this month
         const qAtt = query(
-          collection(activeDb, 'attendance'),
+          collection(db, 'attendance'),
           where('date', '>=', startOfPrefix),
           where('date', '<=', endOfPrefix)
         );
@@ -228,7 +209,7 @@ export const SalaryManagementTab: React.FC = () => {
 
         // E. Load Approved Leave requests covering this month
         // We fetch all approved leaves and filter overlap in-memory
-        const qLeaves = query(collection(activeDb, 'leaves'), where('status', '==', 'APPROVED'));
+        const qLeaves = query(collection(db, 'leaves'), where('status', '==', 'APPROVED'));
         const leaveSnap = await getDocs(qLeaves);
         const leavesList: any[] = [];
         leaveSnap.forEach((d) => {
@@ -377,7 +358,7 @@ export const SalaryManagementTab: React.FC = () => {
 
   // Save Settings Modal
   const handleSaveConfig = async () => {
-    if (!selectedConfigCode) return;
+    if (!db || !selectedConfigCode) return;
 
     const emp = employees.find(e => e.employeeCode === selectedConfigCode);
     if (!emp) return;
@@ -397,9 +378,6 @@ export const SalaryManagementTab: React.FC = () => {
 
     setSavingId(selectedConfigCode);
     try {
-      const activeDb = await getAdminDb();
-      if (!activeDb) throw new Error('Database connection unavailable.');
-
       const configId = `${emp.employeeCode}_${leaveYear}`;
       const configDoc: SalaryEmployeeConfig = {
         id: configId,
@@ -410,10 +388,10 @@ export const SalaryManagementTab: React.FC = () => {
       };
 
       // 1. Save config document
-      await setDoc(doc(activeDb, 'salary_employee_configs', configId), configDoc);
+      await setDoc(doc(db, 'salary_employee_configs', configId), configDoc);
 
       // 2. Sync into employee's registration document to preserve existing baseSalary mapping
-      await setDoc(doc(activeDb, 'registrations', emp.id), { baseSalary: parsedBase }, { merge: true });
+      await setDoc(doc(db, 'registrations', emp.id), { baseSalary: parsedBase }, { merge: true });
 
       // Update Local State
       setEmployeeConfigs(prev => ({
@@ -436,6 +414,8 @@ export const SalaryManagementTab: React.FC = () => {
 
   // Generate / Regenerate single employee salary record
   const handleGenerateSalary = async (emp: EmployeeWithSalary) => {
+    if (!db) return;
+
     const baseSalStr = overrideBaseSalaries[emp.employeeCode];
     const paidLeaveStr = overridePaidLeaves[emp.employeeCode];
     const advanceStr = overrideAdvances[emp.employeeCode];
@@ -469,7 +449,7 @@ export const SalaryManagementTab: React.FC = () => {
       return;
     }
     if (isNaN(allocatedPaidLeaves) || allocatedPaidLeaves < 0) {
-      triggerNotification('error', `Paid Leave Allocation must be a non-negative integer for ${emp.name}.`);
+      triggerNotification('error', `Paid Leave Allocation must be a valid non-negative integer for ${emp.name}.`);
       return;
     }
     if (isNaN(advanceVal) || advanceVal < 0) {
@@ -484,9 +464,6 @@ export const SalaryManagementTab: React.FC = () => {
     setSavingId(emp.employeeCode);
 
     try {
-      const activeDb = await getAdminDb();
-      if (!activeDb) throw new Error('Database connection unavailable.');
-
       // Create local configs to save persistently
       const localConfig: SalaryEmployeeConfig = {
         id: `${emp.employeeCode}_${leaveYear}`,
@@ -523,7 +500,7 @@ export const SalaryManagementTab: React.FC = () => {
       const recordId = `${emp.employeeCode}_${selectedYear}_${selectedMonth}`;
       
       // Batch update for atomicity
-      const batch = writeBatch(activeDb);
+      const batch = writeBatch(db);
 
       // A. Write Salary Record
       const salaryRec: SalaryRecord = {
@@ -553,13 +530,13 @@ export const SalaryManagementTab: React.FC = () => {
         remainingPaidLeaves: remainingLeaves,
         attendanceCutOffDate: calcResult.cutOffDateStr
       };
-      batch.set(doc(activeDb, 'salaries', recordId), salaryRec);
+      batch.set(doc(db, 'salaries', recordId), salaryRec);
 
       // B. Save configuration doc persistently
-      batch.set(doc(activeDb, 'salary_employee_configs', localConfig.id), localConfig);
+      batch.set(doc(db, 'salary_employee_configs', localConfig.id), localConfig);
 
       // C. Sync into employee registration baseSalary
-      batch.set(doc(activeDb, 'registrations', emp.id), { baseSalary }, { merge: true });
+      batch.set(doc(db, 'registrations', emp.id), { baseSalary }, { merge: true });
 
       // D. Create Paid Leave Audits
       const newAudits = [...audits];
@@ -577,14 +554,14 @@ export const SalaryManagementTab: React.FC = () => {
           daysConsumed: 1,
           reason: 'salary attendance calculation'
         };
-        batch.set(doc(activeDb, 'salary_leave_audits', auditId), auditRec);
+        batch.set(doc(db, 'salary_leave_audits', auditId), auditRec);
         newAudits.push(auditRec);
       }
 
       // E. Delete removed Paid Leave Audits
       for (const date of calcResult.datesRemovedFromPaidLeave) {
         const auditId = `${emp.employeeCode}_${date}`;
-        batch.delete(doc(activeDb, 'salary_leave_audits', auditId));
+        batch.delete(doc(db, 'salary_leave_audits', auditId));
         const index = newAudits.findIndex(a => a.date === date);
         if (index > -1) {
           newAudits.splice(index, 1);
@@ -621,7 +598,7 @@ export const SalaryManagementTab: React.FC = () => {
 
   // Batch generate salaries for all approved employees with valid configurations
   const handleGenerateAllSalaries = async () => {
-    if (employees.length === 0) return;
+    if (!db || employees.length === 0) return;
 
     // Validate that ALL employees have valid, populated configurations
     for (const emp of employees) {
@@ -678,10 +655,7 @@ export const SalaryManagementTab: React.FC = () => {
     let successCount = 0;
 
     try {
-      const activeDb = await getAdminDb();
-      if (!activeDb) throw new Error('Database connection unavailable.');
-
-      const batch = writeBatch(activeDb);
+      const batch = writeBatch(db);
       const updatedRecords = { ...salaryRecords };
       const updatedConfigs = { ...employeeConfigs };
       const updatedAudits = { ...leaveAudits };
@@ -754,13 +728,13 @@ export const SalaryManagementTab: React.FC = () => {
           remainingPaidLeaves: remainingLeaves,
           attendanceCutOffDate: calcResult.cutOffDateStr
         };
-        batch.set(doc(activeDb, 'salaries', recordId), salaryRec);
+        batch.set(doc(db, 'salaries', recordId), salaryRec);
 
         // B. Save Configuration doc persistently
-        batch.set(doc(activeDb, 'salary_employee_configs', localConfig.id), localConfig);
+        batch.set(doc(db, 'salary_employee_configs', localConfig.id), localConfig);
 
         // C. Sync into employee registration baseSalary
-        batch.set(doc(activeDb, 'registrations', emp.id), { baseSalary }, { merge: true });
+        batch.set(doc(db, 'registrations', emp.id), { baseSalary }, { merge: true });
 
         // D. Create Paid Leave Audits
         const auditsList = [...audits];
@@ -778,14 +752,14 @@ export const SalaryManagementTab: React.FC = () => {
             daysConsumed: 1,
             reason: 'salary attendance calculation'
           };
-          batch.set(doc(activeDb, 'salary_leave_audits', auditId), auditRec);
+          batch.set(doc(db, 'salary_leave_audits', auditId), auditRec);
           auditsList.push(auditRec);
         }
 
         // E. Delete removed Paid Leave Audits
         for (const date of calcResult.datesRemovedFromPaidLeave) {
           const auditId = `${emp.employeeCode}_${date}`;
-          batch.delete(doc(activeDb, 'salary_leave_audits', auditId));
+          batch.delete(doc(db, 'salary_leave_audits', auditId));
           const idx = auditsList.findIndex(a => a.date === date);
           if (idx > -1) {
             auditsList.splice(idx, 1);

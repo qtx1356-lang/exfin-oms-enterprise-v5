@@ -1,6 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { getAdminDb } from '../../services/firebase/config';
-import { collection, query, limit, onSnapshot, orderBy } from 'firebase/firestore';
+import React, { useState, useMemo } from 'react';
 import { Card } from '../../components/ui/Card';
 import { 
   BarChart3, FileText, Download, Printer, Calendar, Users, Filter, 
@@ -19,106 +17,25 @@ import { isAttendanceCheckoutUnresolved, isSameEmployee } from '../../utils/atte
 interface ReportsAnalyticsTabProps {
   role: 'ADMIN' | 'SUPER_ADMIN';
   authorizedOffice: string;
+  registrations: any[];
+  attendanceRecords: any[];
+  expenseRecords: any[];
+  tasks: any[];
+  leaves: any[];
+  isLoading?: boolean;
 }
 
 export const ReportsAnalyticsTab: React.FC<ReportsAnalyticsTabProps> = ({
   role,
   authorizedOffice,
+  registrations,
+  attendanceRecords,
+  expenseRecords,
+  tasks,
+  leaves,
+  isLoading = false
 }) => {
   const isSuperAdmin = role === 'SUPER_ADMIN';
-
-  // State for all data
-  const [registrations, setRegistrations] = useState<any[]>([]);
-  const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
-  const [expenseRecords, setExpenseRecords] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [leaves, setLeaves] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Firestore Subscriptions
-  useEffect(() => {
-    let isMounted = true;
-    const unsubs: (() => void)[] = [];
-
-    let regsLoaded = false;
-    let attLoaded = false;
-    let expLoaded = false;
-    let tasksLoaded = false;
-    let leavesLoaded = false;
-
-    const checkAllLoaded = () => {
-      if (regsLoaded && attLoaded && expLoaded && tasksLoaded && leavesLoaded && isMounted) {
-        setIsLoading(false);
-      }
-    };
-
-    getAdminDb().then((activeDb) => {
-      if (!isMounted || !activeDb) return;
-
-      // 1. Registrations
-      const qRegs = query(collection(activeDb, 'registrations'), limit(500));
-      unsubs.push(onSnapshot(qRegs, (snap) => {
-        if (!isMounted) return;
-        const list: any[] = [];
-        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-        setRegistrations(list);
-        regsLoaded = true;
-        checkAllLoaded();
-      }, () => { regsLoaded = true; checkAllLoaded(); }));
-
-      // 2. Attendance
-      const qAtt = query(collection(activeDb, 'attendance'), limit(1500));
-      unsubs.push(onSnapshot(qAtt, (snap) => {
-        if (!isMounted) return;
-        const list: any[] = [];
-        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-        setAttendanceRecords(list);
-        attLoaded = true;
-        checkAllLoaded();
-      }, () => { attLoaded = true; checkAllLoaded(); }));
-
-      // 3. Expenses
-      const qExp = query(collection(activeDb, 'expenses'), limit(500));
-      unsubs.push(onSnapshot(qExp, (snap) => {
-        if (!isMounted) return;
-        const list: any[] = [];
-        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-        setExpenseRecords(list);
-        expLoaded = true;
-        checkAllLoaded();
-      }, () => { expLoaded = true; checkAllLoaded(); }));
-
-      // 4. Tasks
-      const qTasks = query(collection(activeDb, 'tasks'), limit(1000));
-      unsubs.push(onSnapshot(qTasks, (snap) => {
-        if (!isMounted) return;
-        const list: any[] = [];
-        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-        setTasks(list);
-        tasksLoaded = true;
-        checkAllLoaded();
-      }, () => { tasksLoaded = true; checkAllLoaded(); }));
-
-      // 5. Leaves
-      const qLeaves = query(collection(activeDb, 'leaves'), limit(500));
-      unsubs.push(onSnapshot(qLeaves, (snap) => {
-        if (!isMounted) return;
-        const list: any[] = [];
-        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-        setLeaves(list);
-        leavesLoaded = true;
-        checkAllLoaded();
-      }, () => { leavesLoaded = true; checkAllLoaded(); }));
-    }).catch(err => {
-      console.warn('ReportsAnalyticsTab db load error:', err);
-      if (isMounted) setIsLoading(false);
-    });
-
-    return () => {
-      isMounted = false;
-      unsubs.forEach(unsub => unsub());
-    };
-  }, []);
 
   // 1. LOADING & EMPTY STATES
   if (isLoading) {

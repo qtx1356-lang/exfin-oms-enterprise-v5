@@ -1,4 +1,4 @@
-import { getDb } from '../firebase/config';
+import { db } from '../firebase/config';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { TaskRecord } from '../../types/planner';
 import { createNotification } from '../notification/notificationService';
@@ -126,45 +126,34 @@ export const checkTaskDeadlinesForEmployee = (
 
 // Real-time Firestore listener for employee task deadlines
 export const initTaskDeadlineMonitor = (employeeCode: string): (() => void) => {
-  if (!employeeCode) return () => {};
-  let unsub: (() => void) | undefined;
-  let isCancelled = false;
+  if (!db || !employeeCode) return () => {};
 
-  (async () => {
-    try {
-      const activeDb = await getDb();
-      if (isCancelled || !activeDb) return;
+  const q = query(
+    collection(db, 'tasks'),
+    where('assignedToEmployeeCodes', 'array-contains', employeeCode)
+  );
 
-      const q = query(
-        collection(activeDb, 'tasks'),
-        where('assignedToEmployeeCodes', 'array-contains', employeeCode)
-      );
-
-      unsub = onSnapshot(
-        q,
-        (snapshot) => {
-          const tasks: TaskRecord[] = [];
-          snapshot.forEach((docSnap) => {
-            tasks.push({ id: docSnap.id, ...docSnap.data() } as TaskRecord);
-          });
-          checkTaskDeadlinesForEmployee(tasks, employeeCode);
-        },
-        (err) => {
-          console.warn('Task deadline monitor listener error:', err);
-        }
-      );
-    } catch (err) {
-      console.warn('Task deadline monitor init error:', err);
+  const unsub = onSnapshot(
+    q,
+    (snapshot) => {
+      const tasks: TaskRecord[] = [];
+      snapshot.forEach((docSnap) => {
+        tasks.push({ id: docSnap.id, ...docSnap.data() } as TaskRecord);
+      });
+      checkTaskDeadlinesForEmployee(tasks, employeeCode);
+    },
+    (err) => {
+      console.warn('Task deadline monitor listener error:', err);
     }
-  })();
+  );
 
+  // Also run periodic check every 5 minutes
   const intervalId = setInterval(() => {
     // Re-check
   }, 5 * 60 * 1000);
 
   return () => {
-    isCancelled = true;
-    if (unsub) unsub();
+    unsub();
     clearInterval(intervalId);
   };
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, doc, setDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
-import { getDb } from '../../services/firebase/db';
+import { db } from '../../services/firebase/config';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { usePermission } from '../../context/PermissionContext';
 import { 
@@ -100,50 +100,38 @@ export const AdminWorkPlannerTab: React.FC = () => {
 
   // Load Tasks and Employees from Firestore
   useEffect(() => {
-    let isMounted = true;
-    const unsubs: (() => void)[] = [];
+    if (!db) return;
 
-    getDb().then((activeDb) => {
-      if (!isMounted || !activeDb) {
-        setLoading(false);
-        return;
-      }
+    const qTasks = query(collection(db, 'tasks'), orderBy('createdAtDeviceTime', 'desc'));
+    const unsubTasks = onSnapshot(qTasks, (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskRecord));
+      setTasks(data);
+      setLoading(false);
+    }, (err) => {
+      console.warn('AdminWorkPlannerTab tasks snapshot error:', err);
+      setLoading(false);
+    });
 
-      const qTasks = query(collection(activeDb, 'tasks'), orderBy('createdAtDeviceTime', 'desc'));
-      unsubs.push(onSnapshot(qTasks, (snap) => {
-        if (!isMounted) return;
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as TaskRecord));
-        setTasks(data);
-        setLoading(false);
-      }, (err) => {
-        console.warn('AdminWorkPlannerTab tasks snapshot error:', err);
-        if (isMounted) setLoading(false);
-      }));
-
-      unsubs.push(onSnapshot(collection(activeDb, 'registrations'), (snap) => {
-        if (!isMounted) return;
-        const emps: EmployeeOption[] = [];
-        snap.docs.forEach(d => {
-          const data = d.data();
-          if (data.status === 'Approved' && data.employeeCode) {
-            emps.push({
-              id: d.id,
-              employeeCode: data.employeeCode,
-              name: data.name || data.fullName || 'Unnamed Employee',
-              department: data.office || data.department || 'Operations',
-              designation: data.designation || 'Staff'
-            });
-          }
-        });
-        setEmployees(emps);
-      }));
-    }).catch(() => {
-      if (isMounted) setLoading(false);
+    const unsubRegs = onSnapshot(collection(db, 'registrations'), (snap) => {
+      const emps: EmployeeOption[] = [];
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data.status === 'Approved' && data.employeeCode) {
+          emps.push({
+            id: d.id,
+            employeeCode: data.employeeCode,
+            name: data.name || data.fullName || 'Unnamed Employee',
+            department: data.office || data.department || 'Operations',
+            designation: data.designation || 'Staff'
+          });
+        }
+      });
+      setEmployees(emps);
     });
 
     return () => {
-      isMounted = false;
-      unsubs.forEach(u => u());
+      unsubTasks();
+      unsubRegs();
     };
   }, []);
 
@@ -186,7 +174,6 @@ export const AdminWorkPlannerTab: React.FC = () => {
     
     setIsSubmitting(true);
     try {
-      const activeDb = await getDb();
       const selectedEmp = employees.find(e => e.employeeCode === selectedEmployeeCode);
       if (!selectedEmp) throw new Error("Selected employee not found");
 
@@ -203,7 +190,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
           details: `Edited task details (Priority: ${taskPriority}, Due: ${taskDueDate})`
         };
 
-        await updateDoc(doc(activeDb, 'tasks', editingTaskId), {
+        await updateDoc(doc(db, 'tasks', editingTaskId), {
           title: taskTitle.trim(),
           description: taskDescription.trim(),
           priority: taskPriority,
@@ -261,7 +248,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
           syncStatus: 'Synced',
         };
 
-        await setDoc(doc(activeDb, 'tasks', taskId), newTask);
+        await setDoc(doc(db, 'tasks', taskId), newTask);
 
         // Send Push Notification to Employee
         await createNotification({
@@ -312,8 +299,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
         details: `Reassigned from ${prevEmpCode} to ${newEmp.name} (${newEmp.employeeCode})`
       };
 
-      const activeDb = await getDb();
-      await updateDoc(doc(activeDb, 'tasks', reassignTargetTask.id), {
+      await updateDoc(doc(db, 'tasks', reassignTargetTask.id), {
         assignedToEmployeeIds: [newEmp.id],
         assignedToEmployeeCodes: [newEmp.employeeCode],
         assignedToDepartment: newEmp.department,
@@ -359,8 +345,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
         details: 'Task cancelled by admin'
       };
 
-      const activeDb = await getDb();
-      await updateDoc(doc(activeDb, 'tasks', task.id), {
+      await updateDoc(doc(db, 'tasks', task.id), {
         status: 'Cancelled',
         history: [...(task.history || []), historyEntry],
         updatedAtDeviceTime: nowIso,
@@ -384,7 +369,6 @@ export const AdminWorkPlannerTab: React.FC = () => {
     setIsRequestingRevision(true);
 
     try {
-      const activeDb = await getDb();
       const nowIso = new Date().toISOString();
       const currentRevisions = revisionTargetTask.revisions || [];
       const newRevNumber = currentRevisions.length + 1;
@@ -406,7 +390,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
         details: `Revision #${newRevNumber} requested: "${revisionReasonInput.trim()}"`
       };
 
-      await updateDoc(doc(activeDb, 'tasks', revisionTargetTask.id), {
+      await updateDoc(doc(db, 'tasks', revisionTargetTask.id), {
         status: 'Revision Requested',
         approvalStatus: 'REVISION_REQUIRED',
         revisionCount: newRevNumber,
@@ -454,8 +438,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
         details: 'Approved and marked 100% completed by admin'
       };
 
-      const activeDb = await getDb();
-      await updateDoc(doc(activeDb, 'tasks', task.id), {
+      await updateDoc(doc(db, 'tasks', task.id), {
         status: 'Completed',
         approvalStatus: 'APPROVED',
         completionPercentage: 100,
@@ -478,8 +461,7 @@ export const AdminWorkPlannerTab: React.FC = () => {
   const handleDeleteTask = async (taskId: string) => {
     if (!window.confirm("Are you sure you want to permanently delete this task?")) return;
     try {
-      const activeDb = await getDb();
-      await deleteDoc(doc(activeDb, 'tasks', taskId));
+      await deleteDoc(doc(db, 'tasks', taskId));
     } catch (err) {
       console.error('Error deleting task:', err);
       alert('Failed to delete task. You might not have permission.');

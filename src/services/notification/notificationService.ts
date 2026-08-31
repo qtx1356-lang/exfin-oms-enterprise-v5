@@ -12,7 +12,7 @@ import {
   deleteDoc,
   arrayUnion,
 } from 'firebase/firestore';
-import { auth, getDb } from '../firebase/config';
+import { db, auth } from '../firebase/config';
 import { NotificationRecord, NotificationType, NotificationCategory, NotificationPriority, parseTimestamp, isGreetingNotification } from '../../types/notification';
 import {
   getStoredNotifications,
@@ -106,18 +106,15 @@ export const findNotificationByIdempotencyKey = async (
 
   if (isOnline()) {
     try {
-      const activeDb = await getDb();
-      if (activeDb) {
-        const q = query(collection(activeDb, 'notifications'), where('idempotencyKey', '==', key));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const docSnap = snap.docs[0];
-          const d = docSnap.data() as any;
-          return {
-            id: docSnap.id,
-            ...d,
-          } as NotificationRecord;
-        }
+      const q = query(collection(db, 'notifications'), where('idempotencyKey', '==', key));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const docSnap = snap.docs[0];
+        const d = docSnap.data() as any;
+        return {
+          id: docSnap.id,
+          ...d,
+        } as NotificationRecord;
       }
     } catch (err) {
       console.warn('Idempotency check query warning:', err);
@@ -208,18 +205,15 @@ export const createNotification = async (
 
   if (isOnline()) {
     try {
-      const activeDb = await getDb();
-      if (activeDb) {
-        const docRef = doc(activeDb, 'notifications', newNotif.id);
-        const serverNotif = {
-          ...newNotif,
-          syncStatus: 'SYNCED' as const,
-          serverSyncTime: nowIso,
-        };
-        await setDoc(docRef, serverNotif);
-        markNotificationSyncedLocally(newNotif.id, nowIso);
-        return serverNotif;
-      }
+      const docRef = doc(db, 'notifications', newNotif.id);
+      const serverNotif = {
+        ...newNotif,
+        syncStatus: 'SYNCED' as const,
+        serverSyncTime: nowIso,
+      };
+      await setDoc(docRef, serverNotif);
+      markNotificationSyncedLocally(newNotif.id, nowIso);
+      return serverNotif;
     } catch (err) {
       console.warn('Failed to sync notification to Firestore (retaining locally):', err);
     }
@@ -270,11 +264,8 @@ export const getNotificationsForUser = async (user: {
   }
 
   try {
-    const activeDb = await getDb();
-    if (!activeDb) return localFiltered;
-
     const fetchedMap = new Map<string, NotificationRecord>();
-    const notifCollection = collection(activeDb, 'notifications');
+    const notifCollection = collection(db, 'notifications');
     const queries = [];
 
     // Query 1: Scoped directly by recipientEmployeeCode
@@ -434,19 +425,16 @@ export const markNotificationRead = async (id: string, user?: { id?: string; emp
 
   if (isOnline()) {
     try {
-      const activeDb = await getDb();
-      if (activeDb) {
-        const docRef = doc(activeDb, 'notifications', id);
-        await setDoc(docRef, {
-          read: true,
-          isRead: true,
-          updatedAtDeviceTime: nowIso,
-          syncStatus: 'SYNCED',
-          serverSyncTime: nowIso,
-        }, { merge: true });
-        markNotificationSyncedLocally(id, nowIso, userScopeKey);
-        removePendingRead(id, userScopeKey);
-      }
+      const docRef = doc(db, 'notifications', id);
+      await setDoc(docRef, {
+        read: true,
+        isRead: true,
+        updatedAtDeviceTime: nowIso,
+        syncStatus: 'SYNCED',
+        serverSyncTime: nowIso,
+      }, { merge: true });
+      markNotificationSyncedLocally(id, nowIso, userScopeKey);
+      removePendingRead(id, userScopeKey);
     } catch (err) {
       console.warn('Failed to mark read on server, retained locally (queued for retry):', err);
     }
@@ -488,25 +476,22 @@ export const markAllNotificationsRead = async (user: {
 
   if (isOnline()) {
     try {
-      const activeDb = await getDb();
-      if (activeDb) {
-        const batch = writeBatch(activeDb);
-        updatedNotifs.forEach((n) => {
-          const ref = doc(activeDb, 'notifications', n.id);
-          batch.set(ref, {
-            read: true,
-            isRead: true,
-            updatedAtDeviceTime: nowIso,
-            syncStatus: 'SYNCED',
-            serverSyncTime: nowIso,
-          }, { merge: true });
-        });
-        await batch.commit();
-        updatedNotifs.forEach((n) => {
-          markNotificationSyncedLocally(n.id, nowIso, userScopeKey);
-          removePendingRead(n.id, userScopeKey);
-        });
-      }
+      const batch = writeBatch(db);
+      updatedNotifs.forEach((n) => {
+        const ref = doc(db, 'notifications', n.id);
+        batch.set(ref, {
+          read: true,
+          isRead: true,
+          updatedAtDeviceTime: nowIso,
+          syncStatus: 'SYNCED',
+          serverSyncTime: nowIso,
+        }, { merge: true });
+      });
+      await batch.commit();
+      updatedNotifs.forEach((n) => {
+        markNotificationSyncedLocally(n.id, nowIso, userScopeKey);
+        removePendingRead(n.id, userScopeKey);
+      });
     } catch (err) {
       console.warn('Failed to batch mark all read on server (queued for retry):', err);
     }
@@ -548,30 +533,27 @@ export const deleteNotification = async (
 
   if (isOnline()) {
     try {
-      const activeDb = await getDb();
-      if (activeDb) {
-        const docRef = doc(activeDb, 'notifications', id);
-        const nowIso = new Date().toISOString();
-        const userIdOrCode = user?.id || user?.employeeCode || auth.currentUser?.uid || 'USER';
+      const docRef = doc(db, 'notifications', id);
+      const nowIso = new Date().toISOString();
+      const userIdOrCode = user?.id || user?.employeeCode || auth.currentUser?.uid || 'USER';
 
-        await setDoc(
-          docRef,
-          {
-            deleted: true,
-            deletedUserIds: arrayUnion(userIdOrCode),
-            updatedAtDeviceTime: nowIso,
-            serverSyncTime: nowIso,
-          },
-          { merge: true }
-        );
+      await setDoc(
+        docRef,
+        {
+          deleted: true,
+          deletedUserIds: arrayUnion(userIdOrCode),
+          updatedAtDeviceTime: nowIso,
+          serverSyncTime: nowIso,
+        },
+        { merge: true }
+      );
 
-        try {
-          await deleteDoc(docRef);
-        } catch {
-          // Soft delete in Firestore recorded successfully
-        }
-        removePendingDelete(id, userScopeKey);
+      try {
+        await deleteDoc(docRef);
+      } catch {
+        // Soft delete in Firestore recorded successfully
       }
+      removePendingDelete(id, userScopeKey);
     } catch (err) {
       console.warn('Failed to delete notification on server (queued for retry):', err);
     }
@@ -584,19 +566,16 @@ export const deleteNotification = async (
 export const syncPendingNotifications = async (userId?: string): Promise<void> => {
   if (!isOnline()) return;
 
-  const activeDb = await getDb();
-  if (!activeDb) return;
-
   const nowIso = new Date().toISOString();
 
   // 1. Sync pending deletes
   const pendingDeletes = getPendingDeletes(userId);
   if (pendingDeletes.length > 0) {
     try {
-      const batch = writeBatch(activeDb);
+      const batch = writeBatch(db);
       const userIdOrCode = auth.currentUser?.uid || userId || 'USER';
       pendingDeletes.forEach((id) => {
-        const ref = doc(activeDb, 'notifications', id);
+        const ref = doc(db, 'notifications', id);
         batch.set(
           ref,
           {
@@ -612,7 +591,7 @@ export const syncPendingNotifications = async (userId?: string): Promise<void> =
 
       for (const id of pendingDeletes) {
         try {
-          await deleteDoc(doc(activeDb, 'notifications', id));
+          await deleteDoc(doc(db, 'notifications', id));
         } catch {
           // ignore
         }
@@ -628,9 +607,9 @@ export const syncPendingNotifications = async (userId?: string): Promise<void> =
   const pendingReads = getPendingReads(userId);
   if (pendingReads.length > 0) {
     try {
-      const batch = writeBatch(activeDb);
+      const batch = writeBatch(db);
       pendingReads.forEach((id) => {
-        const ref = doc(activeDb, 'notifications', id);
+        const ref = doc(db, 'notifications', id);
         batch.set(
           ref,
           {
@@ -658,9 +637,9 @@ export const syncPendingNotifications = async (userId?: string): Promise<void> =
   const pending = getPendingNotifications(userId);
   if (pending.length > 0) {
     try {
-      const batch = writeBatch(activeDb);
+      const batch = writeBatch(db);
       pending.forEach((n) => {
-        const ref = doc(activeDb, 'notifications', n.id);
+        const ref = doc(db, 'notifications', n.id);
         batch.set(ref, {
           ...n,
           syncStatus: 'SYNCED',

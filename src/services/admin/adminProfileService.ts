@@ -1,5 +1,5 @@
-import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
-import { getDb } from '../../services/firebase/config';
+import { doc, updateDoc, collection, addDoc, getFirestore } from 'firebase/firestore';
+import { db } from '../../services/firebase/config';
 import { AuditLogEntry } from '../../types/profile';
 
 export const updateEmployeeProfile = async (
@@ -8,15 +8,14 @@ export const updateEmployeeProfile = async (
   actor: { uid: string; email: string; role: string },
   oldData: Record<string, any>
 ): Promise<void> => {
-  const activeDb = await getDb();
-  if (!activeDb) throw new Error('Database not connected');
+  if (!db) throw new Error('Database not connected');
   
   // Basic security check: Only Admin or Super Admin can update profiles
   if (actor.role !== 'ADMIN' && actor.role !== 'SUPER_ADMIN') {
     throw new Error('Unauthorized: Insufficient permissions');
   }
 
-  const regRef = doc(activeDb, 'registrations', uid);
+  const regRef = doc(db, 'registrations', uid);
   const now = new Date().toISOString();
 
   // 1. Update Profile
@@ -50,5 +49,5 @@ export const updateEmployeeProfile = async (
     reason: 'Admin panel manual update',
   };
 
-  await addDoc(collection(activeDb, 'audit_logs'), auditEntry);
+  await addDoc(collection(db, 'audit_logs'), auditEntry);
 };

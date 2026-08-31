@@ -15,7 +15,7 @@ import {
   RefreshCw,
   UserCheck,
 } from 'lucide-react';
-import { getAdminDb } from '../../services/firebase/config';
+import { db } from '../../services/firebase/config';
 import {
   collection,
   onSnapshot,
@@ -75,40 +75,25 @@ export const TeamManagementTab: React.FC = () => {
 
   // Subscribe to employees real-time
   useEffect(() => {
-    let isMounted = true;
-    let unsub: (() => void) | null = null;
-
-    getAdminDb().then((activeDb) => {
-      if (!isMounted || !activeDb) return;
-      unsub = onSnapshot(collection(activeDb, 'registrations'), (snap) => {
-        if (!isMounted) return;
-        const list: Employee[] = [];
-        snap.forEach((d) => {
-          list.push({ id: d.id, ...d.data() } as Employee);
-        });
-        setEmployees(list);
-        setLoading(false);
-
-        // Keep selected leader updated if open
-        if (selectedLeader) {
-          const updatedLeader = list.find((e) => e.id === selectedLeader.id);
-          if (updatedLeader) {
-            setSelectedLeader(updatedLeader);
-          }
-        }
-      }, (err) => {
-        console.warn('TeamManagementTab snap error:', err);
-        if (isMounted) setLoading(false);
+    if (!db) return;
+    const unsub = onSnapshot(collection(db, 'registrations'), (snap) => {
+      const list: Employee[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as Employee);
       });
-    }).catch(err => {
-      console.warn('TeamManagementTab db load error:', err);
-      if (isMounted) setLoading(false);
+      setEmployees(list);
+      setLoading(false);
+
+      // Keep selected leader updated if open
+      if (selectedLeader) {
+        const updatedLeader = list.find((e) => e.id === selectedLeader.id);
+        if (updatedLeader) {
+          setSelectedLeader(updatedLeader);
+        }
+      }
     });
 
-    return () => {
-      isMounted = false;
-      if (unsub) unsub();
-    };
+    return () => unsub();
   }, [selectedLeader?.id]);
 
   // Auto-dismiss message
@@ -230,9 +215,6 @@ export const TeamManagementTab: React.FC = () => {
     const leaderCode = selectedLeader.employeeCode || leaderId;
 
     try {
-      const activeDb = await getAdminDb();
-      if (!activeDb) throw new Error('Database connection unavailable.');
-
       let updatedLeaderUids = Array.isArray(selectedLeader.teamMemberUids)
         ? [...selectedLeader.teamMemberUids]
         : [];
@@ -247,7 +229,7 @@ export const TeamManagementTab: React.FC = () => {
         // If member was under another Team Leader, remove from old Team Leader's teamMemberUids
         if (prevTlId && prevTlId !== leaderId) {
           try {
-            const oldTlRef = doc(activeDb, 'registrations', prevTlId);
+            const oldTlRef = doc(db, 'registrations', prevTlId);
             const oldTlSnap = await getDoc(oldTlRef);
             if (oldTlSnap.exists()) {
               const oldTlData = oldTlSnap.data();
@@ -263,7 +245,7 @@ export const TeamManagementTab: React.FC = () => {
         }
 
         // Update member record with new Team Leader info
-        const memberRef = doc(activeDb, 'registrations', memberId);
+        const memberRef = doc(db, 'registrations', memberId);
         await updateDoc(memberRef, {
           assignedTeamLeaderId: leaderId,
           teamLeaderUid: leaderId,
@@ -283,7 +265,7 @@ export const TeamManagementTab: React.FC = () => {
 
         // Send notification to assigned member
         try {
-          await addDoc(collection(activeDb, 'notifications'), {
+          await addDoc(collection(db, 'notifications'), {
             id: `NOTIF_${Date.now()}_${memberId.slice(0, 5)}`,
             recipientUserId: memberId,
             recipientEmployeeCode: member.employeeCode || 'ALL',
@@ -301,7 +283,7 @@ export const TeamManagementTab: React.FC = () => {
       }
 
       // Update Team Leader document teamMemberUids
-      const leaderRef = doc(activeDb, 'registrations', leaderId);
+      const leaderRef = doc(db, 'registrations', leaderId);
       await updateDoc(leaderRef, {
         teamMemberUids: updatedLeaderUids,
         updatedAt: nowIso,
@@ -335,9 +317,6 @@ export const TeamManagementTab: React.FC = () => {
     const leaderName = selectedLeader.name || 'Team Leader';
 
     try {
-      const activeDb = await getAdminDb();
-      if (!activeDb) throw new Error('Database connection unavailable.');
-
       let updatedLeaderUids = Array.isArray(selectedLeader.teamMemberUids)
         ? [...selectedLeader.teamMemberUids]
         : [];
@@ -346,7 +325,7 @@ export const TeamManagementTab: React.FC = () => {
         const member = employees.find((e) => e.id === memberId);
 
         // Update member record to remove Team Leader
-        const memberRef = doc(activeDb, 'registrations', memberId);
+        const memberRef = doc(db, 'registrations', memberId);
         await updateDoc(memberRef, {
           assignedTeamLeaderId: null,
           teamLeaderUid: null,
@@ -365,7 +344,7 @@ export const TeamManagementTab: React.FC = () => {
         // Send notification to unassigned member
         if (member) {
           try {
-            await addDoc(collection(activeDb, 'notifications'), {
+            await addDoc(collection(db, 'notifications'), {
               id: `NOTIF_${Date.now()}_${memberId.slice(0, 5)}`,
               recipientUserId: memberId,
               recipientEmployeeCode: member.employeeCode || 'ALL',
@@ -384,7 +363,7 @@ export const TeamManagementTab: React.FC = () => {
       }
 
       // Update Team Leader document teamMemberUids
-      const leaderRef = doc(activeDb, 'registrations', leaderId);
+      const leaderRef = doc(db, 'registrations', leaderId);
       await updateDoc(leaderRef, {
         teamMemberUids: updatedLeaderUids,
         updatedAt: nowIso,

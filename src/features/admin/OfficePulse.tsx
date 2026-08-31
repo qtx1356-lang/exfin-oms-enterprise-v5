@@ -1,10 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { getDb } from '../../services/firebase/db';
-import { collection, query, limit, onSnapshot } from 'firebase/firestore';
+import React, { useState, useMemo } from 'react';
 import { 
   Users, CheckCircle, Smartphone, UserCheck, Calendar, Clock, AlertTriangle, 
   Search, Filter, Download, ArrowRight, MapPin, Mail, Phone, Building2, 
-  Briefcase, CalendarX, Lock, ShieldCheck, ChevronRight, RefreshCw
+  Briefcase, CalendarX, Lock, ShieldCheck, ChevronRight
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -13,84 +11,21 @@ import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { isSameEmployee, hasActualCheckIn } from '../../utils/attendanceUtils';
 
 interface OfficePulseProps {
+  registrations: ManagedUser[];
+  attendanceRecords: any[];
+  leaves: any[];
   role: 'ADMIN' | 'SUPER_ADMIN' | 'HR' | string;
   authorizedOffice: string;
 }
 
 export const OfficePulse: React.FC<OfficePulseProps> = ({
+  registrations,
+  attendanceRecords,
+  leaves,
   role,
   authorizedOffice,
 }) => {
   const isSuperAdmin = role === 'SUPER_ADMIN';
-
-  // State for data
-  const [registrations, setRegistrations] = useState<ManagedUser[]>([]);
-  const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
-  const [leaves, setLeaves] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Firestore Subscriptions
-  useEffect(() => {
-    let isMounted = true;
-    const unsubs: (() => void)[] = [];
-
-    getDb().then((activeDb) => {
-      if (!isMounted || !activeDb) {
-        setIsLoading(false);
-        return;
-      }
-
-      let regsLoaded = false;
-      let attLoaded = false;
-      let leavesLoaded = false;
-
-      const checkAllLoaded = () => {
-        if (regsLoaded && attLoaded && leavesLoaded && isMounted) {
-          setIsLoading(false);
-        }
-      };
-
-      // 1. Registrations
-      const qRegs = query(collection(activeDb, 'registrations'), limit(500));
-      unsubs.push(onSnapshot(qRegs, (snap) => {
-        if (!isMounted) return;
-        const list: ManagedUser[] = [];
-        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() } as ManagedUser));
-        setRegistrations(list);
-        regsLoaded = true;
-        checkAllLoaded();
-      }, () => { regsLoaded = true; checkAllLoaded(); }));
-
-      // 2. Attendance (Today's attendance usually, but we fetch latest 500 for pulse)
-      const qAtt = query(collection(activeDb, 'attendance'), limit(1000));
-      unsubs.push(onSnapshot(qAtt, (snap) => {
-        if (!isMounted) return;
-        const list: any[] = [];
-        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-        setAttendanceRecords(list);
-        attLoaded = true;
-        checkAllLoaded();
-      }, () => { attLoaded = true; checkAllLoaded(); }));
-
-      // 3. Leaves
-      const qLeaves = query(collection(activeDb, 'leaves'), limit(300));
-      unsubs.push(onSnapshot(qLeaves, (snap) => {
-        if (!isMounted) return;
-        const list: any[] = [];
-        snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
-        setLeaves(list);
-        leavesLoaded = true;
-        checkAllLoaded();
-      }, () => { leavesLoaded = true; checkAllLoaded(); }));
-    }).catch(() => {
-      if (isMounted) setIsLoading(false);
-    });
-
-    return () => {
-      isMounted = false;
-      unsubs.forEach(unsub => unsub());
-    };
-  }, []);
 
   // State
   const [searchTerm, setSearchTerm] = useState('');
@@ -412,15 +347,6 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
       alert('Failed to generate export file. Please try again.');
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 space-y-4">
-        <RefreshCw className="w-10 h-10 text-emerald-500 animate-spin" />
-        <p className="text-emerald-300 font-bold animate-pulse uppercase tracking-widest text-[10px]">Syncing Live Office Pulse...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">

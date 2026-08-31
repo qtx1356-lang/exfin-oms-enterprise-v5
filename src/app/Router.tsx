@@ -1,40 +1,38 @@
-import React, { Suspense, lazy } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { BoxSelect, ShieldAlert } from 'lucide-react';
 import { useAdminAuth } from '../context/AdminAuthContext';
-import { LoadingScreen } from '../components/ui/LoadingScreen';
+import { AdminLogin } from '../features/admin/AdminLogin';
+import { AdminDashboard } from '../features/admin/AdminDashboard';
+import { AdminPortalLogin } from '../features/adminPortal/AdminPortalLogin';
+import { AdminPortalDashboard } from '../features/adminPortal/AdminPortalDashboard';
 import { RegistrationProvider, useRegistration } from '../context/RegistrationContext';
 import { usePermission } from '../context/PermissionContext';
 import { FeatureKey } from '../types/roles';
-
-// Lazy load feature components
-const AdminLogin = lazy(() => import('../features/admin/AdminLogin').then(m => ({ default: m.AdminLogin })));
-const AdminDashboard = lazy(() => import('../features/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
-const AdminPortalLogin = lazy(() => import('../features/adminPortal/AdminPortalLogin').then(m => ({ default: m.AdminPortalLogin })));
-const AdminPortalDashboard = lazy(() => import('../features/adminPortal/AdminPortalDashboard').then(m => ({ default: m.AdminPortalDashboard })));
-const DeviceRegistration = lazy(() => import('../features/registration/DeviceRegistration').then(m => ({ default: m.DeviceRegistration })));
-const PendingApproval = lazy(() => import('../features/registration/PendingApproval').then(m => ({ default: m.PendingApproval })));
-const RejectedScreen = lazy(() => import('../features/registration/RejectedScreen').then(m => ({ default: m.RejectedScreen })));
-const MobileRecoveryScreen = lazy(() => import('../features/registration/MobileRecoveryScreen').then(m => ({ default: m.MobileRecoveryScreen })));
-const SuspendedNoticeScreen = lazy(() => import('../features/registration/SuspendedNoticeScreen').then(m => ({ default: m.SuspendedNoticeScreen })));
-const WelcomeScreen = lazy(() => import('../components/ui/WelcomeScreen').then(m => ({ default: m.WelcomeScreen })));
-const EmployeeDashboard = lazy(() => import('../features/employee/EmployeeDashboard').then(m => ({ default: m.EmployeeDashboard })));
-const AttendanceScreen = lazy(() => import('../features/attendance/AttendanceScreen').then(m => ({ default: m.AttendanceScreen })));
-const ExpenseScreen = lazy(() => import('../features/expenses/ExpenseScreen').then(m => ({ default: m.ExpenseScreen })));
-const PlannerScreen = lazy(() => import('../features/planner/PlannerScreen').then(m => ({ default: m.PlannerScreen })));
-const MyTeamScreen = lazy(() => import('../features/team/MyTeamScreen').then(m => ({ default: m.MyTeamScreen })));
-const EfficiencyDashboard = lazy(() => import('../features/efficiency/EfficiencyDashboard').then(m => ({ default: m.EfficiencyDashboard })));
-const LeaveScreen = lazy(() => import('../features/leave/LeaveScreen').then(m => ({ default: m.LeaveScreen })));
-const NotificationCenter = lazy(() => import('../features/notifications/NotificationCenter').then(m => ({ default: m.NotificationCenter })));
-const ProfileScreen = lazy(() => import('../features/profile/ProfileScreen').then(m => ({ default: m.ProfileScreen })));
-const SyncCenterScreen = lazy(() => import('../features/sync/SyncCenterScreen').then(m => ({ default: m.SyncCenterScreen })));
-const PayslipScreen = lazy(() => import('../features/employee/PayslipScreen').then(m => ({ default: m.PayslipScreen })));
-const ChatScreen = lazy(() => import('../features/employee/ChatScreen').then(m => ({ default: m.ChatScreen })));
-const EmployeeFAQScreen = lazy(() => import('../features/help/EmployeeFAQScreen').then(m => ({ default: m.EmployeeFAQScreen })));
-const WorkHoursScreen = lazy(() => import('../features/workHours/WorkHoursScreen').then(m => ({ default: m.WorkHoursScreen })));
+import { DeviceRegistration } from '../features/registration/DeviceRegistration';
+import { PendingApproval } from '../features/registration/PendingApproval';
+import { RejectedScreen } from '../features/registration/RejectedScreen';
+import { MobileRecoveryScreen } from '../features/registration/MobileRecoveryScreen';
+import { SuspendedNoticeScreen } from '../features/registration/SuspendedNoticeScreen';
+import { LoadingScreen } from '../components/ui/LoadingScreen';
+import { WelcomeScreen } from '../components/ui/WelcomeScreen';
+import { EmployeeDashboard } from '../features/employee/EmployeeDashboard';
+import { AttendanceScreen } from '../features/attendance/AttendanceScreen';
+import { ExpenseScreen } from '../features/expenses/ExpenseScreen';
+import { PlannerScreen } from '../features/planner/PlannerScreen';
+import { MyTeamScreen } from '../features/team/MyTeamScreen';
+import { EfficiencyDashboard } from '../features/efficiency/EfficiencyDashboard';
+import { LeaveScreen } from '../features/leave/LeaveScreen';
+import { NotificationCenter } from '../features/notifications/NotificationCenter';
+import { ProfileScreen } from '../features/profile/ProfileScreen';
+import { SyncCenterScreen } from '../features/sync/SyncCenterScreen';
+import { PayslipScreen } from '../features/employee/PayslipScreen';
+import { ChatScreen } from '../features/employee/ChatScreen';
+import { EmployeeFAQScreen } from '../features/help/EmployeeFAQScreen';
+import { WorkHoursScreen } from '../features/workHours/WorkHoursScreen';
 
 // Protects /admin/dashboard - accessible by ADMIN, HR, SUPER_ADMIN
 const AdminProtectedRoute = () => {
@@ -109,20 +107,6 @@ const EmployeeGuard = () => {
     }
   });
 
-  const [isDbReady, setIsDbReady] = React.useState(false);
-
-  React.useEffect(() => {
-    import('../services/firebase/db').then(({ getEmployeeDb }) => {
-      getEmployeeDb().then((db) => {
-        if (db) setIsDbReady(true);
-      }).catch(err => {
-        console.warn('Failed to init employee db', err);
-        // Fallback to true so we don't hang if offline
-        setIsDbReady(true);
-      });
-    });
-  }, []);
-
   React.useEffect(() => {
     console.log(`[FLICKER-TRACE] EmployeeGuard MOUNT ${getTime()}`);
     return () => console.log(`[FLICKER-TRACE] EmployeeGuard UNMOUNT ${getTime()}`);
@@ -153,8 +137,6 @@ const EmployeeGuard = () => {
   if (status === 'Pending Approval') return <PendingApproval />;
   if (status === 'Rejected') return <RejectedScreen />;
   if (status === 'suspended_notice') return <SuspendedNoticeScreen />;
-
-  if (!isDbReady) return <LoadingScreen />;
 
   return <Outlet />;
 };
@@ -197,57 +179,51 @@ const FeatureGuard: React.FC<{ feature: FeatureKey; children: React.ReactNode }>
 export const AppRouter: React.FC = () => {
   return (
     <BrowserRouter>
-      <Suspense fallback={<LoadingScreen />}>
-        <Routes>
-          {/* NEW INDEPENDENT ADMIN PORTAL ROUTES */}
-          <Route path="/admin-portal">
-            <Route index element={<Navigate to="/admin-portal/login" replace />} />
-            <Route path="login" element={<AdminPortalPublicRoute />} />
-            <Route path="dashboard" element={<AdminPortalDashboard />} />
+      <Routes>
+        {/* NEW INDEPENDENT ADMIN PORTAL ROUTES */}
+        <Route path="/admin-portal">
+          <Route index element={<Navigate to="/admin-portal/login" replace />} />
+          <Route path="login" element={<AdminPortalPublicRoute />} />
+          <Route path="dashboard" element={<AdminPortalDashboard />} />
+        </Route>
+
+        {/* Existing Admin Routes */}
+        <Route path="/x7Kp9">
+          <Route index element={<Navigate to="/x7Kp9/login" replace />} />
+          <Route path="login" element={<AdminPublicRoute />} />
+          <Route element={<AdminProtectedRoute />}>
+            <Route path="dashboard" element={<AdminDashboard />} />
           </Route>
+        </Route>
 
-          {/* Existing Admin Routes */}
-          <Route path="/x7Kp9">
-            <Route index element={<Navigate to="/x7Kp9/login" replace />} />
-            <Route path="login" element={<AdminPublicRoute />} />
-            <Route element={<AdminProtectedRoute />}>
-              <Route path="dashboard" element={<AdminDashboard />} />
-            </Route>
+        {/* Super Admin Routes (Backward Compatibility Redirect) */}
+        <Route path="/super-admin/*" element={<Navigate to="/x7Kp9/dashboard" replace />} />
+
+        {/* Normal Exfin OMS PWA Flow */}
+        <Route element={<EmployeeGuard />}>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<EmployeeDashboard />} />
+            <Route path="attendance" element={<FeatureGuard feature="attendance"><AttendanceScreen /></FeatureGuard>} />
+            <Route path="leave" element={<FeatureGuard feature="leave"><LeaveScreen /></FeatureGuard>} />
+            <Route path="expenses" element={<FeatureGuard feature="expenses"><ExpenseScreen /></FeatureGuard>} />
+            <Route path="planner" element={<FeatureGuard feature="workPlanner"><PlannerScreen /></FeatureGuard>} />
+            <Route path="my-team" element={<FeatureGuard feature="myTeam"><MyTeamScreen /></FeatureGuard>} />
+            <Route path="team" element={<Navigate to="/my-team" replace />} />
+            <Route path="efficiency" element={<FeatureGuard feature="employeeEfficiency"><EfficiencyDashboard /></FeatureGuard>} />
+            <Route path="notifications" element={<FeatureGuard feature="notifications"><NotificationCenter /></FeatureGuard>} />
+            <Route path="sync-center" element={<SyncCenterScreen />} />
+            <Route path="profile" element={<ProfileScreen />} />
+            <Route path="payslip" element={<PayslipScreen />} />
+            <Route path="chat" element={<ChatScreen />} />
+            <Route path="faq" element={<EmployeeFAQScreen />} />
+            <Route path="work-hours" element={<WorkHoursScreen />} />
           </Route>
+          <Route path="/web-dashboard/*" element={<Navigate to="/" replace />} />
+        </Route>
 
-          {/* Admin Routes Fallbacks */}
-          <Route path="/admin/*" element={<Navigate to="/admin-portal/login" replace />} />
-          <Route path="/admin" element={<Navigate to="/admin-portal/login" replace />} />
-
-          {/* Super Admin Routes (Backward Compatibility Redirect) */}
-          <Route path="/super-admin/*" element={<Navigate to="/x7Kp9/dashboard" replace />} />
-
-          {/* Normal Exfin OMS PWA Flow */}
-          <Route element={<EmployeeGuard />}>
-            <Route path="/" element={<Layout />}>
-              <Route index element={<EmployeeDashboard />} />
-              <Route path="attendance" element={<FeatureGuard feature="attendance"><AttendanceScreen /></FeatureGuard>} />
-              <Route path="leave" element={<FeatureGuard feature="leave"><LeaveScreen /></FeatureGuard>} />
-              <Route path="expenses" element={<FeatureGuard feature="expenses"><ExpenseScreen /></FeatureGuard>} />
-              <Route path="planner" element={<FeatureGuard feature="workPlanner"><PlannerScreen /></FeatureGuard>} />
-              <Route path="my-team" element={<FeatureGuard feature="myTeam"><MyTeamScreen /></FeatureGuard>} />
-              <Route path="team" element={<Navigate to="/my-team" replace />} />
-              <Route path="efficiency" element={<FeatureGuard feature="employeeEfficiency"><EfficiencyDashboard /></FeatureGuard>} />
-              <Route path="notifications" element={<FeatureGuard feature="notifications"><NotificationCenter /></FeatureGuard>} />
-              <Route path="sync-center" element={<SyncCenterScreen />} />
-              <Route path="profile" element={<ProfileScreen />} />
-              <Route path="payslip" element={<PayslipScreen />} />
-              <Route path="chat" element={<ChatScreen />} />
-              <Route path="faq" element={<EmployeeFAQScreen />} />
-              <Route path="work-hours" element={<WorkHoursScreen />} />
-            </Route>
-            <Route path="/web-dashboard/*" element={<Navigate to="/" replace />} />
-          </Route>
-
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </BrowserRouter>
   );
 };

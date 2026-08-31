@@ -1,5 +1,5 @@
 import { doc, setDoc, updateDoc, addDoc, collection, serverTimestamp, getDocs, getDoc, query, where, deleteDoc } from 'firebase/firestore';
-import { getDb } from '../firebase/config';
+import { db } from '../firebase/config';
 import { AppRole, RoleFeaturePermissions } from '../../types/roles';
 
 export interface AuditLogEntry {
@@ -15,10 +15,9 @@ export interface AuditLogEntry {
 }
 
 export const logAuditEvent = async (entry: Omit<AuditLogEntry, 'timestamp'>): Promise<void> => {
-  const activeDb = await getDb();
-  if (!activeDb) return;
+  if (!db) return;
   try {
-    await addDoc(collection(activeDb, 'audit_logs'), {
+    await addDoc(collection(db, 'audit_logs'), {
       ...entry,
       timestamp: new Date().toISOString(),
       createdAtServer: serverTimestamp(),
@@ -35,13 +34,12 @@ export const saveRolePermissionsToFirestore = async (
   actorUid: string,
   previousPermissions?: Record<string, boolean>
 ): Promise<void> => {
-  const activeDb = await getDb();
-  if (!activeDb) throw new Error('Firestore not initialized');
+  if (!db) throw new Error('Firestore not initialized');
 
   const nowIso = new Date().toISOString();
 
   // 1. Update roles collection
-  const roleRef = doc(activeDb, 'roles', roleId);
+  const roleRef = doc(db, 'roles', roleId);
   const rolePayload = {
     roleId,
     name: roleId,
@@ -54,7 +52,7 @@ export const saveRolePermissionsToFirestore = async (
   await setDoc(roleRef, rolePayload, { merge: true });
 
   // 2. Also save to /systemSettings/permissions for normalized settings backup
-  const sysRef = doc(activeDb, 'systemSettings', `permissions_${roleId}`);
+  const sysRef = doc(db, 'systemSettings', `permissions_${roleId}`);
   await setDoc(sysRef, {
     role: roleId,
     permissions,
@@ -99,8 +97,7 @@ export const updateUserRoleAndStatus = async (params: {
   actorEmail: string;
   actorUid: string;
 }): Promise<void> => {
-  const activeDb = await getDb();
-  if (!activeDb) throw new Error('Firestore not initialized');
+  if (!db) throw new Error('Firestore not initialized');
 
   const {
     userId,
@@ -123,7 +120,7 @@ export const updateUserRoleAndStatus = async (params: {
   const nowIso = new Date().toISOString();
 
   // 1. Fetch current target user registration document
-  const regRef = doc(activeDb, 'registrations', userId);
+  const regRef = doc(db, 'registrations', userId);
   const targetRegSnap = await getDoc(regRef).catch(() => null);
   const targetData = targetRegSnap?.exists() ? targetRegSnap.data() : {};
   const targetName = targetData.name || 'Employee';
@@ -166,7 +163,7 @@ export const updateUserRoleAndStatus = async (params: {
     // If Team Leader changed, remove member from previous Team Leader's teamMemberUids
     if (prevTlId && prevTlId !== assignedTeamLeaderId) {
       try {
-        const oldTlRef = doc(activeDb, 'registrations', prevTlId);
+        const oldTlRef = doc(db, 'registrations', prevTlId);
         const oldTlSnap = await getDoc(oldTlRef);
         if (oldTlSnap.exists()) {
           const oldTlData = oldTlSnap.data();
@@ -189,7 +186,7 @@ export const updateUserRoleAndStatus = async (params: {
     // Sync member with newly assigned Team Leader's teamMemberUids
     if (assignedTeamLeaderId) {
       try {
-        const tlRef = doc(activeDb, 'registrations', assignedTeamLeaderId);
+        const tlRef = doc(db, 'registrations', assignedTeamLeaderId);
         const tlSnap = await getDoc(tlRef);
         if (tlSnap.exists()) {
           const tlData = tlSnap.data();
@@ -220,7 +217,7 @@ export const updateUserRoleAndStatus = async (params: {
     for (const memberId of newMemberUids) {
       if (memberId === userId) continue; // Do not allow self assignment
       try {
-        const mRef = doc(activeDb, 'registrations', memberId);
+        const mRef = doc(db, 'registrations', memberId);
         const mSnap = await getDoc(mRef);
         if (mSnap.exists()) {
           const mData = mSnap.data();
@@ -229,14 +226,14 @@ export const updateUserRoleAndStatus = async (params: {
           // If member previously belonged to another TL, remove from old TL's teamMemberUids
           if (prevTlId && prevTlId !== userId) {
             try {
-              const oldTlRef = doc(activeDb, 'registrations', prevTlId);
+              const oldTlRef = doc(db, 'registrations', prevTlId);
               const oldTlSnap = await getDoc(oldTlRef);
               if (oldTlSnap.exists()) {
                 const oldTlData = oldTlSnap.data();
                 const updatedOldUids = (oldTlData.teamMemberUids || []).filter((id: string) => id !== memberId);
                 await updateDoc(oldTlRef, { teamMemberUids: updatedOldUids, updatedAt: nowIso });
 
-                await addDoc(collection(activeDb, 'notifications'), {
+                await addDoc(collection(db, 'notifications'), {
                   id: `NOTIF_${Date.now()}_${prevTlId.slice(0, 5)}`,
                   recipientUserId: prevTlId,
                   recipientEmployeeCode: oldTlData.employeeCode || 'ALL',
@@ -266,7 +263,7 @@ export const updateUserRoleAndStatus = async (params: {
 
           // Notify newly added member
           if (addedMemberUids.includes(memberId)) {
-            await addDoc(collection(activeDb, 'notifications'), {
+            await addDoc(collection(db, 'notifications'), {
               id: `NOTIF_${Date.now()}_${memberId.slice(0, 5)}`,
               recipientUserId: memberId,
               recipientEmployeeCode: mData.employeeCode || 'ALL',
@@ -288,7 +285,7 @@ export const updateUserRoleAndStatus = async (params: {
     // Unassign removed members
     for (const remId of removedMemberUids) {
       try {
-        const remRef = doc(activeDb, 'registrations', remId);
+        const remRef = doc(db, 'registrations', remId);
         const remSnap = await getDoc(remRef);
         if (remSnap.exists()) {
           const remData = remSnap.data();
@@ -301,7 +298,7 @@ export const updateUserRoleAndStatus = async (params: {
             updatedAt: nowIso,
           });
 
-          await addDoc(collection(activeDb, 'notifications'), {
+          await addDoc(collection(db, 'notifications'), {
             id: `NOTIF_${Date.now()}_${remId.slice(0, 5)}`,
             recipientUserId: remId,
             recipientEmployeeCode: remData.employeeCode || 'ALL',
@@ -339,7 +336,7 @@ export const updateUserRoleAndStatus = async (params: {
     // Unassign all former members
     for (const memberId of oldMemberUids) {
       try {
-        const mRef = doc(activeDb, 'registrations', memberId);
+        const mRef = doc(db, 'registrations', memberId);
         const mSnap = await getDoc(mRef);
         if (mSnap.exists()) {
           const mData = mSnap.data();
@@ -352,7 +349,7 @@ export const updateUserRoleAndStatus = async (params: {
             updatedAt: nowIso,
           });
 
-          await addDoc(collection(activeDb, 'notifications'), {
+          await addDoc(collection(db, 'notifications'), {
             id: `NOTIF_${Date.now()}_${memberId.slice(0, 5)}`,
             recipientUserId: memberId,
             recipientEmployeeCode: mData.employeeCode || 'ALL',
@@ -378,7 +375,7 @@ export const updateUserRoleAndStatus = async (params: {
 
   // 3. If changing to ADMIN or SUPER_ADMIN or HR, ensure admin_users document is updated
   if (newRole === 'ADMIN' || newRole === 'SUPER_ADMIN' || newRole === 'HR') {
-    const adminRef = doc(activeDb, 'admin_users', userId);
+    const adminRef = doc(db, 'admin_users', userId);
     const updatePayload: any = {
       uid: userId,
       role: newRole,
@@ -394,12 +391,12 @@ export const updateUserRoleAndStatus = async (params: {
     await setDoc(adminRef, updatePayload, { merge: true });
   } else {
     // If demoted from Admin, delete from admin_users and login_ids mapping to revoke access
-    const adminRef = doc(activeDb, 'admin_users', userId);
+    const adminRef = doc(db, 'admin_users', userId);
     const adminDoc = await getDoc(adminRef).catch(() => null);
     if (adminDoc?.exists()) {
       const adminData = adminDoc.data();
       if (adminData.loginId) {
-        await deleteDoc(doc(activeDb, 'login_ids', adminData.loginId)).catch(() => null);
+        await deleteDoc(doc(db, 'login_ids', adminData.loginId)).catch(() => null);
       }
       await deleteDoc(adminRef).catch(() => null);
     }
@@ -419,7 +416,7 @@ export const updateUserRoleAndStatus = async (params: {
 
   // 5. Create system notification for user
   try {
-    await addDoc(collection(activeDb, 'notifications'), {
+    await addDoc(collection(db, 'notifications'), {
       id: `NOTIF_${Date.now()}_${userId.slice(0, 5)}`,
       recipientUserId: userId,
       recipientEmployeeCode: employeeCode || 'ALL',

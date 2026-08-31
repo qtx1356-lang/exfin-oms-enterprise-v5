@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card } from '../../components/ui/Card';
-import { getDb } from '../../services/firebase/db';
+import { db } from '../../services/firebase/config';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { NotificationRecord } from '../../types/notification';
 import { MessageCircle, Bell, Smartphone, RefreshCw, Info, CheckCircle2, AlertTriangle, Send } from 'lucide-react';
@@ -12,12 +12,11 @@ export const NotificationDeliveryLog: React.FC = () => {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const activeDb = await getDb();
-      if (!activeDb) {
+      if (!db) {
         setLoading(false);
         return;
       }
-      const q = query(collection(activeDb, 'notifications'), orderBy('timestamp', 'desc'), limit(100));
+      const q = query(collection(db, 'notifications'), orderBy('timestamp', 'desc'), limit(100));
       const snap = await getDocs(q);
       const fetched: NotificationRecord[] = [];
       snap.forEach((doc) => fetched.push({ id: doc.id, ...doc.data() } as any));

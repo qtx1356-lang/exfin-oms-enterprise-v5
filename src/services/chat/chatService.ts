@@ -13,8 +13,7 @@ import {
   updateDoc,
   Timestamp
 } from 'firebase/firestore';
-import { auth, getDb } from '../firebase/config';
-import { storage } from '../firebase/storage';
+import { db, auth, storage } from '../firebase/config';
 import { ChatConversation, ChatMessage, ChatType, ChatAttachment } from '../../types/chat';
 import { ref, uploadBytesResumable, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signInAnonymously } from 'firebase/auth';
@@ -87,13 +86,10 @@ export async function createConversation(
 ): Promise<string> {
   const path = 'chat_conversations';
   try {
-    const activeDb = await getDb();
-    if (!activeDb) throw new Error('Firestore not available');
-
     // Check if a DIRECT chat between these two already exists
     if (type === 'DIRECT' && participantIds.length === 2) {
       const q = query(
-        collection(activeDb, path),
+        collection(db, path),
         where('type', '==', 'DIRECT'),
         where('participantIds', 'array-contains', participantIds[0])
       );
@@ -107,7 +103,7 @@ export async function createConversation(
       }
     }
 
-    const conversationId = doc(collection(activeDb, path)).id;
+    const conversationId = doc(collection(db, path)).id;
     const initialUnread: Record<string, number> = {};
     participantIds.forEach(id => {
       initialUnread[id] = 0;
@@ -124,7 +120,7 @@ export async function createConversation(
       unreadCounts: initialUnread,
     };
 
-    await setDoc(doc(activeDb, path, conversationId), newConversation);
+    await setDoc(doc(db, path, conversationId), newConversation);
     return conversationId;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -229,12 +225,10 @@ export async function getAttachmentBlobUrl(attachment: ChatAttachment): Promise<
 
   const fetchPromise = (async () => {
     let lastError: any = null;
-    const activeDb = await getDb();
-    if (!activeDb) throw new Error('Firestore not available');
 
     for (const cid of candidates) {
       try {
-        const attDocRef = doc(activeDb, 'chat_attachments', cid);
+        const attDocRef = doc(db, 'chat_attachments', cid);
         const attSnap = await getDoc(attDocRef);
 
         if (!attSnap.exists()) {
@@ -247,7 +241,7 @@ export async function getAttachmentBlobUrl(attachment: ChatAttachment): Promise<
 
         const chunkPromises = [];
         for (let i = 0; i < totalChunks; i++) {
-          const chunkRef = doc(activeDb, 'chat_attachments', cid, 'chunks', `chunk_${i}`);
+          const chunkRef = doc(db, 'chat_attachments', cid, 'chunks', `chunk_${i}`);
           chunkPromises.push(getDoc(chunkRef));
         }
 
@@ -364,10 +358,7 @@ export function uploadAttachment(
 
       console.log(`[CHAT_UPLOAD] REQUEST_STARTED | ATTACHMENT_ID="${attachmentId}" | TOTAL_CHUNKS=${totalChunks}`);
 
-      const activeDb = await getDb();
-      if (!activeDb) throw new Error('Firestore not available');
-
-      const attRef = doc(activeDb, 'chat_attachments', attachmentId);
+      const attRef = doc(db, 'chat_attachments', attachmentId);
       await setDoc(attRef, {
         attachmentId,
         conversationId,
@@ -385,7 +376,7 @@ export function uploadAttachment(
       for (let i = 0; i < totalChunks; i++) {
         if (isCancelled) return;
         const chunkSlice = base64Data.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-        const chunkRef = doc(activeDb, 'chat_attachments', attachmentId, 'chunks', `chunk_${i}`);
+        const chunkRef = doc(db, 'chat_attachments', attachmentId, 'chunks', `chunk_${i}`);
         
         await setDoc(chunkRef, { index: i, data: chunkSlice });
 
@@ -400,7 +391,7 @@ export function uploadAttachment(
       
       const verifyPromises = [];
       for (let i = 0; i < totalChunks; i++) {
-        verifyPromises.push(getDoc(doc(activeDb, 'chat_attachments', attachmentId, 'chunks', `chunk_${i}`)));
+        verifyPromises.push(getDoc(doc(db, 'chat_attachments', attachmentId, 'chunks', `chunk_${i}`)));
       }
       const verifySnaps = await Promise.all(verifyPromises);
       let verifiedBase64 = '';
@@ -464,18 +455,15 @@ export async function sendMessage(
   const conversationPath = `chat_conversations/${conversationId}`;
   const messagePath = `chat_conversations/${conversationId}/messages`;
   try {
-    const activeDb = await getDb();
-    if (!activeDb) throw new Error('Firestore not available');
-
     // 1. Get the conversation details to check participants
-    const convDoc = await getDoc(doc(activeDb, 'chat_conversations', conversationId));
+    const convDoc = await getDoc(doc(db, 'chat_conversations', conversationId));
     if (!convDoc.exists()) {
       throw new Error('Conversation does not exist');
     }
 
     const convData = convDoc.data() as ChatConversation;
     const timestampStr = new Date().toISOString();
-    const messageId = doc(collection(activeDb, messagePath)).id;
+    const messageId = doc(collection(db, messagePath)).id;
 
     // 2. Prepare the new message
     const newMessage: ChatMessage = {
@@ -489,7 +477,7 @@ export async function sendMessage(
     };
 
     // 3. Write message
-    await setDoc(doc(activeDb, messagePath, messageId), newMessage);
+    await setDoc(doc(db, messagePath, messageId), newMessage);
 
     // 4. Update the conversation unread counts and last message details
     const updatedUnread = { ...convData.unreadCounts };
@@ -503,7 +491,7 @@ export async function sendMessage(
 
     const lastMsgContent = content.trim() || (attachment ? `📄 ${attachment.fileName}` : 'Sent an attachment');
 
-    await updateDoc(doc(activeDb, 'chat_conversations', conversationId), {
+    await updateDoc(doc(db, 'chat_conversations', conversationId), {
       lastMessage: {
         content: lastMsgContent,
         senderId,
@@ -526,37 +514,26 @@ export function listenConversations(
   onUpdate: (conversations: ChatConversation[]) => void
 ): () => void {
   const path = 'chat_conversations';
-  let unsub: (() => void) | null = null;
-  let isCancelled = false;
+  try {
+    const q1 = query(
+      collection(db, path),
+      where('participantIds', 'array-contains', participantId)
+    );
 
-  getDb().then(activeDb => {
-    if (isCancelled || !activeDb) return;
-    try {
-      const q1 = query(
-        collection(activeDb, path),
-        where('participantIds', 'array-contains', participantId)
-      );
-
-      unsub = onSnapshot(q1, (snap) => {
-        const results: ChatConversation[] = [];
-        snap.forEach(d => {
-          results.push(d.data() as ChatConversation);
-        });
-        // Sort client-side by updatedAt descending
-        results.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-        onUpdate(results);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, path);
+    return onSnapshot(q1, (snap) => {
+      const results: ChatConversation[] = [];
+      snap.forEach(d => {
+        results.push(d.data() as ChatConversation);
       });
-    } catch (error) {
+      // Sort client-side by updatedAt descending
+      results.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      onUpdate(results);
+    }, (error) => {
       handleFirestoreError(error, OperationType.LIST, path);
-    }
-  }).catch(() => {});
-
-  return () => {
-    isCancelled = true;
-    if (unsub) unsub();
-  };
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
 }
 
 // Listen to public ALL_EMPLOYEES conversations
@@ -564,36 +541,25 @@ export function listenPublicConversations(
   onUpdate: (conversations: ChatConversation[]) => void
 ): () => void {
   const path = 'chat_conversations';
-  let unsub: (() => void) | null = null;
-  let isCancelled = false;
+  try {
+    const q = query(
+      collection(db, path),
+      where('type', '==', 'ALL_EMPLOYEES')
+    );
 
-  getDb().then(activeDb => {
-    if (isCancelled || !activeDb) return;
-    try {
-      const q = query(
-        collection(activeDb, path),
-        where('type', '==', 'ALL_EMPLOYEES')
-      );
-
-      unsub = onSnapshot(q, (snap) => {
-        const results: ChatConversation[] = [];
-        snap.forEach(d => {
-          results.push(d.data() as ChatConversation);
-        });
-        results.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-        onUpdate(results);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, path);
+    return onSnapshot(q, (snap) => {
+      const results: ChatConversation[] = [];
+      snap.forEach(d => {
+        results.push(d.data() as ChatConversation);
       });
-    } catch (error) {
+      results.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      onUpdate(results);
+    }, (error) => {
       handleFirestoreError(error, OperationType.LIST, path);
-    }
-  }).catch(() => {});
-
-  return () => {
-    isCancelled = true;
-    if (unsub) unsub();
-  };
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
 }
 
 // Listen to recent messages within a conversation with pagination limit
@@ -603,46 +569,32 @@ export function listenMessages(
   onUpdate: (messages: ChatMessage[]) => void
 ): () => void {
   const path = `chat_conversations/${conversationId}/messages`;
-  let unsub: (() => void) | null = null;
-  let isCancelled = false;
+  try {
+    const q = query(
+      collection(db, path),
+      orderBy('timestamp', 'asc'),
+      limitToLast(limitCount)
+    );
 
-  getDb().then(activeDb => {
-    if (isCancelled || !activeDb) return;
-    try {
-      const q = query(
-        collection(activeDb, path),
-        orderBy('timestamp', 'asc'),
-        limitToLast(limitCount)
-      );
-
-      unsub = onSnapshot(q, (snap) => {
-        const results: ChatMessage[] = [];
-        snap.forEach(d => {
-          results.push(d.data() as ChatMessage);
-        });
-        onUpdate(results);
-      }, (error) => {
-        handleFirestoreError(error, OperationType.LIST, path);
+    return onSnapshot(q, (snap) => {
+      const results: ChatMessage[] = [];
+      snap.forEach(d => {
+        results.push(d.data() as ChatMessage);
       });
-    } catch (error) {
+      onUpdate(results);
+    }, (error) => {
       handleFirestoreError(error, OperationType.LIST, path);
-    }
-  }).catch(() => {});
-
-  return () => {
-    isCancelled = true;
-    if (unsub) unsub();
-  };
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
 }
 
 // Mark a conversation as read (resets unreadCount for the participant)
 export async function markAsRead(conversationId: string, participantId: string): Promise<void> {
   const path = `chat_conversations/${conversationId}`;
   try {
-    const activeDb = await getDb();
-    if (!activeDb) return;
-
-    const docRef = doc(activeDb, 'chat_conversations', conversationId);
+    const docRef = doc(db, 'chat_conversations', conversationId);
     const snap = await getDoc(docRef);
     if (!snap.exists()) return;
 

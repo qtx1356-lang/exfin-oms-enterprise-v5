@@ -1,4 +1,4 @@
-import { getDb } from '../firebase/config';
+import { db } from '../firebase/config';
 import { collection, doc, setDoc, query, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 import { AuditLogRecord, DeviceInfo, AuditActionCategory, AuditSource, AuditResult } from '../../types/audit';
 
@@ -83,9 +83,8 @@ export const createAuditLog = async (params: CreateAuditLogParams): Promise<void
       metadata: params.metadata || {}
     };
 
-    const activeDb = await getDb();
-    if (activeDb) {
-      await setDoc(doc(activeDb, 'audit_logs', id), record);
+    if (db) {
+      await setDoc(doc(db, 'audit_logs', id), record);
     }
 
     // Also keep local fallback cache in localStorage for immediate inspection / offline robustness
