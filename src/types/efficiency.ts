@@ -8,6 +8,14 @@ export interface EfficiencyWeightages {
   workload: number;             // default: 10
 }
 
+export const DEFAULT_WEIGHTAGES: EfficiencyWeightages = {
+  taskCompletion: 30,
+  onTimeCompletion: 25,
+  quality: 20,
+  punctuality: 15,
+  workload: 10
+};
+
 export type EfficiencyPeriodType = 'WEEKLY' | 'MONTHLY' | 'CUSTOM';
 
 export interface EfficiencyPeriod {

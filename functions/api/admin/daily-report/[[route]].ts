@@ -1,5 +1,7 @@
 // @ts-ignore
 import { connect } from 'cloudflare:sockets';
+import { calculateEfficiency } from '../../../../src/services/efficiency/efficiencyCalculator';
+import { DEFAULT_WEIGHTAGES } from '../../../../src/types/efficiency';
 
 export async function onRequest(context) {
   const { request, env, params } = context;
@@ -489,56 +491,62 @@ export async function onRequest(context) {
         });
         const totalExpensesSum = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
 
-        const tasks = await safeQueryCollection('tasks');
+        const rawTasks = await safeQueryCollection('tasks');
+        // Strictly filter tasks that belong to targetDate according to the Admin Panel engine
+        const tasks = rawTasks.filter(t => {
+          const tDate = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime ? t.createdAtDeviceTime.substring(0, 10) : '');
+          return tDate === targetDate;
+        });
 
+        // Calculate efficiency using the exact same calculateEfficiency engine as the Admin Panel
         const evaluatedEmployees = approvedEmps.map(emp => {
           const empCode = emp.employeeCode || emp.id;
           const empName = emp.name || empCode;
           const dept = emp.department || emp.office || 'Operations';
-          
-          const empAtt = attendance.find(a => (a.employeeCode === empCode || a.employeeId === emp.id));
-          const hasCheckedIn = !!empAtt;
-          const isPresent = hasCheckedIn;
+          const teamLeaderId = emp.teamLeaderId || null;
 
-          const empTasks = tasks.filter(t => {
-            const matchCode = t.assignedToEmployeeCodes && t.assignedToEmployeeCodes.includes(empCode);
-            const matchId = t.assignedToEmployeeIds && (t.assignedToEmployeeIds.includes(emp.id) || t.assignedToEmployeeIds.includes(empCode));
-            return matchCode || matchId;
-          });
-          const completedTasks = empTasks.filter(t => t.status === 'Completed' || t.status === 'completed').length;
-          const totalTasks = empTasks.length;
-          
-          let score = 75;
-          if (isPresent) score += 15;
-          if (totalTasks > 0) {
-            score += Math.round((completedTasks / totalTasks) * 10);
-          }
-          const efficiency = Math.max(0, Math.min(100, score));
+          const calc = calculateEfficiency(
+            emp.id || empCode,
+            empCode,
+            empName,
+            dept,
+            teamLeaderId,
+            targetDate,
+            targetDate,
+            tasks as any,
+            attendance as any,
+            DEFAULT_WEIGHTAGES
+          );
 
           return {
             empCode,
             empName,
             dept,
-            efficiency,
-            tasksCompleted: completedTasks,
-            tasksTotal: totalTasks
+            efficiency: calc.finalScore,
+            grade: calc.grade,
+            breakdown: calc.breakdown
           };
         });
 
-        const totalScoreSum = evaluatedEmployees.reduce((sum, e) => sum + e.efficiency, 0);
-        const overallAvgEfficiency = evaluatedEmployees.length > 0 ? Math.round(totalScoreSum / evaluatedEmployees.length) : 0;
-        const sortedByEff = [...evaluatedEmployees].sort((a, b) => b.efficiency - a.efficiency);
-        const highestEff = sortedByEff.length > 0 ? sortedByEff[0].efficiency : 0;
-        const lowestEff = sortedByEff.length > 0 ? sortedByEff[sortedByEff.length - 1].efficiency : 0;
+        // Separate active/evaluated employees with non-negative score vs uncalculated
+        const validEvaluated = evaluatedEmployees.filter(e => e.efficiency >= 0);
+        const evaluatedForStats = validEvaluated.length > 0 ? validEvaluated : evaluatedEmployees;
+
+        const totalScoreSum = evaluatedForStats.reduce((sum, e) => sum + Math.max(0, e.efficiency), 0);
+        const overallAvgEfficiency = evaluatedForStats.length > 0 ? Math.round(totalScoreSum / evaluatedForStats.length) : 0;
+        const sortedByEff = [...evaluatedForStats].sort((a, b) => b.efficiency - a.efficiency);
+        const highestEff = sortedByEff.length > 0 ? Math.max(0, sortedByEff[0].efficiency) : 0;
+        const lowestEff = sortedByEff.length > 0 ? Math.max(0, sortedByEff[sortedByEff.length - 1].efficiency) : 0;
+
         const topPerformers = sortedByEff.slice(0, 5);
-        const bottomPerformers = [...evaluatedEmployees].sort((a, b) => a.efficiency - b.efficiency).slice(0, 5);
+        const bottomPerformers = [...sortedByEff].sort((a, b) => a.efficiency - b.efficiency).slice(0, 5);
 
         const topPerformersRows = topPerformers.length > 0 ? topPerformers.map((p, idx) => `
           <tr style="border-bottom: 1px solid #f1f5f9;">
             <td style="padding: 12px 10px; font-weight: bold; color: #0f766e;">#${idx + 1}</td>
             <td style="padding: 12px 10px; color: #0f172a; font-weight: 500;">${p.empName} <span style="font-size: 11px; color: #64748b;">(${p.empCode})</span></td>
             <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
-            <td style="padding: 12px 10px; font-weight: bold; color: #047857; text-align: right;">${p.efficiency}%</td>
+            <td style="padding: 12px 10px; font-weight: bold; color: #047857; text-align: right;">${Math.max(0, p.efficiency)}%</td>
           </tr>
         `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">No performance records available</td></tr>`;
 
@@ -547,7 +555,7 @@ export async function onRequest(context) {
             <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c;">#${idx + 1}</td>
             <td style="padding: 12px 10px; color: #0f172a; font-weight: 500;">${p.empName} <span style="font-size: 11px; color: #64748b;">(${p.empCode})</span></td>
             <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
-            <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c; text-align: right;">${p.efficiency}%</td>
+            <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c; text-align: right;">${Math.max(0, p.efficiency)}%</td>
           </tr>
         `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">No improvement records needed</td></tr>`;
 
@@ -598,7 +606,10 @@ export async function onRequest(context) {
       </div>
 
       <div style="margin-top: 30px;">
-        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 14px; text-transform: uppercase;">Efficiency Summary</h3>
+        <div style="border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">
+          <h3 style="color: #0f172a; font-size: 14px; text-transform: uppercase; margin: 0;">Efficiency Summary</h3>
+          <p style="margin: 4px 0 0 0; font-size: 11px; color: #0f766e; font-weight: bold;">EFFICIENCY PERIOD: Previous Day — ${targetDate} (Asia/Kolkata)</p>
+        </div>
         <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;">
           <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px; color: #475569;">Average Efficiency</td><td style="padding: 8px; font-weight: bold; color: #0f766e; text-align: right;">${overallAvgEfficiency}%</td></tr>
           <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px; color: #475569;">Highest Performer</td><td style="padding: 8px; font-weight: bold; color: #047857; text-align: right;">${highestEff}%</td></tr>
@@ -638,9 +649,10 @@ export async function onRequest(context) {
         const containsNeedsImprovement = html.includes('Needs Improvement');
         const containsAdminLink = html.includes('View More');
         const containsX7Kp9 = html.includes('/x7Kp9');
+        const containsEfficiencyPeriod = html.includes('EFFICIENCY PERIOD');
 
-        if (!containsEfficiency || !containsTop5 || !containsNeedsImprovement || !containsAdminLink || !containsX7Kp9) {
-          throw new Error('Daily Report HTML validation failed: missing required efficiency or admin panel link sections.');
+        if (!containsSummary || !containsEfficiency || !containsTop5 || !containsNeedsImprovement || !containsAdminLink || !containsX7Kp9 || !containsEfficiencyPeriod) {
+          throw new Error('Daily Report HTML validation failed: missing required efficiency, period, or admin panel link sections.');
         }
 
         const htmlSizeBytes = new TextEncoder().encode(html).length;

@@ -684,10 +684,14 @@ export async function generateAndSendDailyReport(
     });
 
     const tasksSnap = await db.collection('tasks').get();
-    const allTasks: any[] = [];
-    tasksSnap.forEach(tDoc => allTasks.push({ id: tDoc.id, ...tDoc.data() }));
+    const rawTasks: any[] = [];
+    tasksSnap.forEach(tDoc => rawTasks.push({ id: tDoc.id, ...tDoc.data() }));
+    const allTasks = rawTasks.filter(t => {
+      const tDate = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime ? t.createdAtDeviceTime.substring(0, 10) : '');
+      return tDate === reportDate;
+    });
 
-    const attSnap = await db.collection('attendance').get();
+    const attSnap = await db.collection('attendance').where('date', '==', reportDate).get();
     const allAttendance: any[] = [];
     attSnap.forEach(aDoc => allAttendance.push({ id: aDoc.id, ...aDoc.data() }));
 
