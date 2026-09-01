@@ -748,7 +748,8 @@ export async function generateAndSendDailyReport(
       });
     });
 
-    const validEvaluated = evaluatedEmployees.filter(e => e.efficiency >= 0);
+    const validEvaluated = evaluatedEmployees;
+    const evaluatedCount = evaluatedEmployees.length;
     const overallAvgEfficiency = validEvaluated.length > 0 ? Math.round(totalScoreSum / validEvaluated.length) : 0;
     const sortedByEff = [...validEvaluated].sort((a, b) => b.efficiency - a.efficiency);
     const highestEff = sortedByEff.length > 0 ? sortedByEff[0].efficiency : 0;
@@ -829,23 +830,23 @@ export async function generateAndSendDailyReport(
     const highestEffEmpName = highestEffEmp ? `${highestEffEmp.empName} (${highestEffEmp.empCode})` : 'N/A';
     const lowestEffEmpName = lowestEffEmp ? `${lowestEffEmp.empName} (${lowestEffEmp.empCode})` : 'N/A';
 
-    const topPerformersRows = topPerformers.map((p, idx) => `
+    const topPerformersRows = topPerformers.length > 0 ? topPerformers.map((p, idx) => `
       <tr style="border-bottom: 1px solid #f1f5f9;">
         <td style="padding: 12px 10px; font-weight: bold; color: #0f766e;">#${idx + 1}</td>
         <td style="padding: 12px 10px; color: #0f172a; font-weight: 500;">${p.empName} <span style="font-size: 11px; color: #64748b;">(${p.empCode})</span></td>
         <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
         <td style="padding: 12px 10px; font-weight: bold; color: #047857; text-align: right;">${p.efficiency}%</td>
       </tr>
-    `).join('');
+    `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">No performance records available</td></tr>`;
 
-    const needsImprovementRows = bottomPerformers.map((p, idx) => `
+    const needsImprovementRows = bottomPerformers.length > 0 ? bottomPerformers.map((p, idx) => `
       <tr style="border-bottom: 1px solid #f1f5f9;">
         <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c;">#${idx + 1}</td>
         <td style="padding: 12px 10px; color: #0f172a; font-weight: 500;">${p.empName} <span style="font-size: 11px; color: #64748b;">(${p.empCode})</span></td>
         <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
         <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c; text-align: right;">${p.efficiency}%</td>
       </tr>
-    `).join('');
+    `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">No improvement records needed</td></tr>`;
 
     const appUrl = process.env.APP_URL ? process.env.APP_URL.replace(/\/$/, '') : 'https://exfin-oms-enterprise-v5.pages.dev';
     const adminPanelUrl = `${appUrl}/x7Kp9`;
@@ -1185,6 +1186,23 @@ export async function generateAndSendDailyReport(
 
     // 10. Send the Mail via backend email service
     const subject = `EXFIN OMS — Daily Admin Report — ${formatDateStringFriendly(reportDate)}`;
+
+    console.log(`[DailyReport] Efficiency records: ${evaluatedEmployees.length}`);
+    console.log(`[DailyReport] Evaluated employees: ${validEvaluated.length}`);
+    console.log(`[DailyReport] Top performers: ${topPerformers.length}`);
+    console.log(`[DailyReport] Improvement records: ${bottomPerformers.length}`);
+
+    console.log(`[DailyReport] Final HTML length: ${emailHtml.length}`);
+    console.log(`[DailyReport] Contains efficiency section: ${emailHtml.includes('EFFICIENCY SUMMARY')}`);
+    console.log(`[DailyReport] Contains top performers: ${emailHtml.includes('TOP 5 PERFORMERS')}`);
+    console.log(`[DailyReport] Contains needs improvement: ${emailHtml.includes('NEEDS IMPROVEMENT')}`);
+    console.log(`[DailyReport] Contains admin panel link: ${emailHtml.includes('VIEW MORE')}`);
+    console.log(`[DailyReport] Contains /x7Kp9 URL: ${emailHtml.includes('/x7Kp9')}`);
+    console.log(`[DailyReport] Report date: ${reportDate}`);
+
+    if (!emailHtml.includes('EFFICIENCY SUMMARY') || !emailHtml.includes('TOP 5 PERFORMERS') || !emailHtml.includes('NEEDS IMPROVEMENT') || !emailHtml.includes('VIEW MORE') || !emailHtml.includes('/x7Kp9')) {
+      throw new Error('Daily Report HTML validation failed: missing required efficiency or admin panel link sections.');
+    }
 
     const emailRes = await sendMail({
       to: recipients,
