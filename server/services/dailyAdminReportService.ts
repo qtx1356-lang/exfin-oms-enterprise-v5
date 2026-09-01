@@ -1,5 +1,7 @@
 import { Firestore, FieldValue } from 'firebase-admin/firestore';
 import { sendMail } from './emailService';
+import { calculateEfficiency } from '../../src/services/efficiency/efficiencyCalculator';
+import { DEFAULT_WEIGHTAGES } from '../../src/services/efficiency/efficiencyService';
 
 export interface DailyReportConfig {
   enabled: boolean;
@@ -672,110 +674,85 @@ export async function generateAndSendDailyReport(
       }
     }
 
-    // 8.5. Efficiency & Performance Section Computation
-    const employeesList = Array.from(employeesMap.values()).filter(
-      (r) => r.status === 'Approved' && r.role !== 'ADMIN' && r.role !== 'SUPER_ADMIN'
-    );
+    // 8.5. Efficiency & Performance Section Computation (Reusing Production calculateEfficiency)
+    const employeesList = Array.from(employeesMap.values()).filter((r: any) => {
+      const status = (r.status || '').toUpperCase();
+      const role = (r.role || '').toUpperCase();
+      if (status === 'DELETED' || status === 'PENDING' || status === 'REJECTED') return false;
+      if (role === 'ADMIN' || role === 'SUPER_ADMIN') return false;
+      return status === 'APPROVED' || status === 'Approved' || status === 'ACTIVE' || !r.status;
+    });
 
     const tasksSnap = await db.collection('tasks').get();
     const allTasks: any[] = [];
     tasksSnap.forEach(tDoc => allTasks.push({ id: tDoc.id, ...tDoc.data() }));
 
-    const attSnapForEff = await db.collection('attendance').where('date', '==', reportDate).get();
-    const attendanceMap = new Map<string, any>();
-    attSnapForEff.forEach(aDoc => {
-      const a = aDoc.data();
-      if (a.employeeCode) attendanceMap.set(a.employeeCode, a);
-      if (a.employeeId) attendanceMap.set(a.employeeId, a);
-    });
+    const attSnap = await db.collection('attendance').get();
+    const allAttendance: any[] = [];
+    attSnap.forEach(aDoc => allAttendance.push({ id: aDoc.id, ...aDoc.data() }));
 
     const evaluatedEmployees: any[] = [];
-    let evaluatedCount = 0;
+    let totalScoreSum = 0;
     let aboveTargetCount = 0;
     let belowTargetCount = 0;
     let insufficientDataCount = 0;
-    let totalScoreSum = 0;
 
     employeesList.forEach(emp => {
       const empCode = emp.employeeCode || emp.id;
       const empName = emp.name || empCode;
-      const dept = emp.department || 'Operations';
-      const att = attendanceMap.get(empCode) || attendanceMap.get(emp.id);
+      const dept = emp.department || emp.office || 'Operations';
+      const teamLeaderId = emp.teamLeaderId || null;
 
-      const empTasks = allTasks.filter(t => {
-        const matchCode = t.assignedToEmployeeCodes && t.assignedToEmployeeCodes.includes(empCode);
-        const matchId = t.assignedToEmployeeIds && (t.assignedToEmployeeIds.includes(emp.id) || t.assignedToEmployeeIds.includes(empCode));
-        const tDate = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime ? t.createdAtDeviceTime.substring(0, 10) : '');
-        return (matchCode || matchId) && tDate === reportDate;
-      });
+      const calc = calculateEfficiency(
+        emp.id || empCode,
+        empCode,
+        empName,
+        dept,
+        teamLeaderId,
+        reportDate,
+        reportDate,
+        allTasks,
+        allAttendance,
+        DEFAULT_WEIGHTAGES
+      );
 
-      const hasAttendance = !!att && att.checkInTime;
-      const hasTasks = empTasks.length > 0;
+      const efficiency = Math.round(calc.finalScore);
+      const grade = calc.grade;
 
-      if (!hasAttendance && !hasTasks) {
+      const hasActivity = allAttendance.some(a => (a.employeeCode === empCode || a.employeeId === emp.id || a.employeeId === empCode) && (a.date === reportDate || (a.createdAtDeviceTime || '').startsWith(reportDate))) ||
+                          allTasks.some(t => {
+                            const matchCode = t.assignedToEmployeeCodes && t.assignedToEmployeeCodes.includes(empCode);
+                            const matchId = t.assignedToEmployeeIds && (t.assignedToEmployeeIds.includes(emp.id) || t.assignedToEmployeeIds.includes(empCode));
+                            const tDate = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime ? t.createdAtDeviceTime.substring(0, 10) : '');
+                            return (matchCode || matchId) && tDate === reportDate;
+                          });
+
+      if (!hasActivity && efficiency === 0) {
         insufficientDataCount++;
-        evaluatedEmployees.push({
-          empCode,
-          empName,
-          dept,
-          efficiency: 0,
-          workHours: 'N/A',
-          tasksCompleted: 0,
-          tasksTotal: 0,
-          insufficientData: true,
-          reason: 'Insufficient data'
-        });
-        return;
       }
 
-      evaluatedCount++;
-      const tasksTotal = empTasks.length;
-      const tasksCompleted = empTasks.filter(t => {
-        const s = (t.status || '').toUpperCase().trim();
-        return s === 'COMPLETED' || t.approvalStatus === 'APPROVED';
-      }).length;
-
-      const taskScore = tasksTotal > 0 ? (tasksCompleted / tasksTotal) * 100 : 100;
-      const isLate = att?.isLate === true || (att?.checkInTime && isKolkataLateCheckIn(att.checkInTime));
-      const punctualityScore = !hasAttendance ? 0 : (isLate ? 70 : 100);
-      const workHoursStr = att?.workingHours || '8h 0m';
-
-      const efficiency = Math.round(taskScore * 0.5 + punctualityScore * 0.5);
       totalScoreSum += efficiency;
-
       if (efficiency >= 75) {
         aboveTargetCount++;
       } else {
         belowTargetCount++;
       }
 
-      let reason = 'Normal performance';
-      if (!hasAttendance) reason = 'Attendance issue / absent';
-      else if (isLate) reason = 'Late arrival affecting punctuality';
-      else if (tasksTotal > 0 && tasksCompleted === 0) reason = 'Low task completion';
-      else if (efficiency < 60) reason = 'High idle time / low productivity';
-
       evaluatedEmployees.push({
         empCode,
         empName,
         dept,
         efficiency,
-        workHours: workHoursStr,
-        tasksCompleted,
-        tasksTotal,
-        insufficientData: false,
-        reason,
-        isLate,
-        hasAttendance
+        grade,
+        insufficientData: !hasActivity && efficiency === 0
       });
     });
 
-    const validEvaluated = evaluatedEmployees.filter(e => !e.insufficientData);
+    const validEvaluated = evaluatedEmployees.filter(e => e.efficiency >= 0);
     const overallAvgEfficiency = validEvaluated.length > 0 ? Math.round(totalScoreSum / validEvaluated.length) : 0;
     const sortedByEff = [...validEvaluated].sort((a, b) => b.efficiency - a.efficiency);
     const highestEff = sortedByEff.length > 0 ? sortedByEff[0].efficiency : 0;
     const lowestEff = sortedByEff.length > 0 ? sortedByEff[sortedByEff.length - 1].efficiency : 0;
-
     const topPerformers = sortedByEff.slice(0, 5);
     const bottomPerformers = [...validEvaluated].sort((a, b) => a.efficiency - b.efficiency).slice(0, 5);
 
@@ -814,6 +791,17 @@ export async function generateAndSendDailyReport(
         </tr>
       `);
     });
+
+    const diagnosticHtml = validEvaluated.length === 0 ? `
+      <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 15px; font-size: 12px; color: #991b1b;">
+        <strong>Server Diagnostics:</strong> No efficiency data available.<br/>
+        - Report Date: ${reportDate}<br/>
+        - Employees Found: ${employeesList.length}<br/>
+        - Attendance Records Found: ${allAttendance.length}<br/>
+        - Tasks Found: ${allTasks.length}<br/>
+        - Valid Scores: ${validEvaluated.length}
+      </div>
+    ` : '';
 
     const topPerformersRowsHtml = topPerformers.map((p, idx) => `
       <tr style="border-bottom: 1px solid #e2e8f0;">
