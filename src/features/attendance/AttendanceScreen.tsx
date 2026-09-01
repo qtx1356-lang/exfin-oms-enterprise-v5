@@ -41,6 +41,7 @@ import { useLocationContext } from '../../context/LocationContext';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { LocationGate } from '../../components/common/LocationGate';
 import { AttendanceRecord, AttendanceType, OutdoorWorkTypeOption, LiveEmployeeLocation } from '../../types/attendance';
+import { getStoredLeaves } from '../../services/leave/leaveStorage';
 import { isAttendanceCheckoutUnresolved, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails } from '../../utils/attendanceUtils';
 import { useSensitiveActionGuard } from '../../services/security/useSensitiveActionGuard';
 
