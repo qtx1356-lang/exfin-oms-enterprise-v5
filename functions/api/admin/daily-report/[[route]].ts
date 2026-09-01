@@ -464,7 +464,7 @@ export async function onRequest(context) {
           ? body.date.trim() 
           : getPreviousKolkataDateString();
 
-        // STEP 3: ATTENDANCE_DATA_LOADED
+        // STEP 3: ATTENDANCE_DATA_LOADED & EFFICIENCY
         currentStage = 'ATTENDANCE_DATA_LOADED';
         const emps = await safeQueryCollection('registrations');
         const approvedEmps = emps.filter(e => e.status === 'Approved' && e.role !== 'ADMIN' && e.role !== 'SUPER_ADMIN');
@@ -482,12 +482,76 @@ export async function onRequest(context) {
         });
         const activeLeaves = leaves.filter(l => l.startDate <= targetDate && l.endDate >= targetDate).length;
 
-        // STEP 4: EXPENSE_DATA_LOADED
+        // STEP 4: EXPENSE & TASKS DATA LOADED
         currentStage = 'EXPENSE_DATA_LOADED';
         const expenses = await safeQueryCollection('expense_claims', {
           where: { fieldFilter: { field: { fieldPath: 'status' }, op: 'EQUAL', value: { stringValue: 'Pending' } } }
         });
         const totalExpensesSum = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+
+        const tasks = await safeQueryCollection('tasks');
+
+        const evaluatedEmployees = approvedEmps.map(emp => {
+          const empCode = emp.employeeCode || emp.id;
+          const empName = emp.name || empCode;
+          const dept = emp.department || emp.office || 'Operations';
+          
+          const empAtt = attendance.find(a => (a.employeeCode === empCode || a.employeeId === emp.id));
+          const hasCheckedIn = !!empAtt;
+          const isPresent = hasCheckedIn;
+
+          const empTasks = tasks.filter(t => {
+            const matchCode = t.assignedToEmployeeCodes && t.assignedToEmployeeCodes.includes(empCode);
+            const matchId = t.assignedToEmployeeIds && (t.assignedToEmployeeIds.includes(emp.id) || t.assignedToEmployeeIds.includes(empCode));
+            return matchCode || matchId;
+          });
+          const completedTasks = empTasks.filter(t => t.status === 'Completed' || t.status === 'completed').length;
+          const totalTasks = empTasks.length;
+          
+          let score = 75;
+          if (isPresent) score += 15;
+          if (totalTasks > 0) {
+            score += Math.round((completedTasks / totalTasks) * 10);
+          }
+          const efficiency = Math.max(0, Math.min(100, score));
+
+          return {
+            empCode,
+            empName,
+            dept,
+            efficiency,
+            tasksCompleted: completedTasks,
+            tasksTotal: totalTasks
+          };
+        });
+
+        const totalScoreSum = evaluatedEmployees.reduce((sum, e) => sum + e.efficiency, 0);
+        const overallAvgEfficiency = evaluatedEmployees.length > 0 ? Math.round(totalScoreSum / evaluatedEmployees.length) : 0;
+        const sortedByEff = [...evaluatedEmployees].sort((a, b) => b.efficiency - a.efficiency);
+        const highestEff = sortedByEff.length > 0 ? sortedByEff[0].efficiency : 0;
+        const lowestEff = sortedByEff.length > 0 ? sortedByEff[sortedByEff.length - 1].efficiency : 0;
+        const topPerformers = sortedByEff.slice(0, 5);
+        const bottomPerformers = [...evaluatedEmployees].sort((a, b) => a.efficiency - b.efficiency).slice(0, 5);
+
+        const topPerformersRows = topPerformers.length > 0 ? topPerformers.map((p, idx) => `
+          <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 12px 10px; font-weight: bold; color: #0f766e;">#${idx + 1}</td>
+            <td style="padding: 12px 10px; color: #0f172a; font-weight: 500;">${p.empName} <span style="font-size: 11px; color: #64748b;">(${p.empCode})</span></td>
+            <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
+            <td style="padding: 12px 10px; font-weight: bold; color: #047857; text-align: right;">${p.efficiency}%</td>
+          </tr>
+        `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">No performance records available</td></tr>`;
+
+        const needsImprovementRows = bottomPerformers.length > 0 ? bottomPerformers.map((p, idx) => `
+          <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c;">#${idx + 1}</td>
+            <td style="padding: 12px 10px; color: #0f172a; font-weight: 500;">${p.empName} <span style="font-size: 11px; color: #64748b;">(${p.empCode})</span></td>
+            <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
+            <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c; text-align: right;">${p.efficiency}%</td>
+          </tr>
+        `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">No improvement records needed</td></tr>`;
+
+        const adminPanelUrl = 'https://exfin-oms-enterprise-v5.pages.dev/x7Kp9';
 
         // STEP 5: REPORT_HTML_GENERATED
         currentStage = 'REPORT_HTML_GENERATED';
@@ -532,6 +596,33 @@ export async function onRequest(context) {
         <p style="margin: 4px 0;"><strong>Pending Expense Claims:</strong> ${expenses.length}</p>
         <p style="margin: 4px 0;"><strong>Unresolved Checkouts:</strong> ${unresolvedCheckouts}</p>
       </div>
+
+      <div style="margin-top: 30px;">
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 14px; text-transform: uppercase;">Efficiency Summary</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;">
+          <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px; color: #475569;">Average Efficiency</td><td style="padding: 8px; font-weight: bold; color: #0f766e; text-align: right;">${overallAvgEfficiency}%</td></tr>
+          <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px; color: #475569;">Highest Performer</td><td style="padding: 8px; font-weight: bold; color: #047857; text-align: right;">${highestEff}%</td></tr>
+          <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 8px; color: #475569;">Lowest Performer</td><td style="padding: 8px; font-weight: bold; color: #b91c1c; text-align: right;">${lowestEff}%</td></tr>
+        </table>
+      </div>
+
+      <div style="margin-top: 30px;">
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 14px; text-transform: uppercase;">Top 5 Performers</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px;">
+          ${topPerformersRows}
+        </table>
+      </div>
+
+      <div style="margin-top: 30px;">
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 14px; text-transform: uppercase;">Needs Improvement</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px;">
+          ${needsImprovementRows}
+        </table>
+      </div>
+
+      <div style="margin-top: 35px; text-align: center;">
+        <a href="${adminPanelUrl}" style="background-color: #0f766e; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">View More</a>
+      </div>
     </div>
     <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 15px; text-align: center; color: #64748b; font-size: 12px;">
       EXFIN Office Management System — Generated Daily Operational Briefing
@@ -539,6 +630,18 @@ export async function onRequest(context) {
   </div>
 </body>
 </html>`;
+
+        // Pre-SMTP validations
+        const containsSummary = html.includes('Summary Overview');
+        const containsEfficiency = html.includes('Efficiency Summary');
+        const containsTop5 = html.includes('Top 5 Performers');
+        const containsNeedsImprovement = html.includes('Needs Improvement');
+        const containsAdminLink = html.includes('View More');
+        const containsX7Kp9 = html.includes('/x7Kp9');
+
+        if (!containsEfficiency || !containsTop5 || !containsNeedsImprovement || !containsAdminLink || !containsX7Kp9) {
+          throw new Error('Daily Report HTML validation failed: missing required efficiency or admin panel link sections.');
+        }
 
         const htmlSizeBytes = new TextEncoder().encode(html).length;
         const subject = `EXFIN OMS — Previous Day Admin Report — ${targetDate}`;
