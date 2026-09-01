@@ -758,8 +758,13 @@ export async function generateAndSendDailyReport(
     const sortedByEff = [...validEvaluated].sort((a, b) => b.efficiency - a.efficiency);
     const highestEff = sortedByEff.length > 0 ? sortedByEff[0].efficiency : 0;
     const lowestEff = sortedByEff.length > 0 ? sortedByEff[sortedByEff.length - 1].efficiency : 0;
+    
     const topPerformers = sortedByEff.slice(0, 5);
-    const bottomPerformers = [...validEvaluated].sort((a, b) => a.efficiency - b.efficiency).slice(0, 5);
+    const topPerformerCodes = new Set(topPerformers.map(p => p.empCode));
+
+    // Needs improvement: score < 60% and strictly not in Top Performers
+    const improvementCandidates = validEvaluated.filter(e => e.efficiency < 60 && !topPerformerCodes.has(e.empCode));
+    const bottomPerformers = [...improvementCandidates].sort((a, b) => a.efficiency - b.efficiency).slice(0, 5);
 
     const dist = {
       excellent: validEvaluated.filter(e => e.efficiency >= 90).length,
@@ -850,7 +855,7 @@ export async function generateAndSendDailyReport(
         <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
         <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c; text-align: right;">${p.efficiency}%</td>
       </tr>
-    `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">No improvement records needed</td></tr>`;
+    `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">No improvement records needed (All performers scored &ge; 60%)</td></tr>`;
 
     const appUrl = process.env.APP_URL ? process.env.APP_URL.replace(/\/$/, '') : 'https://exfin-oms-enterprise-v5.pages.dev';
     const adminPanelUrl = `${appUrl}/x7Kp9`;
