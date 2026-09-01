@@ -4,7 +4,7 @@ import { Home, ClipboardCheck, CalendarRange, Target, Users } from 'lucide-react
 import { useRegistration } from '../../context/RegistrationContext';
 
 const TABS = [
-  { id: 'dashboard', path: '/employee-dashboard', icon: Home, label: 'Home' },
+  { id: 'dashboard', path: '/', icon: Home, label: 'Home' },
   { id: 'attendance', path: '/attendance', icon: ClipboardCheck, label: 'Attendance' },
   { id: 'planner', path: '/planner', icon: CalendarRange, label: 'Planner' },
   { id: 'efficiency', path: '/efficiency', icon: Target, label: 'Efficiency' },
@@ -31,7 +31,9 @@ export const BottomNav: React.FC = () => {
     <nav className="fixed bottom-0 left-0 right-0 glass-nav z-[90] pb-safe pt-1.5 px-1 sm:px-4">
       <div className="flex justify-between items-center h-16 max-w-md mx-auto gap-1">
         {visibleTabs.map((tab) => {
-          const isActive = location.pathname === tab.path;
+          const isActive = tab.path === '/'
+            ? (location.pathname === '/' || location.pathname === '/employee-dashboard')
+            : location.pathname === tab.path;
           const Icon = tab.icon;
           return (
             <button

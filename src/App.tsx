@@ -8,6 +8,7 @@ import { RegistrationProvider } from './context/RegistrationContext';
 import { RealtimeSyncProvider } from './context/RealtimeSyncContext';
 import { PermissionProvider } from './context/PermissionContext';
 import { LocationProvider } from './context/LocationContext';
+import { BiometricSecurityProvider } from './context/BiometricSecurityContext';
 import { AlertPopupProvider } from './context/AlertPopupContext';
 import { ConnectivityIndicator } from './components/common/ConnectivityIndicator';
 
@@ -19,10 +20,12 @@ export default function App() {
           <RealtimeSyncProvider>
             <PermissionProvider>
               <LocationProvider>
-                <AlertPopupProvider>
-                  <ConnectivityIndicator />
-                  <AppRouter />
-                </AlertPopupProvider>
+                <BiometricSecurityProvider>
+                  <AlertPopupProvider>
+                    <ConnectivityIndicator />
+                    <AppRouter />
+                  </AlertPopupProvider>
+                </BiometricSecurityProvider>
               </LocationProvider>
             </PermissionProvider>
           </RealtimeSyncProvider>
