@@ -274,6 +274,9 @@ export function isKolkataLateCheckIn(checkInTimeStr: string): boolean {
 
 let inMemoryReportConfig: DailyReportConfig = { ...DEFAULT_REPORT_CONFIG };
 let hasLoadedFromFirestore = false;
+let isSchedulerExecuting = false;
+let isSchedulerDisabled = false;
+let hasLoggedSchedulerDisabled = false;
 
 /**
  * Fetches the Daily Admin Email Report configuration from Firestore with in-memory fallback
@@ -290,6 +293,13 @@ export async function getDailyReportConfig(db?: Firestore | null): Promise<Daily
     // Fallback to 'notification_settings' collection
     if (!snap.exists) {
       snap = await db.collection('notification_settings').doc('daily_admin_report_config').get();
+    }
+
+    // Since we successfully reached and read from the database, reset the authorization disabled flag
+    if (isSchedulerDisabled) {
+      isSchedulerDisabled = false;
+      hasLoggedSchedulerDisabled = false;
+      console.log('[DailyReport Scheduler] Self-healed: Successfully read configuration from Firestore. Re-enabling scheduler.');
     }
 
     if (!snap.exists) {
@@ -367,6 +377,13 @@ export async function saveDailyReportConfig(
   };
 
   inMemoryReportConfig = { ...updated };
+
+  // Since we are updating configuration, reset the scheduler disabled flag
+  if (isSchedulerDisabled) {
+    isSchedulerDisabled = false;
+    hasLoggedSchedulerDisabled = false;
+    console.log('[DailyReport Scheduler] Config updated: Re-enabling scheduler.');
+  }
 
   if (db) {
     try {
@@ -1337,9 +1354,6 @@ export async function sendDailyReportTestEmail(
  * Background automated runner: checks if the current time in Asia/Kolkata matches or exceeds
  * the configured daily send time, and dispatches yesterday's operational summary report if not already sent.
  */
-let isSchedulerExecuting = false;
-let isSchedulerDisabled = false;
-
 export async function checkAndRunScheduledDailyReport(db: Firestore | null): Promise<void> {
   if (!db) {
     console.log('[DailyReport Scheduler] Database is not initialized. Skipping scheduled check.');
@@ -1350,7 +1364,6 @@ export async function checkAndRunScheduledDailyReport(db: Firestore | null): Pro
     return;
   }
   if (isSchedulerDisabled) {
-    console.log('[DailyReport Scheduler] Scheduler is disabled due to previous authorization errors. Skipping check.');
     return;
   }
 
@@ -1413,10 +1426,10 @@ export async function checkAndRunScheduledDailyReport(db: Firestore | null): Pro
     const result = await generateAndSendDailyReport(db, reportDate, false, 'SYSTEM_SCHEDULER');
     console.log(`[DailyReport Scheduler] Report run completed for ${reportDate}. Result success: ${result.success}`);
   } catch (err: any) {
-    console.error('[DailyReport Scheduler] Error in automated scheduled check:', err);
     if (err && err.message && err.message.includes('PERMISSION_DENIED')) {
-      console.warn('[DailyReport Scheduler] Disabling scheduler due to missing Firebase Admin permissions.');
       isSchedulerDisabled = true;
+    } else {
+      console.error('[DailyReport Scheduler] Error in automated scheduled check:', err);
     }
   } finally {
     isSchedulerExecuting = false;
