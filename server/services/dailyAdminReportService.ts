@@ -836,6 +836,38 @@ export async function generateAndSendDailyReport(
     `).join('');
 
     // 9. Generate Complete HTML Content
+    const highestEffEmp = sortedByEff.length > 0 ? sortedByEff[0] : null;
+    const lowestEffEmp = sortedByEff.length > 0 ? sortedByEff[sortedByEff.length - 1] : null;
+    const highestEffEmpName = highestEffEmp ? `${highestEffEmp.empName} (${highestEffEmp.empCode})` : 'N/A';
+    const lowestEffEmpName = lowestEffEmp ? `${lowestEffEmp.empName} (${lowestEffEmp.empCode})` : 'N/A';
+
+    const topPerformersRows = topPerformers.map((p, idx) => `
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 12px 10px; font-weight: bold; color: #0f766e;">#${idx + 1}</td>
+        <td style="padding: 12px 10px; color: #0f172a; font-weight: 500;">${p.empName} <span style="font-size: 11px; color: #64748b;">(${p.empCode})</span></td>
+        <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
+        <td style="padding: 12px 10px; font-weight: bold; color: #047857; text-align: right;">${p.efficiency}%</td>
+      </tr>
+    `).join('');
+
+    const needsImprovementRows = bottomPerformers.map((p, idx) => `
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c;">#${idx + 1}</td>
+        <td style="padding: 12px 10px; color: #0f172a; font-weight: 500;">${p.empName} <span style="font-size: 11px; color: #64748b;">(${p.empCode})</span></td>
+        <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
+        <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c; text-align: right;">${p.efficiency}%</td>
+      </tr>
+    `).join('');
+
+    const appUrl = process.env.APP_URL ? process.env.APP_URL.replace(/\/$/, '') : 'https://exfin-oms-enterprise-v5.pages.dev';
+    const adminPanelUrl = `${appUrl}/x7Kp9`;
+
+    const generatedTimeKolkata = new Date().toLocaleString('en-US', {
+      timeZone: 'Asia/Kolkata',
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
+
     const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -844,79 +876,79 @@ export async function generateAndSendDailyReport(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EXFIN OMS Daily Report</title>
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; padding: 20px; margin: 0; -webkit-font-smoothing: antialiased;">
-  <div style="max-width: 800px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; padding: 20px; margin: 0; -webkit-font-smoothing: antialiased;">
+  <div style="max-width: 800px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
     
-    <!-- Header -->
-    <div style="background: linear-gradient(135deg, #1e1b4b 0%, #31105e 100%); color: #ffffff; padding: 30px; text-align: center;">
-      <h1 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">EXFIN OMS</h1>
-      <p style="margin: 5px 0 0 0; font-size: 15px; color: #c084fc; font-weight: 600;">Daily Operations & Administration Report</p>
-      <div style="display: inline-block; margin-top: 15px; background: rgba(255,255,255,0.15); padding: 5px 15px; border-radius: 20px; font-size: 13px; font-weight: bold;">
+    <!-- 1. Header -->
+    <div style="background-color: #0f766e; color: #ffffff; padding: 32px 24px; text-align: center; border-bottom: 4px solid #0d9488;">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">EXFIN OMS</h1>
+      <p style="margin: 4px 0 0 0; font-size: 16px; color: #ccfbf1; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Daily Administration Report</p>
+      <div style="margin-top: 16px; display: inline-block; background-color: rgba(255, 255, 255, 0.15); padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;">
         Report Date: ${dateFormattedFriendly}
       </div>
+      <p style="margin: 8px 0 0 0; font-size: 11px; color: #99f6e4;">Generated Time: ${generatedTimeKolkata} (Asia/Kolkata)</p>
     </div>
 
     <div style="padding: 25px;">
       
-      <!-- Summary Metrics Grid -->
-      <h3 style="margin-top: 0; color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Summary Overview</h3>
-      <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 25px;">
+      <!-- 2. Attendance Overview -->
+      <div style="margin-bottom: 35px;">
+        <h3 style="margin-top: 0; color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">2. Attendance Overview</h3>
         
-        <div style="flex: 1 1 120px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: bold; color: #047857; text-transform: uppercase;">Present</div>
-          <div style="font-size: 24px; font-weight: 800; color: #065f46; margin-top: 2px;">${presentCount}</div>
+        <!-- Stats Grid -->
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 15px; margin-bottom: 25px;">
+          <div style="flex: 1 1 120px; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; color: #047857; text-transform: uppercase;">Present</div>
+            <div style="font-size: 24px; font-weight: 800; color: #065f46; margin-top: 2px;">${presentCount}</div>
+          </div>
+
+          <div style="flex: 1 1 120px; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; color: #b91c1c; text-transform: uppercase;">Absent</div>
+            <div style="font-size: 24px; font-weight: 800; color: #991b1b; margin-top: 2px;">${absentCount}</div>
+          </div>
+
+          <div style="flex: 1 1 120px; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; color: #1d4ed8; text-transform: uppercase;">WFH</div>
+            <div style="font-size: 24px; font-weight: 800; color: #1e40af; margin-top: 2px;">${wfhCount}</div>
+          </div>
+
+          <div style="flex: 1 1 120px; background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 10px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; color: #b45309; text-transform: uppercase;">Client Visit</div>
+            <div style="font-size: 24px; font-weight: 800; color: #92400e; margin-top: 2px;">${clientVisitCount}</div>
+          </div>
+
+          <div style="flex: 1 1 120px; background-color: #f3e8ff; border: 1px solid #e9d5ff; border-radius: 10px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; color: #7e22ce; text-transform: uppercase;">Outdoor</div>
+            <div style="font-size: 24px; font-weight: 800; color: #6b21a8; margin-top: 2px;">${outdoorWorkCount}</div>
+          </div>
+
+          <div style="flex: 1 1 120px; background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; color: #d97706; text-transform: uppercase;">Late</div>
+            <div style="font-size: 24px; font-weight: 800; color: #92400e; margin-top: 2px;">${lateCount}</div>
+          </div>
+
+          <div style="flex: 1 1 120px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; color: #475569; text-transform: uppercase;">Expenses</div>
+            <div style="font-size: 24px; font-weight: 800; color: #0f172a; margin-top: 2px;">₹${totalExpensesSum.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+          </div>
         </div>
 
-        <div style="flex: 1 1 120px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: bold; color: #b91c1c; text-transform: uppercase;">Absent</div>
-          <div style="font-size: 24px; font-weight: 800; color: #991b1b; margin-top: 2px;">${absentCount}</div>
-        </div>
-
-        <div style="flex: 1 1 120px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: bold; color: #1d4ed8; text-transform: uppercase;">WFH</div>
-          <div style="font-size: 24px; font-weight: 800; color: #1e40af; margin-top: 2px;">${wfhCount}</div>
-        </div>
-
-        <div style="flex: 1 1 120px; background: #fef3c7; border: 1px solid #fde68a; border-radius: 10px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: bold; color: #b45309; text-transform: uppercase;">Client Visit</div>
-          <div style="font-size: 24px; font-weight: 800; color: #92400e; margin-top: 2px;">${clientVisitCount}</div>
-        </div>
-
-        <div style="flex: 1 1 120px; background: #f3e8ff; border: 1px solid #e9d5ff; border-radius: 10px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: bold; color: #7e22ce; text-transform: uppercase;">Outdoor</div>
-          <div style="font-size: 24px; font-weight: 800; color: #6b21a8; margin-top: 2px;">${outdoorWorkCount}</div>
-        </div>
-
-        <div style="flex: 1 1 120px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: bold; color: #d97706; text-transform: uppercase;">Late</div>
-          <div style="font-size: 24px; font-weight: 800; color: #92400e; margin-top: 2px;">${lateCount}</div>
-        </div>
-
-        <div style="flex: 1 1 120px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: bold; color: #475569; text-transform: uppercase;">Expenses</div>
-          <div style="font-size: 24px; font-weight: 800; color: #0f172a; margin-top: 2px;">₹${totalExpensesSum.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-        </div>
-
-      </div>
-
-      <!-- Attendance Section -->
-      <div style="margin-bottom: 30px;">
-        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase;">1. Attendance Details (${presentCount} present / ${totalEmployeesCount} total)</h3>
+        <!-- Attendance Detail Table -->
         ${attendanceRows.length === 0 ? 
-          '<p style="color: #64748b; font-size: 13px;">No attendance recorded for this date.</p>' : `
-          <div style="overflow-x: auto;">
+          '<p style="color: #64748b; font-size: 13px; font-style: italic;">No attendance recorded for this date.</p>' : `
+          <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
               <thead>
-                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
-                  <th style="padding: 10px;">Emp Code</th>
-                  <th style="padding: 10px;">Name</th>
-                  <th style="padding: 10px;">Type</th>
-                  <th style="padding: 10px;">In</th>
-                  <th style="padding: 10px;">Out</th>
-                  <th style="padding: 10px;">Hours</th>
-                  <th style="padding: 10px;">Status</th>
-                  <th style="padding: 10px;">Late</th>
-                  <th style="padding: 10px;">Location Details</th>
+                <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
+                  <th style="padding: 12px 10px;">Emp Code</th>
+                  <th style="padding: 12px 10px;">Name</th>
+                  <th style="padding: 12px 10px;">Type</th>
+                  <th style="padding: 12px 10px;">In</th>
+                  <th style="padding: 12px 10px;">Out</th>
+                  <th style="padding: 12px 10px;">Hours</th>
+                  <th style="padding: 12px 10px;">Status</th>
+                  <th style="padding: 12px 10px;">Late</th>
+                  <th style="padding: 12px 10px;">Location Details</th>
                 </tr>
               </thead>
               <tbody>
@@ -927,20 +959,94 @@ export async function generateAndSendDailyReport(
         `}
       </div>
 
-      <!-- Leave Section -->
-      <div style="margin-bottom: 30px;">
-        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase;">2. Leaves Overview</h3>
-        ${leaveRows.length === 0 ? 
-          '<p style="color: #64748b; font-size: 13px;">No active leaves recorded for this date.</p>' : `
-          <div style="overflow-x: auto;">
+      <!-- 3. & 4. Efficiency Overview and Leaderboards -->
+      ${validEvaluated.length === 0 ? `
+        <div style="margin-bottom: 35px; border-top: 2px solid #f1f5f9; padding-top: 20px;">
+          <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">3. Efficiency Summary</h3>
+          <p style="color: #64748b; font-size: 13px; font-style: italic; padding: 15px; background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center;">
+            No efficiency data available for this reporting period.
+          </p>
+        </div>
+      ` : `
+        <!-- 3. Efficiency Summary -->
+        <div style="margin-bottom: 35px; border-top: 2px solid #f1f5f9; padding-top: 20px;">
+          <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">3. Efficiency Summary</h3>
+          <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-top: 15px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <tr style="border-bottom: 1px solid #dcfce7;">
+                <td style="padding: 10px 0; color: #1e3a1e; font-weight: 600;">Team Average Efficiency</td>
+                <td style="padding: 10px 0; text-align: right; font-weight: bold; color: #0f766e; font-size: 16px;">${overallAvgEfficiency}%</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #dcfce7;">
+                <td style="padding: 10px 0; color: #1e3a1e; font-weight: 600;">Highest Efficiency Employee</td>
+                <td style="padding: 10px 0; text-align: right; font-weight: bold; color: #047857;">${highestEffEmpName} (${highestEff}%)</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #dcfce7;">
+                <td style="padding: 10px 0; color: #1e3a1e; font-weight: 600;">Lowest Efficiency Employee</td>
+                <td style="padding: 10px 0; text-align: right; font-weight: bold; color: #b91c1c;">${lowestEffEmpName} (${lowestEff}%)</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0; color: #1e3a1e; font-weight: 600;">Total Employees Evaluated</td>
+                <td style="padding: 10px 0; text-align: right; font-weight: bold; color: #0f172a;">${evaluatedCount}</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- 4. Efficiency Leaderboard -->
+        <div style="margin-bottom: 35px; border-top: 2px solid #f1f5f9; padding-top: 20px;">
+          <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">4. Efficiency Leaderboard</h3>
+          
+          <h4 style="color: #047857; font-size: 13px; font-weight: bold; margin-top: 15px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">🏆 Top Performers</h4>
+          <div style="overflow-x: auto; margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
               <thead>
-                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
-                  <th style="padding: 10px;">Emp Code</th>
-                  <th style="padding: 10px;">Name</th>
-                  <th style="padding: 10px;">Leave Period</th>
-                  <th style="padding: 10px;">Status</th>
-                  <th style="padding: 10px;">Reason</th>
+                <tr style="background-color: #f0fdf4; border-bottom: 2px solid #bbf7d0; color: #166534; font-weight: bold;">
+                  <th style="padding: 12px 10px; width: 60px;">Rank</th>
+                  <th style="padding: 12px 10px;">Employee Name</th>
+                  <th style="padding: 12px 10px;">Department</th>
+                  <th style="padding: 12px 10px; text-align: right; width: 120px;">Efficiency Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${topPerformersRows}
+              </tbody>
+            </table>
+          </div>
+
+          <h4 style="color: #b91c1c; font-size: 13px; font-weight: bold; margin-top: 15px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ Needs Improvement</h4>
+          <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+              <thead>
+                <tr style="background-color: #fef2f2; border-bottom: 2px solid #fecaca; color: #991b1b; font-weight: bold;">
+                  <th style="padding: 12px 10px; width: 60px;">Rank</th>
+                  <th style="padding: 12px 10px;">Employee Name</th>
+                  <th style="padding: 12px 10px;">Department</th>
+                  <th style="padding: 12px 10px; text-align: right; width: 120px;">Efficiency Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${needsImprovementRows}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `}
+
+      <!-- 5. Operational Summary & Additional Details -->
+      <div style="margin-bottom: 35px; border-top: 2px solid #f1f5f9; padding-top: 20px;">
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">5. Leaves Overview</h3>
+        ${leaveRows.length === 0 ? 
+          '<p style="color: #64748b; font-size: 13px; font-style: italic;">No active leaves recorded for this date.</p>' : `
+          <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+              <thead>
+                <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
+                  <th style="padding: 12px 10px;">Emp Code</th>
+                  <th style="padding: 12px 10px;">Name</th>
+                  <th style="padding: 12px 10px;">Leave Period</th>
+                  <th style="padding: 12px 10px;">Status</th>
+                  <th style="padding: 12px 10px;">Reason</th>
                 </tr>
               </thead>
               <tbody>
@@ -951,21 +1057,20 @@ export async function generateAndSendDailyReport(
         `}
       </div>
 
-      <!-- Expenses Section -->
-      <div style="margin-bottom: 30px;">
-        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase;">3. Expenses Claims</h3>
+      <div style="margin-bottom: 35px;">
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">6. Expenses Claims</h3>
         ${expenseRows.length === 0 ? 
-          '<p style="color: #64748b; font-size: 13px;">No expenses submitted for this date.</p>' : `
-          <div style="overflow-x: auto;">
+          '<p style="color: #64748b; font-size: 13px; font-style: italic;">No expenses submitted for this date.</p>' : `
+          <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
               <thead>
-                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
-                  <th style="padding: 10px;">Emp Code</th>
-                  <th style="padding: 10px;">Name</th>
-                  <th style="padding: 10px;">Amount</th>
-                  <th style="padding: 10px;">Category</th>
-                  <th style="padding: 10px;">Description</th>
-                  <th style="padding: 10px;">Status</th>
+                <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
+                  <th style="padding: 12px 10px;">Emp Code</th>
+                  <th style="padding: 12px 10px;">Name</th>
+                  <th style="padding: 12px 10px;">Amount</th>
+                  <th style="padding: 12px 10px;">Category</th>
+                  <th style="padding: 12px 10px;">Description</th>
+                  <th style="padding: 12px 10px;">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -974,131 +1079,68 @@ export async function generateAndSendDailyReport(
             </table>
           </div>
           <div style="text-align: right; margin-top: 15px; font-size: 14px; font-weight: bold; color: #0f172a;">
-            Total Daily Expenses Claimed: <span style="color: #10b981; font-size: 16px;">₹${totalExpensesSum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            Total Daily Expenses Claimed: <span style="color: #0f766e; font-size: 16px;">₹${totalExpensesSum.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
           </div>
         `}
       </div>
 
-      <!-- ========================================================== -->
-      <!-- 4. DAILY EFFICIENCY & PERFORMANCE SECTION -->
-      <!-- ========================================================== -->
-      <div style="margin-top: 40px; border-top: 3px solid #6366f1; padding-top: 25px;">
-        <h2 style="color: #1e1b4b; font-size: 20px; font-weight: 800; text-transform: uppercase; margin-bottom: 15px; letter-spacing: -0.5px;">DAILY EFFICIENCY & PERFORMANCE</h2>
-
-        <!-- Executive Summary -->
-        <div style="background: #f8fafc; border-left: 4px solid #6366f1; padding: 15px; border-radius: 8px; margin-bottom: 25px;">
-          <h4 style="margin: 0 0 8px 0; color: #1e293b; font-size: 14px; text-transform: uppercase;">Daily Executive Summary</h4>
-          <p style="margin: 0; font-size: 13px; color: #334155; line-height: 1.6;">
-            Today's overall average efficiency was <strong>${overallAvgEfficiency}%</strong>, with <strong>${aboveTargetCount}</strong> of <strong>${evaluatedCount}</strong> evaluated employees meeting or exceeding the expected performance level. The highest recorded efficiency was <strong>${highestEff}%</strong>, while <strong>${belowTargetCount}</strong> employees require attention due to low productivity or attendance indicators. (${insufficientDataCount} employees had insufficient tracking data).
-          </p>
-        </div>
-
-        <!-- Efficiency Summary -->
-        <div style="margin-bottom: 25px;">
-          <h3 style="color: #0f172a; font-size: 15px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">1. Efficiency Summary</h3>
-          <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px;">
-            <div style="flex: 1 1 130px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; text-align: center;">
-              <div style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Overall Avg</div>
-              <div style="font-size: 20px; font-weight: 800; color: #0f172a; margin-top: 2px;">${overallAvgEfficiency}%</div>
-            </div>
-            <div style="flex: 1 1 130px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px; text-align: center;">
-              <div style="font-size: 10px; font-weight: bold; color: #047857; text-transform: uppercase;">Highest</div>
-              <div style="font-size: 20px; font-weight: 800; color: #065f46; margin-top: 2px;">${highestEff}%</div>
-            </div>
-            <div style="flex: 1 1 130px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px; text-align: center;">
-              <div style="font-size: 10px; font-weight: bold; color: #b91c1c; text-transform: uppercase;">Lowest</div>
-              <div style="font-size: 20px; font-weight: 800; color: #991b1b; margin-top: 2px;">${lowestEff}%</div>
-            </div>
-            <div style="flex: 1 1 130px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px; text-align: center;">
-              <div style="font-size: 10px; font-weight: bold; color: #1d4ed8; text-transform: uppercase;">Above Target</div>
-              <div style="font-size: 20px; font-weight: 800; color: #1e40af; margin-top: 2px;">${aboveTargetCount}</div>
-            </div>
-            <div style="flex: 1 1 130px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px; text-align: center;">
-              <div style="font-size: 10px; font-weight: bold; color: #b45309; text-transform: uppercase;">Needs Attention</div>
-              <div style="font-size: 20px; font-weight: 800; color: #92400e; margin-top: 2px;">${belowTargetCount}</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Top Efficiency Performers -->
-        <div style="margin-bottom: 25px;">
-          <h3 style="color: #0f172a; font-size: 15px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">2. Top Efficiency Performers</h3>
-          ${topPerformers.length === 0 ? '<p style="color: #64748b; font-size: 13px;">No sufficient performance data available for today.</p>' : `
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; margin-top: 10px;">
-              <thead>
-                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
-                  <th style="padding: 10px;">Rank</th>
-                  <th style="padding: 10px;">Employee</th>
-                  <th style="padding: 10px;">Efficiency</th>
-                  <th style="padding: 10px;">Work Hours</th>
-                  <th style="padding: 10px;">Tasks</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${topPerformersRowsHtml}
-              </tbody>
-            </table>
-          `}
-        </div>
-
-        <!-- Efficiency Needs Attention -->
-        <div style="margin-bottom: 25px;">
-          <h3 style="color: #0f172a; font-size: 15px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">3. Efficiency Needs Attention</h3>
-          ${bottomPerformers.length === 0 ? '<p style="color: #64748b; font-size: 13px;">No low-efficiency performers flagged today.</p>' : `
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; margin-top: 10px;">
-              <thead>
-                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
-                  <th style="padding: 10px;">Employee</th>
-                  <th style="padding: 10px;">Efficiency</th>
-                  <th style="padding: 10px;">Work Hours</th>
-                  <th style="padding: 10px;">Tasks</th>
-                  <th style="padding: 10px;">Exception / Reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${bottomPerformersRowsHtml}
-              </tbody>
-            </table>
-          `}
-        </div>
-
-        <!-- Efficiency Distribution -->
-        <div style="margin-bottom: 25px;">
-          <h3 style="color: #0f172a; font-size: 15px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">4. Efficiency Distribution</h3>
-          <table style="width: 100%; max-width: 400px; border-collapse: collapse; font-size: 13px; margin-top: 10px;">
-            <tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-weight: 600;">Excellent (90%+)</td><td style="padding: 8px; text-align: right; font-weight: bold; color: #059669;">${dist.excellent} employees</td></tr>
-            <tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-weight: 600;">Good (75% - 89%)</td><td style="padding: 8px; text-align: right; font-weight: bold; color: #2563eb;">${dist.good} employees</td></tr>
-            <tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-weight: 600;">Needs Improvement (60% - 74%)</td><td style="padding: 8px; text-align: right; font-weight: bold; color: #d97706;">${dist.needsImprovement} employees</td></tr>
-            <tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-weight: 600;">Critical (&lt;60%)</td><td style="padding: 8px; text-align: right; font-weight: bold; color: #dc2626;">${dist.critical} employees</td></tr>
-            <tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px; font-weight: 600;">Insufficient Data</td><td style="padding: 8px; text-align: right; font-weight: bold; color: #64748b;">${dist.insufficient} employees</td></tr>
-          </table>
-        </div>
-
+      ${validEvaluated.length > 0 ? `
         <!-- Team Performance -->
         ${teamRowsHtml.length > 0 ? `
-          <div style="margin-bottom: 25px;">
-            <h3 style="color: #0f172a; font-size: 15px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">5. Team Performance</h3>
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; margin-top: 10px;">
-              <thead>
-                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
-                  <th style="padding: 10px;">Department / Team</th>
-                  <th style="padding: 10px;">Avg Efficiency</th>
-                  <th style="padding: 10px;">Evaluated</th>
-                  <th style="padding: 10px;">Above Target</th>
-                  <th style="padding: 10px;">Needs Attention</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${teamRowsHtml.join('')}
-              </tbody>
-            </table>
+          <div style="margin-bottom: 35px;">
+            <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">7. Team Performance Breakdown</h3>
+            <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+                <thead>
+                  <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
+                    <th style="padding: 12px 10px;">Department / Team</th>
+                    <th style="padding: 12px 10px;">Avg Efficiency</th>
+                    <th style="padding: 12px 10px;">Evaluated</th>
+                    <th style="padding: 12px 10px;">Above Target</th>
+                    <th style="padding: 12px 10px;">Needs Attention</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${teamRowsHtml.join('')}
+                </tbody>
+              </table>
+            </div>
           </div>
         ` : ''}
 
+        <!-- Efficiency Distribution Details -->
+        <div style="margin-bottom: 35px;">
+          <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">8. Efficiency Distribution</h3>
+          <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px 10px; font-weight: 600; color: #1e293b;">Excellent (90%+)</td>
+                <td style="padding: 12px 10px; text-align: right; font-weight: bold; color: #059669;">${dist.excellent} employees</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px 10px; font-weight: 600; color: #1e293b;">Good (75% - 89%)</td>
+                <td style="padding: 12px 10px; text-align: right; font-weight: bold; color: #2563eb;">${dist.good} employees</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px 10px; font-weight: 600; color: #1e293b;">Needs Improvement (60% - 74%)</td>
+                <td style="padding: 12px 10px; text-align: right; font-weight: bold; color: #d97706;">${dist.needsImprovement} employees</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px 10px; font-weight: 600; color: #1e293b;">Critical (&lt;60%)</td>
+                <td style="padding: 12px 10px; text-align: right; font-weight: bold; color: #dc2626;">${dist.critical} employees</td>
+              </tr>
+              <tr>
+                <td style="padding: 12px 10px; font-weight: 600; color: #1e293b;">Insufficient Data</td>
+                <td style="padding: 12px 10px; text-align: right; font-weight: bold; color: #64748b;">${dist.insufficient} employees</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
         <!-- Productivity Highlights -->
-        <div style="margin-bottom: 25px;">
-          <h3 style="color: #0f172a; font-size: 15px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">6. Productivity Highlights</h3>
-          <ul style="margin: 10px 0 0 0; padding-left: 20px; font-size: 13px; color: #334155; line-height: 1.6;">
+        <div style="margin-bottom: 35px; background-color: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 8px; padding: 16px;">
+          <h3 style="color: #0f766e; font-size: 14px; font-weight: 700; text-transform: uppercase; margin: 0 0 10px 0;">Productivity Highlights</h3>
+          <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #1e293b; line-height: 1.6;">
             <li>Highest efficiency recorded today: <strong>${highestEff}%</strong></li>
             <li>Number of employees meeting or exceeding performance targets: <strong>${aboveTargetCount} / ${evaluatedCount}</strong></li>
             <li>Active attendance tracking operational across all departments with <strong>${presentCount}</strong> present today.</li>
@@ -1106,33 +1148,41 @@ export async function generateAndSendDailyReport(
         </div>
 
         <!-- Action Required -->
-        <div style="margin-bottom: 25px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 15px;">
-          <h3 style="color: #92400e; font-size: 14px; font-weight: 700; text-transform: uppercase; margin: 0 0 8px 0;">7. Action Required</h3>
-          <p style="margin: 0; font-size: 13px; color: #b45309; line-height: 1.5;">
+        <div style="margin-bottom: 35px; background-color: #fffbeb; border: 1.5px solid #fde68a; border-radius: 8px; padding: 16px;">
+          <h3 style="color: #92400e; font-size: 14px; font-weight: 700; text-transform: uppercase; margin: 0 0 10px 0;">Action Required</h3>
+          <p style="margin: 0; font-size: 13px; color: #92400e; line-height: 1.6;">
             Review employees falling into the critical or needs improvement categories. Follow up on attendance exceptions and investigate missing activity logs for employees with insufficient tracking data.
           </p>
         </div>
-
-        <!-- Recognition -->
-        <div style="margin-bottom: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 15px;">
-          <h3 style="color: #047857; font-size: 14px; font-weight: 700; text-transform: uppercase; margin: 0 0 8px 0;">8. Recognition</h3>
-          <p style="margin: 0; font-size: 13px; color: #065f46; line-height: 1.5;">
-            🏆 <strong>Top Efficiency Recognition:</strong> Commending our top performers who demonstrated strong productivity and task completion today, maintaining high operational standards across EXFIN OMS.
-          </p>
-        </div>
-
-      </div>
+      ` : ''}
 
       <!-- Other Activity -->
       <div style="margin-top: 30px; margin-bottom: 10px;">
-        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase;">Other Daily Operational Data</h3>
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Other Daily Operational Data</h3>
         ${otherDataHtml}
+      </div>
+
+      <!-- 6. Admin Panel Access (Highlighted) -->
+      <div style="margin-top: 40px; background-color: #f0fdf4; border: 1.5px solid #0f766e; border-radius: 12px; padding: 24px; text-align: center; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05);">
+        <h3 style="margin: 0 0 8px 0; color: #0f766e; font-size: 18px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Admin Panel</h3>
+        <p style="margin: 0 0 20px 0; color: #475569; font-size: 14px; line-height: 1.5; max-width: 500px; margin-left: auto; margin-right: auto;">
+          View the complete dashboard, analytics, attendance, efficiency, reports and employee management.
+        </p>
+        <a href="${adminPanelUrl}" target="_blank" style="display: inline-block; background-color: #0f766e; color: #ffffff; padding: 12px 28px; border-radius: 6px; font-size: 14px; font-weight: bold; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 4px 0 rgba(15, 118, 110, 0.2);">
+          View More
+        </a>
+        
+        <!-- 7. Admin Login Credentials -->
+        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #64748b; text-align: center; line-height: 1.6;">
+          <strong style="color: #475569; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Admin Login</strong>
+          Admin credentials are managed securely by the system.
+        </div>
       </div>
 
     </div>
 
     <!-- Footer -->
-    <div style="background: #f8fafc; border-top: 1px solid #cbd5e1; padding: 20px; text-align: center; color: #64748b; font-size: 11px;">
+    <div style="background: #f8fafc; border-top: 1px solid #cbd5e1; padding: 24px; text-align: center; color: #64748b; font-size: 11px; line-height: 1.5;">
       <p style="margin: 0;">This email is an automatically generated administrative report from your EXFIN Office Management System.</p>
       <p style="margin: 5px 0 0 0;">© 2026 EXFIN OMS. All rights reserved.</p>
     </div>
