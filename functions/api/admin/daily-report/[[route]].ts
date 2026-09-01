@@ -498,6 +498,10 @@ export async function onRequest(context) {
           return tDate === targetDate;
         });
 
+        const rawWorkDetails = await safeQueryCollection('daily_work_details', {
+          where: { fieldFilter: { field: { fieldPath: 'date' }, op: 'EQUAL', value: { stringValue: targetDate } } }
+        });
+
         // Calculate efficiency using the exact same calculateEfficiency engine as the Admin Panel
         const evaluatedEmployees = approvedEmps.map(emp => {
           const empCode = emp.employeeCode || emp.id;
@@ -515,7 +519,8 @@ export async function onRequest(context) {
             targetDate,
             tasks as any,
             attendance as any,
-            DEFAULT_WEIGHTAGES
+            DEFAULT_WEIGHTAGES,
+            rawWorkDetails as any
           );
 
           return {

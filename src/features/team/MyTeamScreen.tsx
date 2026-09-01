@@ -35,6 +35,8 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { TaskRecord, TaskPriority, TaskApprovalStatus, AssignmentType, getEffectiveTaskStatus, TaskRevision } from '../../types/planner';
 import { getStoredTasks, saveTaskRecord } from '../../services/planner/taskStorage';
 import { EfficiencyDashboard } from '../efficiency/EfficiencyDashboard';
+import { DailyWorkDetailsViewer } from '../common/DailyWorkDetailsViewer';
+import { FileText } from 'lucide-react';
 
 interface TeamMember {
   id: string;
@@ -56,7 +58,7 @@ export const MyTeamScreen: React.FC = () => {
   
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [teamTasks, setTeamTasks] = useState<TaskRecord[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'tasks' | 'approvals' | 'reports' | 'leaves'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'tasks' | 'work_details' | 'approvals' | 'reports' | 'leaves'>('overview');
 
   // Team Leaves states
   const [rawLeaves, setRawLeaves] = useState<LeaveRecord[]>([]);
@@ -607,6 +609,15 @@ export const MyTeamScreen: React.FC = () => {
           }`}
         >
           <CheckSquare className="w-3.5 h-3.5" /> Team Tasks ({teamTasks.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('work_details')}
+          className={`px-4 py-2 rounded-xl transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+            activeTab === 'work_details' ? 'btn-primary text-white shadow-md' : 'text-purple-200 hover:text-white'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5 text-cyan-300" /> Daily Work Details
         </button>
 
         <button
@@ -1204,6 +1215,20 @@ export const MyTeamScreen: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* DAILY WORK DETAILS PANEL */}
+      {activeTab === 'work_details' && (
+        <DailyWorkDetailsViewer
+          allowedEmployeeCodes={teamMembers.map(m => m.employeeCode)}
+          employeesList={teamMembers.map(m => ({
+            employeeCode: m.employeeCode,
+            name: m.name,
+            department: m.department
+          }))}
+          title="Team Daily Work Details"
+          subtitle="Audit daily work accomplishment logs submitted by your assigned team members"
+        />
       )}
 
       {/* TEAM LEAVE REVIEW MODAL */}

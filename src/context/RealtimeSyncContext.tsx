@@ -14,8 +14,11 @@ import { LeaveRecord } from '../types/leave';
 import { AttendanceRecord } from '../types/attendance';
 import { ExpenseRecord } from '../types/expense';
 import { NotificationRecord, parseTimestamp, isGreetingNotification } from '../types/notification';
+import { DailyWorkDetailRecord } from '../types/workDetails';
 
 import { queueTaskSync, syncPendingTasks } from '../services/planner/taskSyncEngine';
+import { queueWorkDetailSync, syncPendingWorkDetails } from '../services/planner/workDetailsSyncEngine';
+import { getStoredWorkDetails, saveWorkDetailRecord } from '../services/planner/workDetailsStorage';
 import { syncPendingLeaves } from '../services/leave/leaveSyncEngine';
 import { syncPendingExpenseRecords } from '../services/expenses/expenseSyncEngine';
 import { syncPendingAttendanceRecords } from '../services/attendance/syncEngine';
@@ -50,10 +53,12 @@ interface RealtimeSyncContextType {
   leaves: LeaveRecord[];
   attendance: AttendanceRecord[];
   expenses: ExpenseRecord[];
+  workDetails: DailyWorkDetailRecord[];
   notifications: NotificationRecord[];
   unreadNotificationCount: number;
 
   updateTaskOptimistically: (task: TaskRecord) => Promise<void>;
+  updateWorkDetailOptimistically: (detail: DailyWorkDetailRecord) => Promise<void>;
   updateLeaveOptimistically: (leave: LeaveRecord) => Promise<void>;
   updateExpenseOptimistically: (expense: ExpenseRecord) => Promise<void>;
   updateAttendanceOptimistically: (attendance: AttendanceRecord) => Promise<void>;
@@ -99,6 +104,9 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
   });
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(() =>
     getStoredExpenseRecords()
+  );
+  const [workDetails, setWorkDetails] = useState<DailyWorkDetailRecord[]>(() =>
+    getStoredWorkDetails()
   );
   const [notifications, setNotifications] = useState<NotificationRecord[]>(() => {
     try {
@@ -521,6 +529,61 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     );
     activeUnsubsRef.current.push(unsubExpenses);
 
+    // 4.5. Daily Work Details Listener
+    const workDetailsQueries = [];
+    if (empCode) {
+      workDetailsQueries.push(
+        query(
+          collection(db, 'daily_work_details'),
+          where('employeeCode', '==', empCode),
+          limit(100)
+        )
+      );
+    }
+    const currentEmpId = employeeData?.id || '';
+    if (currentEmpId && currentEmpId !== empCode) {
+      workDetailsQueries.push(
+        query(
+          collection(db, 'daily_work_details'),
+          where('employeeId', '==', currentEmpId),
+          limit(100)
+        )
+      );
+    }
+
+    workDetailsQueries.forEach((wdQ) => {
+      const unsubWd = onSnapshot(
+        wdQ,
+        (snapshot) => {
+          const serverList: DailyWorkDetailRecord[] = [];
+          snapshot.forEach((docSnap) => {
+            const item = { id: docSnap.id, ...docSnap.data() } as DailyWorkDetailRecord;
+            serverList.push(item);
+            logSyncListenerUpdate('work_details', docSnap.id);
+          });
+
+          setWorkDetails((prevWd) => {
+            const map = new Map<string, DailyWorkDetailRecord>();
+            serverList.forEach((sw) => {
+              const k = `${sw.employeeCode || sw.employeeId}_${sw.date}`;
+              map.set(k, sw);
+            });
+
+            prevWd.forEach((lw) => {
+              const k = `${lw.employeeCode || lw.employeeId}_${lw.date}`;
+              if (lw.syncStatus === 'Pending Sync' || lw.syncStatus === 'Sync Failed') {
+                map.set(k, lw);
+              }
+            });
+
+            return Array.from(map.values()).sort((a, b) => b.date.localeCompare(a.date));
+          });
+        },
+        (err) => console.warn('RealtimeSync: Work details snapshot error:', err)
+      );
+      activeUnsubsRef.current.push(unsubWd);
+    });
+
     // 5. Notifications Listener (Identity isolated to recipientEmployeeCode & recipientUserId with limit bounds)
     const notifQueries = [];
     if (empCode) {
@@ -714,6 +777,43 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     []
   );
 
+  // OPTIMISTIC DAILY WORK DETAILS UPDATE
+  const updateWorkDetailOptimistically = useCallback(
+    async (detail: DailyWorkDetailRecord) => {
+      setSyncState('SYNCING');
+      const optimisticRecord: DailyWorkDetailRecord = {
+        ...detail,
+        syncStatus: 'Pending Sync',
+        updatedAtDeviceTime: new Date().toISOString(),
+      };
+
+      saveWorkDetailRecord(optimisticRecord);
+      setWorkDetails((prev) => {
+        const key = `${optimisticRecord.employeeCode || optimisticRecord.employeeId}_${optimisticRecord.date}`;
+        const exists = prev.some(
+          (d) => d.id === optimisticRecord.id || `${d.employeeCode || d.employeeId}_${d.date}` === key
+        );
+        if (exists) {
+          return prev.map((d) =>
+            d.id === optimisticRecord.id || `${d.employeeCode || d.employeeId}_${d.date}` === key
+              ? optimisticRecord
+              : d
+          );
+        }
+        return [optimisticRecord, ...prev];
+      });
+
+      queueWorkDetailSync(optimisticRecord);
+
+      if (networkStatusService.getStatus().isOnline) {
+        setSyncState('SYNCED');
+      } else {
+        setSyncState('OFFLINE — SAVED LOCALLY');
+      }
+    },
+    []
+  );
+
   // OPTIMISTIC LEAVE UPDATE
   const updateLeaveOptimistically = useCallback(
     async (leave: LeaveRecord) => {
@@ -842,9 +942,11 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       leaves,
       attendance,
       expenses,
+      workDetails,
       notifications,
       unreadNotificationCount,
       updateTaskOptimistically,
+      updateWorkDetailOptimistically,
       updateLeaveOptimistically,
       updateExpenseOptimistically,
       updateAttendanceOptimistically,
@@ -859,9 +961,11 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       leaves,
       attendance,
       expenses,
+      workDetails,
       notifications,
       unreadNotificationCount,
       updateTaskOptimistically,
+      updateWorkDetailOptimistically,
       updateLeaveOptimistically,
       updateExpenseOptimistically,
       updateAttendanceOptimistically,

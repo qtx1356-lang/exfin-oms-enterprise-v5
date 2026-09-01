@@ -17,6 +17,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { DailyWorkDetailsSection } from './DailyWorkDetailsSection';
 
 import { 
   Briefcase, 
@@ -550,6 +551,9 @@ export const PlannerScreen: React.FC = () => {
           </div>
         </div>
       </Card>
+
+      {/* Daily Work Details Reporting Section */}
+      <DailyWorkDetailsSection />
 
       {/* Primary Category Switcher Tabs */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">

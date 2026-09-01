@@ -47,6 +47,10 @@ export interface EfficiencyBreakdown {
   overdueTasksCount: number;
   overduePenalty: number;          // 0-10
   revisionPenalty: number;         // 0-10
+
+  // Daily Work Details
+  workDetailsSubmitted?: boolean;
+  workDetailsCount?: number;
 }
 
 export interface EfficiencySnapshot {

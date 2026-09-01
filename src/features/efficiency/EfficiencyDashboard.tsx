@@ -37,6 +37,7 @@ import {
 import { jsPDF } from 'jspdf';
 import { TaskRecord, getEffectiveTaskStatus } from '../../types/planner';
 import { AttendanceRecord } from '../../types/attendance';
+import { DailyWorkDetailRecord } from '../../types/workDetails';
 import { EfficiencyBreakdown, EfficiencyGrade, EfficiencySnapshot, EfficiencyWeightages } from '../../types/efficiency';
 import { calculateEfficiency } from '../../services/efficiency/efficiencyCalculator';
 import { DEFAULT_WEIGHTAGES, getSavedWeightages, saveWeightages, getEfficiencySnapshots, saveEfficiencySnapshot } from '../../services/efficiency/efficiencyService';
@@ -109,6 +110,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => {
     return (!customEmployeeCode || customEmployeeCode === activeEmployeeCode) ? syncAttendance : [];
   });
+  const [workDetails, setWorkDetails] = useState<DailyWorkDetailRecord[]>([]);
   const [allEmployees, setAllEmployees] = useState<any[]>(() => employeeData ? [employeeData] : []);
   const [weightages, setWeightages] = useState<EfficiencyWeightages>(DEFAULT_WEIGHTAGES);
   const [historicalSnapshots, setHistoricalSnapshots] = useState<EfficiencySnapshot[]>([]);
@@ -336,12 +338,34 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
         setAttendanceLoaded(true);
       });
       unsubs.push(unsubAtt);
+
+      const unsubWorkDetails = onSnapshot(collection(db, 'daily_work_details'), (snap) => {
+        const list: DailyWorkDetailRecord[] = [];
+        snap.docs.forEach(doc => {
+          list.push({ id: doc.id, ...doc.data() } as DailyWorkDetailRecord);
+        });
+        setWorkDetails(list);
+      }, (err) => {
+        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=daily_work_details notice:', err);
+      });
+      unsubs.push(unsubWorkDetails);
     } else {
       // If we are inspecting ourselves as a standard employee, our local sync hook does the work
       setTasks(syncTasks);
       setAttendance(syncAttendance);
       setTasksLoaded(true);
       setAttendanceLoaded(true);
+
+      const unsubWorkDetails = onSnapshot(collection(db, 'daily_work_details'), (snap) => {
+        const list: DailyWorkDetailRecord[] = [];
+        snap.docs.forEach(doc => {
+          list.push({ id: doc.id, ...doc.data() } as DailyWorkDetailRecord);
+        });
+        setWorkDetails(list);
+      }, (err) => {
+        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=daily_work_details notice:', err);
+      });
+      unsubs.push(unsubWorkDetails);
     }
 
     return () => {
@@ -470,7 +494,8 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       endDate,
       tasks,
       attendance,
-      weightages
+      weightages,
+      workDetails
     );
 
     // Filter attendance records in the period to print detailed logs
@@ -527,7 +552,7 @@ Work sessions: ${calcResult.breakdown.validCheckOutsCount}
 Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
 
     return calcResult;
-  }, [selectedEmployee, targetEmpCode, targetEmpId, startDate, endDate, tasks, attendance, weightages]);
+  }, [selectedEmployee, targetEmpCode, targetEmpId, startDate, endDate, tasks, attendance, weightages, workDetails]);
 
   const previousCalculation = useMemo(() => {
     if (!targetEmpCode) return null;
@@ -549,9 +574,10 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
       prevEndDate,
       tasks,
       attendance,
-      weightages
+      weightages,
+      workDetails
     );
-  }, [selectedEmployee, targetEmpCode, targetEmpId, prevStartDate, prevEndDate, tasks, attendance, weightages]);
+  }, [selectedEmployee, targetEmpCode, targetEmpId, prevStartDate, prevEndDate, tasks, attendance, weightages, workDetails]);
 
   // Leaderboard Ranking
   const companyLeaderboard = useMemo(() => {
@@ -567,7 +593,8 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
         endDate,
         tasks,
         attendance,
-        weightages
+        weightages,
+        workDetails
       );
       return {
         employee: emp,
@@ -576,7 +603,7 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
         breakdown: calc.breakdown
       };
     }).sort((a, b) => b.score - a.score);
-  }, [isAdmin, allEmployees, authorizedEmployees, startDate, endDate, tasks, attendance, weightages]);
+  }, [isAdmin, allEmployees, authorizedEmployees, startDate, endDate, tasks, attendance, weightages, workDetails]);
 
   const currentRank = useMemo(() => {
     if (!targetEmpCode || !companyLeaderboard.length) return null;

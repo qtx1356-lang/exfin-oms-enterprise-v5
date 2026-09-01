@@ -18,6 +18,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { DailyWorkDetailsViewer } from '../common/DailyWorkDetailsViewer';
 import { 
   CheckSquare, 
   Plus, 
@@ -40,7 +41,8 @@ import {
   Layers,
   Send,
   Calendar,
-  X
+  X,
+  FileText
 } from 'lucide-react';
 
 interface EmployeeOption {
@@ -58,6 +60,9 @@ export const AdminWorkPlannerTab: React.FC = () => {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Subtab switch: TASKS vs WORK_DETAILS
+  const [plannerSubtab, setPlannerSubtab] = useState<'TASKS' | 'WORK_DETAILS'>('TASKS');
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
@@ -621,19 +626,58 @@ export const AdminWorkPlannerTab: React.FC = () => {
             <CheckSquare className="w-6 h-6 text-purple-400" /> Enterprise Work Planner
           </h3>
           <p className="text-xs text-purple-300 mt-1">
-            Assign, schedule, audit, and track operational deliverables across all enterprise teams.
+            Assign, schedule, audit, and track operational deliverables and daily work logs across enterprise teams.
           </p>
         </div>
-        <Button 
-          onClick={handleOpenCreateModal}
-          className="bg-purple-600 hover:bg-purple-500 text-white font-bold whitespace-nowrap rounded-xl shadow-lg"
-        >
-          <Plus className="w-4 h-4 mr-2" /> Assign New Task
-        </Button>
+        {plannerSubtab === 'TASKS' && (
+          <Button 
+            onClick={handleOpenCreateModal}
+            className="bg-purple-600 hover:bg-purple-500 text-white font-bold whitespace-nowrap rounded-xl shadow-lg cursor-pointer"
+          >
+            <Plus className="w-4 h-4 mr-2" /> Assign New Task
+          </Button>
+        )}
       </div>
 
-      {/* Metric Quick-Action Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+      {/* Subtab Switcher */}
+      <div className="flex items-center gap-2 p-1 bg-[#1A0B36] rounded-2xl border border-purple-500/20 w-full sm:w-auto">
+        <button
+          type="button"
+          onClick={() => setPlannerSubtab('TASKS')}
+          className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            plannerSubtab === 'TASKS'
+              ? 'bg-[#7C3AED] text-white shadow-md'
+              : 'text-purple-300 hover:text-white'
+          }`}
+        >
+          <CheckSquare className="w-4 h-4" />
+          <span>Operational Tasks ({tasks.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setPlannerSubtab('WORK_DETAILS')}
+          className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            plannerSubtab === 'WORK_DETAILS'
+              ? 'bg-[#7C3AED] text-white shadow-md'
+              : 'text-purple-300 hover:text-white'
+          }`}
+        >
+          <FileText className="w-4 h-4 text-cyan-300" />
+          <span>Daily Work Details</span>
+        </button>
+      </div>
+
+      {plannerSubtab === 'WORK_DETAILS' ? (
+        <DailyWorkDetailsViewer 
+          employeesList={employees}
+          title="Enterprise Daily Work Details"
+          subtitle="Audit work accomplishment logs submitted by registered enterprise staff"
+        />
+      ) : (
+        <>
+          {/* Metric Quick-Action Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
         <button
           onClick={() => setQuickFilter('ALL')}
           className={`p-3 rounded-2xl border flex flex-col items-center justify-center transition-all ${
@@ -939,6 +983,8 @@ export const AdminWorkPlannerTab: React.FC = () => {
           })}
         </div>
       )}
+    </>
+  )}
 
       {/* CREATE / EDIT TASK MODAL */}
       <Dialog 

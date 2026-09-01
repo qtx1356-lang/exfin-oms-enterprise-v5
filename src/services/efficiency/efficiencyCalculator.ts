@@ -1,5 +1,6 @@
 import { TaskRecord, getEffectiveTaskStatus } from '../../types/planner';
 import { AttendanceRecord } from '../../types/attendance';
+import { DailyWorkDetailRecord } from '../../types/workDetails';
 import { 
   EfficiencyBreakdown, 
   EfficiencyGrade, 
@@ -76,13 +77,14 @@ export const calculateEfficiency = (
   endDateStr: string,
   tasks: TaskRecord[],
   attendanceRecords: AttendanceRecord[],
-  weightages: EfficiencyWeightages
+  weightages: EfficiencyWeightages,
+  workDetails: DailyWorkDetailRecord[] = []
 ): { finalScore: number; grade: EfficiencyGrade; breakdown: EfficiencyBreakdown } => {
   calcInvocationCount++;
   const calcId = calcInvocationCount;
   const startTime = performance.now();
 
-  console.log(`[EFFICIENCY_CALC_START] #${calcId} for employee=${employeeCode || employeeId} (${employeeName}) period=${startDateStr}..${endDateStr} inputTasks=${tasks.length} inputAtt=${attendanceRecords.length}`);
+  console.log(`[EFFICIENCY_CALC_START] #${calcId} for employee=${employeeCode || employeeId} (${employeeName}) period=${startDateStr}..${endDateStr} inputTasks=${tasks.length} inputAtt=${attendanceRecords.length} inputWorkDetails=${(workDetails || []).length}`);
   
   // ----------------------------------------------------
   // 1. FILTER RELEVANT RECORDS FOR THE PERIOD
@@ -99,6 +101,29 @@ export const calculateEfficiency = (
     const matchCode = rCode && (rCode === tCode || (tId && rCode === tId));
     const isEmp = matchId || matchCode;
     return isEmp && rec.date >= startDateStr && rec.date <= endDateStr;
+  });
+
+  // Filter daily work details in period
+  const periodWorkDetails = (workDetails || []).filter(wd => {
+    const wId = String(wd.employeeId || '').trim().toUpperCase();
+    const wCode = String(wd.employeeCode || '').trim().toUpperCase();
+    const tId = String(employeeId || '').trim().toUpperCase();
+    const tCode = String(employeeCode || '').trim().toUpperCase();
+
+    const matchId = wId && (wId === tCode || (tId && wId === tId));
+    const matchCode = wCode && (wCode === tCode || (tId && wCode === tId));
+    const isEmp = matchId || matchCode;
+    return isEmp && wd.date >= startDateStr && wd.date <= endDateStr;
+  });
+
+  // Meaningful validation for daily work details: reject empty, single-word or repeated gibberish
+  const validWorkDetails = periodWorkDetails.filter(wd => {
+    const text = (wd.workDetails || '').trim();
+    if (text.length < 15) return false;
+    const alphanumeric = text.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (alphanumeric.length < 10) return false;
+    const uniqueChars = new Set(alphanumeric).size;
+    return uniqueChars >= 4;
   });
 
   // Filter tasks in period
@@ -288,12 +313,21 @@ export const calculateEfficiency = (
     // Normalized base: completed percentage of workload + partial progress on active
     const completedWeight = completedTasksCount / assignedTasksCount;
     const activeWeight = (activeTasks.length * (averageActiveCompletion / 100)) / assignedTasksCount;
-    const workloadBase = (completedWeight + activeWeight) * 100;
+    let workloadBase = (completedWeight + activeWeight) * 100;
     
+    // If valid daily work details were submitted, reinforce documented daily activity (+10 boost, capped at 100)
+    if (validWorkDetails.length > 0) {
+      workloadBase = Math.min(100, workloadBase + 10);
+    }
+
     // Penalty for active overdue tasks in workload
     const workloadOverduePenalty = overdueTasksCount * 15;
     
     workloadScore = Math.max(0, Math.min(100, Math.round(workloadBase - workloadOverduePenalty)));
+  } else if (validWorkDetails.length > 0) {
+    // When no formal planner tasks were assigned, but the employee documented legitimate operational duties
+    // Establish a solid baseline workload fulfillment (80 base score, representing documented daily activity)
+    workloadScore = 80;
   }
 
   // ----------------------------------------------------
@@ -375,7 +409,10 @@ export const calculateEfficiency = (
     
     overdueTasksCount,
     overduePenalty,
-    revisionPenalty
+    revisionPenalty,
+
+    workDetailsSubmitted: validWorkDetails.length > 0,
+    workDetailsCount: validWorkDetails.length
   };
 
   const durationMs = Math.round((performance.now() - startTime) * 100) / 100;

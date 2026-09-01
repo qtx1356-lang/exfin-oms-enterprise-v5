@@ -1,6 +1,7 @@
 import { syncPendingAttendanceRecords } from '../attendance/syncEngine';
 import { syncPendingExpenseRecords } from '../expenses/expenseSyncEngine';
 import { syncPendingTasks } from '../planner/taskSyncEngine';
+import { syncPendingWorkDetails } from '../planner/workDetailsSyncEngine';
 import { syncPendingLeaves } from '../leave/leaveSyncEngine';
 import { syncPendingProfileChanges } from '../profile/profileService';
 import { syncPendingNotifications } from '../notification/notificationService';
@@ -78,6 +79,15 @@ export const syncAllPendingRecords = async (): Promise<{
       totalErrors += taskRes.errorsCount;
     } catch (e) {
       console.error('Global Sync: Error syncing tasks:', e);
+      totalErrors += 1;
+    }
+
+    try {
+      const wdRes = await syncPendingWorkDetails();
+      totalSynced += wdRes.syncedCount;
+      totalErrors += wdRes.errorsCount;
+    } catch (e) {
+      console.error('Global Sync: Error syncing daily work details:', e);
       totalErrors += 1;
     }
 
