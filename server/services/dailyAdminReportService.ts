@@ -947,18 +947,21 @@ export async function generateAndSendDailyReport(
         `}
       </div>
 
-      <!-- 3. & 4. Efficiency Overview and Leaderboards -->
-      ${validEvaluated.length === 0 ? `
-        <div style="margin-bottom: 35px; border-top: 2px solid #f1f5f9; padding-top: 20px;">
-          <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">3. Efficiency Summary</h3>
-          <p style="color: #64748b; font-size: 13px; font-style: italic; padding: 15px; background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center;">
+      <!-- 3. Efficiency Summary -->
+      <div style="margin-bottom: 35px; border-top: 2px solid #f1f5f9; padding-top: 20px;">
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">3. Efficiency Summary</h3>
+        ${validEvaluated.length === 0 ? `
+          <p style="color: #64748b; font-size: 13px; font-style: italic; padding: 15px; background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center; margin-top: 15px;">
             No efficiency data available for this reporting period.
           </p>
-        </div>
-      ` : `
-        <!-- 3. Efficiency Summary -->
-        <div style="margin-bottom: 35px; border-top: 2px solid #f1f5f9; padding-top: 20px;">
-          <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">3. Efficiency Summary</h3>
+          <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-top: 10px; font-size: 12px; color: #991b1b;">
+            <strong>Server Diagnostics:</strong> Efficiency data source returned 0 evaluated employees.<br/>
+            - Report Date: ${reportDate}<br/>
+            - Employees Found: ${employeesList.length}<br/>
+            - Attendance Records Found: ${allAttendance.length}<br/>
+            - Tasks Found: ${allTasks.length}
+          </div>
+        ` : `
           <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-top: 15px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
               <tr style="border-bottom: 1px solid #dcfce7;">
@@ -979,47 +982,47 @@ export async function generateAndSendDailyReport(
               </tr>
             </table>
           </div>
+        `}
+      </div>
+
+      <!-- 4. Efficiency Leaderboard -->
+      <div style="margin-bottom: 35px; border-top: 2px solid #f1f5f9; padding-top: 20px;">
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">4. Efficiency Leaderboard</h3>
+        
+        <h4 style="color: #047857; font-size: 13px; font-weight: bold; margin-top: 15px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">🏆 Top Performers</h4>
+        <div style="overflow-x: auto; margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+            <thead>
+              <tr style="background-color: #f0fdf4; border-bottom: 2px solid #bbf7d0; color: #166534; font-weight: bold;">
+                <th style="padding: 12px 10px; width: 60px;">Rank</th>
+                <th style="padding: 12px 10px;">Employee Name</th>
+                <th style="padding: 12px 10px;">Department</th>
+                <th style="padding: 12px 10px; text-align: right; width: 120px;">Efficiency Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${topPerformersRows}
+            </tbody>
+          </table>
         </div>
 
-        <!-- 4. Efficiency Leaderboard -->
-        <div style="margin-bottom: 35px; border-top: 2px solid #f1f5f9; padding-top: 20px;">
-          <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">4. Efficiency Leaderboard</h3>
-          
-          <h4 style="color: #047857; font-size: 13px; font-weight: bold; margin-top: 15px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">🏆 Top Performers</h4>
-          <div style="overflow-x: auto; margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
-              <thead>
-                <tr style="background-color: #f0fdf4; border-bottom: 2px solid #bbf7d0; color: #166534; font-weight: bold;">
-                  <th style="padding: 12px 10px; width: 60px;">Rank</th>
-                  <th style="padding: 12px 10px;">Employee Name</th>
-                  <th style="padding: 12px 10px;">Department</th>
-                  <th style="padding: 12px 10px; text-align: right; width: 120px;">Efficiency Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${topPerformersRows}
-              </tbody>
-            </table>
-          </div>
-
-          <h4 style="color: #b91c1c; font-size: 13px; font-weight: bold; margin-top: 15px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ Needs Improvement</h4>
-          <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
-              <thead>
-                <tr style="background-color: #fef2f2; border-bottom: 2px solid #fecaca; color: #991b1b; font-weight: bold;">
-                  <th style="padding: 12px 10px; width: 60px;">Rank</th>
-                  <th style="padding: 12px 10px;">Employee Name</th>
-                  <th style="padding: 12px 10px;">Department</th>
-                  <th style="padding: 12px 10px; text-align: right; width: 120px;">Efficiency Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${needsImprovementRows}
-              </tbody>
-            </table>
-          </div>
+        <h4 style="color: #b91c1c; font-size: 13px; font-weight: bold; margin-top: 15px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">⚠️ Needs Improvement</h4>
+        <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+            <thead>
+              <tr style="background-color: #fef2f2; border-bottom: 2px solid #fecaca; color: #991b1b; font-weight: bold;">
+                <th style="padding: 12px 10px; width: 60px;">Rank</th>
+                <th style="padding: 12px 10px;">Employee Name</th>
+                <th style="padding: 12px 10px;">Department</th>
+                <th style="padding: 12px 10px; text-align: right; width: 120px;">Efficiency Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${needsImprovementRows}
+            </tbody>
+          </table>
         </div>
-      `}
+      </div>
 
       <!-- 5. Operational Summary & Additional Details -->
       <div style="margin-bottom: 35px; border-top: 2px solid #f1f5f9; padding-top: 20px;">
