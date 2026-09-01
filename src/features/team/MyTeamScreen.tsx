@@ -1220,14 +1220,16 @@ export const MyTeamScreen: React.FC = () => {
       {/* DAILY WORK DETAILS PANEL */}
       {activeTab === 'work_details' && (
         <DailyWorkDetailsViewer
-          allowedEmployeeCodes={teamMembers.map(m => m.employeeCode)}
+          allowedEmployeeCodes={teamMembers.map(m => m?.employeeCode).filter((c): c is string => typeof c === 'string' && c.trim().length > 0)}
           employeesList={teamMembers.map(m => ({
-            employeeCode: m.employeeCode,
-            name: m.name,
-            department: m.department
+            id: m?.id || m?.employeeCode || '',
+            employeeCode: m?.employeeCode || m?.id || '',
+            name: m?.name || 'Team Member',
+            department: m?.department || ''
           }))}
           title="Team Daily Work Details"
           subtitle="Audit daily work accomplishment logs submitted by your assigned team members"
+          isTeamLeaderView={true}
         />
       )}
 

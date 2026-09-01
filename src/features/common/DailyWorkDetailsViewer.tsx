@@ -116,74 +116,120 @@ export const DailyWorkDetailsViewer: React.FC<DailyWorkDetailsViewerProps> = ({
 
   // Filter allowed employees (Team Leader scope if applicable)
   const scopedEmployees = useMemo(() => {
-    if (!allowedEmployeeCodes || allowedEmployeeCodes.length === 0) {
-      return employeesList;
+    if (!allowedEmployeeCodes || !Array.isArray(allowedEmployeeCodes) || allowedEmployeeCodes.length === 0) {
+      return Array.isArray(employeesList) ? employeesList : [];
     }
-    const allowedSet = new Set(allowedEmployeeCodes.map(c => c.trim().toLowerCase()));
-    return employeesList.filter(e => allowedSet.has(e.employeeCode?.trim().toLowerCase()) || allowedSet.has(e.id?.trim().toLowerCase()));
+    const safeCodes = allowedEmployeeCodes
+      .filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
+      .map(c => c.trim().toLowerCase());
+    const allowedSet = new Set(safeCodes);
+
+    return (Array.isArray(employeesList) ? employeesList : []).filter(e => {
+      if (!e) return false;
+      const empCode = typeof e.employeeCode === 'string' ? e.employeeCode.trim().toLowerCase() : '';
+      const empId = typeof e.id === 'string' ? e.id.trim().toLowerCase() : '';
+      return (empCode && allowedSet.has(empCode)) || (empId && allowedSet.has(empId));
+    });
   }, [employeesList, allowedEmployeeCodes]);
 
   const scopedEmployeeCodes = useMemo(() => {
-    return new Set(scopedEmployees.map(e => e.employeeCode.trim().toLowerCase()));
+    const set = new Set<string>();
+    scopedEmployees.forEach(e => {
+      if (typeof e?.employeeCode === 'string' && e.employeeCode.trim()) {
+        set.add(e.employeeCode.trim().toLowerCase());
+      }
+    });
+    return set;
   }, [scopedEmployees]);
 
   const scopedEmployeeIds = useMemo(() => {
-    return new Set(scopedEmployees.map(e => e.id.trim().toLowerCase()));
+    const set = new Set<string>();
+    scopedEmployees.forEach(e => {
+      if (typeof e?.id === 'string' && e.id.trim()) {
+        set.add(e.id.trim().toLowerCase());
+      }
+    });
+    return set;
   }, [scopedEmployees]);
 
   // Filtered Records
   const filteredRecords = useMemo(() => {
+    if (!Array.isArray(allRecords)) return [];
+
     return allRecords.filter((rec) => {
+      if (!rec) return false;
+
+      const recCode = typeof rec.employeeCode === 'string' ? rec.employeeCode.trim().toLowerCase() : '';
+      const recId = typeof rec.employeeId === 'string' ? rec.employeeId.trim().toLowerCase() : '';
+      const recDate = typeof rec.date === 'string' ? rec.date.trim() : '';
+
       // 1. Team Leader Scope
-      if (allowedEmployeeCodes && allowedEmployeeCodes.length > 0) {
-        const codeMatch = rec.employeeCode && scopedEmployeeCodes.has(rec.employeeCode.trim().toLowerCase());
-        const idMatch = rec.employeeId && scopedEmployeeIds.has(rec.employeeId.trim().toLowerCase());
+      if (allowedEmployeeCodes && Array.isArray(allowedEmployeeCodes) && allowedEmployeeCodes.length > 0) {
+        const codeMatch = Boolean(recCode && scopedEmployeeCodes.has(recCode));
+        const idMatch = Boolean(recId && scopedEmployeeIds.has(recId));
         if (!codeMatch && !idMatch) return false;
       }
 
       // 2. Date Filter
-      if (dateFilter !== 'ALL' && rec.date !== dateFilter) {
+      if (dateFilter !== 'ALL' && recDate !== dateFilter) {
         return false;
       }
 
       // 3. Employee Filter
       if (selectedEmployee !== 'ALL') {
-        const matchesCode = rec.employeeCode?.toLowerCase() === selectedEmployee.toLowerCase();
-        const matchesId = rec.employeeId?.toLowerCase() === selectedEmployee.toLowerCase();
+        const sel = typeof selectedEmployee === 'string' ? selectedEmployee.trim().toLowerCase() : '';
+        const matchesCode = Boolean(recCode && recCode === sel);
+        const matchesId = Boolean(recId && recId === sel);
         if (!matchesCode && !matchesId) return false;
       }
 
       // 4. Search filter
-      if (searchTerm.trim()) {
-        const s = searchTerm.toLowerCase();
-        const textMatch = rec.workDetails?.toLowerCase().includes(s);
-        const nameMatch = rec.employeeName?.toLowerCase().includes(s);
-        const codeMatch = rec.employeeCode?.toLowerCase().includes(s);
-        const deptMatch = rec.department?.toLowerCase().includes(s);
+      const safeSearch = typeof searchTerm === 'string' ? searchTerm.trim().toLowerCase() : '';
+      if (safeSearch) {
+        const textMatch = typeof rec.workDetails === 'string' && rec.workDetails.toLowerCase().includes(safeSearch);
+        const nameMatch = typeof rec.employeeName === 'string' && rec.employeeName.toLowerCase().includes(safeSearch);
+        const codeMatch = typeof rec.employeeCode === 'string' && rec.employeeCode.toLowerCase().includes(safeSearch);
+        const deptMatch = typeof rec.department === 'string' && rec.department.toLowerCase().includes(safeSearch);
         if (!textMatch && !nameMatch && !codeMatch && !deptMatch) return false;
       }
 
       return true;
     }).sort((a, b) => {
-      // Sort by date desc, then by name
-      if (a.date !== b.date) return b.date.localeCompare(a.date);
-      return (a.employeeName || '').localeCompare(b.employeeName || '');
+      const aDate = typeof a.date === 'string' ? a.date : '';
+      const bDate = typeof b.date === 'string' ? b.date : '';
+      if (aDate !== bDate) return bDate.localeCompare(aDate);
+      const aName = typeof a.employeeName === 'string' ? a.employeeName : '';
+      const bName = typeof b.employeeName === 'string' ? b.employeeName : '';
+      return aName.localeCompare(bName);
     });
   }, [allRecords, allowedEmployeeCodes, scopedEmployeeCodes, scopedEmployeeIds, dateFilter, selectedEmployee, searchTerm]);
 
   // Statistics for selected date
   const stats = useMemo(() => {
+    if (!Array.isArray(allRecords)) {
+      return { totalReported: 0, totalEligible: scopedEmployees.length, missingCount: scopedEmployees.length, avgWords: 0, validCount: 0, submissionCount: 0 };
+    }
+
     const recordsForDate = allRecords.filter(r => {
-      if (dateFilter !== 'ALL' && r.date !== dateFilter) return false;
-      if (allowedEmployeeCodes && allowedEmployeeCodes.length > 0) {
-        const codeMatch = r.employeeCode && scopedEmployeeCodes.has(r.employeeCode.trim().toLowerCase());
-        const idMatch = r.employeeId && scopedEmployeeIds.has(r.employeeId.trim().toLowerCase());
+      if (!r) return false;
+      const rDate = typeof r.date === 'string' ? r.date.trim() : '';
+      if (dateFilter !== 'ALL' && rDate !== dateFilter) return false;
+
+      if (allowedEmployeeCodes && Array.isArray(allowedEmployeeCodes) && allowedEmployeeCodes.length > 0) {
+        const rCode = typeof r.employeeCode === 'string' ? r.employeeCode.trim().toLowerCase() : '';
+        const rId = typeof r.employeeId === 'string' ? r.employeeId.trim().toLowerCase() : '';
+        const codeMatch = Boolean(rCode && scopedEmployeeCodes.has(rCode));
+        const idMatch = Boolean(rId && scopedEmployeeIds.has(rId));
         return codeMatch || idMatch;
       }
       return true;
     });
 
-    const reportedEmpCodes = new Set(recordsForDate.map(r => r.employeeCode?.toLowerCase()).filter(Boolean));
+    const reportedEmpCodes = new Set(
+      recordsForDate
+        .map(r => typeof r.employeeCode === 'string' ? r.employeeCode.trim().toLowerCase() : '')
+        .filter(Boolean)
+    );
     const totalEligible = scopedEmployees.length;
     const totalReported = reportedEmpCodes.size;
     const missingCount = Math.max(0, totalEligible - totalReported);
@@ -191,9 +237,10 @@ export const DailyWorkDetailsViewer: React.FC<DailyWorkDetailsViewerProps> = ({
     let totalWords = 0;
     let validCount = 0;
     recordsForDate.forEach(r => {
-      const words = (r.workDetails || '').trim().split(/\s+/).filter(Boolean).length;
+      const rawText = typeof r.workDetails === 'string' ? r.workDetails : '';
+      const words = rawText.trim().split(/\s+/).filter(Boolean).length;
       totalWords += words;
-      if ((r.workDetails || '').trim().length >= 15) {
+      if (rawText.trim().length >= 15) {
         validCount++;
       }
     });
@@ -328,11 +375,17 @@ export const DailyWorkDetailsViewer: React.FC<DailyWorkDetailsViewerProps> = ({
             className="w-full px-3 py-2 bg-slate-950/70 border border-[var(--border)] rounded-xl text-xs text-white outline-none focus:border-cyan-400/50"
           >
             <option value="ALL">All Employees ({scopedEmployees.length})</option>
-            {scopedEmployees.map(emp => (
-              <option key={emp.employeeCode || emp.id} value={emp.employeeCode || emp.id}>
-                {emp.name} ({emp.employeeCode}) - {emp.department || emp.office || 'Operations'}
-              </option>
-            ))}
+            {scopedEmployees.map((emp, idx) => {
+              const val = emp.employeeCode || emp.id || `emp-${idx}`;
+              const displayName = emp.name || emp.employeeCode || 'Employee';
+              const displayCode = emp.employeeCode || emp.id || '';
+              const displayDept = emp.department || emp.office || 'Operations';
+              return (
+                <option key={val} value={val}>
+                  {displayName} {displayCode ? `(${displayCode})` : ''} - {displayDept}
+                </option>
+              );
+            })}
           </select>
         </div>
       </div>
@@ -353,23 +406,28 @@ export const DailyWorkDetailsViewer: React.FC<DailyWorkDetailsViewerProps> = ({
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredRecords.map((record) => {
-            const wordCount = (record.workDetails || '').trim().split(/\s+/).filter(Boolean).length;
-            const charCount = (record.workDetails || '').length;
+          {filteredRecords.map((record, index) => {
+            const rawText = typeof record.workDetails === 'string' ? record.workDetails : '';
+            const wordCount = rawText.trim().split(/\s+/).filter(Boolean).length;
+            const charCount = rawText.length;
             const isDetailed = wordCount >= 10 && charCount >= 30;
+            const empName = typeof record.employeeName === 'string' && record.employeeName.trim() ? record.employeeName.trim() : 'Unknown Employee';
+            const empCode = typeof record.employeeCode === 'string' ? record.employeeCode : (record.employeeId || '');
+            const initial = empName.charAt(0).toUpperCase() || 'E';
+            const recordDate = typeof record.date === 'string' ? record.date : '';
 
             return (
-              <Card key={record.id} variant="elevated" className="p-4 rounded-2xl border border-[var(--border)] hover:border-cyan-500/30 transition-all space-y-3">
+              <Card key={record.id || `record-${index}`} variant="elevated" className="p-4 rounded-2xl border border-[var(--border)] hover:border-cyan-500/30 transition-all space-y-3">
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-800/80">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 font-bold text-xs">
-                      {record.employeeName ? record.employeeName.charAt(0).toUpperCase() : 'E'}
+                      {initial}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-white">{record.employeeName || 'Unknown Employee'}</span>
-                        <span className="text-[11px] font-mono text-cyan-300">({record.employeeCode})</span>
+                        <span className="font-bold text-sm text-white">{empName}</span>
+                        {empCode && <span className="text-[11px] font-mono text-cyan-300">({empCode})</span>}
                       </div>
                       <div className="flex items-center gap-2 text-[11px] text-slate-400">
                         <span className="flex items-center gap-1">
@@ -381,10 +439,12 @@ export const DailyWorkDetailsViewer: React.FC<DailyWorkDetailsViewerProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2 self-end sm:self-auto">
-                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-mono bg-slate-950/70 border border-slate-800 text-slate-300">
-                      <Calendar className="w-3 h-3 text-cyan-400" />
-                      {record.date}
-                    </span>
+                    {recordDate && (
+                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-mono bg-slate-950/70 border border-slate-800 text-slate-300">
+                        <Calendar className="w-3 h-3 text-cyan-400" />
+                        {recordDate}
+                      </span>
+                    )}
                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                       isDetailed 
                         ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
@@ -397,7 +457,7 @@ export const DailyWorkDetailsViewer: React.FC<DailyWorkDetailsViewerProps> = ({
 
                 {/* Work Details Text */}
                 <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-900 text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans">
-                  {record.workDetails}
+                  {rawText || <span className="text-slate-500 italic">No work details description recorded.</span>}
                 </div>
 
                 {/* Footer Metadata */}
