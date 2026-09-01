@@ -38,10 +38,12 @@ import {
   Check,
   AlertTriangle,
 } from 'lucide-react';
+import { useSensitiveActionGuard } from '../../services/security/useSensitiveActionGuard';
 
 export const LeaveScreen: React.FC = () => {
   const { employeeData } = useRegistration();
   const { leaves: realtimeLeaves, isOnline, syncState, updateLeaveOptimistically, triggerManualSync } = useRealtimeSync();
+  const { executeSensitiveAction, isVerifying } = useSensitiveActionGuard();
 
   const empCode = employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN';
   const empId = employeeData?.id || empCode;
@@ -130,16 +132,17 @@ export const LeaveScreen: React.FC = () => {
   };
 
   // Form Submission
-  const handleSubmitLeave = async (e: React.FormEvent) => {
+  const handleSubmitLeave = (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError('');
-    setFormSuccess('');
+    executeSensitiveAction(async () => {
+      setFormError('');
+      setFormSuccess('');
 
-    if (!startDate) {
-      setFormError('Please select a start date.');
-      return;
-    }
-    if (!endDate) {
+      if (!startDate) {
+        setFormError('Please select a start date.');
+        return;
+      }
+      if (!endDate) {
       setFormError('Please select an end date.');
       return;
     }
@@ -192,7 +195,8 @@ export const LeaveScreen: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  });
+};
 
   // Cancel Request
   const handleCancelRequest = async (leaveId: string) => {
@@ -656,11 +660,11 @@ export const LeaveScreen: React.FC = () => {
               <Button
                 type="submit"
                 variant="gold"
-                disabled={isSubmitting || !startDate || !endDate}
+                disabled={isSubmitting || !startDate || !endDate || isVerifying}
                 className="w-full font-black p-3 rounded-xl transition flex justify-center items-center gap-2 shadow-lg"
               >
                 <Send className="w-3.5 h-3.5" />
-                {isSubmitting ? 'Submitting Leave...' : 'Submit Leave Request'}
+                {isSubmitting || isVerifying ? 'Submitting Leave...' : 'Submit Leave Request'}
               </Button>
             </form>
           </div>

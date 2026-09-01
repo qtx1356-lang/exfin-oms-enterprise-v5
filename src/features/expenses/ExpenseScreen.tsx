@@ -13,6 +13,7 @@ import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ReceiptScanner } from './ReceiptScanner';
+import { useSensitiveActionGuard } from '../../services/security/useSensitiveActionGuard';
 
 import { 
   Wallet, 
@@ -43,6 +44,7 @@ import {
 export const ExpenseScreen: React.FC = () => {
   const { employeeData } = useRegistration();
   const { expenses: realtimeExpenses, isOnline, syncState, updateExpenseOptimistically, triggerManualSync } = useRealtimeSync();
+  const { executeSensitiveAction, isVerifying } = useSensitiveActionGuard();
 
   const empCode = employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN';
   const empName = employeeData?.name || 'Employee';
@@ -130,17 +132,18 @@ export const ExpenseScreen: React.FC = () => {
   };
 
   // Submit Expense Form
-  const handleSubmitExpense = async (e: React.FormEvent) => {
+  const handleSubmitExpense = (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError(null);
+    executeSensitiveAction(async () => {
+      setFormError(null);
 
-    const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount <= 0) {
-      setFormError('Please enter a valid amount greater than ₹0.');
-      return;
-    }
+      const numAmount = parseFloat(amount);
+      if (isNaN(numAmount) || numAmount <= 0) {
+        setFormError('Please enter a valid amount greater than ₹0.');
+        return;
+      }
 
-    if (!category) {
+      if (!category) {
       setFormError('Please select an expense category.');
       return;
     }
@@ -201,7 +204,8 @@ export const ExpenseScreen: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  });
+};
 
   // Calculate Totals
   const totalSubmitted = expenses.reduce((acc, curr) => acc + curr.amount, 0);
@@ -616,10 +620,10 @@ export const ExpenseScreen: React.FC = () => {
             <Button 
               type="submit" 
               variant="filled"
-              disabled={isSubmitting} 
+              disabled={isSubmitting || isVerifying} 
               className="flex-1 py-3 font-black rounded-2xl"
             >
-              {isSubmitting ? 'Saving Claim...' : 'Submit Claim'}
+              {isSubmitting || isVerifying ? 'Saving Claim...' : 'Submit Claim'}
             </Button>
           </div>
         </form>

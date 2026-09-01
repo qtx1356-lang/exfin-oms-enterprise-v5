@@ -17,10 +17,12 @@ import {
   RotateCcw,
   Check
 } from 'lucide-react';
+import { useSensitiveActionGuard } from '../../services/security/useSensitiveActionGuard';
 
 export const DailyWorkDetailsSection: React.FC = () => {
   const { employeeData } = useRegistration();
   const { workDetails, updateWorkDetailOptimistically, isOnline } = useRealtimeSync();
+  const { executeSensitiveAction, isVerifying } = useSensitiveActionGuard();
 
   const empCode = (employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN').trim();
   const empId = (employeeData?.id || empCode).trim();
@@ -98,7 +100,7 @@ export const DailyWorkDetailsSection: React.FC = () => {
     return uniqueChars >= 4;
   }, [inputText, charCount]);
 
-  const handleSave = async () => {
+  const handleSave = () => executeSensitiveAction(async () => {
     if (!inputText.trim()) return;
 
     setIsSaving(true);
@@ -130,7 +132,7 @@ export const DailyWorkDetailsSection: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
-  };
+  });
 
   return (
     <Card variant="elevated" className="p-5 border border-cyan-500/20 bg-gradient-to-b from-slate-900/90 to-slate-950/90 shadow-xl relative overflow-hidden">
@@ -239,11 +241,11 @@ export const DailyWorkDetailsSection: React.FC = () => {
                 type="button"
                 variant="filled"
                 onClick={handleSave}
-                disabled={isSaving || !inputText.trim()}
+                disabled={isSaving || !inputText.trim() || isVerifying}
                 className="text-xs text-white font-bold bg-[var(--button-primary)] px-4 py-2 flex items-center gap-1.5 cursor-pointer shadow-lg hover:shadow-cyan-500/20"
               >
                 <Save className="w-3.5 h-3.5" />
-                {isSaving ? 'Saving...' : existingRecord ? 'Update Details' : 'Save Details'}
+                {isSaving || isVerifying ? 'Saving...' : existingRecord ? 'Update Details' : 'Save Details'}
               </Button>
             </div>
           </div>

@@ -42,7 +42,9 @@ import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { LocationGate } from '../../components/common/LocationGate';
 import { AttendanceRecord, AttendanceType, OutdoorWorkTypeOption, LiveEmployeeLocation } from '../../types/attendance';
 import { isAttendanceCheckoutUnresolved, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails } from '../../utils/attendanceUtils';
-import { getStoredLeaves } from '../../services/leave/leaveStorage';
+import { useSensitiveActionGuard } from '../../services/security/useSensitiveActionGuard';
+
+const ATTENDANCE_REFRESH_INTERVAL = 60000; // 60 seconds
 import { createNotification } from '../../services/notification/notificationService';
 import {
   OFFICE_LOCATION,
@@ -91,6 +93,7 @@ const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
 
 export const AttendanceScreen: React.FC = () => {
   const { employeeData } = useRegistration();
+  const { executeSensitiveAction, isVerifying } = useSensitiveActionGuard();
   const { attendance: syncAttendance, updateAttendanceOptimistically, triggerManualSync, isOnline } = useRealtimeSync();
 
   const {
@@ -176,7 +179,7 @@ export const AttendanceScreen: React.FC = () => {
   const activeUnresolvedRecord = unresolvedPastRecords.length > 0 ? unresolvedPastRecords[0] : null;
 
   // Handle employee submitting or updating proposed checkout time
-  const handleSubmitProposedTime = async () => {
+  const handleSubmitProposedTime = () => executeSensitiveAction(async () => {
     if (!activeUnresolvedRecord) return;
     setProposalError(null);
 
@@ -239,7 +242,7 @@ export const AttendanceScreen: React.FC = () => {
     } finally {
       setIsSubmittingProposal(false);
     }
-  };
+  });
 
   const getFormattedDateLong = () => {
     return new Date().toLocaleDateString('en-US', {
@@ -422,7 +425,7 @@ export const AttendanceScreen: React.FC = () => {
   };
 
   // Office Check-Out Handler
-  const handleManualCheckOut = () => {
+  const handleManualCheckOut = () => executeSensitiveAction(() => {
     if (!todayRecord) return;
     if (!liveLocation) {
       setActionFeedback('Live GPS location required for check-out.');
@@ -454,7 +457,7 @@ export const AttendanceScreen: React.FC = () => {
     } catch (err: any) {
       setActionFeedback(`Check-Out Error: ${err.message}`);
     }
-  };
+  });
 
   // WFH Submit Handler
   const handleWfhSubmit = (e: React.FormEvent) => {
@@ -996,14 +999,14 @@ export const AttendanceScreen: React.FC = () => {
                     <>
                       <Button 
                         onClick={handleManualCheckOut} 
-                        disabled={!isInsideGeofence}
+                        disabled={!isInsideGeofence || isVerifying}
                         className={`w-full py-4 font-black text-sm rounded-2xl transition-all shadow-xl cursor-pointer ${
-                          isInsideGeofence 
+                          isInsideGeofence && !isVerifying
                             ? 'bg-[var(--danger)] hover:bg-[var(--danger)]/80 text-white border border-[var(--border)] active:scale-[0.98]' 
                             : 'bg-[var(--surface-elevated)] text-[var(--text-secondary)] border border-[var(--border)] cursor-not-allowed opacity-60'
                         }`}
                       >
-                        <LogOut className="w-5 h-5 mr-2" /> CHECK OUT
+                        <LogOut className="w-5 h-5 mr-2" /> {isVerifying ? 'VERIFYING...' : 'CHECK OUT'}
                       </Button>
                       {!isInsideGeofence && (
                         <div className="flex items-center justify-center gap-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
@@ -1438,11 +1441,11 @@ export const AttendanceScreen: React.FC = () => {
                   )}
                   <Button
                     onClick={handleSubmitProposedTime}
-                    disabled={isSubmittingProposal}
+                    disabled={isSubmittingProposal || isVerifying}
                     className="bg-[var(--primary)] hover:bg-[var(--primary-secondary)] text-white text-xs font-black px-6 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer"
                   >
                     <Check className="w-4 h-4 stroke-[3]" />
-                    {isSubmittingProposal ? 'SUBMITTING...' : 'RESOLVE CHECKOUT'}
+                    {isSubmittingProposal || isVerifying ? 'SUBMITTING...' : 'RESOLVE CHECKOUT'}
                   </Button>
                 </div>
               </div>

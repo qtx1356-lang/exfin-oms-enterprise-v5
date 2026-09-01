@@ -45,10 +45,12 @@ import {
   CalendarCheck,
   Check
 } from 'lucide-react';
+import { useSensitiveActionGuard } from '../../services/security/useSensitiveActionGuard';
 
 export const PlannerScreen: React.FC = () => {
   const { employeeData } = useRegistration();
   const { tasks: realtimeTasks, isOnline, updateTaskOptimistically, triggerManualSync } = useRealtimeSync();
+  const { executeSensitiveAction, isVerifying } = useSensitiveActionGuard();
 
   const empCode = (employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN').trim();
   const empId = (employeeData?.id || empCode).trim();
@@ -135,90 +137,94 @@ export const PlannerScreen: React.FC = () => {
   };
 
   // 2. ACTION: SUBMIT TASK (Or Resubmit after revision)
-  const handleSubmitTask = async (task: TaskRecord, note?: string, e?: React.MouseEvent) => {
+  const handleSubmitTask = (task: TaskRecord, note?: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setIsUpdating(true);
+    executeSensitiveAction(async () => {
+      setIsUpdating(true);
 
-    try {
-      const nowIso = new Date().toISOString();
-      const isResubmission = getNormalizedTaskStatus(task) === 'Revision Requested' || (task.revisions && task.revisions.length > 0 && !task.revisions[task.revisions.length - 1].resubmittedAt);
+      try {
+        const nowIso = new Date().toISOString();
+        const isResubmission = getNormalizedTaskStatus(task) === 'Revision Requested' || (task.revisions && task.revisions.length > 0 && !task.revisions[task.revisions.length - 1].resubmittedAt);
 
-      let updatedRevisions = [...(task.revisions || [])];
-      if (isResubmission && updatedRevisions.length > 0) {
-        const lastIdx = updatedRevisions.length - 1;
-        updatedRevisions[lastIdx] = {
-          ...updatedRevisions[lastIdx],
-          resubmittedAt: nowIso,
-          resubmissionNote: note?.trim() || resubmissionNote.trim() || 'Employee resubmitted completed work'
+        let updatedRevisions = [...(task.revisions || [])];
+        if (isResubmission && updatedRevisions.length > 0) {
+          const lastIdx = updatedRevisions.length - 1;
+          updatedRevisions[lastIdx] = {
+            ...updatedRevisions[lastIdx],
+            resubmittedAt: nowIso,
+            resubmissionNote: note?.trim() || resubmissionNote.trim() || 'Employee resubmitted completed work'
+          };
+        }
+
+        const historyEntry: TaskHistoryEvent = {
+          id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          action: isResubmission ? 'RESUBMITTED' : 'SUBMITTED',
+          performedBy: empCode,
+          performedByName: empName,
+          timestamp: nowIso,
+          details: note?.trim() || resubmissionNote.trim() || (isResubmission ? 'Resubmitted after addressing revision request' : 'Submitted completed deliverable for review')
         };
+
+        const updatedRecord: TaskRecord = {
+          ...task,
+          status: 'Submitted',
+          approvalStatus: 'PENDING_REVIEW',
+          completionPercentage: 100,
+          submittedAt: nowIso,
+          submittedBy: empName,
+          revisions: updatedRevisions,
+          history: [...(task.history || []), historyEntry],
+          updatedAtDeviceTime: nowIso,
+          syncStatus: 'Pending Sync',
+        };
+
+        await updateTaskOptimistically(updatedRecord);
+        setSelectedTask(null);
+      } catch (err) {
+        console.error('Error submitting task:', err);
+      } finally {
+        setIsUpdating(false);
       }
-
-      const historyEntry: TaskHistoryEvent = {
-        id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        action: isResubmission ? 'RESUBMITTED' : 'SUBMITTED',
-        performedBy: empCode,
-        performedByName: empName,
-        timestamp: nowIso,
-        details: note?.trim() || resubmissionNote.trim() || (isResubmission ? 'Resubmitted after addressing revision request' : 'Submitted completed deliverable for review')
-      };
-
-      const updatedRecord: TaskRecord = {
-        ...task,
-        status: 'Submitted',
-        approvalStatus: 'PENDING_REVIEW',
-        completionPercentage: 100,
-        submittedAt: nowIso,
-        submittedBy: empName,
-        revisions: updatedRevisions,
-        history: [...(task.history || []), historyEntry],
-        updatedAtDeviceTime: nowIso,
-        syncStatus: 'Pending Sync',
-      };
-
-      await updateTaskOptimistically(updatedRecord);
-      setSelectedTask(null);
-    } catch (err) {
-      console.error('Error submitting task:', err);
-    } finally {
-      setIsUpdating(false);
-    }
+    });
   };
 
   // 3. ACTION: MARK COMPLETED DIRECTLY
-  const handleMarkCompleted = async (task: TaskRecord, e?: React.MouseEvent) => {
+  const handleMarkCompleted = (task: TaskRecord, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setIsUpdating(true);
+    executeSensitiveAction(async () => {
+      setIsUpdating(true);
 
-    try {
-      const nowIso = new Date().toISOString();
-      const historyEntry: TaskHistoryEvent = {
-        id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        action: 'COMPLETED',
-        performedBy: empCode,
-        performedByName: empName,
-        timestamp: nowIso,
-        details: 'Task marked 100% completed by employee'
-      };
+      try {
+        const nowIso = new Date().toISOString();
+        const historyEntry: TaskHistoryEvent = {
+          id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          action: 'COMPLETED',
+          performedBy: empCode,
+          performedByName: empName,
+          timestamp: nowIso,
+          details: 'Task marked 100% completed by employee'
+        };
 
-      const updatedRecord: TaskRecord = {
-        ...task,
-        status: 'Completed',
-        approvalStatus: 'APPROVED',
-        completionPercentage: 100,
-        completedAt: nowIso,
-        completedBy: empName,
-        history: [...(task.history || []), historyEntry],
-        updatedAtDeviceTime: nowIso,
-        syncStatus: 'Pending Sync',
-      };
+        const updatedRecord: TaskRecord = {
+          ...task,
+          status: 'Completed',
+          approvalStatus: 'APPROVED',
+          completionPercentage: 100,
+          completedAt: nowIso,
+          completedBy: empName,
+          history: [...(task.history || []), historyEntry],
+          updatedAtDeviceTime: nowIso,
+          syncStatus: 'Pending Sync',
+        };
 
-      await updateTaskOptimistically(updatedRecord);
-      setSelectedTask(null);
-    } catch (err) {
-      console.error('Error marking task completed:', err);
-    } finally {
-      setIsUpdating(false);
-    }
+        await updateTaskOptimistically(updatedRecord);
+        setSelectedTask(null);
+      } catch (err) {
+        console.error('Error marking task completed:', err);
+      } finally {
+        setIsUpdating(false);
+      }
+    });
   };
 
   // Update Task Progress via Slider / Modal
@@ -927,7 +933,8 @@ export const PlannerScreen: React.FC = () => {
                         size="sm"
                         variant="success"
                         onClick={(e) => handleMarkCompleted(task, e)}
-                        className="py-1 px-2.5 text-[11px] font-bold flex items-center gap-1 rounded-xl cursor-pointer"
+                        disabled={isUpdating || isVerifying}
+                        className="py-1 px-2.5 text-[11px] font-bold flex items-center gap-1 rounded-xl cursor-pointer disabled:opacity-50"
                       >
                         <CheckCircle2 className="w-3 h-3" /> Mark Completed
                       </Button>
@@ -1119,16 +1126,16 @@ export const PlannerScreen: React.FC = () => {
                   <Button
                     variant="gold"
                     onClick={() => handleSubmitTask(selectedTask, resubmissionNote)}
-                    disabled={isUpdating}
+                    disabled={isUpdating || isVerifying}
                     className="flex-1 py-3 text-white font-bold rounded-2xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg"
                   >
-                    <RotateCcw className="w-4 h-4" /> {isUpdating ? 'Submitting...' : 'Resubmit Deliverable'}
+                    <RotateCcw className="w-4 h-4" /> {isUpdating || isVerifying ? 'Submitting...' : 'Resubmit Deliverable'}
                   </Button>
                 ) : (
                   <>
                     <Button
                       onClick={handleSaveTaskProgress}
-                      disabled={isUpdating}
+                      disabled={isUpdating || isVerifying}
                       variant="tonal"
                       className="flex-1 py-3 text-slate-200 border border-[var(--border)] font-bold rounded-2xl cursor-pointer"
                     >
@@ -1137,10 +1144,10 @@ export const PlannerScreen: React.FC = () => {
                     <Button
                       variant="filled"
                       onClick={() => handleSubmitTask(selectedTask)}
-                      disabled={isUpdating}
+                      disabled={isUpdating || isVerifying}
                       className="flex-1 py-3 text-white font-bold rounded-2xl flex items-center justify-center gap-1.5 cursor-pointer shadow-lg"
                     >
-                      <Send className="w-4 h-4" /> Submit Task (100%)
+                      <Send className="w-4 h-4" /> {isVerifying ? 'Verifying...' : 'Submit Task (100%)'}
                     </Button>
                   </>
                 )}
