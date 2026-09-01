@@ -33,15 +33,6 @@ import { PayslipScreen } from '../features/employee/PayslipScreen';
 import { ChatScreen } from '../features/employee/ChatScreen';
 import { EmployeeFAQScreen } from '../features/help/EmployeeFAQScreen';
 import { WorkHoursScreen } from '../features/workHours/WorkHoursScreen';
-import { BiometricSectionGuard } from '../components/security/BiometricSectionGuard';
-
-const BiometricProtectedRoute: React.FC = () => {
-  return (
-    <BiometricSectionGuard>
-      <Outlet />
-    </BiometricSectionGuard>
-  );
-};
 
 // Protects /admin/dashboard - accessible by ADMIN, HR, SUPER_ADMIN
 const AdminProtectedRoute = () => {
@@ -193,7 +184,7 @@ export const AppRouter: React.FC = () => {
         <Route path="/admin-portal">
           <Route index element={<Navigate to="/admin-portal/login" replace />} />
           <Route path="login" element={<AdminPortalPublicRoute />} />
-          <Route path="dashboard" element={<BiometricSectionGuard><AdminPortalDashboard /></BiometricSectionGuard>} />
+          <Route path="dashboard" element={<AdminPortalDashboard />} />
         </Route>
 
         {/* Existing Admin Routes */}
@@ -201,7 +192,7 @@ export const AppRouter: React.FC = () => {
           <Route index element={<Navigate to="/x7Kp9/login" replace />} />
           <Route path="login" element={<AdminPublicRoute />} />
           <Route element={<AdminProtectedRoute />}>
-            <Route path="dashboard" element={<BiometricSectionGuard><AdminDashboard /></BiometricSectionGuard>} />
+            <Route path="dashboard" element={<AdminDashboard />} />
           </Route>
         </Route>
 
@@ -211,26 +202,21 @@ export const AppRouter: React.FC = () => {
         {/* Normal Exfin OMS PWA Flow */}
         <Route element={<EmployeeGuard />}>
           <Route path="/" element={<Layout />}>
-            {/* CRITICAL REQUIREMENT: Home is the ONLY section exempt from biometric authentication */}
             <Route index element={<EmployeeDashboard />} />
-
-            {/* ALL OTHER APPLICATION SECTIONS ARE PROTECTED BY BIOMETRIC SECURITY */}
-            <Route element={<BiometricProtectedRoute />}>
-              <Route path="attendance" element={<FeatureGuard feature="attendance"><AttendanceScreen /></FeatureGuard>} />
-              <Route path="leave" element={<FeatureGuard feature="leave"><LeaveScreen /></FeatureGuard>} />
-              <Route path="expenses" element={<FeatureGuard feature="expenses"><ExpenseScreen /></FeatureGuard>} />
-              <Route path="planner" element={<FeatureGuard feature="workPlanner"><PlannerScreen /></FeatureGuard>} />
-              <Route path="my-team" element={<FeatureGuard feature="myTeam"><MyTeamScreen /></FeatureGuard>} />
-              <Route path="team" element={<Navigate to="/my-team" replace />} />
-              <Route path="efficiency" element={<FeatureGuard feature="employeeEfficiency"><EfficiencyDashboard /></FeatureGuard>} />
-              <Route path="notifications" element={<FeatureGuard feature="notifications"><NotificationCenter /></FeatureGuard>} />
-              <Route path="sync-center" element={<SyncCenterScreen />} />
-              <Route path="profile" element={<ProfileScreen />} />
-              <Route path="payslip" element={<PayslipScreen />} />
-              <Route path="chat" element={<ChatScreen />} />
-              <Route path="faq" element={<EmployeeFAQScreen />} />
-              <Route path="work-hours" element={<WorkHoursScreen />} />
-            </Route>
+            <Route path="attendance" element={<FeatureGuard feature="attendance"><AttendanceScreen /></FeatureGuard>} />
+            <Route path="leave" element={<FeatureGuard feature="leave"><LeaveScreen /></FeatureGuard>} />
+            <Route path="expenses" element={<FeatureGuard feature="expenses"><ExpenseScreen /></FeatureGuard>} />
+            <Route path="planner" element={<FeatureGuard feature="workPlanner"><PlannerScreen /></FeatureGuard>} />
+            <Route path="my-team" element={<FeatureGuard feature="myTeam"><MyTeamScreen /></FeatureGuard>} />
+            <Route path="team" element={<Navigate to="/my-team" replace />} />
+            <Route path="efficiency" element={<FeatureGuard feature="employeeEfficiency"><EfficiencyDashboard /></FeatureGuard>} />
+            <Route path="notifications" element={<FeatureGuard feature="notifications"><NotificationCenter /></FeatureGuard>} />
+            <Route path="sync-center" element={<SyncCenterScreen />} />
+            <Route path="profile" element={<ProfileScreen />} />
+            <Route path="payslip" element={<PayslipScreen />} />
+            <Route path="chat" element={<ChatScreen />} />
+            <Route path="faq" element={<EmployeeFAQScreen />} />
+            <Route path="work-hours" element={<WorkHoursScreen />} />
           </Route>
           <Route path="/web-dashboard/*" element={<Navigate to="/" replace />} />
         </Route>
