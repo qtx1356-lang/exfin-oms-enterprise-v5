@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useBiometricSecurity } from '../../context/BiometricSecurityContext';
-import { Card } from '../ui/Card';
 import {
   Fingerprint,
-  Shield,
   ShieldCheck,
   Lock,
   ArrowLeft,
   AlertCircle,
   Sparkles,
   RefreshCw,
-  KeyRound,
-  CheckCircle2,
+  ExternalLink,
+  Info,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 interface BiometricSectionGuardProps {
@@ -28,16 +28,17 @@ export const BiometricSectionGuard: React.FC<BiometricSectionGuardProps> = ({ ch
     isEnrolled,
     activeUserId,
     activeUserDisplayName,
+    diagnostics,
     authenticate,
     enroll,
     resetEnrollment,
-    unlockWithFallback,
+    refreshDiagnostics,
   } = useBiometricSecurity();
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showReEnrollConfirm, setShowReEnrollConfirm] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   // CRITICAL REQUIREMENT 1: HOME PAGE MUST REMAIN UNLOCKED
   const isHomePage = location.pathname === '/' || location.pathname === '';
@@ -48,7 +49,6 @@ export const BiometricSectionGuard: React.FC<BiometricSectionGuardProps> = ({ ch
   // Clear messages when route changes
   useEffect(() => {
     setErrorMessage(null);
-    setSuccessMessage(null);
   }, [location.pathname]);
 
   // If already unlocked in-memory, render protected content
@@ -60,12 +60,9 @@ export const BiometricSectionGuard: React.FC<BiometricSectionGuardProps> = ({ ch
   const handleEnroll = async () => {
     setLoading(true);
     setErrorMessage(null);
-    setSuccessMessage(null);
     try {
       const res = await enroll();
-      if (res.success) {
-        setSuccessMessage('Biometric security enabled successfully!');
-      } else {
+      if (!res.success) {
         setErrorMessage(res.error || 'Failed to enable device security. Please try again.');
       }
     } catch (err: any) {
@@ -75,7 +72,7 @@ export const BiometricSectionGuard: React.FC<BiometricSectionGuardProps> = ({ ch
     }
   };
 
-  // Handle Authentication
+  // Handle Authentication (Invokes native platform authenticator)
   const handleAuthenticate = async () => {
     setLoading(true);
     setErrorMessage(null);
@@ -96,9 +93,8 @@ export const BiometricSectionGuard: React.FC<BiometricSectionGuardProps> = ({ ch
     navigate('/', { replace: true });
   };
 
-  // Unsupported fallback handler
-  const handleFallbackUnlock = () => {
-    unlockWithFallback();
+  const handleOpenTopLevel = () => {
+    window.open(window.location.href, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -113,7 +109,7 @@ export const BiometricSectionGuard: React.FC<BiometricSectionGuardProps> = ({ ch
           <div className="relative inline-block">
             <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-emerald-500/20 via-cyan-500/10 to-transparent border border-emerald-500/30 flex items-center justify-center mx-auto shadow-inner">
               {isEnrolled ? (
-                <Fingerprint className="w-10 h-10 text-emerald-400 animate-pulse" />
+                <Fingerprint className="w-10 h-10 text-emerald-400" />
               ) : (
                 <ShieldCheck className="w-10 h-10 text-cyan-400" />
               )}
@@ -129,12 +125,10 @@ export const BiometricSectionGuard: React.FC<BiometricSectionGuardProps> = ({ ch
               EXFIN OMS Security Guard
             </span>
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight mt-2">
-              {isEnrolled ? 'Verify Your Identity' : 'Secure Your EXFIN OMS'}
+              Authenticate with your phone's security
             </h2>
             <p className="text-xs text-slate-400 max-w-xs mx-auto mt-1 leading-relaxed">
-              {isEnrolled
-                ? 'Use fingerprint, face authentication, or device screen lock to access this protected section.'
-                : 'Protect your employee data and company operations using your device’s built-in biometric security.'}
+              Use fingerprint, face authentication, or device screen lock to access this protected section.
             </p>
           </div>
         </div>
@@ -167,58 +161,58 @@ export const BiometricSectionGuard: React.FC<BiometricSectionGuardProps> = ({ ch
           </div>
         )}
 
-        {successMessage && (
-          <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-start gap-2.5 text-xs text-emerald-300">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400 mt-0.5" />
-            <div className="flex-1 leading-relaxed">
-              <p className="font-semibold">{successMessage}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Unsupported Hardware Notice */}
+        {/* Environment / Platform Support Notification */}
         {isSupported === false && (
-          <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-xs text-amber-300 space-y-2">
-            <div className="flex items-start gap-2">
-              <KeyRound className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-              <p className="leading-relaxed">
-                Platform biometric authenticator is not available on this browser or environment. You may proceed using verified session authentication.
-              </p>
+          <div className="p-4 bg-amber-500/10 border border-amber-500/25 rounded-2xl text-xs text-amber-200 space-y-3">
+            <div className="flex items-start gap-2.5">
+              <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-bold text-amber-300">Platform Authenticator Environment Notice</p>
+                <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                  {diagnostics?.diagnosticMessage ||
+                    'Your current browser or app environment does not provide phone biometric authentication. Please open EXFIN OMS in a supported HTTPS browser such as Chrome on Android, with fingerprint/face/device security enabled.'}
+                </p>
+              </div>
             </div>
-            <button
-              onClick={handleFallbackUnlock}
-              className="w-full py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 rounded-xl text-xs font-bold transition-all border border-amber-500/30"
-            >
-              Verify & Proceed
-            </button>
+
+            {diagnostics?.isIframe && (
+              <button
+                type="button"
+                onClick={handleOpenTopLevel}
+                className="w-full py-2.5 px-3 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 rounded-xl text-xs font-bold transition-all border border-amber-500/30 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Open EXFIN OMS in New Tab
+              </button>
+            )}
           </div>
         )}
 
         {/* Action Buttons */}
-        <div className="space-y-3 pt-2">
+        <div className="space-y-3 pt-1">
           {isEnrolled ? (
             <button
               onClick={handleAuthenticate}
-              disabled={loading}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black rounded-2xl text-xs uppercase tracking-widest transition-all shadow-xl shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
+              disabled={loading || isSupported === false}
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black rounded-2xl text-xs uppercase tracking-widest transition-all shadow-xl shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {loading ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
-                  Verifying...
+                  Verifying Identity...
                 </>
               ) : (
                 <>
                   <Fingerprint className="w-4 h-4 text-slate-950" />
-                  Verify Identity
+                  USE PHONE FINGERPRINT / BIOMETRIC
                 </>
               )}
             </button>
           ) : (
             <button
               onClick={handleEnroll}
-              disabled={loading}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-black rounded-2xl text-xs uppercase tracking-widest transition-all shadow-xl shadow-cyan-500/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
+              disabled={loading || isSupported === false}
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-black rounded-2xl text-xs uppercase tracking-widest transition-all shadow-xl shadow-cyan-500/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {loading ? (
                 <>
@@ -228,30 +222,83 @@ export const BiometricSectionGuard: React.FC<BiometricSectionGuardProps> = ({ ch
               ) : (
                 <>
                   <ShieldCheck className="w-4 h-4 text-slate-950" />
-                  Enable Biometric Security
+                  ENABLE BIOMETRIC SECURITY
                 </>
               )}
             </button>
           )}
 
+          {/* Privacy Guarantee Statement */}
+          <p className="text-[10px] text-slate-400 text-center leading-relaxed px-2">
+            Your fingerprint/face is handled by your phone. EXFIN OMS never receives or stores your biometric data.
+          </p>
+
           {/* Return Home Button */}
           <button
             onClick={handleReturnHome}
-            className="w-full py-3 px-4 bg-slate-900/80 hover:bg-slate-800/80 text-slate-300 font-bold rounded-2xl text-xs transition-all border border-slate-800 active:scale-[0.98] flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 bg-slate-900/80 hover:bg-slate-800/80 text-slate-300 font-bold rounded-2xl text-xs transition-all border border-slate-800 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5 text-slate-400" />
             Return Home
           </button>
         </div>
 
+        {/* Collapsible Diagnostics Panel */}
+        <div className="pt-2 border-t border-slate-800/80">
+          <button
+            type="button"
+            onClick={() => setShowDiagnostics(!showDiagnostics)}
+            className="w-full flex items-center justify-between text-[11px] text-slate-400 hover:text-slate-200 transition-colors py-1 cursor-pointer"
+          >
+            <span>Environment Diagnostics</span>
+            {showDiagnostics ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+
+          {showDiagnostics && diagnostics && (
+            <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-[10px] font-mono text-slate-400 space-y-1 mt-2">
+              <div className="flex justify-between">
+                <span>Secure HTTPS Context:</span>
+                <span className={diagnostics.isSecureContext ? 'text-emerald-400 font-bold' : 'text-rose-400'}>
+                  {diagnostics.isSecureContext ? 'YES' : 'NO'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>WebAuthn Supported:</span>
+                <span className={diagnostics.hasPublicKeyCredential ? 'text-emerald-400 font-bold' : 'text-rose-400'}>
+                  {diagnostics.hasPublicKeyCredential ? 'YES' : 'NO'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Platform Authenticator:</span>
+                <span className={diagnostics.isPlatformAuthAvailable ? 'text-emerald-400 font-bold' : 'text-amber-400'}>
+                  {diagnostics.isPlatformAuthAvailable ? 'AVAILABLE' : 'UNAVAILABLE'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Embedded Iframe:</span>
+                <span className={diagnostics.isIframe ? 'text-amber-400' : 'text-slate-300'}>
+                  {diagnostics.isIframe ? 'YES (Iframe)' : 'NO (Top-Level)'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Origin:</span>
+                <span className="text-slate-300 truncate max-w-[170px]">{diagnostics.origin}</span>
+              </div>
+              <div className="pt-1 text-[9px] text-slate-400 leading-tight">
+                Code: <span className="text-cyan-300">{diagnostics.diagnosticCode}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Reset / Re-register Option */}
         {isEnrolled && (
-          <div className="pt-2 text-center">
+          <div className="text-center">
             {!showReEnrollConfirm ? (
               <button
                 type="button"
                 onClick={() => setShowReEnrollConfirm(true)}
-                className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors underline underline-offset-4"
+                className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors underline underline-offset-4 cursor-pointer"
               >
                 Re-register device biometric credential
               </button>
@@ -266,13 +313,13 @@ export const BiometricSectionGuard: React.FC<BiometricSectionGuardProps> = ({ ch
                       resetEnrollment();
                       setShowReEnrollConfirm(false);
                     }}
-                    className="flex-1 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[10px] font-bold rounded-xl border border-rose-500/30 transition-colors"
+                    className="flex-1 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[10px] font-bold rounded-xl border border-rose-500/30 transition-colors cursor-pointer"
                   >
                     Confirm Reset
                   </button>
                   <button
                     onClick={() => setShowReEnrollConfirm(false)}
-                    className="px-3 py-1.5 bg-slate-900 text-slate-400 text-[10px] font-bold rounded-xl border border-slate-800 hover:text-white transition-colors"
+                    className="px-3 py-1.5 bg-slate-900 text-slate-400 text-[10px] font-bold rounded-xl border border-slate-800 hover:text-white transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -285,3 +332,4 @@ export const BiometricSectionGuard: React.FC<BiometricSectionGuardProps> = ({ ch
     </div>
   );
 };
+

@@ -9,6 +9,9 @@ import {
   CheckCircle2,
   AlertCircle,
   ShieldAlert,
+  Info,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 export const BiometricSecurityCard: React.FC = () => {
@@ -17,15 +20,18 @@ export const BiometricSecurityCard: React.FC = () => {
     isSupported,
     isEnrolled,
     credentialMetadata,
+    diagnostics,
     activeUserId,
     lock,
     enroll,
     resetEnrollment,
+    refreshDiagnostics,
   } = useBiometricSecurity();
 
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showConfirmReset, setShowConfirmReset] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const handleEnroll = async () => {
     setLoading(true);
@@ -70,34 +76,47 @@ export const BiometricSecurityCard: React.FC = () => {
               : 'bg-slate-800 text-slate-300 border-slate-700'
           }`}
         >
-          {isEnrolled ? 'ACTIVE & CONFIGURED' : isSupported === false ? 'UNSUPPORTED' : 'NOT CONFIGURED'}
+          {isEnrolled ? 'Status: Enabled' : isSupported === false ? 'Status: Unsupported' : 'Status: Not Enabled'}
         </span>
       </div>
 
       <div className="space-y-3">
         <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-          Protects sensitive sections (Planner, Attendance, Team, Profile) using your device’s native platform authenticator (Fingerprint / Face ID / Device Passcode).
+          Protects sensitive sections (Planner, Attendance, Team, Profile) using your phone's native platform security (Fingerprint / Face ID / Android Device Lock).
         </p>
 
         {/* Status indicator */}
         <div className="p-3.5 glass-card-inner rounded-xl space-y-2">
           <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-slate-300">Device Credential Registered</span>
+            <span className={`font-semibold flex items-center gap-1 ${isEnrolled ? 'text-emerald-400' : 'text-slate-400'}`}>
+              {isEnrolled ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Yes
+                </>
+              ) : (
+                'No'
+              )}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between text-xs">
             <span className="font-bold text-slate-300">Platform Authenticator</span>
             <span className="font-semibold text-emerald-400 flex items-center gap-1">
               {isSupported === false ? (
-                <span className="text-amber-400">Unavailable</span>
+                <span className="text-amber-400">Unavailable in Current Runtime</span>
               ) : (
                 <>
-                  <CheckCircle2 className="w-3.5 h-3.5" /> WebAuthn / Passkey
+                  <CheckCircle2 className="w-3.5 h-3.5" /> WebAuthn / Passkey Ready
                 </>
               )}
             </span>
           </div>
 
           <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-slate-300">Protection Status</span>
+            <span className="font-bold text-slate-300">Current Session State</span>
             <span className={`font-semibold ${isUnlocked ? 'text-cyan-400' : 'text-amber-400'}`}>
-              {isUnlocked ? 'Active In-Memory Session' : 'Locked'}
+              {isUnlocked ? 'Active In-Memory Session (5m)' : 'Locked'}
             </span>
           </div>
 
@@ -159,13 +178,13 @@ export const BiometricSecurityCard: React.FC = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={handleReset}
-                      className="px-3 py-1.5 bg-rose-500 text-white rounded-lg text-xs font-bold hover:bg-rose-600 transition-colors"
+                      className="px-3 py-1.5 bg-rose-500 text-white rounded-lg text-xs font-bold hover:bg-rose-600 transition-colors cursor-pointer"
                     >
                       Confirm Reset
                     </button>
                     <button
                       onClick={() => setShowConfirmReset(false)}
-                      className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors"
+                      className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -183,18 +202,64 @@ export const BiometricSecurityCard: React.FC = () => {
               {loading ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
-                  Setting up...
+                  Registering Device...
                 </>
               ) : (
                 <>
                   <ShieldCheck className="w-3.5 h-3.5 text-slate-950" />
-                  Enable Device Biometrics
+                  Enable Biometric Security
                 </>
               )}
             </button>
+          )}
+        </div>
+
+        {/* Collapsible Diagnostics */}
+        <div className="pt-2 border-t border-slate-800/80">
+          <button
+            type="button"
+            onClick={() => setShowDiagnostics(!showDiagnostics)}
+            className="w-full flex items-center justify-between text-[11px] text-slate-400 hover:text-slate-200 transition-colors py-1 cursor-pointer"
+          >
+            <span>Device Diagnostics</span>
+            {showDiagnostics ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+
+          {showDiagnostics && diagnostics && (
+            <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 text-[10px] font-mono text-slate-400 space-y-1 mt-2">
+              <div className="flex justify-between">
+                <span>Secure HTTPS:</span>
+                <span className={diagnostics.isSecureContext ? 'text-emerald-400 font-bold' : 'text-rose-400'}>
+                  {diagnostics.isSecureContext ? 'YES' : 'NO'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>WebAuthn:</span>
+                <span className={diagnostics.hasPublicKeyCredential ? 'text-emerald-400 font-bold' : 'text-rose-400'}>
+                  {diagnostics.hasPublicKeyCredential ? 'YES' : 'NO'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Platform Auth:</span>
+                <span className={diagnostics.isPlatformAuthAvailable ? 'text-emerald-400 font-bold' : 'text-amber-400'}>
+                  {diagnostics.isPlatformAuthAvailable ? 'AVAILABLE' : 'UNAVAILABLE'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Iframe Context:</span>
+                <span className={diagnostics.isIframe ? 'text-amber-400' : 'text-slate-300'}>
+                  {diagnostics.isIframe ? 'YES (Embedded)' : 'NO (Top-Level)'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Origin:</span>
+                <span className="text-slate-300 truncate max-w-[170px]">{diagnostics.origin}</span>
+              </div>
+            </div>
           )}
         </div>
       </div>
     </div>
   );
 };
+

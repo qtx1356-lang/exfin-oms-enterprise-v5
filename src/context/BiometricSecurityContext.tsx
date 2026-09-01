@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import {
   isBiometricPlatformSupported,
+  getBiometricDiagnostics,
   getStoredBiometricCredential,
   enrollBiometricCredential,
   authenticateBiometricCredential,
@@ -8,7 +9,7 @@ import {
   BIOMETRIC_UNLOCK_DURATION_MS,
   BACKGROUND_LOCK_TIMEOUT_MS,
 } from '../services/security/biometricService';
-import { BiometricCredentialMetadata, BiometricResult } from '../types/biometric';
+import { BiometricCredentialMetadata, BiometricResult, BiometricDiagnosticReport } from '../types/biometric';
 import { useRegistration } from './RegistrationContext';
 import { useAdminAuth } from './AdminAuthContext';
 
@@ -19,12 +20,13 @@ interface BiometricSecurityContextType {
   activeUserId: string;
   activeUserDisplayName: string;
   credentialMetadata: BiometricCredentialMetadata | null;
+  diagnostics: BiometricDiagnosticReport | null;
   authenticate: () => Promise<BiometricResult>;
   enroll: () => Promise<BiometricResult>;
   resetEnrollment: () => void;
   lock: () => void;
-  unlockWithFallback: () => void;
   refreshStatus: () => Promise<void>;
+  refreshDiagnostics: () => Promise<BiometricDiagnosticReport>;
 }
 
 const BiometricSecurityContext = createContext<BiometricSecurityContextType | undefined>(undefined);
@@ -55,17 +57,26 @@ export const BiometricSecurityProvider: React.FC<{ children: React.ReactNode }> 
   const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
   const [lastUnlockedAt, setLastUnlockedAt] = useState<number | null>(null);
   const [isSupported, setIsSupported] = useState<boolean | null>(null);
+  const [diagnostics, setDiagnostics] = useState<BiometricDiagnosticReport | null>(null);
   const [credentialMetadata, setCredentialMetadata] = useState<BiometricCredentialMetadata | null>(null);
 
   const lastBackgroundTimeRef = useRef<number | null>(null);
 
-  // Check hardware/browser support on mount
+  // Check hardware/browser diagnostics and support on mount
+  const refreshDiagnostics = useCallback(async (): Promise<BiometricDiagnosticReport> => {
+    const diag = await getBiometricDiagnostics();
+    setDiagnostics(diag);
+    setIsSupported(diag.isPlatformAuthAvailable);
+    return diag;
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
-    isBiometricPlatformSupported()
-      .then((supported) => {
+    getBiometricDiagnostics()
+      .then((diag) => {
         if (isMounted) {
-          setIsSupported(supported);
+          setDiagnostics(diag);
+          setIsSupported(diag.isPlatformAuthAvailable);
         }
       })
       .catch(() => {
@@ -202,12 +213,6 @@ export const BiometricSecurityProvider: React.FC<{ children: React.ReactNode }> 
     }
   }, [activeUserId, lock]);
 
-  // Fallback unlock (only for verified unsupported environments or explicit fallbacks)
-  const unlockWithFallback = useCallback(() => {
-    setIsUnlocked(true);
-    setLastUnlockedAt(Date.now());
-  }, []);
-
   const isEnrolled = !!credentialMetadata;
 
   return (
@@ -219,12 +224,13 @@ export const BiometricSecurityProvider: React.FC<{ children: React.ReactNode }> 
         activeUserId,
         activeUserDisplayName,
         credentialMetadata,
+        diagnostics,
         authenticate,
         enroll,
         resetEnrollment,
         lock,
-        unlockWithFallback,
         refreshStatus,
+        refreshDiagnostics,
       }}
     >
       {children}
@@ -239,3 +245,4 @@ export const useBiometricSecurity = (): BiometricSecurityContextType => {
   }
   return context;
 };
+

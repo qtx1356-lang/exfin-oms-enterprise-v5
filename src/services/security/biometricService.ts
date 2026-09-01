@@ -1,4 +1,4 @@
-import { BiometricCredentialMetadata, BiometricResult } from '../../types/biometric';
+import { BiometricCredentialMetadata, BiometricResult, BiometricDiagnosticReport } from '../../types/biometric';
 
 // Central configuration constants
 export const BIOMETRIC_UNLOCK_DURATION_MS = 5 * 60 * 1000; // 5 minutes in-memory unlock window
@@ -42,22 +42,84 @@ export function normalizeUserKey(userId: string): string {
 }
 
 /**
+ * Performs a comprehensive, safe diagnostic evaluation of the browser, platform, and WebAuthn capabilities.
+ * (Zero sensitive or biometric data is accessed or recorded.)
+ */
+export async function getBiometricDiagnostics(): Promise<BiometricDiagnosticReport> {
+  const isSecureContext = typeof window !== 'undefined' ? Boolean(window.isSecureContext) : false;
+  const hasPublicKeyCredential = typeof window !== 'undefined' && typeof window.PublicKeyCredential === 'function';
+  const hasCredentialsNavigator = typeof navigator !== 'undefined' && !!navigator.credentials;
+  const hasPlatformAuthMethod = hasPublicKeyCredential && typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function';
+  const isIframe = typeof window !== 'undefined' ? window.self !== window.top : false;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const protocol = typeof window !== 'undefined' ? window.location.protocol : '';
+
+  let isPlatformAuthAvailable = false;
+  let diagnosticCode = 'READY';
+  let diagnosticMessage = 'Platform biometric authenticator (Fingerprint/Face/Screen Lock) is ready and supported.';
+
+  if (!isSecureContext && protocol !== 'http:' && hostname !== 'localhost') {
+    diagnosticCode = 'INSECURE_CONTEXT';
+    diagnosticMessage = 'WebAuthn requires a secure HTTPS context. Current page is not in a secure context.';
+  } else if (!hasPublicKeyCredential || !hasCredentialsNavigator) {
+    diagnosticCode = 'WEBAUTHN_UNSUPPORTED';
+    diagnosticMessage = 'Your current browser does not support the Web Authentication (WebAuthn / Passkeys) API.';
+  } else if (isIframe) {
+    // In an iframe without explicit allow="publickey-credentials-get; publickey-credentials-create", WebAuthn is blocked by browser policy
+    try {
+      if (hasPlatformAuthMethod) {
+        isPlatformAuthAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      }
+    } catch {
+      isPlatformAuthAvailable = false;
+    }
+
+    if (!isPlatformAuthAvailable) {
+      diagnosticCode = 'IFRAME_RESTRICTED';
+      diagnosticMessage = 'Application is running inside an embedded iframe. Browser security policies restrict platform authenticators inside iframes. Open EXFIN OMS directly in a new browser tab or install as PWA.';
+    }
+  } else {
+    try {
+      if (hasPlatformAuthMethod) {
+        isPlatformAuthAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+        if (!isPlatformAuthAvailable) {
+          diagnosticCode = 'NO_PLATFORM_AUTHENTICATOR';
+          diagnosticMessage = 'No platform authenticator available on this device. Ensure device fingerprint, face recognition, or screen lock (PIN/Pattern) is enabled in Android Settings.';
+        }
+      } else {
+        // Fallback for older WebAuthn implementations
+        isPlatformAuthAvailable = true;
+      }
+    } catch (err) {
+      console.warn('[BIOMETRIC_DIAGNOSTIC_ERROR]', err);
+      isPlatformAuthAvailable = false;
+      diagnosticCode = 'DIAGNOSTIC_EXCEPTION';
+      diagnosticMessage = 'An error occurred while querying platform authenticator status.';
+    }
+  }
+
+  return {
+    isSecureContext,
+    hasPublicKeyCredential,
+    hasCredentialsNavigator,
+    hasPlatformAuthMethod,
+    isPlatformAuthAvailable,
+    isIframe,
+    origin,
+    hostname,
+    protocol,
+    diagnosticCode,
+    diagnosticMessage,
+  };
+}
+
+/**
  * Checks if WebAuthn and Platform Authenticators (fingerprint / face / device lock) are supported.
  */
 export async function isBiometricPlatformSupported(): Promise<boolean> {
-  if (typeof window === 'undefined') return false;
-  if (!window.PublicKeyCredential || !navigator.credentials) return false;
-
-  try {
-    if (typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
-      const isAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-      return isAvailable;
-    }
-    return true;
-  } catch (err) {
-    console.warn('[BIOMETRIC_CHECK_ERROR] Failed to query platform authenticator:', err);
-    return false;
-  }
+  const diag = await getBiometricDiagnostics();
+  return diag.isPlatformAuthAvailable;
 }
 
 /**
@@ -93,12 +155,12 @@ export async function enrollBiometricCredential(
     return { success: false, error: 'User identity is required for biometric registration.' };
   }
 
-  const supported = await isBiometricPlatformSupported();
-  if (!supported) {
+  const diag = await getBiometricDiagnostics();
+  if (!diag.isPlatformAuthAvailable) {
     return {
       success: false,
-      errorCode: 'NOT_SUPPORTED',
-      error: 'Device biometric authentication is not supported or enabled on this browser/device.',
+      errorCode: diag.diagnosticCode,
+      error: diag.diagnosticMessage,
     };
   }
 
@@ -111,7 +173,7 @@ export async function enrollBiometricCredential(
     const userIdBytes = new TextEncoder().encode(userKey);
 
     const hostname = window.location.hostname;
-    // Omit rp.id if on IP address or unusual hostname format without domain
+    // Omit rp.id if on IP address or localhost
     const isValidRpId = hostname && !/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname) && hostname !== 'localhost';
 
     const createOptions: CredentialCreationOptions = {
@@ -127,7 +189,7 @@ export async function enrollBiometricCredential(
           displayName: userDisplayName || userId,
         },
         pubKeyCredParams: [
-          { alg: -7, type: 'public-key' }, // ES256 (standard platform)
+          { alg: -7, type: 'public-key' }, // ES256 (standard platform / Android / FIDO2)
           { alg: -257, type: 'public-key' }, // RS256
         ],
         authenticatorSelection: {
@@ -245,7 +307,7 @@ function mapWebAuthnError(err: any, context: 'enrollment' | 'authentication'): B
     return {
       success: false,
       errorCode: 'NOT_ALLOWED',
-      error: 'Biometric verification was cancelled or timed out. Please try again.',
+      error: 'Biometric verification was cancelled by user or timed out. Please try again.',
     };
   }
 
@@ -253,7 +315,7 @@ function mapWebAuthnError(err: any, context: 'enrollment' | 'authentication'): B
     return {
       success: false,
       errorCode: 'NOT_SUPPORTED',
-      error: 'Platform authenticator (fingerprint/face) is not supported by your browser or device.',
+      error: 'Platform authenticator (fingerprint/face/screen lock) is not supported by your browser or device.',
     };
   }
 
@@ -261,7 +323,7 @@ function mapWebAuthnError(err: any, context: 'enrollment' | 'authentication'): B
     return {
       success: false,
       errorCode: 'SECURITY_ERROR',
-      error: 'Security constraint violation. Ensure you are accessing over HTTPS or trusted origin.',
+      error: 'Security constraint violation. WebAuthn platform authentication requires HTTPS and a top-level browser context (not an embedded iframe).',
     };
   }
 
@@ -271,7 +333,7 @@ function mapWebAuthnError(err: any, context: 'enrollment' | 'authentication'): B
       errorCode: 'INVALID_STATE',
       error: context === 'enrollment'
         ? 'A credential already exists for this device or the state is invalid.'
-        : 'The registered credential is no longer valid on this device. Please re-enroll.',
+        : 'The registered credential is no longer valid on this device. Please re-enroll device security.',
     };
   }
 
@@ -279,7 +341,7 @@ function mapWebAuthnError(err: any, context: 'enrollment' | 'authentication'): B
     return {
       success: false,
       errorCode: 'ABORTED',
-      error: 'Verification was interrupted. Please try again.',
+      error: 'Biometric operation was interrupted. Please try again.',
     };
   }
 
@@ -291,3 +353,4 @@ function mapWebAuthnError(err: any, context: 'enrollment' | 'authentication'): B
       : 'Device biometric authentication could not be completed. Please try again.',
   };
 }
+

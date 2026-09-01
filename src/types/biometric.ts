@@ -23,3 +23,17 @@ export interface BiometricResult {
   error?: string;
   errorCode?: string;
 }
+
+export interface BiometricDiagnosticReport {
+  isSecureContext: boolean;
+  hasPublicKeyCredential: boolean;
+  hasCredentialsNavigator: boolean;
+  hasPlatformAuthMethod: boolean;
+  isPlatformAuthAvailable: boolean;
+  isIframe: boolean;
+  origin: string;
+  hostname: string;
+  protocol: string;
+  diagnosticCode: string;
+  diagnosticMessage: string;
+}
