@@ -68,7 +68,9 @@ public class OfficeGeofenceHelper {
 
             geofencingClient.addGeofences(request, pendingIntent)
                     .addOnSuccessListener(aVoid -> {
+                        String empId = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString("employee_id", "UNKNOWN");
                         Log.i(TAG, "Authoritative 25m office geofence registered successfully.");
+                        Log.i(TAG, "[NATIVE_GEOFENCE_REGISTRATION] employeeId=" + empId + " radius=" + GEOFENCE_RADIUS_METERS);
                         setGeofenceRegistered(context, true);
                     })
                     .addOnFailureListener(e -> {
@@ -203,6 +205,9 @@ public class OfficeGeofenceHelper {
             editor.apply();
 
             Log.i(TAG, "Recorded native geofence event: " + transitionType + " at " + timeStr + " (timestamp=" + eventTimestamp + ", dist=" + Math.round(distance) + "m)");
+            if ("ENTER".equalsIgnoreCase(transitionType)) {
+                Log.i(TAG, "[NATIVE_GEOFENCE_ENTER_RECEIVED] employeeId=" + employeeId + " eventId=" + eventId + " eventTimestamp=" + eventTimestamp + " source=native");
+            }
         } catch (Exception e) {
             Log.e(TAG, "Failed to record native geofence event: " + e.getMessage(), e);
         }
@@ -355,6 +360,9 @@ public class OfficeGeofenceHelper {
 
             prefs.edit().putString(KEY_SYNC_QUEUE, queue.toString()).apply();
             Log.i(TAG, "Successfully queued native background geofence event: " + eventId + " (Type: " + transitionType + ", Timestamp: " + timestamp + ")");
+            if ("ENTER".equalsIgnoreCase(transitionType)) {
+                Log.i(TAG, "[NATIVE_ENTER_PERSISTED] employeeId=" + employeeId + " eventId=" + eventId);
+            }
         } catch (Exception e) {
             Log.e(TAG, "Failed to save event to queue: " + e.getMessage(), e);
         }
@@ -504,6 +512,9 @@ public class OfficeGeofenceHelper {
                         Log.i(TAG, "[Performance] Check-in confirmed: " + confirmedTime);
                         Log.i(TAG, "Successfully synced native background event " + eventId + " to backend. HTTP " + code);
                         Log.i(TAG, "[NativeGeofenceLifecycle] ENTRY_SYNC_SUCCESS");
+                        if ("ENTER".equalsIgnoreCase(eventType)) {
+                            Log.i(TAG, "[NATIVE_ENTER_SYNCED] employeeId=" + employeeId + " eventId=" + eventId);
+                        }
                     } else {
                         Log.w(TAG, "Server rejected background geofence event " + eventId + ". HTTP response: " + code);
                         Log.w(TAG, "[NativeGeofenceLifecycle] ENTRY_SYNC_FAILED (HTTP " + code + ")");

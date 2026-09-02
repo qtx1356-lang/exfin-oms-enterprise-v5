@@ -868,16 +868,20 @@ async function startServer() {
         if (!attSnap.exists) {
           // Background Auto Check-In Path: If no daily attendance record exists yet,
           // create canonical check-in document if this is a valid native ENTRY event inside the 25m office geofence.
-          const isEntryEvent = isInside || eventTypeParam === "ENTER" || eventTypeParam === "GEOFENCE_TRANSITION_ENTER" || eventTypeParam === "GEOFENCE_RETURN";
-          const isWithinBoundary = isInside || (distance !== null && distance <= GEOFENCE_RADIUS_METERS);
+          const isNativeGeofence = (source && String(source).includes("NATIVE_GEOFENCE")) || eventTypeParam === "ENTER" || eventTypeParam === "GEOFENCE_TRANSITION_ENTER";
+          const isEntryEvent = isInside || isNativeGeofence || eventTypeParam === "GEOFENCE_RETURN";
+          const isWithinBoundary = isInside || isNativeGeofence || (distance !== null && distance <= GEOFENCE_RADIUS_METERS);
 
           if (isEntryEvent && isWithinBoundary) {
-            console.log(`[BackgroundAttendance] GEOFENCE_ENTRY detected for ${employeeName} (${employeeId})`);
-            console.log(`[BackgroundAttendance] VALIDATED entry location: Lat=${latitude}, Lng=${longitude}, Dist=${distance !== null ? `${Math.round(distance)}m` : "N/A"}`);
-
             const eventId = payload.eventId || `evt_bg_CHECK_IN_${employeeId}_${dateStr}_${timeStr.replace(/\s+/g, "_")}`;
             const attUuid = payload.id || `att_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
+            if (isNativeGeofence) {
+              console.log(`[NATIVE_GEOFENCE_ENTER_RECEIVED] employeeId=${employeeId} eventId=${eventId} eventTimestamp=${eventIso} source=native`);
+            }
+            console.log(`[AUTO_CHECKIN_BACKGROUND] employeeId=${employeeId} checkInTime=${timeStr} source=native_geofence`);
+            console.log(`[BackgroundAttendance] GEOFENCE_ENTRY detected for ${employeeName} (${employeeId})`);
+            console.log(`[BackgroundAttendance] VALIDATED entry location: Lat=${latitude}, Lng=${longitude}, Dist=${distance !== null ? `${Math.round(distance)}m` : "N/A"}`);
             console.log(`[BackgroundAttendance] CHECKIN_REQUEST processing for canonical document ${attDocId}`);
 
             const newRecord: any = {
@@ -947,6 +951,7 @@ async function startServer() {
               serverSyncTime: FieldValue.serverTimestamp()
             }, { merge: true });
 
+            console.log(`[NATIVE_ENTER_SYNCED] employeeId=${employeeId} eventId=${eventId}`);
             console.log(`[BackgroundAttendance] CHECKIN_CREATED: Daily attendance document ${attDocId} created with checkInTime ${timeStr}`);
             console.log(`[BackgroundAttendance] CHECKIN_SYNCED: Synced to Firestore for employee ${employeeId}`);
             transitionRecorded = true;
@@ -957,8 +962,11 @@ async function startServer() {
           return;
         }
 
-        console.log(`[BackgroundAttendance] CHECKIN_ALREADY_EXISTS for ${employeeId} on ${dateStr}`);
         const record = attSnap.data() || {};
+        const eventType = isInside ? "GEOFENCE_RETURN" : "GEOFENCE_EXIT";
+        const eventId = payload.eventId || `evt_${employeeId}_${dateStr}_${eventType}_${timeStr.replace(/\s+/g, "_")}`;
+        console.log(`[AUTO_CHECKIN_DUPLICATE_IGNORED] employeeId=${employeeId} eventId=${eventId}`);
+        console.log(`[BackgroundAttendance] CHECKIN_ALREADY_EXISTS for ${employeeId} on ${dateStr}`);
 
         // If the record has already been finalized/checked out, do not perform automatic transitions.
         if (record.checkOutTime && record.checkOutTime !== "--:--" && record.checkoutStatus === "COMPLETED") {
@@ -966,10 +974,6 @@ async function startServer() {
         }
 
         const currentState = record.currentState || "CHECKED_IN";
-
-        // Idempotency: Create a unique event ID based on type and timestamp to prevent duplicates
-        const eventType = isInside ? "GEOFENCE_RETURN" : "GEOFENCE_EXIT";
-        const eventId = payload.eventId || `evt_${employeeId}_${dateStr}_${eventType}_${timeStr.replace(/\s+/g, "_")}`;
 
         if (record.processedEvents?.includes(eventId)) {
           console.log(`[BackgroundAttendance] DUPLICATE_SUPPRESSED: Event ${eventId} already processed for ${attDocId}`);

@@ -11,6 +11,7 @@ import {
 } from '../services/notification/pushNotificationService';
 import { clearNotificationStorageForUser, dispatchNotificationsUpdated } from '../services/notification/notificationStorage';
 import { createAuditLog } from '../services/audit/auditService';
+import { syncEmployeeIdentityToNative } from '../services/attendance/nativeGeofenceBridge';
 
 type RegistrationStatus = 'unregistered' | 'Pending Approval' | 'Approved' | 'Rejected' | 'loading' | 'mobile_recovery' | 'suspended_notice';
 
@@ -110,6 +111,22 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
     return () => unsubAuth();
   }, []);
+
+  // Keep Native Geofence Employee Identity synchronized whenever employeeData is present and approved
+  useEffect(() => {
+    if (employeeData && (status === 'Approved' || employeeData.status === 'Approved')) {
+      const empId = employeeData.employeeCode || employeeData.id || employeeData.uid;
+      const empName = employeeData.name || employeeData.fullName || 'Employee';
+      const townCity = employeeData.townCity || 'Raniganj HQ';
+      if (empId) {
+        syncEmployeeIdentityToNative({
+          id: empId,
+          name: empName,
+          townCity
+        }).catch(() => {});
+      }
+    }
+  }, [employeeData, status]);
 
   // ROOT-CAUSE IDENTITY FLOW FIX: Auto-link authenticated user (Admin/TL) to Employee Registration
   useEffect(() => {

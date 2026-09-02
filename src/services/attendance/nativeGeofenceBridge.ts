@@ -281,6 +281,35 @@ export const clearNativeActiveSession = async (): Promise<boolean> => {
   }
 };
 
+/**
+ * Synchronizes the employee identity to native Android SharedPreferences
+ * so background geofence events immediately know the employee identity even
+ * if the app process has been killed or backgrounded.
+ */
+export const syncEmployeeIdentityToNative = async (identity: {
+  id: string;
+  name: string;
+  townCity?: string;
+  serverUrl?: string;
+}): Promise<void> => {
+  if (!Capacitor.isNativePlatform() || !identity.id) return;
+  try {
+    const origin = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('file://')
+      ? window.location.origin
+      : 'https://exfin-oms-enterprise-v5.pages.dev';
+    const authoritativeServerUrl = identity.serverUrl || origin;
+    await NativeGeofencePlugin.setEmployeeIdentity({
+      id: identity.id,
+      name: identity.name || 'Employee',
+      townCity: identity.townCity || 'Raniganj HQ',
+      serverUrl: authoritativeServerUrl
+    });
+    console.log(`[NativeGeofenceBridge] Configured native employee identity: ${identity.id} (${identity.name})`);
+  } catch (err) {
+    console.warn('[NativeGeofenceBridge] Failed to set native employee identity:', err);
+  }
+};
+
 export const getNativeActiveAttendanceState = async () => {
   if (!Capacitor.isNativePlatform()) return null;
   try {
