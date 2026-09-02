@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useCallback, useRef } from 
 import { SensitiveActionId } from '../types/security';
 import {
   isPinEnabled,
-  isPinSessionValid,
   getEffectiveEmployeeId,
 } from '../services/security/securityPinService';
 import { PinVerificationModal } from '../components/common/PinVerificationModal';
@@ -45,17 +44,13 @@ export const SecurityVerificationProvider: React.FC<{ children: React.ReactNode 
     async (actionId: SensitiveActionId, customDescription?: string): Promise<boolean> => {
       const empId = getEffectiveEmployeeId(employeeData, adminUser);
 
-      // 1. If PIN is NOT enabled for this employee, allow action directly without modal
+      // 1. If PIN is NOT enabled for this employee, allow action directly
       if (!isPinEnabled(empId)) {
         return true;
       }
 
-      // 2. If valid 5-minute in-memory verification session exists, allow action directly
-      if (isPinSessionValid(empId)) {
-        return true;
-      }
-
-      // 3. Otherwise open PIN verification modal and wait for user PIN input
+      // 2. PIN is enabled: STRICT RULE — Every sensitive action requires PIN verification every time.
+      // There is NO verification session, cache, or grace period.
       return new Promise<boolean>((resolve) => {
         resolverRef.current = resolve;
         setVerificationModalState({

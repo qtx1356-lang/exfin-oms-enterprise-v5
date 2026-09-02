@@ -1,34 +1,28 @@
 /**
  * EXFIN OMS ENTERPRISE V5 — SECURITY COMPATIBILITY BRIDGE
- * Forwards legacy security session checks to securityPinService.
+ * Forwards security verification checks.
+ * STRICT RULE: No verification session state or caching is retained.
  */
 
-import {
-  isPinSessionValid,
-  clearPinSession,
-  setPinSessionValid,
-} from './securityPinService';
-
 export function isVerificationSessionValid(): boolean {
-  return isPinSessionValid('default_employee');
+  return false;
 }
 
 export function getVerificationSessionInfo() {
-  const active = isVerificationSessionValid();
   return {
-    isActive: active,
-    expiresAtMs: active ? Date.now() + 300000 : 0,
-    lastVerifiedAtMs: active ? Date.now() : 0,
-    remainingSeconds: active ? 300 : 0,
+    isActive: false,
+    expiresAtMs: 0,
+    lastVerifiedAtMs: 0,
+    remainingSeconds: 0,
   };
 }
 
 export function clearVerificationSession(): void {
-  clearPinSession();
+  // No-op: No active session is maintained.
 }
 
 export function establishVerificationSession(): void {
-  setPinSessionValid('default_employee');
+  // No-op: Single-action authorization consumed immediately.
 }
 
 export async function performFirebaseReauthentication(): Promise<{ success: boolean; error?: string }> {

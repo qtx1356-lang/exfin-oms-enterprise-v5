@@ -2,6 +2,7 @@
  * EXFIN OMS ENTERPRISE V5 — SECURITY PIN SERVICE
  * Provides cryptographic authorization verifier using Web Crypto API (PBKDF2 with SHA-256).
  * Scoped to individual employee IDs. No plaintext PIN storage.
+ * Strictly single-action verification: NO session caching or grace period.
  */
 
 export interface StoredPinConfig {
@@ -22,30 +23,6 @@ interface AttemptState {
   cooldownUntilMs: number;
 }
 const attemptStore: Record<string, AttemptState> = {};
-
-// ---------------------------------------------------------------------------
-// IN-MEMORY 5-MINUTE VERIFICATION SESSION
-// ---------------------------------------------------------------------------
-interface InMemorySession {
-  employeeId: string;
-  expiresAtMs: number;
-}
-let activeSession: InMemorySession | null = null;
-
-// Background suspension listener (clear session if hidden > 2 min)
-let hiddenTimestamp = 0;
-if (typeof document !== 'undefined') {
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      hiddenTimestamp = Date.now();
-    } else {
-      if (hiddenTimestamp > 0 && Date.now() - hiddenTimestamp > 2 * 60 * 1000) {
-        clearPinSession();
-      }
-      hiddenTimestamp = 0;
-    }
-  });
-}
 
 // ---------------------------------------------------------------------------
 // HELPER FUNCTIONS FOR WEB CRYPTO PBKDF2
@@ -190,7 +167,6 @@ export async function setSecurityPin(
     };
 
     localStorage.setItem(PIN_STORAGE_PREFIX + employeeId, JSON.stringify(config));
-    setPinSessionValid(employeeId);
     return { success: true };
   } catch (err: any) {
     console.error('Failed to set Security PIN:', err);
@@ -238,9 +214,9 @@ export async function verifySecurityPin(
     const inputHash = await derivePinHash(inputPin.trim(), saltBytes);
 
     if (inputHash === config.verifier) {
-      // Reset attempts & start session
+      // Reset attempts upon successful verification.
+      // Note: No session is stored; authorization is strictly single-use per action.
       attemptStore[employeeId] = { failedCount: 0, cooldownUntilMs: 0 };
-      setPinSessionValid(employeeId);
       return { success: true };
     } else {
       const state = attemptStore[employeeId] || { failedCount: 0, cooldownUntilMs: 0 };
@@ -274,7 +250,6 @@ export async function disableSecurityPin(
 
   try {
     localStorage.removeItem(PIN_STORAGE_PREFIX + employeeId);
-    clearPinSession();
     delete attemptStore[employeeId];
     return { success: true };
   } catch (err: any) {
@@ -294,28 +269,4 @@ export async function changeSecurityPin(
   }
 
   return setSecurityPin(employeeId, newPin);
-}
-
-// ---------------------------------------------------------------------------
-// IN-MEMORY SESSION API
-// ---------------------------------------------------------------------------
-export function setPinSessionValid(employeeId: string): void {
-  activeSession = {
-    employeeId,
-    expiresAtMs: Date.now() + 5 * 60 * 1000,
-  };
-}
-
-export function isPinSessionValid(employeeId: string): boolean {
-  if (!activeSession) return false;
-  if (activeSession.employeeId !== employeeId) return false;
-  if (Date.now() > activeSession.expiresAtMs) {
-    activeSession = null;
-    return false;
-  }
-  return true;
-}
-
-export function clearPinSession(): void {
-  activeSession = null;
 }
