@@ -18,7 +18,7 @@ import { AttendanceRecord } from '../../types/attendance';
 import { DailyWorkDetailRecord } from '../../types/workDetails';
 import { EfficiencyGrade, EfficiencyWeightages, DEFAULT_WEIGHTAGES } from '../../types/efficiency';
 import { calculateEfficiency } from '../../services/efficiency/efficiencyCalculator';
-import { getSavedWeightages } from '../../services/efficiency/efficiencyService';
+import { getSavedWeightages, getEfficiencyPeriodData } from '../../services/efficiency/efficiencyService';
 import { getKolkataDateStr } from '../../utils/workHoursCalc';
 
 export type LeaderboardPeriod = 'THIS_WEEK' | 'CURRENT_MONTH' | 'PREVIOUS_MONTH';
@@ -171,7 +171,12 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
   const workDetailsToUse = usePropWorkDetails ? propWorkDetails! : internalWorkDetails;
   const weightagesToUse = propWeightages || internalWeightages;
 
-  // Realtime Firestore fallback if props are not provided or are single-user scoped
+  // Calculate Asia/Kolkata date range for selected period
+  const periodInfo = useMemo(() => {
+    return getKolkataPeriodDates(selectedPeriod);
+  }, [selectedPeriod]);
+
+  // Efficient period-scoped data fetching helper
   useEffect(() => {
     const needsEmployees = !usePropEmployees;
     const needsTasks = !usePropTasks;
@@ -179,70 +184,34 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
     const needsWorkDetails = !usePropWorkDetails;
 
     if (!needsEmployees && !needsTasks && !needsAttendance && !needsWorkDetails) {
+      setIsFetchingLocal(false);
       return;
     }
 
+    let isCancelled = false;
     setIsFetchingLocal(true);
-    const unsubs: (() => void)[] = [];
 
-    if (needsEmployees) {
-      const unsub = onSnapshot(collection(db, 'registrations'), (snap) => {
-        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setInternalEmployees(list);
+    const { startDate, endDate } = periodInfo;
+
+    getEfficiencyPeriodData(startDate, endDate)
+      .then((data) => {
+        if (isCancelled) return;
+        if (needsEmployees) setInternalEmployees(data.employees);
+        if (needsTasks) setInternalTasks(data.tasks);
+        if (needsAttendance) setInternalAttendance(data.attendance);
+        if (needsWorkDetails) setInternalWorkDetails(data.workDetails);
+        if (!propWeightages) setInternalWeightages(data.weightages);
         setIsFetchingLocal(false);
-      }, (err) => {
-        console.warn('Leaderboard registrations sub notice:', err);
-        setIsFetchingLocal(false);
+      })
+      .catch((err) => {
+        console.warn('Leaderboard period data fetch notice:', err);
+        if (!isCancelled) setIsFetchingLocal(false);
       });
-      unsubs.push(unsub);
-    }
-
-    if (needsTasks) {
-      const unsub = onSnapshot(collection(db, 'tasks'), (snap) => {
-        const list: TaskRecord[] = [];
-        snap.docs.forEach(doc => list.push({ id: doc.id, ...doc.data() } as TaskRecord));
-        setInternalTasks(list);
-      }, (err) => {
-        console.warn('Leaderboard tasks sub notice:', err);
-      });
-      unsubs.push(unsub);
-    }
-
-    if (needsAttendance) {
-      const unsub = onSnapshot(collection(db, 'attendance'), (snap) => {
-        const list: AttendanceRecord[] = [];
-        snap.docs.forEach(doc => list.push({ id: doc.id, ...doc.data() } as AttendanceRecord));
-        setInternalAttendance(list);
-      }, (err) => {
-        console.warn('Leaderboard attendance sub notice:', err);
-      });
-      unsubs.push(unsub);
-    }
-
-    if (needsWorkDetails) {
-      const unsub = onSnapshot(collection(db, 'daily_work_details'), (snap) => {
-        const list: DailyWorkDetailRecord[] = [];
-        snap.docs.forEach(doc => list.push({ id: doc.id, ...doc.data() } as DailyWorkDetailRecord));
-        setInternalWorkDetails(list);
-      }, (err) => {
-        console.warn('Leaderboard daily_work_details sub notice:', err);
-      });
-      unsubs.push(unsub);
-    }
-
-    if (!propWeightages) {
-      getSavedWeightages().then(w => setInternalWeightages(w)).catch(() => {});
-    }
 
     return () => {
-      unsubs.forEach(u => u());
+      isCancelled = true;
     };
-  }, [usePropEmployees, usePropTasks, usePropAttendance, usePropWorkDetails, propWeightages]);
-
-  // Calculate Asia/Kolkata date range for selected period
-  const periodInfo = useMemo(() => {
-    return getKolkataPeriodDates(selectedPeriod);
-  }, [selectedPeriod]);
+  }, [selectedPeriod, periodInfo, usePropEmployees, usePropTasks, usePropAttendance, usePropWorkDetails, propWeightages]);
 
   // Filter eligible employees (Approved or non-rejected active registrations)
   const eligibleEmployees = useMemo(() => {

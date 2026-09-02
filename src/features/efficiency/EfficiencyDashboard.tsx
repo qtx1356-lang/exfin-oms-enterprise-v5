@@ -40,7 +40,7 @@ import { AttendanceRecord } from '../../types/attendance';
 import { DailyWorkDetailRecord } from '../../types/workDetails';
 import { EfficiencyBreakdown, EfficiencyGrade, EfficiencySnapshot, EfficiencyWeightages } from '../../types/efficiency';
 import { calculateEfficiency } from '../../services/efficiency/efficiencyCalculator';
-import { DEFAULT_WEIGHTAGES, getSavedWeightages, saveWeightages, getEfficiencySnapshots, saveEfficiencySnapshot } from '../../services/efficiency/efficiencyService';
+import { DEFAULT_WEIGHTAGES, getSavedWeightages, saveWeightages, getEfficiencySnapshots, saveEfficiencySnapshot, getEfficiencyPeriodData } from '../../services/efficiency/efficiencyService';
 import { getRecordWorkingMinutes, formatMinutesToDuration, calculateMonthlySummary, getKolkataDateStr } from '../../utils/workHoursCalc';
 import { isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
 
@@ -259,10 +259,9 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
     }
   }, [syncTasks, syncAttendance, targetEmpCode, activeEmployeeCode, isAdmin, isTeamLeader]);
 
-  // Firestore Subscriptions
+  // Optimized Period-Scoped Data Fetching
   useEffect(() => {
     effDashEffectCount++;
-    activeListeners++;
 
     if (!db) {
       setOfflineMode(true);
@@ -270,92 +269,38 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       return;
     }
 
+    let isCancelled = false;
     setLoading(true);
-    setTasksLoaded(false);
-    setAttendanceLoaded(false);
-    setRegistrationsLoaded(false);
 
-    getSavedWeightages().then(w => {
-      setWeightages(w);
-      setAdminWeights(w);
-    });
-
-    const targetCode = targetEmpCode;
-    const targetId = targetEmpId;
-
-    if (!targetCode) {
-      setLoading(false);
-      setTasksLoaded(true);
-      setAttendanceLoaded(true);
-      setRegistrationsLoaded(true);
-      return;
-    }
-
-    const unsubs: (() => void)[] = [];
-
-    // 1. REGISTRATIONS LISTENER (Unified for Leaderboard & Employee directory)
-    const unsubRegs = onSnapshot(collection(db, 'registrations'), (snap) => {
-      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setAllEmployees(list);
-      setRegistrationsLoaded(true);
-    }, (err) => {
-      console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=registrations notice:', err);
-      if (employeeData) setAllEmployees([employeeData]);
-      setRegistrationsLoaded(true);
-    });
-    unsubs.push(unsubRegs);
-
-    // 2. UNIFIED TASKS, ATTENDANCE & WORK DETAILS LISTENERS
-    const unsubTasks = onSnapshot(collection(db, 'tasks'), (snap) => {
-      const list: TaskRecord[] = [];
-      snap.docs.forEach(doc => {
-        list.push({ id: doc.id, ...doc.data() } as TaskRecord);
+    getEfficiencyPeriodData(startDate, endDate)
+      .then((data) => {
+        if (isCancelled) return;
+        setAllEmployees(data.employees.length > 0 ? data.employees : (employeeData ? [employeeData] : []));
+        setTasks(data.tasks);
+        setAttendance(data.attendance);
+        setWorkDetails(data.workDetails);
+        setWeightages(data.weightages);
+        setAdminWeights(data.weightages);
+        setTasksLoaded(true);
+        setAttendanceLoaded(true);
+        setRegistrationsLoaded(true);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.warn('[EFFICIENCY_FETCH_ERROR]', err);
+        if (!isCancelled) {
+          if (employeeData) setAllEmployees([employeeData]);
+          setTasksLoaded(true);
+          setAttendanceLoaded(true);
+          setRegistrationsLoaded(true);
+          setLoading(false);
+        }
       });
-      setTasks(list);
-      setTasksLoaded(true);
-    }, (err) => {
-      console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks notice:', err);
-      if (!isAdmin && !isTeamLeader) setTasks(syncTasks);
-      setTasksLoaded(true);
-    });
-    unsubs.push(unsubTasks);
-
-    const unsubAtt = onSnapshot(collection(db, 'attendance'), (snap) => {
-      const list: AttendanceRecord[] = [];
-      snap.docs.forEach(doc => {
-        list.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
-      });
-      setAttendance(list);
-      setAttendanceLoaded(true);
-    }, (err) => {
-      console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance notice:', err);
-      if (!isAdmin && !isTeamLeader) setAttendance(syncAttendance);
-      setAttendanceLoaded(true);
-    });
-    unsubs.push(unsubAtt);
-
-    const unsubWorkDetails = onSnapshot(collection(db, 'daily_work_details'), (snap) => {
-      const list: DailyWorkDetailRecord[] = [];
-      snap.docs.forEach(doc => {
-        list.push({ id: doc.id, ...doc.data() } as DailyWorkDetailRecord);
-      });
-      setWorkDetails(list);
-    }, (err) => {
-      console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=daily_work_details notice:', err);
-    });
-    unsubs.push(unsubWorkDetails);
 
     return () => {
-      activeListeners--;
-      unsubs.forEach(unsub => unsub());
+      isCancelled = true;
     };
-  }, [targetEmpCode, targetEmpId, activeEmployeeCode, isAdmin, isTeamLeader]);
-
-  useEffect(() => {
-    if (tasksLoaded && attendanceLoaded && registrationsLoaded) {
-      setLoading(false);
-    }
-  }, [tasksLoaded, attendanceLoaded, registrationsLoaded]);
+  }, [startDate, endDate]);
   useEffect(() => {
     if (targetEmpCode) {
       getEfficiencySnapshots(targetEmpCode).then(snaps => {

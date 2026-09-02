@@ -11,6 +11,9 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { EfficiencyWeightages, EfficiencySnapshot, SystemSettings } from '../../types/efficiency';
+import { TaskRecord } from '../../types/planner';
+import { AttendanceRecord } from '../../types/attendance';
+import { DailyWorkDetailRecord } from '../../types/workDetails';
 
 const WEIGHTS_LOCAL_KEY = 'exfin_efficiency_weights';
 const SNAPSHOTS_LOCAL_KEY = 'exfin_efficiency_snapshots';
@@ -312,3 +315,152 @@ export const syncPendingSnapshots = async (): Promise<void> => {
     }
   }
 };
+
+export interface EfficiencyPeriodData {
+  startDate: string;
+  endDate: string;
+  employees: any[];
+  tasks: TaskRecord[];
+  attendance: AttendanceRecord[];
+  workDetails: DailyWorkDetailRecord[];
+  weightages: EfficiencyWeightages;
+  fetchedAt: number;
+}
+
+// Session-level period cache
+const periodDataCache = new Map<string, EfficiencyPeriodData>();
+let cachedEmployeesList: any[] | null = null;
+let cachedEmployeesTimestamp = 0;
+
+export const clearEfficiencyPeriodCache = (): void => {
+  periodDataCache.clear();
+  cachedEmployeesList = null;
+  cachedEmployeesTimestamp = 0;
+};
+
+/**
+ * Fetches all period-scoped inputs required for efficiency calculations concurrently.
+ * Caches results during the app session for instant switching between periods.
+ */
+export const getEfficiencyPeriodData = async (
+  startDateStr: string,
+  endDateStr: string,
+  forceRefresh = false
+): Promise<EfficiencyPeriodData> => {
+  const cacheKey = `${startDateStr}_${endDateStr}`;
+  const now = Date.now();
+
+  // Check session cache (valid for 5 minutes unless forceRefresh is set)
+  if (!forceRefresh && periodDataCache.has(cacheKey)) {
+    const cached = periodDataCache.get(cacheKey)!;
+    if (now - cached.fetchedAt < 5 * 60 * 1000) {
+      console.log(`[EFFICIENCY_CACHE_HIT] key=${cacheKey}`);
+      return cached;
+    }
+  }
+
+  const reqId = Math.floor(Math.random() * 10000);
+  const startTime = performance.now();
+  console.log(`[EFFICIENCY_PERIOD_FETCH_START] reqId=${reqId} range=${startDateStr}..${endDateStr}`);
+
+  // Safe fetch helper for employees
+  const fetchEmployeesSafe = async (): Promise<any[]> => {
+    if (!forceRefresh && cachedEmployeesList && (now - cachedEmployeesTimestamp < 5 * 60 * 1000)) {
+      return cachedEmployeesList;
+    }
+    if (!db) return cachedEmployeesList || [];
+    try {
+      const snap = await getDocs(collection(db, 'registrations'));
+      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      cachedEmployeesList = list;
+      cachedEmployeesTimestamp = now;
+      return list;
+    } catch (err) {
+      console.warn('[EFFICIENCY_PERIOD_FETCH_WARNING] path=registrations notice:', err);
+      return cachedEmployeesList || [];
+    }
+  };
+
+  // Safe fetch helper for attendance (period-scoped by date field)
+  const fetchAttendanceSafe = async (): Promise<AttendanceRecord[]> => {
+    if (!db) return [];
+    try {
+      const qAtt = query(
+        collection(db, 'attendance'),
+        where('date', '>=', startDateStr),
+        where('date', '<=', endDateStr)
+      );
+      const snap = await getDocs(qAtt);
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+    } catch (err) {
+      console.warn('[EFFICIENCY_PERIOD_FETCH_WARNING] path=attendance notice:', err);
+      try {
+        const snap = await getDocs(collection(db, 'attendance'));
+        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+      } catch (err2) {
+        return [];
+      }
+    }
+  };
+
+  // Safe fetch helper for daily work details (period-scoped by date field)
+  const fetchWorkDetailsSafe = async (): Promise<DailyWorkDetailRecord[]> => {
+    if (!db) return [];
+    try {
+      const qWork = query(
+        collection(db, 'daily_work_details'),
+        where('date', '>=', startDateStr),
+        where('date', '<=', endDateStr)
+      );
+      const snap = await getDocs(qWork);
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DailyWorkDetailRecord));
+    } catch (err) {
+      console.warn('[EFFICIENCY_PERIOD_FETCH_WARNING] path=daily_work_details notice:', err);
+      try {
+        const snap = await getDocs(collection(db, 'daily_work_details'));
+        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DailyWorkDetailRecord));
+      } catch (err2) {
+        return [];
+      }
+    }
+  };
+
+  // Safe fetch helper for tasks
+  const fetchTasksSafe = async (): Promise<TaskRecord[]> => {
+    if (!db) return [];
+    try {
+      const snap = await getDocs(collection(db, 'tasks'));
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskRecord));
+    } catch (err) {
+      console.warn('[EFFICIENCY_PERIOD_FETCH_WARNING] path=tasks notice:', err);
+      return [];
+    }
+  };
+
+  // Concurrent execution of all independent fetches
+  const [employees, attendance, workDetails, tasks, weightages] = await Promise.all([
+    fetchEmployeesSafe(),
+    fetchAttendanceSafe(),
+    fetchWorkDetailsSafe(),
+    fetchTasksSafe(),
+    getSavedWeightages()
+  ]);
+
+  const elapsedMs = Math.round((performance.now() - startTime) * 100) / 100;
+  console.log(`[EFFICIENCY_PERIOD_FETCH_END] reqId=${reqId} elapsedMs=${elapsedMs}ms emps=${employees.length} att=${attendance.length} work=${workDetails.length} tasks=${tasks.length}`);
+
+  const result: EfficiencyPeriodData = {
+    startDate: startDateStr,
+    endDate: endDateStr,
+    employees,
+    tasks,
+    attendance,
+    workDetails,
+    weightages,
+    fetchedAt: now
+  };
+
+  periodDataCache.set(cacheKey, result);
+  return result;
+};
+
