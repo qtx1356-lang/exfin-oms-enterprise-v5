@@ -174,8 +174,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       onStart: () => setIsSpeaking(true),
       onEnd: () => setIsSpeaking(false),
       onError: () => setIsSpeaking(false)
-    });
-  }, [firstName, greetingInfo.label]);
+    }, greetingInfo.periodKey);
+  }, [firstName, greetingInfo.label, greetingInfo.periodKey]);
 
   useEffect(() => {
     logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
@@ -444,7 +444,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
                   e.stopPropagation();
                   handleSpeakGreeting(true);
                 }}
-                className={`p-1 rounded-full border transition-all duration-300 flex items-center justify-center shrink-0 cursor-pointer ${
+                className={`w-9 h-9 min-w-[36px] min-h-[36px] rounded-full border transition-all duration-300 flex items-center justify-center shrink-0 cursor-pointer ${
                   isSpeaking
                     ? 'bg-[#10B981]/25 border-[#10B981] text-[#10B981] shadow-[0_0_12px_rgba(16,185,129,0.6)] scale-110'
                     : 'bg-[#092438] border-[#22D3EE]/40 text-[#22D3EE] hover:border-[#22D3EE] hover:text-[#38BDF8] hover:shadow-[0_0_10px_rgba(34,211,238,0.35)] active:scale-95'
@@ -452,7 +452,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
                 title="Tap to hear greeting"
                 aria-label="Tap to hear greeting audio"
               >
-                <Volume2 className={`w-3.5 h-3.5 ${isSpeaking ? 'animate-pulse' : ''}`} />
+                <Volume2 className={`w-4 h-4 ${isSpeaking ? 'animate-pulse' : ''}`} />
               </button>
             )}
 

@@ -41,14 +41,14 @@ export const speakWelcomeGreeting = async (
         return;
       }
 
-      console.log(`[GreetingVoice] Speaking personalized greeting: "${cleanText}"`);
+      console.log(`[GreetingVoice] Speaking personalized greeting: "${cleanText}" (${periodKey || 'good_morning'})`);
 
       const success = speakGreeting(cleanText, {
         onEnd: () => resolve(true),
         onError: () => {
           playFallbackRecordedAsset(periodKey || 'good_morning').then(resolve);
         }
-      });
+      }, periodKey || 'good_morning');
 
       if (!success) {
         playFallbackRecordedAsset(periodKey || 'good_morning').then(resolve);
