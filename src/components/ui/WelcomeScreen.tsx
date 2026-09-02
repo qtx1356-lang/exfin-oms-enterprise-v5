@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { ShieldCheck, MapPin, ArrowRight, UserCheck, Sparkles, Building2, CheckCircle2, Zap, Shield, Clock, Target, Lock, Check, Volume2 } from 'lucide-react';
+import { MapPin, ArrowRight, Sparkles, CheckCircle2, Zap, Target, Lock, Check } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { logStartupTag } from '../../services/startup/startupPerformanceLogger';
@@ -174,21 +174,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       stopGreetingAudio();
     };
   }, []);
-
-  const handleSpeakerTap = React.useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Stop any in-flight SpeechSynthesis or audio immediately
-    stopGreeting();
-    stopGreetingAudio();
-
-    // Synchronously initiate local bundled WAV audio playback directly on user gesture
-    setIsSpeaking(true);
-    playGreetingAudio(greetingInfo.periodKey, {
-      onStart: () => setIsSpeaking(true),
-      onEnd: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false)
-    });
-  }, [greetingInfo.periodKey]);
 
   // Automatic personalized greeting on Welcome Screen mount / entry
   useEffect(() => {
@@ -484,21 +469,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
               <span className={`w-0.5 bg-[#22D3EE] rounded-full transition-all ${isSpeaking ? 'h-4 animate-[welcomeWavebar_0.5s_ease-in-out_infinite_0.15s]' : 'h-2.5'}`} />
               <span className={`w-0.5 bg-[#10B981] rounded-full transition-all ${isSpeaking ? 'h-3 animate-[welcomeWavebar_0.5s_ease-in-out_infinite_0.3s]' : 'h-1.5'}`} />
             </div>
-
-            {/* Speaker Button (Explicit Tap to Replay Greeting) */}
-            <button
-              type="button"
-              onClick={handleSpeakerTap}
-              className={`w-9 h-9 min-w-[36px] min-h-[36px] rounded-full border transition-all duration-300 flex items-center justify-center shrink-0 cursor-pointer ${
-                isSpeaking
-                  ? 'bg-[#10B981]/25 border-[#10B981] text-[#10B981] shadow-[0_0_12px_rgba(16,185,129,0.6)] scale-110'
-                  : 'bg-[#092438] border-[#22D3EE]/40 text-[#22D3EE] hover:border-[#22D3EE] hover:text-[#38BDF8] hover:shadow-[0_0_10px_rgba(34,211,238,0.35)] active:scale-95'
-              }`}
-              title="Replay greeting"
-              aria-label="Replay greeting audio"
-            >
-              <Volume2 className={`w-4 h-4 ${isSpeaking ? 'animate-pulse' : ''}`} />
-            </button>
 
             {/* Pointer Arrow */}
             <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#092438] border-r border-b border-[#22D3EE]/50 rotate-45" />
