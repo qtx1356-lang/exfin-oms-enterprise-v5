@@ -29,11 +29,14 @@ export type AttendanceState =
   | 'CHECKED_IN'
   | 'PENDING_FINAL_EXIT'
   | 'PENDING_EXIT_CONFIRMATION'
+  | 'PENDING_AUTO_CHECKOUT'
+  | 'CHECKOUT_NOT_DETECTED'
   | 'RETURNING_TO_OFFICE'
   | 'FINALIZED_CHECKOUT'
   | 'NO_ATTENDANCE'
   | 'CHECKED_OUT'
-  | 'UNRESOLVED';
+  | 'UNRESOLVED'
+  | 'UNRESOLVED_CHECKOUT';
 
 export type AttendanceEventType = 
   | 'CHECK_IN' 
@@ -154,13 +157,19 @@ export interface AttendanceRecord {
   // Unresolved Checkout & Mandatory Resolution fields
   manualCheckoutTime?: string | null;
   recordedExitTime?: string | null;
+  employeeProvidedCheckoutTime?: string | null;
+  settledAt?: string | null;
+  unresolvedAt?: string | null;
+  adminVerifiedAt?: string | null;
+  isAdminVerified?: boolean;
+  verificationStatus?: 'PENDING' | 'VERIFIED' | 'RECTIFIED' | 'REJECTED' | string;
   exitDetectedAt?: string | null;
   appOpenedAt?: string | null;
   confirmationDisplayedAt?: string | null;
   confirmationCompletedAt?: string | null;
   exitDetectionSource?: 'NATIVE_GEOFENCE' | 'NONE' | string | null;
   checkoutFinalizationSource?: 'MANUAL_CHECKOUT' | 'CONFIRMED_NATIVE_EXIT' | 'END_OF_DAY_NATIVE_EXIT' | 'NONE' | string | null;
-  checkoutStatus?: 'FINALIZED' | 'COMPLETED' | 'UNRESOLVED' | 'PENDING_EXIT_CONFIRMATION' | 'PENDING_ADMIN_REVIEW';
+  checkoutStatus?: 'FINALIZED' | 'COMPLETED' | 'UNRESOLVED' | 'PENDING_EXIT_CONFIRMATION' | 'PENDING_ADMIN_REVIEW' | 'PENDING_AUTO_CHECKOUT' | 'UNRESOLVED_CHECKOUT';
   attendanceStatus?: 'RESOLVED' | 'UNRESOLVED';
   exitDetectedTime?: string | null;
   employeeProposedCheckoutTime?: string | null;

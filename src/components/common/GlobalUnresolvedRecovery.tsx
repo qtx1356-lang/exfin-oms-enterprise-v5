@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { getStoredAttendanceRecords, saveAttendanceRecord } from '../../services/attendance/attendanceStorage';
 import { AttendanceRecord } from '../../types/attendance';
 import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEngine';
+import { AutomaticAttendanceEngine } from '../../services/attendance/automaticAttendanceEngine';
 import { useRegistration } from '../../context/RegistrationContext';
 import { syncPendingAttendanceRecords } from '../../services/attendance/syncEngine';
 import { Dialog } from '../ui/Dialog';
@@ -130,35 +131,21 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const updatedRecord: AttendanceRecord = {
-        ...unresolvedRecord,
-        checkOutTime: formattedTime,
-        employeeProposedCheckoutTime: formattedTime,
-        checkoutSource: 'EMPLOYEE_REPORTED',
-        checkoutStatus: 'UNRESOLVED',
-        attendanceStatus: 'UNRESOLVED',
-        checkoutFinalizationSource: 'NONE',
-        exitDetectionSource: 'NONE',
-        checkoutFinalized: false,
-        checkoutConfirmed: false,
-        status: 'UNRESOLVED',
-        syncStatus: 'Pending',
-        updatedAt: new Date().toISOString(),
-        version: (unresolvedRecord.version || 1) + 1,
-      };
+      const empId = employeeData?.employeeCode || employeeData?.id || unresolvedRecord.employeeId;
+      const updated = AutomaticAttendanceEngine.submitEmployeeCheckoutTime(
+        empId,
+        unresolvedRecord.date,
+        formattedTime,
+        true
+      );
 
-      saveAttendanceRecord(updatedRecord);
-      
-      // Update local state to immediately hide this record
-      setRecords(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
-      
-      if (navigator.onLine) {
-        await syncPendingAttendanceRecords();
+      if (updated) {
+        setRecords(prev => prev.map(r => r.id === updated.id ? updated : r));
       }
       
       // Reset form
       setTime('18:00');
-      // Dialog will close automatically if no more unresolved records, or stay open with next
+      setIsOpen(false);
     } catch (e) {
       console.error('Failed to submit unresolved checkout', e);
       setError('Failed to save checkout. Please try again.');

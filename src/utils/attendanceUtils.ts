@@ -191,11 +191,13 @@ export const isAttendanceCheckoutUnresolved = (record: AttendanceRecord): boolea
 /**
  * Get the effective checkout status for UI display.
  */
-export const getEffectiveCheckoutStatus = (record: AttendanceRecord): 'COMPLETED' | 'FINALIZED' | 'UNRESOLVED' | 'PENDING_ADMIN_REVIEW' | 'PENDING_EXIT_CONFIRMATION' | undefined => {
+export const getEffectiveCheckoutStatus = (record: AttendanceRecord): 'COMPLETED' | 'FINALIZED' | 'UNRESOLVED' | 'PENDING_ADMIN_REVIEW' | 'PENDING_EXIT_CONFIRMATION' | 'PENDING_AUTO_CHECKOUT' | 'UNRESOLVED_CHECKOUT' | undefined => {
   if (record.checkoutStatus === 'FINALIZED') return 'FINALIZED';
   if (record.checkoutStatus === 'COMPLETED') return 'COMPLETED';
   if (record.checkoutStatus === 'PENDING_EXIT_CONFIRMATION') return 'PENDING_EXIT_CONFIRMATION';
+  if (record.checkoutStatus === 'PENDING_AUTO_CHECKOUT') return 'PENDING_AUTO_CHECKOUT';
   if (record.checkoutStatus === 'PENDING_ADMIN_REVIEW') return 'PENDING_ADMIN_REVIEW';
+  if (record.checkoutStatus === 'UNRESOLVED_CHECKOUT') return 'UNRESOLVED_CHECKOUT';
   
   if (isAttendanceCheckoutUnresolved(record)) {
     return 'UNRESOLVED';

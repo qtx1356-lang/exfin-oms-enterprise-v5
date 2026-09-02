@@ -317,8 +317,8 @@ export const reconcileAttendanceOnResume = async (
 
               record.pendingCheckoutConfirmation = true;
               record.returningToOffice = false;
-              record.currentState = 'PENDING_EXIT_CONFIRMATION';
-              record.checkoutStatus = 'PENDING_EXIT_CONFIRMATION';
+              record.currentState = 'PENDING_AUTO_CHECKOUT';
+              record.checkoutStatus = 'PENDING_AUTO_CHECKOUT';
               record.exitDetectionSource = record.exitDetectionSource || 'NATIVE_GEOFENCE';
               record.evidenceSource = record.evidenceSource || 'NATIVE_GEOFENCE';
               record.syncStatus = 'Pending';
@@ -339,13 +339,18 @@ export const reconcileAttendanceOnResume = async (
             } else {
               // CASE C: Pure PWA / App closed without native exit event
               // NO PRIOR NATIVE EXIT RECORDED: DO NOT fabricate exit timestamp from app open time!
+              console.log('[CHECKOUT_NOT_DETECTED]', {
+                employeeId,
+                attendanceDate: dateStr,
+                currentDistance: Math.round(distance)
+              });
               console.log('[RESUME_EXIT_RECONCILIATION]', {
                 employeeId,
                 nativeExitTimestamp: null,
                 resumeTimestamp: nowIso,
                 decision: 'NO_NATIVE_EVENT_UNRESOLVED'
               });
-              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] App opened outside office at ${timeStr}. No native exit event recorded. recordedExitTime remains null. Checkout status set to UNRESOLVED.`);
+              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] App opened outside office at ${timeStr}. Checkout not detected. Showing non-blocking checkout recovery prompt.`);
 
               record.recordedExitTime = null;
               record.geofenceExitTime = null;
@@ -355,9 +360,9 @@ export const reconcileAttendanceOnResume = async (
               record.exitDetectedAt = null;
               record.exitDetectedTime = null;
               record.exitDetectionSource = 'NONE';
-              record.pendingCheckoutConfirmation = false;
+              record.pendingCheckoutConfirmation = true;
               record.returningToOffice = false;
-              record.currentState = 'UNRESOLVED';
+              record.currentState = 'CHECKOUT_NOT_DETECTED';
               record.checkoutStatus = 'UNRESOLVED';
               record.attendanceStatus = 'UNRESOLVED';
               record.status = 'UNRESOLVED';
@@ -374,6 +379,7 @@ export const reconcileAttendanceOnResume = async (
               modified = true;
 
               if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('exfin-checkout-confirmation-needed', { detail: { employeeId, record } }));
                 window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
               }
             }
@@ -383,10 +389,13 @@ export const reconcileAttendanceOnResume = async (
           if (
             currentState === 'PENDING_FINAL_EXIT' ||
             currentState === 'PENDING_EXIT_CONFIRMATION' ||
+            currentState === 'PENDING_AUTO_CHECKOUT' ||
+            currentState === 'CHECKOUT_NOT_DETECTED' ||
             currentState === 'RETURNING_TO_OFFICE' ||
             record.pendingCheckoutConfirmation ||
             record.lastExitTime ||
-            record.geofenceExitTime
+            record.geofenceExitTime ||
+            record.recordedExitTime
           ) {
             // Return to office transition: Restore CHECKED_IN
             const eventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_RETURN', timeStr);
@@ -396,6 +405,10 @@ export const reconcileAttendanceOnResume = async (
             record.exitTime = null;
             record.geofenceExitTime = null;
             record.geofenceExitTimestamp = null;
+            record.recordedExitTime = null;
+            record.exitDetectedTime = null;
+            record.exitDetectedAt = null;
+            record.exitDetectionSource = 'NONE';
             record.pendingCheckoutConfirmation = false;
             record.returningToOffice = false;
             record.currentState = 'CHECKED_IN';
