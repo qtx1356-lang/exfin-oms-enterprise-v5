@@ -1,17 +1,33 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { SensitiveActionId } from '../types/security';
-import { isVerificationSessionValid } from '../services/security/sensitiveActionSecurity';
-import { SecurityVerificationModal } from '../components/common/SecurityVerificationModal';
+import {
+  isPinEnabled,
+  isPinSessionValid,
+  getEffectiveEmployeeId,
+} from '../services/security/securityPinService';
+import { PinVerificationModal } from '../components/common/PinVerificationModal';
+import { SecurityPinSettingsModal } from '../components/common/SecurityPinSettingsModal';
+import { useRegistration } from './RegistrationContext';
+import { useAdminAuth } from './AdminAuthContext';
 import { createAuditLog } from '../services/audit/auditService';
 
 interface SecurityVerificationContextType {
   requestVerification: (actionId: SensitiveActionId, customDescription?: string) => Promise<boolean>;
+  openPinSettings: () => void;
+  isPinConfigured: boolean;
 }
 
 const SecurityVerificationContext = createContext<SecurityVerificationContextType | undefined>(undefined);
 
 export const SecurityVerificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [modalState, setModalState] = useState<{
+  const { employeeData } = useRegistration();
+  const { user: adminUser } = useAdminAuth();
+
+  const employeeId = getEffectiveEmployeeId(employeeData, adminUser);
+  const isPinConfigured = isPinEnabled(employeeId);
+
+  // Verification modal state
+  const [verificationModalState, setVerificationModalState] = useState<{
     isOpen: boolean;
     actionId: SensitiveActionId;
     customDescription?: string;
@@ -20,42 +36,57 @@ export const SecurityVerificationProvider: React.FC<{ children: React.ReactNode 
     actionId: 'EXPENSE_SUBMIT',
   });
 
+  // Settings modal state
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
   const resolverRef = useRef<((value: boolean) => void) | null>(null);
 
   const requestVerification = useCallback(
     async (actionId: SensitiveActionId, customDescription?: string): Promise<boolean> => {
-      // 1. Check if recent verification is valid (5-minute session in memory)
-      if (isVerificationSessionValid()) {
+      const empId = getEffectiveEmployeeId(employeeData, adminUser);
+
+      // 1. If PIN is NOT enabled for this employee, allow action directly without modal
+      if (!isPinEnabled(empId)) {
         return true;
       }
 
-      // 2. Otherwise open security verification modal and wait for promise resolution
+      // 2. If valid 5-minute in-memory verification session exists, allow action directly
+      if (isPinSessionValid(empId)) {
+        return true;
+      }
+
+      // 3. Otherwise open PIN verification modal and wait for user PIN input
       return new Promise<boolean>((resolve) => {
         resolverRef.current = resolve;
-        setModalState({
+        setVerificationModalState({
           isOpen: true,
           actionId,
           customDescription,
         });
       });
     },
-    []
+    [employeeData, adminUser]
   );
 
+  const openPinSettings = useCallback(() => {
+    setIsSettingsOpen(true);
+  }, []);
+
   const handleSuccess = () => {
-    const actionId = modalState.actionId;
-    setModalState((prev) => ({ ...prev, isOpen: false }));
+    const actionId = verificationModalState.actionId;
+    setVerificationModalState((prev) => ({ ...prev, isOpen: false }));
     createAuditLog({
       action: 'SECURITY_REAUTH',
       actionCategory: 'Security',
-      performedByUserId: 'user',
-      performedByName: 'User',
+      performedByUserId: employeeId,
+      performedByName: employeeData?.name || 'User',
       performedByRole: 'EMPLOYEE',
-      description: 'User completed account security re-authentication',
+      description: 'User verified Security PIN for sensitive action',
       result: 'SUCCESS',
       source: 'EMPLOYEE_APP',
       metadata: { actionId },
     }).catch(() => {});
+
     if (resolverRef.current) {
       resolverRef.current(true);
       resolverRef.current = null;
@@ -63,20 +94,21 @@ export const SecurityVerificationProvider: React.FC<{ children: React.ReactNode 
   };
 
   const handleCancel = () => {
-    const actionId = modalState.actionId;
-    setModalState((prev) => ({ ...prev, isOpen: false }));
+    const actionId = verificationModalState.actionId;
+    setVerificationModalState((prev) => ({ ...prev, isOpen: false }));
     createAuditLog({
       action: 'SECURITY_REAUTH',
       actionCategory: 'Security',
-      performedByUserId: 'user',
-      performedByName: 'User',
+      performedByUserId: employeeId,
+      performedByName: employeeData?.name || 'User',
       performedByRole: 'EMPLOYEE',
-      description: 'User cancelled security verification prompt',
+      description: 'User cancelled Security PIN prompt',
       result: 'FAILED',
       failureReason: 'User cancelled prompt',
       source: 'EMPLOYEE_APP',
       metadata: { actionId },
     }).catch(() => {});
+
     if (resolverRef.current) {
       resolverRef.current(false);
       resolverRef.current = null;
@@ -84,14 +116,26 @@ export const SecurityVerificationProvider: React.FC<{ children: React.ReactNode 
   };
 
   return (
-    <SecurityVerificationContext.Provider value={{ requestVerification }}>
+    <SecurityVerificationContext.Provider
+      value={{
+        requestVerification,
+        openPinSettings,
+        isPinConfigured,
+      }}
+    >
       {children}
-      <SecurityVerificationModal
-        isOpen={modalState.isOpen}
-        actionId={modalState.actionId}
-        customDescription={modalState.customDescription}
+      <PinVerificationModal
+        isOpen={verificationModalState.isOpen}
+        actionId={verificationModalState.actionId}
+        customDescription={verificationModalState.customDescription}
+        employeeId={employeeId}
         onSuccess={handleSuccess}
         onCancel={handleCancel}
+      />
+      <SecurityPinSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        employeeId={employeeId}
       />
     </SecurityVerificationContext.Provider>
   );

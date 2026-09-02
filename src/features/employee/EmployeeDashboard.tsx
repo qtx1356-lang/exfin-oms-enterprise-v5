@@ -31,8 +31,10 @@ import {
   Moon,
   RotateCcw,
   CheckCircle2,
-  HelpCircle
+  HelpCircle,
+  KeyRound
 } from 'lucide-react';
+import { useSecurityVerification } from '../../context/SecurityVerificationContext';
 import { useNavigate } from 'react-router-dom';
 import { getTodayAttendanceRecord, getStoredAttendanceRecords, saveAttendanceRecord } from '../../services/attendance/attendanceStorage';
 import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEngine';
@@ -191,6 +193,7 @@ const getInitialHasPayslips = (empCode?: string): boolean | null => {
 export const EmployeeDashboard: React.FC = () => {
   const { employeeData } = useRegistration();
   const navigate = useNavigate();
+  const { openPinSettings, isPinConfigured } = useSecurityVerification();
   const { notifications, unreadNotificationCount, tasks: syncTasks, leaves: syncLeaves, attendance: syncAttendance, expenses: syncExpenses } = useRealtimeSync();
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => getStoredAnnouncements(employeeData?.employeeCode));
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
@@ -614,6 +617,13 @@ export const EmployeeDashboard: React.FC = () => {
       label: 'Work Hours', 
       onClick: () => navigate('/work-hours'), 
       bg: 'glass-inner-tile text-cyan-300 border-cyan-500/20' 
+    },
+    { 
+      icon: KeyRound, 
+      label: 'Security PIN', 
+      onClick: openPinSettings, 
+      statusText: isPinConfigured ? 'Enabled' : 'Not Set',
+      bg: 'glass-inner-tile text-purple-300 border-purple-500/20' 
     },
   ];
 
@@ -1196,6 +1206,15 @@ export const EmployeeDashboard: React.FC = () => {
                 <span className="text-[10.5px] sm:text-[11.5px] font-extrabold text-[var(--text-primary)] text-center leading-tight">
                   {action.label}
                 </span>
+                {action.statusText && (
+                  <span className={`text-[8.5px] font-extrabold uppercase tracking-wider mt-1 px-1.5 py-0.5 rounded-full ${
+                    action.statusText === 'Enabled' 
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                      : 'bg-slate-800 text-slate-400 border border-slate-700'
+                  }`}>
+                    {action.statusText}
+                  </span>
+                )}
               </button>
             ))}
           </div>
