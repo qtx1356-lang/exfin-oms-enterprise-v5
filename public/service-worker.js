@@ -29,16 +29,23 @@ function createSyntheticAppShellResponse(htmlText) {
 
 // Helper to search current active caches in CacheStorage for an asset
 async function matchCurrentCache(requestOrUrl) {
-  // 1. Try current primary cache
-  const primaryCache = await caches.open(CACHE_NAME);
-  const primaryMatch = await primaryCache.match(requestOrUrl, { ignoreSearch: true });
-  if (primaryMatch) return primaryMatch;
+  try {
+    // 1. Try current primary cache
+    const primaryCache = await caches.open(CACHE_NAME);
+    const primaryMatch = await primaryCache.match(requestOrUrl, { ignoreSearch: true });
+    if (primaryMatch) return primaryMatch;
 
-  // 2. Try dynamic cache
-  const dynamicCache = await caches.open(DYNAMIC_CACHE_NAME);
-  const dynamicMatch = await dynamicCache.match(requestOrUrl, { ignoreSearch: true });
-  if (dynamicMatch) return dynamicMatch;
+    // 2. Try dynamic cache
+    const dynamicCache = await caches.open(DYNAMIC_CACHE_NAME);
+    const dynamicMatch = await dynamicCache.match(requestOrUrl, { ignoreSearch: true });
+    if (dynamicMatch) return dynamicMatch;
 
+    // 3. Fallback: Search across all caches in CacheStorage
+    const globalMatch = await caches.match(requestOrUrl, { ignoreSearch: true });
+    if (globalMatch) return globalMatch;
+  } catch (err) {
+    console.warn('[SW] Error in matchCurrentCache:', err);
+  }
   return null;
 }
 
@@ -78,32 +85,34 @@ async function handleCriticalAssetFailure() {
     await cache.delete('/index.html');
     await cache.delete('/');
     
-    // 2. Try to fetch the newest index.html from network
-    const netRes = await fetch('/index.html', { cache: 'no-cache' });
-    if (netRes && (netRes.status === 200 || netRes.status === 304)) {
-      const isValid = await isValidAppShell(netRes);
-      if (isValid) {
-        // Cache the new valid shell
-        await cache.put('/index.html', netRes.clone());
-        await cache.put('/', netRes);
-        console.log('[SW] Successfully fetched and cached new application shell during recovery.');
+    // 2. Try to fetch the newest index.html from network if online
+    if (navigator.onLine) {
+      const netRes = await fetch('/index.html', { cache: 'no-cache' });
+      if (netRes && (netRes.status === 200 || netRes.status === 304)) {
+        const isValid = await isValidAppShell(netRes);
+        if (isValid) {
+          // Cache the new valid shell
+          await cache.put('/index.html', netRes.clone());
+          await cache.put('/', netRes);
+          console.log('[SW] Successfully fetched and cached new application shell during recovery.');
+        }
       }
     }
   } catch (err) {
     console.error('[SW] Failed to fetch new application shell during recovery:', err);
   }
   
-  // Return a controlled recovery script that reloads the app at most once.
+  // Return a controlled recovery script that reloads the app at most once if online
   const recoveryJs = `
     (function() {
-      console.warn('[EXFIN recovery] Stale JS asset detected. Initiating single-time recovery reload...');
+      console.warn('[EXFIN recovery] Stale JS asset detected. Checking recovery...');
       try {
         var attempts = parseInt(window.sessionStorage.getItem('exfin_recovery_attempts') || '0', 10);
-        if (attempts < 1) {
+        if (attempts < 1 && navigator.onLine) {
           window.sessionStorage.setItem('exfin_recovery_attempts', (attempts + 1).toString());
           window.location.reload();
         } else {
-          console.error('[EXFIN recovery] Recovery reload already attempted once. Aborting to prevent infinite loop.');
+          console.error('[EXFIN recovery] Offline or max recovery attempts reached.');
         }
       } catch (e) {
         console.error('[EXFIN recovery] Error during recovery check:', e);
@@ -123,21 +132,25 @@ self.addEventListener('install', (event) => {
       console.log('[SW] Pre-caching core application shell:', CACHE_NAME);
       const cache = await caches.open(CACHE_NAME);
 
-      // We MUST fetch all PRECACHE_ASSETS successfully to consider the install successful.
-      // If we are offline during install, we want it to FAIL so the previous working SW and cache are kept.
+      // Attempt precaching all PRECACHE_ASSETS with individual resilience
       const fetchPromises = PRECACHE_ASSETS.map(async (assetUrl) => {
-        const response = await fetch(assetUrl, { cache: 'no-cache' });
-        if (!response || (response.status !== 200 && response.status !== 304 && response.status !== 0)) {
-          throw new Error('Failed to fetch ' + assetUrl);
+        try {
+          const response = await fetch(assetUrl, { cache: 'no-cache' });
+          if (response && (response.status === 200 || response.status === 304 || response.status === 0)) {
+            await cache.put(assetUrl, response);
+          } else {
+            console.warn('[SW] Precache asset fetch returned non-200 status:', assetUrl, response?.status);
+          }
+        } catch (fetchErr) {
+          console.warn('[SW] Could not precache asset during install:', assetUrl, fetchErr);
         }
-        await cache.put(assetUrl, response);
       });
       
       await Promise.all(fetchPromises);
 
-      // Extract and cache any discovered assets from runtime index.html if possible
+      // Extract and cache any discovered assets from runtime index.html if available
       try {
-        const indexResponse = await cache.match('/index.html');
+        const indexResponse = await cache.match('/index.html') || await cache.match('/');
         if (indexResponse) {
           const indexHtmlText = await indexResponse.clone().text();
           if (indexHtmlText) {
@@ -156,24 +169,25 @@ self.addEventListener('install', (event) => {
           
           if (assetUrls.size > 0) {
             const dynamicFetchPromises = Array.from(assetUrls).map(async (url) => {
-              const assetRes = await fetch(url, { cache: 'no-cache' });
-              if (assetRes && (assetRes.status === 200 || assetRes.status === 304 || assetRes.status === 0)) {
-                await cache.put(url, assetRes);
-              } else {
-                throw new Error('Failed to fetch dynamic asset ' + url);
+              try {
+                const assetRes = await fetch(url, { cache: 'no-cache' });
+                if (assetRes && (assetRes.status === 200 || assetRes.status === 304 || assetRes.status === 0)) {
+                  await cache.put(url, assetRes);
+                }
+              } catch (err) {
+                console.warn('[SW] Non-critical dynamic asset fetch failed:', url);
               }
             });
             await Promise.all(dynamicFetchPromises);
           }
         }
       } catch (err) {
-        console.warn('[SW] Runtime asset discovery failed, failing install:', err);
-        throw err;
+        console.warn('[SW] Runtime asset discovery warning during install:', err);
       }
 
-      console.log('[SW] Successfully precached all assets.');
+      console.log('[SW] Precache initialization completed for', CACHE_NAME);
       
-      // Skip waiting immediately to activate new shell ONLY when all assets are successfully fetched
+      // Skip waiting immediately to activate new shell
       await self.skipWaiting();
     })()
   );
@@ -187,10 +201,9 @@ self.addEventListener('activate', (event) => {
       console.log('[SW] Activated & claimed clients for', CACHE_NAME);
 
       // 2. Safe cache retirement: keep at least current & dynamic caches
-      // and only delete very old caches after verifying primary cache has index.html
       const cacheNames = await caches.keys();
       const primaryCache = await caches.open(CACHE_NAME);
-      const hasIndexHtml = await primaryCache.match('/index.html');
+      const hasIndexHtml = await primaryCache.match('/index.html') || await primaryCache.match('/');
 
       if (hasIndexHtml) {
         // Delete all obsolete caches when new version is ready with index.html
@@ -247,12 +260,34 @@ self.addEventListener('fetch', (event) => {
   }
 
   // NAVIGATION REQUESTS (SPA Routes: /, /attendance, /planner, /expenses, /leave, /profile, /admin-portal, /x7Kp9, etc.)
-  if (request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
+  const isNavigationRequest =
+    request.mode === 'navigate' ||
+    request.destination === 'document' ||
+    (request.headers.get('accept') && request.headers.get('accept').includes('text/html'));
+
+  if (isNavigationRequest) {
     event.respondWith(
       (async () => {
-        // ONLINE: Try the network first to fetch current index.html
+        // FAST OFFLINE PATH: If device is offline, immediately return cached application shell
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          const cachedOfflineHtml = await matchCurrentCache('/index.html') || await matchCurrentCache('/');
+          if (cachedOfflineHtml) {
+            return cachedOfflineHtml;
+          }
+          if (fallbackAppShellText) {
+            return createSyntheticAppShellResponse(fallbackAppShellText);
+          }
+          return createSyntheticAppShellResponse('');
+        }
+
+        // ONLINE PATH: Try the network with a fast timeout (2500ms) to fetch updated index.html
         try {
-          const networkResponse = await fetch(request);
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+          const networkResponse = await fetch(request, { signal: controller.signal });
+          clearTimeout(timeoutId);
+
           if (networkResponse) {
             const isValid = await isValidAppShell(networkResponse);
             if (isValid) {
@@ -264,10 +299,10 @@ self.addEventListener('fetch', (event) => {
             }
           }
         } catch (networkErr) {
-          console.warn('[SW] Navigation network fetch failed, falling back to cached shell:', networkErr);
+          console.warn('[SW] Navigation network fetch failed or timed out, falling back to cached shell:', networkErr);
         }
 
-        // OFFLINE: If network fails, serve last known-good cached index.html
+        // OFFLINE / TIMEOUT FALLBACK: Serve last known-good cached index.html
         const cachedHtml = await matchCurrentCache('/index.html') || await matchCurrentCache('/');
         if (cachedHtml) {
           return cachedHtml;
@@ -310,69 +345,68 @@ self.addEventListener('fetch', (event) => {
           return cachedResponse;
         }
 
-        // 2. Fetch from network if not in cache
-        try {
-          const response = await fetch(request);
-          if (response) {
-            const contentType = response.headers.get('content-type') || '';
-            const isHtmlForJsCss = (url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) && contentType.includes('text/html');
+        // 2. Fetch from network if not in cache and device is online
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          try {
+            const response = await fetch(request);
+            if (response) {
+              const contentType = response.headers.get('content-type') || '';
+              const isHtmlForJsCss = (url.pathname.endsWith('.js') || url.pathname.endsWith('.css')) && contentType.includes('text/html');
 
-            if (response.status === 200 && !isHtmlForJsCss) {
-              const responseToCache = response.clone();
-              const cache = await caches.open(CACHE_NAME);
-              await cache.put(request, responseToCache);
-              return response;
-            }
+              if (response.status === 200 && !isHtmlForJsCss) {
+                const responseToCache = response.clone();
+                const cache = await caches.open(CACHE_NAME);
+                await cache.put(request, responseToCache);
+                return response;
+              }
 
-            // Treat 404 or HTML content for JS/CSS as a missing/stale asset
-            if (response.status === 404 || isHtmlForJsCss) {
-              if (url.pathname.endsWith('.js')) {
-                // If it's HTML, it's extremely likely a captive portal or offline proxy intercept.
-                // Do not initiate a destructive reload loop. Just fail gracefully.
-                console.warn('[SW] JS asset 404 or returned HTML (likely offline proxy/captive portal). Returning warning fallback.');
-                return new Response('console.warn("JS asset load failed due to 404 or HTML intercept");', {
-                  status: 200,
-                  headers: { 'Content-Type': 'application/javascript' }
-                });
+              // Treat 404 or HTML content for JS/CSS as a missing/stale asset
+              if (response.status === 404 || isHtmlForJsCss) {
+                if (url.pathname.endsWith('.js')) {
+                  console.warn('[SW] JS asset 404 or returned HTML. Returning recovery fallback.');
+                  return handleCriticalAssetFailure();
+                }
               }
             }
+            return response;
+          } catch (fetchErr) {
+            console.warn('[SW] Network error fetching asset:', url.pathname, fetchErr);
           }
-          return response;
-        } catch (fetchErr) {
-          // If network fetch failed (offline/DNS error) and we don't have the asset cached
-          if (url.pathname.endsWith('.js')) {
-            console.warn('[SW] Network error fetching JS asset (likely offline). Returning warning fallback.');
-            return new Response('console.warn("JS asset load failed due to network error");', {
-              status: 200,
-              headers: { 'Content-Type': 'application/javascript' }
-            });
-          }
-
-          // 3. Fallback: match by pathname without query params
-          const pathnameMatch = await matchCurrentCache(url.pathname);
-          if (pathnameMatch) {
-            return pathnameMatch;
-          }
-
-          // 4. Benign fallbacks for non-fatal assets to avoid throwing in WebView
-          if (url.pathname.endsWith('.css')) {
-            return new Response('/* offline fallback css */', {
-              status: 200,
-              headers: { 'Content-Type': 'text/css' }
-            });
-          }
-          if (url.pathname.endsWith('.svg') || url.pathname.endsWith('.png') || url.pathname.endsWith('.ico')) {
-            return new Response('', {
-              status: 200,
-              headers: { 'Content-Type': 'image/svg+xml' }
-            });
-          }
-
-          throw fetchErr;
         }
+
+        // 3. Offline / Fallback: match by pathname without query params
+        const pathnameMatch = await matchCurrentCache(url.pathname);
+        if (pathnameMatch) {
+          return pathnameMatch;
+        }
+
+        // 4. Safe non-breaking fallbacks for assets when offline
+        if (url.pathname.endsWith('.js')) {
+          return new Response('console.warn("Offline JS asset fallback");', {
+            status: 200,
+            headers: { 'Content-Type': 'application/javascript; charset=utf-8' }
+          });
+        }
+
+        if (url.pathname.endsWith('.css')) {
+          return new Response('/* offline fallback css */', {
+            status: 200,
+            headers: { 'Content-Type': 'text/css; charset=utf-8' }
+          });
+        }
+
+        if (url.pathname.endsWith('.svg') || url.pathname.endsWith('.png') || url.pathname.endsWith('.ico')) {
+          return new Response('', {
+            status: 200,
+            headers: { 'Content-Type': 'image/svg+xml' }
+          });
+        }
+
+        return new Response('', { status: 404 });
       })()
     );
     return;
   }
 });
+
 

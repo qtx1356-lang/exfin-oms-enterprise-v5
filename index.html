@@ -21,8 +21,8 @@
         console.log('[OFFLINE-ROOT] DOMContentLoaded');
       });
 
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
+      function registerSW() {
+        if ('serviceWorker' in navigator) {
           navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
             .then(function (registration) {
               if (registration.active) {
@@ -43,7 +43,13 @@
             .catch(function (err) {
               console.warn('Service worker registration failed:', err);
             });
-        });
+        }
+      }
+
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        registerSW();
+      } else {
+        window.addEventListener('load', registerSW);
       }
     </script>
   </head>
