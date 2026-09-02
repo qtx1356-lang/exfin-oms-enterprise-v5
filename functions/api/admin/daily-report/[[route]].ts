@@ -377,7 +377,9 @@ export async function onRequest(context) {
           recipientCount: fields.recipientCount?.integerValue || rcptList.length,
           recipients: rcptList,
           recipient: fields.recipient?.stringValue,
-          error: fields.error?.stringValue
+          error: fields.error?.stringValue,
+          lastRetriedAt: fields.lastRetriedAt?.stringValue,
+          isRetry: fields.isRetry?.booleanValue ?? false
         };
       }).filter(Boolean);
       return new Response(JSON.stringify({ success: true, history }), { headers: { 'Content-Type': 'application/json' } });
@@ -430,7 +432,8 @@ export async function onRequest(context) {
       }
     }
 
-    if (request.method === 'POST' && pathStr === 'send-yesterday') {
+    if (request.method === 'POST' && (pathStr === 'send-yesterday' || pathStr === 'retry-yesterday')) {
+      const isRetry = pathStr === 'retry-yesterday';
       let currentStage = 'REQUEST_RECEIVED';
       let targetDate = '';
       try {
@@ -734,22 +737,38 @@ export async function onRequest(context) {
         // STEP 8: GMAIL_SEND_COMPLETED
         currentStage = 'GMAIL_SEND_COMPLETED';
         const reportLogRef = `daily_admin_reports/${targetDate}`;
+        const fieldsToUpdate: any = {
+          reportDate: { stringValue: targetDate },
+          status: { stringValue: 'SENT' },
+          startedAt: { stringValue: new Date().toISOString() },
+          completedAt: { stringValue: new Date().toISOString() },
+          recipientCount: { integerValue: recipients.length },
+          recipient: { stringValue: recipients.join(', ') },
+          messageId: { stringValue: sendRes.messageId || 'simulated' }
+        };
+        if (isRetry) {
+          fieldsToUpdate.lastRetriedAt = { stringValue: new Date().toISOString() };
+          fieldsToUpdate.isRetry = { booleanValue: true };
+        }
         await firestoreFetch(reportLogRef, 'PATCH', {
-          fields: {
-            reportDate: { stringValue: targetDate },
-            status: { stringValue: 'SENT' },
-            startedAt: { stringValue: new Date().toISOString() },
-            completedAt: { stringValue: new Date().toISOString() },
-            recipientCount: { integerValue: recipients.length },
-            recipient: { stringValue: recipients.join(', ') },
-            messageId: { stringValue: sendRes.messageId || 'simulated' }
-          }
+          fields: fieldsToUpdate
         });
+
+        // Audit log entry for tracking
+        await firestoreFetch(`audit_logs/${Date.now()}`, 'PATCH', {
+          fields: {
+            actionCategory: { stringValue: 'SYSTEM_SETTINGS' },
+            action: { stringValue: isRetry ? `Manual Retry Daily Admin Report for ${targetDate}` : `Manual Dispatched Daily Admin Report for ${targetDate}` },
+            timestamp: { stringValue: new Date().toISOString() },
+          }
+        }).catch(() => {});
 
         return new Response(JSON.stringify({ 
           success: true, 
+          action: isRetry ? 'RETRY' : 'SEND',
+          isRetry,
           stage: 'GMAIL_SEND_COMPLETED',
-          message: "Email accepted by Gmail SMTP",
+          message: isRetry ? "Previous Day email retried successfully and accepted by Gmail SMTP" : "Email accepted by Gmail SMTP",
           reportDate: targetDate,
           recipientCount: recipients.length,
           recipients,

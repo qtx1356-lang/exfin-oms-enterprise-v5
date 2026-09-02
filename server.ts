@@ -1667,8 +1667,13 @@ async function startServer() {
     }
   });
 
-  // 4. Send Yesterday's / Specific Date Report Manually (Super-Admin only)
-  app.post(["/api/admin/daily-report/send-yesterday", "/api/admin/daily-email-report/send-yesterday"], async (req, res) => {
+  // 4. Send Yesterday's / Specific Date Report Manually & Retry (Super-Admin only)
+  app.post([
+    "/api/admin/daily-report/send-yesterday", 
+    "/api/admin/daily-email-report/send-yesterday",
+    "/api/admin/daily-report/retry-yesterday",
+    "/api/admin/daily-email-report/retry-yesterday"
+  ], async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller) {
       return res.status(401).json({ success: false, error: "Authentication required: Please provide a valid token" });

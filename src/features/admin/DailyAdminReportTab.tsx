@@ -20,7 +20,8 @@ import {
   History,
   Check,
   X,
-  AlertCircle
+  AlertCircle,
+  RotateCcw
 } from 'lucide-react';
 
 interface DailyReportConfig {
@@ -48,6 +49,8 @@ interface ReportHistoryItem {
   messageId?: string;
   simulated?: boolean;
   error?: string;
+  lastRetriedAt?: string;
+  isRetry?: boolean;
 }
 
 export function DailyAdminReportTab() {
@@ -66,6 +69,8 @@ export function DailyAdminReportTab() {
   const [manualDate, setManualDate] = useState('');
   const [manualTriggerLoading, setManualTriggerLoading] = useState(false);
   const [testEmailLoading, setTestEmailLoading] = useState(false);
+  const [retryLoading, setRetryLoading] = useState(false);
+  const [retryingDate, setRetryingDate] = useState<string | null>(null);
 
   // Status banners
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -402,6 +407,51 @@ export function DailyAdminReportTab() {
       setStatusMsg({ type: 'error', text: err.message || 'Failed to generate manual report.' });
     } finally {
       setManualTriggerLoading(false);
+    }
+  };
+
+  // Retry Previous Day Report Diagnostic Action
+  const handleRetryPreviousDayReport = async (customDate?: string) => {
+    if (!isSuperAdmin) return;
+    const target = customDate || manualDate || undefined;
+    setRetryLoading(true);
+    if (customDate) setRetryingDate(customDate);
+    setStatusMsg(null);
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error('Authentication token is unavailable. Please sign in again.');
+      }
+
+      const data = await safeFetchJson(API_BASE_URL + '/api/admin/daily-report/retry-yesterday', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          date: target,
+          reason: 'ADMIN_MANUAL_RETRY' 
+        }),
+      });
+
+      if (data.success) {
+        setStatusMsg({ 
+          type: 'success', 
+          text: `Previous Day Email retried successfully for ${data.reportDate} to ${data.recipientCount || (data.recipients?.length || 0)} recipient(s). (MessageId: ${data.messageId || 'simulated'}).` 
+        });
+        loadData(); // reload log history
+      } else {
+        const stageInfo = data.stage ? `[Stage: ${data.stage}] ` : '';
+        throw new Error(`${stageInfo}${data.error || 'Retry Previous Day Email failed'}`);
+      }
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: err.message || 'Failed to retry previous day email.' });
+    } finally {
+      setRetryLoading(false);
+      setRetryingDate(null);
     }
   };
 
@@ -909,6 +959,25 @@ export function DailyAdminReportTab() {
                   SEND YESTERDAY'S REPORT NOW
                 </Button>
               </div>
+
+              {/* Retry Previous Day Email Diagnostic Action */}
+              <div className="p-4 bg-[#1D093F]/80 border border-amber-500/30 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider block text-amber-300">Retry Previous Day Email</span>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-wider">Diagnostic</span>
+                </div>
+                <span className="text-[10px] text-purple-300/70 block">
+                  Explicit Admin diagnostic action to manually resend the Previous Day report when the normal scheduler has already marked that date as SENT in the database, but the recipient did not receive the email.
+                </span>
+                <Button
+                  onClick={() => handleRetryPreviousDayReport()}
+                  disabled={retryLoading || !isSuperAdmin || !config?.adminEmails || config.adminEmails.length === 0}
+                  className="w-full text-xs text-center flex items-center justify-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-black font-black uppercase tracking-wider py-2.5 rounded-xl shadow-lg shadow-amber-600/30 disabled:opacity-50 transition-all"
+                >
+                  {retryLoading && !retryingDate ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-black" /> : <RotateCcw className="w-3.5 h-3.5 text-black" />}
+                  {retryLoading && !retryingDate ? 'RETRYING PREVIOUS DAY EMAIL...' : 'RETRY PREVIOUS DAY EMAIL'}
+                </Button>
+              </div>
             </div>
           </Card>
         </div>
@@ -935,6 +1004,7 @@ export function DailyAdminReportTab() {
                   <th className="py-2.5 px-4">Recipients</th>
                   <th className="py-2.5 px-4">Sent At</th>
                   <th className="py-2.5 px-4">Log / Message ID</th>
+                  <th className="py-2.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-purple-500/10">
@@ -943,6 +1013,11 @@ export function DailyAdminReportTab() {
                     <td className="py-3 px-4 font-bold text-white flex items-center gap-2 font-mono">
                       <Calendar className="w-3.5 h-3.5 text-purple-400 shrink-0" />
                       {item.reportDate}
+                      {item.isRetry && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase">
+                          Retried
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 px-4">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
@@ -974,7 +1049,14 @@ export function DailyAdminReportTab() {
                       )}
                     </td>
                     <td className="py-3 px-4 text-purple-300/70 font-mono text-[10px] whitespace-nowrap">
-                      {item.completedAt ? new Date(item.completedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : (item.startedAt ? new Date(item.startedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '-')}
+                      <div>
+                        {item.completedAt ? new Date(item.completedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : (item.startedAt ? new Date(item.startedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '-')}
+                      </div>
+                      {item.lastRetriedAt && (
+                        <div className="text-[9px] text-amber-400/80 font-mono mt-0.5">
+                          Retried: {new Date(item.lastRetriedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                        </div>
+                      )}
                     </td>
                     <td className="py-3 px-4 max-w-xs truncate text-[11px]">
                       {item.status === 'FAILED' ? (
@@ -987,6 +1069,18 @@ export function DailyAdminReportTab() {
                           {item.messageId} {item.simulated ? '(Simulated)' : ''}
                         </span>
                       )}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        type="button"
+                        disabled={retryLoading || !isSuperAdmin}
+                        onClick={() => handleRetryPreviousDayReport(item.reportDate)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black uppercase tracking-wider transition-colors disabled:opacity-40"
+                        title={`Retry sending email report for ${item.reportDate}`}
+                      >
+                        <RotateCcw className={`w-3 h-3 ${retryingDate === item.reportDate ? 'animate-spin text-amber-400' : ''}`} />
+                        Retry
+                      </button>
                     </td>
                   </tr>
                 ))}
