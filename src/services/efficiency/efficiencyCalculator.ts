@@ -10,7 +10,10 @@ import {
 } from '../../types/efficiency';
 
 /**
- * Checks if a formatted time string (e.g. "09:30 AM") is late (after 09:30 AM).
+ * Checks if a formatted time string (e.g. "10:31 AM") is late (10:31 AM or later / after 10:30 AM).
+ * Official Office Start Time: 10:00 AM
+ * Grace Period / Not Late: 10:01 AM - 10:30 AM
+ * Late Threshold: 10:31 AM or later
  */
 export const isLateCheckIn = (checkInTimeStr: string): boolean => {
   if (!checkInTimeStr) return false;
@@ -24,9 +27,10 @@ export const isLateCheckIn = (checkInTimeStr: string): boolean => {
     if (modifier === 'PM' && hours < 12) hours += 12;
     if (modifier === 'AM' && hours === 12) hours = 0;
     
-    // threshold: 09:30 AM -> 9 hours 30 mins
+    // threshold: 10:30 AM -> 10 hours 30 mins = 630 mins
+    // 10:31 AM or later is > 630 mins
     const minutesSinceMidnight = hours * 60 + minutes;
-    const thresholdMinutes = 9 * 60 + 30;
+    const thresholdMinutes = 10 * 60 + 30;
     return minutesSinceMidnight > thresholdMinutes;
   } catch (err) {
     return false;

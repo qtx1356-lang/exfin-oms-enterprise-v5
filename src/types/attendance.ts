@@ -117,7 +117,7 @@ export interface AttendanceRecord {
   employeeName: string;
   date: string; // YYYY-MM-DD
   attendanceType: AttendanceType;
-  checkInTime: string; // Formatted time e.g. "09:30 AM"
+  checkInTime: string; // Formatted time e.g. "10:00 AM"
   checkOutTime: string | null; // Formatted time e.g. "06:00 PM"
   workingHours: string | null; // Calculated duration string e.g. "8h 30m"
   latitude: number;
