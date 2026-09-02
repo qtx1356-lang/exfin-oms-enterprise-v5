@@ -759,12 +759,50 @@ export async function generateAndSendDailyReport(
     const highestEff = sortedByEff.length > 0 ? sortedByEff[0].efficiency : 0;
     const lowestEff = sortedByEff.length > 0 ? sortedByEff[sortedByEff.length - 1].efficiency : 0;
     
-    const topPerformers = sortedByEff.slice(0, 5);
-    const topPerformerCodes = new Set(topPerformers.map(p => p.empCode));
+    const topPerformerCandidates = validEvaluated
+      .filter(e => e.efficiency >= 60)
+      .sort((a, b) => {
+        if (b.efficiency !== a.efficiency) {
+          return b.efficiency - a.efficiency;
+        }
+        return a.empCode.localeCompare(b.empCode);
+      });
 
-    // Needs improvement: score < 60% and strictly not in Top Performers
-    const improvementCandidates = validEvaluated.filter(e => e.efficiency < 60 && !topPerformerCodes.has(e.empCode));
-    const bottomPerformers = [...improvementCandidates].sort((a, b) => a.efficiency - b.efficiency).slice(0, 5);
+    const topPerformers = topPerformerCandidates.slice(0, 5);
+
+    const improvementCandidates = validEvaluated
+      .filter(e => e.efficiency < 60)
+      .sort((a, b) => {
+        if (a.efficiency !== b.efficiency) {
+          return a.efficiency - b.efficiency;
+        }
+        return a.empCode.localeCompare(b.empCode);
+      });
+
+    const bottomPerformers = improvementCandidates.slice(0, 5);
+
+    // Validation checks
+    const overlap = topPerformers.filter(top =>
+      bottomPerformers.some(bottom => bottom.empCode === top.empCode)
+    );
+    if (overlap.length > 0) {
+      throw new Error("Daily Report validation failed: Top Performers and Needs Improvement overlap.");
+    }
+
+    const invalidTopPerformers = topPerformers.filter(e => e.efficiency < 60);
+    if (invalidTopPerformers.length > 0) {
+      throw new Error("Daily Report validation failed: Top Performers contains employee below 60%.");
+    }
+
+    const invalidImprovement = bottomPerformers.filter(e => e.efficiency >= 60);
+    if (invalidImprovement.length > 0) {
+      throw new Error("Daily Report validation failed: Needs Improvement contains employee at or above 60%.");
+    }
+
+    const hasBelowThresholdEmployees = validEvaluated.some(e => e.efficiency < 60);
+    if (bottomPerformers.length === 0 && hasBelowThresholdEmployees) {
+      throw new Error("Daily Report validation failed: Employees below 60% exist but Needs Improvement is empty.");
+    }
 
     const dist = {
       excellent: validEvaluated.filter(e => e.efficiency >= 90).length,
@@ -839,6 +877,10 @@ export async function generateAndSendDailyReport(
     const highestEffEmpName = highestEffEmp ? `${highestEffEmp.empName} (${highestEffEmp.empCode})` : 'N/A';
     const lowestEffEmpName = lowestEffEmp ? `${lowestEffEmp.empName} (${lowestEffEmp.empCode})` : 'N/A';
 
+    const topPerformersEmptyMessage = validEvaluated.length > 0 
+      ? `No qualifying top performers (all evaluated employees scored below 60%).`
+      : `No performance records available`;
+
     const topPerformersRows = topPerformers.length > 0 ? topPerformers.map((p, idx) => `
       <tr style="border-bottom: 1px solid #f1f5f9;">
         <td style="padding: 12px 10px; font-weight: bold; color: #0f766e;">#${idx + 1}</td>
@@ -846,7 +888,11 @@ export async function generateAndSendDailyReport(
         <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
         <td style="padding: 12px 10px; font-weight: bold; color: #047857; text-align: right;">${p.efficiency}%</td>
       </tr>
-    `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">No performance records available</td></tr>`;
+    `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">${topPerformersEmptyMessage}</td></tr>`;
+
+    const needsImprovementEmptyMessage = validEvaluated.length > 0
+      ? `No improvement records needed (All performers scored &ge; 60%)`
+      : `No improvement records available`;
 
     const needsImprovementRows = bottomPerformers.length > 0 ? bottomPerformers.map((p, idx) => `
       <tr style="border-bottom: 1px solid #f1f5f9;">
@@ -855,7 +901,7 @@ export async function generateAndSendDailyReport(
         <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
         <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c; text-align: right;">${p.efficiency}%</td>
       </tr>
-    `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">No improvement records needed (All performers scored &ge; 60%)</td></tr>`;
+    `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">${needsImprovementEmptyMessage}</td></tr>`;
 
     const appUrl = process.env.APP_URL ? process.env.APP_URL.replace(/\/$/, '') : 'https://exfin-oms-enterprise-v5.pages.dev';
     const adminPanelUrl = `${appUrl}/x7Kp9`;

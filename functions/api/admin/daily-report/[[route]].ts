@@ -543,23 +543,54 @@ export async function onRequest(context) {
         const highestEff = sortedByEff.length > 0 ? Math.max(0, sortedByEff[0].efficiency) : 0;
         const lowestEff = sortedByEff.length > 0 ? Math.max(0, sortedByEff[sortedByEff.length - 1].efficiency) : 0;
 
-        const topPerformers = sortedByEff.slice(0, 5);
-        const topPerformerCodes = new Set(topPerformers.map(p => p.empCode));
+        const topPerformerCandidates = evaluatedForStats
+          .filter(e => e.efficiency >= 60)
+          .sort((a, b) => {
+            if (b.efficiency !== a.efficiency) {
+              return b.efficiency - a.efficiency;
+            }
+            return a.empCode.localeCompare(b.empCode);
+          });
 
-        // Canonical Needs Improvement candidates: score < 60% (Grades 'Needs Improvement' and 'Critical')
-        // Strictly mutually exclusive from Top Performers, sorted ascending by score, capped at 5
-        const improvementCandidates = evaluatedForStats.filter(e => e.efficiency < 60 && !topPerformerCodes.has(e.empCode));
-        const bottomPerformers = [...improvementCandidates].sort((a, b) => a.efficiency - b.efficiency).slice(0, 5);
+        const topPerformers = topPerformerCandidates.slice(0, 5);
+
+        const improvementCandidates = evaluatedForStats
+          .filter(e => e.efficiency < 60)
+          .sort((a, b) => {
+            if (a.efficiency !== b.efficiency) {
+              return a.efficiency - b.efficiency;
+            }
+            return a.empCode.localeCompare(b.empCode);
+          });
+
+        const bottomPerformers = improvementCandidates.slice(0, 5);
 
         // Pre-render invariant checks
-        const overlap = bottomPerformers.filter(p => topPerformerCodes.has(p.empCode));
+        const overlap = topPerformers.filter(top =>
+          bottomPerformers.some(bottom => bottom.empCode === top.empCode)
+        );
         if (overlap.length > 0) {
-          throw new Error(`Daily Report validation failed: Top Performers and Needs Improvement must be mutually exclusive. Overlap: ${overlap.map(o => o.empCode).join(', ')}`);
+          throw new Error("Daily Report validation failed: Top Performers and Needs Improvement overlap.");
         }
-        const invalidImprovement = bottomPerformers.filter(p => p.efficiency >= 60);
+
+        const invalidTopPerformers = topPerformers.filter(e => e.efficiency < 60);
+        if (invalidTopPerformers.length > 0) {
+          throw new Error("Daily Report validation failed: Top Performers contains employee below 60%.");
+        }
+
+        const invalidImprovement = bottomPerformers.filter(e => e.efficiency >= 60);
         if (invalidImprovement.length > 0) {
-          throw new Error(`Daily Report validation failed: Found employee with score >= 60% in Needs Improvement: ${invalidImprovement.map(i => `${i.empCode} (${i.efficiency}%)`).join(', ')}`);
+          throw new Error("Daily Report validation failed: Needs Improvement contains employee at or above 60%.");
         }
+
+        const hasBelowThresholdEmployees = evaluatedForStats.some(e => e.efficiency < 60);
+        if (bottomPerformers.length === 0 && hasBelowThresholdEmployees) {
+          throw new Error("Daily Report validation failed: Employees below 60% exist but Needs Improvement is empty.");
+        }
+
+        const topPerformersEmptyMessage = evaluatedForStats.length > 0 
+          ? `No qualifying top performers (all evaluated employees scored below 60%).`
+          : `No performance records available`;
 
         const topPerformersRows = topPerformers.length > 0 ? topPerformers.map((p, idx) => `
           <tr style="border-bottom: 1px solid #f1f5f9;">
@@ -568,7 +599,11 @@ export async function onRequest(context) {
             <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
             <td style="padding: 12px 10px; font-weight: bold; color: #047857; text-align: right;">${Math.max(0, p.efficiency)}%</td>
           </tr>
-        `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">No performance records available</td></tr>`;
+        `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">${topPerformersEmptyMessage}</td></tr>`;
+
+        const needsImprovementEmptyMessage = evaluatedForStats.length > 0
+          ? `No improvement records needed (All performers scored &ge; 60%)`
+          : `No improvement records available`;
 
         const needsImprovementRows = bottomPerformers.length > 0 ? bottomPerformers.map((p, idx) => `
           <tr style="border-bottom: 1px solid #f1f5f9;">
@@ -577,7 +612,7 @@ export async function onRequest(context) {
             <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
             <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c; text-align: right;">${Math.max(0, p.efficiency)}%</td>
           </tr>
-        `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">No improvement records needed (All performers scored &ge; 60%)</td></tr>`;
+        `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">${needsImprovementEmptyMessage}</td></tr>`;
 
         const adminPanelUrl = 'https://exfin-oms-enterprise-v5.pages.dev/x7Kp9';
 
