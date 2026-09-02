@@ -1,10 +1,7 @@
-import { GreetingPeriodKey } from '../voice/greetingAssets';
-import { 
-  playGreetingAudioDirect, 
-  stopGreetingAudio, 
-  getGreetingAudioDiagnostics,
-  GreetingAudioDiagnostics 
-} from '../audio/greetingAudioService';
+/**
+ * Isolated Greeting Text-to-Speech Service using Native Browser SpeechSynthesis API
+ * Optimized for mobile PWA, Android Chrome, and Desktop offline environments.
+ */
 
 export interface SpeakOptions {
   isUserGesture?: boolean;
@@ -22,11 +19,12 @@ export interface SpeechDiagnostics {
   isStandalonePWA: boolean;
   userAgent: string;
   lastStatus: string;
-  audioDiagnostics: GreetingAudioDiagnostics;
 }
 
+let lastDiagnosticStatus = 'Initialized';
+
 /**
- * Diagnostic Inspector for Speech API & Audio state
+ * Diagnostic Inspector for Speech API state
  */
 export function getSpeechDiagnostics(): SpeechDiagnostics {
   const isBrowser = typeof window !== 'undefined';
@@ -48,8 +46,6 @@ export function getSpeechDiagnostics(): SpeechDiagnostics {
     } catch (e) {}
   }
 
-  const audioDiag = getGreetingAudioDiagnostics();
-
   const isStandalonePWA = isBrowser && (
     window.matchMedia('(display-mode: standalone)').matches ||
     (navigator as any).standalone === true ||
@@ -64,13 +60,17 @@ export function getSpeechDiagnostics(): SpeechDiagnostics {
     selectedVoiceLang,
     isStandalonePWA,
     userAgent: isBrowser ? navigator.userAgent : 'Server',
-    lastStatus: audioDiag.lastPlaybackStatus,
-    audioDiagnostics: audioDiag
+    lastStatus: lastDiagnosticStatus
   };
 }
 
 /**
  * Safely resolves the best available English voice
+ * Order of preference:
+ * 1. English India (en-IN)
+ * 2. English United States (en-US)
+ * 3. Any English voice (en-*)
+ * 4. Browser default (voices[0])
  */
 export function getAvailableSpeechVoice(): SpeechSynthesisVoice | null {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -99,7 +99,7 @@ export function getAvailableSpeechVoice(): SpeechSynthesisVoice | null {
 }
 
 /**
- * Initializes voice listeners to handle asynchronous voice loading
+ * Initializes voice listeners to handle asynchronous voice loading (Android/PWA)
  */
 export function initializeSpeech(onVoicesLoaded?: () => void): () => void {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -143,51 +143,99 @@ export function initializeSpeech(onVoicesLoaded?: () => void): () => void {
 }
 
 /**
- * Cancels active speech synthesis and stops any playing fallback audio
+ * Speaks the given greeting text using native SpeechSynthesis.
+ */
+export function speakGreeting(text: string, options?: SpeakOptions): boolean {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    options?.onError?.('SpeechSynthesis not available');
+    return false;
+  }
+
+  try {
+    // Cancel any previous queued speech
+    window.speechSynthesis.cancel();
+
+    // Safe resume for Android Chrome
+    try {
+      if (typeof window.speechSynthesis.resume === 'function') {
+        window.speechSynthesis.resume();
+      }
+    } catch (e) {
+      // Ignore if resume is not supported
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.volume = 1.0;
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+
+    const voice = getAvailableSpeechVoice();
+    if (voice) {
+      utterance.voice = voice;
+    }
+
+    let hasEnded = false;
+
+    const handleStart = () => {
+      lastDiagnosticStatus = `Speaking: "${text}" (${voice?.name || 'Default Voice'})`;
+      options?.onStart?.();
+    };
+
+    const handleEnd = () => {
+      if (!hasEnded) {
+        hasEnded = true;
+        lastDiagnosticStatus = 'Speech Completed';
+        options?.onEnd?.();
+      }
+    };
+
+    const handleError = (err: unknown) => {
+      if (!hasEnded) {
+        hasEnded = true;
+        lastDiagnosticStatus = 'Speech Error';
+        options?.onError?.(err);
+        options?.onEnd?.();
+      }
+    };
+
+    utterance.onstart = handleStart;
+    utterance.onend = handleEnd;
+    utterance.onerror = handleError;
+
+    window.speechSynthesis.speak(utterance);
+
+    // Fallback safety timeout if speech end event never fires
+    setTimeout(() => {
+      if (!hasEnded) {
+        hasEnded = true;
+        lastDiagnosticStatus = 'Speech Timeout Finished';
+        options?.onEnd?.();
+      }
+    }, 6000);
+
+    return true;
+  } catch (e) {
+    console.warn('[greetingSpeechService] Error during speakGreeting:', e);
+    lastDiagnosticStatus = 'Exception during speakGreeting';
+    options?.onError?.(e);
+    options?.onEnd?.();
+    return false;
+  }
+}
+
+/**
+ * Cancels active speech synthesis
  */
 export function stopGreeting(): void {
-  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-    try {
-      window.speechSynthesis.cancel();
-    } catch (e) {}
-  }
-  stopGreetingAudio();
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+  } catch (e) {}
 }
 
 /**
- * Plays local pre-recorded audio greeting
- */
-export function playBundledGreetingAudio(periodKey: GreetingPeriodKey = 'good_morning', options?: SpeakOptions): boolean {
-  return playGreetingAudioDirect(periodKey, {
-    onStart: options?.onStart,
-    onEnd: options?.onEnd,
-    onError: options?.onError
-  });
-}
-
-/**
- * Main Greeting Playback Router:
- * Always routes directly to local bundled HTMLAudioElement for instant, reliable, offline-first playback on Android/PWA.
- */
-export function speakGreeting(
-  _text: string, 
-  options?: SpeakOptions,
-  periodKey: GreetingPeriodKey = 'good_morning'
-): boolean {
-  return playGreetingAudioDirect(periodKey, {
-    onStart: options?.onStart,
-    onEnd: options?.onEnd,
-    onError: options?.onError
-  });
-}
-
-/**
- * Checks if greeting audio is supported by browser/device
+ * Checks if speech synthesis is supported by browser/device
  */
 export function isSpeechAvailable(): boolean {
-  return typeof window !== 'undefined';
+  return typeof window !== 'undefined' && 'speechSynthesis' in window;
 }
-
-export { getGreetingAudioDiagnostics };
-
-

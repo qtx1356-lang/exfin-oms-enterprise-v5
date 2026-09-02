@@ -9,9 +9,6 @@ const PRECACHE_ASSETS = [
   '/index.html',
   '/manifest.json',
   '/favicon.ico',
-  '/sounds/greetings/good_morning.wav',
-  '/sounds/greetings/good_afternoon.wav',
-  '/sounds/greetings/good_evening.wav',
 ];
 
 // Fallback Embedded App Shell HTML (Injected during build by Vite plugin)

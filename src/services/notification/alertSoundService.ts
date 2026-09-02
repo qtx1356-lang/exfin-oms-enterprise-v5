@@ -2,9 +2,8 @@ import { API_BASE_URL } from '@/src/utils/apiConfig';
 import { getNotificationSettings } from './notificationSettings';
 import { NotificationPriority, NotificationRecord } from '../../types/notification';
 import { NOTIFICATION_SOUND_DATA_URI } from './alertSoundAsset';
-import { GreetingPeriodKey } from '../voice/greetingAssets';
+import { GreetingPeriodKey, PRE_RECORDED_GREETINGS } from '../voice/greetingAssets';
 import { speakGreeting } from '../speech/greetingSpeechService';
-import { playGreetingAudioDirect } from '../audio/greetingAudioService';
 
 let alertAudioInstance: HTMLAudioElement | null = null;
 let greetingAudioInstance: HTMLAudioElement | null = null;
@@ -49,7 +48,7 @@ export const speakWelcomeGreeting = async (
         onError: () => {
           playFallbackRecordedAsset(periodKey || 'good_morning').then(resolve);
         }
-      }, periodKey || 'good_morning');
+      });
 
       if (!success) {
         playFallbackRecordedAsset(periodKey || 'good_morning').then(resolve);
@@ -66,11 +65,32 @@ export const speakWelcomeGreeting = async (
  */
 async function playFallbackRecordedAsset(periodKey: GreetingPeriodKey): Promise<boolean> {
   return new Promise((resolve) => {
-    const success = playGreetingAudioDirect(periodKey, {
-      onEnd: () => resolve(true),
-      onError: () => resolve(false)
-    });
-    if (!success) resolve(false);
+    try {
+      const audioToPlay = PRE_RECORDED_GREETINGS[periodKey] || PRE_RECORDED_GREETINGS['good_morning'];
+      if (!audioToPlay) {
+        resolve(false);
+        return;
+      }
+
+      if (!greetingAudioInstance) {
+        greetingAudioInstance = new Audio();
+      }
+      greetingAudioInstance.src = audioToPlay;
+      greetingAudioInstance.volume = 0.85;
+      greetingAudioInstance.currentTime = 0;
+      
+      greetingAudioInstance.onended = () => resolve(true);
+      greetingAudioInstance.onerror = () => resolve(false);
+      
+      greetingAudioInstance.play().then(() => {
+        console.log(`[GreetingVoice] Fallback pre-recorded asset played: ${periodKey}`);
+      }).catch(err => {
+        console.warn('[GreetingVoice] Fallback asset play blocked:', err);
+        resolve(false);
+      });
+    } catch (e) {
+      resolve(false);
+    }
   });
 }
 

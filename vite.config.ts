@@ -32,9 +32,6 @@ function swPrecachePlugin(): Plugin {
               '/manifest-icon-192.png',
               '/manifest-icon-512.png',
               '/favicon.ico',
-              '/sounds/greetings/good_morning.wav',
-              '/sounds/greetings/good_afternoon.wav',
-              '/sounds/greetings/good_evening.wav',
               ...assetPaths
             ],
             null,

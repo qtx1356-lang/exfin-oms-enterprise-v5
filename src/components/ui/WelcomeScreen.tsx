@@ -174,8 +174,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       onStart: () => setIsSpeaking(true),
       onEnd: () => setIsSpeaking(false),
       onError: () => setIsSpeaking(false)
-    }, greetingInfo.periodKey);
-  }, [firstName, greetingInfo.label, greetingInfo.periodKey]);
+    });
+  }, [firstName, greetingInfo.label]);
 
   useEffect(() => {
     logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
