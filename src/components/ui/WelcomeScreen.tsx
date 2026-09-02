@@ -40,6 +40,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   // Load today's authoritative attendance record
   const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
   const [liveDuration, setLiveDuration] = useState<string>('');
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const speechTriggeredRef = React.useRef<boolean>(false);
 
   const refreshAttendance = React.useCallback(() => {
     if (!employeeData) return;
@@ -48,7 +50,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     const record = getTodayAttendanceRecord(empId, today);
     setAttendance(record);
     
-    // Diagnostic logging as requested
     console.log('[WelcomeAttendance]', {
       employeeCode: employeeData.employeeCode,
       todayDate: today,
@@ -97,7 +98,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       if (inMins === null) return;
       
       const now = new Date();
-      // Use Asia/Kolkata minutes for "now" consistent with the engine
       try {
         const formatter = new Intl.DateTimeFormat('en-US', {
           timeZone: 'Asia/Kolkata',
@@ -126,10 +126,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     return () => clearInterval(interval);
   }, [attendance]);
 
-  useEffect(() => {
-    logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
-  }, []);
-
   const [greetingInfo] = useState<{ label: string; periodKey: GreetingPeriodKey }>(() => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 12) return { label: 'Good Morning', periodKey: 'good_morning' };
@@ -140,20 +136,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const displayName = employeeData?.name || cachedName;
   const isRegistered = status === 'Approved' || !!displayName;
 
-  // Extract the employee's first name from the full name safely, filtering placeholders
+  // Extract employee's first name safely
   const firstName = React.useMemo(() => {
     if (!displayName) return null;
     const trimmed = displayName.trim();
     if (!trimmed) return null;
 
     const lower = trimmed.toLowerCase();
-    if (
-      lower === 'undefined' || 
-      lower === 'null' || 
-      lower === 'user' || 
-      lower === 'employee' || 
-      lower === 'admin'
-    ) {
+    if (['undefined', 'null', 'user', 'employee', 'admin'].includes(lower)) {
       return null;
     }
 
@@ -168,21 +158,59 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     return first;
   }, [displayName]);
 
+  // Dynamic SpeechSynthesis handler with Session Guard
+  const triggerGreetingSpeech = React.useCallback((textToSpeak: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.volume = 0.85;
+      utterance.rate = 0.95;
+      utterance.pitch = 1.05;
+
+      const setVoice = () => {
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v =>
+          v.lang.startsWith('en') &&
+          (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha') || v.name.includes('Premium'))
+        );
+        if (preferredVoice) utterance.voice = preferredVoice;
+      };
+
+      setVoice();
+      if (typeof window.speechSynthesis.onvoiceschanged !== 'undefined') {
+        window.speechSynthesis.onvoiceschanged = setVoice;
+      }
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+
+      window.speechSynthesis.speak(utterance);
+
+      // Safety timeout for completion
+      setTimeout(() => setIsSpeaking(false), 5000);
+    } catch (e) {
+      console.warn('[WelcomeScreen] SpeechSynthesis handled gracefully:', e);
+      setIsSpeaking(false);
+    }
+  }, []);
+
   useEffect(() => {
     logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
-    try {
-      const sessionKey = 'exfin_session_greeting_played';
-      if (!sessionStorage.getItem(sessionKey)) {
-        sessionStorage.setItem(sessionKey, 'true');
+    const sessionKey = 'exfin_welcome_speech_spoken_session';
 
-        // Trigger personalized native voice greeting with the first name if available
-        const greetingSentence = firstName ? `${greetingInfo.label}, ${firstName}.` : `${greetingInfo.label}.`;
-        speakWelcomeGreeting(greetingSentence, greetingInfo.periodKey);
-      }
-    } catch (e) {
-      console.warn('[WelcomeScreen] Greeting initialization error:', e);
+    if (!speechTriggeredRef.current && !sessionStorage.getItem(sessionKey)) {
+      speechTriggeredRef.current = true;
+      sessionStorage.setItem(sessionKey, 'true');
+
+      const greetingSentence = firstName ? `${greetingInfo.label}, ${firstName}.` : `${greetingInfo.label}.`;
+      triggerGreetingSpeech(greetingSentence);
     }
-  }, [firstName, greetingInfo.periodKey, greetingInfo.label]);
+  }, [firstName, greetingInfo.label, triggerGreetingSpeech]);
 
   // Derive Location & Distance display states dynamically
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
@@ -241,13 +269,60 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
           animation: welcomeDotPulse 2s ease-in-out infinite;
         }
 
-        @keyframes welcomeAvatarRingPulse {
-          0%, 100% { transform: scale(1); opacity: 0.5; box-shadow: 0 0 10px rgba(34, 211, 238, 0.2); }
-          50% { transform: scale(1.08); opacity: 0.95; box-shadow: 0 0 22px rgba(34, 211, 238, 0.45); }
+        @keyframes welcomeRobotFloat {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-7px); }
         }
 
-        .welcome-avatar-ring {
-          animation: welcomeAvatarRingPulse 3.5s ease-in-out infinite;
+        .welcome-robot-float {
+          animation: welcomeRobotFloat 4s ease-in-out infinite;
+        }
+
+        @keyframes welcomeRobotHeadTilt {
+          0%, 100% { transform: rotate(0deg); }
+          50% { transform: rotate(2.5deg); }
+        }
+
+        .welcome-robot-head {
+          animation: welcomeRobotHeadTilt 6s ease-in-out infinite;
+        }
+
+        @keyframes welcomeRobotArmWave {
+          0%, 100% { transform: rotate(0deg); }
+          25% { transform: rotate(-14deg); }
+          75% { transform: rotate(8deg); }
+        }
+
+        .welcome-robot-arm-wave {
+          animation: welcomeRobotArmWave 5s ease-in-out infinite;
+        }
+
+        @keyframes welcomeRobotEyeGlow {
+          0%, 88%, 100% { opacity: 0.9; transform: scaleY(1); }
+          94% { opacity: 0.2; transform: scaleY(0.15); }
+        }
+
+        .welcome-robot-eyes {
+          animation: welcomeRobotEyeGlow 4.5s ease-in-out infinite;
+        }
+
+        @keyframes welcomeRobotCorePulse {
+          0%, 100% { transform: scale(1); opacity: 0.85; }
+          50% { transform: scale(1.25); opacity: 1; }
+        }
+
+        .welcome-robot-core {
+          animation: welcomeRobotCorePulse 2.5s ease-in-out infinite;
+        }
+
+        @keyframes robotHudSpin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        @keyframes welcomeWavebar {
+          0%, 100% { height: 4px; }
+          50% { height: 14px; }
         }
 
         @keyframes welcomeRadarExpand {
@@ -332,7 +407,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         @media (prefers-reduced-motion: reduce) {
           .welcome-border-light,
           .welcome-status-dot,
-          .welcome-avatar-ring,
           .welcome-radar-ring,
           .welcome-inside-glow,
           .welcome-scan-line,
@@ -344,16 +418,21 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
           .welcome-btn-shimmer,
           .welcome-p1,
           .welcome-p2,
-          .welcome-p3 {
+          .welcome-p3,
+          .welcome-robot-float,
+          .welcome-robot-head,
+          .welcome-robot-arm-wave,
+          .welcome-robot-eyes,
+          .welcome-robot-core {
             animation: none !important;
-            opacity: 0.4 !important;
+            opacity: 0.5 !important;
           }
         }
       `}</style>
 
       {/* Atmospheric Background Lights */}
-      <div className="fixed top-16 right-8 w-[450px] h-[450px] bg-[#10B981]/12 rounded-full blur-[130px] pointer-events-none -z-10" />
-      <div className="fixed bottom-16 left-6 w-[400px] h-[400px] bg-[#22D3EE]/10 rounded-full blur-[140px] pointer-events-none -z-10" />
+      <div className="fixed top-12 right-6 w-[450px] h-[450px] bg-[#10B981]/12 rounded-full blur-[130px] pointer-events-none -z-10" />
+      <div className="fixed bottom-12 left-4 w-[400px] h-[400px] bg-[#22D3EE]/10 rounded-full blur-[140px] pointer-events-none -z-10" />
       
       {/* Decorative Ambient Floating Points */}
       <div className="welcome-p1 fixed top-1/4 left-8 w-1.5 h-1.5 bg-[#22D3EE] rounded-full blur-[1px] pointer-events-none -z-10" />
@@ -361,19 +440,109 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       <div className="welcome-p3 fixed bottom-1/3 left-12 w-1.5 h-1.5 bg-[#3B82F6] rounded-full blur-[1px] pointer-events-none -z-10" />
 
       {/* Main Content Container */}
-      <div className="w-full max-w-sm my-auto py-2 flex flex-col items-center text-center relative z-10 space-y-5">
+      <div className="w-full max-w-sm my-auto py-2 flex flex-col items-center text-center relative z-10 space-y-4">
         
-        {/* Central Logo / Avatar with Smart Ring */}
-        <div className="relative flex items-center justify-center my-1">
-          <div className="welcome-avatar-ring absolute w-24 h-24 rounded-full border border-[#22D3EE]/50 pointer-events-none" />
-          <div className="w-20 h-20 rounded-full border-1.5 border-[#10B981]/60 bg-[#092438] flex items-center justify-center shadow-2xl relative z-10">
-            <div className="w-16 h-16 rounded-full bg-[#0D3045] border border-[#10B981]/60 flex items-center justify-center shadow-lg">
-              {isRegistered ? (
-                <UserCheck className="w-8 h-8 text-[#10B981]" />
-              ) : (
-                <Building2 className="w-8 h-8 text-[#10B981]" />
-              )}
+        {/* Top Hero: Animated Smart Assistant Robot & Speech Bubble */}
+        <div className="flex flex-col items-center text-center my-0.5 relative z-10">
+          
+          {/* Futuristic Speech Bubble */}
+          <div className="mb-2 px-3.5 py-1.5 rounded-2xl bg-[#092438]/90 border border-[#22D3EE]/50 shadow-[0_0_18px_rgba(34,211,238,0.25)] backdrop-blur-md flex items-center gap-2 relative">
+            <span className="text-xs font-black text-[#22D3EE] tracking-wide uppercase">
+              {greetingInfo.label}!
+            </span>
+            {/* Animated Audio Waveform Equalizer when speaking */}
+            <div className="flex items-center gap-1 h-4 px-1" title={isSpeaking ? "Assistant Speaking" : "Assistant Ready"}>
+              <span className={`w-0.5 bg-[#10B981] rounded-full transition-all ${isSpeaking ? 'h-3.5 animate-[welcomeWavebar_0.5s_ease-in-out_infinite]' : 'h-1.5'}`} />
+              <span className={`w-0.5 bg-[#22D3EE] rounded-full transition-all ${isSpeaking ? 'h-4 animate-[welcomeWavebar_0.5s_ease-in-out_infinite_0.15s]' : 'h-2.5'}`} />
+              <span className={`w-0.5 bg-[#10B981] rounded-full transition-all ${isSpeaking ? 'h-3 animate-[welcomeWavebar_0.5s_ease-in-out_infinite_0.3s]' : 'h-1.5'}`} />
             </div>
+            {/* Pointer Arrow */}
+            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#092438] border-r border-b border-[#22D3EE]/50 rotate-45" />
+          </div>
+
+          {/* Animated Smart Robot SVG Container */}
+          <div className="relative flex items-center justify-center w-28 h-28 sm:w-32 sm:h-32">
+            {/* Background HUD Rings */}
+            <div className="absolute inset-0 rounded-full border border-dashed border-[#22D3EE]/35 animate-[robotHudSpin_20s_linear_infinite] pointer-events-none" />
+            <div className="absolute inset-2 rounded-full border border-dotted border-[#10B981]/30 animate-[robotHudSpin_15s_linear_infinite_reverse] pointer-events-none" />
+            <div className="absolute w-24 h-24 bg-[#22D3EE]/15 rounded-full blur-xl pointer-events-none" />
+
+            <svg
+              viewBox="0 0 160 160"
+              className="w-28 h-28 sm:w-32 sm:h-32 relative z-10 drop-shadow-[0_8px_22px_rgba(34,211,238,0.3)]"
+              aria-hidden="true"
+            >
+              <defs>
+                <linearGradient id="robotBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#1E3A8A" />
+                  <stop offset="50%" stopColor="#0F172A" />
+                  <stop offset="100%" stopColor="#0B1329" />
+                </linearGradient>
+                <linearGradient id="visorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#0284C7" />
+                  <stop offset="50%" stopColor="#0369A1" />
+                  <stop offset="100%" stopColor="#082F49" />
+                </linearGradient>
+                <linearGradient id="armGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#38BDF8" />
+                  <stop offset="100%" stopColor="#0284C7" />
+                </linearGradient>
+                <filter id="cyanGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+              </defs>
+
+              <g className="welcome-robot-float">
+                <ellipse cx="80" cy="150" rx="28" ry="5" fill="#030E17" opacity="0.6" />
+
+                {/* Torso */}
+                <path
+                  d="M 52 90 C 52 82, 108 82, 108 90 L 102 124 C 102 130, 58 130, 58 124 Z"
+                  fill="url(#robotBodyGrad)"
+                  stroke="#22D3EE"
+                  strokeWidth="1.5"
+                />
+                <circle cx="80" cy="104" r="8" fill="#092438" stroke="#10B981" strokeWidth="1.5" />
+                <circle cx="80" cy="104" r="4" fill="#10B981" className="welcome-robot-core" filter="url(#cyanGlow)" />
+
+                {/* Shoulders */}
+                <circle cx="50" cy="92" r="5" fill="#1E293B" stroke="#22D3EE" strokeWidth="1" />
+                <circle cx="110" cy="92" r="5" fill="#1E293B" stroke="#22D3EE" strokeWidth="1" />
+
+                {/* Left Arm */}
+                <path d="M 47 94 C 40 102, 42 115, 45 120" fill="none" stroke="url(#armGrad)" strokeWidth="4" strokeLinecap="round" />
+                <circle cx="45" cy="121" r="3" fill="#22D3EE" />
+
+                {/* Right Arm Waving */}
+                <g className="welcome-robot-arm-wave" style={{ transformOrigin: '110px 92px' }}>
+                  <path d="M 113 94 C 122 100, 126 108, 128 116" fill="none" stroke="url(#armGrad)" strokeWidth="4" strokeLinecap="round" />
+                  <circle cx="128" cy="117" r="3.5" fill="#22D3EE" filter="url(#cyanGlow)" />
+                  <path d="M 126 114 L 131 113 M 128 117 L 132 117 M 127 120 L 131 120" stroke="#38BDF8" strokeWidth="1.2" strokeLinecap="round" />
+                </g>
+
+                {/* Head */}
+                <g className="welcome-robot-head" style={{ transformOrigin: '80px 75px' }}>
+                  <line x1="80" y1="36" x2="80" y2="24" stroke="#22D3EE" strokeWidth="2" strokeLinecap="round" />
+                  <circle cx="80" cy="22" r="3.5" fill="#10B981" className="welcome-robot-core" filter="url(#cyanGlow)" />
+
+                  <rect x="52" y="34" width="56" height="46" rx="23" fill="url(#robotBodyGrad)" stroke="#22D3EE" strokeWidth="1.5" />
+                  <rect x="57" y="42" width="46" height="30" rx="13" fill="url(#visorGrad)" stroke="#0ea5e9" strokeWidth="1" />
+                  <path d="M 62 46 C 72 44, 88 44, 98 46" fill="none" stroke="#FFFFFF" strokeWidth="1" opacity="0.3" strokeLinecap="round" />
+
+                  {/* Digital Eyes */}
+                  <g className="welcome-robot-eyes">
+                    <ellipse cx="70" cy="56" rx="5" ry="6" fill="#22D3EE" filter="url(#cyanGlow)" />
+                    <ellipse cx="69" cy="54" rx="1.5" ry="2" fill="#FFFFFF" />
+
+                    <ellipse cx="90" cy="56" rx="5" ry="6" fill="#22D3EE" filter="url(#cyanGlow)" />
+                    <ellipse cx="89" cy="54" rx="1.5" ry="2" fill="#FFFFFF" />
+                  </g>
+
+                  <path d="M 75 66 Q 80 69 85 66" fill="none" stroke="#10B981" strokeWidth="1.5" strokeLinecap="round" opacity="0.9" />
+                </g>
+              </g>
+            </svg>
           </div>
         </div>
 
@@ -384,7 +553,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             <span>{greetingInfo.label} 👋</span>
           </div>
 
-          <h1 className="mt-1 text-2xl sm:text-3xl font-black text-[#F8FAFC] tracking-tight leading-tight uppercase">
+          <h1 className="mt-0.5 text-2xl sm:text-3xl font-black text-[#F8FAFC] tracking-tight leading-tight uppercase">
             {status === 'unregistered' ? (
               <>Register Device</>
             ) : (
@@ -392,7 +561,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             )}
           </h1>
           
-          <div className="mt-2 flex items-center justify-center gap-1.5">
+          <div className="mt-1.5 flex items-center justify-center gap-1.5">
             <span className="welcome-status-dot w-2 h-2 rounded-full bg-[#10B981] inline-block" />
             <p className="text-[11px] font-bold text-[#10B981] tracking-widest uppercase">
               EXFIN OMS • SMART APP
@@ -401,7 +570,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         </div>
 
         {/* 1. Automatic Attendance Card */}
-        <div className="welcome-card w-full py-4 px-4 rounded-2xl flex flex-col items-center text-center shadow-xl relative">
+        <div className="welcome-card w-full py-3.5 px-4 rounded-2xl flex flex-col items-center text-center shadow-xl relative">
           <div className="welcome-border-light" />
           <p className="text-xs sm:text-sm font-bold text-[#10B981] tracking-wider flex items-center justify-center gap-1.5 uppercase">
             <Sparkles className="welcome-sparkle-pulse w-4 h-4 text-[#10B981] shrink-0" />
@@ -413,12 +582,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         </div>
 
         {/* 2. Location / Attendance Intelligence Card */}
-        <div className="welcome-card welcome-card-active w-full p-5 rounded-2xl text-center shadow-2xl relative">
+        <div className="welcome-card welcome-card-active w-full p-4 sm:p-5 rounded-2xl text-center shadow-2xl relative">
           <div className="welcome-border-light" />
           <div className="welcome-scan-line" />
 
           {/* Header Centered */}
-          <div className="flex items-center justify-center gap-2 mb-4 border-b border-[#22D3EE]/25 pb-3">
+          <div className="flex items-center justify-center gap-2 mb-3.5 border-b border-[#22D3EE]/25 pb-2.5">
             <div className="relative flex items-center justify-center">
               <div className="welcome-radar-ring absolute w-5 h-5 rounded-full border border-[#F43F5E] pointer-events-none" />
               <MapPin className="w-4 h-4 text-[#F43F5E] relative z-10 shrink-0" />
@@ -429,7 +598,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
           </div>
 
           {/* 2-Column Metric Layout - All Centered */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
             
             {/* Left Top: Status */}
             <div className="flex flex-col items-center text-center space-y-1">
@@ -484,7 +653,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             </div>
 
             {/* Left Bottom: Radius */}
-            <div className="flex flex-col items-center text-center space-y-1 pt-3 border-t border-[#22D3EE]/20">
+            <div className="flex flex-col items-center text-center space-y-1 pt-2.5 border-t border-[#22D3EE]/20">
               <span className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider block">
                 RADIUS
               </span>
@@ -494,7 +663,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             </div>
 
             {/* Right Bottom: Attendance */}
-            <div className="flex flex-col items-center text-center space-y-1 pt-3 border-t border-l border-[#22D3EE]/20 pl-4">
+            <div className="flex flex-col items-center text-center space-y-1 pt-2.5 border-t border-l border-[#22D3EE]/20 pl-4">
               <span className="text-[10px] font-bold text-[#94A3B8] uppercase tracking-wider block">
                 ATTENDANCE
               </span>
@@ -535,7 +704,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         </div>
 
         {/* 3. Feature Card (4 equal-width features: Secure, Smart, Precise, Verified) */}
-        <div className="welcome-card w-full p-3.5 rounded-2xl grid grid-cols-4 gap-2 text-center shadow-xl relative">
+        <div className="welcome-card w-full p-3 rounded-2xl grid grid-cols-4 gap-1.5 text-center shadow-xl relative">
           <div className="welcome-border-light" />
 
           {/* Secure Tile */}
