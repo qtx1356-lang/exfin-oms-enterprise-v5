@@ -51,9 +51,9 @@
   --card-border-luminous: rgba(120, 150, 210, 0.20);
 
   --card-bg-primary: linear-gradient(180deg, #3A4775 0%, #2F3C63 100%);
-  --surface: linear-gradient(180deg, #3A4775 0%, #2F3C63 100%);
-  --surface-elevated: linear-gradient(180deg, #3A4775 0%, #2F3C63 100%);
-  --surface-inner: linear-gradient(180deg, #2A365B 0%, #222C4A 100%);
+  --surface: #34436F;
+  --surface-elevated: #34436F;
+  --surface-inner: #263255;
   --surface-hover: rgba(255, 255, 255, 0.08);
 
   --text-primary: #F8FAFC;
@@ -271,6 +271,22 @@ button, a, input, select, textarea, [role="button"] {
   background-color: #34436F !important;
   border-color: rgba(120, 150, 210, 0.20) !important;
   color: #F8FAFC !important;
+}
+
+/* Arbitrary CSS Variable Surface Class Support */
+.bg-\[var\(--surface\)\] {
+  background-color: #34436F !important;
+  background-image: linear-gradient(180deg, #3A4775 0%, #2F3C63 100%) !important;
+}
+
+.bg-\[var\(--surface-elevated\)\] {
+  background-color: #34436F !important;
+  background-image: linear-gradient(180deg, #3A4775 0%, #2F3C63 100%) !important;
+}
+
+.bg-\[var\(--surface-inner\)\] {
+  background-color: #263255 !important;
+  background-image: linear-gradient(180deg, #2A365B 0%, #222C4A 100%) !important;
 }
 
 /* Border overrides */

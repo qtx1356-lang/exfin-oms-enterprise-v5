@@ -592,7 +592,7 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
           </div>
         ) : leaderboardItems.length === 0 ? (
           /* EMPTY STATE */
-          <div className="py-10 text-center bg-[#071A2B]/80 rounded-2xl border border-white/10 p-6">
+          <div className="py-10 text-center bg-[var(--surface-inner)] rounded-2xl border border-[var(--border)] p-6">
             <AlertCircle className="w-8 h-8 text-amber-300 mx-auto mb-2 opacity-80" />
             <p className="text-sm font-bold text-white">No efficiency data available for this period.</p>
             <p className="text-xs text-blue-200 mt-1">There are no eligible employee records for {periodInfo.label}.</p>
@@ -610,8 +610,8 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
                   onClick={() => onSelectEmployee?.(item.employeeCode)}
                   className={`group relative p-3.5 sm:p-4 rounded-2xl transition-all duration-200 cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
                     isUser
-                      ? 'bg-[#071A2B] border-2 border-cyan-400 shadow-lg shadow-cyan-950/40 ring-2 ring-cyan-400/30'
-                      : 'bg-[#071A2B]/90 hover:bg-[#071A2B] border border-white/10 hover:border-white/25 shadow-md'
+                      ? 'bg-[var(--surface-inner)] border-2 border-cyan-400 shadow-lg shadow-cyan-950/40 ring-2 ring-cyan-400/30'
+                      : 'bg-[var(--surface-inner)] hover:bg-[var(--surface-elevated)] border border-[var(--border)] hover:border-white/25 shadow-md'
                   }`}
                 >
                   {/* LEFT COLUMN: RANK + AVATAR + NAME & CODE */}
