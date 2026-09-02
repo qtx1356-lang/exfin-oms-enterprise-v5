@@ -36,3 +36,5 @@
 - **`firebase-applet-config.example.json`**: Firebase configuration example template.
 - **`.env.example`**: Environment configuration template.
 - **`LICENSE_NOTICES.md`**: Third-party open source attributions.
+
+Deployment verification: Cloudflare Pages Production deployment trigger.
