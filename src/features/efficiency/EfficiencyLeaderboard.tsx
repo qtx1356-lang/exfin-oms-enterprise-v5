@@ -135,19 +135,48 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
   const [internalWeightages, setInternalWeightages] = useState<EfficiencyWeightages>(DEFAULT_WEIGHTAGES);
   const [isFetchingLocal, setIsFetchingLocal] = useState<boolean>(false);
 
+  // Helper to check if provided dataset covers multiple employees or if we need to fetch global Firestore collections
+  const isMultiUserDataset = (records: any[], getEmpKey: (r: any) => string): boolean => {
+    if (!records || records.length === 0) return false;
+    const uniqueKeys = new Set<string>();
+    for (const r of records) {
+      const key = getEmpKey(r);
+      if (key) uniqueKeys.add(String(key).trim().toUpperCase());
+      if (uniqueKeys.size > 1) return true;
+    }
+    return false;
+  };
+
+  const usePropEmployees = Boolean(propEmployees && propEmployees.length > 0);
+  const usePropTasks = Boolean(
+    propTasks && 
+    propTasks.length > 0 && 
+    isMultiUserDataset(propTasks, t => t.assignedToEmployeeCodes?.[0] || (t as any).assigneeCode || (t as any).employeeCode || (t as any).employeeId || '')
+  );
+  const usePropAttendance = Boolean(
+    propAttendance && 
+    propAttendance.length > 0 && 
+    isMultiUserDataset(propAttendance, a => a.employeeCode || a.employeeId || '')
+  );
+  const usePropWorkDetails = Boolean(
+    propWorkDetails && 
+    propWorkDetails.length > 0 && 
+    isMultiUserDataset(propWorkDetails, w => w.employeeCode || w.employeeId || '')
+  );
+
   // Determine whether to use props or internal state
-  const employeesToUse = (propEmployees && propEmployees.length > 0) ? propEmployees : internalEmployees;
-  const tasksToUse = (propTasks && propTasks.length > 0) ? propTasks : internalTasks;
-  const attendanceToUse = (propAttendance && propAttendance.length > 0) ? propAttendance : internalAttendance;
-  const workDetailsToUse = (propWorkDetails && propWorkDetails.length > 0) ? propWorkDetails : internalWorkDetails;
+  const employeesToUse = usePropEmployees ? propEmployees! : internalEmployees;
+  const tasksToUse = usePropTasks ? propTasks! : internalTasks;
+  const attendanceToUse = usePropAttendance ? propAttendance! : internalAttendance;
+  const workDetailsToUse = usePropWorkDetails ? propWorkDetails! : internalWorkDetails;
   const weightagesToUse = propWeightages || internalWeightages;
 
-  // Realtime Firestore fallback if props are not provided
+  // Realtime Firestore fallback if props are not provided or are single-user scoped
   useEffect(() => {
-    const needsEmployees = !propEmployees || propEmployees.length === 0;
-    const needsTasks = !propTasks || propTasks.length === 0;
-    const needsAttendance = !propAttendance || propAttendance.length === 0;
-    const needsWorkDetails = !propWorkDetails || propWorkDetails.length === 0;
+    const needsEmployees = !usePropEmployees;
+    const needsTasks = !usePropTasks;
+    const needsAttendance = !usePropAttendance;
+    const needsWorkDetails = !usePropWorkDetails;
 
     if (!needsEmployees && !needsTasks && !needsAttendance && !needsWorkDetails) {
       return;
@@ -208,7 +237,7 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
     return () => {
       unsubs.forEach(u => u());
     };
-  }, [propEmployees, propTasks, propAttendance, propWorkDetails, propWeightages]);
+  }, [usePropEmployees, usePropTasks, usePropAttendance, usePropWorkDetails, propWeightages]);
 
   // Calculate Asia/Kolkata date range for selected period
   const periodInfo = useMemo(() => {
@@ -252,6 +281,10 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
         weightagesToUse,
         workDetailsToUse
       );
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Leaderboard calculation: ${empCode} (${empName}) → attendance: ${calc.breakdown.attendanceDaysCount}, tasks: ${calc.breakdown.assignedTasksCount}, workDetails: ${calc.breakdown.workDetailsCount} → ${calc.finalScore >= 0 ? calc.finalScore + '%' : 'No data'}`);
+      }
 
       const normEmpCode = empCode.toUpperCase();
       const normEmpId = empId.toUpperCase();
