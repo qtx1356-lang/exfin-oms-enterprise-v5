@@ -1544,11 +1544,10 @@ export const EmployeeDashboard: React.FC = () => {
           >
             <div className="container mx-auto p-4 max-w-4xl min-h-screen pb-12">
               <EfficiencyLeaderboard
-                activeEmployeeCode={employeeData.employeeCode || ''}
-                activeEmployeeId={employeeData.id || ''}
+                activeEmployeeCode={employeeData?.employeeCode || ''}
+                activeEmployeeId={employeeData?.id || ''}
                 tasks={tasks}
                 attendance={attendanceRecords}
-                allEmployees={allRegistrations}
                 onClose={() => setActiveView('dashboard')}
               />
             </div>
