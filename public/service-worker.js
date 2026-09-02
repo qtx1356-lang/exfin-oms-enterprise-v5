@@ -1,7 +1,7 @@
 // OFFLINE-FIRST CORE REQUIREMENT: APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. NETWORK FAILURE MUST NEVER REDIRECT TO OR REPLACE THE NORMAL APPLICATION SHELL WITH AN OFFLINE PAGE.
 
-const CACHE_NAME = 'exfin-oms-v16-indigo-v16';
-const DYNAMIC_CACHE_NAME = 'exfin-oms-v16-dynamic-v16';
+const CACHE_NAME = 'exfin-oms-v17-greetings-v17';
+const DYNAMIC_CACHE_NAME = 'exfin-oms-v17-dynamic-v17';
 
 // Core Application Shell Assets (Injected during build by Vite plugin)
 const PRECACHE_ASSETS = [
@@ -9,6 +9,9 @@ const PRECACHE_ASSETS = [
   '/index.html',
   '/manifest.json',
   '/favicon.ico',
+  '/sounds/greetings/good_morning.wav',
+  '/sounds/greetings/good_afternoon.wav',
+  '/sounds/greetings/good_evening.wav',
 ];
 
 // Fallback Embedded App Shell HTML (Injected during build by Vite plugin)
@@ -333,6 +336,8 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.svg') ||
     url.pathname.endsWith('.ico') ||
     url.pathname.endsWith('.woff2') ||
+    url.pathname.endsWith('.wav') ||
+    url.pathname.endsWith('.mp3') ||
     url.pathname === '/manifest.json' ||
     url.pathname === '/favicon.ico';
 

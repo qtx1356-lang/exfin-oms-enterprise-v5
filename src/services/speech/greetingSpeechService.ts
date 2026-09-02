@@ -1,4 +1,10 @@
-import { PRE_RECORDED_GREETINGS, GreetingPeriodKey } from '../voice/greetingAssets';
+import { GreetingPeriodKey } from '../voice/greetingAssets';
+import { 
+  playGreetingAudioDirect, 
+  stopGreetingAudio, 
+  getGreetingAudioDiagnostics,
+  GreetingAudioDiagnostics 
+} from '../audio/greetingAudioService';
 
 export interface SpeakOptions {
   isUserGesture?: boolean;
@@ -16,13 +22,11 @@ export interface SpeechDiagnostics {
   isStandalonePWA: boolean;
   userAgent: string;
   lastStatus: string;
+  audioDiagnostics: GreetingAudioDiagnostics;
 }
 
-let activeAudioInstance: HTMLAudioElement | null = null;
-let lastDiagnosticStatus = 'Initialized';
-
 /**
- * Diagnostic Inspector for Speech API state
+ * Diagnostic Inspector for Speech API & Audio state
  */
 export function getSpeechDiagnostics(): SpeechDiagnostics {
   const isBrowser = typeof window !== 'undefined';
@@ -44,6 +48,8 @@ export function getSpeechDiagnostics(): SpeechDiagnostics {
     } catch (e) {}
   }
 
+  const audioDiag = getGreetingAudioDiagnostics();
+
   const isStandalonePWA = isBrowser && (
     window.matchMedia('(display-mode: standalone)').matches ||
     (navigator as any).standalone === true ||
@@ -58,7 +64,8 @@ export function getSpeechDiagnostics(): SpeechDiagnostics {
     selectedVoiceLang,
     isStandalonePWA,
     userAgent: isBrowser ? navigator.userAgent : 'Server',
-    lastStatus: lastDiagnosticStatus
+    lastStatus: audioDiag.lastPlaybackStatus,
+    audioDiagnostics: audioDiag
   };
 }
 
@@ -76,28 +83,23 @@ export function getAvailableSpeechVoice(): SpeechSynthesisVoice | null {
       return null;
     }
 
-    // 1. English India
     const enIn = voices.find(v => v.lang && /^en[-_]in/i.test(v.lang));
     if (enIn) return enIn;
 
-    // 2. English US
     const enUs = voices.find(v => v.lang && /^en[-_]us/i.test(v.lang));
     if (enUs) return enUs;
 
-    // 3. Any English
     const anyEn = voices.find(v => v.lang && /^en/i.test(v.lang));
     if (anyEn) return anyEn;
 
-    // 4. Default
     return voices[0] || null;
   } catch (e) {
-    console.warn('[greetingSpeechService] Failed to retrieve voices:', e);
     return null;
   }
 }
 
 /**
- * Initializes voice listeners to handle asynchronous voice loading (Android/PWA)
+ * Initializes voice listeners to handle asynchronous voice loading
  */
 export function initializeSpeech(onVoicesLoaded?: () => void): () => void {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -135,9 +137,7 @@ export function initializeSpeech(onVoicesLoaded?: () => void): () => void {
         } catch (e) {}
       };
     }
-  } catch (e) {
-    console.warn('[greetingSpeechService] Error attaching voiceschanged listener:', e);
-  }
+  } catch (e) {}
 
   return () => {};
 }
@@ -151,214 +151,43 @@ export function stopGreeting(): void {
       window.speechSynthesis.cancel();
     } catch (e) {}
   }
-
-  if (activeAudioInstance) {
-    try {
-      activeAudioInstance.pause();
-      activeAudioInstance.currentTime = 0;
-      activeAudioInstance = null;
-    } catch (e) {}
-  }
+  stopGreetingAudio();
 }
 
 /**
- * Plays local pre-recorded audio greeting (fallback when SpeechSynthesis is silent or unavailable)
+ * Plays local pre-recorded audio greeting
  */
 export function playBundledGreetingAudio(periodKey: GreetingPeriodKey = 'good_morning', options?: SpeakOptions): boolean {
-  if (typeof window === 'undefined') return false;
-
-  stopGreeting();
-
-  const primarySrc = `/sounds/greetings/${periodKey}.wav`;
-  const fallbackBase64 = PRE_RECORDED_GREETINGS[periodKey] || PRE_RECORDED_GREETINGS.good_morning;
-
-  try {
-    const audio = new Audio(primarySrc);
-    activeAudioInstance = audio;
-    audio.volume = 1.0;
-
-    let hasStarted = false;
-    let hasEnded = false;
-
-    audio.onplay = () => {
-      hasStarted = true;
-      lastDiagnosticStatus = `Playing Bundled Audio (${periodKey})`;
-      options?.onStart?.();
-    };
-
-    audio.onended = () => {
-      if (!hasEnded) {
-        hasEnded = true;
-        activeAudioInstance = null;
-        options?.onEnd?.();
-      }
-    };
-
-    const tryBase64Fallback = () => {
-      if (hasEnded) return;
-      console.log('[greetingSpeechService] Primary audio failed, attempting base64 fallback');
-      try {
-        const base64Audio = new Audio(fallbackBase64);
-        activeAudioInstance = base64Audio;
-        base64Audio.volume = 1.0;
-        base64Audio.onplay = () => {
-          options?.onStart?.();
-        };
-        base64Audio.onended = () => {
-          if (!hasEnded) {
-            hasEnded = true;
-            activeAudioInstance = null;
-            options?.onEnd?.();
-          }
-        };
-        base64Audio.onerror = (e) => {
-          if (!hasEnded) {
-            hasEnded = true;
-            activeAudioInstance = null;
-            options?.onError?.(e);
-            options?.onEnd?.();
-          }
-        };
-        base64Audio.play().catch(err => {
-          if (!hasEnded) {
-            hasEnded = true;
-            activeAudioInstance = null;
-            options?.onError?.(err);
-            options?.onEnd?.();
-          }
-        });
-      } catch (e) {
-        if (!hasEnded) {
-          hasEnded = true;
-          activeAudioInstance = null;
-          options?.onError?.(e);
-          options?.onEnd?.();
-        }
-      }
-    };
-
-    audio.onerror = tryBase64Fallback;
-
-    const promise = audio.play();
-    if (promise !== undefined) {
-      promise.catch(err => {
-        console.warn('[greetingSpeechService] Audio play blocked or failed:', err);
-        tryBase64Fallback();
-      });
-    }
-
-    return true;
-  } catch (e) {
-    console.warn('[greetingSpeechService] Failed to play bundled greeting:', e);
-    options?.onError?.(e);
-    options?.onEnd?.();
-    return false;
-  }
+  return playGreetingAudioDirect(periodKey, {
+    onStart: options?.onStart,
+    onEnd: options?.onEnd,
+    onError: options?.onError
+  });
 }
 
 /**
- * Intelligent Speech Greeting Router:
- * 1. Attempts Native SpeechSynthesis
- * 2. If SpeechSynthesis does not fire 'onstart' within 800ms (silent/blocked on Android PWA),
- *    cancels TTS and immediately falls back to bundled audio.
+ * Main Greeting Playback Router:
+ * Always routes directly to local bundled HTMLAudioElement for instant, reliable, offline-first playback on Android/PWA.
  */
 export function speakGreeting(
-  text: string, 
+  _text: string, 
   options?: SpeakOptions,
   periodKey: GreetingPeriodKey = 'good_morning'
 ): boolean {
-  if (typeof window === 'undefined') {
-    options?.onError?.('Window undefined');
-    return false;
-  }
-
-  stopGreeting();
-
-  const isTtsSupported = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
-  const voices = isTtsSupported ? window.speechSynthesis.getVoices() : [];
-
-  // If TTS is completely unsupported or has 0 voices, fallback immediately
-  if (!isTtsSupported || !voices || voices.length === 0) {
-    lastDiagnosticStatus = 'TTS unsupported or 0 voices -> Playing Bundled Audio';
-    console.log('[greetingSpeechService]', lastDiagnosticStatus);
-    return playBundledGreetingAudio(periodKey, options);
-  }
-
-  try {
-    // Safe resume for Android Chrome
-    try {
-      if (typeof window.speechSynthesis.resume === 'function') {
-        window.speechSynthesis.resume();
-      }
-    } catch (e) {}
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.volume = 1.0;
-    utterance.rate = 0.95;
-    utterance.pitch = 1.0;
-
-    const voice = getAvailableSpeechVoice();
-    if (voice) {
-      utterance.voice = voice;
-    }
-
-    let ttsStarted = false;
-    let ttsFinished = false;
-
-    // 800ms Start Check Timer: if TTS doesn't start producing audio within 800ms, switch to bundled audio
-    const startFallbackTimer = setTimeout(() => {
-      if (!ttsStarted && !ttsFinished) {
-        ttsFinished = true;
-        lastDiagnosticStatus = 'TTS start timeout (silent on Android) -> Falling back to Bundled Audio';
-        console.warn('[greetingSpeechService]', lastDiagnosticStatus);
-        stopGreeting();
-        playBundledGreetingAudio(periodKey, options);
-      }
-    }, 800);
-
-    utterance.onstart = () => {
-      clearTimeout(startFallbackTimer);
-      if (!ttsFinished) {
-        ttsStarted = true;
-        lastDiagnosticStatus = `TTS Active (${voice?.name || 'Default'})`;
-        console.log('[greetingSpeechService]', lastDiagnosticStatus);
-        options?.onStart?.();
-      }
-    };
-
-    utterance.onend = () => {
-      clearTimeout(startFallbackTimer);
-      if (!ttsFinished) {
-        ttsFinished = true;
-        lastDiagnosticStatus = 'TTS Completed';
-        options?.onEnd?.();
-      }
-    };
-
-    utterance.onerror = (err) => {
-      clearTimeout(startFallbackTimer);
-      if (!ttsFinished) {
-        ttsFinished = true;
-        lastDiagnosticStatus = 'TTS Error -> Falling back to Bundled Audio';
-        console.warn('[greetingSpeechService]', lastDiagnosticStatus, err);
-        stopGreeting();
-        playBundledGreetingAudio(periodKey, options);
-      }
-    };
-
-    window.speechSynthesis.speak(utterance);
-    return true;
-  } catch (e) {
-    lastDiagnosticStatus = 'TTS Exception -> Falling back to Bundled Audio';
-    console.warn('[greetingSpeechService]', lastDiagnosticStatus, e);
-    return playBundledGreetingAudio(periodKey, options);
-  }
+  return playGreetingAudioDirect(periodKey, {
+    onStart: options?.onStart,
+    onEnd: options?.onEnd,
+    onError: options?.onError
+  });
 }
 
 /**
- * Checks if speech synthesis or local audio is available
+ * Checks if greeting audio is supported by browser/device
  */
 export function isSpeechAvailable(): boolean {
   return typeof window !== 'undefined';
 }
+
+export { getGreetingAudioDiagnostics };
+
 
