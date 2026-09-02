@@ -39,7 +39,7 @@ import { collection, query, where, onSnapshot, getDocs } from 'firebase/firestor
 
 import { APP_VERSION, SERVICE_WORKER_VERSION, EXFIN_BUILD_MARKER } from '../../config/version';
 import { NotificationSettingsCard } from '../../components/common/NotificationSettingsCard';
-import { BiometricSecurityCard } from '../../components/common/BiometricSecurityCard';
+import { SecurityCard } from '../../components/common/SecurityCard';
 
 export const ProfileScreen: React.FC = () => {
   const { employeeData, authUser } = useRegistration();
@@ -442,8 +442,8 @@ export const ProfileScreen: React.FC = () => {
       {/* Notification Preferences Card */}
       <NotificationSettingsCard />
 
-      {/* Device Biometric Security Card */}
-      <BiometricSecurityCard />
+      {/* Account & Action Security Card */}
+      <SecurityCard />
 
       {/* 4. My Profile Change Requests Section */}
       <div className="glass-card-elevated p-5 text-white rounded-2xl space-y-4 shadow-xl">

@@ -134,7 +134,7 @@ export const LeaveScreen: React.FC = () => {
   // Form Submission
   const handleSubmitLeave = (e: React.FormEvent) => {
     e.preventDefault();
-    executeSensitiveAction(async () => {
+    executeSensitiveAction('LEAVE_SUBMIT', async () => {
       setFormError('');
       setFormSuccess('');
 

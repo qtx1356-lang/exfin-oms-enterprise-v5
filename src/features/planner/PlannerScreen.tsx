@@ -139,7 +139,7 @@ export const PlannerScreen: React.FC = () => {
   // 2. ACTION: SUBMIT TASK (Or Resubmit after revision)
   const handleSubmitTask = (task: TaskRecord, note?: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    executeSensitiveAction(async () => {
+    executeSensitiveAction('PLANNER_SUBMIT_DELIVERABLE', async () => {
       setIsUpdating(true);
 
       try {
@@ -191,7 +191,7 @@ export const PlannerScreen: React.FC = () => {
   // 3. ACTION: MARK COMPLETED DIRECTLY
   const handleMarkCompleted = (task: TaskRecord, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    executeSensitiveAction(async () => {
+    executeSensitiveAction('PLANNER_COMPLETE_TASK', async () => {
       setIsUpdating(true);
 
       try {

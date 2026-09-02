@@ -9,6 +9,7 @@ import { RealtimeSyncProvider } from './context/RealtimeSyncContext';
 import { PermissionProvider } from './context/PermissionContext';
 import { LocationProvider } from './context/LocationContext';
 import { AlertPopupProvider } from './context/AlertPopupContext';
+import { SecurityVerificationProvider } from './context/SecurityVerificationContext';
 import { ConnectivityIndicator } from './components/common/ConnectivityIndicator';
 
 export default function App() {
@@ -20,8 +21,10 @@ export default function App() {
             <PermissionProvider>
               <LocationProvider>
                 <AlertPopupProvider>
-                  <ConnectivityIndicator />
-                  <AppRouter />
+                  <SecurityVerificationProvider>
+                    <ConnectivityIndicator />
+                    <AppRouter />
+                  </SecurityVerificationProvider>
                 </AlertPopupProvider>
               </LocationProvider>
             </PermissionProvider>

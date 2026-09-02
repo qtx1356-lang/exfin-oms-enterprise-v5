@@ -1,81 +1,65 @@
 import { useState, useCallback, useRef } from 'react';
-import { useRegistration } from '../../context/RegistrationContext';
-import { getStoredBiometricCredential, authenticateBiometricCredential, getBiometricDiagnostics, enrollBiometricCredential } from './biometricService';
+import { SensitiveActionId } from '../../types/security';
+import { useSecurityVerification } from '../../context/SecurityVerificationContext';
 import { useAlertPopup } from '../../context/AlertPopupContext';
 
 export function useSensitiveActionGuard() {
-  const { authUser, employeeData } = useRegistration();
-  const userId = employeeData?.employeeId || authUser?.uid || '';
-  const userDisplayName = employeeData?.name || 'User';
   const [isVerifying, setIsVerifying] = useState(false);
   const isExecutingRef = useRef(false);
+  const { requestVerification } = useSecurityVerification();
   const { showAlert } = useAlertPopup();
 
   /**
-   * Wraps a sensitive action with biometric verification.
-   * Enrolls the user if they don't have a credential yet.
-   * 
-   * @param actionFn The function to execute after successful verification.
-   * @returns A function to be attached to the button onClick handler.
+   * Wraps a sensitive action with account security re-authentication verification.
+   * Guarantees absolute UI recovery via try/catch/finally.
    */
   const executeSensitiveAction = useCallback(
-    async (actionFn: () => Promise<void> | void) => {
+    async (
+      actionIdOrFn: SensitiveActionId | (() => Promise<void> | void),
+      actionFnOrDesc?: (() => Promise<void> | void) | string,
+      maybeActionFn?: () => Promise<void> | void
+    ) => {
       if (isExecutingRef.current) return;
-      
-      if (!userId) {
-        await actionFn();
-        return;
+
+      let actionId: SensitiveActionId = 'EXPENSE_SUBMIT';
+      let actionFn: (() => Promise<void> | void) | undefined;
+      let customDesc: string | undefined;
+
+      if (typeof actionIdOrFn === 'function') {
+        actionFn = actionIdOrFn;
+      } else {
+        actionId = actionIdOrFn;
+        if (typeof actionFnOrDesc === 'function') {
+          actionFn = actionFnOrDesc;
+        } else if (typeof actionFnOrDesc === 'string') {
+          customDesc = actionFnOrDesc;
+          actionFn = maybeActionFn;
+        }
       }
+
+      if (!actionFn) return;
 
       isExecutingRef.current = true;
       setIsVerifying(true);
+
       try {
-        const diag = await getBiometricDiagnostics();
-        if (!diag.isPlatformAuthAvailable || !diag.hasPublicKeyCredential) {
-          showAlert(
-            'Authentication Unavailable',
-            `Your phone's biometric/device authentication is unavailable in this environment.\n\nReason: ${diag.diagnosticMessage}`,
-            'error'
-          );
-          return;
-        }
-
-        const isEnrolled = !!getStoredBiometricCredential(userId);
-        
-        let result;
-        if (!isEnrolled) {
-          // Attempt to enroll if not already enrolled. Registration inherently verifies the user.
-          result = await enrollBiometricCredential(userId, userDisplayName);
-        } else {
-          // Authenticate using the existing credential.
-          result = await authenticateBiometricCredential(userId);
-        }
-
-        if (result.success) {
-          // Verification (or enrollment) passed, execute action
+        const isVerified = await requestVerification(actionId, customDesc);
+        if (isVerified) {
           await actionFn();
-        } else {
-          // Verification failed or cancelled, do nothing.
-          console.warn('Biometric verification failed or cancelled:', result.error);
-          showAlert(
-            'Authentication Cancelled',
-            `Fingerprint or device authentication was cancelled or failed.\n\nPlease try again.\n(${result.error})`,
-            'error'
-          );
         }
       } catch (err: any) {
-        console.error('Unexpected error in biometric verification:', err);
+        console.error('Unexpected error in sensitive action verification:', err);
         showAlert(
-          'Authentication Error',
-          `An unexpected error occurred during device verification: ${err.message}`,
+          'Action Warning',
+          `An error occurred while executing the action: ${err?.message || 'Unknown error'}`,
           'error'
         );
       } finally {
         isExecutingRef.current = false;
-        setIsVerifying(false);
+        setIsVerifying(false); // ABSOLUTE ANTI-LOCK GUARANTEE
       }
     },
-    [userId, userDisplayName, showAlert]
+    [requestVerification, showAlert]
   );
 
   return {
@@ -84,4 +68,4 @@ export function useSensitiveActionGuard() {
   };
 }
 
-
+export const useSensitiveActionSecurity = useSensitiveActionGuard;

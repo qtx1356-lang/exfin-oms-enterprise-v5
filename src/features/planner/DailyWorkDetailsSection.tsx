@@ -100,7 +100,7 @@ export const DailyWorkDetailsSection: React.FC = () => {
     return uniqueChars >= 4;
   }, [inputText, charCount]);
 
-  const handleSave = () => executeSensitiveAction(async () => {
+  const handleSave = () => executeSensitiveAction('PLANNER_SAVE_DAILY_WORK', async () => {
     if (!inputText.trim()) return;
 
     setIsSaving(true);

@@ -2402,7 +2402,7 @@ export const AdminDashboard: React.FC = () => {
               <textarea
                 value={rectifyReason}
                 onChange={(e) => setRectifyReason(e.target.value)}
-                placeholder="e.g. Employee forgot to check out / Biometric correction / Approved manual edit"
+                placeholder="e.g. Employee forgot to check out / Attendance adjustment / Approved manual edit"
                 rows={3}
                 className="w-full px-3 py-2 bg-[#1B0D38] border border-purple-500/30 rounded-xl text-white text-xs focus:outline-none focus:border-purple-400 resize-none"
               />

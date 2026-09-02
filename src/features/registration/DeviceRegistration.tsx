@@ -142,7 +142,7 @@ export const DeviceRegistration: React.FC = () => {
                     <Camera className="w-6 h-6 text-[var(--success)]" />
                   </div>
                   <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider">Secure Capture</span>
-                  <span className="text-[10px] text-[var(--text-muted)] mt-1 font-medium italic">Biometric link required</span>
+                  <span className="text-[10px] text-[var(--text-muted)] mt-1 font-medium italic">Identity verification photo</span>
                 </div>
               ) : (
                 <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] aspect-square max-h-56 mx-auto w-full group">

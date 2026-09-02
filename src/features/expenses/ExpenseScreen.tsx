@@ -134,7 +134,7 @@ export const ExpenseScreen: React.FC = () => {
   // Submit Expense Form
   const handleSubmitExpense = (e: React.FormEvent) => {
     e.preventDefault();
-    executeSensitiveAction(async () => {
+    executeSensitiveAction('EXPENSE_SUBMIT', async () => {
       setFormError(null);
 
       const numAmount = parseFloat(amount);

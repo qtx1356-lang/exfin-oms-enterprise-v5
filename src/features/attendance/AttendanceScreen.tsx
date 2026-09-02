@@ -180,7 +180,7 @@ export const AttendanceScreen: React.FC = () => {
   const activeUnresolvedRecord = unresolvedPastRecords.length > 0 ? unresolvedPastRecords[0] : null;
 
   // Handle employee submitting or updating proposed checkout time
-  const handleSubmitProposedTime = () => executeSensitiveAction(async () => {
+  const handleSubmitProposedTime = () => executeSensitiveAction('ATTENDANCE_CHECKOUT_RESOLUTION', async () => {
     if (!activeUnresolvedRecord) return;
     setProposalError(null);
 
@@ -426,7 +426,7 @@ export const AttendanceScreen: React.FC = () => {
   };
 
   // Office Check-Out Handler
-  const handleManualCheckOut = () => executeSensitiveAction(() => {
+  const handleManualCheckOut = () => executeSensitiveAction('ATTENDANCE_CHECKOUT', () => {
     if (!todayRecord) return;
     if (!liveLocation) {
       setActionFeedback('Live GPS location required for check-out.');
