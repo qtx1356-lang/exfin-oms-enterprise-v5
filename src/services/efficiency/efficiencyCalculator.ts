@@ -416,6 +416,7 @@ export const calculateEfficiency = (
   };
 
   const durationMs = Math.round((performance.now() - startTime) * 100) / 100;
+  console.log(`[EFFICIENCY_DIAGNOSTIC] empCode=${employeeCode || employeeId} targetDate=${startDateStr} attendanceFound=${attendanceDaysCount > 0} taskCount=${assignedTasksCount} completedTaskCount=${completedTasksCount} taskCompletionScore=${taskCompletionScore} onTimeCompletionScore=${onTimeCompletionScore} qualityScore=${qualityScore} punctualityScore=${punctualityScore} workloadScore=${workloadScore} overduePenalty=${overduePenalty} revisionPenalty=${revisionPenalty} sumOfAvailableWeights=${sumOfAvailableWeights} weightedScoreSum=${weightedScoreSum} weightedBaseScore=${weightedBaseScore} finalScore=${finalScore}`);
   console.log(`[EFFICIENCY_CALC_END] #${calcId} employee=${employeeCode || employeeId} finalScore=${finalScore}% grade=${grade} elapsedMs=${durationMs}ms (totalCalculationsTotal=${calcInvocationCount})`);
 
   return {

@@ -695,6 +695,10 @@ export async function generateAndSendDailyReport(
     const allAttendance: any[] = [];
     attSnap.forEach(aDoc => allAttendance.push({ id: aDoc.id, ...aDoc.data() }));
 
+    const workDetailsSnap = await db.collection('daily_work_details').where('date', '==', reportDate).get();
+    const allWorkDetails: any[] = [];
+    workDetailsSnap.forEach(wDoc => allWorkDetails.push({ id: wDoc.id, ...wDoc.data() }));
+
     const evaluatedEmployees: any[] = [];
     let totalScoreSum = 0;
     let aboveTargetCount = 0;
@@ -717,7 +721,8 @@ export async function generateAndSendDailyReport(
         reportDate,
         allTasks,
         allAttendance,
-        DEFAULT_WEIGHTAGES
+        DEFAULT_WEIGHTAGES,
+        allWorkDetails
       );
 
       const efficiency = Math.round(calc.finalScore);
@@ -735,7 +740,7 @@ export async function generateAndSendDailyReport(
         insufficientDataCount++;
       }
 
-      totalScoreSum += efficiency;
+      totalScoreSum += Math.max(0, efficiency);
       if (efficiency >= 75) {
         aboveTargetCount++;
       } else {
@@ -748,9 +753,24 @@ export async function generateAndSendDailyReport(
         dept,
         efficiency,
         grade,
+        breakdown: calc.breakdown,
         insufficientData: !hasActivity && efficiency === 0
       });
     });
+
+    for (const emp of evaluatedEmployees) {
+      if (!Number.isFinite(emp.efficiency)) {
+        throw new Error(`Daily Report validation failed: Non-finite efficiency for ${emp.empCode}`);
+      }
+      if (emp.efficiency < -1 || emp.efficiency > 100) {
+        throw new Error(`Daily Report validation failed: Out of bounds efficiency ${emp.efficiency} for ${emp.empCode}`);
+      }
+      if (emp.breakdown && emp.breakdown.assignedTasksCount === 0) {
+        if (emp.breakdown.taskCompletionScore !== -1 || emp.breakdown.onTimeCompletionScore !== -1 || emp.breakdown.qualityScore !== -1) {
+          throw new Error(`Daily Report validation failed: No-task employee ${emp.empCode} penalized by task factors.`);
+        }
+      }
+    }
 
     const validEvaluated = evaluatedEmployees;
     const evaluatedCount = evaluatedEmployees.length;

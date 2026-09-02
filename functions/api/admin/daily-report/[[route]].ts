@@ -533,6 +533,20 @@ export async function onRequest(context) {
           };
         });
 
+        for (const emp of evaluatedEmployees) {
+          if (!Number.isFinite(emp.efficiency)) {
+            throw new Error(`Daily Report validation failed: Non-finite efficiency for ${emp.empCode}`);
+          }
+          if (emp.efficiency < -1 || emp.efficiency > 100) {
+            throw new Error(`Daily Report validation failed: Out of bounds efficiency ${emp.efficiency} for ${emp.empCode}`);
+          }
+          if (emp.breakdown && emp.breakdown.assignedTasksCount === 0) {
+            if (emp.breakdown.taskCompletionScore !== -1 || emp.breakdown.onTimeCompletionScore !== -1 || emp.breakdown.qualityScore !== -1) {
+              throw new Error(`Daily Report validation failed: No-task employee ${emp.empCode} penalized by task factors.`);
+            }
+          }
+        }
+
         // Separate active/evaluated employees with non-negative score vs uncalculated
         const validEvaluated = evaluatedEmployees.filter(e => e.efficiency >= 0);
         const evaluatedForStats = validEvaluated.length > 0 ? validEvaluated : evaluatedEmployees;
