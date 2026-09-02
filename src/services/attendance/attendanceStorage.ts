@@ -254,11 +254,19 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
         if (existingExitMs < incomingExitMs && existingRecord.geofenceExitTime) {
           record.geofenceExitTime = existingRecord.geofenceExitTime;
           record.geofenceExitTimestamp = existingRecord.geofenceExitTimestamp;
+          record.recordedExitTime = existingRecord.recordedExitTime || existingRecord.geofenceExitTime;
+          record.exitDetectedAt = existingRecord.exitDetectedAt || existingRecord.geofenceExitTimestamp;
+          record.exitDetectedTime = existingRecord.exitDetectedTime || existingRecord.geofenceExitTime;
+          record.exitDetectionSource = existingRecord.exitDetectionSource || 'NATIVE_GEOFENCE';
           record.lastExitTime = existingRecord.lastExitTime || existingRecord.geofenceExitTime;
           record.exitTime = existingRecord.exitTime || existingRecord.geofenceExitTime;
         } else if (existingRecord.geofenceExitTime && !record.geofenceExitTime) {
           record.geofenceExitTime = existingRecord.geofenceExitTime;
           record.geofenceExitTimestamp = existingRecord.geofenceExitTimestamp;
+          record.recordedExitTime = existingRecord.recordedExitTime || existingRecord.geofenceExitTime;
+          record.exitDetectedAt = existingRecord.exitDetectedAt || existingRecord.geofenceExitTimestamp;
+          record.exitDetectedTime = existingRecord.exitDetectedTime || existingRecord.geofenceExitTime;
+          record.exitDetectionSource = existingRecord.exitDetectionSource || 'NATIVE_GEOFENCE';
           record.lastExitTime = existingRecord.lastExitTime || existingRecord.geofenceExitTime;
           record.exitTime = existingRecord.exitTime || existingRecord.geofenceExitTime;
         }

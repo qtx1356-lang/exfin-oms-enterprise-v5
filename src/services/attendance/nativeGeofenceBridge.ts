@@ -1,12 +1,12 @@
 import { registerPlugin, Capacitor, PluginListenerHandle } from '@capacitor/core';
-import { AutomaticAttendanceEngine } from './automaticAttendanceEngine';
+import { AutomaticAttendanceEngine, getFormattedTimeStr } from './automaticAttendanceEngine';
 import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
 
 export interface NativeGeofencePluginInterface {
   registerOfficeGeofence(): Promise<{ success: boolean; geofenceId: string; radius: number; latitude: number; longitude: number }>;
   getGeofenceStatus(): Promise<{ isRegistered: boolean; geofenceId: string; radius: number; latitude: number; longitude: number }>;
-  getUnconsumedNativeEvents(): Promise<{ events: Array<{ transition: 'EXIT' | 'ENTER'; time: string; date: string; latitude: number; longitude: number; timestamp: number }> }>;
+  getUnconsumedNativeEvents(): Promise<{ events: Array<{ transition: 'EXIT' | 'ENTER'; time: string; date: string; latitude: number; longitude: number; timestamp: number; distance?: number; exitTimestamp?: number }> }>;
   removeOfficeGeofence(): Promise<{ success: boolean }>;
   setEmployeeIdentity(identity: { id: string; name: string; townCity: string; serverUrl: string }): Promise<void>;
   startActiveSession(session: { employeeId: string; employeeName: string; townCity: string; date: string; checkInTime: string }): Promise<{ success: boolean }>;
@@ -67,7 +67,7 @@ export const checkNativeGeofenceStatus = async (): Promise<boolean> => {
   }
 };
 
-let isReconciling = false;
+let activeReconcilePromise: Promise<void> | null = null;
 
 /**
  * Reconciles any unconsumed background geofence events that occurred while the app
@@ -78,74 +78,90 @@ export const reconcileNativeGeofenceEvents = async (
   employeeName: string,
   townCity: string
 ): Promise<void> => {
-  if (!employeeId || !Capacitor.isNativePlatform() || isReconciling) {
+  if (!employeeId || !Capacitor.isNativePlatform()) {
     return;
   }
-  isReconciling = true;
-
-  try {
-    const res = await NativeGeofencePlugin.getUnconsumedNativeEvents();
-    const events = res?.events || [];
-    if (events.length === 0) {
-      return;
-    }
-
-    logAttendanceEvent(
-      'GEOFENCE_EXIT',
-      employeeId,
-      `Reconciling ${events.length} unconsumed native background geofence events from native storage.`
-    );
-
-    // Sort chronologically so earliest exit/entry transitions execute in true chronological order
-    events.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
-    for (const evt of events) {
-      const eventDate = new Date(evt.timestamp || Date.now());
-      if (evt.transition === 'EXIT') {
-        console.log('[NATIVE_GEOFENCE_EXIT_RECONCILED]', {
-          employeeId,
-          date: eventDate.toISOString().split('T')[0],
-          distance: Math.round(AutomaticAttendanceEngine ? 25 : 0),
-          timestamp: eventDate.toISOString(),
-          source: 'NATIVE_GEOFENCE'
-        });
-        logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[NATIVE_GEOFENCE_EXIT_RECONCILED] Reconciled native exit event at ${eventDate.toISOString()}`);
-        AutomaticAttendanceEngine.processGeofenceExit(
-          employeeId,
-          employeeName,
-          { latitude: evt.latitude || 23.616227, longitude: evt.longitude || 87.117063 },
-          townCity || 'Raniganj HQ',
-          eventDate,
-          true
-        );
-      } else if (evt.transition === 'ENTER') {
-        console.log('[NATIVE_GEOFENCE_ENTER_RECONCILED]', {
-          employeeId,
-          date: eventDate.toISOString().split('T')[0],
-          distance: 25,
-          timestamp: eventDate.toISOString(),
-          source: 'NATIVE_GEOFENCE'
-        });
-        logAttendanceEvent('GEOFENCE_ENTER', employeeId, `[NATIVE_GEOFENCE_ENTER_RECONCILED] Reconciled native enter event at ${eventDate.toISOString()}`);
-        AutomaticAttendanceEngine.processGeofenceEntry(
-          employeeId,
-          employeeName,
-          { latitude: evt.latitude || 23.616227, longitude: evt.longitude || 87.117063 },
-          townCity || 'Raniganj HQ',
-          eventDate
-        );
-      }
-    }
-
-    // Trigger sync if online
-    if (typeof navigator !== 'undefined' && navigator.onLine) {
-      syncPendingAttendanceRecords().catch(() => {});
-    }
-  } catch (err: any) {
-    console.warn('[NativeGeofenceBridge] Error reconciling native events:', err);
-  } finally {
-    isReconciling = false;
+  if (activeReconcilePromise) {
+    return activeReconcilePromise;
   }
+
+  activeReconcilePromise = (async () => {
+    try {
+      const res = await NativeGeofencePlugin.getUnconsumedNativeEvents();
+      const events = res?.events || [];
+      if (events.length === 0) {
+        return;
+      }
+
+      logAttendanceEvent(
+        'GEOFENCE_EXIT',
+        employeeId,
+        `Reconciling ${events.length} unconsumed native background geofence events from native storage.`
+      );
+
+      // Sort chronologically so earliest exit/entry transitions execute in true chronological order
+      events.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+      for (const evt of events) {
+        const eventDate = new Date(evt.timestamp || Date.now());
+        const timeKolkata = getFormattedTimeStr(eventDate);
+        if (evt.transition === 'EXIT') {
+          console.log('[AUTO_EXIT_DETECTED]', {
+            employeeId,
+            timestamp: eventDate.toISOString(),
+            localTime: timeKolkata,
+            source: 'NATIVE_GEOFENCE',
+            distance: evt.distance ?? 25
+          });
+          console.log('[NATIVE_GEOFENCE_EXIT_RECONCILED]', {
+            employeeId,
+            date: eventDate.toISOString().split('T')[0],
+            distance: evt.distance ?? 25,
+            timestamp: eventDate.toISOString(),
+            localTime: timeKolkata,
+            source: 'NATIVE_GEOFENCE'
+          });
+          logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[NATIVE_GEOFENCE_EXIT_RECONCILED] Reconciled native exit event at ${timeKolkata} (${eventDate.toISOString()})`);
+          AutomaticAttendanceEngine.processGeofenceExit(
+            employeeId,
+            employeeName,
+            { latitude: evt.latitude || 23.616227, longitude: evt.longitude || 87.117063 },
+            townCity || 'Raniganj HQ',
+            eventDate,
+            true
+          );
+        } else if (evt.transition === 'ENTER') {
+          console.log('[NATIVE_GEOFENCE_ENTER_RECONCILED]', {
+            employeeId,
+            date: eventDate.toISOString().split('T')[0],
+            distance: 25,
+            timestamp: eventDate.toISOString(),
+            localTime: timeKolkata,
+            source: 'NATIVE_GEOFENCE'
+          });
+          logAttendanceEvent('GEOFENCE_ENTER', employeeId, `[NATIVE_GEOFENCE_ENTER_RECONCILED] Reconciled native enter event at ${timeKolkata} (${eventDate.toISOString()})`);
+          AutomaticAttendanceEngine.processGeofenceEntry(
+            employeeId,
+            employeeName,
+            { latitude: evt.latitude || 23.616227, longitude: evt.longitude || 87.117063 },
+            townCity || 'Raniganj HQ',
+            eventDate
+          );
+        }
+      }
+
+      // Trigger sync if online
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        syncPendingAttendanceRecords().catch(() => {});
+      }
+    } catch (err: any) {
+      console.warn('[NativeGeofenceBridge] Error reconciling native events:', err);
+    } finally {
+      activeReconcilePromise = null;
+    }
+  })();
+
+  return activeReconcilePromise;
 };
 
 /**
@@ -198,6 +214,14 @@ export const initNativeGeofenceListener = async (
       const eventDate = new Date(data.timestamp || Date.now());
 
       if (data.transition === 'EXIT') {
+        const timeKolkata = getFormattedTimeStr(eventDate);
+        console.log('[AUTO_EXIT_DETECTED]', {
+          employeeId: currentEmp.id,
+          timestamp: eventDate.toISOString(),
+          localTime: timeKolkata,
+          source: 'NATIVE_GEOFENCE',
+          distance: 25
+        });
         AutomaticAttendanceEngine.processGeofenceExit(
           currentEmp.id,
           currentEmp.name,

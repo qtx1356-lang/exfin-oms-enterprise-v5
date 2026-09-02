@@ -28,6 +28,7 @@ import { updateLiveEmployeeLocation } from '../location/liveLocationService';
 import { AutomaticAttendanceEngine } from './automaticAttendanceEngine';
 import { createNotification } from '../notification/notificationService';
 import { isAdminContextActive } from '../../utils/attendanceUtils';
+import { reconcileNativeGeofenceEvents } from './nativeGeofenceBridge';
 
 let activeResumePromise: Promise<AttendanceRecord | null> | null = null;
 
@@ -112,7 +113,14 @@ export const reconcileAttendanceOnResume = async (
       const timeStr = getFormattedTimeStr(now);
       const nowIso = now.toISOString();
 
-      // 1. Settle any past day unresolved sessions (Previous days protection)
+      // 1. FIRST: Reconcile any unconsumed native background geofence events BEFORE evaluating current resume GPS
+      try {
+        await reconcileNativeGeofenceEvents(employeeId, employeeName, townCity || 'Raniganj HQ');
+      } catch (nativeErr) {
+        console.warn('[ResumeReconciliation] Native background event reconciliation warning:', nativeErr);
+      }
+
+      // 2. Settle any past day unresolved sessions (Previous days protection)
       const allStored = getStoredAttendanceRecords();
       for (const rec of allStored) {
         if (rec.employeeId === employeeId && rec.date < dateStr) {
@@ -296,50 +304,78 @@ export const reconcileAttendanceOnResume = async (
             // Check if native Android geofence or background location already recorded an authoritative exit time
             const hasExistingExit = !!(record.recordedExitTime || record.geofenceExitTime);
 
-            if (!hasExistingExit) {
+            if (hasExistingExit) {
+              // PRESERVE EXISTING AUTHORITATIVE NATIVE EXIT TIME: Do NOT overwrite with resume time!
+              const nativeExitTimestamp = record.geofenceExitTimestamp || record.exitDetectedAt || null;
+              console.log('[RESUME_EXIT_RECONCILIATION]', {
+                employeeId,
+                nativeExitTimestamp,
+                resumeTimestamp: nowIso,
+                decision: 'PRESERVE_AUTHORITATIVE_EXIT'
+              });
+              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] App opened at ${timeStr} outside office. Preserving authoritative native exit time: ${record.recordedExitTime || record.geofenceExitTime}.`);
+
+              record.pendingCheckoutConfirmation = true;
+              record.returningToOffice = false;
+              record.currentState = 'PENDING_EXIT_CONFIRMATION';
+              record.checkoutStatus = 'PENDING_EXIT_CONFIRMATION';
+              record.exitDetectionSource = record.exitDetectionSource || 'NATIVE_GEOFENCE';
+              record.evidenceSource = record.evidenceSource || 'NATIVE_GEOFENCE';
+              record.syncStatus = 'Pending';
+
+              if (!record.checkoutLatitude && pos) {
+                record.checkoutLatitude = pos.latitude;
+                record.checkoutLongitude = pos.longitude;
+                record.checkoutDistance = distance;
+                record.checkoutTownCity = cleanTown;
+              }
+
+              modified = true;
+
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('exfin-checkout-confirmation-needed', { detail: { employeeId, record } }));
+                window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+              }
+            } else {
+              // CASE C: Pure PWA / App closed without native exit event
               // NO PRIOR NATIVE EXIT RECORDED: DO NOT fabricate exit timestamp from app open time!
-              // Requirement 2 & 12: recordedExitTime MUST remain null.
+              console.log('[RESUME_EXIT_RECONCILIATION]', {
+                employeeId,
+                nativeExitTimestamp: null,
+                resumeTimestamp: nowIso,
+                decision: 'NO_NATIVE_EVENT_UNRESOLVED'
+              });
+              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] App opened outside office at ${timeStr}. No native exit event recorded. recordedExitTime remains null. Checkout status set to UNRESOLVED.`);
+
               record.recordedExitTime = null;
               record.geofenceExitTime = null;
+              record.geofenceExitTimestamp = null;
               record.lastExitTime = null;
               record.exitTime = null;
               record.exitDetectedAt = null;
               record.exitDetectedTime = null;
+              record.exitDetectionSource = 'NONE';
               record.pendingCheckoutConfirmation = false;
+              record.returningToOffice = false;
+              record.currentState = 'UNRESOLVED';
               record.checkoutStatus = 'UNRESOLVED';
-              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] App opened outside office at ${timeStr}. No native exit event recorded. recordedExitTime remains null. Checkout status set to UNRESOLVED.`);
-            } else {
-              // PRESERVE EXISTING AUTHORITATIVE NATIVE EXIT TIME: Do NOT overwrite with resume time!
-              console.log('[ResumeReconciliation] PRESERVING_NATIVE_EXIT_TIME:', {
-                recordedExitTime: record.recordedExitTime,
-                geofenceExitTime: record.geofenceExitTime,
-                appOpenedAt: nowIso
-              });
-              logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] App opened at ${timeStr} outside office. Preserving authoritative native exit time: ${record.recordedExitTime || record.geofenceExitTime}.`);
-              record.pendingCheckoutConfirmation = true;
-              record.currentState = 'PENDING_EXIT_CONFIRMATION';
-              record.checkoutStatus = 'PENDING_EXIT_CONFIRMATION';
-            }
+              record.attendanceStatus = 'UNRESOLVED';
+              record.status = 'UNRESOLVED';
+              record.checkoutFinalizationSource = 'NONE';
+              record.syncStatus = 'Pending';
 
-            record.pendingCheckoutConfirmation = true;
-            record.returningToOffice = false;
-            record.currentState = 'PENDING_EXIT_CONFIRMATION';
-            record.checkoutStatus = 'PENDING_EXIT_CONFIRMATION';
-            record.evidenceSource = record.evidenceSource || 'PWA_RESUME_GPS';
-            record.syncStatus = 'Pending';
+              if (!record.checkoutLatitude && pos) {
+                record.checkoutLatitude = pos.latitude;
+                record.checkoutLongitude = pos.longitude;
+                record.checkoutDistance = distance;
+                record.checkoutTownCity = cleanTown;
+              }
 
-            if (!record.checkoutLatitude && pos) {
-              record.checkoutLatitude = pos.latitude;
-              record.checkoutLongitude = pos.longitude;
-              record.checkoutDistance = distance;
-              record.checkoutTownCity = cleanTown;
-            }
+              modified = true;
 
-            modified = true;
-
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('exfin-checkout-confirmation-needed', { detail: { employeeId, record } }));
-              window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+              }
             }
           }
         } else {
@@ -380,6 +416,7 @@ export const reconcileAttendanceOnResume = async (
               attendanceDate: dateStr,
               eventType: 'GEOFENCE_RETURN',
               eventTime: timeStr,
+              createdAt: nowIso,
               location: {
                 latitude: pos.latitude,
                 longitude: pos.longitude,

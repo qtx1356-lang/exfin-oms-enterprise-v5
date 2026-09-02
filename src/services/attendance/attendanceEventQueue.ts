@@ -54,7 +54,7 @@ export const generateIdempotentEventId = (
 };
 
 export const enqueueAttendanceEvent = (
-  eventData: Omit<OfflineAttendanceEvent, 'eventId' | 'createdAt' | 'syncStatus'> & { eventId?: string }
+  eventData: Omit<OfflineAttendanceEvent, 'eventId' | 'createdAt' | 'syncStatus'> & { eventId?: string; createdAt?: string }
 ): OfflineAttendanceEvent => {
   const eventId = eventData.eventId || generateIdempotentEventId(
     eventData.employeeId,
@@ -79,7 +79,7 @@ export const enqueueAttendanceEvent = (
     return {
       ...eventData,
       eventId,
-      createdAt: new Date().toISOString(),
+      createdAt: eventData.createdAt || new Date().toISOString(),
       syncStatus: 'Synced'
     };
   }
@@ -87,7 +87,7 @@ export const enqueueAttendanceEvent = (
   const newEvent: OfflineAttendanceEvent = {
     ...eventData,
     eventId,
-    createdAt: new Date().toISOString(),
+    createdAt: eventData.createdAt || new Date().toISOString(),
     syncStatus: 'Pending'
   };
 

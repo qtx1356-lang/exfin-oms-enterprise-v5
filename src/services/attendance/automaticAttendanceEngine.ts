@@ -323,6 +323,7 @@ export const AutomaticAttendanceEngine = {
     }
 
     // Initial state setup if record doesn't exist
+    const timeStr = getFormattedTimeStr(timestamp);
     const currentState = record 
       ? (record.currentState || (record.checkOutTime ? 'FINALIZED_CHECKOUT' : (record.exitTime ? 'PENDING_FINAL_EXIT' : 'CHECKED_IN'))) 
       : 'OUTSIDE';
@@ -345,30 +346,16 @@ export const AutomaticAttendanceEngine = {
 
     if (record && !record.checkOutTime && (record.attendanceType === 'OFFICE' || !record.attendanceType)) {
       if ((currentState === 'CHECKED_IN' || currentState === 'ENTERING' || currentState === 'RETURNING_TO_OFFICE') && !isInside) {
-        
-        // Check for large time gap to prevent false exit detection time
-        const lastLocTime = record.currentLocationTimestamp ? new Date(record.currentLocationTimestamp).getTime() : timestamp.getTime();
-        const timeDiffMins = (timestamp.getTime() - lastLocTime) / 60000;
-        
-        if (timeDiffMins > 15) {
-          console.log('[AUTO_EXIT_MISSED]', {
-            employeeId,
-            date: dateStr,
-            timeDiffMins: Math.round(timeDiffMins),
-            message: 'App was likely closed during actual exit. Deferring to manual recovery.'
-          });
-          return record;
-        }
-
         // EXIT GEOFENCE: CHECKED_IN -> PENDING_EXIT_CONFIRMATION
         console.log('[AUTO_EXIT_DETECTED]', {
           employeeId,
           date: dateStr,
           distance: Math.round(distance),
           timestamp: timestamp.toISOString(),
+          localTime: timeStr,
           source: 'FOREGROUND_GPS'
         });
-        logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[AUTO_EXIT_DETECTED] Exited office geofence (${Math.round(distance)}m). Transitioning to PENDING_EXIT_CONFIRMATION.`);
+        logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[AUTO_EXIT_DETECTED] Exited office geofence (${Math.round(distance)}m) at ${timeStr}. Transitioning to PENDING_EXIT_CONFIRMATION.`);
 
         return this.transitionState(
           employeeId,
@@ -498,6 +485,7 @@ export const AutomaticAttendanceEngine = {
       attendanceDate: dateStr,
       eventType,
       eventTime: timeStr,
+      createdAt: eventIso,
       location: {
         latitude: coords.latitude,
         longitude: coords.longitude,
@@ -893,6 +881,15 @@ export const AutomaticAttendanceEngine = {
 
     const dateStr = getFormattedDateStr(timestamp);
     const record = getTodayAttendanceRecord(employeeId, dateStr);
+
+    const timeKolkata = getFormattedTimeStr(timestamp);
+    console.log('[AUTO_EXIT_DETECTED]', {
+      employeeId,
+      timestamp: timestamp.toISOString(),
+      localTime: timeKolkata,
+      source: isNativeEvent ? 'NATIVE_GEOFENCE' : 'AUTO_GEOFENCE',
+      distance: coords ? Math.round(getDistanceFromLatLonInM(coords.latitude, coords.longitude, OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude)) : 25
+    });
 
     if (
       record &&
