@@ -25,11 +25,30 @@ function pemToPkcs8(pem: string): ArrayBuffer {
 
 // Helper to generate Google OAuth2 Access Token using Web Crypto RS256 inside Cloudflare Edge
 async function getGoogleAccessToken(serviceAccountJson: string): Promise<string> {
-  const sa = JSON.parse(serviceAccountJson);
-  const privateKeyPem = sa.private_key;
-  const clientEmail = sa.client_email;
-  const tokenUrl = "https://oauth2.googleapis.com/token";
+  let sa: any;
+  try {
+    sa = typeof serviceAccountJson === 'object' ? serviceAccountJson : JSON.parse(serviceAccountJson);
+  } catch (e) {
+    try {
+      sa = JSON.parse(atob(serviceAccountJson.trim()));
+    } catch (e2) {
+      throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT_KEY JSON format');
+    }
+  }
 
+  let privateKeyPem: string = sa.private_key || '';
+  if (!privateKeyPem) {
+    throw new Error('Service account JSON is missing private_key field');
+  }
+  // Replace literal escaped newlines if present from environment variable storage
+  privateKeyPem = privateKeyPem.replace(/\\n/g, '\n');
+
+  const clientEmail = sa.client_email;
+  if (!clientEmail) {
+    throw new Error('Service account JSON is missing client_email field');
+  }
+
+  const tokenUrl = "https://oauth2.googleapis.com/token";
   const privateKeyBuffer = pemToPkcs8(privateKeyPem);
 
   const cryptoKey = await crypto.subtle.importKey(
@@ -110,19 +129,6 @@ async function getGoogleAccessToken(serviceAccountJson: string): Promise<string>
   return tokenData.access_token;
 }
 
-function parseTimeToMinutes(timeStr: string): number {
-  const match = timeStr.trim().match(/^(\d+):(\d+)\s*(AM|PM)$/i);
-  if (!match) return 420; // Default to 07:00 AM
-  let hours = parseInt(match[1], 10);
-  const minutes = parseInt(match[2], 10);
-  const ampm = match[3].toUpperCase();
-  
-  if (ampm === 'PM' && hours < 12) hours += 12;
-  if (ampm === 'AM' && hours === 12) hours = 0;
-  
-  return hours * 60 + minutes;
-}
-
 function getPreviousKolkataDateString(): string {
   try {
     const now = new Date();
@@ -140,33 +146,11 @@ function getPreviousKolkataDateString(): string {
   }
 }
 
-function unwrapFields(fields: any): any {
-  if (!fields) return {};
-  const res: any = {};
-  for (const k in fields) {
-    res[k] = unwrapValue(fields[k]);
-  }
-  return res;
-}
-
-function unwrapValue(val: any): any {
-  if (!val) return null;
-  if ('stringValue' in val) return val.stringValue;
-  if ('booleanValue' in val) return val.booleanValue;
-  if ('integerValue' in val) return parseInt(val.integerValue, 10);
-  if ('doubleValue' in val) return val.doubleValue;
-  if ('arrayValue' in val) return (val.arrayValue?.values || []).map(unwrapValue);
-  if ('mapValue' in val) return unwrapFields(val.mapValue?.fields);
-  if ('timestampValue' in val) return val.timestampValue;
-  if ('nullValue' in val) return null;
-  return val;
-}
-
 export async function onRequest(context: any) {
   const { request, env } = context;
 
   if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { 
+    return new Response(JSON.stringify({ success: false, message: 'Method not allowed' }), { 
       status: 405, 
       headers: { 'Content-Type': 'application/json' } 
     });
@@ -174,7 +158,7 @@ export async function onRequest(context: any) {
 
   const cronSecret = env.CRON_SECRET;
   if (!cronSecret) {
-    return new Response(JSON.stringify({ error: 'Server Configuration Error: CRON_SECRET is not configured.' }), { 
+    return new Response(JSON.stringify({ success: false, message: 'Server Configuration Error: CRON_SECRET is not configured in Cloudflare environment.' }), { 
       status: 500, 
       headers: { 'Content-Type': 'application/json' } 
     });
@@ -182,7 +166,7 @@ export async function onRequest(context: any) {
 
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'Unauthorized: Missing or invalid authorization header.' }), { 
+    return new Response(JSON.stringify({ success: false, message: 'Unauthorized: Missing or invalid Authorization header.' }), { 
       status: 401, 
       headers: { 'Content-Type': 'application/json' } 
     });
@@ -190,7 +174,7 @@ export async function onRequest(context: any) {
 
   const token = authHeader.split('Bearer ')[1].trim();
   if (token !== cronSecret) {
-    return new Response(JSON.stringify({ error: 'Unauthorized: Invalid token.' }), { 
+    return new Response(JSON.stringify({ success: false, message: 'Unauthorized: Invalid CRON_SECRET token.' }), { 
       status: 401, 
       headers: { 'Content-Type': 'application/json' } 
     });
@@ -198,7 +182,7 @@ export async function onRequest(context: any) {
 
   const serviceAccountKey = env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (!serviceAccountKey) {
-    return new Response(JSON.stringify({ error: 'Server Configuration Error: FIREBASE_SERVICE_ACCOUNT_KEY is not configured.' }), { 
+    return new Response(JSON.stringify({ success: false, message: 'Server Configuration Error: FIREBASE_SERVICE_ACCOUNT_KEY is not configured.' }), { 
       status: 500, 
       headers: { 'Content-Type': 'application/json' } 
     });
@@ -207,6 +191,12 @@ export async function onRequest(context: any) {
   const projectId = env.FIREBASE_PROJECT_ID || 'exfin-oms-production';
 
   try {
+    const body = await request.json().catch(() => ({}));
+    const isForce = body.force === true || body.isManual === true || body.source === 'github-actions-dispatch';
+    const targetDate = (body.date && typeof body.date === 'string' && body.date.trim()) 
+      ? body.date.trim() 
+      : getPreviousKolkataDateString();
+
     // 1. Get Google OAuth access token for firestore REST API
     const accessToken = await getGoogleAccessToken(serviceAccountKey);
 
@@ -227,59 +217,37 @@ export async function onRequest(context: any) {
       config.sendTime = fsData.fields?.sendTime?.stringValue ?? '07:00 AM';
     }
 
-    if (!config.enabled) {
+    if (!config.enabled && !isForce) {
       return new Response(JSON.stringify({
-        ok: true,
+        success: true,
         action: 'SKIP',
-        reason: 'Scheduler is disabled in configuration settings.',
-        reportDate: getPreviousKolkataDateString()
-      }), { headers: { 'Content-Type': 'application/json' } });
-    }
-
-    // 3. Time zone calculations in Asia/Kolkata
-    const now = new Date();
-    const kolkataStr = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-    const kolkataDate = new Date(kolkataStr);
-    const currentHours = kolkataDate.getHours();
-    const currentMinutes = kolkataDate.getMinutes();
-    const currentTotalMinutes = currentHours * 60 + currentMinutes;
-
-    const sendTimeMinutes = parseTimeToMinutes(config.sendTime);
-
-    const targetDate = getPreviousKolkataDateString();
-
-    if (currentTotalMinutes < sendTimeMinutes) {
-      const formatTime = (h: number, m: number) => {
-        const p = h >= 12 ? 'PM' : 'AM';
-        const hr = h % 12 || 12;
-        const mn = String(m).padStart(2, '0');
-        return `${hr}:${mn} ${p}`;
-      };
-      return new Response(JSON.stringify({
-        ok: true,
-        action: 'SKIP',
-        reason: `Current time (${formatTime(currentHours, currentMinutes)}) is before the configured daily send time (${config.sendTime}) in Asia/Kolkata.`,
+        message: 'Scheduler is disabled in configuration settings.',
         reportDate: targetDate
-      }), { headers: { 'Content-Type': 'application/json' } });
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    // 4. Duplicate protection: check if the report log already exists in Firestore
-    const logUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/daily_admin_reports/${targetDate}`;
-    const logRes = await fetch(logUrl, {
-      headers: { 'Authorization': `Bearer ${accessToken}` }
-    });
+    // 3. Duplicate protection: check if the report log already exists with SENT status in Firestore
+    if (!isForce) {
+      const logUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/daily_admin_reports/${targetDate}`;
+      const logRes = await fetch(logUrl, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
 
-    if (logRes.ok) {
-      return new Response(JSON.stringify({
-        ok: true,
-        action: 'SKIP',
-        reason: `Daily report for ${targetDate} has already been sent successfully.`,
-        reportDate: targetDate
-      }), { headers: { 'Content-Type': 'application/json' } });
+      if (logRes.ok) {
+        const logData = await logRes.json() as any;
+        const existingStatus = logData.fields?.status?.stringValue;
+        if (existingStatus === 'SENT') {
+          return new Response(JSON.stringify({
+            success: true,
+            action: 'SKIP',
+            message: `Daily report for ${targetDate} has already been sent successfully.`,
+            reportDate: targetDate
+          }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+      }
     }
 
-    // 5. Trigger email dispatch!
-    // We reuse the existing, production-tested email endpoint by calling it directly
+    // 4. Trigger the existing, production-tested email endpoint
     const triggerUrl = new URL(request.url);
     triggerUrl.pathname = '/api/admin/daily-report/send-yesterday';
 
@@ -292,24 +260,40 @@ export async function onRequest(context: any) {
       body: JSON.stringify({ date: targetDate })
     });
 
-    if (!triggerResponse.ok) {
-      const errBody = await triggerResponse.json().catch(() => ({ error: 'Unknown Error' })) as any;
-      throw new Error(`Report compilation or dispatch failed: ${errBody.error || triggerResponse.statusText}`);
+    const resData = await triggerResponse.json().catch(() => ({}));
+
+    if (!triggerResponse.ok || resData.success === false) {
+      const errorMsg = resData.error || triggerResponse.statusText || 'Report compilation or dispatch failed';
+      return new Response(JSON.stringify({
+        success: false,
+        message: 'Daily admin report failed',
+        error: errorMsg,
+        stage: resData.stage,
+        reportDate: targetDate
+      }), { 
+        status: 500, 
+        headers: { 'Content-Type': 'application/json' } 
+      });
     }
 
-    const resData = await triggerResponse.json() as any;
-
     return new Response(JSON.stringify({
-      ok: true,
+      success: true,
       action: 'SEND',
-      reason: `Daily report for ${targetDate} was successfully generated and dispatched.`,
+      message: 'Daily admin report sent successfully',
       reportDate: targetDate,
-      details: resData
-    }), { headers: { 'Content-Type': 'application/json' } });
+      recipientCount: resData.recipientCount,
+      recipients: resData.recipients,
+      messageId: resData.messageId,
+      stats: resData.stats
+    }), { 
+      status: 200, 
+      headers: { 'Content-Type': 'application/json' } 
+    });
 
   } catch (err: any) {
     return new Response(JSON.stringify({
-      ok: false,
+      success: false,
+      message: 'Daily admin report failed',
       error: err.message || String(err)
     }), { 
       status: 500, 
@@ -317,3 +301,4 @@ export async function onRequest(context: any) {
     });
   }
 }
+

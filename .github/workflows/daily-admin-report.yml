@@ -2,7 +2,10 @@ name: Daily Admin Report Scheduler
 
 on:
   schedule:
+    # Testing schedule: runs every 5 minutes for rapid verification
     - cron: "*/5 * * * *"
+    # Production daily schedule (9:00 AM IST / 03:30 UTC):
+    # - cron: "30 3 * * *"
   workflow_dispatch:
 
 jobs:
@@ -19,30 +22,40 @@ jobs:
 
           echo "Triggering Daily Admin Report scheduler..."
 
-          if [ -z "$DAILY_REPORT_URL" ]; then
-            echo "Error: DAILY_REPORT_URL secret is missing."
+          BASE_URL="${DAILY_REPORT_URL:-https://exfin-oms-enterprise-v5.pages.dev}"
+          BASE_URL="${BASE_URL%/}"
+          ENDPOINT="${BASE_URL}/api/internal/daily-admin-report"
+
+          if [ -z "$CRON_SECRET" ]; then
+            echo "Error: CRON_SECRET secret is missing in GitHub repository secrets."
             exit 1
           fi
 
-          if [ -z "$CRON_SECRET" ]; then
-            echo "Error: CRON_SECRET secret is missing."
-            exit 1
+          # If triggered via workflow_dispatch, pass source flag so it can run immediately
+          PAYLOAD='{"source":"github-actions"}'
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            PAYLOAD='{"source":"github-actions-dispatch","force":true}'
+            echo "Manual workflow_dispatch trigger detected (force=true)."
           fi
+
+          echo "Calling scheduler endpoint at: $ENDPOINT"
 
           HTTP_STATUS=$(curl -sS -o response.json -w "%{http_code}" \
             -X POST \
-            "$DAILY_REPORT_URL/api/internal/daily-admin-report" \
+            "$ENDPOINT" \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" \
-            --data '{}')
+            --data "$PAYLOAD")
 
           echo "HTTP status: $HTTP_STATUS"
           echo "Response:"
           cat response.json
+          echo ""
 
           if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
-            echo "Daily Admin Report scheduler request failed."
+            echo "FAILURE: Daily Admin Report scheduler failed."
             exit 1
           fi
 
-          echo "Daily Admin Report scheduler request completed successfully."
+          echo "SUCCESS: Daily Admin Report scheduler triggered successfully."
+
