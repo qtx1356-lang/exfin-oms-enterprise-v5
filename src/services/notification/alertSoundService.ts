@@ -3,6 +3,7 @@ import { getNotificationSettings } from './notificationSettings';
 import { NotificationPriority, NotificationRecord } from '../../types/notification';
 import { NOTIFICATION_SOUND_DATA_URI } from './alertSoundAsset';
 import { PRE_RECORDED_GREETINGS, GreetingPeriodKey } from '../voice/greetingAssets';
+import { speakGreeting } from '../speech/greetingSpeechService';
 
 let alertAudioInstance: HTMLAudioElement | null = null;
 let greetingAudioInstance: HTMLAudioElement | null = null;
@@ -27,7 +28,7 @@ export const speakWelcomeGreeting = async (
   text: string, 
   periodKey?: GreetingPeriodKey
 ): Promise<boolean> => {
-  return new Promise(async (resolve) => {
+  return new Promise((resolve) => {
     try {
       if (typeof window === 'undefined') {
         resolve(false);
@@ -42,52 +43,16 @@ export const speakWelcomeGreeting = async (
 
       console.log(`[GreetingVoice] Speaking personalized greeting: "${cleanText}"`);
 
-      // Priority 1: Use native browser SpeechSynthesis for personalized first-name greeting
-      if (window.speechSynthesis) {
-        try {
-          // Cancel any current utterances
-          window.speechSynthesis.cancel();
-          
-          const utterance = new SpeechSynthesisUtterance(cleanText);
-          utterance.volume = 0.85;
-          utterance.rate = 0.95; // Slightly slower for a more natural, friendly pace
-          utterance.pitch = 1.05; // Slightly higher for a friendlier tone
-          
-          // Select a high-quality "natural" sounding voice if available
-          const voices = window.speechSynthesis.getVoices();
-          const preferredVoice = voices.find(v => 
-            v.lang.startsWith('en') && 
-            (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha') || v.name.includes('Premium'))
-          );
-          
-          if (preferredVoice) {
-            utterance.voice = preferredVoice;
-          }
-
-          utterance.onend = () => {
-            console.log('[GreetingVoice] Native speech greeting completed');
-            resolve(true);
-          };
-          utterance.onerror = (evt) => {
-            console.warn('[GreetingVoice] Native speech greeting error, attempting fallback:', evt);
-            // Fallback to recorded asset handled below
-            playFallbackRecordedAsset(periodKey || 'good_morning').then(resolve);
-          };
-
-          window.speechSynthesis.speak(utterance);
-          
-          // On some browsers (like Chrome on Android), speechSynthesis might not fire onend if it's too short
-          // or if the engine is wonky. We'll set a safety timeout.
-          setTimeout(() => resolve(true), 5000);
-          return;
-        } catch (nativeErr) {
-          console.warn('[GreetingVoice] Native speech synthesis execution failed:', nativeErr);
+      const success = speakGreeting(cleanText, {
+        onEnd: () => resolve(true),
+        onError: () => {
+          playFallbackRecordedAsset(periodKey || 'good_morning').then(resolve);
         }
-      }
+      });
 
-      // Priority 2: Fallback to high-quality pre-recorded generic asset if native fails
-      const success = await playFallbackRecordedAsset(periodKey || 'good_morning');
-      resolve(success);
+      if (!success) {
+        playFallbackRecordedAsset(periodKey || 'good_morning').then(resolve);
+      }
     } catch (err) {
       console.warn('[GreetingVoice] Exception in greeting flow:', err);
       resolve(false);

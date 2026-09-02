@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { ShieldCheck, MapPin, ArrowRight, UserCheck, Sparkles, Building2, CheckCircle2, Zap, Shield, Clock, Target, Lock, Check } from 'lucide-react';
+import { ShieldCheck, MapPin, ArrowRight, UserCheck, Sparkles, Building2, CheckCircle2, Zap, Shield, Clock, Target, Lock, Check, Volume2 } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { logStartupTag } from '../../services/startup/startupPerformanceLogger';
-import { speakWelcomeGreeting } from '../../services/notification/alertSoundService';
+import { initializeSpeech, speakGreeting, stopGreeting, isSpeechAvailable } from '../../services/speech/greetingSpeechService';
 import { GreetingPeriodKey } from '../../services/voice/greetingAssets';
 import { getTodayAttendanceRecord } from '../../services/attendance/attendanceStorage';
 import { getFormattedDateStr, parseAttendanceTimeToMinutes, getFormattedTimeStr } from '../../services/attendance/automaticAttendanceEngine';
@@ -158,46 +158,24 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     return first;
   }, [displayName]);
 
-  // Dynamic SpeechSynthesis handler with Session Guard
-  const triggerGreetingSpeech = React.useCallback((textToSpeak: string) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      return;
-    }
-    try {
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.volume = 0.85;
-      utterance.rate = 0.95;
-      utterance.pitch = 1.05;
-
-      const setVoice = () => {
-        const voices = window.speechSynthesis.getVoices();
-        const preferredVoice = voices.find(v =>
-          v.lang.startsWith('en') &&
-          (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Samantha') || v.name.includes('Premium'))
-        );
-        if (preferredVoice) utterance.voice = preferredVoice;
-      };
-
-      setVoice();
-      if (typeof window.speechSynthesis.onvoiceschanged !== 'undefined') {
-        window.speechSynthesis.onvoiceschanged = setVoice;
-      }
-
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-
-      window.speechSynthesis.speak(utterance);
-
-      // Safety timeout for completion
-      setTimeout(() => setIsSpeaking(false), 5000);
-    } catch (e) {
-      console.warn('[WelcomeScreen] SpeechSynthesis handled gracefully:', e);
-      setIsSpeaking(false);
-    }
+  // Voice initialization & SpeechSynthesis handler
+  useEffect(() => {
+    const cleanupSpeech = initializeSpeech();
+    return () => {
+      cleanupSpeech();
+      stopGreeting();
+    };
   }, []);
+
+  const handleSpeakGreeting = React.useCallback((isUserGesture = false) => {
+    const greetingSentence = firstName ? `${greetingInfo.label}, ${firstName}.` : `${greetingInfo.label}.`;
+    speakGreeting(greetingSentence, {
+      isUserGesture,
+      onStart: () => setIsSpeaking(true),
+      onEnd: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false)
+    });
+  }, [firstName, greetingInfo.label]);
 
   useEffect(() => {
     logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
@@ -207,10 +185,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       speechTriggeredRef.current = true;
       sessionStorage.setItem(sessionKey, 'true');
 
-      const greetingSentence = firstName ? `${greetingInfo.label}, ${firstName}.` : `${greetingInfo.label}.`;
-      triggerGreetingSpeech(greetingSentence);
+      // Attempt automatic speech greeting on entry
+      handleSpeakGreeting(false);
     }
-  }, [firstName, greetingInfo.label, triggerGreetingSpeech]);
+  }, [handleSpeakGreeting]);
 
   // Derive Location & Distance display states dynamically
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
@@ -450,12 +428,34 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             <span className="text-xs font-black text-[#22D3EE] tracking-wide uppercase">
               {greetingInfo.label}!
             </span>
+
             {/* Animated Audio Waveform Equalizer when speaking */}
-            <div className="flex items-center gap-1 h-4 px-1" title={isSpeaking ? "Assistant Speaking" : "Assistant Ready"}>
+            <div className="flex items-center gap-1 h-4 px-0.5" title={isSpeaking ? "Assistant Speaking" : "Assistant Ready"}>
               <span className={`w-0.5 bg-[#10B981] rounded-full transition-all ${isSpeaking ? 'h-3.5 animate-[welcomeWavebar_0.5s_ease-in-out_infinite]' : 'h-1.5'}`} />
               <span className={`w-0.5 bg-[#22D3EE] rounded-full transition-all ${isSpeaking ? 'h-4 animate-[welcomeWavebar_0.5s_ease-in-out_infinite_0.15s]' : 'h-2.5'}`} />
               <span className={`w-0.5 bg-[#10B981] rounded-full transition-all ${isSpeaking ? 'h-3 animate-[welcomeWavebar_0.5s_ease-in-out_infinite_0.3s]' : 'h-1.5'}`} />
             </div>
+
+            {/* Speaker Button (Guaranteed User Gesture Speech Fallback) */}
+            {isSpeechAvailable() && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSpeakGreeting(true);
+                }}
+                className={`p-1 rounded-full border transition-all duration-300 flex items-center justify-center shrink-0 cursor-pointer ${
+                  isSpeaking
+                    ? 'bg-[#10B981]/25 border-[#10B981] text-[#10B981] shadow-[0_0_12px_rgba(16,185,129,0.6)] scale-110'
+                    : 'bg-[#092438] border-[#22D3EE]/40 text-[#22D3EE] hover:border-[#22D3EE] hover:text-[#38BDF8] hover:shadow-[0_0_10px_rgba(34,211,238,0.35)] active:scale-95'
+                }`}
+                title="Tap to hear greeting"
+                aria-label="Tap to hear greeting audio"
+              >
+                <Volume2 className={`w-3.5 h-3.5 ${isSpeaking ? 'animate-pulse' : ''}`} />
+              </button>
+            )}
+
             {/* Pointer Arrow */}
             <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#092438] border-r border-b border-[#22D3EE]/50 rotate-45" />
           </div>
