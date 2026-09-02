@@ -43,6 +43,7 @@ import { calculateEfficiency } from '../../services/efficiency/efficiencyCalcula
 import { DEFAULT_WEIGHTAGES, getSavedWeightages, saveWeightages, getEfficiencySnapshots, saveEfficiencySnapshot } from '../../services/efficiency/efficiencyService';
 import { getRecordWorkingMinutes, formatMinutesToDuration, calculateMonthlySummary, getKolkataDateStr } from '../../utils/workHoursCalc';
 import { isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
+import { EfficiencyLeaderboard } from './EfficiencyLeaderboard';
 
 interface EfficiencyDashboardProps {
   customEmployeeCode?: string; // Admin or TL can pass this to inspect a specific employee
@@ -126,7 +127,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
   // Period Selection: THIS_WEEK | THIS_MONTH | PREVIOUS_MONTH | CUSTOM
   type PeriodFilterType = 'THIS_WEEK' | 'THIS_MONTH' | 'PREVIOUS_MONTH' | 'CUSTOM';
-  const [periodFilter, setPeriodFilter] = useState<PeriodFilterType>('THIS_MONTH');
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterType>('THIS_WEEK');
 
   const [customStartDate, setCustomStartDate] = useState(() => {
     const d = new Date();
@@ -293,80 +294,57 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
     const unsubs: (() => void)[] = [];
 
-    // 1. REGISTRATIONS LISTENER (Background view for Admin / Team Leader only, non-blocking)
-    if (isAdmin || isTeamLeader) {
-      const unsubRegs = onSnapshot(collection(db, 'registrations'), (snap) => {
-        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setAllEmployees(list);
-        setRegistrationsLoaded(true);
-      }, (err) => {
-        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=registrations notice:', err);
-        setRegistrationsLoaded(true);
-      });
-      unsubs.push(unsubRegs);
-    } else if (employeeData) {
-      setAllEmployees([employeeData]);
+    // 1. REGISTRATIONS LISTENER (Unified for Leaderboard & Employee directory)
+    const unsubRegs = onSnapshot(collection(db, 'registrations'), (snap) => {
+      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAllEmployees(list);
       setRegistrationsLoaded(true);
-    } else {
+    }, (err) => {
+      console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=registrations notice:', err);
+      if (employeeData) setAllEmployees([employeeData]);
       setRegistrationsLoaded(true);
-    }
+    });
+    unsubs.push(unsubRegs);
 
-    // 2. UNIFIED TASKS & ATTENDANCE LISTENERS FOR ADMINS & TEAM LEADERS
-    if (isAdmin || isTeamLeader) {
-      const unsubTasks = onSnapshot(collection(db, 'tasks'), (snap) => {
-        const list: TaskRecord[] = [];
-        snap.docs.forEach(doc => {
-          list.push({ id: doc.id, ...doc.data() } as TaskRecord);
-        });
-        setTasks(list);
-        setTasksLoaded(true);
-      }, (err) => {
-        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks notice:', err);
-        setTasksLoaded(true);
+    // 2. UNIFIED TASKS, ATTENDANCE & WORK DETAILS LISTENERS
+    const unsubTasks = onSnapshot(collection(db, 'tasks'), (snap) => {
+      const list: TaskRecord[] = [];
+      snap.docs.forEach(doc => {
+        list.push({ id: doc.id, ...doc.data() } as TaskRecord);
       });
-      unsubs.push(unsubTasks);
-
-      const unsubAtt = onSnapshot(collection(db, 'attendance'), (snap) => {
-        const list: AttendanceRecord[] = [];
-        snap.docs.forEach(doc => {
-          list.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
-        });
-        setAttendance(list);
-        setAttendanceLoaded(true);
-      }, (err) => {
-        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance notice:', err);
-        setAttendanceLoaded(true);
-      });
-      unsubs.push(unsubAtt);
-
-      const unsubWorkDetails = onSnapshot(collection(db, 'daily_work_details'), (snap) => {
-        const list: DailyWorkDetailRecord[] = [];
-        snap.docs.forEach(doc => {
-          list.push({ id: doc.id, ...doc.data() } as DailyWorkDetailRecord);
-        });
-        setWorkDetails(list);
-      }, (err) => {
-        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=daily_work_details notice:', err);
-      });
-      unsubs.push(unsubWorkDetails);
-    } else {
-      // If we are inspecting ourselves as a standard employee, our local sync hook does the work
-      setTasks(syncTasks);
-      setAttendance(syncAttendance);
+      setTasks(list);
       setTasksLoaded(true);
-      setAttendanceLoaded(true);
+    }, (err) => {
+      console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=tasks notice:', err);
+      if (!isAdmin && !isTeamLeader) setTasks(syncTasks);
+      setTasksLoaded(true);
+    });
+    unsubs.push(unsubTasks);
 
-      const unsubWorkDetails = onSnapshot(collection(db, 'daily_work_details'), (snap) => {
-        const list: DailyWorkDetailRecord[] = [];
-        snap.docs.forEach(doc => {
-          list.push({ id: doc.id, ...doc.data() } as DailyWorkDetailRecord);
-        });
-        setWorkDetails(list);
-      }, (err) => {
-        console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=daily_work_details notice:', err);
+    const unsubAtt = onSnapshot(collection(db, 'attendance'), (snap) => {
+      const list: AttendanceRecord[] = [];
+      snap.docs.forEach(doc => {
+        list.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
       });
-      unsubs.push(unsubWorkDetails);
-    }
+      setAttendance(list);
+      setAttendanceLoaded(true);
+    }, (err) => {
+      console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=attendance notice:', err);
+      if (!isAdmin && !isTeamLeader) setAttendance(syncAttendance);
+      setAttendanceLoaded(true);
+    });
+    unsubs.push(unsubAtt);
+
+    const unsubWorkDetails = onSnapshot(collection(db, 'daily_work_details'), (snap) => {
+      const list: DailyWorkDetailRecord[] = [];
+      snap.docs.forEach(doc => {
+        list.push({ id: doc.id, ...doc.data() } as DailyWorkDetailRecord);
+      });
+      setWorkDetails(list);
+    }, (err) => {
+      console.warn('[EFFICIENCY_FIRESTORE_ERROR] path=daily_work_details notice:', err);
+    });
+    unsubs.push(unsubWorkDetails);
 
     return () => {
       activeListeners--;
@@ -1091,6 +1069,24 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
           </div>
         </div>
       )}
+
+      {/* ==================================================== */}
+      {/* EFFICIENCY LEADERBOARD (PROMINENTLY DISPLAYED) */}
+      {/* ==================================================== */}
+      <EfficiencyLeaderboard
+        allEmployees={allEmployees.length > 0 ? allEmployees : (employeeData ? [employeeData] : [])}
+        tasks={tasks}
+        attendance={attendance}
+        workDetails={workDetails}
+        weightages={weightages}
+        activeEmployeeCode={activeEmployeeCode}
+        activeEmployeeId={activeEmployeeId}
+        loading={loading}
+        onSelectEmployee={(empCode) => {
+          setSelectedEmployeeCode(empCode);
+          setViewMode('MY_PERFORMANCE');
+        }}
+      />
 
       {/* ==================================================== */}
       {/* VIEW 1: MY PERFORMANCE (INDIVIDUAL VIEW) */}
