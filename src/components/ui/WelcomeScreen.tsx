@@ -32,7 +32,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       const raw = localStorage.getItem('cached_registration_data');
       if (raw) {
         const parsed = JSON.parse(raw);
-        return parsed.name || '';
+        if (parsed.name) return parsed.name;
+      }
+      const rawAuth = localStorage.getItem('exfin_auth_user');
+      if (rawAuth) {
+        const parsedAuth = JSON.parse(rawAuth);
+        if (parsedAuth.displayName) return parsedAuth.displayName;
       }
     } catch (e) {}
     return '';
@@ -137,7 +142,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const displayName = employeeData?.name || cachedName;
   const isRegistered = status === 'Approved' || !!displayName;
 
-  // Extract employee's first name safely
+  // Extract employee's first name safely (e.g., "Sanjiv Kumar Sinha" -> "Sanjiv")
   const firstName = React.useMemo(() => {
     if (!displayName) return null;
     const trimmed = displayName.trim();
@@ -151,12 +156,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     const parts = trimmed.split(/\s+/);
     if (parts.length === 0) return null;
 
-    const first = parts[0];
+    let first = parts[0];
     const isTitle = /^(mr|ms|mrs|dr|prof)\.?$/i.test(first);
     if (isTitle && parts.length > 1) {
-      return parts[1];
+      first = parts[1];
     }
-    return first;
+    return first.charAt(0).toUpperCase() + first.slice(1);
   }, [displayName]);
 
   // Voice initialization & Audio handlers
@@ -172,9 +177,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
   const handleSpeakerTap = React.useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    // Stop any in-flight SpeechSynthesis immediately
+    // Stop any in-flight SpeechSynthesis or audio immediately
     stopGreeting();
-    // Synchronously initiate local bundled WAV audio playback
+    stopGreetingAudio();
+
+    // Synchronously initiate local bundled WAV audio playback directly on user gesture
     setIsSpeaking(true);
     playGreetingAudio(greetingInfo.periodKey, {
       onStart: () => setIsSpeaking(true),
@@ -183,28 +190,54 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     });
   }, [greetingInfo.periodKey]);
 
-  const handleSpeakGreeting = React.useCallback((isUserGesture = false) => {
-    const greetingSentence = firstName ? `${greetingInfo.label}, ${firstName}.` : `${greetingInfo.label}.`;
-    speakGreeting(greetingSentence, {
-      isUserGesture,
-      onStart: () => setIsSpeaking(true),
-      onEnd: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false)
-    });
-  }, [firstName, greetingInfo.label]);
-
+  // Automatic personalized greeting on Welcome Screen mount / entry
   useEffect(() => {
+    // Prevent duplicate playback during re-renders or state updates within this session
+    if (speechTriggeredRef.current) return;
+
+    // Prevent immediate double-execution in React StrictMode / instant startup remounts (< 3000ms)
+    const now = Date.now();
+    const lastTrigger = Number(sessionStorage.getItem('exfin_welcome_greeting_last_time') || '0');
+    if (now - lastTrigger < 3000) return;
+
+    speechTriggeredRef.current = true;
+    sessionStorage.setItem('exfin_welcome_greeting_last_time', String(now));
+
     logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
-    const sessionKey = 'exfin_welcome_speech_spoken_session';
 
-    if (!speechTriggeredRef.current && !sessionStorage.getItem(sessionKey)) {
-      speechTriggeredRef.current = true;
-      sessionStorage.setItem(sessionKey, 'true');
+    // Build personalized spoken greeting (e.g. "Good Morning, Sanjiv!")
+    const spokenGreeting = firstName
+      ? `${greetingInfo.label}, ${firstName}!`
+      : `${greetingInfo.label}!`;
 
-      // Attempt automatic speech greeting on entry
-      handleSpeakGreeting(false);
+    console.log('[WelcomeScreen] Automatic personalized greeting attempt:', {
+      spokenGreeting,
+      periodKey: greetingInfo.periodKey,
+      firstName,
+      isSpeechAvailable: isSpeechAvailable()
+    });
+
+    if (isSpeechAvailable()) {
+      setIsSpeaking(true);
+      const started = speakGreeting(spokenGreeting, {
+        isUserGesture: false,
+        onStart: () => setIsSpeaking(true),
+        onEnd: () => setIsSpeaking(false),
+        onError: () => setIsSpeaking(false)
+      });
+      if (!started) {
+        setIsSpeaking(false);
+      }
+    } else {
+      // Direct local audio attempt if SpeechSynthesis is unavailable
+      setIsSpeaking(true);
+      playGreetingAudio(greetingInfo.periodKey, {
+        onStart: () => setIsSpeaking(true),
+        onEnd: () => setIsSpeaking(false),
+        onError: () => setIsSpeaking(false)
+      });
     }
-  }, [handleSpeakGreeting]);
+  }, [firstName, greetingInfo]);
 
   // Derive Location & Distance display states dynamically
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
@@ -452,7 +485,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
               <span className={`w-0.5 bg-[#10B981] rounded-full transition-all ${isSpeaking ? 'h-3 animate-[welcomeWavebar_0.5s_ease-in-out_infinite_0.3s]' : 'h-1.5'}`} />
             </div>
 
-            {/* Speaker Button (Explicit Tap to Play Bundled Greeting Audio) */}
+            {/* Speaker Button (Explicit Tap to Replay Greeting) */}
             <button
               type="button"
               onClick={handleSpeakerTap}
@@ -461,8 +494,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
                   ? 'bg-[#10B981]/25 border-[#10B981] text-[#10B981] shadow-[0_0_12px_rgba(16,185,129,0.6)] scale-110'
                   : 'bg-[#092438] border-[#22D3EE]/40 text-[#22D3EE] hover:border-[#22D3EE] hover:text-[#38BDF8] hover:shadow-[0_0_10px_rgba(34,211,238,0.35)] active:scale-95'
               }`}
-              title="Tap to hear greeting"
-              aria-label="Tap to hear greeting audio"
+              title="Replay greeting"
+              aria-label="Replay greeting audio"
             >
               <Volume2 className={`w-4 h-4 ${isSpeaking ? 'animate-pulse' : ''}`} />
             </button>
