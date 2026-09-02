@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Trophy, 
   Users, 
@@ -8,27 +8,34 @@ import {
   Calendar,
   AlertCircle,
   CheckCircle2,
-  HelpCircle
+  HelpCircle,
+  ArrowLeft
 } from 'lucide-react';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../../services/firebase/config';
 import { TaskRecord } from '../../types/planner';
 import { AttendanceRecord } from '../../types/attendance';
 import { DailyWorkDetailRecord } from '../../types/workDetails';
 import { EfficiencyGrade, EfficiencyWeightages, DEFAULT_WEIGHTAGES } from '../../types/efficiency';
 import { calculateEfficiency } from '../../services/efficiency/efficiencyCalculator';
+import { getSavedWeightages } from '../../services/efficiency/efficiencyService';
 import { getKolkataDateStr } from '../../utils/workHoursCalc';
 
 export type LeaderboardPeriod = 'THIS_WEEK' | 'CURRENT_MONTH' | 'PREVIOUS_MONTH';
 
 export interface EfficiencyLeaderboardProps {
-  allEmployees: any[];
-  tasks: TaskRecord[];
-  attendance: AttendanceRecord[];
-  workDetails: DailyWorkDetailRecord[];
+  allEmployees?: any[];
+  tasks?: TaskRecord[];
+  attendance?: AttendanceRecord[];
+  workDetails?: DailyWorkDetailRecord[];
   weightages?: EfficiencyWeightages;
-  activeEmployeeCode: string;
+  activeEmployeeCode?: string;
   activeEmployeeId?: string;
   loading?: boolean;
   onSelectEmployee?: (employeeCode: string) => void;
+  onClose?: () => void;
+  title?: string;
+  subtitle?: string;
 }
 
 /**
@@ -105,17 +112,103 @@ export const getKolkataPeriodDates = (period: LeaderboardPeriod): { startDate: s
 };
 
 export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
-  allEmployees,
-  tasks,
-  attendance,
-  workDetails,
-  weightages = DEFAULT_WEIGHTAGES,
-  activeEmployeeCode,
-  activeEmployeeId,
-  loading = false,
-  onSelectEmployee
+  allEmployees: propEmployees,
+  tasks: propTasks,
+  attendance: propAttendance,
+  workDetails: propWorkDetails,
+  weightages: propWeightages,
+  activeEmployeeCode = '',
+  activeEmployeeId = '',
+  loading: propLoading = false,
+  onSelectEmployee,
+  onClose,
+  title = '🏆 Efficiency Leaderboard',
+  subtitle = 'Employee efficiency rankings'
 }) => {
   const [selectedPeriod, setSelectedPeriod] = useState<LeaderboardPeriod>('THIS_WEEK');
+
+  // Internal state for standalone usage
+  const [internalEmployees, setInternalEmployees] = useState<any[]>([]);
+  const [internalTasks, setInternalTasks] = useState<TaskRecord[]>([]);
+  const [internalAttendance, setInternalAttendance] = useState<AttendanceRecord[]>([]);
+  const [internalWorkDetails, setInternalWorkDetails] = useState<DailyWorkDetailRecord[]>([]);
+  const [internalWeightages, setInternalWeightages] = useState<EfficiencyWeightages>(DEFAULT_WEIGHTAGES);
+  const [isFetchingLocal, setIsFetchingLocal] = useState<boolean>(false);
+
+  // Determine whether to use props or internal state
+  const employeesToUse = (propEmployees && propEmployees.length > 0) ? propEmployees : internalEmployees;
+  const tasksToUse = (propTasks && propTasks.length > 0) ? propTasks : internalTasks;
+  const attendanceToUse = (propAttendance && propAttendance.length > 0) ? propAttendance : internalAttendance;
+  const workDetailsToUse = (propWorkDetails && propWorkDetails.length > 0) ? propWorkDetails : internalWorkDetails;
+  const weightagesToUse = propWeightages || internalWeightages;
+
+  // Realtime Firestore fallback if props are not provided
+  useEffect(() => {
+    const needsEmployees = !propEmployees || propEmployees.length === 0;
+    const needsTasks = !propTasks || propTasks.length === 0;
+    const needsAttendance = !propAttendance || propAttendance.length === 0;
+    const needsWorkDetails = !propWorkDetails || propWorkDetails.length === 0;
+
+    if (!needsEmployees && !needsTasks && !needsAttendance && !needsWorkDetails) {
+      return;
+    }
+
+    setIsFetchingLocal(true);
+    const unsubs: (() => void)[] = [];
+
+    if (needsEmployees) {
+      const unsub = onSnapshot(collection(db, 'registrations'), (snap) => {
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setInternalEmployees(list);
+        setIsFetchingLocal(false);
+      }, (err) => {
+        console.warn('Leaderboard registrations sub notice:', err);
+        setIsFetchingLocal(false);
+      });
+      unsubs.push(unsub);
+    }
+
+    if (needsTasks) {
+      const unsub = onSnapshot(collection(db, 'tasks'), (snap) => {
+        const list: TaskRecord[] = [];
+        snap.docs.forEach(doc => list.push({ id: doc.id, ...doc.data() } as TaskRecord));
+        setInternalTasks(list);
+      }, (err) => {
+        console.warn('Leaderboard tasks sub notice:', err);
+      });
+      unsubs.push(unsub);
+    }
+
+    if (needsAttendance) {
+      const unsub = onSnapshot(collection(db, 'attendance'), (snap) => {
+        const list: AttendanceRecord[] = [];
+        snap.docs.forEach(doc => list.push({ id: doc.id, ...doc.data() } as AttendanceRecord));
+        setInternalAttendance(list);
+      }, (err) => {
+        console.warn('Leaderboard attendance sub notice:', err);
+      });
+      unsubs.push(unsub);
+    }
+
+    if (needsWorkDetails) {
+      const unsub = onSnapshot(collection(db, 'daily_work_details'), (snap) => {
+        const list: DailyWorkDetailRecord[] = [];
+        snap.docs.forEach(doc => list.push({ id: doc.id, ...doc.data() } as DailyWorkDetailRecord));
+        setInternalWorkDetails(list);
+      }, (err) => {
+        console.warn('Leaderboard daily_work_details sub notice:', err);
+      });
+      unsubs.push(unsub);
+    }
+
+    if (!propWeightages) {
+      getSavedWeightages().then(w => setInternalWeightages(w)).catch(() => {});
+    }
+
+    return () => {
+      unsubs.forEach(u => u());
+    };
+  }, [propEmployees, propTasks, propAttendance, propWorkDetails, propWeightages]);
 
   // Calculate Asia/Kolkata date range for selected period
   const periodInfo = useMemo(() => {
@@ -124,14 +217,14 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
 
   // Filter eligible employees (Approved or non-rejected active registrations)
   const eligibleEmployees = useMemo(() => {
-    return (allEmployees || []).filter(e => {
+    return (employeesToUse || []).filter(e => {
       const status = (e.status || '').toLowerCase();
       // Exclude explicitly rejected or pending approvals if status is set
       if (status === 'rejected' || status === 'pending') return false;
       const code = e.employeeCode || e.id;
       return Boolean(code);
     });
-  }, [allEmployees]);
+  }, [employeesToUse]);
 
   // Calculate efficiency score for each eligible employee using canonical engine
   const leaderboardItems = useMemo(() => {
@@ -154,10 +247,10 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
         teamLeaderId,
         startDate,
         endDate,
-        tasks,
-        attendance,
-        weightages,
-        workDetails
+        tasksToUse,
+        attendanceToUse,
+        weightagesToUse,
+        workDetailsToUse
       );
 
       const normEmpCode = empCode.toUpperCase();
@@ -195,7 +288,7 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
     });
 
     return results;
-  }, [eligibleEmployees, periodInfo, tasks, attendance, weightages, workDetails, activeEmployeeCode, activeEmployeeId]);
+  }, [eligibleEmployees, periodInfo, tasksToUse, attendanceToUse, weightagesToUse, workDetailsToUse, activeEmployeeCode, activeEmployeeId]);
 
   // Summary Metrics
   const summary = useMemo(() => {
@@ -300,15 +393,30 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
     );
   };
 
+  const isLoading = propLoading || isFetchingLocal;
+
   return (
     <div className="space-y-4">
+      {/* OPTIONAL BACK BUTTON HEADER IF RENDERED MODAL / SCREEN */}
+      {onClose && (
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 px-3.5 btn-primary border border-[var(--border)] rounded-xl hover:brightness-110 transition font-bold text-xs flex items-center gap-1.5 shadow-md text-white cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back
+          </button>
+        </div>
+      )}
+
       {/* PERIOD TABS & HEADER CONTROL */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-[var(--surface-inner)] p-3.5 rounded-2xl border border-[var(--border)]">
         <div>
           <div className="flex items-center gap-2">
             <Trophy className="w-5 h-5 text-amber-400" />
             <h2 className="text-base font-black text-[var(--text-primary)] uppercase tracking-wide">
-              Efficiency Leaderboard
+              {title}
             </h2>
           </div>
           <p className="text-xs text-[var(--text-secondary)] mt-0.5 font-mono">
@@ -370,7 +478,7 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
 
         <div className="bg-[var(--surface-inner)] p-3.5 rounded-2xl border border-[var(--border)] flex flex-col justify-between">
           <span className="text-[10px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">
-            Total Employees
+            Employees
           </span>
           <p className="text-xl font-black text-[var(--text-primary)] mt-1">
             {summary.totalEmployees}
@@ -382,7 +490,7 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
 
         <div className="bg-[var(--surface-inner)] p-3.5 rounded-2xl border border-[var(--border)] flex flex-col justify-between">
           <span className="text-[10px] font-extrabold text-[var(--text-secondary)] uppercase tracking-wider">
-            Avg Team Efficiency
+            Average Efficiency
           </span>
           <p className="text-xl font-black text-cyan-400 mt-1">
             {summary.averageEfficiency >= 0 ? `${summary.averageEfficiency}%` : 'N/A'}
@@ -433,7 +541,7 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
                 <span>🏆 EFFICIENCY LEADERBOARD</span>
               </h3>
               <p className="text-xs text-blue-100 font-medium">
-                Ranking of ALL eligible team members ({leaderboardItems.length} listed)
+                {subtitle} ({leaderboardItems.length} listed)
               </p>
             </div>
           </div>
@@ -444,10 +552,10 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
         </div>
 
         {/* LOADING STATE */}
-        {loading ? (
+        {isLoading ? (
           <div className="py-12 text-center text-blue-100 space-y-2">
             <div className="w-8 h-8 border-3 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
-            <p className="text-xs font-bold">Loading leaderboard data...</p>
+            <p className="text-xs font-bold">Loading leaderboard...</p>
           </div>
         ) : leaderboardItems.length === 0 ? (
           /* EMPTY STATE */

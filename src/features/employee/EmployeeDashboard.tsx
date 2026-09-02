@@ -32,8 +32,10 @@ import {
   RotateCcw,
   CheckCircle2,
   HelpCircle,
-  KeyRound
+  KeyRound,
+  Trophy
 } from 'lucide-react';
+import { EfficiencyLeaderboard } from '../efficiency/EfficiencyLeaderboard';
 import { useSecurityVerification } from '../../context/SecurityVerificationContext';
 import { useNavigate } from 'react-router-dom';
 import { getTodayAttendanceRecord, getStoredAttendanceRecords, saveAttendanceRecord } from '../../services/attendance/attendanceStorage';
@@ -214,7 +216,7 @@ export const EmployeeDashboard: React.FC = () => {
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
 
   // Personal Work Pulse States
-  const [activeView, setActiveView] = useState<'dashboard' | 'workpulse'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'workpulse' | 'leaderboard'>('dashboard');
   const [todayStr, setTodayStr] = useState<string>(getFormattedDateStr());
 
   // Periodically verify if the IST date has changed (midnight rollover)
@@ -617,6 +619,13 @@ export const EmployeeDashboard: React.FC = () => {
       label: 'Work Hours', 
       onClick: () => navigate('/work-hours'), 
       bg: 'glass-inner-tile text-cyan-300 border-cyan-500/20' 
+    },
+    { 
+      icon: Trophy, 
+      label: 'Leaderboard', 
+      subtitle: 'View employee efficiency rankings',
+      onClick: () => setActiveView('leaderboard'), 
+      bg: 'glass-inner-tile text-amber-300 border-amber-500/20' 
     },
     { 
       icon: KeyRound, 
@@ -1521,6 +1530,27 @@ export const EmployeeDashboard: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeView === 'leaderboard' && (
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 30, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="fixed inset-0 z-50 bg-[var(--app-background)] overflow-y-auto"
+          >
+            <div className="container mx-auto p-4 max-w-4xl min-h-screen pb-12">
+              <EfficiencyLeaderboard
+                activeEmployeeCode={employeeData.employeeCode || ''}
+                activeEmployeeId={employeeData.id || ''}
+                tasks={tasks}
+                attendance={attendanceRecords}
+                allEmployees={allRegistrations}
+                onClose={() => setActiveView('dashboard')}
+              />
             </div>
           </motion.div>
         )}

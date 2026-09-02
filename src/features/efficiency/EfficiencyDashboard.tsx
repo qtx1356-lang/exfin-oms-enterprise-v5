@@ -43,7 +43,6 @@ import { calculateEfficiency } from '../../services/efficiency/efficiencyCalcula
 import { DEFAULT_WEIGHTAGES, getSavedWeightages, saveWeightages, getEfficiencySnapshots, saveEfficiencySnapshot } from '../../services/efficiency/efficiencyService';
 import { getRecordWorkingMinutes, formatMinutesToDuration, calculateMonthlySummary, getKolkataDateStr } from '../../utils/workHoursCalc';
 import { isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
-import { EfficiencyLeaderboard } from './EfficiencyLeaderboard';
 
 interface EfficiencyDashboardProps {
   customEmployeeCode?: string; // Admin or TL can pass this to inspect a specific employee
@@ -1069,24 +1068,6 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
           </div>
         </div>
       )}
-
-      {/* ==================================================== */}
-      {/* EFFICIENCY LEADERBOARD (PROMINENTLY DISPLAYED) */}
-      {/* ==================================================== */}
-      <EfficiencyLeaderboard
-        allEmployees={allEmployees.length > 0 ? allEmployees : (employeeData ? [employeeData] : [])}
-        tasks={tasks}
-        attendance={attendance}
-        workDetails={workDetails}
-        weightages={weightages}
-        activeEmployeeCode={activeEmployeeCode}
-        activeEmployeeId={activeEmployeeId}
-        loading={loading}
-        onSelectEmployee={(empCode) => {
-          setSelectedEmployeeCode(empCode);
-          setViewMode('MY_PERFORMANCE');
-        }}
-      />
 
       {/* ==================================================== */}
       {/* VIEW 1: MY PERFORMANCE (INDIVIDUAL VIEW) */}
