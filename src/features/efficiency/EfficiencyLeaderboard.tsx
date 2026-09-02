@@ -554,13 +554,13 @@ export const EfficiencyLeaderboard: React.FC<EfficiencyLeaderboardProps> = ({
         </div>
       </div>
 
-      {/* MAIN CHOICE 3 GRADIENT LEADERBOARD CONTAINER */}
+      {/* MAIN UNIVERSAL CARD LEADERBOARD CONTAINER */}
       <div 
         className="rounded-3xl p-4 sm:p-5 border shadow-2xl space-y-4"
         style={{
-          backgroundImage: 'linear-gradient(135deg, #0877C9 0%, #1646C8 45%, #32149B 100%)',
-          backgroundColor: '#1646C8',
-          borderColor: 'rgba(96, 165, 250, 0.35)'
+          backgroundImage: 'linear-gradient(180deg, #3A4775 0%, #2F3C63 100%)',
+          backgroundColor: '#34436F',
+          borderColor: 'rgba(120, 150, 210, 0.20)'
         }}
       >
         {/* LEADERBOARD CARD TITLE */}

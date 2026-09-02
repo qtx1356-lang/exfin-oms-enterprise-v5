@@ -1,18 +1,18 @@
 @import "tailwindcss";
 
 @utility bg-surface {
-  background-color: #1F190E !important;
-  background-image: linear-gradient(145deg, rgba(31, 25, 14, 0.98) 0%, rgba(44, 34, 18, 0.98) 50%, rgba(26, 20, 11, 0.98) 100%) !important;
+  background-color: #34436F !important;
+  background-image: linear-gradient(180deg, #3A4775 0%, #2F3C63 100%) !important;
 }
 
 @utility bg-surface-elevated {
-  background-color: #19130B !important;
-  background-image: linear-gradient(145deg, rgba(25, 19, 11, 0.98) 0%, rgba(38, 29, 15, 0.98) 60%, rgba(20, 15, 8, 0.98) 100%) !important;
+  background-color: #34436F !important;
+  background-image: linear-gradient(180deg, #3A4775 0%, #2F3C63 100%) !important;
 }
 
 @utility bg-surface-inner {
-  background-color: #120E08 !important;
-  background-image: linear-gradient(145deg, rgba(18, 14, 8, 0.98) 0%, rgba(28, 21, 11, 0.98) 100%) !important;
+  background-color: #263255 !important;
+  background-image: linear-gradient(180deg, #2A365B 0%, #222C4A 100%) !important;
 }
 
 @theme {
@@ -38,23 +38,23 @@
 }
 
 :root {
-  /* EXACT REQUIRED DESIGN SYSTEM TOKENS — CHOICE 3 GRADIENT CARD */
+  /* UNIVERSAL APP & CARD DESIGN SYSTEM TOKENS */
   --app-background: #071A2B;
   --app-bg: #071A2B;
   --app-bg-secondary: #0A2638;
   --app-background-secondary: #0A2638;
 
-  --card-gradient-start: #0877C9;
-  --card-gradient-middle: #1646C8;
-  --card-gradient-end: #32149B;
-  --card-gradient: linear-gradient(135deg, #0877C9 0%, #1646C8 45%, #32149B 100%);
-  --card-border-luminous: rgba(96, 165, 250, 0.35);
+  --card-gradient-start: #3A4775;
+  --card-gradient-end: #2F3C63;
+  --card-gradient: linear-gradient(180deg, #3A4775 0%, #2F3C63 100%);
+  --card-background: #34436F;
+  --card-border-luminous: rgba(120, 150, 210, 0.20);
 
-  --card-bg-primary: linear-gradient(135deg, #0877C9 0%, #1646C8 45%, #32149B 100%);
-  --surface: linear-gradient(135deg, #0877C9 0%, #1646C8 45%, #32149B 100%);
-  --surface-elevated: linear-gradient(135deg, #0877C9 0%, #1646C8 45%, #32149B 100%);
-  --surface-inner: #071A2B;
-  --surface-hover: rgba(255, 255, 255, 0.1);
+  --card-bg-primary: linear-gradient(180deg, #3A4775 0%, #2F3C63 100%);
+  --surface: linear-gradient(180deg, #3A4775 0%, #2F3C63 100%);
+  --surface-elevated: linear-gradient(180deg, #3A4775 0%, #2F3C63 100%);
+  --surface-inner: linear-gradient(180deg, #2A365B 0%, #222C4A 100%);
+  --surface-hover: rgba(255, 255, 255, 0.08);
 
   --text-primary: #F8FAFC;
   --text-secondary: #CBD5E1;
@@ -70,13 +70,13 @@
   --info: #22D3EE;
   --blue-accent: #3B82F6;
 
-  --border: rgba(96, 165, 250, 0.35);
-  --divider: rgba(255, 255, 255, 0.15);
-  --shadow: 0 12px 32px rgba(8, 20, 60, 0.45);
+  --border: rgba(120, 150, 210, 0.20);
+  --divider: rgba(255, 255, 255, 0.12);
+  --shadow: 0 10px 28px rgba(7, 26, 43, 0.5);
 
   --nav-bg: #071A2B;
   --button-primary: linear-gradient(135deg, #10B981 0%, #22D3EE 100%);
-  --button-secondary: #071A2B;
+  --button-secondary: #263255;
 }
 
 body {
@@ -122,30 +122,30 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2) !important;
 }
 
-/* Primary Large Content Cards — CHOICE 3 GRADIENT CARD */
+/* Universal Card Surfaces — Muted Blue/Slate #34436F */
 .glass-card, .glass-card-elevated, .card-gold {
-  background-image: linear-gradient(135deg, #0877C9 0%, #1646C8 45%, #32149B 100%) !important;
-  background-color: #1646C8 !important;
-  border: 1px solid rgba(96, 165, 250, 0.35) !important;
-  box-shadow: 0 12px 32px rgba(8, 20, 60, 0.45), 0 2px 10px rgba(8, 119, 201, 0.25) !important;
+  background-image: linear-gradient(180deg, #3A4775 0%, #2F3C63 100%) !important;
+  background-color: #34436F !important;
+  border: 1px solid rgba(120, 150, 210, 0.20) !important;
+  box-shadow: 0 10px 28px rgba(7, 26, 43, 0.5) !important;
   border-radius: 20px;
   color: #F8FAFC !important;
 }
 
 .card-secondary {
-  background-image: linear-gradient(135deg, #0877C9 0%, #1646C8 45%, #32149B 100%) !important;
-  background-color: #1646C8 !important;
-  border: 1px solid rgba(96, 165, 250, 0.35) !important;
-  box-shadow: 0 10px 28px rgba(8, 20, 60, 0.4) !important;
+  background-image: linear-gradient(180deg, #3A4775 0%, #2F3C63 100%) !important;
+  background-color: #34436F !important;
+  border: 1px solid rgba(120, 150, 210, 0.20) !important;
+  box-shadow: 0 10px 28px rgba(7, 26, 43, 0.4) !important;
   border-radius: 20px;
   color: #F8FAFC !important;
 }
 
-/* Inner Tiles — Dark Navy / Blue-Black to contrast against Large Gradient Cards */
+/* Inner Tiles — Subtle variation of the universal blue/slate family */
 .glass-inner-tile, .glass-card-inner {
-  background-color: #071A2B !important;
-  background: #071A2B !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  background-image: linear-gradient(180deg, #2A365B 0%, #222C4A 100%) !important;
+  background-color: #263255 !important;
+  border: 1px solid rgba(120, 150, 210, 0.15) !important;
   border-radius: 16px;
   color: #F8FAFC !important;
 }
@@ -168,18 +168,18 @@ input:focus, textarea:focus, select:focus {
 }
 
 .btn-secondary {
-  background-color: #0A2638 !important;
-  background: #0A2638 !important;
+  background-color: #263255 !important;
+  background: #263255 !important;
   color: #F8FAFC !important;
   font-weight: 600;
-  border: 1px solid #16465A !important;
+  border: 1px solid rgba(120, 150, 210, 0.20) !important;
   border-radius: 12px;
   transition: all 0.2s ease;
   min-height: 42px;
 }
 
 .btn-secondary:hover {
-  background-color: #113852 !important;
+  background-color: #2E3B63 !important;
   border-color: #22D3EE !important;
 }
 
@@ -216,7 +216,7 @@ input:focus, textarea:focus, select:focus {
 /* Navigation Surface */
 .glass-nav {
   background: #071A2B !important;
-  border-top: 1px solid #16465A !important;
+  border-top: 1px solid rgba(120, 150, 210, 0.15) !important;
   box-shadow: 0 -10px 25px rgba(3, 12, 22, 0.6) !important;
 }
 
@@ -247,7 +247,7 @@ button, a, input, select, textarea, [role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Legacy Overrides -> Choice 3 Blue → Indigo → Violet Gradient Card System */
+/* Legacy Overrides -> Universal Muted Blue/Slate #34436F Card System */
 .bg-\[\#250F4C\],
 .bg-\[\#1A0B36\],
 .bg-\[\#1D093F\],
@@ -263,10 +263,13 @@ button, a, input, select, textarea, [role="button"] {
 .bg-\[\#170932\],
 .bg-\[\#110526\],
 .bg-\[\#1D113B\],
-.bg-\[\#0D3045\] {
-  background-image: linear-gradient(135deg, #0877C9 0%, #1646C8 45%, #32149B 100%) !important;
-  background-color: #1646C8 !important;
-  border-color: rgba(96, 165, 250, 0.35) !important;
+.bg-\[\#0D3045\],
+.bg-\[\#0877C9\],
+.bg-\[\#1646C8\],
+.bg-\[\#32149B\] {
+  background-image: linear-gradient(180deg, #3A4775 0%, #2F3C63 100%) !important;
+  background-color: #34436F !important;
+  border-color: rgba(120, 150, 210, 0.20) !important;
   color: #F8FAFC !important;
 }
 
@@ -279,5 +282,5 @@ button, a, input, select, textarea, [role="button"] {
 .border-purple-500\/40,
 .border-purple-500\/50,
 .border-\[\#D4AF37\]\/22 {
-  border-color: rgba(96, 165, 250, 0.35) !important;
+  border-color: rgba(120, 150, 210, 0.20) !important;
 }

@@ -10,21 +10,21 @@
 export const THEME_TOKENS = {
   // 1. Application Backgrounds & Card Gradients
   bg: {
-    app: '#061A28',
-    appGradient: 'linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%)',
-    header: 'rgba(6, 27, 43, 0.95)',
-    card: 'linear-gradient(145deg, rgba(31, 25, 14, 0.98) 0%, rgba(44, 34, 18, 0.98) 50%, rgba(26, 20, 11, 0.98) 100%)',
-    cardElevated: 'linear-gradient(145deg, rgba(25, 19, 11, 0.98) 0%, rgba(38, 29, 15, 0.98) 60%, rgba(20, 15, 8, 0.98) 100%)',
-    cardInner: 'linear-gradient(145deg, rgba(18, 14, 8, 0.98) 0%, rgba(28, 21, 11, 0.98) 100%)',
-    nav: 'rgba(6, 27, 43, 0.95)',
-    input: '#120E08',
+    app: '#071A2B',
+    appGradient: '#071A2B',
+    header: '#071A2B',
+    card: 'linear-gradient(180deg, #3A4775 0%, #2F3C63 100%)',
+    cardElevated: 'linear-gradient(180deg, #3A4775 0%, #2F3C63 100%)',
+    cardInner: 'linear-gradient(180deg, #2E3A61 0%, #243050 100%)',
+    nav: '#071A2B',
+    input: '#071A2B',
   },
 
   // 2. Borders
   border: {
-    card: 'rgba(212, 175, 55, 0.22)',
-    cardSubtle: 'rgba(212, 175, 55, 0.14)',
-    cardInner: 'rgba(212, 175, 55, 0.14)',
+    card: 'rgba(120, 150, 210, 0.20)',
+    cardSubtle: 'rgba(120, 150, 210, 0.14)',
+    cardInner: 'rgba(120, 150, 210, 0.14)',
     accent: '#22D3EE',
     gold: '#D4AF37',
   },
@@ -47,9 +47,9 @@ export const THEME_TOKENS = {
     warningButton: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
     dangerButton: 'linear-gradient(135deg, #F43F5E 0%, #E11D48 100%)',
     
-    cardPrimary: 'linear-gradient(145deg, rgba(31, 25, 14, 0.98) 0%, rgba(44, 34, 18, 0.98) 50%, rgba(26, 20, 11, 0.98) 100%)',
-    cardInner: 'linear-gradient(145deg, rgba(18, 14, 8, 0.98) 0%, rgba(28, 21, 11, 0.98) 100%)',
-    bg: 'linear-gradient(160deg, #061A28 0%, #063A38 28%, #087A62 58%, #062638 82%, #061421 100%)',
+    cardPrimary: 'linear-gradient(180deg, #3A4775 0%, #2F3C63 100%)',
+    cardInner: 'linear-gradient(180deg, #2E3A61 0%, #243050 100%)',
+    bg: '#071A2B',
   },
 
   // 5. Shadows
