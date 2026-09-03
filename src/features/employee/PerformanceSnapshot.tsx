@@ -20,9 +20,9 @@ import {
 import { TaskRecord, getEffectiveTaskStatus } from '../../types/planner';
 import { AttendanceRecord } from '../../types/attendance';
 import { LeaveRecord } from '../../types/leave';
-import { EfficiencySnapshot, EfficiencyWeightages } from '../../types/efficiency';
+import { EfficiencyWeightages } from '../../types/efficiency';
 import { calculateEfficiency } from '../../services/efficiency/efficiencyCalculator';
-import { DEFAULT_WEIGHTAGES, getSavedWeightages, getEfficiencySnapshots } from '../../services/efficiency/efficiencyService';
+import { DEFAULT_WEIGHTAGES, getSavedWeightages } from '../../services/efficiency/efficiencyService';
 
 interface PerformanceSnapshotProps {
   employeeId: string;
@@ -45,19 +45,6 @@ const getInitialWeightages = (): EfficiencyWeightages => {
   return DEFAULT_WEIGHTAGES;
 };
 
-const getInitialHistoricalSnapshots = (employeeCode?: string): EfficiencySnapshot[] => {
-  try {
-    if (typeof localStorage !== 'undefined') {
-      const local = localStorage.getItem('exfin_efficiency_snapshots');
-      if (local) {
-        const parsed: EfficiencySnapshot[] = JSON.parse(local);
-        return employeeCode ? parsed.filter(s => s.employeeCode === employeeCode) : parsed;
-      }
-    }
-  } catch {}
-  return [];
-};
-
 export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
   employeeId,
   employeeCode,
@@ -71,14 +58,11 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
   // Modal State for "MY PERFORMANCE" Detail View
   const [showDetailModal, setShowDetailModal] = useState(false);
 
-  // Weightages and Snapshots
+  // Weightages
   const [weightages, setWeightages] = useState<EfficiencyWeightages>(getInitialWeightages);
-  const [historicalSnapshots, setHistoricalSnapshots] = useState<EfficiencySnapshot[]>(() => 
-    getInitialHistoricalSnapshots(employeeCode)
-  );
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string>('');
 
-  // Async load weightages & historical snapshots after main dashboard mounts
+  // Async load weightages after main dashboard mounts
   useEffect(() => {
     let isMounted = true;
 
@@ -88,13 +72,9 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
 
     const loadPerformanceData = async () => {
       try {
-        const [savedWeights, snapshots] = await Promise.all([
-          getSavedWeightages(),
-          getEfficiencySnapshots(employeeCode || undefined)
-        ]);
+        const savedWeights = await getSavedWeightages();
         if (isMounted) {
           setWeightages(savedWeights);
-          setHistoricalSnapshots(snapshots);
           setLastUpdatedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         }
       } catch (err) {
@@ -281,9 +261,8 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
   }, [employeeId, employeeCode, employeeName, department, previousMonthPrefix, prevMonthStartDate, prevMonthEndDate, tasks, attendanceRecords, weightages, myTasks, myAttendance]);
 
   const trendData = useMemo(() => {
-    // Check if historical snapshot or previous calculation exists
-    const prevScore = previousEfficiencyResult ? previousEfficiencyResult.finalScore : 
-      (historicalSnapshots.length > 0 ? historicalSnapshots[0].finalScore : null);
+    // Check if previous calculation exists
+    const prevScore = previousEfficiencyResult ? previousEfficiencyResult.finalScore : null;
 
     if (prevScore === null || efficiencyResult === null) {
       return {
@@ -308,7 +287,7 @@ export const PerformanceSnapshot: React.FC<PerformanceSnapshotProps> = ({
       diff,
       state
     };
-  }, [efficiencyResult, previousEfficiencyResult, historicalSnapshots]);
+  }, [efficiencyResult, previousEfficiencyResult]);
 
   // ----------------------------------------------------
   // 6. WEEKLY PROGRESS (CURRENT WEEK MON - FRI)

@@ -38,9 +38,9 @@ import { jsPDF } from 'jspdf';
 import { TaskRecord, getEffectiveTaskStatus } from '../../types/planner';
 import { AttendanceRecord } from '../../types/attendance';
 import { DailyWorkDetailRecord } from '../../types/workDetails';
-import { EfficiencyBreakdown, EfficiencyGrade, EfficiencySnapshot, EfficiencyWeightages } from '../../types/efficiency';
+import { EfficiencyBreakdown, EfficiencyGrade, EfficiencyWeightages } from '../../types/efficiency';
 import { calculateEfficiency } from '../../services/efficiency/efficiencyCalculator';
-import { DEFAULT_WEIGHTAGES, getSavedWeightages, saveWeightages, getEfficiencySnapshots, saveEfficiencySnapshot, getEfficiencyPeriodData } from '../../services/efficiency/efficiencyService';
+import { DEFAULT_WEIGHTAGES, getSavedWeightages, saveWeightages, getEfficiencyPeriodData } from '../../services/efficiency/efficiencyService';
 import { getRecordWorkingMinutes, formatMinutesToDuration, calculateMonthlySummary, getKolkataDateStr } from '../../utils/workHoursCalc';
 import { isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
 
@@ -113,7 +113,6 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   const [workDetails, setWorkDetails] = useState<DailyWorkDetailRecord[]>([]);
   const [allEmployees, setAllEmployees] = useState<any[]>(() => employeeData ? [employeeData] : []);
   const [weightages, setWeightages] = useState<EfficiencyWeightages>(DEFAULT_WEIGHTAGES);
-  const [historicalSnapshots, setHistoricalSnapshots] = useState<EfficiencySnapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [tasksLoaded, setTasksLoaded] = useState(false);
   const [attendanceLoaded, setAttendanceLoaded] = useState(false);
@@ -301,13 +300,6 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       isCancelled = true;
     };
   }, [startDate, endDate]);
-  useEffect(() => {
-    if (targetEmpCode) {
-      getEfficiencySnapshots(targetEmpCode).then(snaps => {
-        setHistoricalSnapshots(snaps);
-      });
-    }
-  }, [targetEmpCode]);
 
   // Authorized Employees Filter (Privacy Enforced)
   const myTeamMembers = useMemo(() => {
@@ -715,58 +707,6 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
       memberBreakdowns
     };
   }, [myTeamMembers, activeEmployeeCode, startDate, endDate, tasks, attendance, weightages]);
-
-  // Handle Save Snapshot
-  const handleSaveSnapshot = async () => {
-    if (!currentCalculation || !selectedEmployeeCode) return;
-    const emp = selectedEmployee || {
-      id: selectedEmployeeCode,
-      employeeCode: selectedEmployeeCode,
-      name: selectedEmployeeCode,
-      department: 'Operations',
-      teamLeaderId: null
-    };
-
-    const snapshot: EfficiencySnapshot = {
-      employeeId: emp.id || emp.employeeCode,
-      employeeCode: emp.employeeCode,
-      employeeName: emp.name || 'Employee',
-      department: emp.department || 'Operations',
-      teamLeaderId: emp.teamLeaderId || null,
-      teamLeaderCode: emp.teamLeaderCode || null,
-      teamLeaderName: emp.teamLeaderName || null,
-      
-      periodStart: startDate,
-      periodEnd: endDate,
-      periodType: periodFilter === 'THIS_WEEK' ? 'WEEKLY' : periodFilter === 'THIS_MONTH' ? 'MONTHLY' : 'CUSTOM',
-      
-      taskCompletionScore: currentCalculation.breakdown.taskCompletionScore,
-      onTimeCompletionScore: currentCalculation.breakdown.onTimeCompletionScore,
-      qualityScore: currentCalculation.breakdown.qualityScore,
-      punctualityScore: currentCalculation.breakdown.punctualityScore,
-      workloadScore: currentCalculation.breakdown.workloadScore,
-      
-      overduePenalty: currentCalculation.breakdown.overduePenalty,
-      revisionPenalty: currentCalculation.breakdown.revisionPenalty,
-      
-      finalScore: currentCalculation.finalScore,
-      grade: currentCalculation.grade,
-      
-      weightagesUsed: weightages,
-      breakdown: currentCalculation.breakdown,
-      calculatedAtDeviceTime: new Date().toISOString(),
-      serverSyncTime: null
-    };
-
-    try {
-      await saveEfficiencySnapshot(snapshot);
-      const snaps = await getEfficiencySnapshots(selectedEmployeeCode);
-      setHistoricalSnapshots(snaps);
-      alert('Efficiency snapshot saved successfully!');
-    } catch (err) {
-      alert('Saved locally. Will sync when online.');
-    }
-  };
 
   // Administration Weightages Submit
   const handleSaveWeightages = async (e: React.FormEvent) => {
@@ -1375,13 +1315,6 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
                       {currentCalculation ? currentCalculation.grade : 'N/A'}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleSaveSnapshot}
-                    className="w-full mt-2 py-1.5 bg-[var(--button-primary)] hover:opacity-95 text-white rounded-xl font-bold text-xs transition cursor-pointer shadow-md"
-                  >
-                    Save Snapshot
-                  </button>
                 </div>
               </div>
 

@@ -4,7 +4,6 @@ import { DailyWorkDetailRecord } from '../../types/workDetails';
 import { 
   EfficiencyBreakdown, 
   EfficiencyGrade, 
-  EfficiencySnapshot, 
   EfficiencyWeightages, 
   getEfficiencyGrade 
 } from '../../types/efficiency';

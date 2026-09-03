@@ -53,40 +53,6 @@ export interface EfficiencyBreakdown {
   workDetailsCount?: number;
 }
 
-export interface EfficiencySnapshot {
-  id?: string;
-  employeeId: string;
-  employeeCode: string;
-  employeeName: string;
-  department: string;
-  teamLeaderId: string | null;
-  teamLeaderCode?: string | null;
-  teamLeaderName?: string | null;
-  
-  periodStart: string; // YYYY-MM-DD
-  periodEnd: string;   // YYYY-MM-DD
-  periodType: EfficiencyPeriodType;
-  
-  taskCompletionScore: number;     // Weight-adjusted or base? Let's save actual metric base scores (0-100) or -1
-  onTimeCompletionScore: number;
-  qualityScore: number;
-  punctualityScore: number;
-  workloadScore: number;
-  
-  overduePenalty: number;
-  revisionPenalty: number;
-  
-  finalScore: number;
-  grade: EfficiencyGrade;
-  
-  weightagesUsed: EfficiencyWeightages;
-  breakdown: EfficiencyBreakdown;
-  
-  calculatedAtDeviceTime: string; // ISO String
-  serverSyncTime: string | null;  // ISO String or null
-  syncStatus?: 'Pending' | 'Synced';
-}
-
 export interface SystemSettings {
   id: string; // 'efficiency_config' or similar
   efficiencyTaskCompletionWeight: number; // 30
