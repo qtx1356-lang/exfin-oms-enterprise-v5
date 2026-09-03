@@ -52,8 +52,11 @@ export async function sendMail(payload: EmailPayload): Promise<SendEmailResult> 
     };
   }
 
-  // Set sender to the authenticated Gmail account
-  const from = process.env.SMTP_FROM || `EXFIN OMS Operations <${user}>`;
+  // Set sender to the authenticated Gmail account with friendly display name
+  const fromName = process.env.EMAIL_FROM_NAME || 'EXFIN OMS Admin Report';
+  const from = process.env.SMTP_FROM || `${fromName} <${user}>`;
+  const to = `${fromName} <${user}>`;
+  const replyTo = user;
 
   try {
     const port = parseInt(portStr, 10);
@@ -99,8 +102,9 @@ export async function sendMail(payload: EmailPayload): Promise<SendEmailResult> 
 
     const info = await transporter.sendMail({
       from,
-      to: validRecipients.join(', '),
-      bcc: payload.bcc,
+      to,
+      replyTo,
+      bcc: validRecipients,
       subject: payload.subject,
       html: payload.html,
     });

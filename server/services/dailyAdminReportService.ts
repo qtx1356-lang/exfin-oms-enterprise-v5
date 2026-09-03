@@ -1415,7 +1415,7 @@ export async function sendDailyReportTestEmail(
       </tr>
       <tr style="border-bottom: 1px solid #e2e8f0;">
         <td style="padding: 8px 0; font-weight: bold;">Recipients</td>
-        <td style="padding: 8px 0;">${recipients.join(', ')}</td>
+        <td style="padding: 8px 0;">Configured Admin Recipients (BCC Protected)</td>
       </tr>
       <tr style="border-bottom: 1px solid #e2e8f0;">
         <td style="padding: 8px 0; font-weight: bold;">Recipient Count</td>
