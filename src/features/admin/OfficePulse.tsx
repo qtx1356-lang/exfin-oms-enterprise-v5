@@ -117,11 +117,31 @@ export const OfficePulse: React.FC<OfficePulseProps> = ({
 
     approved.forEach(emp => {
       const codeKey = (emp.employeeCode || emp.id || '').trim();
-      if (codeKey && !seenCodes.has(codeKey)) {
-        seenCodes.add(codeKey);
+      if (codeKey && !seenCodes.has(codeKey.toLowerCase())) {
+        seenCodes.add(codeKey.toLowerCase());
         activeEmployees.push(emp);
       } else if (!codeKey) {
         activeEmployees.push(emp);
+      }
+    });
+
+    // Also include any users/admins who checked in today but aren't in registrations
+    safeAttendance.forEach(rec => {
+      if (rec && rec.date === todayDateStr && hasActualCheckIn(rec)) {
+        const codeKey = (rec.employeeId || rec.employeeCode || '').trim();
+        if (codeKey && !seenCodes.has(codeKey.toLowerCase())) {
+          seenCodes.add(codeKey.toLowerCase());
+          activeEmployees.push({
+            id: rec.employeeId || rec.employeeCode || codeKey,
+            employeeCode: rec.employeeCode || rec.employeeId || codeKey,
+            name: rec.employeeName || codeKey || 'Administrator',
+            office: rec.office || 'Raniganj',
+            department: rec.department || 'Administration',
+            designation: rec.designation || 'Admin',
+            status: 'Approved',
+            role: 'ADMIN'
+          } as any);
+        }
       }
     });
 

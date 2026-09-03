@@ -139,21 +139,23 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
       const matchesPeriod = selectedDate ? rec.date === selectedDate : rec.date.startsWith(selectedMonth);
       if (!matchesPeriod) return false;
 
-      // 2. Employee filter (must exist in our filtered employees set)
+      // 2. Employee filter (check if mapped to employee or fallback to record metadata)
       const empCode = (rec.employeeId || rec.employeeCode || '').trim();
       const emp = employeeMap.get(empCode) || employeeMap.get(empCode.toLowerCase()) || employeeMap.get(empCode.toUpperCase());
-      if (!emp) return false;
       
-      const name = (emp.name || '').toLowerCase();
+      const empName = emp ? (emp.name || '') : (rec.employeeName || '');
+      const name = empName.toLowerCase();
       const code = (empCode || '').toLowerCase();
       const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = name.includes(searchLower) || code.includes(searchLower);
+      const matchesSearch = !searchLower || name.includes(searchLower) || code.includes(searchLower);
       if (!matchesSearch) return false;
 
-      const matchesDept = selectedDept === 'ALL' || emp.department === selectedDept || emp.office === selectedDept;
+      const empDept = emp ? (emp.department || emp.office) : (rec.department || rec.office);
+      const matchesDept = selectedDept === 'ALL' || empDept === selectedDept;
       if (!matchesDept) return false;
 
-      const matchesTL = selectedTL === 'ALL' || emp.teamLeaderName === selectedTL;
+      const empTL = emp ? emp.teamLeaderName : '';
+      const matchesTL = selectedTL === 'ALL' || (empTL && empTL === selectedTL);
       if (!matchesTL) return false;
 
       // 3. Mode filter

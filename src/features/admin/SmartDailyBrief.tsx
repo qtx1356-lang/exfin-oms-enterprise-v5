@@ -161,16 +161,37 @@ export const SmartDailyBrief: React.FC<SmartDailyBriefProps> = ({
 
     approved.forEach(emp => {
       const codeKey = (emp.employeeCode || emp.id || '').trim();
-      if (codeKey && !seenCodes.has(codeKey)) {
-        seenCodes.add(codeKey);
+      if (codeKey && !seenCodes.has(codeKey.toLowerCase())) {
+        seenCodes.add(codeKey.toLowerCase());
         uniqueApproved.push(emp);
       } else if (!codeKey) {
         uniqueApproved.push(emp);
       }
     });
 
+    // Also include any users/admins who checked in today but aren't in registrations
+    const safeAttendance = Array.isArray(attendanceRecords) ? attendanceRecords : [];
+    safeAttendance.forEach(rec => {
+      if (rec && rec.date === todayDateStr && hasActualCheckIn(rec)) {
+        const codeKey = (rec.employeeId || rec.employeeCode || '').trim();
+        if (codeKey && !seenCodes.has(codeKey.toLowerCase())) {
+          seenCodes.add(codeKey.toLowerCase());
+          uniqueApproved.push({
+            id: rec.employeeId || rec.employeeCode || codeKey,
+            employeeCode: rec.employeeCode || rec.employeeId || codeKey,
+            name: rec.employeeName || codeKey || 'Administrator',
+            office: rec.office || 'Raniganj',
+            department: rec.department || 'Administration',
+            designation: rec.designation || 'Admin',
+            status: 'Approved',
+            role: 'ADMIN'
+          } as any);
+        }
+      }
+    });
+
     return uniqueApproved;
-  }, [registrations]);
+  }, [registrations, attendanceRecords, todayDateStr]);
 
   const rawWorkforceList = useMemo(() => {
     const safeAttendance = Array.isArray(attendanceRecords) ? attendanceRecords : [];

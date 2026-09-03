@@ -177,8 +177,18 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
       );
     }
 
-    const empCodes = new Set(emps.map(e => e.employeeCode));
-    const empIds = new Set(emps.map(e => e.id));
+    const empCodes = new Set<string>();
+    const empIds = new Set<string>();
+    emps.forEach(e => {
+      if (e.employeeCode) {
+        empCodes.add(e.employeeCode);
+        empCodes.add(e.employeeCode.toLowerCase());
+      }
+      if (e.id) {
+        empIds.add(e.id);
+        empIds.add(e.id.toLowerCase());
+      }
+    });
 
     // Determine Date Limits
     let startDate = todayDateStr;
@@ -196,7 +206,10 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
     const rangeRecords = attendanceRecords.filter(rec => {
       const inDateRange = rec.date >= startDate && rec.date <= endDate;
       if (!inDateRange) return false;
-      return empCodes.has(rec.employeeId) || empIds.has(rec.employeeId);
+      if (selectedDept === 'ALL' && selectedLeaderId === 'ALL') return true;
+      const recId = (rec.employeeId || '').toLowerCase();
+      const recCode = ((rec as any).employeeCode || '').toLowerCase();
+      return empCodes.has(recId) || empIds.has(recId) || empCodes.has(recCode) || empIds.has(recCode);
     });
 
     return {

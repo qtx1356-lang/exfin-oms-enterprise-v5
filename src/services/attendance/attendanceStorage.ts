@@ -1,6 +1,6 @@
 import { AttendanceRecord } from '../../types/attendance';
 import { calculateWorkingHours } from './smartAttendanceEngine';
-import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic } from '../../utils/attendanceUtils';
+import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic, getAttendanceCanonicalKey } from '../../utils/attendanceUtils';
 
 export const isAdminContext = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -192,19 +192,51 @@ export const runSafeUnresolvedHistoricalMigration = (): MigrationReport => {
 
 let cachedRecordsMemory: { [key: string]: AttendanceRecord[] } = {};
 
+export const getAllStoredAttendanceRecords = (): AttendanceRecord[] => {
+  if (typeof window === 'undefined') return [];
+  const keys = ['exfin_employee_attendance_records_v1', 'exfin_admin_attendance_records_v1', 'exfin_attendance_records_v1'];
+  const recordMap = new Map<string, AttendanceRecord>();
+
+  keys.forEach((storageKey) => {
+    try {
+      const data = localStorage.getItem(storageKey);
+      if (data) {
+        const parsed: AttendanceRecord[] = JSON.parse(data);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((rec) => {
+            if (!rec) return;
+            const canonicalKey = getAttendanceCanonicalKey(rec);
+            if (!canonicalKey) return;
+
+            const existing = recordMap.get(canonicalKey);
+            if (!existing) {
+              recordMap.set(canonicalKey, rec);
+            } else {
+              // Merge cleanly, preserving check-ins and check-outs
+              const hasRecCheckIn = hasActualCheckIn(rec);
+              const hasExistingCheckIn = hasActualCheckIn(existing);
+
+              if (hasRecCheckIn && !hasExistingCheckIn) {
+                recordMap.set(canonicalKey, { ...existing, ...rec });
+              } else if (rec.checkOutTime && !existing.checkOutTime) {
+                recordMap.set(canonicalKey, { ...existing, ...rec });
+              } else {
+                recordMap.set(canonicalKey, { ...existing, ...rec });
+              }
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn(`[getAllStoredAttendanceRecords] Error reading key ${storageKey}:`, e);
+    }
+  });
+
+  return Array.from(recordMap.values());
+};
+
 export const getStoredAttendanceRecords = (): AttendanceRecord[] => {
-  const key = getStorageKey();
-  if (cachedRecordsMemory[key]) {
-    return cachedRecordsMemory[key];
-  }
-  try {
-    const data = localStorage.getItem(key);
-    cachedRecordsMemory[key] = data ? JSON.parse(data) : [];
-    return cachedRecordsMemory[key];
-  } catch (err) {
-    console.error('Failed to parse local attendance records:', err);
-    return [];
-  }
+  return getAllStoredAttendanceRecords();
 };
 
 const processSingleRecordInMemory = (records: AttendanceRecord[], record: AttendanceRecord): boolean => {
@@ -370,13 +402,26 @@ export const getPendingAttendanceRecords = (): AttendanceRecord[] => {
 
 export const markRecordSyncedInLocal = (id: string, serverSyncTime: string): void => {
   try {
-    const records = getStoredAttendanceRecords();
-    const record = records.find((r) => r.id === id || r.docId === id);
-    if (record) {
-      record.syncStatus = 'Synced';
-      record.serverSyncTime = serverSyncTime;
-      localStorage.setItem(getStorageKey(), JSON.stringify(records));
-    }
+    const keys = ['exfin_employee_attendance_records_v1', 'exfin_admin_attendance_records_v1', 'exfin_attendance_records_v1'];
+    keys.forEach((k) => {
+      const data = localStorage.getItem(k);
+      if (data) {
+        const records: AttendanceRecord[] = JSON.parse(data);
+        if (Array.isArray(records)) {
+          let updated = false;
+          records.forEach((r) => {
+            if (r.id === id || r.docId === id) {
+              r.syncStatus = 'Synced';
+              r.serverSyncTime = serverSyncTime;
+              updated = true;
+            }
+          });
+          if (updated) {
+            localStorage.setItem(k, JSON.stringify(records));
+          }
+        }
+      }
+    });
   } catch (err) {
     console.error('Failed to mark record synced locally:', err);
   }
@@ -384,9 +429,17 @@ export const markRecordSyncedInLocal = (id: string, serverSyncTime: string): voi
 
 export const removePendingAttendanceRecord = (id: string): void => {
   try {
-    const records = getStoredAttendanceRecords();
-    const filtered = records.filter((r) => r.id !== id && r.docId !== id);
-    localStorage.setItem(getStorageKey(), JSON.stringify(filtered));
+    const keys = ['exfin_employee_attendance_records_v1', 'exfin_admin_attendance_records_v1', 'exfin_attendance_records_v1'];
+    keys.forEach((k) => {
+      const data = localStorage.getItem(k);
+      if (data) {
+        const records: AttendanceRecord[] = JSON.parse(data);
+        if (Array.isArray(records)) {
+          const filtered = records.filter((r) => r.id !== id && r.docId !== id);
+          localStorage.setItem(k, JSON.stringify(filtered));
+        }
+      }
+    });
   } catch (err) {
     console.error('Failed to remove pending attendance record:', err);
   }

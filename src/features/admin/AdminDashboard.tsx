@@ -353,8 +353,38 @@ export const AdminDashboard: React.FC = () => {
   }, [registrations]);
 
   const activeEmpCodes = React.useMemo(() => {
-    return new Set(deduplicatedRegistrations.map((r) => r.employeeCode).filter(Boolean));
-  }, [deduplicatedRegistrations]);
+    const set = new Set<string>();
+    deduplicatedRegistrations.forEach((r) => {
+      if (r.employeeCode) {
+        set.add(r.employeeCode);
+        set.add(r.employeeCode.toLowerCase());
+        set.add(r.employeeCode.toUpperCase());
+      }
+      if (r.id) {
+        set.add(r.id);
+        set.add(r.id.toLowerCase());
+        set.add(r.id.toUpperCase());
+      }
+      if (r.employeeId) {
+        set.add(r.employeeId);
+        set.add(r.employeeId.toLowerCase());
+        set.add(r.employeeId.toUpperCase());
+      }
+    });
+    if (adminUser?.uid) {
+      set.add(adminUser.uid);
+      set.add(adminUser.uid.toLowerCase());
+    }
+    if (adminUser?.email) {
+      set.add(adminUser.email);
+      set.add(adminUser.email.toLowerCase());
+    }
+    if (loginId) {
+      set.add(loginId);
+      set.add(loginId.toLowerCase());
+    }
+    return set;
+  }, [deduplicatedRegistrations, adminUser?.uid, adminUser?.email, loginId]);
 
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [liveLocations, setLiveLocations] = useState<LiveEmployeeLocation[]>([]);

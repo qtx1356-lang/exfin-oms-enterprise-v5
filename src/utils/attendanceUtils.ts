@@ -596,7 +596,8 @@ export const isSameEmployee = (idA: string | null | undefined, idB: string | nul
 export const getAttendanceCanonicalKey = (rec: Partial<AttendanceRecord> | null | undefined): string => {
   if (!rec) return '';
   const empId = (rec.employeeId || (rec as any).employeeCode || '').trim().toLowerCase();
-  const date = (rec.date || '').trim();
+  const rawDate = (rec.date || '').trim();
+  const date = rawDate.includes('T') ? rawDate.split('T')[0] : rawDate;
 
   if (empId && date) return `${empId}_${date}`;
   const docId = (rec.docId || '').trim().toLowerCase();
