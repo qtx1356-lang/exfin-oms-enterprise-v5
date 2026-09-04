@@ -25,20 +25,10 @@ import { createNotification } from '../notification/notificationService';
 
 const env = typeof import.meta !== 'undefined' && import.meta?.env ? import.meta.env : ({} as any);
 
-const parseOfficeCoordinate = (val: any, fallback: number): number => {
-  if (typeof val === 'undefined' || val === null || val === '') return fallback;
-  const num = Number(val);
-  if (!Number.isFinite(num) || num === 0) return fallback;
-  return num;
-};
-
-const DEFAULT_OFFICE_LATITUDE = 23.616227;
-const DEFAULT_OFFICE_LONGITUDE = 117.117063;
-
 export const OFFICE_LOCATION = {
-  name: env.VITE_OFFICE_NAME || 'EXFIN OFFICE',
-  latitude: parseOfficeCoordinate(env.VITE_OFFICE_LATITUDE, DEFAULT_OFFICE_LATITUDE),
-  longitude: parseOfficeCoordinate(env.VITE_OFFICE_LONGITUDE, DEFAULT_OFFICE_LONGITUDE),
+  name: env.VITE_OFFICE_NAME || 'Main Office',
+  latitude: typeof env.VITE_OFFICE_LATITUDE !== 'undefined' && env.VITE_OFFICE_LATITUDE !== '' ? Number(env.VITE_OFFICE_LATITUDE) : 0.0,
+  longitude: typeof env.VITE_OFFICE_LONGITUDE !== 'undefined' && env.VITE_OFFICE_LONGITUDE !== '' ? Number(env.VITE_OFFICE_LONGITUDE) : 0.0,
   radius: 25, // 25 meters office geofence
   autoCheckoutDistanceThreshold: 25
 };
