@@ -1,11 +1,11 @@
 {
-  "projectId": "your-firebase-project-id",
-  "appId": "1:123456789000:web:abcdef1234567890",
-  "apiKey": "AIzaSyYourFirebaseApiKeyPlaceholder12345",
-  "authDomain": "your-firebase-project-id.firebaseapp.com",
-  "storageBucket": "your-firebase-project-id.firebasestorage.app",
-  "messagingSenderId": "123456789000",
-  "measurementId": "",
+  "projectId": "exfin-oms-production",
+  "appId": "1:467454374123:web:1c039dad311c6362b44eae",
+  "apiKey": "AIzaSyCHsJlbsTdaDw3xOTfM5usiS6GMVL-udxM",
+  "authDomain": "exfin-oms-production.firebaseapp.com",
+  "storageBucket": "exfin-oms-production.firebasestorage.app",
+  "messagingSenderId": "467454374123",
+  "measurementId": "AIzaSyCHsJlbsTdaDw3xOTfM5usiS6GMVL-udxM",
   "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }
