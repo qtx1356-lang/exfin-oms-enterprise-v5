@@ -99,6 +99,57 @@ export function getAvailableSpeechVoice(): SpeechSynthesisVoice | null {
 }
 
 /**
+ * Waits briefly (bounded) for SpeechSynthesis voices to become populated (especially on mobile Chrome/PWA cold start)
+ */
+export async function waitForSpeechVoices(timeoutMs: number = 800): Promise<SpeechSynthesisVoice | null> {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    return null;
+  }
+
+  const existingVoice = getAvailableSpeechVoice();
+  if (existingVoice) return existingVoice;
+
+  return new Promise((resolve) => {
+    let resolved = false;
+    let timer: NodeJS.Timeout | null = null;
+
+    const done = (voice: SpeechSynthesisVoice | null) => {
+      if (!resolved) {
+        resolved = true;
+        if (timer) clearTimeout(timer);
+        try {
+          if (typeof window.speechSynthesis.removeEventListener === 'function') {
+            window.speechSynthesis.removeEventListener('voiceschanged', onVoices);
+          } else if ('onvoiceschanged' in window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = null;
+          }
+        } catch (e) {}
+        resolve(voice);
+      }
+    };
+
+    const onVoices = () => {
+      const v = getAvailableSpeechVoice();
+      if (v) {
+        done(v);
+      }
+    };
+
+    try {
+      if (typeof window.speechSynthesis.addEventListener === 'function') {
+        window.speechSynthesis.addEventListener('voiceschanged', onVoices);
+      } else if ('onvoiceschanged' in window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = onVoices;
+      }
+    } catch (e) {}
+
+    timer = setTimeout(() => {
+      done(getAvailableSpeechVoice());
+    }, timeoutMs);
+  });
+}
+
+/**
  * Initializes voice listeners to handle asynchronous voice loading (Android/PWA)
  */
 export function initializeSpeech(onVoicesLoaded?: () => void): () => void {

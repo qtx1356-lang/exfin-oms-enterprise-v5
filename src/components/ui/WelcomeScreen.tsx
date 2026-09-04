@@ -4,7 +4,7 @@ import { MapPin, ArrowRight, Sparkles, CheckCircle2, Zap, Target, Lock, Check } 
 import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { logStartupTag } from '../../services/startup/startupPerformanceLogger';
-import { initializeSpeech, speakGreeting, stopGreeting, isSpeechAvailable } from '../../services/speech/greetingSpeechService';
+import { initializeSpeech, speakGreeting, stopGreeting, isSpeechAvailable, waitForSpeechVoices } from '../../services/speech/greetingSpeechService';
 import { playGreetingAudio, preloadGreetingAudio, stopGreetingAudio } from '../../services/audio/greetingAudioService';
 import { GreetingPeriodKey } from '../../services/voice/greetingAssets';
 import { getTodayAttendanceRecord } from '../../services/attendance/attendanceStorage';
@@ -227,43 +227,54 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     const lastTrigger = Number(sessionStorage.getItem('exfin_welcome_greeting_last_time') || '0');
     if (now - lastTrigger < 3000) return;
 
-    speechTriggeredRef.current = true;
-    sessionStorage.setItem('exfin_welcome_greeting_last_time', String(now));
-
-    logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
+    let isCancelled = false;
 
     // Build personalized spoken greeting (e.g. "Good Morning, Sanjiv!")
     const spokenGreeting = firstName
       ? `${greetingInfo.label}, ${firstName}!`
       : `${greetingInfo.label}!`;
 
-    console.log('[WelcomeScreen] Automatic personalized greeting attempt:', {
-      spokenGreeting,
-      periodKey: greetingInfo.periodKey,
-      firstName,
-      isSpeechAvailable: isSpeechAvailable()
-    });
+    const triggerGreeting = async () => {
+      // For registered employees with firstName, SpeechSynthesis MUST be used
+      if (isSpeechAvailable()) {
+        // Await bounded voice readiness (mobile PWA / Android Chrome voice initialization)
+        await waitForSpeechVoices(800);
+        if (isCancelled || speechTriggeredRef.current) return;
 
-    if (isSpeechAvailable()) {
-      setIsSpeaking(true);
-      const started = speakGreeting(spokenGreeting, {
-        isUserGesture: false,
-        onStart: () => setIsSpeaking(true),
-        onEnd: () => setIsSpeaking(false),
-        onError: () => setIsSpeaking(false)
-      });
-      if (!started) {
-        setIsSpeaking(false);
+        speechTriggeredRef.current = true;
+        sessionStorage.setItem('exfin_welcome_greeting_last_time', String(Date.now()));
+        logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
+
+        setIsSpeaking(true);
+        const started = speakGreeting(spokenGreeting, {
+          isUserGesture: false,
+          onStart: () => setIsSpeaking(true),
+          onEnd: () => setIsSpeaking(false),
+          onError: () => setIsSpeaking(false)
+        });
+        if (!started) {
+          setIsSpeaking(false);
+        }
+      } else if (!firstName) {
+        // Fallback to pre-recorded audio ONLY for anonymous/unregistered users without firstName
+        speechTriggeredRef.current = true;
+        sessionStorage.setItem('exfin_welcome_greeting_last_time', String(Date.now()));
+        logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
+
+        setIsSpeaking(true);
+        playGreetingAudio(greetingInfo.periodKey, {
+          onStart: () => setIsSpeaking(true),
+          onEnd: () => setIsSpeaking(false),
+          onError: () => setIsSpeaking(false)
+        });
       }
-    } else {
-      // Direct local audio attempt if SpeechSynthesis is unavailable
-      setIsSpeaking(true);
-      playGreetingAudio(greetingInfo.periodKey, {
-        onStart: () => setIsSpeaking(true),
-        onEnd: () => setIsSpeaking(false),
-        onError: () => setIsSpeaking(false)
-      });
-    }
+    };
+
+    triggerGreeting();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [firstName, employeeData, status, greetingInfo]);
 
   // Derive Location & Distance display states dynamically
