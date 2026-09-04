@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, DocumentSnapshot, DocumentData } from 'firebase/firestore';
-import { auth, db } from '../services/firebase/config';
+import { auth, db, app } from '../services/firebase/config';
 import { clearNotificationStorageForUser, dispatchNotificationsUpdated } from '../services/notification/notificationStorage';
 import { AppRole } from '../types/roles';
 import { changeOwnPassword as executeChangeOwnPassword } from '../services/admin/adminPasswordService';
@@ -69,6 +69,119 @@ const getDocWithRetry = async (
   throw lastError;
 };
 
+/**
+ * Parses raw Firestore REST API document fields into standard JS object.
+ */
+function parseFirestoreRestFields(fields: any): Record<string, any> {
+  if (!fields || typeof fields !== 'object') return {};
+  const result: Record<string, any> = {};
+  for (const [key, valObj] of Object.entries<any>(fields)) {
+    if (!valObj || typeof valObj !== 'object') continue;
+    if ('stringValue' in valObj) result[key] = valObj.stringValue;
+    else if ('booleanValue' in valObj) result[key] = valObj.booleanValue;
+    else if ('integerValue' in valObj) result[key] = parseInt(valObj.integerValue, 10);
+    else if ('doubleValue' in valObj) result[key] = parseFloat(valObj.doubleValue);
+    else if ('timestampValue' in valObj) result[key] = valObj.timestampValue;
+    else if ('nullValue' in valObj) result[key] = null;
+    else if ('mapValue' in valObj) result[key] = parseFirestoreRestFields(valObj.mapValue?.fields);
+  }
+  return result;
+}
+
+/**
+ * Direct HTTPS REST resolution for login_ids/{normalizedLoginId}.
+ * Completely independent of Firestore WebChannel connection state.
+ */
+async function resolveLoginIdViaRest(
+  normalizedLoginId: string
+): Promise<{ email: string; uid: string; exists: boolean } | null> {
+  const apiKey = app?.options?.apiKey;
+  const projectId = app?.options?.projectId;
+  if (!apiKey || !projectId || projectId === 'your-firebase-project-id') {
+    return null;
+  }
+
+  const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents/login_ids/${encodeURIComponent(normalizedLoginId)}?key=${encodeURIComponent(apiKey)}`;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (response.status === 404) {
+      return { email: '', uid: '', exists: false };
+    }
+
+    if (response.ok) {
+      const data = await response.json();
+      const parsed = parseFirestoreRestFields(data.fields);
+      return {
+        email: parsed.email || '',
+        uid: parsed.uid || '',
+        exists: true,
+      };
+    }
+  } catch (e) {
+    console.warn('[AdminAuthContext] Firestore REST lookup warning:', e);
+  }
+
+  return null;
+}
+
+/**
+ * Direct HTTPS REST resolution for admin_users/{uid} using the user's Auth token.
+ */
+async function fetchAdminUserViaRest(
+  uid: string,
+  idToken: string
+): Promise<{ exists: boolean; data?: Record<string, any> } | null> {
+  const apiKey = app?.options?.apiKey;
+  const projectId = app?.options?.projectId;
+  if (!apiKey || !projectId || projectId === 'your-firebase-project-id') {
+    return null;
+  }
+
+  const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/(default)/documents/admin_users/${encodeURIComponent(uid)}?key=${encodeURIComponent(apiKey)}`;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${idToken}`,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (response.status === 404) {
+      return { exists: false };
+    }
+
+    if (response.ok) {
+      const data = await response.json();
+      const parsed = parseFirestoreRestFields(data.fields);
+      return {
+        exists: true,
+        data: parsed,
+      };
+    }
+  } catch (e) {
+    console.warn('[AdminAuthContext] Admin user REST lookup warning:', e);
+  }
+
+  return null;
+}
+
 export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   React.useEffect(() => {
     console.log(`[FLICKER-TRACE] AdminAuthProvider MOUNT ${getTime()}`);
@@ -89,66 +202,80 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const fetchAdminProfile = useCallback(async (u: User) => {
     const activeDb = db.concrete || db;
-    if (!activeDb) return;
+    let adminData: Record<string, any> | null = null;
+    let docFound = false;
 
-    try {
-      const adminDoc = await getDocWithRetry(doc(activeDb, 'admin_users', u.uid), 3, 300);
-
-      if (adminDoc.exists()) {
-        const data = adminDoc.data();
-        const isActive = data.active !== false && data.status !== 'Suspended';
-        const userRole = (data.role as AppRole) || 'ADMIN';
-        const requiresPwdChange = !!data.mustChangePassword;
-        const pwdChangedTime = data.passwordChangedAt || null;
-        const pwdResetTime = data.passwordResetAt || null;
-
-        setMustChangePassword(requiresPwdChange);
-        setPasswordChangedAt(pwdChangedTime);
-        setPasswordResetAt(pwdResetTime);
-
-        if (isActive && (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'HR')) {
-          setRole(userRole);
-          setAuthorizedOffice(data.authorizedOffice || 'ALL');
-          setLoginId(data.loginId || '');
-          setAdminProfileError(null);
-          try {
-            localStorage.setItem(`cached_admin_profile_${u.uid}`, JSON.stringify({
-              role: userRole,
-              authorizedOffice: data.authorizedOffice || 'ALL',
-              loginId: data.loginId || '',
-              mustChangePassword: requiresPwdChange,
-              passwordChangedAt: pwdChangedTime,
-              passwordResetAt: pwdResetTime,
-            }));
-          } catch (e) {}
-        } else if (!isActive) {
-          setRole('EMPLOYEE');
-          setAuthorizedOffice('');
-          setLoginId('');
-          setAdminProfileError('Your account is inactive. Please contact the administrator.');
+    // Attempt 1: Firestore SDK
+    if (activeDb) {
+      try {
+        const adminDoc = await getDocWithRetry(doc(activeDb, 'admin_users', u.uid), 2, 250);
+        if (adminDoc.exists()) {
+          adminData = adminDoc.data();
+          docFound = true;
         } else {
-          setRole(userRole);
-          setAuthorizedOffice('');
-          setLoginId('');
-          setAdminProfileError('Your account does not have Admin access privileges.');
+          docFound = false;
         }
-      } else {
-        // Document missing
+      } catch (err: any) {
+        // Attempt 2: REST API fallback if Firestore SDK has connection lag
+        try {
+          const idToken = await u.getIdToken();
+          const restResult = await fetchAdminUserViaRest(u.uid, idToken);
+          if (restResult) {
+            if (restResult.exists && restResult.data) {
+              adminData = restResult.data;
+              docFound = true;
+            } else {
+              docFound = false;
+            }
+          }
+        } catch (restErr) {}
+      }
+    }
+
+    if (docFound && adminData) {
+      const isActive = adminData.active !== false && adminData.status !== 'Suspended';
+      const userRole = (adminData.role as AppRole) || 'ADMIN';
+      const requiresPwdChange = !!adminData.mustChangePassword;
+      const pwdChangedTime = adminData.passwordChangedAt || null;
+      const pwdResetTime = adminData.passwordResetAt || null;
+
+      setMustChangePassword(requiresPwdChange);
+      setPasswordChangedAt(pwdChangedTime);
+      setPasswordResetAt(pwdResetTime);
+
+      if (isActive && (userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'HR')) {
+        setRole(userRole);
+        setAuthorizedOffice(adminData.authorizedOffice || 'ALL');
+        setLoginId(adminData.loginId || '');
+        setAdminProfileError(null);
+        try {
+          localStorage.setItem(`cached_admin_profile_${u.uid}`, JSON.stringify({
+            role: userRole,
+            authorizedOffice: adminData.authorizedOffice || 'ALL',
+            loginId: adminData.loginId || '',
+            mustChangePassword: requiresPwdChange,
+            passwordChangedAt: pwdChangedTime,
+            passwordResetAt: pwdResetTime,
+          }));
+        } catch (e) {}
+      } else if (!isActive) {
         setRole('EMPLOYEE');
         setAuthorizedOffice('');
         setLoginId('');
-        setMustChangePassword(false);
-        setAdminProfileError('Your account is authenticated, but your Admin profile has not been provisioned yet. Please contact the administrator.');
+        setAdminProfileError('Your account is inactive. Please contact the administrator.');
+      } else {
+        setRole(userRole);
+        setAuthorizedOffice('');
+        setLoginId('');
+        setAdminProfileError('Your account does not have Admin access privileges.');
       }
-    } catch (err: any) {
-      console.error("Error fetching admin role:", err);
-      if (!navigator.onLine || isTransientFirestoreError(err)) {
-        setAdminProfileError(null);
-        return;
-      }
+    } else if (docFound === false && adminData === null) {
+      // Document missing
       setRole('EMPLOYEE');
       setAuthorizedOffice('');
-      setAdminProfileError('Error validating Admin profile: ' + (err.message || 'Unknown error'));
+      setLoginId('');
+      setMustChangePassword(false);
+      setAdminProfileError('Your account is authenticated, but your Admin profile has not been provisioned yet. Please contact the administrator.');
     }
   }, []);
 
@@ -232,7 +359,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const activeAuth = auth.concrete || auth;
     const activeDb = db.concrete || db;
-    if (!activeAuth || !activeDb) throw new Error('Firebase services not initialized');
+    if (!activeAuth) throw new Error('Firebase services not initialized');
     
     isLoggingInRef.current = true;
 
@@ -243,61 +370,72 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       let emailToAuth = '';
       let expectedUid = '';
 
-      // Step 1: Resolve Login ID via Firestore with retry
-      try {
-        const loginDoc = await getDocWithRetry(doc(activeDb, 'login_ids', normalizedLoginId), 3, 300);
-        if (loginDoc.exists()) {
-          const mappingData = loginDoc.data();
-          emailToAuth = mappingData?.email || '';
-          expectedUid = mappingData?.uid || '';
-          
-          // Securely cache mapping for transient network resilience (does NOT grant auth on its own)
-          if (emailToAuth) {
-            try {
-              localStorage.setItem(`cached_login_mapping_${normalizedLoginId}`, JSON.stringify({
-                email: emailToAuth,
-                uid: expectedUid,
-              }));
-            } catch (e) {}
-          }
-        } else if (inputCleaned.includes('@')) {
-          // Fallback for direct email login if not found as a Login ID
-          emailToAuth = inputCleaned;
-        } else {
-          throw new Error(`Login ID "${inputCleaned}" not found.`);
-        }
-      } catch (err: any) {
-        if (err.message && err.message.includes('not found')) {
-          throw err;
-        }
-        
-        // If Firestore had a transient error, check for a previously stored mapping
-        let hasCachedMapping = false;
+      // Step 1: Resolve Login ID -> email & expectedUid
+      if (inputCleaned.includes('@')) {
+        // Direct email input
+        emailToAuth = inputCleaned;
+      } else {
+        // Resolve Login ID without being blocked by Firestore WebChannel stream
+        let resolutionSucceeded = false;
+
+        // Method A: Direct HTTPS REST (Immediate, not blocked by WebChannel/streaming lock)
         try {
-          const cachedRaw = localStorage.getItem(`cached_login_mapping_${normalizedLoginId}`);
-          if (cachedRaw) {
-            const parsed = JSON.parse(cachedRaw);
-            if (parsed?.email) {
-              emailToAuth = parsed.email;
-              expectedUid = parsed.uid || '';
-              hasCachedMapping = true;
+          const restResult = await resolveLoginIdViaRest(normalizedLoginId);
+          if (restResult) {
+            if (restResult.exists && restResult.email) {
+              emailToAuth = restResult.email;
+              expectedUid = restResult.uid || '';
+              resolutionSucceeded = true;
+            } else if (!restResult.exists) {
+              throw new Error(`Login ID "${inputCleaned}" not found.`);
             }
           }
-        } catch (e) {}
-
-        if (!hasCachedMapping) {
-          if (inputCleaned.includes('@')) {
-            emailToAuth = inputCleaned;
-          } else if (!navigator.onLine || isTransientFirestoreError(err)) {
-            throw new Error('Unable to connect to the authentication service. Please check your internet connection and try again.');
-          } else {
-            throw new Error(`The login service is temporarily unavailable. Please try again in a moment.`);
+        } catch (restErr: any) {
+          if (restErr.message && restErr.message.includes('not found')) {
+            throw restErr;
           }
         }
-      }
 
-      if (!emailToAuth) {
-        throw new Error('Could not resolve an email address for authentication.');
+        // Method B: Client Firestore SDK (with retry)
+        if (!resolutionSucceeded && activeDb) {
+          try {
+            const loginDoc = await getDocWithRetry(doc(activeDb, 'login_ids', normalizedLoginId), 2, 250);
+            if (loginDoc.exists()) {
+              const mappingData = loginDoc.data();
+              emailToAuth = mappingData?.email || '';
+              expectedUid = mappingData?.uid || '';
+              resolutionSucceeded = true;
+            } else {
+              throw new Error(`Login ID "${inputCleaned}" not found.`);
+            }
+          } catch (sdkErr: any) {
+            if (sdkErr.message && sdkErr.message.includes('not found')) {
+              throw sdkErr;
+            }
+          }
+        }
+
+        // Method C: Cached mapping fallback (for network resiliency, does NOT grant auth on its own)
+        if (!resolutionSucceeded) {
+          try {
+            const cachedRaw = localStorage.getItem(`cached_login_mapping_${normalizedLoginId}`);
+            if (cachedRaw) {
+              const parsed = JSON.parse(cachedRaw);
+              if (parsed?.email) {
+                emailToAuth = parsed.email;
+                expectedUid = parsed.uid || '';
+                resolutionSucceeded = true;
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (!resolutionSucceeded || !emailToAuth) {
+          if (!navigator.onLine) {
+            throw new Error('Unable to connect to the login service. Please check your internet connection and try again.');
+          }
+          throw new Error(`Unable to resolve Login ID "${inputCleaned}". Please check your internet connection and try again.`);
+        }
       }
 
       // Step 2: Attempt Firebase Authentication (Mandatory Authority)
@@ -334,91 +472,83 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         throw new Error('Security violation: Authenticated user does not match the mapped Login ID profile.');
       }
 
-      // Step 4: Verify Active State and Admin Profile in admin_users
-      try {
-        let adminDoc;
+      // Cache mapping only AFTER successful Firebase authentication
+      if (normalizedLoginId && emailToAuth) {
         try {
-          adminDoc = await getDocWithRetry(doc(activeDb, 'admin_users', u.uid), 3, 300);
-        } catch (docErr: any) {
-          // If Firestore is transiently offline right after auth succeeds, check for cached profile for this specific authenticated UID
-          if (isTransientFirestoreError(docErr)) {
-            const cachedAdminRaw = localStorage.getItem(`cached_admin_profile_${u.uid}`);
-            if (cachedAdminRaw) {
-              try {
-                const cachedAdmin = JSON.parse(cachedAdminRaw);
-                if (cachedAdmin?.role && (cachedAdmin.role === 'ADMIN' || cachedAdmin.role === 'SUPER_ADMIN' || cachedAdmin.role === 'HR')) {
-                  setRole(cachedAdmin.role as AppRole);
-                  setAuthorizedOffice(cachedAdmin.authorizedOffice || 'ALL');
-                  setLoginId(cachedAdmin.loginId || normalizedLoginId);
-                  setMustChangePassword(!!cachedAdmin.mustChangePassword);
-                  setPasswordChangedAt(cachedAdmin.passwordChangedAt || null);
-                  setPasswordResetAt(cachedAdmin.passwordResetAt || null);
-                  setAdminProfileError(null);
-                  return; // Successfully authenticated with verified cached profile
-                }
-              } catch (e) {}
-            }
-            await signOut(activeAuth);
-            throw new Error('Unable to verify Admin profile permissions due to network unavailability. Please try again.');
+          localStorage.setItem(`cached_login_mapping_${normalizedLoginId}`, JSON.stringify({
+            email: emailToAuth,
+            uid: u.uid,
+          }));
+        } catch (e) {}
+      }
+
+      // Step 4: Verify Active State and Live Admin Profile in admin_users
+      let adminData: Record<string, any> | null = null;
+      let docFound = false;
+
+      // Method A: Firestore SDK
+      if (activeDb) {
+        try {
+          const adminDoc = await getDocWithRetry(doc(activeDb, 'admin_users', u.uid), 2, 250);
+          if (adminDoc.exists()) {
+            adminData = adminDoc.data();
+            docFound = true;
           }
-          throw docErr;
-        }
-
-        if (adminDoc.exists()) {
-          const data = adminDoc.data();
-          const isActive = data.active !== false && data.status !== 'Suspended';
-          const userRole = (data.role as AppRole) || 'ADMIN';
-          const isPermittedRole = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'HR';
-
-          if (!isActive) {
-            await signOut(activeAuth);
-            throw new Error('Your account is inactive. Please contact the administrator.');
-          }
-
-          if (!isPermittedRole) {
-            await signOut(activeAuth);
-            throw new Error('Your account does not have Admin access privileges.');
-          }
-
-          const requiresPwdChange = !!data.mustChangePassword;
-          const pwdChangedTime = data.passwordChangedAt || null;
-          const pwdResetTime = data.passwordResetAt || null;
-
-          setMustChangePassword(requiresPwdChange);
-          setPasswordChangedAt(pwdChangedTime);
-          setPasswordResetAt(pwdResetTime);
-          setRole(userRole);
-          setAuthorizedOffice(data.authorizedOffice || 'ALL');
-          setLoginId(data.loginId || normalizedLoginId);
-          setAdminProfileError(null);
-
+        } catch (docErr) {
+          // Method B: REST API fallback with Auth Token
           try {
-            localStorage.setItem(`cached_admin_profile_${u.uid}`, JSON.stringify({
-              role: userRole,
-              authorizedOffice: data.authorizedOffice || 'ALL',
-              loginId: data.loginId || normalizedLoginId,
-              mustChangePassword: requiresPwdChange,
-              passwordChangedAt: pwdChangedTime,
-              passwordResetAt: pwdResetTime,
-            }));
-          } catch (e) {}
-        } else {
+            const idToken = await u.getIdToken();
+            const restResult = await fetchAdminUserViaRest(u.uid, idToken);
+            if (restResult) {
+              if (restResult.exists && restResult.data) {
+                adminData = restResult.data;
+                docFound = true;
+              }
+            }
+          } catch (restErr) {}
+        }
+      }
+
+      if (docFound && adminData) {
+        const isActive = adminData.active !== false && adminData.status !== 'Suspended';
+        const userRole = (adminData.role as AppRole) || 'ADMIN';
+        const isPermittedRole = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN' || userRole === 'HR';
+
+        if (!isActive) {
           await signOut(activeAuth);
-          throw new Error('Admin profile not found. Access denied.');
+          throw new Error('Your account is inactive. Please contact the administrator.');
         }
-      } catch (err: any) {
-        if (
-          err.message.includes('inactive') ||
-          err.message.includes('privileges') ||
-          err.message.includes('not found') ||
-          err.message.includes('denied') ||
-          err.message.includes('Security violation') ||
-          err.message.includes('network unavailability')
-        ) {
-          throw err;
+
+        if (!isPermittedRole) {
+          await signOut(activeAuth);
+          throw new Error('Your account does not have Admin access privileges.');
         }
+
+        const requiresPwdChange = !!adminData.mustChangePassword;
+        const pwdChangedTime = adminData.passwordChangedAt || null;
+        const pwdResetTime = adminData.passwordResetAt || null;
+
+        setMustChangePassword(requiresPwdChange);
+        setPasswordChangedAt(pwdChangedTime);
+        setPasswordResetAt(pwdResetTime);
+        setRole(userRole);
+        setAuthorizedOffice(adminData.authorizedOffice || 'ALL');
+        setLoginId(adminData.loginId || normalizedLoginId);
+        setAdminProfileError(null);
+
+        try {
+          localStorage.setItem(`cached_admin_profile_${u.uid}`, JSON.stringify({
+            role: userRole,
+            authorizedOffice: adminData.authorizedOffice || 'ALL',
+            loginId: adminData.loginId || normalizedLoginId,
+            mustChangePassword: requiresPwdChange,
+            passwordChangedAt: pwdChangedTime,
+            passwordResetAt: pwdResetTime,
+          }));
+        } catch (e) {}
+      } else {
         await signOut(activeAuth);
-        throw new Error(`Profile verification failed: ${err.message || 'Unknown error'}`);
+        throw new Error('Admin profile not found. Access denied.');
       }
     } finally {
       isLoggingInRef.current = false;
