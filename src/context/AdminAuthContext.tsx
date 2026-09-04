@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, DocumentSnapshot, DocumentData } from 'firebase/firestore';
-import { auth, db, app } from '../services/firebase/config';
+import { auth, db, app, adminApp } from '../services/firebase/config';
 import { clearNotificationStorageForUser, dispatchNotificationsUpdated } from '../services/notification/notificationStorage';
 import { AppRole } from '../types/roles';
 import { changeOwnPassword as executeChangeOwnPassword } from '../services/admin/adminPasswordService';
@@ -89,56 +89,59 @@ function parseFirestoreRestFields(fields: any): Record<string, any> {
 }
 
 /**
- * Resolves Firebase REST configuration directly from build-time environment variables
- * with safe fallback to initialized Firebase app options.
+ * Resolves Firebase REST configuration in order of priority:
+ * 1. Existing initialized Firebase app configuration (app.options / adminApp.options)
+ * 2. Existing config.ts / Firebase configuration helper if appropriate
+ * 3. Optional override from build-time environment (VITE_FIREBASE_*)
  */
 function getFirebaseRestConfig(): {
   apiKey: string;
   projectId: string;
   databaseId: string;
+  source: 'EXISTING_APP' | 'CONFIG_HELPER' | 'VITE_ENV' | 'NONE';
 } {
   let apiKey = '';
   let projectId = '';
   let databaseId = '(default)';
+  let source: 'EXISTING_APP' | 'CONFIG_HELPER' | 'VITE_ENV' | 'NONE' = 'NONE';
 
+  // 1. Existing initialized Firebase application configuration (already used successfully by the app)
+  const appOptions = (app?.options as any) || (adminApp?.options as any);
+  if (appOptions?.projectId) {
+    projectId = appOptions.projectId;
+    apiKey = appOptions.apiKey || '';
+    databaseId = appOptions.firestoreDatabaseId || '(default)';
+    source = 'EXISTING_APP';
+  }
+
+  // 2. Optional VITE_FIREBASE_* override if available
   try {
-    apiKey = import.meta.env.VITE_FIREBASE_API_KEY || '';
+    const envApiKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_API_KEY) || '';
+    const envProjectId = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_PROJECT_ID) || '';
+    if (envProjectId && envProjectId !== 'your-firebase-project-id') {
+      projectId = envProjectId;
+      if (envApiKey && !envApiKey.includes('Placeholder')) {
+        apiKey = envApiKey;
+      }
+      source = 'VITE_ENV';
+    }
   } catch (e) {}
 
-  try {
-    projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || '';
-  } catch (e) {}
-
-  if (!apiKey) {
-    apiKey = (app?.options as any)?.apiKey || '';
-  }
-  if (!projectId) {
-    projectId = (app?.options as any)?.projectId || '';
-  }
-
-  databaseId = (app?.options as any)?.firestoreDatabaseId || '(default)';
-
-  // Disregard generic placeholders
-  if (
-    !projectId ||
-    projectId === 'your-firebase-project-id' ||
-    projectId.includes('placeholder')
-  ) {
-    projectId = '';
-  }
-  if (
-    !apiKey ||
-    apiKey.includes('Placeholder') ||
-    apiKey === 'your-api-key' ||
-    apiKey.length < 10
-  ) {
-    apiKey = '';
+  if (!projectId || projectId === 'your-firebase-project-id') {
+    if (appOptions?.projectId) {
+      projectId = appOptions.projectId;
+      apiKey = appOptions.apiKey || '';
+      source = 'EXISTING_APP';
+    } else {
+      source = 'NONE';
+    }
   }
 
   return {
     apiKey,
     projectId,
     databaseId: databaseId || '(default)',
+    source,
   };
 }
 
@@ -157,26 +160,28 @@ async function resolveLoginIdViaRest(
   error?: string;
   status?: number;
 }> {
-  const { apiKey, projectId, databaseId } = getFirebaseRestConfig();
+  const { apiKey, projectId, databaseId, source } = getFirebaseRestConfig();
 
   console.log('[ADMIN_LOGIN_REST_RESOLUTION] Initiating REST lookup:', {
     normalizedLoginId,
     projectId,
     databaseId,
     apiKeyPresent: !!apiKey,
-    apiKeyLength: apiKey ? apiKey.length : 0,
+    configurationSource: source,
   });
 
-  if (!apiKey || !projectId) {
-    console.warn('[ADMIN_LOGIN_REST_ERROR] Firebase configuration is missing or placeholder in client build.');
+  if (!projectId) {
+    console.warn('[ADMIN_LOGIN_REST_ERROR] Firebase project configuration not available for REST.');
     return {
       success: false,
       configMissing: true,
-      error: 'Firebase authentication configuration is unavailable.',
+      error: 'Firebase project configuration unavailable.',
     };
   }
 
-  const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents/login_ids/${encodeURIComponent(normalizedLoginId)}?key=${encodeURIComponent(apiKey)}`;
+  const url = apiKey
+    ? `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents/login_ids/${encodeURIComponent(normalizedLoginId)}?key=${encodeURIComponent(apiKey)}`
+    : `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents/login_ids/${encodeURIComponent(normalizedLoginId)}`;
 
   try {
     const controller = new AbortController();
@@ -284,11 +289,13 @@ async function fetchAdminUserViaRest(
 ): Promise<{ exists: boolean; data?: Record<string, any>; error?: string } | null> {
   const { apiKey, projectId, databaseId } = getFirebaseRestConfig();
 
-  if (!apiKey || !projectId) {
+  if (!projectId) {
     return null;
   }
 
-  const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents/admin_users/${encodeURIComponent(uid)}?key=${encodeURIComponent(apiKey)}`;
+  const url = apiKey
+    ? `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents/admin_users/${encodeURIComponent(uid)}?key=${encodeURIComponent(apiKey)}`
+    : `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/databases/${encodeURIComponent(databaseId)}/documents/admin_users/${encodeURIComponent(uid)}`;
 
   try {
     const controller = new AbortController();
@@ -529,10 +536,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         let restFailureReason = '';
         try {
           const restResult = await resolveLoginIdViaRest(normalizedLoginId);
-          if (restResult.configMissing) {
-            console.warn('[ADMIN_LOGIN_REST_ERROR] Firebase configuration missing in client.');
-            throw new Error(restResult.error || 'Firebase authentication configuration is unavailable.');
-          } else if (restResult.notFound) {
+          if (restResult.notFound) {
             throw new Error(`Login ID "${inputCleaned}" does not exist.`);
           } else if (restResult.success && restResult.email) {
             emailToAuth = restResult.email;
@@ -540,23 +544,13 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             resolutionSucceeded = true;
           } else if (restResult.error) {
             restFailureReason = restResult.error;
-            if (
-              restResult.error.includes('mapping is invalid') ||
-              restResult.error.includes('unauthorized') ||
-              restResult.error.includes('access denied')
-            ) {
-              throw new Error(restResult.error);
-            }
+            console.warn('[ADMIN_LOGIN_REST_WARNING] REST lookup did not resolve, attempting Firestore SDK fallback:', restResult.error);
           }
         } catch (restErr: any) {
           if (
             restErr.message &&
             (restErr.message.includes('does not exist') ||
-              restErr.message.includes('not found') ||
-              restErr.message.includes('configuration is unavailable') ||
-              restErr.message.includes('mapping is invalid') ||
-              restErr.message.includes('unauthorized') ||
-              restErr.message.includes('access denied'))
+              restErr.message.includes('not found'))
           ) {
             throw restErr;
           }
