@@ -2,7 +2,7 @@ import { API_BASE_URL } from '@/src/utils/apiConfig';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { AttendanceRecord } from '../../types/attendance';
-import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic } from '../../utils/attendanceUtils';
+import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic, isAdminContextActive } from '../../utils/attendanceUtils';
 import {
   getPendingAttendanceRecords,
   markRecordSyncedInLocal
@@ -149,7 +149,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
         let finalCheckInTownCity = record.checkInTownCity;
         let finalCheckInMode = record.checkInMode;
 
-        const isExplicitAdminCorrection = record.isAdminRectified || record.manualRectified;
+        const isExplicitAdminCorrection = (record.isAdminRectified || record.manualRectified) && isAdminContextActive();
         let finalGeofenceExitTime = record.geofenceExitTime;
         let finalGeofenceExitTimestamp = record.geofenceExitTimestamp;
         let finalLastExitTime = record.lastExitTime;
@@ -158,6 +158,20 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
         let finalRecordedExitTime = record.recordedExitTime;
         let finalExitDetectedAt = record.exitDetectedAt;
         let finalExitDetectionSource = record.exitDetectionSource;
+
+        let finalCheckOutTime = record.checkOutTime;
+        let finalCheckoutStatus = record.checkoutStatus;
+        let finalStatus = record.status;
+        let finalWorkingHours = record.workingHours;
+        let finalIsAdminRectified = record.isAdminRectified;
+        let finalManualRectified = record.manualRectified;
+        let finalCheckoutResolvedBy = record.checkoutResolvedBy;
+        let finalCheckoutResolvedAt = record.checkoutResolvedAt;
+        let finalCorrectionHistory = record.correctionHistory;
+        let finalCheckoutType = record.checkoutType;
+        let finalResolutionSource = record.resolutionSource;
+        let finalCheckoutFinalizationSource = record.checkoutFinalizationSource;
+        let finalReason = record.reason;
 
         if (!isExplicitAdminCorrection) {
           try {
@@ -201,9 +215,76 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                   }
                 }
               }
+
+              // DEFENSIVE SERVER-AUTHORITY CHECK FOR FINALIZED / ADMIN-CORRECTED CHECKOUT:
+              // When the existing Firestore document contains isAdminRectified === true, manualRectified === true,
+              // or checkoutStatus === "COMPLETED", employee synchronization MUST NOT overwrite the server's finalized
+              // checkout information with stale local values.
+              const isServerCheckoutProtected = !!(
+                serverData.isAdminRectified === true ||
+                serverData.manualRectified === true ||
+                serverData.checkoutStatus === 'COMPLETED'
+              );
+
+              if (isServerCheckoutProtected) {
+                if (serverData.checkOutTime !== undefined && serverData.checkOutTime !== null) {
+                  finalCheckOutTime = serverData.checkOutTime;
+                }
+                if (serverData.checkoutStatus) {
+                  finalCheckoutStatus = serverData.checkoutStatus;
+                }
+                if (serverData.status) {
+                  finalStatus = serverData.status;
+                }
+                if (serverData.workingHours !== undefined && serverData.workingHours !== null) {
+                  finalWorkingHours = serverData.workingHours;
+                }
+                if (serverData.isAdminRectified !== undefined) {
+                  finalIsAdminRectified = serverData.isAdminRectified;
+                }
+                if (serverData.manualRectified !== undefined) {
+                  finalManualRectified = serverData.manualRectified;
+                }
+                if (serverData.checkoutResolvedBy) {
+                  finalCheckoutResolvedBy = serverData.checkoutResolvedBy;
+                }
+                if (serverData.checkoutResolvedAt) {
+                  finalCheckoutResolvedAt = serverData.checkoutResolvedAt;
+                }
+                if (serverData.correctionHistory && Array.isArray(serverData.correctionHistory)) {
+                  finalCorrectionHistory = serverData.correctionHistory;
+                }
+                if (serverData.checkoutType) {
+                  finalCheckoutType = serverData.checkoutType;
+                }
+                if (serverData.resolutionSource) {
+                  finalResolutionSource = serverData.resolutionSource;
+                }
+                if (serverData.checkoutFinalizationSource) {
+                  finalCheckoutFinalizationSource = serverData.checkoutFinalizationSource;
+                }
+                if (serverData.reason !== undefined && serverData.reason !== null) {
+                  finalReason = serverData.reason;
+                }
+
+                // Synchronize in-memory record to prevent local drift
+                record.checkOutTime = finalCheckOutTime;
+                record.checkoutStatus = finalCheckoutStatus;
+                record.status = finalStatus;
+                record.workingHours = finalWorkingHours;
+                record.isAdminRectified = finalIsAdminRectified;
+                record.manualRectified = finalManualRectified;
+                record.checkoutResolvedBy = finalCheckoutResolvedBy;
+                record.checkoutResolvedAt = finalCheckoutResolvedAt;
+                record.correctionHistory = finalCorrectionHistory;
+                record.checkoutType = finalCheckoutType;
+                record.resolutionSource = finalResolutionSource;
+                record.checkoutFinalizationSource = finalCheckoutFinalizationSource;
+                if (finalReason !== undefined) record.reason = finalReason;
+              }
             }
           } catch (readErr) {
-            console.warn('[SyncEngine] Non-fatal check on existing server checkInTime/geofenceExitTime:', readErr);
+            console.warn('[SyncEngine] Non-fatal check on existing server checkInTime/geofenceExitTime/checkout:', readErr);
           }
         }
 
@@ -220,14 +301,25 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           checkInDistance: finalCheckInDistance,
           checkInTownCity: finalCheckInTownCity,
           checkInMode: finalCheckInMode,
-          checkOutTime: record.checkOutTime,
+          checkOutTime: finalCheckOutTime,
+          checkoutStatus: finalCheckoutStatus,
+          status: finalStatus,
+          workingHours: finalWorkingHours,
+          isAdminRectified: finalIsAdminRectified,
+          manualRectified: finalManualRectified,
+          checkoutResolvedBy: finalCheckoutResolvedBy || null,
+          checkoutResolvedAt: finalCheckoutResolvedAt || null,
+          correctionHistory: finalCorrectionHistory || [],
+          checkoutType: finalCheckoutType || null,
+          resolutionSource: finalResolutionSource || null,
+          reason: finalReason !== undefined ? finalReason : (record.reason || null),
           recordedExitTime: finalRecordedExitTime || finalGeofenceExitTime || null,
           exitDetectedAt: finalExitDetectedAt || finalGeofenceExitTimestamp || null,
           exitDetectionSource: finalExitDetectionSource || (finalGeofenceExitTime ? 'NATIVE_GEOFENCE' : null),
           appOpenedAt: record.appOpenedAt || null,
           confirmationDisplayedAt: record.confirmationDisplayedAt || null,
           confirmationCompletedAt: record.confirmationCompletedAt || null,
-          checkoutFinalizationSource: record.checkoutFinalizationSource || null,
+          checkoutFinalizationSource: finalCheckoutFinalizationSource || record.checkoutFinalizationSource || null,
           geofenceExitTime: finalGeofenceExitTime || null,
           geofenceExitTimestamp: finalGeofenceExitTimestamp || null,
           lastExitTime: finalLastExitTime || record.lastExitTime || null,

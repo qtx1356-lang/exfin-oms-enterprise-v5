@@ -372,6 +372,10 @@ export const saveMultipleAttendanceRecords = (newRecords: AttendanceRecord[]): v
     });
     cachedRecordsMemory[getStorageKey()] = records;
     localStorage.setItem(getStorageKey(), JSON.stringify(records));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+    }
   } catch (err) {
     console.error('Failed to save multiple attendance records locally:', err);
   }
