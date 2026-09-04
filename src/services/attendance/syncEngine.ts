@@ -8,6 +8,7 @@ import {
   markRecordSyncedInLocal
 } from './attendanceStorage';
 import { parseAttendanceTimeToMinutes } from './automaticAttendanceEngine';
+import { calculateWorkingHours } from './smartAttendanceEngine';
 import { 
   getPendingEventsFromQueue, 
   markEventSyncedInQueue 
@@ -218,38 +219,74 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
 
               // DEFENSIVE SERVER-AUTHORITY CHECK FOR FINALIZED / ADMIN-CORRECTED CHECKOUT:
               // When the existing Firestore document contains isAdminRectified === true, manualRectified === true,
-              // or checkoutStatus === "COMPLETED", employee synchronization MUST NOT overwrite the server's finalized
-              // checkout information with stale local values.
+              // checkoutStatus === "COMPLETED" / "FINALIZED", or valid Admin correction history with correctedCheckOut,
+              // employee synchronization MUST NOT overwrite the server's finalized checkout information with stale local values.
+              const hasCorrectionWithCheckout = Array.isArray(serverData.correctionHistory) && serverData.correctionHistory.some((c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
+
               const isServerCheckoutProtected = !!(
                 serverData.isAdminRectified === true ||
                 serverData.manualRectified === true ||
-                serverData.checkoutStatus === 'COMPLETED'
+                serverData.checkoutStatus === 'COMPLETED' ||
+                serverData.checkoutStatus === 'FINALIZED' ||
+                hasCorrectionWithCheckout
               );
 
               if (isServerCheckoutProtected) {
-                if (serverData.checkOutTime !== undefined && serverData.checkOutTime !== null) {
-                  finalCheckOutTime = serverData.checkOutTime;
+                // Recover or protect checkout time:
+                let authoritativeCheckOutTime = serverData.checkOutTime;
+                if ((authoritativeCheckOutTime === undefined || authoritativeCheckOutTime === null || authoritativeCheckOutTime === 'UNRESOLVED' || authoritativeCheckOutTime === '--:--') && Array.isArray(serverData.correctionHistory)) {
+                  const latestCorrection = [...serverData.correctionHistory].reverse().find((c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
+                  if (latestCorrection && latestCorrection.correctedCheckOut) {
+                    authoritativeCheckOutTime = latestCorrection.correctedCheckOut;
+                  }
                 }
-                if (serverData.checkoutStatus) {
+
+                if (authoritativeCheckOutTime !== undefined && authoritativeCheckOutTime !== null && authoritativeCheckOutTime !== 'UNRESOLVED' && authoritativeCheckOutTime !== '--:--') {
+                  finalCheckOutTime = authoritativeCheckOutTime;
+                }
+
+                // Protect checkout status: Never downgrade a completed or rectified record to UNRESOLVED
+                if (serverData.checkoutStatus && serverData.checkoutStatus !== 'UNRESOLVED') {
                   finalCheckoutStatus = serverData.checkoutStatus;
+                } else if (finalCheckOutTime && finalCheckOutTime !== '--:--' && finalCheckOutTime !== 'UNRESOLVED') {
+                  finalCheckoutStatus = 'COMPLETED';
                 }
-                if (serverData.status) {
+
+                // Protect status: Never downgrade a completed or present record to UNRESOLVED
+                if (serverData.status && serverData.status !== 'UNRESOLVED') {
                   finalStatus = serverData.status;
+                } else if (finalCheckOutTime && finalCheckOutTime !== '--:--' && finalCheckOutTime !== 'UNRESOLVED') {
+                  finalStatus = 'PRESENT';
                 }
-                if (serverData.workingHours !== undefined && serverData.workingHours !== null) {
+
+                // Protect/Recover workingHours
+                if (serverData.workingHours !== undefined && serverData.workingHours !== null && serverData.workingHours !== '') {
                   finalWorkingHours = serverData.workingHours;
+                } else if (finalCheckInTime && finalCheckOutTime) {
+                  finalWorkingHours = calculateWorkingHours(finalCheckInTime, finalCheckOutTime);
                 }
+
                 if (serverData.isAdminRectified !== undefined) {
                   finalIsAdminRectified = serverData.isAdminRectified;
+                } else {
+                  finalIsAdminRectified = true;
                 }
                 if (serverData.manualRectified !== undefined) {
                   finalManualRectified = serverData.manualRectified;
+                } else {
+                  finalManualRectified = true;
                 }
                 if (serverData.checkoutResolvedBy) {
                   finalCheckoutResolvedBy = serverData.checkoutResolvedBy;
+                } else if (Array.isArray(serverData.correctionHistory) && serverData.correctionHistory.length > 0) {
+                  const lastCorr = serverData.correctionHistory[serverData.correctionHistory.length - 1];
+                  if (lastCorr?.correctedBy) finalCheckoutResolvedBy = lastCorr.correctedBy;
                 }
                 if (serverData.checkoutResolvedAt) {
                   finalCheckoutResolvedAt = serverData.checkoutResolvedAt;
+                } else if (Array.isArray(serverData.correctionHistory) && serverData.correctionHistory.length > 0) {
+                  const lastCorr = serverData.correctionHistory[serverData.correctionHistory.length - 1];
+                  if (lastCorr?.correctedAt) finalCheckoutResolvedAt = lastCorr.correctedAt;
                 }
                 if (serverData.correctionHistory && Array.isArray(serverData.correctionHistory)) {
                   finalCorrectionHistory = serverData.correctionHistory;
@@ -267,6 +304,13 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                   finalReason = serverData.reason;
                 }
 
+                // Version handling: Preserve higher server version if present
+                if (typeof serverData.version === 'number') {
+                  if (record.version === undefined || serverData.version > record.version) {
+                    record.version = serverData.version;
+                  }
+                }
+
                 // Synchronize in-memory record to prevent local drift
                 record.checkOutTime = finalCheckOutTime;
                 record.checkoutStatus = finalCheckoutStatus;
@@ -281,6 +325,32 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                 record.resolutionSource = finalResolutionSource;
                 record.checkoutFinalizationSource = finalCheckoutFinalizationSource;
                 if (finalReason !== undefined) record.reason = finalReason;
+              } else if (
+                serverData.checkOutTime !== undefined &&
+                serverData.checkOutTime !== null &&
+                serverData.checkOutTime !== '--:--' &&
+                serverData.checkOutTime !== 'UNRESOLVED' &&
+                (!record.checkOutTime || record.checkOutTime === '--:--' || record.checkOutTime === 'UNRESOLVED')
+              ) {
+                // Server already has a valid checkout time, do not let stale local null/unresolved overwrite it
+                finalCheckOutTime = serverData.checkOutTime;
+                if (serverData.checkoutStatus && serverData.checkoutStatus !== 'UNRESOLVED') {
+                  finalCheckoutStatus = serverData.checkoutStatus;
+                } else {
+                  finalCheckoutStatus = 'COMPLETED';
+                }
+                if (serverData.status && serverData.status !== 'UNRESOLVED') {
+                  finalStatus = serverData.status;
+                }
+                if (serverData.workingHours) {
+                  finalWorkingHours = serverData.workingHours;
+                } else if (finalCheckInTime && finalCheckOutTime) {
+                  finalWorkingHours = calculateWorkingHours(finalCheckInTime, finalCheckOutTime);
+                }
+                record.checkOutTime = finalCheckOutTime;
+                record.checkoutStatus = finalCheckoutStatus;
+                record.status = finalStatus;
+                record.workingHours = finalWorkingHours;
               }
             }
           } catch (readErr) {

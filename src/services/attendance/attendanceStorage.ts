@@ -305,6 +305,37 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
       }
     }
 
+    // DEFENSIVE ADMIN-AUTHORITATIVE CHECKOUT PRESERVATION (LOCAL STORAGE):
+    const isExistingCheckoutProtected = !!(
+      existingRecord.isAdminRectified ||
+      existingRecord.manualRectified ||
+      existingRecord.checkoutStatus === 'COMPLETED' ||
+      existingRecord.checkoutStatus === 'FINALIZED' ||
+      (Array.isArray(existingRecord.correctionHistory) && existingRecord.correctionHistory.some((c: any) => c && c.correctedCheckOut))
+    );
+
+    if (isExistingCheckoutProtected && !isExplicitAdminCorrection) {
+      let recoveredCheckOutTime = existingRecord.checkOutTime;
+      if ((!recoveredCheckOutTime || recoveredCheckOutTime === 'UNRESOLVED' || recoveredCheckOutTime === '--:--') && Array.isArray(existingRecord.correctionHistory)) {
+        const latestCorrection = [...existingRecord.correctionHistory].reverse().find((c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
+        if (latestCorrection && latestCorrection.correctedCheckOut) {
+          recoveredCheckOutTime = latestCorrection.correctedCheckOut;
+        }
+      }
+
+      if (recoveredCheckOutTime && recoveredCheckOutTime !== 'UNRESOLVED' && recoveredCheckOutTime !== '--:--') {
+        record.checkOutTime = recoveredCheckOutTime;
+        record.checkoutStatus = existingRecord.checkoutStatus && existingRecord.checkoutStatus !== 'UNRESOLVED' ? existingRecord.checkoutStatus : 'COMPLETED';
+        record.status = existingRecord.status && existingRecord.status !== 'UNRESOLVED' ? existingRecord.status : 'PRESENT';
+        record.isAdminRectified = existingRecord.isAdminRectified ?? true;
+        record.manualRectified = existingRecord.manualRectified ?? true;
+        record.checkoutResolvedBy = existingRecord.checkoutResolvedBy || 'admin';
+        record.checkoutResolvedAt = existingRecord.checkoutResolvedAt || (existingRecord.correctionHistory?.[0] as any)?.correctedAt;
+        record.correctionHistory = existingRecord.correctionHistory;
+        record.workingHours = existingRecord.workingHours || calculateWorkingHours(record.checkInTime, record.checkOutTime);
+      }
+    }
+
     // Authoritatively calculate workingHours when valid check-in and check-out exist
     if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
       record.workingHours = null;
