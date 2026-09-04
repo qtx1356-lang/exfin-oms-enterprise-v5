@@ -216,6 +216,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     // Prevent duplicate playback during re-renders or state updates within this session
     if (speechTriggeredRef.current) return;
 
+    // Prevent premature triggering while employee identity is still hydrating asynchronously
+    const isIdentityLoading = (status === 'loading') || (status === 'Approved' && !employeeData && !firstName);
+    if (isIdentityLoading) {
+      return;
+    }
+
     // Prevent immediate double-execution in React StrictMode / instant startup remounts (< 3000ms)
     const now = Date.now();
     const lastTrigger = Number(sessionStorage.getItem('exfin_welcome_greeting_last_time') || '0');
@@ -226,7 +232,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
     logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
 
-    // Build personalized spoken greeting (e.g. "Good Morning, Alex!")
+    // Build personalized spoken greeting (e.g. "Good Morning, Sanjiv!")
     const spokenGreeting = firstName
       ? `${greetingInfo.label}, ${firstName}!`
       : `${greetingInfo.label}!`;
@@ -258,7 +264,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         onError: () => setIsSpeaking(false)
       });
     }
-  }, [firstName, greetingInfo]);
+  }, [firstName, employeeData, status, greetingInfo]);
 
   // Derive Location & Distance display states dynamically
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
