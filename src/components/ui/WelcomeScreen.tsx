@@ -142,27 +142,63 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const displayName = employeeData?.name || cachedName;
   const isRegistered = status === 'Approved' || !!displayName;
 
-  // Extract employee's first name safely (e.g., "Alex Johnson" -> "Alex")
+  // Extract employee's first name safely (e.g., "Sanjiv Sinha" -> "Sanjiv", "Rahul" -> "Rahul")
   const firstName = React.useMemo(() => {
-    if (!displayName) return null;
+    // 1. Prefer dedicated firstName field if available on profile/session
+    if (typeof employeeData?.firstName === 'string' && employeeData.firstName.trim()) {
+      const candidate = employeeData.firstName.trim();
+      const lower = candidate.toLowerCase();
+      if (
+        !['undefined', 'null', 'user', 'employee', 'admin', 'alex johnson'].includes(lower) &&
+        !candidate.includes('@') &&
+        !/^\+?[0-9\s\-()]+$/.test(candidate) &&
+        !/^[a-z]{2,}\d+$/i.test(candidate)
+      ) {
+        return candidate.charAt(0).toUpperCase() + candidate.slice(1);
+      }
+    }
+
+    // 2. Safely derive first name from full name or cached profile name
+    if (!displayName || typeof displayName !== 'string') return null;
     const trimmed = displayName.trim();
     if (!trimmed) return null;
 
     const lower = trimmed.toLowerCase();
-    if (['undefined', 'null', 'user', 'employee', 'admin'].includes(lower)) {
+    if (['undefined', 'null', 'user', 'employee', 'admin', 'alex johnson'].includes(lower)) {
       return null;
     }
 
-    const parts = trimmed.split(/\s+/);
+    // Reject raw emails, phone numbers, or employee codes
+    if (trimmed.includes('@') || trimmed.includes('.com') || trimmed.includes('.org')) {
+      return null;
+    }
+    if (/^\+?[0-9\s\-()]{7,}$/.test(trimmed)) {
+      return null;
+    }
+    if (/^[a-z]{2,}\d+$/i.test(trimmed)) {
+      return null;
+    }
+
+    const parts = trimmed.split(/\s+/).filter(Boolean);
     if (parts.length === 0) return null;
 
     let first = parts[0];
-    const isTitle = /^(mr|ms|mrs|dr|prof)\.?$/i.test(first);
+    const isTitle = /^(mr|ms|mrs|dr|prof|shri|smt)\.?$/i.test(first);
     if (isTitle && parts.length > 1) {
       first = parts[1];
     }
+
+    const firstLower = first.toLowerCase();
+    if (
+      ['undefined', 'null', 'user', 'employee', 'admin'].includes(firstLower) ||
+      /^\+?[0-9\s\-()]+$/.test(first) ||
+      /^[a-z]{2,}\d+$/i.test(first)
+    ) {
+      return null;
+    }
+
     return first.charAt(0).toUpperCase() + first.slice(1);
-  }, [displayName]);
+  }, [employeeData, displayName]);
 
   // Voice initialization & Audio handlers
   useEffect(() => {
