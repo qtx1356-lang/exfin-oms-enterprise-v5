@@ -9,14 +9,14 @@
 ## Quick Start Guide
 
 1. **Read Documentation:**  
-   Open the `documentation/` folder and read `README_FIRST.md` and `INSTALLATION.md`.
+   Open the `documentation/` (or `CODESTER_DOCUMENTATION/`) folder and read `README_FIRST.md` and `INSTALLATION.md`.
 
 2. **Web & Backend Source Setup:**  
    ```bash
-   cd source
+   # From project root (or inside /source if using a distribution archive)
    npm install
    cp .env.example .env
-   # Add your Firebase and Gemini credentials to .env
+   # Add your Firebase and optional Gemini credentials to .env
    npm run dev
    ```
 

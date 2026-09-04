@@ -53,7 +53,7 @@ export async function sendMail(payload: EmailPayload): Promise<SendEmailResult> 
   }
 
   // Set sender to the authenticated Gmail account with friendly display name
-  const fromName = process.env.EMAIL_FROM_NAME || 'EXFIN OMS Admin Report';
+  const fromName = process.env.EMAIL_FROM_NAME || 'Smart Workforce Admin Report';
   const from = process.env.SMTP_FROM || `${fromName} <${user}>`;
   const to = `${fromName} <${user}>`;
   const replyTo = user;

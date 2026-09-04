@@ -192,18 +192,37 @@ export const isAttendanceCheckoutUnresolved = (record: AttendanceRecord): boolea
  * Get the effective checkout status for UI display.
  */
 export const getEffectiveCheckoutStatus = (record: AttendanceRecord): 'COMPLETED' | 'FINALIZED' | 'UNRESOLVED' | 'PENDING_ADMIN_REVIEW' | 'PENDING_EXIT_CONFIRMATION' | 'PENDING_AUTO_CHECKOUT' | 'UNRESOLVED_CHECKOUT' | undefined => {
+  if (record.checkoutStatus === 'PENDING_ADMIN_REVIEW') return 'PENDING_ADMIN_REVIEW';
+
+  const checkOutValue = (record.checkOutTime || '').trim();
+  const isCheckOutMissing = !checkOutValue || checkOutValue === '--:--' || checkOutValue === '--:-- --' || checkOutValue === 'Pending' || checkOutValue === 'N/A';
+  
+  const hasAuthoritativeExit = !!(
+    record.recordedExitTime || 
+    record.geofenceExitTime || 
+    record.geofenceExitTimestamp || 
+    record.exitDetectedAt || 
+    (record as any).checkoutType === 'AUTO_CHECKOUT'
+  );
+
+  // A genuine finalized automatic/native checkout with valid checkout timestamp -> RESOLVED / FINALIZED
+  if (!isCheckOutMissing && hasAuthoritativeExit) {
+    if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'UNRESOLVED_CHECKOUT') {
+      return 'COMPLETED';
+    }
+  }
+
   if (record.checkoutStatus === 'FINALIZED') return 'FINALIZED';
   if (record.checkoutStatus === 'COMPLETED') return 'COMPLETED';
   if (record.checkoutStatus === 'PENDING_EXIT_CONFIRMATION') return 'PENDING_EXIT_CONFIRMATION';
   if (record.checkoutStatus === 'PENDING_AUTO_CHECKOUT') return 'PENDING_AUTO_CHECKOUT';
-  if (record.checkoutStatus === 'PENDING_ADMIN_REVIEW') return 'PENDING_ADMIN_REVIEW';
   if (record.checkoutStatus === 'UNRESOLVED_CHECKOUT') return 'UNRESOLVED_CHECKOUT';
   
   if (isAttendanceCheckoutUnresolved(record)) {
     return 'UNRESOLVED';
   }
   
-  return record.checkoutStatus;
+  return record.checkoutStatus as any;
 };
 
 /**
@@ -280,7 +299,8 @@ export const getCheckInDistanceInMeters = (record: AttendanceRecord | null | und
 export const getCheckoutDistanceInMeters = (record: AttendanceRecord | null | undefined): number | null => {
   if (!record) return null;
   // If checkout has not occurred yet or is unresolved
-  if (isAttendanceCheckoutUnresolved(record) || record.checkoutStatus === 'UNRESOLVED') {
+  const effStatus = getEffectiveCheckoutStatus(record);
+  if (effStatus === 'UNRESOLVED') {
     return null;
   }
   if (!record.checkOutTime || record.checkOutTime === 'Pending' || record.checkOutTime === 'N/A' || record.checkOutTime === '--:--' || record.checkOutTime.trim() === '') {
@@ -351,7 +371,8 @@ export const getCheckoutLocationDetails = (record: AttendanceRecord): {
     return { time: '--:--', location: 'Location unavailable', distance: null, rawDistance: null, isUnresolved: false, metersFormatted: null };
   }
 
-  const unresolved = isAttendanceCheckoutUnresolved(record) || record.checkoutStatus === 'UNRESOLVED';
+  const effStatus = getEffectiveCheckoutStatus(record);
+  const unresolved = effStatus === 'UNRESOLVED';
   let time = '--:--';
   
   if (record.checkOutTime && record.checkOutTime !== 'Pending' && record.checkOutTime !== 'N/A' && record.checkOutTime !== '--:--') {
@@ -390,7 +411,7 @@ export const getCheckoutLocationDetails = (record: AttendanceRecord): {
  * 1. Current location is obtained from the authoritative LiveEmployeeLocation object
  *    (live_locations collection in Firestore) or record.currentLatitude/Longitude.
  * 2. Distance is ALWAYS mathematically recalculated from live GPS coordinates
- *    against OFFICE_LOCATION (23.616227, 87.117063) using Haversine formula.
+ *    against OFFICE_LOCATION (0.0, 0.0) using Haversine formula.
  * 3. Stored `distanceFromOffice` or `currentDistance` is NEVER blindly trusted.
  * 4. NEVER falls back to check-in coordinates (checkInLatitude / checkInLongitude)
  *    for Current Location.
@@ -415,7 +436,7 @@ export const getCurrentLocationDetails = (
     const lat = liveLocation.latitude;
     const lon = liveLocation.longitude;
 
-    // Recalculate distance dynamically against OFFICE_LOCATION (23.616227, 87.117063)
+    // Recalculate distance dynamically against OFFICE_LOCATION (0.0, 0.0)
     const calculatedMeters = getDistanceFromLatLonInM(
       lat,
       lon,

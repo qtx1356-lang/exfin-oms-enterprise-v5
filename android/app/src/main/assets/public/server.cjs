@@ -25,9 +25,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var import_express = __toESM(require("express"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_fs = __toESM(require("fs"), 1);
-var import_app = require("firebase-admin/app");
-var import_firestore3 = require("firebase-admin/firestore");
-var import_auth = require("firebase-admin/auth");
+var import_app2 = require("firebase-admin/app");
+var import_firestore5 = require("firebase-admin/firestore");
+var import_auth2 = require("firebase-admin/auth");
 var import_vite = require("vite");
 var import_genai = require("@google/genai");
 
@@ -56,7 +56,7 @@ var DEFAULT_META_TEMPLATES = {
   MISSING_CHECKOUT_REMINDER: { enabled: true, templateName: "exfin_attendance_missing_checkout", languageCode: "en" }
 };
 var DEFAULT_WHATSAPP_TEMPLATES = {
-  AUTO_CHECK_IN: `EXFIN OMS \u2013 Auto Check-In
+  AUTO_CHECK_IN: `Smart Workforce \u2013 Auto Check-In
 
 Employee: {{employeeName}}
 Employee Code: {{employeeCode}}
@@ -65,7 +65,7 @@ Time: {{checkInTime}}
 Location: {{townCity}}
 Distance: {{distance}} m
 Status: PRESENT`,
-  MANUAL_CHECK_IN: `EXFIN OMS \u2013 Manual Check-In
+  MANUAL_CHECK_IN: `Smart Workforce \u2013 Manual Check-In
 
 Employee: {{employeeName}}
 Employee Code: {{employeeCode}}
@@ -74,7 +74,7 @@ Time: {{checkInTime}}
 Location: {{townCity}}
 Distance: {{distance}} m
 Status: PRESENT`,
-  CHECK_OUT: `EXFIN OMS \u2013 Checkout
+  CHECK_OUT: `Smart Workforce \u2013 Checkout
 
 Employee: {{employeeName}}
 Employee Code: {{employeeCode}}
@@ -82,14 +82,14 @@ Mode: {{attendanceType}}
 Check-in: {{checkInTime}}
 Check-out: {{checkOutTime}}
 Working Hours: {{workingHours}}`,
-  WFH: `EXFIN OMS \u2013 Work From Home
+  WFH: `Smart Workforce \u2013 Work From Home
 
 Employee: {{employeeName}}
 Employee Code: {{employeeCode}}
 Time: {{checkInTime}}
 Reason: {{wfhReason}}
 Work Plan: {{workPlan}}`,
-  CLIENT_VISIT: `EXFIN OMS \u2013 Client Visit
+  CLIENT_VISIT: `Smart Workforce \u2013 Client Visit
 
 Employee: {{employeeName}}
 Employee Code: {{employeeCode}}
@@ -97,33 +97,33 @@ Client: {{clientName}}
 Location: {{clientLocation}}
 Time: {{checkInTime}}
 Purpose: {{purpose}}`,
-  OUTDOOR_WORK: `EXFIN OMS \u2013 Outdoor Work
+  OUTDOOR_WORK: `Smart Workforce \u2013 Outdoor Work
 
 Employee: {{employeeName}}
 Employee Code: {{employeeCode}}
 Type: {{outdoorType}}
 Time: {{checkInTime}}
 Description: {{description}}`,
-  LATE_CHECK_IN: `EXFIN OMS \u2013 Late Check-In Alert
+  LATE_CHECK_IN: `Smart Workforce \u2013 Late Check-In Alert
 
 Employee: {{employeeName}}
 Employee Code: {{employeeCode}}
 Time: {{checkInTime}}
 Status: LATE`,
-  OUTSIDE_OFFICE: `EXFIN OMS \u2013 Office Exit Alert
+  OUTSIDE_OFFICE: `Smart Workforce \u2013 Office Exit Alert
 
 Employee: {{employeeName}}
 Employee Code: {{employeeCode}}
 Time: {{eventTime}}
 Location: {{townCity}}
 Status: OUTSIDE_OFFICE`,
-  MISSING_CHECKOUT_REMINDER: `EXFIN OMS \u2013 Missing Checkout Reminder
+  MISSING_CHECKOUT_REMINDER: `Smart Workforce \u2013 Missing Checkout Reminder
 
 Employee: {{employeeName}}
 Employee Code: {{employeeCode}}
 Check-in: {{checkInTime}}
 Please finalize your checkout for today.`,
-  GENERAL_ALERT: `EXFIN OMS Alert
+  GENERAL_ALERT: `Smart Workforce Alert
 
 {{customMessage}}`
 };
@@ -160,7 +160,7 @@ function getWhatsAppEnvCredentials() {
     isConfigured
   };
 }
-async function getWhatsAppConfig(db2) {
+async function getWhatsAppConfig(db3) {
   const envCreds = getWhatsAppEnvCredentials();
   const defaultConfig = {
     globalEnabled: true,
@@ -171,7 +171,7 @@ async function getWhatsAppConfig(db2) {
     metaTemplates: DEFAULT_META_TEMPLATES
   };
   try {
-    const docRef = db2.doc(CONFIG_DOC_PATH);
+    const docRef = db3.doc(CONFIG_DOC_PATH);
     const snap = await docRef.get();
     if (snap.exists) {
       const data = snap.data() || {};
@@ -197,8 +197,8 @@ async function getWhatsAppConfig(db2) {
   }
   return defaultConfig;
 }
-async function saveWhatsAppConfig(db2, configUpdate, updaterName) {
-  const current = await getWhatsAppConfig(db2);
+async function saveWhatsAppConfig(db3, configUpdate, updaterName) {
+  const current = await getWhatsAppConfig(db3);
   const updated = {
     ...current,
     ...configUpdate,
@@ -213,7 +213,7 @@ async function saveWhatsAppConfig(db2, configUpdate, updaterName) {
     updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
     updatedBy: updaterName || "SUPER_ADMIN"
   };
-  const docRef = db2.doc(CONFIG_DOC_PATH);
+  const docRef = db3.doc(CONFIG_DOC_PATH);
   await docRef.set(updated, { merge: true });
   return updated;
 }
@@ -277,9 +277,9 @@ function buildTemplateParameters(eventType, payload) {
       ];
   }
 }
-async function isWhatsAppEnabledInMatrix(db2, eventType) {
+async function isWhatsAppEnabledInMatrix(db3, eventType) {
   try {
-    const snap = await db2.doc(MATRIX_DOC_PATH).get();
+    const snap = await db3.doc(MATRIX_DOC_PATH).get();
     if (snap.exists) {
       const data = snap.data() || {};
       const matrix = data.matrix || [];
@@ -294,8 +294,8 @@ async function isWhatsAppEnabledInMatrix(db2, eventType) {
   return true;
 }
 async function sendMetaWhatsAppMessage(recipientPhone, options) {
-  const env = getWhatsAppEnvCredentials();
-  if (!env.isConfigured) {
+  const env2 = getWhatsAppEnvCredentials();
+  if (!env2.isConfigured) {
     return {
       success: false,
       error: "WhatsApp API credentials not configured in server environment (WHATSAPP_API_TOKEN or WHATSAPP_PHONE_NUMBER_ID missing)."
@@ -308,7 +308,7 @@ async function sendMetaWhatsAppMessage(recipientPhone, options) {
       error: `Invalid recipient phone number: ${recipientPhone}`
     };
   }
-  const endpoint = `https://graph.facebook.com/${env.apiVersion}/${env.phoneNumberId}/messages`;
+  const endpoint = `https://graph.facebook.com/${env2.apiVersion}/${env2.phoneNumberId}/messages`;
   let bodyPayload;
   if (typeof options === "string") {
     bodyPayload = {
@@ -354,7 +354,7 @@ async function sendMetaWhatsAppMessage(recipientPhone, options) {
       type: "text",
       text: {
         preview_url: false,
-        body: options.textBody || "EXFIN OMS Notification"
+        body: options.textBody || "Smart Workforce Notification"
       }
     };
   } else {
@@ -367,7 +367,7 @@ async function sendMetaWhatsAppMessage(recipientPhone, options) {
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${env.apiToken}`,
+        "Authorization": `Bearer ${env2.apiToken}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(bodyPayload)
@@ -394,10 +394,10 @@ async function sendMetaWhatsAppMessage(recipientPhone, options) {
     };
   }
 }
-async function reserveWhatsAppDispatchSlot(db2, idempotencyKey, payload, recipient) {
+async function reserveWhatsAppDispatchSlot(db3, idempotencyKey, payload, recipient) {
   try {
-    const docRef = db2.collection("whatsapp_delivery_logs").doc(idempotencyKey);
-    const result = await db2.runTransaction(async (transaction) => {
+    const docRef = db3.collection("whatsapp_delivery_logs").doc(idempotencyKey);
+    const result = await db3.runTransaction(async (transaction) => {
       const docSnap = await transaction.get(docRef);
       const nowIso = (/* @__PURE__ */ new Date()).toISOString();
       if (docSnap.exists) {
@@ -444,10 +444,10 @@ async function reserveWhatsAppDispatchSlot(db2, idempotencyKey, payload, recipie
     return { canSend: false, status: "ERROR", reason: "TRANSACTION_FAILED" };
   }
 }
-async function finalizeWhatsAppDeliveryLog(db2, idempotencyKey, data) {
+async function finalizeWhatsAppDeliveryLog(db3, idempotencyKey, data) {
   try {
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-    const docRef = db2.collection("whatsapp_delivery_logs").doc(idempotencyKey);
+    const docRef = db3.collection("whatsapp_delivery_logs").doc(idempotencyKey);
     await docRef.set({
       idempotencyKey,
       ...data,
@@ -457,7 +457,7 @@ async function finalizeWhatsAppDeliveryLog(db2, idempotencyKey, data) {
       serverTimestamp: import_firestore.FieldValue.serverTimestamp()
     }, { merge: true });
     const notifId = `notif_wa_${idempotencyKey.replace(/[^a-zA-Z0-9_]/g, "_")}`;
-    const notifRef = db2.collection("notifications").doc(notifId);
+    const notifRef = db3.collection("notifications").doc(notifId);
     await notifRef.set({
       id: notifId,
       notificationId: notifId,
@@ -484,15 +484,15 @@ async function finalizeWhatsAppDeliveryLog(db2, idempotencyKey, data) {
     console.warn("[WhatsAppService] Failed to finalize delivery log in Firestore:", err);
   }
 }
-async function dispatchWhatsAppAttendanceNotification(db2, payload) {
+async function dispatchWhatsAppAttendanceNotification(db3, payload) {
   const results = [];
-  const env = getWhatsAppEnvCredentials();
-  const config = await getWhatsAppConfig(db2);
+  const env2 = getWhatsAppEnvCredentials();
+  const config = await getWhatsAppConfig(db3);
   if (!config.globalEnabled) {
     console.log("[WhatsAppService] Global WhatsApp notifications are OFF. Skipping dispatch.");
     return [{ recipient: "GLOBAL", status: "NOT_REQUIRED", error: "WhatsApp notifications disabled globally by Super-Admin" }];
   }
-  const isMatrixEnabled = await isWhatsAppEnabledInMatrix(db2, payload.eventType);
+  const isMatrixEnabled = await isWhatsAppEnabledInMatrix(db3, payload.eventType);
   if (!isMatrixEnabled) {
     console.log(`[WhatsAppService] WhatsApp is disabled in matrix for eventType: ${payload.eventType}. Skipping.`);
     return [{ recipient: "MATRIX", status: "NOT_REQUIRED", error: `WhatsApp disabled for ${payload.eventType}` }];
@@ -509,11 +509,11 @@ async function dispatchWhatsAppAttendanceNotification(db2, payload) {
       try {
         let regSnap = null;
         if (payload.employeeId) {
-          const doc = await db2.collection("registrations").doc(payload.employeeId).get();
-          if (doc.exists) regSnap = doc;
+          const doc2 = await db3.collection("registrations").doc(payload.employeeId).get();
+          if (doc2.exists) regSnap = doc2;
         }
         if (!regSnap && payload.employeeCode) {
-          const querySnap = await db2.collection("registrations").where("employeeCode", "==", payload.employeeCode).limit(1).get();
+          const querySnap = await db3.collection("registrations").where("employeeCode", "==", payload.employeeCode).limit(1).get();
           if (!querySnap.empty) regSnap = querySnap.docs[0];
         }
         if (regSnap && regSnap.exists) {
@@ -561,7 +561,7 @@ async function dispatchWhatsAppAttendanceNotification(db2, payload) {
       const phone = target.phone;
       const rawKey = `wa_${payload.eventId || "evt"}_${payload.eventType}_${phone}`;
       const idempotencyKey = rawKey.replace(/[^a-zA-Z0-9_]/g, "_");
-      await finalizeWhatsAppDeliveryLog(db2, idempotencyKey, {
+      await finalizeWhatsAppDeliveryLog(db3, idempotencyKey, {
         eventId: payload.eventId || "evt",
         eventType: payload.eventType,
         employeeId: payload.employeeId,
@@ -581,14 +581,14 @@ async function dispatchWhatsAppAttendanceNotification(db2, payload) {
     }
     return results;
   }
-  if (!env.isConfigured) {
+  if (!env2.isConfigured) {
     const diagnosticReason = "WhatsApp API credentials not configured in server environment (WHATSAPP_API_TOKEN or WHATSAPP_PHONE_NUMBER_ID missing)";
     console.warn(`[WhatsAppService] ${diagnosticReason}`);
     for (const target of targets) {
       const phone = target.phone;
       const rawKey = `wa_${payload.eventId || "evt"}_${payload.eventType}_${phone}`;
       const idempotencyKey = rawKey.replace(/[^a-zA-Z0-9_]/g, "_");
-      await finalizeWhatsAppDeliveryLog(db2, idempotencyKey, {
+      await finalizeWhatsAppDeliveryLog(db3, idempotencyKey, {
         eventId: payload.eventId || "evt",
         eventType: payload.eventType,
         employeeId: payload.employeeId,
@@ -615,7 +615,7 @@ async function dispatchWhatsAppAttendanceNotification(db2, payload) {
     const phone = target.phone;
     const rawKey = `wa_${payload.eventId || "evt"}_${payload.eventType}_${phone}`;
     const idempotencyKey = rawKey.replace(/[^a-zA-Z0-9_]/g, "_");
-    const reservation = await reserveWhatsAppDispatchSlot(db2, idempotencyKey, payload, phone);
+    const reservation = await reserveWhatsAppDispatchSlot(db3, idempotencyKey, payload, phone);
     if (!reservation.canSend) {
       console.log(`[WhatsAppService] Idempotency Hit for key ${idempotencyKey} (${reservation.reason}). Skipping duplicate.`);
       results.push({ recipient: phone, status: "IDEMPOTENT_SKIPPED" });
@@ -628,7 +628,7 @@ async function dispatchWhatsAppAttendanceNotification(db2, payload) {
       parameters: templateParams
     });
     if (sendRes.success) {
-      await finalizeWhatsAppDeliveryLog(db2, idempotencyKey, {
+      await finalizeWhatsAppDeliveryLog(db3, idempotencyKey, {
         eventId: payload.eventId || "evt",
         eventType: payload.eventType,
         employeeId: payload.employeeId,
@@ -642,7 +642,7 @@ async function dispatchWhatsAppAttendanceNotification(db2, payload) {
       });
       results.push({ recipient: phone, status: "DELIVERED", providerMessageId: sendRes.providerMessageId });
     } else {
-      await finalizeWhatsAppDeliveryLog(db2, idempotencyKey, {
+      await finalizeWhatsAppDeliveryLog(db3, idempotencyKey, {
         eventId: payload.eventId || "evt",
         eventType: payload.eventType,
         employeeId: payload.employeeId,
@@ -661,38 +661,48 @@ async function dispatchWhatsAppAttendanceNotification(db2, payload) {
 }
 
 // server/services/dailyAdminReportService.ts
-var import_firestore2 = require("firebase-admin/firestore");
+var import_firestore4 = require("firebase-admin/firestore");
 
 // server/services/emailService.ts
 var import_nodemailer = __toESM(require("nodemailer"), 1);
 async function sendMail(payload) {
-  const host = process.env.SMTP_HOST;
-  const portStr = process.env.SMTP_PORT || "587";
+  const host = process.env.SMTP_HOST || "smtp.gmail.com";
+  const portStr = process.env.SMTP_PORT || "465";
   const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || "EXFIN OMS <noreply@exfin-oms.internal>";
-  const isConfigured = !!(host && user && pass);
-  if (!isConfigured) {
-    console.log(`[SMTP Email Simulation]
-To: ${payload.to}
-Bcc: ${payload.bcc ? Array.isArray(payload.bcc) ? payload.bcc.join(", ") : payload.bcc : "None"}
-Subject: ${payload.subject}
-Body Size: ${payload.html.length} chars
---- FALLBACK SIMULATION ONLY ---`);
+  const pass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
+  if (!user || !pass) {
     return {
-      success: true,
-      simulated: true,
-      messageId: `sim_${Date.now()}_${Math.floor(Math.random() * 1e3)}`,
-      accepted: [payload.to, ...payload.bcc ? Array.isArray(payload.bcc) ? payload.bcc : [payload.bcc] : []]
+      success: false,
+      simulated: false,
+      error: "SMTP_USER or SMTP_PASSWORD is not configured in the production environment."
     };
   }
+  let toList = [];
+  if (Array.isArray(payload.to)) {
+    toList = payload.to.map((s) => s.trim()).filter(Boolean);
+  } else if (typeof payload.to === "string") {
+    toList = payload.to.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const validRecipients = toList.filter((e) => emailRegex.test(e));
+  if (validRecipients.length !== 3) {
+    return {
+      success: false,
+      simulated: false,
+      error: "EMAIL_RECIPIENTS contains invalid recipient configuration."
+    };
+  }
+  const fromName = process.env.EMAIL_FROM_NAME || "Smart Workforce Admin Report";
+  const from = process.env.SMTP_FROM || `${fromName} <${user}>`;
+  const to = `${fromName} <${user}>`;
+  const replyTo = user;
   try {
     const port = parseInt(portStr, 10);
+    const isSecure = port === 465 || process.env.SMTP_SECURE === "true";
     const transporter = import_nodemailer.default.createTransport({
       host,
       port,
-      secure: port === 465,
-      // Use SSL for port 465
+      secure: isSecure,
       auth: {
         user,
         pass
@@ -701,35 +711,554 @@ Body Size: ${payload.html.length} chars
         rejectUnauthorized: false
       }
     });
+    try {
+      await transporter.verify();
+      console.log(`[SMTP Email Dispatcher] Verified connection with ${host}:${port}`);
+    } catch (verifyErr) {
+      console.error(`[SMTP Email Dispatcher] Connection/Authentication failed:`, verifyErr);
+      const msg = verifyErr.message || String(verifyErr);
+      if (msg.includes("535") || msg.toLowerCase().includes("auth") || msg.toLowerCase().includes("credential") || msg.toLowerCase().includes("invalid login")) {
+        return {
+          success: false,
+          simulated: false,
+          error: "Gmail SMTP authentication failed."
+        };
+      }
+      return {
+        success: false,
+        simulated: false,
+        error: "Unable to connect to Gmail SMTP."
+      };
+    }
     const info = await transporter.sendMail({
       from,
-      to: payload.to,
-      bcc: payload.bcc,
+      to,
+      replyTo,
+      bcc: validRecipients,
       subject: payload.subject,
       html: payload.html
     });
-    console.log(`[SMTP Email Dispatcher] Sent email successfully to ${payload.to}. MessageId: ${info.messageId}`);
+    const accepted = info.accepted || [];
+    const rejected = info.rejected || [];
+    if (rejected.length > 0) {
+      return {
+        success: false,
+        simulated: false,
+        error: "Gmail rejected one or more recipients.",
+        accepted,
+        rejected
+      };
+    }
+    console.log(`[SMTP Email Dispatcher] Email accepted by Gmail SMTP to ${validRecipients.join(", ")}. MessageId: ${info.messageId}`);
     return {
       success: true,
       simulated: false,
+      message: "Email accepted by Gmail SMTP",
       messageId: info.messageId,
-      accepted: info.accepted || [],
-      rejected: info.rejected || []
+      recipientCount: validRecipients.length,
+      recipients: validRecipients,
+      accepted,
+      rejected
     };
   } catch (err) {
-    console.error(`[SMTP Email Dispatcher] Failed to send email to ${payload.to}:`, err);
+    console.error(`[SMTP Email Dispatcher] Failed to send email:`, err);
+    const msg = err.message || String(err);
+    if (msg.includes("535") || msg.toLowerCase().includes("auth") || msg.toLowerCase().includes("credential") || msg.toLowerCase().includes("invalid login")) {
+      return {
+        success: false,
+        simulated: false,
+        error: "Gmail SMTP authentication failed."
+      };
+    }
+    if (msg.toLowerCase().includes("connect") || msg.toLowerCase().includes("econnrefused") || msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("enotfound")) {
+      return {
+        success: false,
+        simulated: false,
+        error: "Unable to connect to Gmail SMTP."
+      };
+    }
+    if (msg.toLowerCase().includes("recipient") || msg.includes("550") || msg.includes("553")) {
+      return {
+        success: false,
+        simulated: false,
+        error: "Gmail rejected one or more recipients."
+      };
+    }
     return {
       success: false,
       simulated: false,
-      error: err.message || String(err)
+      error: msg
     };
   }
 }
 
+// src/types/planner.ts
+var isTaskOverdue = (task) => {
+  const rawStatus = (task.status || "").toUpperCase().trim();
+  if (rawStatus === "COMPLETED" || rawStatus === "CANCELLED" || rawStatus === "CANCEL") return false;
+  if (task.approvalStatus === "APPROVED") return false;
+  if (!task.dueDate) return false;
+  let dueDateTimeMs;
+  if (task.dueTime && !task.dueDate.includes("T")) {
+    dueDateTimeMs = (/* @__PURE__ */ new Date(`${task.dueDate}T${task.dueTime}:00`)).getTime();
+  } else {
+    if (task.dueDate.length === 10 && !task.dueDate.includes("T")) {
+      dueDateTimeMs = (/* @__PURE__ */ new Date(`${task.dueDate}T23:59:59`)).getTime();
+    } else {
+      dueDateTimeMs = new Date(task.dueDate).getTime();
+    }
+  }
+  if (isNaN(dueDateTimeMs)) return false;
+  return Date.now() > dueDateTimeMs;
+};
+var getNormalizedTaskStatus = (task) => {
+  const rawStatus = (task.status || "").toUpperCase().trim();
+  if (rawStatus === "CANCELLED" || rawStatus === "CANCEL") {
+    return "Cancelled";
+  }
+  if (rawStatus === "COMPLETED" || task.approvalStatus === "APPROVED") {
+    return "Completed";
+  }
+  if (rawStatus === "REVISION REQUESTED" || rawStatus === "REVISION_REQUESTED" || task.approvalStatus === "REVISION_REQUIRED") {
+    return "Revision Requested";
+  }
+  if (rawStatus === "SUBMITTED" || task.approvalStatus === "PENDING_REVIEW") {
+    return "Submitted";
+  }
+  if (isTaskOverdue(task)) {
+    return "Overdue";
+  }
+  if (rawStatus === "IN PROGRESS" || rawStatus === "IN_PROGRESS" || task.completionPercentage > 0 && task.completionPercentage < 100) {
+    return "In Progress";
+  }
+  return "Assigned";
+};
+var getEffectiveTaskStatus = (task) => {
+  return getNormalizedTaskStatus(task);
+};
+
+// src/types/efficiency.ts
+var getEfficiencyGrade = (score) => {
+  if (score >= 90) return "Excellent";
+  if (score >= 75) return "Very Good";
+  if (score >= 60) return "Good";
+  if (score >= 40) return "Needs Improvement";
+  return "Critical";
+};
+
+// src/services/efficiency/efficiencyCalculator.ts
+var isLateCheckIn = (checkInTimeStr) => {
+  if (!checkInTimeStr) return false;
+  try {
+    const trimmed = checkInTimeStr.trim().toUpperCase();
+    const parts = trimmed.split(" ");
+    if (parts.length < 2) return false;
+    const timePart = parts[0];
+    const modifier = parts[1];
+    let [hours, minutes] = timePart.split(":").map(Number);
+    if (modifier === "PM" && hours < 12) hours += 12;
+    if (modifier === "AM" && hours === 12) hours = 0;
+    const minutesSinceMidnight = hours * 60 + minutes;
+    const thresholdMinutes = 10 * 60 + 30;
+    return minutesSinceMidnight > thresholdMinutes;
+  } catch (err) {
+    return false;
+  }
+};
+var calculateExpectedWorkingDays = (startDateStr, endDateStr) => {
+  try {
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    const today = /* @__PURE__ */ new Date();
+    const limitDate = end < today ? end : today;
+    if (start > limitDate) return 0;
+    let count = 0;
+    const cur = new Date(start);
+    while (cur <= limitDate) {
+      const day = cur.getDay();
+      if (day !== 0 && day !== 6) {
+        count++;
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    return count || 1;
+  } catch (err) {
+    return 1;
+  }
+};
+var calcInvocationCount = 0;
+var calculateEfficiency = (employeeId, employeeCode, employeeName, department, teamLeaderId, startDateStr, endDateStr, tasks, attendanceRecords, weightages, workDetails = []) => {
+  calcInvocationCount++;
+  const calcId = calcInvocationCount;
+  const startTime = performance.now();
+  console.log(`[EFFICIENCY_CALC_START] #${calcId} for employee=${employeeCode || employeeId} (${employeeName}) period=${startDateStr}..${endDateStr} inputTasks=${tasks.length} inputAtt=${attendanceRecords.length} inputWorkDetails=${(workDetails || []).length}`);
+  const periodAttendance = attendanceRecords.filter((rec) => {
+    const rId = String(rec.employeeId || "").trim().toUpperCase();
+    const rCode = String(rec.employeeCode || "").trim().toUpperCase();
+    const tId = String(employeeId || "").trim().toUpperCase();
+    const tCode = String(employeeCode || "").trim().toUpperCase();
+    const matchId = rId && (rId === tCode || tId && rId === tId);
+    const matchCode = rCode && (rCode === tCode || tId && rCode === tId);
+    const isEmp = matchId || matchCode;
+    return isEmp && rec.date >= startDateStr && rec.date <= endDateStr;
+  });
+  const periodWorkDetails = (workDetails || []).filter((wd) => {
+    const wId = String(wd.employeeId || "").trim().toUpperCase();
+    const wCode = String(wd.employeeCode || "").trim().toUpperCase();
+    const tId = String(employeeId || "").trim().toUpperCase();
+    const tCode = String(employeeCode || "").trim().toUpperCase();
+    const matchId = wId && (wId === tCode || tId && wId === tId);
+    const matchCode = wCode && (wCode === tCode || tId && wCode === tId);
+    const isEmp = matchId || matchCode;
+    return isEmp && wd.date >= startDateStr && wd.date <= endDateStr;
+  });
+  const validWorkDetails = periodWorkDetails.filter((wd) => {
+    const text = (wd.workDetails || "").trim();
+    if (text.length < 15) return false;
+    const alphanumeric = text.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (alphanumeric.length < 10) return false;
+    const uniqueChars = new Set(alphanumeric).size;
+    return uniqueChars >= 4;
+  });
+  const periodTasks = tasks.filter((task) => {
+    const tId = String(employeeId || "").trim().toUpperCase();
+    const tCode = String(employeeCode || "").trim().toUpperCase();
+    const assignedCodes = Array.isArray(task.assignedToEmployeeCodes) ? task.assignedToEmployeeCodes.map((c) => String(c).trim().toUpperCase()) : [];
+    const assignedIds = Array.isArray(task.assignedToEmployeeIds) ? task.assignedToEmployeeIds.map((i) => String(i).trim().toUpperCase()) : [];
+    const creatorId = String(task.createdBy || "").trim().toUpperCase();
+    const assigneeCode = String(task.assigneeCode || "").trim().toUpperCase();
+    const assigneeId = String(task.assigneeId || "").trim().toUpperCase();
+    const assignedTo = String(task.assignedTo || "").trim().toUpperCase();
+    const empCodeField = String(task.employeeCode || "").trim().toUpperCase();
+    const isAssigned = tCode && assignedCodes.includes(tCode) || tId && assignedCodes.includes(tId) || tCode && assignedIds.includes(tCode) || tId && assignedIds.includes(tId) || tCode && creatorId === tCode || tId && creatorId === tId || tCode && assigneeCode === tCode || tId && assigneeCode === tId || tCode && assigneeId === tCode || tId && assigneeId === tId || tCode && assignedTo === tCode || tId && assignedTo === tId || tCode && empCodeField === tCode || tId && empCodeField === tId;
+    if (!isAssigned) return false;
+    const taskDate = task.dueDate || (task.completedAt ? task.completedAt.substring(0, 10) : task.createdAtDeviceTime ? task.createdAtDeviceTime.substring(0, 10) : "");
+    return taskDate >= startDateStr && taskDate <= endDateStr;
+  });
+  const dedupedTasksMap = /* @__PURE__ */ new Map();
+  periodTasks.forEach((t) => {
+    if (t.id) dedupedTasksMap.set(t.id, t);
+  });
+  const uniqueTasks = Array.from(dedupedTasksMap.values());
+  const validTasks = uniqueTasks.filter((t) => {
+    const s = (t.status || "").toUpperCase().trim();
+    return s !== "CANCELLED" && s !== "CANCEL";
+  });
+  const isCompletedTask = (t) => {
+    const s = (t.status || "").toUpperCase().trim();
+    return s === "COMPLETED" || t.approvalStatus === "APPROVED" || getEffectiveTaskStatus(t) === "Completed";
+  };
+  const isOverdueTask = (t) => {
+    return getEffectiveTaskStatus(t) === "Overdue";
+  };
+  const assignedTasksCount = validTasks.length;
+  const completedTasksCount = validTasks.filter(isCompletedTask).length;
+  const taskCompletionScore = assignedTasksCount > 0 ? Math.round(completedTasksCount / assignedTasksCount * 100) : -1;
+  const completedTasks = validTasks.filter(isCompletedTask);
+  let onTimeTasksCount = 0;
+  completedTasks.forEach((task) => {
+    if (task.completedAt && task.dueDate) {
+      const completedDateOnly = task.completedAt.substring(0, 10);
+      if (completedDateOnly <= task.dueDate) {
+        onTimeTasksCount++;
+      }
+    } else {
+      const effective = getEffectiveTaskStatus(task);
+      if (effective === "Completed") {
+        onTimeTasksCount++;
+      }
+    }
+  });
+  const onTimeCompletionScore = completedTasksCount > 0 ? Math.round(onTimeTasksCount / completedTasksCount * 100) : -1;
+  const reviewedTasks = completedTasks.filter(
+    (t) => t.approvalStatus === "APPROVED" || t.approvalStatus === "REVISION_REQUIRED" || t.revisions && t.revisions.length > 0
+  );
+  const approvedTasksCount = completedTasks.filter((t) => t.approvalStatus === "APPROVED" || !t.revisionCount && (!t.revisions || t.revisions.length === 0)).length;
+  const revisionRequiredTasksCount = completedTasks.filter((t) => t.approvalStatus === "REVISION_REQUIRED" || t.revisions && t.revisions.length > 0).length;
+  const totalRevisionRequests = completedTasks.reduce((sum, t) => sum + (t.revisionCount || t.revisions?.length || 0), 0);
+  let qualityScore = -1;
+  if (completedTasksCount > 0) {
+    if (reviewedTasks.length > 0) {
+      const baseRatioScore = approvedTasksCount / reviewedTasks.length * 100;
+      let progressiveRevPenalty = 0;
+      completedTasks.forEach((task) => {
+        const revs = task.revisionCount || task.revisions?.length || 0;
+        if (revs === 1) {
+          progressiveRevPenalty += 10;
+        } else if (revs === 2) {
+          progressiveRevPenalty += 25;
+        } else if (revs >= 3) {
+          progressiveRevPenalty += 50;
+        }
+      });
+      const normalizedRevPenalty = progressiveRevPenalty / completedTasksCount;
+      qualityScore = Math.max(0, Math.min(100, Math.round(baseRatioScore - normalizedRevPenalty)));
+    } else {
+      qualityScore = 100;
+    }
+  }
+  const expectedWorkingDays = calculateExpectedWorkingDays(startDateStr, endDateStr);
+  const attendanceDaysCount = periodAttendance.length;
+  const validCheckInsCount = periodAttendance.filter((rec) => rec.checkInTime).length;
+  const validCheckOutsCount = periodAttendance.filter(
+    (rec) => rec.checkOutTime && rec.checkOutTime !== "N/A" && rec.checkoutStatus !== "UNRESOLVED" && rec.checkoutStatus !== "PENDING_ADMIN_REVIEW"
+  ).length;
+  const lateArrivalsCount = periodAttendance.filter((rec) => {
+    return isLateCheckIn(rec.checkInTime);
+  }).length;
+  let punctualityScore = -1;
+  if (attendanceDaysCount > 0) {
+    const attendanceRate = Math.min(1, attendanceDaysCount / expectedWorkingDays);
+    const onTimeCheckIns = attendanceDaysCount - lateArrivalsCount;
+    const punctualityRatio = onTimeCheckIns / attendanceDaysCount;
+    const checkoutRatio = validCheckOutsCount / attendanceDaysCount;
+    punctualityScore = Math.round(
+      (punctualityRatio * 0.5 + attendanceRate * 0.3 + checkoutRatio * 0.2) * 100
+    );
+    punctualityScore = Math.max(0, Math.min(100, punctualityScore));
+  }
+  let workloadScore = -1;
+  const overdueTasksCount = validTasks.filter(isOverdueTask).length;
+  if (assignedTasksCount > 0) {
+    const activeTasks = validTasks.filter((t) => !isCompletedTask(t));
+    const activeCompletionSum = activeTasks.reduce((sum, t) => sum + (t.completionPercentage || 0), 0);
+    const averageActiveCompletion = activeTasks.length > 0 ? activeCompletionSum / activeTasks.length : 0;
+    const completedWeight = completedTasksCount / assignedTasksCount;
+    const activeWeight = activeTasks.length * (averageActiveCompletion / 100) / assignedTasksCount;
+    let workloadBase = (completedWeight + activeWeight) * 100;
+    if (validWorkDetails.length > 0) {
+      workloadBase = Math.min(100, workloadBase + 10);
+    }
+    const workloadOverduePenalty = overdueTasksCount * 15;
+    workloadScore = Math.max(0, Math.min(100, Math.round(workloadBase - workloadOverduePenalty)));
+  } else if (validWorkDetails.length > 0) {
+    workloadScore = 80;
+  }
+  let overduePenalty = 0;
+  if (overdueTasksCount === 1) {
+    overduePenalty = 3;
+  } else if (overdueTasksCount === 2) {
+    overduePenalty = 7;
+  } else if (overdueTasksCount >= 3) {
+    overduePenalty = 10;
+  }
+  let revisionPenalty = 0;
+  if (totalRevisionRequests === 1) {
+    revisionPenalty = 2;
+  } else if (totalRevisionRequests === 2) {
+    revisionPenalty = 5;
+  } else if (totalRevisionRequests === 3) {
+    revisionPenalty = 8;
+  } else if (totalRevisionRequests >= 4) {
+    revisionPenalty = 10;
+  }
+  const scores = [
+    { score: taskCompletionScore, weight: weightages.taskCompletion },
+    { score: onTimeCompletionScore, weight: weightages.onTimeCompletion },
+    { score: qualityScore, weight: weightages.quality },
+    { score: punctualityScore, weight: weightages.punctuality },
+    { score: workloadScore, weight: weightages.workload }
+  ];
+  let sumOfAvailableWeights = 0;
+  let weightedScoreSum = 0;
+  scores.forEach((s) => {
+    if (s.score !== -1) {
+      sumOfAvailableWeights += s.weight;
+      weightedScoreSum += s.score * s.weight;
+    }
+  });
+  const weightedBaseScore = sumOfAvailableWeights > 0 ? weightedScoreSum / sumOfAvailableWeights : 0;
+  const calculatedFinalScore = sumOfAvailableWeights > 0 ? Math.max(0, Math.min(100, Math.round(weightedBaseScore - overduePenalty - revisionPenalty))) : -1;
+  const finalScore = calculatedFinalScore;
+  const grade = finalScore < 0 ? "N/A" : getEfficiencyGrade(finalScore);
+  const breakdown = {
+    taskCompletionScore,
+    onTimeCompletionScore,
+    qualityScore,
+    punctualityScore,
+    workloadScore,
+    assignedTasksCount,
+    completedTasksCount,
+    onTimeTasksCount,
+    approvedTasksCount,
+    revisionRequiredTasksCount,
+    totalRevisionRequests,
+    attendanceDaysCount,
+    lateArrivalsCount,
+    validCheckInsCount,
+    validCheckOutsCount,
+    overdueTasksCount,
+    overduePenalty,
+    revisionPenalty,
+    workDetailsSubmitted: validWorkDetails.length > 0,
+    workDetailsCount: validWorkDetails.length
+  };
+  const durationMs = Math.round((performance.now() - startTime) * 100) / 100;
+  console.log(`[EFFICIENCY_DIAGNOSTIC] empCode=${employeeCode || employeeId} targetDate=${startDateStr} attendanceFound=${attendanceDaysCount > 0} taskCount=${assignedTasksCount} completedTaskCount=${completedTasksCount} taskCompletionScore=${taskCompletionScore} onTimeCompletionScore=${onTimeCompletionScore} qualityScore=${qualityScore} punctualityScore=${punctualityScore} workloadScore=${workloadScore} overduePenalty=${overduePenalty} revisionPenalty=${revisionPenalty} sumOfAvailableWeights=${sumOfAvailableWeights} weightedScoreSum=${weightedScoreSum} weightedBaseScore=${weightedBaseScore} finalScore=${finalScore}`);
+  console.log(`[EFFICIENCY_CALC_END] #${calcId} employee=${employeeCode || employeeId} finalScore=${finalScore}% grade=${grade} elapsedMs=${durationMs}ms (totalCalculationsTotal=${calcInvocationCount})`);
+  return {
+    finalScore,
+    grade,
+    breakdown
+  };
+};
+
+// src/services/efficiency/efficiencyService.ts
+var import_firestore3 = require("firebase/firestore");
+
+// src/services/firebase/config.ts
+var import_app = require("firebase/app");
+var import_auth = require("firebase/auth");
+var import_firestore2 = require("firebase/firestore");
+var import_storage = require("firebase/storage");
+
+// firebase-applet-config.json
+var firebase_applet_config_default = {
+  projectId: "your-firebase-project-id",
+  appId: "1:123456789000:web:abcdef1234567890",
+  apiKey: "AIzaSyYourFirebaseApiKeyPlaceholder12345",
+  authDomain: "your-firebase-project-id.firebaseapp.com",
+  storageBucket: "your-firebase-project-id.firebasestorage.app",
+  messagingSenderId: "123456789000",
+  measurementId: "",
+  oAuthClientId: "",
+  recaptchaSiteKey: ""
+};
+
+// src/services/firebase/config.ts
+var import_meta = {};
+var env = typeof import_meta !== "undefined" && import_meta?.env ? import_meta.env : {};
+var resolvedConfig = {
+  apiKey: env.VITE_FIREBASE_API_KEY || firebase_applet_config_default.apiKey || "",
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || firebase_applet_config_default.authDomain || "",
+  projectId: env.VITE_FIREBASE_PROJECT_ID || firebase_applet_config_default.projectId || "",
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || firebase_applet_config_default.storageBucket || "",
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebase_applet_config_default.messagingSenderId || "",
+  appId: env.VITE_FIREBASE_APP_ID || firebase_applet_config_default.appId || "",
+  measurementId: env.VITE_FIREBASE_MEASUREMENT_ID || firebase_applet_config_default.measurementId || "",
+  firestoreDatabaseId: firebase_applet_config_default.firestoreDatabaseId || void 0
+};
+var app = (0, import_app.initializeApp)(resolvedConfig);
+var employeeAuth = (0, import_auth.getAuth)(app);
+var employeeDb = resolvedConfig.firestoreDatabaseId ? (0, import_firestore2.getFirestore)(app, resolvedConfig.firestoreDatabaseId) : (0, import_firestore2.getFirestore)(app);
+var employeeStorage = (0, import_storage.getStorage)(app);
+if (employeeDb) {
+  try {
+    (0, import_firestore2.enableIndexedDbPersistence)(employeeDb).catch((err) => {
+      console.warn("Firestore persistence warning:", err.code || err);
+    });
+  } catch (e) {
+    console.warn("Firestore enableIndexedDbPersistence catch:", e);
+  }
+}
+var adminApp = (0, import_app.initializeApp)(resolvedConfig, "admin");
+var adminAuth = (0, import_auth.getAuth)(adminApp);
+var adminDb = resolvedConfig.firestoreDatabaseId ? (0, import_firestore2.getFirestore)(adminApp, resolvedConfig.firestoreDatabaseId) : (0, import_firestore2.getFirestore)(adminApp);
+var adminStorage = (0, import_storage.getStorage)(adminApp);
+var isAdminContext = () => {
+  if (typeof window === "undefined") return false;
+  const path2 = window.location.pathname;
+  return path2.startsWith("/x7Kp9") || path2.startsWith("/admin-portal");
+};
+var auth = new Proxy({}, {
+  get(target, prop, receiver) {
+    const activeTarget = isAdminContext() ? adminAuth : employeeAuth;
+    if (prop === "concrete" || prop === "_concrete") {
+      return activeTarget;
+    }
+    const value = Reflect.get(activeTarget, prop);
+    if (typeof value === "function") {
+      return value.bind(activeTarget);
+    }
+    return value;
+  },
+  set(target, prop, value) {
+    const activeTarget = isAdminContext() ? adminAuth : employeeAuth;
+    return Reflect.set(activeTarget, prop, value);
+  },
+  getPrototypeOf() {
+    return Reflect.getPrototypeOf(isAdminContext() ? adminAuth : employeeAuth);
+  },
+  has(target, prop) {
+    return Reflect.has(isAdminContext() ? adminAuth : employeeAuth, prop);
+  }
+});
+var db = new Proxy({}, {
+  get(target, prop, receiver) {
+    const activeTarget = isAdminContext() ? adminDb : employeeDb;
+    if (prop === "concrete" || prop === "_concrete") {
+      return activeTarget;
+    }
+    const value = Reflect.get(activeTarget, prop);
+    if (typeof value === "function") {
+      return value.bind(activeTarget);
+    }
+    return value;
+  },
+  set(target, prop, value) {
+    const activeTarget = isAdminContext() ? adminDb : employeeDb;
+    return Reflect.set(activeTarget, prop, value);
+  },
+  getPrototypeOf() {
+    return Reflect.getPrototypeOf(isAdminContext() ? adminDb : employeeDb);
+  },
+  has(target, prop) {
+    return Reflect.has(isAdminContext() ? adminDb : employeeDb, prop);
+  }
+});
+var storage = new Proxy({}, {
+  get(target, prop, receiver) {
+    const activeTarget = isAdminContext() ? adminStorage : employeeStorage;
+    if (prop === "concrete" || prop === "_concrete") {
+      return activeTarget;
+    }
+    const value = Reflect.get(activeTarget, prop);
+    if (typeof value === "function") {
+      return value.bind(activeTarget);
+    }
+    return value;
+  },
+  set(target, prop, value) {
+    const activeTarget = isAdminContext() ? adminStorage : employeeStorage;
+    return Reflect.set(activeTarget, prop, value);
+  },
+  getPrototypeOf() {
+    return Reflect.getPrototypeOf(isAdminContext() ? adminStorage : employeeStorage);
+  },
+  has(target, prop) {
+    return Reflect.has(isAdminContext() ? adminStorage : employeeStorage, prop);
+  }
+});
+console.log("Firebase config initialized dynamic proxies for auth, db, storage.");
+
+// src/services/efficiency/efficiencyService.ts
+var DEFAULT_WEIGHTAGES = {
+  taskCompletion: 30,
+  onTimeCompletion: 25,
+  quality: 20,
+  punctuality: 15,
+  workload: 10
+};
+
 // server/services/dailyAdminReportService.ts
+var DEFAULT_TARGET_RECIPIENTS = [
+  "admin@yourcompany.com"
+];
+function getCentralizedRecipients(configEmails) {
+  if (Array.isArray(configEmails)) {
+    return configEmails;
+  }
+  if (process.env.EMAIL_RECIPIENTS) {
+    const envList = process.env.EMAIL_RECIPIENTS.split(",").map((s) => s.trim()).filter(Boolean);
+    if (envList.length > 0) {
+      return envList;
+    }
+  }
+  return [...DEFAULT_TARGET_RECIPIENTS];
+}
 var DEFAULT_REPORT_CONFIG = {
   enabled: true,
-  adminEmails: [],
+  adminEmails: [...DEFAULT_TARGET_RECIPIENTS],
   sendTime: "07:00 AM",
   includeAttendance: true,
   includeLeaves: true,
@@ -771,20 +1300,45 @@ function validateAdminEmails(emails) {
   return { valid: true, cleaned };
 }
 function getKolkataDateString(date = /* @__PURE__ */ new Date()) {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
+  const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Kolkata",
     year: "numeric",
     month: "2-digit",
     day: "2-digit"
   });
-  return formatter.format(date);
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+  return `${year}-${month}-${day}`;
 }
 function getPreviousKolkataDateString(currentDate = /* @__PURE__ */ new Date()) {
-  const tzString = "Asia/Kolkata";
-  const kolkataStr = currentDate.toLocaleString("en-US", { timeZone: tzString });
-  const kolkataDate = new Date(kolkataStr);
-  kolkataDate.setDate(kolkataDate.getDate() - 1);
-  return getKolkataDateString(kolkataDate);
+  const todayKolkata = getKolkataDateString(currentDate);
+  const [yearStr, monthStr, dayStr] = todayKolkata.split("-");
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10) - 1;
+  const day = parseInt(dayStr, 10);
+  const utc = new Date(Date.UTC(year, month, day));
+  utc.setUTCDate(utc.getUTCDate() - 1);
+  const prevYear = utc.getUTCFullYear();
+  const prevMonth = String(utc.getUTCMonth() + 1).padStart(2, "0");
+  const prevDay = String(utc.getUTCDate()).padStart(2, "0");
+  return `${prevYear}-${prevMonth}-${prevDay}`;
+}
+function getKolkataCurrentMinutes(currentDate = /* @__PURE__ */ new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false
+  });
+  const parts = formatter.formatToParts(currentDate);
+  const hourPart = parts.find((p) => p.type === "hour");
+  const minutePart = parts.find((p) => p.type === "minute");
+  let hour = hourPart ? parseInt(hourPart.value, 10) : 0;
+  if (hour === 24) hour = 0;
+  const min = minutePart ? parseInt(minutePart.value, 10) : 0;
+  return hour * 60 + min;
 }
 function formatDateStringFriendly(dateStr) {
   if (!dateStr) return "";
@@ -829,16 +1383,72 @@ function parseTimeToMinutes(timeStr) {
     return null;
   }
 }
+function to12HourFormat(time24) {
+  if (!time24) return { hour: "07", minute: "00", period: "AM" };
+  try {
+    const trimmed = time24.trim().toUpperCase();
+    const match = trimmed.match(/^(\d+):(\d+)\s*(AM|PM)?$/);
+    if (!match) {
+      return { hour: "07", minute: "00", period: "AM" };
+    }
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    let period = match[3] || "AM";
+    if (!match[3]) {
+      if (hours >= 12) {
+        period = "PM";
+        if (hours > 12) hours -= 12;
+      } else {
+        period = "AM";
+        if (hours === 0) hours = 12;
+      }
+    } else {
+      if (hours > 12) {
+        hours = hours % 12 || 12;
+      }
+    }
+    return {
+      hour: String(hours).padStart(2, "0"),
+      minute: String(minutes).padStart(2, "0"),
+      period
+    };
+  } catch (e) {
+    return { hour: "07", minute: "00", period: "AM" };
+  }
+}
 function isKolkataLateCheckIn(checkInTimeStr) {
   const mins = parseTimeToMinutes(checkInTimeStr);
   if (mins === null) return false;
   return mins > 630;
 }
-async function getDailyReportConfig(db2) {
+var inMemoryReportConfig = { ...DEFAULT_REPORT_CONFIG };
+var hasLoadedFromFirestore = false;
+var isSchedulerExecuting = false;
+var isSchedulerDisabled = false;
+var hasLoggedSchedulerDisabled = false;
+async function getDailyReportConfig(db3) {
+  if (!db3) {
+    return { ...inMemoryReportConfig };
+  }
   try {
-    const snap = await db2.collection("notification_settings").doc("daily_admin_report_config").get();
+    let snap = await db3.collection("system_settings").doc("daily_admin_report").get();
     if (!snap.exists) {
-      return { ...DEFAULT_REPORT_CONFIG };
+      snap = await db3.collection("notification_settings").doc("daily_admin_report_config").get();
+    }
+    if (isSchedulerDisabled) {
+      isSchedulerDisabled = false;
+      hasLoggedSchedulerDisabled = false;
+      console.log("[DailyReport Scheduler] Self-healed: Successfully read configuration from Firestore. Re-enabling scheduler.");
+    }
+    if (!snap.exists) {
+      if (process.env.EMAIL_RECIPIENTS) {
+        const envList = process.env.EMAIL_RECIPIENTS.split(",").map((s) => s.trim()).filter(Boolean);
+        if (envList.length > 0) {
+          inMemoryReportConfig.adminEmails = envList;
+        }
+      }
+      hasLoadedFromFirestore = true;
+      return { ...inMemoryReportConfig };
     }
     const data = snap.data();
     let adminEmails = [];
@@ -846,25 +1456,33 @@ async function getDailyReportConfig(db2) {
       adminEmails = data.adminEmails;
     } else if (typeof data?.adminEmail === "string" && data.adminEmail.trim()) {
       adminEmails = [data.adminEmail.trim()];
+    } else {
+      adminEmails = inMemoryReportConfig.adminEmails;
     }
-    return {
+    const loadedConfig = {
       enabled: data?.enabled !== false,
       adminEmails,
-      sendTime: data?.sendTime || "07:00 AM",
+      sendTime: data?.sendTime || inMemoryReportConfig.sendTime || "07:00 AM",
       includeAttendance: data?.includeAttendance !== false,
       includeLeaves: data?.includeLeaves !== false,
       includeExpenses: data?.includeExpenses !== false,
       includeOtherDailyActivity: data?.includeOtherDailyActivity !== false,
-      updatedAt: data?.updatedAt,
-      updatedBy: data?.updatedBy
+      updatedAt: data?.updatedAt || inMemoryReportConfig.updatedAt,
+      updatedBy: data?.updatedBy || inMemoryReportConfig.updatedBy,
+      lastSchedulerTick: data?.lastSchedulerTick || inMemoryReportConfig.lastSchedulerTick
     };
+    inMemoryReportConfig = loadedConfig;
+    hasLoadedFromFirestore = true;
+    return loadedConfig;
   } catch (err) {
-    console.warn("[DailyReportService] Failed to load config, returning defaults:", err);
-    return { ...DEFAULT_REPORT_CONFIG };
+    if (!hasLoadedFromFirestore) {
+      console.log("[DailyReportService] Note: Using local configuration cache (Firestore:", err?.message || "unavailable", ")");
+    }
+    return { ...inMemoryReportConfig };
   }
 }
-async function saveDailyReportConfig(db2, config, updatedBy) {
-  const current = await getDailyReportConfig(db2);
+async function saveDailyReportConfig(db3, config, updatedBy) {
+  const current = await getDailyReportConfig(db3);
   let emailsToSave = config.adminEmails;
   if (emailsToSave !== void 0) {
     const valResult = validateAdminEmails(emailsToSave);
@@ -880,18 +1498,41 @@ async function saveDailyReportConfig(db2, config, updatedBy) {
     updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
     updatedBy
   };
-  await db2.collection("notification_settings").doc("daily_admin_report_config").set(updated, { merge: true });
+  inMemoryReportConfig = { ...updated };
+  if (isSchedulerDisabled) {
+    isSchedulerDisabled = false;
+    hasLoggedSchedulerDisabled = false;
+    console.log("[DailyReport Scheduler] Config updated: Re-enabling scheduler.");
+  }
+  if (db3) {
+    try {
+      await db3.collection("system_settings").doc("daily_admin_report").set({
+        enabled: updated.enabled,
+        sendTime: updated.sendTime,
+        adminEmails: updated.adminEmails,
+        includeAttendance: updated.includeAttendance,
+        includeLeaves: updated.includeLeaves,
+        includeExpenses: updated.includeExpenses,
+        includeOtherDailyActivity: updated.includeOtherDailyActivity,
+        updatedAt: updated.updatedAt,
+        updatedBy: updated.updatedBy
+      }, { merge: true });
+      await db3.collection("notification_settings").doc("daily_admin_report_config").set(updated, { merge: true });
+    } catch (writeErr) {
+      console.warn("[DailyReportService] Saved configuration to in-memory store; Firestore sync notice:", writeErr?.message || writeErr);
+    }
+  }
   return updated;
 }
-async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = false, triggerBy = "SYSTEM_SCHEDULER") {
+async function generateAndSendDailyReport(db3, targetDateStr, isManualSend = false, triggerBy = "SYSTEM_SCHEDULER") {
   const reportDate = targetDateStr || getPreviousKolkataDateString();
   const dateFormattedFriendly = formatDateStringFriendly(reportDate);
-  const config = await getDailyReportConfig(db2);
+  const config = await getDailyReportConfig(db3);
   if (!config.enabled && !isManualSend) {
     return { success: true, message: "Daily Admin Report is currently disabled in configuration.", reportDate };
   }
   const recipients = config.adminEmails || [];
-  const reportLogRef = db2.collection("daily_admin_reports").doc(reportDate);
+  const reportLogRef = db3.collection("daily_admin_reports").doc(reportDate);
   if (recipients.length === 0) {
     await reportLogRef.set({
       reportDate,
@@ -902,12 +1543,12 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
       error: "No Admin email recipients are configured.",
       startedAt: (/* @__PURE__ */ new Date()).toISOString(),
       completedAt: (/* @__PURE__ */ new Date()).toISOString(),
-      updatedAt: import_firestore2.FieldValue.serverTimestamp()
+      updatedAt: import_firestore4.FieldValue.serverTimestamp()
     }, { merge: true });
     return { success: false, message: "No Admin email recipients are configured.", reportDate };
   }
   const primaryRecipient = recipients[0];
-  const canProceed = await db2.runTransaction(async (transaction) => {
+  const canProceed = await db3.runTransaction(async (transaction) => {
     const docSnap = await transaction.get(reportLogRef);
     if (docSnap.exists) {
       const data = docSnap.data();
@@ -932,8 +1573,8 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
       recipients,
       recipient: primaryRecipient,
       triggeredBy: triggerBy,
-      createdAt: import_firestore2.FieldValue.serverTimestamp(),
-      updatedAt: import_firestore2.FieldValue.serverTimestamp()
+      createdAt: import_firestore4.FieldValue.serverTimestamp(),
+      updatedAt: import_firestore4.FieldValue.serverTimestamp()
     }, { merge: true });
     return { proceed: true, reason: "Ok" };
   });
@@ -942,13 +1583,13 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
     return { success: false, message: canProceed.reason, reportDate, recipient: primaryRecipient };
   }
   try {
-    const regsSnap = await db2.collection("registrations").get();
+    const regsSnap = await db3.collection("registrations").get();
     const employeesMap = /* @__PURE__ */ new Map();
     const employeeCodeMap = /* @__PURE__ */ new Map();
-    regsSnap.forEach((doc) => {
-      const data = doc.data() || {};
-      const reg = { id: doc.id, ...data };
-      employeesMap.set(doc.id, reg);
+    regsSnap.forEach((doc2) => {
+      const data = doc2.data() || {};
+      const reg = { id: doc2.id, ...data };
+      employeesMap.set(doc2.id, reg);
       if (data.employeeCode) {
         employeeCodeMap.set(data.employeeCode, reg);
       }
@@ -966,9 +1607,9 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
     let outdoorWorkCount = 0;
     const attendanceRows = [];
     if (config.includeAttendance) {
-      const attSnap = await db2.collection("attendance").where("date", "==", reportDate).get();
-      attSnap.forEach((doc) => {
-        const d = doc.data() || {};
+      const attSnap2 = await db3.collection("attendance").where("date", "==", reportDate).get();
+      attSnap2.forEach((doc2) => {
+        const d = doc2.data() || {};
         const empCode = d.employeeCode || "";
         const empName = d.employeeName || d.name || employeeCodeMap.get(empCode)?.name || "Employee";
         const attType = d.attendanceType || "Office";
@@ -1017,9 +1658,9 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
     const absentCount = Math.max(0, totalEmployeesCount - presentCount);
     const leaveRows = [];
     if (config.includeLeaves) {
-      const leavesSnap = await db2.collection("leaves").get();
-      leavesSnap.forEach((doc) => {
-        const l = doc.data() || {};
+      const leavesSnap = await db3.collection("leaves").get();
+      leavesSnap.forEach((doc2) => {
+        const l = doc2.data() || {};
         const startDate = l.startDate || "";
         const endDate = l.endDate || "";
         const empCode = l.employeeCode || "";
@@ -1044,9 +1685,9 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
     const expenseRows = [];
     let totalExpensesSum = 0;
     if (config.includeExpenses) {
-      const expSnap = await db2.collection("expenses").where("date", "==", reportDate).get();
-      expSnap.forEach((doc) => {
-        const e = doc.data() || {};
+      const expSnap = await db3.collection("expenses").where("date", "==", reportDate).get();
+      expSnap.forEach((doc2) => {
+        const e = doc2.data() || {};
         const empCode = e.employeeCode || "";
         const empName = e.employeeName || employeeCodeMap.get(empCode)?.name || "Employee";
         const amount = parseFloat(e.amount) || 0;
@@ -1070,10 +1711,10 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
     }
     let otherDataHtml = '<p style="color: #64748b; font-size: 13px;">No other operational activities found for this date.</p>';
     if (config.includeOtherDailyActivity) {
-      const taskSnap = await db2.collection("tasks").where("dueDate", "==", reportDate).get();
+      const taskSnap = await db3.collection("tasks").where("dueDate", "==", reportDate).get();
       const taskRows = [];
-      taskSnap.forEach((doc) => {
-        const t = doc.data() || {};
+      taskSnap.forEach((doc2) => {
+        const t = doc2.data() || {};
         taskRows.push(`<li><strong>${t.title}</strong> (Assigned: ${t.assignedToEmployeeCodes?.join(", ") || "-"}, Status: ${t.status})</li>`);
       });
       if (taskRows.length > 0) {
@@ -1087,86 +1728,297 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
         `;
       }
     }
+    const employeesList = Array.from(employeesMap.values()).filter((r) => {
+      const status = (r.status || "").toUpperCase();
+      const role = (r.role || "").toUpperCase();
+      if (status === "DELETED" || status === "PENDING" || status === "REJECTED") return false;
+      if (role === "ADMIN" || role === "SUPER_ADMIN") return false;
+      return status === "APPROVED" || status === "Approved" || status === "ACTIVE" || !r.status;
+    });
+    const tasksSnap = await db3.collection("tasks").get();
+    const rawTasks = [];
+    tasksSnap.forEach((tDoc) => rawTasks.push({ id: tDoc.id, ...tDoc.data() }));
+    const allTasks = rawTasks.filter((t) => {
+      const tDate = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime ? t.createdAtDeviceTime.substring(0, 10) : "");
+      return tDate === reportDate;
+    });
+    const attSnap = await db3.collection("attendance").where("date", "==", reportDate).get();
+    const allAttendance = [];
+    attSnap.forEach((aDoc) => allAttendance.push({ id: aDoc.id, ...aDoc.data() }));
+    const workDetailsSnap = await db3.collection("daily_work_details").where("date", "==", reportDate).get();
+    const allWorkDetails = [];
+    workDetailsSnap.forEach((wDoc) => allWorkDetails.push({ id: wDoc.id, ...wDoc.data() }));
+    const evaluatedEmployees = [];
+    let totalScoreSum = 0;
+    let aboveTargetCount = 0;
+    let belowTargetCount = 0;
+    let insufficientDataCount = 0;
+    employeesList.forEach((emp) => {
+      const empCode = emp.employeeCode || emp.id;
+      const empName = emp.name || empCode;
+      const dept = emp.department || emp.office || "Operations";
+      const teamLeaderId = emp.teamLeaderId || null;
+      const calc = calculateEfficiency(
+        emp.id || empCode,
+        empCode,
+        empName,
+        dept,
+        teamLeaderId,
+        reportDate,
+        reportDate,
+        allTasks,
+        allAttendance,
+        DEFAULT_WEIGHTAGES,
+        allWorkDetails
+      );
+      const efficiency = Math.round(calc.finalScore);
+      const grade = calc.grade;
+      const hasActivity = allAttendance.some((a) => (a.employeeCode === empCode || a.employeeId === emp.id || a.employeeId === empCode) && (a.date === reportDate || (a.createdAtDeviceTime || "").startsWith(reportDate))) || allTasks.some((t) => {
+        const matchCode = t.assignedToEmployeeCodes && t.assignedToEmployeeCodes.includes(empCode);
+        const matchId = t.assignedToEmployeeIds && (t.assignedToEmployeeIds.includes(emp.id) || t.assignedToEmployeeIds.includes(empCode));
+        const tDate = t.dueDate || (t.completedAt ? t.completedAt.substring(0, 10) : t.createdAtDeviceTime ? t.createdAtDeviceTime.substring(0, 10) : "");
+        return (matchCode || matchId) && tDate === reportDate;
+      });
+      if (!hasActivity && efficiency === 0) {
+        insufficientDataCount++;
+      }
+      totalScoreSum += Math.max(0, efficiency);
+      if (efficiency >= 75) {
+        aboveTargetCount++;
+      } else {
+        belowTargetCount++;
+      }
+      evaluatedEmployees.push({
+        empCode,
+        empName,
+        dept,
+        efficiency,
+        grade,
+        breakdown: calc.breakdown,
+        insufficientData: !hasActivity && efficiency === 0
+      });
+    });
+    for (const emp of evaluatedEmployees) {
+      if (!Number.isFinite(emp.efficiency)) {
+        throw new Error(`Daily Report validation failed: Non-finite efficiency for ${emp.empCode}`);
+      }
+      if (emp.efficiency < -1 || emp.efficiency > 100) {
+        throw new Error(`Daily Report validation failed: Out of bounds efficiency ${emp.efficiency} for ${emp.empCode}`);
+      }
+      if (emp.breakdown && emp.breakdown.assignedTasksCount === 0) {
+        if (emp.breakdown.taskCompletionScore !== -1 || emp.breakdown.onTimeCompletionScore !== -1 || emp.breakdown.qualityScore !== -1) {
+          throw new Error(`Daily Report validation failed: No-task employee ${emp.empCode} penalized by task factors.`);
+        }
+      }
+    }
+    const validEvaluated = evaluatedEmployees;
+    const evaluatedCount = evaluatedEmployees.length;
+    const overallAvgEfficiency = validEvaluated.length > 0 ? Math.round(totalScoreSum / validEvaluated.length) : 0;
+    const sortedByEff = [...validEvaluated].sort((a, b) => b.efficiency - a.efficiency);
+    const highestEff = sortedByEff.length > 0 ? sortedByEff[0].efficiency : 0;
+    const lowestEff = sortedByEff.length > 0 ? sortedByEff[sortedByEff.length - 1].efficiency : 0;
+    const topPerformerCandidates = validEvaluated.filter((e) => e.efficiency >= 60).sort((a, b) => {
+      if (b.efficiency !== a.efficiency) {
+        return b.efficiency - a.efficiency;
+      }
+      return a.empCode.localeCompare(b.empCode);
+    });
+    const topPerformers = topPerformerCandidates.slice(0, 5);
+    const improvementCandidates = validEvaluated.filter((e) => e.efficiency < 60).sort((a, b) => {
+      if (a.efficiency !== b.efficiency) {
+        return a.efficiency - b.efficiency;
+      }
+      return a.empCode.localeCompare(b.empCode);
+    });
+    const bottomPerformers = improvementCandidates.slice(0, 5);
+    const overlap = topPerformers.filter(
+      (top) => bottomPerformers.some((bottom) => bottom.empCode === top.empCode)
+    );
+    if (overlap.length > 0) {
+      throw new Error("Daily Report validation failed: Top Performers and Needs Improvement overlap.");
+    }
+    const invalidTopPerformers = topPerformers.filter((e) => e.efficiency < 60);
+    if (invalidTopPerformers.length > 0) {
+      throw new Error("Daily Report validation failed: Top Performers contains employee below 60%.");
+    }
+    const invalidImprovement = bottomPerformers.filter((e) => e.efficiency >= 60);
+    if (invalidImprovement.length > 0) {
+      throw new Error("Daily Report validation failed: Needs Improvement contains employee at or above 60%.");
+    }
+    const hasBelowThresholdEmployees = validEvaluated.some((e) => e.efficiency < 60);
+    if (bottomPerformers.length === 0 && hasBelowThresholdEmployees) {
+      throw new Error("Daily Report validation failed: Employees below 60% exist but Needs Improvement is empty.");
+    }
+    const dist = {
+      excellent: validEvaluated.filter((e) => e.efficiency >= 90).length,
+      good: validEvaluated.filter((e) => e.efficiency >= 75 && e.efficiency < 90).length,
+      needsImprovement: validEvaluated.filter((e) => e.efficiency >= 60 && e.efficiency < 75).length,
+      critical: validEvaluated.filter((e) => e.efficiency < 60).length,
+      insufficient: insufficientDataCount
+    };
+    const teamMap = /* @__PURE__ */ new Map();
+    evaluatedEmployees.forEach((e) => {
+      if (e.insufficientData) return;
+      const d = e.dept;
+      if (!teamMap.has(d)) {
+        teamMap.set(d, { totalScore: 0, count: 0, above: 0, needAttention: 0 });
+      }
+      const t = teamMap.get(d);
+      t.count++;
+      t.totalScore += e.efficiency;
+      if (e.efficiency >= 75) t.above++;
+      else t.needAttention++;
+    });
+    const teamRowsHtml = [];
+    teamMap.forEach((val, teamName) => {
+      const avg = Math.round(val.totalScore / val.count);
+      teamRowsHtml.push(`
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 10px; font-weight: bold; color: #1e293b;">${teamName}</td>
+          <td style="padding: 10px; font-weight: bold; color: ${avg >= 75 ? "#059669" : "#d97706"};">${avg}%</td>
+          <td style="padding: 10px; color: #334155;">${val.count}</td>
+          <td style="padding: 10px; color: #059669; font-weight: 500;">${val.above}</td>
+          <td style="padding: 10px; color: #dc2626; font-weight: 500;">${val.needAttention}</td>
+        </tr>
+      `);
+    });
+    const diagnosticHtml = validEvaluated.length === 0 ? `
+      <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-bottom: 15px; font-size: 12px; color: #991b1b;">
+        <strong>Server Diagnostics:</strong> No efficiency data available.<br/>
+        - Report Date: ${reportDate}<br/>
+        - Employees Found: ${employeesList.length}<br/>
+        - Attendance Records Found: ${allAttendance.length}<br/>
+        - Tasks Found: ${allTasks.length}<br/>
+        - Valid Scores: ${validEvaluated.length}
+      </div>
+    ` : "";
+    const topPerformersRowsHtml = topPerformers.map((p, idx) => `
+      <tr style="border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 10px; font-weight: bold; color: #1e293b;">#${idx + 1}</td>
+        <td style="padding: 10px; color: #334155;">${p.empName} <span style="font-size: 11px; color: #64748b;">(${p.empCode})</span></td>
+        <td style="padding: 10px; font-weight: bold; color: #059669;">${p.efficiency}%</td>
+        <td style="padding: 10px; color: #334155;">${p.workHours}</td>
+        <td style="padding: 10px; color: #334155;">${p.tasksCompleted}/${p.tasksTotal} tasks</td>
+      </tr>
+    `).join("");
+    const bottomPerformersRowsHtml = bottomPerformers.map((p) => `
+      <tr style="border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 10px; color: #334155;">${p.empName} <span style="font-size: 11px; color: #64748b;">(${p.empCode})</span></td>
+        <td style="padding: 10px; font-weight: bold; color: #dc2626;">${p.efficiency}%</td>
+        <td style="padding: 10px; color: #334155;">${p.workHours}</td>
+        <td style="padding: 10px; color: #334155;">${p.tasksCompleted}/${p.tasksTotal} tasks</td>
+        <td style="padding: 10px; font-size: 12px; color: #b91c1c;">${p.reason}</td>
+      </tr>
+    `).join("");
+    const highestEffEmp = sortedByEff.length > 0 ? sortedByEff[0] : null;
+    const lowestEffEmp = sortedByEff.length > 0 ? sortedByEff[sortedByEff.length - 1] : null;
+    const highestEffEmpName = highestEffEmp ? `${highestEffEmp.empName} (${highestEffEmp.empCode})` : "N/A";
+    const lowestEffEmpName = lowestEffEmp ? `${lowestEffEmp.empName} (${lowestEffEmp.empCode})` : "N/A";
+    const topPerformersEmptyMessage = validEvaluated.length > 0 ? `No qualifying top performers (all evaluated employees scored below 60%).` : `No performance records available`;
+    const topPerformersRows = topPerformers.length > 0 ? topPerformers.map((p, idx) => `
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 12px 10px; font-weight: bold; color: #0f766e;">#${idx + 1}</td>
+        <td style="padding: 12px 10px; color: #0f172a; font-weight: 500;">${p.empName} <span style="font-size: 11px; color: #64748b;">(${p.empCode})</span></td>
+        <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
+        <td style="padding: 12px 10px; font-weight: bold; color: #047857; text-align: right;">${p.efficiency}%</td>
+      </tr>
+    `).join("") : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">${topPerformersEmptyMessage}</td></tr>`;
+    const needsImprovementEmptyMessage = validEvaluated.length > 0 ? `No improvement records needed (All performers scored &ge; 60%)` : `No improvement records available`;
+    const needsImprovementRows = bottomPerformers.length > 0 ? bottomPerformers.map((p, idx) => `
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c;">#${idx + 1}</td>
+        <td style="padding: 12px 10px; color: #0f172a; font-weight: 500;">${p.empName} <span style="font-size: 11px; color: #64748b;">(${p.empCode})</span></td>
+        <td style="padding: 12px 10px; color: #475569;">${p.dept}</td>
+        <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c; text-align: right;">${p.efficiency}%</td>
+      </tr>
+    `).join("") : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">${needsImprovementEmptyMessage}</td></tr>`;
+    const appUrl = process.env.APP_URL ? process.env.APP_URL.replace(/\/$/, "") : "https://your-domain.com";
+    const adminPanelUrl = `${appUrl}/x7Kp9`;
+    const generatedTimeKolkata = (/* @__PURE__ */ new Date()).toLocaleString("en-US", {
+      timeZone: "Asia/Kolkata",
+      dateStyle: "medium",
+      timeStyle: "short"
+    });
     const emailHtml = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EXFIN OMS Daily Report</title>
+  <title>Smart Workforce Daily Report</title>
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; padding: 20px; margin: 0; -webkit-font-smoothing: antialiased;">
-  <div style="max-width: 800px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; padding: 20px; margin: 0; -webkit-font-smoothing: antialiased;">
+  <div style="max-width: 800px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
     
-    <!-- Header -->
-    <div style="background: linear-gradient(135deg, #1e1b4b 0%, #31105e 100%); color: #ffffff; padding: 30px; text-align: center;">
-      <h1 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">EXFIN OMS</h1>
-      <p style="margin: 5px 0 0 0; font-size: 15px; color: #c084fc; font-weight: 600;">Daily Operations & Administration Report</p>
-      <div style="display: inline-block; margin-top: 15px; background: rgba(255,255,255,0.15); padding: 5px 15px; border-radius: 20px; font-size: 13px; font-weight: bold;">
+    <!-- 1. Header -->
+    <div style="background-color: #0f766e; color: #ffffff; padding: 32px 24px; text-align: center; border-bottom: 4px solid #0d9488;">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">Smart Workforce</h1>
+      <p style="margin: 4px 0 0 0; font-size: 16px; color: #ccfbf1; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Daily Administration Report</p>
+      <div style="margin-top: 16px; display: inline-block; background-color: rgba(255, 255, 255, 0.15); padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;">
         Report Date: ${dateFormattedFriendly}
       </div>
+      <p style="margin: 8px 0 0 0; font-size: 11px; color: #99f6e4;">Generated Time: ${generatedTimeKolkata} (Asia/Kolkata)</p>
     </div>
 
     <div style="padding: 25px;">
       
-      <!-- Summary Metrics Grid -->
-      <h3 style="margin-top: 0; color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Summary Overview</h3>
-      <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 25px;">
+      <!-- 2. Attendance Overview -->
+      <div style="margin-bottom: 35px;">
+        <h3 style="margin-top: 0; color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">2. Attendance Overview</h3>
         
-        <div style="flex: 1 1 120px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: bold; color: #047857; text-transform: uppercase;">Present</div>
-          <div style="font-size: 24px; font-weight: 800; color: #065f46; margin-top: 2px;">${presentCount}</div>
+        <!-- Stats Grid -->
+        <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 15px; margin-bottom: 25px;">
+          <div style="flex: 1 1 120px; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; color: #047857; text-transform: uppercase;">Present</div>
+            <div style="font-size: 24px; font-weight: 800; color: #065f46; margin-top: 2px;">${presentCount}</div>
+          </div>
+
+          <div style="flex: 1 1 120px; background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; color: #b91c1c; text-transform: uppercase;">Absent</div>
+            <div style="font-size: 24px; font-weight: 800; color: #991b1b; margin-top: 2px;">${absentCount}</div>
+          </div>
+
+          <div style="flex: 1 1 120px; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; color: #1d4ed8; text-transform: uppercase;">WFH</div>
+            <div style="font-size: 24px; font-weight: 800; color: #1e40af; margin-top: 2px;">${wfhCount}</div>
+          </div>
+
+          <div style="flex: 1 1 120px; background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 10px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; color: #b45309; text-transform: uppercase;">Client Visit</div>
+            <div style="font-size: 24px; font-weight: 800; color: #92400e; margin-top: 2px;">${clientVisitCount}</div>
+          </div>
+
+          <div style="flex: 1 1 120px; background-color: #f3e8ff; border: 1px solid #e9d5ff; border-radius: 10px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; color: #7e22ce; text-transform: uppercase;">Outdoor</div>
+            <div style="font-size: 24px; font-weight: 800; color: #6b21a8; margin-top: 2px;">${outdoorWorkCount}</div>
+          </div>
+
+          <div style="flex: 1 1 120px; background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; color: #d97706; text-transform: uppercase;">Late</div>
+            <div style="font-size: 24px; font-weight: 800; color: #92400e; margin-top: 2px;">${lateCount}</div>
+          </div>
+
+          <div style="flex: 1 1 120px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; text-align: center;">
+            <div style="font-size: 11px; font-weight: bold; color: #475569; text-transform: uppercase;">Expenses</div>
+            <div style="font-size: 24px; font-weight: 800; color: #0f172a; margin-top: 2px;">\u20B9${totalExpensesSum.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
+          </div>
         </div>
 
-        <div style="flex: 1 1 120px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: bold; color: #b91c1c; text-transform: uppercase;">Absent</div>
-          <div style="font-size: 24px; font-weight: 800; color: #991b1b; margin-top: 2px;">${absentCount}</div>
-        </div>
-
-        <div style="flex: 1 1 120px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: bold; color: #1d4ed8; text-transform: uppercase;">WFH</div>
-          <div style="font-size: 24px; font-weight: 800; color: #1e40af; margin-top: 2px;">${wfhCount}</div>
-        </div>
-
-        <div style="flex: 1 1 120px; background: #fef3c7; border: 1px solid #fde68a; border-radius: 10px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: bold; color: #b45309; text-transform: uppercase;">Client Visit</div>
-          <div style="font-size: 24px; font-weight: 800; color: #92400e; margin-top: 2px;">${clientVisitCount}</div>
-        </div>
-
-        <div style="flex: 1 1 120px; background: #f3e8ff; border: 1px solid #e9d5ff; border-radius: 10px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: bold; color: #7e22ce; text-transform: uppercase;">Outdoor</div>
-          <div style="font-size: 24px; font-weight: 800; color: #6b21a8; margin-top: 2px;">${outdoorWorkCount}</div>
-        </div>
-
-        <div style="flex: 1 1 120px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: bold; color: #d97706; text-transform: uppercase;">Late</div>
-          <div style="font-size: 24px; font-weight: 800; color: #92400e; margin-top: 2px;">${lateCount}</div>
-        </div>
-
-        <div style="flex: 1 1 120px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; text-align: center;">
-          <div style="font-size: 11px; font-weight: bold; color: #475569; text-transform: uppercase;">Expenses</div>
-          <div style="font-size: 24px; font-weight: 800; color: #0f172a; margin-top: 2px;">\u20B9${totalExpensesSum.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
-        </div>
-
-      </div>
-
-      <!-- Attendance Section -->
-      <div style="margin-bottom: 30px;">
-        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase;">1. Attendance Details (${presentCount} present / ${totalEmployeesCount} total)</h3>
-        ${attendanceRows.length === 0 ? '<p style="color: #64748b; font-size: 13px;">No attendance recorded for this date.</p>' : `
-          <div style="overflow-x: auto;">
+        <!-- Attendance Detail Table -->
+        ${attendanceRows.length === 0 ? '<p style="color: #64748b; font-size: 13px; font-style: italic;">No attendance recorded for this date.</p>' : `
+          <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
               <thead>
-                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
-                  <th style="padding: 10px;">Emp Code</th>
-                  <th style="padding: 10px;">Name</th>
-                  <th style="padding: 10px;">Type</th>
-                  <th style="padding: 10px;">In</th>
-                  <th style="padding: 10px;">Out</th>
-                  <th style="padding: 10px;">Hours</th>
-                  <th style="padding: 10px;">Status</th>
-                  <th style="padding: 10px;">Late</th>
-                  <th style="padding: 10px;">Location Details</th>
+                <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
+                  <th style="padding: 12px 10px;">Emp Code</th>
+                  <th style="padding: 12px 10px;">Name</th>
+                  <th style="padding: 12px 10px;">Type</th>
+                  <th style="padding: 12px 10px;">In</th>
+                  <th style="padding: 12px 10px;">Out</th>
+                  <th style="padding: 12px 10px;">Hours</th>
+                  <th style="padding: 12px 10px;">Status</th>
+                  <th style="padding: 12px 10px;">Late</th>
+                  <th style="padding: 12px 10px;">Location Details</th>
                 </tr>
               </thead>
               <tbody>
@@ -1177,19 +2029,96 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
         `}
       </div>
 
-      <!-- Leave Section -->
-      <div style="margin-bottom: 30px;">
-        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase;">2. Leaves Overview</h3>
-        ${leaveRows.length === 0 ? '<p style="color: #64748b; font-size: 13px;">No active leaves recorded for this date.</p>' : `
-          <div style="overflow-x: auto;">
+      <!-- 3. Efficiency Summary -->
+      <div style="margin-bottom: 35px; border-top: 2px solid #f1f5f9; padding-top: 20px;">
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">3. Efficiency Summary</h3>
+        ${validEvaluated.length === 0 ? `
+          <p style="color: #64748b; font-size: 13px; font-style: italic; padding: 15px; background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; text-align: center; margin-top: 15px;">
+            No efficiency data available for this reporting period.
+          </p>
+          <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 12px; margin-top: 10px; font-size: 12px; color: #991b1b;">
+            <strong>Server Diagnostics:</strong> Efficiency data source returned 0 evaluated employees.<br/>
+            - Report Date: ${reportDate}<br/>
+            - Employees Found: ${employeesList.length}<br/>
+            - Attendance Records Found: ${allAttendance.length}<br/>
+            - Tasks Found: ${allTasks.length}
+          </div>
+        ` : `
+          <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-top: 15px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <tr style="border-bottom: 1px solid #dcfce7;">
+                <td style="padding: 10px 0; color: #1e3a1e; font-weight: 600;">Team Average Efficiency</td>
+                <td style="padding: 10px 0; text-align: right; font-weight: bold; color: #0f766e; font-size: 16px;">${overallAvgEfficiency}%</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #dcfce7;">
+                <td style="padding: 10px 0; color: #1e3a1e; font-weight: 600;">Highest Efficiency Employee</td>
+                <td style="padding: 10px 0; text-align: right; font-weight: bold; color: #047857;">${highestEffEmpName} (${highestEff}%)</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #dcfce7;">
+                <td style="padding: 10px 0; color: #1e3a1e; font-weight: 600;">Lowest Efficiency Employee</td>
+                <td style="padding: 10px 0; text-align: right; font-weight: bold; color: #b91c1c;">${lowestEffEmpName} (${lowestEff}%)</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px 0; color: #1e3a1e; font-weight: 600;">Total Employees Evaluated</td>
+                <td style="padding: 10px 0; text-align: right; font-weight: bold; color: #0f172a;">${evaluatedCount}</td>
+              </tr>
+            </table>
+          </div>
+        `}
+      </div>
+
+      <!-- 4. Efficiency Leaderboard -->
+      <div style="margin-bottom: 35px; border-top: 2px solid #f1f5f9; padding-top: 20px;">
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">4. Efficiency Leaderboard</h3>
+        
+        <h4 style="color: #047857; font-size: 13px; font-weight: bold; margin-top: 15px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">\u{1F3C6} Top Performers</h4>
+        <div style="overflow-x: auto; margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+            <thead>
+              <tr style="background-color: #f0fdf4; border-bottom: 2px solid #bbf7d0; color: #166534; font-weight: bold;">
+                <th style="padding: 12px 10px; width: 60px;">Rank</th>
+                <th style="padding: 12px 10px;">Employee Name</th>
+                <th style="padding: 12px 10px;">Department</th>
+                <th style="padding: 12px 10px; text-align: right; width: 120px;">Efficiency Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${topPerformersRows}
+            </tbody>
+          </table>
+        </div>
+
+        <h4 style="color: #b91c1c; font-size: 13px; font-weight: bold; margin-top: 15px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">\u26A0\uFE0F Needs Improvement</h4>
+        <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+            <thead>
+              <tr style="background-color: #fef2f2; border-bottom: 2px solid #fecaca; color: #991b1b; font-weight: bold;">
+                <th style="padding: 12px 10px; width: 60px;">Rank</th>
+                <th style="padding: 12px 10px;">Employee Name</th>
+                <th style="padding: 12px 10px;">Department</th>
+                <th style="padding: 12px 10px; text-align: right; width: 120px;">Efficiency Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${needsImprovementRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 5. Operational Summary & Additional Details -->
+      <div style="margin-bottom: 35px; border-top: 2px solid #f1f5f9; padding-top: 20px;">
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">5. Leaves Overview</h3>
+        ${leaveRows.length === 0 ? '<p style="color: #64748b; font-size: 13px; font-style: italic;">No active leaves recorded for this date.</p>' : `
+          <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
               <thead>
-                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
-                  <th style="padding: 10px;">Emp Code</th>
-                  <th style="padding: 10px;">Name</th>
-                  <th style="padding: 10px;">Leave Period</th>
-                  <th style="padding: 10px;">Status</th>
-                  <th style="padding: 10px;">Reason</th>
+                <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
+                  <th style="padding: 12px 10px;">Emp Code</th>
+                  <th style="padding: 12px 10px;">Name</th>
+                  <th style="padding: 12px 10px;">Leave Period</th>
+                  <th style="padding: 12px 10px;">Status</th>
+                  <th style="padding: 12px 10px;">Reason</th>
                 </tr>
               </thead>
               <tbody>
@@ -1200,20 +2129,19 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
         `}
       </div>
 
-      <!-- Expenses Section -->
-      <div style="margin-bottom: 30px;">
-        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase;">3. Expenses Claims</h3>
-        ${expenseRows.length === 0 ? '<p style="color: #64748b; font-size: 13px;">No expenses submitted for this date.</p>' : `
-          <div style="overflow-x: auto;">
+      <div style="margin-bottom: 35px;">
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">6. Expenses Claims</h3>
+        ${expenseRows.length === 0 ? '<p style="color: #64748b; font-size: 13px; font-style: italic;">No expenses submitted for this date.</p>' : `
+          <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
             <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
               <thead>
-                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
-                  <th style="padding: 10px;">Emp Code</th>
-                  <th style="padding: 10px;">Name</th>
-                  <th style="padding: 10px;">Amount</th>
-                  <th style="padding: 10px;">Category</th>
-                  <th style="padding: 10px;">Description</th>
-                  <th style="padding: 10px;">Status</th>
+                <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
+                  <th style="padding: 12px 10px;">Emp Code</th>
+                  <th style="padding: 12px 10px;">Name</th>
+                  <th style="padding: 12px 10px;">Amount</th>
+                  <th style="padding: 12px 10px;">Category</th>
+                  <th style="padding: 12px 10px;">Description</th>
+                  <th style="padding: 12px 10px;">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -1222,34 +2150,135 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
             </table>
           </div>
           <div style="text-align: right; margin-top: 15px; font-size: 14px; font-weight: bold; color: #0f172a;">
-            Total Daily Expenses Claimed: <span style="color: #10b981; font-size: 16px;">\u20B9${totalExpensesSum.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+            Total Daily Expenses Claimed: <span style="color: #0f766e; font-size: 16px;">\u20B9${totalExpensesSum.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
         `}
       </div>
 
+      ${validEvaluated.length > 0 ? `
+        <!-- Team Performance -->
+        ${teamRowsHtml.length > 0 ? `
+          <div style="margin-bottom: 35px;">
+            <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">7. Team Performance Breakdown</h3>
+            <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+                <thead>
+                  <tr style="background-color: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: bold;">
+                    <th style="padding: 12px 10px;">Department / Team</th>
+                    <th style="padding: 12px 10px;">Avg Efficiency</th>
+                    <th style="padding: 12px 10px;">Evaluated</th>
+                    <th style="padding: 12px 10px;">Above Target</th>
+                    <th style="padding: 12px 10px;">Needs Attention</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${teamRowsHtml.join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ` : ""}
+
+        <!-- Efficiency Distribution Details -->
+        <div style="margin-bottom: 35px;">
+          <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">8. Efficiency Distribution</h3>
+          <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px 10px; font-weight: 600; color: #1e293b;">Excellent (90%+)</td>
+                <td style="padding: 12px 10px; text-align: right; font-weight: bold; color: #059669;">${dist.excellent} employees</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px 10px; font-weight: 600; color: #1e293b;">Good (75% - 89%)</td>
+                <td style="padding: 12px 10px; text-align: right; font-weight: bold; color: #2563eb;">${dist.good} employees</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px 10px; font-weight: 600; color: #1e293b;">Needs Improvement (60% - 74%)</td>
+                <td style="padding: 12px 10px; text-align: right; font-weight: bold; color: #d97706;">${dist.needsImprovement} employees</td>
+              </tr>
+              <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 12px 10px; font-weight: 600; color: #1e293b;">Critical (&lt;60%)</td>
+                <td style="padding: 12px 10px; text-align: right; font-weight: bold; color: #dc2626;">${dist.critical} employees</td>
+              </tr>
+              <tr>
+                <td style="padding: 12px 10px; font-weight: 600; color: #1e293b;">Insufficient Data</td>
+                <td style="padding: 12px 10px; text-align: right; font-weight: bold; color: #64748b;">${dist.insufficient} employees</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+
+        <!-- Productivity Highlights -->
+        <div style="margin-bottom: 35px; background-color: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 8px; padding: 16px;">
+          <h3 style="color: #0f766e; font-size: 14px; font-weight: 700; text-transform: uppercase; margin: 0 0 10px 0;">Productivity Highlights</h3>
+          <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #1e293b; line-height: 1.6;">
+            <li>Highest efficiency recorded today: <strong>${highestEff}%</strong></li>
+            <li>Number of employees meeting or exceeding performance targets: <strong>${aboveTargetCount} / ${evaluatedCount}</strong></li>
+            <li>Active attendance tracking operational across all departments with <strong>${presentCount}</strong> present today.</li>
+          </ul>
+        </div>
+
+        <!-- Action Required -->
+        <div style="margin-bottom: 35px; background-color: #fffbeb; border: 1.5px solid #fde68a; border-radius: 8px; padding: 16px;">
+          <h3 style="color: #92400e; font-size: 14px; font-weight: 700; text-transform: uppercase; margin: 0 0 10px 0;">Action Required</h3>
+          <p style="margin: 0; font-size: 13px; color: #92400e; line-height: 1.6;">
+            Review employees falling into the critical or needs improvement categories. Follow up on attendance exceptions and investigate missing activity logs for employees with insufficient tracking data.
+          </p>
+        </div>
+      ` : ""}
+
       <!-- Other Activity -->
-      <div style="margin-bottom: 10px;">
-        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase;">4. Other Daily Operational Data</h3>
+      <div style="margin-top: 30px; margin-bottom: 10px;">
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Other Daily Operational Data</h3>
         ${otherDataHtml}
+      </div>
+
+      <!-- 6. Admin Panel Access (Highlighted) -->
+      <div style="margin-top: 40px; background-color: #f0fdf4; border: 1.5px solid #0f766e; border-radius: 12px; padding: 24px; text-align: center; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05);">
+        <h3 style="margin: 0 0 8px 0; color: #0f766e; font-size: 18px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Admin Panel</h3>
+        <p style="margin: 0 0 20px 0; color: #475569; font-size: 14px; line-height: 1.5; max-width: 500px; margin-left: auto; margin-right: auto;">
+          View the complete dashboard, analytics, attendance, efficiency, reports and employee management.
+        </p>
+        <a href="${adminPanelUrl}" target="_blank" style="display: inline-block; background-color: #0f766e; color: #ffffff; padding: 12px 28px; border-radius: 6px; font-size: 14px; font-weight: bold; text-decoration: none; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 2px 4px 0 rgba(15, 118, 110, 0.2);">
+          View More
+        </a>
+        
+        <!-- 7. Admin Login Credentials -->
+        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #64748b; text-align: center; line-height: 1.6;">
+          <strong style="color: #475569; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Admin Login</strong>
+          Admin credentials are managed securely by the system.
+        </div>
       </div>
 
     </div>
 
     <!-- Footer -->
-    <div style="background: #f8fafc; border-top: 1px solid #cbd5e1; padding: 20px; text-align: center; color: #64748b; font-size: 11px;">
-      <p style="margin: 0;">This email is an automatically generated administrative report from your EXFIN Office Management System.</p>
-      <p style="margin: 5px 0 0 0;">\xA9 2026 EXFIN OMS. All rights reserved.</p>
+    <div style="background: #f8fafc; border-top: 1px solid #cbd5e1; padding: 24px; text-align: center; color: #64748b; font-size: 11px; line-height: 1.5;">
+      <p style="margin: 0;">This email is an automatically generated administrative report from your Smart Workforce Management System.</p>
+      <p style="margin: 5px 0 0 0;">\xA9 2026 Smart Workforce. All rights reserved.</p>
     </div>
 
   </div>
 </body>
 </html>
     `;
-    const subject = `EXFIN OMS \u2014 Daily Admin Report \u2014 ${formatDateStringFriendly(reportDate)}`;
-    const bccRecipients = recipients.slice(1);
+    const subject = `Smart Workforce \u2014 Daily Admin Report \u2014 ${formatDateStringFriendly(reportDate)}`;
+    console.log(`[DailyReport] Efficiency records: ${evaluatedEmployees.length}`);
+    console.log(`[DailyReport] Evaluated employees: ${validEvaluated.length}`);
+    console.log(`[DailyReport] Top performers: ${topPerformers.length}`);
+    console.log(`[DailyReport] Improvement records: ${bottomPerformers.length}`);
+    console.log(`[DailyReport] Final HTML length: ${emailHtml.length}`);
+    console.log(`[DailyReport] Contains efficiency section: ${emailHtml.includes("EFFICIENCY SUMMARY")}`);
+    console.log(`[DailyReport] Contains top performers: ${emailHtml.includes("TOP 5 PERFORMERS")}`);
+    console.log(`[DailyReport] Contains needs improvement: ${emailHtml.includes("NEEDS IMPROVEMENT")}`);
+    console.log(`[DailyReport] Contains admin panel link: ${emailHtml.includes("VIEW MORE")}`);
+    console.log(`[DailyReport] Contains /x7Kp9 URL: ${emailHtml.includes("/x7Kp9")}`);
+    console.log(`[DailyReport] Report date: ${reportDate}`);
+    if (!emailHtml.includes("EFFICIENCY SUMMARY") || !emailHtml.includes("TOP 5 PERFORMERS") || !emailHtml.includes("NEEDS IMPROVEMENT") || !emailHtml.includes("VIEW MORE") || !emailHtml.includes("/x7Kp9")) {
+      throw new Error("Daily Report HTML validation failed: missing required efficiency or admin panel link sections.");
+    }
     const emailRes = await sendMail({
-      to: primaryRecipient,
-      bcc: bccRecipients.length > 0 ? bccRecipients : void 0,
+      to: recipients,
       subject,
       html: emailHtml
     });
@@ -1265,11 +2294,11 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
         simulated: emailRes.simulated,
         acceptedRecipients: accepted,
         rejectedRecipients: rejected,
-        error: hasRejections ? `Delivery failed for: ${rejected.join(", ")}` : import_firestore2.FieldValue.delete(),
-        updatedAt: import_firestore2.FieldValue.serverTimestamp()
+        error: hasRejections ? `Delivery failed for: ${rejected.join(", ")}` : import_firestore4.FieldValue.delete(),
+        updatedAt: import_firestore4.FieldValue.serverTimestamp()
       }, { merge: true });
       try {
-        const auditRef = db2.collection("audit_logs").doc();
+        const auditRef = db3.collection("audit_logs").doc();
         await auditRef.set({
           id: auditRef.id,
           actionCategory: "SYSTEM_SETTINGS",
@@ -1293,9 +2322,11 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
       }
       return {
         success: true,
-        message: hasRejections ? `Daily Admin Report partially sent to ${accepted.length} recipients, but failed for ${rejected.length} recipients.` : "Daily Admin Report generated and sent successfully.",
+        message: "Email accepted by Gmail SMTP",
         reportDate,
-        recipient: primaryRecipient,
+        recipientCount: recipients.length,
+        recipients,
+        recipient: recipients.join(", "),
         messageId: emailRes.messageId
       };
     } else {
@@ -1307,10 +2338,10 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
       status: "FAILED",
       completedAt: (/* @__PURE__ */ new Date()).toISOString(),
       error: err.message || String(err),
-      updatedAt: import_firestore2.FieldValue.serverTimestamp()
+      updatedAt: import_firestore4.FieldValue.serverTimestamp()
     }, { merge: true });
     try {
-      const auditRef = db2.collection("audit_logs").doc();
+      const auditRef = db3.collection("audit_logs").doc();
       await auditRef.set({
         id: auditRef.id,
         actionCategory: "SYSTEM_SETTINGS",
@@ -1330,27 +2361,32 @@ async function generateAndSendDailyReport(db2, targetDateStr, isManualSend = fal
     return {
       success: false,
       message: err.message || "Failed to generate and dispatch daily report.",
+      error: err.message || "Failed to generate and dispatch daily report.",
       reportDate,
       recipient: primaryRecipient
     };
   }
 }
-async function sendDailyReportTestEmail(db2, triggerBy = "SUPER_ADMIN") {
-  const config = await getDailyReportConfig(db2);
-  const recipients = config.adminEmails || [];
-  if (recipients.length === 0) {
-    return { success: false, message: "No Admin email recipients are configured." };
+async function sendDailyReportTestEmail(db3, triggerBy = "SUPER_ADMIN") {
+  const config = await getDailyReportConfig(db3);
+  const recipients = getCentralizedRecipients(config.adminEmails);
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (recipients.length !== 3 || recipients.some((r) => !emailRegex.test(r))) {
+    return {
+      success: false,
+      message: "EMAIL_RECIPIENTS contains invalid recipient configuration.",
+      recipientCount: 0,
+      recipients: []
+    };
   }
-  const primaryRecipient = recipients[0];
-  const bccRecipients = recipients.slice(1);
-  const subject = `EXFIN OMS \u2014 Test Daily Report`;
+  const subject = `Smart Workforce \u2014 Test Daily Report`;
   const html = `
 <!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
   <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgb(0 0 0 / 0.05); border-top: 4px solid #6366f1;">
-    <h2 style="color: #1e1b4b; margin-top: 0;">EXFIN OMS \u2014 Connection Verification</h2>
-    <p>This is a <strong>Test Daily Report</strong> designed to verify that the EXFIN OMS backend email server configuration is fully operational.</p>
+    <h2 style="color: #1e1b4b; margin-top: 0;">Smart Workforce \u2014 Connection Verification</h2>
+    <p>This is a <strong>Test Daily Report</strong> designed to verify that the Smart Workforce backend email server configuration is fully operational.</p>
     <p>Details:</p>
     <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
       <tr style="border-bottom: 1px solid #e2e8f0;">
@@ -1358,12 +2394,8 @@ async function sendDailyReportTestEmail(db2, triggerBy = "SUPER_ADMIN") {
         <td style="padding: 8px 0; color: #10b981;">ACTIVE / OPERATIONAL</td>
       </tr>
       <tr style="border-bottom: 1px solid #e2e8f0;">
-        <td style="padding: 8px 0; font-weight: bold;">Primary Recipient</td>
-        <td style="padding: 8px 0;">${primaryRecipient}</td>
-      </tr>
-      <tr style="border-bottom: 1px solid #e2e8f0;">
-        <td style="padding: 8px 0; font-weight: bold;">BCC Recipients</td>
-        <td style="padding: 8px 0;">${bccRecipients.length > 0 ? bccRecipients.join(", ") : "None"}</td>
+        <td style="padding: 8px 0; font-weight: bold;">Recipients</td>
+        <td style="padding: 8px 0;">Configured Admin Recipients (BCC Protected)</td>
       </tr>
       <tr style="border-bottom: 1px solid #e2e8f0;">
         <td style="padding: 8px 0; font-weight: bold;">Recipient Count</td>
@@ -1375,7 +2407,7 @@ async function sendDailyReportTestEmail(db2, triggerBy = "SUPER_ADMIN") {
       </tr>
       <tr style="border-bottom: 1px solid #e2e8f0;">
         <td style="padding: 8px 0; font-weight: bold;">Dispatched From</td>
-        <td style="padding: 8px 0;">EXFIN OMS Server</td>
+        <td style="padding: 8px 0;">Smart Workforce Server</td>
       </tr>
     </table>
     <p style="margin-top: 25px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 15px;">
@@ -1386,17 +2418,15 @@ async function sendDailyReportTestEmail(db2, triggerBy = "SUPER_ADMIN") {
 </html>
   `;
   const emailRes = await sendMail({
-    to: primaryRecipient,
-    bcc: bccRecipients.length > 0 ? bccRecipients : void 0,
+    to: recipients,
     subject,
     html
   });
   if (emailRes.success) {
     const accepted = emailRes.accepted || [];
     const rejected = emailRes.rejected || [];
-    const hasRejections = rejected.length > 0;
     try {
-      const auditRef = db2.collection("audit_logs").doc();
+      const auditRef = db3.collection("audit_logs").doc();
       await auditRef.set({
         id: auditRef.id,
         actionCategory: "SYSTEM_SETTINGS",
@@ -1415,9 +2445,10 @@ async function sendDailyReportTestEmail(db2, triggerBy = "SUPER_ADMIN") {
     }
     return {
       success: true,
-      message: hasRejections ? `Test email sent to ${accepted.length} recipients, but failed for ${rejected.length} recipients.` : `Test email sent to ${recipients.length} recipients.`,
+      message: "Test email sent to 3 recipients",
       recipientCount: recipients.length,
-      recipients
+      recipients,
+      messageId: emailRes.messageId
     };
   } else {
     return {
@@ -1428,12 +2459,82 @@ async function sendDailyReportTestEmail(db2, triggerBy = "SUPER_ADMIN") {
     };
   }
 }
+async function checkAndRunScheduledDailyReport(db3) {
+  if (!db3) {
+    console.log("[DailyReport Scheduler] Database is not initialized. Skipping scheduled check.");
+    return;
+  }
+  if (isSchedulerExecuting) {
+    console.log("[DailyReport Scheduler] Scheduler is already executing. Skipping concurrent check.");
+    return;
+  }
+  if (isSchedulerDisabled) {
+    return;
+  }
+  try {
+    isSchedulerExecuting = true;
+    const config = await getDailyReportConfig(db3);
+    const currentKolkataTime = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true
+    }).format(/* @__PURE__ */ new Date());
+    if (!config.enabled) {
+      console.log(`[DailyReport Scheduler] Check completed at ${currentKolkataTime} IST: Automated delivery is DISABLED in configuration.`);
+      return;
+    }
+    if (!config.adminEmails || config.adminEmails.length === 0) {
+      console.log(`[DailyReport Scheduler] Check completed at ${currentKolkataTime} IST: No admin email recipients are configured.`);
+      return;
+    }
+    const scheduledMinutes = parseTimeToMinutes(config.sendTime) ?? 420;
+    const currentMinutes = getKolkataCurrentMinutes();
+    console.log(`[DailyReport Scheduler] Check at ${currentKolkataTime} IST | Configured Time: ${config.sendTime} (${scheduledMinutes}m) | Current Time: ${currentMinutes}m`);
+    if (currentMinutes < scheduledMinutes) {
+      console.log(`[DailyReport Scheduler] Too early to run. Remaining time: ${scheduledMinutes - currentMinutes} minute(s).`);
+      return;
+    }
+    const reportDate = getPreviousKolkataDateString();
+    const reportLogRef = db3.collection("daily_admin_reports").doc(reportDate);
+    const logSnap = await reportLogRef.get();
+    if (logSnap.exists) {
+      const data = logSnap.data();
+      if (data?.status === "SENT") {
+        console.log(`[DailyReport Scheduler] Automated report for date ${reportDate} was already successfully SENT. Skipping.`);
+        return;
+      }
+      if (data?.status === "SENDING") {
+        const startedAt = data.startedAt ? new Date(data.startedAt).getTime() : 0;
+        const diffMins = (Date.now() - startedAt) / 6e4;
+        if (diffMins < 15) {
+          console.log(`[DailyReport Scheduler] Automated report for date ${reportDate} is currently SENDING (active lock since ${diffMins.toFixed(1)} mins ago). Skipping.`);
+          return;
+        } else {
+          console.log(`[DailyReport Scheduler] Found stale SENDING lock for date ${reportDate} from ${diffMins.toFixed(1)} mins ago. Overriding lock.`);
+        }
+      }
+    }
+    console.log(`[DailyReport Scheduler] CRON Triggered: Dispatching automated morning report for date: ${reportDate} to ${config.adminEmails.length} recipient(s).`);
+    const result = await generateAndSendDailyReport(db3, reportDate, false, "SYSTEM_SCHEDULER");
+    console.log(`[DailyReport Scheduler] Report run completed for ${reportDate}. Result success: ${result.success}`);
+  } catch (err) {
+    if (err && err.message && err.message.includes("PERMISSION_DENIED")) {
+      isSchedulerDisabled = true;
+    } else {
+      console.error("[DailyReport Scheduler] Error in automated scheduled check:", err);
+    }
+  } finally {
+    isSchedulerExecuting = false;
+  }
+}
 
 // server.ts
-var OFFICE_LAT = 23.616227;
-var OFFICE_LNG = 87.117063;
+var OFFICE_LAT = process.env.VITE_OFFICE_LATITUDE ? Number(process.env.VITE_OFFICE_LATITUDE) : 0;
+var OFFICE_LNG = process.env.VITE_OFFICE_LONGITUDE ? Number(process.env.VITE_OFFICE_LONGITUDE) : 0;
 var GEOFENCE_RADIUS_METERS = 25;
-var db = null;
+var db2 = null;
 var authAdmin = null;
 try {
   let serviceAccount = null;
@@ -1456,22 +2557,22 @@ try {
     const config = JSON.parse(import_fs.default.readFileSync(configPath, "utf8"));
     projectId = config.projectId;
   }
-  if (!(0, import_app.getApps)().length) {
+  if (!(0, import_app2.getApps)().length) {
     if (serviceAccount) {
-      (0, import_app.initializeApp)({
-        credential: (0, import_app.cert)(serviceAccount),
+      (0, import_app2.initializeApp)({
+        credential: (0, import_app2.cert)(serviceAccount),
         projectId: serviceAccount.project_id || projectId
       });
     } else if (projectId) {
-      (0, import_app.initializeApp)({
+      (0, import_app2.initializeApp)({
         projectId
       });
     } else {
-      (0, import_app.initializeApp)();
+      (0, import_app2.initializeApp)();
     }
   }
-  db = (0, import_firestore3.getFirestore)();
-  authAdmin = (0, import_auth.getAuth)();
+  db2 = (0, import_firestore5.getFirestore)();
+  authAdmin = (0, import_auth2.getAuth)();
   console.log("[Median Backend] Firebase Admin Firestore & Auth initialized successfully.");
 } catch (error) {
   console.error("[Median Backend] Failed to initialize Firebase Admin:", error);
@@ -1553,7 +2654,7 @@ function calculateWorkingHours(checkInTimeStr, checkOutTimeStr) {
 }
 var firestoreAdminNoticeLogged = false;
 async function runServerAttendanceFinalizer() {
-  if (!db) return;
+  if (!db2) return;
   try {
     const now = /* @__PURE__ */ new Date();
     const kolkataStr = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
@@ -1565,11 +2666,11 @@ async function runServerAttendanceFinalizer() {
     const hours = nowKolkata.getHours();
     const minutes = nowKolkata.getMinutes();
     const isEndOfDay = hours === 23 && minutes >= 59;
-    const qSnap = await db.collection("attendance").where("checkoutStatus", "in", ["Pending", "PENDING_CONFIRMATION", null]).limit(100).get().catch(async (queryErr) => {
+    const qSnap = await db2.collection("attendance").where("checkoutStatus", "in", ["Pending", "PENDING_CONFIRMATION", null]).limit(100).get().catch(async (queryErr) => {
       if (queryErr?.code === 7 || queryErr?.message?.includes("PERMISSION_DENIED") || queryErr?.message?.includes("7 PERMISSION_DENIED")) {
         throw queryErr;
       }
-      return await db.collection("attendance").where("checkOutTime", "==", null).limit(100).get();
+      return await db2.collection("attendance").where("checkOutTime", "==", null).limit(100).get();
     });
     if (qSnap.empty) return;
     for (const docSnap of qSnap.docs) {
@@ -1609,8 +2710,8 @@ async function runServerAttendanceFinalizer() {
         evidenceSource: "SERVER_FINALIZATION",
         updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
         serverSyncTime: (/* @__PURE__ */ new Date()).toISOString(),
-        serverSyncTimestamp: import_firestore3.FieldValue.serverTimestamp(),
-        processedEvents: import_firestore3.FieldValue.arrayUnion(eventId)
+        serverSyncTimestamp: import_firestore5.FieldValue.serverTimestamp(),
+        processedEvents: import_firestore5.FieldValue.arrayUnion(eventId)
       });
       console.log(`[ServerFinalizer] Settled attendance for ${data.employeeId} on ${recDate} at ${finalCheckoutTime} (Evidence: SERVER_FINALIZATION, Source: ${resolutionSource})`);
     }
@@ -1626,10 +2727,10 @@ async function runServerAttendanceFinalizer() {
   }
 }
 async function startServer() {
-  const app = (0, import_express.default)();
-  const PORT = 3e3;
-  app.use(import_express.default.json());
-  app.use((req, res, next) => {
+  const app2 = (0, import_express.default)();
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3e3;
+  app2.use(import_express.default.json());
+  app2.use((req, res, next) => {
     const origin = req.headers.origin;
     if (origin) {
       res.setHeader("Access-Control-Allow-Origin", origin);
@@ -1646,25 +2747,25 @@ async function startServer() {
     }
     next();
   });
-  app.get("/api/health", (req, res) => {
+  app2.get("/api/health", (req, res) => {
     res.json({
       success: true,
-      service: "EXFIN OMS API",
-      firebaseAdminInitialized: !!db,
+      service: "Smart Workforce API",
+      firebaseAdminInitialized: !!db2,
       firebaseAuthInitialized: !!authAdmin,
       timestamp: (/* @__PURE__ */ new Date()).toISOString(),
       environment: "production"
     });
   });
   async function verifyCaller(req) {
-    if (!authAdmin || !db) return null;
+    if (!authAdmin || !db2) return null;
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
     const token = authHeader.split("Bearer ")[1].trim();
     try {
       const decoded = await authAdmin.verifyIdToken(token);
       const uid = decoded.uid;
-      const adminSnap = await db.collection("admin_users").doc(uid).get();
+      const adminSnap = await db2.collection("admin_users").doc(uid).get();
       if (adminSnap.exists) {
         const data = adminSnap.data() || {};
         const role = data.role || "EMPLOYEE";
@@ -1679,18 +2780,18 @@ async function startServer() {
       }
       let employeeId = uid;
       let employeeCode = "";
-      const regSnap = await db.collection("registrations").doc(uid).get();
+      const regSnap = await db2.collection("registrations").doc(uid).get();
       if (regSnap.exists) {
         const rData = regSnap.data() || {};
         employeeId = regSnap.id;
         employeeCode = rData.employeeCode || "";
       } else {
-        const qSnap = await db.collection("registrations").where("uid", "==", uid).limit(1).get();
+        const qSnap = await db2.collection("registrations").where("uid", "==", uid).limit(1).get();
         if (!qSnap.empty) {
           employeeId = qSnap.docs[0].id;
           employeeCode = qSnap.docs[0].data().employeeCode || "";
         } else if (decoded.email) {
-          const qEmail = await db.collection("registrations").where("email", "==", decoded.email).limit(1).get();
+          const qEmail = await db2.collection("registrations").where("email", "==", decoded.email).limit(1).get();
           if (!qEmail.empty) {
             employeeId = qEmail.docs[0].id;
             employeeCode = qEmail.docs[0].data().employeeCode || "";
@@ -1713,9 +2814,9 @@ async function startServer() {
     }
   }
   const verifyAdminCaller = verifyCaller;
-  app.post("/api/admin/super-admin/reset-password", async (req, res) => {
+  app2.post("/api/admin/super-admin/reset-password", async (req, res) => {
     try {
-      if (!authAdmin || !db) {
+      if (!authAdmin || !db2) {
         return res.status(503).json({ error: "Firebase backend services not ready." });
       }
       const caller = await verifyAdminCaller(req);
@@ -1726,7 +2827,7 @@ async function startServer() {
       if (!targetUid || typeof targetUid !== "string") {
         return res.status(400).json({ error: "Missing or invalid targetUid." });
       }
-      const targetDocRef = db.collection("admin_users").doc(targetUid);
+      const targetDocRef = db2.collection("admin_users").doc(targetUid);
       const targetDoc = await targetDocRef.get();
       let finalTempPassword = typeof temporaryPassword === "string" && temporaryPassword.trim().length >= 8 ? temporaryPassword.trim() : null;
       if (!finalTempPassword) {
@@ -1758,7 +2859,7 @@ async function startServer() {
         updatedAt: nowIso,
         updatedBy: caller.loginId || caller.email || caller.uid
       }, { merge: true });
-      await db.collection("audit_logs").add({
+      await db2.collection("audit_logs").add({
         actorEmail: caller.email || caller.loginId || "super_admin",
         actorUid: caller.uid,
         action: "ADMIN_PASSWORD_RESET_BY_SUPER_ADMIN",
@@ -1771,7 +2872,7 @@ async function startServer() {
           resetAt: nowIso
         },
         timestamp: nowIso,
-        createdAtServer: import_firestore3.FieldValue.serverTimestamp()
+        createdAtServer: import_firestore5.FieldValue.serverTimestamp()
       });
       console.log(`[Admin Backend] Password reset executed by Super-Admin ${caller.loginId || caller.uid} for target ${targetData.loginId || targetUid}`);
       return res.json({
@@ -1788,21 +2889,21 @@ async function startServer() {
       return res.status(500).json({ error: err.message || "Failed to reset administrator password." });
     }
   });
-  app.get("/api/admin/super-admin/admin-users", async (req, res) => {
+  app2.get("/api/admin/super-admin/admin-users", async (req, res) => {
     try {
-      if (!authAdmin || !db) {
+      if (!authAdmin || !db2) {
         return res.status(503).json({ error: "Firebase backend services not ready." });
       }
       const caller = await verifyAdminCaller(req);
       if (!caller || caller.role !== "SUPER_ADMIN") {
         return res.status(403).json({ error: "Unauthorized. Super-Admin authorization is required." });
       }
-      const snap = await db.collection("admin_users").get();
-      const adminUsers = snap.docs.map((doc) => {
-        const data = doc.data();
+      const snap = await db2.collection("admin_users").get();
+      const adminUsers = snap.docs.map((doc2) => {
+        const data = doc2.data();
         return {
-          uid: doc.id,
-          loginId: data.loginId || doc.id,
+          uid: doc2.id,
+          loginId: data.loginId || doc2.id,
           email: data.email || "",
           displayName: data.displayName || data.name || data.loginId || "",
           role: data.role || "ADMIN",
@@ -1827,9 +2928,9 @@ async function startServer() {
       return res.status(500).json({ error: err.message || "Failed to fetch admin users list." });
     }
   });
-  app.post("/api/admin/password-changed", async (req, res) => {
+  app2.post("/api/admin/password-changed", async (req, res) => {
     try {
-      if (!authAdmin || !db) {
+      if (!authAdmin || !db2) {
         return res.status(503).json({ error: "Firebase backend services not ready." });
       }
       const caller = await verifyAdminCaller(req);
@@ -1837,14 +2938,14 @@ async function startServer() {
         return res.status(401).json({ error: "Unauthorized. Please sign in." });
       }
       const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-      const targetDocRef = db.collection("admin_users").doc(caller.uid);
+      const targetDocRef = db2.collection("admin_users").doc(caller.uid);
       await targetDocRef.set({
         mustChangePassword: false,
         passwordChangedAt: nowIso,
         updatedAt: nowIso,
         updatedBy: caller.loginId || caller.email || caller.uid
       }, { merge: true });
-      await db.collection("audit_logs").add({
+      await db2.collection("audit_logs").add({
         actorEmail: caller.email || caller.loginId || "admin",
         actorUid: caller.uid,
         action: "ADMIN_PASSWORD_CHANGED_BY_USER",
@@ -1855,7 +2956,7 @@ async function startServer() {
           passwordChangedAt: nowIso
         },
         timestamp: nowIso,
-        createdAtServer: import_firestore3.FieldValue.serverTimestamp()
+        createdAtServer: import_firestore5.FieldValue.serverTimestamp()
       });
       return res.json({ success: true, message: "Password status updated successfully." });
     } catch (err) {
@@ -1863,7 +2964,7 @@ async function startServer() {
       return res.status(500).json({ error: err.message || "Failed to update password status." });
     }
   });
-  app.get("/api/app-version", async (req, res) => {
+  app2.get("/api/app-version", async (req, res) => {
     try {
       let versionConfig = {
         latestVersionCode: 1,
@@ -1877,11 +2978,11 @@ async function startServer() {
         nativeAppDownloadUrl: "",
         nativeAppLandingUrl: ""
       };
-      if (db) {
+      if (db2) {
         try {
-          const doc = await db.collection("app_config").doc("version").get();
-          if (doc.exists) {
-            const data = doc.data();
+          const doc2 = await db2.collection("app_config").doc("version").get();
+          if (doc2.exists) {
+            const data = doc2.data();
             if (data) {
               versionConfig = { ...versionConfig, ...data };
             }
@@ -1899,7 +3000,7 @@ async function startServer() {
     }
   });
   const greetingAudioCache = /* @__PURE__ */ new Map();
-  app.post("/api/tts/welcome", async (req, res) => {
+  app2.post("/api/tts/welcome", async (req, res) => {
     try {
       const { text } = req.body || {};
       const cleanText = typeof text === "string" ? text.trim() : "";
@@ -1947,7 +3048,7 @@ async function startServer() {
     }
   });
   const notificationAudioCache = /* @__PURE__ */ new Map();
-  app.post("/api/tts/notification", async (req, res) => {
+  app2.post("/api/tts/notification", async (req, res) => {
     try {
       const { text } = req.body || {};
       const cleanText = typeof text === "string" ? text.trim() : "";
@@ -1994,15 +3095,15 @@ async function startServer() {
       return res.status(500).json({ error: err?.message || "Internal voice generation error" });
     }
   });
-  app.post("/api/median-background-location", async (req, res) => {
+  app2.post("/api/median-background-location", async (req, res) => {
     try {
       const payload = req.body || {};
-      const query = req.query || {};
-      const latitude = typeof payload.latitude === "number" ? payload.latitude : parseFloat(query.lat || "0");
-      const longitude = typeof payload.longitude === "number" ? payload.longitude : parseFloat(query.lng || "0");
-      const employeeId = (payload.employeeId || query.emp || payload.customData?.employeeId || "").toString().trim();
+      const query2 = req.query || {};
+      const latitude = typeof payload.latitude === "number" ? payload.latitude : parseFloat(query2.lat || "0");
+      const longitude = typeof payload.longitude === "number" ? payload.longitude : parseFloat(query2.lng || "0");
+      const employeeId = (payload.employeeId || query2.emp || payload.customData?.employeeId || "").toString().trim();
       const accuracy = typeof payload.accuracy === "number" ? payload.accuracy : payload.horizontalAccuracy || 0;
-      const source = payload.source || query.source || "MEDIAN_BACKGROUND_LOCATION";
+      const source = payload.source || query2.source || "MEDIAN_BACKGROUND_LOCATION";
       if (!employeeId || employeeId === "ANONYMOUS" || employeeId === "SYSTEM") {
         console.warn("[Median Backend] Rejected request due to missing or anonymous employee identity.");
         return res.status(400).json({ error: "Missing or invalid employee identity" });
@@ -2016,7 +3117,7 @@ async function startServer() {
           return res.status(400).json({ error: "Invalid coordinates provided" });
         }
       }
-      const tsInput = payload.timestamp || query.ts;
+      const tsInput = payload.timestamp || query2.ts;
       let tsDate = /* @__PURE__ */ new Date();
       if (tsInput) {
         const parsedDate = new Date(tsInput);
@@ -2034,11 +3135,11 @@ async function startServer() {
         console.warn(`[Median Backend] Rejected stale timestamp (>24h) from ${employeeId}: ${tsDate.toISOString()}`);
         return res.status(400).json({ error: "Stale background location data ignored" });
       }
-      if (!db) {
+      if (!db2) {
         console.error("[Median Backend] Firebase Admin not initialized. Cannot process persistence.");
         return res.status(503).json({ error: "Database service temporarily unavailable" });
       }
-      const empRef = db.collection("registrations").doc(employeeId);
+      const empRef = db2.collection("registrations").doc(employeeId);
       const empSnap = await empRef.get();
       if (!empSnap.exists) {
         console.warn(`[Median Backend] Unauthorized: Employee document '${employeeId}' does not exist in registrations.`);
@@ -2052,17 +3153,11 @@ async function startServer() {
         return res.status(403).json({ error: "Forbidden: Employee is suspended, deleted, or unapproved" });
       }
       const employeeName = empData.name || "Employee";
-      const townCity = empData.townCity || "Raniganj HQ";
-      const distance = isLocationUnavailable ? null : payload.distance !== void 0 && typeof payload.distance === "number" ? payload.distance : calculateDistanceInMeters(latitude, longitude, OFFICE_LAT, OFFICE_LNG);
+      const townCity = empData.townCity || "Main Office";
+      const distance = isLocationUnavailable ? null : calculateDistanceInMeters(latitude, longitude, OFFICE_LAT, OFFICE_LNG);
       let isInside = false;
       let isExit = false;
-      if (eventTypeParam === "EXIT" || eventTypeParam === "GEOFENCE_EXIT") {
-        isInside = false;
-        isExit = true;
-      } else if (eventTypeParam === "ENTER" || eventTypeParam === "GEOFENCE_RETURN") {
-        isInside = true;
-        isExit = false;
-      } else if (isLocationUnavailable) {
+      if (isLocationUnavailable) {
         isInside = false;
         isExit = false;
       } else {
@@ -2070,7 +3165,7 @@ async function startServer() {
         isExit = distance !== null && distance > GEOFENCE_RADIUS_METERS;
       }
       console.log(`[Median Backend] Location payload validated for ${employeeName} (${employeeId}): Lat/Lng=${isLocationUnavailable ? "Unavailable" : `(${latitude.toFixed(6)}, ${longitude.toFixed(6)})`} - Distance: ${distance !== null ? `${Math.round(distance)}m` : "Unavailable"} - Inside: ${isInside} - EventType: ${eventTypeParam || "PERIODIC"}`);
-      const liveDocRef = db.collection("live_locations").doc(employeeId);
+      const liveDocRef = db2.collection("live_locations").doc(employeeId);
       await liveDocRef.set({
         employeeId,
         employeeName,
@@ -2085,20 +3180,25 @@ async function startServer() {
       const dateStr = getFormattedDateStr(tsDate);
       const timeStr = getFormattedTimeStr(tsDate);
       const attDocId = `${employeeId}_${dateStr}`;
-      const attDocRef = db.collection("attendance").doc(attDocId);
+      const attDocRef = db2.collection("attendance").doc(attDocId);
       let transitionRecorded = false;
       let targetState = "UNCHANGED";
-      await db.runTransaction(async (transaction) => {
+      await db2.runTransaction(async (transaction) => {
         const attSnap = await transaction.get(attDocRef);
         const eventIso = tsDate.toISOString();
         if (!attSnap.exists) {
-          const isEntryEvent = isInside || eventTypeParam === "ENTER" || eventTypeParam === "GEOFENCE_TRANSITION_ENTER" || eventTypeParam === "GEOFENCE_RETURN";
-          const isWithinBoundary = isInside || distance !== null && distance <= GEOFENCE_RADIUS_METERS;
+          const isNativeGeofence = source && String(source).includes("NATIVE_GEOFENCE") || eventTypeParam === "ENTER" || eventTypeParam === "GEOFENCE_TRANSITION_ENTER";
+          const isEntryEvent = isInside || isNativeGeofence || eventTypeParam === "GEOFENCE_RETURN";
+          const isWithinBoundary = isInside || isNativeGeofence || distance !== null && distance <= GEOFENCE_RADIUS_METERS;
           if (isEntryEvent && isWithinBoundary) {
-            console.log(`[BackgroundAttendance] GEOFENCE_ENTRY detected for ${employeeName} (${employeeId})`);
-            console.log(`[BackgroundAttendance] VALIDATED entry location: Lat=${latitude}, Lng=${longitude}, Dist=${distance !== null ? `${Math.round(distance)}m` : "N/A"}`);
             const eventId2 = payload.eventId || `evt_bg_CHECK_IN_${employeeId}_${dateStr}_${timeStr.replace(/\s+/g, "_")}`;
             const attUuid = payload.id || `att_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            if (isNativeGeofence) {
+              console.log(`[NATIVE_GEOFENCE_ENTER_RECEIVED] employeeId=${employeeId} eventId=${eventId2} eventTimestamp=${eventIso} source=native`);
+            }
+            console.log(`[AUTO_CHECKIN_BACKGROUND] employeeId=${employeeId} checkInTime=${timeStr} source=native_geofence`);
+            console.log(`[BackgroundAttendance] GEOFENCE_ENTRY detected for ${employeeName} (${employeeId})`);
+            console.log(`[BackgroundAttendance] VALIDATED entry location: Lat=${latitude}, Lng=${longitude}, Dist=${distance !== null ? `${Math.round(distance)}m` : "N/A"}`);
             console.log(`[BackgroundAttendance] CHECKIN_REQUEST processing for canonical document ${attDocId}`);
             const newRecord = {
               id: attUuid,
@@ -2122,7 +3222,7 @@ async function startServer() {
               createdAtDeviceTime: eventIso,
               syncStatus: "Synced",
               serverSyncTime: (/* @__PURE__ */ new Date()).toISOString(),
-              serverSyncTimestamp: import_firestore3.FieldValue.serverTimestamp(),
+              serverSyncTimestamp: import_firestore5.FieldValue.serverTimestamp(),
               updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
               isOffline: false,
               reminderCount: 0,
@@ -2142,7 +3242,7 @@ async function startServer() {
               currentLocationStatus: "LIVE"
             };
             transaction.set(attDocRef, newRecord);
-            const eventRef = db.collection("attendance_events").doc(eventId2);
+            const eventRef = db2.collection("attendance_events").doc(eventId2);
             transaction.set(eventRef, {
               eventId: eventId2,
               employeeId,
@@ -2159,8 +3259,9 @@ async function startServer() {
               source: source || "NATIVE_GEOFENCE_ENTER",
               syncStatus: "Synced",
               syncedAt: (/* @__PURE__ */ new Date()).toISOString(),
-              serverSyncTime: import_firestore3.FieldValue.serverTimestamp()
+              serverSyncTime: import_firestore5.FieldValue.serverTimestamp()
             }, { merge: true });
+            console.log(`[NATIVE_ENTER_SYNCED] employeeId=${employeeId} eventId=${eventId2}`);
             console.log(`[BackgroundAttendance] CHECKIN_CREATED: Daily attendance document ${attDocId} created with checkInTime ${timeStr}`);
             console.log(`[BackgroundAttendance] CHECKIN_SYNCED: Synced to Firestore for employee ${employeeId}`);
             transitionRecorded = true;
@@ -2170,14 +3271,15 @@ async function startServer() {
           }
           return;
         }
-        console.log(`[BackgroundAttendance] CHECKIN_ALREADY_EXISTS for ${employeeId} on ${dateStr}`);
         const record = attSnap.data() || {};
+        const eventType = isInside ? "GEOFENCE_RETURN" : "GEOFENCE_EXIT";
+        const eventId = payload.eventId || `evt_${employeeId}_${dateStr}_${eventType}_${timeStr.replace(/\s+/g, "_")}`;
+        console.log(`[AUTO_CHECKIN_DUPLICATE_IGNORED] employeeId=${employeeId} eventId=${eventId}`);
+        console.log(`[BackgroundAttendance] CHECKIN_ALREADY_EXISTS for ${employeeId} on ${dateStr}`);
         if (record.checkOutTime && record.checkOutTime !== "--:--" && record.checkoutStatus === "COMPLETED") {
           return;
         }
         const currentState = record.currentState || "CHECKED_IN";
-        const eventType = isInside ? "GEOFENCE_RETURN" : "GEOFENCE_EXIT";
-        const eventId = payload.eventId || `evt_${employeeId}_${dateStr}_${eventType}_${timeStr.replace(/\s+/g, "_")}`;
         if (record.processedEvents?.includes(eventId)) {
           console.log(`[BackgroundAttendance] DUPLICATE_SUPPRESSED: Event ${eventId} already processed for ${attDocId}`);
           return;
@@ -2215,7 +3317,7 @@ async function startServer() {
             record.syncStatus = "Synced";
             record.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
             record.serverSyncTime = (/* @__PURE__ */ new Date()).toISOString();
-            record.serverSyncTimestamp = import_firestore3.FieldValue.serverTimestamp();
+            record.serverSyncTimestamp = import_firestore5.FieldValue.serverTimestamp();
             modified = true;
             targetState = "PENDING_EXIT_CONFIRMATION";
             transitionRecorded = true;
@@ -2231,15 +3333,15 @@ async function startServer() {
             record.pendingCheckoutConfirmation = false;
             record.returningToOffice = false;
             record.currentState = "CHECKED_IN";
-            record.checkoutLatitude = import_firestore3.FieldValue.delete();
-            record.checkoutLongitude = import_firestore3.FieldValue.delete();
-            record.checkoutDistance = import_firestore3.FieldValue.delete();
-            record.checkoutTownCity = import_firestore3.FieldValue.delete();
+            record.checkoutLatitude = import_firestore5.FieldValue.delete();
+            record.checkoutLongitude = import_firestore5.FieldValue.delete();
+            record.checkoutDistance = import_firestore5.FieldValue.delete();
+            record.checkoutTownCity = import_firestore5.FieldValue.delete();
             record.processedEvents = updatedProcessedEvents;
             record.syncStatus = "Synced";
             record.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
             record.serverSyncTime = (/* @__PURE__ */ new Date()).toISOString();
-            record.serverSyncTimestamp = import_firestore3.FieldValue.serverTimestamp();
+            record.serverSyncTimestamp = import_firestore5.FieldValue.serverTimestamp();
             modified = true;
             targetState = "CHECKED_IN";
             transitionRecorded = true;
@@ -2247,7 +3349,7 @@ async function startServer() {
         }
         if (modified) {
           transaction.update(attDocRef, record);
-          const eventRef = db.collection("attendance_events").doc(eventId);
+          const eventRef = db2.collection("attendance_events").doc(eventId);
           transaction.set(eventRef, {
             eventId,
             employeeId,
@@ -2264,18 +3366,18 @@ async function startServer() {
             source: "AUTO_GEOFENCE",
             syncStatus: "Synced",
             syncedAt: (/* @__PURE__ */ new Date()).toISOString(),
-            serverSyncTime: import_firestore3.FieldValue.serverTimestamp()
+            serverSyncTime: import_firestore5.FieldValue.serverTimestamp()
           }, { merge: true });
         }
       });
       if (transitionRecorded) {
         console.log(`[Median Backend] Transition successful for ${employeeName} to state: ${targetState} (Distance: ${isLocationUnavailable ? "unavailable" : `${Math.round(distance)}m`})`);
-        if (db) {
+        if (db2) {
           try {
             const isEntry = targetState === "CHECKED_IN";
             const eventType = isEntry ? "AUTO_CHECK_IN" : "OUTSIDE_OFFICE";
             const eventId = `evt_bg_${employeeId}_${dateStr}_${eventType}_${timeStr.replace(/\s+/g, "_")}`;
-            dispatchWhatsAppAttendanceNotification(db, {
+            dispatchWhatsAppAttendanceNotification(db2, {
               eventId,
               eventType,
               employeeId,
@@ -2284,7 +3386,7 @@ async function startServer() {
               attendanceType: "OFFICE",
               checkInTime: timeStr,
               distance: isLocationUnavailable ? 0 : Math.round(distance),
-              townCity: townCity || "Raniganj HQ",
+              townCity: townCity || "Main Office",
               eventTime: timeStr
             }).catch((waErr) => {
               console.warn("[BackgroundAttendance] Auxiliary WhatsApp dispatch warning (non-fatal):", waErr);
@@ -2314,12 +3416,151 @@ async function startServer() {
       return res.status(500).json({ error: "Internal server error processing location" });
     }
   });
-  app.post("/api/notifications/whatsapp", async (req, res) => {
+  app2.post("/api/background-location", async (req, res) => {
+    req.url = "/api/median-background-location";
+    return app2._router.handle(req, res);
+  });
+  app2.get("/api/attendance/today", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) {
+      return res.status(401).json({ error: "Unauthorized: Valid authentication required" });
+    }
+    if (!db2) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+    try {
+      const employeeId = (req.query.employeeId || caller.employeeId || caller.uid || "").toString().trim();
+      const todayStr = (/* @__PURE__ */ new Date()).toISOString().substring(0, 10);
+      const attDocId = `${employeeId}_${todayStr}`;
+      const attSnap = await db2.collection("attendance").doc(attDocId).get();
+      const liveSnap = await db2.collection("live_locations").doc(employeeId).get();
+      let liveData = liveSnap.exists ? liveSnap.data() || {} : {};
+      let attData = attSnap.exists ? attSnap.data() || {} : {};
+      return res.json({
+        date: todayStr,
+        employeeId,
+        currentGeofenceState: liveData.distanceFromOffice !== void 0 && typeof liveData.distanceFromOffice === "number" ? liveData.distanceFromOffice <= 25 ? "INSIDE" : "OUTSIDE" : "UNKNOWN",
+        currentDistanceMeters: liveData.distanceFromOffice ?? null,
+        lastLocationAt: liveData.timestamp || null,
+        checkInAt: attData.checkInTime || null,
+        checkOutAt: attData.checkOutTime || attData.exitTime || null,
+        workedDuration: attData.workingHours || "00:00:00",
+        attendanceSource: attData.checkInMode || "AUTOMATIC_GEOFENCE",
+        status: attData.currentState || (attData.checkInTime ? "CHECKED_IN" : "ABSENT")
+      });
+    } catch (err) {
+      console.error("[Attendance Today API] Error:", err);
+      return res.status(500).json({ error: "Internal server error fetching today's attendance" });
+    }
+  });
+  app2.get("/api/attendance/latest", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) {
+      return res.status(401).json({ error: "Unauthorized: Valid authentication required" });
+    }
+    if (!db2) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+    try {
+      const employeeId = (req.query.employeeId || caller.employeeId || caller.uid || "").toString().trim();
+      const eventsSnap = await db2.collection("attendance_events").where("employeeId", "==", employeeId).orderBy("serverSyncTime", "desc").limit(1).get();
+      if (eventsSnap.empty) {
+        const todayStr = (/* @__PURE__ */ new Date()).toISOString().substring(0, 10);
+        const attSnap = await db2.collection("attendance").doc(`${employeeId}_${todayStr}`).get();
+        if (attSnap.exists) {
+          const data = attSnap.data() || {};
+          return res.json({
+            eventType: data.checkOutTime ? "CHECK_OUT" : "CHECK_IN",
+            timestamp: data.updatedAt || (/* @__PURE__ */ new Date()).toISOString(),
+            timeStr: data.checkOutTime || data.checkInTime || "No attendance yet",
+            source: "AUTOMATIC_GEOFENCE"
+          });
+        }
+        return res.json({ eventType: "NONE", timestamp: null, timeStr: "No attendance yet", source: "NONE" });
+      }
+      const latestEvent = eventsSnap.docs[0].data();
+      return res.json({
+        eventType: latestEvent.eventType,
+        timestamp: latestEvent.eventTime || latestEvent.syncedAt,
+        timeStr: latestEvent.eventTime,
+        source: latestEvent.source
+      });
+    } catch (err) {
+      console.error("[Attendance Latest API] Error:", err);
+      return res.status(500).json({ error: "Internal server error fetching latest attendance" });
+    }
+  });
+  app2.get("/api/attendance/history", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) {
+      return res.status(401).json({ error: "Unauthorized: Valid authentication required" });
+    }
+    if (!db2) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+    try {
+      const employeeId = (req.query.employeeId || caller.employeeId || caller.uid || "").toString().trim();
+      const limit = parseInt(req.query.limit || "30", 10);
+      const qSnap = await db2.collection("attendance").where("employeeId", "==", employeeId).limit(limit).get();
+      const history = qSnap.docs.map((doc2) => doc2.data());
+      return res.json({ success: true, count: history.length, history });
+    } catch (err) {
+      console.error("[Attendance History API] Error:", err);
+      return res.status(500).json({ error: "Internal server error fetching attendance history" });
+    }
+  });
+  app2.get("/api/reports/daily", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) {
+      return res.status(401).json({ error: "Unauthorized: Valid authentication required" });
+    }
+    if (!db2) {
+      return res.status(503).json({ error: "Database service unavailable" });
+    }
+    try {
+      const dateStr = (req.query.date || (/* @__PURE__ */ new Date()).toISOString().substring(0, 10)).toString();
+      const regSnap = await db2.collection("registrations").get();
+      const totalEmployees = regSnap.size;
+      const attSnap = await db2.collection("attendance").where("date", "==", dateStr).get();
+      const presentCount = attSnap.size;
+      return res.json({
+        date: dateStr,
+        summary: {
+          totalEmployees,
+          present: presentCount,
+          absent: Math.max(0, totalEmployees - presentCount),
+          late: 0,
+          earlyDeparture: 0
+        },
+        efficiency: {
+          top: [],
+          bottom: []
+        },
+        attendance: {
+          best: [],
+          exceptions: []
+        },
+        workingHours: {
+          highest: [],
+          lowest: []
+        },
+        tasks: {
+          highestCompletion: [],
+          lowestCompletion: [],
+          overdue: []
+        }
+      });
+    } catch (err) {
+      console.error("[Daily Reports API] Error:", err);
+      return res.status(500).json({ error: "Internal server error generating daily report" });
+    }
+  });
+  app2.post("/api/notifications/whatsapp", async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller) {
       return res.status(401).json({ error: "Unauthorized: Valid Firebase authentication token required" });
     }
-    if (!db) {
+    if (!db2) {
       return res.status(503).json({ error: "Database service unavailable" });
     }
     try {
@@ -2349,11 +3590,11 @@ async function startServer() {
       try {
         let regDoc = null;
         if (targetEmployeeId) {
-          const doc = await db.collection("registrations").doc(targetEmployeeId).get();
-          if (doc.exists) regDoc = doc;
+          const doc2 = await db2.collection("registrations").doc(targetEmployeeId).get();
+          if (doc2.exists) regDoc = doc2;
         }
         if (!regDoc && targetEmployeeCode) {
-          const q = await db.collection("registrations").where("employeeCode", "==", targetEmployeeCode).limit(1).get();
+          const q = await db2.collection("registrations").where("employeeCode", "==", targetEmployeeCode).limit(1).get();
           if (!q.empty) regDoc = q.docs[0];
         }
         if (regDoc && regDoc.exists) {
@@ -2374,7 +3615,7 @@ async function startServer() {
         employeeMobile: authoritativePhone || void 0,
         whatsappConsent: authoritativeConsent || void 0
       };
-      const results = await dispatchWhatsAppAttendanceNotification(db, verifiedPayload);
+      const results = await dispatchWhatsAppAttendanceNotification(db2, verifiedPayload);
       return res.json({
         success: true,
         results
@@ -2384,27 +3625,27 @@ async function startServer() {
       return res.status(500).json({ error: err.message || "Internal server error dispatching WhatsApp message" });
     }
   });
-  app.get("/api/admin/whatsapp/config", async (req, res) => {
+  app2.get("/api/admin/whatsapp/config", async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller || !caller.isAdmin) {
       return res.status(401).json({ error: "Unauthorized access: Valid Admin token required" });
     }
-    if (!db) {
+    if (!db2) {
       return res.status(503).json({ error: "Database service unavailable" });
     }
     try {
-      const env = getWhatsAppEnvCredentials();
-      const config = await getWhatsAppConfig(db);
+      const env2 = getWhatsAppEnvCredentials();
+      const config = await getWhatsAppConfig(db2);
       const maskString = (str) => {
         if (!str || str.length <= 4) return str ? "****" : "";
         return `${str.slice(0, 3)}****${str.slice(-4)}`;
       };
       return res.json({
-        configured: env.isConfigured,
-        status: env.isConfigured ? "CONNECTED" : "NOT_CONFIGURED",
-        maskedPhoneNumberId: maskString(env.phoneNumberId),
-        maskedWabaId: maskString(env.businessAccountId),
-        apiVersion: config.apiVersion || env.apiVersion,
+        configured: env2.isConfigured,
+        status: env2.isConfigured ? "CONNECTED" : "NOT_CONFIGURED",
+        maskedPhoneNumberId: maskString(env2.phoneNumberId),
+        maskedWabaId: maskString(env2.businessAccountId),
+        apiVersion: config.apiVersion || env2.apiVersion,
         globalEnabled: config.globalEnabled,
         recipientMode: config.recipientMode,
         adminRecipients: config.adminRecipients || [],
@@ -2418,18 +3659,18 @@ async function startServer() {
       return res.status(500).json({ error: "Failed to fetch WhatsApp configuration" });
     }
   });
-  app.post("/api/admin/whatsapp/config", async (req, res) => {
+  app2.post("/api/admin/whatsapp/config", async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller || !caller.isSuperAdmin) {
       return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
     }
-    if (!db) {
+    if (!db2) {
       return res.status(503).json({ error: "Database service unavailable" });
     }
     try {
       const updateData = req.body;
       const updatedConfig = await saveWhatsAppConfig(
-        db,
+        db2,
         {
           globalEnabled: updateData.globalEnabled,
           recipientMode: updateData.recipientMode,
@@ -2440,7 +3681,7 @@ async function startServer() {
         caller.email || caller.loginId || "SUPER_ADMIN"
       );
       try {
-        const auditRef = db.collection("audit_logs").doc();
+        const auditRef = db2.collection("audit_logs").doc();
         await auditRef.set({
           id: auditRef.id,
           actionCategory: "SYSTEM_SETTINGS",
@@ -2457,17 +3698,17 @@ async function startServer() {
       } catch (auditErr) {
         console.warn("[WhatsApp Admin] Non-fatal audit log warning:", auditErr);
       }
-      const env = getWhatsAppEnvCredentials();
+      const env2 = getWhatsAppEnvCredentials();
       const maskString = (str) => {
         if (!str || str.length <= 4) return str ? "****" : "";
         return `${str.slice(0, 3)}****${str.slice(-4)}`;
       };
       return res.json({
-        configured: env.isConfigured,
-        status: env.isConfigured ? "CONNECTED" : "NOT_CONFIGURED",
-        maskedPhoneNumberId: maskString(env.phoneNumberId),
-        maskedWabaId: maskString(env.businessAccountId),
-        apiVersion: updatedConfig.apiVersion || env.apiVersion,
+        configured: env2.isConfigured,
+        status: env2.isConfigured ? "CONNECTED" : "NOT_CONFIGURED",
+        maskedPhoneNumberId: maskString(env2.phoneNumberId),
+        maskedWabaId: maskString(env2.businessAccountId),
+        apiVersion: updatedConfig.apiVersion || env2.apiVersion,
         globalEnabled: updatedConfig.globalEnabled,
         recipientMode: updatedConfig.recipientMode,
         adminRecipients: updatedConfig.adminRecipients || [],
@@ -2481,7 +3722,7 @@ async function startServer() {
       return res.status(500).json({ error: "Failed to save WhatsApp configuration" });
     }
   });
-  app.post("/api/admin/whatsapp/test", async (req, res) => {
+  app2.post("/api/admin/whatsapp/test", async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller || !caller.isSuperAdmin) {
       return res.status(403).json({ error: "Forbidden: Super-Administrator authorization required" });
@@ -2491,7 +3732,7 @@ async function startServer() {
       return res.status(400).json({ error: "Recipient phone number is required" });
     }
     try {
-      const messageBody = testMessage || "EXFIN OMS WhatsApp Connection Test Successful.";
+      const messageBody = testMessage || "Smart Workforce WhatsApp Connection Test Successful.";
       let sendRes;
       if (type === "template" && templateName) {
         sendRes = await sendMetaWhatsAppMessage(recipient, {
@@ -2505,9 +3746,9 @@ async function startServer() {
         sendRes = await sendMetaWhatsAppMessage(recipient, messageBody);
       }
       if (sendRes.success) {
-        if (db) {
+        if (db2) {
           try {
-            const auditRef = db.collection("audit_logs").doc();
+            const auditRef = db2.collection("audit_logs").doc();
             await auditRef.set({
               id: auditRef.id,
               actionCategory: "SYSTEM_SETTINGS",
@@ -2540,98 +3781,118 @@ async function startServer() {
       return res.status(500).json({ error: err.message || "Failed to execute WhatsApp test dispatch" });
     }
   });
-  app.get(["/api/admin/daily-report/config", "/api/admin/daily-email-report/config"], async (req, res) => {
+  app2.get(["/api/admin/daily-report/config", "/api/admin/daily-email-report/config"], async (req, res) => {
     const caller = await verifyCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return res.status(401).json({ error: "Unauthorized access: Valid Admin token required" });
+    if (!caller) {
+      return res.status(401).json({ success: false, error: "Authentication required: Please provide a valid token" });
     }
-    if (!db) {
-      return res.status(503).json({ error: "Database service unavailable" });
+    if (caller.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ success: false, error: "Access Forbidden: Super-Admin authorization required" });
+    }
+    if (!db2) {
+      return res.status(503).json({ success: false, error: "Database service unavailable" });
     }
     try {
-      const config = await getDailyReportConfig(db);
+      const config = await getDailyReportConfig(db2);
       return res.json({
         success: true,
         config
       });
     } catch (err) {
       console.error("[DailyReport API] Error fetching config:", err);
-      return res.status(500).json({ error: "Failed to fetch daily report configuration" });
+      return res.status(500).json({ success: false, error: "Failed to fetch daily report configuration" });
     }
   });
-  app.post(["/api/admin/daily-report/config", "/api/admin/daily-email-report/config"], async (req, res) => {
+  app2.post(["/api/admin/daily-report/config", "/api/admin/daily-email-report/config"], async (req, res) => {
     const caller = await verifyCaller(req);
-    if (!caller || caller.role !== "SUPER_ADMIN") {
-      return res.status(401).json({ error: "Unauthorized access: Super-Admin credentials required" });
+    if (!caller) {
+      return res.status(401).json({ success: false, error: "Authentication required: Please provide a valid token" });
     }
-    if (!db) {
-      return res.status(503).json({ error: "Database service unavailable" });
+    if (caller.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ success: false, error: "Access Forbidden: Super-Admin authorization required" });
+    }
+    if (!db2) {
+      return res.status(503).json({ success: false, error: "Database service unavailable" });
     }
     try {
       if (req.body.adminEmails !== void 0) {
         const valResult = validateAdminEmails(req.body.adminEmails);
         if (!valResult.valid) {
-          return res.status(400).json({ error: valResult.error });
+          return res.status(400).json({ success: false, error: valResult.error });
         }
       }
-      const updatedConfig = await saveDailyReportConfig(db, req.body, caller.email || caller.uid);
+      const updatedConfig = await saveDailyReportConfig(db2, req.body, caller.email || caller.uid);
       return res.json({
         success: true,
         config: updatedConfig
       });
     } catch (err) {
       console.error("[DailyReport API] Error saving config:", err);
-      return res.status(400).json({ error: err.message || "Failed to save daily report configuration" });
+      return res.status(400).json({ success: false, error: err.message || "Failed to save daily report configuration" });
     }
   });
-  app.post(["/api/admin/daily-report/send-test", "/api/admin/daily-email-report/test"], async (req, res) => {
+  app2.post(["/api/admin/daily-report/send-test", "/api/admin/daily-email-report/test"], async (req, res) => {
     const caller = await verifyCaller(req);
-    if (!caller || caller.role !== "SUPER_ADMIN") {
-      return res.status(401).json({ error: "Unauthorized access: Super-Admin credentials required" });
+    if (!caller) {
+      return res.status(401).json({ success: false, error: "Authentication required: Please provide a valid token" });
     }
-    if (!db) {
-      return res.status(503).json({ error: "Database service unavailable" });
+    if (caller.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ success: false, error: "Access Forbidden: Super-Admin authorization required" });
+    }
+    if (!db2) {
+      return res.status(503).json({ success: false, error: "Database service unavailable" });
     }
     try {
-      const result = await sendDailyReportTestEmail(db, caller.email || caller.uid);
+      const result = await sendDailyReportTestEmail(db2, caller.email || caller.uid);
       return res.json(result);
     } catch (err) {
       console.error("[DailyReport API] Error sending test email:", err);
       return res.status(500).json({ success: false, error: err.message || "Failed to send test email" });
     }
   });
-  app.post(["/api/admin/daily-report/send-yesterday", "/api/admin/daily-email-report/send-yesterday"], async (req, res) => {
+  app2.post([
+    "/api/admin/daily-report/send-yesterday",
+    "/api/admin/daily-email-report/send-yesterday",
+    "/api/admin/daily-report/retry-yesterday",
+    "/api/admin/daily-email-report/retry-yesterday"
+  ], async (req, res) => {
     const caller = await verifyCaller(req);
-    if (!caller || caller.role !== "SUPER_ADMIN") {
-      return res.status(401).json({ error: "Unauthorized access: Super-Admin credentials required" });
+    if (!caller) {
+      return res.status(401).json({ success: false, error: "Authentication required: Please provide a valid token" });
     }
-    if (!db) {
-      return res.status(503).json({ error: "Database service unavailable" });
+    if (caller.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ success: false, error: "Access Forbidden: Super-Admin authorization required" });
+    }
+    if (!db2) {
+      return res.status(503).json({ success: false, error: "Database service unavailable" });
     }
     try {
       const targetDate = req.body.date;
-      const result = await generateAndSendDailyReport(db, targetDate, true, caller.email || caller.uid);
+      const result = await generateAndSendDailyReport(db2, targetDate, true, caller.email || caller.uid);
       return res.json(result);
     } catch (err) {
       console.error("[DailyReport API] Error manually sending report:", err);
       return res.status(500).json({ success: false, error: err.message || "Failed to manually generate/send report" });
     }
   });
-  app.get(["/api/admin/daily-report/history", "/api/admin/daily-email-report/history"], async (req, res) => {
+  app2.get(["/api/admin/daily-report/history", "/api/admin/daily-email-report/history"], async (req, res) => {
     const caller = await verifyCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return res.status(401).json({ error: "Unauthorized access: Valid Admin token required" });
+    if (!caller) {
+      return res.status(401).json({ success: false, error: "Authentication required: Please provide a valid token" });
     }
-    if (!db) {
-      return res.status(503).json({ error: "Database service unavailable" });
+    if (caller.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ success: false, error: "Access Forbidden: Super-Admin authorization required" });
+    }
+    if (!db2) {
+      return res.status(503).json({ success: false, error: "Database service unavailable" });
     }
     try {
-      const historySnap = await db.collection("daily_admin_reports").orderBy("startedAt", "desc").limit(30).get();
+      const historySnap = await db2.collection("daily_admin_reports").orderBy("startedAt", "desc").limit(30).get();
       const history = [];
-      historySnap.forEach((doc) => {
+      historySnap.forEach((doc2) => {
         history.push({
-          id: doc.id,
-          ...doc.data()
+          id: doc2.id,
+          ...doc2.data()
         });
       });
       return res.json({
@@ -2640,33 +3901,201 @@ async function startServer() {
       });
     } catch (err) {
       console.error("[DailyReport API] Error fetching history:", err);
-      return res.status(500).json({ error: "Failed to fetch daily report history" });
+      return res.status(500).json({ success: false, error: "Failed to fetch daily report history" });
     }
   });
-  app.post("/api/internal/daily-admin-report", async (req, res) => {
-    if (!db) {
+  app2.get(["/api/admin/daily-report/diagnostics", "/api/admin/daily-email-report/diagnostics"], async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) {
+      return res.status(401).json({ success: false, error: "Authentication required: Please provide a valid token" });
+    }
+    if (caller.role !== "SUPER_ADMIN") {
+      return res.status(403).json({ success: false, error: "Access Forbidden: Super-Admin authorization required" });
+    }
+    if (!db2) {
+      return res.status(503).json({ success: false, error: "Database service unavailable" });
+    }
+    try {
+      const config = await getDailyReportConfig(db2);
+      const currentMinutes = getKolkataCurrentMinutes();
+      const scheduledMinutes = parseTimeToMinutes ? parseTimeToMinutes(config.sendTime) ?? 420 : 420;
+      const todayKolkata = getKolkataDateString();
+      let nextRunDateStr = todayKolkata;
+      if (currentMinutes >= scheduledMinutes) {
+        const [yearStr, monthStr, dayStr] = todayKolkata.split("-");
+        const year = parseInt(yearStr, 10);
+        const month = parseInt(monthStr, 10) - 1;
+        const day = parseInt(dayStr, 10);
+        const utc = new Date(Date.UTC(year, month, day));
+        utc.setUTCDate(utc.getUTCDate() + 1);
+        const nextYear = utc.getUTCFullYear();
+        const nextMonth = String(utc.getUTCMonth() + 1).padStart(2, "0");
+        const nextDay = String(utc.getUTCDate()).padStart(2, "0");
+        nextRunDateStr = `${nextYear}-${nextMonth}-${nextDay}`;
+      }
+      const { hour, minute, period } = to12HourFormat(config.sendTime);
+      const formattedSendTime = `${hour}:${minute} ${period}`;
+      const nextRun = `${formatDateStringFriendly(nextRunDateStr)}, ${formattedSendTime}`;
+      const lastRunSnap = await db2.collection("daily_admin_reports").orderBy("startedAt", "desc").limit(1).get();
+      let lastRun = "NEVER RUN";
+      let lastStatus = "NOT RUN";
+      if (!lastRunSnap.empty) {
+        const doc2 = lastRunSnap.docs[0];
+        const data = doc2.data();
+        const reportDate = data.reportDate || doc2.id;
+        const completedAtStr = data.completedAt || data.startedAt;
+        let completedFormatted = "";
+        if (completedAtStr) {
+          try {
+            const completedDate = new Date(completedAtStr);
+            const kTimeStr = completedDate.toLocaleTimeString("en-IN", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+              timeZone: "Asia/Kolkata"
+            });
+            completedFormatted = ` (Sent At: ${kTimeStr})`;
+          } catch (e) {
+          }
+        }
+        lastRun = `${formatDateStringFriendly(reportDate)}${completedFormatted}`;
+        lastStatus = data.status || "UNKNOWN";
+      }
+      const currentKolkataTimeStr = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+      }).format(/* @__PURE__ */ new Date());
+      let lastSchedulerTickFormatted = "NEVER CALLED";
+      if (config.lastSchedulerTick) {
+        try {
+          const tickDate = new Date(config.lastSchedulerTick);
+          lastSchedulerTickFormatted = new Intl.DateTimeFormat("en-IN", {
+            timeZone: "Asia/Kolkata",
+            year: "numeric",
+            month: "short",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+          }).format(tickDate);
+        } catch (e) {
+          lastSchedulerTickFormatted = config.lastSchedulerTick;
+        }
+      }
+      return res.json({
+        success: true,
+        diagnostics: {
+          enabled: config.enabled,
+          configuredTime: formattedSendTime,
+          timezone: "Asia/Kolkata",
+          currentTimeInTimezone: currentKolkataTimeStr,
+          nextRun,
+          lastRun,
+          lastStatus,
+          schedulerMode: "EXTERNAL CRON",
+          endpointStatus: "READY",
+          lastSchedulerTick: lastSchedulerTickFormatted
+        }
+      });
+    } catch (err) {
+      console.error("[DailyReport API] Error generating diagnostics:", err);
+      return res.status(500).json({ success: false, error: err.message || "Failed to generate diagnostics" });
+    }
+  });
+  app2.post("/api/internal/daily-admin-report", async (req, res) => {
+    if (!db2) {
       return res.status(503).json({ error: "Database service unavailable" });
     }
     const authHeader = req.headers.authorization;
     const queryToken = req.query.token;
-    const expectedSecret = process.env.CRON_SECRET || "exfin_oms_secure_scheduler_token_2026";
+    const expectedSecret = process.env.CRON_SECRET || (process.env.NODE_ENV !== "production" ? "smart_workforce_secure_scheduler_token" : void 0);
+    if (!expectedSecret) {
+      console.error("[DailyReport Scheduler] CRON_SECRET environment variable is missing in production!");
+      return res.status(500).json({ error: "Server Configuration Error: CRON_SECRET not configured in production." });
+    }
     const isAuthorized = authHeader === `Bearer ${expectedSecret}` || queryToken === expectedSecret;
     if (!isAuthorized) {
       console.warn(`[DailyReport Scheduler] Unauthorized attempt to invoke scheduler endpoint.`);
       return res.status(401).json({ error: "Unauthorized: Invalid or missing scheduling credentials" });
     }
     try {
-      console.log(`[DailyReport Scheduler] Scheduler triggered report dispatch process...`);
-      const targetDate = req.body?.date || req.query?.date;
-      const result = await generateAndSendDailyReport(db, targetDate, false, "AUTOMATED_SCHEDULER");
-      return res.json(result);
+      const config = await getDailyReportConfig(db2);
+      const currentKolkataTimeStr = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true
+      }).format(/* @__PURE__ */ new Date());
+      const scheduledMinutes = parseTimeToMinutes(config.sendTime) ?? 420;
+      const currentMinutes = getKolkataCurrentMinutes();
+      const targetDate = getPreviousKolkataDateString();
+      let alreadySent = false;
+      try {
+        const logSnap = await db2.collection("daily_admin_reports").doc(targetDate).get();
+        if (logSnap.exists && logSnap.data()?.status === "SENT") {
+          alreadySent = true;
+        }
+      } catch (e) {
+      }
+      let action = "SKIP";
+      if (!config.enabled) {
+        action = "SKIP (Disabled)";
+      } else if (currentMinutes < scheduledMinutes) {
+        action = "SKIP (Too Early)";
+      } else if (alreadySent) {
+        action = "SKIP (Already Sent)";
+      } else {
+        action = "SEND";
+      }
+      console.log("=========================================");
+      console.log("Daily report scheduler tick received");
+      console.log(`Kolkata time: ${currentKolkataTimeStr}`);
+      console.log(`Configured time: ${config.sendTime}`);
+      console.log(`Target report date: ${targetDate}`);
+      console.log(`Already sent: ${alreadySent}`);
+      console.log(`Action: ${action}`);
+      console.log("=========================================");
+      try {
+        await db2.collection("system_settings").doc("daily_admin_report").set({
+          lastSchedulerTick: (/* @__PURE__ */ new Date()).toISOString()
+        }, { merge: true });
+      } catch (e) {
+        console.error("[DailyReport Scheduler] Failed to save scheduler tick to Firestore:", e);
+      }
+      const passedDate = req.body?.date || req.query?.date;
+      if (passedDate) {
+        const result = await generateAndSendDailyReport(db2, passedDate, false, "AUTOMATED_SCHEDULER");
+        return res.json(result);
+      } else {
+        await checkAndRunScheduledDailyReport(db2);
+        return res.json({
+          success: true,
+          message: "Standard scheduled daily report verification executed successfully",
+          tick: {
+            kolkataTime: currentKolkataTimeStr,
+            configuredTime: config.sendTime,
+            targetReportDate: targetDate,
+            alreadySent,
+            action
+          }
+        });
+      }
     } catch (err) {
       console.error("[DailyReport Scheduler] Error in scheduled report execution:", err);
       return res.status(500).json({ error: err.message || "Failed to execute scheduled report process" });
     }
   });
   const downloadsPath = import_path.default.join(process.cwd(), "public", "downloads");
-  app.get("/downloads/:filename", (req, res) => {
+  app2.get("/downloads/:filename", (req, res) => {
     const filename = req.params.filename;
     const filePath = import_path.default.join(downloadsPath, filename);
     if (import_fs.default.existsSync(filePath)) {
@@ -2677,7 +4106,7 @@ async function startServer() {
       return res.status(404).json({ error: "APK file not found on server", requested: filename });
     }
   });
-  app.use("/downloads", import_express.default.static(downloadsPath, {
+  app2.use("/downloads", import_express.default.static(downloadsPath, {
     setHeaders: (res, filePath) => {
       if (filePath.endsWith(".apk")) {
         res.setHeader("Content-Type", "application/vnd.android.package-archive");
@@ -2685,7 +4114,8 @@ async function startServer() {
       }
     }
   }));
-  app.all("/api/*", (req, res) => {
+  app2.all(["/api", "/api/*"], (req, res) => {
+    res.setHeader("Content-Type", "application/json");
     return res.status(404).json({ success: false, error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
   });
   if (process.env.NODE_ENV !== "production") {
@@ -2693,21 +4123,32 @@ async function startServer() {
       server: { middlewareMode: true },
       appType: "spa"
     });
-    app.use(vite.middlewares);
+    app2.use(vite.middlewares);
   } else {
     const distPath = import_path.default.join(process.cwd(), "dist");
-    app.use(import_express.default.static(distPath));
-    app.get("*", (req, res) => {
+    app2.use(import_express.default.static(distPath));
+    app2.get("*", (req, res) => {
       res.sendFile(import_path.default.join(distPath, "index.html"));
     });
   }
-  app.listen(PORT, "0.0.0.0", () => {
+  app2.listen(PORT, "0.0.0.0", () => {
     console.log(`Office Management System Server running on http://0.0.0.0:${PORT}`);
     runServerAttendanceFinalizer().catch(() => {
     });
+    if (process.env.NODE_ENV !== "production" && db2) {
+      console.log("[DailyReport Scheduler] In-memory local development scheduler active.");
+      checkAndRunScheduledDailyReport(db2).catch(() => {
+      });
+    } else {
+      console.log("[DailyReport Scheduler] Production Mode: Relying entirely on external CRON trigger endpoint.");
+    }
     setInterval(() => {
       runServerAttendanceFinalizer().catch(() => {
       });
+      if (process.env.NODE_ENV !== "production" && db2) {
+        checkAndRunScheduledDailyReport(db2).catch(() => {
+        });
+      }
     }, 6e4);
   });
 }

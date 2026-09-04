@@ -8,7 +8,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Exfin OMS" />
+    <meta name="apple-mobile-web-app-title" content="Office Management System" />
     <link rel="manifest" href="/manifest.json" />
     <title>Office Management System v6.0</title>
     <script>
@@ -25,7 +25,7 @@
           
           var html = '<div style="min-height: 100vh; background-color: #0F1025; color: #FFFFFF; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box;">' +
             '<div style="background-color: #1E1F41; border: 2px solid #EF4444; border-radius: 20px; padding: 40px; max-width: 800px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); box-sizing: border-box;">' +
-              '<h1 style="color: #EF4444; font-weight: 900; font-size: 24px; margin-top: 0; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px;">Exfin Startup Crash Diagnosis</h1>' +
+              '<h1 style="color: #EF4444; font-weight: 900; font-size: 24px; margin-top: 0; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px;">Startup Crash Diagnosis</h1>' +
               '<p style="color: #B9B9D0; font-size: 15px; line-height: 1.6; margin-bottom: 25px;">' +
                 'A fatal JavaScript error occurred during application startup. Below is the diagnostic report captured in real-time.' +
               '</p>' +
@@ -101,8 +101,8 @@
         });
       })();
 
-      window.__EXFIN_STARTUP_COUNT = (window.__EXFIN_STARTUP_COUNT || 0) + 1;
-      console.log('[OFFLINE-ROOT] JavaScript bundle executed, count:', window.__EXFIN_STARTUP_COUNT);
+      window.__OMS_STARTUP_COUNT = (window.__OMS_STARTUP_COUNT || 0) + 1;
+      console.log('[OFFLINE-ROOT] JavaScript bundle executed, count:', window.__OMS_STARTUP_COUNT);
       window.addEventListener('DOMContentLoaded', function() {
         console.log('[OFFLINE-ROOT] DOMContentLoaded');
       });
@@ -131,7 +131,7 @@
         document.getElementById('root').innerHTML = `
           <div style="min-height: 100vh; background-color: #0F1025; color: #FFFFFF; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center;">
             <div style="background-color: #1E1F41; border: 1px solid #6366F1; border-radius: 20px; padding: 40px; max-width: 500px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-              <h1 style="color: #6366F1; font-weight: 900; font-size: 24px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px;">Exfin HTML Boot Test</h1>
+              <h1 style="color: #6366F1; font-weight: 900; font-size: 24px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px;">HTML Boot Test</h1>
               <div style="background-color: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: 12px; padding: 20px; margin-bottom: 25px; font-family: monospace; font-size: 13px; text-align: left; line-height: 1.6; color: #818CF8;">
                 <p style="margin: 0;">🌐 URL: \${window.location.href}</p>
                 <p style="margin: 5px 0 0 0;">📱 UserAgent: \${navigator.userAgent}</p>

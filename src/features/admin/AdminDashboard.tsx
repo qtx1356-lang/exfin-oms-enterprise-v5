@@ -425,11 +425,9 @@ export const AdminDashboard: React.FC = () => {
 
     if (attendanceFilter === 'MISSING_CHECKOUT') {
       records = records.filter((rec) => {
+        const effectiveStatus = getEffectiveCheckoutStatus(rec);
         // Authoritative check using helper for historical unresolved
-        if (isAttendanceCheckoutUnresolved(rec)) return true;
-
-        // Explicit statuses
-        if (rec.checkoutStatus === 'UNRESOLVED' || rec.checkoutStatus === 'PENDING_ADMIN_REVIEW') return true;
+        if (effectiveStatus === 'UNRESOLVED' || effectiveStatus === 'PENDING_ADMIN_REVIEW') return true;
 
         // Today's active records
         if (rec.checkInTime && !rec.checkOutTime) {
@@ -1056,7 +1054,8 @@ export const AdminDashboard: React.FC = () => {
   const pendingLeaveCount = leaves.filter((l) => l.status === 'PENDING').length;
 
   const unresolvedAttendanceCount = attendanceRecords.filter((r) => {
-    return isAttendanceCheckoutUnresolved(r) || r.checkoutStatus === 'PENDING_ADMIN_REVIEW';
+    const eff = getEffectiveCheckoutStatus(r);
+    return eff === 'UNRESOLVED' || eff === 'PENDING_ADMIN_REVIEW';
   }).length;
 
   const consoleTitle = role === 'SUPER_ADMIN' ? 'Super Admin Console' : role === 'HR' ? 'HR Management Console' : 'Admin Operations Console';
@@ -2090,7 +2089,8 @@ export const AdminDashboard: React.FC = () => {
                     <span className="text-[11px] text-white/70 font-bold">Total Duration</span>
                     <span className="text-sm font-black text-white">
                       {(() => {
-                        if (isAttendanceCheckoutUnresolved(selectedAttendance) || selectedAttendance.checkoutStatus === 'UNRESOLVED') {
+                        const effStatus = getEffectiveCheckoutStatus(selectedAttendance);
+                        if (effStatus === 'UNRESOLVED') {
                           return <span className="text-rose-400 font-bold">UNRESOLVED</span>;
                         }
                         if (selectedAttendance.checkInTime && selectedAttendance.checkOutTime && selectedAttendance.checkOutTime !== '--:--' && selectedAttendance.checkOutTime !== 'Pending' && selectedAttendance.checkOutTime !== 'N/A') {

@@ -9,7 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ManagedUser } from '../../types/user';
 import { AttendanceRecord, AttendanceCorrection } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved, isSameEmployee } from '../../utils/attendanceUtils';
+import { getEffectiveCheckoutStatus, isSameEmployee } from '../../utils/attendanceUtils';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { exportToCSV } from '../../services/reports/exportService';
 import { fetchDepartments } from '../../services/organization/organizationService';
@@ -290,8 +290,7 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
       const isToday = record.date === todayDateStr;
 
       // 0. UNRESOLVED / PENDING ADMIN REVIEW DETECTION
-      const effectiveStatus = record.checkoutStatus === 'PENDING_ADMIN_REVIEW' ? 'PENDING_ADMIN_REVIEW' : 
-                              isAttendanceCheckoutUnresolved(record) ? 'UNRESOLVED' : record.checkoutStatus;
+      const effectiveStatus = getEffectiveCheckoutStatus(record);
 
       if (effectiveStatus === 'UNRESOLVED' || effectiveStatus === 'PENDING_ADMIN_REVIEW') {
         const isPendingReview = effectiveStatus === 'PENDING_ADMIN_REVIEW';

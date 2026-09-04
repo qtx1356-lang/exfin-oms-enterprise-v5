@@ -385,7 +385,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                 const hasLocalPreciseExit = 
                   !!(localRec.lastExitTime || localRec.exitTime || (localRec.checkOutTime && localRec.checkOutTime !== '11:59 PM' && localRec.checkOutTime !== '23:59'));
 
-                const isLocalPendingReviewOrUnresolved =
+                const isLocalPendingReviewOrUnresolved = 
                   localRec.checkoutStatus === 'PENDING_ADMIN_REVIEW' || localRec.checkoutStatus === 'UNRESOLVED';
 
                 if (isServerEodFallback && hasLocalPreciseExit && !serverRectified) {

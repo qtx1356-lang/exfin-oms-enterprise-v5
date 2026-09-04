@@ -142,7 +142,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const displayName = employeeData?.name || cachedName;
   const isRegistered = status === 'Approved' || !!displayName;
 
-  // Extract employee's first name safely (e.g., "Sanjiv Kumar Sinha" -> "Sanjiv")
+  // Extract employee's first name safely (e.g., "Alex Johnson" -> "Alex")
   const firstName = React.useMemo(() => {
     if (!displayName) return null;
     const trimmed = displayName.trim();
@@ -190,7 +190,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
     logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
 
-    // Build personalized spoken greeting (e.g. "Good Morning, Sanjiv!")
+    // Build personalized spoken greeting (e.g. "Good Morning, Alex!")
     const spokenGreeting = firstName
       ? `${greetingInfo.label}, ${firstName}!`
       : `${greetingInfo.label}!`;
@@ -571,14 +571,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             {status === 'unregistered' ? (
               <>Register Device</>
             ) : (
-              <>{displayName || 'SANJIV SINHA'}</>
+              <>{displayName || 'Alex Johnson'}</>
             )}
           </h1>
           
           <div className="mt-1.5 flex items-center justify-center gap-1.5">
             <span className="welcome-status-dot w-2 h-2 rounded-full bg-[#10B981] inline-block" />
             <p className="text-[11px] font-bold text-[#10B981] tracking-widest uppercase">
-              EXFIN OMS • SMART APP
+              SMART WORKFORCE • ENTERPRISE APP
             </p>
           </div>
         </div>

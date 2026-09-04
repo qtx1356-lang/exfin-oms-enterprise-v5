@@ -94,7 +94,7 @@ public class OfficeLocationService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
-                    "EXFIN Office Location Service",
+                    "Smart Workforce Office Location Service",
                     NotificationManager.IMPORTANCE_LOW
             );
             channel.setDescription("Monitors office attendance location in background");
@@ -107,7 +107,7 @@ public class OfficeLocationService extends Service {
 
     private Notification buildNotification(String contentText) {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("EXFIN Office Attendance")
+                .setContentTitle("Smart Workforce Attendance")
                 .setContentText(contentText)
                 .setSmallIcon(android.R.drawable.ic_menu_compass)
                 .setPriority(NotificationCompat.PRIORITY_LOW)

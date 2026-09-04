@@ -17,7 +17,7 @@ This document presents the full security, credential, data, and file audit of th
 
 | # | File Path | Location / Line(s) | Finding Description | Severity | Safe to Distribute? | Recommended Action |
 |---|---|---|---|---|---|---|
-| **1** | `/firebase-applet-config.json` | Lines 2–8 | Active Firebase Production Config (`exfin-oms-production`, API key `AIzaSyCHs...`, App ID `1:4674...`) | **HIGH** | **NO** | Replace with `firebase-applet-config.example.json` using placeholders (`YOUR_FIREBASE_PROJECT_ID`, etc.) in commercial distribution. |
+| **1** | `/firebase-applet-config.json` | Lines 2–8 | Active Firebase Production Config (`YOUR_FIREBASE_PROJECT_ID`, API key `AIzaSyCHs...`, App ID `1:4674...`) | **HIGH** | **NO** | Replace with `firebase-applet-config.example.json` using placeholders (`YOUR_FIREBASE_PROJECT_ID`, etc.) in commercial distribution. |
 | **2** | `/.env.example` | Lines 11–16 | Production Firebase credentials listed in example file | **HIGH** | **NO** | Update `/.env.example` to use safe placeholders (`YOUR_FIREBASE_API_KEY`, etc.). |
 | **3** | `/cleanup.ts` | Lines 5, 10 | Dev cleanup script referencing internal staging project ID (`ai-studio-exfinomsenterpri-b4e161a4...`) | **MEDIUM** | **NO** | Exclude from commercial release package (`CODESTER_EXCLUDED_FILES.md`). |
 | **4** | `/run_check_delete.js` | Full file | One-time dev database document deletion script | **MEDIUM** | **NO** | Exclude from commercial release package. |
@@ -37,8 +37,8 @@ This document presents the full security, credential, data, and file audit of th
 | **18** | `/test_regex.js` | Full file | Regex test helper script | **LOW** | **NO** | Exclude from commercial release package. |
 | **19** | `/test_sw_navigator.js` | Full file | Service worker navigator test script | **LOW** | **NO** | Exclude from commercial release package. |
 | **20** | `/firestore.rules.bak` | Full file | Stale backup copy of Firestore security rules | **LOW** | **NO** | Exclude from commercial release package. |
-| **21** | `/src/services/attendance/automaticAttendanceEngine.ts` | Lines 22–23 | Default fallback office GPS coordinates (`23.616227, 87.117063`) | **INFORMATIONAL** | **YES** | Retain as default fallback coordinates. Document how buyers configure custom office locations. |
-| **22** | `/android/app/src/main/java/com/exfin/oms/geofence/OfficeGeofenceHelper.java` | Lines 30–31 | Default Android native geofence coordinates (`23.616227, 87.117063`) | **INFORMATIONAL** | **YES** | Retain as default native fallback. Document buyer configuration instructions. |
+| **21** | `/src/services/attendance/automaticAttendanceEngine.ts` | Lines 22–23 | Default fallback office GPS coordinates (`0.0, 0.0`) | **INFORMATIONAL** | **YES** | Retain as default fallback coordinates. Document how buyers configure custom office locations. |
+| **22** | `/android/app/src/main/java/com/exfin/oms/geofence/OfficeGeofenceHelper.java` | Lines 30–31 | Default Android native geofence coordinates (`0.0, 0.0`) | **INFORMATIONAL** | **YES** | Retain as default native fallback. Document buyer configuration instructions. |
 | **23** | `/src/features/admin/UserManagementTab.tsx` | Lines 132, 405 | Fallback admin email templates (`admin@exfin.com`, `superadmin@exfin.com`) | **INFORMATIONAL** | **YES** | Retain as non-sensitive placeholder templates for UI display when user email is absent. |
 
 ---

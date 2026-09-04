@@ -43,7 +43,7 @@ export const MobileRecoveryScreen: React.FC = () => {
           <div className="w-16 h-16 bg-[var(--success)]/10 border border-[var(--success)]/30 rounded-2xl flex items-center justify-center mx-auto shadow-2xl">
             <Shield className="w-8 h-8 text-[var(--success)]" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight uppercase text-[var(--text-primary)] aurora-text">EXFIN OMS</h1>
+          <h1 className="text-2xl font-black tracking-tight uppercase text-[var(--text-primary)] aurora-text">Smart Workforce</h1>
           <h2 className="text-sm font-bold tracking-[0.2em] text-[var(--success)] uppercase">Account Recovery</h2>
           <p className="text-[var(--text-secondary)] text-xs font-medium max-w-[260px] mx-auto leading-relaxed mt-2">Enter your registered mobile number to restore your executive account.</p>
         </div>
@@ -93,7 +93,7 @@ export const MobileRecoveryScreen: React.FC = () => {
 
         <div className="text-center">
           <p className="text-[11px] text-[var(--text-muted)] font-medium flex items-center justify-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-[var(--success)]" /> EXFIN OMS Executive Identity Engine
+            <Sparkles className="w-3 h-3 text-[var(--success)]" /> Smart Workforce Identity Engine
           </p>
         </div>
 

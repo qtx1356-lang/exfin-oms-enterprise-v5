@@ -1,5 +1,5 @@
 /**
- * EXFIN OMS ENTERPRISE v6.0
+ * OMS ENTERPRISE v6.0
  * CENTRALIZED EXPORT SERVICE
  * 
  * Reusable reporting utility for generating CSV exports, formatted Excel (XLSX) workbooks,

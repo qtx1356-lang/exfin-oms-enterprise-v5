@@ -1,6 +1,6 @@
 {
-  "name": "Exfin OMS",
-  "short_name": "Exfin OMS",
+  "name": "Office Management System",
+  "short_name": "Office OMS",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

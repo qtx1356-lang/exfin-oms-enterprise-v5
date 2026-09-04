@@ -188,7 +188,7 @@ export async function onRequest(context: any) {
     });
   }
 
-  const projectId = env.FIREBASE_PROJECT_ID || 'exfin-oms-production';
+  const projectId = env.FIREBASE_PROJECT_ID || 'office-management-system';
 
   try {
     const body = await request.json().catch(() => ({}));

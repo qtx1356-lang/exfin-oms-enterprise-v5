@@ -75,16 +75,16 @@ export const DEFAULT_META_TEMPLATES: Record<string, WhatsAppEventTemplateConfig>
 };
 
 export const DEFAULT_WHATSAPP_TEMPLATES: Record<string, string> = {
-  AUTO_CHECK_IN: `EXFIN OMS – Auto Check-In\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nMode: {{attendanceType}}\nTime: {{checkInTime}}\nLocation: {{townCity}}\nDistance: {{distance}} m\nStatus: PRESENT`,
-  MANUAL_CHECK_IN: `EXFIN OMS – Manual Check-In\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nMode: {{attendanceType}}\nTime: {{checkInTime}}\nLocation: {{townCity}}\nDistance: {{distance}} m\nStatus: PRESENT`,
-  CHECK_OUT: `EXFIN OMS – Checkout\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nMode: {{attendanceType}}\nCheck-in: {{checkInTime}}\nCheck-out: {{checkOutTime}}\nWorking Hours: {{workingHours}}`,
-  WFH: `EXFIN OMS – Work From Home\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nTime: {{checkInTime}}\nReason: {{wfhReason}}\nWork Plan: {{workPlan}}`,
-  CLIENT_VISIT: `EXFIN OMS – Client Visit\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nClient: {{clientName}}\nLocation: {{clientLocation}}\nTime: {{checkInTime}}\nPurpose: {{purpose}}`,
-  OUTDOOR_WORK: `EXFIN OMS – Outdoor Work\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nType: {{outdoorType}}\nTime: {{checkInTime}}\nDescription: {{description}}`,
-  LATE_CHECK_IN: `EXFIN OMS – Late Check-In Alert\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nTime: {{checkInTime}}\nStatus: LATE`,
-  OUTSIDE_OFFICE: `EXFIN OMS – Office Exit Alert\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nTime: {{eventTime}}\nLocation: {{townCity}}\nStatus: OUTSIDE_OFFICE`,
-  MISSING_CHECKOUT_REMINDER: `EXFIN OMS – Missing Checkout Reminder\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nCheck-in: {{checkInTime}}\nPlease finalize your checkout for today.`,
-  GENERAL_ALERT: `EXFIN OMS Alert\n\n{{customMessage}}`
+  AUTO_CHECK_IN: `Smart Workforce – Auto Check-In\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nMode: {{attendanceType}}\nTime: {{checkInTime}}\nLocation: {{townCity}}\nDistance: {{distance}} m\nStatus: PRESENT`,
+  MANUAL_CHECK_IN: `Smart Workforce – Manual Check-In\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nMode: {{attendanceType}}\nTime: {{checkInTime}}\nLocation: {{townCity}}\nDistance: {{distance}} m\nStatus: PRESENT`,
+  CHECK_OUT: `Smart Workforce – Checkout\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nMode: {{attendanceType}}\nCheck-in: {{checkInTime}}\nCheck-out: {{checkOutTime}}\nWorking Hours: {{workingHours}}`,
+  WFH: `Smart Workforce – Work From Home\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nTime: {{checkInTime}}\nReason: {{wfhReason}}\nWork Plan: {{workPlan}}`,
+  CLIENT_VISIT: `Smart Workforce – Client Visit\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nClient: {{clientName}}\nLocation: {{clientLocation}}\nTime: {{checkInTime}}\nPurpose: {{purpose}}`,
+  OUTDOOR_WORK: `Smart Workforce – Outdoor Work\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nType: {{outdoorType}}\nTime: {{checkInTime}}\nDescription: {{description}}`,
+  LATE_CHECK_IN: `Smart Workforce – Late Check-In Alert\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nTime: {{checkInTime}}\nStatus: LATE`,
+  OUTSIDE_OFFICE: `Smart Workforce – Office Exit Alert\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nTime: {{eventTime}}\nLocation: {{townCity}}\nStatus: OUTSIDE_OFFICE`,
+  MISSING_CHECKOUT_REMINDER: `Smart Workforce – Missing Checkout Reminder\n\nEmployee: {{employeeName}}\nEmployee Code: {{employeeCode}}\nCheck-in: {{checkInTime}}\nPlease finalize your checkout for today.`,
+  GENERAL_ALERT: `Smart Workforce Alert\n\n{{customMessage}}`
 };
 
 const CONFIG_DOC_PATH = 'notification_settings/whatsapp_config';
@@ -416,7 +416,7 @@ export async function sendMetaWhatsAppMessage(
       type: 'text',
       text: {
         preview_url: false,
-        body: options.textBody || 'EXFIN OMS Notification'
+        body: options.textBody || 'Smart Workforce Notification'
       }
     };
   } else {

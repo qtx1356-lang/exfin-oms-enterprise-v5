@@ -9,7 +9,7 @@ Codester permits up to 9 professional screenshots for marketplace listings. All 
 | # | Screenshot Title | Featured View / Module | Key UI Highlights to Display | Demo Data Safety Requirements |
 |---|---|---|---|---|
 | **1** | **Employee Dashboard** | Mobile Employee Portal Home | Check-in card, today's work hours gauge, active status indicator, quick actions (Expenses, Leave, Planner). | Fictional user name (e.g., Alex Morgan), demo employee ID (`EMP-104`). |
-| **2** | **GPS & Geofenced Attendance** | GPS Attendance & Timeline | Interactive 25m office radar map, My Day timeline feed, geofence status badge ("Inside Office Bounds"). | Standard demo office location (`23.616227, 87.117063`), mock timestamps. |
+| **2** | **GPS & Geofenced Attendance** | GPS Attendance & Timeline | Interactive 25m office radar map, My Day timeline feed, geofence status badge ("Inside Office Bounds"). | Standard demo office location (`0.0, 0.0`), mock timestamps. |
 | **3** | **AI Expense Receipt Scanner** | Receipt Scanner & Expense List | Gemini AI OCR receipt preview, category breakdown, tax extraction, status tags ("Approved"). | Generic sample receipt (e.g., $42.50 Coffee Shop supplies). No personal credit card numbers. |
 | **4** | **Work Planner & Leave** | Kanban Planner & Leave Request | Work planner task cards with priority tags, leave balance gauges (Annual, Sick, Casual). | Fictional task titles ("Update client presentation", "Code review"). |
 | **5** | **Productivity & Efficiency** | Efficiency Analytics Dashboard | Daily efficiency score gauge (94%), work hours progress bar, monthly performance breakdown chart. | Demo performance stats. |

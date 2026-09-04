@@ -4,13 +4,24 @@ import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseAppConfig from '../../../firebase-applet-config.json';
 
-console.log('Firebase config raw import:', firebaseAppConfig);
+const env = typeof import.meta !== 'undefined' && import.meta?.env ? import.meta.env : ({} as any);
+
+const resolvedConfig = {
+  apiKey: env.VITE_FIREBASE_API_KEY || (firebaseAppConfig as any).apiKey || '',
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || (firebaseAppConfig as any).authDomain || '',
+  projectId: env.VITE_FIREBASE_PROJECT_ID || (firebaseAppConfig as any).projectId || '',
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || (firebaseAppConfig as any).storageBucket || '',
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || (firebaseAppConfig as any).messagingSenderId || '',
+  appId: env.VITE_FIREBASE_APP_ID || (firebaseAppConfig as any).appId || '',
+  measurementId: env.VITE_FIREBASE_MEASUREMENT_ID || (firebaseAppConfig as any).measurementId || '',
+  firestoreDatabaseId: (firebaseAppConfig as any).firestoreDatabaseId || undefined,
+};
 
 // 1. Initialize Default App (Employee)
-export const app = initializeApp(firebaseAppConfig);
+export const app = initializeApp(resolvedConfig);
 const employeeAuth = getAuth(app);
-const employeeDb = (firebaseAppConfig as any).firestoreDatabaseId
-  ? getFirestore(app, (firebaseAppConfig as any).firestoreDatabaseId)
+const employeeDb = resolvedConfig.firestoreDatabaseId
+  ? getFirestore(app, resolvedConfig.firestoreDatabaseId)
   : getFirestore(app);
 const employeeStorage = getStorage(app);
 
@@ -25,10 +36,10 @@ if (employeeDb) {
 }
 
 // 2. Initialize Named App (Admin)
-export const adminApp = initializeApp(firebaseAppConfig, 'admin');
+export const adminApp = initializeApp(resolvedConfig, 'admin');
 const adminAuth = getAuth(adminApp);
-const adminDb = (firebaseAppConfig as any).firestoreDatabaseId
-  ? getFirestore(adminApp, (firebaseAppConfig as any).firestoreDatabaseId)
+const adminDb = resolvedConfig.firestoreDatabaseId
+  ? getFirestore(adminApp, resolvedConfig.firestoreDatabaseId)
   : getFirestore(adminApp);
 const adminStorage = getStorage(adminApp);
 

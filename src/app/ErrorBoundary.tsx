@@ -19,7 +19,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('[EXFIN-FATAL] React Error Boundary caught unhandled error:', error, errorInfo);
+    console.error('[OMS-FATAL] React Error Boundary caught unhandled error:', error, errorInfo);
   }
 
   private handleReload = () => {

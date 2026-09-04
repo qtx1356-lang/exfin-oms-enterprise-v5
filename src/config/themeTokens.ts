@@ -1,5 +1,5 @@
 /**
- * EXFIN OMS — Premium Dark Gold & Emerald UI Design System Tokens
+ * OMS — Premium Dark Gold & Emerald UI Design System Tokens
  * Architecture:
  * 1. Deep Teal / Emerald Aurora Background
  * 2. Premium Dark Gold / Metallic Bronze Gradient Cards

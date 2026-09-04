@@ -22,7 +22,7 @@ jobs:
 
           echo "Triggering Daily Admin Report scheduler..."
 
-          BASE_URL="${DAILY_REPORT_URL:-https://exfin-oms-enterprise-v5.pages.dev}"
+          BASE_URL="${DAILY_REPORT_URL:-https://your-domain.pages.dev}"
           BASE_URL="${BASE_URL%/}"
           ENDPOINT="${BASE_URL}/api/internal/daily-admin-report"
 

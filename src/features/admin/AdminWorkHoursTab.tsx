@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { AttendanceRecord, AttendanceType } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved, isSameEmployee } from '../../utils/attendanceUtils';
+import { getEffectiveCheckoutStatus, isSameEmployee } from '../../utils/attendanceUtils';
 import { Card } from '../../components/ui/Card';
 import {
   getKolkataDateStr,
@@ -163,8 +163,9 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
       if (!matchesMode) return false;
 
       // 4. Status filter
-      const isUnresolved = isAttendanceCheckoutUnresolved(rec);
-      const isPendingReview = rec.checkoutStatus === 'PENDING_ADMIN_REVIEW';
+      const effStatus = getEffectiveCheckoutStatus(rec);
+      const isUnresolved = effStatus === 'UNRESOLVED';
+      const isPendingReview = effStatus === 'PENDING_ADMIN_REVIEW';
       const isCompleted = !!(rec.checkOutTime && rec.checkOutTime !== '--:--' && !isUnresolved && !isPendingReview);
 
       const matchesStatus =
@@ -475,8 +476,9 @@ export const AdminWorkHoursTab: React.FC<AdminWorkHoursTabProps> = ({
   };
 
   const getRecordStatusDetails = (rec: AttendanceRecord) => {
-    const isUnresolved = isAttendanceCheckoutUnresolved(rec);
-    const isPendingReview = rec.checkoutStatus === 'PENDING_ADMIN_REVIEW';
+    const effStatus = getEffectiveCheckoutStatus(rec);
+    const isUnresolved = effStatus === 'UNRESOLVED';
+    const isPendingReview = effStatus === 'PENDING_ADMIN_REVIEW';
     const isCompleted = !!(rec.checkOutTime && rec.checkOutTime !== '--:--' && !isUnresolved && !isPendingReview);
     const isToday = rec.date === todayStr;
 

@@ -93,7 +93,7 @@ export const getLiveLocationFreshness = (timestampIso?: string | null): {
 
 /**
  * Recalculate distance and extract live location details for an employee.
- * Authoritatively computes distance from liveLocation coordinates against OFFICE_LOCATION (23.616227, 87.117063).
+ * Authoritatively computes distance from liveLocation coordinates against OFFICE_LOCATION (0.0, 0.0).
  * DOES NOT blindly trust stored distanceFromOffice.
  * NEVER falls back to check-in coordinates.
  */

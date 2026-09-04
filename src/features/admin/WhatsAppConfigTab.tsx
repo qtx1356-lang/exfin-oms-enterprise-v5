@@ -78,7 +78,7 @@ export const WhatsAppConfigTab: React.FC = () => {
 
   // Test message state
   const [testRecipient, setTestRecipient] = useState('');
-  const [testCustomMessage, setTestCustomMessage] = useState('EXFIN OMS WhatsApp Connection Test Successful.');
+  const [testCustomMessage, setTestCustomMessage] = useState('Smart Workforce WhatsApp Connection Test Successful.');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -192,7 +192,7 @@ export const WhatsAppConfigTab: React.FC = () => {
   const handleMetaTemplateToggle = (eventType: string) => {
     if (!canEdit || !config) return;
     const currentMeta = config.metaTemplates || {};
-    const existing = currentMeta[eventType] || { enabled: true, templateName: `exfin_attendance_${eventType.toLowerCase()}`, languageCode: 'en' };
+    const existing = currentMeta[eventType] || { enabled: true, templateName: `workforce_attendance_${eventType.toLowerCase()}`, languageCode: 'en' };
     setConfig({
       ...config,
       metaTemplates: {
@@ -208,7 +208,7 @@ export const WhatsAppConfigTab: React.FC = () => {
   const handleMetaTemplateNameChange = (eventType: string, val: string) => {
     if (!canEdit || !config) return;
     const currentMeta = config.metaTemplates || {};
-    const existing = currentMeta[eventType] || { enabled: true, templateName: `exfin_attendance_${eventType.toLowerCase()}`, languageCode: 'en' };
+    const existing = currentMeta[eventType] || { enabled: true, templateName: `workforce_attendance_${eventType.toLowerCase()}`, languageCode: 'en' };
     setConfig({
       ...config,
       metaTemplates: {
@@ -224,7 +224,7 @@ export const WhatsAppConfigTab: React.FC = () => {
   const handleMetaTemplateLangChange = (eventType: string, val: string) => {
     if (!canEdit || !config) return;
     const currentMeta = config.metaTemplates || {};
-    const existing = currentMeta[eventType] || { enabled: true, templateName: `exfin_attendance_${eventType.toLowerCase()}`, languageCode: 'en' };
+    const existing = currentMeta[eventType] || { enabled: true, templateName: `workforce_attendance_${eventType.toLowerCase()}`, languageCode: 'en' };
     setConfig({
       ...config,
       metaTemplates: {
@@ -252,7 +252,7 @@ export const WhatsAppConfigTab: React.FC = () => {
     try {
       const activeMeta = config?.metaTemplates?.[selectedEventType] || {
         enabled: true,
-        templateName: `exfin_attendance_${selectedEventType.toLowerCase()}`,
+        templateName: `workforce_attendance_${selectedEventType.toLowerCase()}`,
         languageCode: 'en'
       };
 
@@ -575,7 +575,7 @@ export const WhatsAppConfigTab: React.FC = () => {
                 <div className="p-2.5 bg-purple-950/60 rounded-xl border border-purple-500/20 text-[11px] text-purple-200">
                   <p className="font-semibold text-emerald-300">Template to Test:</p>
                   <p className="font-mono text-xs text-white mt-0.5">
-                    {config.metaTemplates?.[selectedEventType]?.templateName || `exfin_attendance_${selectedEventType.toLowerCase()}`}
+                    {config.metaTemplates?.[selectedEventType]?.templateName || `workforce_attendance_${selectedEventType.toLowerCase()}`}
                   </p>
                   <p className="text-[10px] text-purple-300/70 mt-1">
                     Language: {config.metaTemplates?.[selectedEventType]?.languageCode || 'en'} (from currently selected event)
@@ -690,9 +690,9 @@ export const WhatsAppConfigTab: React.FC = () => {
                   <input
                     type="text"
                     disabled={!canEdit}
-                    value={config.metaTemplates?.[selectedEventType]?.templateName || `exfin_attendance_${selectedEventType.toLowerCase()}`}
+                    value={config.metaTemplates?.[selectedEventType]?.templateName || `workforce_attendance_${selectedEventType.toLowerCase()}`}
                     onChange={(e) => handleMetaTemplateNameChange(selectedEventType, e.target.value)}
-                    placeholder="e.g. exfin_attendance_checkin"
+                    placeholder="e.g. workforce_attendance_checkin"
                     className="w-full bg-purple-900/40 border border-purple-500/30 text-white rounded-lg px-3 py-1.5 text-xs font-mono focus:ring-2 focus:ring-purple-500 focus:outline-none"
                   />
                 </div>

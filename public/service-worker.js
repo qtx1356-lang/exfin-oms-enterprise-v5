@@ -19,7 +19,7 @@ let fallbackAppShellText = '';
 
 // Helper to create synthetic HTML response
 function createSyntheticAppShellResponse(htmlText) {
-  const content = htmlText || '<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/><title>EXFIN OMS ENTERPRISE v6.0</title></head><body><div id="root"></div></body></html>';
+  const content = htmlText || '<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/><title>Office Management System</title></head><body><div id="root"></div></body></html>';
   return new Response(content, {
     status: 200,
     headers: {

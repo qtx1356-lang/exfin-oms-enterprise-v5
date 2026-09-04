@@ -86,7 +86,7 @@ export async function dispatchAttendanceWhatsApp(
       checkOutTime: record.checkOutTime,
       workingHours: record.workingHours,
       distance: record.distance,
-      townCity: record.townCity || record.checkInTownCity || 'Raniganj HQ',
+      townCity: record.townCity || record.checkInTownCity || 'Main Office',
       wfhReason: extra?.wfhReason || record.wfhReason,
       workPlan: extra?.workPlan || record.workPlan,
       clientName: extra?.clientName || record.clientName,

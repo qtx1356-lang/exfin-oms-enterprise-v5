@@ -1,6 +1,6 @@
 import { AttendanceRecord, AttendanceType } from '../types/attendance';
 import { calculateWorkingHours, parseAttendanceTimeToMinutes } from '../services/attendance/smartAttendanceEngine';
-import { isAttendanceCheckoutUnresolved } from './attendanceUtils';
+import { getEffectiveCheckoutStatus } from './attendanceUtils';
 
 // Get current date string in Asia/Kolkata timezone (format: YYYY-MM-DD)
 export const getKolkataDateStr = (dateInput: Date = new Date()): string => {
@@ -67,10 +67,10 @@ export const getRecordWorkingMinutes = (record: AttendanceRecord): number => {
   if (!record.checkInTime) return 0;
   
   // Unresolved or Pending Review records have NO completed duration
+  const effStatus = getEffectiveCheckoutStatus(record);
   if (
-    isAttendanceCheckoutUnresolved(record) ||
-    record.checkoutStatus === 'UNRESOLVED' ||
-    record.checkoutStatus === 'PENDING_ADMIN_REVIEW'
+    effStatus === 'UNRESOLVED' ||
+    effStatus === 'PENDING_ADMIN_REVIEW'
   ) {
     return 0;
   }
@@ -108,10 +108,11 @@ export const getRecordWorkingMinutes = (record: AttendanceRecord): number => {
 
 // Helper for UI display of work hours adhering to Unresolved Checkout protection
 export const getRecordWorkingHoursDisplay = (record: AttendanceRecord): { display: string; status: 'COMPLETED' | 'IN_PROGRESS' | 'UNRESOLVED' | 'PENDING_REVIEW' } => {
-  if (record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+  const effStatus = getEffectiveCheckoutStatus(record);
+  if (effStatus === 'PENDING_ADMIN_REVIEW') {
     return { display: 'PENDING REVIEW', status: 'PENDING_REVIEW' };
   }
-  if (isAttendanceCheckoutUnresolved(record) || record.checkoutStatus === 'UNRESOLVED') {
+  if (effStatus === 'UNRESOLVED') {
     return { display: 'UNRESOLVED', status: 'UNRESOLVED' };
   }
   if (
@@ -206,8 +207,9 @@ export const calculateMonthlySummary = (
   const todayStr = getKolkataDateStr();
   
   filtered.forEach((r) => {
-    const isUnresolved = isAttendanceCheckoutUnresolved(r) || r.checkoutStatus === 'UNRESOLVED';
-    const isPendingReview = r.checkoutStatus === 'PENDING_ADMIN_REVIEW';
+    const effStatus = getEffectiveCheckoutStatus(r);
+    const isUnresolved = effStatus === 'UNRESOLVED';
+    const isPendingReview = effStatus === 'PENDING_ADMIN_REVIEW';
     const hasCheckout = !!(
       r.checkOutTime &&
       r.checkOutTime !== '--:--' &&

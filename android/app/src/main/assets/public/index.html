@@ -4,41 +4,62 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#0F1025" />
+    <meta name="theme-color" content="#EEF2FF" />
+    <meta name="description" content="Enterprise Operations & Order Management System with Smart Attendance, Expense Claims, and Device Registrations" />
+    <meta property="og:title" content="Office Management System" />
+    <meta property="og:description" content="Enterprise Operations & Order Management System with Smart Attendance, Expense Claims, and Device Registrations" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Office Management System" />
     <link rel="manifest" href="/manifest.json" />
-    <title>Office Management System v6.0</title>
+    <title>Office Management System</title>
     <script>
-      window.__EXFIN_STARTUP_COUNT = (window.__EXFIN_STARTUP_COUNT || 0) + 1;
-      console.log('[OFFLINE-ROOT] JavaScript bundle executed, count:', window.__EXFIN_STARTUP_COUNT);
+      window.__OMS_STARTUP_COUNT = (window.__OMS_STARTUP_COUNT || 0) + 1;
+      console.log('[OFFLINE-ROOT] JavaScript bundle executed, count:', window.__OMS_STARTUP_COUNT);
       window.addEventListener('DOMContentLoaded', function() {
         console.log('[OFFLINE-ROOT] DOMContentLoaded');
       });
 
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-          .then(function (registration) {
-            if (registration.active) {
-              console.log('[STARTUP_PERF] [PWA_CACHE_READY] Service worker active and cache ready');
-            }
-            registration.onupdatefound = function () {
-              var installingWorker = registration.installing;
-              if (installingWorker) {
-                installingWorker.onstatechange = function () {
-                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    console.log('[STARTUP_PERF] [SERVICE_WORKER_UPDATED] New service worker version installed');
-                  }
-                };
+      function registerSW() {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+            .then(function (registration) {
+              if (registration.active) {
+                console.log('[STARTUP_PERF] [PWA_CACHE_READY] Service worker active and cache ready');
               }
-            };
-            registration.update().catch(function () {});
-          })
-          .catch(function (err) {
-            console.warn('Service worker registration failed:', err);
-          });
+              registration.onupdatefound = function () {
+                var installingWorker = registration.installing;
+                if (installingWorker) {
+                  installingWorker.onstatechange = function () {
+                    if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                      console.log('[STARTUP_PERF] [SERVICE_WORKER_UPDATED] New service worker version installed');
+                    }
+                  };
+                }
+              };
+              registration.update().catch(function () {});
+            })
+            .catch(function (err) {
+              console.warn('Service worker registration failed:', err);
+            });
+        }
+      }
+
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        registerSW();
+      } else {
+        window.addEventListener('load', registerSW);
       }
     </script>
-    <script type="module" crossorigin src="/assets/index-BPaptBSB.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-lISAS8s0.css">
+    <script type="module" crossorigin src="/assets/index-a8jcGKmS.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-react-CA2TdjlE.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-firebase-BMqcp3H3.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-capacitor-hH5uyif7.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-icons-aR-srH6l.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-motion-DGf0Gkp9.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-pdf-unkUD4-Z.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-CXFlmkya.css">
   </head>
   <body>
     <div id="root"></div>

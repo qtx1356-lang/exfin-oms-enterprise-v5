@@ -538,7 +538,7 @@ export const playAlertSound = (
             notifications: [
               {
                 id: Math.floor(Math.random() * 2147483647), // Must be a 32-bit int
-                title: title || 'EXFIN OMS Alert', 
+                title: title || 'Smart Workforce Alert', 
                 body: message || 'You have a new update.',
                 schedule: { at: new Date(Date.now() + 100) }, // Immediate
                 channelId: channelId,

@@ -33,9 +33,7 @@ export interface ReportStatusRecord {
 
 // Centralized Target Recipients
 export const DEFAULT_TARGET_RECIPIENTS = [
-  'hr@exfinsolution.com',
-  'ceo@exfinsolution.com',
-  'sanjivsinha06@gmail.com'
+  'admin@yourcompany.com'
 ];
 
 export function getCentralizedRecipients(configEmails?: string[]): string[] {
@@ -923,7 +921,7 @@ export async function generateAndSendDailyReport(
       </tr>
     `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">${needsImprovementEmptyMessage}</td></tr>`;
 
-    const appUrl = process.env.APP_URL ? process.env.APP_URL.replace(/\/$/, '') : 'https://exfin-oms-enterprise-v5.pages.dev';
+    const appUrl = process.env.APP_URL ? process.env.APP_URL.replace(/\/$/, '') : 'https://your-domain.com';
     const adminPanelUrl = `${appUrl}/x7Kp9`;
 
     const generatedTimeKolkata = new Date().toLocaleString('en-US', {
@@ -938,14 +936,14 @@ export async function generateAndSendDailyReport(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EXFIN OMS Daily Report</title>
+  <title>Smart Workforce Daily Report</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; padding: 20px; margin: 0; -webkit-font-smoothing: antialiased;">
   <div style="max-width: 800px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
     
     <!-- 1. Header -->
     <div style="background-color: #0f766e; color: #ffffff; padding: 32px 24px; text-align: center; border-bottom: 4px solid #0d9488;">
-      <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">EXFIN OMS</h1>
+      <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">Smart Workforce</h1>
       <p style="margin: 4px 0 0 0; font-size: 16px; color: #ccfbf1; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Daily Administration Report</p>
       <div style="margin-top: 16px; display: inline-block; background-color: rgba(255, 255, 255, 0.15); padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;">
         Report Date: ${dateFormattedFriendly}
@@ -1250,8 +1248,8 @@ export async function generateAndSendDailyReport(
 
     <!-- Footer -->
     <div style="background: #f8fafc; border-top: 1px solid #cbd5e1; padding: 24px; text-align: center; color: #64748b; font-size: 11px; line-height: 1.5;">
-      <p style="margin: 0;">This email is an automatically generated administrative report from your EXFIN Office Management System.</p>
-      <p style="margin: 5px 0 0 0;">© 2026 EXFIN OMS. All rights reserved.</p>
+      <p style="margin: 0;">This email is an automatically generated administrative report from your Smart Workforce Management System.</p>
+      <p style="margin: 5px 0 0 0;">© 2026 Smart Workforce. All rights reserved.</p>
     </div>
 
   </div>
@@ -1260,7 +1258,7 @@ export async function generateAndSendDailyReport(
     `;
 
     // 10. Send the Mail via backend email service
-    const subject = `EXFIN OMS — Daily Admin Report — ${formatDateStringFriendly(reportDate)}`;
+    const subject = `Smart Workforce — Daily Admin Report — ${formatDateStringFriendly(reportDate)}`;
 
     console.log(`[DailyReport] Efficiency records: ${evaluatedEmployees.length}`);
     console.log(`[DailyReport] Evaluated employees: ${validEvaluated.length}`);
@@ -1399,14 +1397,14 @@ export async function sendDailyReportTestEmail(
     };
   }
 
-  const subject = `EXFIN OMS — Test Daily Report`;
+  const subject = `Smart Workforce — Test Daily Report`;
   const html = `
 <!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;">
   <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgb(0 0 0 / 0.05); border-top: 4px solid #6366f1;">
-    <h2 style="color: #1e1b4b; margin-top: 0;">EXFIN OMS — Connection Verification</h2>
-    <p>This is a <strong>Test Daily Report</strong> designed to verify that the EXFIN OMS backend email server configuration is fully operational.</p>
+    <h2 style="color: #1e1b4b; margin-top: 0;">Smart Workforce — Connection Verification</h2>
+    <p>This is a <strong>Test Daily Report</strong> designed to verify that the Smart Workforce backend email server configuration is fully operational.</p>
     <p>Details:</p>
     <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
       <tr style="border-bottom: 1px solid #e2e8f0;">
@@ -1427,7 +1425,7 @@ export async function sendDailyReportTestEmail(
       </tr>
       <tr style="border-bottom: 1px solid #e2e8f0;">
         <td style="padding: 8px 0; font-weight: bold;">Dispatched From</td>
-        <td style="padding: 8px 0;">EXFIN OMS Server</td>
+        <td style="padding: 8px 0;">Smart Workforce Server</td>
       </tr>
     </table>
     <p style="margin-top: 25px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 15px;">

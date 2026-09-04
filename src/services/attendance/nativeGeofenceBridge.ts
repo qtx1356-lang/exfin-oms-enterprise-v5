@@ -125,7 +125,7 @@ export const reconcileNativeGeofenceEvents = async (
           AutomaticAttendanceEngine.processGeofenceExit(
             employeeId,
             employeeName,
-            { latitude: evt.latitude || 23.616227, longitude: evt.longitude || 87.117063 },
+            { latitude: evt.latitude || 0.0, longitude: evt.longitude || 0.0 },
             townCity || 'Raniganj HQ',
             eventDate,
             true
@@ -143,7 +143,7 @@ export const reconcileNativeGeofenceEvents = async (
           AutomaticAttendanceEngine.processGeofenceEntry(
             employeeId,
             employeeName,
-            { latitude: evt.latitude || 23.616227, longitude: evt.longitude || 87.117063 },
+            { latitude: evt.latitude || 0.0, longitude: evt.longitude || 0.0 },
             townCity || 'Raniganj HQ',
             eventDate
           );
@@ -182,11 +182,11 @@ export const initNativeGeofenceListener = async (
     const info = getEmployeeInfo();
     if (info?.id) {
       try {
-        const authoritativeServerUrl = 'https://exfin-oms-enterprise-v5.pages.dev';
+        const authoritativeServerUrl = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : '';
         await NativeGeofencePlugin.setEmployeeIdentity({
           id: info.id,
           name: info.name,
-          townCity: info.townCity || 'Raniganj HQ',
+          townCity: info.townCity || 'Main Office',
           serverUrl: authoritativeServerUrl
         });
         console.log('[NativeGeofenceBridge] Configured native employee identity on init.');
@@ -296,12 +296,12 @@ export const syncEmployeeIdentityToNative = async (identity: {
   try {
     const origin = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('file://')
       ? window.location.origin
-      : 'https://exfin-oms-enterprise-v5.pages.dev';
+      : (typeof import.meta !== 'undefined' && import.meta?.env?.APP_URL) ? import.meta.env.APP_URL : '';
     const authoritativeServerUrl = identity.serverUrl || origin;
     await NativeGeofencePlugin.setEmployeeIdentity({
       id: identity.id,
       name: identity.name || 'Employee',
-      townCity: identity.townCity || 'Raniganj HQ',
+      townCity: identity.townCity || 'Main Office',
       serverUrl: authoritativeServerUrl
     });
     console.log(`[NativeGeofenceBridge] Configured native employee identity: ${identity.id} (${identity.name})`);

@@ -27,7 +27,7 @@ export const LoadingScreen: React.FC<{ fullScreen?: boolean }> = ({ fullScreen =
       <div className="relative z-10 flex flex-col items-center gap-6">
         <Loader size="lg" />
         <div className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.3em] aurora-text animate-pulse">
-          Exfin Systems
+          Smart Workforce
         </div>
       </div>
     </div>

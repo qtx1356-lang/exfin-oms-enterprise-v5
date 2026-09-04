@@ -1,5 +1,5 @@
 /**
- * EXFIN OMS ENTERPRISE V5 — SECURITY PIN SERVICE
+ * OMS ENTERPRISE V5 — SECURITY PIN SERVICE
  * Provides cryptographic authorization verifier using Web Crypto API (PBKDF2 with SHA-256).
  * Scoped to individual employee IDs. No plaintext PIN storage.
  * Strictly single-action verification: NO session caching or grace period.

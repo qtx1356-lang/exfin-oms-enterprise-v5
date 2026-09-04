@@ -1,76 +1,197 @@
-# CODESTER MARKETPLACE LISTING CONTENT
+# CODESTER MARKETPLACE LISTING — OFFICE MANAGEMENT SYSTEM
 
 ---
 
-## Product Title
+## 1. Product Title
+**Office Management System – Employee Management & Smart GPS Attendance PWA**
 
-`Office Management System – Employee Management, GPS Attendance, Expenses & Admin Portal`
-
----
-
-## Short Description
-
-`Complete full-stack workforce management platform featuring 25m GPS geofenced attendance, AI receipt OCR expense tracking, offline-first sync, native Android Studio source, and a feature-packed Admin Portal.`
+*(Alternative short title: Office Management System – 25m GPS Attendance & HR PWA)*
 
 ---
 
-## Full Product Description
-
-### Overview
-**Office Management System** is a commercial-grade, full-stack Operations & HR Management System designed for enterprises, SMBs, agencies, and field-work organizations. It combines high-accuracy GPS attendance tracking, automated 25-meter office geofencing, AI-powered expense receipt scanning, employee work planners, leave management, automated salary payslip generation, and real-time workforce analytics into a single responsive web and native Android solution.
-
-Engineered with React 19, TypeScript, Tailwind CSS v4, Express, and Firebase, Office Management System delivers an **offline-first application shell** that guarantees instant app boot even without network connectivity.
+## 2. Short Description (under Codester's character limit)
+`White-label workforce management PWA with 25m GPS attendance, AI receipt OCR, task planner, leave management, offline-first startup, and native Android Studio source.`
+*(184 characters — strictly within 200 character marketplace limit)*
 
 ---
 
-### Key Features
+## 3. Full Sales Description
+**Office Management System** is a production-grade, white-label workforce and attendance management platform built with React 19, TypeScript, Tailwind CSS, Express, and Firebase. Engineered for enterprises, modern agencies, and small-to-medium businesses, it provides a seamless cross-platform experience that runs as an installable Progressive Web App (PWA) on any browser and includes a complete, pre-configured **Android Studio project**.
 
-#### 📍 1. Automated GPS & 25m Geofenced Attendance
-- **25-Meter Office Geofence Enforcement:** Hardware-backed location engine enforces a strict 25m office radius.
-- **Dual Automatic Check-In:** Automatic check-in on entering office bounds or opening the application.
-- **Physical Exit Timestamping:** Captures exact hardware exit timestamp even if app is minimized or phone screen is locked.
-- **Interactive Checkout Confirmation:** Displays exact physical departure time with options to confirm final checkout or indicate returning to office.
-- **My Day Timeline:** Visual feed of daily check-ins, breaks, exits, and location status.
+At the core of the system is an **offline-first application shell**: the entire user interface and cached datasets boot instantly without depending on an active internet connection. When online, the system performs real-time bidirectional synchronization with Firebase Firestore.
 
-#### 💼 2. Expense Management & AI Receipt OCR
-- **Gemini AI Receipt OCR:** Snap or upload expense receipts; Gemini AI automatically extracts vendor, date, total amount, taxes, and line items.
-- **Approval Workflow:** Real-time expense submission and admin approval/rejection feed.
+Attendance integrity is enforced by a **strict 25-meter GPS office geofence**. When employees arrive at the workplace, the application verifies their real-time coordinates against configured office parameters using high-precision Haversine calculations. An optional native Android background service provides physical boundary departure detection, ensuring accurate timestamps without proxy check-ins.
 
-#### 📅 3. Work Planner, Tasks & Leave Administration
-- **Kanban Task Planner:** Priority tags, deadlines, and task progress tracking.
-- **Leave Application Engine:** Annual, Sick, Casual, and Unpaid leave requests with balance management.
-
-#### 📊 4. Productivity, Efficiency & Salary Payslips
-- **Algorithmic Efficiency Score:** Automated calculation based on active office hours, punctuality, and task completion.
-- **One-Click Salary & Payslip Generator:** Instant PDF payslip generation (`jspdf`) with tax breakdowns.
-
-#### 🛡️ 5. Admin Portal & HR Management
-- **Real-Time Office Pulse:** Live map and counters for Present, On Break, On Leave, and Pending Exit.
-- **Device Registration Control:** Approve/reject mobile devices to prevent proxy attendance logging.
-- **Role-Based Access Control (RBAC):** Super Admin, HR Manager, Team Lead, and Employee permissions.
-- **Immutable Audit Log:** Full activity tracking for security and compliance.
+Combined with **Gemini AI expense receipt scanning**, a collaborative **Kanban task planner**, multi-tier **leave requests**, algorithmic **productivity scoring**, instant **PDF salary payslip generation**, and an executive **Admin Portal with live Office Pulse**, Office Management System gives you a complete commercial HR solution ready to deploy for your company or re-brand for your clients.
 
 ---
 
-### Technology Stack
-- **Frontend:** React 19, TypeScript, Tailwind CSS v4, Lucide Icons, Framer Motion
-- **Backend:** Express.js, ESBuild CJS bundler, TSX execution engine
-- **Database & Auth:** Firebase Firestore, Firebase Authentication, Firebase Storage
-- **Native Android:** Full Android Studio project with Java Geofence Services, Capacitor 8, and Median.co Native Bridge
-- **AI Engine:** Google Gemini AI (@google/genai SDK)
+## 4. Main Features
+
+### 📍 Smart 25-Meter GPS Attendance & Geofencing
+- **Strict 25m Geofence Enforcement:** Dual check-in verification evaluates employee GPS location against configured office coordinates.
+- **Automatic & Manual Check-In:** Automatic check-in prompt when inside office bounds, plus manual, Work-From-Home (WFH), and outdoor client visit logging.
+- **Physical Departure Tracking:** Tracks exit events and provides an interactive departure confirmation modal upon leaving the office radius.
+- **Device Registration & Anti-Proxy Security:** Binds employee accounts to authorized hardware identifiers, preventing unauthorized proxy logins.
+- **Security PIN Verification:** Requires administrator or user PIN authorization for sensitive administrative overrides and attendance modifications.
+- **My Day Timeline:** Comprehensive chronological visual feed of all daily check-ins, breaks, location status, and departure timestamps.
+
+### 🧾 Gemini AI Expense Management & Receipt OCR
+- **Multimodal AI Receipt Scanner:** Upload or snap receipts using the device camera; Google Gemini AI automatically parses merchant name, date, total amount, taxes, and category.
+- **One-Click Expense Approval:** Admin approval workflow with status badges (Pending, Approved, Rejected) and audit logging.
+- **Expense Categorization:** Automated categorization for Travel, Meals, Supplies, Utilities, and Miscellaneous.
+
+### 📋 Kanban Work Planner & Daily Work Details
+- **Visual Task Board:** Interactive Kanban planner with priority badges (Low, Medium, High, Urgent), due dates, and progress tracking.
+- **Daily Work Log:** Employees submit daily work summaries, accomplishments, and blockers for manager visibility.
+
+### 🏖️ Leave Administration & Balances
+- **Multi-Category Leave Requests:** Annual, Sick, Casual, Half-Day, and Unpaid leave workflows.
+- **Dynamic Balance Gauges:** Real-time quota tracking displaying remaining and consumed balances.
+- **Manager Approval Pipeline:** Instant notification and status updates upon approval or rejection.
+
+### 📈 Productivity, Efficiency & Salary Payslips
+- **Algorithmic Efficiency Scoring:** Computes objective productivity scores (0–100%) based on active hours, punctuality, and work completed.
+- **One-Click PDF Payslip Generator:** Client-side PDF generation (`jspdf`) with automated earnings, deductions, and net pay formatting.
+- **Leaderboard & Performance Insights:** Team productivity rankings and historical performance snapshots.
+
+### 🛡️ Executive Admin Dashboard & Office Pulse
+- **Real-Time Office Pulse:** Live dashboard overview showing counters for Present, On Break, On Leave, and Pending Departure.
+- **User & Role Management:** Comprehensive Role-Based Access Control (Super Admin, HR, Manager, Employee).
+- **Immutable Audit Logging:** Detailed event tracking for system settings, role adjustments, and manual attendance overrides.
+- **Automated Daily Admin Reports:** Scheduled internal status summaries dispatched via configurable SMTP email.
 
 ---
 
-### Requirements
-- Node.js v18+ & NPM
-- Firebase Account (Free Tier or Blaze)
-- Android Studio (for Android build) or Median.co account
+## 5. Technical Features
+- **Offline-First Application Architecture:** Standalone Service Worker with cache-first strategy guarantees the app shell boots instantly without internet connectivity.
+- **Local IndexedDB Persistence:** Offline queues store check-ins, tasks, and expense submissions, syncing automatically upon network reconnection.
+- **Pure Modern Stack:** Built on React 19, TypeScript 5, Vite, and Tailwind CSS v4 for ultra-fast rendering.
+- **Express Backend:** Bundled with esbuild into a clean, standalone Node.js server.
+- **Firebase Firestore & Authentication:** Scalable cloud database with audited security rules (`firestore.rules`).
+- **Native Android Studio Project:** Capacitor 8 wrapper with native Java geofence helper service included in `/android`.
+- **Zero Third-Party Vendor Lock-in:** 100% white-label codebase with all seller-specific configurations decoupled into environment variables.
 
 ---
 
-### What Is Included in the Download?
-- Full React 19 + Express TypeScript Source Code
-- Full Native Android Studio Source Project (`/android`)
-- Firebase Security Rules (`firestore.rules` & `storage.rules`)
-- Complete Documentation Package (Setup, Firebase, Android, Architecture, Customization, Security)
-- Marketplace Preview Banner & App Icon Assets
+## 6. Requirements
+- **Node.js:** v18.0.0 or higher
+- **Package Manager:** npm v9+
+- **Cloud Database:** Firebase account (free Spark tier or Blaze plan)
+- **Email Delivery (Optional):** Standard SMTP credentials (e.g., Gmail, SendGrid, Amazon SES, or custom mail server)
+- **AI Scanning (Optional):** Google Gemini API key (for receipt OCR)
+- **Mobile Compilation (Optional):** Android Studio Jellyfish / Koala (only if compiling native Android APK)
+- **Supported Browsers:** Chrome, Firefox, Safari, Edge, Opera (Desktop & Mobile)
+
+---
+
+## 7. Installation Summary
+1. **Extract Archive:** Unpack `Office_Management_System_Codester.zip`.
+2. **Install Dependencies:** Run `npm install` in the project root.
+3. **Environment Setup:** Copy `.env.example` to `.env` and enter your Firebase configuration, office GPS coordinates, and optional SMTP settings.
+4. **Build & Run:**
+   - Development server: `npm run dev` (starts on `http://localhost:3000`)
+   - Production build: `npm run build && npm start`
+5. **Android Build (Optional):** Open `/android` in Android Studio and click **Build APK**.
+
+---
+
+## 8. Customization Information
+- **Office Geofence Coordinates:** Update your latitude, longitude, and office name in `.env` and `src/config/officeConfig.ts`.
+- **Company Branding & Logo:** Replace the logo image in `src/assets/images/` and update colors in `src/config/themeTokens.ts`.
+- **App Name & Manifest:** Customize the application title in `metadata.json`, `index.html`, and `public/manifest.json`.
+- **Leave & Policy Rules:** Adjust annual leave quotas, office working hours, and grace periods directly in the Admin Settings panel or configuration files.
+
+---
+
+## 9. Target Customers
+- **Enterprises & SMBs:** Companies seeking an internal office attendance and HR management system with geofencing.
+- **Digital Agencies & Freelancers:** Developers who want to rebrand and resell a complete HR solution to corporate clients.
+- **Field & Hybrid Teams:** Organizations with mobile workforces needing accurate location verification and expense reporting.
+- **Startup Founders:** Fast-moving teams needing a turn-key employee portal with zero monthly SaaS subscription costs.
+
+---
+
+## 10. What's Included
+- Complete React 19 + TypeScript source code
+- Express.js backend server code
+- Complete native Android Studio project (`/android`) with Capacitor 8
+- Production Firebase Security Rules (`firestore.rules`)
+- Comprehensive documentation suite:
+  - `INSTALLATION.md` — Step-by-step installation guide
+  - `FIREBASE_SETUP.md` — Firebase Firestore and Auth setup walk-through
+  - `ANDROID_MEDIAN_SETUP.md` — Android Studio build and native wrapper instructions
+  - `CUSTOMIZATION.md` — Complete white-labeling and re-branding guide
+  - `ARCHITECTURE.md` — Deep dive into offline-first caching and data flow
+  - `DEMO_SETUP.md` & `DEMO_DATA_SEED.json` — Turn-key demo data seeds
+- Marketplace preview banners and high-resolution 3D app icon files
+
+---
+
+## 11. Tags
+`employee management, attendance system, gps attendance, geofence, expense management, leave management, hrms, workforce management, employee portal, admin dashboard, pwa, offline first, firebase, firestore, react, typescript, android, payroll, work planner`
+
+---
+
+## 12. Suggested Category
+**PHP & JavaScript Scripts / Full Applications** *(or Mobile / Hybrid Apps)*
+
+---
+
+## 13. Suggested Attributes
+- **Software Version:** React 19, TypeScript 5, Node.js 18+, Capacitor 8
+- **Files Included:** TypeScript (TS, TSX), JavaScript (JS), JSON, Java, XML, HTML, CSS, Markdown
+- **Operating Systems:** Android, iOS (via browser/PWA), Windows, macOS, Linux
+- **Compatible Browsers:** Google Chrome, Mozilla Firefox, Apple Safari, Microsoft Edge
+
+---
+
+## 14. Suggested Selling Price
+- **Regular License:** **$39 – $49** *(Single commercial deployment or internal business use)*
+- **Extended License:** **$149 – $199** *(Unlimited client deployments, SaaS re-distribution, or white-label reselling)*
+
+---
+
+## 15. Suggested Development Time Wording
+*"Over 6 months of enterprise-grade engineering, architectural hardening, and real-world workplace testing distilled into a turnkey commercial package."*
+
+---
+
+## 16. Demo Description
+The package includes an out-of-the-box demo setup with pre-configured mock roles and seed data. Buyers can instantly test all user personas without creating test records:
+- **Administrator Role:** Full access to Admin Portal, Office Pulse, Audit Logs, User Directory, and Approvals.
+- **Manager Role:** Team task assignments, attendance overrides, and leave authorizations.
+- **Employee Role:** 25m GPS check-in, Gemini AI receipt scanning, Kanban planner, and payslip generation.
+*(Instructions and demo credentials provided in `CODESTER_DOCUMENTATION/DEMO_SETUP.md`)*
+
+---
+
+## 17. Screenshot Captions
+1. **Employee Dashboard** — Mobile employee home with attendance status, work hours gauge, and quick actions.
+2. **25m GPS Attendance** — Real-time office radar map, geofence verification badge, and My Day timeline.
+3. **AI Receipt Scanner** — Multimodal Gemini AI receipt OCR extracting merchant, date, tax, and itemized costs.
+4. **Work Planner & Tasks** — Kanban board with priority flags, task stages, and personal work logs.
+5. **Productivity & Efficiency** — Objective daily efficiency score breakdown, punctuality metrics, and performance charts.
+6. **Notification Center** — Real-time geofence alerts, broadcast announcements, and approval status feeds.
+7. **Admin Dashboard & Office Pulse** — Real-time workforce presence counters (Present, On Break, On Leave, Exited).
+8. **Approvals Hub** — One-click expense verification, attendance regularizations, and leave approvals.
+9. **HR Directory & Payslips** — Employee profiles, authorized device management, and instant PDF payslip generator.
+
+---
+
+## 18. Preview Image Headline & Subheadline
+- **Headline:** Office Management System
+- **Subheadline:** White-Label Employee Management, 25m GPS Geofenced Attendance & AI Expense PWA
+
+---
+
+## 19. Buyer Support Statement
+We provide prompt, professional support to all verified buyers. If you encounter any questions regarding environment configuration, Firebase setup, or local build deployment, simply submit a ticket through the Codester support portal. We typically respond within 24 to 48 business hours.
+
+---
+
+## 20. License & Product Delivery Notes
+- **Clean Commercial Delivery:** Source code is 100% human-readable, fully commented, and completely un-obfuscated.
+- **Zero Proprietary Branding:** No hardcoded vendor references, seller credentials, or external call-homes.
+- **Buyer Configuration Required:** Buyers configure their own Firebase project, SMTP mail server credentials (optional), and office latitude/longitude coordinates via standard environment variables.
+- **PWA vs Native Notice:** The browser PWA operates in the foreground when the web app is active. For background geofence departure tracking with locked screens, compile and install the included native Android Studio wrapper.

@@ -291,7 +291,7 @@ export const ensureNotificationChannelsCreated = async (): Promise<void> => {
       );
       await LocalNotifications.createChannel({
         id: 'exfin_oms_important',
-        name: 'EXFIN OMS Urgent & High Priority Alerts',
+        name: 'Smart Workforce Urgent & High Priority Alerts',
         description: 'Urgent tasks, leave approvals, and critical messages',
         importance: 5,
         visibility: 1,
@@ -301,7 +301,7 @@ export const ensureNotificationChannelsCreated = async (): Promise<void> => {
 
       await LocalNotifications.createChannel({
         id: 'exfin_oms_normal',
-        name: 'EXFIN OMS Standard Updates',
+        name: 'Smart Workforce Standard Updates',
         description: 'Task progress updates and routine team messages',
         importance: 3,
         visibility: 1,
@@ -493,12 +493,12 @@ export const openAppNotificationSettings = async (): Promise<boolean> => {
     }
 
     alert(
-      'To enable notifications:\n1. Open Android Settings on your device.\n2. Go to Apps -> EXFIN OMS.\n3. Tap Notifications and toggle ON.'
+      'To enable notifications:\n1. Open Android Settings on your device.\n2. Go to Apps -> Smart Workforce.\n3. Tap Notifications and toggle ON.'
     );
     return false;
   } catch (err) {
     console.warn('Failed to open app notification settings:', err);
-    alert('Please open Android Settings -> Apps -> EXFIN OMS -> Notifications.');
+    alert('Please open Android Settings -> Apps -> Smart Workforce -> Notifications.');
     return false;
   }
 };
@@ -519,7 +519,7 @@ export const sendLocalTestNotification = async (): Promise<{
 
   const testRecord: NotificationRecord = {
     id: `test_notif_${Date.now()}`,
-    title: 'EXFIN OMS Test Notification',
+    title: 'Smart Workforce Test Notification',
     message: 'Push notifications are working correctly.',
     recipientUserId: '',
     recipientEmployeeCode: '',
@@ -559,7 +559,7 @@ export const triggerOSPushNotification = async (
       return;
     }
 
-    const title = notif.title || 'EXFIN OMS Alert';
+    const title = notif.title || 'Smart Workforce Alert';
     const body = notif.message || '';
     const channelId =
       priority === 'HIGH' || priority === 'URGENT'
@@ -716,7 +716,7 @@ const flushBatch = (
       type: 'SYSTEM_ALERT',
       category: 'SYSTEM',
       priority: 'NORMAL',
-      title: `EXFIN OMS — ${summaryCount} New Updates 🔔`,
+      title: `Smart Workforce — ${summaryCount} New Updates 🔔`,
       message: `${summaryCount} activity updates received (${firstTitle}, and more).`,
       recipientUserId: items[0]?.recipientUserId || '',
       recipientEmployeeCode: items[0]?.recipientEmployeeCode || '',

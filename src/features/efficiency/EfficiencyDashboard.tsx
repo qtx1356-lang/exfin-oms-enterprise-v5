@@ -42,7 +42,7 @@ import { EfficiencyBreakdown, EfficiencyGrade, EfficiencyWeightages } from '../.
 import { calculateEfficiency } from '../../services/efficiency/efficiencyCalculator';
 import { DEFAULT_WEIGHTAGES, getSavedWeightages, saveWeightages, getEfficiencyPeriodData } from '../../services/efficiency/efficiencyService';
 import { getRecordWorkingMinutes, formatMinutesToDuration, calculateMonthlySummary, getKolkataDateStr } from '../../utils/workHoursCalc';
-import { isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
+import { getEffectiveCheckoutStatus } from '../../utils/attendanceUtils';
 
 interface EfficiencyDashboardProps {
   customEmployeeCode?: string; // Admin or TL can pass this to inspect a specific employee
@@ -353,7 +353,8 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
     let unresolvedCount = 0;
 
     selectedEmployeeAttendance.forEach(rec => {
-      if (isAttendanceCheckoutUnresolved(rec) || rec.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+      const eff = getEffectiveCheckoutStatus(rec);
+      if (eff === 'UNRESOLVED' || eff === 'PENDING_ADMIN_REVIEW') {
         unresolvedCount++;
       } else {
         const mins = getRecordWorkingMinutes(rec);
@@ -637,7 +638,8 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
       let mLate = 0;
 
       mAtt.forEach(r => {
-        if (isAttendanceCheckoutUnresolved(r)) {
+        const eff = getEffectiveCheckoutStatus(r);
+        if (eff === 'UNRESOLVED' || eff === 'PENDING_ADMIN_REVIEW') {
           mUnresolved++;
         } else {
           mWorkMins += getRecordWorkingMinutes(r);

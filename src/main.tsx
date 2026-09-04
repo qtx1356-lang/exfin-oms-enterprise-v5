@@ -18,24 +18,24 @@ if (typeof window !== 'undefined') {
       errorMsg.includes('Importing a module script failed');
 
     if (isChunkError) {
-      console.warn('[EXFIN-STARTUP] Dynamic chunk load failure detected:', errorMsg);
+      console.warn('[OMS-STARTUP] Dynamic chunk load failure detected:', errorMsg);
       try {
         const reloadKey = 'exfin_chunk_reload_attempt';
         const alreadyAttempted = sessionStorage.getItem(reloadKey);
         if (!alreadyAttempted) {
           sessionStorage.setItem(reloadKey, 'true');
-          console.log('[EXFIN-STARTUP] Reloading with fresh cache to resolve chunk version mismatch...');
+          console.log('[OMS-STARTUP] Reloading with fresh cache to resolve chunk version mismatch...');
           window.location.reload();
         }
       } catch (err) {
-        console.error('[EXFIN-STARTUP] Error initiating chunk reload recovery:', err);
+        console.error('[OMS-STARTUP] Error initiating chunk reload recovery:', err);
       }
     }
   });
 
   // 2. Unhandled rejection logger for production observability
   window.addEventListener('unhandledrejection', (event) => {
-    console.warn('[EXFIN-OBSERVABILITY] Unhandled Promise Rejection:', event.reason?.message || event.reason);
+    console.warn('[OMS-OBSERVABILITY] Unhandled Promise Rejection:', event.reason?.message || event.reason);
   });
 
   // 3. Clear single-recovery marker upon successful startup when online

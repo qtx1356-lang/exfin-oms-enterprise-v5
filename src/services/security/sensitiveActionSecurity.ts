@@ -1,5 +1,5 @@
 /**
- * EXFIN OMS ENTERPRISE V5 — SECURITY COMPATIBILITY BRIDGE
+ * OMS ENTERPRISE V5 — SECURITY COMPATIBILITY BRIDGE
  * Forwards security verification checks.
  * STRICT RULE: No verification session state or caching is retained.
  */

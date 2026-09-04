@@ -94,9 +94,9 @@ export const LocationGate: React.FC = () => {
             </h1>
 
             <p className="text-slate-200 text-sm font-semibold leading-relaxed px-2">
-              {showPermissionDenied && 'EXFIN OMS requires your permission to access device location to use Attendance features.'}
+              {showPermissionDenied && 'Smart Workforce requires your permission to access device location to use Attendance features.'}
               {showGpsOff && 'Please turn on Location Services to continue using Attendance features.'}
-              {showUnavailable && 'EXFIN OMS requires your device location to be turned ON to use Attendance features.'}
+              {showUnavailable && 'Smart Workforce requires your device location to be turned ON to use Attendance features.'}
             </p>
 
             <p className="text-slate-300/80 text-xs leading-relaxed px-4">
@@ -136,7 +136,7 @@ export const LocationGate: React.FC = () => {
 
             {/* Subtle Fallback Info */}
             <p className="text-[10px] text-slate-300 font-mono">
-              EXFIN OMS • 25m GPS Geofenced Verification
+              Smart Workforce • 25m GPS Geofenced Verification
             </p>
           </div>
         </Card>

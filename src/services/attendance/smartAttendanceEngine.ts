@@ -23,10 +23,12 @@ import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { createNotification } from '../notification/notificationService';
 
+const env = typeof import.meta !== 'undefined' && import.meta?.env ? import.meta.env : ({} as any);
+
 export const OFFICE_LOCATION = {
-  name: 'EXFIN OFFICE',
-  latitude: 23.616227,
-  longitude: 87.117063,
+  name: env.VITE_OFFICE_NAME || 'Main Office',
+  latitude: typeof env.VITE_OFFICE_LATITUDE !== 'undefined' && env.VITE_OFFICE_LATITUDE !== '' ? Number(env.VITE_OFFICE_LATITUDE) : 0.0,
+  longitude: typeof env.VITE_OFFICE_LONGITUDE !== 'undefined' && env.VITE_OFFICE_LONGITUDE !== '' ? Number(env.VITE_OFFICE_LONGITUDE) : 0.0,
   radius: 25, // 25 meters office geofence
   autoCheckoutDistanceThreshold: 25
 };

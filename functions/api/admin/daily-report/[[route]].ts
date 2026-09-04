@@ -18,7 +18,7 @@ export async function onRequest(context) {
   }
   const token = authHeader.split('Bearer ')[1].trim();
 
-  const projectId = env.FIREBASE_PROJECT_ID || 'exfin-oms-production';
+  const projectId = env.FIREBASE_PROJECT_ID || 'your-firebase-project-id';
 
   async function firestoreFetch(docPath, method = 'GET', body = null) {
     const fUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${docPath}`;
@@ -101,9 +101,7 @@ export async function onRequest(context) {
   }
 
   const DEFAULT_TARGET_RECIPIENTS = [
-    'hr@exfinsolution.com',
-    'ceo@exfinsolution.com',
-    'sanjivsinha06@gmail.com'
+    'admin@yourcompany.com'
   ];
 
   function getEffectiveRecipients(fsData) {
@@ -241,7 +239,7 @@ export async function onRequest(context) {
         throw new Error(`SMTP_DATA_FAILED: DATA command rejected: ${dataResp}`);
       }
 
-      const fromName = env.EMAIL_FROM_NAME || (typeof process !== 'undefined' ? process.env?.EMAIL_FROM_NAME : undefined) || 'EXFIN OMS Admin Report';
+      const fromName = env.EMAIL_FROM_NAME || (typeof process !== 'undefined' ? process.env?.EMAIL_FROM_NAME : undefined) || 'Smart Workforce Reports';
 
       const messageData = [
         `From: ${fromName} <${user}>`,
@@ -410,10 +408,10 @@ export async function onRequest(context) {
         }), { status: 400, headers: { 'Content-Type': 'application/json' } });
       }
 
-      const emailHtml = `<!DOCTYPE html><html><body style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;"><div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgb(0 0 0 / 0.05); border-top: 4px solid #6366f1;"><h2 style="color: #1e1b4b; margin-top: 0;">EXFIN OMS — Connection Verification</h2><p>This is a <strong>Test Daily Report</strong> designed to verify that the EXFIN OMS backend email server configuration is fully operational.</p><p>Details:</p><table style="width: 100%; border-collapse: collapse; font-size: 13px;"><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Status</td><td style="padding: 8px 0; color: #10b981;">ACTIVE / OPERATIONAL</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Recipients</td><td style="padding: 8px 0;">Configured Admin Recipients (BCC Protected)</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Recipient Count</td><td style="padding: 8px 0;">${recipients.length}</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Dispatched From</td><td style="padding: 8px 0;">EXFIN OMS CF Pages Server</td></tr></table></div></body></html>`;
+      const emailHtml = `<!DOCTYPE html><html><body style="font-family: Arial, sans-serif; background-color: #f8fafc; padding: 25px; color: #1e293b;"><div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgb(0 0 0 / 0.05); border-top: 4px solid #6366f1;"><h2 style="color: #1e1b4b; margin-top: 0;">Smart Workforce — Connection Verification</h2><p>This is a <strong>Test Daily Report</strong> designed to verify that the Smart Workforce backend email server configuration is fully operational.</p><p>Details:</p><table style="width: 100%; border-collapse: collapse; font-size: 13px;"><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Status</td><td style="padding: 8px 0; color: #10b981;">ACTIVE / OPERATIONAL</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Recipients</td><td style="padding: 8px 0;">Configured Admin Recipients (BCC Protected)</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Recipient Count</td><td style="padding: 8px 0;">${recipients.length}</td></tr><tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 8px 0; font-weight: bold;">Dispatched From</td><td style="padding: 8px 0;">Smart Workforce Server</td></tr></table></div></body></html>`;
 
       try {
-        const sendRes = await sendEmailViaGmailSmtp(recipients, 'EXFIN OMS — Test Daily Report', emailHtml);
+        const sendRes = await sendEmailViaGmailSmtp(recipients, 'Smart Workforce — Test Daily Report', emailHtml);
         
         await firestoreFetch(`audit_logs/${Date.now()}`, 'PATCH', {
           fields: {
@@ -634,7 +632,7 @@ export async function onRequest(context) {
           </tr>
         `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">${needsImprovementEmptyMessage}</td></tr>`;
 
-        const adminPanelUrl = 'https://exfin-oms-enterprise-v5.pages.dev/x7Kp9';
+        const adminPanelUrl = (env.APP_URL ? env.APP_URL.replace(/\/$/, '') : 'https://your-domain.com') + '/x7Kp9';
 
         // STEP 5: REPORT_HTML_GENERATED
         currentStage = 'REPORT_HTML_GENERATED';
@@ -642,12 +640,12 @@ export async function onRequest(context) {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>EXFIN OMS Daily Operational Report</title>
+  <title>Smart Workforce Daily Operational Report</title>
 </head>
 <body style="font-family: Arial, sans-serif; background-color: #f1f5f9; padding: 20px; margin: 0;">
   <div style="max-width: 800px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgb(0 0 0 / 0.1);">
     <div style="background: linear-gradient(135deg, #1e1b4b 0%, #31105e 100%); color: white; padding: 30px; text-align: center;">
-      <h1 style="margin: 0; font-size: 26px; font-weight: bold;">EXFIN OMS</h1>
+      <h1 style="margin: 0; font-size: 26px; font-weight: bold;">Smart Workforce</h1>
       <p style="margin: 5px 0 0 0; color: #c084fc; font-size: 14px;">Daily Operations & Administration Report</p>
       <div style="margin-top: 15px; font-weight: bold; background: rgba(255,255,255,0.15); display: inline-block; padding: 5px 16px; border-radius: 20px; font-size: 13px;">
         Report Date: ${targetDate} (Asia/Kolkata)
@@ -711,7 +709,7 @@ export async function onRequest(context) {
       </div>
     </div>
     <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 15px; text-align: center; color: #64748b; font-size: 12px;">
-      EXFIN Office Management System — Generated Daily Operational Briefing
+      Smart Workforce Management System — Generated Daily Operational Briefing
     </div>
   </div>
 </body>
@@ -731,7 +729,7 @@ export async function onRequest(context) {
         }
 
         const htmlSizeBytes = new TextEncoder().encode(html).length;
-        const subject = `EXFIN OMS — Previous Day Admin Report — ${targetDate}`;
+        const subject = `Smart Workforce — Previous Day Admin Report — ${targetDate}`;
 
         // STEP 7: GMAIL_SEND_STARTED
         currentStage = 'GMAIL_SEND_STARTED';

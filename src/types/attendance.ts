@@ -242,7 +242,7 @@ export interface LiveEmployeeLocation {
   latitude: number;
   longitude: number;
   accuracy?: number | null;
-  distanceFromOffice: number; // Distance in meters from office (23.616227, 87.117063)
+  distanceFromOffice: number; // Distance in meters from office (0.0, 0.0)
   townCity: string;
   timestamp: string; // ISO string of GPS fix time
   updatedAt: string; // ISO string of write time

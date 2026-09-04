@@ -9,7 +9,7 @@
     "start": "node dist/server.cjs",
     "preview": "npm run build && wrangler dev",
     "lint": "tsc --noEmit",
-    "deploy": "wrangler pages deploy dist --project-name exfin-oms-enterprise-v5"
+    "deploy": "wrangler pages deploy dist --project-name office-management-system"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",

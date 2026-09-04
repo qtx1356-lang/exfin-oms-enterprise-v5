@@ -33,8 +33,8 @@ import {
   parseTimeToMinutes
 } from "./server/services/dailyAdminReportService";
 
-const OFFICE_LAT = 23.616227;
-const OFFICE_LNG = 87.117063;
+const OFFICE_LAT = process.env.VITE_OFFICE_LATITUDE ? Number(process.env.VITE_OFFICE_LATITUDE) : 0.0;
+const OFFICE_LNG = process.env.VITE_OFFICE_LONGITUDE ? Number(process.env.VITE_OFFICE_LONGITUDE) : 0.0;
 const GEOFENCE_RADIUS_METERS = 25.0;
 
 // Initialize Firebase Admin
@@ -308,7 +308,7 @@ async function startServer() {
   app.get("/api/health", (req, res) => {
     res.json({
       success: true,
-      service: "EXFIN OMS API",
+      service: "Smart Workforce API",
       firebaseAdminInitialized: !!db,
       firebaseAuthInitialized: !!authAdmin,
       timestamp: new Date().toISOString(),
@@ -821,7 +821,7 @@ async function startServer() {
       }
 
       const employeeName = empData.name || "Employee";
-      const townCity = empData.townCity || "Raniganj HQ";
+      const townCity = empData.townCity || "Main Office";
 
       // Calculate distance to office authoritatively (ignoring client-supplied distance/isInside/isExit/geofenceState)
       const distance = isLocationUnavailable ? null : calculateDistanceInMeters(latitude, longitude, OFFICE_LAT, OFFICE_LNG);
@@ -1108,7 +1108,7 @@ async function startServer() {
               attendanceType: "OFFICE",
               checkInTime: timeStr,
               distance: isLocationUnavailable ? 0 : Math.round(distance!),
-              townCity: townCity || "Raniganj HQ",
+              townCity: townCity || "Main Office",
               eventTime: timeStr
             }).catch((waErr) => {
               console.warn("[BackgroundAttendance] Auxiliary WhatsApp dispatch warning (non-fatal):", waErr);
@@ -1530,7 +1530,7 @@ async function startServer() {
     }
 
     try {
-      const messageBody = testMessage || "EXFIN OMS WhatsApp Connection Test Successful.";
+      const messageBody = testMessage || "Smart Workforce WhatsApp Connection Test Successful.";
       
       let sendRes;
       if (type === 'template' && templateName) {
@@ -1871,7 +1871,7 @@ async function startServer() {
     const queryToken = req.query.token;
     
     // Fallback secret only allowed in non-production environments
-    const expectedSecret = process.env.CRON_SECRET || (process.env.NODE_ENV !== "production" ? "exfin_oms_secure_scheduler_token_2026" : undefined);
+    const expectedSecret = process.env.CRON_SECRET || (process.env.NODE_ENV !== "production" ? "smart_workforce_secure_scheduler_token" : undefined);
 
     if (!expectedSecret) {
       console.error("[DailyReport Scheduler] CRON_SECRET environment variable is missing in production!");
