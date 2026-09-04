@@ -89,6 +89,60 @@ function parseFirestoreRestFields(fields: any): Record<string, any> {
 }
 
 /**
+ * Resolves Firebase REST configuration directly from build-time environment variables
+ * with safe fallback to initialized Firebase app options.
+ */
+function getFirebaseRestConfig(): {
+  apiKey: string;
+  projectId: string;
+  databaseId: string;
+} {
+  let apiKey = '';
+  let projectId = '';
+  let databaseId = '(default)';
+
+  try {
+    apiKey = import.meta.env.VITE_FIREBASE_API_KEY || '';
+  } catch (e) {}
+
+  try {
+    projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || '';
+  } catch (e) {}
+
+  if (!apiKey) {
+    apiKey = (app?.options as any)?.apiKey || '';
+  }
+  if (!projectId) {
+    projectId = (app?.options as any)?.projectId || '';
+  }
+
+  databaseId = (app?.options as any)?.firestoreDatabaseId || '(default)';
+
+  // Disregard generic placeholders
+  if (
+    !projectId ||
+    projectId === 'your-firebase-project-id' ||
+    projectId.includes('placeholder')
+  ) {
+    projectId = '';
+  }
+  if (
+    !apiKey ||
+    apiKey.includes('Placeholder') ||
+    apiKey === 'your-api-key' ||
+    apiKey.length < 10
+  ) {
+    apiKey = '';
+  }
+
+  return {
+    apiKey,
+    projectId,
+    databaseId: databaseId || '(default)',
+  };
+}
+
+/**
  * Direct HTTPS REST resolution for login_ids/{normalizedLoginId}.
  * Completely independent of Firestore WebChannel connection state.
  */
@@ -103,9 +157,7 @@ async function resolveLoginIdViaRest(
   error?: string;
   status?: number;
 }> {
-  const apiKey = app?.options?.apiKey;
-  const projectId = app?.options?.projectId;
-  const databaseId = (app?.options as any)?.firestoreDatabaseId || '(default)';
+  const { apiKey, projectId, databaseId } = getFirebaseRestConfig();
 
   console.log('[ADMIN_LOGIN_REST_RESOLUTION] Initiating REST lookup:', {
     normalizedLoginId,
@@ -115,12 +167,12 @@ async function resolveLoginIdViaRest(
     apiKeyLength: apiKey ? apiKey.length : 0,
   });
 
-  if (!apiKey || !projectId || projectId === 'your-firebase-project-id' || apiKey.includes('Placeholder')) {
+  if (!apiKey || !projectId) {
     console.warn('[ADMIN_LOGIN_REST_ERROR] Firebase configuration is missing or placeholder in client build.');
     return {
       success: false,
       configMissing: true,
-      error: 'Firebase configuration unavailable.',
+      error: 'Firebase authentication configuration is unavailable.',
     };
   }
 
@@ -163,7 +215,7 @@ async function resolveLoginIdViaRest(
       if (!email) {
         return {
           success: false,
-          error: 'Login ID mapping document exists but does not contain an email address.',
+          error: 'Login ID mapping is invalid.',
           status: 200,
         };
       }
@@ -185,6 +237,22 @@ async function resolveLoginIdViaRest(
         statusText: response.statusText,
         errorBody,
       });
+
+      if (response.status === 401 || response.status === 403) {
+        return {
+          success: false,
+          status: response.status,
+          error: 'Firebase access denied or unauthorized for Login ID resolution.',
+        };
+      }
+
+      if (response.status >= 500) {
+        return {
+          success: false,
+          status: response.status,
+          error: 'Firebase service temporarily unavailable. Please try again later.',
+        };
+      }
 
       return {
         success: false,
@@ -214,11 +282,9 @@ async function fetchAdminUserViaRest(
   uid: string,
   idToken: string
 ): Promise<{ exists: boolean; data?: Record<string, any>; error?: string } | null> {
-  const apiKey = app?.options?.apiKey;
-  const projectId = app?.options?.projectId;
-  const databaseId = (app?.options as any)?.firestoreDatabaseId || '(default)';
+  const { apiKey, projectId, databaseId } = getFirebaseRestConfig();
 
-  if (!apiKey || !projectId || projectId === 'your-firebase-project-id' || apiKey.includes('Placeholder')) {
+  if (!apiKey || !projectId) {
     return null;
   }
 
@@ -460,19 +526,38 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         let resolutionSucceeded = false;
 
         // Method A: Direct HTTPS REST (Immediate, not blocked by WebChannel/streaming lock)
+        let restFailureReason = '';
         try {
           const restResult = await resolveLoginIdViaRest(normalizedLoginId);
           if (restResult.configMissing) {
             console.warn('[ADMIN_LOGIN_REST_ERROR] Firebase configuration missing in client.');
+            throw new Error(restResult.error || 'Firebase authentication configuration is unavailable.');
           } else if (restResult.notFound) {
             throw new Error(`Login ID "${inputCleaned}" does not exist.`);
           } else if (restResult.success && restResult.email) {
             emailToAuth = restResult.email;
             expectedUid = restResult.uid || '';
             resolutionSucceeded = true;
+          } else if (restResult.error) {
+            restFailureReason = restResult.error;
+            if (
+              restResult.error.includes('mapping is invalid') ||
+              restResult.error.includes('unauthorized') ||
+              restResult.error.includes('access denied')
+            ) {
+              throw new Error(restResult.error);
+            }
           }
         } catch (restErr: any) {
-          if (restErr.message && (restErr.message.includes('does not exist') || restErr.message.includes('not found'))) {
+          if (
+            restErr.message &&
+            (restErr.message.includes('does not exist') ||
+              restErr.message.includes('not found') ||
+              restErr.message.includes('configuration is unavailable') ||
+              restErr.message.includes('mapping is invalid') ||
+              restErr.message.includes('unauthorized') ||
+              restErr.message.includes('access denied'))
+          ) {
             throw restErr;
           }
         }
@@ -518,6 +603,9 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (!resolutionSucceeded || !emailToAuth) {
           if (!navigator.onLine) {
             throw new Error('Authentication service unavailable. Please check your internet connection.');
+          }
+          if (restFailureReason) {
+            throw new Error(restFailureReason);
           }
           throw new Error(`Login ID resolution service temporarily unavailable.`);
         }
