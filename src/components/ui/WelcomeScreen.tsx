@@ -213,7 +213,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
   // Automatic personalized greeting on Welcome Screen mount / entry
   useEffect(() => {
-    // Prevent duplicate playback during re-renders or state updates within this session
+    // Prevent duplicate playback during re-renders or state updates within this single app activation
     if (speechTriggeredRef.current) return;
 
     // Prevent premature triggering while employee identity is still hydrating asynchronously
@@ -221,11 +221,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     if (isIdentityLoading) {
       return;
     }
-
-    // Prevent immediate double-execution in React StrictMode / instant startup remounts (< 3000ms)
-    const now = Date.now();
-    const lastTrigger = Number(sessionStorage.getItem('exfin_welcome_greeting_last_time') || '0');
-    if (now - lastTrigger < 3000) return;
 
     let isCancelled = false;
 
@@ -242,7 +237,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         if (isCancelled || speechTriggeredRef.current) return;
 
         speechTriggeredRef.current = true;
-        sessionStorage.setItem('exfin_welcome_greeting_last_time', String(Date.now()));
         logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
 
         setIsSpeaking(true);
@@ -258,7 +252,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       } else if (!firstName) {
         // Fallback to pre-recorded audio ONLY for anonymous/unregistered users without firstName
         speechTriggeredRef.current = true;
-        sessionStorage.setItem('exfin_welcome_greeting_last_time', String(Date.now()));
         logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
 
         setIsSpeaking(true);
