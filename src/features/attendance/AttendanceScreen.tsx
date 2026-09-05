@@ -32,7 +32,8 @@ import {
   ShieldCheck,
   Activity,
   Compass,
-  Radio
+  Radio,
+  Send
 } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
@@ -80,6 +81,7 @@ import {
 } from '../../services/monitoring/performanceDiagnostics';
 import { TodayAttendanceCard } from './TodayAttendanceCard';
 import { AttendanceCalendar } from './AttendanceCalendar';
+import { getWhatsAppAttendanceUrl } from '../../utils/whatsappUtils';
 
 const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
   'Market Visit',
@@ -1477,6 +1479,8 @@ export const AttendanceScreen: React.FC = () => {
             isSyncing={isSyncing} 
             isOnline={isOnline}
             liveLocationData={liveLocationData}
+            employeeName={employeeName}
+            employeeCode={employeeId}
           />
         );
       })()}
@@ -1771,7 +1775,40 @@ export const AttendanceScreen: React.FC = () => {
                           })()}
                         </div>
 
-                        {/* Sync Badge Removed */}
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const cinUrl = getWhatsAppAttendanceUrl(employeeName, employeeId, rec, 'CHECK_IN');
+                            const coutUrl = getWhatsAppAttendanceUrl(employeeName, employeeId, rec, 'CHECK_OUT');
+                            return (
+                              <>
+                                {cinUrl && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      window.open(cinUrl, '_blank');
+                                    }}
+                                    className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
+                                    title="Send Check-in to WhatsApp"
+                                  >
+                                    <Send className="w-3 h-3" />
+                                  </button>
+                                )}
+                                {coutUrl && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      window.open(coutUrl, '_blank');
+                                    }}
+                                    className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors"
+                                    title="Send Check-out to WhatsApp"
+                                  >
+                                    <Send className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
                       </div>
 
                       {rec.clientName && (

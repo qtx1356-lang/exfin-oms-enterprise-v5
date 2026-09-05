@@ -11,13 +11,18 @@ import {
 } from 'lucide-react';
 import { AttendanceRecord, LiveEmployeeLocation } from '../../types/attendance';
 import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Send } from 'lucide-react';
 import { calculateWorkingHours, parseAttendanceTimeToMinutes } from '../../services/attendance/smartAttendanceEngine';
+import { getWhatsAppAttendanceUrl } from '../../utils/whatsappUtils';
 
 interface TodayAttendanceCardProps {
   todayRecord: AttendanceRecord | null;
   isSyncing?: boolean;
   isOnline?: boolean;
   liveLocationData?: LiveEmployeeLocation | null;
+  employeeName?: string;
+  employeeCode?: string;
 }
 
 const formatDuration = (seconds: number): string => {
@@ -35,7 +40,9 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   todayRecord,
   isSyncing = false,
   isOnline = true,
-  liveLocationData = null
+  liveLocationData = null,
+  employeeName = 'Employee',
+  employeeCode = 'N/A'
 }) => {
   const [now, setNow] = useState<Date>(new Date());
 
@@ -147,6 +154,14 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
     month: 'long'
   });
 
+  const whatsAppCheckInUrl = todayRecord && employeeName && employeeCode 
+    ? getWhatsAppAttendanceUrl(employeeName, employeeCode, todayRecord, 'CHECK_IN')
+    : null;
+    
+  const whatsAppCheckOutUrl = todayRecord && employeeName && employeeCode
+    ? getWhatsAppAttendanceUrl(employeeName, employeeCode, todayRecord, 'CHECK_OUT')
+    : null;
+
   return (
     <Card className={`p-4 sm:p-5 glass-card border border-[var(--border)] shadow-md relative overflow-hidden transition-all duration-300 text-[var(--text-primary)]`}>
       {/* Background Subtle Glow */}
@@ -241,6 +256,36 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* WhatsApp Sharing Section */}
+      {(whatsAppCheckInUrl || whatsAppCheckOutUrl) && (
+        <div className="pt-3 mt-3 border-t border-[var(--border)]">
+          <div className="flex flex-col sm:flex-row gap-2">
+            {whatsAppCheckInUrl && !isCheckedOut && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 h-9 rounded-xl border-emerald-500/30 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 text-[10px] font-bold uppercase tracking-wider"
+                onClick={() => window.open(whatsAppCheckInUrl, '_blank')}
+              >
+                <Send className="w-3.5 h-3.5 mr-1.5" />
+                Send Check-in to WhatsApp
+              </Button>
+            )}
+            {whatsAppCheckOutUrl && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 h-9 rounded-xl border-rose-500/30 bg-rose-500/5 text-rose-400 hover:bg-rose-500/10 text-[10px] font-bold uppercase tracking-wider"
+                onClick={() => window.open(whatsAppCheckOutUrl, '_blank')}
+              >
+                <Send className="w-3.5 h-3.5 mr-1.5" />
+                Send Check-out to WhatsApp
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
     </Card>
   );
 };
