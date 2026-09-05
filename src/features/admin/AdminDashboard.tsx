@@ -132,9 +132,11 @@ export const processAdminAttendanceRecords = (
   const isRecordAdminAuthoritative = (rec: AttendanceRecord | any): boolean => {
     if (!rec) return false;
     if (rec.isAdminRectified === true || rec.manualRectified === true) return true;
+    if (rec.checkoutFinalized === true) return true;
     if (rec.checkoutStatus === 'COMPLETED' || rec.checkoutStatus === 'FINALIZED') return true;
-    const resBy = String(rec.checkoutResolvedBy || '').toLowerCase();
-    if (resBy === 'admin') return true;
+    if (rec.attendanceStatus === 'RESOLVED' || rec.status === 'completed') return true;
+    if (rec.checkoutResolvedBy || rec.checkoutResolvedAt) return true;
+    if (rec.resolutionSource === 'ADMIN_CORRECTION' || rec.resolutionSource === 'ADMIN_APPROVED_PROPOSAL') return true;
     if (Array.isArray(rec.correctionHistory) && rec.correctionHistory.length > 0) {
       return rec.correctionHistory.some((c: any) => {
         const by = String(c?.correctedBy || c?.correctedByRole || '').toLowerCase();
@@ -156,27 +158,36 @@ export const processAdminAttendanceRecords = (
     const key = getAttendanceCanonicalKey(rec);
     if (!key) return;
 
-    // STEP 3: Correction history recovery for server records
+    // STEP 3: Correction history recovery & authoritative checkout resolution for server records
     if (isRecordAdminAuthoritative(rec)) {
-      if (
-        (!rec.checkOutTime ||
-          rec.checkOutTime === '--:--' ||
-          rec.checkOutTime === 'Pending' ||
-          rec.checkOutTime === 'N/A' ||
-          rec.checkOutTime === 'UNRESOLVED') &&
-        Array.isArray(rec.correctionHistory)
-      ) {
+      let authoritativeCheckOut: string | null = null;
+      if (recordHasCheckout(rec)) {
+        authoritativeCheckOut = rec.checkOutTime;
+      } else if (Array.isArray(rec.correctionHistory)) {
         const latestCorrection = [...rec.correctionHistory].reverse().find(
           (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
         );
         if (latestCorrection && latestCorrection.correctedCheckOut) {
-          rec.checkOutTime = latestCorrection.correctedCheckOut;
-          rec.checkoutStatus = 'COMPLETED';
-          rec.status = 'completed';
-          rec.attendanceStatus = 'RESOLVED';
-          if (!rec.workingHours && rec.checkInTime) {
-            rec.workingHours = calculateWorkingHours(rec.checkInTime, rec.checkOutTime);
-          }
+          authoritativeCheckOut = latestCorrection.correctedCheckOut;
+        }
+      }
+
+      if (!authoritativeCheckOut && (rec.employeeProposedCheckoutTime || rec.employeeProvidedCheckoutTime)) {
+        const prop = (rec.employeeProposedCheckoutTime || rec.employeeProvidedCheckoutTime || '').trim();
+        if (prop && prop !== 'UNRESOLVED' && prop !== '--:--' && prop !== 'Pending' && prop !== 'N/A') {
+          authoritativeCheckOut = prop;
+        }
+      }
+
+      if (authoritativeCheckOut) {
+        rec.checkOutTime = authoritativeCheckOut;
+        rec.checkoutStatus = 'COMPLETED';
+        rec.status = 'completed';
+        rec.attendanceStatus = 'RESOLVED';
+        rec.checkoutFinalized = true;
+        rec.currentState = 'CHECKED_OUT';
+        if (!rec.workingHours && rec.checkInTime) {
+          rec.workingHours = calculateWorkingHours(rec.checkInTime, rec.checkOutTime);
         }
       }
     }
@@ -232,25 +243,34 @@ export const processAdminAttendanceRecords = (
     const existing = map.get(key);
     if (!existing) {
       if (isRecordAdminAuthoritative(localRec)) {
-        if (
-          (!localRec.checkOutTime ||
-            localRec.checkOutTime === '--:--' ||
-            localRec.checkOutTime === 'Pending' ||
-            localRec.checkOutTime === 'N/A' ||
-            localRec.checkOutTime === 'UNRESOLVED') &&
-          Array.isArray(localRec.correctionHistory)
-        ) {
+        let authoritativeCheckOut: string | null = null;
+        if (recordHasCheckout(localRec)) {
+          authoritativeCheckOut = localRec.checkOutTime;
+        } else if (Array.isArray(localRec.correctionHistory)) {
           const latestCorrection = [...localRec.correctionHistory].reverse().find(
             (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
           );
           if (latestCorrection && latestCorrection.correctedCheckOut) {
-            localRec.checkOutTime = latestCorrection.correctedCheckOut;
-            localRec.checkoutStatus = 'COMPLETED';
-            localRec.status = 'completed';
-            localRec.attendanceStatus = 'RESOLVED';
-            if (!localRec.workingHours && localRec.checkInTime) {
-              localRec.workingHours = calculateWorkingHours(localRec.checkInTime, localRec.checkOutTime);
-            }
+            authoritativeCheckOut = latestCorrection.correctedCheckOut;
+          }
+        }
+
+        if (!authoritativeCheckOut && (localRec.employeeProposedCheckoutTime || localRec.employeeProvidedCheckoutTime)) {
+          const prop = (localRec.employeeProposedCheckoutTime || localRec.employeeProvidedCheckoutTime || '').trim();
+          if (prop && prop !== 'UNRESOLVED' && prop !== '--:--' && prop !== 'Pending' && prop !== 'N/A') {
+            authoritativeCheckOut = prop;
+          }
+        }
+
+        if (authoritativeCheckOut) {
+          localRec.checkOutTime = authoritativeCheckOut;
+          localRec.checkoutStatus = 'COMPLETED';
+          localRec.status = 'completed';
+          localRec.attendanceStatus = 'RESOLVED';
+          localRec.checkoutFinalized = true;
+          localRec.currentState = 'CHECKED_OUT';
+          if (!localRec.workingHours && localRec.checkInTime) {
+            localRec.workingHours = calculateWorkingHours(localRec.checkInTime, localRec.checkOutTime);
           }
         }
       }
@@ -967,11 +987,67 @@ export const AdminDashboard: React.FC = () => {
         throw new Error('Attendance date verification failed: record date does not match selection.');
       }
 
-      // Check if any fields actually require correction
-      const isCheckInChanged = proposedIn !== currentRecordData.checkInTime;
-      const isCheckOutChanged = proposedOut !== (currentRecordData.checkOutTime || '');
+      // Resolve effective checkout time:
+      // Manual entry > employee proposed/provided checkout time > existing valid checkout time
+      const rawProposedOut = (proposedOut || '').trim();
+      const isProposedOutValid = !!(
+        rawProposedOut &&
+        rawProposedOut !== 'UNRESOLVED' &&
+        rawProposedOut !== '--:--' &&
+        rawProposedOut !== '--:-- --' &&
+        rawProposedOut !== 'Pending' &&
+        rawProposedOut !== 'N/A'
+      );
 
-      if (!isCheckInChanged && !isCheckOutChanged) {
+      const isExplicitKeepUnresolved = reasonText.trim().toLowerCase().startsWith('kept unresolved') || (!rawProposedOut && !targetRecord?.employeeProposedCheckoutTime && !currentRecordData?.employeeProposedCheckoutTime);
+
+      const effectiveCheckoutTime: string | null = isProposedOutValid
+        ? rawProposedOut
+        : (
+            isExplicitKeepUnresolved
+              ? null
+              : (
+                  (targetRecord?.employeeProposedCheckoutTime || currentRecordData?.employeeProposedCheckoutTime || '').trim() ||
+                  (targetRecord?.employeeProvidedCheckoutTime || currentRecordData?.employeeProvidedCheckoutTime || '').trim() ||
+                  (
+                    currentRecordData?.checkOutTime &&
+                    currentRecordData.checkOutTime !== 'UNRESOLVED' &&
+                    currentRecordData.checkOutTime !== '--:--' &&
+                    currentRecordData.checkOutTime !== 'Pending' &&
+                    currentRecordData.checkOutTime !== 'N/A'
+                      ? currentRecordData.checkOutTime.trim()
+                      : null
+                  ) ||
+                  (
+                    targetRecord?.checkOutTime &&
+                    targetRecord.checkOutTime !== 'UNRESOLVED' &&
+                    targetRecord.checkOutTime !== '--:--' &&
+                    targetRecord.checkOutTime !== 'Pending' &&
+                    targetRecord.checkOutTime !== 'N/A'
+                      ? targetRecord.checkOutTime.trim()
+                      : null
+                  ) ||
+                  null
+                )
+          );
+
+      const finalCheckOutTime = effectiveCheckoutTime || null;
+      const isResolvedCheckout = !!finalCheckOutTime;
+
+      // Check if any fields actually require correction or status upgrade
+      const isCheckInChanged = proposedIn !== currentRecordData.checkInTime;
+      const isCheckOutChanged = (finalCheckOutTime || '') !== (currentRecordData.checkOutTime || '');
+      const isCurrentlyUnresolved =
+        currentRecordData.checkoutStatus === 'UNRESOLVED' ||
+        currentRecordData.checkoutStatus === 'PENDING_ADMIN_REVIEW' ||
+        currentRecordData.checkoutStatus === 'UNRESOLVED_CHECKOUT' ||
+        currentRecordData.status === 'UNRESOLVED' ||
+        currentRecordData.attendanceStatus === 'UNRESOLVED' ||
+        !currentRecordData.isAdminRectified ||
+        !currentRecordData.manualRectified ||
+        !currentRecordData.checkoutFinalized;
+
+      if (!isCheckInChanged && !isCheckOutChanged && !isCurrentlyUnresolved) {
         setCorrectionStep('completed');
         setCorrectionResult(currentRecordData);
         setCorrectionMessage('Attendance correction already applied.');
@@ -988,7 +1064,7 @@ export const AdminDashboard: React.FC = () => {
         originalCheckIn: currentRecordData.checkInTime || 'N/A',
         correctedCheckIn: proposedIn,
         originalCheckOut: currentRecordData.checkOutTime || null,
-        correctedCheckOut: proposedOut ? proposedOut : null,
+        correctedCheckOut: finalCheckOutTime,
         reason: reasonText.trim(),
         correctedBy: loginId || adminUser?.email || 'admin',
         correctedByRole: role || 'ADMIN',
@@ -1002,42 +1078,41 @@ export const AdminDashboard: React.FC = () => {
         employeeCode: currentEmpId || targetEmpId || 'Unknown',
         attendanceDate: currentRecordData.date,
         previousCheckoutType: currentRecordData.checkoutType || currentRecordData.checkOutMode || 'N/A',
-        newCheckoutType: proposedOut ? (proposedOut === (currentRecordData.lastExitTime || currentRecordData.exitTime) ? 'Automatic Checkout' : 'Manual Checkout') : 'Pending',
+        newCheckoutType: finalCheckOutTime ? (finalCheckOutTime === (currentRecordData.lastExitTime || currentRecordData.exitTime) ? 'Automatic Checkout' : 'Manual Checkout') : 'Pending',
         correctionSource: 'Admin Dashboard Portal'
       };
 
       const updatedHistory = [...(currentRecordData.correctionHistory || []), fullAuditRecord];
-      const newWorkingHours = calculateWorkingHours(proposedIn, proposedOut ? proposedOut : null);
+      const newWorkingHours = isResolvedCheckout ? calculateWorkingHours(proposedIn, finalCheckOutTime) : null;
 
       // Determine updated checkout properties
       // Rule 12: For automatic checkout correction, Checkout Type should remain: Automatic Checkout. Do not label it: Day-End Automatic
-      const isProposedAutoCheckout = proposedOut && proposedOut === (currentRecordData.lastExitTime || currentRecordData.exitTime);
-      const isProposedTimeMatches = currentRecordData.employeeProposedCheckoutTime && proposedOut === currentRecordData.employeeProposedCheckoutTime;
-      const updatedCheckoutType = isProposedAutoCheckout ? 'AUTO_CHECKOUT' : (proposedOut ? 'MANUAL' : 'N/A');
-      const updatedCheckoutMode = isProposedAutoCheckout ? 'AUTO_SYSTEM' : (proposedOut ? 'MANUAL' : 'N/A');
+      const isProposedAutoCheckout = finalCheckOutTime && finalCheckOutTime === (currentRecordData.lastExitTime || currentRecordData.exitTime);
+      const updatedCheckoutType = isProposedAutoCheckout ? 'AUTO_CHECKOUT' : (isResolvedCheckout ? 'MANUAL' : 'N/A');
+      const updatedCheckoutMode = isProposedAutoCheckout ? 'AUTO_SYSTEM' : (isResolvedCheckout ? 'MANUAL' : 'N/A');
 
       const rawPrevStatus = currentRecordData.checkoutStatus || currentRecordData.status;
 
       const updatePayload: Record<string, any> = {
         checkInTime: proposedIn,
-        checkOutTime: proposedOut ? proposedOut : null,
+        checkOutTime: finalCheckOutTime,
         workingHours: newWorkingHours,
         correctionHistory: updatedHistory,
         checkoutType: updatedCheckoutType,
         checkOutMode: updatedCheckoutMode,
-        checkoutStatus: proposedOut ? 'COMPLETED' : 'UNRESOLVED',
-        attendanceStatus: proposedOut ? 'RESOLVED' : 'UNRESOLVED',
+        checkoutStatus: isResolvedCheckout ? 'COMPLETED' : 'UNRESOLVED',
+        attendanceStatus: isResolvedCheckout ? 'RESOLVED' : 'UNRESOLVED',
         checkoutResolvedBy: adminUser?.displayName || loginId || 'Admin',
         checkoutResolvedAt: new Date().toISOString(),
-        resolutionSource: isProposedTimeMatches ? 'EMPLOYEE_PROPOSED' : 'ADMIN_CORRECTION',
-        status: proposedOut ? 'completed' : 'UNRESOLVED',
+        resolutionSource: 'ADMIN_CORRECTION',
+        status: isResolvedCheckout ? 'completed' : 'UNRESOLVED',
         manualRectified: true,
         isAdminRectified: true,
         updatedAt: new Date().toISOString(),
         version: ((currentRecordData as any)?.version || 1) + 1,
-        currentState: proposedOut ? 'CHECKED_OUT' : currentRecordData.currentState,
+        currentState: isResolvedCheckout ? 'CHECKED_OUT' : currentRecordData.currentState,
         pendingCheckoutConfirmation: false,
-        checkoutFinalized: proposedOut ? true : false
+        checkoutFinalized: isResolvedCheckout
       };
 
       if (rawPrevStatus !== undefined && rawPrevStatus !== null && rawPrevStatus !== '') {
@@ -1053,7 +1128,7 @@ export const AdminDashboard: React.FC = () => {
         currentEmpId,
         proposedIn,
         'ADMIN_MANUAL_RECTIFY',
-        { docId: targetDocRef.id, correctedCheckOut: proposedOut }
+        { docId: targetDocRef.id, correctedCheckOut: finalCheckOutTime }
       );
 
       // Re-fetch to display the finalized corrected record in the success state
@@ -1064,6 +1139,28 @@ export const AdminDashboard: React.FC = () => {
       saveAttendanceRecord({
         ...finalRecord,
         syncStatus: 'Synced'
+      });
+
+      // Instantly update local state in AdminDashboard so UI reflects approval immediately
+      setAttendanceRecords((prev) => {
+        const targetCanonicalKey = getAttendanceCanonicalKey(finalRecord);
+        let found = false;
+        const updated = prev.map((rec) => {
+          if (getAttendanceCanonicalKey(rec) === targetCanonicalKey || rec.id === finalRecord.id) {
+            found = true;
+            return finalRecord;
+          }
+          return rec;
+        });
+        return found ? updated : [finalRecord, ...prev];
+      });
+
+      setSelectedAttendance((prev) => {
+        if (!prev) return null;
+        if (getAttendanceCanonicalKey(prev) === getAttendanceCanonicalKey(finalRecord) || prev.id === finalRecord.id) {
+          return finalRecord;
+        }
+        return prev;
       });
 
       setCorrectionStep('completed');
@@ -1655,8 +1752,10 @@ export const AdminDashboard: React.FC = () => {
             onRectifyAttendance={(rec) => {
               setSelectedForRectify(rec);
               setRectifyCheckIn(rec.checkInTime || '');
-              setRectifyCheckOut(rec.checkOutTime || rec.lastExitTime || rec.exitTime || '');
-              setRectifyReason('');
+              const validOut = (rec.checkOutTime && rec.checkOutTime !== 'UNRESOLVED' && rec.checkOutTime !== '--:--' && rec.checkOutTime !== 'Pending' && rec.checkOutTime !== 'N/A') ? rec.checkOutTime : '';
+              const proposedOut = (rec.employeeProposedCheckoutTime || rec.employeeProvidedCheckoutTime || '').trim();
+              setRectifyCheckOut(validOut || proposedOut || rec.lastExitTime || rec.exitTime || '');
+              setRectifyReason(proposedOut ? `Approved employee proposed checkout (${proposedOut})` : '');
               setRectifyError('');
               setShowRectifyModal(true);
             }}
@@ -2048,8 +2147,11 @@ export const AdminDashboard: React.FC = () => {
                                       onClick={() => {
                                         setSelectedForRectify(rec);
                                         setRectifyCheckIn(safeStringify(rec.checkInTime));
-                                        setRectifyCheckOut(safeStringify(rec.checkOutTime) || rec.lastExitTime || rec.exitTime || '');
-                                        setRectifyReason('');
+                                        const rawOut = safeStringify(rec.checkOutTime);
+                                        const validOut = (rawOut && rawOut !== 'UNRESOLVED' && rawOut !== '--:--' && rawOut !== 'Pending' && rawOut !== 'N/A') ? rawOut : '';
+                                        const proposedOut = (rec.employeeProposedCheckoutTime || rec.employeeProvidedCheckoutTime || '').trim();
+                                        setRectifyCheckOut(validOut || proposedOut || rec.lastExitTime || rec.exitTime || '');
+                                        setRectifyReason(proposedOut ? `Approved employee proposed checkout (${proposedOut})` : '');
                                         setRectifyError('');
                                         setShowRectifyModal(true);
                                       }}
@@ -2461,28 +2563,46 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            {selectedForRectify.employeeProposedCheckoutTime && (
-              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <div className="text-[10px] font-bold text-amber-300 uppercase tracking-wider">Employee Proposed Checkout Time</div>
-                  <div className="font-mono text-sm font-black text-amber-400">{selectedForRectify.employeeProposedCheckoutTime}</div>
-                  {selectedForRectify.employeeResolutionReason && (
-                    <div className="text-[11px] text-amber-200/80 italic mt-0.5">&quot;{selectedForRectify.employeeResolutionReason}&quot;</div>
-                  )}
+            {(() => {
+              const proposedCheckoutVal =
+                (selectedForRectify.employeeProposedCheckoutTime || '').trim() ||
+                (selectedForRectify.employeeProvidedCheckoutTime || '').trim() ||
+                ((selectedForRectify.checkoutStatus === 'PENDING_ADMIN_REVIEW' ||
+                  selectedForRectify.checkoutStatus === 'UNRESOLVED' ||
+                  selectedForRectify.resolutionSource === 'EMPLOYEE_PROPOSED') &&
+                 selectedForRectify.checkOutTime &&
+                 selectedForRectify.checkOutTime !== 'UNRESOLVED' &&
+                 selectedForRectify.checkOutTime !== '--:--' &&
+                 selectedForRectify.checkOutTime !== 'Pending' &&
+                 selectedForRectify.checkOutTime !== 'N/A'
+                  ? selectedForRectify.checkOutTime.trim()
+                  : '');
+
+              if (!proposedCheckoutVal) return null;
+
+              return (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <div className="text-[10px] font-bold text-amber-300 uppercase tracking-wider">Employee Proposed Checkout Time</div>
+                    <div className="font-mono text-sm font-black text-amber-400">{proposedCheckoutVal}</div>
+                    {selectedForRectify.employeeResolutionReason && (
+                      <div className="text-[11px] text-amber-200/80 italic mt-0.5">&quot;{selectedForRectify.employeeResolutionReason}&quot;</div>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      setRectifyCheckOut(proposedCheckoutVal);
+                      setRectifyReason(`Approved employee proposed checkout (${proposedCheckoutVal})`);
+                    }}
+                    className="bg-amber-500 hover:bg-amber-400 text-black text-xs font-black py-1 px-3 shrink-0"
+                  >
+                    Use Proposed Time
+                  </Button>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => {
-                    setRectifyCheckOut(selectedForRectify.employeeProposedCheckoutTime || '');
-                    setRectifyReason(`Approved employee proposed checkout (${selectedForRectify.employeeProposedCheckoutTime})`);
-                  }}
-                  className="bg-amber-500 hover:bg-amber-400 text-black text-xs font-black py-1 px-3 shrink-0"
-                >
-                  Use Proposed Time
-                </Button>
-              </div>
-            )}
+              );
+            })()}
 
             {rectifyError && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300 flex items-center gap-2">

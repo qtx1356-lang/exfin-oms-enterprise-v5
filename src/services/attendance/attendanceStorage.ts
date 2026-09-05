@@ -315,9 +315,15 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
     const isExistingCheckoutProtected = !!(
       existingRecord.isAdminRectified ||
       existingRecord.manualRectified ||
+      existingRecord.checkoutFinalized === true ||
       existingRecord.checkoutStatus === 'COMPLETED' ||
       existingRecord.checkoutStatus === 'FINALIZED' ||
-      String(existingRecord.checkoutResolvedBy || '').toLowerCase() === 'admin' ||
+      existingRecord.attendanceStatus === 'RESOLVED' ||
+      existingRecord.status === 'completed' ||
+      existingRecord.checkoutResolvedBy ||
+      existingRecord.checkoutResolvedAt ||
+      existingRecord.resolutionSource === 'ADMIN_CORRECTION' ||
+      existingRecord.resolutionSource === 'ADMIN_APPROVED_PROPOSAL' ||
       hasAdminCorrectionInExisting
     );
 
@@ -345,14 +351,23 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
           recoveredCheckOutTime = latestCorrection.correctedCheckOut;
         }
       }
+      if (
+        !recoveredCheckOutTime || recoveredCheckOutTime === 'UNRESOLVED' || recoveredCheckOutTime === '--:--' || recoveredCheckOutTime === 'Pending' || recoveredCheckOutTime === 'N/A'
+      ) {
+        const prop = (existingRecord.employeeProposedCheckoutTime || existingRecord.employeeProvidedCheckoutTime || record.employeeProposedCheckoutTime || record.employeeProvidedCheckoutTime || '').trim();
+        if (prop && prop !== 'UNRESOLVED' && prop !== '--:--' && prop !== 'Pending' && prop !== 'N/A') {
+          recoveredCheckOutTime = prop;
+        }
+      }
 
       if (recoveredCheckOutTime && recoveredCheckOutTime !== 'UNRESOLVED' && recoveredCheckOutTime !== '--:--') {
         record.checkOutTime = recoveredCheckOutTime;
         record.checkoutStatus = 'COMPLETED';
-        record.status = existingRecord.status && existingRecord.status !== 'UNRESOLVED' ? existingRecord.status : 'PRESENT';
+        record.status = existingRecord.status && existingRecord.status !== 'UNRESOLVED' ? existingRecord.status : 'completed';
         record.attendanceStatus = 'RESOLVED';
         record.isAdminRectified = true;
         record.manualRectified = true;
+        record.checkoutFinalized = true;
         record.checkoutResolvedBy = existingRecord.checkoutResolvedBy || 'admin';
         record.checkoutResolvedAt = existingRecord.checkoutResolvedAt || (existingRecord.correctionHistory?.[0] as any)?.correctedAt || existingRecord.updatedAt || new Date().toISOString();
         record.correctionHistory = existingRecord.correctionHistory || record.correctionHistory;

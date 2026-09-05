@@ -391,9 +391,15 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                 const isServerAdminAuthoritative = !!(
                   sa.isAdminRectified === true ||
                   sa.manualRectified === true ||
+                  sa.checkoutFinalized === true ||
                   sa.checkoutStatus === 'COMPLETED' ||
                   sa.checkoutStatus === 'FINALIZED' ||
-                  String(sa.checkoutResolvedBy || '').toLowerCase() === 'admin' ||
+                  sa.attendanceStatus === 'RESOLVED' ||
+                  sa.status === 'completed' ||
+                  sa.checkoutResolvedBy ||
+                  sa.checkoutResolvedAt ||
+                  sa.resolutionSource === 'ADMIN_CORRECTION' ||
+                  sa.resolutionSource === 'ADMIN_APPROVED_PROPOSAL' ||
                   hasAdminInCorrectionHistory
                 );
 
@@ -401,7 +407,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                 const localRectified = localRec.manualRectified || localRec.isAdminRectified || !!localRec.correctedAt || localRec.checkOutMode === 'MANUAL' || localRec.checkoutType === 'MANUAL';
 
                 if (isServerAdminAuthoritative) {
-                  // STEP 3: CORRECTION HISTORY RECOVERY
+                  // STEP 3: CORRECTION HISTORY RECOVERY & PROPOSED TIME RECOVERY
                   let authoritativeCheckOut = sa.checkOutTime;
                   if (
                     (!authoritativeCheckOut || authoritativeCheckOut === 'UNRESOLVED' || authoritativeCheckOut === '--:--' || authoritativeCheckOut === 'Pending' || authoritativeCheckOut === 'N/A') &&
@@ -415,15 +421,23 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                     }
                   }
 
+                  if (!authoritativeCheckOut || authoritativeCheckOut === 'UNRESOLVED' || authoritativeCheckOut === '--:--' || authoritativeCheckOut === 'Pending' || authoritativeCheckOut === 'N/A') {
+                    const prop = (sa.employeeProposedCheckoutTime || sa.employeeProvidedCheckoutTime || '').trim();
+                    if (prop && prop !== 'UNRESOLVED' && prop !== '--:--' && prop !== 'Pending' && prop !== 'N/A') {
+                      authoritativeCheckOut = prop;
+                    }
+                  }
+
                   syncDecision = 'SERVER_ADMIN_AUTHORITATIVE';
                   finalRec = {
                     ...sa,
                     checkOutTime: authoritativeCheckOut || sa.checkOutTime,
                     checkoutStatus: 'COMPLETED',
-                    status: sa.status && sa.status !== 'UNRESOLVED' ? sa.status : 'PRESENT',
+                    status: sa.status && sa.status !== 'UNRESOLVED' ? sa.status : 'completed',
                     attendanceStatus: 'RESOLVED',
                     isAdminRectified: true,
                     manualRectified: true,
+                    checkoutFinalized: true,
                     checkoutResolvedBy: sa.checkoutResolvedBy || 'admin',
                     checkoutResolvedAt: sa.checkoutResolvedAt || (sa.correctionHistory?.[0] as any)?.correctedAt || sa.updatedAt || new Date().toISOString(),
                     currentState: 'CHECKED_OUT',

@@ -361,6 +361,13 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                   authoritativeCheckOutTime = serverCheckOutTime;
                 }
 
+                if (!authoritativeCheckOutTime && (serverData.employeeProposedCheckoutTime || serverData.employeeProvidedCheckoutTime)) {
+                  const prop = (serverData.employeeProposedCheckoutTime || serverData.employeeProvidedCheckoutTime || '').trim();
+                  if (prop && prop !== 'UNRESOLVED' && prop !== '--:--' && prop !== 'Pending' && prop !== 'N/A') {
+                    authoritativeCheckOutTime = prop;
+                  }
+                }
+
                 if (authoritativeCheckOutTime) {
                   finalCheckOutTime = authoritativeCheckOutTime;
                 }
@@ -378,9 +385,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
 
                 finalIsAdminRectified = true;
                 finalManualRectified = true;
-                finalCheckoutResolvedBy = (serverData.checkoutResolvedBy && String(serverData.checkoutResolvedBy).toLowerCase().includes('admin'))
-                  ? serverData.checkoutResolvedBy
-                  : (latestCorrection?.correctedBy || 'admin');
+                finalCheckoutResolvedBy = serverData.checkoutResolvedBy || latestCorrection?.correctedBy || 'admin';
                 finalCheckoutResolvedAt = serverData.checkoutResolvedAt || latestCorrection?.correctedAt || serverData.updatedAt || new Date().toISOString();
                 finalCorrectionHistory = Array.isArray(serverData.correctionHistory) && serverData.correctionHistory.length > 0
                   ? serverData.correctionHistory

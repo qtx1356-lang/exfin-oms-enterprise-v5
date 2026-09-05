@@ -159,24 +159,39 @@ export const isAttendanceCheckoutUnresolved = (record: AttendanceRecord): boolea
   if (!hasCheckIn) return false;
 
   // 3. Checkout is missing
-  // Treat all of these as missing checkout: null, undefined, "", " ", "--:--", "--:-- --", "Pending"
+  // Treat all of these as missing checkout: null, undefined, "", " ", "--:--", "--:-- --", "Pending", "N/A", "UNRESOLVED"
   const checkOutValue = (record.checkOutTime || '').trim();
   const isCheckOutMissing = !checkOutValue || 
                             checkOutValue === '--:--' || 
                             checkOutValue === '--:-- --' ||
                             checkOutValue === 'Pending' ||
-                            checkOutValue === 'N/A';
+                            checkOutValue === 'N/A' ||
+                            checkOutValue === 'UNRESOLVED';
 
+  // If checkout is present and valid, not unresolved
   if (!isCheckOutMissing) return false;
 
   // 4. Admin Correction / Manual Rectification / Explicit Completion
   // If record is already corrected or explicitly completed, it's not unresolved
-  if (record.manualRectified || record.isAdminRectified || record.correctedAt || record.checkoutStatus === 'COMPLETED' || record.checkoutStatus === 'FINALIZED') {
+  if (
+    record.manualRectified ||
+    record.isAdminRectified ||
+    record.checkoutFinalized === true ||
+    record.correctedAt ||
+    record.checkoutStatus === 'COMPLETED' ||
+    record.checkoutStatus === 'FINALIZED' ||
+    record.attendanceStatus === 'RESOLVED' ||
+    record.status === 'completed' ||
+    record.resolutionSource === 'ADMIN_CORRECTION' ||
+    record.resolutionSource === 'ADMIN_APPROVED_PROPOSAL'
+  ) {
     return false;
   }
   
-  // Also check resolutionSource if it exists
-  if (record.resolutionSource === 'ADMIN_CORRECTION') {
+  if (Array.isArray(record.correctionHistory) && record.correctionHistory.some((c: any) => {
+    const by = String(c?.correctedBy || c?.correctedByRole || '').toLowerCase();
+    return by.includes('admin') || !!(c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
+  })) {
     return false;
   }
 
@@ -192,10 +207,47 @@ export const isAttendanceCheckoutUnresolved = (record: AttendanceRecord): boolea
  * Get the effective checkout status for UI display.
  */
 export const getEffectiveCheckoutStatus = (record: AttendanceRecord): 'COMPLETED' | 'FINALIZED' | 'UNRESOLVED' | 'PENDING_ADMIN_REVIEW' | 'PENDING_EXIT_CONFIRMATION' | 'PENDING_AUTO_CHECKOUT' | 'UNRESOLVED_CHECKOUT' | undefined => {
-  if (record.checkoutStatus === 'PENDING_ADMIN_REVIEW') return 'PENDING_ADMIN_REVIEW';
+  if (!record) return undefined;
 
   const checkOutValue = (record.checkOutTime || '').trim();
-  const isCheckOutMissing = !checkOutValue || checkOutValue === '--:--' || checkOutValue === '--:-- --' || checkOutValue === 'Pending' || checkOutValue === 'N/A';
+  const isCheckOutMissing = !checkOutValue || checkOutValue === '--:--' || checkOutValue === '--:-- --' || checkOutValue === 'Pending' || checkOutValue === 'N/A' || checkOutValue === 'UNRESOLVED';
+
+  // 1. ADMIN AUTHORITATIVE OVERRIDE: If Admin has approved or rectified this record, it is ALWAYS COMPLETED
+  const hasAdminCorrection = Array.isArray(record.correctionHistory) && record.correctionHistory.some((c: any) => {
+    const by = String(c?.correctedBy || c?.correctedByRole || '').toLowerCase();
+    return by.includes('admin') || !!(c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
+  });
+
+  const isAuthoritativeAdmin = !!(
+    record.isAdminRectified ||
+    record.manualRectified ||
+    record.checkoutFinalized === true ||
+    record.checkoutStatus === 'COMPLETED' ||
+    record.checkoutStatus === 'FINALIZED' ||
+    record.attendanceStatus === 'RESOLVED' ||
+    record.status === 'completed' ||
+    record.resolutionSource === 'ADMIN_CORRECTION' ||
+    record.resolutionSource === 'ADMIN_APPROVED_PROPOSAL' ||
+    hasAdminCorrection
+  );
+
+  if (isAuthoritativeAdmin) {
+    // If checkOutTime is missing but we have an authoritative correction or proposal, it is COMPLETED
+    if (!isCheckOutMissing) return 'COMPLETED';
+    if (hasAdminCorrection) return 'COMPLETED';
+    if (record.employeeProposedCheckoutTime || record.employeeProvidedCheckoutTime) return 'COMPLETED';
+    return 'COMPLETED';
+  }
+
+  // 2. Pending Admin Review for employee proposed checkout (before Admin approval)
+  if (record.checkoutStatus === 'PENDING_ADMIN_REVIEW') return 'PENDING_ADMIN_REVIEW';
+  if (
+    (record.employeeProposedCheckoutTime || record.employeeProvidedCheckoutTime) &&
+    (record.checkoutStatus === 'UNRESOLVED' || !record.checkoutStatus) &&
+    isCheckOutMissing
+  ) {
+    return 'PENDING_ADMIN_REVIEW';
+  }
   
   const hasAuthoritativeExit = !!(
     record.recordedExitTime || 
@@ -204,11 +256,6 @@ export const getEffectiveCheckoutStatus = (record: AttendanceRecord): 'COMPLETED
     record.exitDetectedAt || 
     (record as any).checkoutType === 'AUTO_CHECKOUT'
   );
-
-  // Admin Rectification is always COMPLETED
-  if (record.isAdminRectified || record.manualRectified) {
-    if (!isCheckOutMissing) return 'COMPLETED';
-  }
 
   // A genuine finalized automatic/native checkout with valid checkout timestamp -> RESOLVED / FINALIZED
   if (!isCheckOutMissing && hasAuthoritativeExit) {
