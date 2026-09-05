@@ -46,6 +46,110 @@ function sanitizeFirestorePayload<T extends Record<string, any>>(obj: T): T {
   return clean as T;
 }
 
+/**
+ * Checks whether an existing server attendance record is Admin-authoritative.
+ * An Admin-authoritative server document must NEVER be downgraded, altered, or reverted
+ * by employee background synchronization or employee-proposed checkout submissions.
+ */
+function isServerRecordAdminAuthoritative(serverData: any): boolean {
+  if (!serverData || typeof serverData !== 'object') return false;
+
+  // 1. serverData.isAdminRectified === true
+  if (serverData.isAdminRectified === true) return true;
+
+  // 2. serverData.manualRectified === true
+  if (serverData.manualRectified === true) return true;
+
+  // 3. serverData.checkoutResolvedBy represents an Admin/Super-Admin correction
+  const resolvedBy = String(serverData.checkoutResolvedBy || '').toLowerCase();
+  if (
+    resolvedBy.includes('admin') ||
+    resolvedBy.includes('super-admin') ||
+    resolvedBy.includes('super_admin') ||
+    resolvedBy === 'manager' ||
+    resolvedBy === 'system_admin'
+  ) {
+    return true;
+  }
+
+  // 4. serverData.checkoutStatus === 'COMPLETED'
+  if (serverData.checkoutStatus === 'COMPLETED') return true;
+
+  // 5. serverData.checkoutStatus === 'FINALIZED'
+  if (serverData.checkoutStatus === 'FINALIZED') return true;
+
+  // 6. serverData.checkoutFinalized === true
+  if (serverData.checkoutFinalized === true) return true;
+
+  // 7. serverData.currentState === 'CHECKED_OUT'
+  if (serverData.currentState === 'CHECKED_OUT') return true;
+
+  // 8 & 9. serverData.correctionHistory contains a valid Admin/Super-Admin correction entry
+  // OR correctionSource such as 'Admin Dashboard Portal'
+  if (Array.isArray(serverData.correctionHistory) && serverData.correctionHistory.length > 0) {
+    const hasAdminCorrection = serverData.correctionHistory.some((c: any) => {
+      if (!c || typeof c !== 'object') return false;
+      const by = String(c.correctedBy || c.correctedByRole || '').toLowerCase();
+      const source = String(c.correctionSource || '').toLowerCase();
+      if (
+        source.includes('admin') ||
+        source.includes('dashboard portal') ||
+        source === 'admin dashboard portal'
+      ) {
+        return true;
+      }
+      if (
+        by.includes('admin') ||
+        by.includes('super-admin') ||
+        by.includes('super_admin') ||
+        by === 'manager' ||
+        by === 'system_admin'
+      ) {
+        return true;
+      }
+      if (
+        c.correctedCheckOut &&
+        typeof c.correctedCheckOut === 'string' &&
+        c.correctedCheckOut !== 'UNRESOLVED' &&
+        c.correctedCheckOut !== '--:--' &&
+        c.correctedCheckOut !== 'Pending' &&
+        c.correctedCheckOut !== 'N/A'
+      ) {
+        return true;
+      }
+      return false;
+    });
+    if (hasAdminCorrection) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Extracts the most recent valid Admin/Super-Admin correction entry from correctionHistory.
+ */
+function findLatestAdminCorrection(history: any[]): any | null {
+  if (!Array.isArray(history) || history.length === 0) return null;
+  // Inspect in reverse order (newest first)
+  for (let i = history.length - 1; i >= 0; i--) {
+    const c = history[i];
+    if (!c || typeof c !== 'object') continue;
+    const time = c.correctedCheckOut;
+    if (
+      time &&
+      typeof time === 'string' &&
+      time.trim() !== '' &&
+      time !== 'UNRESOLVED' &&
+      time !== '--:--' &&
+      time !== 'Pending' &&
+      time !== 'N/A'
+    ) {
+      return c;
+    }
+  }
+  return null;
+}
+
 export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: number; errorsCount: number }> => {
   const activeDb = db.concrete || db;
 
@@ -175,12 +279,13 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
         let finalCheckoutFinalizationSource = record.checkoutFinalizationSource;
         let finalReason = record.reason;
         let isRecordProtectedByAdmin = false;
+        let serverData: any = null;
 
         if (!isExplicitAdminCorrection) {
           try {
             const serverSnap = await getDoc(docRef);
             if (serverSnap.exists()) {
-              const serverData = serverSnap.data();
+              serverData = serverSnap.data();
               if (hasActualCheckIn(serverData)) {
                 const earliest = getEarliestCheckInTime(serverData.checkInTime, finalCheckInTime) || serverData.checkInTime;
                 finalCheckInTime = earliest;
@@ -219,70 +324,50 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                 }
               }
 
-              // DEFENSIVE SERVER-AUTHORITY CHECK FOR FINALIZED / ADMIN-CORRECTED CHECKOUT:
-              // STEP 2 & 3: When the existing Firestore document is Admin-rectified or finalized:
-              // - isAdminRectified === true
-              // - manualRectified === true
-              // - checkoutStatus === "COMPLETED" / "FINALIZED"
-              // - checkoutResolvedBy === "admin" / "ADMIN"
-              // - an Admin correction exists in correctionHistory
-              // Employee synchronization MUST NOT overwrite the server's authoritative attendance-resolution fields.
-              const hasAdminInCorrectionHistory = Array.isArray(serverData.correctionHistory) && serverData.correctionHistory.some((c: any) => {
-                const by = String(c?.correctedBy || c?.correctedByRole || '').toLowerCase();
-                return by.includes('admin') || !!(c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
-              });
+              // REQUIRED SERVER-AUTHORITY RULE:
+              // Treat a server attendance record as ADMIN-AUTHORITATIVE when ANY of the 9 conditions is true.
+              const isServerAdminAuth = isServerRecordAdminAuthoritative(serverData);
 
-              const isServerAdminAuthoritative = !!(
-                serverData.isAdminRectified === true ||
-                serverData.manualRectified === true ||
-                serverData.checkoutStatus === 'COMPLETED' ||
-                serverData.checkoutStatus === 'FINALIZED' ||
-                String(serverData.checkoutResolvedBy || '').toLowerCase() === 'admin' ||
-                hasAdminInCorrectionHistory
-              );
+              if (isServerAdminAuth) {
+                isRecordProtectedByAdmin = true;
 
-              if (isServerAdminAuthoritative) {
-                // STEP 3: CORRECTION HISTORY RECOVERY
-                // If checkOutTime on server is null, unresolved, or empty, recover from correctionHistory:
-                let authoritativeCheckOutTime = serverData.checkOutTime;
-                if (
-                  (!authoritativeCheckOutTime ||
-                    authoritativeCheckOutTime === 'UNRESOLVED' ||
-                    authoritativeCheckOutTime === '--:--' ||
-                    authoritativeCheckOutTime === 'Pending' ||
-                    authoritativeCheckOutTime === 'N/A') &&
-                  Array.isArray(serverData.correctionHistory)
-                ) {
-                  const latestCorrection = [...serverData.correctionHistory].reverse().find(
-                    (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
-                  );
-                  if (latestCorrection && latestCorrection.correctedCheckOut) {
-                    authoritativeCheckOutTime = latestCorrection.correctedCheckOut;
-                  }
-                }
-                if (
-                  (!authoritativeCheckOutTime ||
-                    authoritativeCheckOutTime === 'UNRESOLVED' ||
-                    authoritativeCheckOutTime === '--:--' ||
-                    authoritativeCheckOutTime === 'Pending' ||
-                    authoritativeCheckOutTime === 'N/A') &&
-                  Array.isArray(record.correctionHistory)
-                ) {
-                  const latestCorrection = [...record.correctionHistory].reverse().find(
-                    (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
-                  );
-                  if (latestCorrection && latestCorrection.correctedCheckOut) {
-                    authoritativeCheckOutTime = latestCorrection.correctedCheckOut;
-                  }
+                // CORRECTION HISTORY RECOVERY:
+                // If serverData is Admin-authoritative, inspect correctionHistory for most recent valid Admin/Super-Admin correction
+                const latestCorrection =
+                  findLatestAdminCorrection(serverData.correctionHistory) ||
+                  findLatestAdminCorrection(record.correctionHistory);
+
+                const serverCheckOutTime = serverData.checkOutTime;
+                const isServerCheckOutValid =
+                  serverCheckOutTime &&
+                  typeof serverCheckOutTime === 'string' &&
+                  serverCheckOutTime.trim() !== '' &&
+                  serverCheckOutTime !== 'UNRESOLVED' &&
+                  serverCheckOutTime !== '--:--' &&
+                  serverCheckOutTime !== 'Pending' &&
+                  serverCheckOutTime !== 'N/A';
+
+                const isServerProposed =
+                  serverData.resolutionSource === 'EMPLOYEE_PROPOSED' ||
+                  (serverData.employeeProposedCheckoutTime && serverData.checkOutTime === serverData.employeeProposedCheckoutTime) ||
+                  (serverData.employeeProvidedCheckoutTime && serverData.checkOutTime === serverData.employeeProvidedCheckoutTime);
+
+                let authoritativeCheckOutTime: string | null = null;
+                if (latestCorrection?.correctedCheckOut) {
+                  authoritativeCheckOutTime = latestCorrection.correctedCheckOut;
+                } else if (isServerCheckOutValid && !isServerProposed) {
+                  authoritativeCheckOutTime = serverCheckOutTime;
+                } else if (isServerCheckOutValid) {
+                  authoritativeCheckOutTime = serverCheckOutTime;
                 }
 
-                if (authoritativeCheckOutTime && authoritativeCheckOutTime !== 'UNRESOLVED' && authoritativeCheckOutTime !== '--:--') {
+                if (authoritativeCheckOutTime) {
                   finalCheckOutTime = authoritativeCheckOutTime;
                 }
 
-                // Protect checkout status & status: Authoritatively COMPLETED & PRESENT
+                // Protect checkout status & status: Authoritatively COMPLETED & completed / RESOLVED
                 finalCheckoutStatus = 'COMPLETED';
-                finalStatus = serverData.status && serverData.status !== 'UNRESOLVED' ? serverData.status : 'PRESENT';
+                finalStatus = (serverData.status && serverData.status !== 'UNRESOLVED') ? serverData.status : 'completed';
 
                 // Protect/Recover workingHours
                 if (serverData.workingHours !== undefined && serverData.workingHours !== null && serverData.workingHours !== '') {
@@ -293,16 +378,24 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
 
                 finalIsAdminRectified = true;
                 finalManualRectified = true;
-                finalCheckoutResolvedBy = serverData.checkoutResolvedBy || 'admin';
-                finalCheckoutResolvedAt = serverData.checkoutResolvedAt || (serverData.correctionHistory?.[0] as any)?.correctedAt || serverData.updatedAt || new Date().toISOString();
+                finalCheckoutResolvedBy = (serverData.checkoutResolvedBy && String(serverData.checkoutResolvedBy).toLowerCase().includes('admin'))
+                  ? serverData.checkoutResolvedBy
+                  : (latestCorrection?.correctedBy || 'admin');
+                finalCheckoutResolvedAt = serverData.checkoutResolvedAt || latestCorrection?.correctedAt || serverData.updatedAt || new Date().toISOString();
                 finalCorrectionHistory = Array.isArray(serverData.correctionHistory) && serverData.correctionHistory.length > 0
                   ? serverData.correctionHistory
-                  : (Array.isArray(record.correctionHistory) ? record.correctionHistory : []);
-                finalCheckoutType = serverData.checkoutType || 'MANUAL';
-                finalResolutionSource = serverData.resolutionSource || 'ADMIN_CORRECTION';
+                  : (Array.isArray(record.correctionHistory) && record.correctionHistory.length > 0 ? record.correctionHistory : (latestCorrection ? [latestCorrection] : []));
+                finalCheckoutType = (serverData.checkoutType && serverData.checkoutType !== 'N/A')
+                  ? serverData.checkoutType
+                  : (latestCorrection?.newCheckoutType || 'Manual Checkout');
+                finalResolutionSource = (serverData.resolutionSource && serverData.resolutionSource !== 'EMPLOYEE_PROPOSED')
+                  ? serverData.resolutionSource
+                  : (latestCorrection?.correctionSource || 'ADMIN_CORRECTION');
                 finalCheckoutFinalizationSource = serverData.checkoutFinalizationSource || 'MANUAL_CHECKOUT';
                 if (serverData.reason !== undefined && serverData.reason !== null) {
                   finalReason = serverData.reason;
+                } else if (latestCorrection?.reason) {
+                  finalReason = latestCorrection.reason;
                 }
 
                 // Version handling: Preserve higher server version if present
@@ -312,14 +405,14 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                   }
                 }
 
-                // Synchronize in-memory record to prevent local drift
+                // Synchronize in-memory record to prevent local drift and repeated employee checkout prompts
                 record.checkOutTime = finalCheckOutTime;
                 record.checkoutStatus = finalCheckoutStatus;
                 record.status = finalStatus;
                 record.attendanceStatus = 'RESOLVED';
                 record.workingHours = finalWorkingHours;
-                record.isAdminRectified = finalIsAdminRectified;
-                record.manualRectified = finalManualRectified;
+                record.isAdminRectified = true;
+                record.manualRectified = true;
                 record.checkoutResolvedBy = finalCheckoutResolvedBy;
                 record.checkoutResolvedAt = finalCheckoutResolvedAt;
                 record.correctionHistory = finalCorrectionHistory;
@@ -327,27 +420,27 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                 record.resolutionSource = finalResolutionSource;
                 record.checkoutFinalizationSource = finalCheckoutFinalizationSource;
                 record.currentState = 'CHECKED_OUT';
+                record.checkoutFinalized = true;
+                record.checkoutConfirmed = true;
                 record.pendingCheckoutConfirmation = false;
                 record.syncStatus = 'Synced';
-                isRecordProtectedByAdmin = true;
                 if (finalReason !== undefined) record.reason = finalReason;
+                delete (record as any).employeeProposedCheckoutTime;
+                delete (record as any).employeeProvidedCheckoutTime;
+                delete (record as any).resolutionReason;
               } else if (
                 serverData.checkOutTime !== undefined &&
                 serverData.checkOutTime !== null &&
                 serverData.checkOutTime !== '--:--' &&
                 serverData.checkOutTime !== 'UNRESOLVED' &&
+                serverData.checkOutTime !== 'Pending' &&
+                serverData.checkOutTime !== 'N/A' &&
                 (!record.checkOutTime || record.checkOutTime === '--:--' || record.checkOutTime === 'UNRESOLVED')
               ) {
                 // Server already has a valid checkout time, do not let stale local null/unresolved overwrite it
                 finalCheckOutTime = serverData.checkOutTime;
-                if (serverData.checkoutStatus && serverData.checkoutStatus !== 'UNRESOLVED') {
-                  finalCheckoutStatus = serverData.checkoutStatus;
-                } else {
-                  finalCheckoutStatus = 'COMPLETED';
-                }
-                if (serverData.status && serverData.status !== 'UNRESOLVED') {
-                  finalStatus = serverData.status;
-                }
+                finalCheckoutStatus = (serverData.checkoutStatus && serverData.checkoutStatus !== 'UNRESOLVED') ? serverData.checkoutStatus : 'COMPLETED';
+                finalStatus = (serverData.status && serverData.status !== 'UNRESOLVED') ? serverData.status : 'completed';
                 if (serverData.workingHours) {
                   finalWorkingHours = serverData.workingHours;
                 } else if (finalCheckInTime && finalCheckOutTime) {
@@ -365,20 +458,16 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
         }
 
         // Check if the record itself has admin authority (e.g. from local storage or previous sync)
-        if (!isRecordProtectedByAdmin && (record.isAdminRectified || record.manualRectified || String(record.checkoutResolvedBy || '').toLowerCase() === 'admin')) {
+        if (!isRecordProtectedByAdmin && (record.isAdminRectified || record.manualRectified || String(record.checkoutResolvedBy || '').toLowerCase().includes('admin'))) {
           isRecordProtectedByAdmin = true;
-          if ((!finalCheckOutTime || finalCheckOutTime === 'UNRESOLVED' || finalCheckOutTime === '--:--') && Array.isArray(record.correctionHistory)) {
-            const latestCorrection = [...record.correctionHistory].reverse().find(
-              (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
-            );
-            if (latestCorrection && latestCorrection.correctedCheckOut) {
-              finalCheckOutTime = latestCorrection.correctedCheckOut;
-              finalCheckoutStatus = 'COMPLETED';
-              finalStatus = 'PRESENT';
-              if (finalCheckInTime) {
-                finalWorkingHours = calculateWorkingHours(finalCheckInTime, finalCheckOutTime);
-              }
-            }
+          const latestCorrection = findLatestAdminCorrection(record.correctionHistory);
+          if ((!finalCheckOutTime || finalCheckOutTime === 'UNRESOLVED' || finalCheckOutTime === '--:--') && latestCorrection?.correctedCheckOut) {
+            finalCheckOutTime = latestCorrection.correctedCheckOut;
+          }
+          finalCheckoutStatus = 'COMPLETED';
+          finalStatus = (record.status && record.status !== 'UNRESOLVED') ? record.status : 'completed';
+          if (!finalWorkingHours && finalCheckInTime && finalCheckOutTime) {
+            finalWorkingHours = calculateWorkingHours(finalCheckInTime, finalCheckOutTime);
           }
         }
 
@@ -400,29 +489,49 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           status: finalStatus,
           attendanceStatus: isRecordProtectedByAdmin ? 'RESOLVED' : (record.attendanceStatus || (finalCheckoutStatus === 'COMPLETED' ? 'RESOLVED' : null)),
           workingHours: finalWorkingHours,
-          isAdminRectified: finalIsAdminRectified,
-          manualRectified: finalManualRectified,
-          checkoutResolvedBy: finalCheckoutResolvedBy || null,
-          checkoutResolvedAt: finalCheckoutResolvedAt || null,
-          correctionHistory: finalCorrectionHistory || [],
-          checkoutType: finalCheckoutType || null,
-          resolutionSource: finalResolutionSource || null,
-          reason: finalReason !== undefined ? finalReason : (record.reason || null),
+          isAdminRectified: isRecordProtectedByAdmin ? true : (finalIsAdminRectified ?? record.isAdminRectified ?? false),
+          manualRectified: isRecordProtectedByAdmin ? true : (finalManualRectified ?? record.manualRectified ?? false),
+          checkoutResolvedBy: isRecordProtectedByAdmin ? (finalCheckoutResolvedBy || 'admin') : (record.checkoutResolvedBy || null),
+          checkoutResolvedAt: isRecordProtectedByAdmin ? (finalCheckoutResolvedAt || localServerSyncTime) : (record.checkoutResolvedAt || null),
+          correctionHistory: isRecordProtectedByAdmin ? (finalCorrectionHistory || []) : (record.correctionHistory || []),
+          checkoutType: isRecordProtectedByAdmin ? (finalCheckoutType || 'Manual Checkout') : (record.checkoutType || null),
+          resolutionSource: isRecordProtectedByAdmin ? finalResolutionSource : (record.resolutionSource || null),
+          reason: finalReason !== undefined ? finalReason : (isRecordProtectedByAdmin ? (serverData?.reason ?? null) : (record.reason || null)),
+
+          // WRITE-MERGE SAFETY: If server is admin-authoritative, employee proposal fields MUST NOT pollute or downgrade
+          employeeProposedCheckoutTime: isRecordProtectedByAdmin
+            ? (serverData?.employeeProposedCheckoutTime ?? null)
+            : (record.employeeProposedCheckoutTime || null),
+          employeeProvidedCheckoutTime: isRecordProtectedByAdmin
+            ? (serverData?.employeeProvidedCheckoutTime ?? null)
+            : (record.employeeProvidedCheckoutTime || null),
+          resolutionReason: isRecordProtectedByAdmin
+            ? (serverData?.resolutionReason ?? null)
+            : (record.resolutionReason || null),
+          checkoutSource: isRecordProtectedByAdmin
+            ? (serverData?.checkoutSource || 'MANUAL')
+            : (record.checkoutSource || null),
+
           recordedExitTime: finalRecordedExitTime || finalGeofenceExitTime || null,
           exitDetectedAt: finalExitDetectedAt || finalGeofenceExitTimestamp || null,
           exitDetectionSource: finalExitDetectionSource || (finalGeofenceExitTime ? 'NATIVE_GEOFENCE' : null),
           appOpenedAt: record.appOpenedAt || null,
           confirmationDisplayedAt: record.confirmationDisplayedAt || null,
           confirmationCompletedAt: record.confirmationCompletedAt || null,
-          checkoutFinalizationSource: finalCheckoutFinalizationSource || record.checkoutFinalizationSource || null,
+          checkoutFinalizationSource: isRecordProtectedByAdmin ? finalCheckoutFinalizationSource : (record.checkoutFinalizationSource || null),
           geofenceExitTime: finalGeofenceExitTime || null,
           geofenceExitTimestamp: finalGeofenceExitTimestamp || null,
           lastExitTime: finalLastExitTime || record.lastExitTime || null,
           exitTime: finalExitTime || record.exitTime || null,
           pendingCheckoutConfirmation: isRecordProtectedByAdmin ? false : (record.pendingCheckoutConfirmation ?? false),
           currentState: isRecordProtectedByAdmin ? 'CHECKED_OUT' : (record.currentState || null),
+          checkoutFinalized: isRecordProtectedByAdmin ? true : (record.checkoutFinalized ?? (finalCheckoutStatus === 'COMPLETED')),
+          checkoutConfirmed: isRecordProtectedByAdmin ? true : (record.checkoutConfirmed ?? false),
           returnTime: record.returnTime || null,
-          processedEvents: record.processedEvents || []
+          processedEvents: record.processedEvents || [],
+          version: isRecordProtectedByAdmin && typeof serverData?.version === 'number'
+            ? Math.max(serverData.version, Number(record.version) || 0)
+            : (record.version || 1)
         });
 
         await setDoc(docRef, sanitizedRecord, { merge: true });
