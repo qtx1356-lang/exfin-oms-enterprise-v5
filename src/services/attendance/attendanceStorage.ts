@@ -1,6 +1,6 @@
 import { AttendanceRecord } from '../../types/attendance';
 import { calculateWorkingHours } from './smartAttendanceEngine';
-import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic, getAttendanceCanonicalKey } from '../../utils/attendanceUtils';
+import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic, getAttendanceCanonicalKey, isServerAttendanceAuthoritative } from '../../utils/attendanceUtils';
 
 export const isAdminContext = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -126,7 +126,7 @@ export const runSafeUnresolvedHistoricalMigration = (): MigrationReport => {
 
     // Safety checks: do NOT migrate if:
     // 1. Manually or Admin rectified / corrected
-    if (record.manualRectified || record.isAdminRectified || record.correctedAt || record.checkoutResolvedBy) {
+    if (isServerAttendanceAuthoritative(record) || record.manualRectified || record.isAdminRectified || record.correctedAt || record.checkoutResolvedBy) {
       skippedDocIds.push(record.id || `${record.employeeId}_${record.date}`);
       return record;
     }
@@ -312,7 +312,7 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
       return by.includes('admin') || !!(c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
     });
 
-    const isExistingCheckoutProtected = !!(
+    const isExistingCheckoutProtected = isServerAttendanceAuthoritative(existingRecord) || !!(
       existingRecord.isAdminRectified ||
       existingRecord.manualRectified ||
       existingRecord.checkoutFinalized === true ||

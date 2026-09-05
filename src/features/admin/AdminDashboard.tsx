@@ -62,7 +62,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord, AttendanceCorrection, LiveEmployeeLocation } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn, sanitizeFirestorePayload, logAttendanceWriteDiagnostic, getAttendanceCanonicalKey, getEarliestCheckInTime } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn, sanitizeFirestorePayload, logAttendanceWriteDiagnostic, getAttendanceCanonicalKey, getEarliestCheckInTime, isServerAttendanceAuthoritative, recoverAuthoritativeAdminFields } from '../../utils/attendanceUtils';
 import { getStoredAttendanceRecords, saveAttendanceRecord } from '../../services/attendance/attendanceStorage';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
@@ -130,20 +130,7 @@ export const processAdminAttendanceRecords = (
   const map = new Map<string, AttendanceRecord>();
 
   const isRecordAdminAuthoritative = (rec: AttendanceRecord | any): boolean => {
-    if (!rec) return false;
-    if (rec.isAdminRectified === true || rec.manualRectified === true) return true;
-    if (rec.checkoutFinalized === true) return true;
-    if (rec.checkoutStatus === 'COMPLETED' || rec.checkoutStatus === 'FINALIZED') return true;
-    if (rec.attendanceStatus === 'RESOLVED' || rec.status === 'completed') return true;
-    if (rec.checkoutResolvedBy || rec.checkoutResolvedAt) return true;
-    if (rec.resolutionSource === 'ADMIN_CORRECTION' || rec.resolutionSource === 'ADMIN_APPROVED_PROPOSAL') return true;
-    if (Array.isArray(rec.correctionHistory) && rec.correctionHistory.length > 0) {
-      return rec.correctionHistory.some((c: any) => {
-        const by = String(c?.correctedBy || c?.correctedByRole || '').toLowerCase();
-        return by.includes('admin') || !!(c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
-      });
-    }
-    return false;
+    return isServerAttendanceAuthoritative(rec);
   };
 
   const recordHasCheckout = (rec: AttendanceRecord) => {
@@ -159,35 +146,49 @@ export const processAdminAttendanceRecords = (
     if (!key) return;
 
     // STEP 3: Correction history recovery & authoritative checkout resolution for server records
-    if (isRecordAdminAuthoritative(rec)) {
-      let authoritativeCheckOut: string | null = null;
-      if (recordHasCheckout(rec)) {
-        authoritativeCheckOut = rec.checkOutTime;
-      } else if (Array.isArray(rec.correctionHistory)) {
-        const latestCorrection = [...rec.correctionHistory].reverse().find(
-          (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
-        );
-        if (latestCorrection && latestCorrection.correctedCheckOut) {
-          authoritativeCheckOut = latestCorrection.correctedCheckOut;
-        }
-      }
-
-      if (!authoritativeCheckOut && (rec.employeeProposedCheckoutTime || rec.employeeProvidedCheckoutTime)) {
-        const prop = (rec.employeeProposedCheckoutTime || rec.employeeProvidedCheckoutTime || '').trim();
-        if (prop && prop !== 'UNRESOLVED' && prop !== '--:--' && prop !== 'Pending' && prop !== 'N/A') {
-          authoritativeCheckOut = prop;
-        }
-      }
-
-      if (authoritativeCheckOut) {
-        rec.checkOutTime = authoritativeCheckOut;
-        rec.checkoutStatus = 'COMPLETED';
-        rec.status = 'completed';
-        rec.attendanceStatus = 'RESOLVED';
+    if (isServerAttendanceAuthoritative(rec)) {
+      const authFields = recoverAuthoritativeAdminFields(rec);
+      if (authFields && authFields.checkOutTime) {
+        rec.checkOutTime = authFields.checkOutTime;
+        rec.checkoutStatus = authFields.checkoutStatus;
+        rec.status = authFields.status;
+        rec.attendanceStatus = authFields.attendanceStatus;
+        rec.workingHours = authFields.workingHours || (rec.checkInTime ? calculateWorkingHours(rec.checkInTime, rec.checkOutTime) : null);
+        rec.isAdminRectified = true;
+        rec.manualRectified = true;
         rec.checkoutFinalized = true;
         rec.currentState = 'CHECKED_OUT';
-        if (!rec.workingHours && rec.checkInTime) {
-          rec.workingHours = calculateWorkingHours(rec.checkInTime, rec.checkOutTime);
+        rec.checkoutResolvedBy = authFields.checkoutResolvedBy;
+      } else {
+        let authoritativeCheckOut: string | null = null;
+        if (recordHasCheckout(rec)) {
+          authoritativeCheckOut = rec.checkOutTime;
+        } else if (Array.isArray(rec.correctionHistory)) {
+          const latestCorrection = [...rec.correctionHistory].reverse().find(
+            (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
+          );
+          if (latestCorrection && latestCorrection.correctedCheckOut) {
+            authoritativeCheckOut = latestCorrection.correctedCheckOut;
+          }
+        }
+
+        if (!authoritativeCheckOut && (rec.employeeProposedCheckoutTime || rec.employeeProvidedCheckoutTime)) {
+          const prop = (rec.employeeProposedCheckoutTime || rec.employeeProvidedCheckoutTime || '').trim();
+          if (prop && prop !== 'UNRESOLVED' && prop !== '--:--' && prop !== 'Pending' && prop !== 'N/A') {
+            authoritativeCheckOut = prop;
+          }
+        }
+
+        if (authoritativeCheckOut) {
+          rec.checkOutTime = authoritativeCheckOut;
+          rec.checkoutStatus = 'COMPLETED';
+          rec.status = 'completed';
+          rec.attendanceStatus = 'RESOLVED';
+          rec.checkoutFinalized = true;
+          rec.currentState = 'CHECKED_OUT';
+          if (!rec.workingHours && rec.checkInTime) {
+            rec.workingHours = calculateWorkingHours(rec.checkInTime, rec.checkOutTime);
+          }
         }
       }
     }
