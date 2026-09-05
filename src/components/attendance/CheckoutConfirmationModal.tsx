@@ -19,7 +19,7 @@ export const CheckoutConfirmationModal: React.FC = () => {
   const [showManualTimeInput, setShowManualTimeInput] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
 
-  const employeeId = employeeData?.employeeCode || employeeData?.employeeId;
+  const employeeId = employeeData?.employeeCode || employeeData?.employeeId || (employeeData as any)?.uid || (employeeData as any)?.id;
 
   const resolvedEmployeeId = employeeId || (() => {
     try {
