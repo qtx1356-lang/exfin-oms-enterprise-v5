@@ -306,18 +306,41 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
     }
 
     // DEFENSIVE ADMIN-AUTHORITATIVE CHECKOUT PRESERVATION (LOCAL STORAGE):
+    // STEP 2 & 3: Never allow local background/operational updates to downgrade an Admin-rectified record to UNRESOLVED
+    const hasAdminCorrectionInExisting = Array.isArray(existingRecord.correctionHistory) && existingRecord.correctionHistory.some((c: any) => {
+      const by = String(c?.correctedBy || c?.correctedByRole || '').toLowerCase();
+      return by.includes('admin') || !!(c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
+    });
+
     const isExistingCheckoutProtected = !!(
       existingRecord.isAdminRectified ||
       existingRecord.manualRectified ||
       existingRecord.checkoutStatus === 'COMPLETED' ||
       existingRecord.checkoutStatus === 'FINALIZED' ||
-      (Array.isArray(existingRecord.correctionHistory) && existingRecord.correctionHistory.some((c: any) => c && c.correctedCheckOut))
+      String(existingRecord.checkoutResolvedBy || '').toLowerCase() === 'admin' ||
+      hasAdminCorrectionInExisting
     );
 
     if (isExistingCheckoutProtected && !isExplicitAdminCorrection) {
       let recoveredCheckOutTime = existingRecord.checkOutTime;
-      if ((!recoveredCheckOutTime || recoveredCheckOutTime === 'UNRESOLVED' || recoveredCheckOutTime === '--:--') && Array.isArray(existingRecord.correctionHistory)) {
-        const latestCorrection = [...existingRecord.correctionHistory].reverse().find((c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
+      if (
+        (!recoveredCheckOutTime || recoveredCheckOutTime === 'UNRESOLVED' || recoveredCheckOutTime === '--:--' || recoveredCheckOutTime === 'Pending' || recoveredCheckOutTime === 'N/A') &&
+        Array.isArray(existingRecord.correctionHistory)
+      ) {
+        const latestCorrection = [...existingRecord.correctionHistory].reverse().find(
+          (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
+        );
+        if (latestCorrection && latestCorrection.correctedCheckOut) {
+          recoveredCheckOutTime = latestCorrection.correctedCheckOut;
+        }
+      }
+      if (
+        (!recoveredCheckOutTime || recoveredCheckOutTime === 'UNRESOLVED' || recoveredCheckOutTime === '--:--' || recoveredCheckOutTime === 'Pending' || recoveredCheckOutTime === 'N/A') &&
+        Array.isArray(record.correctionHistory)
+      ) {
+        const latestCorrection = [...record.correctionHistory].reverse().find(
+          (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
+        );
         if (latestCorrection && latestCorrection.correctedCheckOut) {
           recoveredCheckOutTime = latestCorrection.correctedCheckOut;
         }
@@ -325,14 +348,32 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
 
       if (recoveredCheckOutTime && recoveredCheckOutTime !== 'UNRESOLVED' && recoveredCheckOutTime !== '--:--') {
         record.checkOutTime = recoveredCheckOutTime;
-        record.checkoutStatus = existingRecord.checkoutStatus && existingRecord.checkoutStatus !== 'UNRESOLVED' ? existingRecord.checkoutStatus : 'COMPLETED';
+        record.checkoutStatus = 'COMPLETED';
         record.status = existingRecord.status && existingRecord.status !== 'UNRESOLVED' ? existingRecord.status : 'PRESENT';
+        record.attendanceStatus = 'RESOLVED';
+        record.isAdminRectified = true;
+        record.manualRectified = true;
+        record.checkoutResolvedBy = existingRecord.checkoutResolvedBy || 'admin';
+        record.checkoutResolvedAt = existingRecord.checkoutResolvedAt || (existingRecord.correctionHistory?.[0] as any)?.correctedAt || existingRecord.updatedAt || new Date().toISOString();
+        record.correctionHistory = existingRecord.correctionHistory || record.correctionHistory;
+        record.workingHours = existingRecord.workingHours || calculateWorkingHours(record.checkInTime, record.checkOutTime);
+        record.currentState = 'CHECKED_OUT';
+        record.pendingCheckoutConfirmation = false;
+        if (record.syncStatus === 'Pending' && record.checkoutStatus === 'COMPLETED') {
+          record.syncStatus = 'Synced';
+        }
+      } else {
         record.isAdminRectified = existingRecord.isAdminRectified ?? true;
         record.manualRectified = existingRecord.manualRectified ?? true;
         record.checkoutResolvedBy = existingRecord.checkoutResolvedBy || 'admin';
-        record.checkoutResolvedAt = existingRecord.checkoutResolvedAt || (existingRecord.correctionHistory?.[0] as any)?.correctedAt;
-        record.correctionHistory = existingRecord.correctionHistory;
-        record.workingHours = existingRecord.workingHours || calculateWorkingHours(record.checkInTime, record.checkOutTime);
+        record.checkoutResolvedAt = existingRecord.checkoutResolvedAt || existingRecord.updatedAt;
+        record.correctionHistory = existingRecord.correctionHistory || record.correctionHistory;
+        if (existingRecord.checkoutStatus && existingRecord.checkoutStatus !== 'UNRESOLVED') {
+          record.checkoutStatus = existingRecord.checkoutStatus;
+        }
+        if (existingRecord.status && existingRecord.status !== 'UNRESOLVED') {
+          record.status = existingRecord.status;
+        }
       }
     }
 

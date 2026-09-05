@@ -32,6 +32,7 @@ import { saveLeaveRecord, getStoredLeaves } from '../services/leave/leaveStorage
 import { saveExpenseRecord, getStoredExpenseRecords } from '../services/expenses/expenseStorage';
 import { getPendingAttendanceRecords, saveAttendanceRecord, saveMultipleAttendanceRecords, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration, runSafeWorkingHoursNormalization } from '../services/attendance/attendanceStorage';
 import { parseAttendanceTimeToMinutes } from '../services/attendance/automaticAttendanceEngine';
+import { calculateWorkingHours } from '../services/attendance/smartAttendanceEngine';
 import { hasActualCheckIn, getEarliestCheckInTime, getAttendanceCanonicalKey } from '../utils/attendanceUtils';
 import { logSyncListenerUpdate } from '../services/sync/syncPerformanceLogger';
 import { useNetworkStatus, networkStatusService } from '../services/network/networkStatusService';
@@ -374,52 +375,109 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                 const localUpdated = localRec.updatedAt ? new Date(localRec.updatedAt).getTime() : 0;
                 const serverVersion = sa.version || 0;
                 const localVersion = localRec.version || 0;
-                const serverRectified = sa.manualRectified || sa.isAdminRectified || !!sa.correctedAt || sa.checkOutMode === 'MANUAL' || sa.checkoutType === 'MANUAL';
+
+                // SERVER AUTHORITY RULE:
+                // Treat the server record as authoritative when ANY of these are true:
+                // - isAdminRectified === true
+                // - manualRectified === true
+                // - checkoutStatus === "COMPLETED" or "FINALIZED"
+                // - checkoutResolvedBy === "admin" or "ADMIN"
+                // - an Admin correction exists in correctionHistory
+                const hasAdminInCorrectionHistory = Array.isArray(sa.correctionHistory) && sa.correctionHistory.some((c: any) => {
+                  const by = String(c?.correctedBy || c?.correctedByRole || '').toLowerCase();
+                  return by.includes('admin') || !!(c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
+                });
+
+                const isServerAdminAuthoritative = !!(
+                  sa.isAdminRectified === true ||
+                  sa.manualRectified === true ||
+                  sa.checkoutStatus === 'COMPLETED' ||
+                  sa.checkoutStatus === 'FINALIZED' ||
+                  String(sa.checkoutResolvedBy || '').toLowerCase() === 'admin' ||
+                  hasAdminInCorrectionHistory
+                );
+
+                const serverRectified = isServerAdminAuthoritative || !!sa.correctedAt || sa.checkOutMode === 'MANUAL' || sa.checkoutType === 'MANUAL';
                 const localRectified = localRec.manualRectified || localRec.isAdminRectified || !!localRec.correctedAt || localRec.checkOutMode === 'MANUAL' || localRec.checkoutType === 'MANUAL';
 
-                // Check for Server 11:59 PM EOD Fallback vs Local Precise Exit Candidate or Unresolved/Pending Review
-                const isServerEodFallback = 
-                  (sa.checkOutTime === '11:59 PM' || sa.checkOutTime === '23:59') && 
-                  (sa.checkoutType === 'End-of-Day Settlement' || sa.checkOutMode === 'AUTO_SYSTEM' || !serverRectified);
+                if (isServerAdminAuthoritative) {
+                  // STEP 3: CORRECTION HISTORY RECOVERY
+                  let authoritativeCheckOut = sa.checkOutTime;
+                  if (
+                    (!authoritativeCheckOut || authoritativeCheckOut === 'UNRESOLVED' || authoritativeCheckOut === '--:--' || authoritativeCheckOut === 'Pending' || authoritativeCheckOut === 'N/A') &&
+                    Array.isArray(sa.correctionHistory)
+                  ) {
+                    const latestCorrection = [...sa.correctionHistory].reverse().find(
+                      (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
+                    );
+                    if (latestCorrection && latestCorrection.correctedCheckOut) {
+                      authoritativeCheckOut = latestCorrection.correctedCheckOut;
+                    }
+                  }
 
-                const hasLocalPreciseExit = 
-                  !!(localRec.lastExitTime || localRec.exitTime || (localRec.checkOutTime && localRec.checkOutTime !== '11:59 PM' && localRec.checkOutTime !== '23:59'));
-
-                const isLocalPendingReviewOrUnresolved = 
-                  localRec.checkoutStatus === 'PENDING_ADMIN_REVIEW' || localRec.checkoutStatus === 'UNRESOLVED';
-
-                if (isServerEodFallback && hasLocalPreciseExit && !serverRectified) {
-                  syncDecision = 'LOCAL_PRECISE_EXIT_WINS';
+                  syncDecision = 'SERVER_ADMIN_AUTHORITATIVE';
                   finalRec = {
                     ...sa,
-                    currentState: localRec.currentState || 'PENDING_FINAL_EXIT',
-                    lastExitTime: localRec.lastExitTime || sa.lastExitTime,
-                    exitTime: localRec.exitTime || sa.exitTime,
-                    checkOutTime: (localRec.checkOutTime && localRec.checkOutTime !== '11:59 PM' && localRec.checkOutTime !== '23:59') ? localRec.checkOutTime : sa.checkOutTime,
-                    checkOutMode: (localRec.checkOutTime && localRec.checkOutTime !== '11:59 PM' && localRec.checkOutTime !== '23:59') ? localRec.checkOutMode : sa.checkOutMode,
-                    checkoutType: (localRec.checkOutTime && localRec.checkOutTime !== '11:59 PM' && localRec.checkOutTime !== '23:59') ? localRec.checkoutType : sa.checkoutType,
-                    syncStatus: 'Pending' // Keep it pending so the local precise candidate is synced back to the server
+                    checkOutTime: authoritativeCheckOut || sa.checkOutTime,
+                    checkoutStatus: 'COMPLETED',
+                    status: sa.status && sa.status !== 'UNRESOLVED' ? sa.status : 'PRESENT',
+                    attendanceStatus: 'RESOLVED',
+                    isAdminRectified: true,
+                    manualRectified: true,
+                    checkoutResolvedBy: sa.checkoutResolvedBy || 'admin',
+                    checkoutResolvedAt: sa.checkoutResolvedAt || (sa.correctionHistory?.[0] as any)?.correctedAt || sa.updatedAt || new Date().toISOString(),
+                    currentState: 'CHECKED_OUT',
+                    pendingCheckoutConfirmation: false,
+                    syncStatus: 'Synced'
                   };
-                } else if (isServerEodFallback && isLocalPendingReviewOrUnresolved && !serverRectified) {
-                  syncDecision = 'LOCAL_UNRESOLVED_OR_PENDING_WINS';
-                  finalRec = localRec;
-                } else if (localPending && !serverRectified) {
-                  syncDecision = 'LOCAL_PENDING';
-                  finalRec = localRec;
-                } else if (serverRectified || serverUpdated > localUpdated || serverVersion > localVersion || !localRectified) {
-                  syncDecision = 'SERVER_NEWER';
-                  finalRec = sa;
-                } else if (localUpdated > serverUpdated) {
-                  syncDecision = 'LOCAL_NEWER';
-                  finalRec = localRec;
+                  if (!finalRec.workingHours && finalRec.checkInTime && finalRec.checkOutTime) {
+                    finalRec.workingHours = calculateWorkingHours(finalRec.checkInTime, finalRec.checkOutTime);
+                  }
                 } else {
-                  syncDecision = 'SAME';
-                  finalRec = sa;
+                  // Check for Server 11:59 PM EOD Fallback vs Local Precise Exit Candidate or Unresolved/Pending Review
+                  const isServerEodFallback = 
+                    (sa.checkOutTime === '11:59 PM' || sa.checkOutTime === '23:59') && 
+                    (sa.checkoutType === 'End-of-Day Settlement' || sa.checkOutMode === 'AUTO_SYSTEM' || !serverRectified);
+
+                  const hasLocalPreciseExit = 
+                    !!(localRec.lastExitTime || localRec.exitTime || (localRec.checkOutTime && localRec.checkOutTime !== '11:59 PM' && localRec.checkOutTime !== '23:59'));
+
+                  const isLocalPendingReviewOrUnresolved = 
+                    localRec.checkoutStatus === 'PENDING_ADMIN_REVIEW' || localRec.checkoutStatus === 'UNRESOLVED';
+
+                  if (isServerEodFallback && hasLocalPreciseExit && !serverRectified) {
+                    syncDecision = 'LOCAL_PRECISE_EXIT_WINS';
+                    finalRec = {
+                      ...sa,
+                      currentState: localRec.currentState || 'PENDING_FINAL_EXIT',
+                      lastExitTime: localRec.lastExitTime || sa.lastExitTime,
+                      exitTime: localRec.exitTime || sa.exitTime,
+                      checkOutTime: (localRec.checkOutTime && localRec.checkOutTime !== '11:59 PM' && localRec.checkOutTime !== '23:59') ? localRec.checkOutTime : sa.checkOutTime,
+                      checkOutMode: (localRec.checkOutTime && localRec.checkOutTime !== '11:59 PM' && localRec.checkOutTime !== '23:59') ? localRec.checkOutMode : sa.checkOutMode,
+                      checkoutType: (localRec.checkOutTime && localRec.checkOutTime !== '11:59 PM' && localRec.checkOutTime !== '23:59') ? localRec.checkoutType : sa.checkoutType,
+                      syncStatus: 'Pending' // Keep it pending so the local precise candidate is synced back to the server
+                    };
+                  } else if (isServerEodFallback && isLocalPendingReviewOrUnresolved && !serverRectified) {
+                    syncDecision = 'LOCAL_UNRESOLVED_OR_PENDING_WINS';
+                    finalRec = localRec;
+                  } else if (localPending && !serverRectified) {
+                    syncDecision = 'LOCAL_PENDING';
+                    finalRec = localRec;
+                  } else if (serverRectified || serverUpdated > localUpdated || serverVersion > localVersion || !localRectified) {
+                    syncDecision = 'SERVER_NEWER';
+                    finalRec = sa;
+                  } else if (localUpdated > serverUpdated) {
+                    syncDecision = 'LOCAL_NEWER';
+                    finalRec = localRec;
+                  } else {
+                    syncDecision = 'SAME';
+                    finalRec = sa;
+                  }
                 }
 
                 // WRITE-ONCE CHECK-IN TIME SAFEGUARD:
                 // If either localRec or sa has a valid check-in time, ensure the EARLIEST valid check-in time is strictly preserved.
-                if ((hasActualCheckIn(localRec) || hasActualCheckIn(sa)) && !sa.isAdminRectified && !sa.manualRectified) {
+                if ((hasActualCheckIn(localRec) || hasActualCheckIn(sa)) && !isServerAdminAuthoritative && !sa.isAdminRectified && !sa.manualRectified) {
                   const earliestIn = getEarliestCheckInTime(localRec?.checkInTime, sa?.checkInTime);
                   if (earliestIn) {
                     finalRec = { ...finalRec, checkInTime: earliestIn };
@@ -480,6 +538,49 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
               } else {
                 syncDecision = 'CREATED_FROM_SERVER';
                 finalRec = sa;
+                const hasAdminInCorrectionHistory = Array.isArray(sa.correctionHistory) && sa.correctionHistory.some((c: any) => {
+                  const by = String(c?.correctedBy || c?.correctedByRole || '').toLowerCase();
+                  return by.includes('admin') || !!(c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
+                });
+                const isServerAdminAuthoritative = !!(
+                  sa.isAdminRectified === true ||
+                  sa.manualRectified === true ||
+                  sa.checkoutStatus === 'COMPLETED' ||
+                  sa.checkoutStatus === 'FINALIZED' ||
+                  String(sa.checkoutResolvedBy || '').toLowerCase() === 'admin' ||
+                  hasAdminInCorrectionHistory
+                );
+                if (isServerAdminAuthoritative) {
+                  let authoritativeCheckOut = sa.checkOutTime;
+                  if (
+                    (!authoritativeCheckOut || authoritativeCheckOut === 'UNRESOLVED' || authoritativeCheckOut === '--:--' || authoritativeCheckOut === 'Pending' || authoritativeCheckOut === 'N/A') &&
+                    Array.isArray(sa.correctionHistory)
+                  ) {
+                    const latestCorrection = [...sa.correctionHistory].reverse().find(
+                      (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
+                    );
+                    if (latestCorrection && latestCorrection.correctedCheckOut) {
+                      authoritativeCheckOut = latestCorrection.correctedCheckOut;
+                    }
+                  }
+                  finalRec = {
+                    ...sa,
+                    checkOutTime: authoritativeCheckOut || sa.checkOutTime,
+                    checkoutStatus: 'COMPLETED',
+                    status: sa.status && sa.status !== 'UNRESOLVED' ? sa.status : 'PRESENT',
+                    attendanceStatus: 'RESOLVED',
+                    isAdminRectified: true,
+                    manualRectified: true,
+                    checkoutResolvedBy: sa.checkoutResolvedBy || 'admin',
+                    checkoutResolvedAt: sa.checkoutResolvedAt || (sa.correctionHistory?.[0] as any)?.correctedAt || sa.updatedAt || new Date().toISOString(),
+                    currentState: 'CHECKED_OUT',
+                    pendingCheckoutConfirmation: false,
+                    syncStatus: 'Synced'
+                  };
+                  if (!finalRec.workingHours && finalRec.checkInTime && finalRec.checkOutTime) {
+                    finalRec.workingHours = calculateWorkingHours(finalRec.checkInTime, finalRec.checkOutTime);
+                  }
+                }
               }
 
               map.set(key, finalRec);

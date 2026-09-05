@@ -5,7 +5,8 @@ import { AttendanceRecord } from '../../types/attendance';
 import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic, isAdminContextActive } from '../../utils/attendanceUtils';
 import {
   getPendingAttendanceRecords,
-  markRecordSyncedInLocal
+  markRecordSyncedInLocal,
+  saveAttendanceRecord
 } from './attendanceStorage';
 import { parseAttendanceTimeToMinutes } from './automaticAttendanceEngine';
 import { calculateWorkingHours } from './smartAttendanceEngine';
@@ -173,6 +174,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
         let finalResolutionSource = record.resolutionSource;
         let finalCheckoutFinalizationSource = record.checkoutFinalizationSource;
         let finalReason = record.reason;
+        let isRecordProtectedByAdmin = false;
 
         if (!isExplicitAdminCorrection) {
           try {
@@ -218,46 +220,69 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
               }
 
               // DEFENSIVE SERVER-AUTHORITY CHECK FOR FINALIZED / ADMIN-CORRECTED CHECKOUT:
-              // When the existing Firestore document contains isAdminRectified === true, manualRectified === true,
-              // checkoutStatus === "COMPLETED" / "FINALIZED", or valid Admin correction history with correctedCheckOut,
-              // employee synchronization MUST NOT overwrite the server's finalized checkout information with stale local values.
-              const hasCorrectionWithCheckout = Array.isArray(serverData.correctionHistory) && serverData.correctionHistory.some((c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
+              // STEP 2 & 3: When the existing Firestore document is Admin-rectified or finalized:
+              // - isAdminRectified === true
+              // - manualRectified === true
+              // - checkoutStatus === "COMPLETED" / "FINALIZED"
+              // - checkoutResolvedBy === "admin" / "ADMIN"
+              // - an Admin correction exists in correctionHistory
+              // Employee synchronization MUST NOT overwrite the server's authoritative attendance-resolution fields.
+              const hasAdminInCorrectionHistory = Array.isArray(serverData.correctionHistory) && serverData.correctionHistory.some((c: any) => {
+                const by = String(c?.correctedBy || c?.correctedByRole || '').toLowerCase();
+                return by.includes('admin') || !!(c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
+              });
 
-              const isServerCheckoutProtected = !!(
+              const isServerAdminAuthoritative = !!(
                 serverData.isAdminRectified === true ||
                 serverData.manualRectified === true ||
                 serverData.checkoutStatus === 'COMPLETED' ||
                 serverData.checkoutStatus === 'FINALIZED' ||
-                hasCorrectionWithCheckout
+                String(serverData.checkoutResolvedBy || '').toLowerCase() === 'admin' ||
+                hasAdminInCorrectionHistory
               );
 
-              if (isServerCheckoutProtected) {
-                // Recover or protect checkout time:
+              if (isServerAdminAuthoritative) {
+                // STEP 3: CORRECTION HISTORY RECOVERY
+                // If checkOutTime on server is null, unresolved, or empty, recover from correctionHistory:
                 let authoritativeCheckOutTime = serverData.checkOutTime;
-                if ((authoritativeCheckOutTime === undefined || authoritativeCheckOutTime === null || authoritativeCheckOutTime === 'UNRESOLVED' || authoritativeCheckOutTime === '--:--') && Array.isArray(serverData.correctionHistory)) {
-                  const latestCorrection = [...serverData.correctionHistory].reverse().find((c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
+                if (
+                  (!authoritativeCheckOutTime ||
+                    authoritativeCheckOutTime === 'UNRESOLVED' ||
+                    authoritativeCheckOutTime === '--:--' ||
+                    authoritativeCheckOutTime === 'Pending' ||
+                    authoritativeCheckOutTime === 'N/A') &&
+                  Array.isArray(serverData.correctionHistory)
+                ) {
+                  const latestCorrection = [...serverData.correctionHistory].reverse().find(
+                    (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
+                  );
+                  if (latestCorrection && latestCorrection.correctedCheckOut) {
+                    authoritativeCheckOutTime = latestCorrection.correctedCheckOut;
+                  }
+                }
+                if (
+                  (!authoritativeCheckOutTime ||
+                    authoritativeCheckOutTime === 'UNRESOLVED' ||
+                    authoritativeCheckOutTime === '--:--' ||
+                    authoritativeCheckOutTime === 'Pending' ||
+                    authoritativeCheckOutTime === 'N/A') &&
+                  Array.isArray(record.correctionHistory)
+                ) {
+                  const latestCorrection = [...record.correctionHistory].reverse().find(
+                    (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
+                  );
                   if (latestCorrection && latestCorrection.correctedCheckOut) {
                     authoritativeCheckOutTime = latestCorrection.correctedCheckOut;
                   }
                 }
 
-                if (authoritativeCheckOutTime !== undefined && authoritativeCheckOutTime !== null && authoritativeCheckOutTime !== 'UNRESOLVED' && authoritativeCheckOutTime !== '--:--') {
+                if (authoritativeCheckOutTime && authoritativeCheckOutTime !== 'UNRESOLVED' && authoritativeCheckOutTime !== '--:--') {
                   finalCheckOutTime = authoritativeCheckOutTime;
                 }
 
-                // Protect checkout status: Never downgrade a completed or rectified record to UNRESOLVED
-                if (serverData.checkoutStatus && serverData.checkoutStatus !== 'UNRESOLVED') {
-                  finalCheckoutStatus = serverData.checkoutStatus;
-                } else if (finalCheckOutTime && finalCheckOutTime !== '--:--' && finalCheckOutTime !== 'UNRESOLVED') {
-                  finalCheckoutStatus = 'COMPLETED';
-                }
-
-                // Protect status: Never downgrade a completed or present record to UNRESOLVED
-                if (serverData.status && serverData.status !== 'UNRESOLVED') {
-                  finalStatus = serverData.status;
-                } else if (finalCheckOutTime && finalCheckOutTime !== '--:--' && finalCheckOutTime !== 'UNRESOLVED') {
-                  finalStatus = 'PRESENT';
-                }
+                // Protect checkout status & status: Authoritatively COMPLETED & PRESENT
+                finalCheckoutStatus = 'COMPLETED';
+                finalStatus = serverData.status && serverData.status !== 'UNRESOLVED' ? serverData.status : 'PRESENT';
 
                 // Protect/Recover workingHours
                 if (serverData.workingHours !== undefined && serverData.workingHours !== null && serverData.workingHours !== '') {
@@ -266,40 +291,16 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                   finalWorkingHours = calculateWorkingHours(finalCheckInTime, finalCheckOutTime);
                 }
 
-                if (serverData.isAdminRectified !== undefined) {
-                  finalIsAdminRectified = serverData.isAdminRectified;
-                } else {
-                  finalIsAdminRectified = true;
-                }
-                if (serverData.manualRectified !== undefined) {
-                  finalManualRectified = serverData.manualRectified;
-                } else {
-                  finalManualRectified = true;
-                }
-                if (serverData.checkoutResolvedBy) {
-                  finalCheckoutResolvedBy = serverData.checkoutResolvedBy;
-                } else if (Array.isArray(serverData.correctionHistory) && serverData.correctionHistory.length > 0) {
-                  const lastCorr = serverData.correctionHistory[serverData.correctionHistory.length - 1];
-                  if (lastCorr?.correctedBy) finalCheckoutResolvedBy = lastCorr.correctedBy;
-                }
-                if (serverData.checkoutResolvedAt) {
-                  finalCheckoutResolvedAt = serverData.checkoutResolvedAt;
-                } else if (Array.isArray(serverData.correctionHistory) && serverData.correctionHistory.length > 0) {
-                  const lastCorr = serverData.correctionHistory[serverData.correctionHistory.length - 1];
-                  if (lastCorr?.correctedAt) finalCheckoutResolvedAt = lastCorr.correctedAt;
-                }
-                if (serverData.correctionHistory && Array.isArray(serverData.correctionHistory)) {
-                  finalCorrectionHistory = serverData.correctionHistory;
-                }
-                if (serverData.checkoutType) {
-                  finalCheckoutType = serverData.checkoutType;
-                }
-                if (serverData.resolutionSource) {
-                  finalResolutionSource = serverData.resolutionSource;
-                }
-                if (serverData.checkoutFinalizationSource) {
-                  finalCheckoutFinalizationSource = serverData.checkoutFinalizationSource;
-                }
+                finalIsAdminRectified = true;
+                finalManualRectified = true;
+                finalCheckoutResolvedBy = serverData.checkoutResolvedBy || 'admin';
+                finalCheckoutResolvedAt = serverData.checkoutResolvedAt || (serverData.correctionHistory?.[0] as any)?.correctedAt || serverData.updatedAt || new Date().toISOString();
+                finalCorrectionHistory = Array.isArray(serverData.correctionHistory) && serverData.correctionHistory.length > 0
+                  ? serverData.correctionHistory
+                  : (Array.isArray(record.correctionHistory) ? record.correctionHistory : []);
+                finalCheckoutType = serverData.checkoutType || 'MANUAL';
+                finalResolutionSource = serverData.resolutionSource || 'ADMIN_CORRECTION';
+                finalCheckoutFinalizationSource = serverData.checkoutFinalizationSource || 'MANUAL_CHECKOUT';
                 if (serverData.reason !== undefined && serverData.reason !== null) {
                   finalReason = serverData.reason;
                 }
@@ -315,6 +316,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                 record.checkOutTime = finalCheckOutTime;
                 record.checkoutStatus = finalCheckoutStatus;
                 record.status = finalStatus;
+                record.attendanceStatus = 'RESOLVED';
                 record.workingHours = finalWorkingHours;
                 record.isAdminRectified = finalIsAdminRectified;
                 record.manualRectified = finalManualRectified;
@@ -324,6 +326,10 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                 record.checkoutType = finalCheckoutType;
                 record.resolutionSource = finalResolutionSource;
                 record.checkoutFinalizationSource = finalCheckoutFinalizationSource;
+                record.currentState = 'CHECKED_OUT';
+                record.pendingCheckoutConfirmation = false;
+                record.syncStatus = 'Synced';
+                isRecordProtectedByAdmin = true;
                 if (finalReason !== undefined) record.reason = finalReason;
               } else if (
                 serverData.checkOutTime !== undefined &&
@@ -358,6 +364,24 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           }
         }
 
+        // Check if the record itself has admin authority (e.g. from local storage or previous sync)
+        if (!isRecordProtectedByAdmin && (record.isAdminRectified || record.manualRectified || String(record.checkoutResolvedBy || '').toLowerCase() === 'admin')) {
+          isRecordProtectedByAdmin = true;
+          if ((!finalCheckOutTime || finalCheckOutTime === 'UNRESOLVED' || finalCheckOutTime === '--:--') && Array.isArray(record.correctionHistory)) {
+            const latestCorrection = [...record.correctionHistory].reverse().find(
+              (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
+            );
+            if (latestCorrection && latestCorrection.correctedCheckOut) {
+              finalCheckOutTime = latestCorrection.correctedCheckOut;
+              finalCheckoutStatus = 'COMPLETED';
+              finalStatus = 'PRESENT';
+              if (finalCheckInTime) {
+                finalWorkingHours = calculateWorkingHours(finalCheckInTime, finalCheckOutTime);
+              }
+            }
+          }
+        }
+
         const sanitizedRecord = sanitizeFirestorePayload({
           ...record,
           docId: documentKey,
@@ -374,6 +398,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           checkOutTime: finalCheckOutTime,
           checkoutStatus: finalCheckoutStatus,
           status: finalStatus,
+          attendanceStatus: isRecordProtectedByAdmin ? 'RESOLVED' : (record.attendanceStatus || (finalCheckoutStatus === 'COMPLETED' ? 'RESOLVED' : null)),
           workingHours: finalWorkingHours,
           isAdminRectified: finalIsAdminRectified,
           manualRectified: finalManualRectified,
@@ -394,8 +419,8 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           geofenceExitTimestamp: finalGeofenceExitTimestamp || null,
           lastExitTime: finalLastExitTime || record.lastExitTime || null,
           exitTime: finalExitTime || record.exitTime || null,
-          pendingCheckoutConfirmation: record.pendingCheckoutConfirmation ?? false,
-          currentState: record.currentState || null,
+          pendingCheckoutConfirmation: isRecordProtectedByAdmin ? false : (record.pendingCheckoutConfirmation ?? false),
+          currentState: isRecordProtectedByAdmin ? 'CHECKED_OUT' : (record.currentState || null),
           returnTime: record.returnTime || null,
           processedEvents: record.processedEvents || []
         });
@@ -413,6 +438,10 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
         logSyncServerConfirm('Attendance', record.id);
         recordSyncSuccess('Attendance', record.id);
         markRecordSyncedInLocal(record.id, localServerSyncTime);
+
+        if (isRecordProtectedByAdmin) {
+          saveAttendanceRecord(record);
+        }
         logSyncComplete('Attendance', record.id);
 
         if (record.exitTime || record.lastExitTime) {

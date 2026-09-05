@@ -63,7 +63,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord, AttendanceCorrection, LiveEmployeeLocation } from '../../types/attendance';
 import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn, sanitizeFirestorePayload, logAttendanceWriteDiagnostic, getAttendanceCanonicalKey, getEarliestCheckInTime } from '../../utils/attendanceUtils';
-import { getStoredAttendanceRecords } from '../../services/attendance/attendanceStorage';
+import { getStoredAttendanceRecords, saveAttendanceRecord } from '../../services/attendance/attendanceStorage';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { ExpenseRecord } from '../../types/expense';
@@ -129,6 +129,21 @@ export const processAdminAttendanceRecords = (
   const localRecords = getStoredAttendanceRecords();
   const map = new Map<string, AttendanceRecord>();
 
+  const isRecordAdminAuthoritative = (rec: AttendanceRecord | any): boolean => {
+    if (!rec) return false;
+    if (rec.isAdminRectified === true || rec.manualRectified === true) return true;
+    if (rec.checkoutStatus === 'COMPLETED' || rec.checkoutStatus === 'FINALIZED') return true;
+    const resBy = String(rec.checkoutResolvedBy || '').toLowerCase();
+    if (resBy === 'admin') return true;
+    if (Array.isArray(rec.correctionHistory) && rec.correctionHistory.length > 0) {
+      return rec.correctionHistory.some((c: any) => {
+        const by = String(c?.correctedBy || c?.correctedByRole || '').toLowerCase();
+        return by.includes('admin') || !!(c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
+      });
+    }
+    return false;
+  };
+
   const recordHasCheckout = (rec: AttendanceRecord) => {
     if (!rec || !rec.checkOutTime) return false;
     const val = rec.checkOutTime.trim();
@@ -141,10 +156,46 @@ export const processAdminAttendanceRecords = (
     const key = getAttendanceCanonicalKey(rec);
     if (!key) return;
 
+    // STEP 3: Correction history recovery for server records
+    if (isRecordAdminAuthoritative(rec)) {
+      if (
+        (!rec.checkOutTime ||
+          rec.checkOutTime === '--:--' ||
+          rec.checkOutTime === 'Pending' ||
+          rec.checkOutTime === 'N/A' ||
+          rec.checkOutTime === 'UNRESOLVED') &&
+        Array.isArray(rec.correctionHistory)
+      ) {
+        const latestCorrection = [...rec.correctionHistory].reverse().find(
+          (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
+        );
+        if (latestCorrection && latestCorrection.correctedCheckOut) {
+          rec.checkOutTime = latestCorrection.correctedCheckOut;
+          rec.checkoutStatus = 'COMPLETED';
+          rec.status = 'completed';
+          rec.attendanceStatus = 'RESOLVED';
+          if (!rec.workingHours && rec.checkInTime) {
+            rec.workingHours = calculateWorkingHours(rec.checkInTime, rec.checkOutTime);
+          }
+        }
+      }
+    }
+
     const existing = map.get(key);
     if (!existing) {
       map.set(key, rec);
     } else {
+      const existingIsAuth = isRecordAdminAuthoritative(existing);
+      const recIsAuth = isRecordAdminAuthoritative(rec);
+
+      if (recIsAuth && !existingIsAuth) {
+        map.set(key, rec);
+        return;
+      }
+      if (existingIsAuth && !recIsAuth) {
+        return;
+      }
+
       const existingCheckIn = hasActualCheckIn(existing);
       const recCheckIn = hasActualCheckIn(rec);
 
@@ -172,7 +223,7 @@ export const processAdminAttendanceRecords = (
     }
   });
 
-  // Merge local records (especially pending local checkouts on same device)
+  // Merge local records (STEP 5: NEVER allow stale local records to overwrite Admin-rectified server records)
   localRecords.forEach((localRec) => {
     if (!localRec) return;
     const key = getAttendanceCanonicalKey(localRec);
@@ -180,8 +231,46 @@ export const processAdminAttendanceRecords = (
 
     const existing = map.get(key);
     if (!existing) {
+      if (isRecordAdminAuthoritative(localRec)) {
+        if (
+          (!localRec.checkOutTime ||
+            localRec.checkOutTime === '--:--' ||
+            localRec.checkOutTime === 'Pending' ||
+            localRec.checkOutTime === 'N/A' ||
+            localRec.checkOutTime === 'UNRESOLVED') &&
+          Array.isArray(localRec.correctionHistory)
+        ) {
+          const latestCorrection = [...localRec.correctionHistory].reverse().find(
+            (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
+          );
+          if (latestCorrection && latestCorrection.correctedCheckOut) {
+            localRec.checkOutTime = latestCorrection.correctedCheckOut;
+            localRec.checkoutStatus = 'COMPLETED';
+            localRec.status = 'completed';
+            localRec.attendanceStatus = 'RESOLVED';
+            if (!localRec.workingHours && localRec.checkInTime) {
+              localRec.workingHours = calculateWorkingHours(localRec.checkInTime, localRec.checkOutTime);
+            }
+          }
+        }
+      }
       map.set(key, localRec);
     } else {
+      if (isRecordAdminAuthoritative(existing)) {
+        // STEP 5: SERVER AUTHORITY RULE - Firestore MUST WIN for authoritative attendance fields.
+        // Merge ONLY legitimate local telemetry:
+        map.set(key, {
+          ...existing,
+          currentLatitude: localRec.currentLatitude ?? existing.currentLatitude,
+          currentLongitude: localRec.currentLongitude ?? existing.currentLongitude,
+          currentDistance: localRec.currentDistance ?? existing.currentDistance,
+          currentAccuracy: localRec.currentAccuracy ?? existing.currentAccuracy,
+          currentLocationStatus: localRec.currentLocationStatus || existing.currentLocationStatus,
+          currentLocationTimestamp: localRec.currentLocationTimestamp || existing.currentLocationTimestamp,
+        });
+        return;
+      }
+
       const localCheckIn = hasActualCheckIn(localRec);
       const existingCheckIn = hasActualCheckIn(existing);
       const localCheckout = recordHasCheckout(localRec);
@@ -192,14 +281,8 @@ export const processAdminAttendanceRecords = (
       } else if (localCheckout && !existingCheckout) {
         map.set(key, { ...existing, ...localRec });
       } else if (localRec.syncStatus === 'Pending') {
-        // Only allow local Pending record to overwrite if Firestore record is NOT Admin-rectified
-        if (existing.isAdminRectified || existing.manualRectified) {
-          // Keep the authoritative Firestore record, but maybe merge some local metadata if needed
-          map.set(key, existing);
-        } else {
-          const earliestIn = getEarliestCheckInTime(existing.checkInTime, localRec.checkInTime);
-          map.set(key, { ...existing, ...localRec, checkInTime: earliestIn || localRec.checkInTime || existing.checkInTime });
-        }
+        const earliestIn = getEarliestCheckInTime(existing.checkInTime, localRec.checkInTime);
+        map.set(key, { ...existing, ...localRec, checkInTime: earliestIn || localRec.checkInTime || existing.checkInTime });
       }
     }
   });
@@ -951,7 +1034,10 @@ export const AdminDashboard: React.FC = () => {
         manualRectified: true,
         isAdminRectified: true,
         updatedAt: new Date().toISOString(),
-        version: ((currentRecordData as any)?.version || 1) + 1
+        version: ((currentRecordData as any)?.version || 1) + 1,
+        currentState: proposedOut ? 'CHECKED_OUT' : currentRecordData.currentState,
+        pendingCheckoutConfirmation: false,
+        checkoutFinalized: proposedOut ? true : false
       };
 
       if (rawPrevStatus !== undefined && rawPrevStatus !== null && rawPrevStatus !== '') {
@@ -973,6 +1059,12 @@ export const AdminDashboard: React.FC = () => {
       // Re-fetch to display the finalized corrected record in the success state
       const finalSnap = await getDoc(targetDocRef);
       const finalRecord = { id: finalSnap.id, ...(finalSnap.data() as any) } as AttendanceRecord;
+
+      // Immediately write the authoritative corrected record into local storage to prevent local drift
+      saveAttendanceRecord({
+        ...finalRecord,
+        syncStatus: 'Synced'
+      });
 
       setCorrectionStep('completed');
       setCorrectionResult(finalRecord);
