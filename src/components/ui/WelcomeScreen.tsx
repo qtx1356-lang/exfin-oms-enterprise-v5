@@ -48,6 +48,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const [liveDuration, setLiveDuration] = useState<string>('');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const speechTriggeredRef = React.useRef<boolean>(false);
+  const speechAudibleRef = React.useRef<boolean>(false);
+  const pendingGreetingRef = React.useRef<string | null>(null);
 
   const refreshAttendance = React.useCallback(() => {
     if (!employeeData) return;
@@ -211,10 +213,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     };
   }, []);
 
-  // Automatic personalized greeting on Welcome Screen mount / entry
+  // Automatic personalized greeting on Welcome Screen mount / entry + Android PWA cold-start interaction retry
   useEffect(() => {
     // Prevent duplicate playback during re-renders or state updates within this single app activation
-    if (speechTriggeredRef.current) return;
+    if (speechTriggeredRef.current && speechAudibleRef.current) return;
 
     // Prevent premature triggering while employee identity is still hydrating asynchronously
     const isIdentityLoading = (status === 'loading') || (status === 'Approved' && !employeeData && !firstName);
@@ -229,22 +231,36 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       ? `${greetingInfo.label}, ${firstName}!`
       : `${greetingInfo.label}!`;
 
-    const triggerGreeting = async () => {
-      // For registered employees with firstName, SpeechSynthesis MUST be used
+    pendingGreetingRef.current = spokenGreeting;
+
+    const performSpeak = async (isUserGesture: boolean) => {
+      if (speechAudibleRef.current) return;
+
       if (isSpeechAvailable()) {
-        // Await bounded voice readiness (mobile PWA / Android Chrome voice initialization)
-        await waitForSpeechVoices(800);
-        if (isCancelled || speechTriggeredRef.current) return;
+        if (!isUserGesture) {
+          // Await bounded voice readiness (mobile PWA / Android Chrome voice initialization)
+          await waitForSpeechVoices(800);
+        }
+        if (isCancelled || speechAudibleRef.current) return;
 
         speechTriggeredRef.current = true;
         logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
 
         setIsSpeaking(true);
-        const started = speakGreeting(spokenGreeting, {
-          isUserGesture: false,
-          onStart: () => setIsSpeaking(true),
-          onEnd: () => setIsSpeaking(false),
-          onError: () => setIsSpeaking(false)
+        const textToSpeak = pendingGreetingRef.current || spokenGreeting;
+        const started = speakGreeting(textToSpeak, {
+          isUserGesture,
+          onStart: () => {
+            speechAudibleRef.current = true;
+            pendingGreetingRef.current = null;
+            setIsSpeaking(true);
+          },
+          onEnd: () => {
+            setIsSpeaking(false);
+          },
+          onError: () => {
+            setIsSpeaking(false);
+          }
         });
         if (!started) {
           setIsSpeaking(false);
@@ -252,6 +268,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       } else if (!firstName) {
         // Fallback to pre-recorded audio ONLY for anonymous/unregistered users without firstName
         speechTriggeredRef.current = true;
+        speechAudibleRef.current = true;
+        pendingGreetingRef.current = null;
         logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
 
         setIsSpeaking(true);
@@ -263,10 +281,34 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       }
     };
 
-    triggerGreeting();
+    // 1. Immediate startup speech attempt
+    if (!speechTriggeredRef.current) {
+      performSpeak(false);
+    }
+
+    // 2. Pending greeting retry on first user interaction (safeguard for Android PWA cold-start autoplay restrictions)
+    const handleFirstInteraction = () => {
+      if (speechAudibleRef.current || !pendingGreetingRef.current) {
+        cleanupInteractionListeners();
+        return;
+      }
+      cleanupInteractionListeners();
+      performSpeak(true);
+    };
+
+    const cleanupInteractionListeners = () => {
+      window.removeEventListener('pointerdown', handleFirstInteraction, true);
+      window.removeEventListener('touchstart', handleFirstInteraction, true);
+      window.removeEventListener('click', handleFirstInteraction, true);
+    };
+
+    window.addEventListener('pointerdown', handleFirstInteraction, { capture: true, passive: true, once: true });
+    window.addEventListener('touchstart', handleFirstInteraction, { capture: true, passive: true, once: true });
+    window.addEventListener('click', handleFirstInteraction, { capture: true, passive: true, once: true });
 
     return () => {
       isCancelled = true;
+      cleanupInteractionListeners();
     };
   }, [firstName, employeeData, status, greetingInfo]);
 
