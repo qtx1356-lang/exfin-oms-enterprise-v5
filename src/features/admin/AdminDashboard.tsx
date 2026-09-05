@@ -1340,11 +1340,11 @@ export const AdminDashboard: React.FC = () => {
         return false;
       }
 
-      if (effectiveStatus === 'PENDING_EXIT_CONFIRMATION' || effectiveStatus === 'PENDING_AUTO_CHECKOUT') {
+      if (effectiveStatus === 'PENDING_EXIT_CONFIRMATION' || effectiveStatus === 'PENDING_AUTO_CHECKOUT' || effectiveStatus === 'PENDING_ADMIN_REVIEW') {
         return false;
       }
 
-      return isAttendanceCheckoutUnresolved(record) || effectiveStatus === 'UNRESOLVED' || effectiveStatus === 'PENDING_ADMIN_REVIEW';
+      return isAttendanceCheckoutUnresolved(record);
     }).length;
   }, [deduplicatedFirestoreAttendance]);
 

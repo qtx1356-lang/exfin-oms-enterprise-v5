@@ -19,70 +19,127 @@ export const CheckoutConfirmationModal: React.FC = () => {
   const [showManualTimeInput, setShowManualTimeInput] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
 
-  const employeeId = employeeData?.employeeCode || employeeData?.employeeId || (employeeData as any)?.uid || (employeeData as any)?.id;
+  // Robust multi-ID resolution across employeeData and cached registration data
+  const candidateIds = React.useMemo(() => {
+    const ids: string[] = [];
+    if (employeeData?.employeeCode) ids.push(employeeData.employeeCode);
+    if (employeeData?.employeeId) ids.push(employeeData.employeeId);
+    if ((employeeData as any)?.uid) ids.push((employeeData as any).uid);
+    if ((employeeData as any)?.id) ids.push((employeeData as any).id);
 
-  const resolvedEmployeeId = employeeId || (() => {
     try {
       const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('cached_registration_data') : null;
       if (raw) {
         const p = JSON.parse(raw);
-        return p.employeeCode || p.employeeId || p.id || p.uid;
+        if (p.employeeCode && !ids.includes(p.employeeCode)) ids.push(p.employeeCode);
+        if (p.employeeId && !ids.includes(p.employeeId)) ids.push(p.employeeId);
+        if (p.uid && !ids.includes(p.uid)) ids.push(p.uid);
+        if (p.id && !ids.includes(p.id)) ids.push(p.id);
       }
     } catch (e) {}
-    return undefined;
-  })();
 
-  const checkPendingConfirmation = useCallback(() => {
-    if (!resolvedEmployeeId) {
+    return ids.filter(Boolean);
+  }, [employeeData]);
+
+  const resolvedEmployeeId = candidateIds[0] || undefined;
+  const employeeId = resolvedEmployeeId;
+
+  const checkPendingConfirmation = useCallback((passedRecord?: AttendanceRecord | null) => {
+    const evaluateRecord = (record: AttendanceRecord | null): boolean => {
+      if (!record) return false;
+      const checkOutValue = (record.checkOutTime || '').trim();
+      const isCheckOutMissing = !checkOutValue || 
+                                checkOutValue === '--:--' || 
+                                checkOutValue === '--:-- --' ||
+                                checkOutValue === 'Pending' ||
+                                checkOutValue === 'N/A' ||
+                                checkOutValue === 'UNRESOLVED';
+
+      const hasPendingExitState = record.pendingCheckoutConfirmation === true ||
+        record.currentState === 'PENDING_AUTO_CHECKOUT' ||
+        record.currentState === 'PENDING_EXIT_CONFIRMATION' ||
+        record.currentState === 'PENDING_FINAL_EXIT' ||
+        record.currentState === 'CHECKOUT_NOT_DETECTED';
+
+      if (
+        !isServerAttendanceAuthoritative(record) &&
+        !record.isAdminRectified &&
+        !record.checkoutFinalized &&
+        record.checkInTime &&
+        record.checkInTime !== '--:--' &&
+        isCheckOutMissing &&
+        (record.attendanceType === 'OFFICE' || !record.attendanceType) &&
+        hasPendingExitState
+      ) {
+        if (!record.confirmationDisplayedAt) {
+          record.confirmationDisplayedAt = new Date().toISOString();
+          saveAttendanceRecord(record);
+        }
+        setActiveRecord(record);
+        return true;
+      }
+      return false;
+    };
+
+    // 1. If a record was passed directly from custom event detail, evaluate it first
+    if (passedRecord && evaluateRecord(passedRecord)) {
+      return;
+    }
+
+    if (candidateIds.length === 0) {
       setActiveRecord(null);
       return;
     }
 
     const todayStr = getFormattedDateStr();
-    const record = getTodayAttendanceRecord(resolvedEmployeeId, todayStr);
+    let record: AttendanceRecord | null = null;
 
-    const checkOutValue = (record?.checkOutTime || '').trim();
-    const isCheckOutMissing = !checkOutValue || 
-                              checkOutValue === '--:--' || 
-                              checkOutValue === '--:-- --' ||
-                              checkOutValue === 'Pending' ||
-                              checkOutValue === 'N/A' ||
-                              checkOutValue === 'UNRESOLVED';
-
-    const hasPendingExitState = record?.pendingCheckoutConfirmation === true ||
-      record?.currentState === 'PENDING_AUTO_CHECKOUT' ||
-      record?.currentState === 'PENDING_EXIT_CONFIRMATION' ||
-      record?.currentState === 'PENDING_FINAL_EXIT' ||
-      record?.currentState === 'CHECKOUT_NOT_DETECTED';
-
-    if (
-      record &&
-      !isServerAttendanceAuthoritative(record) &&
-      !record.isAdminRectified &&
-      !record.checkoutFinalized &&
-      record.checkInTime &&
-      record.checkInTime !== '--:--' &&
-      isCheckOutMissing &&
-      (record.attendanceType === 'OFFICE' || !record.attendanceType) &&
-      hasPendingExitState
-    ) {
-      if (!record.confirmationDisplayedAt) {
-        record.confirmationDisplayedAt = new Date().toISOString();
-        saveAttendanceRecord(record);
+    // 2. Try direct key lookup with all candidate IDs
+    for (const id of candidateIds) {
+      record = getTodayAttendanceRecord(id, todayStr);
+      if (record && evaluateRecord(record)) {
+        return;
       }
-      setActiveRecord(record);
-    } else {
-      setActiveRecord(null);
     }
-  }, [resolvedEmployeeId]);
+
+    // 3. Fallback scan across all stored local records
+    const allStored = typeof localStorage !== 'undefined' ? (JSON.parse(localStorage.getItem('exfin_employee_attendance_records_v1') || localStorage.getItem('exfin_attendance_records_v1') || '[]')) : [];
+    if (Array.isArray(allStored)) {
+      const cleanCandidates = candidateIds.map((c) => c.trim().toLowerCase());
+      const fallbackRecord = allStored.find((r) => {
+        if (!r || r.date !== todayStr) return false;
+        const rDocId = (r.docId || '').trim().toLowerCase();
+        const rEmpId = (r.employeeId || r.employeeCode || r.id || '').trim().toLowerCase();
+        return cleanCandidates.some((cid) => rDocId.includes(cid) || rEmpId === cid);
+      });
+
+      if (fallbackRecord && evaluateRecord(fallbackRecord)) {
+        return;
+      }
+    }
+
+    // Diagnostic logging if lookup returns no matching pending confirmation record
+    console.warn('[CheckoutConfirmationModal] Pending confirmation lookup evaluated without active popup:', {
+      candidateIds,
+      todayStr,
+      hasActiveRecord: false
+    });
+
+    setActiveRecord(null);
+  }, [candidateIds]);
 
   useEffect(() => {
     checkPendingConfirmation();
 
     // Event-driven check on mount and on relevant custom events/visibility changes
-    const interval = setInterval(checkPendingConfirmation, 10000);
+    const interval = setInterval(() => checkPendingConfirmation(), 10000);
 
-    const handleAttendanceUpdated = () => checkPendingConfirmation();
+    const handleAttendanceUpdated = (e?: Event) => {
+      const customEvt = e as CustomEvent;
+      const detailRec = customEvt?.detail?.record as AttendanceRecord | undefined;
+      checkPendingConfirmation(detailRec || null);
+    };
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         checkPendingConfirmation();
@@ -94,6 +151,7 @@ export const CheckoutConfirmationModal: React.FC = () => {
     window.addEventListener('exfin-checkout-confirmation-needed', handleAttendanceUpdated);
     window.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('pageshow', handleFocus);
     window.addEventListener('storage', handleAttendanceUpdated);
 
     return () => {
@@ -102,6 +160,7 @@ export const CheckoutConfirmationModal: React.FC = () => {
       window.removeEventListener('exfin-checkout-confirmation-needed', handleAttendanceUpdated);
       window.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('pageshow', handleFocus);
       window.removeEventListener('storage', handleAttendanceUpdated);
     };
   }, [checkPendingConfirmation]);
