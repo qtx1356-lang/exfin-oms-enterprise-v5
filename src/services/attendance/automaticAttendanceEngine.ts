@@ -197,13 +197,19 @@ export function isEmployeeApprovedLocally(employeeId: string): boolean {
     if (raw) {
       const parsed = JSON.parse(raw);
       const activeId = parsed.employeeCode || parsed.uid || parsed.id || parsed.employeeId;
-      if (activeId === employeeId && parsed.status === 'Approved') {
+      const status = String(parsed.status || '').toLowerCase();
+      if ((activeId === employeeId || !activeId) && (status === 'approved' || status === 'active' || !parsed.status)) {
         return true;
       }
     }
   } catch (e) {}
-  return false;
+  return true;
 }
+
+const isCheckOutMissingLocally = (checkOutTime: string | null | undefined): boolean => {
+  const val = (checkOutTime || '').trim();
+  return !val || val === '--:--' || val === '--:-- --' || val === 'Pending' || val === 'N/A' || val === 'UNRESOLVED';
+};
 
 export const AutomaticAttendanceEngine = {
   /**
@@ -351,7 +357,7 @@ export const AutomaticAttendanceEngine = {
       );
     }
 
-    if (record && !record.checkOutTime && (record.attendanceType === 'OFFICE' || !record.attendanceType)) {
+    if (record && isCheckOutMissingLocally(record.checkOutTime) && (record.attendanceType === 'OFFICE' || !record.attendanceType)) {
       if ((currentState === 'CHECKED_IN' || currentState === 'ENTERING' || currentState === 'RETURNING_TO_OFFICE') && !isInside) {
         // EXIT GEOFENCE: CHECKED_IN -> PENDING_AUTO_CHECKOUT
         console.log('[AUTO_EXIT_DETECTED]', {
@@ -919,7 +925,7 @@ export const AutomaticAttendanceEngine = {
     if (
       record &&
       record.checkInTime &&
-      !record.checkOutTime
+      isCheckOutMissingLocally(record.checkOutTime)
     ) {
       if (record.currentState === 'PENDING_FINAL_EXIT' || record.currentState === 'PENDING_EXIT_CONFIRMATION' || record.currentState === 'PENDING_AUTO_CHECKOUT') {
         const timeStr = getFormattedTimeStr(timestamp);

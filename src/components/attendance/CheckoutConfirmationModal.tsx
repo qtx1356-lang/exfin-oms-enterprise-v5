@@ -20,28 +20,47 @@ export const CheckoutConfirmationModal: React.FC = () => {
 
   const employeeId = employeeData?.employeeCode || employeeData?.employeeId;
 
+  const resolvedEmployeeId = employeeId || (() => {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('cached_registration_data') : null;
+      if (raw) {
+        const p = JSON.parse(raw);
+        return p.employeeCode || p.employeeId || p.id || p.uid;
+      }
+    } catch (e) {}
+    return undefined;
+  })();
+
   const checkPendingConfirmation = useCallback(() => {
-    if (!employeeId) {
+    if (!resolvedEmployeeId) {
       setActiveRecord(null);
       return;
     }
 
     const todayStr = getFormattedDateStr();
-    const record = getTodayAttendanceRecord(employeeId, todayStr);
+    const record = getTodayAttendanceRecord(resolvedEmployeeId, todayStr);
 
-    const hasRealCheckoutTime =
-      typeof record?.checkOutTime === 'string' &&
-      record.checkOutTime.trim() !== '' &&
-      record.checkOutTime.trim() !== '--:--' &&
-      record.checkOutTime.trim() !== '--:-- --';
+    const checkOutValue = (record?.checkOutTime || '').trim();
+    const isCheckOutMissing = !checkOutValue || 
+                              checkOutValue === '--:--' || 
+                              checkOutValue === '--:-- --' ||
+                              checkOutValue === 'Pending' ||
+                              checkOutValue === 'N/A' ||
+                              checkOutValue === 'UNRESOLVED';
+
+    const hasPendingExitState = record?.pendingCheckoutConfirmation === true ||
+      record?.currentState === 'PENDING_AUTO_CHECKOUT' ||
+      record?.currentState === 'PENDING_EXIT_CONFIRMATION' ||
+      record?.currentState === 'PENDING_FINAL_EXIT' ||
+      record?.currentState === 'CHECKOUT_NOT_DETECTED';
 
     if (
       record &&
       record.checkInTime &&
       record.checkInTime !== '--:--' &&
-      !hasRealCheckoutTime &&
+      isCheckOutMissing &&
       (record.attendanceType === 'OFFICE' || !record.attendanceType) &&
-      record.pendingCheckoutConfirmation === true
+      hasPendingExitState
     ) {
       if (!record.confirmationDisplayedAt) {
         record.confirmationDisplayedAt = new Date().toISOString();
@@ -51,7 +70,7 @@ export const CheckoutConfirmationModal: React.FC = () => {
     } else {
       setActiveRecord(null);
     }
-  }, [employeeId]);
+  }, [resolvedEmployeeId]);
 
   useEffect(() => {
     checkPendingConfirmation();

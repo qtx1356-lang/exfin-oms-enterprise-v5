@@ -548,6 +548,22 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                       pendingCheckoutConfirmation: localRec.pendingCheckoutConfirmation ?? finalRec.pendingCheckoutConfirmation
                     };
                   }
+
+                  // SAFEGUARD: Never wipe out an active local pending exit prompt with an unfinalized server snapshot
+                  if (!isServerAdminAuthoritative && !sa?.isAdminRectified && !sa?.manualRectified) {
+                    const localHasPendingExit = localRec?.pendingCheckoutConfirmation ||
+                      localRec?.currentState === 'PENDING_AUTO_CHECKOUT' ||
+                      localRec?.currentState === 'PENDING_EXIT_CONFIRMATION' ||
+                      localRec?.currentState === 'PENDING_FINAL_EXIT' ||
+                      localRec?.currentState === 'CHECKOUT_NOT_DETECTED';
+                    const serverHasCompletedCheckout = sa?.checkoutStatus === 'COMPLETED' || (sa?.checkOutTime && sa?.checkOutTime !== '--:--' && sa?.checkOutTime !== 'UNRESOLVED' && sa?.checkOutTime !== 'Pending' && sa?.checkOutTime !== 'N/A');
+                    if (localHasPendingExit && !serverHasCompletedCheckout) {
+                      finalRec.pendingCheckoutConfirmation = true;
+                      finalRec.currentState = localRec?.currentState || finalRec.currentState;
+                      if (localRec?.recordedExitTime) finalRec.recordedExitTime = localRec.recordedExitTime;
+                      if (localRec?.geofenceExitTime) finalRec.geofenceExitTime = localRec.geofenceExitTime;
+                    }
+                  }
                 }
               } else {
                 syncDecision = 'CREATED_FROM_SERVER';

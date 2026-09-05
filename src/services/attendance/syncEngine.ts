@@ -539,6 +539,35 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
             : (record.version || 1)
         });
 
+        // OFFLINE RACE CONDITION FIX: Never allow a local sync to downgrade a server record's authoritative status
+        if (serverData) {
+          if (sanitizedRecord.checkoutStatus === 'UNRESOLVED' || sanitizedRecord.checkoutStatus === 'PENDING_ADMIN_REVIEW' || !sanitizedRecord.checkoutStatus) {
+            delete (sanitizedRecord as any).checkoutStatus;
+          }
+          if (sanitizedRecord.status === 'UNRESOLVED' || !sanitizedRecord.status) {
+            delete (sanitizedRecord as any).status;
+          }
+          if (sanitizedRecord.attendanceStatus === 'UNRESOLVED' || !sanitizedRecord.attendanceStatus) {
+            delete (sanitizedRecord as any).attendanceStatus;
+          }
+          if (sanitizedRecord.isAdminRectified === false) {
+            delete (sanitizedRecord as any).isAdminRectified;
+          }
+          if (sanitizedRecord.manualRectified === false) {
+            delete (sanitizedRecord as any).manualRectified;
+          }
+          if (sanitizedRecord.checkoutFinalized === false) {
+            delete (sanitizedRecord as any).checkoutFinalized;
+          }
+          
+          // Protect checkOutTime from being downgraded to UNRESOLVED or empty if server has a valid time
+          if (serverData.checkOutTime && serverData.checkOutTime !== 'UNRESOLVED' && serverData.checkOutTime !== '--:--' && serverData.checkOutTime !== 'Pending' && serverData.checkOutTime !== 'N/A') {
+            if (!sanitizedRecord.checkOutTime || sanitizedRecord.checkOutTime === 'UNRESOLVED' || sanitizedRecord.checkOutTime === '--:--' || sanitizedRecord.checkOutTime === 'Pending' || sanitizedRecord.checkOutTime === 'N/A') {
+              delete (sanitizedRecord as any).checkOutTime;
+            }
+          }
+        }
+
         await setDoc(docRef, sanitizedRecord, { merge: true });
 
         logAttendanceWriteDiagnostic(
