@@ -497,6 +497,7 @@ export const AdminDashboard: React.FC = () => {
   }, [deduplicatedRegistrations, adminUser?.uid, adminUser?.email, loginId]);
 
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [rawFirestoreAttendance, setRawFirestoreAttendance] = useState<AttendanceRecord[]>([]);
   const [liveLocations, setLiveLocations] = useState<LiveEmployeeLocation[]>([]);
   const [expenseRecords, setExpenseRecords] = useState<ExpenseRecord[]>([]);
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
@@ -797,6 +798,7 @@ export const AdminDashboard: React.FC = () => {
       snapshot.forEach((doc) => {
         firestoreAtt.push({ id: doc.id, ...doc.data() } as AttendanceRecord);
       });
+      setRawFirestoreAttendance(firestoreAtt);
       const mergedAtt = processAdminAttendanceRecords(firestoreAtt);
       setAttendanceRecords(mergedAtt);
       attendanceLoaded = true;
@@ -1259,10 +1261,92 @@ export const AdminDashboard: React.FC = () => {
   const pendingExpenseCount = expenseRecords.filter((e) => !e.status || e.status.toUpperCase() === 'PENDING' || e.status === 'Pending').length;
   const pendingLeaveCount = leaves.filter((l) => l.status === 'PENDING').length;
 
-  const unresolvedAttendanceCount = attendanceRecords.filter((r) => {
-    const eff = getEffectiveCheckoutStatus(r);
-    return eff === 'UNRESOLVED' || eff === 'PENDING_ADMIN_REVIEW';
-  }).length;
+  const deduplicatedFirestoreAttendance = React.useMemo(() => {
+    const map = new Map<string, AttendanceRecord>();
+    rawFirestoreAttendance.forEach((rec) => {
+      if (!rec) return;
+      const key = getAttendanceCanonicalKey(rec);
+      if (!key) return;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, rec);
+      } else {
+        if (isServerAttendanceAuthoritative(rec) && !isServerAttendanceAuthoritative(existing)) {
+          map.set(key, rec);
+        } else if (!isServerAttendanceAuthoritative(rec) && isServerAttendanceAuthoritative(existing)) {
+          // keep existing
+        } else {
+          const recTime = rec.updatedAt ? new Date(rec.updatedAt).getTime() : 0;
+          const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+          if (recTime >= existingTime) {
+            map.set(key, rec);
+          }
+        }
+      }
+    });
+    return Array.from(map.values());
+  }, [rawFirestoreAttendance]);
+
+  const unresolvedAttendanceCount = React.useMemo(() => {
+    return deduplicatedFirestoreAttendance.filter((record) => {
+      if (!record) return false;
+
+      // 1. Authoritative server records (Admin rectified / resolved) are NEVER unresolved
+      if (isServerAttendanceAuthoritative(record)) return false;
+
+      // 2. Explicit Admin rectification / manual override flags
+      if (record.isAdminRectified === true) return false;
+      if (record.manualRectified === true) return false;
+      if (record.checkoutFinalized === true) return false;
+
+      // 3. Admin resolution source
+      const resSource = String(record.resolutionSource || '').trim().toUpperCase();
+      if (resSource === 'ADMIN_CORRECTION' || resSource === 'ADMIN_APPROVED_PROPOSAL') return false;
+
+      // 4. Admin resolver identity
+      const resolvedBy = String(record.checkoutResolvedBy || '').trim().toLowerCase();
+      if (
+        resolvedBy.includes('admin') ||
+        resolvedBy.includes('super-admin') ||
+        resolvedBy.includes('super_admin') ||
+        resolvedBy.includes('super admin') ||
+        resolvedBy === 'manager' ||
+        resolvedBy === 'system_admin' ||
+        resolvedBy === 'system' ||
+        resolvedBy === 'admin portal' ||
+        resolvedBy === 'admin dashboard'
+      ) {
+        return false;
+      }
+
+      // 5. Admin correction history entries
+      if (Array.isArray(record.correctionHistory) && record.correctionHistory.length > 0) {
+        const hasAdminCorrection = record.correctionHistory.some((c: any) => {
+          const by = String(c?.correctedBy || c?.correctedByRole || c?.by || '').toLowerCase();
+          const source = String(c?.correctionSource || '').toLowerCase();
+          return (
+            by.includes('admin') ||
+            source.includes('admin') ||
+            !!(c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--')
+          );
+        });
+        if (hasAdminCorrection) return false;
+      }
+
+      // 6. Effective checkout status check
+      const effectiveStatus = getEffectiveCheckoutStatus(record);
+
+      if (effectiveStatus === 'COMPLETED' || effectiveStatus === 'FINALIZED' || record.attendanceStatus === 'RESOLVED') {
+        return false;
+      }
+
+      if (effectiveStatus === 'PENDING_EXIT_CONFIRMATION' || effectiveStatus === 'PENDING_AUTO_CHECKOUT') {
+        return false;
+      }
+
+      return isAttendanceCheckoutUnresolved(record) || effectiveStatus === 'UNRESOLVED' || effectiveStatus === 'PENDING_ADMIN_REVIEW';
+    }).length;
+  }, [deduplicatedFirestoreAttendance]);
 
   const consoleTitle = role === 'SUPER_ADMIN' ? 'Super Admin Console' : role === 'HR' ? 'HR Management Console' : 'Admin Operations Console';
 
