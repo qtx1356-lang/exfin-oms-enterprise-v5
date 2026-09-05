@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '@/src/utils/apiConfig';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, collection, query, where, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { AttendanceRecord } from '../../types/attendance';
 import { 
@@ -143,7 +143,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
       attempt++;
       try {
         const documentKey = record.docId || `${record.employeeId}_${record.date}` || record.id;
-        const docRef = doc(activeDb, 'attendance', documentKey);
+        let targetDocRef = doc(activeDb, 'attendance', documentKey);
         const localServerSyncTime = new Date().toISOString();
 
         logSyncServerWrite('Attendance', record.id);
@@ -187,9 +187,37 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
 
         if (!isExplicitAdminCorrection) {
           try {
-            const serverSnap = await getDoc(docRef);
+            const serverSnap = await getDoc(targetDocRef);
             if (serverSnap.exists()) {
               serverData = serverSnap.data();
+            } else if (record.employeeId && record.date) {
+              // Fallback query to find server document if stored under a different ID
+              const q1 = query(
+                collection(activeDb, 'attendance'),
+                where('employeeId', '==', record.employeeId),
+                where('date', '==', record.date),
+                limit(1)
+              );
+              const snap1 = await getDocs(q1);
+              if (!snap1.empty) {
+                targetDocRef = snap1.docs[0].ref;
+                serverData = snap1.docs[0].data();
+              } else {
+                const q2 = query(
+                  collection(activeDb, 'attendance'),
+                  where('employeeCode', '==', record.employeeId),
+                  where('date', '==', record.date),
+                  limit(1)
+                );
+                const snap2 = await getDocs(q2);
+                if (!snap2.empty) {
+                  targetDocRef = snap2.docs[0].ref;
+                  serverData = snap2.docs[0].data();
+                }
+              }
+            }
+
+            if (serverData) {
               if (hasActualCheckIn(serverData)) {
                 const earliest = getEarliestCheckInTime(serverData.checkInTime, finalCheckInTime) || serverData.checkInTime;
                 finalCheckInTime = earliest;
@@ -380,9 +408,67 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           }
         }
 
+        // WRITE BOUNDARY PROTECTION:
+        // If the server record is already Admin-authoritative, DO NOT write/merge unauthoritative resolution fields to Firestore!
+        if (isRecordProtectedByAdmin && !isExplicitAdminCorrection) {
+          const safeOperationalUpdate: Record<string, any> = {
+            updatedAt: new Date().toISOString(),
+            serverSyncTime: localServerSyncTime,
+            serverSyncTimestamp: serverTimestamp()
+          };
+          if (record.currentLatitude !== undefined) safeOperationalUpdate.currentLatitude = record.currentLatitude;
+          if (record.currentLongitude !== undefined) safeOperationalUpdate.currentLongitude = record.currentLongitude;
+          if (record.currentDistance !== undefined) safeOperationalUpdate.currentDistance = record.currentDistance;
+          if (record.currentTownCity !== undefined) safeOperationalUpdate.currentTownCity = record.currentTownCity;
+          if (record.currentLocationTimestamp !== undefined) safeOperationalUpdate.currentLocationTimestamp = record.currentLocationTimestamp;
+          if (record.currentLocationStatus !== undefined) safeOperationalUpdate.currentLocationStatus = record.currentLocationStatus;
+
+          const sanitizedSafeUpdate = sanitizeFirestorePayload(safeOperationalUpdate);
+          await setDoc(targetDocRef, sanitizedSafeUpdate, { merge: true });
+
+          const authoritativeLocalRecord: AttendanceRecord = {
+            ...(serverData || {}),
+            ...record,
+            id: record.id,
+            docId: targetDocRef.id,
+            checkInTime: finalCheckInTime,
+            checkOutTime: finalCheckOutTime,
+            checkoutStatus: 'COMPLETED',
+            status: finalStatus || 'completed',
+            attendanceStatus: 'RESOLVED',
+            workingHours: finalWorkingHours,
+            isAdminRectified: true,
+            manualRectified: true,
+            checkoutResolvedBy: finalCheckoutResolvedBy || 'admin',
+            checkoutResolvedAt: finalCheckoutResolvedAt || localServerSyncTime,
+            correctionHistory: finalCorrectionHistory,
+            checkoutType: finalCheckoutType || 'Manual Checkout',
+            resolutionSource: finalResolutionSource || 'ADMIN_CORRECTION',
+            checkoutFinalizationSource: finalCheckoutFinalizationSource || 'MANUAL_CHECKOUT',
+            currentState: 'CHECKED_OUT',
+            checkoutFinalized: true,
+            checkoutConfirmed: true,
+            pendingCheckoutConfirmation: false,
+            syncStatus: 'Synced',
+            serverSyncTime: localServerSyncTime
+          };
+          delete (authoritativeLocalRecord as any).employeeProposedCheckoutTime;
+          delete (authoritativeLocalRecord as any).employeeProvidedCheckoutTime;
+          delete (authoritativeLocalRecord as any).resolutionReason;
+
+          saveAttendanceRecord(authoritativeLocalRecord);
+          markRecordSyncedInLocal(record.id, localServerSyncTime);
+          logSyncServerConfirm('Attendance', record.id);
+          recordSyncSuccess('Attendance', record.id);
+          logSyncComplete('Attendance', record.id);
+          syncedCount++;
+          success = true;
+          break;
+        }
+
         const sanitizedRecord = sanitizeFirestorePayload({
           ...record,
-          docId: documentKey,
+          docId: targetDocRef.id,
           syncStatus: 'Synced',
           serverSyncTime: localServerSyncTime,
           serverSyncTimestamp: serverTimestamp(),
@@ -472,7 +558,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           }
         }
 
-        await setDoc(docRef, sanitizedRecord, { merge: true });
+        await setDoc(targetDocRef, sanitizedRecord, { merge: true });
 
         logAttendanceWriteDiagnostic(
           isExplicitAdminCorrection ? 'ADMIN_ATTENDANCE_CORRECTION' : 'SyncEngine',

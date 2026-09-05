@@ -1094,6 +1094,9 @@ export const AdminDashboard: React.FC = () => {
 
       const rawPrevStatus = currentRecordData.checkoutStatus || currentRecordData.status;
 
+      const isApprovedProposal = !!(targetRecord?.employeeProposedCheckoutTime || currentRecordData?.employeeProposedCheckoutTime || reasonText.toLowerCase().includes('approv'));
+      const determinedResolutionSource = isApprovedProposal ? 'ADMIN_APPROVED_PROPOSAL' : 'ADMIN_CORRECTION';
+
       const updatePayload: Record<string, any> = {
         checkInTime: proposedIn,
         checkOutTime: finalCheckOutTime,
@@ -1105,7 +1108,7 @@ export const AdminDashboard: React.FC = () => {
         attendanceStatus: isResolvedCheckout ? 'RESOLVED' : 'UNRESOLVED',
         checkoutResolvedBy: adminUser?.displayName || loginId || 'Admin',
         checkoutResolvedAt: new Date().toISOString(),
-        resolutionSource: 'ADMIN_CORRECTION',
+        resolutionSource: determinedResolutionSource,
         status: isResolvedCheckout ? 'completed' : 'UNRESOLVED',
         manualRectified: true,
         isAdminRectified: true,
@@ -1115,6 +1118,12 @@ export const AdminDashboard: React.FC = () => {
         pendingCheckoutConfirmation: false,
         checkoutFinalized: isResolvedCheckout
       };
+
+      if (isResolvedCheckout) {
+        updatePayload.employeeProposedCheckoutTime = null;
+        updatePayload.employeeProvidedCheckoutTime = null;
+        updatePayload.resolutionReason = null;
+      }
 
       if (rawPrevStatus !== undefined && rawPrevStatus !== null && rawPrevStatus !== '') {
         updatePayload.previousStatus = rawPrevStatus;

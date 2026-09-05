@@ -7,6 +7,7 @@ import { getTodayAttendanceRecord, saveAttendanceRecord } from '../../services/a
 import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEngine';
 import { AutomaticAttendanceEngine } from '../../services/attendance/automaticAttendanceEngine';
 import { AttendanceRecord } from '../../types/attendance';
+import { isServerAttendanceAuthoritative } from '../../utils/attendanceUtils';
 
 export const CheckoutConfirmationModal: React.FC = () => {
   const { employeeData } = useRegistration();
@@ -56,6 +57,9 @@ export const CheckoutConfirmationModal: React.FC = () => {
 
     if (
       record &&
+      !isServerAttendanceAuthoritative(record) &&
+      !record.isAdminRectified &&
+      !record.checkoutFinalized &&
       record.checkInTime &&
       record.checkInTime !== '--:--' &&
       isCheckOutMissing &&

@@ -5,6 +5,7 @@ import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEn
 import { AutomaticAttendanceEngine } from '../../services/attendance/automaticAttendanceEngine';
 import { useRegistration } from '../../context/RegistrationContext';
 import { syncPendingAttendanceRecords } from '../../services/attendance/syncEngine';
+import { isServerAttendanceAuthoritative, isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
 import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { AlertCircle, Clock, Check } from 'lucide-react';
@@ -48,6 +49,10 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
         if (rEmp !== empId) return false;
         if (r.date >= todayStr) return false;
         
+        // Never trigger recovery modal for records that are already Admin-authoritative or resolved
+        if (isServerAttendanceAuthoritative(r)) return false;
+        if (!isAttendanceCheckoutUnresolved(r)) return false;
+
         // Target specifically: attendance is applicable Office attendance AND date is previous day AND attendanceStatus/checkoutStatus = UNRESOLVED AND checkoutTime = EMPTY AND not already EMPLOYEE_REPORTED
         const isOffice = r.attendanceType === 'OFFICE' || !r.attendanceType;
         const isUnresolved = r.attendanceStatus === 'UNRESOLVED' || r.checkoutStatus === 'UNRESOLVED';

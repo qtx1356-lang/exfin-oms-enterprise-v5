@@ -43,7 +43,7 @@ import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { LocationGate } from '../../components/common/LocationGate';
 import { AttendanceRecord, AttendanceType, OutdoorWorkTypeOption, LiveEmployeeLocation } from '../../types/attendance';
 import { getStoredLeaves } from '../../services/leave/leaveStorage';
-import { isAttendanceCheckoutUnresolved, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, isServerAttendanceAuthoritative, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails } from '../../utils/attendanceUtils';
 import { useSensitiveActionGuard } from '../../services/security/useSensitiveActionGuard';
 
 const ATTENDANCE_REFRESH_INTERVAL = 60000; // 60 seconds
@@ -183,7 +183,10 @@ export const AttendanceScreen: React.FC = () => {
 
   // Handle employee submitting or updating proposed checkout time
   const handleSubmitProposedTime = () => executeSensitiveAction('ATTENDANCE_CHECKOUT_RESOLUTION', async () => {
-    if (!activeUnresolvedRecord) return;
+    if (!activeUnresolvedRecord || isServerAttendanceAuthoritative(activeUnresolvedRecord)) {
+      setProposalError('This record has already been authoritatively resolved by an administrator.');
+      return;
+    }
     setProposalError(null);
 
     const rawTime = proposedTimeInput.trim();

@@ -427,6 +427,9 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                     pendingCheckoutConfirmation: false,
                     syncStatus: 'Synced'
                   };
+                  delete (finalRec as any).employeeProposedCheckoutTime;
+                  delete (finalRec as any).employeeProvidedCheckoutTime;
+                  delete (finalRec as any).resolutionReason;
                   if (!finalRec.workingHours && finalRec.checkInTime && finalRec.checkOutTime) {
                     finalRec.workingHours = calculateWorkingHours(finalRec.checkInTime, finalRec.checkOutTime);
                   }
