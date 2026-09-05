@@ -2,7 +2,15 @@ import { API_BASE_URL } from '@/src/utils/apiConfig';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { AttendanceRecord } from '../../types/attendance';
-import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic, isAdminContextActive } from '../../utils/attendanceUtils';
+import { 
+  hasActualCheckIn, 
+  getEarliestCheckInTime, 
+  logAttendanceWriteDiagnostic, 
+  isAdminContextActive,
+  isServerAttendanceAuthoritative,
+  findLatestAdminCorrection,
+  recoverAuthoritativeAdminFields
+} from '../../utils/attendanceUtils';
 import {
   getPendingAttendanceRecords,
   markRecordSyncedInLocal,
@@ -44,110 +52,6 @@ function sanitizeFirestorePayload<T extends Record<string, any>>(obj: T): T {
     }
   }
   return clean as T;
-}
-
-/**
- * Checks whether an existing server attendance record is Admin-authoritative.
- * An Admin-authoritative server document must NEVER be downgraded, altered, or reverted
- * by employee background synchronization or employee-proposed checkout submissions.
- */
-function isServerRecordAdminAuthoritative(serverData: any): boolean {
-  if (!serverData || typeof serverData !== 'object') return false;
-
-  // 1. serverData.isAdminRectified === true
-  if (serverData.isAdminRectified === true) return true;
-
-  // 2. serverData.manualRectified === true
-  if (serverData.manualRectified === true) return true;
-
-  // 3. serverData.checkoutResolvedBy represents an Admin/Super-Admin correction
-  const resolvedBy = String(serverData.checkoutResolvedBy || '').toLowerCase();
-  if (
-    resolvedBy.includes('admin') ||
-    resolvedBy.includes('super-admin') ||
-    resolvedBy.includes('super_admin') ||
-    resolvedBy === 'manager' ||
-    resolvedBy === 'system_admin'
-  ) {
-    return true;
-  }
-
-  // 4. serverData.checkoutStatus === 'COMPLETED'
-  if (serverData.checkoutStatus === 'COMPLETED') return true;
-
-  // 5. serverData.checkoutStatus === 'FINALIZED'
-  if (serverData.checkoutStatus === 'FINALIZED') return true;
-
-  // 6. serverData.checkoutFinalized === true
-  if (serverData.checkoutFinalized === true) return true;
-
-  // 7. serverData.currentState === 'CHECKED_OUT'
-  if (serverData.currentState === 'CHECKED_OUT') return true;
-
-  // 8 & 9. serverData.correctionHistory contains a valid Admin/Super-Admin correction entry
-  // OR correctionSource such as 'Admin Dashboard Portal'
-  if (Array.isArray(serverData.correctionHistory) && serverData.correctionHistory.length > 0) {
-    const hasAdminCorrection = serverData.correctionHistory.some((c: any) => {
-      if (!c || typeof c !== 'object') return false;
-      const by = String(c.correctedBy || c.correctedByRole || '').toLowerCase();
-      const source = String(c.correctionSource || '').toLowerCase();
-      if (
-        source.includes('admin') ||
-        source.includes('dashboard portal') ||
-        source === 'admin dashboard portal'
-      ) {
-        return true;
-      }
-      if (
-        by.includes('admin') ||
-        by.includes('super-admin') ||
-        by.includes('super_admin') ||
-        by === 'manager' ||
-        by === 'system_admin'
-      ) {
-        return true;
-      }
-      if (
-        c.correctedCheckOut &&
-        typeof c.correctedCheckOut === 'string' &&
-        c.correctedCheckOut !== 'UNRESOLVED' &&
-        c.correctedCheckOut !== '--:--' &&
-        c.correctedCheckOut !== 'Pending' &&
-        c.correctedCheckOut !== 'N/A'
-      ) {
-        return true;
-      }
-      return false;
-    });
-    if (hasAdminCorrection) return true;
-  }
-
-  return false;
-}
-
-/**
- * Extracts the most recent valid Admin/Super-Admin correction entry from correctionHistory.
- */
-function findLatestAdminCorrection(history: any[]): any | null {
-  if (!Array.isArray(history) || history.length === 0) return null;
-  // Inspect in reverse order (newest first)
-  for (let i = history.length - 1; i >= 0; i--) {
-    const c = history[i];
-    if (!c || typeof c !== 'object') continue;
-    const time = c.correctedCheckOut;
-    if (
-      time &&
-      typeof time === 'string' &&
-      time.trim() !== '' &&
-      time !== 'UNRESOLVED' &&
-      time !== '--:--' &&
-      time !== 'Pending' &&
-      time !== 'N/A'
-    ) {
-      return c;
-    }
-  }
-  return null;
 }
 
 export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: number; errorsCount: number }> => {
@@ -325,8 +229,8 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
               }
 
               // REQUIRED SERVER-AUTHORITY RULE:
-              // Treat a server attendance record as ADMIN-AUTHORITATIVE when ANY of the 9 conditions is true.
-              const isServerAdminAuth = isServerRecordAdminAuthoritative(serverData);
+              // Treat a server attendance record as ADMIN-AUTHORITATIVE when ANY of the authoritative conditions is true.
+              const isServerAdminAuth = isServerAttendanceAuthoritative(serverData);
 
               if (isServerAdminAuth) {
                 isRecordProtectedByAdmin = true;

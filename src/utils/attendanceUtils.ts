@@ -1,5 +1,5 @@
 import { AttendanceRecord, LiveEmployeeLocation } from '../types/attendance';
-import { OFFICE_LOCATION, getDistanceFromLatLonInM, parseAttendanceTimeToMinutes } from '../services/attendance/smartAttendanceEngine';
+import { OFFICE_LOCATION, getDistanceFromLatLonInM, parseAttendanceTimeToMinutes, calculateWorkingHours } from '../services/attendance/smartAttendanceEngine';
 
 /**
  * Parses attendance time string to minutes from midnight.
@@ -113,6 +113,148 @@ export const hasActualCheckIn = (record: AttendanceRecord | any | null | undefin
 };
 
 /**
+ * Authoritative predicate to determine if a Firestore (or local) attendance record
+ * is Admin-authoritative.
+ * 
+ * An Admin-authoritative record must NEVER be downgraded, altered, or reverted
+ * by employee background synchronization, offline proposal syncs, or app resumes.
+ */
+export function isServerAttendanceAuthoritative(serverRecord: any): boolean {
+  if (!serverRecord || typeof serverRecord !== 'object') return false;
+
+  // 1. Explicit Admin flags
+  if (serverRecord.isAdminRectified === true) return true;
+
+  // 2. Admin resolver identity
+  const resolvedBy = String(serverRecord.checkoutResolvedBy || '').trim().toLowerCase();
+  const isAdminResolver =
+    resolvedBy.includes('admin') ||
+    resolvedBy.includes('super-admin') ||
+    resolvedBy.includes('super_admin') ||
+    resolvedBy === 'manager' ||
+    resolvedBy === 'system_admin' ||
+    resolvedBy === 'system';
+
+  if (serverRecord.manualRectified === true && (isAdminResolver || !serverRecord.checkoutResolvedBy)) return true;
+  if (isAdminResolver && (serverRecord.checkOutTime || serverRecord.checkoutStatus === 'COMPLETED' || serverRecord.attendanceStatus === 'RESOLVED' || serverRecord.status === 'completed')) return true;
+
+  // 3. Admin Resolution Source
+  const resSource = String(serverRecord.resolutionSource || '').trim().toUpperCase();
+  if (resSource === 'ADMIN_CORRECTION' || resSource === 'ADMIN_APPROVED_PROPOSAL') return true;
+
+  // 4. Correction History inspection
+  const hasAdminCorrectionInHistory = Array.isArray(serverRecord.correctionHistory) && serverRecord.correctionHistory.some((c: any) => {
+    if (!c || typeof c !== 'object') return false;
+    const by = String(c.correctedBy || c.correctedByRole || '').trim().toLowerCase();
+    const source = String(c.correctionSource || '').trim().toLowerCase();
+    const hasAdminSource = source.includes('admin') || source.includes('dashboard portal') || source === 'admin dashboard portal';
+    const hasAdminRole = by.includes('admin') || by.includes('super-admin') || by.includes('super_admin') || by === 'manager' || by === 'system_admin';
+    const hasCorrectedCheckOut = !!(c.correctedCheckOut && typeof c.correctedCheckOut === 'string' && c.correctedCheckOut.trim() !== '' && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--' && c.correctedCheckOut !== 'Pending' && c.correctedCheckOut !== 'N/A');
+
+    if (hasAdminSource || hasAdminRole) return true;
+    if (hasCorrectedCheckOut && (hasAdminSource || hasAdminRole || !source.includes('employee'))) return true;
+    return false;
+  });
+
+  if (hasAdminCorrectionInHistory) return true;
+
+  // 5. Explicit COMPLETED status with valid Admin evidence (or completed / RESOLVED)
+  const isCompleted = serverRecord.checkoutStatus === 'COMPLETED' || serverRecord.status === 'completed' || serverRecord.attendanceStatus === 'RESOLVED';
+  const isEmployeeProposed = resSource === 'EMPLOYEE_PROPOSED' || serverRecord.verificationStatus === 'PENDING' || (serverRecord.checkoutStatus === 'UNRESOLVED' && !serverRecord.isAdminRectified);
+
+  if (isCompleted && !isEmployeeProposed) {
+    if (serverRecord.manualRectified === true || serverRecord.isAdminRectified === true || isAdminResolver || hasAdminCorrectionInHistory) {
+      return true;
+    }
+    if (serverRecord.checkoutFinalizationSource === 'ADMIN_CORRECTION' || serverRecord.checkoutFinalizationSource === 'MANUAL_CHECKOUT') {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Extracts the most recent valid Admin/Super-Admin correction entry from correctionHistory.
+ */
+export function findLatestAdminCorrection(history: any[] | undefined | null): any | null {
+  if (!Array.isArray(history) || history.length === 0) return null;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const c = history[i];
+    if (!c || typeof c !== 'object') continue;
+    const by = String(c.correctedBy || c.correctedByRole || '').toLowerCase();
+    const source = String(c.correctionSource || '').toLowerCase();
+    const hasAdminAffiliation =
+      by.includes('admin') ||
+      by.includes('super-admin') ||
+      by.includes('super_admin') ||
+      by === 'manager' ||
+      by === 'system_admin' ||
+      source.includes('admin') ||
+      source.includes('dashboard portal');
+
+    const time = c.correctedCheckOut;
+    if (time && typeof time === 'string' && time.trim() !== '' && time !== 'UNRESOLVED' && time !== '--:--' && time !== 'Pending' && time !== 'N/A') {
+      if (hasAdminAffiliation || !source.includes('employee')) {
+        return c;
+      }
+    } else if (hasAdminAffiliation) {
+      return c;
+    }
+  }
+  return null;
+}
+
+/**
+ * Recovers canonical checkout time and resolution status from Admin correction evidence.
+ */
+export function recoverAuthoritativeAdminFields(record: any): {
+  checkOutTime: string | null;
+  checkoutStatus: 'COMPLETED';
+  status: 'completed';
+  attendanceStatus: 'RESOLVED';
+  workingHours: string | null;
+  isAdminRectified: true;
+  manualRectified: true;
+  checkoutResolvedBy: string;
+} | null {
+  if (!record || typeof record !== 'object') return null;
+  const isAuth = isServerAttendanceAuthoritative(record);
+  const latestCorrection = findLatestAdminCorrection(record.correctionHistory);
+
+  if (!isAuth && !latestCorrection) return null;
+
+  let checkOutTime: string | null = null;
+  const rawCheckOut = record.checkOutTime;
+  const isValidTime = rawCheckOut && typeof rawCheckOut === 'string' && rawCheckOut.trim() !== '' && rawCheckOut !== 'UNRESOLVED' && rawCheckOut !== '--:--' && rawCheckOut !== 'Pending' && rawCheckOut !== 'N/A';
+
+  if (isValidTime && record.resolutionSource !== 'EMPLOYEE_PROPOSED') {
+    checkOutTime = rawCheckOut;
+  } else if (latestCorrection?.correctedCheckOut) {
+    checkOutTime = latestCorrection.correctedCheckOut;
+  } else if (isValidTime) {
+    checkOutTime = rawCheckOut;
+  }
+
+  if (!checkOutTime) return null;
+
+  const checkInTime = record.checkInTime;
+  const workingHours = record.workingHours || (checkInTime && checkOutTime ? calculateWorkingHours(checkInTime, checkOutTime) : null);
+  const checkoutResolvedBy = record.checkoutResolvedBy || latestCorrection?.correctedBy || 'admin';
+
+  return {
+    checkOutTime,
+    checkoutStatus: 'COMPLETED',
+    status: 'completed',
+    attendanceStatus: 'RESOLVED',
+    workingHours,
+    isAdminRectified: true,
+    manualRectified: true,
+    checkoutResolvedBy
+  };
+}
+
+/**
  * Authoritative helper to determine if an attendance record has an unresolved checkout.
  * 
  * A record is UNRESOLVED when:
@@ -124,6 +266,11 @@ export const hasActualCheckIn = (record: AttendanceRecord | any | null | undefin
  */
 export const isAttendanceCheckoutUnresolved = (record: AttendanceRecord): boolean => {
   if (!record) return false;
+
+  // If record is Admin-authoritative, it is NEVER unresolved
+  if (isServerAttendanceAuthoritative(record)) {
+    return false;
+  }
 
   // 1. Get today's date in IST (matching engine logic) robustly as YYYY-MM-DD
   let todayStr: string;
@@ -213,29 +360,7 @@ export const getEffectiveCheckoutStatus = (record: AttendanceRecord): 'COMPLETED
   const isCheckOutMissing = !checkOutValue || checkOutValue === '--:--' || checkOutValue === '--:-- --' || checkOutValue === 'Pending' || checkOutValue === 'N/A' || checkOutValue === 'UNRESOLVED';
 
   // 1. ADMIN AUTHORITATIVE OVERRIDE: If Admin has approved or rectified this record, it is ALWAYS COMPLETED
-  const hasAdminCorrection = Array.isArray(record.correctionHistory) && record.correctionHistory.some((c: any) => {
-    const by = String(c?.correctedBy || c?.correctedByRole || '').toLowerCase();
-    return by.includes('admin') || !!(c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
-  });
-
-  const isAuthoritativeAdmin = !!(
-    record.isAdminRectified ||
-    record.manualRectified ||
-    record.checkoutFinalized === true ||
-    record.checkoutStatus === 'COMPLETED' ||
-    record.checkoutStatus === 'FINALIZED' ||
-    record.attendanceStatus === 'RESOLVED' ||
-    record.status === 'completed' ||
-    record.resolutionSource === 'ADMIN_CORRECTION' ||
-    record.resolutionSource === 'ADMIN_APPROVED_PROPOSAL' ||
-    hasAdminCorrection
-  );
-
-  if (isAuthoritativeAdmin) {
-    // If checkOutTime is missing but we have an authoritative correction or proposal, it is COMPLETED
-    if (!isCheckOutMissing) return 'COMPLETED';
-    if (hasAdminCorrection) return 'COMPLETED';
-    if (record.employeeProposedCheckoutTime || record.employeeProvidedCheckoutTime) return 'COMPLETED';
+  if (isServerAttendanceAuthoritative(record)) {
     return 'COMPLETED';
   }
 

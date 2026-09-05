@@ -33,7 +33,14 @@ import { saveExpenseRecord, getStoredExpenseRecords } from '../services/expenses
 import { getPendingAttendanceRecords, saveAttendanceRecord, saveMultipleAttendanceRecords, getStoredAttendanceRecords, runSafeUnresolvedHistoricalMigration, runSafeWorkingHoursNormalization } from '../services/attendance/attendanceStorage';
 import { parseAttendanceTimeToMinutes } from '../services/attendance/automaticAttendanceEngine';
 import { calculateWorkingHours } from '../services/attendance/smartAttendanceEngine';
-import { hasActualCheckIn, getEarliestCheckInTime, getAttendanceCanonicalKey } from '../utils/attendanceUtils';
+import { 
+  hasActualCheckIn, 
+  getEarliestCheckInTime, 
+  getAttendanceCanonicalKey,
+  isServerAttendanceAuthoritative,
+  findLatestAdminCorrection,
+  recoverAuthoritativeAdminFields
+} from '../utils/attendanceUtils';
 import { logSyncListenerUpdate } from '../services/sync/syncPerformanceLogger';
 import { useNetworkStatus, networkStatusService } from '../services/network/networkStatusService';
 
@@ -377,45 +384,21 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                 const localVersion = localRec.version || 0;
 
                 // SERVER AUTHORITY RULE:
-                // Treat the server record as authoritative when ANY of these are true:
-                // - isAdminRectified === true
-                // - manualRectified === true
-                // - checkoutStatus === "COMPLETED" or "FINALIZED"
-                // - checkoutResolvedBy === "admin" or "ADMIN"
-                // - an Admin correction exists in correctionHistory
-                const hasAdminInCorrectionHistory = Array.isArray(sa.correctionHistory) && sa.correctionHistory.some((c: any) => {
-                  const by = String(c?.correctedBy || c?.correctedByRole || '').toLowerCase();
-                  return by.includes('admin') || !!(c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--');
-                });
+                // An Admin-authoritative record must NEVER be downgraded, altered, or reverted
+                // by employee background synchronization or stale local state.
+                const isServerAdminAuth = isServerAttendanceAuthoritative(sa);
 
-                const isServerAdminAuthoritative = !!(
-                  sa.isAdminRectified === true ||
-                  sa.manualRectified === true ||
-                  sa.checkoutFinalized === true ||
-                  sa.checkoutStatus === 'COMPLETED' ||
-                  sa.checkoutStatus === 'FINALIZED' ||
-                  sa.attendanceStatus === 'RESOLVED' ||
-                  sa.status === 'completed' ||
-                  sa.checkoutResolvedBy ||
-                  sa.checkoutResolvedAt ||
-                  sa.resolutionSource === 'ADMIN_CORRECTION' ||
-                  sa.resolutionSource === 'ADMIN_APPROVED_PROPOSAL' ||
-                  hasAdminInCorrectionHistory
-                );
-
-                const serverRectified = isServerAdminAuthoritative || !!sa.correctedAt || sa.checkOutMode === 'MANUAL' || sa.checkoutType === 'MANUAL';
+                const serverRectified = isServerAdminAuth || !!sa.correctedAt || sa.checkOutMode === 'MANUAL' || sa.checkoutType === 'MANUAL';
                 const localRectified = localRec.manualRectified || localRec.isAdminRectified || !!localRec.correctedAt || localRec.checkOutMode === 'MANUAL' || localRec.checkoutType === 'MANUAL';
 
-                if (isServerAdminAuthoritative) {
+                if (isServerAdminAuth) {
                   // STEP 3: CORRECTION HISTORY RECOVERY & PROPOSED TIME RECOVERY
                   let authoritativeCheckOut = sa.checkOutTime;
                   if (
                     (!authoritativeCheckOut || authoritativeCheckOut === 'UNRESOLVED' || authoritativeCheckOut === '--:--' || authoritativeCheckOut === 'Pending' || authoritativeCheckOut === 'N/A') &&
                     Array.isArray(sa.correctionHistory)
                   ) {
-                    const latestCorrection = [...sa.correctionHistory].reverse().find(
-                      (c: any) => c && c.correctedCheckOut && c.correctedCheckOut !== 'UNRESOLVED' && c.correctedCheckOut !== '--:--'
-                    );
+                    const latestCorrection = findLatestAdminCorrection(sa.correctionHistory);
                     if (latestCorrection && latestCorrection.correctedCheckOut) {
                       authoritativeCheckOut = latestCorrection.correctedCheckOut;
                     }
@@ -491,7 +474,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
 
                 // WRITE-ONCE CHECK-IN TIME SAFEGUARD:
                 // If either localRec or sa has a valid check-in time, ensure the EARLIEST valid check-in time is strictly preserved.
-                if ((hasActualCheckIn(localRec) || hasActualCheckIn(sa)) && !isServerAdminAuthoritative && !sa.isAdminRectified && !sa.manualRectified) {
+                if ((hasActualCheckIn(localRec) || hasActualCheckIn(sa)) && !isServerAdminAuth && !sa.isAdminRectified && !sa.manualRectified) {
                   const earliestIn = getEarliestCheckInTime(localRec?.checkInTime, sa?.checkInTime);
                   if (earliestIn) {
                     finalRec = { ...finalRec, checkInTime: earliestIn };
@@ -550,7 +533,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                   }
 
                   // SAFEGUARD: Never wipe out an active local pending exit prompt with an unfinalized server snapshot
-                  if (!isServerAdminAuthoritative && !sa?.isAdminRectified && !sa?.manualRectified) {
+                  if (!isServerAdminAuth && !sa?.isAdminRectified && !sa?.manualRectified) {
                     const localHasPendingExit = localRec?.pendingCheckoutConfirmation ||
                       localRec?.currentState === 'PENDING_AUTO_CHECKOUT' ||
                       localRec?.currentState === 'PENDING_EXIT_CONFIRMATION' ||

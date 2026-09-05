@@ -16,7 +16,7 @@ import { logAttendanceEvent } from './attendanceLogger';
 import { createNotification } from '../notification/notificationService';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { updateLiveEmployeeLocation } from '../location/liveLocationService';
-import { isAdminContextActive, logAttendanceWriteDiagnostic } from '../../utils/attendanceUtils';
+import { isAdminContextActive, logAttendanceWriteDiagnostic, isServerAttendanceAuthoritative } from '../../utils/attendanceUtils';
 
 const env = typeof import.meta !== 'undefined' && import.meta?.env ? import.meta.env : ({} as any);
 
@@ -1134,6 +1134,12 @@ export const AutomaticAttendanceEngine = {
     const record = getTodayAttendanceRecord(employeeId, dateStr);
     if (!record) return null;
 
+    // RULE: If record is already Admin-authoritative, employee proposal CANNOT overwrite Admin correction
+    if (isServerAttendanceAuthoritative(record)) {
+      console.warn(`[submitEmployeeCheckoutTime] Blocked employee proposal overwrite on Admin-authoritative record for ${employeeId} on ${dateStr}`);
+      return record;
+    }
+
     const eventIso = new Date().toISOString();
     const workingHours = record.checkInTime ? calculateWorkingHours(record.checkInTime, checkoutTimeStr) : null;
 
@@ -1240,7 +1246,12 @@ export const AutomaticAttendanceEngine = {
     timestamp: Date = new Date()
   ): AttendanceRecord | null {
     const record = getTodayAttendanceRecord(employeeId, dateStr);
-    if (!record || (record.checkOutTime && (record.checkoutStatus === 'FINALIZED' || record.checkoutStatus === 'COMPLETED')) || record.attendanceStatus === 'RESOLVED') {
+    if (
+      !record || 
+      (record.checkOutTime && (record.checkoutStatus === 'FINALIZED' || record.checkoutStatus === 'COMPLETED')) || 
+      record.attendanceStatus === 'RESOLVED' ||
+      isServerAttendanceAuthoritative(record)
+    ) {
       return null;
     }
 
