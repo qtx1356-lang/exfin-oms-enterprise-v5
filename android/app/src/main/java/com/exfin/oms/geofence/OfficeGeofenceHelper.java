@@ -29,8 +29,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class OfficeGeofenceHelper {
     public static final String TAG = "OfficeGeofenceHelper";
     public static final String GEOFENCE_ID = "exfin_office_geofence_25m";
-    public static final double OFFICE_LAT = 0.0;
-    public static final double OFFICE_LNG = 0.0;
+    public static final double OFFICE_LAT = 23.616227;
+    public static final double OFFICE_LNG = 87.117063;
     public static final float GEOFENCE_RADIUS_METERS = 25.0f; // 25-meter office boundary
 
     private static final String PREFS_NAME = "exfin_native_geofence_prefs";
