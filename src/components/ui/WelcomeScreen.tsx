@@ -47,9 +47,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
   const [liveDuration, setLiveDuration] = useState<string>('');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [resolvedFirstName, setResolvedFirstName] = useState<string | null>(null);
   const speechTriggeredRef = React.useRef<boolean>(false);
   const speechAudibleRef = React.useRef<boolean>(false);
   const pendingGreetingRef = React.useRef<string | null>(null);
+  const startupAttemptedRef = React.useRef<boolean>(false);
 
   const refreshAttendance = React.useCallback(() => {
     if (!employeeData) return;
@@ -202,6 +204,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     return first.charAt(0).toUpperCase() + first.slice(1);
   }, [employeeData, displayName]);
 
+  useEffect(() => {
+    if (firstName) {
+      setResolvedFirstName(firstName);
+    }
+  }, [firstName]);
+
   // Voice initialization & Audio handlers
   useEffect(() => {
     preloadGreetingAudio();
@@ -215,11 +223,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
   // Automatic personalized greeting on Welcome Screen mount / entry + Android PWA cold-start interaction retry
   useEffect(() => {
-    // Prevent duplicate playback during re-renders or state updates within this single app activation
-    if (speechTriggeredRef.current && speechAudibleRef.current) return;
+    // Prevent duplicate playback if already audible
+    if (speechAudibleRef.current) return;
 
     // Prevent premature triggering while employee identity is still hydrating asynchronously
-    const isIdentityLoading = (status === 'loading') || (status === 'Approved' && !employeeData && !firstName);
+    const isIdentityLoading = (status === 'loading') || (status === 'Approved' && !employeeData && !resolvedFirstName);
     if (isIdentityLoading) {
       return;
     }
@@ -227,31 +235,35 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     let isCancelled = false;
 
     // Build personalized spoken greeting (e.g. "Good Morning, Sanjiv!")
-    const spokenGreeting = firstName
-      ? `${greetingInfo.label}, ${firstName}!`
+    const spokenGreeting = resolvedFirstName
+      ? `${greetingInfo.label}, ${resolvedFirstName}!`
       : `${greetingInfo.label}!`;
 
     pendingGreetingRef.current = spokenGreeting;
 
     const performSpeak = async (isUserGesture: boolean) => {
-      if (speechAudibleRef.current) return;
+      if (speechAudibleRef.current || isCancelled) return;
 
       if (isSpeechAvailable()) {
         if (!isUserGesture) {
           // Await bounded voice readiness (mobile PWA / Android Chrome voice initialization)
           await waitForSpeechVoices(800);
         }
+        
         if (isCancelled || speechAudibleRef.current) return;
 
-        speechTriggeredRef.current = true;
         logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
 
         setIsSpeaking(true);
         const textToSpeak = pendingGreetingRef.current || spokenGreeting;
+        
         const started = speakGreeting(textToSpeak, {
           isUserGesture,
           onStart: () => {
+            if (isCancelled) return;
+            console.log('[WelcomeSpeech] onStart fired');
             speechAudibleRef.current = true;
+            speechTriggeredRef.current = true;
             pendingGreetingRef.current = null;
             setIsSpeaking(true);
           },
@@ -262,13 +274,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             setIsSpeaking(false);
           }
         });
+
         if (!started) {
           setIsSpeaking(false);
         }
-      } else if (!firstName) {
+      } else if (!resolvedFirstName) {
         // Fallback to pre-recorded audio ONLY for anonymous/unregistered users without firstName
-        speechTriggeredRef.current = true;
         speechAudibleRef.current = true;
+        speechTriggeredRef.current = true;
         pendingGreetingRef.current = null;
         logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
 
@@ -282,7 +295,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     };
 
     // 1. Immediate startup speech attempt
-    if (!speechTriggeredRef.current) {
+    if (!startupAttemptedRef.current) {
+      startupAttemptedRef.current = true;
       performSpeak(false);
     }
 
@@ -292,6 +306,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         cleanupInteractionListeners();
         return;
       }
+      console.log('[WelcomeSpeech] Retrying greeting on user interaction');
       cleanupInteractionListeners();
       performSpeak(true);
     };
@@ -302,15 +317,17 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       window.removeEventListener('click', handleFirstInteraction, true);
     };
 
-    window.addEventListener('pointerdown', handleFirstInteraction, { capture: true, passive: true, once: true });
-    window.addEventListener('touchstart', handleFirstInteraction, { capture: true, passive: true, once: true });
-    window.addEventListener('click', handleFirstInteraction, { capture: true, passive: true, once: true });
+    if (!speechAudibleRef.current) {
+      window.addEventListener('pointerdown', handleFirstInteraction, { capture: true, passive: true, once: true });
+      window.addEventListener('touchstart', handleFirstInteraction, { capture: true, passive: true, once: true });
+      window.addEventListener('click', handleFirstInteraction, { capture: true, passive: true, once: true });
+    }
 
     return () => {
       isCancelled = true;
       cleanupInteractionListeners();
     };
-  }, [firstName, employeeData, status, greetingInfo]);
+  }, [resolvedFirstName, employeeData, status, greetingInfo]);
 
   // Derive Location & Distance display states dynamically
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
