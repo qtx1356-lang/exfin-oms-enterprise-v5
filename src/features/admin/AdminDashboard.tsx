@@ -192,8 +192,14 @@ export const processAdminAttendanceRecords = (
       } else if (localCheckout && !existingCheckout) {
         map.set(key, { ...existing, ...localRec });
       } else if (localRec.syncStatus === 'Pending') {
-        const earliestIn = getEarliestCheckInTime(existing.checkInTime, localRec.checkInTime);
-        map.set(key, { ...existing, ...localRec, checkInTime: earliestIn || localRec.checkInTime || existing.checkInTime });
+        // Only allow local Pending record to overwrite if Firestore record is NOT Admin-rectified
+        if (existing.isAdminRectified || existing.manualRectified) {
+          // Keep the authoritative Firestore record, but maybe merge some local metadata if needed
+          map.set(key, existing);
+        } else {
+          const earliestIn = getEarliestCheckInTime(existing.checkInTime, localRec.checkInTime);
+          map.set(key, { ...existing, ...localRec, checkInTime: earliestIn || localRec.checkInTime || existing.checkInTime });
+        }
       }
     }
   });
@@ -937,6 +943,7 @@ export const AdminDashboard: React.FC = () => {
         checkoutType: updatedCheckoutType,
         checkOutMode: updatedCheckoutMode,
         checkoutStatus: proposedOut ? 'COMPLETED' : 'UNRESOLVED',
+        attendanceStatus: proposedOut ? 'RESOLVED' : 'UNRESOLVED',
         checkoutResolvedBy: adminUser?.displayName || loginId || 'Admin',
         checkoutResolvedAt: new Date().toISOString(),
         resolutionSource: isProposedTimeMatches ? 'EMPLOYEE_PROPOSED' : 'ADMIN_CORRECTION',

@@ -205,6 +205,11 @@ export const getEffectiveCheckoutStatus = (record: AttendanceRecord): 'COMPLETED
     (record as any).checkoutType === 'AUTO_CHECKOUT'
   );
 
+  // Admin Rectification is always COMPLETED
+  if (record.isAdminRectified || record.manualRectified) {
+    if (!isCheckOutMissing) return 'COMPLETED';
+  }
+
   // A genuine finalized automatic/native checkout with valid checkout timestamp -> RESOLVED / FINALIZED
   if (!isCheckOutMissing && hasAuthoritativeExit) {
     if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'UNRESOLVED_CHECKOUT') {

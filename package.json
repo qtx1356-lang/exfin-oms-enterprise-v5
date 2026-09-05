@@ -12,6 +12,7 @@
     "deploy": "wrangler pages deploy dist --project-name office-management-system"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
     "@capacitor/app": "^8.1.1",
     "@capacitor/core": "^8.5.0",
     "@capacitor/device": "^8.0.3",
