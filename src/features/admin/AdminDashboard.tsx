@@ -1096,7 +1096,17 @@ export const AdminDashboard: React.FC = () => {
 
       const rawPrevStatus = currentRecordData.checkoutStatus || currentRecordData.status;
 
-      const isApprovedProposal = !!(targetRecord?.employeeProposedCheckoutTime || currentRecordData?.employeeProposedCheckoutTime || reasonText.toLowerCase().includes('approv'));
+      const isApprovedProposal = !!(
+        targetRecord?.employeeProposedCheckoutTime ||
+        currentRecordData?.employeeProposedCheckoutTime ||
+        targetRecord?.employeeProvidedCheckoutTime ||
+        currentRecordData?.employeeProvidedCheckoutTime ||
+        targetRecord?.resolutionSource === 'EMPLOYEE_PROPOSED' ||
+        currentRecordData?.resolutionSource === 'EMPLOYEE_PROPOSED' ||
+        (targetRecord?.checkoutStatus === 'PENDING_ADMIN_REVIEW' || currentRecordData?.checkoutStatus === 'PENDING_ADMIN_REVIEW') ||
+        reasonText.toLowerCase().includes('approv') ||
+        reasonText.toLowerCase().includes('propos')
+      );
       const determinedResolutionSource = isApprovedProposal ? 'ADMIN_APPROVED_PROPOSAL' : 'ADMIN_CORRECTION';
 
       const updatePayload: Record<string, any> = {

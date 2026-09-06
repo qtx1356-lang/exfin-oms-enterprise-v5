@@ -149,7 +149,7 @@ export const CheckoutConfirmationModal: React.FC = () => {
 
     window.addEventListener('exfin-attendance-updated', handleAttendanceUpdated);
     window.addEventListener('exfin-checkout-confirmation-needed', handleAttendanceUpdated);
-    window.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
     window.addEventListener('pageshow', handleFocus);
     window.addEventListener('storage', handleAttendanceUpdated);
@@ -158,7 +158,7 @@ export const CheckoutConfirmationModal: React.FC = () => {
       clearInterval(interval);
       window.removeEventListener('exfin-attendance-updated', handleAttendanceUpdated);
       window.removeEventListener('exfin-checkout-confirmation-needed', handleAttendanceUpdated);
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('pageshow', handleFocus);
       window.removeEventListener('storage', handleAttendanceUpdated);
