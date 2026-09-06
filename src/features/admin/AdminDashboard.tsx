@@ -718,6 +718,7 @@ export const AdminDashboard: React.FC = () => {
   const [showRectifyModal, setShowRectifyModal] = useState(false);
   const [rectifyCheckIn, setRectifyCheckIn] = useState('');
   const [rectifyCheckOut, setRectifyCheckOut] = useState('');
+  const [rectifyCheckOutDirty, setRectifyCheckOutDirty] = useState(false);
   const [rectifyReason, setRectifyReason] = useState('');
   const [showRectifyConfirm, setShowRectifyConfirm] = useState(false);
   const [rectifyError, setRectifyError] = useState('');
@@ -991,9 +992,9 @@ export const AdminDashboard: React.FC = () => {
       }
 
       // Resolve effective checkout time:
-      // Manual entry > employee proposed/provided checkout time > existing valid checkout time
+      // Priority 1: Current Admin Input (proposedOut) when valid MUST have absolute authority!
       const rawProposedOut = (proposedOut || '').trim();
-      const isProposedOutValid = !!(
+      const isAdminProvidedCheckoutValid = !!(
         rawProposedOut &&
         rawProposedOut !== 'UNRESOLVED' &&
         rawProposedOut !== '--:--' &&
@@ -1002,40 +1003,68 @@ export const AdminDashboard: React.FC = () => {
         rawProposedOut !== 'N/A'
       );
 
-      const isExplicitKeepUnresolved = reasonText.trim().toLowerCase().startsWith('kept unresolved') || (!rawProposedOut && !targetRecord?.employeeProposedCheckoutTime && !currentRecordData?.employeeProposedCheckoutTime);
+      const isExplicitKeepUnresolved =
+        reasonText.trim().toLowerCase().startsWith('kept unresolved') ||
+        (!rawProposedOut && !targetRecord?.employeeProposedCheckoutTime && !currentRecordData?.employeeProposedCheckoutTime);
 
-      const effectiveCheckoutTime: string | null = isProposedOutValid
-        ? rawProposedOut
-        : (
-            isExplicitKeepUnresolved
-              ? null
-              : (
-                  (targetRecord?.employeeProposedCheckoutTime || currentRecordData?.employeeProposedCheckoutTime || '').trim() ||
-                  (targetRecord?.employeeProvidedCheckoutTime || currentRecordData?.employeeProvidedCheckoutTime || '').trim() ||
-                  (
-                    currentRecordData?.checkOutTime &&
-                    currentRecordData.checkOutTime !== 'UNRESOLVED' &&
-                    currentRecordData.checkOutTime !== '--:--' &&
-                    currentRecordData.checkOutTime !== 'Pending' &&
-                    currentRecordData.checkOutTime !== 'N/A'
-                      ? currentRecordData.checkOutTime.trim()
-                      : null
-                  ) ||
-                  (
-                    targetRecord?.checkOutTime &&
-                    targetRecord.checkOutTime !== 'UNRESOLVED' &&
-                    targetRecord.checkOutTime !== '--:--' &&
-                    targetRecord.checkOutTime !== 'Pending' &&
-                    targetRecord.checkOutTime !== 'N/A'
-                      ? targetRecord.checkOutTime.trim()
-                      : null
-                  ) ||
-                  null
-                )
-          );
+      let finalCheckOutTime: string | null = null;
 
-      const finalCheckOutTime = effectiveCheckoutTime || null;
+      if (isAdminProvidedCheckoutValid) {
+        // Priority 1: Valid Admin input MUST have absolute authority!
+        finalCheckOutTime = rawProposedOut;
+      } else if (isExplicitKeepUnresolved) {
+        finalCheckOutTime = null;
+      } else {
+        // Fallback logic ONLY when Admin input is genuinely empty/invalid
+        finalCheckOutTime =
+          (targetRecord?.employeeProposedCheckoutTime || currentRecordData?.employeeProposedCheckoutTime || '').trim() ||
+          (targetRecord?.employeeProvidedCheckoutTime || currentRecordData?.employeeProvidedCheckoutTime || '').trim() ||
+          (
+            currentRecordData?.checkOutTime &&
+            currentRecordData.checkOutTime !== 'UNRESOLVED' &&
+            currentRecordData.checkOutTime !== '--:--' &&
+            currentRecordData.checkOutTime !== 'Pending' &&
+            currentRecordData.checkOutTime !== 'N/A'
+              ? currentRecordData.checkOutTime.trim()
+              : null
+          ) ||
+          (
+            targetRecord?.checkOutTime &&
+            targetRecord.checkOutTime !== 'UNRESOLVED' &&
+            targetRecord.checkOutTime !== '--:--' &&
+            targetRecord.checkOutTime !== 'Pending' &&
+            targetRecord.checkOutTime !== 'N/A'
+              ? targetRecord.checkOutTime.trim()
+              : null
+          ) ||
+          null;
+      }
+
       const isResolvedCheckout = !!finalCheckOutTime;
+
+      // Ensure reason and audit describe the actual final checkout time and adjustment
+      let effectiveReason = reasonText.trim();
+      const origProposal = (
+        targetRecord?.employeeProposedCheckoutTime ||
+        targetRecord?.employeeProvidedCheckoutTime ||
+        currentRecordData?.employeeProposedCheckoutTime ||
+        currentRecordData?.employeeProvidedCheckoutTime ||
+        ''
+      ).trim();
+
+      if (origProposal && finalCheckOutTime) {
+        if (finalCheckOutTime.toUpperCase() !== origProposal.toUpperCase()) {
+          if (!effectiveReason || effectiveReason.includes(origProposal) || effectiveReason.toLowerCase().includes('approved employee proposed')) {
+            effectiveReason = `Approved employee proposed checkout with Admin adjustment (${finalCheckOutTime})`;
+          }
+        } else {
+          if (!effectiveReason || effectiveReason.toLowerCase().includes('approved employee proposed')) {
+            effectiveReason = `Approved employee proposed checkout (${origProposal})`;
+          }
+        }
+      } else if (!effectiveReason) {
+        effectiveReason = isResolvedCheckout ? 'Admin attendance rectification' : 'Kept unresolved by administrator';
+      }
 
       // Check if any fields actually require correction or status upgrade
       const isCheckInChanged = proposedIn !== currentRecordData.checkInTime;
@@ -1068,7 +1097,7 @@ export const AdminDashboard: React.FC = () => {
         correctedCheckIn: proposedIn,
         originalCheckOut: currentRecordData.checkOutTime || null,
         correctedCheckOut: finalCheckOutTime,
-        reason: reasonText.trim(),
+        reason: effectiveReason,
         correctedBy: loginId || adminUser?.email || 'admin',
         correctedByRole: role || 'ADMIN',
         correctedAt: new Date().toISOString()
@@ -1104,8 +1133,8 @@ export const AdminDashboard: React.FC = () => {
         targetRecord?.resolutionSource === 'EMPLOYEE_PROPOSED' ||
         currentRecordData?.resolutionSource === 'EMPLOYEE_PROPOSED' ||
         (targetRecord?.checkoutStatus === 'PENDING_ADMIN_REVIEW' || currentRecordData?.checkoutStatus === 'PENDING_ADMIN_REVIEW') ||
-        reasonText.toLowerCase().includes('approv') ||
-        reasonText.toLowerCase().includes('propos')
+        effectiveReason.toLowerCase().includes('approv') ||
+        effectiveReason.toLowerCase().includes('propos')
       );
       const determinedResolutionSource = isApprovedProposal ? 'ADMIN_APPROVED_PROPOSAL' : 'ADMIN_CORRECTION';
 
@@ -1200,9 +1229,9 @@ export const AdminDashboard: React.FC = () => {
           targetUserId: currentRecordData.employeeId || 'Unknown',
           targetUserName: currentRecordData.employeeName || 'Unknown',
           targetRecordId: targetRecord.id,
-          description: `Admin corrected attendance record for ${currentRecordData.employeeName || 'employee'} (${currentRecordData.employeeId || ''}).`,
+          description: `Admin corrected attendance record for ${currentRecordData.employeeName || 'employee'} (${currentRecordData.employeeId || ''}): ${effectiveReason}.`,
           oldValue: { checkInTime: currentRecordData.checkInTime || null, checkOutTime: currentRecordData.checkOutTime || null },
-          newValue: { checkInTime: proposedIn, checkOutTime: proposedOut || null },
+          newValue: { checkInTime: proposedIn, checkOutTime: finalCheckOutTime },
           result: 'SUCCESS',
           source: 'ADMIN_PANEL'
         }));
@@ -1859,6 +1888,7 @@ export const AdminDashboard: React.FC = () => {
               const validOut = (rec.checkOutTime && rec.checkOutTime !== 'UNRESOLVED' && rec.checkOutTime !== '--:--' && rec.checkOutTime !== 'Pending' && rec.checkOutTime !== 'N/A') ? rec.checkOutTime : '';
               const proposedOut = (rec.employeeProposedCheckoutTime || rec.employeeProvidedCheckoutTime || '').trim();
               setRectifyCheckOut(validOut || proposedOut || rec.lastExitTime || rec.exitTime || '');
+              setRectifyCheckOutDirty(false);
               setRectifyReason(proposedOut ? `Approved employee proposed checkout (${proposedOut})` : '');
               setRectifyError('');
               setShowRectifyModal(true);
@@ -2255,6 +2285,7 @@ export const AdminDashboard: React.FC = () => {
                                         const validOut = (rawOut && rawOut !== 'UNRESOLVED' && rawOut !== '--:--' && rawOut !== 'Pending' && rawOut !== 'N/A') ? rawOut : '';
                                         const proposedOut = (rec.employeeProposedCheckoutTime || rec.employeeProvidedCheckoutTime || '').trim();
                                         setRectifyCheckOut(validOut || proposedOut || rec.lastExitTime || rec.exitTime || '');
+                                        setRectifyCheckOutDirty(false);
                                         setRectifyReason(proposedOut ? `Approved employee proposed checkout (${proposedOut})` : '');
                                         setRectifyError('');
                                         setShowRectifyModal(true);
@@ -2647,7 +2678,10 @@ export const AdminDashboard: React.FC = () => {
       {/* Attendance Rectification Modal */}
       <Dialog
         isOpen={showRectifyModal && !!selectedForRectify}
-        onClose={() => setShowRectifyModal(false)}
+        onClose={() => {
+          setShowRectifyModal(false);
+          setRectifyCheckOutDirty(false);
+        }}
         title="Rectify Attendance Check-In / Check-Out"
       >
         {selectedForRectify && (
@@ -2697,10 +2731,19 @@ export const AdminDashboard: React.FC = () => {
                     type="button"
                     size="sm"
                     onClick={() => {
+                      if (rectifyCheckOutDirty && rectifyCheckOut.trim() !== proposedCheckoutVal.trim()) {
+                        return;
+                      }
                       setRectifyCheckOut(proposedCheckoutVal);
+                      setRectifyCheckOutDirty(false);
                       setRectifyReason(`Approved employee proposed checkout (${proposedCheckoutVal})`);
                     }}
                     className="bg-amber-500 hover:bg-amber-400 text-black text-xs font-black py-1 px-3 shrink-0"
+                    title={
+                      rectifyCheckOutDirty && rectifyCheckOut.trim() !== proposedCheckoutVal.trim()
+                        ? 'Checkout time customized by Admin'
+                        : 'Use employee proposed time'
+                    }
                   >
                     Use Proposed Time
                   </Button>
@@ -2733,6 +2776,7 @@ export const AdminDashboard: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setRectifyCheckOut('');
+                      setRectifyCheckOutDirty(true);
                       setRectifyReason('Kept unresolved by administrator');
                     }}
                     className="text-[10px] text-rose-400 hover:text-rose-300 underline"
@@ -2743,7 +2787,37 @@ export const AdminDashboard: React.FC = () => {
                 <input
                   type="text"
                   value={rectifyCheckOut}
-                  onChange={(e) => setRectifyCheckOut(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setRectifyCheckOut(val);
+                    setRectifyCheckOutDirty(true);
+
+                    const origProp = (
+                      (selectedForRectify.employeeProposedCheckoutTime || '').trim() ||
+                      (selectedForRectify.employeeProvidedCheckoutTime || '').trim() ||
+                      ((selectedForRectify.checkoutStatus === 'PENDING_ADMIN_REVIEW' ||
+                        selectedForRectify.checkoutStatus === 'UNRESOLVED' ||
+                        selectedForRectify.resolutionSource === 'EMPLOYEE_PROPOSED') &&
+                       selectedForRectify.checkOutTime &&
+                       selectedForRectify.checkOutTime !== 'UNRESOLVED' &&
+                       selectedForRectify.checkOutTime !== '--:--' &&
+                       selectedForRectify.checkOutTime !== 'Pending' &&
+                       selectedForRectify.checkOutTime !== 'N/A'
+                        ? selectedForRectify.checkOutTime.trim()
+                        : '')
+                    );
+
+                    if (origProp) {
+                      const trimmedVal = val.trim();
+                      if (!trimmedVal) {
+                        setRectifyReason('Kept unresolved by administrator');
+                      } else if (trimmedVal.toUpperCase() === origProp.toUpperCase()) {
+                        setRectifyReason(`Approved employee proposed checkout (${origProp})`);
+                      } else {
+                        setRectifyReason(`Approved employee proposed checkout with Admin adjustment (${trimmedVal})`);
+                      }
+                    }
+                  }}
                   placeholder="e.g. 06:00 PM (or empty for UNRESOLVED)"
                   className="w-full px-3 py-2 bg-[#1B0D38] border border-purple-500/30 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-purple-400"
                 />
@@ -2762,7 +2836,14 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="flex justify-end gap-3 pt-3 border-t border-purple-500/20">
-              <Button variant="outline" onClick={() => setShowRectifyModal(false)} className="text-xs">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowRectifyModal(false);
+                  setRectifyCheckOutDirty(false);
+                }}
+                className="text-xs"
+              >
                 Cancel
               </Button>
               <Button
@@ -2849,6 +2930,7 @@ export const AdminDashboard: React.FC = () => {
                       setShowRectifyConfirm(false);
                       setShowRectifyModal(false);
                       setSelectedForRectify(null);
+                      setRectifyCheckOutDirty(false);
                       setCorrectionStep('');
                       setCorrectionMessage('');
                       setCorrectionResult(null);
