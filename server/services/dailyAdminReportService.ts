@@ -31,7 +31,8 @@ export interface ReportStatusRecord {
   updatedAt: any;
 }
 
-// Centralized Target Recipients
+// Centralized App Base URL & Target Recipients
+export const DEFAULT_APP_URL = 'https://exfin-oms-enterprise-v5.pages.dev';
 export const DEFAULT_TARGET_RECIPIENTS = [
   'admin@yourcompany.com'
 ];
@@ -921,7 +922,7 @@ export async function generateAndSendDailyReport(
       </tr>
     `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">${needsImprovementEmptyMessage}</td></tr>`;
 
-    const appUrl = process.env.APP_URL ? process.env.APP_URL.replace(/\/$/, '') : 'https://your-domain.com';
+    const appUrl = process.env.APP_URL ? process.env.APP_URL.replace(/\/$/, '') : DEFAULT_APP_URL;
     const adminPanelUrl = `${appUrl}/x7Kp9`;
 
     const generatedTimeKolkata = new Date().toLocaleString('en-US', {

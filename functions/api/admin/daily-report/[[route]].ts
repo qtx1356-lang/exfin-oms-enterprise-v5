@@ -632,7 +632,10 @@ export async function onRequest(context) {
           </tr>
         `).join('') : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">${needsImprovementEmptyMessage}</td></tr>`;
 
-        const adminPanelUrl = (env.APP_URL ? env.APP_URL.replace(/\/$/, '') : 'https://your-domain.com') + '/x7Kp9';
+        const DEFAULT_APP_URL = 'https://exfin-oms-enterprise-v5.pages.dev';
+        const rawAppUrl = env.APP_URL || (typeof process !== 'undefined' ? process.env?.APP_URL : undefined);
+        const resolvedAppUrl = rawAppUrl ? rawAppUrl.replace(/\/$/, '') : DEFAULT_APP_URL;
+        const adminPanelUrl = `${resolvedAppUrl}/x7Kp9`;
 
         // STEP 5: REPORT_HTML_GENERATED
         currentStage = 'REPORT_HTML_GENERATED';
