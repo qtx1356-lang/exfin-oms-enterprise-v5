@@ -29,8 +29,53 @@ public class GeofencePlugin extends Plugin {
         instance = this;
     }
 
-    public static void notifyNativeTransition(String transition, double lat, double lng) {
-        notifyNativeTransition(transition, lat, lng, System.currentTimeMillis());
+    public static void notifyNativeCheckIn(JSONObject event) {
+        if (instance != null && event != null) {
+            try {
+                JSObject ret = JSObject.fromJSONObject(event);
+                instance.notifyListeners("attendanceNativeCheckIn", ret, true);
+            } catch (Exception e) {
+                Log.e(TAG, "Error notifying attendanceNativeCheckIn: " + e.getMessage());
+            }
+        }
+    }
+
+    public static void notifyNativeCheckOut(JSONObject event) {
+        if (instance != null && event != null) {
+            try {
+                JSObject ret = JSObject.fromJSONObject(event);
+                instance.notifyListeners("attendanceNativeCheckOut", ret, true);
+            } catch (Exception e) {
+                Log.e(TAG, "Error notifying attendanceNativeCheckOut: " + e.getMessage());
+            }
+        }
+    }
+
+    public static void notifyNativeSync(String eventId, boolean success) {
+        if (instance != null) {
+            try {
+                JSObject ret = new JSObject();
+                ret.put("eventId", eventId);
+                ret.put("success", success);
+                ret.put("timestamp", System.currentTimeMillis());
+                instance.notifyListeners("attendanceNativeSync", ret, true);
+            } catch (Exception e) {
+                Log.e(TAG, "Error notifying attendanceNativeSync: " + e.getMessage());
+            }
+        }
+    }
+
+    public static void notifyNativeError(String error) {
+        if (instance != null) {
+            try {
+                JSObject ret = new JSObject();
+                ret.put("error", error);
+                ret.put("timestamp", System.currentTimeMillis());
+                instance.notifyListeners("attendanceNativeError", ret, true);
+            } catch (Exception e) {
+                Log.e(TAG, "Error notifying attendanceNativeError: " + e.getMessage());
+            }
+        }
     }
 
     public static void notifyNativeTransition(String transition, double lat, double lng, long eventTimestamp) {
@@ -70,7 +115,8 @@ public class GeofencePlugin extends Plugin {
             JSObject ret = new JSObject();
             ret.put("success", true);
             ret.put("geofenceId", OfficeGeofenceHelper.GEOFENCE_ID);
-            ret.put("radius", OfficeGeofenceHelper.GEOFENCE_RADIUS_METERS);
+            ret.put("authoritativeRadius", OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS);
+            ret.put("wakeupTriggerRadius", OfficeGeofenceHelper.WAKEUP_TRIGGER_RADIUS_METERS);
             ret.put("latitude", OfficeGeofenceHelper.OFFICE_LAT);
             ret.put("longitude", OfficeGeofenceHelper.OFFICE_LNG);
             call.resolve(ret);
@@ -88,7 +134,8 @@ public class GeofencePlugin extends Plugin {
             JSObject ret = new JSObject();
             ret.put("isRegistered", isRegistered);
             ret.put("geofenceId", OfficeGeofenceHelper.GEOFENCE_ID);
-            ret.put("radius", OfficeGeofenceHelper.GEOFENCE_RADIUS_METERS);
+            ret.put("authoritativeRadius", OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS);
+            ret.put("wakeupTriggerRadius", OfficeGeofenceHelper.WAKEUP_TRIGGER_RADIUS_METERS);
             ret.put("latitude", OfficeGeofenceHelper.OFFICE_LAT);
             ret.put("longitude", OfficeGeofenceHelper.OFFICE_LNG);
             call.resolve(ret);
@@ -107,19 +154,7 @@ public class GeofencePlugin extends Plugin {
             JSArray arr = new JSArray();
             for (int i = 0; i < events.length(); i++) {
                 JSONObject obj = events.getJSONObject(i);
-                JSObject item = new JSObject();
-                item.put("eventId", obj.optString("eventId"));
-                item.put("employeeId", obj.optString("employeeId"));
-                item.put("eventType", obj.optString("eventType", obj.optString("transition")));
-                item.put("transition", obj.optString("transition"));
-                item.put("time", obj.optString("time"));
-                item.put("date", obj.optString("date"));
-                item.put("latitude", obj.optDouble("latitude"));
-                item.put("longitude", obj.optDouble("longitude"));
-                item.put("timestamp", obj.optLong("timestamp"));
-                item.put("exitTimestamp", obj.optLong("exitTimestamp", obj.optLong("timestamp")));
-                item.put("createdAt", obj.optLong("createdAt", obj.optLong("timestamp")));
-                item.put("distance", obj.optDouble("distance", 25.0));
+                JSObject item = JSObject.fromJSONObject(obj);
                 arr.put(item);
             }
             ret.put("events", arr);
@@ -153,7 +188,7 @@ public class GeofencePlugin extends Plugin {
             String serverUrl = call.getString("serverUrl");
 
             if (id != null && !id.trim().isEmpty()) {
-                android.content.SharedPreferences prefs = context.getSharedPreferences("exfin_native_geofence_prefs", Context.MODE_PRIVATE);
+                android.content.SharedPreferences prefs = context.getSharedPreferences(OfficeGeofenceHelper.PREFS_NAME, Context.MODE_PRIVATE);
                 android.content.SharedPreferences.Editor editor = prefs.edit();
                 editor.putString("employee_id", id);
                 editor.putString("employee_name", name);
@@ -163,11 +198,10 @@ public class GeofencePlugin extends Plugin {
                 }
                 editor.apply();
                 Log.i(TAG, "Native employee identity set: " + id + " (" + name + ") - Server URL: " + serverUrl);
-                
-                // Immediately trigger background sync check on connectivity in case we have failed queued events
+
                 OfficeGeofenceHelper.registerNetworkCallbackIfNecessary(context);
                 OfficeGeofenceHelper.triggerBackgroundSync(context);
-                
+
                 call.resolve();
             } else {
                 call.reject("Invalid employee ID");
@@ -214,6 +248,19 @@ public class GeofencePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void forceSyncPendingEvents(PluginCall call) {
+        try {
+            Context context = getContext();
+            OfficeGeofenceHelper.triggerBackgroundSync(context);
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to force sync pending events: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
     public void getActiveAttendanceState(PluginCall call) {
         try {
             Context context = getContext();
@@ -230,7 +277,7 @@ public class GeofencePlugin extends Plugin {
                 ret.put("attendanceMode", session.optString("attendanceMode", "OFFICE"));
                 ret.put("sessionState", session.optString("sessionState", "ACTIVE"));
                 ret.put("checkoutStatus", session.optString("checkoutStatus", "ACTIVE"));
-                
+
                 String recExit = session.optString("recordedExitTime", null);
                 if (recExit != null && !"null".equalsIgnoreCase(recExit)) {
                     ret.put("recordedExitTime", recExit);

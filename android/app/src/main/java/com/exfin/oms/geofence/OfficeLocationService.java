@@ -8,6 +8,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ServiceInfo;
 import android.location.Location;
 import android.os.Build;
 import android.os.IBinder;
@@ -27,6 +28,10 @@ import com.google.android.gms.location.Priority;
 
 import org.json.JSONObject;
 
+/**
+ * Foreground Service that provides location updates during an active office session.
+ * Fully compatible with Android 12, 13, 14, 15, and 16 foreground service lifecycles.
+ */
 public class OfficeLocationService extends Service {
     public static final String TAG = "OfficeLocationService";
     public static final String CHANNEL_ID = "exfin_oms_location_channel";
@@ -74,7 +79,11 @@ public class OfficeLocationService extends Service {
         createNotificationChannel();
         Notification notification = buildNotification("Active Office Attendance Monitoring");
         try {
-            startForeground(NOTIFICATION_ID, notification);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+            } else {
+                startForeground(NOTIFICATION_ID, notification);
+            }
         } catch (Exception e) {
             Log.e(TAG, "Failed to startForeground: " + e.getMessage(), e);
         }
@@ -144,9 +153,11 @@ public class OfficeLocationService extends Service {
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
             Log.i(TAG, "Fused location updates requested every 30s.");
         } catch (SecurityException se) {
-            Log.e(TAG, "SecurityException starting location updates: " + se.getMessage(), se);
+            Log.e(TAG, "SecurityException requesting location updates: " + se.getMessage(), se);
+            stopSelf();
         } catch (Exception e) {
-            Log.e(TAG, "Error starting location updates: " + e.getMessage(), e);
+            Log.e(TAG, "Exception requesting location updates: " + e.getMessage(), e);
+            stopSelf();
         }
     }
 
@@ -163,8 +174,8 @@ public class OfficeLocationService extends Service {
         OfficeGeofenceHelper.saveLastLocationDiagnostic(this, lat, lng, accuracy, time, distance);
 
         // Validate accuracy to reject wild GPS jumps
-        if (accuracy > 50.0f) {
-            Log.d(TAG, "Ignoring location update due to low accuracy: " + accuracy + "m");
+        if (accuracy > OfficeGeofenceHelper.MAX_USABLE_ACCURACY_METERS) {
+            Log.d(TAG, "Ignoring location update due to poor accuracy: " + accuracy + "m > " + OfficeGeofenceHelper.MAX_USABLE_ACCURACY_METERS + "m");
             return;
         }
 
@@ -176,15 +187,14 @@ public class OfficeLocationService extends Service {
         }
 
         String sessionState = activeSession.optString("sessionState", "ACTIVE");
-        String recordedExitTime = activeSession.optString("recordedExitTime", "");
 
         if ("ACTIVE".equalsIgnoreCase(sessionState)) {
-            if (distance > 25.0) {
+            if (distance > OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS) {
                 consecutiveOutsideCount++;
                 consecutiveInsideCount = 0;
                 Log.i(TAG, "Outside 25m boundary: " + Math.round(distance) + "m (count: " + consecutiveOutsideCount + "/2)");
 
-                if (consecutiveOutsideCount >= 2) {
+                if (consecutiveOutsideCount >= 2 || distance > 35.0) {
                     consecutiveOutsideCount = 0;
                     Log.i(TAG, "=== NATIVE SECONDARY FUSED LOCATION EXIT DETECTED ===");
                     OfficeGeofenceHelper.recordExitEvent(this, location, "NATIVE_FUSED_LOCATION");
@@ -195,13 +205,13 @@ public class OfficeLocationService extends Service {
                 consecutiveInsideCount++;
             }
         } else if ("PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(sessionState)) {
-            // Check return hysteresis: if employee returns within 23m of office
-            if (distance <= 23.0) {
+            // Check return hysteresis: if employee returns within 25.0m of office
+            if (distance <= OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS) {
                 consecutiveInsideCount++;
                 consecutiveOutsideCount = 0;
-                Log.i(TAG, "Returned inside 23m office boundary: " + Math.round(distance) + "m (count: " + consecutiveInsideCount + "/2)");
+                Log.i(TAG, "Returned inside 25m office boundary: " + Math.round(distance) + "m (count: " + consecutiveInsideCount + "/2)");
 
-                if (consecutiveInsideCount >= 2) {
+                if (consecutiveInsideCount >= 2 || distance <= 20.0) {
                     consecutiveInsideCount = 0;
                     Log.i(TAG, "=== NATIVE GEOFENCE RETURN TO OFFICE DETECTED ===");
                     OfficeGeofenceHelper.cancelPendingExit(this);
@@ -225,7 +235,7 @@ public class OfficeLocationService extends Service {
             try {
                 fusedLocationClient.removeLocationUpdates(locationCallback);
             } catch (Exception e) {
-                Log.w(TAG, "Error removing location updates: " + e.getMessage());
+                Log.e(TAG, "Error removing location updates: " + e.getMessage());
             }
         }
     }

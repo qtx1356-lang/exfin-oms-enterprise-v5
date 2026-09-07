@@ -3,14 +3,36 @@ import { AutomaticAttendanceEngine, getFormattedTimeStr } from './automaticAtten
 import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
 
+export interface NativeAttendanceEvent {
+  eventId: string;
+  employeeId: string;
+  employeeName?: string;
+  townCity?: string;
+  eventType: 'CHECK_IN' | 'CHECK_OUT' | 'ENTER' | 'EXIT';
+  transition?: 'ENTER' | 'EXIT';
+  time: string;
+  date: string;
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  timestamp: number;
+  exitTimestamp?: number;
+  distanceFromOffice?: number;
+  distance?: number;
+  source?: string;
+  schemaVersion?: number;
+  deviceId?: string;
+}
+
 export interface NativeGeofencePluginInterface {
-  registerOfficeGeofence(): Promise<{ success: boolean; geofenceId: string; radius: number; latitude: number; longitude: number }>;
-  getGeofenceStatus(): Promise<{ isRegistered: boolean; geofenceId: string; radius: number; latitude: number; longitude: number }>;
-  getUnconsumedNativeEvents(): Promise<{ events: Array<{ transition: 'EXIT' | 'ENTER'; time: string; date: string; latitude: number; longitude: number; timestamp: number; distance?: number; exitTimestamp?: number }> }>;
+  registerOfficeGeofence(): Promise<{ success: boolean; geofenceId: string; authoritativeRadius: number; wakeupTriggerRadius: number; latitude: number; longitude: number }>;
+  getGeofenceStatus(): Promise<{ isRegistered: boolean; geofenceId: string; authoritativeRadius: number; wakeupTriggerRadius: number; latitude: number; longitude: number }>;
+  getUnconsumedNativeEvents(): Promise<{ events: NativeAttendanceEvent[] }>;
   removeOfficeGeofence(): Promise<{ success: boolean }>;
   setEmployeeIdentity(identity: { id: string; name: string; townCity: string; serverUrl: string }): Promise<void>;
   startActiveSession(session: { employeeId: string; employeeName: string; townCity: string; date: string; checkInTime: string }): Promise<{ success: boolean }>;
   clearActiveSession(): Promise<{ success: boolean }>;
+  forceSyncPendingEvents(): Promise<{ success: boolean }>;
   getActiveAttendanceState(): Promise<{
     hasActiveSession: boolean;
     attendanceId?: string;
@@ -27,16 +49,45 @@ export interface NativeGeofencePluginInterface {
     isGeofenceRegistered: boolean;
     isLocationServiceRunning: boolean;
   }>;
-  getDiagnosticInfo(): Promise<any>;
+  getDiagnosticInfo(): Promise<{
+    nativeGeofenceRegistered: boolean;
+    locationPermission: 'GRANTED' | 'DENIED';
+    backgroundLocationPermission: 'GRANTED' | 'DENIED';
+    foregroundService: 'RUNNING' | 'STOPPED';
+    lastKnownState: 'INSIDE' | 'OUTSIDE' | 'UNKNOWN';
+    authoritativeRadiusMeters: number;
+    wakeupTriggerRadiusMeters: number;
+    batteryOptimizationState: string;
+    activeSession: any;
+    lastVerifiedLocation?: {
+      latitude: number;
+      longitude: number;
+      accuracy: number;
+      timestamp: number;
+      distance: number;
+    };
+    lastVerifiedDistance?: number;
+    pendingEventCount: number;
+    lastNativeTrigger: number;
+    lastCheckInTimestamp: number;
+    lastCheckOutTimestamp: number;
+    lastSyncTime: number;
+    lastNativeError: string;
+    lastExitTime?: string | null;
+  }>;
+  addListener(eventName: 'attendanceNativeCheckIn', listenerFunc: (event: NativeAttendanceEvent) => void): Promise<PluginListenerHandle>;
+  addListener(eventName: 'attendanceNativeCheckOut', listenerFunc: (event: NativeAttendanceEvent) => void): Promise<PluginListenerHandle>;
+  addListener(eventName: 'attendanceNativeSync', listenerFunc: (data: { eventId: string; success: boolean; timestamp: number }) => void): Promise<PluginListenerHandle>;
+  addListener(eventName: 'attendanceNativeError', listenerFunc: (data: { error: string; timestamp: number }) => void): Promise<PluginListenerHandle>;
   addListener(eventName: 'geofenceTransition', listenerFunc: (data: { transition: 'EXIT' | 'ENTER'; time: string; date: string; latitude: number; longitude: number; timestamp: number }) => void): Promise<PluginListenerHandle>;
 }
 
 export const NativeGeofencePlugin = registerPlugin<NativeGeofencePluginInterface>('ExfinGeofence');
 
-let activeListenerHandle: PluginListenerHandle | null = null;
+let activeListenerHandles: PluginListenerHandle[] = [];
 
 /**
- * Registers the native Android geofence (25-meter office radius)
+ * Registers the native Android geofence (authoritative 25m boundary with 120m wake-up)
  */
 export const registerNativeOfficeGeofence = async (): Promise<boolean> => {
   if (!Capacitor.isNativePlatform()) {
@@ -99,24 +150,26 @@ export const reconcileNativeGeofenceEvents = async (
         `Reconciling ${events.length} unconsumed native background geofence events from native storage.`
       );
 
-      // Sort chronologically so earliest exit/entry transitions execute in true chronological order
+      // Sort chronologically
       events.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
       for (const evt of events) {
         const eventDate = new Date(evt.timestamp || Date.now());
         const timeKolkata = getFormattedTimeStr(eventDate);
-        if (evt.transition === 'EXIT') {
+        const eventType = evt.eventType || (evt.transition === 'EXIT' ? 'CHECK_OUT' : 'CHECK_IN');
+
+        if (eventType === 'CHECK_OUT' || evt.transition === 'EXIT') {
           console.log('[AUTO_EXIT_DETECTED]', {
             employeeId,
             timestamp: eventDate.toISOString(),
             localTime: timeKolkata,
             source: 'NATIVE_GEOFENCE',
-            distance: evt.distance ?? 25
+            distance: evt.distance ?? evt.distanceFromOffice ?? 25
           });
           console.log('[NATIVE_GEOFENCE_EXIT_RECONCILED]', {
             employeeId,
             date: eventDate.toISOString().split('T')[0],
-            distance: evt.distance ?? 25,
+            distance: evt.distance ?? evt.distanceFromOffice ?? 25,
             timestamp: eventDate.toISOString(),
             localTime: timeKolkata,
             source: 'NATIVE_GEOFENCE'
@@ -125,16 +178,16 @@ export const reconcileNativeGeofenceEvents = async (
           AutomaticAttendanceEngine.processGeofenceExit(
             employeeId,
             employeeName,
-            { latitude: evt.latitude || 0.0, longitude: evt.longitude || 0.0 },
+            { latitude: evt.latitude || 23.616227, longitude: evt.longitude || 87.117063 },
             townCity || 'Raniganj HQ',
             eventDate,
             true
           );
-        } else if (evt.transition === 'ENTER') {
+        } else if (eventType === 'CHECK_IN' || evt.transition === 'ENTER') {
           console.log('[NATIVE_GEOFENCE_ENTER_RECONCILED]', {
             employeeId,
             date: eventDate.toISOString().split('T')[0],
-            distance: 25,
+            distance: evt.distance ?? evt.distanceFromOffice ?? 25,
             timestamp: eventDate.toISOString(),
             localTime: timeKolkata,
             source: 'NATIVE_GEOFENCE'
@@ -143,14 +196,14 @@ export const reconcileNativeGeofenceEvents = async (
           AutomaticAttendanceEngine.processGeofenceEntry(
             employeeId,
             employeeName,
-            { latitude: evt.latitude || 0.0, longitude: evt.longitude || 0.0 },
+            { latitude: evt.latitude || 23.616227, longitude: evt.longitude || 87.117063 },
             townCity || 'Raniganj HQ',
             eventDate
           );
         }
       }
 
-      // Trigger sync if online
+      // Trigger client-side sync if online
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         syncPendingAttendanceRecords().catch(() => {});
       }
@@ -182,12 +235,14 @@ export const initNativeGeofenceListener = async (
     const info = getEmployeeInfo();
     if (info?.id) {
       try {
-        const authoritativeServerUrl = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : '';
+        const origin = (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('file://'))
+          ? window.location.origin
+          : (typeof import.meta !== 'undefined' && import.meta?.env?.APP_URL) ? import.meta.env.APP_URL : '';
         await NativeGeofencePlugin.setEmployeeIdentity({
           id: info.id,
           name: info.name,
-          townCity: info.townCity || 'Main Office',
-          serverUrl: authoritativeServerUrl
+          townCity: info.townCity || 'Raniganj HQ',
+          serverUrl: origin
         });
         console.log('[NativeGeofenceBridge] Configured native employee identity on init.');
       } catch (err) {
@@ -196,12 +251,49 @@ export const initNativeGeofenceListener = async (
       await reconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ');
     }
 
-    if (activeListenerHandle) {
-      activeListenerHandle.remove();
-      activeListenerHandle = null;
+    // Clean previous listener handles
+    for (const h of activeListenerHandles) {
+      h.remove();
     }
+    activeListenerHandles = [];
 
-    activeListenerHandle = await NativeGeofencePlugin.addListener('geofenceTransition', (data) => {
+    // 1. Native Check-In listener
+    const checkInHandle = await NativeGeofencePlugin.addListener('attendanceNativeCheckIn', (evt) => {
+      const currentEmp = getEmployeeInfo();
+      if (!currentEmp?.id) return;
+
+      const eventDate = new Date(evt.timestamp || Date.now());
+      logAttendanceEvent('GEOFENCE_ENTER', currentEmp.id, `Native authoritative check-in event received: ${evt.eventId} at ${evt.time}`);
+      AutomaticAttendanceEngine.processGeofenceEntry(
+        currentEmp.id,
+        currentEmp.name,
+        { latitude: evt.latitude, longitude: evt.longitude },
+        currentEmp.townCity || 'Raniganj HQ',
+        eventDate
+      );
+    });
+    activeListenerHandles.push(checkInHandle);
+
+    // 2. Native Check-Out listener
+    const checkOutHandle = await NativeGeofencePlugin.addListener('attendanceNativeCheckOut', (evt) => {
+      const currentEmp = getEmployeeInfo();
+      if (!currentEmp?.id) return;
+
+      const eventDate = new Date(evt.timestamp || Date.now());
+      logAttendanceEvent('GEOFENCE_EXIT', currentEmp.id, `Native authoritative check-out event received: ${evt.eventId} at ${evt.time}`);
+      AutomaticAttendanceEngine.processGeofenceExit(
+        currentEmp.id,
+        currentEmp.name,
+        { latitude: evt.latitude, longitude: evt.longitude },
+        currentEmp.townCity || 'Raniganj HQ',
+        eventDate,
+        true
+      );
+    });
+    activeListenerHandles.push(checkOutHandle);
+
+    // 3. Raw Geofence Transition listener (backward compatibility)
+    const transitionHandle = await NativeGeofencePlugin.addListener('geofenceTransition', (data) => {
       const currentEmp = getEmployeeInfo();
       if (!currentEmp?.id) return;
 
@@ -210,42 +302,26 @@ export const initNativeGeofenceListener = async (
         currentEmp.id,
         `Native geofence transition received: ${data.transition} at ${data.time}`
       );
-
-      const eventDate = new Date(data.timestamp || Date.now());
-
-      if (data.transition === 'EXIT') {
-        const timeKolkata = getFormattedTimeStr(eventDate);
-        console.log('[AUTO_EXIT_DETECTED]', {
-          employeeId: currentEmp.id,
-          timestamp: eventDate.toISOString(),
-          localTime: timeKolkata,
-          source: 'NATIVE_GEOFENCE',
-          distance: 25
-        });
-        AutomaticAttendanceEngine.processGeofenceExit(
-          currentEmp.id,
-          currentEmp.name,
-          { latitude: data.latitude, longitude: data.longitude },
-          currentEmp.townCity || 'Raniganj HQ',
-          eventDate,
-          true
-        );
-      } else if (data.transition === 'ENTER') {
-        AutomaticAttendanceEngine.processGeofenceEntry(
-          currentEmp.id,
-          currentEmp.name,
-          { latitude: data.latitude, longitude: data.longitude },
-          currentEmp.townCity || 'Raniganj HQ',
-          eventDate
-        );
-      }
     });
+    activeListenerHandles.push(transitionHandle);
+
+    // 4. Native Sync Status listener
+    const syncHandle = await NativeGeofencePlugin.addListener('attendanceNativeSync', (data) => {
+      console.log(`[NativeGeofenceBridge] Native background sync event completed: ${data.eventId}, success: ${data.success}`);
+    });
+    activeListenerHandles.push(syncHandle);
+
+    // 5. Native Error listener
+    const errorHandle = await NativeGeofencePlugin.addListener('attendanceNativeError', (data) => {
+      console.warn(`[NativeGeofenceBridge] Native geofence engine error: ${data.error}`);
+    });
+    activeListenerHandles.push(errorHandle);
 
     return () => {
-      if (activeListenerHandle) {
-        activeListenerHandle.remove();
-        activeListenerHandle = null;
+      for (const h of activeListenerHandles) {
+        h.remove();
       }
+      activeListenerHandles = [];
     };
   } catch (err) {
     console.warn('[NativeGeofenceBridge] Failed to initialize native geofence listener:', err);
@@ -294,14 +370,14 @@ export const syncEmployeeIdentityToNative = async (identity: {
 }): Promise<void> => {
   if (!Capacitor.isNativePlatform() || !identity.id) return;
   try {
-    const origin = typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('file://')
+    const origin = (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('file://'))
       ? window.location.origin
       : (typeof import.meta !== 'undefined' && import.meta?.env?.APP_URL) ? import.meta.env.APP_URL : '';
     const authoritativeServerUrl = identity.serverUrl || origin;
     await NativeGeofencePlugin.setEmployeeIdentity({
       id: identity.id,
       name: identity.name || 'Employee',
-      townCity: identity.townCity || 'Main Office',
+      townCity: identity.townCity || 'Raniganj HQ',
       serverUrl: authoritativeServerUrl
     });
     console.log(`[NativeGeofenceBridge] Configured native employee identity: ${identity.id} (${identity.name})`);
