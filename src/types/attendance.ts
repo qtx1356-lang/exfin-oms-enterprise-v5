@@ -213,6 +213,8 @@ export interface AttendanceRecord {
 
   // State Machine & Idempotency tracking
   currentState?: AttendanceState;
+  pendingCheckoutEventId?: string | null;
+  lastActedExitEventId?: string | null;
   processedEvents?: string[]; // List of eventIds processed for this record
   episodeId?: string | null;
   evidenceSource?: EvidenceSource;

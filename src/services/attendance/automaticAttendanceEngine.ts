@@ -358,7 +358,7 @@ export const AutomaticAttendanceEngine = {
     }
 
     if (record && isCheckOutMissingLocally(record.checkOutTime) && (record.attendanceType === 'OFFICE' || !record.attendanceType)) {
-      if ((currentState === 'CHECKED_IN' || currentState === 'ENTERING' || currentState === 'RETURNING_TO_OFFICE') && !isInside) {
+      if ((currentState === 'CHECKED_IN' || currentState === 'ENTERING') && !isInside) {
         // EXIT GEOFENCE: CHECKED_IN -> PENDING_AUTO_CHECKOUT
         console.log('[AUTO_EXIT_DETECTED]', {
           employeeId,
@@ -620,6 +620,7 @@ export const AutomaticAttendanceEngine = {
             record.returningToOffice = false;
           }
           record.pendingCheckoutConfirmation = true;
+          record.pendingCheckoutEventId = exitEventId;
           record.currentState = 'PENDING_AUTO_CHECKOUT';
           record.checkoutStatus = 'PENDING_AUTO_CHECKOUT';
           record.syncStatus = 'Pending';
@@ -635,7 +636,7 @@ export const AutomaticAttendanceEngine = {
 
           record.processedEvents = Array.from(new Set([...(record.processedEvents || []), exitEventId]));
 
-          logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[AUTO_EXIT_SAVED] Office geofence exit recorded at ${timeStr}. Event ID: ${exitEventId}`, {
+          logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[CHECKOUT_POPUP_OPEN] Office geofence exit recorded at ${timeStr}. Event ID: ${exitEventId}`, {
             eventId: exitEventId,
             eventTimestamp: eventIso,
             metadata: {
@@ -1028,6 +1029,11 @@ export const AutomaticAttendanceEngine = {
     record.syncStatus = 'Pending';
     record.resolutionSource = 'AUTO_GEOFENCE';
 
+    if (record.pendingCheckoutEventId) {
+      record.lastActedExitEventId = record.pendingCheckoutEventId;
+      record.pendingCheckoutEventId = null;
+    }
+
     if (currentCoords && currentCoords.latitude && currentCoords.longitude) {
       record.checkoutLatitude = currentCoords.latitude;
       record.checkoutLongitude = currentCoords.longitude;
@@ -1039,8 +1045,8 @@ export const AutomaticAttendanceEngine = {
     saveAttendanceRecord(record);
     markEventIdProcessed(eventId);
 
-    logAttendanceEvent('CHECKOUT_CREATED', employeeId, `Employee confirmed checkout for geofence exit at ${checkoutTimeStr}`, {
-      eventId,
+    logAttendanceEvent('CHECKOUT_CREATED', employeeId, `[CHECKOUT_EVENT_CONFIRMED] Employee confirmed checkout for geofence exit at ${checkoutTimeStr}. Event ID: ${record.lastActedExitEventId}`, {
+      eventId: record.lastActedExitEventId || undefined,
       eventTimestamp: eventIso,
       metadata: {
         geofenceExitTime: checkoutTimeStr,
@@ -1085,7 +1091,7 @@ export const AutomaticAttendanceEngine = {
       return record;
     }
 
-    logAttendanceEvent('RETURN_DETECTED', employeeId, `Employee clicked 'STAY ACTIVE'. Cleared stale exit fields. Returning to office.`);
+    logAttendanceEvent('RETURN_DETECTED', employeeId, `[CHECKOUT_EVENT_CANCELLED] Employee clicked 'STAY ACTIVE'. Cleared stale exit fields. Event ID: ${record.lastActedExitEventId}`);
 
     // CRITICAL BUG FIX (Bug 1): Clear all authoritative exit fields to allow fresh detection on NEXT exit
     record.geofenceExitTime = null;
@@ -1106,6 +1112,11 @@ export const AutomaticAttendanceEngine = {
     record.currentState = 'RETURNING_TO_OFFICE';
     record.syncStatus = 'Pending';
     record.updatedAt = new Date().toISOString();
+
+    if (record.pendingCheckoutEventId) {
+      record.lastActedExitEventId = record.pendingCheckoutEventId;
+      record.pendingCheckoutEventId = null;
+    }
 
     saveAttendanceRecord(record);
 

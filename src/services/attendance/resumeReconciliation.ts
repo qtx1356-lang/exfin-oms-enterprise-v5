@@ -298,7 +298,6 @@ export const reconcileAttendanceOnResume = async (
           if (
             currentState === 'CHECKED_IN' || 
             currentState === 'ENTERING' || 
-            currentState === 'RETURNING_TO_OFFICE' ||
             currentState === 'PENDING_EXIT_CONFIRMATION'
           ) {
             // Check if native Android geofence or background location already recorded an authoritative exit time
@@ -316,6 +315,7 @@ export const reconcileAttendanceOnResume = async (
               logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] App opened at ${timeStr} outside office. Preserving authoritative native exit time: ${record.recordedExitTime || record.geofenceExitTime}.`);
 
               record.pendingCheckoutConfirmation = true;
+              record.pendingCheckoutEventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_EXIT', record.geofenceExitTimestamp || record.exitDetectedAt || nowIso);
               record.returningToOffice = false;
               record.currentState = 'PENDING_AUTO_CHECKOUT';
               record.checkoutStatus = 'PENDING_AUTO_CHECKOUT';
@@ -361,6 +361,7 @@ export const reconcileAttendanceOnResume = async (
               record.exitDetectedTime = null;
               record.exitDetectionSource = 'NONE';
               record.pendingCheckoutConfirmation = true;
+              record.pendingCheckoutEventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_EXIT', nowIso);
               record.returningToOffice = false;
               record.currentState = 'CHECKOUT_NOT_DETECTED';
               record.checkoutStatus = 'UNRESOLVED';

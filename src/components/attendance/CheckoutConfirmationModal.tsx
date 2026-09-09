@@ -44,9 +44,35 @@ export const CheckoutConfirmationModal: React.FC = () => {
   const resolvedEmployeeId = candidateIds[0] || undefined;
   const employeeId = resolvedEmployeeId;
 
+  // SESSION-LEVEL CACHE: Tracks events that have already been acted upon in this session 
+  // to provide instantaneous UI suppression before persistence completes.
+  const [actedEventIds] = useState(() => new Set<string>());
+
   const checkPendingConfirmation = useCallback((passedRecord?: AttendanceRecord | null) => {
     const evaluateRecord = (record: AttendanceRecord | null): boolean => {
       if (!record) return false;
+
+      // RULE: If this specific exit event has already been acted upon (Confirmed or Stay Active),
+      // it is PERMANENTLY ineligible for another popup.
+      if (record.pendingCheckoutEventId && record.lastActedExitEventId === record.pendingCheckoutEventId) {
+        if (activeRecord?.pendingCheckoutEventId !== record.pendingCheckoutEventId) {
+          console.log('[CheckoutConfirmationModal] CHECKOUT_POPUP_BLOCKED_TERMINAL_EVENT:', record.pendingCheckoutEventId);
+        }
+        return false;
+      }
+
+      if (record.pendingCheckoutEventId && actedEventIds.has(record.pendingCheckoutEventId)) {
+        if (activeRecord?.pendingCheckoutEventId !== record.pendingCheckoutEventId) {
+          console.log('[CheckoutConfirmationModal] CHECKOUT_POPUP_DUPLICATE_BLOCKED:', record.pendingCheckoutEventId);
+        }
+        return false;
+      }
+
+      if (activeRecord && activeRecord.pendingCheckoutEventId && record.pendingCheckoutEventId && activeRecord.pendingCheckoutEventId !== record.pendingCheckoutEventId) {
+         console.log('[CheckoutConfirmationModal] CHECKOUT_POPUP_ALREADY_OPEN. Ignoring new event:', record.pendingCheckoutEventId);
+         return false;
+      }
+
       const checkOutValue = (record.checkOutTime || '').trim();
       const isCheckOutMissing = !checkOutValue || 
                                 checkOutValue === '--:--' || 
@@ -75,6 +101,7 @@ export const CheckoutConfirmationModal: React.FC = () => {
           record.confirmationDisplayedAt = new Date().toISOString();
           saveAttendanceRecord(record);
         }
+        console.log('[CheckoutConfirmationModal] CHECKOUT_POPUP_OPEN:', record.pendingCheckoutEventId);
         setActiveRecord(record);
         return true;
       }
@@ -216,6 +243,13 @@ export const CheckoutConfirmationModal: React.FC = () => {
 
   const handleConfirmCheckout = async () => {
     if (!employeeId || isProcessing || !activeRecord) return;
+    
+    // IMMEDIATE UI LOCK: Mark event as acted upon immediately
+    if (activeRecord.pendingCheckoutEventId) {
+      console.log('[CheckoutConfirmationModal] CHECKOUT_CONFIRM_CLICKED:', activeRecord.pendingCheckoutEventId);
+      actedEventIds.add(activeRecord.pendingCheckoutEventId);
+    }
+    
     setIsProcessing(true);
     setFeedback('Finalizing checkout at recorded exit time...');
 
@@ -248,6 +282,13 @@ export const CheckoutConfirmationModal: React.FC = () => {
 
   const handleReturningToOffice = async () => {
     if (!employeeId || isProcessing || !activeRecord) return;
+
+    // IMMEDIATE UI LOCK: Mark event as acted upon immediately
+    if (activeRecord.pendingCheckoutEventId) {
+      console.log('[CheckoutConfirmationModal] CHECKOUT_STAY_ACTIVE_CLICKED:', activeRecord.pendingCheckoutEventId);
+      actedEventIds.add(activeRecord.pendingCheckoutEventId);
+    }
+
     setIsProcessing(true);
     setFeedback('Preserving active session...');
 
