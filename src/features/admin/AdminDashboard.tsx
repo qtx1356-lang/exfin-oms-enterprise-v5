@@ -301,7 +301,7 @@ export const processAdminAttendanceRecords = (
         map.set(key, { ...existing, ...localRec });
       } else if (localCheckout && !existingCheckout) {
         map.set(key, { ...existing, ...localRec });
-      } else if (localRec.syncStatus === 'Pending') {
+      } else if (localRec.syncStatus === 'Pending' || localRec.checkoutConfirmed === true) {
         const earliestIn = getEarliestCheckInTime(existing.checkInTime, localRec.checkInTime);
         map.set(key, { ...existing, ...localRec, checkInTime: earliestIn || localRec.checkInTime || existing.checkInTime });
       }

@@ -410,7 +410,16 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
 
         // WRITE BOUNDARY PROTECTION:
         // If the server record is already Admin-authoritative, DO NOT write/merge unauthoritative resolution fields to Firestore!
-        if (isRecordProtectedByAdmin && !isExplicitAdminCorrection) {
+        // EXCEPTION: If the server is just an unconfirmed AUTO_SYSTEM checkout, and the local update is CONFIRMED, ALLOW IT.
+        const isServerUnconfirmedAuto = serverData && 
+          (serverData.checkOutMode === 'AUTO_SYSTEM' || serverData.resolutionSource === 'AUTO_SYSTEM') && 
+          serverData.checkoutConfirmed !== true && 
+          serverData.isAdminRectified !== true;
+        
+        const isLocalConfirmed = record.checkoutConfirmed === true;
+        const allowConfirmedSync = isServerUnconfirmedAuto && isLocalConfirmed;
+
+        if (isRecordProtectedByAdmin && !isExplicitAdminCorrection && !allowConfirmedSync) {
           const safeOperationalUpdate: Record<string, any> = {
             updatedAt: new Date().toISOString(),
             serverSyncTime: localServerSyncTime,

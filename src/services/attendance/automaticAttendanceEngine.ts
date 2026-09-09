@@ -604,7 +604,11 @@ export const AutomaticAttendanceEngine = {
           const newTimestampMs = eventTimestamp.getTime();
           const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
 
-          if (record.currentState === 'RETURNING_TO_OFFICE' || !record.geofenceExitTime || !record.recordedExitTime || newTimestampMs < existingTimestampMs) {
+          // UNIQUE IDENTITY REQUIREMENT: Use eventIso (ISO timestamp) to ensure every exit has a unique ID
+          const exitEventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_EXIT', eventIso);
+
+          // Rule: If we were previously returning to office, or have no exit recorded, or this is a NEWER exit (bug fix), overwrite fields
+          if (record.currentState === 'RETURNING_TO_OFFICE' || !record.geofenceExitTime || !record.recordedExitTime || newTimestampMs > existingTimestampMs) {
             record.geofenceExitTime = timeStr;
             record.geofenceExitTimestamp = eventIso;
             record.recordedExitTime = timeStr;
@@ -613,12 +617,13 @@ export const AutomaticAttendanceEngine = {
             record.lastExitTime = timeStr;
             record.exitTime = record.exitTime || timeStr;
             record.exitDetectionSource = source === 'AUTO_GEOFENCE' ? 'NATIVE_GEOFENCE' : 'FOREGROUND_GPS';
+            record.returningToOffice = false;
           }
           record.pendingCheckoutConfirmation = true;
-          record.returningToOffice = false;
           record.currentState = 'PENDING_AUTO_CHECKOUT';
           record.checkoutStatus = 'PENDING_AUTO_CHECKOUT';
           record.syncStatus = 'Pending';
+          record.updatedAt = new Date().toISOString();
 
           if (coords) {
             record.checkoutLatitude = coords.latitude;
@@ -628,24 +633,10 @@ export const AutomaticAttendanceEngine = {
           }
           modified = true;
 
-          console.log('[AUTO_EXIT_PENDING]', {
-            employeeId,
-            exitTime: record.recordedExitTime || timeStr,
-            source: record.exitDetectionSource || source
-          });
+          record.processedEvents = Array.from(new Set([...(record.processedEvents || []), exitEventId]));
 
-          console.log('[AUTO_EXIT_SAVED]', {
-            employeeId,
-            date: dateStr,
-            distance: Math.round(distance),
-            timestamp: eventIso,
-            source,
-            geofenceExitTime: record.geofenceExitTime,
-            recordedExitTime: record.recordedExitTime
-          });
-
-          logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[AUTO_EXIT_SAVED] Office geofence exit recorded at ${timeStr}. State: PENDING_AUTO_CHECKOUT.`, {
-            eventId,
+          logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[AUTO_EXIT_SAVED] Office geofence exit recorded at ${timeStr}. Event ID: ${exitEventId}`, {
+            eventId: exitEventId,
             eventTimestamp: eventIso,
             metadata: {
               distance: Math.round(distance),
@@ -1094,10 +1085,27 @@ export const AutomaticAttendanceEngine = {
       return record;
     }
 
+    logAttendanceEvent('RETURN_DETECTED', employeeId, `Employee clicked 'STAY ACTIVE'. Cleared stale exit fields. Returning to office.`);
+
+    // CRITICAL BUG FIX (Bug 1): Clear all authoritative exit fields to allow fresh detection on NEXT exit
+    record.geofenceExitTime = null;
+    record.geofenceExitTimestamp = null;
+    record.recordedExitTime = null;
+    record.exitDetectedAt = null;
+    record.exitDetectedTime = null;
+    record.lastExitTime = null;
+    record.exitTime = null;
+    record.exitDetectionSource = 'NONE';
+    record.checkoutLatitude = undefined;
+    record.checkoutLongitude = undefined;
+    record.checkoutDistance = undefined;
+    record.checkoutTownCity = undefined;
+
     record.pendingCheckoutConfirmation = false;
     record.returningToOffice = true;
     record.currentState = 'RETURNING_TO_OFFICE';
     record.syncStatus = 'Pending';
+    record.updatedAt = new Date().toISOString();
 
     saveAttendanceRecord(record);
 

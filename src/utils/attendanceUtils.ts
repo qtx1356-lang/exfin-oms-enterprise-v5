@@ -174,11 +174,15 @@ export function isServerAttendanceAuthoritative(serverRecord: any): boolean {
     resSource === 'EMPLOYEE_PROPOSED' ||
     serverRecord.verificationStatus === 'PENDING';
 
+  // SYSTEM AUTO-CHECKOUT EXCEPTION:
+  // A system-generated auto-checkout (e.g. End-of-Day or Native Exit) is NOT authoritative
+  // UNTIL it is explicitly confirmed by the employee or approved/rectified by an Admin.
   const isSystemAutoCheckout = 
     (resSource === 'AUTO_SYSTEM' || serverRecord.checkOutMode === 'AUTO_SYSTEM' || 
      serverRecord.checkoutFinalizationSource === 'AUTO_SYSTEM_END_OF_DAY' ||
      serverRecord.checkoutFinalizationSource === 'END_OF_DAY_NATIVE_EXIT') &&
     serverRecord.checkoutConfirmed !== true &&
+    serverRecord.isAdminRectified !== true &&
     serverRecord.returningToOffice !== true;
 
   if (isCompletedOrResolved && !isPendingEmployeeProposal && !isSystemAutoCheckout) {
