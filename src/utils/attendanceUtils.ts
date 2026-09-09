@@ -135,7 +135,6 @@ export function isServerAttendanceAuthoritative(serverRecord: any): boolean {
     resolvedBy.includes('super admin') ||
     resolvedBy === 'manager' ||
     resolvedBy === 'system_admin' ||
-    resolvedBy === 'system' ||
     resolvedBy === 'admin portal' ||
     resolvedBy === 'admin dashboard';
 
@@ -162,7 +161,7 @@ export function isServerAttendanceAuthoritative(serverRecord: any): boolean {
 
   if (hasAdminCorrectionInHistory) return true;
 
-  // 5. Explicit COMPLETED / FINALIZED / RESOLVED status (unless unapproved employee proposal)
+  // 5. Explicit COMPLETED / FINALIZED / RESOLVED status (unless unapproved employee proposal or system auto-checkout)
   const isCompletedOrResolved =
     serverRecord.checkoutStatus === 'COMPLETED' ||
     serverRecord.checkoutStatus === 'FINALIZED' ||
@@ -175,7 +174,14 @@ export function isServerAttendanceAuthoritative(serverRecord: any): boolean {
     resSource === 'EMPLOYEE_PROPOSED' ||
     serverRecord.verificationStatus === 'PENDING';
 
-  if (isCompletedOrResolved && !isPendingEmployeeProposal) {
+  const isSystemAutoCheckout = 
+    (resSource === 'AUTO_SYSTEM' || serverRecord.checkOutMode === 'AUTO_SYSTEM' || 
+     serverRecord.checkoutFinalizationSource === 'AUTO_SYSTEM_END_OF_DAY' ||
+     serverRecord.checkoutFinalizationSource === 'END_OF_DAY_NATIVE_EXIT') &&
+    serverRecord.checkoutConfirmed !== true &&
+    serverRecord.returningToOffice !== true;
+
+  if (isCompletedOrResolved && !isPendingEmployeeProposal && !isSystemAutoCheckout) {
     return true;
   }
 
