@@ -117,6 +117,7 @@ public class GeofencePlugin extends Plugin {
             ret.put("geofenceId", OfficeGeofenceHelper.GEOFENCE_ID);
             ret.put("authoritativeRadius", OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS);
             ret.put("wakeupTriggerRadius", OfficeGeofenceHelper.WAKEUP_TRIGGER_RADIUS_METERS);
+            ret.put("assistRadius", OfficeGeofenceHelper.ASSIST_RADIUS_METERS);
             ret.put("latitude", OfficeGeofenceHelper.OFFICE_LAT);
             ret.put("longitude", OfficeGeofenceHelper.OFFICE_LNG);
             call.resolve(ret);
@@ -136,6 +137,7 @@ public class GeofencePlugin extends Plugin {
             ret.put("geofenceId", OfficeGeofenceHelper.GEOFENCE_ID);
             ret.put("authoritativeRadius", OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS);
             ret.put("wakeupTriggerRadius", OfficeGeofenceHelper.WAKEUP_TRIGGER_RADIUS_METERS);
+            ret.put("assistRadius", OfficeGeofenceHelper.ASSIST_RADIUS_METERS);
             ret.put("latitude", OfficeGeofenceHelper.OFFICE_LAT);
             ret.put("longitude", OfficeGeofenceHelper.OFFICE_LNG);
             call.resolve(ret);
@@ -244,6 +246,19 @@ public class GeofencePlugin extends Plugin {
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Failed to clear active session: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void cancelPendingExit(PluginCall call) {
+        try {
+            Context context = getContext();
+            OfficeGeofenceHelper.cancelPendingExit(context);
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to cancel pending exit: " + e.getMessage(), e);
         }
     }
 

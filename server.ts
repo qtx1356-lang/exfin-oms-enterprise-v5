@@ -987,10 +987,10 @@ async function startServer() {
           console.log(`[BackgroundAttendance] GEOFENCE_EXIT detected for ${employeeId} on ${dateStr}`);
           // Geofence exit transition (INSIDE -> OUTSIDE)
           if (currentState === "CHECKED_IN" || currentState === "ENTERING" || currentState === "RETURNING_TO_OFFICE") {
-            const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
+            const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : 0;
             const newTimestampMs = tsDate.getTime();
 
-            if (!record.geofenceExitTime || !record.recordedExitTime || newTimestampMs < existingTimestampMs || currentState === "RETURNING_TO_OFFICE") {
+            if (!record.geofenceExitTime || !record.recordedExitTime || newTimestampMs > existingTimestampMs || currentState === "RETURNING_TO_OFFICE") {
               record.lastExitTime = timeStr;
               record.exitTime = record.exitTime || timeStr;
               record.geofenceExitTime = timeStr;
@@ -1001,6 +1001,7 @@ async function startServer() {
               record.exitDetectionSource = "NATIVE_GEOFENCE";
             }
             record.pendingCheckoutConfirmation = true;
+            record.pendingCheckoutEventId = eventId;
             record.returningToOffice = false;
             record.currentState = "PENDING_EXIT_CONFIRMATION";
             

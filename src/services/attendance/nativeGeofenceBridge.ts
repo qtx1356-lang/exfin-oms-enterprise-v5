@@ -25,13 +25,14 @@ export interface NativeAttendanceEvent {
 }
 
 export interface NativeGeofencePluginInterface {
-  registerOfficeGeofence(): Promise<{ success: boolean; geofenceId: string; authoritativeRadius: number; wakeupTriggerRadius: number; latitude: number; longitude: number }>;
-  getGeofenceStatus(): Promise<{ isRegistered: boolean; geofenceId: string; authoritativeRadius: number; wakeupTriggerRadius: number; latitude: number; longitude: number }>;
+  registerOfficeGeofence(): Promise<{ success: boolean; geofenceId: string; authoritativeRadius: number; wakeupTriggerRadius: number; assistRadius?: number; latitude: number; longitude: number }>;
+  getGeofenceStatus(): Promise<{ isRegistered: boolean; geofenceId: string; authoritativeRadius: number; wakeupTriggerRadius: number; assistRadius?: number; latitude: number; longitude: number }>;
   getUnconsumedNativeEvents(): Promise<{ events: NativeAttendanceEvent[] }>;
   removeOfficeGeofence(): Promise<{ success: boolean }>;
   setEmployeeIdentity(identity: { id: string; name: string; townCity: string; serverUrl: string }): Promise<void>;
   startActiveSession(session: { employeeId: string; employeeName: string; townCity: string; date: string; checkInTime: string }): Promise<{ success: boolean }>;
   clearActiveSession(): Promise<{ success: boolean }>;
+  cancelPendingExit(): Promise<{ success: boolean }>;
   forceSyncPendingEvents(): Promise<{ success: boolean }>;
   getActiveAttendanceState(): Promise<{
     hasActiveSession: boolean;
@@ -57,6 +58,7 @@ export interface NativeGeofencePluginInterface {
     lastKnownState: 'INSIDE' | 'OUTSIDE' | 'UNKNOWN';
     authoritativeRadiusMeters: number;
     wakeupTriggerRadiusMeters: number;
+    assistRadiusMeters?: number;
     batteryOptimizationState: string;
     activeSession: any;
     lastVerifiedLocation?: {
@@ -353,6 +355,17 @@ export const clearNativeActiveSession = async (): Promise<boolean> => {
     return !!res.success;
   } catch (err) {
     console.warn('[NativeGeofenceBridge] Failed to clear native active session:', err);
+    return false;
+  }
+};
+
+export const cancelPendingNativeExit = async (): Promise<boolean> => {
+  if (!Capacitor.isNativePlatform()) return true;
+  try {
+    const res = await NativeGeofencePlugin.cancelPendingExit();
+    return !!res?.success;
+  } catch (err) {
+    console.warn('[NativeGeofenceBridge] Failed to cancel native pending exit:', err);
     return false;
   }
 };

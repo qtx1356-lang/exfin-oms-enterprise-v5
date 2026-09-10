@@ -40,15 +40,19 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
         Location triggerLocation = geofencingEvent.getTriggeringLocation();
 
         List<Geofence> triggeringGeofences = geofencingEvent.getTriggeringGeofences();
+        List<String> triggeringGeofenceIds = new java.util.ArrayList<>();
         if (triggeringGeofences != null) {
             for (Geofence geofence : triggeringGeofences) {
-                Log.i(TAG, "Native Geofence wake-up triggered by: " + geofence.getRequestId() + " (transition=" + transitionType + ")");
+                if (geofence != null && geofence.getRequestId() != null) {
+                    triggeringGeofenceIds.add(geofence.getRequestId());
+                    Log.i(TAG, "Native Geofence wake-up triggered by: " + geofence.getRequestId() + " (transition=" + transitionType + ")");
+                }
             }
         }
 
         // Delegate to high-accuracy verification and decision engine with goAsync()
         final PendingResult pendingResult = goAsync();
         Log.i(TAG, "[NativeGeofenceLifecycle] GO_ASYNC_STARTED for transition: " + transitionType);
-        OfficeGeofenceHelper.handleNativeGeofenceTransition(context, transitionType, triggerLocation, pendingResult);
+        OfficeGeofenceHelper.handleNativeGeofenceTransition(context, transitionType, triggerLocation, triggeringGeofenceIds, pendingResult);
     }
 }

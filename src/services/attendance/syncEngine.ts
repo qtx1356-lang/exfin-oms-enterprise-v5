@@ -184,6 +184,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
         let finalReason = record.reason;
         let isRecordProtectedByAdmin = false;
         let serverData: any = null;
+        let hasExplicitAdminIntervention = false;
 
         if (!isExplicitAdminCorrection) {
           try {
@@ -243,8 +244,8 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
 
                 if (isServerSameEpisode) {
                   const serverExitMs = new Date(serverData.geofenceExitTimestamp).getTime();
-                  const localExitMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
-                  if (serverExitMs < localExitMs && serverData.geofenceExitTime) {
+                  const localExitMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : 0;
+                  if (serverExitMs > localExitMs && serverData.geofenceExitTime) {
                     finalGeofenceExitTime = serverData.geofenceExitTime;
                     finalGeofenceExitTimestamp = serverData.geofenceExitTimestamp;
                     finalRecordedExitTime = serverData.recordedExitTime || serverData.geofenceExitTime;
@@ -256,12 +257,32 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                 }
               }
 
+              hasExplicitAdminIntervention = !!(
+                serverData?.isAdminRectified === true ||
+                serverData?.manualRectified === true ||
+                (serverData?.checkoutResolvedBy && String(serverData.checkoutResolvedBy).toLowerCase().includes('admin')) ||
+                serverData?.resolutionSource === 'ADMIN_CORRECTION' ||
+                serverData?.checkoutFinalizationSource === 'ADMIN_CORRECTION' ||
+                findLatestAdminCorrection(serverData?.correctionHistory)
+              );
+
               // REQUIRED SERVER-AUTHORITY RULE:
               // Treat a server attendance record as ADMIN-AUTHORITATIVE when ANY of the authoritative conditions is true.
               const isServerAdminAuth = isServerAttendanceAuthoritative(serverData);
 
               if (isServerAdminAuth) {
-                isRecordProtectedByAdmin = true;
+                // If local record has a confirmed checkout by the employee, and server has NOT been explicitly rectified by an Admin,
+                // do NOT let stale server auto-checkout state suppress or overwrite the employee's confirmed checkout!
+                if (record.checkoutConfirmed === true && !hasExplicitAdminIntervention) {
+                  console.log('[AttendanceSync] Preserving local employee-confirmed checkout over non-admin server state', {
+                    employeeId: record.employeeId,
+                    localCheckOut: record.checkOutTime,
+                    serverCheckOut: serverData?.checkOutTime
+                  });
+                  isRecordProtectedByAdmin = false;
+                } else {
+                  isRecordProtectedByAdmin = true;
+                }
 
                 // CORRECTION HISTORY RECOVERY:
                 // If serverData is Admin-authoritative, inspect correctionHistory for most recent valid Admin/Super-Admin correction
@@ -410,14 +431,9 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
 
         // WRITE BOUNDARY PROTECTION:
         // If the server record is already Admin-authoritative, DO NOT write/merge unauthoritative resolution fields to Firestore!
-        // EXCEPTION: If the server is just an unconfirmed AUTO_SYSTEM checkout, and the local update is CONFIRMED, ALLOW IT.
-        const isServerUnconfirmedAuto = serverData && 
-          (serverData.checkOutMode === 'AUTO_SYSTEM' || serverData.resolutionSource === 'AUTO_SYSTEM') && 
-          serverData.checkoutConfirmed !== true && 
-          serverData.isAdminRectified !== true;
-        
+        // EXCEPTION: If the local update is CONFIRMED (employee confirmed checkout from exit or manual popup), ALLOW IT as long as server record does not have explicit admin intervention.
         const isLocalConfirmed = record.checkoutConfirmed === true;
-        const allowConfirmedSync = isServerUnconfirmedAuto && isLocalConfirmed;
+        const allowConfirmedSync = isLocalConfirmed && !hasExplicitAdminIntervention;
 
         if (isRecordProtectedByAdmin && !isExplicitAdminCorrection && !allowConfirmedSync) {
           const safeOperationalUpdate: Record<string, any> = {
@@ -533,6 +549,9 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           checkoutConfirmed: isRecordProtectedByAdmin ? true : (record.checkoutConfirmed ?? false),
           returnTime: record.returnTime || null,
           processedEvents: record.processedEvents || [],
+          lastActedExitEventId: record.lastActedExitEventId || null,
+          pendingCheckoutEventId: record.pendingCheckoutEventId || null,
+          handledExitEvents: record.handledExitEvents || {},
           version: isRecordProtectedByAdmin && typeof serverData?.version === 'number'
             ? Math.max(serverData.version, Number(record.version) || 0)
             : (record.version || 1)

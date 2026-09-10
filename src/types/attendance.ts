@@ -215,6 +215,7 @@ export interface AttendanceRecord {
   currentState?: AttendanceState;
   pendingCheckoutEventId?: string | null;
   lastActedExitEventId?: string | null;
+  handledExitEvents?: Record<string, { action: 'STAY_ACTIVE' | 'CONFIRM_CHECKOUT'; timestamp: string }>;
   processedEvents?: string[]; // List of eventIds processed for this record
   episodeId?: string | null;
   evidenceSource?: EvidenceSource;

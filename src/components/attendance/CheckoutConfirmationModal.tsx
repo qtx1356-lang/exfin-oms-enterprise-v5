@@ -44,6 +44,33 @@ export const CheckoutConfirmationModal: React.FC = () => {
   const resolvedEmployeeId = candidateIds[0] || undefined;
   const employeeId = resolvedEmployeeId;
 
+  const STORAGE_KEY_HANDLED_EXIT_EVENTS = 'exfin_handled_exit_events_v1';
+
+  const getPersistedHandledExitEvents = useCallback((): Record<string, { eventId: string; action: 'STAY_ACTIVE' | 'CONFIRM_CHECKOUT'; timestamp: string }> => {
+    try {
+      if (typeof localStorage === 'undefined') return {};
+      const raw = localStorage.getItem(STORAGE_KEY_HANDLED_EXIT_EVENTS);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const persistHandledExitEvent = useCallback((eventId: string, action: 'STAY_ACTIVE' | 'CONFIRM_CHECKOUT') => {
+    try {
+      if (typeof localStorage === 'undefined' || !eventId) return;
+      const map = getPersistedHandledExitEvents();
+      map[eventId] = {
+        eventId,
+        action,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem(STORAGE_KEY_HANDLED_EXIT_EVENTS, JSON.stringify(map));
+    } catch (e) {
+      console.warn('Failed to persist handled exit event:', e);
+    }
+  }, [getPersistedHandledExitEvents]);
+
   // SESSION-LEVEL CACHE: Tracks events that have already been acted upon in this session 
   // to provide instantaneous UI suppression before persistence completes.
   const [actedEventIds] = useState(() => new Set<string>());
@@ -54,18 +81,36 @@ export const CheckoutConfirmationModal: React.FC = () => {
 
       // RULE: If this specific exit event has already been acted upon (Confirmed or Stay Active),
       // it is PERMANENTLY ineligible for another popup.
-      if (record.pendingCheckoutEventId && record.lastActedExitEventId === record.pendingCheckoutEventId) {
-        if (activeRecord?.pendingCheckoutEventId !== record.pendingCheckoutEventId) {
-          console.log('[CheckoutConfirmationModal] CHECKOUT_POPUP_BLOCKED_TERMINAL_EVENT:', record.pendingCheckoutEventId);
+      const pendingEventId = record.pendingCheckoutEventId;
+      if (pendingEventId) {
+        if (record.lastActedExitEventId === pendingEventId) {
+          if (activeRecord?.pendingCheckoutEventId !== pendingEventId) {
+            console.log('[CheckoutConfirmationModal] CHECKOUT_POPUP_BLOCKED_LAST_ACTED:', pendingEventId);
+          }
+          return false;
         }
-        return false;
-      }
 
-      if (record.pendingCheckoutEventId && actedEventIds.has(record.pendingCheckoutEventId)) {
-        if (activeRecord?.pendingCheckoutEventId !== record.pendingCheckoutEventId) {
-          console.log('[CheckoutConfirmationModal] CHECKOUT_POPUP_DUPLICATE_BLOCKED:', record.pendingCheckoutEventId);
+        if (record.handledExitEvents && record.handledExitEvents[pendingEventId]) {
+          if (activeRecord?.pendingCheckoutEventId !== pendingEventId) {
+            console.log('[CheckoutConfirmationModal] CHECKOUT_POPUP_BLOCKED_HANDLED_ON_RECORD:', pendingEventId);
+          }
+          return false;
         }
-        return false;
+
+        const persistedHandled = getPersistedHandledExitEvents();
+        if (persistedHandled[pendingEventId]) {
+          if (activeRecord?.pendingCheckoutEventId !== pendingEventId) {
+            console.log('[CheckoutConfirmationModal] CHECKOUT_POPUP_BLOCKED_PERSISTED_HANDLED:', pendingEventId);
+          }
+          return false;
+        }
+
+        if (actedEventIds.has(pendingEventId)) {
+          if (activeRecord?.pendingCheckoutEventId !== pendingEventId) {
+            console.log('[CheckoutConfirmationModal] CHECKOUT_POPUP_DUPLICATE_BLOCKED:', pendingEventId);
+          }
+          return false;
+        }
       }
 
       if (activeRecord && activeRecord.pendingCheckoutEventId && record.pendingCheckoutEventId && activeRecord.pendingCheckoutEventId !== record.pendingCheckoutEventId) {
@@ -244,10 +289,11 @@ export const CheckoutConfirmationModal: React.FC = () => {
   const handleConfirmCheckout = async () => {
     if (!employeeId || isProcessing || !activeRecord) return;
     
-    // IMMEDIATE UI LOCK: Mark event as acted upon immediately
-    if (activeRecord.pendingCheckoutEventId) {
-      console.log('[CheckoutConfirmationModal] CHECKOUT_CONFIRM_CLICKED:', activeRecord.pendingCheckoutEventId);
-      actedEventIds.add(activeRecord.pendingCheckoutEventId);
+    const eventId = activeRecord.pendingCheckoutEventId || undefined;
+    if (eventId) {
+      console.log('[CheckoutConfirmationModal] CHECKOUT_CONFIRM_CLICKED:', eventId);
+      actedEventIds.add(eventId);
+      persistHandledExitEvent(eventId, 'CONFIRM_CHECKOUT');
     }
     
     setIsProcessing(true);
@@ -259,7 +305,8 @@ export const CheckoutConfirmationModal: React.FC = () => {
         employeeId,
         todayStr,
         liveLocation || undefined,
-        currentAddress || undefined
+        currentAddress || undefined,
+        eventId
       );
 
       if (result) {
@@ -283,10 +330,11 @@ export const CheckoutConfirmationModal: React.FC = () => {
   const handleReturningToOffice = async () => {
     if (!employeeId || isProcessing || !activeRecord) return;
 
-    // IMMEDIATE UI LOCK: Mark event as acted upon immediately
-    if (activeRecord.pendingCheckoutEventId) {
-      console.log('[CheckoutConfirmationModal] CHECKOUT_STAY_ACTIVE_CLICKED:', activeRecord.pendingCheckoutEventId);
-      actedEventIds.add(activeRecord.pendingCheckoutEventId);
+    const eventId = activeRecord.pendingCheckoutEventId || undefined;
+    if (eventId) {
+      console.log('[CheckoutConfirmationModal] CHECKOUT_STAY_ACTIVE_CLICKED:', eventId);
+      actedEventIds.add(eventId);
+      persistHandledExitEvent(eventId, 'STAY_ACTIVE');
     }
 
     setIsProcessing(true);
@@ -296,7 +344,8 @@ export const CheckoutConfirmationModal: React.FC = () => {
       const todayStr = getFormattedDateStr();
       const result = AutomaticAttendanceEngine.setReturningToOffice(
         employeeId,
-        todayStr
+        todayStr,
+        eventId
       );
 
       if (result) {
