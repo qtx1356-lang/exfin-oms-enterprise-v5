@@ -1279,6 +1279,44 @@ export const AttendanceScreen: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* WhatsApp Sharing Section - Moved from TodayAttendanceCard to be below manual actions */}
+        {(todayRecord && employeeName && employeeId) && (
+          <div className="mt-3 space-y-2">
+            {(() => {
+              const cinUrl = getWhatsAppAttendanceUrl(employeeName, employeeId, todayRecord, 'CHECK_IN');
+              const coutUrl = getWhatsAppAttendanceUrl(employeeName, employeeId, todayRecord, 'CHECK_OUT');
+              const isCheckedOut = !!todayRecord.checkOutTime && todayRecord.checkOutTime !== '--:--';
+              
+              if (!cinUrl && !coutUrl) return null;
+              
+              return (
+                <>
+                  {cinUrl && !isCheckedOut && (
+                    <Button
+                      variant="outline"
+                      className="w-full py-4 rounded-2xl border-emerald-500/30 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 text-xs font-black uppercase tracking-wider transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                      onClick={() => window.open(cinUrl, '_blank')}
+                    >
+                      <Send className="w-5 h-5" />
+                      Send Check-in to WhatsApp
+                    </Button>
+                  )}
+                  {coutUrl && (
+                    <Button
+                      variant="outline"
+                      className="w-full py-4 rounded-2xl border-rose-500/30 bg-rose-500/5 text-rose-400 hover:bg-rose-500/10 text-xs font-black uppercase tracking-wider transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                      onClick={() => window.open(coutUrl, '_blank')}
+                    >
+                      <Send className="w-5 h-5" />
+                      Send Check-out to WhatsApp
+                    </Button>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {/* ==================================================== */}
