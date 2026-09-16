@@ -37,6 +37,7 @@ export interface LocationContextType {
   isGpsOff: boolean;
   isPermissionDenied: boolean;
   isLocationUnavailable: boolean;
+  isVerifyingLocation?: boolean;
 }
 
 
@@ -162,6 +163,20 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [locationTimestamp, setLocationTimestamp] = useState<number | null>(null);
   const locationTimestampRef = useRef<number | null>(null);
 
+  const stableInsideOfficeRef = useRef<boolean | null>(null);
+  const outsideCandidateRef = useRef<{
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    timestamp: number;
+    distance: number;
+    firstSeenTime: number;
+  } | null>(null);
+  const isVerifyingRef = useRef<boolean>(false);
+  const isVerifyingInFlightRef = useRef<boolean>(false);
+  const verificationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isVerifyingLocation, setIsVerifyingLocation] = useState<boolean>(false);
+
   const watchIdRef = useRef<string | number | null>(null);
   const lastGeocodedCoordsRef = useRef<{ lat: number; lon: number; time: number } | null>(null);
   const adaptiveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -176,6 +191,9 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [isFreshFixReceived, locationTimestamp]);
 
   const formattedDistance = React.useMemo(() => {
+    if (isVerifyingLocation) {
+      return 'Checking location…';
+    }
     if (distance !== null) {
       if (isStale) {
         return 'Updating…';
@@ -189,11 +207,14 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return 'GPS unavailable';
     }
     return 'Location unavailable';
-  }, [distance, isStale, locationStatus, isGpsOff, isPermissionDenied]);
+  }, [distance, isStale, locationStatus, isGpsOff, isPermissionDenied, isVerifyingLocation]);
 
   const isInsideGeofence = React.useMemo(() => {
+    if (isVerifyingLocation && stableInsideOffice) {
+      return true;
+    }
     return distance !== null && !isStale && distance <= OFFICE_LOCATION.radius;
-  }, [distance, isStale]);
+  }, [distance, isStale, isVerifyingLocation, stableInsideOffice]);
 
   const getEmployeeInfo = React.useCallback(() => {
     try {
@@ -444,7 +465,99 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return granted;
   }, []);
 
-  const processPosition = async (latitude: number, longitude: number, accuracy?: number, timestamp?: number) => {
+  const dispatchLocationToAttendance = (
+    latitude: number,
+    longitude: number,
+    accuracy: number | undefined,
+    effectiveTimestamp: number,
+    calculatedDistance: number
+  ) => {
+    if (!isAdminContextActive()) {
+      try {
+        const cachedRaw = localStorage.getItem('cached_registration_data');
+        if (cachedRaw) {
+          const parsed = JSON.parse(cachedRaw);
+          const empId = parsed.employeeCode || parsed.uid || parsed.id;
+          const empName = parsed.name || 'Employee';
+          if (empId) {
+            updateLiveEmployeeLocation({
+              employeeId: empId,
+              employeeName: empName,
+              latitude,
+              longitude,
+              accuracy,
+              distanceFromOffice: calculatedDistance,
+              townCity: currentAddress || 'Raniganj HQ',
+              timestamp: new Date(effectiveTimestamp).toISOString()
+            }).catch((err) => console.warn('Error updating live_locations:', err));
+
+            const startTime = Date.now();
+            handleLocationUpdateForAttendance(
+              latitude,
+              longitude,
+              empId,
+              empName,
+              currentAddress || 'Raniganj HQ',
+              accuracy
+            );
+
+            if (calculatedDistance <= OFFICE_LOCATION.radius) {
+              console.log('[AUTO_CHECKIN_TIMING]', {
+                locationReceivedTime: new Date(effectiveTimestamp).toISOString(),
+                locationAccuracy: accuracy || 'N/A',
+                distanceFromOffice: Math.round(calculatedDistance * 100) / 100,
+                geofenceEvaluationTimeMs: Date.now() - startTime,
+                status: 'EVALUATED_INSIDE_25M'
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Error evaluating location update for attendance / live location:', err);
+      }
+    }
+  };
+
+  const triggerCandidateVerification = async () => {
+    if (isVerifyingInFlightRef.current) return;
+    isVerifyingInFlightRef.current = true;
+
+    // Bounded timeout fallback (3.8s) to prevent indefinite pending verification
+    if (!verificationTimerRef.current) {
+      verificationTimerRef.current = setTimeout(() => {
+        verificationTimerRef.current = null;
+        if (outsideCandidateRef.current && isVerifyingRef.current) {
+          const candidate = outsideCandidateRef.current;
+          console.log(`[Location Stabilization] Verification timeout reached (${Date.now() - candidate.firstSeenTime}ms). Finalizing candidate position.`);
+          processPosition(candidate.latitude, candidate.longitude, candidate.accuracy, candidate.timestamp, true);
+        }
+      }, 3800);
+    }
+
+    try {
+      const pos = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 3500,
+        maximumAge: 0
+      });
+      if (pos && pos.coords) {
+        clearErrors();
+        await processPosition(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, pos.timestamp, true);
+      }
+    } catch (err) {
+      console.warn('[Location Stabilization] Verification getCurrentPosition error:', err);
+    } finally {
+      isVerifyingInFlightRef.current = false;
+    }
+  };
+
+  const processPosition = async (
+    latitude: number,
+    longitude: number,
+    accuracy?: number,
+    timestamp?: number,
+    isVerificationFix: boolean = false
+  ) => {
     const now = Date.now();
     const fixTime = timestamp || now;
 
@@ -476,82 +589,138 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       OFFICE_LOCATION.longitude
     );
 
-    // Always keep latest raw coordinate and distance in refs for non-UI workers & adaptive polling
-    rawLocationRef.current = { latitude, longitude, accuracy, timestamp: fixTime };
-    locationTimestampRef.current = fixTime;
-    latestDistanceRef.current = calculatedDistance;
-
     // Boundary comparison: strictly <= 25.0 meters (OFFICE_LOCATION.radius)
     const isHighAccuracyForGeofence = !accuracy || accuracy <= 35;
     const isWithinBoundary = calculatedDistance <= OFFICE_LOCATION.radius;
-    const nextInside = isWithinBoundary && isHighAccuracyForGeofence;
+    const isReliableInside = isWithinBoundary && isHighAccuracyForGeofence;
 
-    // Bypass UI Throttle: Update React UI state immediately on geofence transition or initial load, or every 1 second maximum
-    const geofenceStateChanged = (stableInsideOffice !== nextInside);
-    const timeSinceLastUiUpdate = now - lastUiUpdateRef.current;
-    const shouldUpdateUi = lastUiUpdateRef.current === 0 || geofenceStateChanged || timeSinceLastUiUpdate >= 1000;
+    // Stabilization Logic:
+    // CASE 1: Fresh fix is reliable INSIDE (<= 25m with high accuracy)
+    if (isReliableInside) {
+      if (verificationTimerRef.current) {
+        clearTimeout(verificationTimerRef.current);
+        verificationTimerRef.current = null;
+      }
+      outsideCandidateRef.current = null;
+      isVerifyingRef.current = false;
+      setIsVerifyingLocation(false);
 
-    if (shouldUpdateUi) {
+      stableInsideOfficeRef.current = true;
+      setStableInsideOffice(true);
+
+      rawLocationRef.current = { latitude, longitude, accuracy, timestamp: fixTime };
+      locationTimestampRef.current = fixTime;
+      latestDistanceRef.current = calculatedDistance;
+
       lastUiUpdateRef.current = now;
       setLiveLocation({ latitude, longitude });
       setDistance(calculatedDistance);
       setLocationTimestamp(fixTime);
       setIsFreshFixReceived(true);
       setLocationStatus('success');
-      setStableInsideOffice(nextInside);
-    }
 
-    // Save to cache for offline backup
-    try {
-      localStorage.setItem('lastKnownLocation', JSON.stringify({ latitude, longitude }));
-      localStorage.setItem('lastKnownDistance', String(calculatedDistance));
-    } catch (e) {}
-
-    // Evaluate automatic background geofence state transition & live location write
-    // Direct execution: process check-in immediately upon valid coordinate arrival without waiting for UI state
-    if (!isAdminContextActive()) {
       try {
-        const cachedRaw = localStorage.getItem('cached_registration_data');
-        if (cachedRaw) {
-          const parsed = JSON.parse(cachedRaw);
-          const empId = parsed.employeeCode || parsed.uid || parsed.id;
-          const empName = parsed.name || 'Employee';
-          if (empId) {
-            updateLiveEmployeeLocation({
-              employeeId: empId,
-              employeeName: empName,
-              latitude,
-              longitude,
-              accuracy,
-              distanceFromOffice: calculatedDistance,
-              townCity: currentAddress || 'Raniganj HQ',
-              timestamp: new Date(fixTime).toISOString()
-            }).catch((err) => console.warn('Error updating live_locations:', err));
+        localStorage.setItem('lastKnownLocation', JSON.stringify({ latitude, longitude }));
+        localStorage.setItem('lastKnownDistance', String(calculatedDistance));
+      } catch (e) {}
 
-            const startTime = Date.now();
-            handleLocationUpdateForAttendance(
-              latitude,
-              longitude,
-              empId,
-              empName,
-              currentAddress || 'Raniganj HQ',
-              accuracy
-            );
-
-            if (calculatedDistance <= OFFICE_LOCATION.radius) {
-              console.log('[AUTO_CHECKIN_TIMING]', {
-                locationReceivedTime: new Date(fixTime).toISOString(),
-                locationAccuracy: accuracy || 'N/A',
-                distanceFromOffice: Math.round(calculatedDistance * 100) / 100,
-                geofenceEvaluationTimeMs: Date.now() - startTime,
-                status: 'EVALUATED_INSIDE_25M'
-              });
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Error evaluating location update for attendance / live location:', err);
+      dispatchLocationToAttendance(latitude, longitude, accuracy, fixTime, calculatedDistance);
+    }
+    // CASE 2: Fix is OUTSIDE (> 25m or degraded accuracy outside boundary) while PREVIOUSLY confirmed INSIDE
+    else if (stableInsideOfficeRef.current === true) {
+      if (!outsideCandidateRef.current) {
+        outsideCandidateRef.current = {
+          latitude,
+          longitude,
+          accuracy,
+          timestamp: fixTime,
+          distance: calculatedDistance,
+          firstSeenTime: now
+        };
+        console.log(`[Location Stabilization] Outside candidate detected (${calculatedDistance.toFixed(1)}m, acc: ${accuracy ?? 'N/A'}m). Initiating fresh high-accuracy verification...`);
       }
+
+      isVerifyingRef.current = true;
+      setIsVerifyingLocation(true);
+
+      const candidateAgeMs = now - outsideCandidateRef.current.firstSeenTime;
+      const isConfirmedOutside = (isVerificationFix && isHighAccuracyForGeofence && calculatedDistance > OFFICE_LOCATION.radius) || candidateAgeMs >= 4000;
+
+      if (isConfirmedOutside) {
+        console.log(`[Location Stabilization] Outside candidate confirmed after verification (${calculatedDistance.toFixed(1)}m, candidateAge: ${(candidateAgeMs / 1000).toFixed(1)}s).`);
+        if (verificationTimerRef.current) {
+          clearTimeout(verificationTimerRef.current);
+          verificationTimerRef.current = null;
+        }
+        const confirmedCandidate = outsideCandidateRef.current;
+        outsideCandidateRef.current = null;
+        isVerifyingRef.current = false;
+        setIsVerifyingLocation(false);
+
+        stableInsideOfficeRef.current = false;
+        setStableInsideOffice(false);
+
+        rawLocationRef.current = { latitude, longitude, accuracy, timestamp: fixTime };
+        locationTimestampRef.current = fixTime;
+        latestDistanceRef.current = calculatedDistance;
+
+        lastUiUpdateRef.current = now;
+        setLiveLocation({ latitude, longitude });
+        setDistance(calculatedDistance);
+        setLocationTimestamp(fixTime);
+        setIsFreshFixReceived(true);
+        setLocationStatus('success');
+
+        try {
+          localStorage.setItem('lastKnownLocation', JSON.stringify({ latitude, longitude }));
+          localStorage.setItem('lastKnownDistance', String(calculatedDistance));
+        } catch (e) {}
+
+        // Rule 7: Preserve the earliest valid physical GPS candidate timestamp from this verification sequence
+        const effectiveTimestamp = (confirmedCandidate && confirmedCandidate.timestamp && confirmedCandidate.timestamp <= fixTime)
+          ? confirmedCandidate.timestamp
+          : fixTime;
+
+        dispatchLocationToAttendance(latitude, longitude, accuracy, effectiveTimestamp, calculatedDistance);
+      } else {
+        triggerCandidateVerification();
+      }
+    }
+    // CASE 3: Fix is OUTSIDE and user was NOT previously inside (e.g. already outside or initial state)
+    else {
+      if (verificationTimerRef.current) {
+        clearTimeout(verificationTimerRef.current);
+        verificationTimerRef.current = null;
+      }
+      outsideCandidateRef.current = null;
+      isVerifyingRef.current = false;
+      setIsVerifyingLocation(false);
+
+      stableInsideOfficeRef.current = false;
+      setStableInsideOffice(false);
+
+      rawLocationRef.current = { latitude, longitude, accuracy, timestamp: fixTime };
+      locationTimestampRef.current = fixTime;
+      latestDistanceRef.current = calculatedDistance;
+
+      const timeSinceLastUiUpdate = now - lastUiUpdateRef.current;
+      const shouldUpdateUi = lastUiUpdateRef.current === 0 || timeSinceLastUiUpdate >= 1000;
+
+      if (shouldUpdateUi) {
+        lastUiUpdateRef.current = now;
+        setLiveLocation({ latitude, longitude });
+        setDistance(calculatedDistance);
+        setLocationTimestamp(fixTime);
+        setIsFreshFixReceived(true);
+        setLocationStatus('success');
+      }
+
+      try {
+        localStorage.setItem('lastKnownLocation', JSON.stringify({ latitude, longitude }));
+        localStorage.setItem('lastKnownDistance', String(calculatedDistance));
+      } catch (e) {}
+
+      dispatchLocationToAttendance(latitude, longitude, accuracy, fixTime, calculatedDistance);
     }
 
     // Offline mode support
@@ -801,7 +970,9 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
 
   // Update dynamic locationState on state changes
   useEffect(() => {
-    if (locationStatus === 'loading') {
+    if (isVerifyingLocation) {
+      setLocationState('LOCATING');
+    } else if (locationStatus === 'loading') {
       setLocationState('LOCATING');
     } else if (locationStatus === 'error') {
       setLocationState('UNKNOWN');
@@ -818,7 +989,7 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
         setLocationState('OUTSIDE_OFFICE');
       }
     }
-  }, [locationStatus, stableInsideOffice, locationTimestamp]);
+  }, [locationStatus, stableInsideOffice, locationTimestamp, isVerifyingLocation]);
 
   const forceRefreshLocation = React.useCallback(async () => {
     setLocationStatus('loading');
@@ -855,7 +1026,8 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
       setActiveAttendanceMode,
       isGpsOff,
       isPermissionDenied,
-      isLocationUnavailable
+      isLocationUnavailable,
+      isVerifyingLocation
     }),
     [
       liveLocation,
@@ -873,7 +1045,8 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
       setActiveAttendanceMode,
       isGpsOff,
       isPermissionDenied,
-      isLocationUnavailable
+      isLocationUnavailable,
+      isVerifyingLocation
     ]
   );
 

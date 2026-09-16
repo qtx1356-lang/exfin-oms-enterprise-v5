@@ -352,7 +352,7 @@ export const AttendanceScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    if (liveLocation && distance !== null) {
+    if (liveLocation && distance !== null && locationState !== 'LOCATING') {
       const todayStr = getFormattedDateStr();
       const activeRecord = getTodayAttendanceRecord(employeeId, todayStr);
       if (activeRecord && (activeRecord.attendanceType === 'OFFICE' || !activeRecord.attendanceType)) {
@@ -363,7 +363,7 @@ export const AttendanceScreen: React.FC = () => {
       }
       handleImmediateAutoCheckIn(isInsideGeofence || distance <= OFFICE_LOCATION.radius, liveLocation);
     }
-  }, [liveLocation, distance, isInsideGeofence, employeeId]);
+  }, [liveLocation, distance, isInsideGeofence, employeeId, locationState]);
 
   // Office Check-In Handler
   const handleManualCheckIn = async () => {
@@ -619,6 +619,13 @@ export const AttendanceScreen: React.FC = () => {
         };
       }
       if (activeMode === 'OFFICE') {
+        if (locationStatus === 'loading' || locationState === 'LOCATING') {
+          return {
+            title: 'CHECKING LOCATION…',
+            subtitle: 'Verifying GPS signal with office boundary...',
+            icon: <RotateCw className="w-5 h-5 text-[var(--primary)] animate-spin shrink-0" />
+          };
+        }
         if (isInsideGeofence || (distance !== null && distance <= 25)) {
           return {
             title: 'ENTERING OFFICE GEOFENCE',
@@ -1540,12 +1547,16 @@ export const AttendanceScreen: React.FC = () => {
           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
             isInsideGeofence || (distance !== null && distance <= 25)
               ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/40'
+              : locationStatus === 'loading' || locationState === 'LOCATING'
+              ? 'bg-sky-500/15 text-sky-400 border-sky-500/40'
               : locationStatus === 'error'
               ? 'bg-amber-500/15 text-amber-500 border-amber-500/40'
               : 'bg-rose-500/15 text-rose-500 border-rose-500/40'
           }`}>
             {isInsideGeofence || (distance !== null && distance <= 25)
               ? 'Inside Office'
+              : locationStatus === 'loading' || locationState === 'LOCATING'
+              ? 'Checking location…'
               : locationStatus === 'error'
               ? 'Location unavailable'
               : 'Outside Office'}
@@ -1558,7 +1569,11 @@ export const AttendanceScreen: React.FC = () => {
               Distance from Office
             </span>
             <span className="text-xl sm:text-2xl font-black font-mono text-[var(--text-primary)]">
-              {distance !== null ? `${distance.toFixed(0)} m` : 'Acquiring GPS...'}
+              {locationStatus === 'loading' || locationState === 'LOCATING'
+                ? 'Checking location…'
+                : distance !== null
+                ? `${distance.toFixed(0)} m`
+                : 'Acquiring GPS...'}
             </span>
             <span className="text-[11px] text-[var(--text-secondary)] font-medium block mt-0.5 font-bold">
               Location: {currentAddress || 'Raniganj HQ Office Radius (25 m)'}
@@ -1566,7 +1581,7 @@ export const AttendanceScreen: React.FC = () => {
           </div>
 
           <div className="flex flex-col sm:items-end justify-center">
-            {locationStatus === 'loading' && (
+            {(locationStatus === 'loading' || locationState === 'LOCATING') && (
               <div className="flex items-center gap-1.5 font-bold text-[var(--primary)] text-xs animate-pulse">
                 <RotateCw className="w-3.5 h-3.5 animate-spin text-[var(--primary)]" /> Updating GPS...
               </div>
