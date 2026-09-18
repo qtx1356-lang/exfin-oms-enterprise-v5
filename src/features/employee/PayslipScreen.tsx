@@ -5,7 +5,7 @@ import { useRegistration } from '../../context/RegistrationContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { SalaryRecord } from '../../services/salary/salaryService';
-import { exportSinglePayslipPDF, exportAllPayslipsPDF } from '../../services/reports/exportService';
+import { exportSinglePayslipPDF } from '../../services/reports/exportService';
 import { PrintablePayslips } from '../../components/payslip/PrintablePayslip';
 import { 
   FileText, 
@@ -23,7 +23,6 @@ import {
   Briefcase,
   AlertTriangle,
   Download,
-  Files,
   Printer,
   RefreshCw
 } from 'lucide-react';
@@ -42,7 +41,7 @@ export const PayslipScreen: React.FC = () => {
   const [selectedPayslip, setSelectedPayslip] = useState<SalaryRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [actionLoading, setActionLoading] = useState<'export' | 'export-all' | 'print' | 'print-all' | null>(null);
+  const [actionLoading, setActionLoading] = useState<'export' | 'print' | null>(null);
   const [printingPayslips, setPrintingPayslips] = useState<SalaryRecord[] | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -83,26 +82,6 @@ export const PayslipScreen: React.FC = () => {
     }
   };
 
-  const handleExportAll = () => {
-    if (!payslips || payslips.length === 0) {
-      triggerNotification('error', 'No payslips available to export.');
-      return;
-    }
-    try {
-      setActionLoading('export-all');
-      const filename = `Payslips_${employeeCode}_All.pdf`;
-      exportAllPayslipsPDF(payslips, filename, () => ({
-        department: employeeData?.department || employeeData?.office,
-        designation: employeeData?.designation
-      }));
-      triggerNotification('success', `All ${payslips.length} payslips exported successfully.`);
-    } catch (err: any) {
-      triggerNotification('error', err?.message || 'Failed to export all payslips.');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
   const handlePrintSingle = () => {
     if (!selectedPayslip) {
       triggerNotification('error', 'No payslip selected to print.');
@@ -110,15 +89,6 @@ export const PayslipScreen: React.FC = () => {
     }
     setActionLoading('print');
     setPrintingPayslips([selectedPayslip]);
-  };
-
-  const handlePrintAll = () => {
-    if (!payslips || payslips.length === 0) {
-      triggerNotification('error', 'No payslips available to print.');
-      return;
-    }
-    setActionLoading('print-all');
-    setPrintingPayslips(payslips);
   };
 
   useEffect(() => {
@@ -365,20 +335,6 @@ export const PayslipScreen: React.FC = () => {
 
           <Button
             size="sm"
-            onClick={handleExportAll}
-            disabled={!!actionLoading || payslips.length === 0}
-            className="bg-[var(--surface-elevated)] hover:bg-[var(--primary)]/20 text-[var(--text-primary)] border border-[var(--border)] font-bold text-xs rounded-xl flex items-center gap-1.5 px-3 py-2 cursor-pointer shadow transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {actionLoading === 'export-all' ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-            ) : (
-              <Files className="w-3.5 h-3.5 text-emerald-400" />
-            )}
-            <span>Export All</span>
-          </Button>
-
-          <Button
-            size="sm"
             onClick={handlePrintSingle}
             disabled={!!actionLoading || !selectedPayslip}
             className="bg-[var(--surface-elevated)] hover:bg-[var(--primary)]/20 text-[var(--text-primary)] border border-[var(--border)] font-bold text-xs rounded-xl flex items-center gap-1.5 px-3 py-2 cursor-pointer shadow transition disabled:opacity-50 disabled:cursor-not-allowed"
@@ -389,20 +345,6 @@ export const PayslipScreen: React.FC = () => {
               <Printer className="w-3.5 h-3.5 text-amber-400" />
             )}
             <span>Print</span>
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={handlePrintAll}
-            disabled={!!actionLoading || payslips.length === 0}
-            className="bg-[var(--surface-elevated)] hover:bg-[var(--primary)]/20 text-[var(--text-primary)] border border-[var(--border)] font-bold text-xs rounded-xl flex items-center gap-1.5 px-3 py-2 cursor-pointer shadow transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {actionLoading === 'print-all' ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-400" />
-            ) : (
-              <Printer className="w-3.5 h-3.5 text-purple-400" />
-            )}
-            <span>Print All</span>
           </Button>
         </div>
       </div>
