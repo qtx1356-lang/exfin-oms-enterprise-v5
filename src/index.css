@@ -300,3 +300,64 @@ button, a, input, select, textarea, [role="button"] {
 .border-\[\#D4AF37\]\/22 {
   border-color: rgba(120, 150, 210, 0.20) !important;
 }
+
+/* ==========================================================================
+   PRINT STYLES FOR PAYSLIPS & REPORTS
+   ========================================================================== */
+
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  body {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 12pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* When printing payslips, hide all regular screen UI, navigation, headers, buttons */
+  body.printing-payslips > #root > div > *:not(#printable-payslip-root),
+  body.printing-payslips .screen-only,
+  body.printing-payslips nav,
+  body.printing-payslips aside,
+  body.printing-payslips header,
+  body.printing-payslips footer,
+  body.printing-payslips button,
+  body.printing-payslips .no-print,
+  body.printing-payslips [role="navigation"] {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  /* Force clean page breaks between individual payslips */
+  .page-break {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .page-break:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  .payslip-print-sheet {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}
+

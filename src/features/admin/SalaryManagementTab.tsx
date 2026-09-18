@@ -28,8 +28,13 @@ import {
   Sliders,
   AlertTriangle,
   History,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Printer,
+  Files,
+  FileText
 } from 'lucide-react';
+import { exportSinglePayslipPDF, exportAllPayslipsPDF } from '../../services/reports/exportService';
+import { PrintablePayslips } from '../../components/payslip/PrintablePayslip';
 
 interface EmployeeWithSalary {
   id: string; // registration doc ID
@@ -77,6 +82,22 @@ export const SalaryManagementTab: React.FC = () => {
   const [selectedBreakdownCode, setSelectedBreakdownCode] = useState<string | null>(null);
   const [selectedConfigCode, setSelectedConfigCode] = useState<string | null>(null);
   const [selectedAuditCode, setSelectedAuditCode] = useState<string | null>(null);
+  const [selectedEmployeeCode, setSelectedEmployeeCode] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<'export' | 'export-all' | 'print' | 'print-all' | null>(null);
+  const [printingPayslips, setPrintingPayslips] = useState<SalaryRecord[] | null>(null);
+
+  useEffect(() => {
+    if (printingPayslips && printingPayslips.length > 0) {
+      document.body.classList.add('printing-payslips');
+      const timer = setTimeout(() => {
+        window.print();
+        document.body.classList.remove('printing-payslips');
+        setPrintingPayslips(null);
+        setActionLoading(null);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [printingPayslips]);
 
   // Config modal fields
   const [configBaseSalary, setConfigBaseSalary] = useState<string>('');
@@ -867,6 +888,132 @@ export const SalaryManagementTab: React.FC = () => {
     triggerNotification('success', 'Salary spreadsheet exported successfully.');
   };
 
+  const getSalaryRecordForEmployee = (emp: EmployeeWithSalary): SalaryRecord => {
+    const existing = salaryRecords[emp.employeeCode];
+    if (existing) return existing;
+
+    const baseSalary = parseFloat(overrideBaseSalaries[emp.employeeCode]) || parseFloat(emp.baseSalary?.toString() || '0') || 0;
+    const advanceVal = parseFloat(overrideAdvances[emp.employeeCode]) || 0;
+    const lateFineVal = parseFloat(overrideLateFines[emp.employeeCode]) || 0;
+    const calcResult = getCalculationResult(emp);
+    const remainingLeaves = getRemainingLeaves(emp);
+    const allocatedLeaves = parseFloat(overridePaidLeaves[emp.employeeCode]) || 22;
+
+    const rawSalary = baseSalary > 0 ? (baseSalary / daysInMonth) * calcResult.totalPresentDays : 0;
+    const salaryBeforeDeductions = Math.round(rawSalary * 100) / 100;
+    const finalSalary = Math.max(0, Math.round((salaryBeforeDeductions - advanceVal - lateFineVal) * 100) / 100);
+
+    return {
+      id: `${emp.employeeCode}_${selectedYear}_${selectedMonth}`,
+      employeeCode: emp.employeeCode,
+      employeeName: emp.name,
+      month: selectedMonth,
+      year: selectedYear,
+      baseSalary,
+      daysInMonth,
+      officePresentDays: calcResult.officeDays,
+      wfhDays: calcResult.wfhDays,
+      clientVisitDays: calcResult.clientVisitDays,
+      outdoorDays: calcResult.outdoorDays,
+      paidLeaveDays: calcResult.paidLeaveDays,
+      sundayHolidayDays: calcResult.sundayHolidayDays,
+      totalPresentDays: calcResult.totalPresentDays,
+      advance: advanceVal,
+      lateDays: calcResult.lateDays,
+      lateFine: lateFineVal,
+      salaryBeforeDeductions,
+      salaryBeforeAdvance: salaryBeforeDeductions,
+      finalSalary,
+      generationTimestamp: new Date().toISOString(),
+      allocatedPaidLeaves: allocatedLeaves,
+      usedPaidLeaves: calcResult.paidLeaveDays,
+      remainingPaidLeaves: remainingLeaves,
+      attendanceCutOffDate: calcResult.cutOffDateStr
+    };
+  };
+
+  const handleExportSingleEmployee = (empCode?: string) => {
+    const targetCode = empCode || selectedEmployeeCode;
+    if (!targetCode) {
+      triggerNotification('error', 'Please select an employee first to export their payslip.');
+      return;
+    }
+    const emp = employees.find(e => e.employeeCode === targetCode);
+    if (!emp) {
+      triggerNotification('error', 'Selected employee record not found.');
+      return;
+    }
+
+    try {
+      setActionLoading('export');
+      const rec = getSalaryRecordForEmployee(emp);
+      exportSinglePayslipPDF(rec, {
+        department: emp.office || 'Operations',
+        designation: 'Staff Associate'
+      });
+      triggerNotification('success', `Exported payslip for ${emp.name} (${emp.employeeCode}).`);
+    } catch (err: any) {
+      triggerNotification('error', err?.message || 'Failed to export payslip.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleExportAll = () => {
+    if (employees.length === 0) {
+      triggerNotification('error', 'No employees available to export for the selected period.');
+      return;
+    }
+
+    try {
+      setActionLoading('export-all');
+      const allRecords = employees.map(emp => getSalaryRecordForEmployee(emp));
+      const monthName = months.find(m => m.value === selectedMonth)?.label || `Month_${selectedMonth}`;
+      const filename = `Payslips_${monthName}_${selectedYear}_All.pdf`;
+
+      exportAllPayslipsPDF(allRecords, filename, (code) => {
+        const e = employees.find(emp => emp.employeeCode === code);
+        return {
+          department: e?.office || 'Operations',
+          designation: 'Staff Associate'
+        };
+      });
+      triggerNotification('success', `Exported all ${allRecords.length} payslips for ${monthName} ${selectedYear}.`);
+    } catch (err: any) {
+      triggerNotification('error', err?.message || 'Failed to export all payslips.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handlePrintSingleEmployee = (empCode?: string) => {
+    const targetCode = empCode || selectedEmployeeCode;
+    if (!targetCode) {
+      triggerNotification('error', 'Please select an employee first to print their payslip.');
+      return;
+    }
+    const emp = employees.find(e => e.employeeCode === targetCode);
+    if (!emp) {
+      triggerNotification('error', 'Selected employee record not found.');
+      return;
+    }
+
+    const rec = getSalaryRecordForEmployee(emp);
+    setActionLoading('print');
+    setPrintingPayslips([rec]);
+  };
+
+  const handlePrintAll = () => {
+    if (employees.length === 0) {
+      triggerNotification('error', 'No employees available to print for the selected period.');
+      return;
+    }
+
+    const allRecords = employees.map(emp => getSalaryRecordForEmployee(emp));
+    setActionLoading('print-all');
+    setPrintingPayslips(allRecords);
+  };
+
   return (
     <div className="space-y-6">
       {/* HEADER BAR AND FILTERS */}
@@ -949,6 +1096,104 @@ export const SalaryManagementTab: React.FC = () => {
           <span>{notification.message}</span>
         </div>
       )}
+
+      {/* PAYSLIP ACTIONS TOOLBAR */}
+      <div className="bg-[#1F0F3E]/90 border border-purple-500/30 p-4 rounded-[22px] flex flex-wrap items-center justify-between gap-4 shadow-xl screen-only">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 text-purple-200">
+            <FileText className="w-4 h-4 text-purple-400" />
+            <span className="text-xs font-black uppercase tracking-wider">Payslip Actions:</span>
+          </div>
+
+          {/* Employee Selector for single action */}
+          <select
+            value={selectedEmployeeCode || ''}
+            onChange={(e) => setSelectedEmployeeCode(e.target.value || null)}
+            className="bg-[#2B1B4D] border border-purple-500/40 text-white text-xs font-bold px-3 py-2 rounded-xl focus:outline-none focus:border-purple-400 cursor-pointer min-w-[200px]"
+          >
+            <option value="">-- Select Employee --</option>
+            {employees.map((emp) => (
+              <option key={emp.employeeCode} value={emp.employeeCode} className="bg-[#1F0F3E] text-white">
+                {emp.name} ({emp.employeeCode})
+              </option>
+            ))}
+          </select>
+
+          {/* Single Export */}
+          <Button
+            size="sm"
+            onClick={() => handleExportSingleEmployee()}
+            disabled={!!actionLoading}
+            className={`text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition cursor-pointer shadow ${
+              selectedEmployeeCode
+                ? 'bg-purple-600 hover:bg-purple-500 text-white border border-purple-400/40 shadow-purple-500/20'
+                : 'bg-[#2B1B4D]/60 hover:bg-[#2B1B4D] text-purple-300 border border-purple-500/20'
+            }`}
+            title={selectedEmployeeCode ? `Export payslip PDF for ${selectedEmployeeCode}` : 'Select an employee first to export'}
+          >
+            {actionLoading === 'export' ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-200" />
+            ) : (
+              <Download className="w-3.5 h-3.5 text-purple-200" />
+            )}
+            <span>Export</span>
+          </Button>
+
+          {/* Single Print */}
+          <Button
+            size="sm"
+            onClick={() => handlePrintSingleEmployee()}
+            disabled={!!actionLoading}
+            className={`text-xs font-bold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition cursor-pointer shadow ${
+              selectedEmployeeCode
+                ? 'bg-amber-600 hover:bg-amber-500 text-white border border-amber-400/40 shadow-amber-500/20'
+                : 'bg-[#2B1B4D]/60 hover:bg-[#2B1B4D] text-purple-300 border border-purple-500/20'
+            }`}
+            title={selectedEmployeeCode ? `Print payslip for ${selectedEmployeeCode}` : 'Select an employee first to print'}
+          >
+            {actionLoading === 'print' ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-200" />
+            ) : (
+              <Printer className="w-3.5 h-3.5 text-amber-200" />
+            )}
+            <span>Print</span>
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Export All */}
+          <Button
+            size="sm"
+            onClick={handleExportAll}
+            disabled={!!actionLoading || employees.length === 0}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2 rounded-xl border border-emerald-400/30 flex items-center gap-1.5 transition shadow-lg shadow-emerald-500/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title={`Export all payslips for ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}`}
+          >
+            {actionLoading === 'export-all' ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+            ) : (
+              <Files className="w-3.5 h-3.5 text-white" />
+            )}
+            <span>Export All ({employees.length})</span>
+          </Button>
+
+          {/* Print All */}
+          <Button
+            size="sm"
+            onClick={handlePrintAll}
+            disabled={!!actionLoading || employees.length === 0}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-xl border border-indigo-400/30 flex items-center gap-1.5 transition shadow-lg shadow-indigo-500/10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            title={`Print all payslips for ${months.find(m => m.value === selectedMonth)?.label} ${selectedYear}`}
+          >
+            {actionLoading === 'print-all' ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+            ) : (
+              <Printer className="w-3.5 h-3.5 text-white" />
+            )}
+            <span>Print All ({employees.length})</span>
+          </Button>
+        </div>
+      </div>
 
       {/* SUMMARY DASHBOARD GRID */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1095,7 +1340,13 @@ export const SalaryManagementTab: React.FC = () => {
                   const hasHighDeductions = (currentAdvanceVal + currentLateFineVal) > salaryBeforeDeductions;
 
                   return (
-                    <tr key={emp.id} className="hover:bg-white/[0.02] transition-colors">
+                    <tr 
+                      key={emp.id} 
+                      onClick={() => setSelectedEmployeeCode(emp.employeeCode)}
+                      className={`hover:bg-white/[0.04] transition-colors cursor-pointer ${
+                        selectedEmployeeCode === emp.employeeCode ? 'bg-purple-900/30 ring-1 ring-purple-500/30' : ''
+                      }`}
+                    >
                       {/* Employee Core */}
                       <td className="p-2.5 whitespace-nowrap">
                         <div className="flex items-center gap-2">
@@ -1265,10 +1516,41 @@ export const SalaryManagementTab: React.FC = () => {
                       {/* Individual Actions */}
                       <td className="p-2.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
+                          {/* Quick Export Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEmployeeCode(emp.employeeCode);
+                              handleExportSingleEmployee(emp.employeeCode);
+                            }}
+                            disabled={actionLoading === 'export'}
+                            className="p-1 text-purple-400 hover:text-white hover:bg-[#1F0F3E] rounded transition-colors cursor-pointer"
+                            title={`Export payslip PDF for ${emp.name}`}
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Quick Print Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEmployeeCode(emp.employeeCode);
+                              handlePrintSingleEmployee(emp.employeeCode);
+                            }}
+                            disabled={actionLoading === 'print'}
+                            className="p-1 text-amber-400 hover:text-white hover:bg-[#1F0F3E] rounded transition-colors cursor-pointer"
+                            title={`Print payslip for ${emp.name}`}
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                          </button>
+
                           {/* Info Button */}
                           <button
-                            onClick={() => setSelectedBreakdownCode(emp.employeeCode)}
-                            className="p-1 text-purple-400 hover:text-white hover:bg-[#1F0F3E] rounded transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedBreakdownCode(emp.employeeCode);
+                            }}
+                            className="p-1 text-purple-400 hover:text-white hover:bg-[#1F0F3E] rounded transition-colors cursor-pointer"
                             title="See detailed calculation breakdown"
                           >
                             <Info className="w-3.5 h-3.5" />
@@ -1276,8 +1558,11 @@ export const SalaryManagementTab: React.FC = () => {
 
                           {/* Audit logs */}
                           <button
-                            onClick={() => setSelectedAuditCode(emp.employeeCode)}
-                            className="p-1 text-purple-400 hover:text-white hover:bg-[#1F0F3E] rounded transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedAuditCode(emp.employeeCode);
+                            }}
+                            className="p-1 text-purple-400 hover:text-white hover:bg-[#1F0F3E] rounded transition-colors cursor-pointer"
                             title="View paid leave audits"
                           >
                             <History className="w-3.5 h-3.5" />
@@ -1418,6 +1703,40 @@ export const SalaryManagementTab: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* Action buttons inside calculation breakdown */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-purple-500/10">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    handleExportSingleEmployee(emp.employeeCode);
+                  }}
+                  disabled={actionLoading === 'export'}
+                  className="bg-[#1F0F3E] hover:bg-purple-900/60 text-purple-200 border border-purple-500/30 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow"
+                >
+                  {actionLoading === 'export' ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5" />
+                  )}
+                  <span>Export Payslip</span>
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    handlePrintSingleEmployee(emp.employeeCode);
+                  }}
+                  disabled={actionLoading === 'print'}
+                  className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/10"
+                >
+                  {actionLoading === 'print' ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Printer className="w-3.5 h-3.5" />
+                  )}
+                  <span>Print Payslip</span>
+                </Button>
+              </div>
             </div>
           </Dialog>
         );
@@ -1555,6 +1874,18 @@ export const SalaryManagementTab: React.FC = () => {
           </Dialog>
         );
       })()}
+
+      {/* PRINTABLE PAYSLIPS CONTAINER (Shown only when printing) */}
+      <PrintablePayslips
+        payslips={printingPayslips || []}
+        getAdditionalInfo={(empCode) => {
+          const emp = employees.find(e => e.employeeCode === empCode);
+          return {
+            department: emp?.office || 'Operations',
+            designation: 'Staff Associate'
+          };
+        }}
+      />
     </div>
   );
 };

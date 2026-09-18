@@ -5,6 +5,8 @@ import { useRegistration } from '../../context/RegistrationContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { SalaryRecord } from '../../services/salary/salaryService';
+import { exportSinglePayslipPDF, exportAllPayslipsPDF } from '../../services/reports/exportService';
+import { PrintablePayslips } from '../../components/payslip/PrintablePayslip';
 import { 
   FileText, 
   Calendar, 
@@ -19,7 +21,11 @@ import {
   CreditCard,
   ShieldCheck,
   Briefcase,
-  AlertTriangle
+  AlertTriangle,
+  Download,
+  Files,
+  Printer,
+  RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -36,6 +42,84 @@ export const PayslipScreen: React.FC = () => {
   const [selectedPayslip, setSelectedPayslip] = useState<SalaryRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState<'export' | 'export-all' | 'print' | 'print-all' | null>(null);
+  const [printingPayslips, setPrintingPayslips] = useState<SalaryRecord[] | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const triggerNotification = (type: 'success' | 'error', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  useEffect(() => {
+    if (printingPayslips && printingPayslips.length > 0) {
+      document.body.classList.add('printing-payslips');
+      const timer = setTimeout(() => {
+        window.print();
+        document.body.classList.remove('printing-payslips');
+        setPrintingPayslips(null);
+        setActionLoading(null);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [printingPayslips]);
+
+  const handleExportSingle = () => {
+    if (!selectedPayslip) {
+      triggerNotification('error', 'No payslip selected to export.');
+      return;
+    }
+    try {
+      setActionLoading('export');
+      exportSinglePayslipPDF(selectedPayslip, {
+        department: employeeData?.department || employeeData?.office,
+        designation: employeeData?.designation
+      });
+      triggerNotification('success', `Payslip for ${MONTH_NAMES[selectedPayslip.month]} ${selectedPayslip.year} exported successfully.`);
+    } catch (err: any) {
+      triggerNotification('error', err?.message || 'Failed to export payslip.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleExportAll = () => {
+    if (!payslips || payslips.length === 0) {
+      triggerNotification('error', 'No payslips available to export.');
+      return;
+    }
+    try {
+      setActionLoading('export-all');
+      const filename = `Payslips_${employeeCode}_All.pdf`;
+      exportAllPayslipsPDF(payslips, filename, () => ({
+        department: employeeData?.department || employeeData?.office,
+        designation: employeeData?.designation
+      }));
+      triggerNotification('success', `All ${payslips.length} payslips exported successfully.`);
+    } catch (err: any) {
+      triggerNotification('error', err?.message || 'Failed to export all payslips.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handlePrintSingle = () => {
+    if (!selectedPayslip) {
+      triggerNotification('error', 'No payslip selected to print.');
+      return;
+    }
+    setActionLoading('print');
+    setPrintingPayslips([selectedPayslip]);
+  };
+
+  const handlePrintAll = () => {
+    if (!payslips || payslips.length === 0) {
+      triggerNotification('error', 'No payslips available to print.');
+      return;
+    }
+    setActionLoading('print-all');
+    setPrintingPayslips(payslips);
+  };
 
   useEffect(() => {
     if (!employeeCode) {
@@ -243,6 +327,86 @@ export const PayslipScreen: React.FC = () => {
         )}
       </div>
 
+      {/* NOTIFICATION TOAST */}
+      {notification && (
+        <div className={`p-3.5 rounded-xl text-xs font-bold border flex items-center gap-3 transition-all screen-only ${
+          notification.type === 'success' 
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' 
+            : 'bg-red-500/10 border-red-500/30 text-red-300'
+        }`}>
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{notification.message}</span>
+        </div>
+      )}
+
+      {/* PAYSLIP ACTION BUTTONS */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 p-3.5 bg-[var(--surface-inner)] border border-[var(--border)] rounded-2xl shadow-lg screen-only">
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-[var(--primary-light)]" />
+          <span className="text-[11px] font-black uppercase text-[var(--text-secondary)] tracking-wider">
+            Payslip Actions
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={handleExportSingle}
+            disabled={!!actionLoading || !selectedPayslip}
+            className="bg-[var(--surface-elevated)] hover:bg-[var(--primary)]/20 text-[var(--text-primary)] border border-[var(--border)] font-bold text-xs rounded-xl flex items-center gap-1.5 px-3 py-2 cursor-pointer shadow transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {actionLoading === 'export' ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-[var(--primary-light)]" />
+            ) : (
+              <Download className="w-3.5 h-3.5 text-[var(--primary-light)]" />
+            )}
+            <span>Export</span>
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={handleExportAll}
+            disabled={!!actionLoading || payslips.length === 0}
+            className="bg-[var(--surface-elevated)] hover:bg-[var(--primary)]/20 text-[var(--text-primary)] border border-[var(--border)] font-bold text-xs rounded-xl flex items-center gap-1.5 px-3 py-2 cursor-pointer shadow transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {actionLoading === 'export-all' ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+            ) : (
+              <Files className="w-3.5 h-3.5 text-emerald-400" />
+            )}
+            <span>Export All</span>
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={handlePrintSingle}
+            disabled={!!actionLoading || !selectedPayslip}
+            className="bg-[var(--surface-elevated)] hover:bg-[var(--primary)]/20 text-[var(--text-primary)] border border-[var(--border)] font-bold text-xs rounded-xl flex items-center gap-1.5 px-3 py-2 cursor-pointer shadow transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {actionLoading === 'print' ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+            ) : (
+              <Printer className="w-3.5 h-3.5 text-amber-400" />
+            )}
+            <span>Print</span>
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={handlePrintAll}
+            disabled={!!actionLoading || payslips.length === 0}
+            className="bg-[var(--surface-elevated)] hover:bg-[var(--primary)]/20 text-[var(--text-primary)] border border-[var(--border)] font-bold text-xs rounded-xl flex items-center gap-1.5 px-3 py-2 cursor-pointer shadow transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {actionLoading === 'print-all' ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-400" />
+            ) : (
+              <Printer className="w-3.5 h-3.5 text-purple-400" />
+            )}
+            <span>Print All</span>
+          </Button>
+        </div>
+      </div>
+
       {selectedPayslip && (
         <div className="flex flex-col gap-4">
           
@@ -447,6 +611,14 @@ export const PayslipScreen: React.FC = () => {
           </Card>
         </div>
       )}
+      {/* PRINTABLE PAYSLIP CONTAINER (Visible only in print media) */}
+      <PrintablePayslips
+        payslips={printingPayslips || []}
+        getAdditionalInfo={() => ({
+          department: employeeData?.department || employeeData?.office,
+          designation: employeeData?.designation
+        })}
+      />
     </div>
   );
 };

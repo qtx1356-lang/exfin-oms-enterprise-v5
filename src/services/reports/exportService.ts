@@ -6,6 +6,9 @@
  * and high-fidelity printable reports (perfectly styled as PDF printouts matching Deep Purple).
  */
 
+import { jsPDF } from 'jspdf';
+import { SalaryRecord } from '../salary/salaryService';
+
 /**
  * Cleanly escape value for CSV output following RFC 4180
  */
@@ -385,3 +388,420 @@ export function printReport(
   `);
   printWindow.document.close();
 }
+
+/**
+ * Month Names for Payslip Formatting
+ */
+const PAYSLIP_MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+function formatINR(val: number | undefined | null): string {
+  if (val === undefined || val === null || isNaN(val)) return '0.00';
+  return Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/**
+ * Draws a single payslip sheet on the provided jsPDF document page
+ */
+function renderPayslipPDFPage(
+  doc: jsPDF,
+  payslip: SalaryRecord,
+  additionalInfo?: { department?: string; designation?: string },
+  pageNumber?: number,
+  totalPages?: number
+) {
+  const monthName = PAYSLIP_MONTH_NAMES[payslip.month - 1] || `Month ${payslip.month}`;
+
+  // Outer Border / Container
+  doc.setDrawColor(226, 232, 240); // slate-200
+  doc.setLineWidth(0.3);
+  doc.roundedRect(12, 12, 186, 273, 3, 3, 'S');
+
+  // Header Banner
+  doc.setFillColor(26, 17, 56); // Deep Navy/Purple #1A1138
+  doc.roundedRect(14, 14, 182, 24, 2, 2, 'F');
+
+  // Brand Titles
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text('OFFICE MANAGEMENT SYSTEM', 18, 22);
+
+  doc.setFontSize(7.5);
+  doc.setTextColor(212, 175, 55); // Gold
+  doc.text('ENTERPRISE OPERATIONS & WORKFORCE MANAGEMENT', 18, 27);
+
+  doc.setFontSize(6.5);
+  doc.setTextColor(203, 213, 225); // slate-300
+  doc.setFont('helvetica', 'normal');
+  doc.text('Official Computer-Generated Salary Slip', 18, 33);
+
+  // Period Badge
+  doc.setFillColor(55, 35, 95);
+  doc.roundedRect(138, 17, 52, 9, 1.5, 1.5, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.text(`${monthName.toUpperCase()} ${payslip.year}`, 164, 23, { align: 'center' });
+
+  // Generation timestamp
+  doc.setFontSize(6.5);
+  doc.setTextColor(203, 213, 225);
+  doc.setFont('helvetica', 'normal');
+  const genDateStr = payslip.generationTimestamp
+    ? new Date(payslip.generationTimestamp).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    : new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  doc.text(`Generated: ${genDateStr}`, 188, 33, { align: 'right' });
+
+  // 1. Employee Identity Card (y: 41 to 71)
+  doc.setFillColor(248, 250, 252); // slate-50
+  doc.setDrawColor(226, 232, 240); // slate-200
+  doc.roundedRect(14, 41, 182, 30, 2, 2, 'FD');
+
+  // Left column
+  doc.setFontSize(6.5);
+  doc.setTextColor(100, 116, 139); // slate-500
+  doc.text('EMPLOYEE NAME', 18, 46);
+  doc.setFontSize(9);
+  doc.setTextColor(15, 23, 42); // slate-900
+  doc.setFont('helvetica', 'bold');
+  doc.text(payslip.employeeName || 'N/A', 18, 51);
+
+  doc.setFontSize(6.5);
+  doc.setTextColor(100, 116, 139);
+  doc.setFont('helvetica', 'normal');
+  doc.text('EMPLOYEE ID / CODE', 18, 58);
+  doc.setFontSize(8.5);
+  doc.setTextColor(99, 102, 241); // indigo-500
+  doc.setFont('helvetica', 'bold');
+  doc.text(payslip.employeeCode || 'N/A', 18, 63);
+
+  doc.setFontSize(6.5);
+  doc.setTextColor(100, 116, 139);
+  doc.setFont('helvetica', 'normal');
+  doc.text('DEPARTMENT', 18, 68);
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.text(additionalInfo?.department || 'Operations', 42, 68);
+
+  // Right column
+  doc.setFontSize(6.5);
+  doc.setTextColor(100, 116, 139);
+  doc.setFont('helvetica', 'normal');
+  doc.text('DESIGNATION', 105, 46);
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.text(additionalInfo?.designation || 'Staff Associate', 105, 51);
+
+  doc.setFontSize(6.5);
+  doc.setTextColor(100, 116, 139);
+  doc.setFont('helvetica', 'normal');
+  doc.text('DAYS IN MONTH', 105, 58);
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${payslip.daysInMonth} Days`, 105, 63);
+
+  doc.setFontSize(6.5);
+  doc.setTextColor(100, 116, 139);
+  doc.setFont('helvetica', 'normal');
+  doc.text('CALCULATION CUT-OFF', 150, 58);
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont('helvetica', 'bold');
+  doc.text(payslip.attendanceCutOffDate || `${payslip.daysInMonth} ${monthName.substring(0, 3)} ${payslip.year}`, 150, 63);
+
+  // 2. Attendance Breakdown (y: 75 to 110)
+  doc.setFontSize(8);
+  doc.setTextColor(30, 41, 59);
+  doc.setFont('helvetica', 'bold');
+  doc.text('ATTENDANCE BREAKDOWN', 14, 76);
+
+  const attCategories = [
+    { label: 'OFFICE PRESENT', val: payslip.officePresentDays, color: [241, 245, 249] },
+    { label: 'WORK FROM HOME', val: payslip.wfhDays, color: [241, 245, 249] },
+    { label: 'CLIENT VISIT', val: payslip.clientVisitDays, color: [241, 245, 249] },
+    { label: 'OUTDOOR WORK', val: payslip.outdoorDays, color: [241, 245, 249] },
+    { label: 'PAID LEAVES', val: payslip.paidLeaveDays, color: [254, 243, 199] },
+    { label: 'SUNDAY / HOLIDAY', val: payslip.sundayHolidayDays, color: [241, 245, 249] },
+    { label: 'TOTAL PRESENT', val: payslip.totalPresentDays, color: [237, 233, 254] },
+    { label: 'LATE DAYS', val: payslip.lateDays || 0, color: [254, 226, 226] }
+  ];
+
+  attCategories.forEach((cat, idx) => {
+    const row = Math.floor(idx / 4);
+    const col = idx % 4;
+    const cardWidth = 43.5;
+    const cardHeight = 13;
+    const x = 14 + col * (cardWidth + 2.6);
+    const y = 80 + row * (cardHeight + 2);
+
+    doc.setFillColor(cat.color[0], cat.color[1], cat.color[2]);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(x, y, cardWidth, cardHeight, 1.5, 1.5, 'FD');
+
+    doc.setFontSize(5.5);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    doc.text(cat.label, x + cardWidth / 2, y + 4.5, { align: 'center' });
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${cat.val} Days`, x + cardWidth / 2, y + 10.5, { align: 'center' });
+  });
+
+  // 3. Financial Statement & Calculations (y: 114 to 198)
+  doc.setFontSize(8);
+  doc.setTextColor(30, 41, 59);
+  doc.setFont('helvetica', 'bold');
+  doc.text('FINANCIAL STATEMENT & DISBURSAL CALCULATION', 14, 115);
+
+  // Table header
+  doc.setFillColor(241, 245, 249);
+  doc.rect(14, 118, 182, 7, 'F');
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.2);
+  doc.line(14, 118, 196, 118);
+  doc.line(14, 125, 196, 125);
+
+  doc.setFontSize(7);
+  doc.setTextColor(71, 85, 105);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SALARY COMPONENT & FORMULA', 18, 122.5);
+  doc.text('AMOUNT (INR)', 192, 122.5, { align: 'right' });
+
+  let curY = 132;
+  const drawRow = (title: string, desc: string, amountStr: string, isDeduction = false, isBold = false) => {
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+    doc.setTextColor(15, 23, 42);
+    doc.text(title, 18, curY);
+
+    if (desc) {
+      doc.setFontSize(6);
+      doc.setTextColor(100, 116, 139);
+      doc.text(desc, 18, curY + 3.8);
+    }
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+    doc.setTextColor(isDeduction ? 220 : 15, isDeduction ? 38 : 23, isDeduction ? 38 : 42);
+    doc.text(amountStr, 192, curY, { align: 'right' });
+
+    doc.setDrawColor(241, 245, 249);
+    doc.setLineWidth(0.15);
+    doc.line(14, curY + 5.5, 196, curY + 5.5);
+    curY += 9.5;
+  };
+
+  drawRow('Gross Monthly Base Salary', 'Configured base monthly CTC', `Rs. ${formatINR(payslip.baseSalary)}`);
+  drawRow('Calculated Pro-Rata Earnings', `(${payslip.baseSalary} / ${payslip.daysInMonth} days) x ${payslip.totalPresentDays} present days`, `Rs. ${formatINR(payslip.salaryBeforeDeductions || payslip.salaryBeforeAdvance)}`, false, true);
+
+  // Deductions Header
+  doc.setFillColor(254, 242, 242);
+  doc.rect(14, curY, 182, 6, 'F');
+  doc.setFontSize(6.5);
+  doc.setTextColor(185, 28, 28);
+  doc.setFont('helvetica', 'bold');
+  doc.text('DEDUCTIONS & ADJUSTMENTS', 18, curY + 4);
+  curY += 8;
+
+  drawRow('Advance Claim Deductions', 'Repayment of approved employee advances', `- Rs. ${formatINR(payslip.advance)}`, true);
+  drawRow('Late Check-in Fine', `${payslip.lateDays || 0} late check-in days (>= 10:31 AM)`, `- Rs. ${formatINR(payslip.lateFine)}`, true);
+
+  // Net Disbursed Box
+  curY += 2;
+  doc.setFillColor(238, 242, 255);
+  doc.setDrawColor(99, 102, 241);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(14, curY, 182, 16, 2, 2, 'FD');
+
+  doc.setFontSize(8.5);
+  doc.setTextColor(49, 46, 129);
+  doc.setFont('helvetica', 'bold');
+  doc.text('NET FINAL DISBURSAL (TAKE HOME)', 20, curY + 7);
+  doc.setFontSize(6.5);
+  doc.setTextColor(99, 102, 241);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Pro-Rata Earnings minus Advances and Late Fines', 20, curY + 12);
+
+  doc.setFontSize(13);
+  doc.setTextColor(30, 27, 75);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Rs. ${formatINR(payslip.finalSalary)}`, 190, curY + 10.5, { align: 'right' });
+
+  // 4. Annual Paid Leave Summary
+  curY += 22;
+  doc.setFontSize(8);
+  doc.setTextColor(30, 41, 59);
+  doc.setFont('helvetica', 'bold');
+  doc.text('ANNUAL PAID LEAVE AUDIT SUMMARY', 14, curY);
+
+  curY += 4;
+  const leaveCards = [
+    { label: 'ANNUAL ALLOCATION', val: payslip.allocatedPaidLeaves ?? 22, sub: 'Financial Year Allowance' },
+    { label: 'CONSUMED TO DATE', val: payslip.usedPaidLeaves ?? 0, sub: 'Converted Days' },
+    { label: 'CURRENT REMAINING', val: payslip.remainingPaidLeaves ?? 22, sub: 'Available Balance' }
+  ];
+
+  leaveCards.forEach((c, idx) => {
+    const cardWidth = 58.5;
+    const x = 14 + idx * (cardWidth + 3.25);
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(x, curY, cardWidth, 16, 1.5, 1.5, 'FD');
+
+    doc.setFontSize(6);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    doc.text(c.label, x + cardWidth / 2, curY + 4.5, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${c.val} Days`, x + cardWidth / 2, curY + 10.5, { align: 'center' });
+
+    doc.setFontSize(5.5);
+    doc.setTextColor(148, 163, 184);
+    doc.setFont('helvetica', 'normal');
+    doc.text(c.sub, x + cardWidth / 2, curY + 14, { align: 'center' });
+  });
+
+  // 5. Legal Footnote
+  curY += 25;
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.2);
+  doc.line(14, curY, 196, curY);
+
+  curY += 5;
+  doc.setFontSize(6);
+  doc.setTextColor(100, 116, 139);
+  doc.setFont('helvetica', 'italic');
+  doc.text('Confidential Document — Strictly for employee verification and tax compliance records.', 14, curY);
+  doc.text('This is a secure, computer-generated salary slip processed by Office Management System. No physical signature is required.', 14, curY + 4);
+
+  if (pageNumber && totalPages) {
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Page ${pageNumber} of ${totalPages}`, 196, curY + 4, { align: 'right' });
+  }
+}
+
+/**
+ * Export a single payslip to a high-fidelity PDF file
+ */
+export function exportSinglePayslipPDF(
+  payslip: SalaryRecord,
+  additionalInfo?: { department?: string; designation?: string }
+) {
+  if (!payslip) {
+    throw new Error('No payslip data provided for export.');
+  }
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+  renderPayslipPDFPage(doc, payslip, additionalInfo, 1, 1);
+  const padMonth = String(payslip.month).padStart(2, '0');
+  const filename = `Payslip_${payslip.employeeCode}_${payslip.year}-${padMonth}.pdf`;
+  doc.save(filename);
+}
+
+/**
+ * Export multiple payslips into a single multi-page PDF document,
+ * guaranteeing exactly one payslip per page.
+ */
+export function exportAllPayslipsPDF(
+  payslips: SalaryRecord[],
+  filename: string,
+  getAdditionalInfo?: (empCode: string) => { department?: string; designation?: string }
+) {
+  if (!payslips || payslips.length === 0) {
+    throw new Error('No payslips available to export.');
+  }
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  payslips.forEach((slip, idx) => {
+    if (idx > 0) {
+      doc.addPage();
+    }
+    const info = getAdditionalInfo ? getAdditionalInfo(slip.employeeCode) : undefined;
+    renderPayslipPDFPage(doc, slip, info, idx + 1, payslips.length);
+  });
+
+  const fullFilename = filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`;
+  doc.save(fullFilename);
+}
+
+/**
+ * Export payslips to structured RFC-compliant CSV
+ */
+export function exportPayslipsToCSV(filename: string, payslips: SalaryRecord[]) {
+  if (!payslips || payslips.length === 0) {
+    throw new Error('No payslips available to export.');
+  }
+  const headers = [
+    'Employee Code',
+    'Employee Name',
+    'Month',
+    'Year',
+    'Gross Base Salary (INR)',
+    'Days in Month',
+    'Office Present Days',
+    'WFH Days',
+    'Client Visit Days',
+    'Outdoor Work Days',
+    'Paid Leave Days',
+    'Sunday / Holiday Days',
+    'Total PRESENT Days',
+    'Late Check-in Days',
+    'Late Fine (INR)',
+    'Advance Deductions (INR)',
+    'Salary Before Deductions (INR)',
+    'Net Final Salary (INR)',
+    'Allocated Paid Leaves',
+    'Used Paid Leaves',
+    'Remaining Paid Leaves',
+    'Attendance Cut-off Date',
+    'Generation Timestamp'
+  ];
+
+  const rows = payslips.map((s) => [
+    s.employeeCode,
+    s.employeeName,
+    s.month,
+    s.year,
+    s.baseSalary,
+    s.daysInMonth,
+    s.officePresentDays,
+    s.wfhDays,
+    s.clientVisitDays,
+    s.outdoorDays,
+    s.paidLeaveDays,
+    s.sundayHolidayDays,
+    s.totalPresentDays,
+    s.lateDays || 0,
+    s.lateFine || 0,
+    s.advance || 0,
+    s.salaryBeforeDeductions || s.salaryBeforeAdvance || 0,
+    s.finalSalary,
+    s.allocatedPaidLeaves ?? '',
+    s.usedPaidLeaves ?? '',
+    s.remainingPaidLeaves ?? '',
+    s.attendanceCutOffDate || '',
+    s.generationTimestamp || ''
+  ]);
+
+  exportToCSV(filename, headers, rows);
+}
+
