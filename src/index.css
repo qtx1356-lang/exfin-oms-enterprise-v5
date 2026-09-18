@@ -327,7 +327,6 @@ button, a, input, select, textarea, [role="button"] {
   }
 
   /* When printing payslips, hide all regular screen UI, navigation, headers, buttons */
-  body.printing-payslips > #root > div > *:not(#printable-payslip-root),
   body.printing-payslips .screen-only,
   body.printing-payslips nav,
   body.printing-payslips aside,
@@ -339,9 +338,12 @@ button, a, input, select, textarea, [role="button"] {
     display: none !important;
   }
 
-  .print-only {
+  .print-only,
+  #printable-payslip-root {
     display: block !important;
     width: 100% !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
   }
 
   /* Force clean page breaks between individual payslips */

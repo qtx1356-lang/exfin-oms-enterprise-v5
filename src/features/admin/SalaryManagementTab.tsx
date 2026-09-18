@@ -34,7 +34,7 @@ import {
   FileText
 } from 'lucide-react';
 import { exportSinglePayslipPDF, exportAllPayslipsPDF } from '../../services/reports/exportService';
-import { PrintablePayslips } from '../../components/payslip/PrintablePayslip';
+import { printPayslips } from '../../services/reports/printService';
 
 interface EmployeeWithSalary {
   id: string; // registration doc ID
@@ -84,20 +84,6 @@ export const SalaryManagementTab: React.FC = () => {
   const [selectedAuditCode, setSelectedAuditCode] = useState<string | null>(null);
   const [selectedEmployeeCode, setSelectedEmployeeCode] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<'export' | 'export-all' | 'print' | 'print-all' | null>(null);
-  const [printingPayslips, setPrintingPayslips] = useState<SalaryRecord[] | null>(null);
-
-  useEffect(() => {
-    if (printingPayslips && printingPayslips.length > 0) {
-      document.body.classList.add('printing-payslips');
-      const timer = setTimeout(() => {
-        window.print();
-        document.body.classList.remove('printing-payslips');
-        setPrintingPayslips(null);
-        setActionLoading(null);
-      }, 200);
-      return () => clearTimeout(timer);
-    }
-  }, [printingPayslips]);
 
   // Config modal fields
   const [configBaseSalary, setConfigBaseSalary] = useState<string>('');
@@ -986,7 +972,7 @@ export const SalaryManagementTab: React.FC = () => {
     }
   };
 
-  const handlePrintSingleEmployee = (empCode?: string) => {
+  const handlePrintSingleEmployee = async (empCode?: string) => {
     const targetCode = empCode || selectedEmployeeCode;
     if (!targetCode) {
       triggerNotification('error', 'Please select an employee first to print their payslip.');
@@ -998,20 +984,41 @@ export const SalaryManagementTab: React.FC = () => {
       return;
     }
 
-    const rec = getSalaryRecordForEmployee(emp);
-    setActionLoading('print');
-    setPrintingPayslips([rec]);
+    try {
+      setActionLoading('print');
+      const rec = getSalaryRecordForEmployee(emp);
+      await printPayslips([rec], () => ({
+        department: emp.office || 'Operations',
+        designation: 'Staff Associate'
+      }));
+    } catch (err: any) {
+      triggerNotification('error', err?.message || 'Failed to print payslip.');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
-  const handlePrintAll = () => {
+  const handlePrintAll = async () => {
     if (employees.length === 0) {
       triggerNotification('error', 'No employees available to print for the selected period.');
       return;
     }
 
-    const allRecords = employees.map(emp => getSalaryRecordForEmployee(emp));
-    setActionLoading('print-all');
-    setPrintingPayslips(allRecords);
+    try {
+      setActionLoading('print-all');
+      const allRecords = employees.map(emp => getSalaryRecordForEmployee(emp));
+      await printPayslips(allRecords, (empCode) => {
+        const emp = employees.find(e => e.employeeCode === empCode);
+        return {
+          department: emp?.office || 'Operations',
+          designation: 'Staff Associate'
+        };
+      });
+    } catch (err: any) {
+      triggerNotification('error', err?.message || 'Failed to print all payslips.');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   return (
@@ -1874,18 +1881,6 @@ export const SalaryManagementTab: React.FC = () => {
           </Dialog>
         );
       })()}
-
-      {/* PRINTABLE PAYSLIPS CONTAINER (Shown only when printing) */}
-      <PrintablePayslips
-        payslips={printingPayslips || []}
-        getAdditionalInfo={(empCode) => {
-          const emp = employees.find(e => e.employeeCode === empCode);
-          return {
-            department: emp?.office || 'Operations',
-            designation: 'Staff Associate'
-          };
-        }}
-      />
     </div>
   );
 };

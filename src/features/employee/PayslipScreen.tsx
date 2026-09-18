@@ -6,7 +6,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { SalaryRecord } from '../../services/salary/salaryService';
 import { exportSinglePayslipPDF } from '../../services/reports/exportService';
-import { PrintablePayslips } from '../../components/payslip/PrintablePayslip';
+import { printPayslips } from '../../services/reports/printService';
 import { 
   FileText, 
   Calendar, 
@@ -42,26 +42,12 @@ export const PayslipScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<'export' | 'print' | null>(null);
-  const [printingPayslips, setPrintingPayslips] = useState<SalaryRecord[] | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const triggerNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 4000);
   };
-
-  useEffect(() => {
-    if (printingPayslips && printingPayslips.length > 0) {
-      document.body.classList.add('printing-payslips');
-      const timer = setTimeout(() => {
-        window.print();
-        document.body.classList.remove('printing-payslips');
-        setPrintingPayslips(null);
-        setActionLoading(null);
-      }, 200);
-      return () => clearTimeout(timer);
-    }
-  }, [printingPayslips]);
 
   const handleExportSingle = () => {
     if (!selectedPayslip) {
@@ -82,13 +68,22 @@ export const PayslipScreen: React.FC = () => {
     }
   };
 
-  const handlePrintSingle = () => {
+  const handlePrintSingle = async () => {
     if (!selectedPayslip) {
       triggerNotification('error', 'No payslip selected to print.');
       return;
     }
-    setActionLoading('print');
-    setPrintingPayslips([selectedPayslip]);
+    try {
+      setActionLoading('print');
+      await printPayslips([selectedPayslip], () => ({
+        department: employeeData?.department || employeeData?.office,
+        designation: employeeData?.designation
+      }));
+    } catch (err: any) {
+      triggerNotification('error', err?.message || 'Failed to print payslip.');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   useEffect(() => {
@@ -553,14 +548,6 @@ export const PayslipScreen: React.FC = () => {
           </Card>
         </div>
       )}
-      {/* PRINTABLE PAYSLIP CONTAINER (Visible only in print media) */}
-      <PrintablePayslips
-        payslips={printingPayslips || []}
-        getAdditionalInfo={() => ({
-          department: employeeData?.department || employeeData?.office,
-          designation: employeeData?.designation
-        })}
-      />
     </div>
   );
 };
