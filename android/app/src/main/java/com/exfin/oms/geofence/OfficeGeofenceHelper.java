@@ -466,7 +466,62 @@ public class OfficeGeofenceHelper {
             return;
         }
 
+        // =========================================================================
+        // SURGICAL CHECK-IN LATENCY OPTIMIZATION
+        // For ENTER / DWELL transitions, immediately check if triggerLocation is
+        // already valid and verified inside the authoritative 25.0m boundary.
+        // If so, execute check-in instantly (<10ms) without waiting for GPS hardware!
+        // =========================================================================
+        boolean isEnterOrDwell = (transitionType == Geofence.GEOFENCE_TRANSITION_ENTER || transitionType == Geofence.GEOFENCE_TRANSITION_DWELL);
+
+        if (isEnterOrDwell && triggerLocation != null && validateLocation(triggerLocation)) {
+            double triggerDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+            if (triggerDist <= AUTHORITATIVE_RADIUS_METERS) {
+                Log.i(TAG, "[INSTANT_CHECK_IN_FAST_PATH] Geofence triggerLocation verified inside 25m boundary: " +
+                        String.format(Locale.US, "%.1f", triggerDist) + "m <= " + AUTHORITATIVE_RADIUS_METERS +
+                        "m (acc=" + triggerLocation.getAccuracy() + "m). Executing immediate check-in without GPS delay.");
+                evaluateAttendanceDecision(context, triggerLocation, transitionType, pendingResult, finishedFlag);
+                return;
+            }
+        }
+
         FusedLocationProviderClient fusedClient = LocationServices.getFusedLocationProviderClient(context);
+
+        // For ENTER / DWELL where triggerLocation was not inside 25m or was null,
+        // query cached getLastLocation() first before waiting for a cold/warm GPS fix.
+        if (isEnterOrDwell) {
+            try {
+                fusedClient.getLastLocation()
+                        .addOnSuccessListener(lastLoc -> {
+                            if (lastLoc != null && validateLocation(lastLoc)) {
+                                double lastDist = calculateDistance(lastLoc.getLatitude(), lastLoc.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+                                if (lastDist <= AUTHORITATIVE_RADIUS_METERS) {
+                                    Log.i(TAG, "[INSTANT_CHECK_IN_CACHED_PATH] Cached FusedLocation verified inside 25m boundary: " +
+                                            String.format(Locale.US, "%.1f", lastDist) + "m <= " + AUTHORITATIVE_RADIUS_METERS +
+                                            "m (acc=" + lastLoc.getAccuracy() + "m). Executing immediate check-in.");
+                                    evaluateAttendanceDecision(context, lastLoc, transitionType, pendingResult, finishedFlag);
+                                    return;
+                                }
+                            }
+                            // If cached fix is unavailable or outside 25m, request fresh high-accuracy location
+                            requestFreshLocation(context, fusedClient, transitionType, triggerLocation, pendingResult, finishedFlag);
+                        })
+                        .addOnFailureListener(e -> {
+                            requestFreshLocation(context, fusedClient, transitionType, triggerLocation, pendingResult, finishedFlag);
+                        });
+                return;
+            } catch (SecurityException se) {
+                Log.w(TAG, "SecurityException checking getLastLocation: " + se.getMessage());
+            } catch (Exception e) {
+                Log.w(TAG, "Exception checking getLastLocation: " + e.getMessage());
+            }
+        }
+
+        // For EXIT transitions or if getLastLocation failed, proceed with active high-accuracy location acquisition
+        requestFreshLocation(context, fusedClient, transitionType, triggerLocation, pendingResult, finishedFlag);
+    }
+
+    private static void requestFreshLocation(Context context, FusedLocationProviderClient fusedClient, int transitionType, Location triggerLocation, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
         CancellationTokenSource cts = new CancellationTokenSource();
 
         try {
@@ -626,9 +681,9 @@ public class OfficeGeofenceHelper {
 
             boolean hasOpenSession = hasActiveSessionForDate(context, dateStr);
 
-            // Debounce check: prevent rapid oscillation if transitioned within last 60s
+            // Debounce check: prevent rapid oscillation if transitioned within last 60s (applies when there is an existing session)
             long timeSinceLastTransition = eventTimestamp - lastTransitionTime;
-            if ("OUTSIDE".equals(lastKnownState) && timeSinceLastTransition < MIN_TRANSITION_COOLDOWN_MS && lastTransitionTime > 0) {
+            if (hasOpenSession && "OUTSIDE".equals(lastKnownState) && timeSinceLastTransition < MIN_TRANSITION_COOLDOWN_MS && lastTransitionTime > 0) {
                 Log.i(TAG, "Debounce: Skipping rapid transition to INSIDE (elapsed: " + (timeSinceLastTransition / 1000) + "s < 60s)");
                 safeFinishPendingResult(pendingResult, finishedFlag);
                 return;
