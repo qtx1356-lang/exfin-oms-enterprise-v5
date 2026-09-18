@@ -6,7 +6,6 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { SalaryRecord } from '../../services/salary/salaryService';
 import { exportSinglePayslipPDF } from '../../services/reports/exportService';
-import { printPayslips } from '../../services/reports/printService';
 import { 
   FileText, 
   Calendar, 
@@ -23,7 +22,6 @@ import {
   Briefcase,
   AlertTriangle,
   Download,
-  Printer,
   RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -41,7 +39,7 @@ export const PayslipScreen: React.FC = () => {
   const [selectedPayslip, setSelectedPayslip] = useState<SalaryRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [actionLoading, setActionLoading] = useState<'export' | 'print' | null>(null);
+  const [actionLoading, setActionLoading] = useState<'export' | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const triggerNotification = (type: 'success' | 'error', message: string) => {
@@ -63,24 +61,6 @@ export const PayslipScreen: React.FC = () => {
       triggerNotification('success', `Payslip for ${MONTH_NAMES[selectedPayslip.month]} ${selectedPayslip.year} exported successfully.`);
     } catch (err: any) {
       triggerNotification('error', err?.message || 'Failed to export payslip.');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handlePrintSingle = async () => {
-    if (!selectedPayslip) {
-      triggerNotification('error', 'No payslip selected to print.');
-      return;
-    }
-    try {
-      setActionLoading('print');
-      await printPayslips([selectedPayslip], () => ({
-        department: employeeData?.department || employeeData?.office,
-        designation: employeeData?.designation
-      }));
-    } catch (err: any) {
-      triggerNotification('error', err?.message || 'Failed to print payslip.');
     } finally {
       setActionLoading(null);
     }
@@ -326,20 +306,6 @@ export const PayslipScreen: React.FC = () => {
               <Download className="w-3.5 h-3.5 text-[var(--primary-light)]" />
             )}
             <span>Export</span>
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={handlePrintSingle}
-            disabled={!!actionLoading || !selectedPayslip}
-            className="bg-[var(--surface-elevated)] hover:bg-[var(--primary)]/20 text-[var(--text-primary)] border border-[var(--border)] font-bold text-xs rounded-xl flex items-center gap-1.5 px-3 py-2 cursor-pointer shadow transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {actionLoading === 'print' ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
-            ) : (
-              <Printer className="w-3.5 h-3.5 text-amber-400" />
-            )}
-            <span>Print</span>
           </Button>
         </div>
       </div>
