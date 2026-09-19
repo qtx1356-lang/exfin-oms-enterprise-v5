@@ -401,7 +401,7 @@ export const NotificationCenter: React.FC = () => {
                     </div>
 
                     <p className="text-[var(--text-secondary)] text-xs leading-relaxed mb-1 pr-6 break-words">
-                      {notif.message}
+                      {notif.message ? notif.message.replace(/\s*\(\s*PWA Resume\s*\)/gi, '').replace(/\s*PWA Resume/gi, '') : ''}
                     </p>
 
                     <div className="flex items-center gap-2 flex-wrap mt-2">
@@ -441,12 +441,6 @@ export const NotificationCenter: React.FC = () => {
                             : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
                         }`}>
                           Push: {notif.pushStatus === 'SENT' ? 'SENT ✓' : notif.pushStatus}
-                        </span>
-                      )}
-
-                      {notif.syncStatus === 'PENDING' && (
-                        <span className="text-[9px] text-amber-300 bg-amber-500/20 border border-amber-500/30 px-1.5 py-0.5 rounded-md font-bold">
-                          Offline Sync Pending
                         </span>
                       )}
                     </div>

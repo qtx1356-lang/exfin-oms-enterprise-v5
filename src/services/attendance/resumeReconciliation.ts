@@ -251,7 +251,7 @@ export const reconcileAttendanceOnResume = async (
             category: 'ATTENDANCE',
             priority: 'LOW',
             title: 'Attendance Check-In Logged',
-            message: `You checked in automatically at ${timeStr} (PWA Resume).`,
+            message: `You checked in automatically at ${timeStr}.`,
             entityId: record.id,
             entityType: 'ATTENDANCE'
           }).catch(() => {});
