@@ -817,16 +817,20 @@ export const AutomaticAttendanceEngine = {
       return record;
     }
 
-    const distance = getDistanceFromLatLonInM(
-      coords.latitude,
-      coords.longitude,
-      OFFICE_LOCATION.latitude,
-      OFFICE_LOCATION.longitude
-    );
+    const isWfh = record.attendanceType === 'WFH';
 
-    // Reject manual checkout if they are outside geofence (25m) according to manual checkout rules
-    if (distance > OFFICE_LOCATION.radius) {
-      throw new Error(`Manual Check-Out is allowed ONLY within ${OFFICE_LOCATION.radius} meters of the office.`);
+    if (!isWfh) {
+      const distance = getDistanceFromLatLonInM(
+        coords.latitude,
+        coords.longitude,
+        OFFICE_LOCATION.latitude,
+        OFFICE_LOCATION.longitude
+      );
+
+      // Reject manual checkout if they are outside geofence (25m) according to manual checkout rules
+      if (distance > OFFICE_LOCATION.radius) {
+        throw new Error(`Manual Check-Out is allowed ONLY within ${OFFICE_LOCATION.radius} meters of the office.`);
+      }
     }
 
     return this.transitionState(

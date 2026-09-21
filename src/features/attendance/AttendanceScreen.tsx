@@ -430,32 +430,44 @@ export const AttendanceScreen: React.FC = () => {
     }
   };
 
-  // Office Check-Out Handler
+  // Check-Out Handler
   const handleManualCheckOut = () => executeSensitiveAction('ATTENDANCE_CHECKOUT', () => {
     if (!todayRecord) return;
-    if (!liveLocation) {
-      setActionFeedback('Live GPS location required for check-out.');
-      return;
+
+    const isWfh = todayRecord.attendanceType === 'WFH';
+
+    if (!isWfh) {
+      if (!liveLocation) {
+        setActionFeedback('Live GPS location required for check-out.');
+        return;
+      }
+
+      // FINAL GEOLOCATION VERIFICATION FOR RACE CONDITIONS
+      const currentDistance = getDistanceFromLatLonInM(
+        liveLocation.latitude,
+        liveLocation.longitude,
+        OFFICE_LOCATION.latitude,
+        OFFICE_LOCATION.longitude
+      );
+
+      if (currentDistance > 25) {
+        setActionFeedback('Checkout is only available inside the office premises.');
+        return;
+      }
     }
 
-    // FINAL GEOLOCATION VERIFICATION FOR RACE CONDITIONS
-    const currentDistance = getDistanceFromLatLonInM(
-      liveLocation.latitude,
-      liveLocation.longitude,
-      OFFICE_LOCATION.latitude,
-      OFFICE_LOCATION.longitude
-    );
+    const checkoutCoords = liveLocation || (isWfh ? { latitude: todayRecord.latitude || 0, longitude: todayRecord.longitude || 0 } : null);
 
-    if (currentDistance > 25) {
-      setActionFeedback('Checkout is only available inside the office premises.');
+    if (!checkoutCoords) {
+      setActionFeedback('Live GPS location required for check-out.');
       return;
     }
 
     try {
       const updated = performCheckOut(
         todayRecord,
-        liveLocation,
-        currentAddress || 'Raniganj HQ'
+        checkoutCoords,
+        isWfh ? (currentAddress || 'Home') : (currentAddress || 'Raniganj HQ')
       );
       updateAttendanceOptimistically(updated);
       refreshRecords();
@@ -1101,21 +1113,39 @@ export const AttendanceScreen: React.FC = () => {
                   </Button>
                 </form>
               ) : (
-                <div className="p-4 bg-[var(--surface-elevated)] rounded-xl border border-[var(--border)] text-xs space-y-2">
-                  <div className="flex items-center gap-2 text-[var(--success)] font-black uppercase tracking-widest">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Remote Session Active</span>
+                <div className="space-y-4">
+                  <div className="p-4 bg-[var(--surface-elevated)] rounded-xl border border-[var(--border)] text-xs space-y-2">
+                    <div className="flex items-center gap-2 text-[var(--success)] font-black uppercase tracking-widest">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Remote Session Active</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 mt-2">
+                      <p className="flex flex-col gap-0.5">
+                        <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-tighter">Reason</span>
+                        <span className="text-[var(--text-secondary)] font-medium">{todayRecord.wfhReason || 'N/A'}</span>
+                      </p>
+                      <p className="flex flex-col gap-0.5">
+                        <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-tighter">Work Plan</span>
+                        <span className="text-[var(--text-secondary)] font-medium">{todayRecord.workPlan || 'N/A'}</span>
+                      </p>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 gap-2 mt-2">
-                    <p className="flex flex-col gap-0.5">
-                      <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-tighter">Reason</span>
-                      <span className="text-[var(--text-secondary)] font-medium">{todayRecord.wfhReason || 'N/A'}</span>
-                    </p>
-                    <p className="flex flex-col gap-0.5">
-                      <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-tighter">Work Plan</span>
-                      <span className="text-[var(--text-secondary)] font-medium">{todayRecord.workPlan || 'N/A'}</span>
-                    </p>
-                  </div>
+
+                  {/* WFH Check-Out Action Button */}
+                  {!todayRecord.checkOutTime ? (
+                    <Button
+                      onClick={handleManualCheckOut}
+                      disabled={isVerifying}
+                      className="w-full py-4 font-black text-sm rounded-2xl transition-all shadow-xl cursor-pointer bg-[var(--danger)] hover:bg-[var(--danger)]/80 text-white border border-[var(--border)] active:scale-[0.98]"
+                    >
+                      <LogOut className="w-5 h-5 mr-2" /> {isVerifying ? 'VERIFYING...' : 'CHECK OUT'}
+                    </Button>
+                  ) : (
+                    <div className="w-full py-4 px-4 rounded-2xl bg-[var(--success)]/10 text-[var(--success)] border border-[var(--success)]/20 flex items-center justify-center gap-2 text-xs font-black tracking-widest">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>WORKDAY COMPLETED</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
