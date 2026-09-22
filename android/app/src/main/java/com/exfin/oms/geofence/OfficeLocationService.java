@@ -71,6 +71,27 @@ public class OfficeLocationService extends Service {
         }
     }
 
+    public static void verifyCurrentLocationAndDecide(Context context) {
+        if (context == null) return;
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        try {
+            FusedLocationProviderClient client = LocationServices.getFusedLocationProviderClient(context);
+            client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                    .addOnSuccessListener(loc -> {
+                        if (loc != null && OfficeGeofenceHelper.validateLocation(loc)) {
+                            OfficeGeofenceHelper.evaluateAttendanceDecision(context, loc, com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_EXIT, null, null);
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.w(TAG, "verifyCurrentLocationAndDecide failed: " + e.getMessage());
+                    });
+        } catch (Exception e) {
+            Log.e(TAG, "Error in verifyCurrentLocationAndDecide: " + e.getMessage(), e);
+        }
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -197,8 +218,7 @@ public class OfficeLocationService extends Service {
                 if (consecutiveOutsideCount >= 2 || distance > 35.0) {
                     consecutiveOutsideCount = 0;
                     Log.i(TAG, "=== NATIVE SECONDARY FUSED LOCATION EXIT DETECTED ===");
-                    OfficeGeofenceHelper.recordExitEvent(this, location, "NATIVE_FUSED_LOCATION");
-                    GeofencePlugin.notifyNativeTransition("EXIT", lat, lng, time);
+                    OfficeGeofenceHelper.processExitTransition(this, location, "NATIVE_FUSED_LOCATION", null, null);
                 }
             } else {
                 consecutiveOutsideCount = 0;
@@ -214,8 +234,7 @@ public class OfficeLocationService extends Service {
                 if (consecutiveInsideCount >= 2 || distance <= 20.0) {
                     consecutiveInsideCount = 0;
                     Log.i(TAG, "=== NATIVE GEOFENCE RETURN TO OFFICE DETECTED ===");
-                    OfficeGeofenceHelper.cancelPendingExit(this);
-                    GeofencePlugin.notifyNativeTransition("ENTER", lat, lng, time);
+                    OfficeGeofenceHelper.processReturnTransition(this, location, "NATIVE_FUSED_LOCATION_RETURN", null, null);
                 }
             } else {
                 consecutiveInsideCount = 0;

@@ -75,6 +75,7 @@ public class OfficeGeofenceHelper {
 
     public static final float MAX_USABLE_ACCURACY_METERS = 50.0f; // Reject fixes with accuracy > 50m
     public static final long MIN_TRANSITION_COOLDOWN_MS = 60000L; // 60s cooldown to prevent boundary oscillation
+    public static final String DEFAULT_SERVER_URL = "https://exfin-oms-enterprise-v5.pages.dev";
 
     public static final String GEOFENCE_ID_PRIMARY_25M = "exfin_office_geofence_auth_25m";
     public static final String GEOFENCE_ID_ASSIST_100M = "exfin_office_geofence_assist_100m";
@@ -467,12 +468,12 @@ public class OfficeGeofenceHelper {
         }
 
         // =========================================================================
-        // SURGICAL CHECK-IN LATENCY OPTIMIZATION
-        // For ENTER / DWELL transitions, immediately check if triggerLocation is
-        // already valid and verified inside the authoritative 25.0m boundary.
-        // If so, execute check-in instantly (<10ms) without waiting for GPS hardware!
+        // SURGICAL LATENCY OPTIMIZATION FOR ENTER & EXIT
+        // For ENTER / DWELL transitions: if triggerLocation is inside 25m, check in instantly.
+        // For EXIT transitions: if triggerLocation is outside 25m, process exit instantly!
         // =========================================================================
         boolean isEnterOrDwell = (transitionType == Geofence.GEOFENCE_TRANSITION_ENTER || transitionType == Geofence.GEOFENCE_TRANSITION_DWELL);
+        boolean isExit = (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT);
 
         if (isEnterOrDwell && triggerLocation != null && validateLocation(triggerLocation)) {
             double triggerDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
@@ -481,6 +482,15 @@ public class OfficeGeofenceHelper {
                         String.format(Locale.US, "%.1f", triggerDist) + "m <= " + AUTHORITATIVE_RADIUS_METERS +
                         "m (acc=" + triggerLocation.getAccuracy() + "m). Executing immediate check-in without GPS delay.");
                 evaluateAttendanceDecision(context, triggerLocation, transitionType, pendingResult, finishedFlag);
+                return;
+            }
+        } else if (isExit && triggerLocation != null && validateLocation(triggerLocation)) {
+            double triggerDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+            if (triggerDist > AUTHORITATIVE_RADIUS_METERS) {
+                Log.i(TAG, "[INSTANT_CHECK_OUT_FAST_PATH] Geofence triggerLocation verified outside 25m boundary: " +
+                        String.format(Locale.US, "%.1f", triggerDist) + "m > " + AUTHORITATIVE_RADIUS_METERS +
+                        "m (acc=" + triggerLocation.getAccuracy() + "m). Executing immediate native exit processing.");
+                processExitTransition(context, triggerLocation, "NATIVE_GEOFENCE_FAST_PATH", pendingResult, finishedFlag);
                 return;
             }
         }
@@ -548,10 +558,26 @@ public class OfficeGeofenceHelper {
     }
 
     private static void fallbackToLastLocation(Context context, FusedLocationProviderClient fusedClient, Location triggerLocation, int transitionType, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
+        boolean isExit = (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT);
         try {
             fusedClient.getLastLocation()
                     .addOnSuccessListener(location -> {
+                        if (isExit && triggerLocation != null && validateLocation(triggerLocation)) {
+                            double trigDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+                            if (trigDist > AUTHORITATIVE_RADIUS_METERS) {
+                                Log.i(TAG, "[EXIT Fallback] Using geofence triggerLocation (" + String.format(Locale.US, "%.1f", trigDist) + "m): " + triggerLocation.getLatitude() + ", " + triggerLocation.getLongitude());
+                                evaluateAttendanceDecision(context, triggerLocation, transitionType, pendingResult, finishedFlag);
+                                return;
+                            }
+                        }
+
                         if (location != null && validateLocation(location)) {
+                            double locDist = calculateDistance(location.getLatitude(), location.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+                            if (isExit && locDist <= AUTHORITATIVE_RADIUS_METERS && triggerLocation != null && validateLocation(triggerLocation)) {
+                                Log.w(TAG, "[EXIT Fallback] FusedLocation is inside (" + String.format(Locale.US, "%.1f", locDist) + "m) while handling EXIT. Prioritizing triggerLocation.");
+                                evaluateAttendanceDecision(context, triggerLocation, transitionType, pendingResult, finishedFlag);
+                                return;
+                            }
                             Log.i(TAG, "Using FusedLocationProviderClient lastLocation: " + location.getLatitude() + ", " + location.getLongitude() + " (acc=" + location.getAccuracy() + "m)");
                             evaluateAttendanceDecision(context, location, transitionType, pendingResult, finishedFlag);
                         } else if (triggerLocation != null && validateLocation(triggerLocation)) {
@@ -679,6 +705,14 @@ public class OfficeGeofenceHelper {
             consecutiveInsideReadings++;
             consecutiveOutsideReadings = 0;
 
+            JSONObject activeSession = getActiveSession(context);
+            String sessionState = activeSession != null ? activeSession.optString("sessionState", "") : "";
+            if ("PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(sessionState)) {
+                Log.i(TAG, "=== NATIVE RETURN TO OFFICE DETECTED (Inside 25m) ===");
+                processReturnTransition(context, location, "NATIVE_GEOFENCE_VERIFIED", pendingResult, finishedFlag);
+                return;
+            }
+
             boolean hasOpenSession = hasActiveSessionForDate(context, dateStr);
 
             // Debounce check: prevent rapid oscillation if transitioned within last 60s (applies when there is an existing session)
@@ -754,94 +788,234 @@ public class OfficeGeofenceHelper {
         // EXIT LOGIC: INSIDE -> OUTSIDE (distance > 25.0m)
         // -------------------------------------------------------------
         else if ("OUTSIDE".equals(currentCalculatedState)) {
-            consecutiveOutsideReadings++;
-            consecutiveInsideReadings = 0;
-
-            JSONObject activeSession = getActiveSession(context);
-            boolean hasOpenSession = (activeSession != null && 
-                    ("ACTIVE".equalsIgnoreCase(activeSession.optString("sessionState")) || 
-                     "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(activeSession.optString("sessionState"))));
-
-            // Debounce check: prevent rapid oscillation if transitioned within last 60s unless distance > 100m
-            long timeSinceLastTransition = eventTimestamp - lastTransitionTime;
-            if ("INSIDE".equals(lastKnownState) && distance < 100.0 && timeSinceLastTransition < MIN_TRANSITION_COOLDOWN_MS && lastTransitionTime > 0) {
-                Log.i(TAG, "Debounce: Skipping rapid transition to OUTSIDE (elapsed: " + (timeSinceLastTransition / 1000) + "s < 60s)");
-                safeFinishPendingResult(pendingResult, finishedFlag);
-                return;
-            }
-
-            if ("INSIDE".equals(lastKnownState) || hasOpenSession) {
-                // Jitter protection: If accuracy > 30m and distance is close to boundary, require 2 consecutive readings
-                if (accuracy > 30.0f && distance <= 35.0 && consecutiveOutsideReadings < 2) {
-                    Log.i(TAG, "Exit detected near boundary with moderate accuracy (" + accuracy + "m, dist=" + Math.round(distance) + "m). Waiting for second reading confirmation.");
-                    safeFinishPendingResult(pendingResult, finishedFlag);
-                    return;
-                }
-
-                consecutiveOutsideReadings = 0;
-                Log.i(TAG, "=== NATIVE AUTHORITATIVE CHECK-OUT TRIGGERED (Distance: " + String.format(Locale.US, "%.1f", distance) + "m > 25m) ===");
-
-                String eventId = "evt_native_CHECK_OUT_" + employeeId + "_" + dateStr + "_" + eventTimestamp;
-
-                JSONObject checkOutEvent = new JSONObject();
-                try {
-                    checkOutEvent.put("eventId", eventId);
-                    checkOutEvent.put("employeeId", employeeId);
-                    checkOutEvent.put("employeeName", employeeName);
-                    checkOutEvent.put("townCity", townCity);
-                    checkOutEvent.put("eventType", "CHECK_OUT");
-                    checkOutEvent.put("transition", "EXIT");
-                    checkOutEvent.put("timestamp", eventTimestamp);
-                    checkOutEvent.put("eventTimestamp", eventTimestamp);
-                    checkOutEvent.put("exitTimestamp", eventTimestamp);
-                    checkOutEvent.put("createdAt", System.currentTimeMillis());
-                    checkOutEvent.put("time", timeStr);
-                    checkOutEvent.put("date", dateStr);
-                    checkOutEvent.put("latitude", lat);
-                    checkOutEvent.put("longitude", lng);
-                    checkOutEvent.put("accuracy", accuracy);
-                    checkOutEvent.put("distanceFromOffice", distance);
-                    checkOutEvent.put("distance", distance);
-                    checkOutEvent.put("source", "native_geofence");
-                    checkOutEvent.put("schemaVersion", SCHEMA_VERSION);
-                    checkOutEvent.put("deviceId", getDeviceId(context));
-                    checkOutEvent.put("syncStatus", "PENDING");
-                    checkOutEvent.put("retryCount", 0);
-                } catch (Exception e) {
-                    Log.e(TAG, "Error constructing check-out JSON: " + e.getMessage());
-                }
-
-                // Update native persistent state
-                SharedPreferences.Editor editor = prefs.edit();
-                editor.putString(KEY_LAST_KNOWN_STATE, "OUTSIDE");
-                editor.putLong(KEY_LAST_CHECKOUT_TIMESTAMP, eventTimestamp);
-                editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, eventTimestamp);
-                editor.putString(KEY_LAST_PROCESSED_EVENT_ID, eventId);
-                editor.putString(KEY_LAST_EXIT_TIME, timeStr);
-                editor.apply();
-
-                // Update active session with immutable exit time
-                recordExitEvent(context, location, "NATIVE_GEOFENCE_VERIFIED");
-
-                // Add to unconsumed events queue for JS bridge
-                addUnconsumedEvent(context, checkOutEvent);
-
-                // Add to offline sync queue (with deduplication)
-                addEventToSyncQueue(context, checkOutEvent);
-
-                // Notify JS listeners if webview is active
-                GeofencePlugin.notifyNativeCheckOut(checkOutEvent);
-                GeofencePlugin.notifyNativeTransition("EXIT", lat, lng, eventTimestamp);
-
-                // Trigger autonomous background HTTP sync
-                triggerBackgroundSync(context, pendingResult, finishedFlag);
-                return;
-            } else {
-                Log.d(TAG, "Already verified outside office with no active session to checkout.");
-            }
+            processExitTransition(context, location, "NATIVE_GEOFENCE_VERIFIED", pendingResult, finishedFlag);
+            return;
         }
 
         safeFinishPendingResult(pendingResult, finishedFlag);
+    }
+
+    public static synchronized void processExitTransition(Context context, Location location, String source, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
+        if (context == null || location == null) {
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
+        double lat = location.getLatitude();
+        double lng = location.getLongitude();
+        float accuracy = location.getAccuracy();
+        long eventTimestamp = (location.getTime() > 0) ? location.getTime() : System.currentTimeMillis();
+        double distance = calculateDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
+
+        saveLastLocationDiagnostic(context, lat, lng, accuracy, eventTimestamp, distance);
+
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String lastKnownState = prefs.getString(KEY_LAST_KNOWN_STATE, "UNKNOWN");
+        long lastTransitionTime = prefs.getLong(KEY_LAST_TRANSITION_TIMESTAMP, 0);
+
+        JSONObject activeSession = getActiveSession(context);
+        boolean hasOpenSession = (activeSession != null && 
+                ("ACTIVE".equalsIgnoreCase(activeSession.optString("sessionState")) || 
+                 "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(activeSession.optString("sessionState"))));
+
+        // Debounce check: prevent rapid oscillation if transitioned within last 60s unless distance > 100m
+        long timeSinceLastTransition = eventTimestamp - lastTransitionTime;
+        if ("INSIDE".equals(lastKnownState) && distance < 100.0 && timeSinceLastTransition < MIN_TRANSITION_COOLDOWN_MS && lastTransitionTime > 0) {
+            Log.i(TAG, "Debounce: Skipping rapid transition to OUTSIDE (elapsed: " + (timeSinceLastTransition / 1000) + "s < 60s). Scheduling verification check.");
+            long delayMs = Math.max(5000L, MIN_TRANSITION_COOLDOWN_MS - timeSinceLastTransition + 1000L);
+            scheduledExecutor.schedule(() -> {
+                Log.i(TAG, "Executing post-debounce exit verification...");
+                OfficeLocationService.verifyCurrentLocationAndDecide(context);
+            }, delayMs, TimeUnit.MILLISECONDS);
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
+        if (!"INSIDE".equals(lastKnownState) && !hasOpenSession) {
+            Log.d(TAG, "Already verified outside office with no active session to checkout.");
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
+        // Jitter protection: If accuracy > 30m and distance is close to boundary, require 2 consecutive readings
+        if (accuracy > 30.0f && distance <= 35.0 && consecutiveOutsideReadings < 2) {
+            consecutiveOutsideReadings++;
+            Log.i(TAG, "Exit detected near boundary with moderate accuracy (" + accuracy + "m, dist=" + Math.round(distance) + "m). Waiting for second reading confirmation.");
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
+        consecutiveOutsideReadings = 0;
+        Log.i(TAG, "=== NATIVE AUTHORITATIVE CHECK-OUT TRIGGERED (Distance: " + String.format(Locale.US, "%.1f", distance) + "m > 25m, Source: " + source + ") ===");
+
+        // Date strings in Asia/Kolkata timezone
+        Date eventDate = new Date(eventTimestamp);
+        SimpleDateFormat sdfTime = new SimpleDateFormat("hh:mm a", Locale.US);
+        sdfTime.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
+        String timeStr = sdfTime.format(eventDate);
+
+        SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        sdfDate.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
+        String dateStr = sdfDate.format(eventDate);
+
+        String employeeId = prefs.getString("employee_id", "");
+        if ((employeeId == null || employeeId.isEmpty()) && activeSession != null) {
+            employeeId = activeSession.optString("employeeId", "");
+        }
+        String employeeName = prefs.getString("employee_name", "Employee");
+        if ((employeeName == null || employeeName.isEmpty() || "Employee".equals(employeeName)) && activeSession != null) {
+            employeeName = activeSession.optString("employeeName", "Employee");
+        }
+        String townCity = prefs.getString("town_city", "Raniganj HQ");
+        if ((townCity == null || townCity.isEmpty() || "Raniganj HQ".equals(townCity)) && activeSession != null) {
+            townCity = activeSession.optString("townCity", "Raniganj HQ");
+        }
+
+        String eventId = "evt_native_CHECK_OUT_" + employeeId + "_" + dateStr + "_" + eventTimestamp;
+
+        JSONObject checkOutEvent = new JSONObject();
+        try {
+            checkOutEvent.put("eventId", eventId);
+            checkOutEvent.put("employeeId", employeeId);
+            checkOutEvent.put("employeeName", employeeName);
+            checkOutEvent.put("townCity", townCity);
+            checkOutEvent.put("eventType", "CHECK_OUT");
+            checkOutEvent.put("transition", "EXIT");
+            checkOutEvent.put("timestamp", eventTimestamp);
+            checkOutEvent.put("eventTimestamp", eventTimestamp);
+            checkOutEvent.put("exitTimestamp", eventTimestamp);
+            checkOutEvent.put("createdAt", System.currentTimeMillis());
+            checkOutEvent.put("time", timeStr);
+            checkOutEvent.put("date", dateStr);
+            checkOutEvent.put("latitude", lat);
+            checkOutEvent.put("longitude", lng);
+            checkOutEvent.put("accuracy", accuracy);
+            checkOutEvent.put("distanceFromOffice", distance);
+            checkOutEvent.put("distance", distance);
+            checkOutEvent.put("source", "native_geofence");
+            checkOutEvent.put("schemaVersion", SCHEMA_VERSION);
+            checkOutEvent.put("deviceId", getDeviceId(context));
+            checkOutEvent.put("syncStatus", "PENDING");
+            checkOutEvent.put("retryCount", 0);
+        } catch (Exception e) {
+            Log.e(TAG, "Error constructing check-out JSON: " + e.getMessage());
+        }
+
+        // Update native persistent state
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString(KEY_LAST_KNOWN_STATE, "OUTSIDE");
+        editor.putLong(KEY_LAST_CHECKOUT_TIMESTAMP, eventTimestamp);
+        editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, eventTimestamp);
+        editor.putString(KEY_LAST_PROCESSED_EVENT_ID, eventId);
+        editor.putString(KEY_LAST_EXIT_TIME, timeStr);
+        editor.apply();
+
+        // Update active session with immutable exit time
+        recordExitEvent(context, location, source);
+
+        // Add to unconsumed events queue for JS bridge
+        addUnconsumedEvent(context, checkOutEvent);
+
+        // Add to offline sync queue (with deduplication)
+        addEventToSyncQueue(context, checkOutEvent);
+
+        // Notify JS listeners if webview is active
+        GeofencePlugin.notifyNativeCheckOut(checkOutEvent);
+        GeofencePlugin.notifyNativeTransition("EXIT", lat, lng, eventTimestamp);
+
+        // Trigger autonomous background HTTP sync
+        triggerBackgroundSync(context, pendingResult, finishedFlag);
+    }
+
+    public static synchronized void processReturnTransition(Context context, Location location, String source, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
+        if (context == null || location == null) {
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
+        double lat = location.getLatitude();
+        double lng = location.getLongitude();
+        float accuracy = location.getAccuracy();
+        long eventTimestamp = (location.getTime() > 0) ? location.getTime() : System.currentTimeMillis();
+        double distance = calculateDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
+
+        saveLastLocationDiagnostic(context, lat, lng, accuracy, eventTimestamp, distance);
+
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+
+        // Date strings in Asia/Kolkata timezone
+        Date eventDate = new Date(eventTimestamp);
+        SimpleDateFormat sdfTime = new SimpleDateFormat("hh:mm a", Locale.US);
+        sdfTime.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
+        String timeStr = sdfTime.format(eventDate);
+
+        SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        sdfDate.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
+        String dateStr = sdfDate.format(eventDate);
+
+        JSONObject activeSession = getActiveSession(context);
+        String employeeId = prefs.getString("employee_id", "");
+        if ((employeeId == null || employeeId.isEmpty()) && activeSession != null) {
+            employeeId = activeSession.optString("employeeId", "");
+        }
+        String employeeName = prefs.getString("employee_name", "Employee");
+        if ((employeeName == null || employeeName.isEmpty() || "Employee".equals(employeeName)) && activeSession != null) {
+            employeeName = activeSession.optString("employeeName", "Employee");
+        }
+        String townCity = prefs.getString("town_city", "Raniganj HQ");
+        if ((townCity == null || townCity.isEmpty() || "Raniganj HQ".equals(townCity)) && activeSession != null) {
+            townCity = activeSession.optString("townCity", "Raniganj HQ");
+        }
+
+        Log.i(TAG, "=== NATIVE RETURN INSIDE 25m OFFICE GEOFENCE CONFIRMED (Cancelling Pending Exit via " + source + ") ===");
+
+        // 1. Cancel pending exit and restore session to ACTIVE
+        cancelPendingExit(context);
+
+        // 2. Update persistent state
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString(KEY_LAST_KNOWN_STATE, "INSIDE");
+        editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, eventTimestamp);
+        editor.apply();
+
+        // 3. Create return event for backend & JS bridge
+        String eventId = "evt_native_RETURN_" + employeeId + "_" + dateStr + "_" + eventTimestamp;
+        JSONObject returnEvent = new JSONObject();
+        try {
+            returnEvent.put("eventId", eventId);
+            returnEvent.put("employeeId", employeeId);
+            returnEvent.put("employeeName", employeeName);
+            returnEvent.put("townCity", townCity);
+            returnEvent.put("eventType", "GEOFENCE_RETURN");
+            returnEvent.put("transition", "ENTER");
+            returnEvent.put("timestamp", eventTimestamp);
+            returnEvent.put("eventTimestamp", eventTimestamp);
+            returnEvent.put("createdAt", System.currentTimeMillis());
+            returnEvent.put("time", timeStr);
+            returnEvent.put("date", dateStr);
+            returnEvent.put("latitude", lat);
+            returnEvent.put("longitude", lng);
+            returnEvent.put("accuracy", accuracy);
+            returnEvent.put("distanceFromOffice", distance);
+            returnEvent.put("distance", distance);
+            returnEvent.put("source", "native_geofence");
+            returnEvent.put("schemaVersion", SCHEMA_VERSION);
+            returnEvent.put("deviceId", getDeviceId(context));
+            returnEvent.put("syncStatus", "PENDING");
+            returnEvent.put("retryCount", 0);
+        } catch (Exception e) {
+            Log.e(TAG, "Error constructing return JSON: " + e.getMessage());
+        }
+
+        // Add to unconsumed events & sync queue
+        addUnconsumedEvent(context, returnEvent);
+        addEventToSyncQueue(context, returnEvent);
+
+        // Notify JS bridge
+        GeofencePlugin.notifyNativeTransition("ENTER", lat, lng, eventTimestamp);
+
+        // Synchronize return to backend
+        triggerBackgroundSync(context, pendingResult, finishedFlag);
     }
 
     private static String getDeviceId(Context context) {
@@ -967,9 +1141,22 @@ public class OfficeGeofenceHelper {
     }
 
     private static void performBackgroundSync(Context context, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
+        PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        PowerManager.WakeLock wakeLock = null;
+        if (pm != null) {
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "exfin:geofence_sync_lock");
+            wakeLock.setReferenceCounted(false);
+            try {
+                wakeLock.acquire(15000); // 15 seconds max
+            } catch (Exception ignored) {}
+        }
+
         try {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             String serverUrl = prefs.getString("server_url", null);
+            if (serverUrl == null || serverUrl.trim().isEmpty() || serverUrl.contains("localhost") || serverUrl.contains("127.0.0.1")) {
+                serverUrl = DEFAULT_SERVER_URL;
+            }
             if (serverUrl == null || serverUrl.trim().isEmpty()) {
                 Log.w(TAG, "Cannot sync: server_url is not configured in SharedPreferences.");
                 return;
@@ -1068,6 +1255,11 @@ public class OfficeGeofenceHelper {
         } catch (Exception e) {
             Log.e(TAG, "Exception in performBackgroundSync", e);
         } finally {
+            if (wakeLock != null && wakeLock.isHeld()) {
+                try {
+                    wakeLock.release();
+                } catch (Exception ignored) {}
+            }
             safeFinishPendingResult(pendingResult, finishedFlag);
         }
     }
