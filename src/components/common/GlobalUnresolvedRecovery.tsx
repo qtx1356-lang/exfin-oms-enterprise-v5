@@ -5,7 +5,8 @@ import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEn
 import { AutomaticAttendanceEngine } from '../../services/attendance/automaticAttendanceEngine';
 import { useRegistration } from '../../context/RegistrationContext';
 import { syncPendingAttendanceRecords } from '../../services/attendance/syncEngine';
-import { isServerAttendanceAuthoritative, isAttendanceCheckoutUnresolved } from '../../utils/attendanceUtils';
+import { isServerAttendanceAuthoritative, isAttendanceCheckoutUnresolved, hasValidCheckoutTime } from '../../utils/attendanceUtils';
+import { dismissUnresolvedNotificationForDate } from '../../services/notification/notificationService';
 import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { AlertCircle, Clock, Check } from 'lucide-react';
@@ -51,6 +52,7 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
         
         // Never trigger recovery modal for records that are already Admin-authoritative or resolved
         if (isServerAttendanceAuthoritative(r)) return false;
+        if (hasValidCheckoutTime(r)) return false;
         if (!isAttendanceCheckoutUnresolved(r)) return false;
 
         // Target specifically: attendance is applicable Office attendance AND date is previous day AND attendanceStatus/checkoutStatus = UNRESOLVED AND checkoutTime = EMPTY AND not already EMPLOYEE_REPORTED
@@ -146,6 +148,7 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
 
       if (updated) {
         setRecords(prev => prev.map(r => r.id === updated.id ? updated : r));
+        dismissUnresolvedNotificationForDate(empId, unresolvedRecord.date, updated.id).catch(() => {});
       }
       
       // Reset form

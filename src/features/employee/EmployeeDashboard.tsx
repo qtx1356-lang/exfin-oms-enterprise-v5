@@ -43,6 +43,8 @@ import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEn
 import { syncPendingAttendanceRecords } from '../../services/attendance/syncEngine';
 import { AttendanceRecord } from '../../types/attendance';
 import { UnresolvedCheckoutModal } from '../../components/ui/UnresolvedCheckoutModal';
+import { hasValidCheckoutTime } from '../../utils/attendanceUtils';
+import { dismissUnresolvedNotificationForDate } from '../../services/notification/notificationService';
 import { getStoredLeaves, getStoredLeaveConfig, getStoredEmployeeAllowances } from '../../services/leave/leaveStorage';
 import { calculateLeaveBalance } from '../../services/leave/leaveService';
 import { getStoredTasks } from '../../services/planner/taskStorage';
@@ -748,8 +750,8 @@ export const EmployeeDashboard: React.FC = () => {
       }
     }
 
-    // Don't show if they already reported it
-    if (targetRecord && targetRecord.checkoutSource !== 'EMPLOYEE_REPORTED') {
+    // Don't show if they already reported it or if a valid checkout time is present
+    if (targetRecord && targetRecord.checkoutSource !== 'EMPLOYEE_REPORTED' && !hasValidCheckoutTime(targetRecord)) {
       setShowUnresolvedModal(true);
     } else {
       setShowUnresolvedModal(false);
@@ -786,6 +788,7 @@ export const EmployeeDashboard: React.FC = () => {
       saveAttendanceRecord(updatedRecord);
       setAttendanceRecords(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
       setShowUnresolvedModal(false);
+      dismissUnresolvedNotificationForDate(employeeData?.employeeCode || employeeData?.id || '', targetRecord.date, updatedRecord.id).catch(() => {});
 
       if (navigator.onLine) {
         await syncPendingAttendanceRecords();

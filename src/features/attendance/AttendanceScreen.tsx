@@ -43,11 +43,11 @@ import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { LocationGate } from '../../components/common/LocationGate';
 import { AttendanceRecord, AttendanceType, OutdoorWorkTypeOption, LiveEmployeeLocation } from '../../types/attendance';
 import { getStoredLeaves } from '../../services/leave/leaveStorage';
-import { isAttendanceCheckoutUnresolved, isServerAttendanceAuthoritative, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, isServerAttendanceAuthoritative, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasValidCheckoutTime } from '../../utils/attendanceUtils';
 import { useSensitiveActionGuard } from '../../services/security/useSensitiveActionGuard';
 
 const ATTENDANCE_REFRESH_INTERVAL = 60000; // 60 seconds
-import { createNotification } from '../../services/notification/notificationService';
+import { createNotification, dismissUnresolvedNotificationForDate } from '../../services/notification/notificationService';
 import {
   OFFICE_LOCATION,
   getDistanceFromLatLonInM,
@@ -173,8 +173,11 @@ export const AttendanceScreen: React.FC = () => {
         const empCode = r.employeeId || r.employeeCode;
         if (empCode !== employeeId) return false;
         
+        // If employee has already entered/provided a checkout time, do not treat as unresolved
+        if (hasValidCheckoutTime(r)) return false;
+
         // Use authoritative helper
-        return isAttendanceCheckoutUnresolved(r) || r.checkoutStatus === 'PENDING_ADMIN_REVIEW';
+        return isAttendanceCheckoutUnresolved(r);
       })
       .sort((a, b) => a.date.localeCompare(b.date)); // Oldest first
   }, [allRecords, employeeId]);
@@ -226,6 +229,7 @@ export const AttendanceScreen: React.FC = () => {
       refreshRecords();
       setIsEditingProposal(false);
       setActionFeedback(`Proposed checkout (${formattedTime}) submitted for Admin verification.`);
+      dismissUnresolvedNotificationForDate(employeeId, activeUnresolvedRecord.date, updatedRecord.id).catch(() => {});
 
       // Send actionable notification to Admin
       createNotification({
@@ -471,6 +475,7 @@ export const AttendanceScreen: React.FC = () => {
       );
       updateAttendanceOptimistically(updated);
       refreshRecords();
+      dismissUnresolvedNotificationForDate(employeeId, todayRecord.date, updated.id).catch(() => {});
       setActionFeedback(`Manual Check-Out Successful at ${updated.checkOutTime}`);
     } catch (err: any) {
       setActionFeedback(`Check-Out Error: ${err.message}`);
@@ -749,7 +754,7 @@ export const AttendanceScreen: React.FC = () => {
     let daysWithHours = 0;
     
     monthRecords.forEach(rec => {
-      if (isAttendanceCheckoutUnresolved(rec) || rec.checkoutStatus === 'UNRESOLVED' || rec.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+      if (!hasValidCheckoutTime(rec) && (isAttendanceCheckoutUnresolved(rec) || rec.checkoutStatus === 'UNRESOLVED' || rec.checkoutStatus === 'PENDING_ADMIN_REVIEW')) {
         return;
       }
       if (rec.checkInTime && rec.checkOutTime && rec.checkOutTime !== '--:--' && rec.checkOutTime !== 'Pending' && rec.checkOutTime !== 'N/A' && rec.checkOutTime !== 'UNRESOLVED') {

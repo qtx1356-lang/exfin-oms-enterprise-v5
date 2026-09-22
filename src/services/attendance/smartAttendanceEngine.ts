@@ -22,6 +22,7 @@ import {
 import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { createNotification } from '../notification/notificationService';
+import { hasValidCheckoutTime } from '../../utils/attendanceUtils';
 
 const env = typeof import.meta !== 'undefined' && import.meta?.env ? import.meta.env : ({} as any);
 
@@ -355,6 +356,7 @@ export const runAutoCheckoutFinalizer = (): void => {
   records.forEach((rec) => {
     if (
       (rec.checkOutTime && (rec.checkoutStatus === 'FINALIZED' || rec.checkoutStatus === 'COMPLETED')) ||
+      hasValidCheckoutTime(rec) ||
       rec.checkoutStatus === 'UNRESOLVED' ||
       rec.checkoutStatus === 'PENDING_ADMIN_REVIEW' ||
       rec.manualRectified ||

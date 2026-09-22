@@ -279,6 +279,117 @@ export function recoverAuthoritativeAdminFields(record: any): {
 }
 
 /**
+ * Checks if an attendance record has a valid recorded or employee-provided checkout time.
+ * When a valid checkout time is present, the checkout is considered resolved from the
+ * Employee UI's perspective.
+ */
+export const hasValidCheckoutTime = (record: AttendanceRecord | null | undefined): boolean => {
+  if (!record) return false;
+  const val = (
+    record.checkOutTime ||
+    record.manualCheckoutTime ||
+    record.employeeProvidedCheckoutTime ||
+    record.employeeProposedCheckoutTime ||
+    ''
+  ).trim();
+  if (!val) return false;
+  const invalid = ['--:--', '--:-- --', 'Pending', 'N/A', 'UNRESOLVED', 'null', 'undefined'];
+  return !invalid.includes(val);
+};
+
+/**
+ * Identifies if a notification is an unresolved checkout notification.
+ */
+export const isUnresolvedCheckoutNotification = (notif: {
+  type?: string;
+  title?: string;
+  message?: string;
+  idempotencyKey?: string;
+  id?: string;
+  category?: string;
+} | null | undefined): boolean => {
+  if (!notif) return false;
+  if (notif.type === 'ATTENDANCE_UNRESOLVED') return true;
+  const title = (notif.title || '').toLowerCase();
+  const msg = (notif.message || '').toLowerCase();
+  const id = (notif.id || '').toLowerCase();
+  const key = (notif.idempotencyKey || '').toLowerCase();
+
+  if (title.includes('checkout requires resolution') || title.includes('checkout resolution required')) {
+    return true;
+  }
+  if (msg.includes('please resolve your checkout') || msg.includes('could not be reliably determined')) {
+    return true;
+  }
+  if (key.startsWith('emp_unresolved_') || id.startsWith('notif_attendance_unresolved_')) {
+    return true;
+  }
+  return false;
+};
+
+/**
+ * Extracts attendance date (YYYY-MM-DD) from a notification object.
+ */
+export const extractDateFromNotification = (notif: any): string | null => {
+  if (!notif) return null;
+  if (notif.date && /^\d{4}-\d{2}-\d{2}$/.test(notif.date)) return notif.date;
+  if (notif.attendanceDate && /^\d{4}-\d{2}-\d{2}$/.test(notif.attendanceDate)) return notif.attendanceDate;
+
+  if (notif.idempotencyKey) {
+    const match = notif.idempotencyKey.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+    if (match) return match[1];
+  }
+  if (notif.message) {
+    const match = notif.message.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+    if (match) return match[1];
+  }
+  if (notif.title) {
+    const match = notif.title.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+    if (match) return match[1];
+  }
+  return null;
+};
+
+/**
+ * Determines whether an unresolved checkout notification should be suppressed for an employee
+ * because a valid checkout time is already recorded/provided for that attendance date.
+ */
+export const shouldSuppressUnresolvedNotification = (
+  notif: any,
+  records: AttendanceRecord[]
+): boolean => {
+  if (!isUnresolvedCheckoutNotification(notif)) {
+    return false;
+  }
+
+  // Preserve notifications intended for Admin / Super Admin verification
+  const recipient = String(notif.recipientEmployeeCode || notif.recipientRole || '').toUpperCase();
+  if (recipient === 'ADMIN' || recipient === 'SUPER_ADMIN') {
+    return false;
+  }
+
+  const notifDate = extractDateFromNotification(notif);
+
+  // Find matching attendance record
+  const matchingRecord = records.find((r) => {
+    if (notif.entityId && r.id === notif.entityId) return true;
+    if (notifDate && r.date === notifDate) {
+      if (!notif.recipientEmployeeCode || notif.recipientEmployeeCode === r.employeeId || notif.recipientEmployeeCode === r.employeeCode) {
+        return true;
+      }
+    }
+    return false;
+  });
+
+  if (!matchingRecord) {
+    return false;
+  }
+
+  // If checkout time is already recorded or provided, suppress resolution alert for employee
+  return hasValidCheckoutTime(matchingRecord);
+};
+
+/**
  * Authoritative helper to determine if an attendance record has an unresolved checkout.
  * 
  * A record is UNRESOLVED when:
@@ -293,6 +404,11 @@ export const isAttendanceCheckoutUnresolved = (record: AttendanceRecord): boolea
 
   // 1. If record is Admin-authoritative, it is NEVER unresolved
   if (isServerAttendanceAuthoritative(record)) {
+    return false;
+  }
+
+  // If a valid checkout time is already recorded or provided, not unresolved
+  if (hasValidCheckoutTime(record)) {
     return false;
   }
 

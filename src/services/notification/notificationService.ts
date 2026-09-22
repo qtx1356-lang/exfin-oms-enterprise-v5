@@ -14,6 +14,8 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
 import { NotificationRecord, NotificationType, NotificationCategory, NotificationPriority, parseTimestamp, isGreetingNotification } from '../../types/notification';
+import { shouldSuppressUnresolvedNotification, isUnresolvedCheckoutNotification } from '../../utils/attendanceUtils';
+import { getStoredAttendanceRecords } from '../attendance/attendanceStorage';
 import {
   getStoredNotifications,
   saveNotificationLocally,
@@ -257,7 +259,16 @@ export const getNotificationsForUser = async (user: {
   // Filter local based on strict identity permissions
   const filterAllowedLocal = (n: NotificationRecord) => isNotificationForUser(n, user);
 
-  const localFiltered = localNotifications.filter(n => filterAllowedLocal(n) && !isGreetingNotification(n));
+  const storedAttendance = getStoredAttendanceRecords();
+  const isPrivilegedAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN';
+
+  const localFiltered = localNotifications.filter(n => {
+    if (!filterAllowedLocal(n) || isGreetingNotification(n)) return false;
+    if (!isPrivilegedAdmin && shouldSuppressUnresolvedNotification(n, storedAttendance)) {
+      return false;
+    }
+    return true;
+  });
 
   if (!isOnline()) {
     return localFiltered;
@@ -347,6 +358,10 @@ export const getNotificationsForUser = async (user: {
 
         // Strict post-query isolation check
         if (isNotificationForUser(record, user)) {
+          if (!isPrivilegedAdmin && shouldSuppressUnresolvedNotification(record, storedAttendance)) {
+            removeNotificationLocally(record.id, userScopeKey);
+            return;
+          }
           fetchedMap.set(record.id, record);
         }
       });
@@ -363,7 +378,13 @@ export const getNotificationsForUser = async (user: {
 
     // Re-load fully merged list from isolated storage
     const finalLocal = getStoredNotifications(userScopeKey);
-    return finalLocal.filter(n => filterAllowedLocal(n) && !isGreetingNotification(n));
+    return finalLocal.filter(n => {
+      if (!filterAllowedLocal(n) || isGreetingNotification(n)) return false;
+      if (!isPrivilegedAdmin && shouldSuppressUnresolvedNotification(n, storedAttendance)) {
+        return false;
+      }
+      return true;
+    });
   } catch (err) {
     console.error('Error fetching notifications from server:', err);
     return localFiltered;
@@ -557,6 +578,34 @@ export const deleteNotification = async (
     } catch (err) {
       console.warn('Failed to delete notification on server (queued for retry):', err);
     }
+  }
+};
+
+/**
+ * Dismiss and delete any unresolved checkout notification for an employee on a given date.
+ */
+export const dismissUnresolvedNotificationForDate = async (
+  employeeId: string,
+  dateStr: string,
+  recordId?: string
+): Promise<void> => {
+  try {
+    const userScopeKey = employeeId;
+    const storedNotifs = getStoredNotifications(userScopeKey);
+    const targetNotifs = storedNotifs.filter((n) => {
+      if (!isUnresolvedCheckoutNotification(n)) return false;
+      if (recordId && n.entityId === recordId) return true;
+      if (n.idempotencyKey && n.idempotencyKey.includes(dateStr)) return true;
+      if (n.message && n.message.includes(dateStr)) return true;
+      if (n.title && n.title.includes(dateStr)) return true;
+      return false;
+    });
+
+    for (const notif of targetNotifs) {
+      await deleteNotification(notif.id, { employeeCode: employeeId });
+    }
+  } catch (err) {
+    console.warn('Failed to dismiss unresolved notification for date:', err);
   }
 };
 

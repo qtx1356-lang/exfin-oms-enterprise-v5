@@ -39,7 +39,8 @@ import {
   getAttendanceCanonicalKey,
   isServerAttendanceAuthoritative,
   findLatestAdminCorrection,
-  recoverAuthoritativeAdminFields
+  recoverAuthoritativeAdminFields,
+  shouldSuppressUnresolvedNotification
 } from '../utils/attendanceUtils';
 import { logSyncListenerUpdate } from '../services/sync/syncPerformanceLogger';
 import { useNetworkStatus, networkStatusService } from '../services/network/networkStatusService';
@@ -119,7 +120,10 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
   const [notifications, setNotifications] = useState<NotificationRecord[]>(() => {
     try {
       const userScopeKey = empCode || (employeeData as any)?.id || undefined;
-      return getStoredNotifications(userScopeKey);
+      const stored = getStoredNotifications(userScopeKey);
+      const isPrivilegedAdmin = (employeeData as any)?.role === 'ADMIN' || (employeeData as any)?.role === 'SUPER_ADMIN';
+      const storedAttendance = getStoredAttendanceRecords();
+      return stored.filter((n) => isPrivilegedAdmin || !shouldSuppressUnresolvedNotification(n, storedAttendance));
     } catch {
       return [];
     }
@@ -128,7 +132,9 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const userScopeKey = empCode || (employeeData as any)?.id || undefined;
       const stored = getStoredNotifications(userScopeKey);
-      return stored.filter((n) => !n.read && !(n as any).isRead).length;
+      const isPrivilegedAdmin = (employeeData as any)?.role === 'ADMIN' || (employeeData as any)?.role === 'SUPER_ADMIN';
+      const storedAttendance = getStoredAttendanceRecords();
+      return stored.filter((n) => !n.read && !(n as any).isRead && (isPrivilegedAdmin || !shouldSuppressUnresolvedNotification(n, storedAttendance))).length;
     } catch {
       return 0;
     }
@@ -201,12 +207,16 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     const handleNotificationsUpdated = () => {
       const userScopeKey = empCode || employeeData?.id || undefined;
       const stored = getStoredNotifications(userScopeKey);
+      const isPrivilegedAdmin = employeeData?.role === 'ADMIN' || employeeData?.role === 'SUPER_ADMIN';
+      const storedAttendance = getStoredAttendanceRecords();
+
       const filtered = stored.filter(
         (n) =>
           !n.deleted &&
           !isNotificationDeletedLocally(n.id, userScopeKey) &&
           !getPendingDeletes(userScopeKey).includes(n.id) &&
-          isNotificationForUser(n, employeeData)
+          isNotificationForUser(n, employeeData) &&
+          (isPrivilegedAdmin || !shouldSuppressUnresolvedNotification(n, storedAttendance))
       );
 
       // On startup, baseline all cached notifications so old items never trigger sounds
@@ -799,7 +809,14 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             };
 
             // Strict privacy and isolation enforcement
-            if (isNotificationForUser(record, latestEmployeeDataRef.current || employeeData) && !isGreetingNotification(record)) {
+            const isPrivileged = (latestEmployeeDataRef.current || employeeData)?.role === 'ADMIN' || (latestEmployeeDataRef.current || employeeData)?.role === 'SUPER_ADMIN';
+            const storedRecs = getStoredAttendanceRecords();
+
+            if (
+              isNotificationForUser(record, latestEmployeeDataRef.current || employeeData) &&
+              !isGreetingNotification(record) &&
+              (isPrivileged || !shouldSuppressUnresolvedNotification(record, storedRecs))
+            ) {
               list.push(record);
             }
           });
@@ -837,7 +854,12 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             });
           });
 
-          const finalNotifsList = Array.from(mergedMap.values()).sort((a, b) => {
+          const isPrivilegedUser = (latestEmployeeDataRef.current || employeeData)?.role === 'ADMIN' || (latestEmployeeDataRef.current || employeeData)?.role === 'SUPER_ADMIN';
+          const currentStoredRecs = getStoredAttendanceRecords();
+
+          const finalNotifsList = Array.from(mergedMap.values())
+            .filter((n) => isPrivilegedUser || !shouldSuppressUnresolvedNotification(n, currentStoredRecs))
+            .sort((a, b) => {
             const dateA = parseTimestamp(a.timestamp || a.createdAt || a.createdAtDeviceTime);
             const dateB = parseTimestamp(b.timestamp || b.createdAt || b.createdAtDeviceTime);
             const timeA = dateA ? dateA.getTime() : 0;

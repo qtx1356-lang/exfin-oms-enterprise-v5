@@ -13,10 +13,10 @@ import {
   markEventIdProcessed 
 } from './attendanceEventQueue';
 import { logAttendanceEvent } from './attendanceLogger';
-import { createNotification } from '../notification/notificationService';
+import { createNotification, dismissUnresolvedNotificationForDate } from '../notification/notificationService';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { updateLiveEmployeeLocation } from '../location/liveLocationService';
-import { isAdminContextActive, logAttendanceWriteDiagnostic, isServerAttendanceAuthoritative } from '../../utils/attendanceUtils';
+import { isAdminContextActive, logAttendanceWriteDiagnostic, isServerAttendanceAuthoritative, hasValidCheckoutTime } from '../../utils/attendanceUtils';
 import { clearNativeActiveSession, cancelPendingNativeExit } from './nativeGeofenceBridge';
 
 const env = typeof import.meta !== 'undefined' && import.meta?.env ? import.meta.env : ({} as any);
@@ -1437,17 +1437,22 @@ export const AutomaticAttendanceEngine = {
           idempotencyKey: `admin_unresolved_${employeeId}_${dateStr}`
         }).catch((e) => console.warn('Admin notification error on unresolved settlement:', e));
 
-        createNotification({
-          recipientEmployeeCode: employeeId,
-          type: 'ATTENDANCE_UNRESOLVED',
-          category: 'ATTENDANCE',
-          priority: 'HIGH',
-          title: 'Checkout Requires Resolution',
-          message: `Your checkout time for ${dateStr} could not be reliably determined. Please resolve your checkout.`,
-          entityId: record.id,
-          entityType: 'ATTENDANCE',
-          idempotencyKey: `emp_unresolved_${employeeId}_${dateStr}`
-        }).catch((e) => console.warn('Employee notification error on unresolved settlement:', e));
+        const hasProvidedCheckout = hasValidCheckoutTime(record) || record.checkoutSource === 'EMPLOYEE_REPORTED';
+        if (!hasProvidedCheckout) {
+          createNotification({
+            recipientEmployeeCode: employeeId,
+            type: 'ATTENDANCE_UNRESOLVED',
+            category: 'ATTENDANCE',
+            priority: 'HIGH',
+            title: 'Checkout Requires Resolution',
+            message: `Your checkout time for ${dateStr} could not be reliably determined. Please resolve your checkout.`,
+            entityId: record.id,
+            entityType: 'ATTENDANCE',
+            idempotencyKey: `emp_unresolved_${employeeId}_${dateStr}`
+          }).catch((e) => console.warn('Employee notification error on unresolved settlement:', e));
+        } else {
+          dismissUnresolvedNotificationForDate(employeeId, dateStr, record.id).catch((e) => console.warn('Dismiss error on settlement:', e));
+        }
 
         if (navigator.onLine) {
           syncPendingAttendanceRecords().catch((e) => console.warn('Sync error on settlement:', e));

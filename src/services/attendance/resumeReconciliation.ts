@@ -26,8 +26,8 @@ import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { updateLiveEmployeeLocation } from '../location/liveLocationService';
 import { AutomaticAttendanceEngine } from './automaticAttendanceEngine';
-import { createNotification } from '../notification/notificationService';
-import { isAdminContextActive } from '../../utils/attendanceUtils';
+import { createNotification, dismissUnresolvedNotificationForDate } from '../notification/notificationService';
+import { isAdminContextActive, hasValidCheckoutTime } from '../../utils/attendanceUtils';
 import { reconcileNativeGeofenceEvents } from './nativeGeofenceBridge';
 
 let activeResumePromise: Promise<AttendanceRecord | null> | null = null;
@@ -124,7 +124,9 @@ export const reconcileAttendanceOnResume = async (
       const allStored = getStoredAttendanceRecords();
       for (const rec of allStored) {
         if (rec.employeeId === employeeId && rec.date < dateStr) {
-          if (!rec.checkOutTime || rec.checkoutStatus !== 'COMPLETED') {
+          if (hasValidCheckoutTime(rec)) {
+            dismissUnresolvedNotificationForDate(rec.employeeId, rec.date, rec.id).catch(() => {});
+          } else if (!rec.checkOutTime || rec.checkoutStatus !== 'COMPLETED') {
             AutomaticAttendanceEngine.settleUnresolvedSession(rec.employeeId, rec.date, now);
           }
         }

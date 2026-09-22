@@ -1,4 +1,6 @@
 import { NotificationRecord } from '../../types/notification';
+import { shouldSuppressUnresolvedNotification, isUnresolvedCheckoutNotification } from '../../utils/attendanceUtils';
+import { getStoredAttendanceRecords } from '../attendance/attendanceStorage';
 
 const ACKNOWLEDGED_ALERTS_KEY = 'exfin_acknowledged_alert_popup_ids';
 const HANDLED_ALERTS_KEY = 'exfin_handled_alert_ids';
@@ -158,6 +160,17 @@ export const isNotificationEligibleForPopup = (
   if (isPopupShown(notif.id) || isAlertHandled(notif.id) || isAlertAcknowledged(notif.id)) {
     return false;
   }
+
+  // 1b. If unresolved checkout notification but checkout time is already recorded/provided, suppress popup
+  try {
+    if (isUnresolvedCheckoutNotification(notif)) {
+      const storedRecs = getStoredAttendanceRecords();
+      if (shouldSuppressUnresolvedNotification(notif, storedRecs)) {
+        markPopupShown(notif.id);
+        return false;
+      }
+    }
+  } catch {}
 
   // 2. If already marked as read, do not popup
   if (notif.read || (notif as any).isRead) {
