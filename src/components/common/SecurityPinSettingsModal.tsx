@@ -8,12 +8,20 @@ import {
   validatePinStrength,
   getCooldownRemainingSeconds,
 } from '../../services/security/securityPinService';
+import {
+  markEmployeePinResetCompleted,
+  syncLocalPinStatusToRemote,
+} from '../../services/security/adminPinResetService';
 
 interface SecurityPinSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   employeeId: string;
   onStatusChange?: () => void;
+  employeeDocId?: string;
+  employeeCode?: string;
+  employeeName?: string;
+  isRemoteResetPending?: boolean;
 }
 
 type ViewMode = 'MAIN' | 'SETUP' | 'CHANGE' | 'DISABLE';
@@ -23,6 +31,10 @@ export const SecurityPinSettingsModal: React.FC<SecurityPinSettingsModalProps> =
   onClose,
   employeeId,
   onStatusChange,
+  employeeDocId,
+  employeeCode,
+  employeeName,
+  isRemoteResetPending,
 }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('MAIN');
   const [pinEnabled, setPinEnabled] = useState(false);
@@ -114,6 +126,20 @@ export const SecurityPinSettingsModal: React.FC<SecurityPinSettingsModalProps> =
       setPinEnabled(true);
       showToast('Security PIN enabled successfully.');
       if (onStatusChange) onStatusChange();
+
+      // Complete remote reset signal or sync local status to Firestore
+      if (employeeDocId) {
+        if (isRemoteResetPending) {
+          markEmployeePinResetCompleted({
+            employeeDocId,
+            employeeCode: employeeCode || employeeId,
+            employeeName: employeeName || 'Employee',
+          }).catch((err) => console.warn('Failed to mark PIN reset completed in Firestore:', err));
+        } else {
+          syncLocalPinStatusToRemote(employeeDocId, true).catch(() => {});
+        }
+      }
+
       setTimeout(() => {
         onClose();
       }, 1000);
@@ -155,6 +181,11 @@ export const SecurityPinSettingsModal: React.FC<SecurityPinSettingsModalProps> =
     if (result.success) {
       showToast('Security PIN changed successfully.');
       if (onStatusChange) onStatusChange();
+
+      if (employeeDocId) {
+        syncLocalPinStatusToRemote(employeeDocId, true).catch(() => {});
+      }
+
       resetFormState();
       setViewMode('MAIN');
     } else {
@@ -183,6 +214,11 @@ export const SecurityPinSettingsModal: React.FC<SecurityPinSettingsModalProps> =
       setPinEnabled(false);
       showToast('Security PIN disabled.');
       if (onStatusChange) onStatusChange();
+
+      if (employeeDocId) {
+        syncLocalPinStatusToRemote(employeeDocId, false).catch(() => {});
+      }
+
       setTimeout(() => {
         onClose();
       }, 1000);

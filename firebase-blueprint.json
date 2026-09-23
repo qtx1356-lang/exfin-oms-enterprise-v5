@@ -17,7 +17,15 @@
         "status": { "type": "string" },
         "rejectionReason": { "type": "string" },
         "office": { "type": "string" },
-        "baseSalary": { "type": "number" }
+        "baseSalary": { "type": "number" },
+        "hasSecurityPinConfigured": { "type": "boolean" },
+        "securityPinResetAt": { "type": "string" },
+        "securityPinResetBy": { "type": "string" },
+        "securityPinResetRequestId": { "type": "string" },
+        "securityPinResetReason": { "type": "string" },
+        "securityPinResetStatus": { "type": "string", "enum": ["PENDING", "COMPLETED"] },
+        "securityPinResetCompletedAt": { "type": "string" },
+        "securityPinResetCompletedBy": { "type": "string" }
       },
       "required": ["employeeCode", "name", "deviceId", "registrationDate", "status"]
     },

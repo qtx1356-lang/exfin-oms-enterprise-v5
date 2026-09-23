@@ -270,3 +270,71 @@ export async function changeSecurityPin(
 
   return setSecurityPin(employeeId, newPin);
 }
+
+// ---------------------------------------------------------------------------
+// REMOTE RESET SIGNAL CONSUMPTION & INVALIDATION
+// ---------------------------------------------------------------------------
+const RESET_PROCESSED_PREFIX = 'exfin_pin_last_processed_reset_';
+
+/**
+ * Retrieves the last processed remote reset request ID for an employee on this device.
+ */
+export function getLastProcessedResetId(employeeId: string): string | null {
+  if (!employeeId) return null;
+  try {
+    return localStorage.getItem(RESET_PROCESSED_PREFIX + employeeId);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Marks a remote reset request ID as processed on this device.
+ */
+export function markResetProcessed(employeeId: string, resetRequestId: string): void {
+  if (!employeeId || !resetRequestId) return;
+  try {
+    localStorage.setItem(RESET_PROCESSED_PREFIX + employeeId, resetRequestId);
+  } catch (err) {
+    console.warn('Failed to store processed reset marker:', err);
+  }
+}
+
+/**
+ * Invalidates the local Security PIN verifier and salt for an employee upon receiving
+ * an authorized remote reset signal from the Admin Panel.
+ *
+ * CRITICAL ARCHITECTURAL SAFETY:
+ * - Only invalidates the specific employee's local PIN configuration and cooldown state.
+ * - DOES NOT modify or clear attendance, tasks, expenses, planner, auth, device registration,
+ *   or geofence data.
+ * - Stores the resetRequestId marker locally so the same reset signal is not repeatedly processed.
+ */
+export function invalidateSecurityPinFromRemoteReset(
+  employeeId: string,
+  resetRequestId: string
+): { success: boolean; wasConfigured: boolean } {
+  if (!employeeId) {
+    return { success: false, wasConfigured: false };
+  }
+
+  const wasConfigured = isPinEnabled(employeeId);
+
+  try {
+    // 1. Invalidate local PIN verifier & salt
+    localStorage.removeItem(PIN_STORAGE_PREFIX + employeeId);
+
+    // 2. Clear in-memory attempt state / cooldown for this employee
+    delete attemptStore[employeeId];
+
+    // 3. Record that this specific resetRequestId has been processed on this device
+    if (resetRequestId) {
+      markResetProcessed(employeeId, resetRequestId);
+    }
+
+    return { success: true, wasConfigured };
+  } catch (err) {
+    console.error('Failed to invalidate local Security PIN from remote reset:', err);
+    return { success: false, wasConfigured };
+  }
+}

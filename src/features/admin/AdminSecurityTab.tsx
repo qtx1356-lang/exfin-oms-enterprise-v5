@@ -19,12 +19,16 @@ import { AdminSecurityUser } from '../../types/adminSecurity';
 import { fetchAdminSecurityUsers } from '../../services/admin/adminPasswordService';
 import { AdminPasswordManagementModal } from './AdminPasswordManagementModal';
 import { ChangePasswordModal } from '../../components/admin/ChangePasswordModal';
+import { EmployeePinManagementSection } from '../../components/admin/EmployeePinManagementSection';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+
+type SecuritySubTab = 'ADMIN_SECURITY' | 'EMPLOYEE_PIN';
 
 export const AdminSecurityTab: React.FC = () => {
   const { role, loginId } = useAdminAuth();
   const isSuperAdmin = role === 'SUPER_ADMIN';
 
+  const [activeSubTab, setActiveSubTab] = useState<SecuritySubTab>('ADMIN_SECURITY');
   const [adminUsers, setAdminUsers] = useState<AdminSecurityUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -79,9 +83,9 @@ export const AdminSecurityTab: React.FC = () => {
             <ShieldCheck className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Admin Password & Security</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Security & Credentials Management</h1>
             <p className="text-xs sm:text-sm text-purple-200/70">
-              Manage administrator authentication credentials, temporary passwords, and security enforcement
+              Manage administrator authentication credentials, passwords, and employee Security PIN resets
             </p>
           </div>
         </div>
@@ -106,8 +110,40 @@ export const AdminSecurityTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Security Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Subtab Selector */}
+      <div className="flex items-center gap-2 p-1.5 bg-[#1B0A38] border border-purple-500/20 rounded-2xl w-fit">
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('ADMIN_SECURITY')}
+          className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+            activeSubTab === 'ADMIN_SECURITY'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
+              : 'text-purple-300/70 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <Shield className="w-4 h-4" />
+          <span>Administrator Security</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('EMPLOYEE_PIN')}
+          className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+            activeSubTab === 'EMPLOYEE_PIN'
+              ? 'bg-gradient-to-r from-amber-600 to-amber-500 text-black shadow-lg font-black'
+              : 'text-purple-300/70 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <KeyRound className="w-4 h-4" />
+          <span>Employee Security PIN Management</span>
+        </button>
+      </div>
+
+      {activeSubTab === 'EMPLOYEE_PIN' ? (
+        <EmployeePinManagementSection />
+      ) : (
+        <>
+          {/* Security Metrics Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="p-5 bg-[#210D44]/90 border border-purple-500/20 rounded-2xl flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300">
             <User className="w-6 h-6" />
@@ -355,6 +391,8 @@ export const AdminSecurityTab: React.FC = () => {
           onClose={() => setShowSelfChangeModal(false)}
           isMandatory={false}
         />
+      )}
+        </>
       )}
     </div>
   );
