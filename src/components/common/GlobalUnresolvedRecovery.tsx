@@ -1,27 +1,100 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { getStoredAttendanceRecords, saveAttendanceRecord } from '../../services/attendance/attendanceStorage';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { getStoredAttendanceRecords } from '../../services/attendance/attendanceStorage';
 import { AttendanceRecord } from '../../types/attendance';
 import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEngine';
 import { AutomaticAttendanceEngine } from '../../services/attendance/automaticAttendanceEngine';
 import { useRegistration } from '../../context/RegistrationContext';
-import { syncPendingAttendanceRecords } from '../../services/attendance/syncEngine';
 import { isServerAttendanceAuthoritative, isAttendanceCheckoutUnresolved, hasValidCheckoutTime } from '../../utils/attendanceUtils';
 import { dismissUnresolvedNotificationForDate } from '../../services/notification/notificationService';
+import { useSensitiveActionGuard } from '../../services/security/useSensitiveActionGuard';
 import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { AlertCircle, Clock, Check } from 'lucide-react';
 
+interface ParsedTimeResult {
+  isValid: boolean;
+  error?: string;
+  formatted12?: string;
+  hours24?: number;
+  minutes?: number;
+}
+
+const parseAndValidateTime = (rawInput: string): ParsedTimeResult => {
+  const trimmed = (rawInput || '').trim();
+  if (!trimmed) {
+    return { isValid: false, error: 'Please enter a checkout time.' };
+  }
+
+  // Matches "HH:MM", "H:MM", "HH:MM AM", "H:MM PM", "HH.MM", etc.
+  const match = trimmed.match(/^(\d{1,2})[:.](\d{1,2})(?:\s*(AM|PM|am|pm|A\.M\.|P\.M\.))?$/i);
+  if (!match) {
+    return {
+      isValid: false,
+      error: 'Invalid time format. Please enter time as HH:MM AM/PM (e.g. 06:00 PM).'
+    };
+  }
+
+  const rawHour = parseInt(match[1], 10);
+  const rawMin = parseInt(match[2], 10);
+  const rawAmPm = match[3] ? match[3].replace(/\./g, '').toUpperCase() : null;
+
+  if (isNaN(rawHour) || isNaN(rawMin)) {
+    return { isValid: false, error: 'Hours and minutes must be numbers.' };
+  }
+
+  if (rawMin < 0 || rawMin > 59) {
+    return { isValid: false, error: 'Minutes must be between 00 and 59.' };
+  }
+
+  let hours24: number;
+  let ampm: 'AM' | 'PM';
+
+  if (rawAmPm) {
+    if (rawHour < 1 || rawHour > 12) {
+      return { isValid: false, error: 'Hour must be between 1 and 12 when AM/PM is specified.' };
+    }
+    ampm = rawAmPm === 'PM' ? 'PM' : 'AM';
+    if (ampm === 'PM') {
+      hours24 = rawHour === 12 ? 12 : rawHour + 12;
+    } else {
+      hours24 = rawHour === 12 ? 0 : rawHour;
+    }
+  } else {
+    // No AM/PM specified: if 0..23
+    if (rawHour < 0 || rawHour > 23) {
+      return { isValid: false, error: 'Hour must be between 0 and 23.' };
+    }
+    hours24 = rawHour;
+    ampm = hours24 >= 12 ? 'PM' : 'AM';
+  }
+
+  let displayH = hours24 % 12;
+  if (displayH === 0) displayH = 12;
+  const formatted12 = `${String(displayH).padStart(2, '0')}:${String(rawMin).padStart(2, '0')} ${ampm}`;
+
+  return {
+    isValid: true,
+    formatted12,
+    hours24,
+    minutes: rawMin
+  };
+};
+
 export const GlobalUnresolvedRecovery: React.FC = () => {
   const { employeeData } = useRegistration();
+  const { executeSensitiveAction } = useSensitiveActionGuard();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [time, setTime] = useState('18:00');
+  const [time, setTime] = useState('06:00 PM');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
+  const textInputRef = useRef<HTMLInputElement>(null);
+  const hiddenTimeInputRef = useRef<HTMLInputElement>(null);
+
   const todayStr = getFormattedDateStr();
 
-  // Polling to keep records up to date (or we can just listen to focus events)
+  // Polling to keep records up to date
   useEffect(() => {
     const fetchRecords = () => {
       if (employeeData) {
@@ -77,89 +150,153 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
     return pastRecords.length > 0 ? pastRecords[0] : null;
   }, [records, employeeData, todayStr]);
 
-  // When unresolvedRecord changes, we should show the modal if it's not currently open
+  // When unresolvedRecord changes, show the modal
   useEffect(() => {
-    if (unresolvedRecord && !isOpen) {
+    if (unresolvedRecord) {
+      setTime('06:00 PM');
+      setError(null);
       setIsOpen(true);
     }
-  }, [unresolvedRecord]);
+  }, [unresolvedRecord?.id, unresolvedRecord?.date]);
+
+  const currentAmPm = useMemo(() => {
+    if (/AM/i.test(time)) return 'AM';
+    if (/PM/i.test(time)) return 'PM';
+    const parsed = parseAndValidateTime(time);
+    if (parsed.isValid && parsed.hours24 !== undefined) {
+      return parsed.hours24 >= 12 ? 'PM' : 'AM';
+    }
+    return 'PM';
+  }, [time]);
+
+  const toggleAmPm = () => {
+    const parsed = parseAndValidateTime(time);
+    if (parsed.isValid && parsed.hours24 !== undefined && parsed.minutes !== undefined) {
+      const newHours24 = (parsed.hours24 + 12) % 24;
+      let newH = newHours24 % 12;
+      if (newH === 0) newH = 12;
+      const newAmPm = newHours24 >= 12 ? 'PM' : 'AM';
+      const newFormatted = `${String(newH).padStart(2, '0')}:${String(parsed.minutes).padStart(2, '0')} ${newAmPm}`;
+      setTime(newFormatted);
+      setError(null);
+    } else {
+      if (/AM/i.test(time)) {
+        setTime(time.replace(/AM/i, 'PM'));
+      } else if (/PM/i.test(time)) {
+        setTime(time.replace(/PM/i, 'AM'));
+      } else {
+        setTime(`${time.trim()} PM`);
+      }
+      setError(null);
+    }
+  };
+
+  const to24Hour = (val: string): string => {
+    const parsed = parseAndValidateTime(val);
+    if (parsed.isValid && parsed.hours24 !== undefined && parsed.minutes !== undefined) {
+      return `${String(parsed.hours24).padStart(2, '0')}:${String(parsed.minutes).padStart(2, '0')}`;
+    }
+    return '18:00';
+  };
+
+  const handleNativePickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value; // "HH:MM"
+    if (val) {
+      const parsed = parseAndValidateTime(val);
+      if (parsed.isValid && parsed.formatted12) {
+        setTime(parsed.formatted12);
+        setError(null);
+      }
+    }
+  };
+
+  const handleClockIconClick = () => {
+    try {
+      if (hiddenTimeInputRef.current && typeof hiddenTimeInputRef.current.showPicker === 'function') {
+        hiddenTimeInputRef.current.showPicker();
+        return;
+      }
+    } catch {
+      // showPicker not supported or blocked by WebView
+    }
+    // Directly focus the text input so the employee can type immediately
+    textInputRef.current?.focus();
+  };
+
+  const handleInputBlur = () => {
+    const parsed = parseAndValidateTime(time);
+    if (parsed.isValid && parsed.formatted12) {
+      setTime(parsed.formatted12);
+    }
+  };
 
   if (!unresolvedRecord) return null;
 
   const handleSubmit = async () => {
     setError(null);
-    
-    // Validation
-    const [h, m] = time.split(':').map(Number);
-    const [y, mo, d] = unresolvedRecord.date.split('-').map(Number);
-    const selectedDate = new Date(y, mo - 1, d);
-    selectedDate.setHours(h, m, 0, 0);
-    
-    // Time must be after check-in
+
+    const validation = parseAndValidateTime(time);
+    if (!validation.isValid) {
+      setError(validation.error || 'Please enter a valid checkout time.');
+      return;
+    }
+
+    const { formatted12, hours24, minutes } = validation;
+    if (!formatted12 || hours24 === undefined || minutes === undefined) {
+      setError('Please enter a valid checkout time.');
+      return;
+    }
+
+    // Validate that checkout time is after check-in time
     if (unresolvedRecord.checkInTime) {
-      const match = unresolvedRecord.checkInTime.match(/(\d+):(\d+)(?:\s*(AM|PM))?/i);
-      if (match) {
-        let inH = parseInt(match[1], 10);
-        const inM = parseInt(match[2], 10);
-        const ampm = match[3];
-        if (ampm) {
-          if (ampm.toUpperCase() === 'PM' && inH < 12) inH += 12;
-          if (ampm.toUpperCase() === 'AM' && inH === 12) inH = 0;
-        }
-        const checkInDate = new Date(y, mo - 1, d);
-        checkInDate.setHours(inH, inM, 0, 0);
-        if (selectedDate <= checkInDate) {
-          setError('Checkout time must be after your check-in time.');
+      const checkInParsed = parseAndValidateTime(unresolvedRecord.checkInTime);
+      if (checkInParsed.isValid && checkInParsed.hours24 !== undefined && checkInParsed.minutes !== undefined) {
+        const checkInTotalMin = checkInParsed.hours24 * 60 + checkInParsed.minutes;
+        const checkoutTotalMin = hours24 * 60 + minutes;
+        if (checkoutTotalMin <= checkInTotalMin) {
+          setError(`Checkout time (${formatted12}) must be after your check-in time (${unresolvedRecord.checkInTime}).`);
           return;
         }
       }
     }
-    
-    // Time cannot be in the future relative to current time if we were editing today, 
-    // but this is a past date so any time up to 11:59 PM is theoretically valid.
-    // However, if the user enters a time that is "future" on the past date? 
-    // A past date is always entirely in the past compared to today.
-    // The prompt says: "not be a future time relative to the current date/time when interpreted as a previous-day checkout"
-    // Since it's a previous day, any time 00:00 - 23:59 is allowed.
-    const now = new Date();
-    if (selectedDate > now) {
+
+    // Validate not in future relative to current time
+    // Constructed strictly using previous attendance date and Asia/Kolkata timezone (+05:30)
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const checkoutKolkataIso = `${unresolvedRecord.date}T${pad(hours24)}:${pad(minutes)}:00+05:30`;
+    const checkoutDateObj = new Date(checkoutKolkataIso);
+    if (checkoutDateObj.getTime() > Date.now()) {
       setError('Checkout time cannot be in the future.');
       return;
     }
 
-    let ampm = 'AM';
-    let formattedH = h;
-    if (h >= 12) {
-      ampm = 'PM';
-      if (h > 12) formattedH = h - 12;
-    }
-    if (formattedH === 0) formattedH = 12;
-    const formattedTime = `${String(formattedH).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+    // Execute with Security PIN guard if configured
+    executeSensitiveAction('ATTENDANCE_CHECKOUT_RESOLUTION', async () => {
+      setIsSubmitting(true);
+      try {
+        const empId = employeeData?.employeeCode || employeeData?.id || unresolvedRecord.employeeId;
+        const updated = AutomaticAttendanceEngine.submitEmployeeCheckoutTime(
+          empId,
+          unresolvedRecord.date,
+          formatted12,
+          true
+        );
 
-    setIsSubmitting(true);
-    try {
-      const empId = employeeData?.employeeCode || employeeData?.id || unresolvedRecord.employeeId;
-      const updated = AutomaticAttendanceEngine.submitEmployeeCheckoutTime(
-        empId,
-        unresolvedRecord.date,
-        formattedTime,
-        true
-      );
+        if (updated) {
+          setRecords((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+          dismissUnresolvedNotificationForDate(empId, unresolvedRecord.date, updated.id).catch(() => {});
+        }
 
-      if (updated) {
-        setRecords(prev => prev.map(r => r.id === updated.id ? updated : r));
-        dismissUnresolvedNotificationForDate(empId, unresolvedRecord.date, updated.id).catch(() => {});
+        // Reset form
+        setTime('06:00 PM');
+        setIsOpen(false);
+      } catch (e: any) {
+        console.error('Failed to submit unresolved checkout', e);
+        setError(e?.message || 'Failed to save checkout. Please try again.');
+      } finally {
+        setIsSubmitting(false);
       }
-      
-      // Reset form
-      setTime('18:00');
-      setIsOpen(false);
-    } catch (e) {
-      console.error('Failed to submit unresolved checkout', e);
-      setError('Failed to save checkout. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    });
   };
 
   return (
@@ -188,21 +325,95 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
 
           {error && (
             <div className="text-xs text-rose-400 font-bold flex items-center gap-1.5 p-2 bg-rose-500/10 rounded-lg">
-              <AlertCircle className="w-4 h-4" />
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-bold text-[var(--text-muted)] mb-1">Enter Previous Day Checkout Time</label>
-            <div className="relative">
-              <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--primary)]" />
+            <label htmlFor="prev-day-checkout-time" className="block text-xs font-bold text-[var(--text-muted)] mb-1.5">
+              Enter Previous Day Checkout Time
+            </label>
+
+            {/* Input Group */}
+            <div className="relative flex items-center bg-[var(--app-background)] border border-[var(--border)] rounded-xl focus-within:border-[var(--info)] transition-colors">
+              {/* Native clock picker trigger button */}
+              <button
+                type="button"
+                onClick={handleClockIconClick}
+                title="Tap to open clock picker (or type manually in the field)"
+                aria-label="Clock picker"
+                className="p-3 text-[var(--primary)] hover:text-white transition-colors focus:outline-none cursor-pointer flex-shrink-0"
+              >
+                <Clock className="w-5 h-5" />
+              </button>
+
+              {/* Hidden native time input for Android/browsers that support showPicker() */}
               <input
+                ref={hiddenTimeInputRef}
                 type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-[var(--app-background)] border border-[var(--border)] text-[var(--text-primary)] rounded-xl focus:outline-none focus:border-[var(--info)] transition-colors"
+                tabIndex={-1}
+                aria-hidden="true"
+                value={to24Hour(time)}
+                onChange={handleNativePickerChange}
+                className="sr-only opacity-0 pointer-events-none absolute w-0 h-0"
               />
+
+              {/* Direct editable text input — NEVER blocks the keyboard, allows typing HH:MM AM/PM */}
+              <input
+                id="prev-day-checkout-time"
+                ref={textInputRef}
+                type="text"
+                inputMode="text"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                value={time}
+                onChange={(e) => {
+                  setTime(e.target.value);
+                  if (error) setError(null);
+                }}
+                onBlur={handleInputBlur}
+                placeholder="06:00 PM"
+                className="w-full py-2.5 px-1 bg-transparent text-[var(--text-primary)] font-semibold text-base focus:outline-none placeholder:text-[var(--text-muted)]"
+              />
+
+              {/* AM/PM toggle button */}
+              <div className="pr-2.5 flex items-center flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={toggleAmPm}
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg bg-[var(--surface-elevated)] border border-[var(--border)] text-[var(--text-primary)] hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Toggle AM / PM"
+                >
+                  {currentAmPm}
+                </button>
+              </div>
+            </div>
+
+            {/* Quick preset chips for rapid 1-tap checkout selection on mobile */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-2">
+              <span className="text-[11px] font-medium text-[var(--text-muted)] mr-0.5">Quick Pick:</span>
+              {['05:00 PM', '05:30 PM', '06:00 PM', '06:30 PM', '07:00 PM', '08:00 PM'].map((preset) => {
+                const isSelected = time.trim().toUpperCase() === preset;
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      setTime(preset);
+                      setError(null);
+                    }}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[var(--info)]/20 border-[var(--info)] text-[var(--info)] shadow-sm'
+                        : 'bg-[var(--surface-elevated)]/60 border-[var(--border)] text-[var(--text-secondary)] hover:text-white hover:border-white/30'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -230,8 +441,12 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
               </div>
             </div>
             <button 
-              onClick={() => setIsOpen(true)}
-              className="px-3 py-1.5 btn-danger text-white font-bold text-xs rounded-lg transition-colors shadow-sm"
+              onClick={() => {
+                setTime('06:00 PM');
+                setError(null);
+                setIsOpen(true);
+              }}
+              className="px-3 py-1.5 btn-danger text-white font-bold text-xs rounded-lg transition-colors shadow-sm cursor-pointer"
             >
               Resolve Now
             </button>

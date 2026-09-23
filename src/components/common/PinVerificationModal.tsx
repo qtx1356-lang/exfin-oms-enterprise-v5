@@ -93,7 +93,7 @@ export const PinVerificationModal: React.FC<PinVerificationModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in">
       <div className="relative w-full max-w-md bg-[#160B31] border border-purple-500/30 rounded-3xl p-6 shadow-2xl space-y-5">
         
         {/* Header */}
