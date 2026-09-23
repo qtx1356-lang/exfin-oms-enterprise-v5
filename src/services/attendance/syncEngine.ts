@@ -539,16 +539,28 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           confirmationDisplayedAt: record.confirmationDisplayedAt || null,
           confirmationCompletedAt: record.confirmationCompletedAt || null,
           checkoutFinalizationSource: isRecordProtectedByAdmin ? finalCheckoutFinalizationSource : (record.checkoutFinalizationSource || null),
-          geofenceExitTime: finalGeofenceExitTime || null,
-          geofenceExitTimestamp: finalGeofenceExitTimestamp || null,
-          lastExitTime: finalLastExitTime || record.lastExitTime || null,
-          exitTime: finalExitTime || record.exitTime || null,
+          geofenceExitTime: finalGeofenceExitTime || serverData?.geofenceExitTime || null,
+          geofenceExitTimestamp: finalGeofenceExitTimestamp || serverData?.geofenceExitTimestamp || null,
+          lastExitTime: finalLastExitTime || record.lastExitTime || serverData?.lastExitTime || finalGeofenceExitTime || null,
+          lastExitAt: record.lastExitAt || serverData?.lastExitAt || finalGeofenceExitTimestamp || null,
+          exitTime: finalExitTime || record.exitTime || serverData?.exitTime || finalGeofenceExitTime || null,
+          lastReturnTime: record.lastReturnTime || serverData?.lastReturnTime || record.returnTime || serverData?.returnTime || null,
+          lastReturnAt: record.lastReturnAt || serverData?.lastReturnAt || null,
+          returnTime: record.returnTime || serverData?.returnTime || null,
+          eventHistory: (() => {
+            const localHist = Array.isArray(record.eventHistory) ? record.eventHistory : [];
+            const srvHist = Array.isArray(serverData?.eventHistory) ? serverData.eventHistory : [];
+            const map = new Map<string, any>();
+            for (const item of [...srvHist, ...localHist]) {
+              if (item && item.eventId) map.set(item.eventId, item);
+            }
+            return Array.from(map.values()).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          })(),
           pendingCheckoutConfirmation: isRecordProtectedByAdmin ? false : (record.pendingCheckoutConfirmation ?? false),
           currentState: isRecordProtectedByAdmin ? 'CHECKED_OUT' : (record.currentState || null),
           checkoutFinalized: isRecordProtectedByAdmin ? true : (record.checkoutFinalized ?? (finalCheckoutStatus === 'COMPLETED')),
           checkoutConfirmed: isRecordProtectedByAdmin ? true : (record.checkoutConfirmed ?? false),
-          returnTime: record.returnTime || null,
-          processedEvents: record.processedEvents || [],
+          processedEvents: Array.from(new Set([...(record.processedEvents || []), ...(serverData?.processedEvents || [])])),
           lastActedExitEventId: record.lastActedExitEventId || null,
           pendingCheckoutEventId: record.pendingCheckoutEventId || null,
           handledExitEvents: record.handledExitEvents || {},

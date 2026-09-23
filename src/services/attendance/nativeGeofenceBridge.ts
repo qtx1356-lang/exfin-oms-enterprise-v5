@@ -76,6 +76,7 @@ export interface NativeGeofencePluginInterface {
     lastSyncTime: number;
     lastNativeError: string;
     lastExitTime?: string | null;
+    lastReturnTime?: string | null;
   }>;
   addListener(eventName: 'attendanceNativeCheckIn', listenerFunc: (event: NativeAttendanceEvent) => void): Promise<PluginListenerHandle>;
   addListener(eventName: 'attendanceNativeCheckOut', listenerFunc: (event: NativeAttendanceEvent) => void): Promise<PluginListenerHandle>;

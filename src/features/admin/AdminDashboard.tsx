@@ -61,7 +61,7 @@ import { Card } from '../../components/ui/Card';
 import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
-import { AttendanceRecord, AttendanceCorrection, LiveEmployeeLocation } from '../../types/attendance';
+import { AttendanceRecord, AttendanceCorrection, LiveEmployeeLocation, AttendanceHistoryEvent } from '../../types/attendance';
 import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn, sanitizeFirestorePayload, logAttendanceWriteDiagnostic, getAttendanceCanonicalKey, getEarliestCheckInTime, isServerAttendanceAuthoritative, recoverAuthoritativeAdminFields } from '../../utils/attendanceUtils';
 import { getStoredAttendanceRecords, saveAttendanceRecord } from '../../services/attendance/attendanceStorage';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
@@ -710,6 +710,67 @@ export const AdminDashboard: React.FC = () => {
   const [selectedReg, setSelectedReg] = useState<Registration | null>(null);
   const [selectedAttendance, setSelectedAttendance] = useState<AttendanceRecord | null>(null);
   const [showAttendanceDetails, setShowAttendanceDetails] = useState(false);
+  const [forensicEvents, setForensicEvents] = useState<AttendanceHistoryEvent[]>([]);
+
+  useEffect(() => {
+    if (!selectedAttendance || !db) {
+      setForensicEvents([]);
+      return;
+    }
+    const empId = selectedAttendance.employeeId || selectedAttendance.employeeCode;
+    const attDate = selectedAttendance.date;
+    if (!empId || !attDate) return;
+
+    let initialEvents: AttendanceHistoryEvent[] = [];
+    if (Array.isArray(selectedAttendance.eventHistory) && selectedAttendance.eventHistory.length > 0) {
+      initialEvents = [...selectedAttendance.eventHistory];
+    }
+    setForensicEvents(initialEvents);
+
+    const fetchAuditEvents = async () => {
+      try {
+        const eventsRef = collection(db, 'attendance_events');
+        const qEvts = query(
+          eventsRef,
+          where('employeeId', '==', empId),
+          where('attendanceDate', '==', attDate)
+        );
+        const snap = await getDocs(qEvts);
+        if (!snap.empty) {
+          const fetchedEvents: AttendanceHistoryEvent[] = [];
+          snap.forEach((docSnap) => {
+            const data = docSnap.data();
+            fetchedEvents.push({
+              eventId: data.eventId || docSnap.id,
+              employeeId: data.employeeId,
+              eventType: data.eventType,
+              eventTime: data.eventTime,
+              timestamp: data.syncedAt || data.eventIso || data.eventTime,
+              source: data.source || 'NATIVE_GEOFENCE',
+              location: data.location,
+              distance: data.location?.distance ?? data.distance,
+              action: data.action
+            });
+          });
+          setForensicEvents((prev) => {
+            const map = new Map<string, AttendanceHistoryEvent>();
+            for (const item of [...prev, ...fetchedEvents]) {
+              if (item && item.eventId) map.set(item.eventId, item);
+            }
+            return Array.from(map.values()).sort((a, b) => {
+              const tA = new Date(a.timestamp).getTime();
+              const tB = new Date(b.timestamp).getTime();
+              if (isNaN(tA) || isNaN(tB)) return 0;
+              return tA - tB;
+            });
+          });
+        }
+      } catch (err) {
+        console.warn('[AdminDashboard] Failed to fetch forensic attendance_events:', err);
+      }
+    };
+    fetchAuditEvents();
+  }, [selectedAttendance?.id, selectedAttendance?.date, selectedAttendance?.employeeId, selectedAttendance?.employeeCode]);
   const [selectedExpense, setSelectedExpense] = useState<ExpenseRecord | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskRecord | null>(null);
 
@@ -2524,19 +2585,104 @@ export const AdminDashboard: React.FC = () => {
                   })()}
                   
                   {/* Geo-Fencing Logs */}
-                  {(selectedAttendance.exitTime || selectedAttendance.returnTime) && (
-                    <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-xl space-y-1">
-                      <div className="text-[11px] text-red-300 font-bold">Geofence Violation Logs</div>
-                      <div className="flex justify-between text-[10px]">
-                        <span className="text-white/60">Last Exit:</span>
-                        <span className="text-white font-bold">{safeStringify(selectedAttendance.exitTime) || '—'}</span>
+                  {(() => {
+                    const lastExitEvt = forensicEvents.slice().reverse().find(e => 
+                      e.eventType === 'GEOFENCE_EXIT' || e.eventType === 'EXIT'
+                    );
+                    const lastReturnEvt = forensicEvents.slice().reverse().find(e => 
+                      e.eventType === 'GEOFENCE_RETURN' || e.eventType === 'RETURN'
+                    );
+
+                    const effectiveLastExit = 
+                      selectedAttendance.lastExitTime ||
+                      selectedAttendance.exitTime ||
+                      selectedAttendance.recordedExitTime ||
+                      selectedAttendance.geofenceExitTime ||
+                      lastExitEvt?.eventTime ||
+                      null;
+
+                    const effectiveLastReturn = 
+                      selectedAttendance.lastReturnTime ||
+                      selectedAttendance.returnTime ||
+                      lastReturnEvt?.eventTime ||
+                      null;
+
+                    const shouldShowGeoLogs = Boolean(
+                      effectiveLastExit || 
+                      effectiveLastReturn || 
+                      selectedAttendance.lastExitAt || 
+                      selectedAttendance.lastReturnAt || 
+                      forensicEvents.some(e => e.eventType.includes('EXIT') || e.eventType.includes('RETURN'))
+                    );
+
+                    if (!shouldShowGeoLogs) return null;
+
+                    const exitDisplay = effectiveLastExit 
+                      ? safeStringify(effectiveLastExit) 
+                      : (effectiveLastReturn ? 'Not Detected' : '—');
+                    const returnDisplay = effectiveLastReturn 
+                      ? safeStringify(effectiveLastReturn) 
+                      : '—';
+
+                    return (
+                      <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-xl space-y-2">
+                        <div className="text-[11px] text-red-300 font-bold flex items-center justify-between">
+                          <span>Geofence Violation Logs</span>
+                          {forensicEvents.length > 0 && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-200 font-mono">
+                              {forensicEvents.length} {forensicEvents.length === 1 ? 'event' : 'events'} recorded
+                            </span>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-white/60">Last Exit:</span>
+                            <span className={`font-bold ${exitDisplay === 'Not Detected' ? 'text-amber-400' : 'text-white'}`}>
+                              {exitDisplay}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-[10px]">
+                            <span className="text-white/60">Last Return:</span>
+                            <span className="text-white font-bold">{returnDisplay}</span>
+                          </div>
+                        </div>
+
+                        {/* Chronological Event Audit Trail if events exist */}
+                        {forensicEvents.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-red-500/15 space-y-1">
+                            <div className="text-[9px] text-white/40 uppercase tracking-widest font-mono">Forensic Timeline</div>
+                            <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                              {forensicEvents.map((evt, idx) => (
+                                <div key={evt.eventId || idx} className="flex items-center justify-between text-[9px] bg-black/20 p-1.5 rounded">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${
+                                      evt.eventType === 'CHECK_IN' ? 'bg-emerald-400' :
+                                      evt.eventType.includes('EXIT') ? 'bg-red-400' :
+                                      evt.eventType.includes('RETURN') ? 'bg-blue-400' : 'bg-amber-400'
+                                    }`} />
+                                    <span className="text-white/80 font-mono">
+                                      {evt.eventType.replace('GEOFENCE_', '')}
+                                    </span>
+                                    {evt.source && (
+                                      <span className="text-[8px] text-white/40 font-mono">({evt.source})</span>
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-white font-bold">{evt.eventTime}</span>
+                                    {evt.distance !== undefined && (
+                                      <span className="text-[8px] text-white/40 ml-1">
+                                        ({typeof evt.distance === 'number' ? `${Math.round(evt.distance)}m` : evt.distance})
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex justify-between text-[10px]">
-                        <span className="text-white/60">Last Return:</span>
-                        <span className="text-white font-bold">{safeStringify(selectedAttendance.returnTime) || '—'}</span>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             </div>

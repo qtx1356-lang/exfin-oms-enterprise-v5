@@ -902,6 +902,25 @@ async function startServer() {
               checkOutMode: "N/A",
               exitTime: null,
               returnTime: null,
+              lastExitAt: null,
+              lastExitTime: null,
+              lastReturnAt: null,
+              lastReturnTime: null,
+              eventHistory: [{
+                eventId,
+                employeeId,
+                eventType: "CHECK_IN",
+                eventTime: timeStr,
+                timestamp: eventIso,
+                source: source || "NATIVE_GEOFENCE_ENTER",
+                location: {
+                  latitude: isLocationUnavailable ? null : latitude,
+                  longitude: isLocationUnavailable ? null : longitude,
+                  townCity,
+                  distance: isLocationUnavailable ? "location unavailable" : distance
+                },
+                distance: isLocationUnavailable ? "location unavailable" : distance
+              }],
               reason: null,
               createdAtDeviceTime: eventIso,
               syncStatus: "Synced",
@@ -992,6 +1011,7 @@ async function startServer() {
 
             if (!record.geofenceExitTime || !record.recordedExitTime || newTimestampMs > existingTimestampMs || currentState === "RETURNING_TO_OFFICE") {
               record.lastExitTime = timeStr;
+              record.lastExitAt = eventIso;
               record.exitTime = record.exitTime || timeStr;
               record.geofenceExitTime = timeStr;
               record.geofenceExitTimestamp = eventIso;
@@ -1004,6 +1024,27 @@ async function startServer() {
             record.pendingCheckoutEventId = eventId;
             record.returningToOffice = false;
             record.currentState = "PENDING_EXIT_CONFIRMATION";
+
+            const currentHistory = Array.isArray(record.eventHistory) ? record.eventHistory : [];
+            const exitHistoryEvent = {
+              eventId,
+              employeeId,
+              eventType: "GEOFENCE_EXIT",
+              eventTime: timeStr,
+              timestamp: eventIso,
+              source: source || "NATIVE_GEOFENCE",
+              location: {
+                latitude: isLocationUnavailable ? null : latitude,
+                longitude: isLocationUnavailable ? null : longitude,
+                townCity,
+                distance: isLocationUnavailable ? "location unavailable" : distance
+              },
+              distance: isLocationUnavailable ? "location unavailable" : distance
+            };
+            const updatedHist = currentHistory.filter((e: any) => e.eventId !== eventId);
+            updatedHist.push(exitHistoryEvent);
+            updatedHist.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            record.eventHistory = updatedHist;
             
             if (!isLocationUnavailable) {
               record.checkoutLatitude = latitude;
@@ -1038,13 +1079,34 @@ async function startServer() {
             record.geofenceExitTime
           ) {
             record.returnTime = timeStr;
-            record.lastExitTime = null;
-            record.exitTime = null;
-            record.geofenceExitTime = null;
-            record.geofenceExitTimestamp = null;
+            record.lastReturnTime = timeStr;
+            record.lastReturnAt = eventIso;
+            // CRITICAL FIX: DO NOT clear lastExitTime, lastExitAt, or exitTime!
+            // Retain historical exit evidence for Admin forensic audit
             record.pendingCheckoutConfirmation = false;
             record.returningToOffice = false;
             record.currentState = "CHECKED_IN";
+
+            const currentHistory = Array.isArray(record.eventHistory) ? record.eventHistory : [];
+            const returnHistoryEvent = {
+              eventId,
+              employeeId,
+              eventType: "GEOFENCE_RETURN",
+              eventTime: timeStr,
+              timestamp: eventIso,
+              source: source || "NATIVE_GEOFENCE",
+              location: {
+                latitude: isLocationUnavailable ? null : latitude,
+                longitude: isLocationUnavailable ? null : longitude,
+                townCity,
+                distance: isLocationUnavailable ? "location unavailable" : distance
+              },
+              distance: isLocationUnavailable ? "location unavailable" : distance
+            };
+            const updatedHist = currentHistory.filter((e: any) => e.eventId !== eventId);
+            updatedHist.push(returnHistoryEvent);
+            updatedHist.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            record.eventHistory = updatedHist;
 
             // Remove candidate exit fields cleanly
             record.checkoutLatitude = FieldValue.delete();

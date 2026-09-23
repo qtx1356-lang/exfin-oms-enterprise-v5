@@ -1,6 +1,6 @@
 // CORE BUSINESS RULE — DO NOT MODIFY WITHOUT ATTENDANCE ENGINE REVIEW
 
-import { AttendanceRecord, AttendanceEventType, AttendanceType } from '../../types/attendance';
+import { AttendanceRecord, AttendanceEventType, AttendanceType, AttendanceHistoryEvent } from '../../types/attendance';
 import { 
   getTodayAttendanceRecord, 
   saveAttendanceRecord, 
@@ -18,6 +18,20 @@ import { syncPendingAttendanceRecords } from './syncEngine';
 import { updateLiveEmployeeLocation } from '../location/liveLocationService';
 import { isAdminContextActive, logAttendanceWriteDiagnostic, isServerAttendanceAuthoritative, hasValidCheckoutTime } from '../../utils/attendanceUtils';
 import { clearNativeActiveSession, cancelPendingNativeExit } from './nativeGeofenceBridge';
+
+export const appendEventHistory = (
+  history: AttendanceHistoryEvent[] | undefined,
+  event: AttendanceHistoryEvent
+): AttendanceHistoryEvent[] => {
+  const current = Array.isArray(history) ? [...history] : [];
+  const existingIdx = current.findIndex(e => e.eventId === event.eventId);
+  if (existingIdx >= 0) {
+    current[existingIdx] = { ...current[existingIdx], ...event };
+  } else {
+    current.push(event);
+  }
+  return current.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+};
 
 const env = typeof import.meta !== 'undefined' && import.meta?.env ? import.meta.env : ({} as any);
 
@@ -533,6 +547,25 @@ export const AutomaticAttendanceEngine = {
           checkOutMode: 'N/A',
           exitTime: null,
           returnTime: null,
+          lastExitAt: null,
+          lastExitTime: null,
+          lastReturnAt: null,
+          lastReturnTime: null,
+          eventHistory: [{
+            eventId,
+            employeeId,
+            eventType: 'CHECK_IN',
+            eventTime: timeStr,
+            timestamp: eventIso,
+            source: source === 'AUTO_GEOFENCE' ? 'NATIVE_GEOFENCE' : 'MANUAL',
+            location: {
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+              distance,
+              townCity: townCity || 'Raniganj HQ'
+            },
+            distance
+          }],
           reason: null,
           createdAtDeviceTime: eventIso,
           syncStatus: 'Pending',
@@ -609,13 +642,14 @@ export const AutomaticAttendanceEngine = {
           const exitEventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_EXIT', eventIso);
 
           // Rule: If we were previously returning to office, or have no exit recorded, or this is a NEWER exit (bug fix), overwrite fields
-          if (record.currentState === 'RETURNING_TO_OFFICE' || !record.geofenceExitTime || !record.recordedExitTime || newTimestampMs > existingTimestampMs) {
+          if (record.currentState === 'RETURNING_TO_OFFICE' || record.currentState === 'CHECKED_IN' || !record.geofenceExitTime || !record.recordedExitTime || newTimestampMs > existingTimestampMs) {
             record.geofenceExitTime = timeStr;
             record.geofenceExitTimestamp = eventIso;
             record.recordedExitTime = timeStr;
             record.exitDetectedAt = eventIso;
             record.exitDetectedTime = timeStr;
             record.lastExitTime = timeStr;
+            record.lastExitAt = eventIso;
             record.exitTime = record.exitTime || timeStr;
             record.exitDetectionSource = source === 'AUTO_GEOFENCE' ? 'NATIVE_GEOFENCE' : 'FOREGROUND_GPS';
             record.returningToOffice = false;
@@ -636,6 +670,39 @@ export const AutomaticAttendanceEngine = {
           modified = true;
 
           record.processedEvents = Array.from(new Set([...(record.processedEvents || []), exitEventId]));
+
+          const exitHistEvent: AttendanceHistoryEvent = {
+            eventId: exitEventId,
+            employeeId,
+            eventType: 'GEOFENCE_EXIT',
+            eventTime: timeStr,
+            timestamp: eventIso,
+            source: record.exitDetectionSource || 'NATIVE_GEOFENCE',
+            location: coords ? {
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+              distance,
+              townCity: townCity || 'Raniganj HQ'
+            } : undefined,
+            distance
+          };
+          record.eventHistory = appendEventHistory(record.eventHistory, exitHistEvent);
+
+          enqueueAttendanceEvent({
+            eventId: exitEventId,
+            employeeId,
+            attendanceDate: dateStr,
+            eventType: 'GEOFENCE_EXIT',
+            eventTime: timeStr,
+            location: coords ? {
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+              townCity: townCity || 'Raniganj HQ',
+              distance
+            } : undefined,
+            attendanceMode: record.attendanceType || 'OFFICE',
+            source: source === 'MANUAL' ? 'MANUAL' : 'AUTO_GEOFENCE'
+          });
 
           logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[CHECKOUT_POPUP_OPEN] Office geofence exit recorded at ${timeStr}. Event ID: ${exitEventId}`, {
             eventId: exitEventId,
@@ -669,17 +736,16 @@ export const AutomaticAttendanceEngine = {
           record.recordedExitTime
         ) {
           // State Transition: PENDING_AUTO_CHECKOUT -> CHECKED_IN
-          const prevExitTime = record.recordedExitTime || record.geofenceExitTime || record.lastExitTime;
+          const prevExitTime = record.recordedExitTime || record.geofenceExitTime || record.lastExitTime || record.exitTime;
           record.returnTime = timeStr;
-          record.lastExitTime = null;
-          record.exitTime = null;
-          record.geofenceExitTime = null;
-          record.geofenceExitTimestamp = null;
-          record.recordedExitTime = null;
-          record.exitDetectedTime = null;
-          record.exitDetectedAt = null;
-          record.exitDetectionSource = 'NONE';
+          record.lastReturnTime = timeStr;
+          record.lastReturnAt = eventIso;
+
+          // CRITICAL BUG FIX: DO NOT clear historical lastExitTime, lastExitAt, or exitTime!
+          // They are the durable evidence of the exit event for the Admin Forensic Audit.
+          // Only clear the pending checkout flags and candidate exit location:
           record.pendingCheckoutConfirmation = false;
+          record.pendingCheckoutEventId = null;
           record.returningToOffice = false;
           record.currentState = 'CHECKED_IN';
           record.checkoutStatus = undefined;
@@ -691,6 +757,39 @@ export const AutomaticAttendanceEngine = {
           delete record.checkoutDistance;
           delete record.checkoutTownCity;
           modified = true;
+
+          const returnHistEvent: AttendanceHistoryEvent = {
+            eventId,
+            employeeId,
+            eventType: 'GEOFENCE_RETURN',
+            eventTime: timeStr,
+            timestamp: eventIso,
+            source: source || 'AUTO_GEOFENCE',
+            location: coords ? {
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+              distance,
+              townCity: townCity || 'Raniganj HQ'
+            } : undefined,
+            distance
+          };
+          record.eventHistory = appendEventHistory(record.eventHistory, returnHistEvent);
+
+          enqueueAttendanceEvent({
+            eventId,
+            employeeId,
+            attendanceDate: dateStr,
+            eventType: 'GEOFENCE_RETURN',
+            eventTime: timeStr,
+            location: coords ? {
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+              townCity: townCity || 'Raniganj HQ',
+              distance
+            } : undefined,
+            attendanceMode: record.attendanceType || 'OFFICE',
+            source: source === 'MANUAL' ? 'MANUAL' : 'AUTO_GEOFENCE'
+          });
 
           console.log('[AUTO_EXIT_CANCELLED_RETURN]', {
             employeeId,
@@ -1114,27 +1213,32 @@ export const AutomaticAttendanceEngine = {
 
     const actedExitEventId = eventId || record.pendingCheckoutEventId;
 
-    logAttendanceEvent('RETURN_DETECTED', employeeId, `[CHECKOUT_EVENT_CANCELLED] Employee clicked 'STAY ACTIVE'. Cleared stale exit fields. Event ID: ${actedExitEventId}`);
+    logAttendanceEvent('RETURN_DETECTED', employeeId, `[CHECKOUT_EVENT_CANCELLED] Employee clicked 'STAY ACTIVE'. Preserving historical exit evidence. Event ID: ${actedExitEventId}`);
 
-    // CRITICAL BUG FIX (Bug 1): Clear all authoritative exit fields to allow fresh detection on NEXT exit
-    record.geofenceExitTime = null;
-    record.geofenceExitTimestamp = null;
-    record.recordedExitTime = null;
-    record.exitDetectedAt = null;
-    record.exitDetectedTime = null;
-    record.lastExitTime = null;
-    record.exitTime = null;
-    record.exitDetectionSource = 'NONE';
+    // Cancel pending checkout state, but PRESERVE historical lastExitTime, lastExitAt, and exitTime
+    record.pendingCheckoutConfirmation = false;
+    record.returningToOffice = true;
+    record.currentState = 'RETURNING_TO_OFFICE';
+    record.checkoutStatus = undefined;
+    record.syncStatus = 'Pending';
+    record.updatedAt = new Date().toISOString();
+
     record.checkoutLatitude = undefined;
     record.checkoutLongitude = undefined;
     record.checkoutDistance = undefined;
     record.checkoutTownCity = undefined;
 
-    record.pendingCheckoutConfirmation = false;
-    record.returningToOffice = true;
-    record.currentState = 'RETURNING_TO_OFFICE';
-    record.syncStatus = 'Pending';
-    record.updatedAt = new Date().toISOString();
+    const nowIso = new Date().toISOString();
+    const stayActiveEvent: AttendanceHistoryEvent = {
+      eventId: actedExitEventId ? `evt_stay_active_${actedExitEventId}` : `evt_stay_active_${employeeId}_${Date.now()}`,
+      employeeId,
+      eventType: 'STAY_ACTIVE',
+      eventTime: getFormattedTimeStr(new Date()),
+      timestamp: nowIso,
+      source: 'MANUAL_STAY_ACTIVE',
+      action: 'STAY_ACTIVE'
+    };
+    record.eventHistory = appendEventHistory(record.eventHistory, stayActiveEvent);
 
     if (actedExitEventId) {
       record.lastActedExitEventId = actedExitEventId;

@@ -98,6 +98,7 @@ public class OfficeGeofenceHelper {
     public static final String KEY_LAST_NATIVE_ERROR = "last_native_error";
     public static final String KEY_LAST_SYNC_TIME = "last_sync_timestamp";
     public static final String KEY_LAST_EXIT_TIME = "last_native_exit_time";
+    public static final String KEY_LAST_RETURN_TIME = "last_native_return_time";
 
     private static PendingIntent geofencePendingIntent;
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -976,6 +977,7 @@ public class OfficeGeofenceHelper {
         SharedPreferences.Editor editor = prefs.edit();
         editor.putString(KEY_LAST_KNOWN_STATE, "INSIDE");
         editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, eventTimestamp);
+        editor.putString(KEY_LAST_RETURN_TIME, timeStr);
         editor.apply();
 
         // 3. Create return event for backend & JS bridge
@@ -1393,9 +1395,8 @@ public class OfficeGeofenceHelper {
                 session.put("checkoutStatus", "ACTIVE");
                 prefs.edit()
                     .putString(KEY_ACTIVE_SESSION, session.toString())
-                    .remove(KEY_LAST_EXIT_TIME)
                     .apply();
-                Log.i(TAG, "[NATIVE_RETURN_CANCELLED] Stay Active / Return to office executed. Cancelled pending exit state and cleared recordedExitTime.");
+                Log.i(TAG, "[NATIVE_RETURN_CANCELLED] Stay Active / Return to office executed. Cancelled pending exit state while preserving authoritative lastExitTime.");
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to cancel pending exit: " + e.getMessage(), e);
@@ -1491,6 +1492,7 @@ public class OfficeGeofenceHelper {
             res.put("lastSyncTime", prefs.getLong(KEY_LAST_SYNC_TIME, 0));
             res.put("lastNativeError", prefs.getString(KEY_LAST_NATIVE_ERROR, "None"));
             res.put("lastExitTime", prefs.getString(KEY_LAST_EXIT_TIME, null));
+            res.put("lastReturnTime", prefs.getString(KEY_LAST_RETURN_TIME, null));
         } catch (Exception e) {
             Log.e(TAG, "Error generating diagnostic state: " + e.getMessage(), e);
         }

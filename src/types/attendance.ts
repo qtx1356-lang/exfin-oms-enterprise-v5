@@ -236,6 +236,31 @@ export interface AttendanceRecord {
   // Outdoor Work fields
   outdoorType?: OutdoorWorkTypeOption | string | null;
   description?: string | null;
+
+  // Authoritative Exit & Return Forensics
+  lastExitAt?: string | null;
+  lastReturnAt?: string | null;
+  lastReturnTime?: string | null;
+  eventHistory?: AttendanceHistoryEvent[];
+}
+
+export interface AttendanceHistoryEvent {
+  eventId: string;
+  employeeId: string;
+  eventType: 'CHECK_IN' | 'GEOFENCE_EXIT' | 'GEOFENCE_RETURN' | 'CHECK_OUT' | 'STAY_ACTIVE' | string;
+  eventTime: string;
+  timestamp: string; // ISO string
+  source: string;
+  location?: {
+    latitude?: number | null;
+    longitude?: number | null;
+    accuracy?: number | null;
+    distance?: number | string | null;
+    townCity?: string;
+  };
+  distance?: number | string | null;
+  verificationStatus?: string;
+  action?: string;
 }
 
 export interface LiveEmployeeLocation {

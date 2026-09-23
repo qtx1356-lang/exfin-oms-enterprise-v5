@@ -3,7 +3,8 @@ import { Geolocation } from '@capacitor/geolocation';
 import { 
   AttendanceRecord, 
   AttendanceObservation, 
-  EvidenceSource 
+  EvidenceSource,
+  AttendanceHistoryEvent
 } from '../../types/attendance';
 import { 
   OFFICE_LOCATION, 
@@ -25,7 +26,7 @@ import {
 import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { updateLiveEmployeeLocation } from '../location/liveLocationService';
-import { AutomaticAttendanceEngine } from './automaticAttendanceEngine';
+import { AutomaticAttendanceEngine, appendEventHistory } from './automaticAttendanceEngine';
 import { createNotification, dismissUnresolvedNotificationForDate } from '../notification/notificationService';
 import { isAdminContextActive, hasValidCheckoutTime } from '../../utils/attendanceUtils';
 import { reconcileNativeGeofenceEvents } from './nativeGeofenceBridge';
@@ -354,14 +355,15 @@ export const reconcileAttendanceOnResume = async (
               });
               logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[PWA_RESUME_GPS] App opened outside office at ${timeStr}. Checkout not detected. Showing non-blocking checkout recovery prompt.`);
 
-              record.recordedExitTime = null;
-              record.geofenceExitTime = null;
-              record.geofenceExitTimestamp = null;
-              record.lastExitTime = null;
-              record.exitTime = null;
-              record.exitDetectedAt = null;
-              record.exitDetectedTime = null;
-              record.exitDetectionSource = 'NONE';
+              // Do not wipe historical exit fields if they already exist
+              record.recordedExitTime = record.recordedExitTime || null;
+              record.geofenceExitTime = record.geofenceExitTime || null;
+              record.geofenceExitTimestamp = record.geofenceExitTimestamp || null;
+              record.lastExitTime = record.lastExitTime || null;
+              record.exitTime = record.exitTime || null;
+              record.exitDetectedAt = record.exitDetectedAt || null;
+              record.exitDetectedTime = record.exitDetectedTime || null;
+              record.exitDetectionSource = record.exitDetectionSource || 'NONE';
               record.pendingCheckoutConfirmation = true;
               record.pendingCheckoutEventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_EXIT', nowIso);
               record.returningToOffice = false;
@@ -404,17 +406,17 @@ export const reconcileAttendanceOnResume = async (
             const eventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_RETURN', timeStr);
 
             record.returnTime = timeStr;
-            record.lastExitTime = null;
-            record.exitTime = null;
-            record.geofenceExitTime = null;
-            record.geofenceExitTimestamp = null;
-            record.recordedExitTime = null;
-            record.exitDetectedTime = null;
-            record.exitDetectedAt = null;
-            record.exitDetectionSource = 'NONE';
+            record.lastReturnTime = timeStr;
+            record.lastReturnAt = nowIso;
+
+            // CRITICAL BUG FIX: DO NOT clear lastExitTime, lastExitAt, or exitTime!
+            // Retain historical exit timestamps for Admin Forensic Audit
             record.pendingCheckoutConfirmation = false;
+            record.pendingCheckoutEventId = null;
             record.returningToOffice = false;
             record.currentState = 'CHECKED_IN';
+            record.checkoutStatus = undefined;
+            record.checkOutTime = null;
             record.evidenceSource = 'PWA_RESUME_GPS';
             record.syncStatus = 'Pending';
 
@@ -422,6 +424,23 @@ export const reconcileAttendanceOnResume = async (
             delete record.checkoutLongitude;
             delete record.checkoutDistance;
             delete record.checkoutTownCity;
+
+            const returnHistEvent: AttendanceHistoryEvent = {
+              eventId,
+              employeeId,
+              eventType: 'GEOFENCE_RETURN',
+              eventTime: timeStr,
+              timestamp: nowIso,
+              source: 'PWA_RESUME_GPS',
+              location: pos ? {
+                latitude: pos.latitude,
+                longitude: pos.longitude,
+                distance,
+                townCity: cleanTown
+              } : undefined,
+              distance
+            };
+            record.eventHistory = appendEventHistory(record.eventHistory, returnHistEvent);
 
             record.returnObservations = [...(record.returnObservations || []), observation];
             record.processedEvents = Array.from(new Set([...(record.processedEvents || []), eventId]));

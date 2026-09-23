@@ -271,6 +271,39 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
       record.checkInMode = existingRecord.checkInMode || record.checkInMode;
     }
 
+    // HISTORICAL EXIT & RETURN EVIDENCE PRESERVATION:
+    // Retain historical exit and return evidence across all operational updates
+    if (!record.lastExitTime && existingRecord.lastExitTime) {
+      record.lastExitTime = existingRecord.lastExitTime;
+    }
+    if (!record.lastExitAt && existingRecord.lastExitAt) {
+      record.lastExitAt = existingRecord.lastExitAt;
+    }
+    if (!record.exitTime && existingRecord.exitTime) {
+      record.exitTime = existingRecord.exitTime;
+    }
+    if (!record.lastReturnTime && existingRecord.lastReturnTime) {
+      record.lastReturnTime = existingRecord.lastReturnTime;
+    }
+    if (!record.lastReturnAt && existingRecord.lastReturnAt) {
+      record.lastReturnAt = existingRecord.lastReturnAt;
+    }
+    if (!record.returnTime && existingRecord.returnTime) {
+      record.returnTime = existingRecord.returnTime;
+    }
+    if (existingRecord.eventHistory && existingRecord.eventHistory.length > 0) {
+      const mergedEvents = [...(existingRecord.eventHistory || [])];
+      if (record.eventHistory && record.eventHistory.length > 0) {
+        for (const evt of record.eventHistory) {
+          if (!mergedEvents.some(e => e.eventId === evt.eventId)) {
+            mergedEvents.push(evt);
+          }
+        }
+      }
+      mergedEvents.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      record.eventHistory = mergedEvents;
+    }
+
     // AUTHORITATIVE GEOFENCE EXIT TIME PRESERVATION (EPISODE-SCOPED):
     // Preserve earliest exit time only within the same active exit episode (do not restore if CHECKED_IN or RETURNING_TO_OFFICE).
     if (!isExplicitAdminCorrection && record.currentState !== 'RETURNING_TO_OFFICE' && record.currentState !== 'CHECKED_IN') {
