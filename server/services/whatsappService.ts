@@ -11,6 +11,7 @@ export interface WhatsAppConfig {
   globalEnabled: boolean;
   recipientMode: 'ADMIN_ONLY' | 'EMPLOYEE_ONLY' | 'BOTH';
   adminRecipients: string[];
+  whatsappRecipientNumber?: string;
   apiVersion: string;
   templates: Record<string, string>; // Preview/text template format
   metaTemplates: Record<string, WhatsAppEventTemplateConfig>; // Meta approved template configurations
@@ -164,6 +165,7 @@ export async function getWhatsAppConfig(db: Firestore): Promise<WhatsAppConfig> 
         globalEnabled: data.globalEnabled !== false,
         recipientMode: data.recipientMode || 'BOTH',
         adminRecipients: Array.isArray(data.adminRecipients) ? data.adminRecipients : defaultConfig.adminRecipients,
+        whatsappRecipientNumber: data.whatsappRecipientNumber || '',
         apiVersion: data.apiVersion || envCreds.apiVersion,
         templates: {
           ...DEFAULT_WHATSAPP_TEMPLATES,
@@ -196,6 +198,9 @@ export async function saveWhatsAppConfig(
   const updated: WhatsAppConfig = {
     ...current,
     ...configUpdate,
+    whatsappRecipientNumber: configUpdate.whatsappRecipientNumber !== undefined
+      ? configUpdate.whatsappRecipientNumber
+      : (current.whatsappRecipientNumber || ''),
     templates: {
       ...current.templates,
       ...(configUpdate.templates || {})

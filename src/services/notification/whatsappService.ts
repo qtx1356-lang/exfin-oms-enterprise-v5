@@ -17,6 +17,7 @@ export interface WhatsAppClientConfig {
   globalEnabled: boolean;
   recipientMode: 'ADMIN_ONLY' | 'EMPLOYEE_ONLY' | 'BOTH';
   adminRecipients: string[];
+  whatsappRecipientNumber?: string;
   templates: Record<string, string>;
   metaTemplates?: Record<string, WhatsAppEventTemplateConfig>;
   updatedAt?: string;

@@ -16,7 +16,8 @@ import {
   Smartphone, 
   Layers, 
   Settings2,
-  RotateCcw
+  RotateCcw,
+  MessageSquare
 } from 'lucide-react';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { usePermission } from '../../context/PermissionContext';
@@ -26,6 +27,13 @@ import {
   sendTestWhatsAppMessage,
   WhatsAppClientConfig
 } from '../../services/notification/whatsappService';
+import {
+  normalizeWhatsAppNumber,
+  formatWhatsAppNumberForDisplay,
+  saveWhatsAppRecipientNumber,
+  subscribeWhatsAppRecipientNumber,
+  getWhatsAppRecipientNumber
+} from '../../utils/whatsappUtils';
 
 const AVAILABLE_VARIABLES = [
   { key: 'employeeName', label: 'Employee Name' },
@@ -73,6 +81,13 @@ export const WhatsAppConfigTab: React.FC = () => {
   const [newRecipient, setNewRecipient] = useState('');
   const [recipientError, setRecipientError] = useState<string | null>(null);
 
+  // WhatsApp Recipient Number (Communication Settings)
+  const [recipientInput, setRecipientInput] = useState('');
+  const [recipientConfiguredNumber, setRecipientConfiguredNumber] = useState<string | null>(null);
+  const [recipientValidationErr, setRecipientValidationErr] = useState<string | null>(null);
+  const [recipientSaveSuccess, setRecipientSaveSuccess] = useState<string | null>(null);
+  const [savingRecipient, setSavingRecipient] = useState(false);
+
   // Selected template editor state
   const [selectedEventType, setSelectedEventType] = useState<string>('AUTO_CHECK_IN');
 
@@ -84,6 +99,15 @@ export const WhatsAppConfigTab: React.FC = () => {
 
   useEffect(() => {
     fetchConfig();
+    const unsub = subscribeWhatsAppRecipientNumber((num) => {
+      if (num) {
+        setRecipientConfiguredNumber(num);
+        setRecipientInput(formatWhatsAppNumberForDisplay(num));
+      } else {
+        setRecipientConfiguredNumber(null);
+      }
+    });
+    return () => unsub();
   }, []);
 
   const fetchConfig = async () => {
@@ -91,6 +115,10 @@ export const WhatsAppConfigTab: React.FC = () => {
     try {
       const data = await getWhatsAppAdminConfig();
       setConfig(data);
+      if (data.whatsappRecipientNumber) {
+        setRecipientConfiguredNumber(data.whatsappRecipientNumber);
+        setRecipientInput(formatWhatsAppNumberForDisplay(data.whatsappRecipientNumber));
+      }
       if (data.adminRecipients && data.adminRecipients.length > 0 && !testRecipient) {
         setTestRecipient(data.adminRecipients[0]);
       }
@@ -98,6 +126,49 @@ export const WhatsAppConfigTab: React.FC = () => {
       setErrorMessage(err.message || 'Failed to load WhatsApp configuration');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveRecipientNumber = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canEdit) return;
+
+    setRecipientValidationErr(null);
+    setRecipientSaveSuccess(null);
+
+    const normalized = normalizeWhatsAppNumber(recipientInput);
+    if (!normalized) {
+      setRecipientValidationErr('Enter a valid Indian WhatsApp mobile number.');
+      return;
+    }
+
+    setSavingRecipient(true);
+    try {
+      const adminName = adminUser?.name || adminUser?.email || 'Admin';
+      await saveWhatsAppRecipientNumber(normalized, adminName);
+
+      // Keep server API in sync if backend is online
+      try {
+        await saveWhatsAppAdminConfig({
+          whatsappRecipientNumber: normalized
+        });
+      } catch {
+        // Direct Firestore settings save already succeeded
+      }
+
+      setRecipientConfiguredNumber(normalized);
+      setRecipientInput(formatWhatsAppNumberForDisplay(normalized));
+      setRecipientSaveSuccess('WhatsApp recipient saved successfully.');
+      if (config) {
+        setConfig({
+          ...config,
+          whatsappRecipientNumber: normalized
+        });
+      }
+    } catch (err: any) {
+      setRecipientValidationErr(err?.message || 'Enter a valid Indian WhatsApp mobile number.');
+    } finally {
+      setSavingRecipient(false);
     }
   };
 
@@ -177,6 +248,7 @@ export const WhatsAppConfigTab: React.FC = () => {
         globalEnabled: config.globalEnabled,
         recipientMode: config.recipientMode,
         adminRecipients: config.adminRecipients,
+        whatsappRecipientNumber: recipientConfiguredNumber || config.whatsappRecipientNumber,
         templates: config.templates,
         metaTemplates: config.metaTemplates
       });
@@ -390,6 +462,80 @@ export const WhatsAppConfigTab: React.FC = () => {
           <p className="font-bold">{errorMessage}</p>
         </div>
       )}
+
+      {/* Communication Settings — WhatsApp Attendance Notifications */}
+      <Card className="p-6 bg-[#250F4C] border border-purple-500/20 rounded-2xl space-y-4 shadow-lg">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-purple-500/20">
+          <div>
+            <h3 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-emerald-400" /> Communication Settings
+            </h3>
+            <p className="text-[11px] text-purple-300/80 mt-0.5 font-bold">
+              WhatsApp Attendance Notifications
+            </p>
+          </div>
+          {recipientConfiguredNumber && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-mono font-bold">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              Configured: {formatWhatsAppNumberForDisplay(recipientConfiguredNumber)}
+            </span>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-bold text-white uppercase tracking-wider block">
+              WhatsApp Recipient Number
+            </label>
+            <p className="text-[11px] text-purple-300/70 mt-0.5">
+              Number that receives employee attendance notifications through WhatsApp.
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveRecipientNumber} className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <input
+                  type="tel"
+                  disabled={!canEdit || savingRecipient}
+                  value={recipientInput}
+                  onChange={(e) => {
+                    setRecipientInput(e.target.value);
+                    setRecipientValidationErr(null);
+                    setRecipientSaveSuccess(null);
+                  }}
+                  placeholder="+91 98765 43210"
+                  className="w-full bg-purple-950/60 border border-purple-500/30 text-white rounded-xl px-4 py-2.5 text-xs font-mono placeholder-purple-400/40 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+                />
+              </div>
+              {canEdit && (
+                <Button
+                  type="submit"
+                  disabled={savingRecipient}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-6 py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shrink-0"
+                >
+                  {savingRecipient ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  <span>Save</span>
+                </Button>
+              )}
+            </div>
+
+            {recipientValidationErr && (
+              <div className="p-3 bg-rose-950/70 border border-rose-500/40 rounded-xl text-rose-200 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{recipientValidationErr}</span>
+              </div>
+            )}
+
+            {recipientSaveSuccess && (
+              <div className="p-3 bg-emerald-950/70 border border-emerald-500/40 rounded-xl text-emerald-200 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>WhatsApp recipient saved successfully.</span>
+              </div>
+            )}
+          </form>
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Global Controls & Recipient Management */}

@@ -81,7 +81,11 @@ import {
 } from '../../services/monitoring/performanceDiagnostics';
 import { TodayAttendanceCard } from './TodayAttendanceCard';
 import { AttendanceCalendar } from './AttendanceCalendar';
-import { getWhatsAppAttendanceUrl } from '../../utils/whatsappUtils';
+import {
+  getWhatsAppAttendanceUrl,
+  canGenerateWhatsAppAttendanceUrl,
+  getWhatsAppRecipientNumber
+} from '../../utils/whatsappUtils';
 
 const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
   'Market Visit',
@@ -161,8 +165,27 @@ export const AttendanceScreen: React.FC = () => {
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [isEditingProposal, setIsEditingProposal] = useState<boolean>(false);
 
+  // WhatsApp Recipient Configuration Notice
+  const [whatsAppNotice, setWhatsAppNotice] = useState<string | null>(null);
+
   const employeeId = employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN';
   const employeeName = employeeData?.name || 'Employee';
+
+  const handleTriggerWhatsApp = (rec: AttendanceRecord, type: 'CHECK_IN' | 'CHECK_OUT') => {
+    const recipient = getWhatsAppRecipientNumber();
+    if (!recipient) {
+      setWhatsAppNotice('WhatsApp recipient is not configured. Please contact your administrator.');
+      setTimeout(() => setWhatsAppNotice(null), 6000);
+      return;
+    }
+    const url = getWhatsAppAttendanceUrl(employeeName, employeeId, rec, type, recipient);
+    if (!url) {
+      setWhatsAppNotice('WhatsApp recipient is not configured. Please contact your administrator.');
+      setTimeout(() => setWhatsAppNotice(null), 6000);
+      return;
+    }
+    window.open(url, '_blank');
+  };
 
   const todayStr = getFormattedDateStr();
 
@@ -1326,29 +1349,41 @@ export const AttendanceScreen: React.FC = () => {
         {(todayRecord && employeeName && employeeId) && (
           <div className="mt-3 space-y-2">
             {(() => {
-              const cinUrl = getWhatsAppAttendanceUrl(employeeName, employeeId, todayRecord, 'CHECK_IN');
-              const coutUrl = getWhatsAppAttendanceUrl(employeeName, employeeId, todayRecord, 'CHECK_OUT');
+              const canCin = canGenerateWhatsAppAttendanceUrl(todayRecord, 'CHECK_IN');
+              const canCout = canGenerateWhatsAppAttendanceUrl(todayRecord, 'CHECK_OUT');
               const isCheckedOut = !!todayRecord.checkOutTime && todayRecord.checkOutTime !== '--:--';
               
-              if (!cinUrl && !coutUrl) return null;
+              if (!canCin && !canCout) return null;
               
               return (
                 <>
-                  {cinUrl && !isCheckedOut && (
+                  {whatsAppNotice && (
+                    <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-between text-amber-300 text-xs font-medium">
+                      <span>{whatsAppNotice}</span>
+                      <button
+                        type="button"
+                        onClick={() => setWhatsAppNotice(null)}
+                        className="text-amber-400 hover:text-amber-200 ml-2 font-bold text-sm"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                  {canCin && !isCheckedOut && (
                     <Button
                       variant="outline"
                       className="w-full py-4 rounded-2xl border-emerald-500/30 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 text-xs font-black uppercase tracking-wider transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                      onClick={() => window.open(cinUrl, '_blank')}
+                      onClick={() => handleTriggerWhatsApp(todayRecord, 'CHECK_IN')}
                     >
                       <Send className="w-5 h-5" />
                       Send Check-in to WhatsApp
                     </Button>
                   )}
-                  {coutUrl && (
+                  {canCout && (
                     <Button
                       variant="outline"
                       className="w-full py-4 rounded-2xl border-rose-500/30 bg-rose-500/5 text-rose-400 hover:bg-rose-500/10 text-xs font-black uppercase tracking-wider transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                      onClick={() => window.open(coutUrl, '_blank')}
+                      onClick={() => handleTriggerWhatsApp(todayRecord, 'CHECK_OUT')}
                     >
                       <Send className="w-5 h-5" />
                       Send Check-out to WhatsApp
@@ -1868,15 +1903,15 @@ export const AttendanceScreen: React.FC = () => {
 
                         <div className="flex items-center gap-2">
                           {(() => {
-                            const cinUrl = getWhatsAppAttendanceUrl(employeeName, employeeId, rec, 'CHECK_IN');
-                            const coutUrl = getWhatsAppAttendanceUrl(employeeName, employeeId, rec, 'CHECK_OUT');
+                            const canCin = canGenerateWhatsAppAttendanceUrl(rec, 'CHECK_IN');
+                            const canCout = canGenerateWhatsAppAttendanceUrl(rec, 'CHECK_OUT');
                             return (
                               <>
-                                {cinUrl && (
+                                {canCin && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      window.open(cinUrl, '_blank');
+                                      handleTriggerWhatsApp(rec, 'CHECK_IN');
                                     }}
                                     className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors"
                                     title="Send Check-in to WhatsApp"
@@ -1884,11 +1919,11 @@ export const AttendanceScreen: React.FC = () => {
                                     <Send className="w-3 h-3" />
                                   </button>
                                 )}
-                                {coutUrl && (
+                                {canCout && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      window.open(coutUrl, '_blank');
+                                      handleTriggerWhatsApp(rec, 'CHECK_OUT');
                                     }}
                                     className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 transition-colors"
                                     title="Send Check-out to WhatsApp"
