@@ -1498,7 +1498,6 @@ async function startServer() {
         globalEnabled: config.globalEnabled,
         recipientMode: config.recipientMode,
         adminRecipients: config.adminRecipients || [],
-        whatsappRecipientNumber: config.whatsappRecipientNumber || "",
         templates: config.templates || DEFAULT_WHATSAPP_TEMPLATES,
         metaTemplates: config.metaTemplates || DEFAULT_META_TEMPLATES,
         updatedAt: config.updatedAt,
@@ -1529,7 +1528,6 @@ async function startServer() {
           globalEnabled: updateData.globalEnabled,
           recipientMode: updateData.recipientMode,
           adminRecipients: updateData.adminRecipients,
-          whatsappRecipientNumber: updateData.whatsappRecipientNumber,
           templates: updateData.templates,
           metaTemplates: updateData.metaTemplates
         },

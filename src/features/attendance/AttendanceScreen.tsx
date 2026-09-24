@@ -83,8 +83,7 @@ import { TodayAttendanceCard } from './TodayAttendanceCard';
 import { AttendanceCalendar } from './AttendanceCalendar';
 import {
   getWhatsAppAttendanceUrl,
-  canGenerateWhatsAppAttendanceUrl,
-  getWhatsAppRecipientNumber
+  canGenerateWhatsAppAttendanceUrl
 } from '../../utils/whatsappUtils';
 
 const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
@@ -165,26 +164,14 @@ export const AttendanceScreen: React.FC = () => {
   const [proposalError, setProposalError] = useState<string | null>(null);
   const [isEditingProposal, setIsEditingProposal] = useState<boolean>(false);
 
-  // WhatsApp Recipient Configuration Notice
-  const [whatsAppNotice, setWhatsAppNotice] = useState<string | null>(null);
-
   const employeeId = employeeData?.employeeCode || employeeData?.id || 'EMP-UNKNOWN';
   const employeeName = employeeData?.name || 'Employee';
 
   const handleTriggerWhatsApp = (rec: AttendanceRecord, type: 'CHECK_IN' | 'CHECK_OUT') => {
-    const recipient = getWhatsAppRecipientNumber();
-    if (!recipient) {
-      setWhatsAppNotice('WhatsApp recipient is not configured. Please contact your administrator.');
-      setTimeout(() => setWhatsAppNotice(null), 6000);
-      return;
+    const url = getWhatsAppAttendanceUrl(employeeName, employeeId, rec, type);
+    if (url) {
+      window.open(url, '_blank');
     }
-    const url = getWhatsAppAttendanceUrl(employeeName, employeeId, rec, type, recipient);
-    if (!url) {
-      setWhatsAppNotice('WhatsApp recipient is not configured. Please contact your administrator.');
-      setTimeout(() => setWhatsAppNotice(null), 6000);
-      return;
-    }
-    window.open(url, '_blank');
   };
 
   const todayStr = getFormattedDateStr();
@@ -1357,18 +1344,6 @@ export const AttendanceScreen: React.FC = () => {
               
               return (
                 <>
-                  {whatsAppNotice && (
-                    <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-between text-amber-300 text-xs font-medium">
-                      <span>{whatsAppNotice}</span>
-                      <button
-                        type="button"
-                        onClick={() => setWhatsAppNotice(null)}
-                        className="text-amber-400 hover:text-amber-200 ml-2 font-bold text-sm"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )}
                   {canCin && !isCheckedOut && (
                     <Button
                       variant="outline"
