@@ -25,9 +25,18 @@ public class BootReceiver extends BroadcastReceiver {
         org.json.JSONObject activeSession = OfficeGeofenceHelper.getActiveSession(context);
         if (activeSession != null) {
             String state = activeSession.optString("sessionState", "");
-            if ("ACTIVE".equalsIgnoreCase(state) || "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(state)) {
+            String sessionDate = activeSession.optString("date", "");
+
+            java.text.SimpleDateFormat sdfDate = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+            sdfDate.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Kolkata"));
+            String todayDate = sdfDate.format(new java.util.Date());
+
+            if (todayDate.equals(sessionDate) && ("ACTIVE".equalsIgnoreCase(state) || "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(state))) {
                 Log.i(TAG, "Restoring native location monitoring service for active attendance session on boot.");
                 OfficeLocationService.start(context);
+            } else if (!todayDate.equals(sessionDate) && ("ACTIVE".equalsIgnoreCase(state) || "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(state))) {
+                Log.i(TAG, "Previous active session was from a past day (" + sessionDate + " != " + todayDate + "). Finalizing session.");
+                OfficeGeofenceHelper.clearActiveSession(context);
             }
         }
 

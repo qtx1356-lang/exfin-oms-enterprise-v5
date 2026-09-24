@@ -29,7 +29,7 @@ import { updateLiveEmployeeLocation } from '../location/liveLocationService';
 import { AutomaticAttendanceEngine, appendEventHistory } from './automaticAttendanceEngine';
 import { createNotification, dismissUnresolvedNotificationForDate } from '../notification/notificationService';
 import { isAdminContextActive, hasValidCheckoutTime } from '../../utils/attendanceUtils';
-import { reconcileNativeGeofenceEvents } from './nativeGeofenceBridge';
+import { reconcileNativeGeofenceEvents, startNativeActiveSession, cancelPendingNativeExit } from './nativeGeofenceBridge';
 
 let activeResumePromise: Promise<AttendanceRecord | null> | null = null;
 
@@ -259,6 +259,14 @@ export const reconcileAttendanceOnResume = async (
             entityType: 'ATTENDANCE'
           }).catch(() => {});
 
+          startNativeActiveSession({
+            employeeId,
+            employeeName: record.employeeName || employeeName || 'Employee',
+            townCity: cleanTown,
+            date: dateStr,
+            checkInTime: timeStr
+          }).catch((err) => console.warn('[NativeGeofenceBridge] Failed to start native active session on resume checkin:', err));
+
           if (navigator.onLine) {
             syncPendingAttendanceRecords().catch(() => {});
           }
@@ -281,6 +289,17 @@ export const reconcileAttendanceOnResume = async (
 
       // CASE B: Record exists for Today (OFFICE mode)
       if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
+        // Ensure native Android layer is synchronized with active session
+        if (record.checkInTime && (!record.checkOutTime || record.checkoutStatus !== 'COMPLETED')) {
+          startNativeActiveSession({
+            employeeId,
+            employeeName: record.employeeName || employeeName || 'Employee',
+            townCity: cleanTown,
+            date: dateStr,
+            checkInTime: record.checkInTime
+          }).catch(() => {});
+        }
+
         const currentState = record.currentState || 'CHECKED_IN';
         let modified = false;
 
@@ -464,6 +483,8 @@ export const reconcileAttendanceOnResume = async (
 
             markEventIdProcessed(eventId);
             modified = true;
+
+            cancelPendingNativeExit().catch(() => {});
 
             logAttendanceEvent('RETURN_DETECTED', employeeId, `[PWA_RESUME_GPS] Detected return to office (${Math.round(distance)}m) on resume at ${timeStr}. Restored CHECKED_IN.`);
 

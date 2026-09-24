@@ -10,7 +10,7 @@ import {
   trackResourceCreated,
   trackResourceCleaned,
 } from '../monitoring/performanceDiagnostics';
-import { registerNativeOfficeGeofence, initNativeGeofenceListener, reconcileNativeGeofenceEvents } from './nativeGeofenceBridge';
+import { registerNativeOfficeGeofence, initNativeGeofenceListener, reconcileNativeGeofenceEvents, startNativeActiveSession } from './nativeGeofenceBridge';
 import { isAdminContextActive } from '../../utils/attendanceUtils';
 import { reconcileAttendanceOnResume } from './resumeReconciliation';
 
@@ -200,6 +200,17 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
 
   const infoOnBoot = getEmployeeInfo();
   if (infoOnBoot?.id) {
+    const todayStr = getFormattedDateStr(new Date());
+    const existingRec = getTodayAttendanceRecord(infoOnBoot.id, todayStr);
+    if (existingRec && existingRec.checkInTime && (!existingRec.checkOutTime || existingRec.checkoutStatus !== 'COMPLETED')) {
+      startNativeActiveSession({
+        employeeId: infoOnBoot.id,
+        employeeName: infoOnBoot.name,
+        townCity: infoOnBoot.townCity || 'Raniganj HQ',
+        date: todayStr,
+        checkInTime: existingRec.checkInTime
+      }).catch(() => {});
+    }
     safeReconcileNativeGeofenceEvents(infoOnBoot.id, infoOnBoot.name, infoOnBoot.townCity || 'Raniganj HQ');
     reconcileAttendanceOnResume(infoOnBoot.id, infoOnBoot.name, infoOnBoot.townCity || 'Raniganj HQ').catch((e) => {
       console.warn('[BackgroundAttendanceManager] Boot resume reconciliation error:', e);
@@ -221,6 +232,17 @@ export const initializeBackgroundAttendanceManager = (getEmployeeInfo: () => { i
     logAttendanceEvent('GEOFENCE_ENTER', 'SYSTEM', 'App resumed/focused. Triggering PWA attendance reconciliation.');
     const info = getEmployeeInfo();
     if (info?.id) {
+      const todayStr = getFormattedDateStr(new Date());
+      const existingRec = getTodayAttendanceRecord(info.id, todayStr);
+      if (existingRec && existingRec.checkInTime && (!existingRec.checkOutTime || existingRec.checkoutStatus !== 'COMPLETED')) {
+        startNativeActiveSession({
+          employeeId: info.id,
+          employeeName: info.name,
+          townCity: info.townCity || 'Raniganj HQ',
+          date: todayStr,
+          checkInTime: existingRec.checkInTime
+        }).catch(() => {});
+      }
       safeReconcileNativeGeofenceEvents(info.id, info.name, info.townCity || 'Raniganj HQ').then(() => {
         reconcileAttendanceOnResume(info.id, info.name, info.townCity || 'Raniganj HQ').catch((err) => {
           console.warn('[BackgroundAttendanceManager] Resume reconciliation error:', err);

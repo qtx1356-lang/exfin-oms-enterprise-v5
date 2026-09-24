@@ -17,7 +17,7 @@ import { createNotification, dismissUnresolvedNotificationForDate } from '../not
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { updateLiveEmployeeLocation } from '../location/liveLocationService';
 import { isAdminContextActive, logAttendanceWriteDiagnostic, isServerAttendanceAuthoritative, hasValidCheckoutTime } from '../../utils/attendanceUtils';
-import { clearNativeActiveSession, cancelPendingNativeExit } from './nativeGeofenceBridge';
+import { startNativeActiveSession, clearNativeActiveSession, cancelPendingNativeExit } from './nativeGeofenceBridge';
 
 export const appendEventHistory = (
   history: AttendanceHistoryEvent[] | undefined,
@@ -610,6 +610,15 @@ export const AutomaticAttendanceEngine = {
           entityType: 'ATTENDANCE'
         }).catch((e) => console.warn('Notification error:', e));
 
+        // Synchronize active session to native Android layer immediately
+        startNativeActiveSession({
+          employeeId,
+          employeeName: record.employeeName || employeeName || 'Employee',
+          townCity: record.townCity || townCity || 'Raniganj HQ',
+          date: dateStr,
+          checkInTime: timeStr
+        }).catch((err) => console.warn('[NativeGeofenceBridge] Failed to start native active session:', err));
+
         if (navigator.onLine) {
           syncPendingAttendanceRecords().catch((e) => console.warn('Sync error:', e));
         }
@@ -801,6 +810,9 @@ export const AutomaticAttendanceEngine = {
             eventId,
             eventTimestamp: eventIso
           });
+
+          // Cancel native pending exit state
+          cancelPendingNativeExit().catch((err) => console.warn('[NativeGeofenceBridge] Failed to cancel native pending exit:', err));
 
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));

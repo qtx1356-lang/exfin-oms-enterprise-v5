@@ -2,6 +2,7 @@ import { registerPlugin, Capacitor, PluginListenerHandle } from '@capacitor/core
 import { AutomaticAttendanceEngine, getFormattedTimeStr } from './automaticAttendanceEngine';
 import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
+import { getApiBaseUrl } from '../../utils/apiConfig';
 
 export interface NativeAttendanceEvent {
   eventId: string;
@@ -238,14 +239,16 @@ export const initNativeGeofenceListener = async (
     const info = getEmployeeInfo();
     if (info?.id) {
       try {
+        const apiBase = getApiBaseUrl();
         const origin = (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('file://'))
           ? window.location.origin
-          : (typeof import.meta !== 'undefined' && import.meta?.env?.APP_URL) ? import.meta.env.APP_URL : '';
+          : (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.APP_URL) ? (import.meta as any).env.APP_URL : '';
+        const authoritativeServerUrl = apiBase || origin;
         await NativeGeofencePlugin.setEmployeeIdentity({
           id: info.id,
           name: info.name,
           townCity: info.townCity || 'Raniganj HQ',
-          serverUrl: origin
+          serverUrl: authoritativeServerUrl
         });
         console.log('[NativeGeofenceBridge] Configured native employee identity on init.');
       } catch (err) {
@@ -384,17 +387,18 @@ export const syncEmployeeIdentityToNative = async (identity: {
 }): Promise<void> => {
   if (!Capacitor.isNativePlatform() || !identity.id) return;
   try {
+    const apiBase = getApiBaseUrl();
     const origin = (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('file://'))
       ? window.location.origin
-      : (typeof import.meta !== 'undefined' && import.meta?.env?.APP_URL) ? import.meta.env.APP_URL : '';
-    const authoritativeServerUrl = identity.serverUrl || origin;
+      : (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.APP_URL) ? (import.meta as any).env.APP_URL : '';
+    const authoritativeServerUrl = identity.serverUrl || apiBase || origin;
     await NativeGeofencePlugin.setEmployeeIdentity({
       id: identity.id,
       name: identity.name || 'Employee',
       townCity: identity.townCity || 'Raniganj HQ',
       serverUrl: authoritativeServerUrl
     });
-    console.log(`[NativeGeofenceBridge] Configured native employee identity: ${identity.id} (${identity.name})`);
+    console.log(`[NativeGeofenceBridge] Configured native employee identity: ${identity.id} (${identity.name}) - Server: ${authoritativeServerUrl}`);
   } catch (err) {
     console.warn('[NativeGeofenceBridge] Failed to set native employee identity:', err);
   }

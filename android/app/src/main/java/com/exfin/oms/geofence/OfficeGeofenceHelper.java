@@ -498,63 +498,90 @@ public class OfficeGeofenceHelper {
 
         FusedLocationProviderClient fusedClient = LocationServices.getFusedLocationProviderClient(context);
 
-        // For ENTER / DWELL where triggerLocation was not inside 25m or was null,
-        // query cached getLastLocation() first before waiting for a cold/warm GPS fix.
-        if (isEnterOrDwell) {
-            try {
-                fusedClient.getLastLocation()
-                        .addOnSuccessListener(lastLoc -> {
-                            if (lastLoc != null && validateLocation(lastLoc)) {
-                                double lastDist = calculateDistance(lastLoc.getLatitude(), lastLoc.getLongitude(), OFFICE_LAT, OFFICE_LNG);
-                                if (lastDist <= AUTHORITATIVE_RADIUS_METERS) {
-                                    Log.i(TAG, "[INSTANT_CHECK_IN_CACHED_PATH] Cached FusedLocation verified inside 25m boundary: " +
-                                            String.format(Locale.US, "%.1f", lastDist) + "m <= " + AUTHORITATIVE_RADIUS_METERS +
-                                            "m (acc=" + lastLoc.getAccuracy() + "m). Executing immediate check-in.");
-                                    evaluateAttendanceDecision(context, lastLoc, transitionType, pendingResult, finishedFlag);
-                                    return;
-                                }
+        // Immediate cached fix inspection
+        try {
+            fusedClient.getLastLocation()
+                    .addOnSuccessListener(lastLoc -> {
+                        if (lastLoc != null && validateLocation(lastLoc)) {
+                            double lastDist = calculateDistance(lastLoc.getLatitude(), lastLoc.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+                            if (isEnterOrDwell && lastDist <= AUTHORITATIVE_RADIUS_METERS) {
+                                Log.i(TAG, "[INSTANT_CHECK_IN_CACHED_PATH] Cached FusedLocation verified inside 25m boundary: " +
+                                        String.format(Locale.US, "%.1f", lastDist) + "m <= " + AUTHORITATIVE_RADIUS_METERS +
+                                        "m (acc=" + lastLoc.getAccuracy() + "m). Executing immediate check-in.");
+                                evaluateAttendanceDecision(context, lastLoc, transitionType, pendingResult, finishedFlag);
+                                return;
+                            } else if (isExit && lastDist > AUTHORITATIVE_RADIUS_METERS) {
+                                Log.i(TAG, "[INSTANT_CHECK_OUT_CACHED_PATH] Cached FusedLocation verified outside 25m boundary: " +
+                                        String.format(Locale.US, "%.1f", lastDist) + "m > " + AUTHORITATIVE_RADIUS_METERS +
+                                        "m (acc=" + lastLoc.getAccuracy() + "m). Executing immediate exit processing.");
+                                processExitTransition(context, lastLoc, "NATIVE_GEOFENCE_CACHED_EXIT", pendingResult, finishedFlag);
+                                return;
                             }
-                            // If cached fix is unavailable or outside 25m, request fresh high-accuracy location
-                            requestFreshLocation(context, fusedClient, transitionType, triggerLocation, pendingResult, finishedFlag);
-                        })
-                        .addOnFailureListener(e -> {
-                            requestFreshLocation(context, fusedClient, transitionType, triggerLocation, pendingResult, finishedFlag);
-                        });
-                return;
-            } catch (SecurityException se) {
-                Log.w(TAG, "SecurityException checking getLastLocation: " + se.getMessage());
-            } catch (Exception e) {
-                Log.w(TAG, "Exception checking getLastLocation: " + e.getMessage());
-            }
+                        }
+                        // If cached fix is unavailable or did not confirm transition, request fresh high-accuracy location
+                        requestFreshLocation(context, fusedClient, transitionType, triggerLocation, pendingResult, finishedFlag);
+                    })
+                    .addOnFailureListener(e -> {
+                        requestFreshLocation(context, fusedClient, transitionType, triggerLocation, pendingResult, finishedFlag);
+                    });
+            return;
+        } catch (SecurityException se) {
+            Log.w(TAG, "SecurityException checking getLastLocation: " + se.getMessage());
+        } catch (Exception e) {
+            Log.w(TAG, "Exception checking getLastLocation: " + e.getMessage());
         }
 
-        // For EXIT transitions or if getLastLocation failed, proceed with active high-accuracy location acquisition
+        // Proceed with active high-accuracy location acquisition
         requestFreshLocation(context, fusedClient, transitionType, triggerLocation, pendingResult, finishedFlag);
     }
 
     private static void requestFreshLocation(Context context, FusedLocationProviderClient fusedClient, int transitionType, Location triggerLocation, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
-        CancellationTokenSource cts = new CancellationTokenSource();
+        final CancellationTokenSource cts = new CancellationTokenSource();
+        final AtomicBoolean handled = new AtomicBoolean(false);
+
+        // Strict 5-second watchdog timer: Play Services getCurrentLocation must not block receiver completion
+        final ScheduledFuture<?> watchdogTask = scheduledExecutor.schedule(() -> {
+            if (handled.compareAndSet(false, true)) {
+                try {
+                    cts.cancel();
+                } catch (Exception ignored) {}
+                Log.i(TAG, "[Watchdog] Fresh location request exceeded 5s. Falling back to robust last-known/geofence decision.");
+                fallbackToLastLocation(context, fusedClient, triggerLocation, transitionType, pendingResult, finishedFlag);
+            }
+        }, 5000, TimeUnit.MILLISECONDS);
 
         try {
             fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.getToken())
                     .addOnSuccessListener(location -> {
-                        if (location != null && validateLocation(location)) {
-                            Log.i(TAG, "Fresh high-accuracy location obtained: " + location.getLatitude() + ", " + location.getLongitude() + " (acc=" + location.getAccuracy() + "m)");
-                            evaluateAttendanceDecision(context, location, transitionType, pendingResult, finishedFlag);
-                        } else {
-                            fallbackToLastLocation(context, fusedClient, triggerLocation, transitionType, pendingResult, finishedFlag);
+                        if (handled.compareAndSet(false, true)) {
+                            try { watchdogTask.cancel(false); } catch (Exception ignored) {}
+                            if (location != null && validateLocation(location)) {
+                                Log.i(TAG, "Fresh high-accuracy location obtained: " + location.getLatitude() + ", " + location.getLongitude() + " (acc=" + location.getAccuracy() + "m)");
+                                evaluateAttendanceDecision(context, location, transitionType, pendingResult, finishedFlag);
+                            } else {
+                                fallbackToLastLocation(context, fusedClient, triggerLocation, transitionType, pendingResult, finishedFlag);
+                            }
                         }
                     })
                     .addOnFailureListener(e -> {
-                        Log.w(TAG, "getCurrentLocation failed: " + e.getMessage() + ". Falling back to last known location.");
-                        fallbackToLastLocation(context, fusedClient, triggerLocation, transitionType, pendingResult, finishedFlag);
+                        if (handled.compareAndSet(false, true)) {
+                            try { watchdogTask.cancel(false); } catch (Exception ignored) {}
+                            Log.w(TAG, "getCurrentLocation failed: " + e.getMessage() + ". Falling back to last known location.");
+                            fallbackToLastLocation(context, fusedClient, triggerLocation, transitionType, pendingResult, finishedFlag);
+                        }
                     });
         } catch (SecurityException se) {
-            Log.e(TAG, "SecurityException getting current location", se);
-            fallbackToLastLocation(context, fusedClient, triggerLocation, transitionType, pendingResult, finishedFlag);
+            if (handled.compareAndSet(false, true)) {
+                try { watchdogTask.cancel(false); } catch (Exception ignored) {}
+                Log.e(TAG, "SecurityException getting current location", se);
+                fallbackToLastLocation(context, fusedClient, triggerLocation, transitionType, pendingResult, finishedFlag);
+            }
         } catch (Exception e) {
-            Log.e(TAG, "Exception getting current location", e);
-            fallbackToLastLocation(context, fusedClient, triggerLocation, transitionType, pendingResult, finishedFlag);
+            if (handled.compareAndSet(false, true)) {
+                try { watchdogTask.cancel(false); } catch (Exception ignored) {}
+                Log.e(TAG, "Exception getting current location", e);
+                fallbackToLastLocation(context, fusedClient, triggerLocation, transitionType, pendingResult, finishedFlag);
+            }
         }
     }
 
@@ -563,44 +590,98 @@ public class OfficeGeofenceHelper {
         try {
             fusedClient.getLastLocation()
                     .addOnSuccessListener(location -> {
-                        if (isExit && triggerLocation != null && validateLocation(triggerLocation)) {
-                            double trigDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
-                            if (trigDist > AUTHORITATIVE_RADIUS_METERS) {
-                                Log.i(TAG, "[EXIT Fallback] Using geofence triggerLocation (" + String.format(Locale.US, "%.1f", trigDist) + "m): " + triggerLocation.getLatitude() + ", " + triggerLocation.getLongitude());
-                                evaluateAttendanceDecision(context, triggerLocation, transitionType, pendingResult, finishedFlag);
-                                return;
+                        if (isExit) {
+                            // For EXIT transitions: check triggerLocation first
+                            if (triggerLocation != null && validateLocation(triggerLocation)) {
+                                double trigDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+                                if (trigDist > AUTHORITATIVE_RADIUS_METERS) {
+                                    Log.i(TAG, "[EXIT Fallback] Using geofence triggerLocation (" + String.format(Locale.US, "%.1f", trigDist) + "m): " + triggerLocation.getLatitude() + ", " + triggerLocation.getLongitude());
+                                    evaluateAttendanceDecision(context, triggerLocation, transitionType, pendingResult, finishedFlag);
+                                    return;
+                                }
                             }
-                        }
-
-                        if (location != null && validateLocation(location)) {
-                            double locDist = calculateDistance(location.getLatitude(), location.getLongitude(), OFFICE_LAT, OFFICE_LNG);
-                            if (isExit && locDist <= AUTHORITATIVE_RADIUS_METERS && triggerLocation != null && validateLocation(triggerLocation)) {
-                                Log.w(TAG, "[EXIT Fallback] FusedLocation is inside (" + String.format(Locale.US, "%.1f", locDist) + "m) while handling EXIT. Prioritizing triggerLocation.");
-                                evaluateAttendanceDecision(context, triggerLocation, transitionType, pendingResult, finishedFlag);
-                                return;
+                            // Next check fusedClient location: ONLY use if it is OUTSIDE 25m
+                            if (location != null && validateLocation(location)) {
+                                double locDist = calculateDistance(location.getLatitude(), location.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+                                if (locDist > AUTHORITATIVE_RADIUS_METERS) {
+                                    Log.i(TAG, "Using FusedLocationProviderClient lastLocation for EXIT: " + location.getLatitude() + ", " + location.getLongitude() + " (dist=" + Math.round(locDist) + "m)");
+                                    evaluateAttendanceDecision(context, location, transitionType, pendingResult, finishedFlag);
+                                    return;
+                                }
                             }
-                            Log.i(TAG, "Using FusedLocationProviderClient lastLocation: " + location.getLatitude() + ", " + location.getLongitude() + " (acc=" + location.getAccuracy() + "m)");
-                            evaluateAttendanceDecision(context, location, transitionType, pendingResult, finishedFlag);
-                        } else if (triggerLocation != null && validateLocation(triggerLocation)) {
-                            Log.i(TAG, "Using geofence triggerLocation: " + triggerLocation.getLatitude() + ", " + triggerLocation.getLongitude());
-                            evaluateAttendanceDecision(context, triggerLocation, transitionType, pendingResult, finishedFlag);
-                        } else {
+                            // Next check system LocationManager: ONLY use if it is OUTSIDE 25m
                             Location lmLoc = getSystemLastKnownLocation(context);
                             if (lmLoc != null && validateLocation(lmLoc)) {
-                                Log.i(TAG, "Using LocationManager lastKnownLocation: " + lmLoc.getLatitude() + ", " + lmLoc.getLongitude());
-                                evaluateAttendanceDecision(context, lmLoc, transitionType, pendingResult, finishedFlag);
-                            } else {
-                                Log.w(TAG, "No valid high-accuracy location available after geofence wake-up.");
-                                recordNativeError(context, "No valid location fix available");
-                                safeFinishPendingResult(pendingResult, finishedFlag);
+                                double lmDist = calculateDistance(lmLoc.getLatitude(), lmLoc.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+                                if (lmDist > AUTHORITATIVE_RADIUS_METERS) {
+                                    Log.i(TAG, "Using LocationManager lastKnownLocation for EXIT: " + lmLoc.getLatitude() + ", " + lmLoc.getLongitude() + " (dist=" + Math.round(lmDist) + "m)");
+                                    evaluateAttendanceDecision(context, lmLoc, transitionType, pendingResult, finishedFlag);
+                                    return;
+                                }
                             }
+                            // Google Play Services hardware geofence confirmed the 25m exit transition.
+                            // Do not drop the exit because cached GPS was inside office or null!
+                            Location hwExitLoc = new Location("geofence_hardware_exit");
+                            hwExitLoc.setLatitude(OFFICE_LAT + 0.00025);
+                            hwExitLoc.setLongitude(OFFICE_LNG + 0.00025);
+                            hwExitLoc.setAccuracy(25.0f);
+                            hwExitLoc.setTime(System.currentTimeMillis());
+                            Log.i(TAG, "[EXIT Hardware Fallback] Play Services hardware verified exit from 25m geofence. Processing authoritative exit.");
+                            processExitTransition(context, hwExitLoc, "NATIVE_GEOFENCE_HARDWARE_EXIT", pendingResult, finishedFlag);
+                            return;
+                        } else {
+                            // For ENTER / DWELL transitions:
+                            if (triggerLocation != null && validateLocation(triggerLocation)) {
+                                double trigDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+                                if (trigDist <= AUTHORITATIVE_RADIUS_METERS) {
+                                    Log.i(TAG, "[ENTER Fallback] Using geofence triggerLocation (" + String.format(Locale.US, "%.1f", trigDist) + "m): " + triggerLocation.getLatitude() + ", " + triggerLocation.getLongitude());
+                                    evaluateAttendanceDecision(context, triggerLocation, transitionType, pendingResult, finishedFlag);
+                                    return;
+                                }
+                            }
+                            if (location != null && validateLocation(location)) {
+                                double locDist = calculateDistance(location.getLatitude(), location.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+                                if (locDist <= AUTHORITATIVE_RADIUS_METERS) {
+                                    Log.i(TAG, "Using FusedLocationProviderClient lastLocation for ENTER: " + location.getLatitude() + ", " + location.getLongitude() + " (dist=" + Math.round(locDist) + "m)");
+                                    evaluateAttendanceDecision(context, location, transitionType, pendingResult, finishedFlag);
+                                    return;
+                                }
+                            }
+                            Location lmLoc = getSystemLastKnownLocation(context);
+                            if (lmLoc != null && validateLocation(lmLoc)) {
+                                double lmDist = calculateDistance(lmLoc.getLatitude(), lmLoc.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+                                if (lmDist <= AUTHORITATIVE_RADIUS_METERS) {
+                                    Log.i(TAG, "Using LocationManager lastKnownLocation for ENTER: " + lmLoc.getLatitude() + ", " + lmLoc.getLongitude() + " (dist=" + Math.round(lmDist) + "m)");
+                                    evaluateAttendanceDecision(context, lmLoc, transitionType, pendingResult, finishedFlag);
+                                    return;
+                                }
+                            }
+                            // Google Play Services hardware geofence confirmed the 25m enter transition.
+                            Location hwEnterLoc = new Location("geofence_hardware_enter");
+                            hwEnterLoc.setLatitude(OFFICE_LAT);
+                            hwEnterLoc.setLongitude(OFFICE_LNG);
+                            hwEnterLoc.setAccuracy(15.0f);
+                            hwEnterLoc.setTime(System.currentTimeMillis());
+                            Log.i(TAG, "[ENTER Hardware Fallback] Play Services hardware verified entry to 25m geofence. Processing authoritative check-in.");
+                            evaluateAttendanceDecision(context, hwEnterLoc, transitionType, pendingResult, finishedFlag);
+                            return;
                         }
                     })
                     .addOnFailureListener(e -> {
-                        if (triggerLocation != null && validateLocation(triggerLocation)) {
-                            evaluateAttendanceDecision(context, triggerLocation, transitionType, pendingResult, finishedFlag);
+                        if (isExit) {
+                            Location hwExitLoc = new Location("geofence_hardware_exit");
+                            hwExitLoc.setLatitude(OFFICE_LAT + 0.00025);
+                            hwExitLoc.setLongitude(OFFICE_LNG + 0.00025);
+                            hwExitLoc.setAccuracy(25.0f);
+                            hwExitLoc.setTime(System.currentTimeMillis());
+                            processExitTransition(context, hwExitLoc, "NATIVE_GEOFENCE_HARDWARE_EXIT", pendingResult, finishedFlag);
                         } else {
-                            safeFinishPendingResult(pendingResult, finishedFlag);
+                            Location hwEnterLoc = new Location("geofence_hardware_enter");
+                            hwEnterLoc.setLatitude(OFFICE_LAT);
+                            hwEnterLoc.setLongitude(OFFICE_LNG);
+                            hwEnterLoc.setAccuracy(15.0f);
+                            hwEnterLoc.setTime(System.currentTimeMillis());
+                            evaluateAttendanceDecision(context, hwEnterLoc, transitionType, pendingResult, finishedFlag);
                         }
                     });
         } catch (SecurityException se) {
@@ -819,29 +900,21 @@ public class OfficeGeofenceHelper {
                 ("ACTIVE".equalsIgnoreCase(activeSession.optString("sessionState")) || 
                  "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(activeSession.optString("sessionState"))));
 
-        // Debounce check: prevent rapid oscillation if transitioned within last 60s unless distance > 100m
+        // Debounce check: prevent rapid oscillation if transitioned within last 60s near boundary (<= 30m)
         long timeSinceLastTransition = eventTimestamp - lastTransitionTime;
-        if ("INSIDE".equals(lastKnownState) && distance < 100.0 && timeSinceLastTransition < MIN_TRANSITION_COOLDOWN_MS && lastTransitionTime > 0) {
-            Log.i(TAG, "Debounce: Skipping rapid transition to OUTSIDE (elapsed: " + (timeSinceLastTransition / 1000) + "s < 60s). Scheduling verification check.");
-            long delayMs = Math.max(5000L, MIN_TRANSITION_COOLDOWN_MS - timeSinceLastTransition + 1000L);
-            scheduledExecutor.schedule(() -> {
-                Log.i(TAG, "Executing post-debounce exit verification...");
-                OfficeLocationService.verifyCurrentLocationAndDecide(context);
-            }, delayMs, TimeUnit.MILLISECONDS);
+        if ("INSIDE".equals(lastKnownState) && distance <= 30.0 && timeSinceLastTransition < MIN_TRANSITION_COOLDOWN_MS && lastTransitionTime > 0) {
+            Log.i(TAG, "Debounce: Skipping rapid oscillation near boundary to OUTSIDE (elapsed: " + (timeSinceLastTransition / 1000) + "s < 60s, dist=" + Math.round(distance) + "m)");
             safeFinishPendingResult(pendingResult, finishedFlag);
             return;
         }
 
-        if (!"INSIDE".equals(lastKnownState) && !hasOpenSession) {
-            Log.d(TAG, "Already verified outside office with no active session to checkout.");
-            safeFinishPendingResult(pendingResult, finishedFlag);
-            return;
+        String employeeId = prefs.getString("employee_id", "");
+        if ((employeeId == null || employeeId.isEmpty()) && activeSession != null) {
+            employeeId = activeSession.optString("employeeId", "");
         }
 
-        // Jitter protection: If accuracy > 30m and distance is close to boundary, require 2 consecutive readings
-        if (accuracy > 30.0f && distance <= 35.0 && consecutiveOutsideReadings < 2) {
-            consecutiveOutsideReadings++;
-            Log.i(TAG, "Exit detected near boundary with moderate accuracy (" + accuracy + "m, dist=" + Math.round(distance) + "m). Waiting for second reading confirmation.");
+        if (!"INSIDE".equals(lastKnownState) && !hasOpenSession && (employeeId == null || employeeId.isEmpty())) {
+            Log.d(TAG, "Already verified outside office with no active session or employee identity.");
             safeFinishPendingResult(pendingResult, finishedFlag);
             return;
         }
@@ -1292,6 +1365,9 @@ public class OfficeGeofenceHelper {
             editor.putString("employee_id", employeeId);
             editor.putString("employee_name", employeeName);
             editor.putString("town_city", townCity != null ? townCity : "Raniganj HQ");
+            editor.putString(KEY_LAST_KNOWN_STATE, "INSIDE");
+            editor.putLong(KEY_LAST_CHECKIN_TIMESTAMP, System.currentTimeMillis());
+            editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, System.currentTimeMillis());
             editor.apply();
 
             Log.i(TAG, "[NATIVE_SESSION_STARTED] Active office session initialized for " + employeeId + " at " + checkInTime);
@@ -1309,13 +1385,17 @@ public class OfficeGeofenceHelper {
         try {
             stopTemporaryAssistAwareness();
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
             String sessionStr = prefs.getString(KEY_ACTIVE_SESSION, null);
             if (sessionStr != null) {
                 JSONObject session = new JSONObject(sessionStr);
                 session.put("sessionState", "FINALIZED");
                 session.put("checkoutStatus", "FINALIZED");
-                prefs.edit().putString(KEY_ACTIVE_SESSION, session.toString()).apply();
+                editor.putString(KEY_ACTIVE_SESSION, session.toString());
             }
+            editor.putString(KEY_LAST_KNOWN_STATE, "OUTSIDE");
+            editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, System.currentTimeMillis());
+            editor.apply();
             Log.i(TAG, "[NATIVE_SESSION_FINALIZED] Native active session cleared.");
             OfficeLocationService.stop(context);
         } catch (Exception e) {
@@ -1393,9 +1473,11 @@ public class OfficeGeofenceHelper {
                 session.put("exitSource", "NONE");
                 session.put("sessionState", "ACTIVE");
                 session.put("checkoutStatus", "ACTIVE");
-                prefs.edit()
-                    .putString(KEY_ACTIVE_SESSION, session.toString())
-                    .apply();
+                SharedPreferences.Editor editor = prefs.edit();
+                editor.putString(KEY_ACTIVE_SESSION, session.toString());
+                editor.putString(KEY_LAST_KNOWN_STATE, "INSIDE");
+                editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, System.currentTimeMillis());
+                editor.apply();
                 Log.i(TAG, "[NATIVE_RETURN_CANCELLED] Stay Active / Return to office executed. Cancelled pending exit state while preserving authoritative lastExitTime.");
             }
         } catch (Exception e) {
