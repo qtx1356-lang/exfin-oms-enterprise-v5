@@ -1,4 +1,4 @@
-import { GreetingPeriodKey } from '../voice/greetingAssets';
+import { GreetingPeriodKey, PRE_RECORDED_GREETINGS } from '../voice/greetingAssets';
 
 export const GREETING_AUDIO_PATHS: Record<GreetingPeriodKey, string> = {
   good_morning: '/sounds/greetings/good_morning.wav',
@@ -98,6 +98,27 @@ export function playGreetingAudio(
     };
 
     const handleError = (e: Event) => {
+      // Fallback to embedded base64 asset if audio path failed to load
+      if (PRE_RECORDED_GREETINGS[periodKey] && audio.src !== PRE_RECORDED_GREETINGS[periodKey]) {
+        console.warn('[greetingAudioService] Audio path error, falling back to embedded audio asset for:', periodKey);
+        audio.src = PRE_RECORDED_GREETINGS[periodKey];
+        audio.load();
+        const fallbackPlay = audio.play();
+        if (fallbackPlay !== undefined && typeof fallbackPlay.then === 'function') {
+          fallbackPlay
+            .then(() => {
+              options?.onStart?.();
+            })
+            .catch((err) => {
+              cleanup();
+              options?.onError?.(err);
+              options?.onEnd?.();
+            });
+        } else {
+          options?.onStart?.();
+        }
+        return;
+      }
       cleanup();
       console.warn('[greetingAudioService] Audio element playback error:', e);
       options?.onError?.(e);

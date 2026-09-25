@@ -4,7 +4,7 @@ import { MapPin, ArrowRight, Sparkles, CheckCircle2, Zap, Target, Lock, Check } 
 import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { logStartupTag } from '../../services/startup/startupPerformanceLogger';
-import { initializeSpeech, speakGreeting, stopGreeting, isSpeechAvailable, waitForSpeechVoices } from '../../services/speech/greetingSpeechService';
+import { initializeSpeech, speakGreeting, stopGreeting, isSpeechAvailable } from '../../services/speech/greetingSpeechService';
 import { playGreetingAudio, preloadGreetingAudio, stopGreetingAudio } from '../../services/audio/greetingAudioService';
 import { GreetingPeriodKey } from '../../services/voice/greetingAssets';
 import { getTodayAttendanceRecord } from '../../services/attendance/attendanceStorage';
@@ -109,8 +109,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const speechTriggeredRef = React.useRef<boolean>(false);
   const speechAudibleRef = React.useRef<boolean>(false);
-  const pendingGreetingRef = React.useRef<string | null>(null);
-  const lastAttemptedGreetingRef = React.useRef<string | null>(null);
+  const startupAttemptedRef = React.useRef<boolean>(false);
+  const resolvedFirstNameRef = React.useRef<string | null>(null);
 
   const refreshAttendance = React.useCallback(() => {
     if (!employeeData) return;
@@ -228,6 +228,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     return null;
   }, [employeeData, displayName]);
 
+  // Keep resolved first name ref synced for immediate and dynamic access
+  useEffect(() => {
+    resolvedFirstNameRef.current = resolvedFirstName;
+  }, [resolvedFirstName]);
+
   // Voice initialization & Audio handlers
   useEffect(() => {
     preloadGreetingAudio();
@@ -239,134 +244,90 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     };
   }, []);
 
-  // Automatic personalized greeting on Welcome Screen mount / entry + Android PWA cold-start interaction retry
+  // Automatic Welcome Screen greeting: Step A (immediate WAV greeting) + Step B (dynamic first name)
   useEffect(() => {
-    // Prevent duplicate playback if already audible
     if (speechAudibleRef.current) return;
-
-    // Prevent premature triggering while employee identity is still hydrating asynchronously
-    const isIdentityLoading = (status === 'loading') || (status === 'Approved' && !employeeData && !resolvedFirstName);
-    if (isIdentityLoading) {
-      return;
-    }
 
     let isCancelled = false;
 
-    // Build personalized spoken greeting (e.g. "Good Morning, Sanjiv!")
-    const spokenGreeting = resolvedFirstName
-      ? `${greetingInfo.label}, ${resolvedFirstName}!`
-      : `${greetingInfo.label}!`;
-
-    // Keep pending greeting in sync with latest personalized greeting while not yet audible
-    if (!speechAudibleRef.current) {
-      pendingGreetingRef.current = spokenGreeting;
-    }
-
-    const performSpeak = async (isUserGesture: boolean) => {
+    const performGreeting = (isUserGesture: boolean) => {
       if (speechAudibleRef.current || isCancelled) return;
 
-      if (isSpeechAvailable()) {
-        if (!isUserGesture) {
-          // Await bounded voice readiness (mobile PWA / Android Chrome voice initialization)
-          await waitForSpeechVoices(800);
-        }
-        
-        if (isCancelled || speechAudibleRef.current) return;
+      logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
+      setIsSpeaking(true);
 
-        logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
+      // STEP A: Play the existing working WAV greeting immediately
+      const started = playGreetingAudio(greetingInfo.periodKey, {
+        onStart: () => {
+          if (isCancelled) return;
+          console.log('[WelcomeGreeting] Working WAV greeting started audibly:', greetingInfo.periodKey);
+          speechAudibleRef.current = true;
+          speechTriggeredRef.current = true;
+          setIsSpeaking(true);
+        },
+        onEnd: () => {
+          if (isCancelled) {
+            setIsSpeaking(false);
+            return;
+          }
 
-        const textToSpeak = pendingGreetingRef.current || spokenGreeting;
-        setIsSpeaking(true);
-        
-        const started = speakGreeting(textToSpeak, {
-          isUserGesture,
-          onStart: () => {
-            if (isCancelled) return;
-            console.log('[WelcomeSpeech] Speech started audibly:', textToSpeak);
-            speechAudibleRef.current = true;
-            speechTriggeredRef.current = true;
-            pendingGreetingRef.current = null;
-            setIsSpeaking(true);
-          },
-          onEnd: () => {
-            setIsSpeaking(false);
-          },
-          onError: (err) => {
-            console.warn('[WelcomeSpeech] Speech synthesis error:', err);
-            setIsSpeaking(false);
-            // CRITICAL: NEVER fallback to fixed WAV if resolvedFirstName exists!
-            // Fixed WAV cannot speak employee first name.
-            // DO NOT set speechAudibleRef.current = true!
-            // Retain pendingGreetingRef intact so user interaction retries SpeechSynthesis with user gesture.
-            if (!resolvedFirstName && !speechAudibleRef.current && !isCancelled) {
-              playGreetingAudio(greetingInfo.periodKey, {
+          // STEP B: If employee first name exists, attempt to speak it dynamically using SpeechSynthesis
+          const firstName = resolvedFirstNameRef.current || resolvedFirstName;
+          if (firstName && isSpeechAvailable()) {
+            try {
+              console.log('[WelcomeGreeting] Speaking dynamic employee first name:', firstName);
+              speakGreeting(`${firstName}!`, {
+                isUserGesture,
                 onStart: () => {
-                  if (isCancelled) return;
-                  speechAudibleRef.current = true;
-                  speechTriggeredRef.current = true;
-                  pendingGreetingRef.current = null;
-                  setIsSpeaking(true);
+                  if (!isCancelled) setIsSpeaking(true);
                 },
-                onEnd: () => setIsSpeaking(false),
-                onError: () => setIsSpeaking(false)
+                onEnd: () => {
+                  setIsSpeaking(false);
+                },
+                onError: (err) => {
+                  console.warn('[WelcomeGreeting] Dynamic name speech error:', err);
+                  // Dynamic name speech failed: DO NOTHING further.
+                  // WAV greeting has already successfully played!
+                  setIsSpeaking(false);
+                }
               });
+            } catch (speechErr) {
+              console.warn('[WelcomeGreeting] Dynamic name speech exception:', speechErr);
+              setIsSpeaking(false);
             }
+          } else {
+            setIsSpeaking(false);
           }
-        });
-
-        if (!started) {
+        },
+        onError: (err) => {
+          console.warn('[WelcomeGreeting] WAV audio playback error:', err);
           setIsSpeaking(false);
-          // If speakGreeting failed to start:
-          // NEVER fallback to fixed WAV if resolvedFirstName exists!
-          if (!resolvedFirstName && !speechAudibleRef.current && !isCancelled) {
-            playGreetingAudio(greetingInfo.periodKey, {
-              onStart: () => {
-                if (isCancelled) return;
-                speechAudibleRef.current = true;
-                speechTriggeredRef.current = true;
-                pendingGreetingRef.current = null;
-                setIsSpeaking(true);
-              },
-              onEnd: () => setIsSpeaking(false),
-              onError: () => setIsSpeaking(false)
-            });
-          }
+          // If WAV was blocked due to autoplay policy without user gesture:
+          // speechAudibleRef.current remains false, allowing handleFirstInteraction to retry with user gesture.
         }
-      } else {
-        // Speech API not available on device/browser:
-        // Only fallback to pre-recorded WAV if there is NO employee first name to personalize.
-        if (!resolvedFirstName && !speechAudibleRef.current && !isCancelled) {
-          playGreetingAudio(greetingInfo.periodKey, {
-            onStart: () => {
-              if (isCancelled) return;
-              speechAudibleRef.current = true;
-              speechTriggeredRef.current = true;
-              pendingGreetingRef.current = null;
-              setIsSpeaking(true);
-            },
-            onEnd: () => setIsSpeaking(false),
-            onError: () => setIsSpeaking(false)
-          });
-        }
+      });
+
+      if (!started) {
+        setIsSpeaking(false);
       }
     };
 
-    // 1. Immediate startup speech attempt (runs once per greeting string if not audible)
-    if (!speechAudibleRef.current && lastAttemptedGreetingRef.current !== spokenGreeting) {
-      lastAttemptedGreetingRef.current = spokenGreeting;
-      performSpeak(false);
+    // 1. Immediate automatic greeting attempt on Welcome Screen entry
+    if (!speechAudibleRef.current && !startupAttemptedRef.current) {
+      startupAttemptedRef.current = true;
+      performGreeting(false);
     }
 
-    // 2. Pending greeting retry on first user interaction (safeguard for Android PWA cold-start autoplay restrictions)
+    // 2. Interaction retry (safeguard for mobile PWA / Android autoplay restrictions)
     let interactionTriggered = false;
     const handleFirstInteraction = () => {
-      if (speechAudibleRef.current || !pendingGreetingRef.current || interactionTriggered) {
+      if (speechAudibleRef.current || interactionTriggered) {
         return;
       }
       interactionTriggered = true;
       cleanupInteractionListeners();
-      console.log('[WelcomeSpeech] Retrying personalized greeting on user interaction:', pendingGreetingRef.current);
-      performSpeak(true);
+      console.log('[WelcomeGreeting] Retrying greeting on user interaction');
+      performGreeting(true);
     };
 
     const cleanupInteractionListeners = () => {
@@ -385,7 +346,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       isCancelled = true;
       cleanupInteractionListeners();
     };
-  }, [resolvedFirstName, employeeData, status, greetingInfo]);
+  }, [greetingInfo, resolvedFirstName]);
 
   // Derive Location & Distance display states dynamically
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
