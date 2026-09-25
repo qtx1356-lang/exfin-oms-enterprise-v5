@@ -229,6 +229,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   }, [employeeData, displayName]);
 
   // Keep resolved first name ref synced for immediate and dynamic access
+  resolvedFirstNameRef.current = resolvedFirstName;
   useEffect(() => {
     resolvedFirstNameRef.current = resolvedFirstName;
   }, [resolvedFirstName]);
@@ -272,7 +273,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
           }
 
           // STEP B: If employee first name exists, attempt to speak it dynamically using SpeechSynthesis
-          const firstName = resolvedFirstNameRef.current || resolvedFirstName;
+          const firstName = resolvedFirstNameRef.current;
           if (firstName && isSpeechAvailable()) {
             try {
               console.log('[WelcomeGreeting] Speaking dynamic employee first name:', firstName);
@@ -346,7 +347,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       isCancelled = true;
       cleanupInteractionListeners();
     };
-  }, [greetingInfo, resolvedFirstName]);
+  }, [greetingInfo]);
 
   // Derive Location & Distance display states dynamically
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
