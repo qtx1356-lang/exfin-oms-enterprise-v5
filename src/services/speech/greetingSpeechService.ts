@@ -22,6 +22,7 @@ export interface SpeechDiagnostics {
 }
 
 let lastDiagnosticStatus = 'Initialized';
+let activeUtterance: SpeechSynthesisUtterance | null = null;
 
 /**
  * Diagnostic Inspector for Speech API state
@@ -203,6 +204,14 @@ export function speakGreeting(text: string, options?: SpeakOptions): boolean {
   }
 
   try {
+    // Clean up any previously active utterance handlers
+    if (activeUtterance) {
+      activeUtterance.onstart = null;
+      activeUtterance.onend = null;
+      activeUtterance.onerror = null;
+      activeUtterance = null;
+    }
+
     // Cancel any previous queued speech
     window.speechSynthesis.cancel();
 
@@ -235,6 +244,9 @@ export function speakGreeting(text: string, options?: SpeakOptions): boolean {
     const handleEnd = () => {
       if (!hasEnded) {
         hasEnded = true;
+        if (activeUtterance === utterance) {
+          activeUtterance = null;
+        }
         lastDiagnosticStatus = 'Speech Completed';
         options?.onEnd?.();
       }
@@ -243,6 +255,9 @@ export function speakGreeting(text: string, options?: SpeakOptions): boolean {
     const handleError = (err: unknown) => {
       if (!hasEnded) {
         hasEnded = true;
+        if (activeUtterance === utterance) {
+          activeUtterance = null;
+        }
         lastDiagnosticStatus = 'Speech Error';
         options?.onError?.(err);
         options?.onEnd?.();
@@ -253,12 +268,16 @@ export function speakGreeting(text: string, options?: SpeakOptions): boolean {
     utterance.onend = handleEnd;
     utterance.onerror = handleError;
 
+    activeUtterance = utterance;
     window.speechSynthesis.speak(utterance);
 
     // Fallback safety timeout if speech end event never fires
     setTimeout(() => {
       if (!hasEnded) {
         hasEnded = true;
+        if (activeUtterance === utterance) {
+          activeUtterance = null;
+        }
         lastDiagnosticStatus = 'Speech Timeout Finished';
         options?.onEnd?.();
       }
@@ -267,6 +286,7 @@ export function speakGreeting(text: string, options?: SpeakOptions): boolean {
     return true;
   } catch (e) {
     console.warn('[greetingSpeechService] Error during speakGreeting:', e);
+    activeUtterance = null;
     lastDiagnosticStatus = 'Exception during speakGreeting';
     options?.onError?.(e);
     options?.onEnd?.();
@@ -279,6 +299,12 @@ export function speakGreeting(text: string, options?: SpeakOptions): boolean {
  */
 export function stopGreeting(): void {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  if (activeUtterance) {
+    activeUtterance.onstart = null;
+    activeUtterance.onend = null;
+    activeUtterance.onerror = null;
+    activeUtterance = null;
+  }
   try {
     window.speechSynthesis.cancel();
   } catch (e) {}

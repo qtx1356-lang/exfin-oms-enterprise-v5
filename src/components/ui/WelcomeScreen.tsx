@@ -110,7 +110,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const speechTriggeredRef = React.useRef<boolean>(false);
   const speechAudibleRef = React.useRef<boolean>(false);
   const pendingGreetingRef = React.useRef<string | null>(null);
-  const startupAttemptedRef = React.useRef<boolean>(false);
+  const lastAttemptedGreetingRef = React.useRef<string | null>(null);
 
   const refreshAttendance = React.useCallback(() => {
     if (!employeeData) return;
@@ -257,7 +257,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       ? `${greetingInfo.label}, ${resolvedFirstName}!`
       : `${greetingInfo.label}!`;
 
-    pendingGreetingRef.current = spokenGreeting;
+    // Keep pending greeting in sync with latest personalized greeting while not yet audible
+    if (!speechAudibleRef.current) {
+      pendingGreetingRef.current = spokenGreeting;
+    }
 
     const performSpeak = async (isUserGesture: boolean) => {
       if (speechAudibleRef.current || isCancelled) return;
@@ -272,14 +275,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
         logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
 
-        setIsSpeaking(true);
         const textToSpeak = pendingGreetingRef.current || spokenGreeting;
+        setIsSpeaking(true);
         
         const started = speakGreeting(textToSpeak, {
           isUserGesture,
           onStart: () => {
             if (isCancelled) return;
-            console.log('[WelcomeSpeech] onStart fired');
+            console.log('[WelcomeSpeech] Speech started audibly:', textToSpeak);
             speechAudibleRef.current = true;
             speechTriggeredRef.current = true;
             pendingGreetingRef.current = null;
@@ -288,12 +291,22 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
           onEnd: () => {
             setIsSpeaking(false);
           },
-          onError: () => {
+          onError: (err) => {
+            console.warn('[WelcomeSpeech] Speech synthesis error:', err);
             setIsSpeaking(false);
-            if (!speechAudibleRef.current && !isCancelled) {
-              speechAudibleRef.current = true;
+            // CRITICAL: NEVER fallback to fixed WAV if resolvedFirstName exists!
+            // Fixed WAV cannot speak employee first name.
+            // DO NOT set speechAudibleRef.current = true!
+            // Retain pendingGreetingRef intact so user interaction retries SpeechSynthesis with user gesture.
+            if (!resolvedFirstName && !speechAudibleRef.current && !isCancelled) {
               playGreetingAudio(greetingInfo.periodKey, {
-                onStart: () => setIsSpeaking(true),
+                onStart: () => {
+                  if (isCancelled) return;
+                  speechAudibleRef.current = true;
+                  speechTriggeredRef.current = true;
+                  pendingGreetingRef.current = null;
+                  setIsSpeaking(true);
+                },
                 onEnd: () => setIsSpeaking(false),
                 onError: () => setIsSpeaking(false)
               });
@@ -303,45 +316,56 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
         if (!started) {
           setIsSpeaking(false);
-          if (!speechAudibleRef.current && !isCancelled) {
-            speechAudibleRef.current = true;
+          // If speakGreeting failed to start:
+          // NEVER fallback to fixed WAV if resolvedFirstName exists!
+          if (!resolvedFirstName && !speechAudibleRef.current && !isCancelled) {
             playGreetingAudio(greetingInfo.periodKey, {
-              onStart: () => setIsSpeaking(true),
+              onStart: () => {
+                if (isCancelled) return;
+                speechAudibleRef.current = true;
+                speechTriggeredRef.current = true;
+                pendingGreetingRef.current = null;
+                setIsSpeaking(true);
+              },
               onEnd: () => setIsSpeaking(false),
               onError: () => setIsSpeaking(false)
             });
           }
         }
       } else {
-        // Fallback to pre-recorded audio when speech synthesis API is not available
-        speechAudibleRef.current = true;
-        speechTriggeredRef.current = true;
-        pendingGreetingRef.current = null;
-        logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
-
-        setIsSpeaking(true);
-        playGreetingAudio(greetingInfo.periodKey, {
-          onStart: () => setIsSpeaking(true),
-          onEnd: () => setIsSpeaking(false),
-          onError: () => setIsSpeaking(false)
-        });
+        // Speech API not available on device/browser:
+        // Only fallback to pre-recorded WAV if there is NO employee first name to personalize.
+        if (!resolvedFirstName && !speechAudibleRef.current && !isCancelled) {
+          playGreetingAudio(greetingInfo.periodKey, {
+            onStart: () => {
+              if (isCancelled) return;
+              speechAudibleRef.current = true;
+              speechTriggeredRef.current = true;
+              pendingGreetingRef.current = null;
+              setIsSpeaking(true);
+            },
+            onEnd: () => setIsSpeaking(false),
+            onError: () => setIsSpeaking(false)
+          });
+        }
       }
     };
 
-    // 1. Immediate startup speech attempt
-    if (!startupAttemptedRef.current) {
-      startupAttemptedRef.current = true;
+    // 1. Immediate startup speech attempt (runs once per greeting string if not audible)
+    if (!speechAudibleRef.current && lastAttemptedGreetingRef.current !== spokenGreeting) {
+      lastAttemptedGreetingRef.current = spokenGreeting;
       performSpeak(false);
     }
 
     // 2. Pending greeting retry on first user interaction (safeguard for Android PWA cold-start autoplay restrictions)
+    let interactionTriggered = false;
     const handleFirstInteraction = () => {
-      if (speechAudibleRef.current || !pendingGreetingRef.current) {
-        cleanupInteractionListeners();
+      if (speechAudibleRef.current || !pendingGreetingRef.current || interactionTriggered) {
         return;
       }
-      console.log('[WelcomeSpeech] Retrying greeting on user interaction');
+      interactionTriggered = true;
       cleanupInteractionListeners();
+      console.log('[WelcomeSpeech] Retrying personalized greeting on user interaction:', pendingGreetingRef.current);
       performSpeak(true);
     };
 
@@ -352,9 +376,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     };
 
     if (!speechAudibleRef.current) {
-      window.addEventListener('pointerdown', handleFirstInteraction, { capture: true, passive: true, once: true });
-      window.addEventListener('touchstart', handleFirstInteraction, { capture: true, passive: true, once: true });
-      window.addEventListener('click', handleFirstInteraction, { capture: true, passive: true, once: true });
+      window.addEventListener('pointerdown', handleFirstInteraction, { capture: true, passive: true });
+      window.addEventListener('touchstart', handleFirstInteraction, { capture: true, passive: true });
+      window.addEventListener('click', handleFirstInteraction, { capture: true, passive: true });
     }
 
     return () => {
