@@ -158,7 +158,7 @@ export const reconcileNativeGeofenceEvents = async (
       events.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
       for (const evt of events) {
-        const eventDate = new Date(evt.timestamp || Date.now());
+        const eventDate = (typeof evt.timestamp === 'number' && evt.timestamp > 0) ? new Date(evt.timestamp) : new Date(evt.timestamp || Date.now());
         const timeKolkata = getFormattedTimeStr(eventDate);
         const eventType = evt.eventType || (evt.transition === 'EXIT' ? 'CHECK_OUT' : 'CHECK_IN');
 
@@ -268,7 +268,7 @@ export const initNativeGeofenceListener = async (
       const currentEmp = getEmployeeInfo();
       if (!currentEmp?.id) return;
 
-      const eventDate = new Date(evt.timestamp || Date.now());
+      const eventDate = (typeof evt.timestamp === 'number' && evt.timestamp > 0) ? new Date(evt.timestamp) : new Date(evt.timestamp || Date.now());
       logAttendanceEvent('GEOFENCE_ENTER', currentEmp.id, `Native authoritative check-in event received: ${evt.eventId} at ${evt.time}`);
       AutomaticAttendanceEngine.processGeofenceEntry(
         currentEmp.id,
@@ -285,7 +285,7 @@ export const initNativeGeofenceListener = async (
       const currentEmp = getEmployeeInfo();
       if (!currentEmp?.id) return;
 
-      const eventDate = new Date(evt.timestamp || Date.now());
+      const eventDate = (typeof evt.timestamp === 'number' && evt.timestamp > 0) ? new Date(evt.timestamp) : new Date(evt.timestamp || Date.now());
       logAttendanceEvent('GEOFENCE_EXIT', currentEmp.id, `Native authoritative check-out event received: ${evt.eventId} at ${evt.time}`);
       AutomaticAttendanceEngine.processGeofenceExit(
         currentEmp.id,

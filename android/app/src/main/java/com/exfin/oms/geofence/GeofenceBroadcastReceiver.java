@@ -38,6 +38,10 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
 
         int transitionType = geofencingEvent.getGeofenceTransition();
         Location triggerLocation = geofencingEvent.getTriggeringLocation();
+        if (triggerLocation != null) {
+            long ageMs = triggerLocation.getTime() > 0 ? (System.currentTimeMillis() - triggerLocation.getTime()) : -1;
+            Log.i(TAG, "[GeofenceReceiver] Triggering location present: time=" + triggerLocation.getTime() + " (age=" + ageMs + "ms), acc=" + triggerLocation.getAccuracy() + "m");
+        }
 
         List<Geofence> triggeringGeofences = geofencingEvent.getTriggeringGeofences();
         List<String> triggeringGeofenceIds = new java.util.ArrayList<>();

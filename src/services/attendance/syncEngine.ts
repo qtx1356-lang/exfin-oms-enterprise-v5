@@ -220,8 +220,9 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
 
             if (serverData) {
               if (hasActualCheckIn(serverData)) {
-                const earliest = getEarliestCheckInTime(serverData.checkInTime, finalCheckInTime) || serverData.checkInTime;
-                finalCheckInTime = earliest;
+                // Defensive check-in preservation (Rule 16):
+                // If server already contains an authoritative check-in, preserve it and do not overwrite with stale local value
+                finalCheckInTime = serverData.checkInTime;
                 finalCreatedAtDeviceTime = serverData.createdAtDeviceTime || finalCreatedAtDeviceTime;
                 finalCheckInLatitude = serverData.checkInLatitude ?? finalCheckInLatitude;
                 finalCheckInLongitude = serverData.checkInLongitude ?? finalCheckInLongitude;
