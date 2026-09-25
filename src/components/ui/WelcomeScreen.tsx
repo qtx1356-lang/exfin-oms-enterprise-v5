@@ -17,6 +17,63 @@ interface WelcomeScreenProps {
 
 const getTime = () => new Date().toISOString().substring(11, 23);
 
+/**
+ * Safely extracts the employee's first name from profile data or full name string.
+ * Enforces all product rules:
+ * - Trims whitespace
+ * - Extracts only first name (never full surname)
+ * - Capitalizes first letter cleanly (e.g. "sanjiv" -> "Sanjiv", "SANJIV" -> "Sanjiv")
+ * - Handles honorifics/titles (e.g. "Mr. Sanjiv Sinha" -> "Sanjiv")
+ * - Never returns placeholders: 'undefined', 'null', 'user', 'employee', 'admin', 'alex johnson'
+ * - Rejects phone numbers, emails, employee IDs
+ * - Returns null if unavailable so generic greeting can be spoken cleanly
+ */
+export const extractEmployeeFirstName = (rawName?: string | null): string | null => {
+  if (!rawName || typeof rawName !== 'string') return null;
+  const trimmed = rawName.trim();
+  if (!trimmed) return null;
+
+  const lower = trimmed.toLowerCase();
+  if (
+    ['undefined', 'null', 'user', 'employee', 'admin', 'alex johnson'].includes(lower) ||
+    lower.startsWith('undefined') ||
+    lower.startsWith('null')
+  ) {
+    return null;
+  }
+
+  // Reject raw emails, phone numbers, or employee codes
+  if (trimmed.includes('@') || trimmed.includes('.com') || trimmed.includes('.org') || trimmed.includes('.net')) {
+    return null;
+  }
+  if (/^\+?[0-9\s\-()]{7,}$/.test(trimmed)) {
+    return null;
+  }
+  if (/^[a-z]{2,}\d+$/i.test(trimmed)) {
+    return null;
+  }
+
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return null;
+
+  let first = parts[0];
+  const isTitle = /^(mr|ms|mrs|dr|prof|shri|smt)\.?$/i.test(first);
+  if (isTitle && parts.length > 1) {
+    first = parts[1];
+  }
+
+  // Strip non-alphabetical characters (e.g., punctuation or quotes)
+  first = first.replace(/[^a-zA-Z]/g, '');
+  if (!first || first.length < 2) return null;
+
+  const firstLower = first.toLowerCase();
+  if (['undefined', 'null', 'user', 'employee', 'admin'].includes(firstLower)) {
+    return null;
+  }
+
+  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+};
+
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const { status, employeeData } = useRegistration();
   const { locationStatus, distance, formattedDistance, isInsideGeofence, locationState, isGpsOff, isPermissionDenied, isLocationUnavailable } = useLocationContext();
@@ -32,12 +89,15 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       const raw = localStorage.getItem('cached_registration_data');
       if (raw) {
         const parsed = JSON.parse(raw);
+        if (parsed.firstName) return parsed.firstName;
         if (parsed.name) return parsed.name;
+        if (parsed.displayName) return parsed.displayName;
       }
       const rawAuth = localStorage.getItem('exfin_auth_user');
       if (rawAuth) {
         const parsedAuth = JSON.parse(rawAuth);
         if (parsedAuth.displayName) return parsedAuth.displayName;
+        if (parsedAuth.name) return parsedAuth.name;
       }
     } catch (e) {}
     return '';
@@ -47,7 +107,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
   const [liveDuration, setLiveDuration] = useState<string>('');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
-  const [resolvedFirstName, setResolvedFirstName] = useState<string | null>(null);
   const speechTriggeredRef = React.useRef<boolean>(false);
   const speechAudibleRef = React.useRef<boolean>(false);
   const pendingGreetingRef = React.useRef<string | null>(null);
@@ -147,68 +206,27 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const isRegistered = status === 'Approved' || !!displayName;
 
   // Extract employee's first name safely (e.g., "Sanjiv Sinha" -> "Sanjiv", "Rahul" -> "Rahul")
-  const firstName = React.useMemo(() => {
+  const resolvedFirstName = React.useMemo(() => {
     // 1. Prefer dedicated firstName field if available on profile/session
     if (typeof employeeData?.firstName === 'string' && employeeData.firstName.trim()) {
-      const candidate = employeeData.firstName.trim();
-      const lower = candidate.toLowerCase();
-      if (
-        !['undefined', 'null', 'user', 'employee', 'admin', 'alex johnson'].includes(lower) &&
-        !candidate.includes('@') &&
-        !/^\+?[0-9\s\-()]+$/.test(candidate) &&
-        !/^[a-z]{2,}\d+$/i.test(candidate)
-      ) {
-        return candidate.charAt(0).toUpperCase() + candidate.slice(1);
-      }
+      const candidate = extractEmployeeFirstName(employeeData.firstName);
+      if (candidate) return candidate;
     }
 
-    // 2. Safely derive first name from full name or cached profile name
-    if (!displayName || typeof displayName !== 'string') return null;
-    const trimmed = displayName.trim();
-    if (!trimmed) return null;
-
-    const lower = trimmed.toLowerCase();
-    if (['undefined', 'null', 'user', 'employee', 'admin', 'alex johnson'].includes(lower)) {
-      return null;
+    // 2. Safely derive first name from full employee name
+    if (typeof employeeData?.name === 'string' && employeeData.name.trim()) {
+      const candidate = extractEmployeeFirstName(employeeData.name);
+      if (candidate) return candidate;
     }
 
-    // Reject raw emails, phone numbers, or employee codes
-    if (trimmed.includes('@') || trimmed.includes('.com') || trimmed.includes('.org')) {
-      return null;
-    }
-    if (/^\+?[0-9\s\-()]{7,}$/.test(trimmed)) {
-      return null;
-    }
-    if (/^[a-z]{2,}\d+$/i.test(trimmed)) {
-      return null;
+    // 3. Fallback to displayName or cached profile name
+    if (displayName) {
+      const candidate = extractEmployeeFirstName(displayName);
+      if (candidate) return candidate;
     }
 
-    const parts = trimmed.split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return null;
-
-    let first = parts[0];
-    const isTitle = /^(mr|ms|mrs|dr|prof|shri|smt)\.?$/i.test(first);
-    if (isTitle && parts.length > 1) {
-      first = parts[1];
-    }
-
-    const firstLower = first.toLowerCase();
-    if (
-      ['undefined', 'null', 'user', 'employee', 'admin'].includes(firstLower) ||
-      /^\+?[0-9\s\-()]+$/.test(first) ||
-      /^[a-z]{2,}\d+$/i.test(first)
-    ) {
-      return null;
-    }
-
-    return first.charAt(0).toUpperCase() + first.slice(1);
+    return null;
   }, [employeeData, displayName]);
-
-  useEffect(() => {
-    if (firstName) {
-      setResolvedFirstName(firstName);
-    }
-  }, [firstName]);
 
   // Voice initialization & Audio handlers
   useEffect(() => {
@@ -272,14 +290,30 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
           },
           onError: () => {
             setIsSpeaking(false);
+            if (!speechAudibleRef.current && !isCancelled) {
+              speechAudibleRef.current = true;
+              playGreetingAudio(greetingInfo.periodKey, {
+                onStart: () => setIsSpeaking(true),
+                onEnd: () => setIsSpeaking(false),
+                onError: () => setIsSpeaking(false)
+              });
+            }
           }
         });
 
         if (!started) {
           setIsSpeaking(false);
+          if (!speechAudibleRef.current && !isCancelled) {
+            speechAudibleRef.current = true;
+            playGreetingAudio(greetingInfo.periodKey, {
+              onStart: () => setIsSpeaking(true),
+              onEnd: () => setIsSpeaking(false),
+              onError: () => setIsSpeaking(false)
+            });
+          }
         }
-      } else if (!resolvedFirstName) {
-        // Fallback to pre-recorded audio ONLY for anonymous/unregistered users without firstName
+      } else {
+        // Fallback to pre-recorded audio when speech synthesis API is not available
         speechAudibleRef.current = true;
         speechTriggeredRef.current = true;
         pendingGreetingRef.current = null;
