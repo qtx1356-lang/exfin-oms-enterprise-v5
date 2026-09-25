@@ -877,10 +877,11 @@ public class OfficeGeofenceHelper {
         boolean hasOpenSession = (activeSession != null && 
                 ("ACTIVE".equalsIgnoreCase(activeSession.optString("sessionState")) || 
                  "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(activeSession.optString("sessionState"))));
+        boolean isSessionActive = (activeSession != null && "ACTIVE".equalsIgnoreCase(activeSession.optString("sessionState")));
 
-        // Debounce check: prevent rapid oscillation if transitioned within last 60s near boundary (<= 30m)
+        // Debounce check: only debounce repeated oscillations if NOT in a confirmed ACTIVE session (e.g. state is already OUTSIDE/PENDING)
         long timeSinceLastTransition = eventTimestamp - lastTransitionTime;
-        if ("INSIDE".equals(lastKnownState) && distance <= 30.0 && timeSinceLastTransition < MIN_TRANSITION_COOLDOWN_MS && lastTransitionTime > 0) {
+        if (!isSessionActive && "OUTSIDE".equals(lastKnownState) && distance <= 30.0 && timeSinceLastTransition < MIN_TRANSITION_COOLDOWN_MS && lastTransitionTime > 0) {
             Log.i(TAG, "Debounce: Skipping rapid oscillation near boundary to OUTSIDE (elapsed: " + (timeSinceLastTransition / 1000) + "s < 60s, dist=" + Math.round(distance) + "m)");
             safeFinishPendingResult(pendingResult, finishedFlag);
             return;
@@ -1064,6 +1065,7 @@ public class OfficeGeofenceHelper {
         addEventToSyncQueue(context, returnEvent);
 
         // Notify JS bridge
+        GeofencePlugin.notifyNativeReturn(returnEvent);
         GeofencePlugin.notifyNativeTransition("ENTER", lat, lng, eventTimestamp);
 
         // Synchronize return to backend

@@ -9,7 +9,7 @@ export interface NativeAttendanceEvent {
   employeeId: string;
   employeeName?: string;
   townCity?: string;
-  eventType: 'CHECK_IN' | 'CHECK_OUT' | 'ENTER' | 'EXIT';
+  eventType: 'CHECK_IN' | 'CHECK_OUT' | 'ENTER' | 'EXIT' | 'GEOFENCE_RETURN';
   transition?: 'ENTER' | 'EXIT';
   time: string;
   date: string;
@@ -17,6 +17,7 @@ export interface NativeAttendanceEvent {
   longitude: number;
   accuracy?: number;
   timestamp: number;
+  eventTimestamp?: number;
   exitTimestamp?: number;
   distanceFromOffice?: number;
   distance?: number;
@@ -81,6 +82,7 @@ export interface NativeGeofencePluginInterface {
   }>;
   addListener(eventName: 'attendanceNativeCheckIn', listenerFunc: (event: NativeAttendanceEvent) => void): Promise<PluginListenerHandle>;
   addListener(eventName: 'attendanceNativeCheckOut', listenerFunc: (event: NativeAttendanceEvent) => void): Promise<PluginListenerHandle>;
+  addListener(eventName: 'attendanceNativeReturn', listenerFunc: (event: NativeAttendanceEvent) => void): Promise<PluginListenerHandle>;
   addListener(eventName: 'attendanceNativeSync', listenerFunc: (data: { eventId: string; success: boolean; timestamp: number }) => void): Promise<PluginListenerHandle>;
   addListener(eventName: 'attendanceNativeError', listenerFunc: (data: { error: string; timestamp: number }) => void): Promise<PluginListenerHandle>;
   addListener(eventName: 'geofenceTransition', listenerFunc: (data: { transition: 'EXIT' | 'ENTER'; time: string; date: string; latitude: number; longitude: number; timestamp: number }) => void): Promise<PluginListenerHandle>;
@@ -158,11 +160,32 @@ export const reconcileNativeGeofenceEvents = async (
       events.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
       for (const evt of events) {
-        const eventDate = (typeof evt.timestamp === 'number' && evt.timestamp > 0) ? new Date(evt.timestamp) : new Date(evt.timestamp || Date.now());
+        const eventDate = (typeof evt.timestamp === 'number' && evt.timestamp > 0)
+          ? new Date(evt.timestamp)
+          : (typeof evt.eventTimestamp === 'number' && evt.eventTimestamp > 0)
+            ? new Date(evt.eventTimestamp)
+            : new Date(evt.timestamp || Date.now());
         const timeKolkata = getFormattedTimeStr(eventDate);
         const eventType = evt.eventType || (evt.transition === 'EXIT' ? 'CHECK_OUT' : 'CHECK_IN');
 
-        if (eventType === 'CHECK_OUT' || evt.transition === 'EXIT') {
+        if (eventType === 'GEOFENCE_RETURN') {
+          console.log('[NATIVE_GEOFENCE_RETURN_RECONCILED]', {
+            employeeId,
+            date: eventDate.toISOString().split('T')[0],
+            distance: evt.distance ?? evt.distanceFromOffice ?? 25,
+            timestamp: eventDate.toISOString(),
+            localTime: timeKolkata,
+            source: 'NATIVE_GEOFENCE'
+          });
+          logAttendanceEvent('GEOFENCE_ENTER', employeeId, `[NATIVE_GEOFENCE_RETURN_RECONCILED] Reconciled native return event at ${timeKolkata} (${eventDate.toISOString()})`);
+          AutomaticAttendanceEngine.processGeofenceReturn(
+            employeeId,
+            employeeName,
+            { latitude: evt.latitude || 23.616227, longitude: evt.longitude || 87.117063 },
+            townCity || 'Raniganj HQ',
+            eventDate
+          );
+        } else if (eventType === 'CHECK_OUT' || evt.transition === 'EXIT') {
           console.log('[AUTO_EXIT_DETECTED]', {
             employeeId,
             timestamp: eventDate.toISOString(),
@@ -285,7 +308,16 @@ export const initNativeGeofenceListener = async (
       const currentEmp = getEmployeeInfo();
       if (!currentEmp?.id) return;
 
-      const eventDate = (typeof evt.timestamp === 'number' && evt.timestamp > 0) ? new Date(evt.timestamp) : new Date(evt.timestamp || Date.now());
+      if (evt.employeeId && evt.employeeId !== currentEmp.id) {
+        console.warn(`[NativeGeofenceBridge] Ignored native checkout event for mismatched employee ID: ${evt.employeeId} vs ${currentEmp.id}`);
+        return;
+      }
+
+      const eventDate = (typeof evt.timestamp === 'number' && evt.timestamp > 0)
+        ? new Date(evt.timestamp)
+        : (typeof evt.eventTimestamp === 'number' && evt.eventTimestamp > 0)
+          ? new Date(evt.eventTimestamp)
+          : new Date();
       logAttendanceEvent('GEOFENCE_EXIT', currentEmp.id, `Native authoritative check-out event received: ${evt.eventId} at ${evt.time}`);
       AutomaticAttendanceEngine.processGeofenceExit(
         currentEmp.id,
@@ -298,7 +330,33 @@ export const initNativeGeofenceListener = async (
     });
     activeListenerHandles.push(checkOutHandle);
 
-    // 3. Raw Geofence Transition listener (backward compatibility)
+    // 3. Native Return listener
+    const returnHandle = await NativeGeofencePlugin.addListener('attendanceNativeReturn', (evt) => {
+      const currentEmp = getEmployeeInfo();
+      if (!currentEmp?.id) return;
+
+      if (evt.employeeId && evt.employeeId !== currentEmp.id) {
+        console.warn(`[NativeGeofenceBridge] Ignored native return event for mismatched employee ID: ${evt.employeeId} vs ${currentEmp.id}`);
+        return;
+      }
+
+      const eventDate = (typeof evt.timestamp === 'number' && evt.timestamp > 0)
+        ? new Date(evt.timestamp)
+        : (typeof evt.eventTimestamp === 'number' && evt.eventTimestamp > 0)
+          ? new Date(evt.eventTimestamp)
+          : new Date();
+      logAttendanceEvent('GEOFENCE_ENTER', currentEmp.id, `Native authoritative return event received: ${evt.eventId} at ${evt.time}`);
+      AutomaticAttendanceEngine.processGeofenceReturn(
+        currentEmp.id,
+        currentEmp.name,
+        { latitude: evt.latitude, longitude: evt.longitude },
+        currentEmp.townCity || 'Raniganj HQ',
+        eventDate
+      );
+    });
+    activeListenerHandles.push(returnHandle);
+
+    // 4. Raw Geofence Transition listener (backward compatibility)
     const transitionHandle = await NativeGeofencePlugin.addListener('geofenceTransition', (data) => {
       const currentEmp = getEmployeeInfo();
       if (!currentEmp?.id) return;

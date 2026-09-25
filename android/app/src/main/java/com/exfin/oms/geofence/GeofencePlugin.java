@@ -51,6 +51,17 @@ public class GeofencePlugin extends Plugin {
         }
     }
 
+    public static void notifyNativeReturn(JSONObject event) {
+        if (instance != null && event != null) {
+            try {
+                JSObject ret = JSObject.fromJSONObject(event);
+                instance.notifyListeners("attendanceNativeReturn", ret, true);
+            } catch (Exception e) {
+                Log.e(TAG, "Error notifying attendanceNativeReturn: " + e.getMessage());
+            }
+        }
+    }
+
     public static void notifyNativeSync(String eventId, boolean success) {
         if (instance != null) {
             try {

@@ -986,7 +986,15 @@ export const AutomaticAttendanceEngine = {
         'AUTO_GEOFENCE',
         timestamp
       );
-    } else if (record.currentState === 'PENDING_FINAL_EXIT' || record.lastExitTime || record.exitTime) {
+    } else if (
+      record.currentState === 'PENDING_FINAL_EXIT' ||
+      record.currentState === 'PENDING_EXIT_CONFIRMATION' ||
+      record.currentState === 'PENDING_AUTO_CHECKOUT' ||
+      record.currentState === 'RETURNING_TO_OFFICE' ||
+      record.pendingCheckoutConfirmation ||
+      record.lastExitTime ||
+      record.exitTime
+    ) {
       return this.transitionState(
         employeeId,
         employeeName,
@@ -998,6 +1006,40 @@ export const AutomaticAttendanceEngine = {
       );
     }
     return record;
+  },
+
+  /**
+   * Explicit handler for returning inside office geofence after an exit
+   */
+  processGeofenceReturn(
+    employeeId: string,
+    employeeName: string,
+    coords: { latitude: number; longitude: number },
+    townCity: string,
+    timestamp: Date = new Date()
+  ): AttendanceRecord {
+    if (!employeeId || !isEmployeeApprovedLocally(employeeId)) {
+      if (employeeId && employeeId !== 'ANONYMOUS' && employeeId !== 'SYSTEM') {
+        console.warn(`[AutomaticAttendanceEngine] Ignored geofence return for unapproved/unknown employee: ${employeeId}`);
+      }
+      return null as any;
+    }
+
+    const dateStr = getFormattedDateStr(timestamp);
+    const record = getTodayAttendanceRecord(employeeId, dateStr);
+
+    if (record && record.checkInTime && !record.checkOutTime) {
+      return this.transitionState(
+        employeeId,
+        employeeName,
+        coords,
+        townCity,
+        'GEOFENCE_RETURN',
+        'AUTO_GEOFENCE',
+        timestamp
+      );
+    }
+    return record!;
   },
 
   /**
