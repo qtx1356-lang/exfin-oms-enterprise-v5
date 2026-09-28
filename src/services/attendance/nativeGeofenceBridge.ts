@@ -244,12 +244,23 @@ export const reconcileNativeGeofenceEvents = async (
             source: 'NATIVE_GEOFENCE'
           });
           logAttendanceEvent('GEOFENCE_ENTER', employeeId, `[NATIVE_GEOFENCE_ENTER_RECONCILED] Reconciled native enter event at ${timeKolkata} (${eventDate.toISOString()})`);
+
+          const verificationMeta = {
+            verificationStatus: (evt as any).verificationStatus || 'VERIFIED',
+            verificationMethod: (evt as any).verificationMethod || 'FRESH_FUSED_LOCATION',
+            verifiedAt: (evt as any).verifiedAt || new Date().toISOString(),
+            locationAgeMs: typeof (evt as any).locationAgeMs === 'number' ? (evt as any).locationAgeMs : null,
+            provider: (evt as any).locationProvider || (evt as any).source || null,
+            eventTimestamp: eventDate.toISOString()
+          };
+
           AutomaticAttendanceEngine.processGeofenceEntry(
             employeeId,
             employeeName,
             { latitude: evt.latitude || OFFICE_LOCATION.latitude, longitude: evt.longitude || OFFICE_LOCATION.longitude },
             townCity || 'Raniganj HQ',
-            eventDate
+            eventDate,
+            verificationMeta
           );
         }
       }
@@ -347,12 +358,23 @@ export const initNativeGeofenceListener = async (
       }
 
       logAttendanceEvent('GEOFENCE_ENTER', currentEmp.id, `Native authoritative check-in event received: ${evt.eventId} at ${evt.time}`);
+
+      const verificationMeta = {
+        verificationStatus: (evt as any).verificationStatus || 'VERIFIED',
+        verificationMethod: (evt as any).verificationMethod || 'FRESH_FUSED_LOCATION',
+        verifiedAt: (evt as any).verifiedAt || new Date().toISOString(),
+        locationAgeMs: typeof (evt as any).locationAgeMs === 'number' ? (evt as any).locationAgeMs : null,
+        provider: (evt as any).locationProvider || (evt as any).source || null,
+        eventTimestamp: eventDate.toISOString()
+      };
+
       AutomaticAttendanceEngine.processGeofenceEntry(
         currentEmp.id,
         currentEmp.name,
         { latitude: evt.latitude, longitude: evt.longitude },
         currentEmp.townCity || 'Raniganj HQ',
-        eventDate
+        eventDate,
+        verificationMeta
       );
     });
     activeListenerHandles.push(checkInHandle);

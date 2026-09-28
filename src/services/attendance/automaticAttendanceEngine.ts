@@ -481,7 +481,15 @@ export const AutomaticAttendanceEngine = {
     eventType: AttendanceEventType,
     source: 'AUTO_GEOFENCE' | 'MANUAL' | 'AUTO_SYSTEM_END_OF_DAY',
     eventTimestamp: Date = new Date(),
-    attendanceMode: AttendanceType = 'OFFICE'
+    attendanceMode: AttendanceType = 'OFFICE',
+    verificationMeta?: {
+      verificationStatus?: string;
+      verificationMethod?: string;
+      verifiedAt?: string | null;
+      locationAgeMs?: number | null;
+      provider?: string | null;
+      eventTimestamp?: string | null;
+    }
   ): AttendanceRecord {
     const dateStr = getFormattedDateStr(eventTimestamp);
     const docId = `${employeeId}_${dateStr}`;
@@ -556,6 +564,12 @@ export const AutomaticAttendanceEngine = {
           lastExitTime: null,
           lastReturnAt: null,
           lastReturnTime: null,
+          checkInVerificationStatus: verificationMeta?.verificationStatus || (source === 'AUTO_GEOFENCE' ? 'VERIFIED' : 'UNVERIFIED'),
+          checkInVerificationMethod: verificationMeta?.verificationMethod || (source === 'AUTO_GEOFENCE' ? 'FRESH_FUSED_LOCATION' : undefined),
+          checkInVerifiedAt: verificationMeta?.verifiedAt || (source === 'AUTO_GEOFENCE' ? new Date().toISOString() : null),
+          checkInLocationAgeMs: verificationMeta?.locationAgeMs ?? null,
+          checkInProvider: verificationMeta?.provider || null,
+          checkInEventTimestamp: verificationMeta?.eventTimestamp || eventIso,
           eventHistory: [{
             eventId,
             employeeId,
@@ -643,7 +657,60 @@ export const AutomaticAttendanceEngine = {
 
     switch (eventType) {
       case 'CHECK_IN':
-        // Daily Lock rule: once checked in today, do not overwrite check-in
+        // Authoritative verification replacement rule:
+        // A verified authoritative native CHECK_IN replaces an older unverified/fallback CHECK_IN.
+        if (
+          verificationMeta?.verificationStatus === 'VERIFIED' &&
+          record.checkInVerificationStatus !== 'VERIFIED' &&
+          !record.isAdminRectified &&
+          !record.manualRectified
+        ) {
+          const previousTimeStr = record.checkInTime;
+
+          record.checkInTime = timeStr;
+          record.createdAtDeviceTime = eventIso;
+          record.checkInLatitude = coords.latitude;
+          record.checkInLongitude = coords.longitude;
+          record.checkInDistance = distance;
+          record.checkInTownCity = townCity || 'Raniganj HQ';
+          record.checkInMode = source === 'AUTO_GEOFENCE' ? 'AUTO' : 'MANUAL';
+          record.checkInVerificationStatus = 'VERIFIED';
+          record.checkInVerificationMethod = verificationMeta.verificationMethod || 'FRESH_FUSED_LOCATION';
+          record.checkInVerifiedAt = verificationMeta.verifiedAt || new Date().toISOString();
+          record.checkInLocationAgeMs = verificationMeta.locationAgeMs ?? null;
+          record.checkInProvider = verificationMeta.provider || null;
+          record.checkInEventTimestamp = verificationMeta.eventTimestamp || eventIso;
+          record.updatedAt = new Date().toISOString();
+          record.syncStatus = 'Pending';
+
+          const verifiedCheckInHistEvent: AttendanceHistoryEvent = {
+            eventId,
+            employeeId,
+            eventType: 'CHECK_IN',
+            eventTime: timeStr,
+            timestamp: eventIso,
+            source: 'NATIVE_GEOFENCE_VERIFIED',
+            location: {
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+              distance,
+              townCity: townCity || 'Raniganj HQ'
+            },
+            distance
+          };
+
+          record.eventHistory = record.eventHistory || [];
+          if (!record.eventHistory.some(e => e.eventId === eventId)) {
+            record.eventHistory.push(verifiedCheckInHistEvent);
+          }
+
+          modified = true;
+          logAttendanceEvent('CHECKIN_CREATED', employeeId, `Check-in updated with authoritative verified location at ${timeStr} (previous unverified was ${previousTimeStr})`, {
+            eventId,
+            eventTimestamp: eventIso,
+            metadata: { verificationStatus: 'VERIFIED' }
+          });
+        }
         break;
 
       case 'GEOFENCE_EXIT':
@@ -969,7 +1036,15 @@ export const AutomaticAttendanceEngine = {
     employeeName: string,
     coords: { latitude: number; longitude: number },
     townCity: string,
-    timestamp: Date = new Date()
+    timestamp: Date = new Date(),
+    verificationMeta?: {
+      verificationStatus?: string;
+      verificationMethod?: string;
+      verifiedAt?: string | null;
+      locationAgeMs?: number | null;
+      provider?: string | null;
+      eventTimestamp?: string | null;
+    }
   ): AttendanceRecord {
     if (!employeeId || !isEmployeeApprovedLocally(employeeId)) {
       if (employeeId && employeeId !== 'ANONYMOUS' && employeeId !== 'SYSTEM') {
@@ -981,7 +1056,10 @@ export const AutomaticAttendanceEngine = {
     const dateStr = getFormattedDateStr(timestamp);
     const record = getTodayAttendanceRecord(employeeId, dateStr);
 
-    if (!record || !record.checkInTime) {
+    const isIncomingVerified = verificationMeta?.verificationStatus === 'VERIFIED';
+    const canReplaceUnverified = record && isIncomingVerified && record.checkInVerificationStatus !== 'VERIFIED' && !record.isAdminRectified && !record.manualRectified;
+
+    if (!record || !record.checkInTime || canReplaceUnverified) {
       const distance = getDistanceFromLatLonInM(
         coords.latitude,
         coords.longitude,
@@ -1000,7 +1078,9 @@ export const AutomaticAttendanceEngine = {
         townCity,
         'CHECK_IN',
         'AUTO_GEOFENCE',
-        timestamp
+        timestamp,
+        undefined,
+        verificationMeta
       );
     } else if (
       record.currentState === 'PENDING_FINAL_EXIT' ||

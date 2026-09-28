@@ -237,6 +237,14 @@ export interface AttendanceRecord {
   outdoorType?: OutdoorWorkTypeOption | string | null;
   description?: string | null;
 
+  // Explicit Authoritative Check-In Evidence
+  checkInVerificationStatus?: 'VERIFIED' | 'UNVERIFIED' | 'FALLBACK' | string;
+  checkInVerificationMethod?: 'FRESH_FUSED_LOCATION' | string;
+  checkInVerifiedAt?: string | null;
+  checkInLocationAgeMs?: number | null;
+  checkInProvider?: string | null;
+  checkInEventTimestamp?: string | null;
+
   // Authoritative Exit & Return Forensics
   lastExitAt?: string | null;
   lastReturnAt?: string | null;

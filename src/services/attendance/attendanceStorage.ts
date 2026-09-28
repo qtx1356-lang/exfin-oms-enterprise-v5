@@ -218,6 +218,8 @@ export const getAllStoredAttendanceRecords = (): AttendanceRecord[] => {
 
               if (hasRecCheckIn && !hasExistingCheckIn) {
                 recordMap.set(canonicalKey, { ...existing, ...rec });
+              } else if (rec.checkInVerificationStatus === 'VERIFIED' && existing.checkInVerificationStatus !== 'VERIFIED' && !existing.isAdminRectified && !existing.manualRectified) {
+                recordMap.set(canonicalKey, { ...existing, ...rec });
               } else if (rec.checkOutTime && !existing.checkOutTime) {
                 recordMap.set(canonicalKey, { ...existing, ...rec });
               } else {
@@ -256,19 +258,84 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
   if (existingIndex >= 0) {
     const existingRecord = records[existingIndex];
 
-    // WRITE-ONCE RULE FOR CHECK-IN TIME:
-    // If the existing record has a valid check-in time, preserve it!
-    // Do not allow ANY normal operational update to overwrite an already recorded check-in time.
+    // AUTHORITATIVE CHECK-IN RECONCILIATION RULE:
+    // 1. Explicit Admin corrections in record or existingRecord are ALWAYS preserved.
+    // 2. An incoming VERIFIED authoritative native check-in (checkInVerificationStatus === 'VERIFIED')
+    //    must replace an older unverified, fallback, or stale automatic check-in (e.g. 7:01 AM fallback -> 9:00 AM verified).
+    // 3. Historical event evidence is preserved in eventHistory below.
+    // 4. If BOTH existing and incoming records are verified or standard, the true earliest verified check-in is preserved.
     const isExplicitAdminCorrection = record.isAdminRectified || record.manualRectified;
+    const isExistingAdminRectified = existingRecord.isAdminRectified || existingRecord.manualRectified;
+
     if (hasActualCheckIn(existingRecord) && !isExplicitAdminCorrection) {
-      const earliestIn = getEarliestCheckInTime(existingRecord.checkInTime, record.checkInTime) || existingRecord.checkInTime;
-      record.checkInTime = earliestIn;
-      record.createdAtDeviceTime = existingRecord.createdAtDeviceTime || record.createdAtDeviceTime;
-      record.checkInLatitude = existingRecord.checkInLatitude ?? record.checkInLatitude;
-      record.checkInLongitude = existingRecord.checkInLongitude ?? record.checkInLongitude;
-      record.checkInDistance = existingRecord.checkInDistance ?? record.checkInDistance;
-      record.checkInTownCity = existingRecord.checkInTownCity || record.checkInTownCity;
-      record.checkInMode = existingRecord.checkInMode || record.checkInMode;
+      if (isExistingAdminRectified) {
+        // Protect Admin-rectified check-in from any operational overwrite
+        record.checkInTime = existingRecord.checkInTime;
+        record.createdAtDeviceTime = existingRecord.createdAtDeviceTime || record.createdAtDeviceTime;
+        record.checkInLatitude = existingRecord.checkInLatitude ?? record.checkInLatitude;
+        record.checkInLongitude = existingRecord.checkInLongitude ?? record.checkInLongitude;
+        record.checkInDistance = existingRecord.checkInDistance ?? record.checkInDistance;
+        record.checkInTownCity = existingRecord.checkInTownCity || record.checkInTownCity;
+        record.checkInMode = existingRecord.checkInMode || record.checkInMode;
+        record.isAdminRectified = existingRecord.isAdminRectified;
+        record.manualRectified = existingRecord.manualRectified;
+        record.checkInVerificationStatus = existingRecord.checkInVerificationStatus || record.checkInVerificationStatus;
+        record.checkInVerificationMethod = existingRecord.checkInVerificationMethod || record.checkInVerificationMethod;
+        record.checkInVerifiedAt = existingRecord.checkInVerifiedAt || record.checkInVerifiedAt;
+        record.checkInLocationAgeMs = existingRecord.checkInLocationAgeMs ?? record.checkInLocationAgeMs;
+        record.checkInProvider = existingRecord.checkInProvider || record.checkInProvider;
+        record.checkInEventTimestamp = existingRecord.checkInEventTimestamp || record.checkInEventTimestamp;
+      } else {
+        const isIncomingVerified = record.checkInVerificationStatus === 'VERIFIED';
+        const isExistingVerified = existingRecord.checkInVerificationStatus === 'VERIFIED';
+        const isExistingFallbackOrUnverified = !isExistingVerified ||
+          (existingRecord as any).checkInProvider === 'HARDWARE_FALLBACK' ||
+          (existingRecord as any).checkInMode === 'FALLBACK';
+
+        if (isIncomingVerified && isExistingFallbackOrUnverified) {
+          // Authoritative verified check-in replaces unverified / fallback / stale check-in:
+          // Allow incoming verified checkInTime, coordinates, distance, mode, and verification fields to take precedence!
+          console.log(`[ATTENDANCE_STORAGE] Authoritative verified check-in at ${record.checkInTime} replacing unverified existing check-in at ${existingRecord.checkInTime} for ${record.employeeId}`);
+          record.checkInTime = record.checkInTime || existingRecord.checkInTime;
+          record.createdAtDeviceTime = record.createdAtDeviceTime || existingRecord.createdAtDeviceTime;
+          record.checkInLatitude = record.checkInLatitude ?? existingRecord.checkInLatitude;
+          record.checkInLongitude = record.checkInLongitude ?? existingRecord.checkInLongitude;
+          record.checkInDistance = record.checkInDistance ?? existingRecord.checkInDistance;
+          record.checkInTownCity = record.checkInTownCity || existingRecord.checkInTownCity;
+          record.checkInMode = record.checkInMode || existingRecord.checkInMode;
+          record.checkInVerificationStatus = 'VERIFIED';
+          record.checkInVerificationMethod = record.checkInVerificationMethod || 'FRESH_FUSED_LOCATION';
+          record.checkInVerifiedAt = record.checkInVerifiedAt || existingRecord.checkInVerifiedAt || new Date().toISOString();
+          record.checkInLocationAgeMs = record.checkInLocationAgeMs ?? existingRecord.checkInLocationAgeMs ?? null;
+          record.checkInProvider = record.checkInProvider || existingRecord.checkInProvider || null;
+          record.checkInEventTimestamp = record.checkInEventTimestamp || existingRecord.checkInEventTimestamp || record.createdAtDeviceTime;
+        } else {
+          // Both verified or both standard: preserve the earliest valid check-in
+          const earliestIn = getEarliestCheckInTime(existingRecord.checkInTime, record.checkInTime) || existingRecord.checkInTime;
+          const keepExisting = (earliestIn === existingRecord.checkInTime);
+
+          record.checkInTime = earliestIn;
+          record.createdAtDeviceTime = keepExisting ? (existingRecord.createdAtDeviceTime || record.createdAtDeviceTime) : (record.createdAtDeviceTime || existingRecord.createdAtDeviceTime);
+          record.checkInLatitude = keepExisting ? (existingRecord.checkInLatitude ?? record.checkInLatitude) : (record.checkInLatitude ?? existingRecord.checkInLatitude);
+          record.checkInLongitude = keepExisting ? (existingRecord.checkInLongitude ?? record.checkInLongitude) : (record.checkInLongitude ?? existingRecord.checkInLongitude);
+          record.checkInDistance = keepExisting ? (existingRecord.checkInDistance ?? record.checkInDistance) : (record.checkInDistance ?? existingRecord.checkInDistance);
+          record.checkInTownCity = keepExisting ? (existingRecord.checkInTownCity || record.checkInTownCity) : (record.checkInTownCity || existingRecord.checkInTownCity);
+          record.checkInMode = keepExisting ? (existingRecord.checkInMode || record.checkInMode) : (record.checkInMode || existingRecord.checkInMode);
+          if (isExistingVerified || isIncomingVerified) {
+            record.checkInVerificationStatus = 'VERIFIED';
+            record.checkInVerificationMethod = (keepExisting ? existingRecord.checkInVerificationMethod : record.checkInVerificationMethod) || 'FRESH_FUSED_LOCATION';
+            record.checkInVerifiedAt = keepExisting ? (existingRecord.checkInVerifiedAt || record.checkInVerifiedAt) : (record.checkInVerifiedAt || existingRecord.checkInVerifiedAt);
+            record.checkInLocationAgeMs = keepExisting ? (existingRecord.checkInLocationAgeMs ?? record.checkInLocationAgeMs) : (record.checkInLocationAgeMs ?? existingRecord.checkInLocationAgeMs);
+            record.checkInProvider = keepExisting ? (existingRecord.checkInProvider || record.checkInProvider) : (record.checkInProvider || existingRecord.checkInProvider);
+            record.checkInEventTimestamp = keepExisting ? (existingRecord.checkInEventTimestamp || record.checkInEventTimestamp) : (record.checkInEventTimestamp || existingRecord.checkInEventTimestamp);
+          }
+        }
+      }
+    } else if (!hasActualCheckIn(existingRecord) && record.checkInTime) {
+      if (!record.checkInVerificationStatus && record.checkInMode === 'AUTO') {
+        record.checkInVerificationStatus = 'VERIFIED';
+        record.checkInVerificationMethod = record.checkInVerificationMethod || 'FRESH_FUSED_LOCATION';
+      }
     }
 
     // HISTORICAL EXIT & RETURN EVIDENCE PRESERVATION:

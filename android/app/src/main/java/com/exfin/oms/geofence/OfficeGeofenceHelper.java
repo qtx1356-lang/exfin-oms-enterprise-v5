@@ -838,16 +838,21 @@ public class OfficeGeofenceHelper {
             }
 
             boolean hasOpenSession = hasActiveSessionForDate(context, dateStr);
+            boolean isSessionVerified = false;
+            JSONObject curSession = getActiveSession(context);
+            if (curSession != null && "VERIFIED".equals(curSession.optString("verificationStatus", ""))) {
+                isSessionVerified = true;
+            }
 
-            // Debounce check: prevent rapid oscillation if transitioned within last 60s (applies when there is an existing session)
+            // Debounce check: prevent rapid oscillation if transitioned within last 60s (applies when there is an existing verified session)
             long timeSinceLastTransition = eventTimestamp - lastTransitionTime;
-            if (hasOpenSession && "OUTSIDE".equals(lastKnownState) && timeSinceLastTransition < MIN_TRANSITION_COOLDOWN_MS && lastTransitionTime > 0) {
+            if (hasOpenSession && isSessionVerified && "OUTSIDE".equals(lastKnownState) && timeSinceLastTransition < MIN_TRANSITION_COOLDOWN_MS && lastTransitionTime > 0) {
                 Log.i(TAG, "Debounce: Skipping rapid transition to INSIDE (elapsed: " + (timeSinceLastTransition / 1000) + "s < 60s)");
                 safeFinishPendingResult(pendingResult, finishedFlag);
                 return;
             }
 
-            if (!"INSIDE".equals(lastKnownState) || !hasOpenSession) {
+            if (!"INSIDE".equals(lastKnownState) || !hasOpenSession || !isSessionVerified) {
                 // ABSOLUTE RULE FOR AUTHORITATIVE CHECK-IN:
                 // Verify fresh Fused Location fix <= 25m, non-synthetic, age <= 15s
                 if (!isLocationTrustworthyForCheckIn(location)) {
@@ -876,6 +881,19 @@ public class OfficeGeofenceHelper {
 
                 String eventId = "evt_native_CHECK_IN_" + employeeId + "_" + dateStr;
 
+                long now = System.currentTimeMillis();
+                long locationAgeMs = (location.getTime() > 0) ? (now - location.getTime()) : 0;
+                long elapsedRealtimeAgeMs = 0;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+                    long elapsedRealtimeNanos = location.getElapsedRealtimeNanos();
+                    if (elapsedRealtimeNanos > 0) {
+                        elapsedRealtimeAgeMs = (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos) / 1000000L;
+                    }
+                }
+                SimpleDateFormat isoSdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+                isoSdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+                String verifiedAtIso = isoSdf.format(new Date(now));
+
                 // Create persistent event
                 JSONObject checkInEvent = new JSONObject();
                 try {
@@ -887,7 +905,7 @@ public class OfficeGeofenceHelper {
                     checkInEvent.put("transition", "ENTER");
                     checkInEvent.put("timestamp", eventTimestamp);
                     checkInEvent.put("eventTimestamp", eventTimestamp);
-                    checkInEvent.put("createdAt", System.currentTimeMillis());
+                    checkInEvent.put("createdAt", now);
                     checkInEvent.put("time", timeStr);
                     checkInEvent.put("date", dateStr);
                     checkInEvent.put("latitude", lat);
@@ -901,6 +919,12 @@ public class OfficeGeofenceHelper {
                     checkInEvent.put("deviceId", getDeviceId(context));
                     checkInEvent.put("syncStatus", "PENDING");
                     checkInEvent.put("retryCount", 0);
+                    checkInEvent.put("verificationStatus", "VERIFIED");
+                    checkInEvent.put("verificationMethod", "FRESH_FUSED_LOCATION");
+                    checkInEvent.put("authoritativeBoundaryMeters", 25);
+                    checkInEvent.put("locationAgeMs", locationAgeMs);
+                    checkInEvent.put("elapsedRealtimeAgeMs", elapsedRealtimeAgeMs);
+                    checkInEvent.put("verifiedAt", verifiedAtIso);
                 } catch (Exception e) {
                     Log.e(TAG, "Error constructing check-in JSON: " + e.getMessage());
                 }
@@ -914,7 +938,7 @@ public class OfficeGeofenceHelper {
                 editor.apply();
 
                 // Persist session
-                startActiveSession(context, employeeId, employeeName, townCity, dateStr, timeStr);
+                startActiveSession(context, employeeId, employeeName, townCity, dateStr, timeStr, "VERIFIED");
 
                 // Add to unconsumed events queue for JS bridge
                 addUnconsumedEvent(context, checkInEvent);
@@ -1412,6 +1436,10 @@ public class OfficeGeofenceHelper {
     }
 
     public static synchronized void startActiveSession(Context context, String employeeId, String employeeName, String townCity, String date, String checkInTime) {
+        startActiveSession(context, employeeId, employeeName, townCity, date, checkInTime, "VERIFIED");
+    }
+
+    public static synchronized void startActiveSession(Context context, String employeeId, String employeeName, String townCity, String date, String checkInTime, String verificationStatus) {
         if (context == null) return;
         try {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -1431,6 +1459,7 @@ public class OfficeGeofenceHelper {
             session.put("recordedExitTime", JSONObject.NULL);
             session.put("exitDetectedAt", JSONObject.NULL);
             session.put("exitSource", "NONE");
+            session.put("verificationStatus", verificationStatus != null ? verificationStatus : "VERIFIED");
 
             SharedPreferences.Editor editor = prefs.edit();
             editor.putString(KEY_ACTIVE_SESSION, session.toString());
