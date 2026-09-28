@@ -528,6 +528,11 @@ export const AutomaticAttendanceEngine = {
 
     if (!record) {
       if (eventType === 'CHECK_IN') {
+        if (source === 'AUTO_GEOFENCE' && distance > 25.0) {
+          console.warn(`[AutomaticAttendanceEngine] Rejected AUTO_GEOFENCE check-in outside 25m (${distance.toFixed(1)}m > 25m)`);
+          return null as any;
+        }
+
         // State Transition: OUTSIDE -> ENTERING -> CHECKED_IN
         record = {
           id: generateUUID(),
@@ -977,6 +982,17 @@ export const AutomaticAttendanceEngine = {
     const record = getTodayAttendanceRecord(employeeId, dateStr);
 
     if (!record || !record.checkInTime) {
+      const distance = getDistanceFromLatLonInM(
+        coords.latitude,
+        coords.longitude,
+        OFFICE_LOCATION.latitude,
+        OFFICE_LOCATION.longitude
+      );
+      if (distance > 25.0) {
+        console.warn(`[AutomaticAttendanceEngine] Ignored geofence entry: distance ${distance.toFixed(1)}m > 25.0m authoritative boundary.`);
+        return record as any;
+      }
+
       return this.transitionState(
         employeeId,
         employeeName,

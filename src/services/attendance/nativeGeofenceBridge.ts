@@ -1,5 +1,5 @@
 import { registerPlugin, Capacitor, PluginListenerHandle } from '@capacitor/core';
-import { AutomaticAttendanceEngine, getFormattedTimeStr } from './automaticAttendanceEngine';
+import { AutomaticAttendanceEngine, getFormattedTimeStr, getDistanceFromLatLonInM, OFFICE_LOCATION } from './automaticAttendanceEngine';
 import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { getApiBaseUrl } from '../../utils/apiConfig';
@@ -211,10 +211,34 @@ export const reconcileNativeGeofenceEvents = async (
             true
           );
         } else if (eventType === 'CHECK_IN' || evt.transition === 'ENTER') {
+          // STRICT RULE: Reject synthetic hardware fallbacks - raw geofence events only wake/prime
+          if (evt.source === 'HARDWARE_FALLBACK' || (evt as any).locationProvider === 'HARDWARE_FALLBACK') {
+            console.warn('[AUTO_CHECKIN_RECONCILE_REJECTED] Synthetic hardware fallback cannot create check-in:', evt.eventId);
+            continue;
+          }
+
+          // Calculate verified distance against authoritative 25m boundary
+          const dist = (typeof evt.distance === 'number') ? evt.distance :
+                       (typeof evt.distanceFromOffice === 'number') ? evt.distanceFromOffice :
+                       (evt.latitude && evt.longitude)
+                         ? getDistanceFromLatLonInM(evt.latitude, evt.longitude, OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude)
+                         : 999;
+
+          if (dist > 25.0) {
+            console.warn(`[AUTO_CHECKIN_RECONCILE_REJECTED] Verified distance ${dist.toFixed(1)}m > 25m authoritative boundary:`, evt.eventId);
+            continue;
+          }
+
+          // Ensure event has a valid timestamp and is not fabricated
+          if (!evt.timestamp && !evt.eventTimestamp) {
+            console.warn('[AUTO_CHECKIN_RECONCILE_REJECTED] Missing valid native timestamp:', evt.eventId);
+            continue;
+          }
+
           console.log('[NATIVE_GEOFENCE_ENTER_RECONCILED]', {
             employeeId,
             date: eventDate.toISOString().split('T')[0],
-            distance: evt.distance ?? evt.distanceFromOffice ?? 25,
+            distance: dist,
             timestamp: eventDate.toISOString(),
             localTime: timeKolkata,
             source: 'NATIVE_GEOFENCE'
@@ -223,7 +247,7 @@ export const reconcileNativeGeofenceEvents = async (
           AutomaticAttendanceEngine.processGeofenceEntry(
             employeeId,
             employeeName,
-            { latitude: evt.latitude || 23.616227, longitude: evt.longitude || 87.117063 },
+            { latitude: evt.latitude || OFFICE_LOCATION.latitude, longitude: evt.longitude || OFFICE_LOCATION.longitude },
             townCity || 'Raniganj HQ',
             eventDate
           );
@@ -291,7 +315,37 @@ export const initNativeGeofenceListener = async (
       const currentEmp = getEmployeeInfo();
       if (!currentEmp?.id) return;
 
-      const eventDate = (typeof evt.timestamp === 'number' && evt.timestamp > 0) ? new Date(evt.timestamp) : new Date(evt.timestamp || Date.now());
+      if (evt.employeeId && evt.employeeId !== currentEmp.id) {
+        console.warn(`[NativeGeofenceBridge] Ignored native checkin event for mismatched employee ID: ${evt.employeeId} vs ${currentEmp.id}`);
+        return;
+      }
+
+      if (evt.source === 'HARDWARE_FALLBACK' || (evt as any).locationProvider === 'HARDWARE_FALLBACK') {
+        console.warn(`[NativeGeofenceBridge] Ignored synthetic hardware checkin event: ${evt.eventId}`);
+        return;
+      }
+
+      // Verify distance <= 25m
+      const dist = (typeof evt.distance === 'number') ? evt.distance :
+                   (typeof evt.distanceFromOffice === 'number') ? evt.distanceFromOffice :
+                   (evt.latitude && evt.longitude)
+                     ? getDistanceFromLatLonInM(evt.latitude, evt.longitude, OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude)
+                     : 999;
+      if (dist > 25.0) {
+        console.warn(`[NativeGeofenceBridge] Ignored checkin event with distance ${dist.toFixed(1)}m > 25m boundary: ${evt.eventId}`);
+        return;
+      }
+
+      const eventDate = (typeof evt.timestamp === 'number' && evt.timestamp > 0)
+        ? new Date(evt.timestamp)
+        : (typeof evt.eventTimestamp === 'number' && evt.eventTimestamp > 0)
+          ? new Date(evt.eventTimestamp)
+          : null;
+      if (!eventDate || isNaN(eventDate.getTime())) {
+        console.warn(`[NativeGeofenceBridge] Ignored checkin event with invalid timestamp: ${evt.eventId}`);
+        return;
+      }
+
       logAttendanceEvent('GEOFENCE_ENTER', currentEmp.id, `Native authoritative check-in event received: ${evt.eventId} at ${evt.time}`);
       AutomaticAttendanceEngine.processGeofenceEntry(
         currentEmp.id,

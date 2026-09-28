@@ -13,6 +13,7 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.os.Build;
 import android.os.PowerManager;
+import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.core.content.ContextCompat;
@@ -75,6 +76,7 @@ public class OfficeGeofenceHelper {
 
     public static final float MAX_USABLE_ACCURACY_METERS = 50.0f; // Reject fixes with accuracy > 50m
     public static final long MAX_ATTENDANCE_LOCATION_AGE_MS = 120000L; // 2 minutes max age for authoritative attendance mutation
+    public static final long MAX_AUTHORITATIVE_CHECKIN_LOCATION_AGE_MS = 15000L; // 15 seconds max age for authoritative check-in location fix
     public static final long MIN_TRANSITION_COOLDOWN_MS = 60000L; // 60s cooldown to prevent boundary oscillation
     public static final String DEFAULT_SERVER_URL = "https://exfin-oms-enterprise-v5.pages.dev";
 
@@ -152,7 +154,7 @@ public class OfficeGeofenceHelper {
                     .build();
 
             GeofencingRequest request = new GeofencingRequest.Builder()
-                    .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER | GeofencingRequest.INITIAL_TRIGGER_DWELL)
+                    .setInitialTrigger(0) // Raw geofence events only wake/prime; 0 prevents initial trigger false positives upon registration
                     .addGeofence(authGeofence25m)
                     .addGeofence(assistGeofence100m)
                     .build();
@@ -377,8 +379,15 @@ public class OfficeGeofenceHelper {
         if (transitionType == Geofence.GEOFENCE_TRANSITION_ENTER || transitionType == Geofence.GEOFENCE_TRANSITION_DWELL) {
             if (distance <= AUTHORITATIVE_RADIUS_METERS) {
                 // Employee is already within authoritative 25m boundary!
-                Log.i(TAG, "[100M_ASSIST] Verified location is inside authoritative 25m boundary (" + String.format(Locale.US, "%.1f", distance) + "m <= 25m). Delegating to authoritative check-in.");
-                evaluateAttendanceDecision(context, fix, provider, Geofence.GEOFENCE_TRANSITION_ENTER, pendingResult, finishedFlag);
+                if (isLocationTrustworthyForCheckIn(fix)) {
+                    Log.i(TAG, "[100M_ASSIST] Verified location is inside authoritative 25m boundary (" + String.format(Locale.US, "%.1f", distance) + "m <= 25m). Delegating to authoritative check-in.");
+                    evaluateAttendanceDecision(context, fix, provider, Geofence.GEOFENCE_TRANSITION_ENTER, pendingResult, finishedFlag);
+                    return;
+                } else {
+                    Log.w(TAG, "[100M_ASSIST] Location inside 25m but failed check-in freshness/accuracy rules. Standing down without fabricating check-in.");
+                    safeFinishPendingResult(pendingResult, finishedFlag);
+                    return;
+                }
             } else {
                 // Within 100m assist zone, but OUTSIDE 25m boundary:
                 // STRICT RULE: DO NOT CHECK IN. DO NOT OPEN ATTENDANCE.
@@ -441,9 +450,13 @@ public class OfficeGeofenceHelper {
                                     double d = calculateDistance(loc.getLatitude(), loc.getLongitude(), OFFICE_LAT, OFFICE_LNG);
                                     Log.i(TAG, "[100M_ASSIST_CHECK #" + count + "] Distance: " + String.format(Locale.US, "%.1f", d) + "m (acc=" + loc.getAccuracy() + "m)");
                                     if (d <= AUTHORITATIVE_RADIUS_METERS) {
-                                        Log.i(TAG, "[100M_ASSIST] Boundary crossed inside 25m (" + String.format(Locale.US, "%.1f", d) + "m <= 25m)! Triggering authoritative check-in and stopping assist window.");
-                                        stopTemporaryAssistAwareness();
-                                        evaluateAttendanceDecision(appContext, loc, "FUSED_CURRENT", Geofence.GEOFENCE_TRANSITION_ENTER, null, null);
+                                        if (isLocationTrustworthyForCheckIn(loc)) {
+                                            Log.i(TAG, "[100M_ASSIST] Boundary crossed inside 25m (" + String.format(Locale.US, "%.1f", d) + "m <= 25m)! Triggering authoritative check-in and stopping assist window.");
+                                            stopTemporaryAssistAwareness();
+                                            evaluateAttendanceDecision(appContext, loc, "FUSED_CURRENT", Geofence.GEOFENCE_TRANSITION_ENTER, null, null);
+                                        } else {
+                                            Log.w(TAG, "[100M_ASSIST] Fix <= 25m but not trustworthy for check-in yet. Continuing assist window.");
+                                        }
                                     }
                                 }
                             })
@@ -521,15 +534,22 @@ public class OfficeGeofenceHelper {
                                 Log.i(TAG, "[FUSED_CURRENT] Fresh high-accuracy location obtained: " + location.getLatitude() + ", " + location.getLongitude() +
                                         " (acc=" + location.getAccuracy() + "m, dist=" + String.format(Locale.US, "%.1f", dist) + "m)");
 
-                                if (isEnterOrDwell && dist <= AUTHORITATIVE_RADIUS_METERS) {
-                                    evaluateAttendanceDecision(context, location, "FUSED_CURRENT", transitionType, pendingResult, finishedFlag);
-                                    return;
-                                } else if (isExit && dist > AUTHORITATIVE_RADIUS_METERS) {
-                                    processExitTransition(context, location, "NATIVE_GEOFENCE_VERIFIED", "FUSED_CURRENT", pendingResult, finishedFlag);
-                                    return;
-                                } else {
-                                    Log.i(TAG, "[FUSED_CURRENT] Fresh location did not confirm transition (" + String.format(Locale.US, "%.1f", dist) + "m for transition=" + transitionType + "). Checking triggeringLocation fallback.");
-                                    fallbackToTrustworthyLocation(context, fusedClient, triggerLocation, transitionType, pendingResult, finishedFlag);
+                                if (isEnterOrDwell) {
+                                    if (dist <= AUTHORITATIVE_RADIUS_METERS && isLocationTrustworthyForCheckIn(location)) {
+                                        evaluateAttendanceDecision(context, location, "FUSED_CURRENT", transitionType, pendingResult, finishedFlag);
+                                        return;
+                                    } else {
+                                        Log.i(TAG, "[FUSED_CURRENT] Fresh location did not confirm enter (dist=" + String.format(Locale.US, "%.1f", dist) + "m for transition=" + transitionType + "). Checking triggeringLocation fallback.");
+                                        fallbackToTrustworthyLocation(context, fusedClient, triggerLocation, transitionType, pendingResult, finishedFlag);
+                                    }
+                                } else if (isExit) {
+                                    if (dist > AUTHORITATIVE_RADIUS_METERS && isLocationTrustworthyForAttendance(location)) {
+                                        processExitTransition(context, location, "NATIVE_GEOFENCE_VERIFIED", "FUSED_CURRENT", pendingResult, finishedFlag);
+                                        return;
+                                    } else {
+                                        Log.i(TAG, "[FUSED_CURRENT] Fresh location did not confirm exit (" + String.format(Locale.US, "%.1f", dist) + "m for transition=" + transitionType + "). Checking triggeringLocation fallback.");
+                                        fallbackToTrustworthyLocation(context, fusedClient, triggerLocation, transitionType, pendingResult, finishedFlag);
+                                    }
                                 }
                             } else {
                                 Log.w(TAG, "[FUSED_CURRENT] Location is null or not trustworthy. Checking fallback.");
@@ -564,15 +584,15 @@ public class OfficeGeofenceHelper {
         boolean isExit = (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT);
 
         // PRIORITY 2: Check if geofence triggerLocation is valid, fresh, and trustworthy
-        if (triggerLocation != null && isLocationTrustworthyForAttendance(triggerLocation)) {
+        if (triggerLocation != null) {
             double trigDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
-            if (isEnterOrDwell && trigDist <= AUTHORITATIVE_RADIUS_METERS) {
+            if (isEnterOrDwell && trigDist <= AUTHORITATIVE_RADIUS_METERS && isLocationTrustworthyForCheckIn(triggerLocation)) {
                 Log.i(TAG, "[GEOFENCE_TRIGGER] Geofence triggerLocation verified inside 25m boundary: " +
                         String.format(Locale.US, "%.1f", trigDist) + "m <= " + AUTHORITATIVE_RADIUS_METERS +
                         "m (acc=" + triggerLocation.getAccuracy() + "m). Executing check-in.");
                 evaluateAttendanceDecision(context, triggerLocation, "GEOFENCE_TRIGGER", transitionType, pendingResult, finishedFlag);
                 return;
-            } else if (isExit && trigDist > AUTHORITATIVE_RADIUS_METERS) {
+            } else if (isExit && trigDist > AUTHORITATIVE_RADIUS_METERS && isLocationTrustworthyForAttendance(triggerLocation)) {
                 Log.i(TAG, "[GEOFENCE_TRIGGER] Geofence triggerLocation verified outside 25m boundary: " +
                         String.format(Locale.US, "%.1f", trigDist) + "m > " + AUTHORITATIVE_RADIUS_METERS +
                         "m (acc=" + triggerLocation.getAccuracy() + "m). Executing exit processing.");
@@ -603,13 +623,11 @@ public class OfficeGeofenceHelper {
             Log.i(TAG, "[EXIT Hardware Fallback] Play Services hardware verified exit from 25m geofence. Processing native exit event.");
             processExitTransition(context, hwExitLoc, "NATIVE_GEOFENCE_HARDWARE_EXIT", "HARDWARE_FALLBACK", pendingResult, finishedFlag);
         } else {
-            Location hwEnterLoc = new Location("geofence_hardware_enter");
-            hwEnterLoc.setLatitude(OFFICE_LAT);
-            hwEnterLoc.setLongitude(OFFICE_LNG);
-            hwEnterLoc.setAccuracy(25.0f);
-            hwEnterLoc.setTime(System.currentTimeMillis());
-            Log.i(TAG, "[ENTER Hardware Fallback] Play Services hardware verified entry to 25m geofence. Processing native check-in event.");
-            evaluateAttendanceDecision(context, hwEnterLoc, "HARDWARE_FALLBACK", transitionType, pendingResult, finishedFlag);
+            // Raw Android geofence events must ONLY wake/prime the native location engine.
+            // A geofence enter event MUST NEVER by itself create an authoritative check-in.
+            // Synthetic HARDWARE_FALLBACK for check-in is strictly removed.
+            Log.i(TAG, "[AUTO_CHECKIN_PENDING_VERIFICATION] Play Services geofence enter event did not obtain a fresh physical location <= 25m. Hardware fallback for check-in is removed. Check-in suppressed.");
+            safeFinishPendingResult(pendingResult, finishedFlag);
         }
     }
 
@@ -675,6 +693,58 @@ public class OfficeGeofenceHelper {
             Log.w(TAG, "[ATTENDANCE_FRESHNESS] Rejected stale location fix for attendance mutation: age=" + (ageMs / 1000) + "s > " + (MAX_ATTENDANCE_LOCATION_AGE_MS / 1000) + "s (provider=" + location.getProvider() + ")");
             return false;
         }
+        return true;
+    }
+
+    /**
+     * Strictest validation exclusively for Authoritative CHECK_IN:
+     * - Coordinates must be valid and non-zero
+     * - Accuracy must be <= 50.0m
+     * - Fix must have a valid positive timestamp
+     * - Wall-clock age must be <= 15000ms (15 seconds)
+     * - Elapsed realtime age (when available) must be <= 15000ms
+     * - Provider must not be synthetic or hardware fallback
+     */
+    public static boolean isLocationTrustworthyForCheckIn(Location location) {
+        if (!validateLocation(location)) {
+            Log.w(TAG, "[CHECKIN_VERIFICATION] Location failed validateLocation");
+            return false;
+        }
+        if (location.getTime() <= 0) {
+            Log.w(TAG, "[CHECKIN_VERIFICATION] Rejected location with missing timestamp");
+            return false;
+        }
+
+        // 1. Android elapsed realtime validation (nanosecond monotonic clock)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+            long locElapsedNanos = location.getElapsedRealtimeNanos();
+            if (locElapsedNanos > 0) {
+                long currentElapsedNanos = SystemClock.elapsedRealtimeNanos();
+                long elapsedAgeMs = (currentElapsedNanos - locElapsedNanos) / 1000000L;
+                if (elapsedAgeMs > MAX_AUTHORITATIVE_CHECKIN_LOCATION_AGE_MS || elapsedAgeMs < -1000L) {
+                    Log.w(TAG, "[CHECKIN_VERIFICATION] Rejected by elapsedRealtime: age=" + elapsedAgeMs + "ms > " + MAX_AUTHORITATIVE_CHECKIN_LOCATION_AGE_MS + "ms");
+                    return false;
+                }
+            }
+        }
+
+        // 2. Wall clock freshness validation
+        long wallClockAgeMs = Math.abs(System.currentTimeMillis() - location.getTime());
+        if (wallClockAgeMs > MAX_AUTHORITATIVE_CHECKIN_LOCATION_AGE_MS) {
+            Log.w(TAG, "[CHECKIN_VERIFICATION] Rejected by wallClock: age=" + wallClockAgeMs + "ms > " + MAX_AUTHORITATIVE_CHECKIN_LOCATION_AGE_MS + "ms");
+            return false;
+        }
+
+        // 3. Provider check: Must not be synthetic or hardware fallback
+        String provider = location.getProvider();
+        if (provider != null) {
+            String lower = provider.toLowerCase(Locale.US);
+            if (lower.contains("hardware") || lower.contains("synthetic") || lower.contains("mock")) {
+                Log.w(TAG, "[CHECKIN_VERIFICATION] Rejected synthetic provider for check-in: " + provider);
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -778,6 +848,29 @@ public class OfficeGeofenceHelper {
             }
 
             if (!"INSIDE".equals(lastKnownState) || !hasOpenSession) {
+                // ABSOLUTE RULE FOR AUTHORITATIVE CHECK-IN:
+                // Verify fresh Fused Location fix <= 25m, non-synthetic, age <= 15s
+                if (!isLocationTrustworthyForCheckIn(location)) {
+                    Log.w(TAG, "[AUTO_CHECKIN_PENDING_VERIFICATION] evaluateAttendanceDecision rejected check-in: location not trustworthy for check-in (age > 15s or inaccurate, provider=" + locationProvider + ")");
+                    safeFinishPendingResult(pendingResult, finishedFlag);
+                    return;
+                }
+                if (distance > AUTHORITATIVE_RADIUS_METERS) {
+                    Log.w(TAG, "[AUTO_CHECKIN_PENDING_VERIFICATION] evaluateAttendanceDecision rejected check-in: distance " + String.format(Locale.US, "%.1f", distance) + "m > " + AUTHORITATIVE_RADIUS_METERS + "m");
+                    safeFinishPendingResult(pendingResult, finishedFlag);
+                    return;
+                }
+                if ("HARDWARE_FALLBACK".equals(locationProvider) || (location.getProvider() != null && location.getProvider().toLowerCase(Locale.US).contains("hardware"))) {
+                    Log.w(TAG, "[AUTO_CHECKIN_PENDING_VERIFICATION] evaluateAttendanceDecision rejected synthetic hardware fallback for check-in.");
+                    safeFinishPendingResult(pendingResult, finishedFlag);
+                    return;
+                }
+                if (location.getTime() <= 0) {
+                    Log.w(TAG, "[AUTO_CHECKIN_PENDING_VERIFICATION] evaluateAttendanceDecision rejected check-in: missing location timestamp.");
+                    safeFinishPendingResult(pendingResult, finishedFlag);
+                    return;
+                }
+
                 Log.i(TAG, "=== NATIVE AUTHORITATIVE CHECK-IN TRIGGERED (Distance: " + String.format(Locale.US, "%.1f", distance) + "m <= 25m, Provider: " + locationProvider + ") ===");
                 logNativeAttendanceTimestampDiagnostic("CHECK_IN", "NATIVE_GEOFENCE", locationProvider, location, distance, employeeId);
 
