@@ -612,16 +612,12 @@ public class OfficeGeofenceHelper {
             });
         } catch (Exception ignored) {}
 
-        // Google Play Services hardware geofence verified the 25m boundary transition.
-        // Rule 8: Preserve transition as a hardware fallback native event without fabricating a false physical GPS location.
+        // Google Play Services hardware geofence verified the authoritative 25m boundary transition.
+        // Primary 25m Exit Fallback: Creates an authoritative PENDING CHECKOUT CANDIDATE.
+        // Does NOT finalize checkout. Does NOT fabricate synthetic GPS coordinates.
         if (isExit) {
-            Location hwExitLoc = new Location("geofence_hardware_exit");
-            hwExitLoc.setLatitude(OFFICE_LAT + 0.00025);
-            hwExitLoc.setLongitude(OFFICE_LNG + 0.00025);
-            hwExitLoc.setAccuracy(25.0f);
-            hwExitLoc.setTime(System.currentTimeMillis());
-            Log.i(TAG, "[EXIT Hardware Fallback] Play Services hardware verified exit from 25m geofence. Processing native exit event.");
-            processExitTransition(context, hwExitLoc, "NATIVE_GEOFENCE_HARDWARE_EXIT", "HARDWARE_FALLBACK", pendingResult, finishedFlag);
+            Log.i(TAG, "[EXIT Hardware Fallback] Play Services hardware verified exit from 25m geofence without fresh GPS fix. Processing geofence exit candidate.");
+            processGeofenceExitCandidate(context, triggerLocation, "NATIVE_GEOFENCE_HARDWARE_EXIT", pendingResult, finishedFlag);
         } else {
             // Raw Android geofence events must ONLY wake/prime the native location engine.
             // A geofence enter event MUST NEVER by itself create an authoritative check-in.
@@ -831,7 +827,8 @@ public class OfficeGeofenceHelper {
 
             JSONObject activeSession = getActiveSession(context);
             String sessionState = activeSession != null ? activeSession.optString("sessionState", "") : "";
-            if ("PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(sessionState)) {
+            String checkoutStatus = activeSession != null ? activeSession.optString("checkoutStatus", "") : "";
+            if ("PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(sessionState) || "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(sessionState) || "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(checkoutStatus)) {
                 Log.i(TAG, "=== NATIVE RETURN TO OFFICE DETECTED (Inside 25m) ===");
                 processReturnTransition(context, location, "NATIVE_GEOFENCE_VERIFIED", pendingResult, finishedFlag);
                 return;
@@ -966,6 +963,214 @@ public class OfficeGeofenceHelper {
         }
 
         safeFinishPendingResult(pendingResult, finishedFlag);
+    }
+
+    /**
+     * Authoritative 25m Geofence EXIT Candidate Fallback.
+     *
+     * Triggered when Google Play Services fires a primary 25m GEOFENCE_TRANSITION_EXIT
+     * but subsequent high-accuracy Fused Location fix is unavailable, timed out, null,
+     * or fails strict location validation.
+     *
+     * In accordance with Core Business Rules:
+     * 1. 25m boundary is preserved (exit detected by Play Services 25m hardware geofence).
+     * 2. This does NOT finalize checkout and does NOT set checkOutTime.
+     * 3. It creates an explicit PENDING_AUTO_CHECKOUT candidate.
+     * 4. Does NOT fabricate synthetic GPS coordinates.
+     * 5. Uses triggerLocation.getTime() when available; otherwise event receipt time with
+     *    timestampQuality = "GEOFENCE_EVENT_RECEIPT".
+     * 6. Dispatches native notification to JS so CheckoutConfirmationModal appears.
+     */
+    public static synchronized void processGeofenceExitCandidate(Context context, Location triggerLocation, String source, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
+        if (context == null) {
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        JSONObject activeSession = getActiveSession(context);
+
+        // Date strings in Asia/Kolkata timezone
+        SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        sdfDate.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
+        String todayDateStr = sdfDate.format(new Date());
+
+        // A. Verify there is an active attendance session for today's date
+        if (activeSession == null) {
+            Log.w(TAG, "[EXIT_CANDIDATE_IGNORED] No active attendance session found. Exit candidate suppressed.");
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
+        String sessionDate = activeSession.optString("date", "");
+        if (!todayDateStr.equals(sessionDate)) {
+            Log.w(TAG, "[EXIT_CANDIDATE_IGNORED] Active session date (" + sessionDate + ") does not match today (" + todayDateStr + "). Exit candidate suppressed.");
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
+        // B. Verify today's attendance has a valid check-in
+        String checkInTime = activeSession.optString("checkInTime", "");
+        if (checkInTime == null || checkInTime.trim().isEmpty() || "--:--".equals(checkInTime) || "null".equalsIgnoreCase(checkInTime)) {
+            Log.w(TAG, "[EXIT_CANDIDATE_IGNORED] Active session has no valid check-in time ('" + checkInTime + "'). Exit candidate suppressed.");
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
+        // C. Verify checkout is still missing (session is not already finalized/checked out)
+        String sessionState = activeSession.optString("sessionState", "");
+        String checkoutStatus = activeSession.optString("checkoutStatus", "");
+        String checkOutTime = activeSession.optString("checkOutTime", "");
+        boolean isAlreadyFinalized = "FINALIZED".equalsIgnoreCase(sessionState) ||
+                                     "FINALIZED".equalsIgnoreCase(checkoutStatus) ||
+                                     "COMPLETED".equalsIgnoreCase(checkoutStatus) ||
+                                     (checkOutTime != null && !checkOutTime.trim().isEmpty() && !"null".equalsIgnoreCase(checkOutTime) && !"--:--".equals(checkOutTime));
+
+        if (isAlreadyFinalized) {
+            Log.i(TAG, "[EXIT_CANDIDATE_IGNORED] Session already finalized/checked out. Exit candidate suppressed.");
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
+        // E. Best available geofence event timestamp (no System.currentTimeMillis() overwrite if trigger location has valid time)
+        long eventTimestamp;
+        String timestampQuality;
+        if (triggerLocation != null && triggerLocation.getTime() > 0) {
+            eventTimestamp = triggerLocation.getTime();
+            timestampQuality = "TRIGGER_LOCATION_TIME";
+        } else {
+            eventTimestamp = System.currentTimeMillis();
+            timestampQuality = "GEOFENCE_EVENT_RECEIPT";
+        }
+
+        Date eventDate = new Date(eventTimestamp);
+        SimpleDateFormat sdfTime = new SimpleDateFormat("hh:mm a", Locale.US);
+        sdfTime.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
+        String timeStr = sdfTime.format(eventDate);
+
+        SimpleDateFormat isoSdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+        isoSdf.setTimeZone(TimeZone.getTimeZone("UTC"));
+        String isoTimestamp = isoSdf.format(eventDate);
+
+        // Coordinates: ONLY use actual triggerLocation coordinates when available. DO NOT fabricate coordinates!
+        Double lat = null;
+        Double lng = null;
+        Float accuracy = null;
+        Double distance = null;
+
+        if (triggerLocation != null && !Double.isNaN(triggerLocation.getLatitude()) && !Double.isNaN(triggerLocation.getLongitude())) {
+            lat = triggerLocation.getLatitude();
+            lng = triggerLocation.getLongitude();
+            if (triggerLocation.hasAccuracy()) {
+                accuracy = triggerLocation.getAccuracy();
+            }
+            distance = calculateDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
+            saveLastLocationDiagnostic(context, lat, lng, accuracy != null ? accuracy : 25.0f, eventTimestamp, distance);
+        }
+
+        String employeeId = activeSession.optString("employeeId", prefs.getString("employee_id", ""));
+        String employeeName = activeSession.optString("employeeName", prefs.getString("employee_name", "Employee"));
+        String townCity = activeSession.optString("townCity", prefs.getString("town_city", "Raniganj HQ"));
+
+        // D. Create unique EXIT event ID
+        String uniqueExitEventId = "evt_native_EXIT_CANDIDATE_" + employeeId + "_" + sessionDate + "_" + eventTimestamp;
+        Log.i(TAG, "=== NATIVE AUTHORITATIVE 25M GEOFENCE EXIT CANDIDATE: " + uniqueExitEventId + " at " + timeStr + " (quality=" + timestampQuality + ", source=" + source + ") ===");
+
+        // F. Set pendingCheckoutConfirmation, pendingCheckoutEventId, currentState, checkoutStatus
+        try {
+            activeSession.put("pendingCheckoutConfirmation", true);
+            activeSession.put("pendingCheckoutEventId", uniqueExitEventId);
+            activeSession.put("currentState", "PENDING_AUTO_CHECKOUT");
+            activeSession.put("checkoutStatus", "PENDING_AUTO_CHECKOUT");
+            activeSession.put("sessionState", "PENDING_EXIT_CONFIRMATION");
+
+            // G. Preserve historical EXIT event
+            String existingRecordedExitTime = activeSession.optString("recordedExitTime", null);
+            if (existingRecordedExitTime == null || existingRecordedExitTime.isEmpty() || "null".equals(existingRecordedExitTime)) {
+                activeSession.put("recordedExitTime", timeStr);
+                activeSession.put("exitDetectedAt", isoTimestamp);
+                activeSession.put("exitSource", source);
+            }
+            activeSession.put("timestampQuality", timestampQuality);
+        } catch (Exception e) {
+            Log.e(TAG, "Error updating activeSession with exit candidate: " + e.getMessage());
+        }
+
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString(KEY_ACTIVE_SESSION, activeSession.toString());
+        editor.putString(KEY_LAST_KNOWN_STATE, "OUTSIDE");
+        editor.putLong(KEY_LAST_CHECKOUT_TIMESTAMP, eventTimestamp);
+        editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, eventTimestamp);
+        editor.putString(KEY_LAST_PROCESSED_EVENT_ID, uniqueExitEventId);
+        editor.putString(KEY_LAST_EXIT_TIME, timeStr);
+        editor.putBoolean("pendingCheckoutConfirmation", true);
+        editor.putString("pendingCheckoutEventId", uniqueExitEventId);
+        editor.putString("currentState", "PENDING_AUTO_CHECKOUT");
+        editor.putString("checkoutStatus", "PENDING_AUTO_CHECKOUT");
+        editor.apply();
+
+        // Build exit candidate event
+        JSONObject exitEvent = new JSONObject();
+        try {
+            exitEvent.put("eventId", uniqueExitEventId);
+            exitEvent.put("employeeId", employeeId);
+            exitEvent.put("employeeName", employeeName);
+            exitEvent.put("townCity", townCity);
+            exitEvent.put("eventType", "CHECK_OUT");
+            exitEvent.put("transition", "EXIT");
+            exitEvent.put("timestamp", eventTimestamp);
+            exitEvent.put("eventTimestamp", eventTimestamp);
+            exitEvent.put("exitTimestamp", eventTimestamp);
+            exitEvent.put("createdAt", System.currentTimeMillis());
+            exitEvent.put("time", timeStr);
+            exitEvent.put("date", sessionDate);
+            if (lat != null && lng != null) {
+                exitEvent.put("latitude", lat.doubleValue());
+                exitEvent.put("longitude", lng.doubleValue());
+                if (accuracy != null) exitEvent.put("accuracy", accuracy.floatValue());
+                if (distance != null) {
+                    exitEvent.put("distanceFromOffice", distance.doubleValue());
+                    exitEvent.put("distance", distance.doubleValue());
+                }
+            } else {
+                exitEvent.put("latitude", JSONObject.NULL);
+                exitEvent.put("longitude", JSONObject.NULL);
+                exitEvent.put("accuracy", JSONObject.NULL);
+                exitEvent.put("distanceFromOffice", JSONObject.NULL);
+                exitEvent.put("distance", JSONObject.NULL);
+            }
+            exitEvent.put("source", source);
+            exitEvent.put("locationProvider", triggerLocation != null ? triggerLocation.getProvider() : "GEOFENCE_HARDWARE");
+            exitEvent.put("timestampQuality", timestampQuality);
+            exitEvent.put("isExitCandidate", true);
+            exitEvent.put("pendingCheckoutConfirmation", true);
+            exitEvent.put("pendingCheckoutEventId", uniqueExitEventId);
+            exitEvent.put("currentState", "PENDING_AUTO_CHECKOUT");
+            exitEvent.put("checkoutStatus", "PENDING_AUTO_CHECKOUT");
+            exitEvent.put("schemaVersion", SCHEMA_VERSION);
+            exitEvent.put("deviceId", getDeviceId(context));
+            exitEvent.put("syncStatus", "PENDING");
+            exitEvent.put("retryCount", 0);
+        } catch (Exception e) {
+            Log.e(TAG, "Error constructing exit candidate JSON: " + e.getMessage());
+        }
+
+        // H. Add to KEY_EVENTS and KEY_SYNC_QUEUE
+        addUnconsumedEvent(context, exitEvent);
+        addEventToSyncQueue(context, exitEvent);
+
+        // I. Notify JavaScript if WebView/Capacitor is active
+        GeofencePlugin.notifyNativeCheckOut(exitEvent);
+
+        // J. Also notify transition with actual coordinates if available (do not fabricate)
+        if (lat != null && lng != null) {
+            GeofencePlugin.notifyNativeTransition("EXIT", lat.doubleValue(), lng.doubleValue(), eventTimestamp);
+        } else {
+            GeofencePlugin.notifyNativeTransition("EXIT", Double.NaN, Double.NaN, eventTimestamp);
+        }
+
+        // K & L. Trigger background sync & finish PendingResult safely
+        triggerBackgroundSync(context, pendingResult, finishedFlag);
     }
 
     public static synchronized void processExitTransition(Context context, Location location, String source, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
@@ -1202,7 +1407,7 @@ public class OfficeGeofenceHelper {
         if (session != null) {
             String sessDate = session.optString("date", "");
             String state = session.optString("sessionState", "");
-            return dateStr.equals(sessDate) && ("ACTIVE".equalsIgnoreCase(state) || "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(state));
+            return dateStr.equals(sessDate) && ("ACTIVE".equalsIgnoreCase(state) || "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(state) || "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(state));
         }
         return false;
     }
@@ -1568,16 +1773,22 @@ public class OfficeGeofenceHelper {
 
             JSONObject session = new JSONObject(sessionStr);
             String sessionState = session.optString("sessionState");
-            if ("PENDING_EXIT_CONFIRMATION".equals(sessionState) || "ACTIVE".equals(sessionState)) {
+            if ("PENDING_EXIT_CONFIRMATION".equals(sessionState) || "ACTIVE".equals(sessionState) || "PENDING_AUTO_CHECKOUT".equals(sessionState)) {
                 session.put("recordedExitTime", JSONObject.NULL);
                 session.put("exitDetectedAt", JSONObject.NULL);
                 session.put("exitSource", "NONE");
                 session.put("sessionState", "ACTIVE");
                 session.put("checkoutStatus", "ACTIVE");
+                session.put("pendingCheckoutConfirmation", false);
+                session.put("pendingCheckoutEventId", JSONObject.NULL);
                 SharedPreferences.Editor editor = prefs.edit();
                 editor.putString(KEY_ACTIVE_SESSION, session.toString());
                 editor.putString(KEY_LAST_KNOWN_STATE, "INSIDE");
                 editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, System.currentTimeMillis());
+                editor.putBoolean("pendingCheckoutConfirmation", false);
+                editor.putString("pendingCheckoutEventId", null);
+                editor.putString("currentState", "CHECKED_IN");
+                editor.putString("checkoutStatus", "ACTIVE");
                 editor.apply();
                 Log.i(TAG, "[NATIVE_RETURN_CANCELLED] Stay Active / Return to office executed. Cancelled pending exit state while preserving authoritative lastExitTime.");
             }

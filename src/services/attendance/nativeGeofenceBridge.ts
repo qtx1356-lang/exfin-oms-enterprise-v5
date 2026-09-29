@@ -185,7 +185,7 @@ export const reconcileNativeGeofenceEvents = async (
             townCity || 'Raniganj HQ',
             eventDate
           );
-        } else if (eventType === 'CHECK_OUT' || evt.transition === 'EXIT') {
+        } else if (eventType === 'CHECK_OUT' || evt.transition === 'EXIT' || (evt as any).isExitCandidate) {
           console.log('[AUTO_EXIT_DETECTED]', {
             employeeId,
             timestamp: eventDate.toISOString(),
@@ -202,10 +202,15 @@ export const reconcileNativeGeofenceEvents = async (
             source: 'NATIVE_GEOFENCE'
           });
           logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[NATIVE_GEOFENCE_EXIT_RECONCILED] Reconciled native exit event at ${timeKolkata} (${eventDate.toISOString()})`);
+          
+          const validCoords = (typeof evt.latitude === 'number' && typeof evt.longitude === 'number' && !isNaN(evt.latitude) && !isNaN(evt.longitude))
+            ? { latitude: evt.latitude, longitude: evt.longitude }
+            : {};
+
           AutomaticAttendanceEngine.processGeofenceExit(
             employeeId,
             employeeName,
-            { latitude: evt.latitude || 23.616227, longitude: evt.longitude || 87.117063 },
+            validCoords,
             townCity || 'Raniganj HQ',
             eventDate,
             true
@@ -395,10 +400,14 @@ export const initNativeGeofenceListener = async (
           ? new Date(evt.eventTimestamp)
           : new Date();
       logAttendanceEvent('GEOFENCE_EXIT', currentEmp.id, `Native authoritative check-out event received: ${evt.eventId} at ${evt.time}`);
+      const validCoords = (typeof evt.latitude === 'number' && typeof evt.longitude === 'number' && !isNaN(evt.latitude) && !isNaN(evt.longitude))
+        ? { latitude: evt.latitude, longitude: evt.longitude }
+        : {};
+
       AutomaticAttendanceEngine.processGeofenceExit(
         currentEmp.id,
         currentEmp.name,
-        { latitude: evt.latitude, longitude: evt.longitude },
+        validCoords,
         currentEmp.townCity || 'Raniganj HQ',
         eventDate,
         true

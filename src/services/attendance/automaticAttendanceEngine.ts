@@ -476,7 +476,7 @@ export const AutomaticAttendanceEngine = {
   transitionState(
     employeeId: string,
     employeeName: string,
-    coords: { latitude: number; longitude: number },
+    coords: { latitude?: number; longitude?: number },
     townCity: string,
     eventType: AttendanceEventType,
     source: 'AUTO_GEOFENCE' | 'MANUAL' | 'AUTO_SYSTEM_END_OF_DAY',
@@ -496,12 +496,15 @@ export const AutomaticAttendanceEngine = {
     const timeStr = getFormattedTimeStr(eventTimestamp);
     const eventIso = eventTimestamp.toISOString();
 
-    const distance = getDistanceFromLatLonInM(
-      coords.latitude,
-      coords.longitude,
-      OFFICE_LOCATION.latitude,
-      OFFICE_LOCATION.longitude
-    );
+    const hasValidCoords = coords && typeof coords.latitude === 'number' && typeof coords.longitude === 'number' && !isNaN(coords.latitude) && !isNaN(coords.longitude);
+    const distance = hasValidCoords
+      ? getDistanceFromLatLonInM(
+          coords.latitude!,
+          coords.longitude!,
+          OFFICE_LOCATION.latitude,
+          OFFICE_LOCATION.longitude
+        )
+      : 25.0;
 
     const eventId = generateIdempotentEventId(employeeId, dateStr, eventType, timeStr);
 
@@ -522,12 +525,12 @@ export const AutomaticAttendanceEngine = {
       eventType,
       eventTime: timeStr,
       createdAt: eventIso,
-      location: {
-        latitude: coords.latitude,
-        longitude: coords.longitude,
+      location: hasValidCoords ? {
+        latitude: coords.latitude!,
+        longitude: coords.longitude!,
         townCity: townCity || 'Raniganj HQ',
         distance
-      },
+      } : undefined,
       attendanceMode,
       source
     });
@@ -714,7 +717,15 @@ export const AutomaticAttendanceEngine = {
         break;
 
       case 'GEOFENCE_EXIT':
-        if (record.currentState === 'CHECKED_IN' || record.currentState === 'ENTERING' || record.currentState === 'RETURNING_TO_OFFICE' || !record.currentState) {
+        if (
+          record.currentState === 'CHECKED_IN' ||
+          record.currentState === 'ENTERING' ||
+          record.currentState === 'RETURNING_TO_OFFICE' ||
+          record.currentState === 'PENDING_AUTO_CHECKOUT' ||
+          record.currentState === 'PENDING_EXIT_CONFIRMATION' ||
+          record.pendingCheckoutConfirmation ||
+          !record.currentState
+        ) {
           // State Transition: CHECKED_IN / RETURNING_TO_OFFICE -> PENDING_AUTO_CHECKOUT
           const newTimestampMs = eventTimestamp.getTime();
           const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : 0;
@@ -742,7 +753,8 @@ export const AutomaticAttendanceEngine = {
           record.syncStatus = 'Pending';
           record.updatedAt = new Date().toISOString();
 
-          if (coords) {
+          const hasValidCoords = coords && typeof coords.latitude === 'number' && typeof coords.longitude === 'number' && !isNaN(coords.latitude) && !isNaN(coords.longitude);
+          if (hasValidCoords) {
             record.checkoutLatitude = coords.latitude;
             record.checkoutLongitude = coords.longitude;
             record.checkoutDistance = distance;
@@ -759,9 +771,9 @@ export const AutomaticAttendanceEngine = {
             eventTime: timeStr,
             timestamp: eventIso,
             source: record.exitDetectionSource || 'NATIVE_GEOFENCE',
-            location: coords ? {
-              latitude: coords.latitude,
-              longitude: coords.longitude,
+            location: hasValidCoords ? {
+              latitude: coords.latitude!,
+              longitude: coords.longitude!,
               distance,
               townCity: townCity || 'Raniganj HQ'
             } : undefined,
@@ -775,9 +787,9 @@ export const AutomaticAttendanceEngine = {
             attendanceDate: dateStr,
             eventType: 'GEOFENCE_EXIT',
             eventTime: timeStr,
-            location: coords ? {
-              latitude: coords.latitude,
-              longitude: coords.longitude,
+            location: hasValidCoords ? {
+              latitude: coords.latitude!,
+              longitude: coords.longitude!,
               townCity: townCity || 'Raniganj HQ',
               distance
             } : undefined,
@@ -1144,7 +1156,7 @@ export const AutomaticAttendanceEngine = {
   processGeofenceExit(
     employeeId: string,
     employeeName: string,
-    coords: { latitude: number; longitude: number },
+    coords: { latitude?: number; longitude?: number },
     townCity: string,
     timestamp: Date = new Date(),
     isNativeEvent: boolean = false
@@ -1160,12 +1172,13 @@ export const AutomaticAttendanceEngine = {
     const record = getTodayAttendanceRecord(employeeId, dateStr);
 
     const timeKolkata = getFormattedTimeStr(timestamp);
+    const hasValidCoords = coords && typeof coords.latitude === 'number' && typeof coords.longitude === 'number' && !isNaN(coords.latitude) && !isNaN(coords.longitude);
     console.log('[AUTO_EXIT_DETECTED]', {
       employeeId,
       timestamp: timestamp.toISOString(),
       localTime: timeKolkata,
       source: isNativeEvent ? 'NATIVE_GEOFENCE' : 'AUTO_GEOFENCE',
-      distance: coords ? Math.round(getDistanceFromLatLonInM(coords.latitude, coords.longitude, OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude)) : 25
+      distance: hasValidCoords ? Math.round(getDistanceFromLatLonInM(coords.latitude!, coords.longitude!, OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude)) : 25
     });
 
     if (

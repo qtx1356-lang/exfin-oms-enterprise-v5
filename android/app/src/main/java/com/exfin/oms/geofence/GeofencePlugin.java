@@ -105,8 +105,16 @@ public class GeofencePlugin extends Plugin {
                 ret.put("transition", transition);
                 ret.put("time", timeStr);
                 ret.put("date", dateStr);
-                ret.put("latitude", lat);
-                ret.put("longitude", lng);
+                if (!Double.isNaN(lat) && !Double.isInfinite(lat)) {
+                    ret.put("latitude", lat);
+                } else {
+                    ret.put("latitude", (String) null);
+                }
+                if (!Double.isNaN(lng) && !Double.isInfinite(lng)) {
+                    ret.put("longitude", lng);
+                } else {
+                    ret.put("longitude", (String) null);
+                }
                 ret.put("timestamp", eventTimestamp);
                 ret.put("exitTimestamp", eventTimestamp);
 

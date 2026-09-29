@@ -137,7 +137,14 @@ export const reconcileAttendanceOnResume = async (
       const pos = await getFreshResumePosition();
       if (!pos) {
         console.warn('[ResumeReconciliation] Could not obtain GPS fix on resume. Retaining current state.');
-        return getTodayAttendanceRecord(employeeId, dateStr);
+        const existingRecord = getTodayAttendanceRecord(employeeId, dateStr);
+        if (existingRecord && (existingRecord.pendingCheckoutConfirmation || existingRecord.currentState === 'PENDING_AUTO_CHECKOUT' || existingRecord.currentState === 'PENDING_EXIT_CONFIRMATION') && !hasValidCheckoutTime(existingRecord)) {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('exfin-checkout-confirmation-needed', { detail: { employeeId, record: existingRecord } }));
+            window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+          }
+        }
+        return existingRecord;
       }
 
       const distance = getDistanceFromLatLonInM(
@@ -320,7 +327,9 @@ export const reconcileAttendanceOnResume = async (
           if (
             currentState === 'CHECKED_IN' || 
             currentState === 'ENTERING' || 
-            currentState === 'PENDING_EXIT_CONFIRMATION'
+            currentState === 'PENDING_EXIT_CONFIRMATION' ||
+            currentState === 'PENDING_AUTO_CHECKOUT' ||
+            record.pendingCheckoutConfirmation
           ) {
             // Check if native Android geofence or background location already recorded an authoritative exit time
             const hasExistingExit = !!(record.recordedExitTime || record.geofenceExitTime);
@@ -502,6 +511,13 @@ export const reconcileAttendanceOnResume = async (
           if (navigator.onLine) {
             syncPendingAttendanceRecords().catch(() => {});
           }
+        }
+      }
+
+      if (record && (record.pendingCheckoutConfirmation || record.currentState === 'PENDING_AUTO_CHECKOUT' || record.currentState === 'PENDING_EXIT_CONFIRMATION') && !hasValidCheckoutTime(record)) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('exfin-checkout-confirmation-needed', { detail: { employeeId, record } }));
+          window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
         }
       }
 
