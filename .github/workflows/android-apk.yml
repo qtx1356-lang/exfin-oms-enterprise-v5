@@ -34,11 +34,6 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.14.3'
-
       - name: Install Dependencies
         run: |
           if [ -f package-lock.json ]; then
@@ -59,10 +54,16 @@ jobs:
           echo "Syncing Capacitor Android..."
           npx cap sync android
 
-      - name: Build Release APK
+      - name: Make Gradle Wrapper Executable
+        run: |
+          chmod +x android/gradlew
+
+      - name: Build Android Release APK
         run: |
           cd android
-          gradle assembleRelease --stacktrace
+          ./gradlew --version
+          ./gradlew :app:tasks --no-daemon >/dev/null
+          ./gradlew assembleRelease --stacktrace --no-daemon
 
       - name: Locate and Stage APK
         run: |
