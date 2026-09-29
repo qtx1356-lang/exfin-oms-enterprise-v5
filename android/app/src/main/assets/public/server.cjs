@@ -1241,6 +1241,7 @@ var DEFAULT_WEIGHTAGES = {
 };
 
 // server/services/dailyAdminReportService.ts
+var DEFAULT_APP_URL = "https://exfin-oms-enterprise-v5.pages.dev";
 var DEFAULT_TARGET_RECIPIENTS = [
   "admin@yourcompany.com"
 ];
@@ -1932,7 +1933,7 @@ async function generateAndSendDailyReport(db3, targetDateStr, isManualSend = fal
         <td style="padding: 12px 10px; font-weight: bold; color: #b91c1c; text-align: right;">${p.efficiency}%</td>
       </tr>
     `).join("") : `<tr><td colspan="4" style="padding: 15px; text-align: center; color: #64748b; font-style: italic;">${needsImprovementEmptyMessage}</td></tr>`;
-    const appUrl = process.env.APP_URL ? process.env.APP_URL.replace(/\/$/, "") : "https://your-domain.com";
+    const appUrl = process.env.APP_URL ? process.env.APP_URL.replace(/\/$/, "") : DEFAULT_APP_URL;
     const adminPanelUrl = `${appUrl}/x7Kp9`;
     const generatedTimeKolkata = (/* @__PURE__ */ new Date()).toLocaleString("en-US", {
       timeZone: "Asia/Kolkata",
@@ -3218,6 +3219,25 @@ async function startServer() {
               checkOutMode: "N/A",
               exitTime: null,
               returnTime: null,
+              lastExitAt: null,
+              lastExitTime: null,
+              lastReturnAt: null,
+              lastReturnTime: null,
+              eventHistory: [{
+                eventId: eventId2,
+                employeeId,
+                eventType: "CHECK_IN",
+                eventTime: timeStr,
+                timestamp: eventIso,
+                source: source || "NATIVE_GEOFENCE_ENTER",
+                location: {
+                  latitude: isLocationUnavailable ? null : latitude,
+                  longitude: isLocationUnavailable ? null : longitude,
+                  townCity,
+                  distance: isLocationUnavailable ? "location unavailable" : distance
+                },
+                distance: isLocationUnavailable ? "location unavailable" : distance
+              }],
               reason: null,
               createdAtDeviceTime: eventIso,
               syncStatus: "Synced",
@@ -3289,10 +3309,11 @@ async function startServer() {
         if (!isInside) {
           console.log(`[BackgroundAttendance] GEOFENCE_EXIT detected for ${employeeId} on ${dateStr}`);
           if (currentState === "CHECKED_IN" || currentState === "ENTERING" || currentState === "RETURNING_TO_OFFICE") {
-            const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
+            const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : 0;
             const newTimestampMs = tsDate.getTime();
-            if (!record.geofenceExitTime || !record.recordedExitTime || newTimestampMs < existingTimestampMs || currentState === "RETURNING_TO_OFFICE") {
+            if (!record.geofenceExitTime || !record.recordedExitTime || newTimestampMs > existingTimestampMs || currentState === "RETURNING_TO_OFFICE") {
               record.lastExitTime = timeStr;
+              record.lastExitAt = eventIso;
               record.exitTime = record.exitTime || timeStr;
               record.geofenceExitTime = timeStr;
               record.geofenceExitTimestamp = eventIso;
@@ -3302,8 +3323,29 @@ async function startServer() {
               record.exitDetectionSource = "NATIVE_GEOFENCE";
             }
             record.pendingCheckoutConfirmation = true;
+            record.pendingCheckoutEventId = eventId;
             record.returningToOffice = false;
             record.currentState = "PENDING_EXIT_CONFIRMATION";
+            const currentHistory = Array.isArray(record.eventHistory) ? record.eventHistory : [];
+            const exitHistoryEvent = {
+              eventId,
+              employeeId,
+              eventType: "GEOFENCE_EXIT",
+              eventTime: timeStr,
+              timestamp: eventIso,
+              source: source || "NATIVE_GEOFENCE",
+              location: {
+                latitude: isLocationUnavailable ? null : latitude,
+                longitude: isLocationUnavailable ? null : longitude,
+                townCity,
+                distance: isLocationUnavailable ? "location unavailable" : distance
+              },
+              distance: isLocationUnavailable ? "location unavailable" : distance
+            };
+            const updatedHist = currentHistory.filter((e) => e.eventId !== eventId);
+            updatedHist.push(exitHistoryEvent);
+            updatedHist.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            record.eventHistory = updatedHist;
             if (!isLocationUnavailable) {
               record.checkoutLatitude = latitude;
               record.checkoutLongitude = longitude;
@@ -3326,13 +3368,31 @@ async function startServer() {
         } else {
           if (currentState === "PENDING_FINAL_EXIT" || currentState === "PENDING_EXIT_CONFIRMATION" || currentState === "RETURNING_TO_OFFICE" || record.pendingCheckoutConfirmation || record.lastExitTime || record.exitTime || record.geofenceExitTime) {
             record.returnTime = timeStr;
-            record.lastExitTime = null;
-            record.exitTime = null;
-            record.geofenceExitTime = null;
-            record.geofenceExitTimestamp = null;
+            record.lastReturnTime = timeStr;
+            record.lastReturnAt = eventIso;
             record.pendingCheckoutConfirmation = false;
             record.returningToOffice = false;
             record.currentState = "CHECKED_IN";
+            const currentHistory = Array.isArray(record.eventHistory) ? record.eventHistory : [];
+            const returnHistoryEvent = {
+              eventId,
+              employeeId,
+              eventType: "GEOFENCE_RETURN",
+              eventTime: timeStr,
+              timestamp: eventIso,
+              source: source || "NATIVE_GEOFENCE",
+              location: {
+                latitude: isLocationUnavailable ? null : latitude,
+                longitude: isLocationUnavailable ? null : longitude,
+                townCity,
+                distance: isLocationUnavailable ? "location unavailable" : distance
+              },
+              distance: isLocationUnavailable ? "location unavailable" : distance
+            };
+            const updatedHist = currentHistory.filter((e) => e.eventId !== eventId);
+            updatedHist.push(returnHistoryEvent);
+            updatedHist.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            record.eventHistory = updatedHist;
             record.checkoutLatitude = import_firestore5.FieldValue.delete();
             record.checkoutLongitude = import_firestore5.FieldValue.delete();
             record.checkoutDistance = import_firestore5.FieldValue.delete();

@@ -25,7 +25,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: ${{ hashFiles('package-lock.json') != '' && 'npm' || '' }}
 
       - name: Set up Java 17
@@ -33,7 +33,11 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.2.1'
 
       - name: Install Dependencies
         run: |
@@ -55,28 +59,56 @@ jobs:
           echo "Syncing Capacitor Android..."
           npx cap sync android
 
-      - name: Build Diagnostics
+      - name: Diagnostics and Project Verification
         run: |
           echo "=== Environment Diagnostics ==="
+          pwd
+          ls -la
+          ls -la android
+          ls -la android/app
+          java -version
           node --version
           npm --version
-          java -version
-          cd android
-          if [ ! -f ./gradlew ]; then
-            echo "Gradle wrapper not found in android directory. Initializing wrapper..."
-            gradle wrapper --gradle-version 8.2.1 --distribution-type bin
+
+          echo "=== Verifying Required Files ==="
+          if [ ! -f android/settings.gradle ]; then
+            echo "ERROR: android/settings.gradle is missing!"
+            exit 1
           fi
-          chmod +x ./gradlew
+
+          if [ ! -f android/app/build.gradle ]; then
+            echo "ERROR: android/app/build.gradle is missing!"
+            exit 1
+          fi
+
+          if [ ! -f android/gradlew ]; then
+            echo "ERROR: android/gradlew is missing!"
+            exit 1
+          fi
+
+          chmod +x android/gradlew
+
+          echo "=== Verifying Gradle Module Discovery ==="
+          cd android
           ./gradlew --version
+          DISCOVERED_PROJECTS=$(./gradlew projects --quiet)
+          echo "$DISCOVERED_PROJECTS"
+
+          if ! echo "$DISCOVERED_PROJECTS" | grep -q "':app'"; then
+            echo "ERROR: Gradle failed to discover :app project!"
+            exit 1
+          fi
+
+          if ! echo "$DISCOVERED_PROJECTS" | grep -q "':capacitor-android'"; then
+            echo "ERROR: Gradle failed to discover :capacitor-android project!"
+            exit 1
+          fi
+
+          echo "Gradle discovered :app and :capacitor-android successfully."
 
       - name: Build Release APK
         run: |
           cd android
-          if [ ! -f ./gradlew ]; then
-            echo "Gradle wrapper missing. Ensuring wrapper is present..."
-            gradle wrapper --gradle-version 8.2.1 --distribution-type bin
-            chmod +x ./gradlew
-          fi
           ./gradlew assembleRelease --stacktrace
 
       - name: Locate and Stage APK
@@ -110,5 +142,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: exfin-oms-android-apk
-          path: artifact/*.apk
+          path: artifact/EXFIN-OMS-Android-release.apk
           if-no-files-found: error
