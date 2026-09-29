@@ -59,52 +59,9 @@ jobs:
           echo "Syncing Capacitor Android..."
           npx cap sync android
 
-      - name: Diagnostics and Project Verification
+      - name: Prepare Gradle Wrapper
         run: |
-          echo "=== Environment Diagnostics ==="
-          pwd
-          ls -la
-          ls -la android
-          ls -la android/app
-          java -version
-          node --version
-          npm --version
-
-          echo "=== Verifying Required Files ==="
-          if [ ! -f android/settings.gradle ]; then
-            echo "ERROR: android/settings.gradle is missing!"
-            exit 1
-          fi
-
-          if [ ! -f android/app/build.gradle ]; then
-            echo "ERROR: android/app/build.gradle is missing!"
-            exit 1
-          fi
-
-          if [ ! -f android/gradlew ]; then
-            echo "ERROR: android/gradlew is missing!"
-            exit 1
-          fi
-
           chmod +x android/gradlew
-
-          echo "=== Verifying Gradle Module Discovery ==="
-          cd android
-          ./gradlew --version
-          DISCOVERED_PROJECTS=$(./gradlew projects --quiet)
-          echo "$DISCOVERED_PROJECTS"
-
-          if ! echo "$DISCOVERED_PROJECTS" | grep -q "':app'"; then
-            echo "ERROR: Gradle failed to discover :app project!"
-            exit 1
-          fi
-
-          if ! echo "$DISCOVERED_PROJECTS" | grep -q "':capacitor-android'"; then
-            echo "ERROR: Gradle failed to discover :capacitor-android project!"
-            exit 1
-          fi
-
-          echo "Gradle discovered :app and :capacitor-android successfully."
 
       - name: Build Release APK
         run: |
