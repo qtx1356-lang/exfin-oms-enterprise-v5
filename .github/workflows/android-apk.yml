@@ -1,0 +1,114 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'android/**'
+      - 'capacitor.config.*'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'src/**'
+      - 'public/**'
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Build Android Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: ${{ hashFiles('package-lock.json') != '' && 'npm' || '' }}
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Install Dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "package-lock.json detected. Running npm ci..."
+            npm ci
+          else
+            echo "No package-lock.json found. Running npm install..."
+            npm install
+          fi
+
+      - name: Build Web Application
+        run: |
+          echo "Building web application..."
+          npm run build
+
+      - name: Sync Capacitor Android
+        run: |
+          echo "Syncing Capacitor Android..."
+          npx cap sync android
+
+      - name: Build Diagnostics
+        run: |
+          echo "=== Environment Diagnostics ==="
+          node --version
+          npm --version
+          java -version
+          cd android
+          if [ ! -f ./gradlew ]; then
+            echo "Gradle wrapper not found in android directory. Initializing wrapper..."
+            gradle wrapper --gradle-version 8.2.1 --distribution-type bin
+          fi
+          chmod +x ./gradlew
+          ./gradlew --version
+
+      - name: Build Release APK
+        run: |
+          cd android
+          if [ ! -f ./gradlew ]; then
+            echo "Gradle wrapper missing. Ensuring wrapper is present..."
+            gradle wrapper --gradle-version 8.2.1 --distribution-type bin
+            chmod +x ./gradlew
+          fi
+          ./gradlew assembleRelease --stacktrace
+
+      - name: Locate and Stage APK
+        run: |
+          echo "=== Locating Built APKs ==="
+          find android/app/build/outputs/apk -type f -name "*.apk" -print
+
+          RELEASE_DIR="android/app/build/outputs/apk/release"
+          if [ ! -d "$RELEASE_DIR" ]; then
+            echo "ERROR: Directory $RELEASE_DIR does not exist."
+            find android/app/build/outputs -type f -print || true
+            exit 1
+          fi
+
+          RELEASE_APK=$(find "$RELEASE_DIR" -type f -name "*.apk" | head -n 1)
+
+          if [ -z "$RELEASE_APK" ] || [ ! -f "$RELEASE_APK" ]; then
+            echo "ERROR: No release APK found in $RELEASE_DIR"
+            echo "Listing contents of android/app/build/outputs:"
+            ls -laR android/app/build/outputs || true
+            exit 1
+          fi
+
+          echo "Found release APK: $RELEASE_APK"
+
+          mkdir -p artifact
+          cp "$RELEASE_APK" artifact/EXFIN-OMS-Android-release.apk
+          echo "Staged artifact to artifact/EXFIN-OMS-Android-release.apk"
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: exfin-oms-android-apk
+          path: artifact/*.apk
+          if-no-files-found: error
