@@ -220,73 +220,73 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
   };
 
   return (
-    <div className="space-y-6" id="admin-expenses-tab">
+    <div className="space-y-6 w-full max-w-full min-w-0" id="admin-expenses-tab">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#250F4C] border border-purple-500/20 p-5 rounded-2xl">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#250F4C] border border-purple-500/20 p-5 rounded-2xl min-w-0">
+        <div className="min-w-0">
           <h2 className="text-xl font-bold text-white flex items-center gap-2.5">
-            <Wallet className="w-6 h-6 text-emerald-400" />
-            Expense Claims Audit & Approval
+            <Wallet className="w-6 h-6 text-emerald-400 shrink-0" />
+            <span className="break-words">Expense Claims Audit & Approval</span>
           </h2>
-          <p className="text-xs text-purple-200/80 mt-1">
+          <p className="text-xs text-purple-200/80 mt-1 break-words">
             Review, verify, and authoritatively approve employee reimbursement claims in Indian Rupees (₹).
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-semibold text-purple-300 bg-[#1A0B36] px-3.5 py-2 rounded-xl border border-purple-500/30">
-          <Clock className="w-4 h-4 text-amber-400" />
+        <div className="flex items-center gap-2 text-xs font-semibold text-purple-300 bg-[#1A0B36] px-3.5 py-2 rounded-xl border border-purple-500/30 shrink-0 self-start sm:self-auto">
+          <Clock className="w-4 h-4 text-amber-400 shrink-0" />
           <span>Pending Review: <strong className="text-amber-300 font-bold">{metrics.pendingCount}</strong> claims</span>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 min-w-0">
         {/* Total Claims */}
-        <Card className="p-4 bg-[#250F4C] border border-purple-500/20 space-y-1">
-          <div className="text-[11px] font-bold text-purple-300 uppercase tracking-wider">Total Claims</div>
+        <Card className="p-4 bg-[#250F4C] border border-purple-500/20 space-y-1 min-w-0">
+          <div className="text-[11px] font-bold text-purple-300 uppercase tracking-wider truncate">Total Claims</div>
           <div className="text-xl font-black text-white">{metrics.totalCount}</div>
-          <div className="text-[11px] text-purple-200/70 font-mono">₹{metrics.totalAmount.toLocaleString('en-IN')} total</div>
+          <div className="text-[11px] text-purple-200/70 font-mono truncate">₹{metrics.totalAmount.toLocaleString('en-IN')} total</div>
         </Card>
 
         {/* Pending Claims */}
         <Card 
           onClick={() => setStatusFilter('PENDING')}
-          className={`p-4 bg-[#250F4C] border transition-all cursor-pointer space-y-1 ${
+          className={`p-4 bg-[#250F4C] border transition-all cursor-pointer space-y-1 min-w-0 ${
             statusFilter === 'PENDING' ? 'border-amber-400 shadow-md shadow-amber-500/10' : 'border-purple-500/20 hover:border-amber-500/40'
           }`}
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">Pending Action</span>
+          <div className="flex items-center justify-between min-w-0">
+            <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider truncate">Pending Action</span>
             {metrics.pendingCount > 0 && (
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
             )}
           </div>
           <div className="text-xl font-black text-amber-300">{metrics.pendingCount}</div>
-          <div className="text-[11px] text-amber-200/70 font-mono">₹{metrics.pendingAmount.toLocaleString('en-IN')} pending</div>
+          <div className="text-[11px] text-amber-200/70 font-mono truncate">₹{metrics.pendingAmount.toLocaleString('en-IN')} pending</div>
         </Card>
 
         {/* Approved Claims */}
         <Card 
           onClick={() => setStatusFilter('APPROVED')}
-          className={`p-4 bg-[#250F4C] border transition-all cursor-pointer space-y-1 ${
+          className={`p-4 bg-[#250F4C] border transition-all cursor-pointer space-y-1 min-w-0 ${
             statusFilter === 'APPROVED' ? 'border-emerald-400 shadow-md shadow-emerald-500/10' : 'border-purple-500/20 hover:border-emerald-500/40'
           }`}
         >
-          <div className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Approved</div>
+          <div className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider truncate">Approved</div>
           <div className="text-xl font-black text-emerald-400">{metrics.approvedCount}</div>
-          <div className="text-[11px] text-emerald-200/70 font-mono">₹{metrics.approvedAmount.toLocaleString('en-IN')} disbursed</div>
+          <div className="text-[11px] text-emerald-200/70 font-mono truncate">₹{metrics.approvedAmount.toLocaleString('en-IN')} disbursed</div>
         </Card>
 
         {/* Rejected Claims */}
         <Card 
           onClick={() => setStatusFilter('REJECTED')}
-          className={`p-4 bg-[#250F4C] border transition-all cursor-pointer space-y-1 ${
+          className={`p-4 bg-[#250F4C] border transition-all cursor-pointer space-y-1 min-w-0 ${
             statusFilter === 'REJECTED' ? 'border-rose-400 shadow-md shadow-rose-500/10' : 'border-purple-500/20 hover:border-rose-500/40'
           }`}
         >
-          <div className="text-[11px] font-bold text-rose-300 uppercase tracking-wider">Rejected</div>
+          <div className="text-[11px] font-bold text-rose-300 uppercase tracking-wider truncate">Rejected</div>
           <div className="text-xl font-black text-rose-400">{metrics.rejectedCount}</div>
-          <div className="text-[11px] text-rose-200/70 font-mono">₹{metrics.rejectedAmount.toLocaleString('en-IN')} rejected</div>
+          <div className="text-[11px] text-rose-200/70 font-mono truncate">₹{metrics.rejectedAmount.toLocaleString('en-IN')} rejected</div>
         </Card>
       </div>
 
@@ -294,24 +294,24 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
       {feedback && (
         <div
           id="admin-expense-feedback"
-          className={`p-4 rounded-xl border flex items-center justify-between text-xs font-medium ${
+          className={`p-4 rounded-xl border flex items-center justify-between text-xs font-medium min-w-0 ${
             feedback.type === 'success'
               ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-200'
               : 'bg-rose-950/60 border-rose-500/50 text-rose-200'
           }`}
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
             {feedback.type === 'success' ? (
               <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
             ) : (
               <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
             )}
-            <span>{feedback.message}</span>
+            <span className="break-words">{feedback.message}</span>
           </div>
           <button
             type="button"
             onClick={() => setFeedback(null)}
-            className="text-purple-300 hover:text-white p-1 rounded transition-colors"
+            className="text-purple-300 hover:text-white p-1 rounded transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -319,10 +319,10 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
       )}
 
       {/* Search & Filter Toolbar */}
-      <Card className="p-4 bg-[#250F4C] border border-purple-500/20 space-y-3">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <Card className="p-4 bg-[#250F4C] border border-purple-500/20 space-y-3 min-w-0">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 min-w-0">
           {/* Status Filter Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 max-w-full scrollbar-none min-w-0">
             <button
               id="filter-all-expenses"
               type="button"
@@ -345,8 +345,8 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
                   : 'bg-[#1A0B36] text-amber-300 hover:bg-purple-900/40 border border-amber-500/30'
               }`}
             >
-              <Clock className="w-3.5 h-3.5" />
-              Pending ({metrics.pendingCount})
+              <Clock className="w-3.5 h-3.5 shrink-0" />
+              <span>Pending ({metrics.pendingCount})</span>
             </button>
             <button
               id="filter-approved-expenses"
@@ -358,8 +358,8 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
                   : 'bg-[#1A0B36] text-emerald-300 hover:bg-purple-900/40 border border-emerald-500/30'
               }`}
             >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Approved ({metrics.approvedCount})
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span>Approved ({metrics.approvedCount})</span>
             </button>
             <button
               id="filter-rejected-expenses"
@@ -371,19 +371,19 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
                   : 'bg-[#1A0B36] text-rose-300 hover:bg-purple-900/40 border border-rose-500/30'
               }`}
             >
-              <XCircle className="w-3.5 h-3.5" />
-              Rejected ({metrics.rejectedCount})
+              <XCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>Rejected ({metrics.rejectedCount})</span>
             </button>
           </div>
 
           {/* Search & Category Filter */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 min-w-0 w-full md:w-auto">
             {/* Category select */}
             <select
               id="category-filter-select"
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-[#1A0B36] border border-purple-500/30 text-xs text-purple-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400"
+              className="bg-[#1A0B36] border border-purple-500/30 text-xs text-purple-200 rounded-lg px-3 py-2 focus:outline-none focus:border-purple-400 w-full sm:w-auto min-w-0"
             >
               <option value="ALL">All Categories</option>
               {EXPENSE_CATEGORIES.map((cat) => (
@@ -394,15 +394,15 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
             </select>
 
             {/* Search Input */}
-            <div className="relative min-w-[220px]">
-              <Search className="w-3.5 h-3.5 text-purple-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <div className="relative w-full sm:w-[220px] min-w-0">
+              <Search className="w-3.5 h-3.5 text-purple-400 absolute left-3 top-1/2 -translate-y-1/2 shrink-0" />
               <input
                 id="expense-search-input"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search employee, merchant, ID..."
-                className="w-full bg-[#1A0B36] border border-purple-500/30 text-xs text-white placeholder-purple-400/60 rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:border-purple-400"
+                className="w-full bg-[#1A0B36] border border-purple-500/30 text-xs text-white placeholder-purple-400/60 rounded-lg pl-8 pr-8 py-2 focus:outline-none focus:border-purple-400 min-w-0"
               />
               {searchQuery && (
                 <button
@@ -418,222 +418,414 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
         </div>
       </Card>
 
-      {/* Main Expense Table */}
-      <Card className="bg-[#250F4C] border border-purple-500/20 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-[#1A0B36] text-purple-300 uppercase font-bold border-b border-purple-500/20 tracking-wider">
-                <th className="p-3.5">Date</th>
-                <th className="p-3.5">Employee</th>
-                <th className="p-3.5">Category & Details</th>
-                <th className="p-3.5">Description</th>
-                <th className="p-3.5 text-center">Receipt</th>
-                <th className="p-3.5">Amount</th>
-                <th className="p-3.5">Status</th>
-                <th className="p-3.5 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-purple-500/10 text-white">
-              {filteredRecords.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="p-10 text-center text-purple-300/60">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <Wallet className="w-8 h-8 text-purple-400/40" />
-                      <p className="font-semibold text-sm">No expense claims match the selected criteria.</p>
-                      <p className="text-xs text-purple-400/60">Try adjusting your filters or search query.</p>
+      {/* ========================================================================= */}
+      {/* 1. MOBILE RESPONSIVE CARDS (Visible below md: screen width < 768px)       */}
+      {/* ========================================================================= */}
+      <div className="md:hidden space-y-3.5 min-w-0">
+        {filteredRecords.length === 0 ? (
+          <Card className="p-8 bg-[#250F4C] border border-purple-500/20 text-center text-purple-300/60 min-w-0">
+            <div className="flex flex-col items-center justify-center gap-2">
+              <Wallet className="w-8 h-8 text-purple-400/40" />
+              <p className="font-semibold text-sm">No expense claims match the selected criteria.</p>
+              <p className="text-xs text-purple-400/60">Try adjusting your filters or search query.</p>
+            </div>
+          </Card>
+        ) : (
+          filteredRecords.map((exp) => {
+            const isPending = isExpensePending(exp.status);
+            const isApproved = isExpenseApproved(exp.status);
+            const isRejected = isExpenseRejected(exp.status);
+            const isProcessing = processingId === exp.id;
+            const receiptImg = exp.receiptUrl || exp.localReceiptData;
+
+            return (
+              <Card
+                key={exp.id}
+                id={`mobile-expense-card-${exp.id}`}
+                className="p-4 bg-[#250F4C] border border-purple-500/20 rounded-2xl space-y-3.5 text-white w-full max-w-full min-w-0"
+              >
+                {/* Header: Category & Employee on left, Amount & Status on right */}
+                <div className="flex items-start justify-between gap-2.5 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="px-2 py-0.5 bg-purple-900/60 border border-purple-500/30 text-purple-200 rounded text-[11px] font-semibold">
+                        {exp.category}
+                      </span>
+                      {!activeEmpCodes.has(exp.employeeCode) && (
+                        <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[9px] font-black uppercase rounded">
+                          Deleted
+                        </span>
+                      )}
                     </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredRecords.map((exp) => {
-                  const isPending = isExpensePending(exp.status);
-                  const isApproved = isExpenseApproved(exp.status);
-                  const isRejected = isExpenseRejected(exp.status);
-                  const isProcessing = processingId === exp.id;
-                  const receiptImg = exp.receiptUrl || exp.localReceiptData;
+                    <div className="font-bold text-white text-sm mt-1 truncate" title={exp.employeeName}>
+                      {exp.employeeName || 'Unknown'}
+                    </div>
+                    <div className="text-[10px] text-purple-300 font-mono">
+                      {exp.employeeCode || exp.employeeId}
+                    </div>
+                  </div>
 
-                  return (
-                    <tr 
-                      key={exp.id} 
-                      id={`expense-row-${exp.id}`}
-                      className="hover:bg-white/[0.03] transition-colors"
+                  <div className="text-right shrink-0">
+                    <div className="font-mono text-base font-black text-emerald-400">
+                      ₹{Number(exp.amount || 0).toLocaleString('en-IN')}
+                    </div>
+                    {exp.gstAmount ? (
+                      <div className="text-[9px] text-purple-300/70 font-mono">
+                        GST: ₹{exp.gstAmount}
+                      </div>
+                    ) : null}
+                    <div className="mt-1">
+                      {isApproved ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                          <span>Approved</span>
+                        </span>
+                      ) : isRejected ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                          <XCircle className="w-3 h-3 text-rose-400 shrink-0" />
+                          <span>Rejected</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          <Clock className="w-3 h-3 text-amber-400 animate-pulse shrink-0" />
+                          <span>Pending</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Metadata Card Info: Date, Merchant, Bill #, Description */}
+                <div className="bg-[#1A0B36] p-3 rounded-xl border border-purple-500/20 text-xs space-y-1.5 min-w-0">
+                  <div className="flex items-center justify-between text-[11px] gap-2">
+                    <span className="text-purple-300/80">Claim Date:</span>
+                    <span className="font-bold text-white font-mono">{exp.date || 'N/A'}</span>
+                  </div>
+
+                  {exp.merchant && (
+                    <div className="flex items-center justify-between text-[11px] gap-2">
+                      <span className="text-purple-300/80 shrink-0">Merchant:</span>
+                      <span className="font-medium text-purple-100 truncate text-right">{exp.merchant}</span>
+                    </div>
+                  )}
+
+                  {exp.receiptNumber && (
+                    <div className="flex items-center justify-between text-[11px] gap-2">
+                      <span className="text-purple-300/80 shrink-0">Bill / Invoice #:</span>
+                      <span className="font-mono text-purple-200 truncate text-right">#{exp.receiptNumber}</span>
+                    </div>
+                  )}
+
+                  {exp.description && (
+                    <div className="pt-1 border-t border-purple-500/10">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-purple-300/70 block mb-0.5">Description</span>
+                      <p className="text-purple-200 text-xs break-words whitespace-normal">
+                        {exp.description}
+                      </p>
+                    </div>
+                  )}
+
+                  {isApproved && exp.approvedBy && (
+                    <div className="text-[10px] text-emerald-300/80 pt-1 border-t border-purple-500/10">
+                      Approved by: <strong>{exp.approvedBy}</strong>
+                    </div>
+                  )}
+                  {isRejected && exp.rejectionReason && (
+                    <div className="text-[10px] text-rose-300/90 pt-1 border-t border-purple-500/10 break-words">
+                      Rejection reason: <em>{exp.rejectionReason}</em>
+                    </div>
+                  )}
+                </div>
+
+                {/* Receipt Preview Row */}
+                <div className="flex items-center justify-between gap-2 pt-0.5 min-w-0">
+                  <span className="text-xs text-purple-300 font-medium shrink-0">Receipt:</span>
+                  {receiptImg ? (
+                    <button
+                      type="button"
+                      onClick={() => openReceiptModal(receiptImg, `${exp.employeeName} - ₹${exp.amount} (${exp.category})`)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-800/50 hover:bg-purple-700/70 border border-purple-500/30 text-purple-200 hover:text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                     >
-                      {/* Date & ID */}
-                      <td className="p-3.5 whitespace-nowrap">
-                        <div className="font-bold text-white">{exp.date || 'N/A'}</div>
-                        <div className="text-[10px] text-purple-300/60 font-mono">{exp.id.substring(0, 12)}...</div>
-                      </td>
+                      <Eye className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>View Receipt</span>
+                    </button>
+                  ) : exp.receiptUploadStatus === 'FAILED' ? (
+                    <span
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                      title={exp.receiptUploadError || 'Receipt image upload failed. Expense claim remains valid and pending.'}
+                    >
+                      <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                      <span>Receipt upload failed</span>
+                    </span>
+                  ) : exp.receiptUploadStatus === 'PENDING' ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                      <Clock className="w-3 h-3 text-amber-400 animate-pulse shrink-0" />
+                      <span>Uploading...</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-purple-400/50 italic">No receipt attached</span>
+                  )}
+                </div>
 
-                      {/* Employee Info */}
-                      <td className="p-3.5">
-                        <div className="font-bold text-white flex items-center gap-1.5">
-                          <span>{exp.employeeName || 'Unknown'}</span>
-                          {!activeEmpCodes.has(exp.employeeCode) && (
-                            <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[9px] font-black uppercase rounded">
-                              Deleted
+                {/* Action Buttons for Pending */}
+                {isPending && (
+                  <div className="flex items-center gap-2 pt-2 border-t border-purple-500/10 w-full">
+                    <button
+                      id={`mobile-btn-approve-expense-${exp.id}`}
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => handleApprove(exp)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-sm shadow-emerald-950/40 border border-emerald-400/40 transition-all cursor-pointer min-h-[42px]"
+                    >
+                      {isProcessing ? (
+                        <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                      ) : (
+                        <Check className="w-4 h-4 shrink-0" />
+                      )}
+                      <span>{isProcessing ? 'Saving...' : 'Approve'}</span>
+                    </button>
+
+                    <button
+                      id={`mobile-btn-reject-expense-${exp.id}`}
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={() => {
+                        setRejectModalRecord(exp);
+                        setRejectionReason('');
+                      }}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 px-3 bg-rose-950/50 hover:bg-rose-900/70 active:bg-rose-950 disabled:opacity-50 disabled:cursor-not-allowed text-rose-300 hover:text-rose-100 font-semibold text-xs rounded-xl border border-rose-600/40 transition-all cursor-pointer min-h-[42px]"
+                    >
+                      <X className="w-4 h-4 shrink-0" />
+                      <span>Reject</span>
+                    </button>
+                  </div>
+                )}
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 2. DESKTOP EXPENSE TABLE (Visible on md: screen width >= 768px)           */}
+      {/* ========================================================================= */}
+      <div className="hidden md:block">
+        <Card className="bg-[#250F4C] border border-purple-500/20 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-[#1A0B36] text-purple-300 uppercase font-bold border-b border-purple-500/20 tracking-wider">
+                  <th className="p-3.5">Date</th>
+                  <th className="p-3.5">Employee</th>
+                  <th className="p-3.5">Category & Details</th>
+                  <th className="p-3.5">Description</th>
+                  <th className="p-3.5 text-center">Receipt</th>
+                  <th className="p-3.5">Amount</th>
+                  <th className="p-3.5">Status</th>
+                  <th className="p-3.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-purple-500/10 text-white">
+                {filteredRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="p-10 text-center text-purple-300/60">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Wallet className="w-8 h-8 text-purple-400/40" />
+                        <p className="font-semibold text-sm">No expense claims match the selected criteria.</p>
+                        <p className="text-xs text-purple-400/60">Try adjusting your filters or search query.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRecords.map((exp) => {
+                    const isPending = isExpensePending(exp.status);
+                    const isApproved = isExpenseApproved(exp.status);
+                    const isRejected = isExpenseRejected(exp.status);
+                    const isProcessing = processingId === exp.id;
+                    const receiptImg = exp.receiptUrl || exp.localReceiptData;
+
+                    return (
+                      <tr 
+                        key={exp.id} 
+                        id={`expense-row-${exp.id}`}
+                        className="hover:bg-white/[0.03] transition-colors"
+                      >
+                        {/* Date & ID */}
+                        <td className="p-3.5 whitespace-nowrap">
+                          <div className="font-bold text-white">{exp.date || 'N/A'}</div>
+                          <div className="text-[10px] text-purple-300/60 font-mono">{exp.id.substring(0, 12)}...</div>
+                        </td>
+
+                        {/* Employee Info */}
+                        <td className="p-3.5">
+                          <div className="font-bold text-white flex items-center gap-1.5">
+                            <span>{exp.employeeName || 'Unknown'}</span>
+                            {!activeEmpCodes.has(exp.employeeCode) && (
+                              <span className="px-1.5 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[9px] font-black uppercase rounded">
+                                Deleted
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-purple-300 font-mono">{exp.employeeCode || exp.employeeId}</div>
+                        </td>
+
+                        {/* Category & Merchant */}
+                        <td className="p-3.5">
+                          <span className="px-2 py-0.5 bg-purple-900/60 border border-purple-500/30 text-purple-200 rounded text-[11px] font-semibold inline-block">
+                            {exp.category}
+                          </span>
+                          {exp.merchant && (
+                            <div className="text-[10px] text-purple-300/80 mt-0.5 font-medium truncate max-w-[140px]">
+                              {exp.merchant}
+                            </div>
+                          )}
+                          {exp.receiptNumber && (
+                            <div className="text-[9px] text-purple-400/70 font-mono">
+                              Bill #{exp.receiptNumber}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Description */}
+                        <td className="p-3.5 max-w-[200px]">
+                          <p className="text-purple-200 text-xs line-clamp-2" title={exp.description}>
+                            {exp.description || 'No description provided.'}
+                          </p>
+                        </td>
+
+                        {/* Receipt Preview */}
+                        <td className="p-3.5 text-center whitespace-nowrap">
+                          {receiptImg ? (
+                            <button
+                              type="button"
+                              onClick={() => openReceiptModal(receiptImg, `${exp.employeeName} - ₹${exp.amount} (${exp.category})`)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-800/40 hover:bg-purple-700/60 border border-purple-500/30 text-purple-200 hover:text-white rounded-lg text-[11px] font-medium transition-colors cursor-pointer"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>View</span>
+                            </button>
+                          ) : exp.receiptUploadStatus === 'FAILED' ? (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                              title={exp.receiptUploadError || 'Receipt image upload failed. Expense claim remains valid and pending.'}
+                            >
+                              <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                              <span>Receipt upload failed</span>
+                            </span>
+                          ) : exp.receiptUploadStatus === 'PENDING' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                              <Clock className="w-3 h-3 text-amber-400 animate-pulse shrink-0" />
+                              <span>Uploading...</span>
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-purple-400/50 italic">None</span>
+                          )}
+                        </td>
+
+                        {/* Amount */}
+                        <td className="p-3.5 whitespace-nowrap">
+                          <span className="font-mono text-sm font-black text-emerald-400">
+                            ₹{Number(exp.amount || 0).toLocaleString('en-IN')}
+                          </span>
+                          {exp.gstAmount ? (
+                            <div className="text-[9px] text-purple-300/70 font-mono">
+                              GST: ₹{exp.gstAmount}
+                            </div>
+                          ) : null}
+                        </td>
+
+                        {/* Status Badge */}
+                        <td className="p-3.5 whitespace-nowrap">
+                          {isApproved ? (
+                            <div>
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                Approved
+                              </span>
+                              {exp.approvedBy && (
+                                <div className="text-[9px] text-purple-300/70 mt-0.5">
+                                  By {exp.approvedBy}
+                                </div>
+                              )}
+                            </div>
+                          ) : isRejected ? (
+                            <div>
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                <XCircle className="w-3 h-3 text-rose-400" />
+                                Rejected
+                              </span>
+                              {exp.rejectionReason && (
+                                <div className="text-[9px] text-rose-300/70 truncate max-w-[120px] mt-0.5" title={exp.rejectionReason}>
+                                  {exp.rejectionReason}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              <Clock className="w-3 h-3 text-amber-400 animate-pulse" />
+                              Pending
                             </span>
                           )}
-                        </div>
-                        <div className="text-[10px] text-purple-300 font-mono">{exp.employeeCode || exp.employeeId}</div>
-                      </td>
+                        </td>
 
-                      {/* Category & Merchant */}
-                      <td className="p-3.5">
-                        <span className="px-2 py-0.5 bg-purple-900/60 border border-purple-500/30 text-purple-200 rounded text-[11px] font-semibold inline-block">
-                          {exp.category}
-                        </span>
-                        {exp.merchant && (
-                          <div className="text-[10px] text-purple-300/80 mt-0.5 font-medium truncate max-w-[140px]">
-                            {exp.merchant}
-                          </div>
-                        )}
-                        {exp.receiptNumber && (
-                          <div className="text-[9px] text-purple-400/70 font-mono">
-                            Bill #{exp.receiptNumber}
-                          </div>
-                        )}
-                      </td>
+                        {/* Action Buttons */}
+                        <td className="p-3.5 text-right whitespace-nowrap">
+                          {isPending ? (
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* APPROVE BUTTON */}
+                              <button
+                                id={`btn-approve-expense-${exp.id}`}
+                                type="button"
+                                disabled={isProcessing}
+                                onClick={() => handleApprove(exp)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs rounded-lg shadow-sm shadow-emerald-950/40 border border-emerald-400/40 transition-all cursor-pointer"
+                                title="Approve this expense claim"
+                              >
+                                {isProcessing ? (
+                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Check className="w-3.5 h-3.5" />
+                                )}
+                                <span>{isProcessing ? 'Saving...' : 'Approve'}</span>
+                              </button>
 
-                      {/* Description */}
-                      <td className="p-3.5 max-w-[200px]">
-                        <p className="text-purple-200 text-xs line-clamp-2" title={exp.description}>
-                          {exp.description || 'No description provided.'}
-                        </p>
-                      </td>
-
-                      {/* Receipt Preview */}
-                      <td className="p-3.5 text-center whitespace-nowrap">
-                        {receiptImg ? (
-                          <button
-                            type="button"
-                            onClick={() => openReceiptModal(receiptImg, `${exp.employeeName} - ₹${exp.amount} (${exp.category})`)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-800/40 hover:bg-purple-700/60 border border-purple-500/30 text-purple-200 hover:text-white rounded-lg text-[11px] font-medium transition-colors cursor-pointer"
-                          >
-                            <Eye className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>View</span>
-                          </button>
-                        ) : exp.receiptUploadStatus === 'FAILED' ? (
-                          <span
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30"
-                            title={exp.receiptUploadError || 'Receipt image upload failed. Expense claim remains valid and pending.'}
-                          >
-                            <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
-                            <span>Receipt upload failed</span>
-                          </span>
-                        ) : exp.receiptUploadStatus === 'PENDING' ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                            <Clock className="w-3 h-3 text-amber-400 animate-pulse shrink-0" />
-                            <span>Uploading...</span>
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-purple-400/50 italic">None</span>
-                        )}
-                      </td>
-
-                      {/* Amount */}
-                      <td className="p-3.5 whitespace-nowrap">
-                        <span className="font-mono text-sm font-black text-emerald-400">
-                          ₹{Number(exp.amount || 0).toLocaleString('en-IN')}
-                        </span>
-                        {exp.gstAmount ? (
-                          <div className="text-[9px] text-purple-300/70 font-mono">
-                            GST: ₹{exp.gstAmount}
-                          </div>
-                        ) : null}
-                      </td>
-
-                      {/* Status Badge */}
-                      <td className="p-3.5 whitespace-nowrap">
-                        {isApproved ? (
-                          <div>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                              Approved
+                              {/* REJECT BUTTON */}
+                              <button
+                                id={`btn-reject-expense-${exp.id}`}
+                                type="button"
+                                disabled={isProcessing}
+                                onClick={() => {
+                                  setRejectModalRecord(exp);
+                                  setRejectionReason('');
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 active:bg-rose-950 disabled:opacity-50 disabled:cursor-not-allowed text-rose-300 hover:text-rose-100 font-semibold text-xs rounded-lg border border-rose-600/40 transition-all cursor-pointer"
+                                title="Reject this expense claim"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                <span>Reject</span>
+                              </button>
+                            </div>
+                          ) : isApproved ? (
+                            <span className="text-[11px] text-emerald-400/80 font-medium inline-flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Finalized
                             </span>
-                            {exp.approvedBy && (
-                              <div className="text-[9px] text-purple-300/70 mt-0.5">
-                                By {exp.approvedBy}
-                              </div>
-                            )}
-                          </div>
-                        ) : isRejected ? (
-                          <div>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                              <XCircle className="w-3 h-3 text-rose-400" />
-                              Rejected
+                          ) : (
+                            <span className="text-[11px] text-rose-400/80 font-medium inline-flex items-center gap-1">
+                              <XCircle className="w-3.5 h-3.5" />
+                              Declined
                             </span>
-                            {exp.rejectionReason && (
-                              <div className="text-[9px] text-rose-300/70 truncate max-w-[120px] mt-0.5" title={exp.rejectionReason}>
-                                {exp.rejectionReason}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                            <Clock className="w-3 h-3 text-amber-400 animate-pulse" />
-                            Pending
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Action Buttons */}
-                      <td className="p-3.5 text-right whitespace-nowrap">
-                        {isPending ? (
-                          <div className="flex items-center justify-end gap-1.5">
-                            {/* APPROVE BUTTON */}
-                            <button
-                              id={`btn-approve-expense-${exp.id}`}
-                              type="button"
-                              disabled={isProcessing}
-                              onClick={() => handleApprove(exp)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs rounded-lg shadow-sm shadow-emerald-950/40 border border-emerald-400/40 transition-all cursor-pointer"
-                              title="Approve this expense claim"
-                            >
-                              {isProcessing ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Check className="w-3.5 h-3.5" />
-                              )}
-                              <span>{isProcessing ? 'Saving...' : 'Approve'}</span>
-                            </button>
-
-                            {/* REJECT BUTTON */}
-                            <button
-                              id={`btn-reject-expense-${exp.id}`}
-                              type="button"
-                              disabled={isProcessing}
-                              onClick={() => {
-                                setRejectModalRecord(exp);
-                                setRejectionReason('');
-                              }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-950/40 hover:bg-rose-900/60 active:bg-rose-950 disabled:opacity-50 disabled:cursor-not-allowed text-rose-300 hover:text-rose-100 font-semibold text-xs rounded-lg border border-rose-600/40 transition-all cursor-pointer"
-                              title="Reject this expense claim"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                              <span>Reject</span>
-                            </button>
-                          </div>
-                        ) : isApproved ? (
-                          <span className="text-[11px] text-emerald-400/80 font-medium inline-flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Finalized
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-rose-400/80 font-medium inline-flex items-center gap-1">
-                            <XCircle className="w-3.5 h-3.5" />
-                            Declined
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
 
       {/* RECEIPT PREVIEW MODAL */}
       <Dialog
@@ -642,9 +834,9 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
         title={previewReceiptTitle || 'Expense Receipt'}
       >
         <div className="space-y-4">
-          <div className="flex items-center justify-between bg-[#1A0B36] p-2.5 rounded-xl border border-purple-500/20">
-            <span className="text-xs text-purple-200">Receipt Document Preview</span>
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between bg-[#1A0B36] p-2.5 rounded-xl border border-purple-500/20 min-w-0">
+            <span className="text-xs text-purple-200 truncate">Receipt Document Preview</span>
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setZoomScale((s) => Math.max(0.5, s - 0.25))}
