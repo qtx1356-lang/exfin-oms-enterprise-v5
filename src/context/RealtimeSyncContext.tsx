@@ -644,12 +644,32 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
           serverList.forEach((se) => map.set(se.id, se));
 
           prevExpenses.forEach((le) => {
-            if (le.syncStatus === 'Pending Sync' || le.syncStatus === 'Syncing...') {
-              map.set(le.id, le);
+            if (
+              le.syncStatus === 'Pending Sync' ||
+              le.syncStatus === 'Syncing...' ||
+              le.syncStatus === 'Sync Failed' ||
+              (le.localReceiptData && le.receiptUploadStatus !== 'UPLOADED')
+            ) {
+              const serverMatch = map.get(le.id);
+              if (serverMatch) {
+                // Merge server record with local pending receipt data
+                map.set(le.id, {
+                  ...serverMatch,
+                  localReceiptData: le.localReceiptData || serverMatch.localReceiptData,
+                  receiptUploadStatus: serverMatch.receiptUploadStatus || le.receiptUploadStatus,
+                  receiptUploadError: serverMatch.receiptUploadError || le.receiptUploadError,
+                });
+              } else {
+                map.set(le.id, le);
+              }
             }
           });
 
-          return Array.from(map.values());
+          return Array.from(map.values()).sort(
+            (a, b) =>
+              new Date(b.createdAtDeviceTime || b.date || 0).getTime() -
+              new Date(a.createdAtDeviceTime || a.date || 0).getTime()
+          );
         });
       },
       (err) => console.warn('RealtimeSync: Expenses snapshot error:', err)
@@ -1007,8 +1027,12 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       if (networkStatusService.getStatus().isOnline) {
-        await syncPendingExpenseRecords();
-        setSyncState('SYNCED');
+        const res = await syncPendingExpenseRecords();
+        if (res.syncedCount > 0 || res.errorsCount === 0) {
+          setSyncState('SYNCED');
+        } else {
+          setSyncState('OFFLINE — SAVED LOCALLY');
+        }
       } else {
         setSyncState('OFFLINE — SAVED LOCALLY');
       }

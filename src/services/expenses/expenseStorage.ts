@@ -29,7 +29,46 @@ export const saveExpenseRecord = (record: ExpenseRecord): void => {
 
 export const getPendingExpenseRecords = (): ExpenseRecord[] => {
   const records = getStoredExpenseRecords();
-  return records.filter((r) => r.syncStatus === 'Pending Sync');
+  return records.filter((r) => r.syncStatus === 'Pending Sync' || r.syncStatus === 'Sync Failed');
+};
+
+export const getPendingReceiptUploadRecords = (): ExpenseRecord[] => {
+  const records = getStoredExpenseRecords();
+  return records.filter(
+    (r) =>
+      Boolean(r.localReceiptData && r.localReceiptData.startsWith('data:')) &&
+      r.receiptUploadStatus !== 'UPLOADED'
+  );
+};
+
+export const updateExpenseReceiptStatusInLocal = (
+  id: string,
+  updates: {
+    receiptUrl?: string | null;
+    storagePath?: string | null;
+    receiptUploadStatus: 'PENDING' | 'UPLOADED' | 'FAILED';
+    receiptUploadError?: string | null;
+    receiptLastAttemptAt?: string | null;
+    clearLocalReceiptData?: boolean;
+  }
+): void => {
+  try {
+    const records = getStoredExpenseRecords();
+    const record = records.find((r) => r.id === id);
+    if (record) {
+      if (updates.receiptUrl !== undefined) record.receiptUrl = updates.receiptUrl;
+      if (updates.storagePath !== undefined) record.storagePath = updates.storagePath;
+      record.receiptUploadStatus = updates.receiptUploadStatus;
+      record.receiptUploadError = updates.receiptUploadError ?? null;
+      record.receiptLastAttemptAt = updates.receiptLastAttemptAt ?? new Date().toISOString();
+      if (updates.clearLocalReceiptData) {
+        record.localReceiptData = null;
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    }
+  } catch (err) {
+    console.error('Failed to update expense receipt status locally:', err);
+  }
 };
 
 export const markExpenseSyncedInLocal = (id: string, serverSyncTime: string): void => {

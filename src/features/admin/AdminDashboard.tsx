@@ -867,17 +867,56 @@ export const AdminDashboard: React.FC = () => {
       checkAllLoaded();
     }, () => { attendanceLoaded = true; checkAllLoaded(); });
 
-    // Listen to expenses with bounded limit
-    const qExpenses = query(collection(db, 'expenses'), limit(300));
-    const unsubExpenses = onSnapshot(qExpenses, (snapshot) => {
+    // Listen to expenses with reliable ordering and graceful fallback
+    let unsubExpenses = () => {};
+    const handleExpensesSnapshot = (snapshot: any) => {
       const firestoreExp: ExpenseRecord[] = [];
-      snapshot.forEach((doc) => {
+      snapshot.forEach((doc: any) => {
         firestoreExp.push({ id: doc.id, ...doc.data() } as ExpenseRecord);
+      });
+      firestoreExp.sort((a, b) => {
+        const timeA = new Date(a.createdAtDeviceTime || a.date || 0).getTime();
+        const timeB = new Date(b.createdAtDeviceTime || b.date || 0).getTime();
+        return timeB - timeA;
       });
       setExpenseRecords(firestoreExp);
       expensesLoaded = true;
       checkAllLoaded();
-    }, () => { expensesLoaded = true; checkAllLoaded(); });
+    };
+
+    try {
+      const qExpensesOrdered = query(
+        collection(db, 'expenses'),
+        orderBy('createdAtDeviceTime', 'desc'),
+        limit(1000)
+      );
+      unsubExpenses = onSnapshot(
+        qExpensesOrdered,
+        handleExpensesSnapshot,
+        (err) => {
+          console.warn('Ordered expenses listener encountered error, falling back to base limit query:', err);
+          const qExpensesFallback = query(collection(db, 'expenses'), limit(1000));
+          unsubExpenses = onSnapshot(
+            qExpensesFallback,
+            handleExpensesSnapshot,
+            () => {
+              expensesLoaded = true;
+              checkAllLoaded();
+            }
+          );
+        }
+      );
+    } catch {
+      const qExpensesFallback = query(collection(db, 'expenses'), limit(1000));
+      unsubExpenses = onSnapshot(
+        qExpensesFallback,
+        handleExpensesSnapshot,
+        () => {
+          expensesLoaded = true;
+          checkAllLoaded();
+        }
+      );
+    }
 
     // Listen to tasks with bounded limit
     const qTasks = query(collection(db, 'tasks'), limit(300));

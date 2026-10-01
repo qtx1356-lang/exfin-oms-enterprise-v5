@@ -513,6 +513,19 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
                             <Eye className="w-3.5 h-3.5 text-emerald-400" />
                             <span>View</span>
                           </button>
+                        ) : exp.receiptUploadStatus === 'FAILED' ? (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                            title={exp.receiptUploadError || 'Receipt image upload failed. Expense claim remains valid and pending.'}
+                          >
+                            <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                            <span>Receipt upload failed</span>
+                          </span>
+                        ) : exp.receiptUploadStatus === 'PENDING' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            <Clock className="w-3 h-3 text-amber-400 animate-pulse shrink-0" />
+                            <span>Uploading...</span>
+                          </span>
                         ) : (
                           <span className="text-[11px] text-purple-400/50 italic">None</span>
                         )}
