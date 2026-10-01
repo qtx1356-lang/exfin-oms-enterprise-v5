@@ -20,6 +20,125 @@ import {
 } from '../sync/syncPerformanceLogger';
 
 /**
+ * Executes a Promise with a timeout safeguard.
+ * Ensures Firebase Storage network requests never hang the application indefinitely.
+ */
+export const withTimeout = <T>(
+  promise: Promise<T>,
+  timeoutMs: number = 30000,
+  label: string = 'Operation'
+): Promise<T> => {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    promise
+      .then((res) => {
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+};
+
+/**
+ * Uploads an expense receipt image to Firebase Storage in the background.
+ * Completely decoupled from the primary expense submission flow.
+ * Timeouts after 30 seconds to prevent hanging.
+ */
+export const uploadExpenseReceiptInBackground = async (
+  record: ExpenseRecord
+): Promise<void> => {
+  if (
+    !record.localReceiptData ||
+    !record.localReceiptData.startsWith('data:') ||
+    !storage ||
+    !db
+  ) {
+    return;
+  }
+
+  const nowIso = new Date().toISOString();
+  const empCode = record.employeeCode || record.employeeId || 'EMP-UNKNOWN';
+  const fileName = record.receiptFileName || `receipt_${record.id}.jpg`;
+  const storagePathVal = record.storagePath || `expenseReceipts/${empCode}/${record.id}/${fileName}`;
+  const docRef = doc(db, 'expenses', record.id);
+
+  try {
+    const storageRef = ref(storage, storagePathVal);
+    logSyncServerWrite('Expenses_Receipt_Storage', record.id);
+
+    // Upload image data with 30-second timeout
+    await withTimeout(
+      uploadString(storageRef, record.localReceiptData, 'data_url'),
+      30000,
+      `Receipt upload for ${record.id}`
+    );
+
+    // Retrieve public download URL with 30-second timeout
+    const downloadUrl = await withTimeout(
+      getDownloadURL(storageRef),
+      30000,
+      `Receipt getDownloadURL for ${record.id}`
+    );
+
+    const finishIso = new Date().toISOString();
+
+    // Update Firestore document with live download URL
+    await updateDoc(docRef, {
+      receiptUrl: downloadUrl,
+      storagePath: storagePathVal,
+      receiptUploadStatus: 'UPLOADED',
+      receiptUploadError: null,
+      receiptLastAttemptAt: finishIso,
+    });
+
+    // Update local record & free memory by clearing localReceiptData
+    updateExpenseReceiptStatusInLocal(record.id, {
+      receiptUrl: downloadUrl,
+      storagePath: storagePathVal,
+      receiptUploadStatus: 'UPLOADED',
+      receiptUploadError: null,
+      receiptLastAttemptAt: finishIso,
+      clearLocalReceiptData: true,
+    });
+
+    console.log(`Expense Sync Engine: Background receipt upload successfully completed for ${record.id}`);
+  } catch (uploadErr: any) {
+    console.warn(
+      `Expense Sync Engine: Background receipt upload failed for ${record.id} (expense claim remains valid):`,
+      uploadErr
+    );
+    const safeMsg = uploadErr?.message
+      ? String(uploadErr.message).substring(0, 200)
+      : 'Receipt image upload failed';
+    const errTime = new Date().toISOString();
+
+    try {
+      await updateDoc(docRef, {
+        receiptUploadStatus: 'FAILED',
+        receiptUploadError: safeMsg,
+        receiptLastAttemptAt: errTime,
+      });
+    } catch (fsErr) {
+      console.warn('Could not update receipt upload error status in Firestore:', fsErr);
+    }
+
+    // Keep localReceiptData for automatic background retry without invalidating the synced claim
+    updateExpenseReceiptStatusInLocal(record.id, {
+      receiptUploadStatus: 'FAILED',
+      receiptUploadError: safeMsg,
+      receiptLastAttemptAt: errTime,
+      clearLocalReceiptData: false,
+    });
+  }
+};
+
+/**
  * Retries standalone receipt uploads for expenses whose Firestore documents already exist
  * but receipt image upload is pending or previously failed.
  * Guarantees zero duplicate Firestore expense documents.
@@ -37,7 +156,7 @@ export const retryPendingExpenseReceiptUploads = async (): Promise<{
     return { uploadedCount: 0, failedCount: 0 };
   }
 
-  console.log(`Expense Sync Engine: Found ${pendingUploads.length} standalone receipt image uploads to retry.`);
+  console.log(`Expense Sync Engine: Retrying ${pendingUploads.length} pending receipt uploads in background.`);
   let uploadedCount = 0;
   let failedCount = 0;
 
@@ -53,9 +172,21 @@ export const retryPendingExpenseReceiptUploads = async (): Promise<{
       const storagePathVal = record.storagePath || `expenseReceipts/${empCode}/${record.id}/${fileName}`;
       const storageRef = ref(storage, storagePathVal);
 
-      logSyncServerWrite('Expenses_Receipt_Storage', record.id);
-      await uploadString(storageRef, record.localReceiptData, 'data_url');
-      const downloadUrl = await getDownloadURL(storageRef);
+      logSyncServerWrite('Expenses_Receipt_Storage_Retry', record.id);
+
+      await withTimeout(
+        uploadString(storageRef, record.localReceiptData, 'data_url'),
+        30000,
+        `Receipt retry upload for ${record.id}`
+      );
+
+      const downloadUrl = await withTimeout(
+        getDownloadURL(storageRef),
+        30000,
+        `Receipt retry getDownloadURL for ${record.id}`
+      );
+
+      const finishIso = new Date().toISOString();
 
       // Update Firestore document with receipt metadata
       const docRef = doc(db, 'expenses', record.id);
@@ -64,7 +195,7 @@ export const retryPendingExpenseReceiptUploads = async (): Promise<{
         storagePath: storagePathVal,
         receiptUploadStatus: 'UPLOADED',
         receiptUploadError: null,
-        receiptLastAttemptAt: nowIso,
+        receiptLastAttemptAt: finishIso,
       });
 
       // Update local storage record (clearing local base64 data to free memory)
@@ -73,22 +204,23 @@ export const retryPendingExpenseReceiptUploads = async (): Promise<{
         storagePath: storagePathVal,
         receiptUploadStatus: 'UPLOADED',
         receiptUploadError: null,
-        receiptLastAttemptAt: nowIso,
+        receiptLastAttemptAt: finishIso,
         clearLocalReceiptData: true,
       });
 
-      console.log(`Expense Sync Engine: Successfully uploaded receipt for expense ${record.id}`);
+      console.log(`Expense Sync Engine: Successfully retried receipt upload for expense ${record.id}`);
       uploadedCount++;
     } catch (err: any) {
       console.warn(`Expense Sync Engine: Standalone receipt retry failed for expense ${record.id}:`, err);
       const safeErrorMsg = err?.message ? String(err.message).substring(0, 200) : 'Receipt upload failed';
+      const errIso = new Date().toISOString();
 
       try {
         const docRef = doc(db, 'expenses', record.id);
         await updateDoc(docRef, {
           receiptUploadStatus: 'FAILED',
           receiptUploadError: safeErrorMsg,
-          receiptLastAttemptAt: nowIso,
+          receiptLastAttemptAt: errIso,
         });
       } catch (firestoreUpdateErr) {
         console.warn('Failed to update receipt error status in Firestore:', firestoreUpdateErr);
@@ -97,7 +229,7 @@ export const retryPendingExpenseReceiptUploads = async (): Promise<{
       updateExpenseReceiptStatusInLocal(record.id, {
         receiptUploadStatus: 'FAILED',
         receiptUploadError: safeErrorMsg,
-        receiptLastAttemptAt: nowIso,
+        receiptLastAttemptAt: errIso,
         clearLocalReceiptData: false,
       });
 
@@ -110,9 +242,9 @@ export const retryPendingExpenseReceiptUploads = async (): Promise<{
 
 /**
  * Synchronizes pending expense claims to Firestore.
- * CORE RULE: The authoritative expense document is ALWAYS written to Firestore first.
- * Receipt image upload to Firebase Storage happens independently and NEVER blocks or fails
- * the expense claim from appearing in the Admin Panel.
+ * CORE RULE: The authoritative expense document is ALWAYS written and resolved FIRST.
+ * Receipt image upload to Firebase Storage runs completely independently in the background
+ * and NEVER blocks or delays the UI from closing the "Saving Claim..." modal.
  */
 export const syncPendingExpenseRecords = async (): Promise<{
   syncedCount: number;
@@ -192,7 +324,7 @@ export const syncPendingExpenseRecords = async (): Promise<{
           };
 
           // STEP 2: Authoritatively write the expense document to Firestore FIRST.
-          // This ensures the Admin Dashboard can immediately see and audit the claim.
+          // This ensures the Admin Dashboard immediately receives and displays the claim.
           logSyncServerWrite('Expenses', record.id);
           const docRef = doc(db, 'expenses', record.id);
           await setDoc(docRef, firestorePayload, { merge: true });
@@ -212,62 +344,14 @@ export const syncPendingExpenseRecords = async (): Promise<{
           syncedCount++;
           success = true;
 
-          // STEP 3: Attempt receipt upload SEPARATELY after the Firestore claim is secured.
+          // STEP 3: Dispatch receipt upload in the BACKGROUND without blocking the save path.
           if (hasLocalReceipt && storage) {
-            try {
-              const empCode = record.employeeCode || record.employeeId || 'EMP-UNKNOWN';
-              const fileName = record.receiptFileName || `receipt_${record.id}.jpg`;
-              const storagePathVal = `expenseReceipts/${empCode}/${record.id}/${fileName}`;
-              const storageRef = ref(storage, storagePathVal);
-
-              logSyncServerWrite('Expenses_Storage', record.id);
-              await uploadString(storageRef, localReceiptData!, 'data_url');
-              const downloadUrl = await getDownloadURL(storageRef);
-              const nowIso = new Date().toISOString();
-
-              // Update Firestore document with live download URL
-              await updateDoc(docRef, {
-                receiptUrl: downloadUrl,
-                storagePath: storagePathVal,
-                receiptUploadStatus: 'UPLOADED',
-                receiptUploadError: null,
-                receiptLastAttemptAt: nowIso,
-              });
-
-              // Update local record & free base64 data
-              updateExpenseReceiptStatusInLocal(record.id, {
-                receiptUrl: downloadUrl,
-                storagePath: storagePathVal,
-                receiptUploadStatus: 'UPLOADED',
-                receiptUploadError: null,
-                receiptLastAttemptAt: nowIso,
-                clearLocalReceiptData: true,
-              });
-
-              console.log(`Expense Sync Engine: Receipt upload completed for ${record.id}`);
-            } catch (uploadErr: any) {
-              console.warn(`Expense Sync Engine: Receipt image upload failed for ${record.id} (expense document remains valid):`, uploadErr);
-              const safeMsg = uploadErr?.message ? String(uploadErr.message).substring(0, 200) : 'Receipt image upload failed';
-              const nowIso = new Date().toISOString();
-
-              try {
-                await updateDoc(docRef, {
-                  receiptUploadStatus: 'FAILED',
-                  receiptUploadError: safeMsg,
-                  receiptLastAttemptAt: nowIso,
-                });
-              } catch (fsErr) {
-                console.warn('Could not update receipt upload error status in Firestore:', fsErr);
-              }
-
-              // Update local state: keep localReceiptData for retry without invalidating the synced expense!
-              updateExpenseReceiptStatusInLocal(record.id, {
-                receiptUploadStatus: 'FAILED',
-                receiptUploadError: safeMsg,
-                receiptLastAttemptAt: nowIso,
-                clearLocalReceiptData: false,
-              });
-            }
+            void uploadExpenseReceiptInBackground({
+              ...record,
+              syncStatus: 'Synced',
+              serverSyncTime: serverSyncTime,
+              receiptUploadStatus: initialReceiptStatus,
+            });
           }
         } catch (err: any) {
           console.error(`Expense Sync Engine: Error writing expense document ${record.id} (Attempt ${attempt}/${maxAttempts}):`, err);
@@ -292,11 +376,9 @@ export const syncPendingExpenseRecords = async (): Promise<{
     }
   }
 
-  // Also retry any existing pending standalone receipt uploads
-  try {
-    await retryPendingExpenseReceiptUploads();
-  } catch (receiptRetryErr) {
-    console.warn('Expense Sync Engine: Error during standalone receipt retries:', receiptRetryErr);
+  // Trigger any pending standalone receipt retries in the background without blocking the return
+  if (navigator.onLine && storage) {
+    void retryPendingExpenseReceiptUploads();
   }
 
   return { syncedCount, errorsCount };
