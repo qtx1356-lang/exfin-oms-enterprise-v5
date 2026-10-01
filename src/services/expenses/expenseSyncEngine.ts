@@ -1,6 +1,6 @@
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase/config';
+import { db, storage, auth, getActiveAuth } from '../firebase/config';
 import { ExpenseRecord } from '../../types/expense';
 import {
   getPendingExpenseRecords,
@@ -18,6 +18,38 @@ import {
   logSyncServerConfirm,
   logSyncComplete,
 } from '../sync/syncPerformanceLogger';
+
+/**
+ * Resolves the rules-compliant Firebase Storage path:
+ * expense_receipts/{firebaseAuthUid}/{safeUniqueFileName}
+ * Exactly matches storage.rules:
+ * match /expense_receipts/{userId}/{fileName} {
+ *   allow read: if request.auth != null;
+ *   allow write: if request.auth != null && request.auth.uid == userId;
+ * }
+ */
+export const getExpenseReceiptStoragePath = (
+  record: ExpenseRecord
+): { storagePath: string; firebaseUid: string } => {
+  const currentAuth = getActiveAuth ? getActiveAuth() : auth;
+  const firebaseUid = currentAuth?.currentUser?.uid || (auth as any)?.currentUser?.uid;
+
+  if (!firebaseUid) {
+    throw new Error('Authenticated Firebase user is unavailable for receipt upload.');
+  }
+
+  // Create unique safe file name containing the expense ID and clean filename
+  const baseName = record.receiptFileName || `receipt_${record.id}.jpg`;
+  const cleanBaseName = baseName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const safeFileName = cleanBaseName.startsWith(record.id)
+    ? cleanBaseName
+    : `${record.id}_${cleanBaseName}`;
+
+  return {
+    storagePath: `expense_receipts/${firebaseUid}/${safeFileName}`,
+    firebaseUid,
+  };
+};
 
 /**
  * Executes a Promise with a timeout safeguard.
@@ -48,6 +80,7 @@ export const withTimeout = <T>(
 /**
  * Uploads an expense receipt image to Firebase Storage in the background.
  * Completely decoupled from the primary expense submission flow.
+ * Uses the canonical storage.rules path: expense_receipts/{uid}/{fileName}
  * Timeouts after 30 seconds to prevent hanging.
  */
 export const uploadExpenseReceiptInBackground = async (
@@ -62,14 +95,13 @@ export const uploadExpenseReceiptInBackground = async (
     return;
   }
 
-  const nowIso = new Date().toISOString();
-  const empCode = record.employeeCode || record.employeeId || 'EMP-UNKNOWN';
-  const fileName = record.receiptFileName || `receipt_${record.id}.jpg`;
-  const storagePathVal = record.storagePath || `expenseReceipts/${empCode}/${record.id}/${fileName}`;
   const docRef = doc(db, 'expenses', record.id);
 
   try {
+    // Resolve canonical Firebase Auth UID & storage path
+    const { storagePath: storagePathVal } = getExpenseReceiptStoragePath(record);
     const storageRef = ref(storage, storagePathVal);
+
     logSyncServerWrite('Expenses_Receipt_Storage', record.id);
 
     // Upload image data with 30-second timeout
@@ -107,7 +139,7 @@ export const uploadExpenseReceiptInBackground = async (
       clearLocalReceiptData: true,
     });
 
-    console.log(`Expense Sync Engine: Background receipt upload successfully completed for ${record.id}`);
+    console.log(`Expense Sync Engine: Background receipt upload successfully completed for ${record.id} at ${storagePathVal}`);
   } catch (uploadErr: any) {
     console.warn(
       `Expense Sync Engine: Background receipt upload failed for ${record.id} (expense claim remains valid):`,
@@ -165,11 +197,11 @@ export const retryPendingExpenseReceiptUploads = async (): Promise<{
       continue;
     }
 
-    const nowIso = new Date().toISOString();
+    const docRef = doc(db, 'expenses', record.id);
+
     try {
-      const empCode = record.employeeCode || record.employeeId || 'EMP-UNKNOWN';
-      const fileName = record.receiptFileName || `receipt_${record.id}.jpg`;
-      const storagePathVal = record.storagePath || `expenseReceipts/${empCode}/${record.id}/${fileName}`;
+      // Resolve canonical Firebase Auth UID & storage path
+      const { storagePath: storagePathVal } = getExpenseReceiptStoragePath(record);
       const storageRef = ref(storage, storagePathVal);
 
       logSyncServerWrite('Expenses_Receipt_Storage_Retry', record.id);
@@ -189,7 +221,6 @@ export const retryPendingExpenseReceiptUploads = async (): Promise<{
       const finishIso = new Date().toISOString();
 
       // Update Firestore document with receipt metadata
-      const docRef = doc(db, 'expenses', record.id);
       await updateDoc(docRef, {
         receiptUrl: downloadUrl,
         storagePath: storagePathVal,
@@ -208,7 +239,7 @@ export const retryPendingExpenseReceiptUploads = async (): Promise<{
         clearLocalReceiptData: true,
       });
 
-      console.log(`Expense Sync Engine: Successfully retried receipt upload for expense ${record.id}`);
+      console.log(`Expense Sync Engine: Successfully retried receipt upload for expense ${record.id} at ${storagePathVal}`);
       uploadedCount++;
     } catch (err: any) {
       console.warn(`Expense Sync Engine: Standalone receipt retry failed for expense ${record.id}:`, err);
@@ -216,7 +247,6 @@ export const retryPendingExpenseReceiptUploads = async (): Promise<{
       const errIso = new Date().toISOString();
 
       try {
-        const docRef = doc(db, 'expenses', record.id);
         await updateDoc(docRef, {
           receiptUploadStatus: 'FAILED',
           receiptUploadError: safeErrorMsg,
