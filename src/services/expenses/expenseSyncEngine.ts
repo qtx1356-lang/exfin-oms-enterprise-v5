@@ -1,6 +1,6 @@
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { db, storage, auth, getActiveAuth } from '../firebase/config';
+import { db, storage, auth, getActiveAuth, getActiveStorage } from '../firebase/config';
 import { ExpenseRecord } from '../../types/expense';
 import {
   getPendingExpenseRecords,
@@ -29,6 +29,9 @@ export interface ReceiptUploadProgressEvent {
 
 const progressListeners = new Set<(event: ReceiptUploadProgressEvent) => void>();
 
+// In-memory lock set to prevent duplicate concurrent uploads for the same expense
+const activeExpenseUploadLocks = new Set<string>();
+
 export const subscribeToReceiptUploadProgress = (
   listener: (event: ReceiptUploadProgressEvent) => void
 ): (() => void) => {
@@ -43,7 +46,7 @@ export const emitReceiptUploadProgress = (event: ReceiptUploadProgressEvent): vo
     try {
       listener(event);
     } catch (e) {
-      console.warn('Error in receipt upload progress listener:', e);
+      console.warn('[EXPENSE_RECEIPT_UPLOAD] Error in receipt upload progress listener:', e);
     }
   });
 
@@ -88,31 +91,56 @@ export const normalizeFirebaseStorageError = (err: any): string => {
     return 'Firebase Storage returned an unknown upload error.';
   }
 
-  return (err?.message ? String(err.message).substring(0, 180) : 'Receipt upload failed. Please check network and retry.');
+  return err?.message
+    ? String(err.message).substring(0, 180)
+    : 'Receipt upload failed. Please check network and retry.';
 };
 
 /**
  * Safely converts Base64 Data URL into binary Blob.
+ * Hardened to validate format and prevent unhandled browser exceptions.
  */
 export const dataUrlToBlob = (dataUrl: string): { blob: Blob; contentType: string } => {
-  const parts = dataUrl.split(';base64,');
-  const contentType = parts[0]?.split(':')[1] || 'image/jpeg';
-  const base64Data = parts[1] || '';
-  const binaryString = window.atob(base64Data);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+  if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
+    throw new Error('Invalid or empty receipt image data URL.');
   }
-  return {
-    blob: new Blob([bytes], { type: contentType }),
-    contentType,
-  };
+
+  const commaIndex = dataUrl.indexOf(',');
+  if (commaIndex === -1) {
+    throw new Error('Malformed receipt data URL: missing payload separator.');
+  }
+
+  const metaPart = dataUrl.substring(0, commaIndex);
+  const base64Data = dataUrl.substring(commaIndex + 1).trim();
+
+  if (!base64Data) {
+    throw new Error('Malformed receipt data URL: empty base64 payload.');
+  }
+
+  const mimeMatch = metaPart.match(/data:([^;]+);/);
+  const contentType = (mimeMatch && mimeMatch[1]) ? mimeMatch[1] : 'image/jpeg';
+
+  try {
+    const binaryString = window.atob(base64Data);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return {
+      blob: new Blob([bytes], { type: contentType }),
+      contentType,
+    };
+  } catch (decodeErr: any) {
+    console.error('[EXPENSE_RECEIPT_UPLOAD] Failed to decode base64 receipt data:', decodeErr);
+    throw new Error('Failed to decode receipt image binary data: ' + (decodeErr?.message || 'Invalid base64'));
+  }
 };
 
 /**
  * Resolves the rules-compliant Firebase Storage path:
- * expense_receipts/{firebaseAuthUid}/{safeUniqueFileName}
+ * expense_receipts/{firebaseAuthUid}/{deterministicSafeFileName}
+ *
  * Exactly matches storage.rules:
  * match /expense_receipts/{userId}/{fileName} {
  *   allow read: if request.auth != null;
@@ -129,12 +157,12 @@ export const getExpenseReceiptStoragePath = (
     throw new Error('Authenticated Firebase user is unavailable for receipt upload.');
   }
 
-  // Create unique safe file name containing the expense ID and clean filename
-  const baseName = record.receiptFileName || `receipt_${record.id}.jpg`;
-  const cleanBaseName = baseName.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const safeFileName = cleanBaseName.startsWith(record.id)
-    ? cleanBaseName
-    : `${record.id}_${cleanBaseName}`;
+  // Idempotent & deterministic safe filename based on record.id
+  const safeExpenseId = record.id.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const rawBaseName = (record.receiptFileName || `${safeExpenseId}_receipt.jpg`).replace(/[^a-zA-Z0-9._-]/g, '_');
+  const safeFileName = rawBaseName.startsWith(safeExpenseId)
+    ? rawBaseName
+    : `${safeExpenseId}_${rawBaseName}`;
 
   return {
     storagePath: `expense_receipts/${firebaseUid}/${safeFileName}`,
@@ -144,15 +172,23 @@ export const getExpenseReceiptStoragePath = (
 
 /**
  * Executes a Promise with a timeout safeguard.
- * Ensures Firebase Storage network requests never hang the application indefinitely.
+ * Ensures Firebase Storage network requests never hang indefinitely.
  */
 export const withTimeout = <T>(
   promise: Promise<T> | PromiseLike<T>,
   timeoutMs: number = 60000,
-  label: string = 'Operation'
+  label: string = 'Operation',
+  onTimeoutCleanup?: () => void
 ): Promise<T> => {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
+      if (onTimeoutCleanup) {
+        try {
+          onTimeoutCleanup();
+        } catch (cleanupErr) {
+          console.warn('[EXPENSE_RECEIPT_UPLOAD] Cleanup on timeout failed:', cleanupErr);
+        }
+      }
       reject(new Error(`${label} timed out after ${timeoutMs}ms`));
     }, timeoutMs);
 
@@ -186,11 +222,20 @@ export const uploadExpenseReceiptInBackground = async (
     return false;
   }
 
+  // Check in-memory lock to prevent duplicate concurrent uploads for this expense
+  if (activeExpenseUploadLocks.has(record.id)) {
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] Upload for ${record.id} already in progress. Skipping duplicate.`);
+    return false;
+  }
+  activeExpenseUploadLocks.add(record.id);
+
   const docRef = doc(db, 'expenses', record.id);
+
+  console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_START expenseId=${record.id} estimatedSize=${record.receiptSize || 'unknown'}`);
 
   // Check offline status
   if (!navigator.onLine) {
-    console.log(`Expense Sync Engine: Device offline. Receipt for ${record.id} kept locally.`);
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] Device offline. Receipt for ${record.id} kept locally.`);
     const offlineMsg = 'Receipt saved locally. Will upload when connection is restored.';
     updateExpenseReceiptStatusInLocal(record.id, {
       receiptUploadStatus: 'PENDING',
@@ -204,6 +249,7 @@ export const uploadExpenseReceiptInBackground = async (
       status: 'PENDING',
       error: offlineMsg,
     });
+    activeExpenseUploadLocks.delete(record.id);
     return false;
   }
 
@@ -212,9 +258,11 @@ export const uploadExpenseReceiptInBackground = async (
   try {
     const pathInfo = getExpenseReceiptStoragePath(record);
     storagePathVal = pathInfo.storagePath;
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] AUTH_CHECK expenseId=${record.id} hasAuth=true`);
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] STORAGE_PATH expenseId=${record.id} path=${storagePathVal}`);
   } catch (authErr: any) {
     const errorMsg = 'Your Firebase login session is unavailable. Please sign in again.';
-    console.warn(`Expense Sync Engine: Cannot upload receipt for ${record.id}:`, authErr);
+    console.warn(`[EXPENSE_RECEIPT_UPLOAD] AUTH_CHECK expenseId=${record.id} hasAuth=false:`, authErr);
 
     updateExpenseReceiptStatusInLocal(record.id, {
       receiptUploadStatus: 'FAILED',
@@ -239,11 +287,15 @@ export const uploadExpenseReceiptInBackground = async (
       error: errorMsg,
     });
 
+    activeExpenseUploadLocks.delete(record.id);
     return false;
   }
 
+  let uploadTaskRef: any = null;
+
   try {
-    const storageRef = ref(storage, storagePathVal);
+    const activeStorage = getActiveStorage ? getActiveStorage() : (storage.concrete || storage);
+    const storageRef = ref(activeStorage, storagePathVal);
     logSyncServerWrite('Expenses_Receipt_Storage', record.id);
 
     // Initial state: UPLOADING 0%
@@ -259,13 +311,15 @@ export const uploadExpenseReceiptInBackground = async (
       storagePath: storagePathVal,
     });
 
-    // Convert data URL to Blob
+    // Convert data URL to Blob safely
     const { blob, contentType } = dataUrlToBlob(record.localReceiptData);
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] BLOB_READY expenseId=${record.id} size=${blob.size} mime=${contentType}`);
 
     // Create Resumable Upload Task
     const uploadTask = uploadBytesResumable(storageRef, blob, {
       contentType: record.receiptContentType || contentType,
     });
+    uploadTaskRef = uploadTask;
 
     // Wrap uploadTask in a real Promise that resolves ONLY when state_changed observer finishes
     const uploadCompletionPromise = new Promise<void>((resolve, reject) => {
@@ -286,6 +340,7 @@ export const uploadExpenseReceiptInBackground = async (
               receiptUploadStatus: 'UPLOADING',
               receiptUploadProgress: percent,
             });
+            console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_PROGRESS expenseId=${record.id} progress=${percent}%`);
           }
         },
         (error) => {
@@ -297,12 +352,18 @@ export const uploadExpenseReceiptInBackground = async (
       );
     });
 
-    // Await upload completion with 60-second timeout safeguard
+    // Await upload completion with 60-second timeout safeguard (cancels upload task on timeout)
     await withTimeout(
       uploadCompletionPromise,
       60000,
-      `Receipt upload for ${record.id}`
+      `Receipt upload for ${record.id}`,
+      () => {
+        if (uploadTaskRef && typeof uploadTaskRef.cancel === 'function') {
+          uploadTaskRef.cancel();
+        }
+      }
     );
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_COMPLETE expenseId=${record.id}`);
 
     // Retrieve public download URL with 60-second timeout safeguard ONLY after upload completes
     const downloadUrl = await withTimeout<string>(
@@ -310,6 +371,7 @@ export const uploadExpenseReceiptInBackground = async (
       60000,
       `Receipt getDownloadURL for ${record.id}`
     );
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] DOWNLOAD_URL_COMPLETE expenseId=${record.id}`);
 
     const finishIso = new Date().toISOString();
 
@@ -321,8 +383,9 @@ export const uploadExpenseReceiptInBackground = async (
       receiptUploadError: null,
       receiptLastAttemptAt: finishIso,
     });
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] FIRESTORE_UPDATE_COMPLETE expenseId=${record.id}`);
 
-    // Update local record & free memory by clearing localReceiptData
+    // Update local record & free memory by clearing localReceiptData ONLY after confirmed success
     updateExpenseReceiptStatusInLocal(record.id, {
       receiptUrl: downloadUrl,
       storagePath: storagePathVal,
@@ -339,12 +402,12 @@ export const uploadExpenseReceiptInBackground = async (
       status: 'UPLOADED',
     });
 
-    console.log(`Expense Sync Engine: Background receipt upload successfully completed for ${record.id}`);
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_SUCCESS expenseId=${record.id}`);
     return true;
   } catch (uploadErr: any) {
     const normalizedError = normalizeFirebaseStorageError(uploadErr);
     console.warn(
-      `Expense Sync Engine: Background receipt upload failed for ${record.id} (${normalizedError}):`,
+      `[EXPENSE_RECEIPT_UPLOAD] UPLOAD_FAILED expenseId=${record.id} error=${normalizedError}`,
       uploadErr
     );
     const errTime = new Date().toISOString();
@@ -356,7 +419,7 @@ export const uploadExpenseReceiptInBackground = async (
         receiptLastAttemptAt: errTime,
       });
     } catch (fsErr) {
-      console.warn('Could not update receipt upload error status in Firestore:', fsErr);
+      console.warn('[EXPENSE_RECEIPT_UPLOAD] Could not update receipt upload error status in Firestore:', fsErr);
     }
 
     // Keep localReceiptData for automatic background retry without invalidating the synced claim
@@ -376,6 +439,8 @@ export const uploadExpenseReceiptInBackground = async (
     });
 
     return false;
+  } finally {
+    activeExpenseUploadLocks.delete(record.id);
   }
 };
 
@@ -383,14 +448,15 @@ export const uploadExpenseReceiptInBackground = async (
  * Manually or programmatically retries the receipt upload for a single expense record.
  */
 export const retrySingleExpenseReceiptUpload = async (expenseId: string): Promise<boolean> => {
+  console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_RETRY single expenseId=${expenseId}`);
   const records = getStoredExpenseRecords();
   const target = records.find((r) => r.id === expenseId);
   if (!target) {
-    console.warn(`Expense Sync Engine: No stored record found for expense ${expenseId}`);
+    console.warn(`[EXPENSE_RECEIPT_UPLOAD] No stored record found for expense ${expenseId}`);
     return false;
   }
   if (!target.localReceiptData) {
-    console.warn(`Expense Sync Engine: No local receipt image data available for ${expenseId}`);
+    console.warn(`[EXPENSE_RECEIPT_UPLOAD] No local receipt image data available for ${expenseId}`);
     return false;
   }
 
@@ -401,6 +467,7 @@ export const retrySingleExpenseReceiptUpload = async (expenseId: string): Promis
  * Retries standalone receipt uploads for expenses whose Firestore documents already exist
  * but receipt image upload is pending or previously failed.
  * Guarantees zero duplicate Firestore expense documents.
+ * Executes sequentially to prevent resource contention.
  */
 export const retryPendingExpenseReceiptUploads = async (): Promise<{
   uploadedCount: number;
@@ -415,7 +482,7 @@ export const retryPendingExpenseReceiptUploads = async (): Promise<{
     return { uploadedCount: 0, failedCount: 0 };
   }
 
-  console.log(`Expense Sync Engine: Retrying ${pendingUploads.length} pending receipt uploads in background.`);
+  console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_RETRY batch count=${pendingUploads.length}`);
   let uploadedCount = 0;
   let failedCount = 0;
 
