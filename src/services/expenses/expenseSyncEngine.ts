@@ -3,6 +3,8 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import {
   onAuthStateChanged,
   signInAnonymously,
+  setPersistence,
+  browserLocalPersistence,
   User,
   Auth
 } from 'firebase/auth';
@@ -68,57 +70,92 @@ export const emitReceiptUploadProgress = (event: ReceiptUploadProgressEvent): vo
 
 /**
  * Normalizes Firebase Storage errors into human-readable, safe status descriptions.
- * Distinguishes temporary network/auth conditions from permanent permission/configuration failures.
+ * Exposes real Firebase Storage codes rather than masking them behind generic messages.
  */
-export const normalizeFirebaseStorageError = (err: any): { isTransient: boolean; message: string } => {
-  if (!err) return { isTransient: true, message: 'Unknown upload issue. Will retry automatically.' };
+export const normalizeFirebaseStorageError = (err: any): { isTransient: boolean; message: string; code: string } => {
+  if (!err) return { isTransient: true, message: 'Unknown upload issue. Will retry automatically.', code: 'unknown' };
   const code = String(err?.code || '').toLowerCase();
   const message = String(err?.message || '').toLowerCase();
 
   if (message.includes('anonymous authentication is disabled') || code.includes('operation-not-allowed')) {
     return {
       isTransient: false,
-      message: 'Firebase Anonymous Authentication is disabled. Enable Anonymous sign-in in Firebase Authentication.',
+      code: err?.code || 'auth/operation-not-allowed',
+      message: 'Firebase Anonymous Authentication is disabled for this Firebase project. Enable Anonymous sign-in in Firebase Authentication.',
     };
   }
   if (code.includes('storage/unauthorized') || code.includes('unauthorized') || message.includes('unauthorized') || message.includes('permission denied')) {
-    return { isTransient: false, message: 'Receipt upload was rejected by Firebase Storage security rules.' };
+    return {
+      isTransient: false,
+      code: err?.code || 'storage/unauthorized',
+      message: 'Receipt upload was rejected by Firebase Storage security rules (storage/unauthorized).',
+    };
+  }
+  if (code.includes('storage/unauthenticated') || code.includes('unauthenticated')) {
+    return {
+      isTransient: false,
+      code: err?.code || 'storage/unauthenticated',
+      message: 'Storage upload rejected as unauthenticated (storage/unauthenticated). Please verify login session.',
+    };
   }
   if (code.includes('storage/quota-exceeded') || code.includes('quota-exceeded') || message.includes('quota') || message.includes('billing')) {
-    return { isTransient: false, message: 'Firebase Storage is unavailable due to project quota/billing limits.' };
+    return {
+      isTransient: false,
+      code: err?.code || 'storage/quota-exceeded',
+      message: 'Firebase Storage is unavailable due to project quota/billing limits (storage/quota-exceeded).',
+    };
   }
   if (code.includes('storage/bucket-not-found') || code.includes('bucket-not-found') || message.includes('bucket not found')) {
-    return { isTransient: false, message: 'Firebase Storage bucket is not available.' };
-  }
-  if (code.includes('storage/unauthenticated') || code.includes('unauthenticated') || message.includes('unauthenticated') || message.includes('auth')) {
-    return { isTransient: true, message: 'Waiting for secure login session...' };
+    return {
+      isTransient: false,
+      code: err?.code || 'storage/bucket-not-found',
+      message: 'Firebase Storage bucket is not available (storage/bucket-not-found).',
+    };
   }
   if (code.includes('storage/retry-limit-exceeded') || message.includes('retry limit')) {
-    return { isTransient: true, message: 'Upload retry limit reached. Kept for future retry.' };
+    return {
+      isTransient: true,
+      code: err?.code || 'storage/retry-limit-exceeded',
+      message: 'Upload retry limit reached (storage/retry-limit-exceeded). Kept for future retry.',
+    };
   }
   if (code.includes('storage/network-request-failed') || code.includes('network') || message.includes('network') || message.includes('fetch failed')) {
-    return { isTransient: true, message: 'Network error while uploading receipt. Will retry when connection stabilizes.' };
+    return {
+      isTransient: true,
+      code: err?.code || 'storage/network-request-failed',
+      message: 'Network error while uploading receipt (storage/network-request-failed). Will retry when connection stabilizes.',
+    };
   }
   if (code.includes('storage/canceled') || code.includes('canceled') || message.includes('cancelled')) {
-    return { isTransient: true, message: 'Receipt upload was cancelled.' };
+    return {
+      isTransient: true,
+      code: err?.code || 'storage/canceled',
+      message: 'Receipt upload was cancelled (storage/canceled).',
+    };
   }
   if (message.includes('timed out') || message.includes('timeout')) {
-    return { isTransient: true, message: 'Receipt upload timed out. Kept for automatic retry.' };
-  }
-  if (code.includes('unknown')) {
-    return { isTransient: true, message: 'Firebase Storage returned an unknown error. Will retry.' };
+    return {
+      isTransient: true,
+      code: 'timeout',
+      message: 'Receipt upload timed out. Kept for automatic retry.',
+    };
   }
 
   return {
     isTransient: true,
-    message: err?.message ? String(err.message).substring(0, 180) : 'Receipt upload failed. Will retry automatically.',
+    code: err?.code || 'unknown',
+    message: err?.message ? `${String(err.message).substring(0, 180)}${err?.code ? ` (${err.code})` : ''}` : 'Receipt upload failed. Will retry automatically.',
   };
 };
 
 /**
- * Waits for or establishes an authenticated Firebase user session.
- * If employee was restored through mobile recovery without an active Firebase Auth user,
- * initializes an anonymous Firebase session immediately so Storage rules (request.auth != null) are satisfied.
+ * Robust authentication resolver for Expense receipt uploads:
+ * 1. Resolves active employee Firebase Auth instance via getActiveAuth().
+ * 2. Immediately returns currentAuth.currentUser if a valid UID exists.
+ * 3. Applies browserLocalPersistence.
+ * 4. Subscribes to onAuthStateChanged().
+ * 5. If no user exists, immediately initiates signInAnonymously(currentAuth).
+ * 6. Exposes exact Firebase error codes/messages if authentication fails, never hiding them.
  */
 export const waitForAuthenticatedFirebaseUser = async (
   authInstance?: Auth,
@@ -132,15 +169,22 @@ export const waitForAuthenticatedFirebaseUser = async (
     throw new Error('Firebase Authentication is not initialized.');
   }
 
+  // Set persistence; failure logged but does not prevent sign-in attempt
+  try {
+    await setPersistence(currentAuth, browserLocalPersistence);
+  } catch (pErr) {
+    console.warn('[EXPENSE_RECEIPT_UPLOAD] Failed to set browserLocalPersistence (continuing):', pErr);
+  }
+
   const existingUser = currentAuth.currentUser;
 
   console.log(
-    `[EXPENSE_RECEIPT_UPLOAD] AUTH_CHECK uidPresent=${Boolean(existingUser?.uid)}`
+    `[EXPENSE_RECEIPT_UPLOAD] AUTH_CHECK uidPresent=${Boolean(existingUser?.uid)} authInitialized=${Boolean(existingUser)}`
   );
 
   if (existingUser?.uid) {
     console.log(
-      `[EXPENSE_RECEIPT_UPLOAD] AUTH_READY uidPresent=true isAnonymous=${existingUser.isAnonymous}`
+      `[EXPENSE_RECEIPT_UPLOAD] AUTH_READY uid=${existingUser.uid} isAnonymous=${existingUser.isAnonymous}`
     );
     return existingUser;
   }
@@ -172,45 +216,56 @@ export const waitForAuthenticatedFirebaseUser = async (
       cleanup();
 
       console.log(
-        `[EXPENSE_RECEIPT_UPLOAD] AUTH_READY uidPresent=true isAnonymous=${user.isAnonymous}`
+        `[EXPENSE_RECEIPT_UPLOAD] AUTH_READY uid=${user.uid} isAnonymous=${user.isAnonymous}`
       );
 
       resolve(user);
     };
 
-    const startAnonymousSession = async () => {
+    const establishAnonymousSession = async () => {
       if (anonymousSignInStarted) return;
-
       anonymousSignInStarted = true;
 
       try {
         console.log(
-          '[EXPENSE_RECEIPT_UPLOAD] No Firebase user available. Starting anonymous employee Firebase session.'
+          '[EXPENSE_RECEIPT_UPLOAD] AUTH_NO_USER -> signInAnonymously()'
         );
 
         const credential = await signInAnonymously(currentAuth);
 
         if (!credential.user?.uid) {
           throw new Error(
-            'Firebase anonymous authentication returned no user.'
+            'Firebase anonymous sign-in returned no authenticated user.'
           );
         }
 
+        console.log(
+          `[EXPENSE_RECEIPT_UPLOAD] AUTH_READY uid=${credential.user.uid} isAnonymous=${credential.user.isAnonymous}`
+        );
+
         resolveUser(credential.user);
-      } catch (authErr: any) {
+      } catch (error: any) {
+        console.error(
+          '[EXPENSE_RECEIPT_UPLOAD] AUTH_FAILED',
+          {
+            code: error?.code,
+            message: error?.message,
+            name: error?.name
+          }
+        );
+
         clearTimeout(timer);
         cleanup();
 
-        const code = String(authErr?.code || '').toLowerCase();
-
+        const code = String(error?.code || '').toLowerCase();
         if (code.includes('operation-not-allowed')) {
           reject(
             new Error(
-              'Firebase Anonymous Authentication is disabled. Enable Anonymous sign-in in Firebase Authentication.'
+              'Firebase Anonymous Authentication is disabled for this Firebase project. Enable Anonymous sign-in in Firebase Authentication.'
             )
           );
         } else {
-          reject(authErr);
+          reject(error);
         }
       }
     };
@@ -232,14 +287,20 @@ export const waitForAuthenticatedFirebaseUser = async (
            * Create the temporary Firebase session here instead of
            * waiting for a user that will never appear.
            */
-          void startAnonymousSession();
+          void establishAnonymousSession();
         },
         (authError) => {
           clearTimeout(timer);
           cleanup();
+          console.error('[EXPENSE_RECEIPT_UPLOAD] AUTH_FAILED observer error:', authError);
           reject(authError);
         }
       );
+
+      // If no currentUser exists, trigger establishAnonymousSession right away
+      if (!currentAuth.currentUser) {
+        void establishAnonymousSession();
+      }
     } catch (err) {
       clearTimeout(timer);
       cleanup();
@@ -414,6 +475,20 @@ export const uploadExpenseReceiptInBackground = async (
 
   const docRef = doc(db, 'expenses', record.id);
 
+  // Runtime context diagnostics
+  const currentAuth = getActiveAuth ? getActiveAuth() : (auth.concrete || auth);
+  const activeStorage = getActiveStorage ? getActiveStorage() : (storage.concrete || storage);
+
+  const firebaseAppConfigProjectId = (currentAuth?.app?.options as any)?.projectId || 'exfin-oms-production';
+  const resolvedStorageBucket = (activeStorage?.app?.options as any)?.storageBucket || 'exfin-oms-production.firebasestorage.app';
+
+  console.log('[EXPENSE_RECEIPT_UPLOAD] FIREBASE_RUNTIME', {
+    projectId: firebaseAppConfigProjectId,
+    authUid: currentAuth?.currentUser?.uid || null,
+    authAnonymous: currentAuth?.currentUser?.isAnonymous || false,
+    storageBucket: resolvedStorageBucket
+  });
+
   // Check offline status
   if (!navigator.onLine) {
     console.log(`[EXPENSE_RECEIPT_UPLOAD] Device offline. Receipt for ${record.id} kept locally.`);
@@ -439,27 +514,53 @@ export const uploadExpenseReceiptInBackground = async (
   try {
     const user = await waitForAuthenticatedFirebaseUser(undefined, 30000);
     firebaseUid = user.uid;
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] STORAGE_AUTH_READY uid=<present> anonymous=${user.isAnonymous}`);
   } catch (authErr: any) {
-    console.warn(`[EXPENSE_RECEIPT_UPLOAD] AUTH_NOT_READY expenseId=${record.id}:`, authErr);
-    const isAnonymousDisabled = String(authErr?.message || '').includes('Firebase Anonymous Authentication is disabled');
-    const waitingMsg = isAnonymousDisabled
-      ? 'Firebase Anonymous Authentication is disabled. Enable Anonymous sign-in in Firebase Authentication.'
-      : 'Waiting for secure login session...';
-    const finalStatus: 'PENDING' | 'FAILED' = isAnonymousDisabled ? 'FAILED' : 'PENDING';
+    const authCode = String(authErr?.code || '').toLowerCase();
+    const authMessage = String(authErr?.message || '');
+    console.error('[EXPENSE_RECEIPT_UPLOAD] AUTH_FAILED', {
+      code: authErr?.code || 'unknown',
+      message: authMessage,
+      name: authErr?.name
+    });
+
+    let displayError = '';
+    let isTransient = true;
+
+    if (authCode.includes('operation-not-allowed') || authMessage.includes('Anonymous Authentication is disabled')) {
+      displayError = 'Firebase Anonymous Authentication is disabled for this Firebase project. Enable Anonymous sign-in in Firebase Authentication.';
+      isTransient = false;
+    } else if (authCode.includes('invalid-api-key') || authCode.includes('app-not-authorized')) {
+      displayError = `Firebase Authentication configuration error: ${authMessage} (${authErr?.code || 'auth-config-error'})`;
+      isTransient = false;
+    } else if (authCode.includes('network-request-failed')) {
+      displayError = `Authentication network error: ${authMessage} (${authErr?.code || 'auth/network-request-failed'}). Will retry.`;
+      isTransient = true;
+    } else if (authMessage.includes('timed out')) {
+      displayError = 'Waiting for secure login session...';
+      isTransient = true;
+    } else {
+      displayError = authErr?.message
+        ? `Authentication failed: ${authErr.message}${authErr?.code ? ` (${authErr.code})` : ''}`
+        : 'Authentication failed. Please verify login session.';
+      isTransient = false;
+    }
+
+    const finalStatus: 'PENDING' | 'FAILED' = isTransient ? 'PENDING' : 'FAILED';
 
     updateExpenseReceiptStatusInLocal(record.id, {
       receiptUploadStatus: finalStatus,
-      receiptUploadError: waitingMsg,
+      receiptUploadError: displayError,
       receiptUploadProgress: 0,
       receiptLastAttemptAt: new Date().toISOString(),
       clearLocalReceiptData: false,
     });
 
     try {
-      if (isAnonymousDisabled) {
+      if (!isTransient) {
         await updateDoc(docRef, {
           receiptUploadStatus: 'FAILED',
-          receiptUploadError: waitingMsg,
+          receiptUploadError: displayError,
           receiptLastAttemptAt: new Date().toISOString(),
         });
       }
@@ -469,11 +570,11 @@ export const uploadExpenseReceiptInBackground = async (
       expenseId: record.id,
       progress: 0,
       status: finalStatus,
-      error: waitingMsg,
+      error: displayError,
     });
 
     activeExpenseUploadLocks.delete(record.id);
-    if (!isAnonymousDisabled) {
+    if (isTransient) {
       scheduleExpenseReceiptRetry(record.id);
     }
     return false;
@@ -494,7 +595,6 @@ export const uploadExpenseReceiptInBackground = async (
   let uploadTaskRef: any = null;
 
   try {
-    const activeStorage = getActiveStorage ? getActiveStorage() : (storage.concrete || storage);
     if (!activeStorage) {
       console.warn(`[EXPENSE_RECEIPT_UPLOAD] STORAGE_NOT_READY expenseId=${record.id}`);
       throw new Error('Firebase Storage instance is unavailable.');
@@ -617,9 +717,9 @@ export const uploadExpenseReceiptInBackground = async (
     const failureCode = uploadErr?.code || 'UNKNOWN';
     console.log(`[EXPENSE_RECEIPT_UPLOAD] FAILURE_CODE=${failureCode}`);
 
-    const { isTransient, message: normalizedError } = normalizeFirebaseStorageError(uploadErr);
+    const { isTransient, message: normalizedError, code: errCode } = normalizeFirebaseStorageError(uploadErr);
     console.warn(
-      `[EXPENSE_RECEIPT_UPLOAD] RECEIPT_UPLOAD_FAILED expenseId=${record.id} isTransient=${isTransient} error=${normalizedError}`,
+      `[EXPENSE_RECEIPT_UPLOAD] RECEIPT_UPLOAD_FAILED expenseId=${record.id} isTransient=${isTransient} code=${errCode} error=${normalizedError}`,
       uploadErr
     );
     const errTime = new Date().toISOString();
