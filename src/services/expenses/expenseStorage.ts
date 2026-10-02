@@ -46,8 +46,9 @@ export const updateExpenseReceiptStatusInLocal = (
   updates: {
     receiptUrl?: string | null;
     storagePath?: string | null;
-    receiptUploadStatus: 'PENDING' | 'UPLOADED' | 'FAILED';
+    receiptUploadStatus: 'PENDING' | 'UPLOADING' | 'UPLOADED' | 'FAILED';
     receiptUploadError?: string | null;
+    receiptUploadProgress?: number | null;
     receiptLastAttemptAt?: string | null;
     clearLocalReceiptData?: boolean;
   }
@@ -60,6 +61,9 @@ export const updateExpenseReceiptStatusInLocal = (
       if (updates.storagePath !== undefined) record.storagePath = updates.storagePath;
       record.receiptUploadStatus = updates.receiptUploadStatus;
       record.receiptUploadError = updates.receiptUploadError ?? null;
+      if (updates.receiptUploadProgress !== undefined) {
+        record.receiptUploadProgress = updates.receiptUploadProgress;
+      }
       record.receiptLastAttemptAt = updates.receiptLastAttemptAt ?? new Date().toISOString();
       if (updates.clearLocalReceiptData) {
         record.localReceiptData = null;

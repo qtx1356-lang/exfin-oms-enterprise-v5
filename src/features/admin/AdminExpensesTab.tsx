@@ -550,14 +550,21 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
                       <span>View Receipt</span>
                     </button>
                   ) : exp.receiptUploadStatus === 'FAILED' ? (
-                    <span
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30"
-                      title={exp.receiptUploadError || 'Receipt image upload failed. Expense claim remains valid and pending.'}
-                    >
-                      <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
-                      <span>Receipt upload failed</span>
-                    </span>
-                  ) : exp.receiptUploadStatus === 'PENDING' ? (
+                    <div className="flex flex-col items-end gap-0.5 max-w-[200px]">
+                      <span
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30 text-right cursor-help"
+                        title={exp.receiptUploadError ? `Reason: ${exp.receiptUploadError}` : 'Receipt image upload failed. Claim is valid.'}
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                        <span>Receipt upload failed</span>
+                      </span>
+                      {exp.receiptUploadError && (
+                        <span className="text-[9px] text-rose-300/70 truncate max-w-[190px]" title={exp.receiptUploadError}>
+                          {exp.receiptUploadError}
+                        </span>
+                      )}
+                    </div>
+                  ) : exp.receiptUploadStatus === 'PENDING' || exp.receiptUploadStatus === 'UPLOADING' ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30">
                       <Clock className="w-3 h-3 text-amber-400 animate-pulse shrink-0" />
                       <span>Uploading...</span>
@@ -705,14 +712,21 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
                               <span>View</span>
                             </button>
                           ) : exp.receiptUploadStatus === 'FAILED' ? (
-                            <span
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30"
-                              title={exp.receiptUploadError || 'Receipt image upload failed. Expense claim remains valid and pending.'}
-                            >
-                              <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
-                              <span>Receipt upload failed</span>
-                            </span>
-                          ) : exp.receiptUploadStatus === 'PENDING' ? (
+                            <div className="flex flex-col items-center gap-0.5 max-w-[160px] mx-auto">
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-rose-500/15 text-rose-300 border border-rose-500/30 cursor-help"
+                                title={exp.receiptUploadError ? `Failure Reason: ${exp.receiptUploadError}` : 'Receipt image upload failed. Claim is valid.'}
+                              >
+                                <AlertTriangle className="w-3 h-3 text-rose-400 shrink-0" />
+                                <span>Receipt upload failed</span>
+                              </span>
+                              {exp.receiptUploadError && (
+                                <span className="text-[9px] text-rose-300/70 truncate max-w-[150px]" title={exp.receiptUploadError}>
+                                  {exp.receiptUploadError}
+                                </span>
+                              )}
+                            </div>
+                          ) : exp.receiptUploadStatus === 'PENDING' || exp.receiptUploadStatus === 'UPLOADING' ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30">
                               <Clock className="w-3 h-3 text-amber-400 animate-pulse shrink-0" />
                               <span>Uploading...</span>

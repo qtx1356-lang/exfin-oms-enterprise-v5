@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { 
@@ -14,6 +14,11 @@ import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ReceiptScanner } from './ReceiptScanner';
 import { useSensitiveActionGuard } from '../../services/security/useSensitiveActionGuard';
+import {
+  subscribeToReceiptUploadProgress,
+  retrySingleExpenseReceiptUpload,
+  ReceiptUploadProgressEvent,
+} from '../../services/expenses/expenseSyncEngine';
 
 import { 
   Wallet, 
@@ -38,7 +43,9 @@ import {
   MoreHorizontal,
   Calendar,
   IndianRupee,
-  Receipt
+  Receipt,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 
 export const ExpenseScreen: React.FC = () => {
@@ -50,6 +57,41 @@ export const ExpenseScreen: React.FC = () => {
   const empName = employeeData?.name || 'Employee';
 
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [liveUploadStates, setLiveUploadStates] = useState<Record<string, ReceiptUploadProgressEvent>>({});
+  const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
+
+  // Listen to live background receipt upload progress events
+  useEffect(() => {
+    const unsub = subscribeToReceiptUploadProgress((event) => {
+      setLiveUploadStates((prev) => ({
+        ...prev,
+        [event.expenseId]: event,
+      }));
+      if (event.status === 'UPLOADED' || event.status === 'FAILED') {
+        setRetryingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(event.expenseId);
+          return next;
+        });
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const handleRetryReceipt = async (expenseId: string) => {
+    setRetryingIds((prev) => new Set(prev).add(expenseId));
+    try {
+      await retrySingleExpenseReceiptUpload(expenseId);
+    } catch (e) {
+      console.error('Failed to retry receipt upload:', e);
+    } finally {
+      setRetryingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(expenseId);
+        return next;
+      });
+    }
+  };
 
   // Expense Data
   const expenses = realtimeExpenses.filter(
@@ -426,6 +468,99 @@ export const ExpenseScreen: React.FC = () => {
                   {expense.description}
                 </div>
 
+                {/* Receipt Upload Status Component */}
+                {(expense.receiptUrl || expense.localReceiptData || expense.receiptUploadStatus) && (() => {
+                  const live = liveUploadStates[expense.id];
+                  const effectiveStatus = live?.status || expense.receiptUploadStatus || (expense.receiptUrl ? 'UPLOADED' : 'PENDING');
+                  const effectiveProgress = live?.progress ?? expense.receiptUploadProgress ?? (effectiveStatus === 'UPLOADED' ? 100 : 0);
+                  const effectiveError = live?.error || expense.receiptUploadError;
+
+                  return (
+                    <div className="pt-0.5">
+                      {effectiveStatus === 'UPLOADED' || expense.receiptUrl ? (
+                        <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
+                          <div className="flex items-center gap-1.5 text-emerald-300 font-semibold">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span>Receipt uploaded ✓</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPreviewReceipt((expense.receiptUrl || expense.localReceiptData)!);
+                              setZoomScale(1);
+                            }}
+                            className="text-[11px] font-bold text-cyan-300 hover:text-cyan-200 underline cursor-pointer"
+                          >
+                            View Receipt
+                          </button>
+                        </div>
+                      ) : effectiveStatus === 'UPLOADING' ? (
+                        <div className="space-y-1.5 p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-xs">
+                          <div className="flex items-center justify-between text-cyan-300 font-semibold">
+                            <div className="flex items-center gap-1.5">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400 shrink-0" />
+                              <span>Uploading receipt… {effectiveProgress}%</span>
+                            </div>
+                            <span className="font-mono text-[11px] text-cyan-200">{effectiveProgress}%</span>
+                          </div>
+                          <div className="w-full bg-cyan-950/60 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className="bg-cyan-400 h-1.5 rounded-full transition-all duration-300"
+                              style={{ width: `${Math.max(5, effectiveProgress)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ) : effectiveStatus === 'FAILED' ? (
+                        <div className="space-y-2 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start gap-1.5 min-w-0">
+                              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                              <div className="min-w-0">
+                                <span className="font-bold text-rose-300 block">Receipt upload failed</span>
+                                <p className="text-[11px] text-rose-200/80 mt-0.5 break-words">
+                                  {effectiveError || 'Receipt image could not be uploaded. It has been kept locally for retry.'}
+                                </p>
+                              </div>
+                            </div>
+                            {expense.localReceiptData && (
+                              <button
+                                type="button"
+                                onClick={() => handleRetryReceipt(expense.id)}
+                                disabled={retryingIds.has(expense.id)}
+                                className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold shadow transition-colors cursor-pointer"
+                              >
+                                {retryingIds.has(expense.id) ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                )}
+                                <span>Retry Upload</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs">
+                          <div className="flex items-center gap-1.5 text-amber-300 font-medium">
+                            <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
+                            <span>Receipt pending upload</span>
+                          </div>
+                          {expense.localReceiptData && isOnline && (
+                            <button
+                              type="button"
+                              onClick={() => handleRetryReceipt(expense.id)}
+                              disabled={retryingIds.has(expense.id)}
+                              className="text-[11px] font-bold text-amber-300 hover:underline cursor-pointer"
+                            >
+                              Upload Now
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Rejection Reason Alert if Rejected */}
                 {expense.status === 'Rejected' && expense.rejectionReason && (
                   <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-xs text-rose-200">
@@ -585,21 +720,27 @@ export const ExpenseScreen: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] h-32 bg-black/40">
-                <img src={receiptUrl} alt="Receipt Preview" className="w-full h-full object-contain" />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setReceiptUrl(null);
-                    setScannedMerchant(null);
-                    setScannedReceiptNum(null);
-                    setScannedGstAmount(null);
-                  }}
-                  className="absolute top-2 right-2 bg-rose-500 text-white p-1 rounded-full shadow-lg hover:bg-rose-600 transition-colors cursor-pointer"
-                  title="Remove Attached Receipt"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5 text-xs text-cyan-300 font-semibold bg-cyan-500/10 border border-cyan-500/20 px-3 py-1.5 rounded-xl">
+                  <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span>Receipt selected ✓</span>
+                </div>
+                <div className="relative rounded-2xl overflow-hidden border border-[var(--border)] h-32 bg-black/40">
+                  <img src={receiptUrl} alt="Receipt Preview" className="w-full h-full object-contain" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReceiptUrl(null);
+                      setScannedMerchant(null);
+                      setScannedReceiptNum(null);
+                      setScannedGstAmount(null);
+                    }}
+                    className="absolute top-2 right-2 bg-rose-500 text-white p-1 rounded-full shadow-lg hover:bg-rose-600 transition-colors cursor-pointer"
+                    title="Remove Attached Receipt"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
