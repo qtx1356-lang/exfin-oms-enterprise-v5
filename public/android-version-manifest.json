@@ -1,11 +1,11 @@
 {
-  "versionCode": 2,
-  "versionName": "1.0.1",
-  "apkUrl": "https://github.com/qtx1356-lang/exfin-oms-enterprise-v5/releases/download/v1.0.1/EXFIN-OMS-Android-v1.0.1.apk",
+  "versionCode": 3,
+  "versionName": "1.0.2",
+  "apkUrl": "https://github.com/qtx1356-lang/exfin-oms-enterprise-v5/releases/download/v1.0.2/EXFIN-OMS-Android-v1.0.2.apk",
   "releaseNotes": [
-    "Bug fixes and reliability enhancements",
+    "Native PWA-aligned Android app launcher icon",
     "Enhanced geofence tracking and offline sync engine",
-    "Optimized release APK size with automated updater"
+    "Optimized release APK with streaming updater"
   ]
 }
 
