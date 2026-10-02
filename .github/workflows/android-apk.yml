@@ -1,8 +1,23 @@
-name: Android APK Build
+name: Android APK Build & Release
 
 on:
   workflow_dispatch:
+    inputs:
+      versionCode:
+        description: 'Integer Version Code (e.g. 2)'
+        required: false
+        default: '2'
+      versionName:
+        description: 'Semantic Version Name (e.g. 1.0.1)'
+        required: false
+        default: '1.0.1'
+      releaseNotes:
+        description: 'Release Notes'
+        required: false
+        default: 'Production Android release with automatic update support'
   push:
+    tags:
+      - 'v*'
     branches:
       - main
     paths:
@@ -11,15 +26,22 @@ on:
       - 'capacitor.config.*'
       - 'package.json'
       - 'package-lock.json'
+      - 'src/**'
+      - 'public/**'
 
 jobs:
   build-apk:
-    name: Build Android Debug APK
+    name: Build Optimized Android Release APK
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -32,6 +54,35 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+
+      - name: Calculate Version Code and Version Name
+        id: versioning
+        run: |
+          # Determine Version Code
+          if [ -n "${{ github.event.inputs.versionCode }}" ]; then
+            VERSION_CODE="${{ github.event.inputs.versionCode }}"
+          else
+            # Ensure strictly increasing versionCode with base offset + run number
+            BASE_OFFSET=100
+            VERSION_CODE=$((BASE_OFFSET + ${{ github.run_number }}))
+          fi
+
+          # Determine Version Name
+          if [ -n "${{ github.event.inputs.versionName }}" ]; then
+            VERSION_NAME="${{ github.event.inputs.versionName }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION_NAME="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION_NAME="1.0.1"
+          fi
+
+          echo "Calculated Version Code: $VERSION_CODE"
+          echo "Calculated Version Name: $VERSION_NAME"
+
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
 
       - name: Install Dependencies
         run: |
@@ -53,40 +104,101 @@ jobs:
           echo "Syncing web assets to native Android project..."
           npx cap sync android
 
+      - name: Validate and Set up Production Signing Key
+        id: signing
+        run: |
+          echo "=== Checking Production Keystore Secrets ==="
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ] || [ -z "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" ] || [ -z "${{ secrets.ANDROID_KEY_ALIAS }}" ] || [ -z "${{ secrets.ANDROID_KEY_PASSWORD }}" ]; then
+            echo "::error::Production release signing secrets are missing!"
+            echo "The following GitHub Secrets are required to sign the release APK:"
+            echo "  1. ANDROID_KEYSTORE_BASE64"
+            echo "  2. ANDROID_KEYSTORE_PASSWORD"
+            echo "  3. ANDROID_KEY_ALIAS"
+            echo "  4. ANDROID_KEY_PASSWORD"
+            echo "Release build aborted. Debug keystore fallback is strictly prohibited for production APKs."
+            exit 1
+          fi
+
+          echo "Decoding release keystore from GitHub Secrets..."
+          mkdir -p ${{ runner.temp }}/keystore
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > ${{ runner.temp }}/keystore/release.keystore
+          echo "ANDROID_KEYSTORE_FILE=${{ runner.temp }}/keystore/release.keystore" >> $GITHUB_ENV
+          echo "ANDROID_KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "ANDROID_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "ANDROID_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> $GITHUB_ENV
+          echo "Production keystore configured successfully."
+
       - name: Make Gradle Wrapper Executable
         run: |
           chmod +x android/gradlew
 
-      - name: Build Android Debug APK
+      - name: Build Optimized Android Release APK
+        env:
+          ANDROID_VERSION_CODE: ${{ env.VERSION_CODE }}
+          ANDROID_VERSION_NAME: ${{ env.VERSION_NAME }}
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace --no-daemon
+          echo "Building Release APK with Version Code: $ANDROID_VERSION_CODE, Version Name: $ANDROID_VERSION_NAME..."
+          ./gradlew assembleRelease --stacktrace --no-daemon
 
-      - name: Locate and Stage APK
+      - name: Locate, Verify & Stage Release APK
         run: |
           echo "=== Locating Built APKs ==="
           find android/app/build/outputs -type f -name "*.apk" -print
 
-          DEBUG_DIR="android/app/build/outputs/apk/debug"
-          if [ -d "$DEBUG_DIR" ]; then
-            DEBUG_APK=$(find "$DEBUG_DIR" -type f -name "*.apk" | head -n 1)
-          else
-            DEBUG_APK=$(find android/app/build/outputs -type f -name "*.apk" | head -n 1)
+          RELEASE_DIR="android/app/build/outputs/apk/release"
+          RELEASE_APK=""
+          if [ -f "$RELEASE_DIR/app-release.apk" ]; then
+            RELEASE_APK="$RELEASE_DIR/app-release.apk"
+          elif [ -d "$RELEASE_DIR" ]; then
+            RELEASE_APK=$(find "$RELEASE_DIR" -type f -name "*.apk" | head -n 1)
           fi
 
-          if [ -z "$DEBUG_APK" ] || [ ! -f "$DEBUG_APK" ]; then
-            echo "ERROR: No debug APK found in Android build outputs."
+          if [ -z "$RELEASE_APK" ] || [ ! -f "$RELEASE_APK" ]; then
+            echo "ERROR: No release APK found in Android build outputs."
             find android/app/build/outputs -type f -print || true
             exit 1
           fi
 
-          echo "Found Android debug APK: $DEBUG_APK"
+          echo "Found Android release APK: $RELEASE_APK"
+
+          echo "=== APK Verification & Signing Details ==="
+          if command -v apksigner >/dev/null 2>&1; then
+            apksigner verify --verbose --print-certs "$RELEASE_APK" || true
+          fi
+
+          echo "APK SHA-256 Checksum:"
+          sha256sum "$RELEASE_APK"
+
+          echo "APK Exact Size:"
+          ls -l "$RELEASE_APK"
 
           mkdir -p artifact
-          cp "$DEBUG_APK" artifact/EXFIN-OMS-Android-Debug.apk
-          echo "Staged APK to artifact/EXFIN-OMS-Android-Debug.apk"
+          APK_FILENAME="EXFIN-OMS-Android-v${{ env.VERSION_NAME }}.apk"
+          cp "$RELEASE_APK" "artifact/$APK_FILENAME"
+          cp "$RELEASE_APK" "artifact/exfin-oms-android.apk"
+          echo "Staged APK to artifact/$APK_FILENAME and artifact/exfin-oms-android.apk"
 
-      - name: Display Build Information
+          # Generate release update manifest matching the built APK
+          REPO_NAME="${{ github.repository }}"
+          APK_DOWNLOAD_URL="https://github.com/${REPO_NAME}/releases/download/v${{ env.VERSION_NAME }}/${APK_FILENAME}"
+
+          cat <<EOF > artifact/android-version-manifest.json
+          {
+            "versionCode": ${{ env.VERSION_CODE }},
+            "versionName": "${{ env.VERSION_NAME }}",
+            "apkUrl": "${APK_DOWNLOAD_URL}",
+            "releaseNotes": [
+              "Production Android release v${{ env.VERSION_NAME }} (Build ${{ env.VERSION_CODE }})",
+              "${{ github.event.inputs.releaseNotes || 'Optimized performance, background geofencing, and sync stability' }}"
+            ]
+          }
+          EOF
+
+          echo "=== Generated Manifest ==="
+          cat artifact/android-version-manifest.json
+
+      - name: Display Build & Size Information
         run: |
           echo "=== Build Environment & Artifact Information ==="
           echo "Java Version:"
@@ -95,12 +207,34 @@ jobs:
           node -v || true
           echo "Gradle Version:"
           (cd android && ./gradlew --version) || true
-          echo "APK Artifact:"
-          ls -lh artifact/EXFIN-OMS-Android-Debug.apk || true
+          echo "Optimized Release APK Size:"
+          ls -lh artifact/*.apk || true
 
-      - name: Upload APK Artifact
+      - name: Upload APK & Manifest Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: exfin-oms-android-apk
-          path: artifact/EXFIN-OMS-Android-Debug.apk
+          name: exfin-oms-android-release
+          path: |
+            artifact/*.apk
+            artifact/android-version-manifest.json
           if-no-files-found: error
+
+      - name: Create / Update GitHub Release (on tag or manual dispatch)
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION_NAME }}
+          name: "EXFIN OMS Release v${{ env.VERSION_NAME }}"
+          body: |
+            ## EXFIN OMS Android App Update v${{ env.VERSION_NAME }} (Build ${{ env.VERSION_CODE }})
+            
+            ### What's New:
+            - ${{ github.event.inputs.releaseNotes || 'Production release build with R8 optimizations and updated launcher icons.' }}
+            
+            ### Direct APK Download:
+            - **APK:** [EXFIN-OMS-Android-v${{ env.VERSION_NAME }}.apk](${{ github.server_url }}/${{ github.repository }}/releases/download/v${{ env.VERSION_NAME }}/EXFIN-OMS-Android-v${{ env.VERSION_NAME }}.apk)
+          files: |
+            artifact/*.apk
+            artifact/android-version-manifest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

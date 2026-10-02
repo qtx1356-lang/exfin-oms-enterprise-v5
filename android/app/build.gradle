@@ -1,5 +1,27 @@
 apply plugin: 'com.android.application'
 
+def getAppVersionCode = { ->
+    if (project.hasProperty('versionCode')) {
+        return project.property('versionCode').toString().toInteger()
+    }
+    def envCode = System.getenv('ANDROID_VERSION_CODE') ?: System.getenv('VERSION_CODE')
+    if (envCode && envCode.isInteger()) {
+        return envCode.toInteger()
+    }
+    return 2
+}
+
+def getAppVersionName = { ->
+    if (project.hasProperty('versionName')) {
+        return project.property('versionName').toString()
+    }
+    def envName = System.getenv('ANDROID_VERSION_NAME') ?: System.getenv('VERSION_NAME')
+    if (envName && !envName.isEmpty()) {
+        return envName
+    }
+    return "1.0.1"
+}
+
 android {
     namespace "com.exfin.oms"
     compileSdk rootProject.ext.compileSdkVersion
@@ -8,18 +30,38 @@ android {
         applicationId "com.exfin.oms"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0.0"
+        versionCode getAppVersionCode()
+        versionName getAppVersionName()
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
 
+    signingConfigs {
+        release {
+            def keystorePath = System.getenv('ANDROID_KEYSTORE_FILE') ?: project.findProperty('RELEASE_STORE_FILE')
+            if (keystorePath && file(keystorePath).exists()) {
+                storeFile file(keystorePath)
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD') ?: project.findProperty('RELEASE_STORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS') ?: project.findProperty('RELEASE_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD') ?: project.findProperty('RELEASE_KEY_PASSWORD')
+            }
+        }
+    }
+
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (signingConfigs.release.storeFile != null) {
+                signingConfig signingConfigs.release
+            }
+        }
+        debug {
+            minifyEnabled false
+            shrinkResources false
         }
     }
 

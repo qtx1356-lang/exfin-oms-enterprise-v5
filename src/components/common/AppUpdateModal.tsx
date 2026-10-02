@@ -223,7 +223,7 @@ export const AppUpdateModal: React.FC = () => {
               <div className="w-full bg-slate-800 rounded-full h-3 p-0.5 overflow-hidden border border-slate-700">
                 <div
                   className="bg-gradient-to-r from-purple-500 to-cyan-400 h-full rounded-full transition-all duration-300"
-                  style={{ width: `${Math.max(5, downloadProgress)}%` }}
+                  style={{ width: `${Math.min(100, Math.max(0, downloadProgress))}%` }}
                 />
               </div>
               <div className="flex justify-between items-center text-xs text-slate-400 px-1 font-mono">
@@ -247,19 +247,20 @@ export const AppUpdateModal: React.FC = () => {
 
             <div>
               <h3 className="text-lg font-bold text-white">Download Complete</h3>
-              <p className="text-xs text-emerald-300 mt-1">Launching Android installer…</p>
+              <p className="text-xs text-emerald-300 mt-1 font-medium">Android installer launched</p>
             </div>
 
-            <p className="text-xs text-slate-400">
-              Confirm the update installation on your device to apply the new version.
-            </p>
+            <div className="bg-slate-800/80 border border-slate-700/60 rounded-xl p-3 text-xs text-slate-300 space-y-1 text-left">
+              <p className="font-semibold text-emerald-400">Next Step:</p>
+              <p>Please confirm the update prompt on your screen to complete installation.</p>
+            </div>
 
             <button
               type="button"
-              onClick={handleStartUpdate}
-              className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg transition-colors cursor-pointer"
+              onClick={handleLater}
+              className="w-full py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm transition-colors cursor-pointer"
             >
-              Re-open Installer
+              Dismiss
             </button>
           </div>
         )}
