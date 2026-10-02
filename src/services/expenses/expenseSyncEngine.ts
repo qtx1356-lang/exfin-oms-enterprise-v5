@@ -33,6 +33,7 @@ export interface ReceiptUploadProgressEvent {
   progress: number; // 0 to 100
   status: 'PENDING' | 'UPLOADING' | 'UPLOADED' | 'FAILED';
   error?: string | null;
+  progressIndeterminate?: boolean;
 }
 
 const progressListeners = new Set<(event: ReceiptUploadProgressEvent) => void>();
@@ -608,10 +609,12 @@ export const uploadExpenseReceiptInBackground = async (
       expenseId: record.id,
       progress: 0,
       status: 'UPLOADING',
+      progressIndeterminate: false,
     });
     updateExpenseReceiptStatusInLocal(record.id, {
       receiptUploadStatus: 'UPLOADING',
       receiptUploadProgress: 0,
+      receiptUploadProgressIndeterminate: false,
       receiptUploadError: null,
       storagePath: storagePathVal,
     });
@@ -680,10 +683,12 @@ export const uploadExpenseReceiptInBackground = async (
                 expenseId: record.id,
                 progress: percent,
                 status: 'UPLOADING',
+                progressIndeterminate: false,
               });
               updateExpenseReceiptStatusInLocal(record.id, {
                 receiptUploadStatus: 'UPLOADING',
                 receiptUploadProgress: percent,
+                receiptUploadProgressIndeterminate: false,
               });
             },
             (error) => {
@@ -733,28 +738,41 @@ export const uploadExpenseReceiptInBackground = async (
     if (resumableResult === 'FALLBACK_NEEDED') {
       // Ensure resumable task is fully cleaned up before launching fallback
       uploadTaskRef = null;
-      console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_FALLBACK_START expenseId=${record.id} size=${blob.size} contentType=${targetContentType}`);
+      console.log(
+        `[EXPENSE_RECEIPT_UPLOAD] UPLOAD_FALLBACK_START expenseId=${record.id} size=${blob.size} contentType=${targetContentType}`
+      );
 
+      // Indeterminate uploading state - never hardcode a false percentage like 10%
       emitReceiptUploadProgress({
         expenseId: record.id,
-        progress: 10,
+        progress: 0,
         status: 'UPLOADING',
+        progressIndeterminate: true,
       });
       updateExpenseReceiptStatusInLocal(record.id, {
         receiptUploadStatus: 'UPLOADING',
-        receiptUploadProgress: 10,
+        receiptUploadProgress: 0,
+        receiptUploadProgressIndeterminate: true,
       });
 
-      // Await uploadBytes fallback with 120-second timeout
-      await withTimeout(
-        uploadBytes(storageRef, blob, {
-          contentType: targetContentType,
-        }),
-        120000,
-        `Receipt fallback uploadBytes for ${record.id}`
-      );
+      try {
+        // Await uploadBytes fallback with 120-second timeout
+        await withTimeout(
+          uploadBytes(storageRef, blob, {
+            contentType: targetContentType,
+          }),
+          120000,
+          `Receipt fallback uploadBytes for ${record.id}`
+        );
 
-      console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_FALLBACK_SUCCESS expenseId=${record.id}`);
+        console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_FALLBACK_SUCCESS expenseId=${record.id}`);
+      } catch (fallbackErr: any) {
+        console.error(
+          `[EXPENSE_RECEIPT_UPLOAD] UPLOAD_FALLBACK_FAILED expenseId=${record.id}:`,
+          fallbackErr
+        );
+        throw fallbackErr;
+      }
     }
 
     console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_COMPLETE expenseId=${record.id}`);
@@ -786,6 +804,7 @@ export const uploadExpenseReceiptInBackground = async (
       storagePath: storagePathVal,
       receiptUploadStatus: 'UPLOADED',
       receiptUploadProgress: 100,
+      receiptUploadProgressIndeterminate: false,
       receiptUploadError: null,
       receiptLastAttemptAt: finishIso,
       clearLocalReceiptData: true,
@@ -798,6 +817,7 @@ export const uploadExpenseReceiptInBackground = async (
       expenseId: record.id,
       progress: 100,
       status: 'UPLOADED',
+      progressIndeterminate: false,
     });
 
     console.log(`[EXPENSE_RECEIPT_UPLOAD] RECEIPT_UPLOAD_SUCCESS expenseId=${record.id}`);
@@ -829,6 +849,7 @@ export const uploadExpenseReceiptInBackground = async (
       receiptUploadStatus: finalStatus,
       receiptUploadError: normalizedError,
       receiptUploadProgress: 0,
+      receiptUploadProgressIndeterminate: false,
       receiptLastAttemptAt: errTime,
       clearLocalReceiptData: false,
     });
@@ -838,6 +859,7 @@ export const uploadExpenseReceiptInBackground = async (
       progress: 0,
       status: finalStatus,
       error: normalizedError,
+      progressIndeterminate: false,
     });
 
     if (isTransient) {

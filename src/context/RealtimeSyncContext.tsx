@@ -659,6 +659,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                   receiptUploadStatus: serverMatch.receiptUploadStatus || le.receiptUploadStatus,
                   receiptUploadError: serverMatch.receiptUploadError || le.receiptUploadError,
                   receiptUploadProgress: isServerUploaded ? 100 : (le.receiptUploadProgress ?? serverMatch.receiptUploadProgress),
+                  receiptUploadProgressIndeterminate: isServerUploaded ? false : (le.receiptUploadProgressIndeterminate ?? serverMatch.receiptUploadProgressIndeterminate),
                 });
               } else {
                 map.set(le.id, le);

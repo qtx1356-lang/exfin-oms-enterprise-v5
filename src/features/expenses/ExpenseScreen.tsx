@@ -472,6 +472,7 @@ export const ExpenseScreen: React.FC = () => {
                 {(expense.receiptUrl || expense.localReceiptData || expense.receiptUploadStatus) && (() => {
                   const live = liveUploadStates[expense.id];
                   const effectiveStatus = live?.status || expense.receiptUploadStatus || (expense.receiptUrl ? 'UPLOADED' : 'PENDING');
+                  const isIndeterminate = live?.progressIndeterminate ?? expense.receiptUploadProgressIndeterminate ?? false;
                   const effectiveProgress = live?.progress ?? expense.receiptUploadProgress ?? (effectiveStatus === 'UPLOADED' ? 100 : 0);
                   const effectiveError = live?.error || expense.receiptUploadError;
 
@@ -499,15 +500,21 @@ export const ExpenseScreen: React.FC = () => {
                           <div className="flex items-center justify-between text-cyan-300 font-semibold">
                             <div className="flex items-center gap-1.5">
                               <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400 shrink-0" />
-                              <span>Uploading receipt… {effectiveProgress}%</span>
+                              <span>{isIndeterminate ? 'Uploading…' : `Uploading receipt… ${effectiveProgress}%`}</span>
                             </div>
-                            <span className="font-mono text-[11px] text-cyan-200">{effectiveProgress}%</span>
+                            {!isIndeterminate && (
+                              <span className="font-mono text-[11px] text-cyan-200">{effectiveProgress}%</span>
+                            )}
                           </div>
                           <div className="w-full bg-cyan-950/60 rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className="bg-cyan-400 h-1.5 rounded-full transition-all duration-300"
-                              style={{ width: `${Math.max(5, effectiveProgress)}%` }}
-                            />
+                            {isIndeterminate ? (
+                              <div className="bg-gradient-to-r from-cyan-500 via-cyan-300 to-cyan-500 h-1.5 rounded-full w-full animate-pulse" />
+                            ) : (
+                              <div
+                                className="bg-cyan-400 h-1.5 rounded-full transition-all duration-300"
+                                style={{ width: `${Math.max(5, effectiveProgress)}%` }}
+                              />
+                            )}
                           </div>
                         </div>
                       ) : effectiveStatus === 'FAILED' ? (

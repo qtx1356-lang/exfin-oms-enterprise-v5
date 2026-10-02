@@ -54,6 +54,7 @@ export const updateExpenseReceiptStatusInLocal = (
     receiptUploadStatus: 'PENDING' | 'UPLOADING' | 'UPLOADED' | 'FAILED';
     receiptUploadError?: string | null;
     receiptUploadProgress?: number | null;
+    receiptUploadProgressIndeterminate?: boolean | null;
     receiptLastAttemptAt?: string | null;
     clearLocalReceiptData?: boolean;
   }
@@ -68,6 +69,9 @@ export const updateExpenseReceiptStatusInLocal = (
       record.receiptUploadError = updates.receiptUploadError ?? null;
       if (updates.receiptUploadProgress !== undefined) {
         record.receiptUploadProgress = updates.receiptUploadProgress;
+      }
+      if (updates.receiptUploadProgressIndeterminate !== undefined) {
+        record.receiptUploadProgressIndeterminate = updates.receiptUploadProgressIndeterminate;
       }
       record.receiptLastAttemptAt = updates.receiptLastAttemptAt ?? new Date().toISOString();
       if (updates.clearLocalReceiptData) {

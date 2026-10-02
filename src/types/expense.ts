@@ -39,6 +39,7 @@ export interface ExpenseRecord {
   receiptUploadStatus?: 'PENDING' | 'UPLOADING' | 'UPLOADED' | 'FAILED';
   receiptUploadError?: string | null;
   receiptUploadProgress?: number | null;
+  receiptUploadProgressIndeterminate?: boolean | null;
   receiptLastAttemptAt?: string | null;
   status: ExpenseStatus;
   rejectionReason?: string | null;
