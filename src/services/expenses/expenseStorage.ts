@@ -22,8 +22,13 @@ export const saveExpenseRecord = (record: ExpenseRecord): void => {
       records.unshift(record);
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-  } catch (err) {
+  } catch (err: any) {
     console.error('Failed to save expense record locally:', err);
+    if (record.localReceiptData) {
+      throw new Error(
+        'Receipt is too large for local offline storage. Please choose a smaller image.'
+      );
+    }
   }
 };
 

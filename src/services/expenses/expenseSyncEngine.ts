@@ -63,6 +63,9 @@ export const normalizeFirebaseStorageError = (err: any): string => {
   const code = String(err?.code || '').toLowerCase();
   const message = String(err?.message || '').toLowerCase();
 
+  if (message.includes('timed out') || message.includes('timeout')) {
+    return 'Receipt upload timed out. The receipt has been kept for retry.';
+  }
   if (code.includes('unauthorized') || message.includes('unauthorized') || message.includes('permission denied')) {
     return 'Receipt upload was rejected by Firebase Storage security rules.';
   }
@@ -144,8 +147,8 @@ export const getExpenseReceiptStoragePath = (
  * Ensures Firebase Storage network requests never hang the application indefinitely.
  */
 export const withTimeout = <T>(
-  promise: Promise<T> | PromiseLike<T> | any,
-  timeoutMs: number = 30000,
+  promise: Promise<T> | PromiseLike<T>,
+  timeoutMs: number = 60000,
   label: string = 'Operation'
 ): Promise<T> => {
   return new Promise<T>((resolve, reject) => {
@@ -188,9 +191,10 @@ export const uploadExpenseReceiptInBackground = async (
   // Check offline status
   if (!navigator.onLine) {
     console.log(`Expense Sync Engine: Device offline. Receipt for ${record.id} kept locally.`);
+    const offlineMsg = 'Receipt saved locally. Will upload when connection is restored.';
     updateExpenseReceiptStatusInLocal(record.id, {
       receiptUploadStatus: 'PENDING',
-      receiptUploadError: 'Receipt saved locally. Will upload when connection is restored.',
+      receiptUploadError: offlineMsg,
       receiptUploadProgress: 0,
       clearLocalReceiptData: false,
     });
@@ -198,7 +202,7 @@ export const uploadExpenseReceiptInBackground = async (
       expenseId: record.id,
       progress: 0,
       status: 'PENDING',
-      error: 'Receipt saved locally. Will upload when connection is restored.',
+      error: offlineMsg,
     });
     return false;
   }
@@ -263,36 +267,47 @@ export const uploadExpenseReceiptInBackground = async (
       contentType: record.receiptContentType || contentType,
     });
 
-    // Monitor real progress events
-    uploadTask.on('state_changed', (snapshot) => {
-      if (snapshot.totalBytes > 0) {
-        const percent = Math.min(
-          99,
-          Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
-        );
-        emitReceiptUploadProgress({
-          expenseId: record.id,
-          progress: percent,
-          status: 'UPLOADING',
-        });
-        updateExpenseReceiptStatusInLocal(record.id, {
-          receiptUploadStatus: 'UPLOADING',
-          receiptUploadProgress: percent,
-        });
-      }
+    // Wrap uploadTask in a real Promise that resolves ONLY when state_changed observer finishes
+    const uploadCompletionPromise = new Promise<void>((resolve, reject) => {
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          if (snapshot.totalBytes > 0) {
+            const percent = Math.min(
+              99,
+              Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
+            );
+            emitReceiptUploadProgress({
+              expenseId: record.id,
+              progress: percent,
+              status: 'UPLOADING',
+            });
+            updateExpenseReceiptStatusInLocal(record.id, {
+              receiptUploadStatus: 'UPLOADING',
+              receiptUploadProgress: percent,
+            });
+          }
+        },
+        (error) => {
+          reject(error);
+        },
+        () => {
+          resolve();
+        }
+      );
     });
 
-    // Await upload completion with 30-second timeout safeguard
+    // Await upload completion with 60-second timeout safeguard
     await withTimeout(
-      uploadTask,
-      30000,
+      uploadCompletionPromise,
+      60000,
       `Receipt upload for ${record.id}`
     );
 
-    // Retrieve public download URL with 30-second timeout safeguard
+    // Retrieve public download URL with 60-second timeout safeguard ONLY after upload completes
     const downloadUrl = await withTimeout<string>(
       getDownloadURL(storageRef),
-      30000,
+      60000,
       `Receipt getDownloadURL for ${record.id}`
     );
 
