@@ -1,5 +1,5 @@
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
   onAuthStateChanged,
   signInAnonymously,
@@ -618,56 +618,145 @@ export const uploadExpenseReceiptInBackground = async (
 
     // Convert data URL to Blob safely
     const { blob, contentType } = dataUrlToBlob(record.localReceiptData);
-    console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_START expenseId=${record.id} size=${blob.size} mime=${contentType}`);
+    const targetContentType = record.receiptContentType || contentType;
 
-    // Create Resumable Upload Task
-    const uploadTask = uploadBytesResumable(storageRef, blob, {
-      contentType: record.receiptContentType || contentType,
+    console.log('[EXPENSE_RECEIPT_UPLOAD] UPLOAD_START', {
+      expenseId: record.id,
+      blobSize: blob.size,
+      contentType: targetContentType,
+      storageBucket: resolvedStorageBucket,
     });
-    uploadTaskRef = uploadTask;
 
-    // Wrap uploadTask in a Promise that resolves ONLY when state_changed observer finishes
-    const uploadCompletionPromise = new Promise<void>((resolve, reject) => {
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
-          if (snapshot.totalBytes > 0) {
-            const percent = Math.min(
-              99,
-              Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)
-            );
-            emitReceiptUploadProgress({
-              expenseId: record.id,
-              progress: percent,
-              status: 'UPLOADING',
-            });
-            updateExpenseReceiptStatusInLocal(record.id, {
-              receiptUploadStatus: 'UPLOADING',
-              receiptUploadProgress: percent,
-            });
-            console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_PROGRESS expenseId=${record.id} progress=${percent}%`);
+    let resumableCancelledForFallback = false;
+
+    // Resumable upload runner with 10-second no-progress watchdog
+    const runResumableUpload = (): Promise<'COMPLETED' | 'FALLBACK_NEEDED'> => {
+      return new Promise<'COMPLETED' | 'FALLBACK_NEEDED'>((resolve, reject) => {
+        let hasByteProgress = false;
+        let watchdogTimer: NodeJS.Timeout | null = null;
+
+        try {
+          const uploadTask = uploadBytesResumable(storageRef, blob, {
+            contentType: targetContentType,
+          });
+          uploadTaskRef = uploadTask;
+
+          // Watchdog: If bytesTransferred === 0 after 10 seconds, trigger fallback to uploadBytes
+          watchdogTimer = setTimeout(() => {
+            if (!hasByteProgress) {
+              console.warn(
+                `[EXPENSE_RECEIPT_UPLOAD] UPLOAD_NO_PROGRESS_TIMEOUT expenseId=${record.id} - stuck at 0 bytes after 10s. Cancelling resumable task and triggering uploadBytes() fallback.`
+              );
+              resumableCancelledForFallback = true;
+              try {
+                uploadTask.cancel();
+              } catch (cancelErr) {
+                console.warn('[EXPENSE_RECEIPT_UPLOAD] Error cancelling stalled resumable task:', cancelErr);
+              }
+              resolve('FALLBACK_NEEDED');
+            }
+          }, 10000);
+
+          uploadTask.on(
+            'state_changed',
+            (snapshot) => {
+              const state = snapshot.state;
+              const bytesTransferred = snapshot.bytesTransferred;
+              const totalBytes = snapshot.totalBytes;
+              const percent = totalBytes > 0 ? Math.min(99, Math.round((bytesTransferred / totalBytes) * 100)) : 0;
+
+              if (bytesTransferred > 0) {
+                hasByteProgress = true;
+                if (watchdogTimer) {
+                  clearTimeout(watchdogTimer);
+                  watchdogTimer = null;
+                }
+              }
+
+              console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_STATE expenseId=${record.id} state=${state}`);
+              console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_PROGRESS expenseId=${record.id} bytesTransferred=${bytesTransferred}/${totalBytes} progress=${percent}%`);
+
+              emitReceiptUploadProgress({
+                expenseId: record.id,
+                progress: percent,
+                status: 'UPLOADING',
+              });
+              updateExpenseReceiptStatusInLocal(record.id, {
+                receiptUploadStatus: 'UPLOADING',
+                receiptUploadProgress: percent,
+              });
+            },
+            (error) => {
+              if (watchdogTimer) {
+                clearTimeout(watchdogTimer);
+                watchdogTimer = null;
+              }
+              if (resumableCancelledForFallback) {
+                // Cancelled intentionally for fallback, do not reject
+                return;
+              }
+              reject(error);
+            },
+            () => {
+              if (watchdogTimer) {
+                clearTimeout(watchdogTimer);
+                watchdogTimer = null;
+              }
+              if (resumableCancelledForFallback) {
+                return;
+              }
+              resolve('COMPLETED');
+            }
+          );
+        } catch (startErr) {
+          if (watchdogTimer) {
+            clearTimeout(watchdogTimer);
           }
-        },
-        (error) => {
-          reject(error);
-        },
-        () => {
-          resolve();
+          reject(startErr);
         }
-      );
-    });
+      });
+    };
 
-    // Await upload completion with 120-second timeout safeguard (cancels upload task on timeout)
-    await withTimeout(
-      uploadCompletionPromise,
+    const resumableResult = await withTimeout(
+      runResumableUpload(),
       120000,
-      `Receipt upload for ${record.id}`,
+      `Receipt resumable upload for ${record.id}`,
       () => {
         if (uploadTaskRef && typeof uploadTaskRef.cancel === 'function') {
-          uploadTaskRef.cancel();
+          try {
+            uploadTaskRef.cancel();
+          } catch {}
         }
       }
     );
+
+    if (resumableResult === 'FALLBACK_NEEDED') {
+      // Ensure resumable task is fully cleaned up before launching fallback
+      uploadTaskRef = null;
+      console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_FALLBACK_START expenseId=${record.id} size=${blob.size} contentType=${targetContentType}`);
+
+      emitReceiptUploadProgress({
+        expenseId: record.id,
+        progress: 10,
+        status: 'UPLOADING',
+      });
+      updateExpenseReceiptStatusInLocal(record.id, {
+        receiptUploadStatus: 'UPLOADING',
+        receiptUploadProgress: 10,
+      });
+
+      // Await uploadBytes fallback with 120-second timeout
+      await withTimeout(
+        uploadBytes(storageRef, blob, {
+          contentType: targetContentType,
+        }),
+        120000,
+        `Receipt fallback uploadBytes for ${record.id}`
+      );
+
+      console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_FALLBACK_SUCCESS expenseId=${record.id}`);
+    }
+
     console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_COMPLETE expenseId=${record.id}`);
 
     // Retrieve public download URL with 60-second timeout safeguard ONLY after upload completes
