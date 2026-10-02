@@ -1,0 +1,10 @@
+{
+  "versionCode": 1,
+  "versionName": "1.0.0",
+  "apkUrl": "https://raw.githubusercontent.com/qtx1356/exfin-oms/main/releases/exfin-oms-android.apk",
+  "releaseNotes": [
+    "Performance improvements and stability enhancements",
+    "Offline sync reliability enhancements",
+    "Automated background update installer"
+  ]
+}
