@@ -1,5 +1,6 @@
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { onAuthStateChanged, User, Auth } from 'firebase/auth';
 import { db, storage, auth, getActiveAuth, getActiveStorage } from '../firebase/config';
 import { ExpenseRecord } from '../../types/expense';
 import {
@@ -66,26 +67,29 @@ export const normalizeFirebaseStorageError = (err: any): string => {
   const code = String(err?.code || '').toLowerCase();
   const message = String(err?.message || '').toLowerCase();
 
-  if (message.includes('timed out') || message.includes('timeout')) {
-    return 'Receipt upload timed out. The receipt has been kept for retry.';
-  }
-  if (code.includes('unauthorized') || message.includes('unauthorized') || message.includes('permission denied')) {
+  if (code.includes('storage/unauthorized') || code.includes('unauthorized') || message.includes('unauthorized') || message.includes('permission denied')) {
     return 'Receipt upload was rejected by Firebase Storage security rules.';
   }
-  if (code.includes('unauthenticated') || message.includes('unauthenticated')) {
-    return 'Your Firebase login session is unavailable. Please sign in again.';
+  if (code.includes('storage/unauthenticated') || code.includes('unauthenticated') || message.includes('unauthenticated')) {
+    return 'Your login session is still being restored. The receipt has been kept and will retry automatically.';
   }
-  if (code.includes('bucket-not-found') || message.includes('bucket-not-found') || message.includes('bucket not found')) {
+  if (code.includes('storage/bucket-not-found') || code.includes('bucket-not-found') || message.includes('bucket not found')) {
     return 'Firebase Storage bucket is not available.';
   }
-  if (code.includes('quota-exceeded') || message.includes('quota') || message.includes('billing')) {
+  if (code.includes('storage/quota-exceeded') || code.includes('quota-exceeded') || message.includes('quota') || message.includes('billing')) {
     return 'Firebase Storage is unavailable because the project Storage quota/billing configuration does not allow this upload.';
   }
-  if (code.includes('network') || message.includes('network') || message.includes('fetch failed')) {
+  if (code.includes('storage/retry-limit-exceeded') || message.includes('retry limit')) {
+    return 'Upload retry limit exceeded. The receipt has been kept for future retry.';
+  }
+  if (code.includes('storage/network-request-failed') || code.includes('network') || message.includes('network') || message.includes('fetch failed')) {
     return 'Network error while uploading receipt. The receipt has been kept for retry.';
   }
-  if (code.includes('canceled') || message.includes('canceled') || message.includes('cancelled')) {
+  if (code.includes('storage/canceled') || code.includes('canceled') || message.includes('cancelled')) {
     return 'Receipt upload was cancelled.';
+  }
+  if (message.includes('timed out') || message.includes('timeout')) {
+    return 'Receipt upload timed out. The receipt has been kept for retry.';
   }
   if (code.includes('unknown')) {
     return 'Firebase Storage returned an unknown upload error.';
@@ -97,43 +101,110 @@ export const normalizeFirebaseStorageError = (err: any): string => {
 };
 
 /**
+ * Waits for Firebase Auth initialization if the session is still restoring.
+ * Ensures the authenticated user's UID is ready before constructing storage paths.
+ */
+export const waitForAuthenticatedFirebaseUser = async (
+  authInstance?: Auth,
+  timeoutMs: number = 10000
+): Promise<User> => {
+  const currentAuth = authInstance || (getActiveAuth ? getActiveAuth() : (auth.concrete || auth));
+
+  if (currentAuth?.currentUser && currentAuth.currentUser.uid) {
+    return currentAuth.currentUser;
+  }
+
+  return new Promise<User>((resolve, reject) => {
+    let unsubscribe: (() => void) | null = null;
+    const timer = setTimeout(() => {
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch {}
+      }
+      reject(new Error('Firebase Auth initialization timed out. Login session may still be restoring.'));
+    }, timeoutMs);
+
+    try {
+      unsubscribe = onAuthStateChanged(
+        currentAuth,
+        (user) => {
+          if (user && user.uid) {
+            clearTimeout(timer);
+            if (unsubscribe) {
+              try {
+                unsubscribe();
+              } catch {}
+            }
+            resolve(user);
+          }
+        },
+        (authError) => {
+          clearTimeout(timer);
+          if (unsubscribe) {
+            try {
+              unsubscribe();
+            } catch {}
+          }
+          reject(authError);
+        }
+      );
+    } catch (err) {
+      clearTimeout(timer);
+      reject(err);
+    }
+  });
+};
+
+/**
  * Safely converts Base64 Data URL into binary Blob.
- * Hardened to validate format and prevent unhandled browser exceptions.
+ * Validates payload and MIME type, preventing unhandled browser exceptions.
  */
 export const dataUrlToBlob = (dataUrl: string): { blob: Blob; contentType: string } => {
   if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
-    throw new Error('Invalid or empty receipt image data URL.');
+    throw new Error('Receipt image could not be prepared for upload. Please attach the receipt again.');
   }
 
   const commaIndex = dataUrl.indexOf(',');
   if (commaIndex === -1) {
-    throw new Error('Malformed receipt data URL: missing payload separator.');
+    throw new Error('Receipt image could not be prepared for upload. Please attach the receipt again.');
   }
 
   const metaPart = dataUrl.substring(0, commaIndex);
   const base64Data = dataUrl.substring(commaIndex + 1).trim();
 
   if (!base64Data) {
-    throw new Error('Malformed receipt data URL: empty base64 payload.');
+    throw new Error('Receipt image could not be prepared for upload. Please attach the receipt again.');
   }
 
   const mimeMatch = metaPart.match(/data:([^;]+);/);
-  const contentType = (mimeMatch && mimeMatch[1]) ? mimeMatch[1] : 'image/jpeg';
+  const contentType = mimeMatch && mimeMatch[1] ? mimeMatch[1] : 'image/jpeg';
+
+  if (!contentType.startsWith('image/')) {
+    throw new Error('Receipt image could not be prepared for upload. Please attach the receipt again.');
+  }
 
   try {
     const binaryString = window.atob(base64Data);
     const len = binaryString.length;
+    if (len === 0) {
+      throw new Error('Receipt image is empty.');
+    }
     const bytes = new Uint8Array(len);
     for (let i = 0; i < len; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
+    const blob = new Blob([bytes], { type: contentType });
+    if (blob.size === 0) {
+      throw new Error('Receipt image binary is empty.');
+    }
     return {
-      blob: new Blob([bytes], { type: contentType }),
+      blob,
       contentType,
     };
   } catch (decodeErr: any) {
     console.error('[EXPENSE_RECEIPT_UPLOAD] Failed to decode base64 receipt data:', decodeErr);
-    throw new Error('Failed to decode receipt image binary data: ' + (decodeErr?.message || 'Invalid base64'));
+    throw new Error('Receipt image could not be prepared for upload. Please attach the receipt again.');
   }
 };
 
@@ -148,10 +219,11 @@ export const dataUrlToBlob = (dataUrl: string): { blob: Blob; contentType: strin
  * }
  */
 export const getExpenseReceiptStoragePath = (
-  record: ExpenseRecord
+  record: ExpenseRecord,
+  authenticatedUid?: string
 ): { storagePath: string; firebaseUid: string } => {
   const currentAuth = getActiveAuth ? getActiveAuth() : auth;
-  const firebaseUid = currentAuth?.currentUser?.uid || (auth as any)?.currentUser?.uid;
+  const firebaseUid = authenticatedUid || currentAuth?.currentUser?.uid || (auth as any)?.currentUser?.uid;
 
   if (!firebaseUid) {
     throw new Error('Authenticated Firebase user is unavailable for receipt upload.');
@@ -176,7 +248,7 @@ export const getExpenseReceiptStoragePath = (
  */
 export const withTimeout = <T>(
   promise: Promise<T> | PromiseLike<T>,
-  timeoutMs: number = 60000,
+  timeoutMs: number = 120000,
   label: string = 'Operation',
   onTimeoutCleanup?: () => void
 ): Promise<T> => {
@@ -231,12 +303,10 @@ export const uploadExpenseReceiptInBackground = async (
 
   const docRef = doc(db, 'expenses', record.id);
 
-  console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_START expenseId=${record.id} estimatedSize=${record.receiptSize || 'unknown'}`);
-
   // Check offline status
   if (!navigator.onLine) {
     console.log(`[EXPENSE_RECEIPT_UPLOAD] Device offline. Receipt for ${record.id} kept locally.`);
-    const offlineMsg = 'Receipt saved locally. Will upload when connection is restored.';
+    const offlineMsg = 'Receipt saved. Will upload automatically.';
     updateExpenseReceiptStatusInLocal(record.id, {
       receiptUploadStatus: 'PENDING',
       receiptUploadError: offlineMsg,
@@ -253,16 +323,15 @@ export const uploadExpenseReceiptInBackground = async (
     return false;
   }
 
-  // Check Firebase Auth UID
-  let storagePathVal = '';
+  // Step 1: Wait for Authenticated Firebase User
+  let firebaseUid = '';
   try {
-    const pathInfo = getExpenseReceiptStoragePath(record);
-    storagePathVal = pathInfo.storagePath;
-    console.log(`[EXPENSE_RECEIPT_UPLOAD] AUTH_CHECK expenseId=${record.id} hasAuth=true`);
-    console.log(`[EXPENSE_RECEIPT_UPLOAD] STORAGE_PATH expenseId=${record.id} path=${storagePathVal}`);
+    const user = await waitForAuthenticatedFirebaseUser();
+    firebaseUid = user.uid;
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] AUTH_READY uidPresent=true`);
   } catch (authErr: any) {
-    const errorMsg = 'Your Firebase login session is unavailable. Please sign in again.';
-    console.warn(`[EXPENSE_RECEIPT_UPLOAD] AUTH_CHECK expenseId=${record.id} hasAuth=false:`, authErr);
+    console.warn(`[EXPENSE_RECEIPT_UPLOAD] AUTH_NOT_READY expenseId=${record.id}:`, authErr);
+    const errorMsg = 'Your login session is still being restored. The receipt has been kept and will retry automatically.';
 
     updateExpenseReceiptStatusInLocal(record.id, {
       receiptUploadStatus: 'FAILED',
@@ -291,10 +360,27 @@ export const uploadExpenseReceiptInBackground = async (
     return false;
   }
 
+  // Step 2: Storage path resolution
+  let storagePathVal = '';
+  try {
+    const pathInfo = getExpenseReceiptStoragePath(record, firebaseUid);
+    storagePathVal = pathInfo.storagePath;
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] STORAGE_PATH path=${storagePathVal}`);
+  } catch (pathErr: any) {
+    console.warn(`[EXPENSE_RECEIPT_UPLOAD] STORAGE_PATH_ERROR expenseId=${record.id}:`, pathErr);
+    activeExpenseUploadLocks.delete(record.id);
+    return false;
+  }
+
   let uploadTaskRef: any = null;
 
   try {
     const activeStorage = getActiveStorage ? getActiveStorage() : (storage.concrete || storage);
+    if (!activeStorage) {
+      console.warn(`[EXPENSE_RECEIPT_UPLOAD] STORAGE_NOT_READY expenseId=${record.id}`);
+      throw new Error('Firebase Storage instance is unavailable.');
+    }
+
     const storageRef = ref(activeStorage, storagePathVal);
     logSyncServerWrite('Expenses_Receipt_Storage', record.id);
 
@@ -313,7 +399,7 @@ export const uploadExpenseReceiptInBackground = async (
 
     // Convert data URL to Blob safely
     const { blob, contentType } = dataUrlToBlob(record.localReceiptData);
-    console.log(`[EXPENSE_RECEIPT_UPLOAD] BLOB_READY expenseId=${record.id} size=${blob.size} mime=${contentType}`);
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_START expenseId=${record.id} size=${blob.size} mime=${contentType}`);
 
     // Create Resumable Upload Task
     const uploadTask = uploadBytesResumable(storageRef, blob, {
@@ -321,7 +407,7 @@ export const uploadExpenseReceiptInBackground = async (
     });
     uploadTaskRef = uploadTask;
 
-    // Wrap uploadTask in a real Promise that resolves ONLY when state_changed observer finishes
+    // Wrap uploadTask in a Promise that resolves ONLY when state_changed observer finishes
     const uploadCompletionPromise = new Promise<void>((resolve, reject) => {
       uploadTask.on(
         'state_changed',
@@ -352,10 +438,10 @@ export const uploadExpenseReceiptInBackground = async (
       );
     });
 
-    // Await upload completion with 60-second timeout safeguard (cancels upload task on timeout)
+    // Await upload completion with 120-second timeout safeguard (cancels upload task on timeout)
     await withTimeout(
       uploadCompletionPromise,
-      60000,
+      120000,
       `Receipt upload for ${record.id}`,
       () => {
         if (uploadTaskRef && typeof uploadTaskRef.cancel === 'function') {
@@ -366,6 +452,7 @@ export const uploadExpenseReceiptInBackground = async (
     console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_COMPLETE expenseId=${record.id}`);
 
     // Retrieve public download URL with 60-second timeout safeguard ONLY after upload completes
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] DOWNLOAD_URL_START expenseId=${record.id}`);
     const downloadUrl = await withTimeout<string>(
       getDownloadURL(storageRef),
       60000,
@@ -376,6 +463,7 @@ export const uploadExpenseReceiptInBackground = async (
     const finishIso = new Date().toISOString();
 
     // Update Firestore document with live download URL
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] FIRESTORE_RECEIPT_UPDATE expenseId=${record.id}`);
     await updateDoc(docRef, {
       receiptUrl: downloadUrl,
       storagePath: storagePathVal,
@@ -383,7 +471,6 @@ export const uploadExpenseReceiptInBackground = async (
       receiptUploadError: null,
       receiptLastAttemptAt: finishIso,
     });
-    console.log(`[EXPENSE_RECEIPT_UPLOAD] FIRESTORE_UPDATE_COMPLETE expenseId=${record.id}`);
 
     // Update local record & free memory by clearing localReceiptData ONLY after confirmed success
     updateExpenseReceiptStatusInLocal(record.id, {
@@ -402,12 +489,15 @@ export const uploadExpenseReceiptInBackground = async (
       status: 'UPLOADED',
     });
 
-    console.log(`[EXPENSE_RECEIPT_UPLOAD] UPLOAD_SUCCESS expenseId=${record.id}`);
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] RECEIPT_UPLOAD_SUCCESS expenseId=${record.id}`);
     return true;
   } catch (uploadErr: any) {
+    const failureCode = uploadErr?.code || 'UNKNOWN';
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] FAILURE_CODE=${failureCode}`);
+
     const normalizedError = normalizeFirebaseStorageError(uploadErr);
     console.warn(
-      `[EXPENSE_RECEIPT_UPLOAD] UPLOAD_FAILED expenseId=${record.id} error=${normalizedError}`,
+      `[EXPENSE_RECEIPT_UPLOAD] RECEIPT_UPLOAD_FAILED expenseId=${record.id} error=${normalizedError}`,
       uploadErr
     );
     const errTime = new Date().toISOString();

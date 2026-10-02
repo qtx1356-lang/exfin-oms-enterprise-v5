@@ -652,12 +652,13 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             ) {
               const serverMatch = map.get(le.id);
               if (serverMatch) {
-                // Merge server record with local pending receipt data
+                const isServerUploaded = serverMatch.receiptUploadStatus === 'UPLOADED' || Boolean(serverMatch.receiptUrl);
                 map.set(le.id, {
                   ...serverMatch,
-                  localReceiptData: le.localReceiptData || serverMatch.localReceiptData,
+                  localReceiptData: isServerUploaded ? null : (le.localReceiptData || serverMatch.localReceiptData),
                   receiptUploadStatus: serverMatch.receiptUploadStatus || le.receiptUploadStatus,
                   receiptUploadError: serverMatch.receiptUploadError || le.receiptUploadError,
+                  receiptUploadProgress: isServerUploaded ? 100 : (le.receiptUploadProgress ?? serverMatch.receiptUploadProgress),
                 });
               } else {
                 map.set(le.id, le);
