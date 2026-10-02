@@ -648,18 +648,18 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
               le.syncStatus === 'Pending Sync' ||
               le.syncStatus === 'Syncing...' ||
               le.syncStatus === 'Sync Failed' ||
-              (le.localReceiptData && le.receiptUploadStatus !== 'UPLOADED')
+              (le.localReceiptData && (le.receiptUploadStatus !== 'UPLOADED' || !le.receiptUrl))
             ) {
               const serverMatch = map.get(le.id);
               if (serverMatch) {
-                const isServerUploaded = serverMatch.receiptUploadStatus === 'UPLOADED' || Boolean(serverMatch.receiptUrl);
+                const isServerUploaded = Boolean(serverMatch.receiptUrl) && serverMatch.receiptUploadStatus === 'UPLOADED';
                 map.set(le.id, {
                   ...serverMatch,
                   localReceiptData: isServerUploaded ? null : (le.localReceiptData || serverMatch.localReceiptData),
-                  receiptUploadStatus: serverMatch.receiptUploadStatus || le.receiptUploadStatus,
+                  receiptUploadStatus: isServerUploaded ? 'UPLOADED' : (serverMatch.receiptUploadStatus || le.receiptUploadStatus),
                   receiptUploadError: serverMatch.receiptUploadError || le.receiptUploadError,
-                  receiptUploadProgress: isServerUploaded ? 100 : (le.receiptUploadProgress ?? serverMatch.receiptUploadProgress),
-                  receiptUploadProgressIndeterminate: isServerUploaded ? false : (le.receiptUploadProgressIndeterminate ?? serverMatch.receiptUploadProgressIndeterminate),
+                  receiptUploadProgress: isServerUploaded ? 100 : (le.receiptUploadProgress ?? serverMatch.receiptUploadProgress ?? 0),
+                  receiptUploadProgressIndeterminate: isServerUploaded ? false : (le.receiptUploadProgressIndeterminate ?? serverMatch.receiptUploadProgressIndeterminate ?? false),
                 });
               } else {
                 map.set(le.id, le);

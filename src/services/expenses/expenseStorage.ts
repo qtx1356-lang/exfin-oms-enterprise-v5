@@ -51,7 +51,7 @@ export const updateExpenseReceiptStatusInLocal = (
   updates: {
     receiptUrl?: string | null;
     storagePath?: string | null;
-    receiptUploadStatus: 'PENDING' | 'UPLOADING' | 'UPLOADED' | 'FAILED';
+    receiptUploadStatus: 'PENDING' | 'UPLOADING' | 'UPLOADED' | 'FAILED' | null;
     receiptUploadError?: string | null;
     receiptUploadProgress?: number | null;
     receiptUploadProgressIndeterminate?: boolean | null;

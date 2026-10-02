@@ -218,7 +218,7 @@ export const ExpenseScreen: React.FC = () => {
         receiptFileName: receiptUrl ? `receipt_${expenseId}.jpg` : null,
         receiptContentType: receiptUrl ? 'image/jpeg' : null,
         receiptSize: receiptUrl ? Math.round(receiptUrl.length * 0.75) : null,
-        receiptUploadStatus: receiptUrl ? 'PENDING' : 'UPLOADED',
+        receiptUploadStatus: receiptUrl ? 'PENDING' : null,
         receiptUploadError: null,
         receiptLastAttemptAt: null,
         status: 'Pending',
@@ -469,16 +469,20 @@ export const ExpenseScreen: React.FC = () => {
                 </div>
 
                 {/* Receipt Upload Status Component */}
-                {(expense.receiptUrl || expense.localReceiptData || expense.receiptUploadStatus) && (() => {
+                {(expense.receiptUrl || expense.localReceiptData || liveUploadStates[expense.id]) && (() => {
                   const live = liveUploadStates[expense.id];
                   const effectiveStatus = live?.status || expense.receiptUploadStatus || (expense.receiptUrl ? 'UPLOADED' : 'PENDING');
                   const isIndeterminate = live?.progressIndeterminate ?? expense.receiptUploadProgressIndeterminate ?? false;
-                  const effectiveProgress = live?.progress ?? expense.receiptUploadProgress ?? (effectiveStatus === 'UPLOADED' ? 100 : 0);
+                  const effectiveProgress = live?.progress ?? expense.receiptUploadProgress ?? 0;
                   const effectiveError = live?.error || expense.receiptUploadError;
+
+                  // CRITICAL: UI must NOT display 100% or "Receipt uploaded" until all 5 steps succeed
+                  // and a valid receiptUrl is confirmed on the server. Status is authoritative.
+                  const isFullyUploaded = effectiveStatus === 'UPLOADED' && Boolean(expense.receiptUrl);
 
                   return (
                     <div className="pt-0.5">
-                      {effectiveStatus === 'UPLOADED' || expense.receiptUrl ? (
+                      {isFullyUploaded ? (
                         <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
                           <div className="flex items-center gap-1.5 text-emerald-300 font-semibold">
                             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -500,10 +504,10 @@ export const ExpenseScreen: React.FC = () => {
                           <div className="flex items-center justify-between text-cyan-300 font-semibold">
                             <div className="flex items-center gap-1.5">
                               <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400 shrink-0" />
-                              <span>{isIndeterminate ? 'Uploading…' : `Uploading receipt… ${effectiveProgress}%`}</span>
+                              <span>{isIndeterminate ? 'Uploading…' : `Uploading receipt… ${Math.min(99, Math.max(1, effectiveProgress))}%`}</span>
                             </div>
                             {!isIndeterminate && (
-                              <span className="font-mono text-[11px] text-cyan-200">{effectiveProgress}%</span>
+                              <span className="font-mono text-[11px] text-cyan-200">{Math.min(99, Math.max(1, effectiveProgress))}%</span>
                             )}
                           </div>
                           <div className="w-full bg-cyan-950/60 rounded-full h-1.5 overflow-hidden">
@@ -512,7 +516,7 @@ export const ExpenseScreen: React.FC = () => {
                             ) : (
                               <div
                                 className="bg-cyan-400 h-1.5 rounded-full transition-all duration-300"
-                                style={{ width: `${Math.max(5, effectiveProgress)}%` }}
+                                style={{ width: `${Math.max(5, Math.min(99, effectiveProgress))}%` }}
                               />
                             )}
                           </div>
