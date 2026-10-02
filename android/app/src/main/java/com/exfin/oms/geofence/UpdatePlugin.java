@@ -1,11 +1,7 @@
 package com.exfin.oms.geofence;
 
-import android.app.DownloadManager;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -20,17 +16,28 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Future;
 
 @CapacitorPlugin(name = "ExfinUpdate")
 public class UpdatePlugin extends Plugin {
     public static final String TAG = "UpdatePlugin";
-    private long activeDownloadId = -1;
-    private BroadcastReceiver downloadReceiver = null;
-    private ScheduledExecutorService progressPoller = null;
+    private static final int BUFFER_SIZE = 64 * 1024; // 64 KB streaming buffer
+    private static final int CONNECT_TIMEOUT_MS = 30000; // 30 seconds
+    private static final int READ_TIMEOUT_MS = 60000; // 60 seconds
+    private static final int MAX_REDIRECTS = 10;
+
+    private final ExecutorService downloadExecutor = Executors.newSingleThreadExecutor();
+    private Future<?> activeDownloadFuture = null;
+    private volatile boolean isCancelled = false;
     private PluginCall activeDownloadCall = null;
 
     @PluginMethod
@@ -97,7 +104,7 @@ public class UpdatePlugin extends Plugin {
     @PluginMethod
     public void cancelUpdateDownload(PluginCall call) {
         try {
-            cleanupActiveDownload();
+            cancelActiveDownload();
             JSObject ret = new JSObject();
             ret.put("cancelled", true);
             call.resolve(ret);
@@ -109,191 +116,281 @@ public class UpdatePlugin extends Plugin {
 
     @PluginMethod
     public void downloadAndInstallUpdate(PluginCall call) {
-        String updateUrl = call.getString("updateUrl");
+        final String updateUrl = call.getString("updateUrl");
         if (updateUrl == null || updateUrl.trim().isEmpty()) {
             call.reject("Invalid update URL provided");
             return;
         }
 
-        // Security: Enforce HTTPS for APK downloads
+        // Security: Require initial HTTPS
         if (!updateUrl.toLowerCase().startsWith("https://")) {
             call.reject("Security Violation: Only HTTPS update URLs are permitted");
             return;
         }
 
-        // Clean up any ongoing download prior to starting a fresh download
-        cleanupActiveDownload();
+        cancelActiveDownload();
         activeDownloadCall = call;
+        isCancelled = false;
+
+        // Emit initial 0% progress
+        JSObject initialProgress = new JSObject();
+        initialProgress.put("status", "DOWNLOADING");
+        initialProgress.put("progress", 0);
+        initialProgress.put("bytesDownloaded", 0);
+        initialProgress.put("bytesTotal", 0);
+        notifyListeners("updateDownloadProgress", initialProgress, true);
+
+        activeDownloadFuture = downloadExecutor.submit(() -> performNativeStreamingDownload(updateUrl));
+    }
+
+    private void performNativeStreamingDownload(String sourceUrl) {
+        Context context = getContext();
+        File downloadsDir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (downloadsDir == null) {
+            downloadsDir = context.getFilesDir();
+        }
+
+        File partFile = new File(downloadsDir, "ExfinOMS-Update.apk.part");
+        File finalApkFile = new File(downloadsDir, "ExfinOMS-Update.apk");
+
+        // Clean up any existing or stale part/apk files
+        if (partFile.exists()) {
+            partFile.delete();
+        }
+        if (finalApkFile.exists()) {
+            finalApkFile.delete();
+        }
+
+        HttpURLConnection connection = null;
+        InputStream inputStream = null;
+        OutputStream outputStream = null;
+        long totalBytesRead = 0;
+        long expectedTotalBytes = -1;
 
         try {
-            Context context = getContext();
-            String fileName = "ExfinOMS-Update.apk";
-            File destinationFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName);
-            if (destinationFile.exists()) {
-                destinationFile.delete();
-            }
+            String currentUrl = sourceUrl;
+            int redirectCount = 0;
 
-            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(updateUrl));
-            request.setTitle("EXFIN OMS Update");
-            request.setDescription("Downloading latest application update...");
-            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            request.setDestinationUri(Uri.fromFile(destinationFile));
-            request.setMimeType("application/vnd.android.package-archive");
-
-            DownloadManager downloadManager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
-            if (downloadManager == null) {
-                call.reject("DownloadManager service not available");
-                return;
-            }
-
-            activeDownloadId = downloadManager.enqueue(request);
-
-            // Register broadcast receiver for download completion
-            downloadReceiver = new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context ctx, Intent intent) {
-                    long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
-                    if (id == activeDownloadId) {
-                        stopProgressPoller();
-                        DownloadManager.Query query = new DownloadManager.Query();
-                        query.setFilterById(activeDownloadId);
-                        Cursor cursor = downloadManager.query(query);
-                        boolean downloadSuccess = false;
-                        int failureReason = -1;
-
-                        if (cursor != null && cursor.moveToFirst()) {
-                            int statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS);
-                            if (statusIndex >= 0) {
-                                int status = cursor.getInt(statusIndex);
-                                if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                                    downloadSuccess = true;
-                                } else if (status == DownloadManager.STATUS_FAILED) {
-                                    int reasonIndex = cursor.getColumnIndex(DownloadManager.COLUMN_REASON);
-                                    failureReason = reasonIndex >= 0 ? cursor.getInt(reasonIndex) : -1;
-                                }
-                            }
-                            cursor.close();
-                        }
-
-                        if (downloadSuccess && destinationFile.exists() && destinationFile.length() > 0) {
-                            Log.i(TAG, "Download completed successfully (" + destinationFile.length() + " bytes). Initiating APK installation...");
-
-                            JSObject completeObj = new JSObject();
-                            completeObj.put("status", "DOWNLOADED");
-                            completeObj.put("progress", 100);
-                            completeObj.put("fileSize", destinationFile.length());
-                            notifyListeners("updateDownloadProgress", completeObj, true);
-
-                            boolean launched = installApk(ctx, destinationFile);
-                            if (activeDownloadCall != null) {
-                                JSObject res = new JSObject();
-                                res.put("success", true);
-                                res.put("installerLaunched", launched);
-                                activeDownloadCall.resolve(res);
-                                activeDownloadCall = null;
-                            }
-                        } else {
-                            Log.e(TAG, "Download failed or downloaded file is empty. Reason code: " + failureReason);
-                            JSObject failObj = new JSObject();
-                            failObj.put("status", "FAILED");
-                            failObj.put("progress", 0);
-                            failObj.put("error", "Download failed or corrupted APK file (code " + failureReason + ")");
-                            notifyListeners("updateDownloadProgress", failObj, true);
-
-                            if (activeDownloadCall != null) {
-                                activeDownloadCall.reject("Download failed (reason code: " + failureReason + ")");
-                                activeDownloadCall = null;
-                            }
-                        }
-
-                        try {
-                            ctx.unregisterReceiver(this);
-                            downloadReceiver = null;
-                        } catch (Exception ignored) {}
-                    }
+            // Follow HTTP / HTTPS redirects up to MAX_REDIRECTS
+            while (redirectCount < MAX_REDIRECTS) {
+                if (isCancelled) {
+                    throw new InterruptedException("Download cancelled by user");
                 }
-            };
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.registerReceiver(downloadReceiver, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), Context.RECEIVER_NOT_EXPORTED);
-            } else {
-                context.registerReceiver(downloadReceiver, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+                URL url = new URL(currentUrl);
+                if (!"https".equalsIgnoreCase(url.getProtocol())) {
+                    throw new SecurityException("Security Violation: Insecure redirect to non-HTTPS URL: " + currentUrl);
+                }
+
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setConnectTimeout(CONNECT_TIMEOUT_MS);
+                connection.setReadTimeout(READ_TIMEOUT_MS);
+                connection.setInstanceFollowRedirects(false); // Handle redirects manually to enforce HTTPS
+                connection.setRequestProperty("User-Agent", "EXFIN-OMS-Updater/1.0 (Android)");
+                connection.setRequestProperty("Accept", "application/vnd.android.package-archive, */*");
+                connection.connect();
+
+                int responseCode = connection.getResponseCode();
+
+                // Check for redirect response codes (301, 302, 303, 307, 308)
+                if (responseCode == HttpURLConnection.HTTP_MOVED_PERM ||
+                    responseCode == HttpURLConnection.HTTP_MOVED_TEMP ||
+                    responseCode == HttpURLConnection.HTTP_SEE_OTHER ||
+                    responseCode == 307 ||
+                    responseCode == 308) {
+
+                    String locationHeader = connection.getHeaderField("Location");
+                    connection.disconnect();
+                    connection = null;
+
+                    if (locationHeader == null || locationHeader.trim().isEmpty()) {
+                        throw new IllegalStateException("Redirect response (" + responseCode + ") missing Location header");
+                    }
+
+                    // Resolve relative redirect URLs if any
+                    URL redirectUrl = new URL(url, locationHeader);
+                    currentUrl = redirectUrl.toString();
+
+                    if (!"https".equalsIgnoreCase(redirectUrl.getProtocol())) {
+                        throw new SecurityException("Security Violation: Redirect target is not HTTPS: " + currentUrl);
+                    }
+
+                    redirectCount++;
+                    Log.i(TAG, "Following redirect (" + redirectCount + ") to: " + currentUrl);
+                    continue;
+                }
+
+                if (responseCode != HttpURLConnection.HTTP_OK) {
+                    throw new IllegalStateException("HTTP error " + responseCode + ": " + connection.getResponseMessage());
+                }
+
+                // HTTP 200 OK reached
+                break;
             }
 
-            // Initial progress notification (0%)
-            JSObject progressObj = new JSObject();
-            progressObj.put("status", "DOWNLOADING");
-            progressObj.put("progress", 0);
-            notifyListeners("updateDownloadProgress", progressObj, true);
+            if (connection == null) {
+                throw new IllegalStateException("Failed to establish HTTP connection after " + redirectCount + " redirects");
+            }
 
-            // Start background progress poller every 300ms
-            startProgressPoller(downloadManager, destinationFile);
+            expectedTotalBytes = connection.getContentLengthLong();
+            Log.i(TAG, "Starting streaming download. Expected total bytes: " + expectedTotalBytes);
+
+            inputStream = new BufferedInputStream(connection.getInputStream(), BUFFER_SIZE);
+            outputStream = new FileOutputStream(partFile);
+
+            byte[] buffer = new byte[BUFFER_SIZE];
+            int bytesRead;
+            long lastProgressReportTime = 0;
+            int lastReportedPercent = -1;
+
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                if (isCancelled || Thread.currentThread().isInterrupted()) {
+                    throw new InterruptedException("Download cancelled by user");
+                }
+
+                outputStream.write(buffer, 0, bytesRead);
+                totalBytesRead += bytesRead;
+
+                long now = System.currentTimeMillis();
+                int currentPercent = 0;
+                if (expectedTotalBytes > 0) {
+                    currentPercent = (int) Math.floor((totalBytesRead * 100.0) / expectedTotalBytes);
+                    currentPercent = Math.min(99, Math.max(0, currentPercent));
+                }
+
+                // Throttle progress events to max once every 150ms or on percentage change
+                if (now - lastProgressReportTime > 150 || currentPercent != lastReportedPercent) {
+                    lastProgressReportTime = now;
+                    lastReportedPercent = currentPercent;
+
+                    JSObject progressObj = new JSObject();
+                    progressObj.put("status", "DOWNLOADING");
+                    progressObj.put("progress", currentPercent);
+                    progressObj.put("bytesDownloaded", totalBytesRead);
+                    progressObj.put("bytesTotal", expectedTotalBytes > 0 ? expectedTotalBytes : 0);
+                    notifyListeners("updateDownloadProgress", progressObj, true);
+                }
+            }
+
+            outputStream.flush();
+            outputStream.close();
+            outputStream = null;
+
+            inputStream.close();
+            inputStream = null;
+
+            if (connection != null) {
+                connection.disconnect();
+                connection = null;
+            }
+
+            // Verify completed part file
+            if (!partFile.exists() || partFile.length() == 0) {
+                throw new IllegalStateException("Downloaded APK part file is missing or empty");
+            }
+
+            if (expectedTotalBytes > 0 && totalBytesRead < expectedTotalBytes) {
+                throw new IllegalStateException("Incomplete download: received " + totalBytesRead + " of " + expectedTotalBytes + " bytes");
+            }
+
+            // Atomic rename from .part to .apk
+            if (!partFile.renameTo(finalApkFile)) {
+                // Fallback copy if rename fails
+                throw new IllegalStateException("Failed to rename .part file to final APK");
+            }
+
+            if (!finalApkFile.exists() || finalApkFile.length() == 0) {
+                throw new IllegalStateException("Final APK file validation failed after rename");
+            }
+
+            Log.i(TAG, "Download finished successfully: " + finalApkFile.getAbsolutePath() + " (" + finalApkFile.length() + " bytes)");
+
+            // Emit DOWNLOADED event with 100% progress
+            JSObject completeObj = new JSObject();
+            completeObj.put("status", "DOWNLOADED");
+            completeObj.put("progress", 100);
+            completeObj.put("bytesDownloaded", finalApkFile.length());
+            completeObj.put("bytesTotal", finalApkFile.length());
+            completeObj.put("fileSize", finalApkFile.length());
+            notifyListeners("updateDownloadProgress", completeObj, true);
+
+            // Launch native Android installer via FileProvider
+            boolean installerLaunched = installApk(context, finalApkFile);
+
+            if (activeDownloadCall != null) {
+                JSObject res = new JSObject();
+                res.put("success", true);
+                res.put("installerLaunched", installerLaunched);
+                res.put("fileSize", finalApkFile.length());
+                activeDownloadCall.resolve(res);
+                activeDownloadCall = null;
+            }
+
+        } catch (InterruptedException e) {
+            Log.w(TAG, "Download was cancelled");
+            cleanupFiles(partFile);
+
+            JSObject cancelObj = new JSObject();
+            cancelObj.put("status", "FAILED");
+            cancelObj.put("progress", 0);
+            cancelObj.put("error", "Download was cancelled");
+            notifyListeners("updateDownloadProgress", cancelObj, true);
+
+            if (activeDownloadCall != null) {
+                activeDownloadCall.reject("Download was cancelled");
+                activeDownloadCall = null;
+            }
 
         } catch (Exception e) {
-            Log.e(TAG, "Failed to start APK download: " + e.getMessage(), e);
-            cleanupActiveDownload();
-            call.reject("Failed to start APK download: " + e.getMessage());
-        }
-    }
+            Log.e(TAG, "Download failed: " + e.getMessage(), e);
+            cleanupFiles(partFile);
 
-    private void startProgressPoller(DownloadManager downloadManager, File destinationFile) {
-        stopProgressPoller();
-        progressPoller = Executors.newSingleThreadScheduledExecutor();
-        progressPoller.scheduleAtFixedRate(() -> {
-            try {
-                if (activeDownloadId <= 0) return;
+            JSObject failObj = new JSObject();
+            failObj.put("status", "FAILED");
+            failObj.put("progress", 0);
+            failObj.put("bytesDownloaded", totalBytesRead);
+            failObj.put("bytesTotal", expectedTotalBytes > 0 ? expectedTotalBytes : 0);
+            failObj.put("error", e.getMessage() != null ? e.getMessage() : "Unknown download error");
+            notifyListeners("updateDownloadProgress", failObj, true);
 
-                DownloadManager.Query q = new DownloadManager.Query();
-                q.setFilterById(activeDownloadId);
-                Cursor cursor = downloadManager.query(q);
-
-                if (cursor != null && cursor.moveToFirst()) {
-                    int bytesDownloadedIdx = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR);
-                    int bytesTotalIdx = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES);
-                    int statusIdx = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS);
-
-                    if (bytesDownloadedIdx >= 0 && bytesTotalIdx >= 0 && statusIdx >= 0) {
-                        long bytesDownloaded = cursor.getLong(bytesDownloadedIdx);
-                        long bytesTotal = cursor.getLong(bytesTotalIdx);
-                        int status = cursor.getInt(statusIdx);
-
-                        if (status == DownloadManager.STATUS_RUNNING || status == DownloadManager.STATUS_PAUSED || status == DownloadManager.STATUS_PENDING) {
-                            int progress = (bytesTotal > 0) ? (int) ((bytesDownloaded * 100) / bytesTotal) : 0;
-                            JSObject progressObj = new JSObject();
-                            progressObj.put("status", "DOWNLOADING");
-                            progressObj.put("progress", Math.min(99, Math.max(0, progress)));
-                            progressObj.put("bytesDownloaded", bytesDownloaded);
-                            progressObj.put("bytesTotal", bytesTotal);
-                            notifyListeners("updateDownloadProgress", progressObj, true);
-                        }
-                    }
-                    cursor.close();
-                }
-            } catch (Exception e) {
-                Log.w(TAG, "Error checking download progress: " + e.getMessage());
+            if (activeDownloadCall != null) {
+                activeDownloadCall.reject("Update download failed: " + e.getMessage());
+                activeDownloadCall = null;
             }
-        }, 150, 300, TimeUnit.MILLISECONDS);
-    }
 
-    private void stopProgressPoller() {
-        if (progressPoller != null && !progressPoller.isShutdown()) {
+        } finally {
             try {
-                progressPoller.shutdownNow();
+                if (outputStream != null) outputStream.close();
             } catch (Exception ignored) {}
-            progressPoller = null;
+            try {
+                if (inputStream != null) inputStream.close();
+            } catch (Exception ignored) {}
+            try {
+                if (connection != null) connection.disconnect();
+            } catch (Exception ignored) {}
         }
     }
 
-    private void cleanupActiveDownload() {
-        stopProgressPoller();
-        if (downloadReceiver != null) {
-            try {
-                getContext().unregisterReceiver(downloadReceiver);
-            } catch (Exception ignored) {}
-            downloadReceiver = null;
+    private void cancelActiveDownload() {
+        isCancelled = true;
+        if (activeDownloadFuture != null && !activeDownloadFuture.isDone()) {
+            activeDownloadFuture.cancel(true);
+            activeDownloadFuture = null;
         }
-        activeDownloadId = -1;
-        activeDownloadCall = null;
+        if (activeDownloadCall != null) {
+            try {
+                activeDownloadCall.reject("Download cancelled");
+            } catch (Exception ignored) {}
+            activeDownloadCall = null;
+        }
+    }
+
+    private void cleanupFiles(File partFile) {
+        try {
+            if (partFile != null && partFile.exists()) {
+                partFile.delete();
+            }
+        } catch (Exception ignored) {}
     }
 
     private boolean installApk(Context context, File apkFile) {
@@ -325,6 +422,9 @@ public class UpdatePlugin extends Plugin {
     @Override
     protected void handleOnDestroy() {
         super.handleOnDestroy();
-        cleanupActiveDownload();
+        cancelActiveDownload();
+        try {
+            downloadExecutor.shutdownNow();
+        } catch (Exception ignored) {}
     }
 }

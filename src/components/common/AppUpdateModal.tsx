@@ -20,6 +20,8 @@ export const AppUpdateModal: React.FC = () => {
   const [manifest, setManifest] = useState<AndroidUpdateManifest | null>(null);
   const [modalState, setModalState] = useState<UpdateModalState>('PROMPT');
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
+  const [bytesDownloaded, setBytesDownloaded] = useState<number>(0);
+  const [bytesTotal, setBytesTotal] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [canInstall, setCanInstall] = useState<boolean>(true);
   const listenerRef = useRef<PluginListenerHandle | null>(null);
@@ -85,6 +87,8 @@ export const AppUpdateModal: React.FC = () => {
 
     setModalState('DOWNLOADING');
     setDownloadProgress(0);
+    setBytesDownloaded(0);
+    setBytesTotal(0);
     setErrorMessage('');
 
     try {
@@ -100,12 +104,22 @@ export const AppUpdateModal: React.FC = () => {
         (event: UpdateProgressEvent) => {
           if (event.status === 'DOWNLOADING') {
             setDownloadProgress(event.progress);
+            if (typeof event.bytesDownloaded === 'number') {
+              setBytesDownloaded(event.bytesDownloaded);
+            }
+            if (typeof event.bytesTotal === 'number') {
+              setBytesTotal(event.bytesTotal);
+            }
           } else if (event.status === 'DOWNLOADED') {
             setDownloadProgress(100);
+            if (typeof event.fileSize === 'number') {
+              setBytesDownloaded(event.fileSize);
+              setBytesTotal(event.fileSize);
+            }
             setModalState('DOWNLOADED');
           } else if (event.status === 'FAILED') {
             setModalState('FAILED');
-            setErrorMessage(event.error || 'Download failed or file corrupted');
+            setErrorMessage(event.error || 'Download failed or connection interrupted');
           }
         }
       );
@@ -227,8 +241,16 @@ export const AppUpdateModal: React.FC = () => {
                 />
               </div>
               <div className="flex justify-between items-center text-xs text-slate-400 px-1 font-mono">
-                <span>Version {manifest.versionName}</span>
-                <span className="font-bold text-cyan-300">{downloadProgress}%</span>
+                <span>
+                  {bytesTotal > 0
+                    ? `${(bytesDownloaded / (1024 * 1024)).toFixed(1)} MB / ${(bytesTotal / (1024 * 1024)).toFixed(1)} MB`
+                    : bytesDownloaded > 0
+                    ? `${(bytesDownloaded / (1024 * 1024)).toFixed(1)} MB`
+                    : `Version ${manifest.versionName}`}
+                </span>
+                <span className="font-bold text-cyan-300">
+                  {bytesTotal > 0 || downloadProgress > 0 ? `${downloadProgress}%` : 'Connecting…'}
+                </span>
               </div>
             </div>
 
