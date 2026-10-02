@@ -58,20 +58,21 @@ jobs:
       - name: Calculate Version Code and Version Name
         id: versioning
         run: |
-          # Determine Version Code
+          # Extract deterministic version from dispatch inputs, tag, or repository manifest
           if [ -n "${{ github.event.inputs.versionCode }}" ]; then
             VERSION_CODE="${{ github.event.inputs.versionCode }}"
+          elif [ -f public/android-version-manifest.json ]; then
+            VERSION_CODE=$(node -e 'try { console.log(require("./public/android-version-manifest.json").versionCode || 2); } catch(e) { console.log(2); }')
           else
-            # Ensure strictly increasing versionCode with base offset + run number
-            BASE_OFFSET=100
-            VERSION_CODE=$((BASE_OFFSET + ${{ github.run_number }}))
+            VERSION_CODE=2
           fi
 
-          # Determine Version Name
           if [ -n "${{ github.event.inputs.versionName }}" ]; then
             VERSION_NAME="${{ github.event.inputs.versionName }}"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             VERSION_NAME="${GITHUB_REF#refs/tags/v}"
+          elif [ -f public/android-version-manifest.json ]; then
+            VERSION_NAME=$(node -e 'try { console.log(require("./public/android-version-manifest.json").versionName || "1.0.1"); } catch(e) { console.log("1.0.1"); }')
           else
             VERSION_NAME="1.0.1"
           fi
