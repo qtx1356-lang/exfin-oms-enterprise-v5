@@ -543,7 +543,7 @@ export const ExpenseScreen: React.FC = () => {
                         <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs">
                           <div className="flex items-center gap-1.5 text-amber-300 font-medium">
                             <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
-                            <span>Receipt pending upload</span>
+                            <span>{effectiveError || 'Receipt pending upload'}</span>
                           </div>
                           {expense.localReceiptData && isOnline && (
                             <button

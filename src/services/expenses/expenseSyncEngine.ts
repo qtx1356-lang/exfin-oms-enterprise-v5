@@ -33,6 +33,9 @@ const progressListeners = new Set<(event: ReceiptUploadProgressEvent) => void>()
 // In-memory lock set to prevent duplicate concurrent uploads for the same expense
 const activeExpenseUploadLocks = new Set<string>();
 
+// Exponential backoff retry attempt tracker for transient failures
+const expenseRetryAttempts = new Map<string, number>();
+
 export const subscribeToReceiptUploadProgress = (
   listener: (event: ReceiptUploadProgressEvent) => void
 ): (() => void) => {
@@ -60,57 +63,63 @@ export const emitReceiptUploadProgress = (event: ReceiptUploadProgressEvent): vo
 
 /**
  * Normalizes Firebase Storage errors into human-readable, safe status descriptions.
- * Prevents raw exceptions from confusing users or leaking internal infrastructure details.
+ * Distinguishes temporary network/auth conditions from permanent permission/configuration failures.
  */
-export const normalizeFirebaseStorageError = (err: any): string => {
-  if (!err) return 'Unknown upload error occurred.';
+export const normalizeFirebaseStorageError = (err: any): { isTransient: boolean; message: string } => {
+  if (!err) return { isTransient: true, message: 'Unknown upload issue. Will retry automatically.' };
   const code = String(err?.code || '').toLowerCase();
   const message = String(err?.message || '').toLowerCase();
 
   if (code.includes('storage/unauthorized') || code.includes('unauthorized') || message.includes('unauthorized') || message.includes('permission denied')) {
-    return 'Receipt upload was rejected by Firebase Storage security rules.';
-  }
-  if (code.includes('storage/unauthenticated') || code.includes('unauthenticated') || message.includes('unauthenticated')) {
-    return 'Your login session is still being restored. The receipt has been kept and will retry automatically.';
-  }
-  if (code.includes('storage/bucket-not-found') || code.includes('bucket-not-found') || message.includes('bucket not found')) {
-    return 'Firebase Storage bucket is not available.';
+    return { isTransient: false, message: 'Receipt upload was rejected by Firebase Storage security rules.' };
   }
   if (code.includes('storage/quota-exceeded') || code.includes('quota-exceeded') || message.includes('quota') || message.includes('billing')) {
-    return 'Firebase Storage is unavailable because the project Storage quota/billing configuration does not allow this upload.';
+    return { isTransient: false, message: 'Firebase Storage is unavailable due to project quota/billing limits.' };
+  }
+  if (code.includes('storage/bucket-not-found') || code.includes('bucket-not-found') || message.includes('bucket not found')) {
+    return { isTransient: false, message: 'Firebase Storage bucket is not available.' };
+  }
+  if (code.includes('storage/unauthenticated') || code.includes('unauthenticated') || message.includes('unauthenticated') || message.includes('auth')) {
+    return { isTransient: true, message: 'Waiting for secure login session...' };
   }
   if (code.includes('storage/retry-limit-exceeded') || message.includes('retry limit')) {
-    return 'Upload retry limit exceeded. The receipt has been kept for future retry.';
+    return { isTransient: true, message: 'Upload retry limit reached. Kept for future retry.' };
   }
   if (code.includes('storage/network-request-failed') || code.includes('network') || message.includes('network') || message.includes('fetch failed')) {
-    return 'Network error while uploading receipt. The receipt has been kept for retry.';
+    return { isTransient: true, message: 'Network error while uploading receipt. Will retry when connection stabilizes.' };
   }
   if (code.includes('storage/canceled') || code.includes('canceled') || message.includes('cancelled')) {
-    return 'Receipt upload was cancelled.';
+    return { isTransient: true, message: 'Receipt upload was cancelled.' };
   }
   if (message.includes('timed out') || message.includes('timeout')) {
-    return 'Receipt upload timed out. The receipt has been kept for retry.';
+    return { isTransient: true, message: 'Receipt upload timed out. Kept for automatic retry.' };
   }
   if (code.includes('unknown')) {
-    return 'Firebase Storage returned an unknown upload error.';
+    return { isTransient: true, message: 'Firebase Storage returned an unknown error. Will retry.' };
   }
 
-  return err?.message
-    ? String(err.message).substring(0, 180)
-    : 'Receipt upload failed. Please check network and retry.';
+  return {
+    isTransient: true,
+    message: err?.message ? String(err.message).substring(0, 180) : 'Receipt upload failed. Will retry automatically.',
+  };
 };
 
 /**
- * Waits for Firebase Auth initialization if the session is still restoring.
+ * Waits for Firebase Auth initialization when the session is still restoring.
  * Ensures the authenticated user's UID is ready before constructing storage paths.
+ * Configured with 30-second timeout to accommodate mobile app boot.
  */
 export const waitForAuthenticatedFirebaseUser = async (
   authInstance?: Auth,
-  timeoutMs: number = 10000
+  timeoutMs: number = 30000
 ): Promise<User> => {
   const currentAuth = authInstance || (getActiveAuth ? getActiveAuth() : (auth.concrete || auth));
+  const hasUid = Boolean(currentAuth?.currentUser && currentAuth.currentUser.uid);
 
-  if (currentAuth?.currentUser && currentAuth.currentUser.uid) {
+  console.log(`[EXPENSE_RECEIPT_UPLOAD] AUTH_CHECK uidPresent=${hasUid} authInitialized=${Boolean(currentAuth?.currentUser)}`);
+
+  if (hasUid) {
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] AUTH_READY uidPresent=true`);
     return currentAuth.currentUser;
   }
 
@@ -136,6 +145,7 @@ export const waitForAuthenticatedFirebaseUser = async (
                 unsubscribe();
               } catch {}
             }
+            console.log(`[EXPENSE_RECEIPT_UPLOAD] AUTH_READY uidPresent=true`);
             resolve(user);
           }
         },
@@ -243,6 +253,25 @@ export const getExpenseReceiptStoragePath = (
 };
 
 /**
+ * Schedules an automatic exponential-backoff retry for transient failures.
+ */
+const scheduleExpenseReceiptRetry = (expenseId: string): void => {
+  const attempts = (expenseRetryAttempts.get(expenseId) || 0) + 1;
+  expenseRetryAttempts.set(expenseId, attempts);
+
+  const backoffDelays = [2000, 5000, 15000, 30000];
+  const delay = backoffDelays[Math.min(attempts - 1, backoffDelays.length - 1)];
+
+  console.log(`[EXPENSE_RECEIPT_UPLOAD] Scheduling automatic retry #${attempts} for ${expenseId} in ${delay}ms`);
+
+  setTimeout(() => {
+    if (navigator.onLine) {
+      void retrySingleExpenseReceiptUpload(expenseId);
+    }
+  }, delay);
+};
+
+/**
  * Executes a Promise with a timeout safeguard.
  * Ensures Firebase Storage network requests never hang indefinitely.
  */
@@ -326,37 +355,30 @@ export const uploadExpenseReceiptInBackground = async (
   // Step 1: Wait for Authenticated Firebase User
   let firebaseUid = '';
   try {
-    const user = await waitForAuthenticatedFirebaseUser();
+    const user = await waitForAuthenticatedFirebaseUser(undefined, 30000);
     firebaseUid = user.uid;
-    console.log(`[EXPENSE_RECEIPT_UPLOAD] AUTH_READY uidPresent=true`);
   } catch (authErr: any) {
     console.warn(`[EXPENSE_RECEIPT_UPLOAD] AUTH_NOT_READY expenseId=${record.id}:`, authErr);
-    const errorMsg = 'Your login session is still being restored. The receipt has been kept and will retry automatically.';
+    const waitingMsg = 'Waiting for secure login session...';
 
+    // Temporary auth restoration delay is NOT marked as FAILED - kept as PENDING
     updateExpenseReceiptStatusInLocal(record.id, {
-      receiptUploadStatus: 'FAILED',
-      receiptUploadError: errorMsg,
+      receiptUploadStatus: 'PENDING',
+      receiptUploadError: waitingMsg,
       receiptUploadProgress: 0,
       receiptLastAttemptAt: new Date().toISOString(),
       clearLocalReceiptData: false,
     });
 
-    try {
-      await updateDoc(docRef, {
-        receiptUploadStatus: 'FAILED',
-        receiptUploadError: errorMsg,
-        receiptLastAttemptAt: new Date().toISOString(),
-      });
-    } catch {}
-
     emitReceiptUploadProgress({
       expenseId: record.id,
       progress: 0,
-      status: 'FAILED',
-      error: errorMsg,
+      status: 'PENDING',
+      error: waitingMsg,
     });
 
     activeExpenseUploadLocks.delete(record.id);
+    scheduleExpenseReceiptRetry(record.id);
     return false;
   }
 
@@ -365,7 +387,7 @@ export const uploadExpenseReceiptInBackground = async (
   try {
     const pathInfo = getExpenseReceiptStoragePath(record, firebaseUid);
     storagePathVal = pathInfo.storagePath;
-    console.log(`[EXPENSE_RECEIPT_UPLOAD] STORAGE_PATH path=${storagePathVal}`);
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] STORAGE_READY uid=<present> path=${storagePathVal}`);
   } catch (pathErr: any) {
     console.warn(`[EXPENSE_RECEIPT_UPLOAD] STORAGE_PATH_ERROR expenseId=${record.id}:`, pathErr);
     activeExpenseUploadLocks.delete(record.id);
@@ -483,6 +505,9 @@ export const uploadExpenseReceiptInBackground = async (
       clearLocalReceiptData: true,
     });
 
+    // Reset retry attempts on confirmed success
+    expenseRetryAttempts.delete(record.id);
+
     emitReceiptUploadProgress({
       expenseId: record.id,
       progress: 100,
@@ -495,26 +520,27 @@ export const uploadExpenseReceiptInBackground = async (
     const failureCode = uploadErr?.code || 'UNKNOWN';
     console.log(`[EXPENSE_RECEIPT_UPLOAD] FAILURE_CODE=${failureCode}`);
 
-    const normalizedError = normalizeFirebaseStorageError(uploadErr);
+    const { isTransient, message: normalizedError } = normalizeFirebaseStorageError(uploadErr);
     console.warn(
-      `[EXPENSE_RECEIPT_UPLOAD] RECEIPT_UPLOAD_FAILED expenseId=${record.id} error=${normalizedError}`,
+      `[EXPENSE_RECEIPT_UPLOAD] RECEIPT_UPLOAD_FAILED expenseId=${record.id} isTransient=${isTransient} error=${normalizedError}`,
       uploadErr
     );
     const errTime = new Date().toISOString();
+    const finalStatus = isTransient ? 'PENDING' : 'FAILED';
 
     try {
       await updateDoc(docRef, {
-        receiptUploadStatus: 'FAILED',
+        receiptUploadStatus: finalStatus,
         receiptUploadError: normalizedError,
         receiptLastAttemptAt: errTime,
       });
     } catch (fsErr) {
-      console.warn('[EXPENSE_RECEIPT_UPLOAD] Could not update receipt upload error status in Firestore:', fsErr);
+      console.warn('[EXPENSE_RECEIPT_UPLOAD] Could not update receipt upload status in Firestore:', fsErr);
     }
 
     // Keep localReceiptData for automatic background retry without invalidating the synced claim
     updateExpenseReceiptStatusInLocal(record.id, {
-      receiptUploadStatus: 'FAILED',
+      receiptUploadStatus: finalStatus,
       receiptUploadError: normalizedError,
       receiptUploadProgress: 0,
       receiptLastAttemptAt: errTime,
@@ -524,9 +550,13 @@ export const uploadExpenseReceiptInBackground = async (
     emitReceiptUploadProgress({
       expenseId: record.id,
       progress: 0,
-      status: 'FAILED',
+      status: finalStatus,
       error: normalizedError,
     });
+
+    if (isTransient) {
+      scheduleExpenseReceiptRetry(record.id);
+    }
 
     return false;
   } finally {
@@ -748,6 +778,20 @@ export const startExpenseAutoSyncEngine = (): (() => void) => {
   window.addEventListener('online', handleOnline);
   document.addEventListener('visibilitychange', handleVisibility);
 
+  // When auth session is initialized/restored, automatically trigger pending receipt upload retries
+  const currentAuth = getActiveAuth ? getActiveAuth() : auth;
+  let unsubAuth = () => {};
+  try {
+    unsubAuth = onAuthStateChanged(currentAuth, (user) => {
+      if (user && user.uid && navigator.onLine) {
+        console.log('[EXPENSE_RECEIPT_UPLOAD] Auth session active. Triggering pending receipt retries...');
+        void retryPendingExpenseReceiptUploads();
+      }
+    });
+  } catch (authSubErr) {
+    console.warn('[EXPENSE_RECEIPT_UPLOAD] Could not attach auth state change listener:', authSubErr);
+  }
+
   if (navigator.onLine) {
     syncPendingExpenseRecords();
   }
@@ -755,5 +799,8 @@ export const startExpenseAutoSyncEngine = (): (() => void) => {
   return () => {
     window.removeEventListener('online', handleOnline);
     document.removeEventListener('visibilitychange', handleVisibility);
+    try {
+      unsubAuth();
+    } catch {}
   };
 };
