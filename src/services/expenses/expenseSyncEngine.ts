@@ -1,6 +1,11 @@
 import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { onAuthStateChanged, User, Auth } from 'firebase/auth';
+import {
+  onAuthStateChanged,
+  signInAnonymously,
+  User,
+  Auth
+} from 'firebase/auth';
 import { db, storage, auth, getActiveAuth, getActiveStorage } from '../firebase/config';
 import { ExpenseRecord } from '../../types/expense';
 import {
@@ -70,6 +75,12 @@ export const normalizeFirebaseStorageError = (err: any): { isTransient: boolean;
   const code = String(err?.code || '').toLowerCase();
   const message = String(err?.message || '').toLowerCase();
 
+  if (message.includes('anonymous authentication is disabled') || code.includes('operation-not-allowed')) {
+    return {
+      isTransient: false,
+      message: 'Firebase Anonymous Authentication is disabled. Enable Anonymous sign-in in Firebase Authentication.',
+    };
+  }
   if (code.includes('storage/unauthorized') || code.includes('unauthorized') || message.includes('unauthorized') || message.includes('permission denied')) {
     return { isTransient: false, message: 'Receipt upload was rejected by Firebase Storage security rules.' };
   }
@@ -105,62 +116,133 @@ export const normalizeFirebaseStorageError = (err: any): { isTransient: boolean;
 };
 
 /**
- * Waits for Firebase Auth initialization when the session is still restoring.
- * Ensures the authenticated user's UID is ready before constructing storage paths.
- * Configured with 30-second timeout to accommodate mobile app boot.
+ * Waits for or establishes an authenticated Firebase user session.
+ * If employee was restored through mobile recovery without an active Firebase Auth user,
+ * initializes an anonymous Firebase session immediately so Storage rules (request.auth != null) are satisfied.
  */
 export const waitForAuthenticatedFirebaseUser = async (
   authInstance?: Auth,
   timeoutMs: number = 30000
 ): Promise<User> => {
-  const currentAuth = authInstance || (getActiveAuth ? getActiveAuth() : (auth.concrete || auth));
-  const hasUid = Boolean(currentAuth?.currentUser && currentAuth.currentUser.uid);
+  const currentAuth =
+    authInstance ||
+    (getActiveAuth ? getActiveAuth() : (auth.concrete || auth));
 
-  console.log(`[EXPENSE_RECEIPT_UPLOAD] AUTH_CHECK uidPresent=${hasUid} authInitialized=${Boolean(currentAuth?.currentUser)}`);
+  if (!currentAuth) {
+    throw new Error('Firebase Authentication is not initialized.');
+  }
 
-  if (hasUid) {
-    console.log(`[EXPENSE_RECEIPT_UPLOAD] AUTH_READY uidPresent=true`);
-    return currentAuth.currentUser;
+  const existingUser = currentAuth.currentUser;
+
+  console.log(
+    `[EXPENSE_RECEIPT_UPLOAD] AUTH_CHECK uidPresent=${Boolean(existingUser?.uid)}`
+  );
+
+  if (existingUser?.uid) {
+    console.log(
+      `[EXPENSE_RECEIPT_UPLOAD] AUTH_READY uidPresent=true isAnonymous=${existingUser.isAnonymous}`
+    );
+    return existingUser;
   }
 
   return new Promise<User>((resolve, reject) => {
     let unsubscribe: (() => void) | null = null;
-    const timer = setTimeout(() => {
+    let anonymousSignInStarted = false;
+
+    const cleanup = () => {
       if (unsubscribe) {
         try {
           unsubscribe();
         } catch {}
+        unsubscribe = null;
       }
-      reject(new Error('Firebase Auth initialization timed out. Login session may still be restoring.'));
+    };
+
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(
+        new Error(
+          'Firebase Auth initialization timed out. Login session may still be restoring.'
+        )
+      );
     }, timeoutMs);
+
+    const resolveUser = (user: User) => {
+      clearTimeout(timer);
+      cleanup();
+
+      console.log(
+        `[EXPENSE_RECEIPT_UPLOAD] AUTH_READY uidPresent=true isAnonymous=${user.isAnonymous}`
+      );
+
+      resolve(user);
+    };
+
+    const startAnonymousSession = async () => {
+      if (anonymousSignInStarted) return;
+
+      anonymousSignInStarted = true;
+
+      try {
+        console.log(
+          '[EXPENSE_RECEIPT_UPLOAD] No Firebase user available. Starting anonymous employee Firebase session.'
+        );
+
+        const credential = await signInAnonymously(currentAuth);
+
+        if (!credential.user?.uid) {
+          throw new Error(
+            'Firebase anonymous authentication returned no user.'
+          );
+        }
+
+        resolveUser(credential.user);
+      } catch (authErr: any) {
+        clearTimeout(timer);
+        cleanup();
+
+        const code = String(authErr?.code || '').toLowerCase();
+
+        if (code.includes('operation-not-allowed')) {
+          reject(
+            new Error(
+              'Firebase Anonymous Authentication is disabled. Enable Anonymous sign-in in Firebase Authentication.'
+            )
+          );
+        } else {
+          reject(authErr);
+        }
+      }
+    };
 
     try {
       unsubscribe = onAuthStateChanged(
         currentAuth,
         (user) => {
-          if (user && user.uid) {
-            clearTimeout(timer);
-            if (unsubscribe) {
-              try {
-                unsubscribe();
-              } catch {}
-            }
-            console.log(`[EXPENSE_RECEIPT_UPLOAD] AUTH_READY uidPresent=true`);
-            resolve(user);
+          if (user?.uid) {
+            resolveUser(user);
+            return;
           }
+
+          /*
+           * Employee mobile recovery can restore the local employee
+           * registration without restoring Firebase Auth.
+           *
+           * Receipt Storage requires request.auth != null.
+           * Create the temporary Firebase session here instead of
+           * waiting for a user that will never appear.
+           */
+          void startAnonymousSession();
         },
         (authError) => {
           clearTimeout(timer);
-          if (unsubscribe) {
-            try {
-              unsubscribe();
-            } catch {}
-          }
+          cleanup();
           reject(authError);
         }
       );
     } catch (err) {
       clearTimeout(timer);
+      cleanup();
       reject(err);
     }
   });
@@ -352,33 +434,48 @@ export const uploadExpenseReceiptInBackground = async (
     return false;
   }
 
-  // Step 1: Wait for Authenticated Firebase User
+  // Step 1: Wait for or establish Authenticated Firebase User Session
   let firebaseUid = '';
   try {
     const user = await waitForAuthenticatedFirebaseUser(undefined, 30000);
     firebaseUid = user.uid;
   } catch (authErr: any) {
     console.warn(`[EXPENSE_RECEIPT_UPLOAD] AUTH_NOT_READY expenseId=${record.id}:`, authErr);
-    const waitingMsg = 'Waiting for secure login session...';
+    const isAnonymousDisabled = String(authErr?.message || '').includes('Firebase Anonymous Authentication is disabled');
+    const waitingMsg = isAnonymousDisabled
+      ? 'Firebase Anonymous Authentication is disabled. Enable Anonymous sign-in in Firebase Authentication.'
+      : 'Waiting for secure login session...';
+    const finalStatus: 'PENDING' | 'FAILED' = isAnonymousDisabled ? 'FAILED' : 'PENDING';
 
-    // Temporary auth restoration delay is NOT marked as FAILED - kept as PENDING
     updateExpenseReceiptStatusInLocal(record.id, {
-      receiptUploadStatus: 'PENDING',
+      receiptUploadStatus: finalStatus,
       receiptUploadError: waitingMsg,
       receiptUploadProgress: 0,
       receiptLastAttemptAt: new Date().toISOString(),
       clearLocalReceiptData: false,
     });
 
+    try {
+      if (isAnonymousDisabled) {
+        await updateDoc(docRef, {
+          receiptUploadStatus: 'FAILED',
+          receiptUploadError: waitingMsg,
+          receiptLastAttemptAt: new Date().toISOString(),
+        });
+      }
+    } catch {}
+
     emitReceiptUploadProgress({
       expenseId: record.id,
       progress: 0,
-      status: 'PENDING',
+      status: finalStatus,
       error: waitingMsg,
     });
 
     activeExpenseUploadLocks.delete(record.id);
-    scheduleExpenseReceiptRetry(record.id);
+    if (!isAnonymousDisabled) {
+      scheduleExpenseReceiptRetry(record.id);
+    }
     return false;
   }
 
