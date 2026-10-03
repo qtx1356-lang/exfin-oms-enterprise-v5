@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="#0B5AA8" />
+
+  <!-- Handshake Icon Group -->
+  <g fill="#FFFFFF" stroke="none">
+    
+    <!-- Left Hand: Sleeve, Wrist, and Arching Thumb -->
+    <path d="
+      M 215 395 
+      L 275 225 
+      C 375 140, 520 135, 620 205 
+      C 690 255, 755 295, 755 335 
+      C 755 375, 715 405, 660 405 
+      C 610 405, 570 365, 545 330 
+      C 525 300, 485 285, 455 305 
+      C 420 330, 430 380, 450 415 
+      L 410 415 
+      C 365 415, 325 440, 310 470 
+      C 295 495, 260 510, 245 490 
+      C 230 470, 235 440, 245 420 
+      Z
+    " />
+
+    <!-- Left Hand 4 Curled Fingers (solid rounded pills angled ~30 deg) -->
+    <!-- Pinky Finger -->
+    <rect x="260" y="435" width="55" height="125" rx="27.5" transform="rotate(32 287 497)" />
+    <!-- Ring Finger -->
+    <rect x="325" y="450" width="55" height="135" rx="27.5" transform="rotate(32 352 517)" />
+    <!-- Middle Finger -->
+    <rect x="390" y="460" width="55" height="140" rx="27.5" transform="rotate(32 417 530)" />
+    <!-- Index Finger -->
+    <rect x="455" y="465" width="55" height="140" rx="27.5" transform="rotate(32 482 535)" />
+
+    <!-- Right Hand: Sleeve and Grasping Fingers -->
+    <!-- Sleeve line on right from (805, 280) to (755, 450) -->
+    <path d="
+      M 805 280 
+      L 755 450 
+      C 700 480, 610 535, 520 545 
+      C 475 550, 445 520, 455 475 
+      C 465 435, 495 405, 535 385 
+      C 565 370, 605 355, 655 335 
+      C 695 320, 735 295, 805 280 
+      Z
+    " />
+  </g>
+
+  <!-- Right Hand Finger Separator Creases (cuts matching the blue background) -->
+  <g stroke="#0B5AA8" stroke-width="16" stroke-linecap="round">
+    <line x1="565" y1="375" x2="725" y2="345" />
+    <line x1="545" y1="430" x2="705" y2="400" />
+    <line x1="525" y1="485" x2="675" y2="455" />
+  </g>
+
+  <!-- Text EXFIN -->
+  <text x="512" y="785" 
+        text-anchor="middle" 
+        fill="#FFFFFF" 
+        font-family="Arial, Helvetica, sans-serif" 
+        font-weight="900" 
+        font-size="215" 
+        letter-spacing="-4">EXFIN</text>
+
+  <!-- Text EXPERT IN FINANCE -->
+  <text x="512" y="865" 
+        text-anchor="middle" 
+        fill="#FFFFFF" 
+        font-family="Arial, Helvetica, sans-serif" 
+        font-weight="700" 
+        font-size="44" 
+        letter-spacing="18">EXPERT IN FINANCE</text>
+</svg>

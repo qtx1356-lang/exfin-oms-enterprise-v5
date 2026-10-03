@@ -1,5 +1,5 @@
 import { registerPlugin, Capacitor, PluginListenerHandle } from '@capacitor/core';
-import { ANDROID_UPDATE_MANIFEST_URL } from '../config/updateConfig';
+import { ANDROID_UPDATE_MANIFEST_URL, GITHUB_RELEASES_LATEST_API_URL } from '../config/updateConfig';
 
 export interface AndroidUpdateManifest {
   versionCode: number;
@@ -90,15 +90,18 @@ export const checkAppUpdateSilently = async (
       return null;
     }
 
-    // 2. Fetch remote update manifest with 10s timeout
-    const manifestUrl = customManifestUrl || ANDROID_UPDATE_MANIFEST_URL;
-    let response: Response | null = null;
+    // 2. Multi-tier reliable manifest resolution:
+    // Priority 1: Fetch raw manifest with cache-busting timestamp
+    let manifest: AndroidUpdateManifest | null = null;
+    const rawUrl = customManifestUrl
+      ? customManifestUrl
+      : `${ANDROID_UPDATE_MANIFEST_URL}${ANDROID_UPDATE_MANIFEST_URL.includes('?') ? '&' : '?'}t=${Date.now()}`;
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-      response = await fetch(manifestUrl, {
+      const resp = await fetch(rawUrl, {
         signal: controller.signal,
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -106,32 +109,77 @@ export const checkAppUpdateSilently = async (
         },
       });
       clearTimeout(timeoutId);
+
+      if (resp.ok) {
+        manifest = await resp.json();
+      }
     } catch {
-      response = null;
+      manifest = null;
     }
 
-    // Graceful fallback to bundled/hosted /android-version-manifest.json if primary remote endpoint is unreachable
-    if (!response || !response.ok) {
-      if (!customManifestUrl && manifestUrl !== '/android-version-manifest.json') {
-        try {
-          const fallbackResp = await fetch('/android-version-manifest.json', {
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              Pragma: 'no-cache',
-            },
-          });
-          if (fallbackResp.ok) {
-            response = fallbackResp;
+    // Priority 2: GitHub Releases API fallback if raw fetch failed
+    if (!manifest && !customManifestUrl) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        const releaseResp = await fetch(GITHUB_RELEASES_LATEST_API_URL, {
+          signal: controller.signal,
+          headers: {
+            Accept: 'application/vnd.github.v3+json',
+            'Cache-Control': 'no-cache',
+          },
+        });
+        clearTimeout(timeoutId);
+
+        if (releaseResp.ok) {
+          const releaseData = await releaseResp.json();
+          // Find android-version-manifest.json in release assets
+          const manifestAsset = Array.isArray(releaseData?.assets)
+            ? releaseData.assets.find((a: any) => a?.name === 'android-version-manifest.json')
+            : null;
+
+          if (manifestAsset?.browser_download_url) {
+            const assetController = new AbortController();
+            const assetTimeoutId = setTimeout(() => assetController.abort(), 8000);
+            const assetResp = await fetch(manifestAsset.browser_download_url, {
+              signal: assetController.signal,
+              headers: {
+                'Cache-Control': 'no-cache',
+              },
+            });
+            clearTimeout(assetTimeoutId);
+
+            if (assetResp.ok) {
+              manifest = await assetResp.json();
+            }
           }
-        } catch {}
+        }
+      } catch {
+        manifest = null;
       }
     }
 
-    if (!response || !response.ok) {
-      return null;
+    // Priority 3: Bundled/hosted /android-version-manifest.json fallback
+    if (!manifest && !customManifestUrl) {
+      try {
+        const fallbackResp = await fetch('/android-version-manifest.json', {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+          },
+        });
+        if (fallbackResp.ok) {
+          manifest = await fallbackResp.json();
+        }
+      } catch {
+        manifest = null;
+      }
     }
 
-    const manifest: AndroidUpdateManifest = await response.json();
+    if (!manifest) {
+      return null;
+    }
 
     // 3. Validate manifest schema
     if (
