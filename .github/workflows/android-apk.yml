@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       versionCode:
-        description: 'Integer Version Code (e.g. 3)'
+        description: 'Integer Version Code (e.g. 4)'
         required: false
-        default: '3'
+        default: '4'
       versionName:
-        description: 'Semantic Version Name (e.g. 1.0.2)'
+        description: 'Semantic Version Name (e.g. 1.0.3)'
         required: false
-        default: '1.0.2'
+        default: '1.0.3'
       releaseNotes:
         description: 'Release Notes'
         required: false
