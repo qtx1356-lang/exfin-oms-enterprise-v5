@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       versionCode:
-        description: 'Integer Version Code (e.g. 4)'
+        description: 'Integer Version Code (e.g. 5)'
         required: false
-        default: '4'
+        default: '5'
       versionName:
-        description: 'Semantic Version Name (e.g. 1.0.3)'
+        description: 'Semantic Version Name (e.g. 1.0.4)'
         required: false
-        default: '1.0.3'
+        default: '1.0.4'
       releaseNotes:
         description: 'Release Notes'
         required: false
@@ -62,9 +62,9 @@ jobs:
           if [ -n "${{ github.event.inputs.versionCode }}" ]; then
             VERSION_CODE="${{ github.event.inputs.versionCode }}"
           elif [ -f public/android-version-manifest.json ]; then
-            VERSION_CODE=$(node -e 'try { console.log(require("./public/android-version-manifest.json").versionCode || 4); } catch(e) { console.log(4); }')
+            VERSION_CODE=$(node -e 'try { console.log(require("./public/android-version-manifest.json").versionCode || 5); } catch(e) { console.log(5); }')
           else
-            VERSION_CODE=4
+            VERSION_CODE=5
           fi
 
           if [ -n "${{ github.event.inputs.versionName }}" ]; then
@@ -72,9 +72,9 @@ jobs:
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             VERSION_NAME="${GITHUB_REF#refs/tags/v}"
           elif [ -f public/android-version-manifest.json ]; then
-            VERSION_NAME=$(node -e 'try { console.log(require("./public/android-version-manifest.json").versionName || "1.0.3"); } catch(e) { console.log("1.0.3"); }')
+            VERSION_NAME=$(node -e 'try { console.log(require("./public/android-version-manifest.json").versionName || "1.0.4"); } catch(e) { console.log("1.0.4"); }')
           else
-            VERSION_NAME="1.0.3"
+            VERSION_NAME="1.0.4"
           fi
 
           echo "Calculated Version Code: $VERSION_CODE"
