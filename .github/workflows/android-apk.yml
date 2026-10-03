@@ -62,9 +62,9 @@ jobs:
           if [ -n "${{ github.event.inputs.versionCode }}" ]; then
             VERSION_CODE="${{ github.event.inputs.versionCode }}"
           elif [ -f public/android-version-manifest.json ]; then
-            VERSION_CODE=$(node -e 'try { console.log(require("./public/android-version-manifest.json").versionCode || 2); } catch(e) { console.log(2); }')
+            VERSION_CODE=$(node -e 'try { console.log(require("./public/android-version-manifest.json").versionCode || 4); } catch(e) { console.log(4); }')
           else
-            VERSION_CODE=2
+            VERSION_CODE=4
           fi
 
           if [ -n "${{ github.event.inputs.versionName }}" ]; then
@@ -72,9 +72,9 @@ jobs:
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             VERSION_NAME="${GITHUB_REF#refs/tags/v}"
           elif [ -f public/android-version-manifest.json ]; then
-            VERSION_NAME=$(node -e 'try { console.log(require("./public/android-version-manifest.json").versionName || "1.0.1"); } catch(e) { console.log("1.0.1"); }')
+            VERSION_NAME=$(node -e 'try { console.log(require("./public/android-version-manifest.json").versionName || "1.0.3"); } catch(e) { console.log("1.0.3"); }')
           else
-            VERSION_NAME="1.0.1"
+            VERSION_NAME="1.0.3"
           fi
 
           echo "Calculated Version Code: $VERSION_CODE"
@@ -220,8 +220,32 @@ jobs:
             artifact/android-version-manifest.json
           if-no-files-found: error
 
-      - name: Create / Update GitHub Release (on tag or manual dispatch)
-        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+      - name: Check GitHub Release Existence
+        id: check_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TARGET_TAG="v${{ env.VERSION_NAME }}"
+          echo "Checking if release $TARGET_TAG already exists in ${{ github.repository }}..."
+
+          if gh release view "$TARGET_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release $TARGET_TAG already exists in ${{ github.repository }}."
+            echo "exists=true" >> $GITHUB_OUTPUT
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+              echo "Manual trigger or tag push detected: release update allowed."
+              echo "release_needed=true" >> $GITHUB_OUTPUT
+            else
+              echo "Ordinary push on main and release $TARGET_TAG already exists: skipping duplicate release creation."
+              echo "release_needed=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Release $TARGET_TAG does not exist in ${{ github.repository }}. Release creation required."
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "release_needed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create / Update GitHub Release
+        if: steps.check_release.outputs.release_needed == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION_NAME }}
@@ -230,10 +254,11 @@ jobs:
             ## EXFIN OMS Android App Update v${{ env.VERSION_NAME }} (Build ${{ env.VERSION_CODE }})
             
             ### What's New:
-            - ${{ github.event.inputs.releaseNotes || 'Production release build with R8 optimizations and updated launcher icons.' }}
+            - ${{ github.event.inputs.releaseNotes || 'Production release build with R8 optimizations, native PWA launcher icon, and automatic update support.' }}
             
             ### Direct APK Download:
             - **APK:** [EXFIN-OMS-Android-v${{ env.VERSION_NAME }}.apk](${{ github.server_url }}/${{ github.repository }}/releases/download/v${{ env.VERSION_NAME }}/EXFIN-OMS-Android-v${{ env.VERSION_NAME }}.apk)
+            - **Stable Link:** [exfin-oms-android.apk](${{ github.server_url }}/${{ github.repository }}/releases/download/v${{ env.VERSION_NAME }}/exfin-oms-android.apk)
           files: |
             artifact/*.apk
             artifact/android-version-manifest.json

@@ -92,19 +92,42 @@ export const checkAppUpdateSilently = async (
 
     // 2. Fetch remote update manifest with 10s timeout
     const manifestUrl = customManifestUrl || ANDROID_UPDATE_MANIFEST_URL;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    let response: Response | null = null;
 
-    const response = await fetch(manifestUrl, {
-      signal: controller.signal,
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Pragma: 'no-cache',
-      },
-    });
-    clearTimeout(timeoutId);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    if (!response.ok) {
+      response = await fetch(manifestUrl, {
+        signal: controller.signal,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+        },
+      });
+      clearTimeout(timeoutId);
+    } catch {
+      response = null;
+    }
+
+    // Graceful fallback to bundled/hosted /android-version-manifest.json if primary remote endpoint is unreachable
+    if (!response || !response.ok) {
+      if (!customManifestUrl && manifestUrl !== '/android-version-manifest.json') {
+        try {
+          const fallbackResp = await fetch('/android-version-manifest.json', {
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              Pragma: 'no-cache',
+            },
+          });
+          if (fallbackResp.ok) {
+            response = fallbackResp;
+          }
+        } catch {}
+      }
+    }
+
+    if (!response || !response.ok) {
       return null;
     }
 
