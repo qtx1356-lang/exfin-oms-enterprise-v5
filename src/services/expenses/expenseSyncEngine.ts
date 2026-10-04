@@ -34,6 +34,8 @@ export interface ReceiptUploadProgressEvent {
   status: 'PENDING' | 'UPLOADING' | 'UPLOADED' | 'FAILED';
   error?: string | null;
   progressIndeterminate?: boolean;
+  receiptUrl?: string | null;
+  storagePath?: string | null;
 }
 
 const progressListeners = new Set<(event: ReceiptUploadProgressEvent) => void>();
@@ -598,10 +600,25 @@ export const uploadExpenseReceiptInBackground = async (
     const pathInfo = getExpenseReceiptStoragePath(record, firebaseUid);
     storagePathVal = pathInfo.storagePath;
   } catch (pathErr: any) {
+    const pathErrMsg = pathErr?.message || 'Storage path error';
     console.error('[EXPENSE_RECEIPT_UPLOAD] PIPELINE_FAILED');
     console.log('[EXPENSE_RECEIPT_UPLOAD] FAILURE_STEP=STORAGE_PATH_RESOLUTION');
     console.log(`[EXPENSE_RECEIPT_UPLOAD] FAILURE_CODE=${pathErr?.code || 'INVALID_STORAGE_PATH'}`);
-    console.log(`[EXPENSE_RECEIPT_UPLOAD] FAILURE_MESSAGE=${pathErr?.message || 'Storage path error'}`);
+    console.log(`[EXPENSE_RECEIPT_UPLOAD] FAILURE_MESSAGE=${pathErrMsg}`);
+    updateExpenseReceiptStatusInLocal(record.id, {
+      receiptUploadStatus: 'FAILED',
+      receiptUploadError: pathErrMsg,
+      receiptUploadProgress: 0,
+      receiptUploadProgressIndeterminate: false,
+      clearLocalReceiptData: false,
+    });
+    emitReceiptUploadProgress({
+      expenseId: record.id,
+      progress: 0,
+      status: 'FAILED',
+      error: pathErrMsg,
+      progressIndeterminate: false,
+    });
     activeExpenseUploadLocks.delete(record.id);
     return false;
   }
@@ -622,6 +639,7 @@ export const uploadExpenseReceiptInBackground = async (
       progress: 0,
       status: 'UPLOADING',
       progressIndeterminate: false,
+      storagePath: storagePathVal,
     });
     updateExpenseReceiptStatusInLocal(record.id, {
       receiptUploadStatus: 'UPLOADING',
@@ -699,6 +717,7 @@ export const uploadExpenseReceiptInBackground = async (
                 progress: percent,
                 status: 'UPLOADING',
                 progressIndeterminate: false,
+                storagePath: storagePathVal,
               });
               updateExpenseReceiptStatusInLocal(record.id, {
                 receiptUploadStatus: 'UPLOADING',
@@ -764,6 +783,7 @@ export const uploadExpenseReceiptInBackground = async (
         progress: 0,
         status: 'UPLOADING',
         progressIndeterminate: true,
+        storagePath: storagePathVal,
       });
       updateExpenseReceiptStatusInLocal(record.id, {
         receiptUploadStatus: 'UPLOADING',
@@ -853,6 +873,8 @@ export const uploadExpenseReceiptInBackground = async (
       progress: 100,
       status: 'UPLOADED',
       progressIndeterminate: false,
+      receiptUrl: downloadUrl,
+      storagePath: storagePathVal,
     });
 
     console.log(`[EXPENSE_RECEIPT_UPLOAD] PIPELINE_SUCCESS expenseId=${record.id}`);

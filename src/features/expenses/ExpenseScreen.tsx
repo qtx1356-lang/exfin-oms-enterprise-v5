@@ -412,6 +412,10 @@ export const ExpenseScreen: React.FC = () => {
         {filteredExpenses.length > 0 ? (
           filteredExpenses.map((expense) => {
             const CategoryIcon = getCategoryIcon(expense.category);
+            const live = liveUploadStates[expense.id];
+            const confirmedReceiptUrl = live?.receiptUrl || expense.receiptUrl || null;
+            const confirmedStoragePath = live?.storagePath || expense.storagePath || null;
+            const receiptForPreview = live?.receiptUrl || expense.receiptUrl || expense.localReceiptData || null;
 
             return (
               <div 
@@ -426,10 +430,10 @@ export const ExpenseScreen: React.FC = () => {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-extrabold text-sm text-white">{expense.category}</span>
-                        {(expense.receiptUrl || expense.localReceiptData) && (
+                        {receiptForPreview && (
                           <button
                             onClick={() => {
-                              setPreviewReceipt((expense.receiptUrl || expense.localReceiptData)!);
+                              setPreviewReceipt(receiptForPreview);
                               setZoomScale(1);
                             }}
                             className="p-1 rounded-md glass-card-inner text-white hover:text-cyan-300 transition-colors cursor-pointer"
@@ -469,16 +473,15 @@ export const ExpenseScreen: React.FC = () => {
                 </div>
 
                 {/* Receipt Upload Status Component */}
-                {(expense.receiptUrl || expense.localReceiptData || liveUploadStates[expense.id]) && (() => {
-                  const live = liveUploadStates[expense.id];
-                  const effectiveStatus = live?.status || expense.receiptUploadStatus || (expense.receiptUrl ? 'UPLOADED' : 'PENDING');
+                {(receiptForPreview || liveUploadStates[expense.id]) && (() => {
+                  const effectiveStatus = live?.status || expense.receiptUploadStatus || (confirmedReceiptUrl ? 'UPLOADED' : 'PENDING');
                   const isIndeterminate = live?.progressIndeterminate ?? expense.receiptUploadProgressIndeterminate ?? false;
                   const effectiveProgress = live?.progress ?? expense.receiptUploadProgress ?? 0;
                   const effectiveError = live?.error || expense.receiptUploadError;
 
                   // CRITICAL: UI must NOT display 100% or "Receipt uploaded" until all 5 steps succeed
                   // and a valid receiptUrl is confirmed on the server. Status is authoritative.
-                  const isFullyUploaded = effectiveStatus === 'UPLOADED' && Boolean(expense.receiptUrl);
+                  const isFullyUploaded = effectiveStatus === 'UPLOADED' && Boolean(confirmedReceiptUrl);
 
                   return (
                     <div className="pt-0.5">
@@ -491,8 +494,10 @@ export const ExpenseScreen: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => {
-                              setPreviewReceipt((expense.receiptUrl || expense.localReceiptData)!);
-                              setZoomScale(1);
+                              if (confirmedReceiptUrl || receiptForPreview) {
+                                setPreviewReceipt(confirmedReceiptUrl || receiptForPreview);
+                                setZoomScale(1);
+                              }
                             }}
                             className="text-[11px] font-bold text-cyan-300 hover:text-cyan-200 underline cursor-pointer"
                           >
