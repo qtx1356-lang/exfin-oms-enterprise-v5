@@ -19,6 +19,12 @@ import {
   retrySingleExpenseReceiptUpload,
   ReceiptUploadProgressEvent,
 } from '../../services/expenses/expenseSyncEngine';
+import { getExpenseReceiptBlobUrl } from '../../services/expenses/expenseReceiptAttachmentService';
+import {
+  saveReceiptToIndexedDB,
+  getReceiptFromIndexedDB,
+} from '../../services/expenses/expenseReceiptIndexedDB';
+import { migrateLegacyLocalStorageReceipts } from '../../services/expenses/expenseStorage';
 
 import { 
   Wallet, 
@@ -59,6 +65,13 @@ export const ExpenseScreen: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [liveUploadStates, setLiveUploadStates] = useState<Record<string, ReceiptUploadProgressEvent>>({});
   const [retryingIds, setRetryingIds] = useState<Set<string>>(new Set());
+  const [loadingReceiptId, setLoadingReceiptId] = useState<string | null>(null);
+  const [receiptLoadError, setReceiptLoadError] = useState<string | null>(null);
+
+  // Migrate any legacy Base64 receipts out of localStorage to IndexedDB on startup
+  useEffect(() => {
+    void migrateLegacyLocalStorageReceipts();
+  }, []);
 
   // Listen to live background receipt upload progress events
   useEffect(() => {
@@ -90,6 +103,64 @@ export const ExpenseScreen: React.FC = () => {
         next.delete(expenseId);
         return next;
       });
+    }
+  };
+
+  // Robust receipt retrieval supporting chunked Firestore attachments, Storage URLs, and local IndexedDB
+  const handleViewReceipt = async (expense: ExpenseRecord) => {
+    const live = liveUploadStates[expense.id];
+    const targetAttachmentId = live?.receiptAttachmentId || expense.receiptAttachmentId;
+    const targetUrl = live?.receiptUrl || expense.receiptUrl;
+
+    setReceiptLoadError(null);
+
+    // 1. Chunked Firestore attachment
+    if (targetAttachmentId) {
+      setLoadingReceiptId(expense.id);
+      try {
+        const blobUrl = await getExpenseReceiptBlobUrl(
+          targetAttachmentId,
+          expense.receiptContentType || 'image/jpeg'
+        );
+        setPreviewReceipt(blobUrl);
+        setZoomScale(1);
+      } catch (err: any) {
+        console.error('Failed to load receipt attachment:', err);
+        setReceiptLoadError('Unable to load receipt image from database.');
+      } finally {
+        setLoadingReceiptId(null);
+      }
+      return;
+    }
+
+    // 2. Direct Storage URL
+    if (targetUrl) {
+      setPreviewReceipt(targetUrl);
+      setZoomScale(1);
+      return;
+    }
+
+    // 3. Local IndexedDB or local memory fallback
+    setLoadingReceiptId(expense.id);
+    try {
+      const idbData = await getReceiptFromIndexedDB(expense.id);
+      if (idbData?.base64) {
+        setPreviewReceipt(idbData.base64);
+        setZoomScale(1);
+      } else if (idbData?.blob) {
+        const blobUrl = URL.createObjectURL(idbData.blob);
+        setPreviewReceipt(blobUrl);
+        setZoomScale(1);
+      } else if (expense.localReceiptData) {
+        setPreviewReceipt(expense.localReceiptData);
+        setZoomScale(1);
+      } else {
+        setReceiptLoadError('No receipt image available.');
+      }
+    } catch {
+      setReceiptLoadError('Unable to load local receipt image.');
+    } finally {
+      setLoadingReceiptId(null);
     }
   };
 
@@ -204,6 +275,16 @@ export const ExpenseScreen: React.FC = () => {
 
     try {
       const expenseId = `exp_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      let localId: string | null = null;
+      if (receiptUrl) {
+        localId = await saveReceiptToIndexedDB(expenseId, {
+          base64: receiptUrl,
+          fileName: `receipt_${expenseId}.jpg`,
+          contentType: 'image/jpeg',
+          size: Math.round(receiptUrl.length * 0.75),
+        });
+      }
+
       const newRecord: ExpenseRecord = {
         id: expenseId,
         employeeId: empCode,
@@ -213,8 +294,10 @@ export const ExpenseScreen: React.FC = () => {
         category,
         date,
         description: description.trim(),
-        receiptUrl: null, // Don't put Base64 in receiptUrl (saved for Storage download URL)
-        localReceiptData: receiptUrl || null, // Keep Base64 locally for preview & pending upload
+        receiptUrl: null,
+        receiptAttachmentId: null,
+        receiptLocalId: localId,
+        localReceiptData: null, // Saved in IndexedDB, NOT in localStorage
         receiptFileName: receiptUrl ? `receipt_${expenseId}.jpg` : null,
         receiptContentType: receiptUrl ? 'image/jpeg' : null,
         receiptSize: receiptUrl ? Math.round(receiptUrl.length * 0.75) : null,
@@ -414,8 +497,19 @@ export const ExpenseScreen: React.FC = () => {
             const CategoryIcon = getCategoryIcon(expense.category);
             const live = liveUploadStates[expense.id];
             const confirmedReceiptUrl = live?.receiptUrl || expense.receiptUrl || null;
-            const confirmedStoragePath = live?.storagePath || expense.storagePath || null;
-            const receiptForPreview = live?.receiptUrl || expense.receiptUrl || expense.localReceiptData || null;
+            const confirmedAttachmentId = live?.receiptAttachmentId || expense.receiptAttachmentId || null;
+            const hasConfirmedReceipt = Boolean(confirmedReceiptUrl || confirmedAttachmentId);
+            const hasLocalReceipt = Boolean(expense.receiptLocalId || expense.localReceiptData);
+            const hasAnyReceipt = hasConfirmedReceipt || hasLocalReceipt || Boolean(liveUploadStates[expense.id]);
+
+            const effectiveStatus = live?.status || expense.receiptUploadStatus || (hasConfirmedReceipt ? 'UPLOADED' : 'PENDING');
+            const isIndeterminate = live?.progressIndeterminate ?? expense.receiptUploadProgressIndeterminate ?? false;
+            const effectiveProgress = live?.progress ?? expense.receiptUploadProgress ?? 0;
+            const effectiveError = live?.error || expense.receiptUploadError;
+
+            // CRITICAL: UI must NOT display 100% or "Receipt uploaded" until all 5 steps succeed
+            // and a valid receipt is confirmed on the server. Status is authoritative.
+            const isFullyUploaded = effectiveStatus === 'UPLOADED' && hasConfirmedReceipt;
 
             return (
               <div 
@@ -430,16 +524,19 @@ export const ExpenseScreen: React.FC = () => {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-extrabold text-sm text-white">{expense.category}</span>
-                        {receiptForPreview && (
+                        {hasAnyReceipt && (
                           <button
-                            onClick={() => {
-                              setPreviewReceipt(receiptForPreview);
-                              setZoomScale(1);
-                            }}
-                            className="p-1 rounded-md glass-card-inner text-white hover:text-cyan-300 transition-colors cursor-pointer"
+                            type="button"
+                            onClick={() => handleViewReceipt(expense)}
+                            disabled={loadingReceiptId === expense.id}
+                            className="p-1 rounded-md glass-card-inner text-white hover:text-cyan-300 transition-colors cursor-pointer disabled:opacity-50"
                             title="View Attached Receipt"
                           >
-                            <Paperclip className="w-3.5 h-3.5 text-cyan-300" />
+                            {loadingReceiptId === expense.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-300" />
+                            ) : (
+                              <Paperclip className="w-3.5 h-3.5 text-cyan-300" />
+                            )}
                           </button>
                         )}
                       </div>
@@ -473,16 +570,7 @@ export const ExpenseScreen: React.FC = () => {
                 </div>
 
                 {/* Receipt Upload Status Component */}
-                {(receiptForPreview || liveUploadStates[expense.id]) && (() => {
-                  const effectiveStatus = live?.status || expense.receiptUploadStatus || (confirmedReceiptUrl ? 'UPLOADED' : 'PENDING');
-                  const isIndeterminate = live?.progressIndeterminate ?? expense.receiptUploadProgressIndeterminate ?? false;
-                  const effectiveProgress = live?.progress ?? expense.receiptUploadProgress ?? 0;
-                  const effectiveError = live?.error || expense.receiptUploadError;
-
-                  // CRITICAL: UI must NOT display 100% or "Receipt uploaded" until all 5 steps succeed
-                  // and a valid receiptUrl is confirmed on the server. Status is authoritative.
-                  const isFullyUploaded = effectiveStatus === 'UPLOADED' && Boolean(confirmedReceiptUrl);
-
+                {hasAnyReceipt && (() => {
                   return (
                     <div className="pt-0.5">
                       {isFullyUploaded ? (
@@ -493,15 +581,12 @@ export const ExpenseScreen: React.FC = () => {
                           </div>
                           <button
                             type="button"
-                            onClick={() => {
-                              if (confirmedReceiptUrl || receiptForPreview) {
-                                setPreviewReceipt(confirmedReceiptUrl || receiptForPreview);
-                                setZoomScale(1);
-                              }
-                            }}
-                            className="text-[11px] font-bold text-cyan-300 hover:text-cyan-200 underline cursor-pointer"
+                            onClick={() => handleViewReceipt(expense)}
+                            disabled={loadingReceiptId === expense.id}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-cyan-300 hover:text-cyan-200 underline cursor-pointer disabled:opacity-50"
                           >
-                            View Receipt
+                            {loadingReceiptId === expense.id && <Loader2 className="w-3 h-3 animate-spin" />}
+                            <span>View Receipt</span>
                           </button>
                         </div>
                       ) : effectiveStatus === 'UPLOADING' ? (
@@ -538,7 +623,7 @@ export const ExpenseScreen: React.FC = () => {
                                 </p>
                               </div>
                             </div>
-                            {expense.localReceiptData && (
+                            {hasLocalReceipt && (
                               <button
                                 type="button"
                                 onClick={() => handleRetryReceipt(expense.id)}
@@ -561,7 +646,7 @@ export const ExpenseScreen: React.FC = () => {
                             <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
                             <span>{effectiveError || 'Receipt pending upload'}</span>
                           </div>
-                          {expense.localReceiptData && isOnline && (
+                          {hasLocalReceipt && isOnline && (
                             <button
                               type="button"
                               onClick={() => handleRetryReceipt(expense.id)}

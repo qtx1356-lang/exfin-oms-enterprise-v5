@@ -31,6 +31,8 @@ export interface ExpenseRecord {
   date: string;
   description: string;
   receiptUrl?: string | null;
+  receiptAttachmentId?: string | null;
+  receiptLocalId?: string | null;
   localReceiptData?: string | null;
   storagePath?: string | null;
   receiptFileName?: string | null;

@@ -3,21 +3,11 @@ name: Android APK Build & Release
 on:
   workflow_dispatch:
     inputs:
-      versionCode:
-        description: 'Integer Version Code (e.g. 6)'
-        required: false
-        default: '6'
-      versionName:
-        description: 'Semantic Version Name (e.g. 1.0.5)'
-        required: false
-        default: '1.0.5'
       releaseNotes:
-        description: 'Release Notes'
+        description: 'Release Notes (optional)'
         required: false
         default: 'Production Android release with automatic update support'
   push:
-    tags:
-      - 'v*'
     branches:
       - main
     paths:
@@ -42,6 +32,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -55,35 +46,75 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Calculate Version Code and Version Name
+      - name: Calculate Next Automatic Version Code and Semantic Version Name
         id: versioning
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Extract deterministic version from dispatch inputs, tag, or repository manifest
-          if [ -n "${{ github.event.inputs.versionCode }}" ]; then
-            VERSION_CODE="${{ github.event.inputs.versionCode }}"
-          elif [ -f public/android-version-manifest.json ]; then
-            VERSION_CODE=$(node -e 'try { console.log(require("./public/android-version-manifest.json").versionCode || 6); } catch(e) { console.log(6); }')
-          else
-            VERSION_CODE=6
-          fi
+          node -e '
+          const fs = require("fs");
+          const { execSync } = require("child_process");
 
-          if [ -n "${{ github.event.inputs.versionName }}" ]; then
-            VERSION_NAME="${{ github.event.inputs.versionName }}"
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            VERSION_NAME="${GITHUB_REF#refs/tags/v}"
-          elif [ -f public/android-version-manifest.json ]; then
-            VERSION_NAME=$(node -e 'try { console.log(require("./public/android-version-manifest.json").versionName || "1.0.5"); } catch(e) { console.log("1.0.5"); }')
-          else
-            VERSION_NAME="1.0.5"
-          fi
+          let baseVersionCode = 6;
+          let baseVersionName = "1.0.5";
 
-          echo "Calculated Version Code: $VERSION_CODE"
-          echo "Calculated Version Name: $VERSION_NAME"
+          // 1. Attempt reading from public/android-version-manifest.json
+          try {
+            if (fs.existsSync("public/android-version-manifest.json")) {
+              const manifest = JSON.parse(fs.readFileSync("public/android-version-manifest.json", "utf8"));
+              if (typeof manifest.versionCode === "number" && manifest.versionCode >= 6) {
+                baseVersionCode = manifest.versionCode;
+              }
+              if (typeof manifest.versionName === "string" && manifest.versionName.trim()) {
+                baseVersionName = manifest.versionName.trim();
+              }
+            }
+          } catch (err) {
+            console.warn("Could not read local manifest:", err.message);
+          }
 
-          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
-          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
-          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
-          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          // 2. Fallback / recovery from latest GitHub tag or release if available
+          try {
+            const gitTagOutput = execSync("git describe --tags --abbrev=0 2>/dev/null || true").toString().trim();
+            if (gitTagOutput && gitTagOutput.startsWith("v")) {
+              const tagVersion = gitTagOutput.replace(/^v/, "");
+              const tagParts = tagVersion.split(".").map(p => parseInt(p, 10));
+              const baseParts = baseVersionName.split(".").map(p => parseInt(p, 10));
+              if (tagParts.length === 3 && (tagParts[0] > baseParts[0] || (tagParts[0] === baseParts[0] && tagParts[1] > baseParts[1]) || (tagParts[0] === baseParts[0] && tagParts[1] === baseParts[1] && tagParts[2] >= baseParts[2]))) {
+                baseVersionName = tagVersion;
+              }
+            }
+          } catch (e) {}
+
+          // 3. Automatic Increments
+          const nextVersionCode = baseVersionCode + 1;
+          const parts = baseVersionName.split(".").map(p => parseInt(p, 10));
+          const major = isNaN(parts[0]) ? 1 : parts[0];
+          const minor = isNaN(parts[1]) ? 0 : parts[1];
+          const patch = (isNaN(parts[2]) ? 5 : parts[2]) + 1;
+          const nextVersionName = `${major}.${minor}.${patch}`;
+
+          console.log(`=== AUTOMATIC VERSION CALCULATION ===`);
+          console.log(`Previous Version: v${baseVersionName} (Build ${baseVersionCode})`);
+          console.log(`Next Version:     v${nextVersionName} (Build ${nextVersionCode})`);
+
+          fs.appendFileSync(process.env.GITHUB_ENV, `VERSION_CODE=${nextVersionCode}\nVERSION_NAME=${nextVersionName}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version_code=${nextVersionCode}\nversion_name=${nextVersionName}\n`);
+
+          // Update public/android-version-manifest.json in workspace before build
+          const repo = process.env.GITHUB_REPOSITORY || "qtx1356-lang/exfin-oms-enterprise-v5";
+          const updatedManifest = {
+            versionCode: nextVersionCode,
+            versionName: nextVersionName,
+            apkUrl: `https://github.com/${repo}/releases/download/v${nextVersionName}/EXFIN-OMS-Android-v${nextVersionName}.apk`,
+            releaseNotes: [
+              `Automatic release version ${nextVersionName}`,
+              "Permanent Expense receipt upload reliability improvements"
+            ]
+          };
+          fs.writeFileSync("public/android-version-manifest.json", JSON.stringify(updatedManifest, null, 2) + "\n");
+          console.log("Updated public/android-version-manifest.json successfully.");
+          '
 
       - name: Install Dependencies
         run: |
@@ -180,7 +211,7 @@ jobs:
           cp "$RELEASE_APK" "artifact/exfin-oms-android.apk"
           echo "Staged APK to artifact/$APK_FILENAME and artifact/exfin-oms-android.apk"
 
-          # Generate release update manifest matching the built APK
+          # Stage update manifest matching the built APK
           REPO_NAME="${{ github.repository }}"
           APK_DOWNLOAD_URL="https://github.com/${REPO_NAME}/releases/download/v${{ env.VERSION_NAME }}/${APK_FILENAME}"
 
@@ -190,8 +221,8 @@ jobs:
             "versionName": "${{ env.VERSION_NAME }}",
             "apkUrl": "${APK_DOWNLOAD_URL}",
             "releaseNotes": [
-              "Production Android release v${{ env.VERSION_NAME }} (Build ${{ env.VERSION_CODE }})",
-              "${{ github.event.inputs.releaseNotes || 'Optimized performance, background geofencing, and sync stability' }}"
+              "Automatic release version ${{ env.VERSION_NAME }}",
+              "Permanent Expense receipt upload reliability improvements"
             ]
           }
           EOF
@@ -220,32 +251,7 @@ jobs:
             artifact/android-version-manifest.json
           if-no-files-found: error
 
-      - name: Check GitHub Release Existence
-        id: check_release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TARGET_TAG="v${{ env.VERSION_NAME }}"
-          echo "Checking if release $TARGET_TAG already exists in ${{ github.repository }}..."
-
-          if gh release view "$TARGET_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "Release $TARGET_TAG already exists in ${{ github.repository }}."
-            echo "exists=true" >> $GITHUB_OUTPUT
-            if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-              echo "Manual trigger or tag push detected: release update allowed."
-              echo "release_needed=true" >> $GITHUB_OUTPUT
-            else
-              echo "Ordinary push on main and release $TARGET_TAG already exists: skipping duplicate release creation."
-              echo "release_needed=false" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "Release $TARGET_TAG does not exist in ${{ github.repository }}. Release creation required."
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "release_needed=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create / Update GitHub Release
-        if: steps.check_release.outputs.release_needed == 'true'
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION_NAME }}
@@ -254,7 +260,8 @@ jobs:
             ## EXFIN OMS Android App Update v${{ env.VERSION_NAME }} (Build ${{ env.VERSION_CODE }})
             
             ### What's New:
-            - ${{ github.event.inputs.releaseNotes || 'Production release build with R8 optimizations, native PWA launcher icon, and automatic update support.' }}
+            - Automatic release version ${{ env.VERSION_NAME }}
+            - Permanent Expense receipt upload reliability improvements
             
             ### Direct APK Download:
             - **APK:** [EXFIN-OMS-Android-v${{ env.VERSION_NAME }}.apk](${{ github.server_url }}/${{ github.repository }}/releases/download/v${{ env.VERSION_NAME }}/EXFIN-OMS-Android-v${{ env.VERSION_NAME }}.apk)
@@ -264,3 +271,15 @@ jobs:
             artifact/android-version-manifest.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and Push Updated Manifest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/android-version-manifest.json
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(release): bump android version to v${{ env.VERSION_NAME }} (build ${{ env.VERSION_CODE }}) [skip ci]"
+            git push origin main
+          fi

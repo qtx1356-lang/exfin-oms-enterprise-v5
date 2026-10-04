@@ -7,6 +7,7 @@ import {
   isExpenseApproved, 
   isExpenseRejected 
 } from '../../services/expenses/expenseService';
+import { getExpenseReceiptBlobUrl } from '../../services/expenses/expenseReceiptAttachmentService';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -57,6 +58,7 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null);
   const [previewReceiptTitle, setPreviewReceiptTitle] = useState<string>('');
   const [zoomScale, setZoomScale] = useState<number>(1);
+  const [loadingReceiptId, setLoadingReceiptId] = useState<string | null>(null);
 
   // Rejection Dialog
   const [rejectModalRecord, setRejectModalRecord] = useState<ExpenseRecord | null>(null);
@@ -217,6 +219,38 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
     setPreviewReceiptUrl(url);
     setPreviewReceiptTitle(title);
     setZoomScale(1);
+  };
+
+  const handleOpenReceipt = async (exp: ExpenseRecord) => {
+    const title = `${exp.employeeName} - ₹${exp.amount} (${exp.category})`;
+    if (exp.receiptAttachmentId) {
+      setLoadingReceiptId(exp.id);
+      try {
+        const blobUrl = await getExpenseReceiptBlobUrl(
+          exp.receiptAttachmentId,
+          exp.receiptContentType || 'image/jpeg'
+        );
+        openReceiptModal(blobUrl, title);
+      } catch (err: any) {
+        console.error('Failed to load receipt attachment for admin:', err);
+        showFeedback('error', 'Unable to load receipt attachment from database.');
+      } finally {
+        setLoadingReceiptId(null);
+      }
+      return;
+    }
+
+    if (exp.receiptUrl) {
+      openReceiptModal(exp.receiptUrl, title);
+      return;
+    }
+
+    if (exp.localReceiptData) {
+      openReceiptModal(exp.localReceiptData, title);
+      return;
+    }
+
+    showFeedback('error', 'No receipt image is available for this claim.');
   };
 
   return (
@@ -436,7 +470,7 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
             const isApproved = isExpenseApproved(exp.status);
             const isRejected = isExpenseRejected(exp.status);
             const isProcessing = processingId === exp.id;
-            const receiptImg = exp.receiptUrl || exp.localReceiptData;
+            const hasReceipt = Boolean(exp.receiptAttachmentId || exp.receiptUrl || exp.localReceiptData);
 
             return (
               <Card
@@ -540,13 +574,18 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
                 {/* Receipt Preview Row */}
                 <div className="flex items-center justify-between gap-2 pt-0.5 min-w-0">
                   <span className="text-xs text-purple-300 font-medium shrink-0">Receipt:</span>
-                  {receiptImg ? (
+                  {hasReceipt ? (
                     <button
                       type="button"
-                      onClick={() => openReceiptModal(receiptImg, `${exp.employeeName} - ₹${exp.amount} (${exp.category})`)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-800/50 hover:bg-purple-700/70 border border-purple-500/30 text-purple-200 hover:text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                      onClick={() => handleOpenReceipt(exp)}
+                      disabled={loadingReceiptId === exp.id}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-800/50 hover:bg-purple-700/70 border border-purple-500/30 text-purple-200 hover:text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
                     >
-                      <Eye className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      {loadingReceiptId === exp.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400 shrink-0" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      )}
                       <span>View Receipt</span>
                     </button>
                   ) : exp.receiptUploadStatus === 'FAILED' ? (
@@ -649,7 +688,7 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
                     const isApproved = isExpenseApproved(exp.status);
                     const isRejected = isExpenseRejected(exp.status);
                     const isProcessing = processingId === exp.id;
-                    const receiptImg = exp.receiptUrl || exp.localReceiptData;
+                    const hasReceipt = Boolean(exp.receiptAttachmentId || exp.receiptUrl || exp.localReceiptData);
 
                     return (
                       <tr 
@@ -702,13 +741,18 @@ export const AdminExpensesTab: React.FC<AdminExpensesTabProps> = ({
 
                         {/* Receipt Preview */}
                         <td className="p-3.5 text-center whitespace-nowrap">
-                          {receiptImg ? (
+                          {hasReceipt ? (
                             <button
                               type="button"
-                              onClick={() => openReceiptModal(receiptImg, `${exp.employeeName} - ₹${exp.amount} (${exp.category})`)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-800/40 hover:bg-purple-700/60 border border-purple-500/30 text-purple-200 hover:text-white rounded-lg text-[11px] font-medium transition-colors cursor-pointer"
+                              onClick={() => handleOpenReceipt(exp)}
+                              disabled={loadingReceiptId === exp.id}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-800/40 hover:bg-purple-700/60 border border-purple-500/30 text-purple-200 hover:text-white rounded-lg text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50"
                             >
-                              <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                              {loadingReceiptId === exp.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                              ) : (
+                                <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                              )}
                               <span>View</span>
                             </button>
                           ) : exp.receiptUploadStatus === 'FAILED' ? (
