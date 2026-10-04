@@ -19,6 +19,10 @@ on:
       - 'src/**'
       - 'public/**'
 
+concurrency:
+  group: android-release-main
+  cancel-in-progress: false
+
 jobs:
   build-apk:
     name: Build Optimized Android Release APK
@@ -55,61 +59,138 @@ jobs:
           const fs = require("fs");
           const { execSync } = require("child_process");
 
-          let baseVersionCode = 7;
-          let baseVersionName = "1.0.6";
+          let highestCode = 9;
+          let highestName = "1.0.8";
 
-          // 1. Attempt reading from public/android-version-manifest.json
+          // 1. Read local manifest
           try {
             if (fs.existsSync("public/android-version-manifest.json")) {
               const manifest = JSON.parse(fs.readFileSync("public/android-version-manifest.json", "utf8"));
-              if (typeof manifest.versionCode === "number" && manifest.versionCode >= 6) {
-                baseVersionCode = manifest.versionCode;
+              if (typeof manifest.versionCode === "number") {
+                highestCode = Math.max(highestCode, manifest.versionCode);
               }
               if (typeof manifest.versionName === "string" && manifest.versionName.trim()) {
-                baseVersionName = manifest.versionName.trim();
+                highestName = manifest.versionName.trim();
               }
             }
           } catch (err) {
             console.warn("Could not read local manifest:", err.message);
           }
 
-          // 2. Fallback / recovery from latest GitHub tag or release if available
+          // 2. Query git tags
           try {
-            const gitTagOutput = execSync("git describe --tags --abbrev=0 2>/dev/null || true").toString().trim();
-            if (gitTagOutput && gitTagOutput.startsWith("v")) {
-              const tagVersion = gitTagOutput.replace(/^v/, "");
-              const tagParts = tagVersion.split(".").map(p => parseInt(p, 10));
-              const baseParts = baseVersionName.split(".").map(p => parseInt(p, 10));
-              if (tagParts.length === 3 && (tagParts[0] > baseParts[0] || (tagParts[0] === baseParts[0] && tagParts[1] > baseParts[1]) || (tagParts[0] === baseParts[0] && tagParts[1] === baseParts[1] && tagParts[2] >= baseParts[2]))) {
-                baseVersionName = tagVersion;
+            execSync("git fetch --tags --force 2>/dev/null || true");
+            const tagsOutput = execSync("git tag -l").toString().trim();
+            if (tagsOutput) {
+              const tags = tagsOutput.split("\n").map(t => t.trim()).filter(t => t.startsWith("v"));
+              for (const tag of tags) {
+                const semver = tag.substring(1);
+                const parts = semver.split(".").map(p => parseInt(p, 10));
+                if (parts.length === 3 && !parts.some(isNaN)) {
+                  let estimatedCode = 0;
+                  if (parts[0] === 1 && parts[1] === 0) {
+                    estimatedCode = parts[2] + 1;
+                  }
+                  highestCode = Math.max(highestCode, estimatedCode);
+
+                  const curParts = highestName.split(".").map(p => parseInt(p, 10));
+                  if (curParts.length === 3 && !curParts.some(isNaN)) {
+                    if (parts[0] > curParts[0] ||
+                       (parts[0] === curParts[0] && parts[1] > curParts[1]) ||
+                       (parts[0] === curParts[0] && parts[1] === curParts[1] && parts[2] > curParts[2])) {
+                      highestName = semver;
+                    }
+                  }
+                }
               }
             }
-          } catch (e) {}
-
-          let nextVersionCode = baseVersionCode;
-          let nextVersionName = baseVersionName;
-
-          // If current manifest is already 9 / 1.0.8, use it directly; otherwise increment
-          if (baseVersionCode < 9) {
-            nextVersionCode = 9;
-            nextVersionName = "1.0.8";
+          } catch (err) {
+            console.warn("Could not parse local git tags:", err.message);
           }
 
-          console.log(`=== AUTOMATIC VERSION CALCULATION ===`);
-          console.log(`Target Version: v${nextVersionName} (Build ${nextVersionCode})`);
+          // 3. Query gh releases and download their manifests
+          try {
+            const releaseListOutput = execSync("gh release list --limit 10 --json tagName 2>/dev/null || true").toString().trim();
+            if (releaseListOutput) {
+              const releases = JSON.parse(releaseListOutput);
+              for (const rel of releases) {
+                if (rel.tagName && rel.tagName.startsWith("v")) {
+                  const semver = rel.tagName.substring(1);
+                  const parts = semver.split(".").map(p => parseInt(p, 10));
+                  if (parts.length === 3 && !parts.some(isNaN)) {
+                    try {
+                      const tempDir = `/tmp/release-${rel.tagName}`;
+                      execSync(`mkdir -p ${tempDir} && gh release download ${rel.tagName} --pattern "android-version-manifest.json" --dir ${tempDir} --clobber 2>/dev/null || true`);
+                      const manifestPath = `${tempDir}/android-version-manifest.json`;
+                      if (fs.existsSync(manifestPath)) {
+                        const remoteManifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+                        if (typeof remoteManifest.versionCode === "number") {
+                          highestCode = Math.max(highestCode, remoteManifest.versionCode);
+                        }
+                        if (typeof remoteManifest.versionName === "string" && remoteManifest.versionName.trim()) {
+                          const rParts = remoteManifest.versionName.trim().split(".").map(p => parseInt(p, 10));
+                          const curParts = highestName.split(".").map(p => parseInt(p, 10));
+                          if (rParts.length === 3 && !rParts.some(isNaN) && curParts.length === 3 && !curParts.some(isNaN)) {
+                            if (rParts[0] > curParts[0] ||
+                               (rParts[0] === curParts[0] && rParts[1] > curParts[1]) ||
+                               (rParts[0] === curParts[0] && rParts[1] === curParts[1] && rParts[2] > curParts[2])) {
+                              highestName = remoteManifest.versionName.trim();
+                            }
+                          }
+                        }
+                      } else {
+                        let estimatedCode = 0;
+                        if (parts[0] === 1 && parts[1] === 0) {
+                          estimatedCode = parts[2] + 1;
+                        }
+                        highestCode = Math.max(highestCode, estimatedCode);
+                        
+                        const curParts = highestName.split(".").map(p => parseInt(p, 10));
+                        if (curParts.length === 3 && !curParts.some(isNaN)) {
+                          if (parts[0] > curParts[0] ||
+                             (parts[0] === curParts[0] && parts[1] > curParts[1]) ||
+                             (parts[0] === curParts[0] && parts[1] === curParts[1] && parts[2] > curParts[2])) {
+                            highestName = semver;
+                          }
+                        }
+                      }
+                    } catch (e) {}
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            console.warn("Could not query GitHub releases via CLI:", err.message);
+          }
+
+          // Calculate final next values
+          const nextVersionCode = highestCode + 1;
+          let nextVersionName = highestName;
+
+          const nameParts = highestName.split(".").map(p => parseInt(p, 10));
+          if (nameParts.length === 3 && !nameParts.some(isNaN)) {
+            nextVersionName = `${nameParts[0]}.${nameParts[1]}.${nameParts[2] + 1}`;
+          } else {
+            nextVersionName = `1.0.${nextVersionCode - 1}`;
+          }
+
+          console.log(`=== DETERMINED NEXT AUTOMATIC VERSION ===`);
+          console.log(`Highest Known Version Code: ${highestCode}`);
+          console.log(`Highest Known Version Name: ${highestName}`);
+          console.log(`Calculated Next Version Code: ${nextVersionCode}`);
+          console.log(`Calculated Next Version Name: ${nextVersionName}`);
 
           fs.appendFileSync(process.env.GITHUB_ENV, `VERSION_CODE=${nextVersionCode}\nVERSION_NAME=${nextVersionName}\n`);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `version_code=${nextVersionCode}\nversion_name=${nextVersionName}\n`);
 
-          // Update public/android-version-manifest.json in workspace before build
+          // Update local public/android-version-manifest.json in workspace before building
           const repo = process.env.GITHUB_REPOSITORY || "qtx1356-lang/exfin-oms-enterprise-v5";
           const updatedManifest = {
             versionCode: nextVersionCode,
             versionName: nextVersionName,
             apkUrl: `https://github.com/${repo}/releases/download/v${nextVersionName}/EXFIN-OMS-Android-v${nextVersionName}.apk`,
             releaseNotes: [
-              "Improved Android automatic update discovery",
-              "Expense receipt upload reliability improvements"
+              `EXFIN OMS Android update Version ${nextVersionName} (Build ${nextVersionCode})`
             ]
           };
           fs.writeFileSync("public/android-version-manifest.json", JSON.stringify(updatedManifest, null, 2) + "\n");
@@ -221,8 +302,7 @@ jobs:
             "versionName": "${{ env.VERSION_NAME }}",
             "apkUrl": "${APK_DOWNLOAD_URL}",
             "releaseNotes": [
-              "Improved Android automatic update discovery",
-              "Expense receipt upload reliability improvements"
+              "Automatic Android update release"
             ]
           }
           EOF
@@ -230,14 +310,85 @@ jobs:
           echo "=== Generated Manifest ==="
           cat artifact/android-version-manifest.json
 
+      - name: Validate APK Metadata and Manifest Consistency
+        env:
+          VERSION_CODE: ${{ env.VERSION_CODE }}
+          VERSION_NAME: ${{ env.VERSION_NAME }}
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          node -e '
+          const { execSync } = require("child_process");
+          const fs = require("fs");
+
+          const expectedCode = process.env.VERSION_CODE;
+          const expectedName = process.env.VERSION_NAME;
+          const apkPath = "artifact/exfin-oms-android.apk";
+          const manifestPath = "artifact/android-version-manifest.json";
+
+          console.log(`=== STARTING APK VALIDATION ===`);
+          console.log(`Expected Application ID: com.exfin.oms`);
+          console.log(`Expected Version Code: ${expectedCode}`);
+          console.log(`Expected Version Name: ${expectedName}`);
+
+          try {
+            // 1. Verify manifest and build consistency
+            if (!fs.existsSync(manifestPath)) {
+              throw new Error("Local android-version-manifest.json not found in artifacts.");
+            }
+            const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+            if (String(manifest.versionCode) !== String(expectedCode)) {
+              throw new Error(`Manifest Code Mismatch! expected=${expectedCode}, found=${manifest.versionCode}`);
+            }
+            if (String(manifest.versionName) !== String(expectedName)) {
+              throw new Error(`Manifest Name Mismatch! expected=${expectedName}, found=${manifest.versionName}`);
+            }
+            console.log("Local manifest matches expectations.");
+
+            // 2. Locate aapt tool
+            const androidHome = process.env.ANDROID_HOME || "/usr/local/lib/android/sdk";
+            const findAapt = execSync(`find ${androidHome}/build-tools -name aapt | head -n 1`).toString().trim();
+            if (!findAapt) {
+              throw new Error("aapt tool not found in Android SDK directory.");
+            }
+            console.log(`Using aapt tool at: ${findAapt}`);
+
+            // 3. Run aapt dump badging
+            const dump = execSync(`"${findAapt}" dump badging ${apkPath}`).toString();
+            
+            // 4. Parse package line
+            const packageLine = dump.split("\n").find(line => line.startsWith("package:"));
+            if (!packageLine) {
+              throw new Error("Could not find package line in aapt dump badging output.");
+            }
+            console.log(`Found package line: ${packageLine}`);
+
+            // 5. Extract values and assert
+            const nameMatch = packageLine.match(/name=\x27([^\x27]+)\x27/);
+            const codeMatch = packageLine.match(/versionCode=\x27([^\x27]+)\x27/);
+            const nameValMatch = packageLine.match(/versionName=\x27([^\x27]+)\x27/);
+
+            if (!nameMatch || nameMatch[1] !== "com.exfin.oms") {
+              throw new Error(`Application ID mismatch! Found: ${nameMatch ? nameMatch[1] : "null"}`);
+            }
+            if (!codeMatch || String(codeMatch[1]) !== String(expectedCode)) {
+              throw new Error(`Version Code mismatch! Found: ${codeMatch ? codeMatch[1] : "null"}`);
+            }
+            if (!nameValMatch || String(nameValMatch[1]) !== String(expectedName)) {
+              throw new Error(`Version Name mismatch! Found: ${nameValMatch ? nameValMatch[1] : "null"}`);
+            }
+
+            console.log(`APK validation succeeded! All checks passed.`);
+          } catch (err) {
+            console.error(`::error::APK validation failed: ${err.message}`);
+            process.exit(1);
+          }
+          '
+
       - name: Display Build & Size Information
         run: |
           echo "=== Build Environment & Artifact Information ==="
-          echo "Java Version:"
           java -version 2>&1 || true
-          echo "Node Version:"
           node -v || true
-          echo "Gradle Version:"
           (cd android && ./gradlew --version) || true
           echo "Optimized Release APK Size:"
           ls -lh artifact/*.apk || true
@@ -260,8 +411,7 @@ jobs:
             ## EXFIN OMS Android App Update v${{ env.VERSION_NAME }} (Build ${{ env.VERSION_CODE }})
             
             ### What's New:
-            - Improved Android automatic update discovery
-            - Expense receipt upload reliability improvements
+            - Automatic Android update release
             
             ### Direct APK Download:
             - **APK:** [EXFIN-OMS-Android-v${{ env.VERSION_NAME }}.apk](${{ github.server_url }}/${{ github.repository }}/releases/download/v${{ env.VERSION_NAME }}/EXFIN-OMS-Android-v${{ env.VERSION_NAME }}.apk)
