@@ -1,11 +1,9 @@
 {
-  "versionCode": 6,
-  "versionName": "1.0.5",
-  "apkUrl": "https://github.com/qtx1356-lang/exfin-oms-enterprise-v5/releases/download/v1.0.5/EXFIN-OMS-Android-v1.0.5.apk",
+  "versionCode": 7,
+  "versionName": "1.0.6",
+  "apkUrl": "https://github.com/qtx1356-lang/exfin-oms-enterprise-v5/releases/download/v1.0.6/EXFIN-OMS-Android-v1.0.6.apk",
   "releaseNotes": [
-    "Official EXFIN launcher icon with white handshake and expert in finance branding",
-    "Multi-tier resilient updater check with raw GitHub and Releases API fallback",
-    "Optimized release APK with streaming updater"
+    "Automatic release version 1.0.6",
+    "Permanent Expense receipt upload reliability improvements"
   ]
 }
-
