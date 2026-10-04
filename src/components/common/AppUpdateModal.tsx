@@ -25,6 +25,7 @@ export const AppUpdateModal: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [canInstall, setCanInstall] = useState<boolean>(true);
   const listenerRef = useRef<PluginListenerHandle | null>(null);
+  const isCheckingRef = useRef<boolean>(false);
 
   const performUpdateCheck = useCallback(async () => {
     // Only check if running on native Android
@@ -32,25 +33,39 @@ export const AppUpdateModal: React.FC = () => {
       return;
     }
 
-    const updateInfo = await checkAppUpdateSilently();
-    if (updateInfo?.updateAvailable && updateInfo.remoteManifest) {
-      const remote = updateInfo.remoteManifest;
-      // If user previously pressed 'Later' for this exact version code during this session, do not prompt again
-      if (isUpdateDismissedForSession(remote.versionCode)) {
-        return;
-      }
+    // In-flight guard to prevent multiple simultaneous update checks
+    if (isCheckingRef.current) {
+      return;
+    }
+    isCheckingRef.current = true;
 
-      const installPermission = await checkCanInstallUnknownApps();
-      setCanInstall(installPermission);
-      setManifest(remote);
-      setModalState('PROMPT');
-      setDownloadProgress(0);
+    try {
+      const updateInfo = await checkAppUpdateSilently();
+      if (updateInfo?.updateAvailable && updateInfo.remoteManifest) {
+        const remote = updateInfo.remoteManifest;
+        // If user previously pressed 'Later' for this exact version code during this session, do not prompt again
+        if (isUpdateDismissedForSession(remote.versionCode)) {
+          return;
+        }
+
+        const installPermission = await checkCanInstallUnknownApps();
+        setCanInstall(installPermission);
+        setManifest(remote);
+        setModalState('PROMPT');
+        setDownloadProgress(0);
+      }
+    } catch (err) {
+      console.debug('[AppUpdateModal] Update check error ignored silently:', err);
+    } finally {
+      isCheckingRef.current = false;
     }
   }, []);
 
   useEffect(() => {
-    // 1. Initial silent check on app mount
-    void performUpdateCheck();
+    // 1. Initial silent check with a safe 1.5s delay to ensure the native bridge is fully initialized
+    const startupTimer = setTimeout(() => {
+      void performUpdateCheck();
+    }, 1500);
 
     // 2. Periodic/foreground check when returning from background
     let appStateListener: PluginListenerHandle | null = null;
@@ -61,10 +76,13 @@ export const AppUpdateModal: React.FC = () => {
         }
       }).then((handle) => {
         appStateListener = handle;
+      }).catch((e) => {
+        console.debug('[AppUpdateModal] Failed to attach appStateChange listener:', e);
       });
     }
 
     return () => {
+      clearTimeout(startupTimer);
       if (appStateListener) {
         appStateListener.remove();
       }
@@ -160,6 +178,12 @@ export const AppUpdateModal: React.FC = () => {
     return null;
   }
 
+  const releaseNotesList: string[] = Array.isArray(manifest.releaseNotes)
+    ? manifest.releaseNotes
+    : typeof manifest.releaseNotes === 'string'
+    ? [manifest.releaseNotes]
+    : [];
+
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
       <div className="bg-slate-900 border border-purple-500/30 rounded-3xl p-6 max-w-sm w-full shadow-2xl relative overflow-hidden text-white">
@@ -181,13 +205,13 @@ export const AppUpdateModal: React.FC = () => {
               </p>
             </div>
 
-            {manifest.releaseNotes && manifest.releaseNotes.length > 0 && (
+            {releaseNotesList.length > 0 && (
               <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-3.5 space-y-1.5 max-h-36 overflow-y-auto">
                 <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
                   What's New
                 </span>
                 <ul className="text-xs text-slate-200 space-y-1">
-                  {manifest.releaseNotes.map((note, idx) => (
+                  {releaseNotesList.map((note, idx) => (
                     <li key={idx} className="flex items-start gap-1.5">
                       <span className="text-purple-400 font-bold leading-none mt-1">•</span>
                       <span>{note}</span>

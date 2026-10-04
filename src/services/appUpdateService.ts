@@ -5,7 +5,7 @@ export interface AndroidUpdateManifest {
   versionCode: number;
   versionName: string;
   apkUrl: string;
-  releaseNotes?: string[];
+  releaseNotes?: string[] | string;
   minSupportedVersionCode?: number;
 }
 
@@ -71,7 +71,11 @@ export function isValidAndroidManifest(manifest: any): manifest is AndroidUpdate
   ) {
     return false;
   }
-  if (manifest.releaseNotes !== undefined && !Array.isArray(manifest.releaseNotes)) {
+  if (
+    manifest.releaseNotes !== undefined &&
+    !Array.isArray(manifest.releaseNotes) &&
+    typeof manifest.releaseNotes !== 'string'
+  ) {
     return false;
   }
   if (
