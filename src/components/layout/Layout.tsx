@@ -26,6 +26,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { InAppNotificationToast, ToastPayload } from '../common/InAppNotificationToast';
 import { CheckoutConfirmationModal } from '../attendance/CheckoutConfirmationModal';
 import { GlobalUnresolvedRecovery } from '../common/GlobalUnresolvedRecovery';
+import { PullToRefresh } from '../common/PullToRefresh';
 import { initTaskDeadlineMonitor } from '../../services/planner/taskDeadlineEngine';
 
 const MarqueeAddress: React.FC<{ address: string }> = ({ address }) => {
@@ -444,7 +445,9 @@ export const Layout: React.FC = () => {
         />
         <CheckoutConfirmationModal />
         <GlobalUnresolvedRecovery />
-        <Outlet />
+        <PullToRefresh>
+          <Outlet />
+        </PullToRefresh>
       </main>
       <BottomNav />
     </div>

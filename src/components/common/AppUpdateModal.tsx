@@ -88,9 +88,20 @@ export const AppUpdateModal: React.FC = () => {
       void performUpdateCheck();
     }, PERIODIC_CHECK_INTERVAL_MS);
 
+    // 4. Custom event listener for manual / pull-to-refresh checks
+    const handleCustomCheckEvent = () => {
+      void performUpdateCheck();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('exfin-check-app-update', handleCustomCheckEvent);
+    }
+
     return () => {
       clearTimeout(startupTimer);
       clearInterval(periodicInterval);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('exfin-check-app-update', handleCustomCheckEvent);
+      }
       if (appStateListener) {
         appStateListener.remove();
       }

@@ -8,7 +8,7 @@ def getAppVersionCode = { ->
     if (envCode && envCode.isInteger()) {
         return envCode.toInteger()
     }
-    return 6
+    return 9
 }
 
 def getAppVersionName = { ->
@@ -19,7 +19,7 @@ def getAppVersionName = { ->
     if (envName && !envName.isEmpty()) {
         return envName
     }
-    return "1.0.5"
+    return "1.0.8"
 }
 
 android {

@@ -1,9 +1,10 @@
 {
-  "versionCode": 8,
-  "versionName": "1.0.7",
-  "apkUrl": "https://github.com/qtx1356-lang/exfin-oms-enterprise-v5/releases/download/v1.0.7/EXFIN-OMS-Android-v1.0.7.apk",
+  "versionCode": 9,
+  "versionName": "1.0.8",
+  "apkUrl": "https://github.com/qtx1356-lang/exfin-oms-enterprise-v5/releases/download/v1.0.8/EXFIN-OMS-Android-v1.0.8.apk",
   "releaseNotes": [
-    "Improved Android automatic update discovery",
-    "Expense receipt upload reliability improvements"
+    "Fixed Android automatic update discovery & pull-down refresh",
+    "PWA fixes included for MyTeam and notification synchronization",
+    "Enhanced APK installer compatibility and status monitoring"
   ]
 }

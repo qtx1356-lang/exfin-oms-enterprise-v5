@@ -89,10 +89,10 @@ jobs:
           let nextVersionCode = baseVersionCode;
           let nextVersionName = baseVersionName;
 
-          // If current manifest is already 8 / 1.0.7, use it directly; otherwise increment
-          if (baseVersionCode < 8) {
-            nextVersionCode = 8;
-            nextVersionName = "1.0.7";
+          // If current manifest is already 9 / 1.0.8, use it directly; otherwise increment
+          if (baseVersionCode < 9) {
+            nextVersionCode = 9;
+            nextVersionName = "1.0.8";
           }
 
           console.log(`=== AUTOMATIC VERSION CALCULATION ===`);
