@@ -44,7 +44,7 @@ export const FEATURE_REGISTRY: FeatureDefinition[] = [
     name: 'My Team',
     category: 'Core Modules',
     description: 'Team Leader member overview, live locations, and team task allocation',
-    defaultRoles: { EMPLOYEE: false, TEAM_LEADER: true, HR: false, ADMIN: false, SUPER_ADMIN: true },
+    defaultRoles: { EMPLOYEE: false, TEAM_LEADER: true, HR: false, ADMIN: true, SUPER_ADMIN: true },
   },
   {
     id: 'employeeEfficiency',

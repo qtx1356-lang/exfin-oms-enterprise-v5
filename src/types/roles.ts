@@ -112,7 +112,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<AppRole, Record<string, boolean>> 
     attendance: true,
     expenses: true,
     workPlanner: true,
-    myTeam: false,
+    myTeam: true,
     employeeEfficiency: true,
     leave: true,
     notifications: true,

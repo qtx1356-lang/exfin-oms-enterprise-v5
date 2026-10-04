@@ -97,7 +97,16 @@ export const MyTeamScreen: React.FC = () => {
   // Employee Detail Report Modal
   const [selectedMemberForReport, setSelectedMemberForReport] = useState<TeamMember | null>(null);
 
-  const isTeamLeader = Boolean(employeeData?.isTeamLeader);
+  const isTeamLeader = Boolean(
+    employeeData?.isTeamLeader === true ||
+    employeeData?.isTeamLeader === 'true' ||
+    employeeData?.role === 'TEAM_LEADER' ||
+    employeeData?.isManager === true ||
+    employeeData?.isManager === 'true' ||
+    employeeData?.role === 'MANAGER' ||
+    employeeData?.role === 'ADMIN' ||
+    employeeData?.role === 'SUPER_ADMIN'
+  );
   const currentLeaderCode = employeeData?.employeeCode || '';
   const currentLeaderId = employeeData?.id || '';
 
@@ -114,9 +123,11 @@ export const MyTeamScreen: React.FC = () => {
 
     const unsubRegs = onSnapshot(qRegs, (snapshot) => {
       const fetchedMembers: TeamMember[] = [];
+      const isAdminUser = employeeData?.role === 'ADMIN' || employeeData?.role === 'SUPER_ADMIN';
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const matchesLeader = 
+          isAdminUser ||
           (currentLeaderCode && data.teamLeaderCode === currentLeaderCode) || 
           (currentLeaderCode && data.assignedTeamLeaderCode === currentLeaderCode) || 
           (currentLeaderId && data.teamLeaderId === currentLeaderId) ||
@@ -160,7 +171,9 @@ export const MyTeamScreen: React.FC = () => {
         }
       });
 
+      const isAdminUser = employeeData?.role === 'ADMIN' || employeeData?.role === 'SUPER_ADMIN';
       const filteredTeamTasks = combined.filter((t) => {
+        if (isAdminUser) return true;
         if (t.createdBy === currentLeaderId || t.createdBy === currentLeaderCode) return true;
         if (t.teamLeaderCode === currentLeaderCode || t.teamLeaderId === currentLeaderId) return true;
         const isAssignedToMember = (t.assignedToEmployeeCodes || []).some((code) => teamMemberCodes.has(code));
@@ -201,15 +214,17 @@ export const MyTeamScreen: React.FC = () => {
   const teamLeaves = useMemo(() => {
     const memberIds = new Set(teamMembers.map((m) => m.id));
     const memberCodes = new Set(teamMembers.map((m) => m.employeeCode));
+    const isAdminUser = employeeData?.role === 'ADMIN' || employeeData?.role === 'SUPER_ADMIN';
 
     const filtered = rawLeaves.filter((l) => {
+      if (isAdminUser) return true;
       const isMember = memberIds.has(l.employeeId) || memberCodes.has(l.employeeCode);
       const matchesLeader = l.teamLeaderId === currentLeaderId || (l as any).teamLeaderCode === currentLeaderCode;
       return isMember || matchesLeader;
     });
 
     return [...filtered].sort((a, b) => new Date(b.createdAtDeviceTime || 0).getTime() - new Date(a.createdAtDeviceTime || 0).getTime());
-  }, [rawLeaves, teamMembers, currentLeaderId, currentLeaderCode]);
+  }, [rawLeaves, teamMembers, currentLeaderId, currentLeaderCode, employeeData?.role]);
 
   if (!isTeamLeader) {
     return (

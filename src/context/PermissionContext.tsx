@@ -50,14 +50,28 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return defaults;
   });
   
-  const [loading, setLoading] = useState(true);
+  const [rolesLoading, setRolesLoading] = useState(true);
 
-  // Determine active role
+  // Determine active role based on authenticated admin or employee registration profile
   const currentRole = useMemo<AppRole | null>(() => {
     if (adminUser) {
-      return adminRole; // 'ADMIN' or 'SUPER_ADMIN' or 'HR' if loaded
+      return adminRole || 'ADMIN';
     } else if (regStatus === 'Approved' && employeeData) {
-      return employeeData.isTeamLeader ? 'TEAM_LEADER' : 'EMPLOYEE';
+      const explicitRole = (employeeData.role || '').toUpperCase();
+      if (explicitRole === 'SUPER_ADMIN') return 'SUPER_ADMIN';
+      if (explicitRole === 'ADMIN') return 'ADMIN';
+      if (explicitRole === 'HR') return 'HR';
+      if (
+        explicitRole === 'TEAM_LEADER' ||
+        explicitRole === 'MANAGER' ||
+        employeeData.isTeamLeader === true ||
+        employeeData.isTeamLeader === 'true' ||
+        employeeData.isManager === true ||
+        employeeData.isManager === 'true'
+      ) {
+        return 'TEAM_LEADER';
+      }
+      return 'EMPLOYEE';
     }
     return null;
   }, [adminUser, adminRole, regStatus, employeeData]);
@@ -67,11 +81,9 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     let isMounted = true;
     let timerId: NodeJS.Timeout | null = null;
 
-    console.log('PermissionContext useEffect: db is', db, 'type is', typeof db);
-
     if (!db || typeof db !== 'object') {
       console.warn('PermissionContext: db is not a valid object!', db);
-      setLoading(false);
+      setRolesLoading(false);
       return;
     }
     
@@ -80,20 +92,20 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (localRoles) {
       try {
         setRolesCache(JSON.parse(localRoles));
-        setLoading(false);
+        setRolesLoading(false);
       } catch (e) {
         console.error('Failed to parse cached roles', e);
       }
     } else if (regStatus === 'Approved') {
       // For employees with default permissions, don't block offline startup
-      setLoading(false);
+      setRolesLoading(false);
     }
 
     // Bounded initialization wait: 5000 ms
     timerId = setTimeout(() => {
       if (!isMounted) return;
       console.log('Permission initialization timed out');
-      setLoading(false);
+      setRolesLoading(false);
     }, 5000);
 
     let unsub = () => {};
@@ -102,7 +114,7 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         clearTimeout(timerId);
         timerId = null;
       }
-      setLoading(false);
+      setRolesLoading(false);
       return unsub;
     }
 
@@ -121,7 +133,7 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         });
         setRolesCache(newRoles);
         localStorage.setItem('roles_cache', JSON.stringify(newRoles));
-        setLoading(false);
+        setRolesLoading(false);
       }, (error) => {
         if (!isMounted) return;
         console.error('Error fetching roles:', error);
@@ -129,7 +141,7 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           clearTimeout(timerId);
           timerId = null;
         }
-        setLoading(false);
+        setRolesLoading(false);
       });
     } catch (error) {
       console.error('Failed to initialize roles snapshot listener:', error);
@@ -137,7 +149,7 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         clearTimeout(timerId);
         timerId = null;
       }
-      setLoading(false);
+      setRolesLoading(false);
     }
 
     // Invalidate stale permission cache on network reconnection
@@ -167,7 +179,7 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!currentRole) return false;
     // Super Admin safeguards: Super Admin always retains core management features
     if (currentRole === 'SUPER_ADMIN') {
-      const isCritical = ['userManagement', 'roleManagement', 'featurePermissions', 'systemHealth', 'systemSettings'].includes(feature);
+      const isCritical = ['userManagement', 'roleManagement', 'featurePermissions', 'systemHealth', 'systemSettings', 'myTeam'].includes(feature);
       if (isCritical) return true;
     }
     const roleConfig = rolesCache[currentRole];
@@ -190,15 +202,19 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const isSuperAdmin = React.useCallback(() => currentRole === 'SUPER_ADMIN', [currentRole]);
   const isAdmin = React.useCallback(() => currentRole === 'ADMIN' || currentRole === 'SUPER_ADMIN', [currentRole]);
-  const isHR = React.useCallback(() => currentRole === 'HR', [currentRole]);
-  const isTeamLeader = React.useCallback(() => currentRole === 'TEAM_LEADER' || currentRole === 'SUPER_ADMIN', [currentRole]);
-  const isEmployee = React.useCallback(() => currentRole === 'EMPLOYEE' || currentRole === 'TEAM_LEADER', [currentRole]);
+  const isHR = React.useCallback(() => currentRole === 'HR' || currentRole === 'SUPER_ADMIN', [currentRole]);
+  const isTeamLeader = React.useCallback(() => currentRole === 'TEAM_LEADER' || currentRole === 'ADMIN' || currentRole === 'SUPER_ADMIN', [currentRole]);
+  const isEmployee = React.useCallback(() => currentRole === 'EMPLOYEE' || currentRole === 'TEAM_LEADER' || currentRole === 'ADMIN' || currentRole === 'SUPER_ADMIN', [currentRole]);
+
+  // Loading is true while authentication and registration profile are hydrating
+  const isAuthHydrating = adminUser ? adminLoading : regStatus === 'loading';
+  const effectiveLoading = isAuthHydrating || (rolesLoading && Object.keys(rolesCache).length === 0);
 
   const contextValue = useMemo(
     () => ({
       roles: rolesCache,
       currentRole,
-      loading: (loading || (adminUser ? adminLoading : false)) && !rolesCache['EMPLOYEE'],
+      loading: effectiveLoading,
       hasPermission,
       hasFeatureAccess,
       hasRole,
@@ -211,9 +227,7 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     [
       rolesCache,
       currentRole,
-      loading,
-      adminUser,
-      adminLoading,
+      effectiveLoading,
       hasPermission,
       hasFeatureAccess,
       hasRole,
