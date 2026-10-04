@@ -48,6 +48,179 @@ export const ExfinUpdate = registerPlugin<ExfinUpdatePlugin>('ExfinUpdate');
 const DISMISSED_VERSION_SESSION_KEY = 'exfin_dismissed_update_version_code';
 
 /**
+ * Validates that an object strictly conforms to the AndroidUpdateManifest schema.
+ * Rejects any manifest with non-positive integer versionCode or non-HTTPS apkUrl.
+ */
+export function isValidAndroidManifest(manifest: any): manifest is AndroidUpdateManifest {
+  if (!manifest || typeof manifest !== 'object') {
+    return false;
+  }
+  if (
+    typeof manifest.versionCode !== 'number' ||
+    !Number.isInteger(manifest.versionCode) ||
+    manifest.versionCode <= 0
+  ) {
+    return false;
+  }
+  if (typeof manifest.versionName !== 'string' || manifest.versionName.trim().length === 0) {
+    return false;
+  }
+  if (
+    typeof manifest.apkUrl !== 'string' ||
+    !manifest.apkUrl.trim().toLowerCase().startsWith('https://')
+  ) {
+    return false;
+  }
+  if (manifest.releaseNotes !== undefined && !Array.isArray(manifest.releaseNotes)) {
+    return false;
+  }
+  if (
+    manifest.minSupportedVersionCode !== undefined &&
+    typeof manifest.minSupportedVersionCode !== 'number'
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Priority 1: Fetches the latest release metadata asset from GitHub Releases API.
+ */
+async function fetchGithubReleaseManifest(): Promise<AndroidUpdateManifest | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  try {
+    const releaseResp = await fetch(GITHUB_RELEASES_LATEST_API_URL, {
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache',
+      },
+    });
+    if (!releaseResp.ok) {
+      return null;
+    }
+    const releaseData = await releaseResp.json();
+    if (!releaseData || !Array.isArray(releaseData.assets)) {
+      return null;
+    }
+
+    // Find the release asset named exactly android-version-manifest.json
+    const manifestAsset = releaseData.assets.find(
+      (asset: any) => asset && asset.name === 'android-version-manifest.json'
+    );
+    if (!manifestAsset || typeof manifestAsset.browser_download_url !== 'string') {
+      return null;
+    }
+
+    const assetController = new AbortController();
+    const assetTimeoutId = setTimeout(() => assetController.abort(), 8000);
+    try {
+      const assetResp = await fetch(manifestAsset.browser_download_url, {
+        signal: assetController.signal,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+        },
+      });
+      if (!assetResp.ok) {
+        return null;
+      }
+      const data = await assetResp.json();
+      return isValidAndroidManifest(data) ? data : null;
+    } finally {
+      clearTimeout(assetTimeoutId);
+    }
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Priority 2: Fetches the raw GitHub manifest file with cache-busting.
+ */
+async function fetchRawManifest(): Promise<AndroidUpdateManifest | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  try {
+    const url = `${ANDROID_UPDATE_MANIFEST_URL}${ANDROID_UPDATE_MANIFEST_URL.includes('?') ? '&' : '?'}t=${Date.now()}`;
+    const resp = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache',
+      },
+    });
+    if (!resp.ok) {
+      return null;
+    }
+    const data = await resp.json();
+    return isValidAndroidManifest(data) ? data : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Priority 3: Fetches the bundled / hosted /android-version-manifest.json file.
+ */
+async function fetchBundledManifest(): Promise<AndroidUpdateManifest | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  try {
+    const url = `/android-version-manifest.json?t=${Date.now()}`;
+    const resp = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache',
+      },
+    });
+    if (!resp.ok) {
+      return null;
+    }
+    const data = await resp.json();
+    return isValidAndroidManifest(data) ? data : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Fetches an explicitly supplied custom manifest URL.
+ */
+async function fetchCustomManifest(customUrl: string): Promise<AndroidUpdateManifest | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  try {
+    const url = `${customUrl}${customUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
+    const resp = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        Pragma: 'no-cache',
+      },
+    });
+    if (!resp.ok) {
+      return null;
+    }
+    const data = await resp.json();
+    return isValidAndroidManifest(data) ? data : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
  * Checks if a specific version code was dismissed by the user in this app session.
  */
 export const isUpdateDismissedForSession = (versionCode: number): boolean => {
@@ -72,7 +245,8 @@ export const dismissUpdateForSession = (versionCode: number): void => {
 };
 
 /**
- * Silently checks the remote manifest against installed native version code.
+ * Silently checks remote sources for the newest valid Android update manifest.
+ * Collects all valid manifests and chooses the one with the HIGHEST numeric versionCode.
  * Fails safely and gracefully without blocking or throwing.
  */
 export const checkAppUpdateSilently = async (
@@ -90,115 +264,48 @@ export const checkAppUpdateSilently = async (
       return null;
     }
 
-    // 2. Multi-tier reliable manifest resolution:
-    // Priority 1: Fetch raw manifest with cache-busting timestamp
-    let manifest: AndroidUpdateManifest | null = null;
-    const rawUrl = customManifestUrl
-      ? customManifestUrl
-      : `${ANDROID_UPDATE_MANIFEST_URL}${ANDROID_UPDATE_MANIFEST_URL.includes('?') ? '&' : '?'}t=${Date.now()}`;
+    const candidateManifests: AndroidUpdateManifest[] = [];
 
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-      const resp = await fetch(rawUrl, {
-        signal: controller.signal,
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          Pragma: 'no-cache',
-        },
-      });
-      clearTimeout(timeoutId);
-
-      if (resp.ok) {
-        manifest = await resp.json();
+    if (customManifestUrl) {
+      // When customManifestUrl is supplied, use it directly
+      const customManifest = await fetchCustomManifest(customManifestUrl);
+      if (customManifest) {
+        candidateManifests.push(customManifest);
       }
-    } catch {
-      manifest = null;
-    }
+    } else {
+      // Check sources in parallel: Priority 1 (GitHub Releases), Priority 2 (Raw Manifest), Priority 3 (Bundled Manifest)
+      const results = await Promise.allSettled([
+        fetchGithubReleaseManifest(),
+        fetchRawManifest(),
+        fetchBundledManifest(),
+      ]);
 
-    // Priority 2: GitHub Releases API fallback if raw fetch failed
-    if (!manifest && !customManifestUrl) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-        const releaseResp = await fetch(GITHUB_RELEASES_LATEST_API_URL, {
-          signal: controller.signal,
-          headers: {
-            Accept: 'application/vnd.github.v3+json',
-            'Cache-Control': 'no-cache',
-          },
-        });
-        clearTimeout(timeoutId);
-
-        if (releaseResp.ok) {
-          const releaseData = await releaseResp.json();
-          // Find android-version-manifest.json in release assets
-          const manifestAsset = Array.isArray(releaseData?.assets)
-            ? releaseData.assets.find((a: any) => a?.name === 'android-version-manifest.json')
-            : null;
-
-          if (manifestAsset?.browser_download_url) {
-            const assetController = new AbortController();
-            const assetTimeoutId = setTimeout(() => assetController.abort(), 8000);
-            const assetResp = await fetch(manifestAsset.browser_download_url, {
-              signal: assetController.signal,
-              headers: {
-                'Cache-Control': 'no-cache',
-              },
-            });
-            clearTimeout(assetTimeoutId);
-
-            if (assetResp.ok) {
-              manifest = await assetResp.json();
-            }
-          }
+      for (const res of results) {
+        if (res.status === 'fulfilled' && res.value && isValidAndroidManifest(res.value)) {
+          candidateManifests.push(res.value);
         }
-      } catch {
-        manifest = null;
       }
     }
 
-    // Priority 3: Bundled/hosted /android-version-manifest.json fallback
-    if (!manifest && !customManifestUrl) {
-      try {
-        const fallbackResp = await fetch('/android-version-manifest.json', {
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            Pragma: 'no-cache',
-          },
-        });
-        if (fallbackResp.ok) {
-          manifest = await fallbackResp.json();
-        }
-      } catch {
-        manifest = null;
-      }
-    }
-
-    if (!manifest) {
+    if (candidateManifests.length === 0) {
       return null;
     }
 
-    // 3. Validate manifest schema
-    if (
-      !manifest ||
-      typeof manifest.versionCode !== 'number' ||
-      manifest.versionCode <= 0 ||
-      typeof manifest.apkUrl !== 'string' ||
-      !manifest.apkUrl.toLowerCase().startsWith('https://')
-    ) {
-      return null;
+    // Select the manifest with the HIGHEST numeric versionCode
+    let bestManifest = candidateManifests[0];
+    for (let i = 1; i < candidateManifests.length; i++) {
+      if (candidateManifests[i].versionCode > bestManifest.versionCode) {
+        bestManifest = candidateManifests[i];
+      }
     }
 
     // 4. Authoritative version comparison: remote.versionCode > installed.versionCode
-    const updateAvailable = manifest.versionCode > installed.versionCode;
+    const updateAvailable = bestManifest.versionCode > installed.versionCode;
 
     return {
       updateAvailable,
       installedVersion: installed,
-      remoteManifest: updateAvailable ? manifest : null,
+      remoteManifest: updateAvailable ? bestManifest : null,
     };
   } catch (err) {
     // Fail silently: never disrupt application startup or user experience

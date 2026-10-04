@@ -6,7 +6,7 @@ on:
       releaseNotes:
         description: 'Release Notes (optional)'
         required: false
-        default: 'Production Android release with automatic update support'
+        default: 'Improved Android automatic update discovery'
   push:
     branches:
       - main
@@ -55,8 +55,8 @@ jobs:
           const fs = require("fs");
           const { execSync } = require("child_process");
 
-          let baseVersionCode = 6;
-          let baseVersionName = "1.0.5";
+          let baseVersionCode = 7;
+          let baseVersionName = "1.0.6";
 
           // 1. Attempt reading from public/android-version-manifest.json
           try {
@@ -86,17 +86,17 @@ jobs:
             }
           } catch (e) {}
 
-          // 3. Automatic Increments
-          const nextVersionCode = baseVersionCode + 1;
-          const parts = baseVersionName.split(".").map(p => parseInt(p, 10));
-          const major = isNaN(parts[0]) ? 1 : parts[0];
-          const minor = isNaN(parts[1]) ? 0 : parts[1];
-          const patch = (isNaN(parts[2]) ? 5 : parts[2]) + 1;
-          const nextVersionName = `${major}.${minor}.${patch}`;
+          let nextVersionCode = baseVersionCode;
+          let nextVersionName = baseVersionName;
+
+          // If current manifest is already 8 / 1.0.7, use it directly; otherwise increment
+          if (baseVersionCode < 8) {
+            nextVersionCode = 8;
+            nextVersionName = "1.0.7";
+          }
 
           console.log(`=== AUTOMATIC VERSION CALCULATION ===`);
-          console.log(`Previous Version: v${baseVersionName} (Build ${baseVersionCode})`);
-          console.log(`Next Version:     v${nextVersionName} (Build ${nextVersionCode})`);
+          console.log(`Target Version: v${nextVersionName} (Build ${nextVersionCode})`);
 
           fs.appendFileSync(process.env.GITHUB_ENV, `VERSION_CODE=${nextVersionCode}\nVERSION_NAME=${nextVersionName}\n`);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `version_code=${nextVersionCode}\nversion_name=${nextVersionName}\n`);
@@ -108,8 +108,8 @@ jobs:
             versionName: nextVersionName,
             apkUrl: `https://github.com/${repo}/releases/download/v${nextVersionName}/EXFIN-OMS-Android-v${nextVersionName}.apk`,
             releaseNotes: [
-              `Automatic release version ${nextVersionName}`,
-              "Permanent Expense receipt upload reliability improvements"
+              "Improved Android automatic update discovery",
+              "Expense receipt upload reliability improvements"
             ]
           };
           fs.writeFileSync("public/android-version-manifest.json", JSON.stringify(updatedManifest, null, 2) + "\n");
@@ -221,8 +221,8 @@ jobs:
             "versionName": "${{ env.VERSION_NAME }}",
             "apkUrl": "${APK_DOWNLOAD_URL}",
             "releaseNotes": [
-              "Automatic release version ${{ env.VERSION_NAME }}",
-              "Permanent Expense receipt upload reliability improvements"
+              "Improved Android automatic update discovery",
+              "Expense receipt upload reliability improvements"
             ]
           }
           EOF
@@ -260,8 +260,8 @@ jobs:
             ## EXFIN OMS Android App Update v${{ env.VERSION_NAME }} (Build ${{ env.VERSION_CODE }})
             
             ### What's New:
-            - Automatic release version ${{ env.VERSION_NAME }}
-            - Permanent Expense receipt upload reliability improvements
+            - Improved Android automatic update discovery
+            - Expense receipt upload reliability improvements
             
             ### Direct APK Download:
             - **APK:** [EXFIN-OMS-Android-v${{ env.VERSION_NAME }}.apk](${{ github.server_url }}/${{ github.repository }}/releases/download/v${{ env.VERSION_NAME }}/EXFIN-OMS-Android-v${{ env.VERSION_NAME }}.apk)
