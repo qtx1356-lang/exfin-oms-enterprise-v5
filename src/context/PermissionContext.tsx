@@ -31,7 +31,7 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   const { user: adminUser, role: adminRole, loading: adminLoading } = useAdminAuth();
-  const { status: regStatus, employeeData } = useRegistration();
+  const { status: regStatus, employeeData, authUser } = useRegistration();
   
   const [rolesCache, setRolesCache] = useState<Record<AppRole, RoleFeaturePermissions>>(() => {
     // Start with defaults
@@ -52,10 +52,17 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   
   const [rolesLoading, setRolesLoading] = useState(true);
 
+  // Check whether adminUser is an actual authenticated admin portal account (not an anonymous session)
+  const isRealAdminAuth = Boolean(
+    adminUser &&
+    !adminUser.isAnonymous &&
+    (adminRole === 'ADMIN' || adminRole === 'SUPER_ADMIN' || adminRole === 'HR')
+  );
+
   // Determine active role based on authenticated admin or employee registration profile
   const currentRole = useMemo<AppRole | null>(() => {
-    if (adminUser) {
-      return adminRole || 'ADMIN';
+    if (isRealAdminAuth) {
+      return adminRole;
     } else if (regStatus === 'Approved' && employeeData) {
       const explicitRole = (employeeData.role || '').toUpperCase();
       if (explicitRole === 'SUPER_ADMIN') return 'SUPER_ADMIN';
@@ -72,9 +79,11 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return 'TEAM_LEADER';
       }
       return 'EMPLOYEE';
+    } else if (regStatus === 'Approved') {
+      return 'EMPLOYEE';
     }
     return null;
-  }, [adminUser, adminRole, regStatus, employeeData]);
+  }, [isRealAdminAuth, adminRole, regStatus, employeeData]);
 
   // Sync roles from Firestore
   useEffect(() => {
@@ -127,9 +136,24 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           timerId = null;
         }
         const newRoles = { ...rolesCache };
-        snapshot.docs.forEach(doc => {
-          const data = doc.data() as RoleFeaturePermissions;
-          newRoles[data.roleId] = data;
+        snapshot.docs.forEach(docSnap => {
+          const data = docSnap.data() as RoleFeaturePermissions;
+          const rawKey = data?.roleId || docSnap.id;
+          const roleKey = (typeof rawKey === 'string' ? rawKey.toUpperCase() : '') as AppRole;
+          if (roleKey && DEFAULT_ROLE_PERMISSIONS[roleKey]) {
+            newRoles[roleKey] = {
+              roleId: roleKey,
+              name: data.name || roleKey,
+              description: data.description || `${roleKey} role`,
+              enabled: data.enabled !== false,
+              permissions: {
+                ...DEFAULT_ROLE_PERMISSIONS[roleKey],
+                ...(data.permissions || {}),
+              },
+              createdAt: data.createdAt || new Date().toISOString(),
+              updatedAt: data.updatedAt || new Date().toISOString(),
+            };
+          }
         });
         setRolesCache(newRoles);
         localStorage.setItem('roles_cache', JSON.stringify(newRoles));
@@ -176,18 +200,61 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   const hasPermission = (feature: FeatureKey): boolean => {
-    if (!currentRole) return false;
+    if (!currentRole) {
+      console.debug('[AUTH DEBUG] Authorization check failed: no currentRole', {
+        feature,
+        userId: authUser?.uid || employeeData?.id || null,
+        employeeCode: employeeData?.employeeCode || null,
+        regStatus,
+        result: false,
+      });
+      return false;
+    }
+
     // Super Admin safeguards: Super Admin always retains core management features
     if (currentRole === 'SUPER_ADMIN') {
       const isCritical = ['userManagement', 'roleManagement', 'featurePermissions', 'systemHealth', 'systemSettings', 'myTeam'].includes(feature);
-      if (isCritical) return true;
+      if (isCritical) {
+        console.debug('[AUTH DEBUG] Authorization granted: SUPER_ADMIN critical feature', {
+          feature,
+          role: currentRole,
+          result: true,
+        });
+        return true;
+      }
     }
+
     const roleConfig = rolesCache[currentRole];
-    if (!roleConfig) return DEFAULT_ROLE_PERMISSIONS[currentRole]?.[feature] === true;
-    if (!roleConfig.enabled) return false;
-    const val = roleConfig.permissions?.[feature];
-    if (val !== undefined) return val === true;
-    return DEFAULT_ROLE_PERMISSIONS[currentRole]?.[feature] === true;
+    let isAllowed = false;
+    let source = 'default';
+
+    if (!roleConfig) {
+      isAllowed = DEFAULT_ROLE_PERMISSIONS[currentRole]?.[feature] === true;
+      source = 'default_no_config';
+    } else if (!roleConfig.enabled) {
+      isAllowed = false;
+      source = 'role_disabled';
+    } else {
+      const val = roleConfig.permissions?.[feature];
+      if (val !== undefined) {
+        isAllowed = val === true;
+        source = 'firestore_roles';
+      } else {
+        isAllowed = DEFAULT_ROLE_PERMISSIONS[currentRole]?.[feature] === true;
+        source = 'default_fallback';
+      }
+    }
+
+    console.debug('[AUTH DEBUG] Authorization check', {
+      feature,
+      userId: authUser?.uid || employeeData?.id || null,
+      employeeCode: employeeData?.employeeCode || null,
+      role: currentRole,
+      source,
+      result: isAllowed,
+    });
+
+    return isAllowed;
   };
 
   const hasFeatureAccess = hasPermission;
@@ -207,7 +274,7 @@ export const PermissionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const isEmployee = React.useCallback(() => currentRole === 'EMPLOYEE' || currentRole === 'TEAM_LEADER' || currentRole === 'ADMIN' || currentRole === 'SUPER_ADMIN', [currentRole]);
 
   // Loading is true while authentication and registration profile are hydrating
-  const isAuthHydrating = adminUser ? adminLoading : regStatus === 'loading';
+  const isAuthHydrating = isRealAdminAuth ? adminLoading : regStatus === 'loading';
   const effectiveLoading = isAuthHydrating || (rolesLoading && Object.keys(rolesCache).length === 0);
 
   const contextValue = useMemo(

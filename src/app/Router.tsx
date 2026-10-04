@@ -142,11 +142,19 @@ const EmployeeGuard = () => {
 };
 
 const FeatureGuard: React.FC<{ feature: FeatureKey; children: React.ReactNode }> = ({ feature, children }) => {
-  const { hasFeatureAccess, loading } = usePermission();
+  const { hasFeatureAccess, loading, currentRole } = usePermission();
   
   if (loading) return <LoadingScreen fullScreen={false} />;
   
-  if (!hasFeatureAccess(feature)) {
+  const isAllowed = hasFeatureAccess(feature);
+
+  console.debug('[AUTH DEBUG] FeatureGuard evaluation', {
+    module: feature,
+    role: currentRole,
+    authorized: isAllowed,
+  });
+
+  if (!isAllowed) {
     return (
       <div className="py-6 h-[calc(100vh-120px)] flex flex-col relative overflow-hidden">
         {/* Emerald Aurora Ambient Lighting */}
