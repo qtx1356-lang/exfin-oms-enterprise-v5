@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../services/firebase/config';
 import { useRegistration } from './RegistrationContext';
+import { useAdminAuth } from './AdminAuthContext';
 import { TaskRecord } from '../types/planner';
 import { LeaveRecord } from '../types/leave';
 import { AttendanceRecord } from '../types/attendance';
@@ -89,8 +90,42 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => console.log(`[FLICKER-TRACE] RealtimeSyncProvider UNMOUNT ${getTime()}`);
   }, []);
 
+  let adminAuthContext: any = null;
+  try {
+    adminAuthContext = useAdminAuth();
+  } catch (e) {}
+
+  const adminUser = adminAuthContext?.user;
+  const adminRole = adminAuthContext?.role;
+
   const { employeeData } = useRegistration();
   const empCode = employeeData?.employeeCode || employeeData?.id || '';
+
+  const activeUserContext = React.useMemo(() => {
+    if (adminUser) {
+      return {
+        id: adminUser.uid,
+        uid: adminUser.uid,
+        userId: adminUser.uid,
+        employeeCode: 'ADMIN',
+        role: adminRole || 'ADMIN',
+        isAdmin: true,
+      };
+    }
+    if (employeeData) {
+      const userRole = employeeData.role || (employeeData.isTeamLeader ? 'TEAM_LEADER' : 'EMPLOYEE');
+      return {
+        id: employeeData.id || '',
+        uid: employeeData.uid || employeeData.id || '',
+        userId: employeeData.userId || employeeData.uid || employeeData.id || '',
+        employeeCode: employeeData.employeeCode || '',
+        role: userRole,
+        isTeamLeader: Boolean(employeeData.isTeamLeader || userRole === 'TEAM_LEADER' || userRole === 'MANAGER' || employeeData.isManager),
+        isManager: Boolean(employeeData.isManager || userRole === 'MANAGER'),
+      };
+    }
+    return null;
+  }, [adminUser, adminRole, employeeData]);
 
   const networkStatus = useNetworkStatus();
   const isOnline = networkStatus.isOnline;
@@ -119,22 +154,29 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const [notifications, setNotifications] = useState<NotificationRecord[]>(() => {
     try {
-      const userScopeKey = empCode || (employeeData as any)?.id || undefined;
+      const userScopeKey = activeUserContext?.employeeCode || activeUserContext?.id || empCode || (employeeData as any)?.id || undefined;
       const stored = getStoredNotifications(userScopeKey);
-      const isPrivilegedAdmin = (employeeData as any)?.role === 'ADMIN' || (employeeData as any)?.role === 'SUPER_ADMIN';
+      const isPrivilegedAdmin = activeUserContext?.role === 'ADMIN' || activeUserContext?.role === 'SUPER_ADMIN' || (employeeData as any)?.role === 'ADMIN' || (employeeData as any)?.role === 'SUPER_ADMIN';
       const storedAttendance = getStoredAttendanceRecords();
-      return stored.filter((n) => isPrivilegedAdmin || !shouldSuppressUnresolvedNotification(n, storedAttendance));
+      return stored.filter((n) =>
+        isNotificationForUser(n, activeUserContext || employeeData) &&
+        (isPrivilegedAdmin || !shouldSuppressUnresolvedNotification(n, storedAttendance))
+      );
     } catch {
       return [];
     }
   });
   const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(() => {
     try {
-      const userScopeKey = empCode || (employeeData as any)?.id || undefined;
+      const userScopeKey = activeUserContext?.employeeCode || activeUserContext?.id || empCode || (employeeData as any)?.id || undefined;
       const stored = getStoredNotifications(userScopeKey);
-      const isPrivilegedAdmin = (employeeData as any)?.role === 'ADMIN' || (employeeData as any)?.role === 'SUPER_ADMIN';
+      const isPrivilegedAdmin = activeUserContext?.role === 'ADMIN' || activeUserContext?.role === 'SUPER_ADMIN' || (employeeData as any)?.role === 'ADMIN' || (employeeData as any)?.role === 'SUPER_ADMIN';
       const storedAttendance = getStoredAttendanceRecords();
-      return stored.filter((n) => !n.read && !(n as any).isRead && (isPrivilegedAdmin || !shouldSuppressUnresolvedNotification(n, storedAttendance))).length;
+      const filtered = stored.filter((n) =>
+        isNotificationForUser(n, activeUserContext || employeeData) &&
+        (isPrivilegedAdmin || !shouldSuppressUnresolvedNotification(n, storedAttendance))
+      );
+      return filtered.filter((n) => !n.read && !(n as any).isRead).length;
     } catch {
       return 0;
     }
@@ -205,9 +247,9 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
   // Unified in-app notification center sync state effect
   useEffect(() => {
     const handleNotificationsUpdated = () => {
-      const userScopeKey = empCode || employeeData?.id || undefined;
+      const userScopeKey = activeUserContext?.employeeCode || activeUserContext?.id || empCode || employeeData?.id || undefined;
       const stored = getStoredNotifications(userScopeKey);
-      const isPrivilegedAdmin = employeeData?.role === 'ADMIN' || employeeData?.role === 'SUPER_ADMIN';
+      const isPrivilegedAdmin = activeUserContext?.role === 'ADMIN' || activeUserContext?.role === 'SUPER_ADMIN' || employeeData?.role === 'ADMIN' || employeeData?.role === 'SUPER_ADMIN';
       const storedAttendance = getStoredAttendanceRecords();
 
       const filtered = stored.filter(
@@ -215,7 +257,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
           !n.deleted &&
           !isNotificationDeletedLocally(n.id, userScopeKey) &&
           !getPendingDeletes(userScopeKey).includes(n.id) &&
-          isNotificationForUser(n, employeeData) &&
+          isNotificationForUser(n, activeUserContext || employeeData) &&
           (isPrivilegedAdmin || !shouldSuppressUnresolvedNotification(n, storedAttendance))
       );
 
@@ -225,7 +267,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
         localNotifBaselineDoneRef.current = true;
       } else {
         // Trigger sound for newly created local unread notifications
-        const isEmployee = Boolean(employeeData?.employeeCode);
+        const isEmployee = Boolean(activeUserContext?.employeeCode || employeeData?.employeeCode);
         filtered.forEach((n) => {
           if (!n.read && !(n as any).isRead) {
             triggerNewNotificationSound(n, isEmployee);
@@ -243,7 +285,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       window.removeEventListener('exfin-notifications-updated', handleNotificationsUpdated);
     };
-  }, [empCode, employeeData]);
+  }, [empCode, employeeData, activeUserContext]);
 
   // Clean up previous listeners when employee changes
   const cleanupListeners = () => {
@@ -735,40 +777,68 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // 5. Notifications Listener (Identity isolated to recipientEmployeeCode & recipientUserId with limit bounds)
     const notifQueries = [];
-    if (empCode) {
+    const activeEmpCode = activeUserContext?.employeeCode || empCode;
+    const activeUserId = activeUserContext?.id || activeUserContext?.uid || employeeData?.id || '';
+
+    if (activeEmpCode && activeEmpCode !== 'ADMIN') {
       notifQueries.push(
         query(
           collection(db, 'notifications'),
-          where('recipientEmployeeCode', '==', empCode),
+          where('recipientEmployeeCode', '==', activeEmpCode),
           limit(50)
         )
       );
     }
-    const empId = employeeData?.id || '';
-    if (empId && empId !== empCode) {
+    if (activeUserId && activeUserId !== activeEmpCode) {
       notifQueries.push(
         query(
           collection(db, 'notifications'),
-          where('recipientUserId', '==', empId),
+          where('recipientUserId', '==', activeUserId),
           limit(50)
         )
       );
     }
-    if (employeeData?.isTeamLeader) {
-      if (empId) {
+    if (activeUserContext?.isTeamLeader || employeeData?.isTeamLeader) {
+      if (activeUserId) {
         notifQueries.push(
           query(
             collection(db, 'notifications'),
-            where('recipientTeamLeaderId', '==', empId),
+            where('recipientTeamLeaderId', '==', activeUserId),
             limit(50)
           )
         );
       }
-      if (empCode && empCode !== empId) {
+      if (activeEmpCode && activeEmpCode !== activeUserId) {
         notifQueries.push(
           query(
             collection(db, 'notifications'),
-            where('recipientTeamLeaderId', '==', empCode),
+            where('recipientTeamLeaderId', '==', activeEmpCode),
+            limit(50)
+          )
+        );
+      }
+    }
+
+    if (activeUserContext?.role === 'ADMIN' || activeUserContext?.role === 'SUPER_ADMIN' || employeeData?.role === 'ADMIN' || employeeData?.role === 'SUPER_ADMIN') {
+      notifQueries.push(
+        query(
+          collection(db, 'notifications'),
+          where('recipientRole', '==', 'ADMIN'),
+          limit(50)
+        )
+      );
+      notifQueries.push(
+        query(
+          collection(db, 'notifications'),
+          where('recipientEmployeeCode', '==', 'SYSTEM'),
+          limit(50)
+        )
+      );
+      if (activeUserContext?.role === 'SUPER_ADMIN' || employeeData?.role === 'SUPER_ADMIN') {
+        notifQueries.push(
+          query(
+            collection(db, 'notifications'),
+            where('recipientRole', '==', 'SUPER_ADMIN'),
             limit(50)
           )
         );
@@ -776,7 +846,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     const notifSnapshots: { [queryIndex: number]: NotificationRecord[] } = {};
-    const userScopeKey = empCode || empId;
+    const userScopeKey = activeUserContext?.employeeCode || activeUserContext?.id || empCode || activeUserId;
 
     const unsubNotifsList = notifQueries.map((q, qIdx) => {
       return onSnapshot(
@@ -791,8 +861,8 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             // Check if deleted
             const isDeleted =
               d.deleted === true ||
-              deletedUserIds.includes(empId) ||
-              deletedUserIds.includes(empCode) ||
+              deletedUserIds.includes(activeUserId) ||
+              deletedUserIds.includes(activeEmpCode) ||
               isNotificationDeletedLocally(docSnap.id, userScopeKey) ||
               getPendingDeletes(userScopeKey).includes(docSnap.id);
 
@@ -801,7 +871,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             }
 
             const isReadPending = getPendingReads(userScopeKey).includes(docSnap.id);
-            const recordRead = isReadPending ? true : (d.read || d.isRead || false);
+            const recordRead = isReadPending ? true : Boolean(d.read || d.isRead);
 
             const parsedDate = parseTimestamp(d.timestamp || d.createdAt || d.createdAtDeviceTime);
             const canonicalTime = parsedDate ? parsedDate.toISOString() : '';
@@ -831,11 +901,11 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             };
 
             // Strict privacy and isolation enforcement
-            const isPrivileged = (latestEmployeeDataRef.current || employeeData)?.role === 'ADMIN' || (latestEmployeeDataRef.current || employeeData)?.role === 'SUPER_ADMIN';
+            const isPrivileged = activeUserContext?.role === 'ADMIN' || activeUserContext?.role === 'SUPER_ADMIN' || (latestEmployeeDataRef.current || employeeData)?.role === 'ADMIN' || (latestEmployeeDataRef.current || employeeData)?.role === 'SUPER_ADMIN';
             const storedRecs = getStoredAttendanceRecords();
 
             if (
-              isNotificationForUser(record, latestEmployeeDataRef.current || employeeData) &&
+              isNotificationForUser(record, activeUserContext || latestEmployeeDataRef.current || employeeData) &&
               !isGreetingNotification(record) &&
               (isPrivileged || !shouldSuppressUnresolvedNotification(record, storedRecs))
             ) {
@@ -855,7 +925,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
             initializeAlertBaseline(list);
           } else {
             // Subsequent snapshot: trigger sound for newly arrived unread employee notifications
-            const isEmployee = Boolean((latestEmployeeDataRef.current || employeeData)?.employeeCode);
+            const isEmployee = Boolean(activeEmpCode);
             list.forEach((record) => {
               if (!record.read && !(record as any).isRead) {
                 if (!isPopupShown(record.id)) {
@@ -871,12 +941,12 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
           Object.values(notifSnapshots).forEach((arr) => {
             arr.forEach((n) => {
               const pendingReads = getPendingReads(userScopeKey);
-              const isRead = n.read || (n as any).isRead || pendingReads.includes(n.id);
+              const isRead = Boolean(n.read || (n as any).isRead || pendingReads.includes(n.id));
               mergedMap.set(n.id, { ...n, read: isRead, isRead: isRead });
             });
           });
 
-          const isPrivilegedUser = (latestEmployeeDataRef.current || employeeData)?.role === 'ADMIN' || (latestEmployeeDataRef.current || employeeData)?.role === 'SUPER_ADMIN';
+          const isPrivilegedUser = activeUserContext?.role === 'ADMIN' || activeUserContext?.role === 'SUPER_ADMIN' || (latestEmployeeDataRef.current || employeeData)?.role === 'ADMIN' || (latestEmployeeDataRef.current || employeeData)?.role === 'SUPER_ADMIN';
           const currentStoredRecs = getStoredAttendanceRecords();
 
           const finalNotifsList = Array.from(mergedMap.values())
@@ -909,7 +979,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       cleanupListeners();
     };
-  }, [empCode, employeeData?.id, employeeData?.isTeamLeader, isOnline]);
+  }, [empCode, employeeData?.id, employeeData?.isTeamLeader, activeUserContext, isOnline]);
 
   // OPTIMISTIC TASK UPDATE
   const updateTaskOptimistically = useCallback(

@@ -33,7 +33,7 @@ import { NotificationSettingsCard } from '../../components/common/NotificationSe
 export const NotificationCenter: React.FC = () => {
   const navigate = useNavigate();
   const { employeeData } = useRegistration();
-  const { user: adminUser } = useAdminAuth();
+  const { user: adminUser, role: adminRole } = useAdminAuth();
 
   let realtimeSync: any = null;
   try {
@@ -48,20 +48,32 @@ export const NotificationCenter: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [activeTab, setActiveTab] = useState<'ALL' | 'UNREAD' | 'IMPORTANT' | 'SETTINGS'>('ALL');
 
-  // Determine current user context
-  const currentUser = adminUser
-    ? {
+  // Determine current user context with all identity aliases
+  const currentUser = React.useMemo(() => {
+    if (adminUser) {
+      return {
         id: adminUser.uid,
+        uid: adminUser.uid,
+        userId: adminUser.uid,
         employeeCode: 'ADMIN',
-        role: 'ADMIN',
-      }
-    : employeeData
-    ? {
+        role: adminRole || 'ADMIN',
+        isAdmin: true,
+      };
+    }
+    if (employeeData) {
+      const userRole = employeeData.role || (employeeData.isTeamLeader ? 'TEAM_LEADER' : 'EMPLOYEE');
+      return {
         id: employeeData.id || '',
+        uid: employeeData.uid || employeeData.id || '',
+        userId: employeeData.userId || employeeData.uid || employeeData.id || '',
         employeeCode: employeeData.employeeCode || '',
-        role: employeeData.isTeamLeader ? 'TEAM_LEADER' : 'EMPLOYEE',
-      }
-    : null;
+        role: userRole,
+        isTeamLeader: Boolean(employeeData.isTeamLeader || userRole === 'TEAM_LEADER' || userRole === 'MANAGER' || employeeData.isManager),
+        isManager: Boolean(employeeData.isManager || userRole === 'MANAGER'),
+      };
+    }
+    return null;
+  }, [adminUser, adminRole, employeeData]);
 
   const loadNotifications = async () => {
     if (!currentUser) return;
@@ -187,19 +199,22 @@ export const NotificationCenter: React.FC = () => {
   };
 
   // Filter based on tab, category, and strict user isolation
-  const filteredNotifications = notifications.filter((n) => {
-    // 0. Strict user isolation
-    if (!isNotificationForUser(n, currentUser)) return false;
+  const filteredNotifications = React.useMemo(() => {
+    return notifications.filter((n) => {
+      // 0. Strict user isolation
+      if (currentUser && !isNotificationForUser(n, currentUser)) return false;
 
-    // 1. Filter by Tab (ALL, UNREAD, IMPORTANT)
-    if (activeTab === 'UNREAD' && (n.read || (n as any).isRead)) return false;
-    if (activeTab === 'IMPORTANT' && !isImportantNotification(n)) return false;
+      // 1. Filter by Tab (ALL, UNREAD, IMPORTANT)
+      const isRead = Boolean(n.read || (n as any).isRead);
+      if (activeTab === 'UNREAD' && isRead) return false;
+      if (activeTab === 'IMPORTANT' && !isImportantNotification(n)) return false;
 
-    // 2. Filter by Category
-    if (activeCategory !== 'ALL' && n.category !== activeCategory) return false;
+      // 2. Filter by Category
+      if (activeCategory !== 'ALL' && n.category !== activeCategory) return false;
 
-    return true;
-  });
+      return true;
+    });
+  }, [notifications, currentUser, activeTab, activeCategory]);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {

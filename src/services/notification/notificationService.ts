@@ -242,16 +242,20 @@ export const createNotifications = async (
  * Fetch and synchronize notifications scoped strictly by user role and identity
  */
 export const getNotificationsForUser = async (user: {
-  id: string;
-  employeeCode: string;
-  role: string;
+  id?: string;
+  uid?: string;
+  userId?: string;
+  employeeCode?: string;
+  loginId?: string;
+  role?: string;
   teamLeaderId?: string;
   isTeamLeader?: boolean;
+  isManager?: boolean;
 } | null | undefined): Promise<NotificationRecord[]> => {
-  if (!user || (!user.id && !user.employeeCode)) {
+  if (!user || (!user.id && !user.employeeCode && !user.uid && !user.userId)) {
     return [];
   }
-  const userScopeKey = user.employeeCode || user.id;
+  const userScopeKey = user.employeeCode || user.id || user.uid || user.userId;
 
   // First, fetch whatever is stored locally in this user's isolated storage
   const localNotifications = getStoredNotifications(userScopeKey);
@@ -393,32 +397,95 @@ export const getNotificationsForUser = async (user: {
 
 export const isNotificationForUser = (
   n: NotificationRecord,
-  user: { id?: string; employeeCode?: string; role?: string; isTeamLeader?: boolean } | null | undefined
+  user: {
+    id?: string;
+    uid?: string;
+    userId?: string;
+    employeeCode?: string;
+    loginId?: string;
+    role?: string;
+    isTeamLeader?: boolean;
+    isManager?: boolean;
+  } | null | undefined
 ): boolean => {
-  if (!user) return false;
-  const userId = user.id || '';
-  const empCode = user.employeeCode || '';
-  const userRole = user.role || 'EMPLOYEE';
-  const isTeamLeader = Boolean(user.isTeamLeader || userRole === 'TEAM_LEADER');
+  if (!user || !n) return false;
 
-  // System & Admin alerts: visible ONLY to Admins / Super Admins
-  if (n.recipientRole === 'SYSTEM' || n.recipientEmployeeCode === 'SYSTEM' || n.recipientRole === 'ADMIN' || n.recipientRole === 'SUPER_ADMIN') {
-    return userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
-  }
+  const userRole = String(user.role || 'EMPLOYEE').toUpperCase().trim();
+  const isAdmin = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN';
+  const isSuperAdmin = userRole === 'SUPER_ADMIN';
+  const isTeamLeader = Boolean(
+    user.isTeamLeader ||
+    (user as any).isManager ||
+    userRole === 'TEAM_LEADER' ||
+    userRole === 'MANAGER'
+  );
 
-  // Explicit recipient match (Identity Isolation):
-  // Direct match to employeeCode or direct match to userId
-  if ((empCode && n.recipientEmployeeCode === empCode) || (userId && n.recipientUserId === userId)) {
+  // Collect all valid identity tokens for current user session
+  const rawUserTokens = [
+    user.id,
+    user.uid,
+    user.userId,
+    user.employeeCode,
+    user.loginId,
+    (user as any).code,
+  ].filter((t): t is string => Boolean(t && typeof t === 'string' && t.trim().length > 0));
+
+  const userTokenSet = new Set(rawUserTokens.map((t) => t.trim().toLowerCase()));
+
+  const recipientRole = String(n.recipientRole || '').toUpperCase().trim();
+  const recipientCode = String(n.recipientEmployeeCode || '').trim();
+  const recipientUserId = String(n.recipientUserId || '').trim();
+  const recipientTLId = String(n.recipientTeamLeaderId || '').trim();
+
+  // 1. Broadcast / Universal / General Announcements
+  if (
+    recipientRole === 'ALL' ||
+    recipientRole === 'EVERYONE' ||
+    recipientCode.toUpperCase() === 'ALL' ||
+    recipientUserId.toUpperCase() === 'ALL'
+  ) {
     return true;
   }
 
-  // Team Leader specific delegation
-  if (isTeamLeader && ((userId && n.recipientTeamLeaderId === userId) || (empCode && n.recipientTeamLeaderId === empCode))) {
+  // 2. System and Administrative alerts
+  if (
+    recipientRole === 'SYSTEM' ||
+    recipientCode.toUpperCase() === 'SYSTEM' ||
+    recipientRole === 'ADMIN' ||
+    recipientRole === 'SUPER_ADMIN'
+  ) {
+    if (recipientRole === 'SUPER_ADMIN') {
+      return isSuperAdmin;
+    }
+    return isAdmin;
+  }
+
+  // 3. Direct recipient match by Employee Code (case-insensitive)
+  if (recipientCode && userTokenSet.has(recipientCode.toLowerCase())) {
     return true;
   }
 
-  // Administrators can view direct assignments
-  if ((userRole === 'ADMIN' || userRole === 'SUPER_ADMIN') && ((userId && n.recipientUserId === userId) || (empCode && n.recipientEmployeeCode === empCode))) {
+  // 4. Direct recipient match by User ID / Auth UID / Document ID (case-insensitive)
+  if (recipientUserId && userTokenSet.has(recipientUserId.toLowerCase())) {
+    return true;
+  }
+
+  // 5. Team Leader / Manager delegation
+  if (isTeamLeader && recipientTLId && userTokenSet.has(recipientTLId.toLowerCase())) {
+    return true;
+  }
+
+  // 6. Admin can view direct assignments
+  if (
+    isAdmin &&
+    ((recipientCode && userTokenSet.has(recipientCode.toLowerCase())) ||
+      (recipientUserId && userTokenSet.has(recipientUserId.toLowerCase())))
+  ) {
+    return true;
+  }
+
+  // 7. General Employee bulletins without targeted recipient
+  if (recipientRole === 'EMPLOYEE' && !recipientCode && !recipientUserId && !recipientTLId) {
     return true;
   }
 

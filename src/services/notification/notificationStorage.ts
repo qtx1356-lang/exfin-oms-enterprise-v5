@@ -160,10 +160,8 @@ export const getStoredNotifications = (userId?: string): NotificationRecord[] =>
     return notifications
       .filter((n) => !deletedIds.includes(n.id) && !n.deleted && !pendingDeletes.includes(n.id) && !isGreetingNotification(n))
       .map((n) => {
-        if (pendingReads.includes(n.id)) {
-          return { ...n, read: true, isRead: true };
-        }
-        return n;
+        const isRead = Boolean(pendingReads.includes(n.id) || n.read || (n as any).isRead);
+        return { ...n, read: isRead, isRead: isRead };
       });
   } catch (err) {
     console.error('Failed to parse local notifications:', err);
@@ -219,8 +217,10 @@ export const saveMultipleNotificationsLocally = (newNotifs: NotificationRecord[]
         });
       } else {
         // If local is PENDING or was marked read locally, preserve the most updated state
-        const isLocalNewer = new Date(current.updatedAtDeviceTime) >= new Date(n.updatedAtDeviceTime);
-        const mergedRead = current.read || (current as any).isRead || n.read || (n as any).isRead || isReadPending;
+        const localTime = parseTimestamp(current.updatedAtDeviceTime)?.getTime() ?? 0;
+        const remoteTime = parseTimestamp(n.updatedAtDeviceTime)?.getTime() ?? 0;
+        const isLocalNewer = localTime >= remoteTime;
+        const mergedRead = Boolean(current.read || (current as any).isRead || n.read || (n as any).isRead || isReadPending);
         const merged: NotificationRecord = {
           ...(isLocalNewer ? current : n),
           read: mergedRead,

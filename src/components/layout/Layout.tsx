@@ -99,7 +99,7 @@ export const Layout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { employeeData } = useRegistration();
-  const { user: adminUser } = useAdminAuth();
+  const { user: adminUser, role: adminRole } = useAdminAuth();
   const { 
     formattedDistance, 
     isInsideGeofence, 
@@ -119,19 +119,27 @@ export const Layout: React.FC = () => {
     if (adminUser) {
       return {
         id: adminUser.uid,
+        uid: adminUser.uid,
+        userId: adminUser.uid,
         employeeCode: 'ADMIN',
-        role: 'ADMIN',
+        role: adminRole || 'ADMIN',
+        isAdmin: true,
       };
     }
     if (employeeData) {
+      const userRole = employeeData.role || (employeeData.isTeamLeader ? 'TEAM_LEADER' : 'EMPLOYEE');
       return {
         id: employeeData.id || '',
+        uid: employeeData.uid || employeeData.id || '',
+        userId: employeeData.userId || employeeData.uid || employeeData.id || '',
         employeeCode: employeeData.employeeCode || '',
-        role: employeeData.isTeamLeader ? 'TEAM_LEADER' : 'EMPLOYEE',
+        role: userRole,
+        isTeamLeader: Boolean(employeeData.isTeamLeader || userRole === 'TEAM_LEADER' || userRole === 'MANAGER' || employeeData.isManager),
+        isManager: Boolean(employeeData.isManager || userRole === 'MANAGER'),
       };
     }
     return null;
-  }, [adminUser?.uid, employeeData?.id, employeeData?.employeeCode, employeeData?.isTeamLeader]);
+  }, [adminUser, adminRole, employeeData]);
 
   const unreadCount = syncUnreadCount;
   const recentNotifs = React.useMemo(() => {
