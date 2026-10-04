@@ -10,11 +10,13 @@ import {
   AndroidUpdateManifest,
   UpdateProgressEvent,
 } from '../../services/appUpdateService';
-import { Download, RefreshCw, AlertCircle, CheckCircle2, ShieldAlert, Sparkles, ExternalLink } from 'lucide-react';
+import { Download, RefreshCw, AlertCircle, CheckCircle2, ShieldAlert, Sparkles, ExternalLink, Loader2 } from 'lucide-react';
 import { PluginListenerHandle, Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 
 type UpdateModalState = 'PROMPT' | 'DOWNLOADING' | 'DOWNLOADED' | 'FAILED' | 'PERMISSION_REQUIRED';
+
+const PERIODIC_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 export const AppUpdateModal: React.FC = () => {
   const [manifest, setManifest] = useState<AndroidUpdateManifest | null>(null);
@@ -62,12 +64,12 @@ export const AppUpdateModal: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // 1. Initial silent check with a safe 1.5s delay to ensure the native bridge is fully initialized
+    // 1. Initial silent check with a safe 3.5s delay to ensure the native bridge is fully initialized
     const startupTimer = setTimeout(() => {
       void performUpdateCheck();
-    }, 1500);
+    }, 3500);
 
-    // 2. Periodic/foreground check when returning from background
+    // 2. Foreground check when returning from background
     let appStateListener: PluginListenerHandle | null = null;
     if (Capacitor.isNativePlatform()) {
       CapacitorApp.addListener('appStateChange', (state) => {
@@ -81,8 +83,14 @@ export const AppUpdateModal: React.FC = () => {
       });
     }
 
+    // 3. Periodic check every 30 minutes while app remains open
+    const periodicInterval = setInterval(() => {
+      void performUpdateCheck();
+    }, PERIODIC_CHECK_INTERVAL_MS);
+
     return () => {
       clearTimeout(startupTimer);
+      clearInterval(periodicInterval);
       if (appStateListener) {
         appStateListener.remove();
       }
@@ -254,7 +262,9 @@ export const AppUpdateModal: React.FC = () => {
 
             <div>
               <h3 className="text-lg font-bold text-white">Updating EXFIN OMS</h3>
-              <p className="text-xs text-slate-400 mt-1">Downloading update…</p>
+              <p className="text-xs text-slate-400 mt-1">
+                Downloading update... {downloadProgress > 0 ? `${downloadProgress}%` : ''}
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -273,7 +283,7 @@ export const AppUpdateModal: React.FC = () => {
                     : `Version ${manifest.versionName}`}
                 </span>
                 <span className="font-bold text-cyan-300">
-                  {bytesTotal > 0 || downloadProgress > 0 ? `${downloadProgress}%` : 'Connecting…'}
+                  {bytesTotal > 0 || downloadProgress > 0 ? `${downloadProgress}%` : 'Connecting...'}
                 </span>
               </div>
             </div>
@@ -292,7 +302,7 @@ export const AppUpdateModal: React.FC = () => {
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-white">Download Complete</h3>
+              <h3 className="text-lg font-bold text-white">Installing Update...</h3>
               <p className="text-xs text-emerald-300 mt-1 font-medium">Android installer launched</p>
             </div>
 
