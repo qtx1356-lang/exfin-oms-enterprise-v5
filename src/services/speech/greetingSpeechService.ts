@@ -4,6 +4,7 @@ interface GreetingTtsPlugin {
   speak(options: { text: string }): Promise<{ success: boolean; utteranceId?: string }>;
   stop(): Promise<{ stopped: boolean }>;
   isAvailable(): Promise<{ available: boolean }>;
+  isFirebaseConfigured(): Promise<{ configured: boolean }>;
   addListener(eventName: 'ttsStarted', listenerFunc: (data: { utteranceId: string }) => void): Promise<PluginListenerHandle>;
   addListener(eventName: 'ttsCompleted', listenerFunc: (data: { utteranceId: string }) => void): Promise<PluginListenerHandle>;
   addListener(eventName: 'ttsError', listenerFunc: (data: { utteranceId: string; error?: string; errorCode?: number }) => void): Promise<PluginListenerHandle>;

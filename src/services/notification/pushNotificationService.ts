@@ -347,6 +347,25 @@ export const ensureNotificationChannelsCreated = async (): Promise<void> => {
   }
 };
 
+// Helper to check if Android has Firebase configured (google-services.json)
+async function isAndroidFirebaseConfigured(): Promise<boolean> {
+  if (
+    typeof window !== 'undefined' &&
+    (window as any).Capacitor &&
+    (window as any).Capacitor.getPlatform &&
+    (window as any).Capacitor.getPlatform() === 'android'
+  ) {
+    try {
+      const { GreetingTts } = await import('../speech/greetingSpeechService');
+      const res = await GreetingTts.isFirebaseConfigured().catch(() => ({ configured: false }));
+      return !!(res && res.configured);
+    } catch {
+      return false;
+    }
+  }
+  return true; // Not android or not native, so we assume true/supported
+}
+
 // Check Real-Time OS Notification Permission State
 export const checkOSNotificationPermission =
   async (): Promise<OSNotificationPermissionState> => {
@@ -358,23 +377,28 @@ export const checkOSNotificationPermission =
         (window as any).Capacitor.isNativePlatform &&
         (window as any).Capacitor.isNativePlatform()
       ) {
-        try {
-          const { PushNotifications } = await import(
-            '@capacitor/push-notifications'
-          );
-          const pushStatus = await PushNotifications.checkPermissions();
-          if (pushStatus.receive === 'granted') {
-            return 'granted';
-          } else if (pushStatus.receive === 'denied') {
-            return 'denied';
-          } else if (
-            pushStatus.receive === 'prompt' ||
-            pushStatus.receive === 'prompt-with-rationale'
-          ) {
-            return 'prompt';
+        const isConfigured = await isAndroidFirebaseConfigured();
+        if (!isConfigured) {
+          console.log('[NativePush] Firebase is not configured on this Android device. Skipping PushNotifications.checkPermissions() to avoid native crash.');
+        } else {
+          try {
+            const { PushNotifications } = await import(
+              '@capacitor/push-notifications'
+            );
+            const pushStatus = await PushNotifications.checkPermissions();
+            if (pushStatus.receive === 'granted') {
+              return 'granted';
+            } else if (pushStatus.receive === 'denied') {
+              return 'denied';
+            } else if (
+              pushStatus.receive === 'prompt' ||
+              pushStatus.receive === 'prompt-with-rationale'
+            ) {
+              return 'prompt';
+            }
+          } catch (e) {
+            // Fallback to LocalNotifications
           }
-        } catch (e) {
-          // Fallback to LocalNotifications
         }
 
         try {
@@ -423,17 +447,22 @@ export const requestOSNotificationPermission =
         (window as any).Capacitor.isNativePlatform &&
         (window as any).Capacitor.isNativePlatform()
       ) {
-        try {
-          const { PushNotifications } = await import(
-            '@capacitor/push-notifications'
-          );
-          const pushRes = await PushNotifications.requestPermissions();
-          if (pushRes.receive === 'granted') {
-            granted = true;
-            await PushNotifications.register().catch(() => {});
+        const isConfigured = await isAndroidFirebaseConfigured();
+        if (!isConfigured) {
+          console.log('[NativePush] Firebase is not configured on this Android device. Skipping PushNotifications.requestPermissions() to avoid native crash.');
+        } else {
+          try {
+            const { PushNotifications } = await import(
+              '@capacitor/push-notifications'
+            );
+            const pushRes = await PushNotifications.requestPermissions();
+            if (pushRes.receive === 'granted') {
+              granted = true;
+              await PushNotifications.register().catch(() => {});
+            }
+          } catch (pushErr) {
+            console.warn('PushNotifications request warning:', pushErr);
           }
-        } catch (pushErr) {
-          console.warn('PushNotifications request warning:', pushErr);
         }
 
         try {

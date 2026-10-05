@@ -34,6 +34,19 @@ export async function initNativePushNotifications(userContext: {
     return;
   }
 
+  // Safe Check: Verify if Firebase is configured/initialized natively (google-services.json is present)
+  try {
+    const { GreetingTts } = await import('../speech/greetingSpeechService');
+    const isConfiguredRes = await GreetingTts.isFirebaseConfigured().catch(() => ({ configured: false }));
+    if (!isConfiguredRes || !isConfiguredRes.configured) {
+      console.warn('[NativePush] Firebase FCM is NOT configured on this device (google-services.json is missing in android/app). Skipping native push initialization to prevent JVM startup crash.');
+      return;
+    }
+  } catch (err) {
+    console.warn('[NativePush] Error checking native Firebase configuration:', err);
+    return;
+  }
+
   try {
     // 1. Request OS Permission (Android 13+ requires POST_NOTIFICATIONS)
     const permission = await PushNotifications.requestPermissions();
