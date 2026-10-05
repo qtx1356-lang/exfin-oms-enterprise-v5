@@ -107,6 +107,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
   const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
   const [liveDuration, setLiveDuration] = useState<string>('');
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [greetingText, setGreetingText] = useState<string>('');
   const speechTriggeredRef = React.useRef<boolean>(false);
   const speechAudibleRef = React.useRef<boolean>(false);
   const startupAttemptedRef = React.useRef<boolean>(false);
@@ -234,6 +235,17 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     resolvedFirstNameRef.current = resolvedFirstName;
   }, [resolvedFirstName]);
 
+  // Synchronize visual and spoken greeting text
+  useEffect(() => {
+    const timeGreeting = greetingInfo.label;
+    const firstName = resolvedFirstName;
+    if (firstName) {
+      setGreetingText(`${timeGreeting}, ${firstName}.`);
+    } else {
+      setGreetingText(`${timeGreeting}.`);
+    }
+  }, [greetingInfo, resolvedFirstName]);
+
   // Voice initialization & Audio handlers
   useEffect(() => {
     preloadGreetingAudio();
@@ -245,7 +257,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     };
   }, []);
 
-  // Automatic Welcome Screen greeting: Step A (immediate WAV greeting) + Step B (dynamic first name)
+  // Automatic Welcome Screen greeting: speaking the complete sentence once
   useEffect(() => {
     if (speechAudibleRef.current) return;
 
@@ -257,79 +269,66 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
       setIsSpeaking(true);
 
-      // STEP A: Play the existing working WAV greeting immediately
-      const started = playGreetingAudio(greetingInfo.periodKey, {
-        onStart: () => {
-          if (isCancelled) return;
-          console.log('[WelcomeGreeting] Working WAV greeting started audibly:', greetingInfo.periodKey);
-          speechAudibleRef.current = true;
-          speechTriggeredRef.current = true;
-          setIsSpeaking(true);
-        },
-        onEnd: () => {
+      const attemptSpeech = (attemptsLeft: number) => {
+        if (isCancelled) {
+          setIsSpeaking(false);
+          return;
+        }
+
+        const firstName = resolvedFirstNameRef.current;
+        if (status !== 'unregistered' && !firstName && attemptsLeft > 0) {
+          // Wait 150ms and try again if employee data is still resolving from auth context
+          console.log('[WelcomeGreeting] Employee name not resolved yet, waiting...');
+          setTimeout(() => attemptSpeech(attemptsLeft - 1), 150);
+          return;
+        }
+
+        // Name resolved or no attempts left (fallback)
+        const timeGreeting = greetingInfo.label; // e.g. "Good Morning", "Good Afternoon", "Good Evening"
+        const fullGreetingText = firstName ? `${timeGreeting}, ${firstName}.` : `${timeGreeting}.`;
+
+        console.log('[WelcomeGreeting] Determined complete greeting string:', fullGreetingText);
+
+        // Enforce the greeting delay before speaking the COMPLETE greeting (as in Requirement 6)
+        // Let's add a safe, natural delay of 600ms
+        setTimeout(() => {
           if (isCancelled) {
             setIsSpeaking(false);
             return;
           }
 
-          const attemptSpeech = (attemptsLeft: number) => {
-            if (isCancelled) {
-              setIsSpeaking(false);
-              return;
-            }
-
-            const firstName = resolvedFirstNameRef.current;
-            if (firstName && isSpeechAvailable()) {
-              try {
-                console.log('[WelcomeGreeting] Speaking dynamic employee first name after natural pause:', firstName);
-                
-                // Add a very short natural pause of 180ms between prerecorded greeting and name
-                setTimeout(() => {
-                  if (isCancelled) {
-                    setIsSpeaking(false);
-                    return;
+          if (isSpeechAvailable()) {
+            try {
+              console.log('[WelcomeGreeting] Speaking complete personalized greeting:', fullGreetingText);
+              speakGreeting(fullGreetingText, {
+                isUserGesture,
+                onStart: () => {
+                  if (!isCancelled) {
+                    setIsSpeaking(true);
+                    speechAudibleRef.current = true;
+                    speechTriggeredRef.current = true;
                   }
-                  speakGreeting(`${firstName}.`, {
-                    isUserGesture,
-                    onStart: () => {
-                      if (!isCancelled) setIsSpeaking(true);
-                    },
-                    onEnd: () => {
-                      setIsSpeaking(false);
-                    },
-                    onError: (err) => {
-                      console.warn('[WelcomeGreeting] Dynamic name speech error:', err);
-                      setIsSpeaking(false);
-                    }
-                  });
-                }, 180);
-              } catch (speechErr) {
-                console.warn('[WelcomeGreeting] Dynamic name speech exception:', speechErr);
-                setIsSpeaking(false);
-              }
-            } else if (attemptsLeft > 0 && status !== 'unregistered') {
-              // Wait 150ms and try again if employee data is still resolving
-              console.log('[WelcomeGreeting] Employee name not resolved yet, waiting...');
-              setTimeout(() => attemptSpeech(attemptsLeft - 1), 150);
-            } else {
-              // Fallback to generic greeting normally and finish with no trailing placeholder spoke
+                },
+                onEnd: () => {
+                  setIsSpeaking(false);
+                },
+                onError: (err) => {
+                  console.warn('[WelcomeGreeting] Speech synthesis error:', err);
+                  setIsSpeaking(false);
+                }
+              });
+            } catch (speechErr) {
+              console.warn('[WelcomeGreeting] Speech synthesis exception:', speechErr);
               setIsSpeaking(false);
             }
-          };
+          } else {
+            console.warn('[WelcomeGreeting] Speech synthesis is not supported on this device/browser');
+            setIsSpeaking(false);
+          }
+        }, 600); // 600ms greeting delay
+      };
 
-          attemptSpeech(10);
-        },
-        onError: (err) => {
-          console.warn('[WelcomeGreeting] WAV audio playback error:', err);
-          setIsSpeaking(false);
-          // If WAV was blocked due to autoplay policy without user gesture:
-          // speechAudibleRef.current remains false, allowing handleFirstInteraction to retry with user gesture.
-        }
-      });
-
-      if (!started) {
-        setIsSpeaking(false);
-      }
+      attemptSpeech(10);
     };
 
     // 1. Immediate automatic greeting attempt on Welcome Screen entry
@@ -708,14 +707,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         <div className="flex flex-col items-center text-center">
           <div className="text-[#94A3B8] text-sm sm:text-base font-semibold tracking-wide flex items-center justify-center gap-1.5">
             <span className="text-[#10B981] text-xl">☀️</span>
-            <span>{greetingInfo.label} 👋</span>
+            <span>WELCOME 👋</span>
           </div>
 
           <h1 className="mt-0.5 text-2xl sm:text-3xl font-black text-[#F8FAFC] tracking-tight leading-tight uppercase">
             {status === 'unregistered' ? (
               <>Register Device</>
             ) : (
-              <>{displayName || 'Alex Johnson'}</>
+              <>{greetingText || `${greetingInfo.label}.`}</>
             )}
           </h1>
           
