@@ -1,7 +1,7 @@
 {
-  "versionCode": 25,
-  "versionName": "1.0.24",
-  "apkUrl": "https://github.com/qtx1356-lang/exfin-oms-enterprise-v5/releases/download/v1.0.24/EXFIN-OMS-Android-v1.0.24.apk",
+  "versionCode": 26,
+  "versionName": "1.0.25",
+  "apkUrl": "https://github.com/qtx1356-lang/exfin-oms-enterprise-v5/releases/download/v1.0.25/EXFIN-OMS-Android-v1.0.25.apk",
   "releaseNotes": [
     "Automatic Android release for EXFIN OMS."
   ]
