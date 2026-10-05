@@ -348,7 +348,7 @@ public class OfficeGeofenceHelper {
                 trigDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
             }
             String distEstimateStr = trigDist >= 0 ? Math.round(trigDist) + "m" : "~300m";
-            Log.i(TAG, "[NATIVE ATTENDANCE] Assist zone entered: distance estimate=" + distEstimateStr);
+            Log.i(TAG, "[NATIVE ATTENDANCE] Assist geofence triggered (300m): distance estimate=" + distEstimateStr);
 
             // Permission check: Fine location required for 25m authoritative attendance
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -370,8 +370,8 @@ public class OfficeGeofenceHelper {
             if (triggerLocation != null && !Double.isNaN(triggerLocation.getLatitude()) && !Double.isNaN(triggerLocation.getLongitude())) {
                 exitDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
             }
-            Log.i(TAG, "[NATIVE ATTENDANCE] Assist zone exited" + (exitDist >= 0 ? ": distance=" + Math.round(exitDist) + "m" : "") + ". Stopping temporary high accuracy monitoring. Attendance state strictly UNCHANGED.");
-            stopTemporaryAssistMonitoring(context);
+            Log.i(TAG, "[NATIVE ATTENDANCE] Assist geofence exited (300m)" + (exitDist >= 0 ? ": distance=" + Math.round(exitDist) + "m" : "") + ". Stopping temporary high accuracy monitoring. Attendance state strictly UNCHANGED.");
+            stopTemporaryAssistMonitoring(context, "exit");
             safeFinishPendingResult(pendingResult, finishedFlag);
         } else {
             safeFinishPendingResult(pendingResult, finishedFlag);
@@ -391,12 +391,17 @@ public class OfficeGeofenceHelper {
         if (context == null) return;
         final Context appContext = context.getApplicationContext();
 
-        // If user already has an active session in ACTIVE state and is inside, assist entry monitoring is not needed
+        // If user already has an active session in ACTIVE state for today, assist entry monitoring is not needed
+        SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        sdfDate.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
+        String todayDate = sdfDate.format(new Date());
+
         JSONObject activeSession = getActiveSession(appContext);
         if (activeSession != null) {
+            String sessDate = activeSession.optString("date", "");
             String state = activeSession.optString("sessionState", "");
-            if ("ACTIVE".equalsIgnoreCase(state)) {
-                Log.d(TAG, "[NATIVE ATTENDANCE] Active session already present in ACTIVE state. Entry assist monitoring not required.");
+            if (todayDate.equals(sessDate) && "ACTIVE".equalsIgnoreCase(state)) {
+                Log.d(TAG, "[NATIVE ATTENDANCE] Active session already present in ACTIVE state for today (" + todayDate + "). Entry assist monitoring not required.");
                 return;
             }
         }
@@ -420,7 +425,7 @@ public class OfficeGeofenceHelper {
 
         isAssistMonitoringActive.set(true);
         assistChecksCount.set(0);
-        Log.i(TAG, "[NATIVE ATTENDANCE] High accuracy monitoring started");
+        Log.i(TAG, "[NATIVE ATTENDANCE] Temporary high-accuracy location started (Interval: 6s, Priority: PRIORITY_HIGH_ACCURACY)");
 
         try {
             FusedLocationProviderClient fusedClient = LocationServices.getFusedLocationProviderClient(appContext);
@@ -477,8 +482,7 @@ public class OfficeGeofenceHelper {
             assistTimeoutTask = null;
         }
         assistTimeoutTask = scheduledExecutor.schedule(() -> {
-            Log.i(TAG, "[NATIVE ATTENDANCE] Monitoring stopped (Timeout expired: 150s)");
-            stopTemporaryAssistMonitoring(context);
+            stopTemporaryAssistMonitoring(context, "timeout");
         }, 150, TimeUnit.SECONDS);
     }
 
@@ -499,7 +503,7 @@ public class OfficeGeofenceHelper {
         double distance = calculateDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
 
         // Required diagnostic log:
-        Log.i(TAG, "[NATIVE ATTENDANCE] Location accuracy=" + Math.round(accuracy) + "m, age=" + ageSec + "s, officeDistance=" + Math.round(distance) + "m");
+        Log.i(TAG, "[NATIVE ATTENDANCE] Location accuracy=" + Math.round(accuracy) + "m, age=" + ageSec + "s, distance from office=" + Math.round(distance) + "m");
         saveLastLocationDiagnostic(context, lat, lng, accuracy, location.getTime(), distance);
 
         // 1. Accuracy validation: Reject inaccurate positions (e.g. 270m cell jumps, accuracy > 50m)
@@ -525,11 +529,10 @@ public class OfficeGeofenceHelper {
 
         // 4. Authoritative boundary decision: STRICT 25-METER RADIUS
         if (distance <= AUTHORITATIVE_RADIUS_METERS) {
-            Log.i(TAG, "[NATIVE ATTENDANCE] officeDistance=" + Math.round(distance) + "m <= " + Math.round(AUTHORITATIVE_RADIUS_METERS) + "m");
-            Log.i(TAG, "[NATIVE ATTENDANCE] AUTHORITATIVE CHECK_IN triggered");
+            Log.i(TAG, "[NATIVE ATTENDANCE] Authoritative check-in triggered (<= 25m): distance=" + Math.round(distance) + "m");
 
             // Stop temporary high-accuracy monitoring to preserve battery
-            stopTemporaryAssistMonitoring(context);
+            stopTemporaryAssistMonitoring(context, "check-in");
 
             // Execute existing authoritative transition
             evaluateAttendanceDecision(context, location, "FUSED_ASSIST_HIGH_ACCURACY", Geofence.GEOFENCE_TRANSITION_ENTER, null, null);
@@ -540,13 +543,16 @@ public class OfficeGeofenceHelper {
 
             // If the employee is clearly far away (> 350m), stop monitoring to save battery
             if (distance > 350.0) {
-                Log.i(TAG, "[NATIVE ATTENDANCE] Monitoring stopped (Employee clearly away from office: " + Math.round(distance) + "m)");
-                stopTemporaryAssistMonitoring(context);
+                stopTemporaryAssistMonitoring(context, "away");
             }
         }
     }
 
     public static synchronized void stopTemporaryAssistMonitoring(Context context) {
+        stopTemporaryAssistMonitoring(context, "unspecified");
+    }
+
+    public static synchronized void stopTemporaryAssistMonitoring(Context context, String reason) {
         if (!isAssistMonitoringActive.getAndSet(false)) {
             return;
         }
@@ -564,7 +570,7 @@ public class OfficeGeofenceHelper {
                 fused.removeLocationUpdates(assistLocationCallback);
                 assistLocationCallback = null;
             }
-            Log.i(TAG, "[NATIVE ATTENDANCE] High accuracy monitoring stopped");
+            Log.i(TAG, "[NATIVE ATTENDANCE] Temporary monitoring stopped (reason: " + reason + ")");
         } catch (Exception e) {
             Log.w(TAG, "Error stopping assist monitoring: " + e.getMessage());
         }
@@ -636,7 +642,8 @@ public class OfficeGeofenceHelper {
                                         evaluateAttendanceDecision(context, location, "FUSED_CURRENT", transitionType, pendingResult, finishedFlag);
                                         return;
                                     } else {
-                                        Log.i(TAG, "[FUSED_CURRENT] Fresh location did not confirm enter (dist=" + String.format(Locale.US, "%.1f", dist) + "m for transition=" + transitionType + "). Checking triggeringLocation fallback.");
+                                        Log.i(TAG, "[FUSED_CURRENT] Fresh location did not confirm enter (dist=" + String.format(Locale.US, "%.1f", dist) + "m for transition=" + transitionType + "). Activating temporary high-accuracy monitoring to resolve approach.");
+                                        startTemporaryAssistMonitoring(context);
                                         fallbackToTrustworthyLocation(context, fusedClient, triggerLocation, transitionType, pendingResult, finishedFlag);
                                     }
                                 } else if (isExit) {
@@ -719,7 +726,8 @@ public class OfficeGeofenceHelper {
             // Raw Android geofence events must ONLY wake/prime the native location engine.
             // A geofence enter event MUST NEVER by itself create an authoritative check-in.
             // Synthetic HARDWARE_FALLBACK for check-in is strictly removed.
-            Log.i(TAG, "[AUTO_CHECKIN_PENDING_VERIFICATION] Play Services geofence enter event did not obtain a fresh physical location <= 25m. Hardware fallback for check-in is removed. Check-in suppressed.");
+            Log.i(TAG, "[AUTO_CHECKIN_PENDING_VERIFICATION] Play Services geofence enter event did not obtain a fresh physical location <= 25m. Activating temporary high-accuracy monitoring to acquire fresh location.");
+            startTemporaryAssistMonitoring(context);
             safeFinishPendingResult(pendingResult, finishedFlag);
         }
     }
@@ -971,8 +979,7 @@ public class OfficeGeofenceHelper {
                 }
 
                 Log.i(TAG, "=== NATIVE AUTHORITATIVE CHECK-IN TRIGGERED (Distance: " + String.format(Locale.US, "%.1f", distance) + "m <= 25m, Provider: " + locationProvider + ") ===");
-                stopTemporaryAssistMonitoring(context);
-                Log.i(TAG, "[NATIVE ATTENDANCE] High accuracy monitoring stopped (Authoritative check-in succeeded)");
+                stopTemporaryAssistMonitoring(context, "check-in");
                 logNativeAttendanceTimestampDiagnostic("CHECK_IN", "NATIVE_GEOFENCE", locationProvider, location, distance, employeeId);
 
                 String eventId = "evt_native_CHECK_IN_" + employeeId + "_" + dateStr;
@@ -1321,8 +1328,7 @@ public class OfficeGeofenceHelper {
 
         consecutiveOutsideReadings = 0;
         Log.i(TAG, "=== NATIVE AUTHORITATIVE CHECK-OUT TRIGGERED (Distance: " + String.format(Locale.US, "%.1f", distance) + "m > 25m, Source: " + source + ", Provider: " + locationProvider + ") ===");
-        stopTemporaryAssistMonitoring(context);
-        Log.i(TAG, "[NATIVE ATTENDANCE] High accuracy monitoring stopped (Authoritative check-out triggered)");
+        stopTemporaryAssistMonitoring(context, "exit");
         logNativeAttendanceTimestampDiagnostic("CHECK_OUT", "NATIVE_GEOFENCE", locationProvider, location, distance, employeeId);
 
         // Date strings in Asia/Kolkata timezone
@@ -1442,8 +1448,7 @@ public class OfficeGeofenceHelper {
         }
 
         Log.i(TAG, "=== NATIVE RETURN INSIDE 25m OFFICE GEOFENCE CONFIRMED (Cancelling Pending Exit via " + source + ") ===");
-        stopTemporaryAssistMonitoring(context);
-        Log.i(TAG, "[NATIVE ATTENDANCE] High accuracy monitoring stopped (Authoritative return triggered)");
+        stopTemporaryAssistMonitoring(context, "return");
         logNativeAttendanceTimestampDiagnostic("GEOFENCE_RETURN", "NATIVE_GEOFENCE", "FUSED_CURRENT", location, distance, employeeId);
 
         // 1. Cancel pending exit and restore session to ACTIVE
