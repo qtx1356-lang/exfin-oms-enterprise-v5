@@ -237,6 +237,7 @@ export function speakGreeting(text: string, options?: SpeakOptions): boolean {
     let hasEnded = false;
 
     const handleStart = () => {
+      console.log('[GREETING VOICE] started:', text);
       lastDiagnosticStatus = `Speaking: "${text}" (${voice?.name || 'Default Voice'})`;
       options?.onStart?.();
     };
@@ -244,6 +245,7 @@ export function speakGreeting(text: string, options?: SpeakOptions): boolean {
     const handleEnd = () => {
       if (!hasEnded) {
         hasEnded = true;
+        console.log('[GREETING VOICE] ended');
         if (activeUtterance === utterance) {
           activeUtterance = null;
         }
@@ -255,6 +257,7 @@ export function speakGreeting(text: string, options?: SpeakOptions): boolean {
     const handleError = (err: unknown) => {
       if (!hasEnded) {
         hasEnded = true;
+        console.error('[GREETING VOICE] error:', err);
         if (activeUtterance === utterance) {
           activeUtterance = null;
         }

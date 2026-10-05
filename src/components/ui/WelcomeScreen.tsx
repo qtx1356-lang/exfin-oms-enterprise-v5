@@ -252,10 +252,26 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     const cleanupSpeech = initializeSpeech();
     return () => {
       cleanupSpeech();
-      stopGreeting();
-      stopGreetingAudio();
+      // Safeguard: only stop active greeting on real navigation unmount, not during StrictMode double-mount!
+      if (speechAudibleRef.current) {
+        stopGreeting();
+        stopGreetingAudio();
+      }
     };
   }, []);
+
+  // Diagnostic speech logging effect (Requirement 14)
+  useEffect(() => {
+    const isAvail = isSpeechAvailable();
+    const voicesCount = typeof window !== 'undefined' && window.speechSynthesis ? window.speechSynthesis.getVoices().length : 0;
+    console.log('[GREETING VOICE] component initialized');
+    console.log('[GREETING VOICE] speechSynthesis available:', isAvail);
+    console.log('[GREETING VOICE] voices available:', voicesCount);
+    console.log('[GREETING VOICE] employee name available:', !!displayName);
+    console.log('[GREETING VOICE] first name:', resolvedFirstName || 'None');
+    console.log('[GREETING VOICE] greeting prepared:', greetingText || `${greetingInfo.label}.`);
+    console.log('[GREETING VOICE] waiting for user interaction:', !speechAudibleRef.current);
+  }, [displayName, resolvedFirstName, greetingText, greetingInfo]);
 
   // Automatic Welcome Screen greeting: speaking the complete sentence once
   useEffect(() => {
@@ -288,6 +304,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         const fullGreetingText = firstName ? `${timeGreeting}, ${firstName}.` : `${timeGreeting}.`;
 
         console.log('[WelcomeGreeting] Determined complete greeting string:', fullGreetingText);
+        console.log('[GREETING VOICE] speak() called');
 
         // Enforce the greeting delay before speaking the COMPLETE greeting (as in Requirement 6)
         // Let's add a safe, natural delay of 600ms
@@ -364,6 +381,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     return () => {
       isCancelled = true;
       cleanupInteractionListeners();
+      // If the speech was never actually audible, reset the startupAttempted flag so remounts can retry
+      if (!speechAudibleRef.current) {
+        startupAttemptedRef.current = false;
+      }
     };
   }, [greetingInfo]);
 
