@@ -2,14 +2,14 @@
 
 **Product Name:** Office Management System — Employee Management, GPS Attendance, Expenses & Admin Portal  
 **Version:** 5.0.0 (Commercial Release)  
-**License:** Commercial Source Code License (Codester)  
+**License:** Commercial Source Code License  
 
 ---
 
 ## Quick Start Guide
 
 1. **Read Documentation:**  
-   Open the `documentation/` (or `CODESTER_DOCUMENTATION/`) folder and read `README_FIRST.md` and `INSTALLATION.md`.
+   Open the `documentation/` folder and read `README_FIRST.md` and `INSTALLATION.md`.
 
 2. **Web & Backend Source Setup:**  
    ```bash

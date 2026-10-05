@@ -2033,7 +2033,7 @@ async function startServer() {
     }
   });
 
-  // Serve Codester final download packages and APKs with explicit MIME type and fallback protection
+  // Serve final download packages and APKs with explicit MIME type and fallback protection
   const downloadsPath = path.join(process.cwd(), "public", "downloads");
   
   app.get("/downloads/:filename", (req, res) => {

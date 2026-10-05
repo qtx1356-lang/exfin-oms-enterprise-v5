@@ -19,7 +19,7 @@
 | `OAuth Client Secrets` | **SAFE / ABSENT** | Entire repository | No OAuth client secrets committed. |
 | `Database Passwords` | **SAFE / ABSENT** | Entire repository | Firebase Auth handles credential management. No raw passwords in source code. |
 | `Median.co Credentials` | **REQUIRES BUYER CONFIGURATION** | `capacitor.config.ts`, `medianBackgroundLocation.ts` | Uses standard open bridge syntax (`median://`). Buyers configure their own Median account ID. |
-| `Staging Test Scripts` | **SECRET — MUST EXCLUDE** | Root directory (`cleanup.ts`, `run_check_delete.js`, etc.) | Added to `CODESTER_EXCLUDED_FILES.md` and excluded from commercial bundle. |
+| `Staging Test Scripts` | **SECRET — MUST EXCLUDE** | Root directory (`cleanup.ts`, `run_check_delete.js`, etc.) | Staging scripts excluded from production bundle. |
 
 ---
 
