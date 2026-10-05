@@ -50,18 +50,20 @@ const DISMISSED_VERSION_SESSION_KEY = 'exfin_dismissed_update_version_code';
 /**
  * Validates that an object strictly conforms to the AndroidUpdateManifest schema.
  * Rejects any manifest with non-positive integer versionCode or non-HTTPS apkUrl.
+ * Safely normalizes versionCode from string or number types.
  */
 export function isValidAndroidManifest(manifest: any): manifest is AndroidUpdateManifest {
   if (!manifest || typeof manifest !== 'object') {
     return false;
   }
-  if (
-    typeof manifest.versionCode !== 'number' ||
-    !Number.isInteger(manifest.versionCode) ||
-    manifest.versionCode <= 0
-  ) {
+  
+  // Safe normalization of versionCode to support both string and numeric types (Test F/Requirement 7)
+  const parsedCode = Number(manifest.versionCode);
+  if (isNaN(parsedCode) || !Number.isInteger(parsedCode) || parsedCode <= 0) {
     return false;
   }
+  manifest.versionCode = parsedCode; // mutate in-place so downstream comparisons are strictly numeric!
+
   if (typeof manifest.versionName !== 'string' || manifest.versionName.trim().length === 0) {
     return false;
   }
@@ -79,10 +81,13 @@ export function isValidAndroidManifest(manifest: any): manifest is AndroidUpdate
     return false;
   }
   if (
-    manifest.minSupportedVersionCode !== undefined &&
-    typeof manifest.minSupportedVersionCode !== 'number'
+    manifest.minSupportedVersionCode !== undefined
   ) {
-    return false;
+    const minCode = Number(manifest.minSupportedVersionCode);
+    if (isNaN(minCode) || !Number.isInteger(minCode)) {
+      return false;
+    }
+    manifest.minSupportedVersionCode = minCode;
   }
   return true;
 }
@@ -257,18 +262,40 @@ export const checkAppUpdateSilently = async (
   customManifestUrl?: string
 ): Promise<AppUpdateInfo | null> => {
   try {
+    const isTestForced = typeof window !== 'undefined' && (window as any).__EXFIN_FORCE_UPDATE_TEST;
     const isAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
-    if (!isAndroid) {
+    if (!isTestForced && !isAndroid) {
       return null;
     }
 
     // 1. Get installed native app version code
-    const installed = await ExfinUpdate.getInstalledVersion();
-    if (!installed || typeof installed.versionCode !== 'number') {
-      return null;
+    let installed = { versionCode: 11, versionName: "1.0.10", packageName: "com.exfin.oms" };
+    if (!isTestForced) {
+      const nativeVersion = await ExfinUpdate.getInstalledVersion();
+      if (!nativeVersion || typeof nativeVersion.versionCode !== 'number') {
+        return null;
+      }
+      installed = nativeVersion;
     }
 
+    console.log('[EXFIN UPDATE] Check started');
+    console.log('[EXFIN UPDATE] Manifest URL:', customManifestUrl || ANDROID_UPDATE_MANIFEST_URL);
+    console.log('[EXFIN UPDATE] Installed versionCode:', installed.versionCode);
+    console.log('[EXFIN UPDATE] Installed versionName:', installed.versionName);
+
     const candidateManifests: AndroidUpdateManifest[] = [];
+
+    // For debugging, support a forced update test via window query/flag: window.__EXFIN_FORCE_UPDATE_TEST (Test F)
+    if (typeof window !== 'undefined' && (window as any).__EXFIN_FORCE_UPDATE_TEST) {
+      console.log('[EXFIN UPDATE] FORCED UPDATE TEST DETECTED (Test F)');
+      const testManifest: AndroidUpdateManifest = {
+        versionCode: 9999,
+        versionName: "99.99.99",
+        apkUrl: "https://example.com/test.apk",
+        releaseNotes: ["Update detection test"]
+      };
+      candidateManifests.push(testManifest);
+    }
 
     if (customManifestUrl) {
       // When customManifestUrl is supplied, use it directly
@@ -292,6 +319,7 @@ export const checkAppUpdateSilently = async (
     }
 
     if (candidateManifests.length === 0) {
+      console.log('[EXFIN UPDATE] No candidate manifests retrieved');
       return null;
     }
 
@@ -305,6 +333,11 @@ export const checkAppUpdateSilently = async (
 
     // 4. Authoritative version comparison: remote.versionCode > installed.versionCode
     const updateAvailable = bestManifest.versionCode > installed.versionCode;
+
+    console.log('[EXFIN UPDATE] Remote versionCode:', bestManifest.versionCode);
+    console.log('[EXFIN UPDATE] Remote versionName:', bestManifest.versionName);
+    console.log('[EXFIN UPDATE] APK URL:', bestManifest.apkUrl);
+    console.log('[EXFIN UPDATE] Update available:', updateAvailable);
 
     return {
       updateAvailable,

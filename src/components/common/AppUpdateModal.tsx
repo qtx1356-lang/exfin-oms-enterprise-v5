@@ -30,8 +30,9 @@ export const AppUpdateModal: React.FC = () => {
   const isCheckingRef = useRef<boolean>(false);
 
   const performUpdateCheck = useCallback(async () => {
-    // Only check if running on native Android
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') {
+    // Only check if running on native Android, unless forced update test is active (Test F)
+    const isTestForced = typeof window !== 'undefined' && (window as any).__EXFIN_FORCE_UPDATE_TEST;
+    if (!isTestForced && (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android')) {
       return;
     }
 
