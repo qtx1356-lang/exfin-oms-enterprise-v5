@@ -393,10 +393,6 @@ public class OfficeGeofenceHelper {
         }
 
         if (transitionType == Geofence.GEOFENCE_TRANSITION_ENTER || transitionType == Geofence.GEOFENCE_TRANSITION_DWELL) {
-            double trigDist = -1;
-            if (triggerLocation != null && !Double.isNaN(triggerLocation.getLatitude()) && !Double.isNaN(triggerLocation.getLongitude())) {
-                trigDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
-            }
             String distEstimateStr = trigDist >= 0 ? Math.round(trigDist) + "m" : "~300m";
             Log.i(TAG, "[NATIVE ATTENDANCE] Assist geofence triggered (300m): distance estimate=" + distEstimateStr);
 
