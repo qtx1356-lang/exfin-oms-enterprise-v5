@@ -37,6 +37,19 @@ export interface SpeechDiagnostics {
 
 let lastDiagnosticStatus = 'Initialized';
 let activeUtterance: SpeechSynthesisUtterance | null = null;
+let hasSpokenOnce = false;
+
+// Warm up the SpeechSynthesis engine as early as possible on module load
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  try {
+    const dummy = new SpeechSynthesisUtterance('');
+    dummy.volume = 0;
+    window.speechSynthesis.speak(dummy);
+    if (typeof window.speechSynthesis.resume === 'function') {
+      window.speechSynthesis.resume();
+    }
+  } catch (e) {}
+}
 
 /**
  * Diagnostic Inspector for Speech API state
@@ -309,9 +322,10 @@ export function speakGreeting(text: string, options?: SpeakOptions): boolean {
       activeUtterance = null;
     }
 
-    // Cancel any previous active queued speech only if currently speaking or pending
+    // Cancel any previous active queued speech only if currently speaking or pending AND we've spoken before.
+    // This critical check prevents Chrome/WebView from stalling/freezing for 3 seconds on the very first greeting!
     try {
-      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+      if (hasSpokenOnce && (window.speechSynthesis.speaking || window.speechSynthesis.pending)) {
         window.speechSynthesis.cancel();
       }
     } catch (e) {}
@@ -371,6 +385,7 @@ export function speakGreeting(text: string, options?: SpeakOptions): boolean {
     utterance.onerror = handleError;
 
     activeUtterance = utterance;
+    hasSpokenOnce = true;
     window.speechSynthesis.speak(utterance);
 
     // CRITICAL CHROME & ANDROID WEBVIEW FIX: Ensure synthesis queue is resumed immediately after speak()
