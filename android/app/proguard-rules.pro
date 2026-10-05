@@ -15,6 +15,7 @@
 
 # Preserve Native Plugins, Receivers, Services & Activities
 -keep class com.exfin.oms.MainActivity { *; }
+-keep class com.exfin.oms.GreetingTtsPlugin { *; }
 -keep class com.exfin.oms.geofence.UpdatePlugin { *; }
 -keep class com.exfin.oms.geofence.GeofencePlugin { *; }
 -keep class com.exfin.oms.geofence.OfficeLocationService { *; }

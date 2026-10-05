@@ -1,6 +1,20 @@
+import { registerPlugin, Capacitor, PluginListenerHandle } from '@capacitor/core';
+
+interface GreetingTtsPlugin {
+  speak(options: { text: string }): Promise<{ success: boolean; utteranceId?: string }>;
+  stop(): Promise<{ stopped: boolean }>;
+  isAvailable(): Promise<{ available: boolean }>;
+  addListener(eventName: 'ttsStarted', listenerFunc: (data: { utteranceId: string }) => void): Promise<PluginListenerHandle>;
+  addListener(eventName: 'ttsCompleted', listenerFunc: (data: { utteranceId: string }) => void): Promise<PluginListenerHandle>;
+  addListener(eventName: 'ttsError', listenerFunc: (data: { utteranceId: string; error?: string; errorCode?: number }) => void): Promise<PluginListenerHandle>;
+}
+
+export const GreetingTts = registerPlugin<GreetingTtsPlugin>('GreetingTts');
+
 /**
- * Isolated Greeting Text-to-Speech Service using Native Browser SpeechSynthesis API
- * Optimized for mobile PWA, Android Chrome, and Desktop offline environments.
+ * Isolated Greeting Text-to-Speech Service
+ * Uses native Android TextToSpeech on native platform,
+ * and native browser SpeechSynthesis on PWA/desktop.
  */
 
 export interface SpeakOptions {
@@ -195,9 +209,92 @@ export function initializeSpeech(onVoicesLoaded?: () => void): () => void {
 }
 
 /**
- * Speaks the given greeting text using native SpeechSynthesis.
+ * Native Android implementation using GreetingTts plugin.
+ */
+async function speakGreetingNative(text: string, options?: SpeakOptions): Promise<boolean> {
+  console.log('[GREETING NATIVE TTS] speaking:', text);
+  let isFinished = false;
+  let startListener: PluginListenerHandle | null = null;
+  let completeListener: PluginListenerHandle | null = null;
+  let errorListener: PluginListenerHandle | null = null;
+
+  const cleanup = async () => {
+    try {
+      if (startListener) await startListener.remove();
+      if (completeListener) await completeListener.remove();
+      if (errorListener) await errorListener.remove();
+    } catch (e) {}
+  };
+
+  try {
+    startListener = await GreetingTts.addListener('ttsStarted', () => {
+      console.log('[GREETING NATIVE TTS] started');
+      options?.onStart?.();
+    });
+
+    completeListener = await GreetingTts.addListener('ttsCompleted', async () => {
+      if (!isFinished) {
+        isFinished = true;
+        console.log('[GREETING NATIVE TTS] completed');
+        await cleanup();
+        options?.onEnd?.();
+      }
+    });
+
+    errorListener = await GreetingTts.addListener('ttsError', async (data) => {
+      if (!isFinished) {
+        isFinished = true;
+        console.error('[GREETING NATIVE TTS] error:', data);
+        await cleanup();
+        options?.onError?.(data);
+        options?.onEnd?.();
+      }
+    });
+
+    const res = await GreetingTts.speak({ text });
+    if (!res || !res.success) {
+      if (!isFinished) {
+        isFinished = true;
+        await cleanup();
+        options?.onError?.('Native speak call returned false');
+        options?.onEnd?.();
+      }
+      return false;
+    }
+
+    // Safety timeout in case native completion event is dropped
+    setTimeout(async () => {
+      if (!isFinished) {
+        isFinished = true;
+        console.log('[GREETING NATIVE TTS] completed (safety timeout)');
+        await cleanup();
+        options?.onEnd?.();
+      }
+    }, 6000);
+
+    return true;
+  } catch (err) {
+    console.error('[GREETING NATIVE TTS] error calling native GreetingTts:', err);
+    if (!isFinished) {
+      isFinished = true;
+      await cleanup();
+      options?.onError?.(err);
+      options?.onEnd?.();
+    }
+    return false;
+  }
+}
+
+/**
+ * Speaks the given greeting text using native Android TextToSpeech on native platform,
+ * or native browser SpeechSynthesis on PWA/desktop.
  */
 export function speakGreeting(text: string, options?: SpeakOptions): boolean {
+  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+    void speakGreetingNative(text, options);
+    return true;
+  }
+
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
     options?.onError?.('SpeechSynthesis not available');
     return false;
@@ -301,6 +398,9 @@ export function speakGreeting(text: string, options?: SpeakOptions): boolean {
  * Cancels active speech synthesis
  */
 export function stopGreeting(): void {
+  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+    GreetingTts.stop().catch(() => {});
+  }
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   if (activeUtterance) {
     activeUtterance.onstart = null;
@@ -317,5 +417,8 @@ export function stopGreeting(): void {
  * Checks if speech synthesis is supported by browser/device
  */
 export function isSpeechAvailable(): boolean {
+  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+    return true;
+  }
   return typeof window !== 'undefined' && 'speechSynthesis' in window;
 }

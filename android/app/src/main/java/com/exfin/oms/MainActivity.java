@@ -17,6 +17,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(GeofencePlugin.class);
         registerPlugin(UpdatePlugin.class);
+        registerPlugin(GreetingTtsPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Ensure native office geofence is active

@@ -93,13 +93,14 @@ export function isValidAndroidManifest(manifest: any): manifest is AndroidUpdate
 }
 
 /**
- * Priority 1: Fetches the latest release metadata asset from GitHub Releases API.
+ * Priority 1: Fetches the latest release metadata asset from GitHub Releases API with cache busting.
  */
 async function fetchGithubReleaseManifest(): Promise<AndroidUpdateManifest | null> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 8000);
   try {
-    const releaseResp = await fetch(GITHUB_RELEASES_LATEST_API_URL, {
+    const url = `${GITHUB_RELEASES_LATEST_API_URL}${GITHUB_RELEASES_LATEST_API_URL.includes('?') ? '&' : '?'}t=${Date.now()}`;
+    const releaseResp = await fetch(url, {
       signal: controller.signal,
       headers: {
         Accept: 'application/vnd.github+json',
@@ -126,7 +127,8 @@ async function fetchGithubReleaseManifest(): Promise<AndroidUpdateManifest | nul
     const assetController = new AbortController();
     const assetTimeoutId = setTimeout(() => assetController.abort(), 8000);
     try {
-      const assetResp = await fetch(manifestAsset.browser_download_url, {
+      const assetUrl = `${manifestAsset.browser_download_url}${manifestAsset.browser_download_url.includes('?') ? '&' : '?'}t=${Date.now()}`;
+      const assetResp = await fetch(assetUrl, {
         signal: assetController.signal,
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -262,40 +264,23 @@ export const checkAppUpdateSilently = async (
   customManifestUrl?: string
 ): Promise<AppUpdateInfo | null> => {
   try {
-    const isTestForced = typeof window !== 'undefined' && (window as any).__EXFIN_FORCE_UPDATE_TEST;
     const isAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
-    if (!isTestForced && !isAndroid) {
+    if (!isAndroid) {
       return null;
     }
 
-    // 1. Get installed native app version code
-    let installed = { versionCode: 11, versionName: "1.0.10", packageName: "com.exfin.oms" };
-    if (!isTestForced) {
-      const nativeVersion = await ExfinUpdate.getInstalledVersion();
-      if (!nativeVersion || typeof nativeVersion.versionCode !== 'number') {
-        return null;
-      }
-      installed = nativeVersion;
+    // 1. Get installed native app version code strictly from BuildConfig via UpdatePlugin
+    const installed = await ExfinUpdate.getInstalledVersion();
+    if (!installed || typeof installed.versionCode !== 'number') {
+      return null;
     }
 
     console.log('[EXFIN UPDATE] Check started');
-    console.log('[EXFIN UPDATE] Manifest URL:', customManifestUrl || ANDROID_UPDATE_MANIFEST_URL);
+    console.log('[EXFIN UPDATE] Manifest URL:', customManifestUrl || GITHUB_RELEASES_LATEST_API_URL);
     console.log('[EXFIN UPDATE] Installed versionCode:', installed.versionCode);
     console.log('[EXFIN UPDATE] Installed versionName:', installed.versionName);
 
     const candidateManifests: AndroidUpdateManifest[] = [];
-
-    // For debugging, support a forced update test via window query/flag: window.__EXFIN_FORCE_UPDATE_TEST (Test F)
-    if (typeof window !== 'undefined' && (window as any).__EXFIN_FORCE_UPDATE_TEST) {
-      console.log('[EXFIN UPDATE] FORCED UPDATE TEST DETECTED (Test F)');
-      const testManifest: AndroidUpdateManifest = {
-        versionCode: 9999,
-        versionName: "99.99.99",
-        apkUrl: "https://example.com/test.apk",
-        releaseNotes: ["Update detection test"]
-      };
-      candidateManifests.push(testManifest);
-    }
 
     if (customManifestUrl) {
       // When customManifestUrl is supplied, use it directly
@@ -304,16 +289,15 @@ export const checkAppUpdateSilently = async (
         candidateManifests.push(customManifest);
       }
     } else {
-      // Check sources in parallel: Priority 1 (GitHub Releases), Priority 2 (Raw Manifest), Priority 3 (Bundled Manifest)
-      const results = await Promise.allSettled([
-        fetchGithubReleaseManifest(),
-        fetchRawManifest(),
-        fetchBundledManifest(),
-      ]);
-
-      for (const res of results) {
-        if (res.status === 'fulfilled' && res.value && isValidAndroidManifest(res.value)) {
-          candidateManifests.push(res.value);
+      // Priority 1: GitHub Releases API asset (latest released APK metadata)
+      const releaseManifest = await fetchGithubReleaseManifest();
+      if (releaseManifest && isValidAndroidManifest(releaseManifest)) {
+        candidateManifests.push(releaseManifest);
+      } else {
+        // Priority 2 (Fallback): Raw GitHub Manifest file
+        const rawManifest = await fetchRawManifest();
+        if (rawManifest && isValidAndroidManifest(rawManifest)) {
+          candidateManifests.push(rawManifest);
         }
       }
     }

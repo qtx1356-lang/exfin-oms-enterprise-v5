@@ -5,7 +5,7 @@ import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { logStartupTag } from '../../services/startup/startupPerformanceLogger';
 import { initializeSpeech, speakGreeting, stopGreeting, isSpeechAvailable } from '../../services/speech/greetingSpeechService';
-import { playGreetingAudio, preloadGreetingAudio, stopGreetingAudio } from '../../services/audio/greetingAudioService';
+import { preloadGreetingAudio, stopGreetingAudio } from '../../services/audio/greetingAudioService';
 import { GreetingPeriodKey } from '../../services/voice/greetingAssets';
 import { getTodayAttendanceRecord } from '../../services/attendance/attendanceStorage';
 import { getFormattedDateStr, parseAttendanceTimeToMinutes, getFormattedTimeStr } from '../../services/attendance/automaticAttendanceEngine';
@@ -198,9 +198,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
 
   const [greetingInfo] = useState<{ label: string; periodKey: GreetingPeriodKey }>(() => {
     const hour = new Date().getHours();
-    if (hour >= 5 && hour < 12) return { label: 'Good Morning', periodKey: 'good_morning' };
-    if (hour >= 12 && hour < 17) return { label: 'Good Afternoon', periodKey: 'good_afternoon' };
-    return { label: 'Good Evening', periodKey: 'good_evening' };
+    if (hour >= 5 && hour < 12) return { label: 'Good morning', periodKey: 'good_morning' };
+    if (hour >= 12 && hour < 17) return { label: 'Good afternoon', periodKey: 'good_afternoon' };
+    return { label: 'Good evening', periodKey: 'good_evening' };
   });
 
   const displayName = employeeData?.name || cachedName;
@@ -299,7 +299,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
           return;
         }
 
-        // Name resolved or no attempts left (fallback)
+        // If registered but name is still missing after all attempts, do not speak a generic greeting
+        if (status !== 'unregistered' && !firstName) {
+          console.log('[WelcomeGreeting] Employee is registered but first name has not loaded yet, aborting generic greeting');
+          setIsSpeaking(false);
+          return;
+        }
+
+        // Name resolved or unregistered
         const timeGreeting = greetingInfo.label; // e.g. "Good Morning", "Good Afternoon", "Good Evening"
         const fullGreetingText = firstName ? `${timeGreeting}, ${firstName}.` : `${timeGreeting}.`;
 
@@ -345,7 +352,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         }, 600); // 600ms greeting delay
       };
 
-      attemptSpeech(10);
+      attemptSpeech(25);
     };
 
     // 1. Immediate automatic greeting attempt on Welcome Screen entry
@@ -731,7 +738,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             <span>WELCOME 👋</span>
           </div>
 
-          <h1 className="mt-0.5 text-2xl sm:text-3xl font-black text-[#F8FAFC] tracking-tight leading-tight uppercase">
+          <h1 className="mt-0.5 text-2xl sm:text-3xl font-black text-[#F8FAFC] tracking-tight leading-tight">
             {status === 'unregistered' ? (
               <>Register Device</>
             ) : (
