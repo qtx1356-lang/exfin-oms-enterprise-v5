@@ -221,20 +221,78 @@ jobs:
           echo "Building web application..."
           npm run build
 
-      - name: Restore Android Google Services JSON
+      - name: Restore and Validate Android Google Services JSON
         env:
           GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
         run: |
-          if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
-            echo "GOOGLE_SERVICES_JSON_BASE64 secret detected. Restoring android/app/google-services.json..."
-            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
-          else
-            echo "WARNING: GOOGLE_SERVICES_JSON_BASE64 secret is not configured in GitHub Secrets."
-            echo "Firebase Push Notifications (FCM) will not compile/function properly without android/app/google-services.json."
+          echo "=== Starting Production Google Services JSON Validation ==="
+          
+          # 1. Check if GOOGLE_SERVICES_JSON_BASE64 is configured
+          if [ -z "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "::error::CRITICAL SECRET MISSING: GOOGLE_SERVICES_JSON_BASE64 is not set in GitHub Secrets!"
+            echo "To build a production release APK, you MUST configure the GOOGLE_SERVICES_JSON_BASE64 secret with your base64-encoded google-services.json file."
+            exit 1
           fi
+
+          echo "Decoding GOOGLE_SERVICES_JSON_BASE64..."
+          # 2. Decode Base64 and check for decoding errors
+          if ! echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json; then
+            echo "::error::BASE64 DECODING FAILED: The value provided for GOOGLE_SERVICES_JSON_BASE64 is not valid Base64!"
+            exit 1
+          fi
+
+          # 3. Validate JSON structure, syntax, and com.exfin.oms client presence via Node.js
+          node -e '
+          const fs = require("fs");
+          const path = "android/app/google-services.json";
+
+          console.log("Checking if google-services.json file was created...");
+          if (!fs.existsSync(path)) {
+            console.error("::error::FILE NOT FOUND: android/app/google-services.json was not successfully written!");
+            process.exit(1);
+          }
+
+          let json;
+          try {
+            console.log("Parsing google-services.json...");
+            json = JSON.parse(fs.readFileSync(path, "utf8"));
+          } catch (err) {
+            console.error("::error::INVALID JSON: android/app/google-services.json contains invalid JSON syntax: " + err.message);
+            process.exit(1);
+          }
+
+          console.log("Validating Firebase configuration structure...");
+          if (!json.client || !Array.isArray(json.client)) {
+            console.error("::error::INVALID STRUCTURE: The google-services.json is missing the required \"client\" array property!");
+            process.exit(1);
+          }
+
+          console.log("Verifying Android client for package com.exfin.oms...");
+          const packageToFind = "com.exfin.oms";
+          const clientExists = json.client.some(c => {
+            const clientInfo = c.client_info;
+            if (clientInfo && clientInfo.android_client_info) {
+              return clientInfo.android_client_info.package_name === packageToFind;
+            }
+            return false;
+          });
+
+          if (!clientExists) {
+            console.error(`::error::CLIENT NOT FOUND: No Android client found with package name "${packageToFind}" in google-services.json!`);
+            console.error("Make sure your Firebase Android app package name matches \"com.exfin.oms\" in your Firebase project.");
+            process.exit(1);
+          }
+
+          console.log("Successfully verified com.exfin.oms Android client in google-services.json!");
+          '
 
       - name: Sync Capacitor Android
         run: |
+          echo "Verifying presence of google-services.json before sync..."
+          if [ ! -f "android/app/google-services.json" ]; then
+            echo "::error::CRITICAL ERROR: android/app/google-services.json is missing! npx cap sync android cannot be safely executed for production."
+            exit 1
+          fi
           echo "Syncing web assets to native Android project..."
           npx cap sync android
 
