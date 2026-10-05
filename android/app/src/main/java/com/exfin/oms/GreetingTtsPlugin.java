@@ -240,8 +240,27 @@ public class GreetingTtsPlugin extends Plugin {
     public void isFirebaseConfigured(PluginCall call) {
         try {
             Context context = getContext();
+            if (context == null) {
+                JSObject ret = new JSObject();
+                ret.put("configured", false);
+                call.resolve(ret);
+                return;
+            }
             int resId = context.getResources().getIdentifier("google_app_id", "string", context.getPackageName());
             boolean configured = (resId != 0);
+            if (configured) {
+                try {
+                    com.google.firebase.FirebaseApp app = com.google.firebase.FirebaseApp.getInstance();
+                    configured = (app != null);
+                } catch (Throwable t) {
+                    try {
+                        com.google.firebase.FirebaseApp app = com.google.firebase.FirebaseApp.initializeApp(context);
+                        configured = (app != null);
+                    } catch (Throwable t2) {
+                        configured = false;
+                    }
+                }
+            }
             JSObject ret = new JSObject();
             ret.put("configured", configured);
             call.resolve(ret);

@@ -90,7 +90,11 @@ public class OfficeGeofenceHelper {
     public static final String GEOFENCE_ID_ASSIST_300M = "exfin_office_geofence_assist_300m";
     public static final String GEOFENCE_ID_ASSIST_100M = GEOFENCE_ID_ASSIST_300M; // Backward-compatible alias
     public static final String GEOFENCE_ID = GEOFENCE_ID_PRIMARY_25M;
-    public static final int SCHEMA_VERSION = 3;
+    public static final int SCHEMA_VERSION = 4;
+
+    public static final String KEY_ENGINE_READY = "engine_ready";
+    public static final String KEY_LAST_REGISTRATION_ATTEMPT = "last_registration_attempt";
+    public static final String KEY_REGISTRATION_ERROR = "last_registration_error";
 
     // Persistent SharedPreferences Storage
     public static final String PREFS_NAME = "exfin_native_geofence_prefs";
@@ -154,6 +158,7 @@ public class OfficeGeofenceHelper {
     private static final AtomicInteger assistChecksCount = new AtomicInteger(0);
     private static boolean isSyncRunning = false;
     private static boolean isNetworkCallbackRegistered = false;
+    private static final AtomicBoolean isRetryScheduled = new AtomicBoolean(false);
 
     // Consecutive reading trackers for GPS noise / jitter suppression
     private static int consecutiveOutsideReadings = 0;
@@ -2153,5 +2158,79 @@ public class OfficeGeofenceHelper {
         if (context == null) return;
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putBoolean(KEY_IS_REGISTERED, registered).apply();
+    }
+
+    public static void ensureNativeAttendanceReady(Context context) {
+        if (context == null) return;
+        final Context appContext = context.getApplicationContext();
+        try {
+            SharedPreferences prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putLong(KEY_LAST_REGISTRATION_ATTEMPT, System.currentTimeMillis());
+            editor.apply();
+
+            // 1. Register/re-register network callback
+            registerNetworkCallbackIfNecessary(appContext);
+
+            // 2. Register existing geofences
+            registerOfficeGeofence(appContext);
+
+            // 3. Trigger existing background sync
+            triggerBackgroundSync(appContext);
+
+            // 4. Record and update native readiness state
+            boolean hasFineLocation = ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            boolean hasBackgroundLocation = true;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                hasBackgroundLocation = ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            }
+            boolean isRegistered = prefs.getBoolean(KEY_IS_REGISTERED, false);
+            boolean ready = hasFineLocation && hasBackgroundLocation && isRegistered;
+            editor.putBoolean(KEY_ENGINE_READY, ready);
+            editor.apply();
+
+            // 5. Diagnostics Logging (No secrets)
+            Log.i(TAG, "[AUTO_ATTENDANCE_READY] Diagnostic Check:");
+            Log.i(TAG, "[AUTO_ATTENDANCE_READY] - Schema version: " + SCHEMA_VERSION);
+            Log.i(TAG, "[AUTO_ATTENDANCE_READY] - Employee ID present: " + (!prefs.getString("employee_id", "").isEmpty()));
+            Log.i(TAG, "[AUTO_ATTENDANCE_READY] - Fine location permission: " + hasFineLocation);
+            Log.i(TAG, "[AUTO_ATTENDANCE_READY] - Background location permission: " + hasBackgroundLocation);
+            Log.i(TAG, "[AUTO_ATTENDANCE_READY] - Geofence registration status: " + isRegistered);
+            Log.i(TAG, "[AUTO_ATTENDANCE_READY] - Native engine ready: " + ready);
+
+        } catch (Exception e) {
+            Log.e(TAG, "[AUTO_ATTENDANCE_READY] Exception during setup readiness check: " + e.getMessage(), e);
+        }
+    }
+
+    public static void handleGeofenceAvailabilityError(Context context, String error) {
+        if (context == null) return;
+        final Context appContext = context.getApplicationContext();
+        try {
+            Log.e(TAG, "[NATIVE_ATTENDANCE] Geofence availability error reported: " + error);
+            SharedPreferences prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putBoolean(KEY_ENGINE_READY, false);
+            editor.putString(KEY_REGISTRATION_ERROR, error);
+            editor.apply();
+
+            setGeofenceRegistered(appContext, false);
+
+            // Schedule safe retry after 10 seconds if not already scheduled
+            if (isRetryScheduled.compareAndSet(false, true)) {
+                Log.i(TAG, "[NATIVE_ATTENDANCE] Scheduling native geofence retry in 10 seconds...");
+                scheduledExecutor.schedule(() -> {
+                    try {
+                        isRetryScheduled.set(false);
+                        Log.i(TAG, "[NATIVE_ATTENDANCE] Retrying native geofence registration...");
+                        ensureNativeAttendanceReady(appContext);
+                    } catch (Exception e) {
+                        Log.e(TAG, "[NATIVE_ATTENDANCE] Exception during geofence retry: " + e.getMessage(), e);
+                    }
+                }, 10, TimeUnit.SECONDS);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "[NATIVE_ATTENDANCE] Exception handling geofence availability error: " + e.getMessage(), e);
+        }
     }
 }

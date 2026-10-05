@@ -49,38 +49,36 @@ export async function initNativePushNotifications(userContext: {
 
   try {
     // 1. Request OS Permission (Android 13+ requires POST_NOTIFICATIONS)
-    const permission = await PushNotifications.requestPermissions();
+    const permission = await PushNotifications.requestPermissions().catch((e) => {
+      console.warn('[NativePush] requestPermissions error:', e);
+      return { receive: 'denied' as const };
+    });
+
     if (permission.receive !== 'granted') {
       console.warn('[NativePush] OS push notifications permission denied:', permission.receive);
       return;
     }
 
-    // 2. Register with Firebase Cloud Messaging
-    await PushNotifications.register();
+    // 2. Setup listeners BEFORE register to catch immediate registration events
+    await PushNotifications.removeAllListeners().catch(() => {});
 
-    // 3. Setup listeners
     await PushNotifications.addListener('registration', async (token) => {
       console.log('[NativePush] Device successfully registered with FCM. Token:', token.value);
-      const storedToken = localStorage.getItem(DEVICE_TOKEN_KEY);
-
-      // Save token locally
       localStorage.setItem(DEVICE_TOKEN_KEY, token.value);
-
-      // Register/update the token with the backend
       try {
         await registerTokenWithBackend(token.value, userId, employeeCode, role);
       } catch (err) {
         console.error('[NativePush] Failed to register token with backend:', err);
       }
-    });
+    }).catch((e) => console.warn('[NativePush] addListener registration error:', e));
 
     await PushNotifications.addListener('registrationError', (error) => {
       console.error('[NativePush] Push registration failed:', error.error);
-    });
+    }).catch((e) => console.warn('[NativePush] addListener registrationError error:', e));
 
     await PushNotifications.addListener('pushNotificationReceived', (notification) => {
       console.log('[NativePush] Native push received in foreground:', notification);
-    });
+    }).catch((e) => console.warn('[NativePush] addListener pushNotificationReceived error:', e));
 
     await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
       console.log('[NativePush] Push action performed by user:', action);
@@ -89,6 +87,11 @@ export async function initNativePushNotifications(userContext: {
       if (route && typeof window !== 'undefined') {
         window.location.hash = route;
       }
+    }).catch((e) => console.warn('[NativePush] addListener pushNotificationActionPerformed error:', e));
+
+    // 3. Register with Firebase Cloud Messaging
+    await PushNotifications.register().catch((err) => {
+      console.error('[NativePush] PushNotifications.register failed:', err);
     });
 
   } catch (err) {

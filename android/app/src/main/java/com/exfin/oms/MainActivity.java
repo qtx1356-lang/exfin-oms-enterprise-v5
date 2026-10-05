@@ -23,6 +23,21 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(GreetingTtsPlugin.class);
         super.onCreate(savedInstanceState);
 
+        // Safely initialize FirebaseApp if configured in native resources
+        try {
+            int resId = getResources().getIdentifier("google_app_id", "string", getPackageName());
+            if (resId != 0) {
+                if (com.google.firebase.FirebaseApp.getApps(this).isEmpty()) {
+                    com.google.firebase.FirebaseApp.initializeApp(this);
+                    Log.d("MainActivity", "FirebaseApp initialized successfully");
+                }
+            } else {
+                Log.w("MainActivity", "google_app_id resource not found; FCM push disabled");
+            }
+        } catch (Throwable t) {
+            Log.w("MainActivity", "FirebaseApp initialization safe check caught: " + t.getMessage());
+        }
+
         // Ensure native office geofence is active
         OfficeGeofenceHelper.registerOfficeGeofence(this);
         checkAndRestoreActiveLocationService();
