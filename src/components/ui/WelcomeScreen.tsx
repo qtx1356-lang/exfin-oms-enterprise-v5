@@ -272,33 +272,52 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
             return;
           }
 
-          // STEP B: If employee first name exists, attempt to speak it dynamically using SpeechSynthesis
-          const firstName = resolvedFirstNameRef.current;
-          if (firstName && isSpeechAvailable()) {
-            try {
-              console.log('[WelcomeGreeting] Speaking dynamic employee first name:', firstName);
-              speakGreeting(`${firstName}!`, {
-                isUserGesture,
-                onStart: () => {
-                  if (!isCancelled) setIsSpeaking(true);
-                },
-                onEnd: () => {
-                  setIsSpeaking(false);
-                },
-                onError: (err) => {
-                  console.warn('[WelcomeGreeting] Dynamic name speech error:', err);
-                  // Dynamic name speech failed: DO NOTHING further.
-                  // WAV greeting has already successfully played!
-                  setIsSpeaking(false);
-                }
-              });
-            } catch (speechErr) {
-              console.warn('[WelcomeGreeting] Dynamic name speech exception:', speechErr);
+          const attemptSpeech = (attemptsLeft: number) => {
+            if (isCancelled) {
+              setIsSpeaking(false);
+              return;
+            }
+
+            const firstName = resolvedFirstNameRef.current;
+            if (firstName && isSpeechAvailable()) {
+              try {
+                console.log('[WelcomeGreeting] Speaking dynamic employee first name after natural pause:', firstName);
+                
+                // Add a very short natural pause of 180ms between prerecorded greeting and name
+                setTimeout(() => {
+                  if (isCancelled) {
+                    setIsSpeaking(false);
+                    return;
+                  }
+                  speakGreeting(`${firstName}.`, {
+                    isUserGesture,
+                    onStart: () => {
+                      if (!isCancelled) setIsSpeaking(true);
+                    },
+                    onEnd: () => {
+                      setIsSpeaking(false);
+                    },
+                    onError: (err) => {
+                      console.warn('[WelcomeGreeting] Dynamic name speech error:', err);
+                      setIsSpeaking(false);
+                    }
+                  });
+                }, 180);
+              } catch (speechErr) {
+                console.warn('[WelcomeGreeting] Dynamic name speech exception:', speechErr);
+                setIsSpeaking(false);
+              }
+            } else if (attemptsLeft > 0 && status !== 'unregistered') {
+              // Wait 150ms and try again if employee data is still resolving
+              console.log('[WelcomeGreeting] Employee name not resolved yet, waiting...');
+              setTimeout(() => attemptSpeech(attemptsLeft - 1), 150);
+            } else {
+              // Fallback to generic greeting normally and finish with no trailing placeholder spoke
               setIsSpeaking(false);
             }
-          } else {
-            setIsSpeaking(false);
-          }
+          };
+
+          attemptSpeech(10);
         },
         onError: (err) => {
           console.warn('[WelcomeGreeting] WAV audio playback error:', err);
