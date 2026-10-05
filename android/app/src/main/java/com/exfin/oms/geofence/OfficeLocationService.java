@@ -217,7 +217,7 @@ public class OfficeLocationService extends Service {
 
                 if (consecutiveOutsideCount >= 2 || distance > 35.0) {
                     consecutiveOutsideCount = 0;
-                    Log.i(TAG, "=== NATIVE SECONDARY FUSED LOCATION EXIT DETECTED ===");
+                    Log.i(TAG, "[NATIVE ATTENDANCE] === Authoritative 25m exit detected (dist=" + Math.round(distance) + "m > 25m) ===");
                     OfficeGeofenceHelper.processExitTransition(this, location, "NATIVE_FUSED_LOCATION", null, null);
                 }
             } else {
@@ -233,7 +233,7 @@ public class OfficeLocationService extends Service {
 
                 if (consecutiveInsideCount >= 2 || distance <= 20.0) {
                     consecutiveInsideCount = 0;
-                    Log.i(TAG, "=== NATIVE GEOFENCE RETURN TO OFFICE DETECTED ===");
+                    Log.i(TAG, "[NATIVE ATTENDANCE] === Authoritative 25m return to office detected (dist=" + Math.round(distance) + "m <= 25m) ===");
                     OfficeGeofenceHelper.processReturnTransition(this, location, "NATIVE_FUSED_LOCATION_RETURN", null, null);
                 }
             } else {

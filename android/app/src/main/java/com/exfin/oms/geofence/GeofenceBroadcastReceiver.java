@@ -49,7 +49,7 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
             for (Geofence geofence : triggeringGeofences) {
                 if (geofence != null && geofence.getRequestId() != null) {
                     triggeringGeofenceIds.add(geofence.getRequestId());
-                    Log.i(TAG, "Native Geofence wake-up triggered by: " + geofence.getRequestId() + " (transition=" + transitionType + ")");
+                    Log.i(TAG, "[NATIVE ATTENDANCE] Native Geofence wake-up triggered by: " + geofence.getRequestId() + " (transition=" + transitionType + ")");
                 }
             }
         }

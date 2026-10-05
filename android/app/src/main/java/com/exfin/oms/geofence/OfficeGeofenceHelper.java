@@ -12,6 +12,7 @@ import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.os.Build;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.util.Log;
@@ -22,6 +23,9 @@ import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.Geofence;
 import com.google.android.gms.location.GeofencingClient;
 import com.google.android.gms.location.GeofencingRequest;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 import com.google.android.gms.tasks.CancellationTokenSource;
@@ -69,10 +73,12 @@ public class OfficeGeofenceHelper {
     // 25-meter Authoritative Attendance Boundary (STRICTLY UNCHANGED)
     public static final float AUTHORITATIVE_RADIUS_METERS = 25.0f; // 25m Authoritative Boundary (UNCHANGED)
 
-    // 100-meter Secondary Assist / Wake Boundary ONLY (Prepares device, wakes Fused Location, primes accuracy)
-    // Entering or exiting 100m MUST NOT modify attendance state.
-    public static final float ASSIST_RADIUS_METERS = 100.0f; // 100m Assist Radius ONLY
-    public static final float WAKEUP_TRIGGER_RADIUS_METERS = ASSIST_RADIUS_METERS; // 100m Assist
+    // 300-meter Secondary Assist / Wake Boundary ONLY:
+    // "WAKE/ASSIST ONLY — NEVER AUTHORITATIVE FOR ATTENDANCE"
+    // Responsible ONLY for waking/activating native location monitoring, obtaining fresh/high-quality location,
+    // and verifying actual distance. Entering or exiting 300m MUST NEVER directly modify attendance state.
+    public static final float ASSIST_RADIUS_METERS = 300.0f; // 300m Assist Radius ONLY
+    public static final float WAKEUP_TRIGGER_RADIUS_METERS = ASSIST_RADIUS_METERS; // 300m Assist
 
     public static final float MAX_USABLE_ACCURACY_METERS = 50.0f; // Reject fixes with accuracy > 50m
     public static final long MAX_ATTENDANCE_LOCATION_AGE_MS = 120000L; // 2 minutes max age for authoritative attendance mutation
@@ -81,9 +87,10 @@ public class OfficeGeofenceHelper {
     public static final String DEFAULT_SERVER_URL = "https://exfin-oms-enterprise-v5.pages.dev";
 
     public static final String GEOFENCE_ID_PRIMARY_25M = "exfin_office_geofence_auth_25m";
-    public static final String GEOFENCE_ID_ASSIST_100M = "exfin_office_geofence_assist_100m";
+    public static final String GEOFENCE_ID_ASSIST_300M = "exfin_office_geofence_assist_300m";
+    public static final String GEOFENCE_ID_ASSIST_100M = GEOFENCE_ID_ASSIST_300M; // Backward-compatible alias
     public static final String GEOFENCE_ID = GEOFENCE_ID_PRIMARY_25M;
-    public static final int SCHEMA_VERSION = 2;
+    public static final int SCHEMA_VERSION = 3;
 
     // Persistent SharedPreferences Storage
     public static final String PREFS_NAME = "exfin_native_geofence_prefs";
@@ -107,6 +114,9 @@ public class OfficeGeofenceHelper {
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
     private static final ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
     private static ScheduledFuture<?> activeAssistTask = null;
+    private static ScheduledFuture<?> assistTimeoutTask = null;
+    private static LocationCallback assistLocationCallback = null;
+    private static final AtomicBoolean isAssistMonitoringActive = new AtomicBoolean(false);
     private static final AtomicInteger assistChecksCount = new AtomicInteger(0);
     private static boolean isSyncRunning = false;
     private static boolean isNetworkCallbackRegistered = false;
@@ -116,14 +126,28 @@ public class OfficeGeofenceHelper {
     private static int consecutiveInsideReadings = 0;
 
     /**
-     * Registers the authoritative 25m geofence and secondary 100m assist geofence.
+     * Registers the authoritative 25m geofence and secondary 300m assist geofence.
      */
     public static void registerOfficeGeofence(Context context) {
         if (context == null) return;
 
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            Log.w(TAG, "Cannot register geofence: ACCESS_FINE_LOCATION permission not granted");
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                Log.w(TAG, "[NATIVE ATTENDANCE] Cannot register geofence: Precise location is disabled (only approximate location granted).");
+            } else {
+                Log.w(TAG, "[NATIVE ATTENDANCE] Cannot register geofence: Location permissions not granted.");
+            }
             setGeofenceRegistered(context, false);
+            return;
+        }
+
+        // Avoid redundant duplicate re-registration if already active with exact current configuration
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        boolean isRegistered = prefs.getBoolean(KEY_IS_REGISTERED, false);
+        int regVersion = prefs.getInt("geofence_registered_version", 0);
+        float regAssist = prefs.getFloat("geofence_registered_assist_radius", 0f);
+        if (isRegistered && regVersion == SCHEMA_VERSION && Math.abs(regAssist - ASSIST_RADIUS_METERS) < 0.1f) {
+            Log.d(TAG, "[NATIVE ATTENDANCE] Geofences already active (25m auth + 300m assist). Skipping duplicate registration.");
             return;
         }
 
@@ -141,11 +165,12 @@ public class OfficeGeofenceHelper {
                     .setNotificationResponsiveness(0) // Immediate wake-up
                     .build();
 
-            // 2. Secondary 100m Assist Geofence:
-            // Responsible ONLY for waking/priming the native location layer and obtaining fresh Fused Location.
-            // Entering/leaving 100m MUST NOT modify attendance state.
-            Geofence assistGeofence100m = new Geofence.Builder()
-                    .setRequestId(GEOFENCE_ID_ASSIST_100M)
+            // 2. Secondary 300m Assist Geofence:
+            // "WAKE/ASSIST ONLY — NEVER AUTHORITATIVE FOR ATTENDANCE"
+            // Responsible ONLY for waking/activating native location monitoring, obtaining fresh/high-quality location,
+            // and verifying actual distance. Entering/leaving 300m MUST NOT directly modify attendance state.
+            Geofence assistGeofence300m = new Geofence.Builder()
+                    .setRequestId(GEOFENCE_ID_ASSIST_300M)
                     .setCircularRegion(OFFICE_LAT, OFFICE_LNG, ASSIST_RADIUS_METERS)
                     .setExpirationDuration(Geofence.NEVER_EXPIRE)
                     .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER | Geofence.GEOFENCE_TRANSITION_EXIT | Geofence.GEOFENCE_TRANSITION_DWELL)
@@ -156,17 +181,20 @@ public class OfficeGeofenceHelper {
             GeofencingRequest request = new GeofencingRequest.Builder()
                     .setInitialTrigger(0) // Raw geofence events only wake/prime; 0 prevents initial trigger false positives upon registration
                     .addGeofence(authGeofence25m)
-                    .addGeofence(assistGeofence100m)
+                    .addGeofence(assistGeofence300m)
                     .build();
 
             PendingIntent pendingIntent = getGeofencePendingIntent(context);
 
             geofencingClient.addGeofences(request, pendingIntent)
                     .addOnSuccessListener(aVoid -> {
-                        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
                         String empId = prefs.getString("employee_id", "UNKNOWN");
-                        Log.i(TAG, "[NATIVE_GEOFENCE_REGISTERED] employeeId=" + empId + " 100mAssistRadius=" + ASSIST_RADIUS_METERS + "m 25mAuthRadius=" + AUTHORITATIVE_RADIUS_METERS + "m");
-                        setGeofenceRegistered(context, true);
+                        Log.i(TAG, "[NATIVE_GEOFENCE_REGISTERED] employeeId=" + empId + " 300mAssistRadius=" + ASSIST_RADIUS_METERS + "m 25mAuthRadius=" + AUTHORITATIVE_RADIUS_METERS + "m");
+                        SharedPreferences.Editor editor = prefs.edit();
+                        editor.putBoolean(KEY_IS_REGISTERED, true);
+                        editor.putInt("geofence_registered_version", SCHEMA_VERSION);
+                        editor.putFloat("geofence_registered_assist_radius", ASSIST_RADIUS_METERS);
+                        editor.apply();
                     })
                     .addOnFailureListener(e -> {
                         Log.e(TAG, "Failed to register office geofence: " + e.getMessage(), e);
@@ -268,13 +296,13 @@ public class OfficeGeofenceHelper {
         final PowerManager.WakeLock finalWakeLock = wakeLock;
 
         boolean isOnlyAssistGeofence = (triggeringGeofenceIds != null &&
-                                        triggeringGeofenceIds.contains(GEOFENCE_ID_ASSIST_100M) &&
+                                        (triggeringGeofenceIds.contains(GEOFENCE_ID_ASSIST_300M) || triggeringGeofenceIds.contains("exfin_office_geofence_assist_100m")) &&
                                         !triggeringGeofenceIds.contains(GEOFENCE_ID_PRIMARY_25M));
 
         executor.execute(() -> {
             try {
                 if (isOnlyAssistGeofence) {
-                    handleAssist100mTransition(context, transitionType, triggerLocation, pendingResult, finishedFlag);
+                    handleAssist300mTransition(context, transitionType, triggerLocation, pendingResult, finishedFlag);
                 } else {
                     requestHighAccuracyLocationAndDecide(context, transitionType, triggerLocation, pendingResult, finishedFlag);
                 }
@@ -295,190 +323,259 @@ public class OfficeGeofenceHelper {
     }
 
     /**
-     * Secondary 100m Assist / Wake Handler.
-     * STRICT CONSTRAINTS:
-     * 1. 100m is ONLY an assist/wake mechanism to prime high-accuracy Fused Location.
-     * 2. Entering 100m MUST NOT check in, open attendance, or change attendance state (if distance > 25m).
-     * 3. Leaving 100m MUST NOT checkout or create an attendance EXIT directly.
+     * Secondary 300m Assist / Wake Handler.
+     * "WAKE/ASSIST ONLY — NEVER AUTHORITATIVE FOR ATTENDANCE"
+     *
+     * STRICT ARCHITECTURAL CONSTRAINTS:
+     * 1. 300m is ONLY an assist/wake mechanism to prime high-accuracy Fused Location.
+     * 2. Entering 300m MUST NOT directly check in, open attendance, or modify attendance state (if distance > 25m).
+     * 3. Leaving 300m MUST NOT checkout or create an attendance EXIT directly.
      * 4. Only authoritative 25m boundary evaluation can modify attendance state.
-     * 5. Absolutely NO duplicate attendance events.
-     * 6. Battery-conscious: fresh current location requests, no permanent high-frequency tracking loop.
+     * 5. Solves the 270m problem: initial inaccurate/poor fixes (e.g. 270m, 143m acc) are not accepted as proof
+     *    of employee being outside. High-accuracy GPS monitoring continues until trustworthy fix <= 25m is obtained.
+     * 6. Battery-conscious: temporary approach/attendance confirmation mode runs at ~6s intervals and automatically
+     *    stops on check-in, exit/return, departure (>350m), or 150s timeout.
      */
-    private static void handleAssist100mTransition(Context context, int transitionType, Location triggerLocation, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
+    private static void handleAssist300mTransition(Context context, int transitionType, Location triggerLocation, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
         if (context == null) {
             safeFinishPendingResult(pendingResult, finishedFlag);
             return;
         }
 
-        Log.i(TAG, "[100M_ASSIST] Secondary assist wake triggered (transition=" + transitionType + ")");
-
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            Log.w(TAG, "[100M_ASSIST] ACCESS_FINE_LOCATION not granted. Assist standing down.");
-            safeFinishPendingResult(pendingResult, finishedFlag);
-            return;
-        }
-
-        FusedLocationProviderClient fusedClient = LocationServices.getFusedLocationProviderClient(context);
-        CancellationTokenSource cts = new CancellationTokenSource();
-
-        try {
-            // Request fresh high-accuracy location reading to prime the hardware
-            fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.getToken())
-                    .addOnSuccessListener(location -> {
-                        processAssist100mLocation(context, location, triggerLocation, transitionType, pendingResult, finishedFlag);
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.w(TAG, "[100M_ASSIST] getCurrentLocation failed: " + e.getMessage());
-                        // Fallback to last known location for diagnostic awareness ONLY - strictly NOT for attendance mutation
-                        try {
-                            fusedClient.getLastLocation().addOnSuccessListener(lastLoc -> {
-                                if (lastLoc != null) {
-                                    double d = calculateDistance(lastLoc.getLatitude(), lastLoc.getLongitude(), OFFICE_LAT, OFFICE_LNG);
-                                    saveLastLocationDiagnostic(context, lastLoc.getLatitude(), lastLoc.getLongitude(), lastLoc.getAccuracy(), lastLoc.getTime(), d);
-                                    Log.d(TAG, "[100M_ASSIST] Cached location recorded for awareness only: " + String.format(Locale.US, "%.1f", d) + "m");
-                                }
-                                safeFinishPendingResult(pendingResult, finishedFlag);
-                            }).addOnFailureListener(err -> {
-                                safeFinishPendingResult(pendingResult, finishedFlag);
-                            });
-                        } catch (SecurityException se) {
-                            safeFinishPendingResult(pendingResult, finishedFlag);
-                        }
-                    });
-        } catch (SecurityException se) {
-            Log.e(TAG, "[100M_ASSIST] SecurityException: " + se.getMessage());
-            safeFinishPendingResult(pendingResult, finishedFlag);
-        } catch (Exception e) {
-            Log.e(TAG, "[100M_ASSIST] Exception: " + e.getMessage());
-            safeFinishPendingResult(pendingResult, finishedFlag);
-        }
-    }
-
-    private static void processAssist100mLocation(Context context, Location location, Location triggerLocation, int transitionType, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
-        Location fix = (location != null && isLocationTrustworthyForAttendance(location)) ? location :
-                       (triggerLocation != null && isLocationTrustworthyForAttendance(triggerLocation)) ? triggerLocation : null;
-        String provider = (fix == location) ? "FUSED_CURRENT" : "GEOFENCE_TRIGGER";
-
-        if (fix == null) {
-            Log.w(TAG, "[100M_ASSIST] No trustworthy high-accuracy location fix available. Stand down without fabricating state.");
-            safeFinishPendingResult(pendingResult, finishedFlag);
-            return;
-        }
-
-        double lat = fix.getLatitude();
-        double lng = fix.getLongitude();
-        float accuracy = fix.getAccuracy();
-        long time = fix.getTime() > 0 ? fix.getTime() : System.currentTimeMillis();
-        double distance = calculateDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
-
-        // Record diagnostic awareness
-        saveLastLocationDiagnostic(context, lat, lng, accuracy, time, distance);
-        Log.i(TAG, "[100M_ASSIST] Fresh Location verified (" + provider + "): " + String.format(Locale.US, "%.1f", distance) + "m from office (acc=" + accuracy + "m)");
-
-        // 1. If 100m ENTER or DWELL:
         if (transitionType == Geofence.GEOFENCE_TRANSITION_ENTER || transitionType == Geofence.GEOFENCE_TRANSITION_DWELL) {
-            if (distance <= AUTHORITATIVE_RADIUS_METERS) {
-                // Employee is already within authoritative 25m boundary!
-                if (isLocationTrustworthyForCheckIn(fix)) {
-                    Log.i(TAG, "[100M_ASSIST] Verified location is inside authoritative 25m boundary (" + String.format(Locale.US, "%.1f", distance) + "m <= 25m). Delegating to authoritative check-in.");
-                    evaluateAttendanceDecision(context, fix, provider, Geofence.GEOFENCE_TRANSITION_ENTER, pendingResult, finishedFlag);
-                    return;
-                } else {
-                    Log.w(TAG, "[100M_ASSIST] Location inside 25m but failed check-in freshness/accuracy rules. Standing down without fabricating check-in.");
-                    safeFinishPendingResult(pendingResult, finishedFlag);
-                    return;
-                }
-            } else {
-                // Within 100m assist zone, but OUTSIDE 25m boundary:
-                // STRICT RULE: DO NOT CHECK IN. DO NOT OPEN ATTENDANCE.
-                Log.i(TAG, "[100M_ASSIST] Inside 100m assist zone (" + String.format(Locale.US, "%.1f", distance) + "m > 25m). Attendance state UNCHANGED. Priming temporary location awareness window.");
-                startTemporaryAssistAwarenessWindow(context);
-                safeFinishPendingResult(pendingResult, finishedFlag);
+            double trigDist = -1;
+            if (triggerLocation != null && !Double.isNaN(triggerLocation.getLatitude()) && !Double.isNaN(triggerLocation.getLongitude())) {
+                trigDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
             }
-        }
-        // 2. If 100m EXIT:
-        else if (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT) {
-            Log.i(TAG, "[100M_ASSIST] Exited 100m assist zone (" + String.format(Locale.US, "%.1f", distance) + "m). Cancelling assist awareness window. Attendance state strictly UNCHANGED.");
-            stopTemporaryAssistAwareness();
+            String distEstimateStr = trigDist >= 0 ? Math.round(trigDist) + "m" : "~300m";
+            Log.i(TAG, "[NATIVE ATTENDANCE] Assist zone entered: distance estimate=" + distEstimateStr);
+
+            // Permission check: Fine location required for 25m authoritative attendance
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    Log.w(TAG, "[NATIVE ATTENDANCE] Precise location unavailable (only coarse/approximate granted). Authoritative 25m attendance decisions require ACCESS_FINE_LOCATION.");
+                } else {
+                    Log.w(TAG, "[NATIVE ATTENDANCE] Location permission not granted. Assist standing down.");
+                }
+                safeFinishPendingResult(pendingResult, finishedFlag);
+                return;
+            }
+
+            // Start temporary high-accuracy monitoring
+            startTemporaryAssistMonitoring(context);
+            safeFinishPendingResult(pendingResult, finishedFlag);
+
+        } else if (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT) {
+            double exitDist = -1;
+            if (triggerLocation != null && !Double.isNaN(triggerLocation.getLatitude()) && !Double.isNaN(triggerLocation.getLongitude())) {
+                exitDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+            }
+            Log.i(TAG, "[NATIVE ATTENDANCE] Assist zone exited" + (exitDist >= 0 ? ": distance=" + Math.round(exitDist) + "m" : "") + ". Stopping temporary high accuracy monitoring. Attendance state strictly UNCHANGED.");
+            stopTemporaryAssistMonitoring(context);
             safeFinishPendingResult(pendingResult, finishedFlag);
         } else {
             safeFinishPendingResult(pendingResult, finishedFlag);
         }
     }
 
-    public static synchronized void startTemporaryAssistAwarenessWindow(Context context) {
-        stopTemporaryAssistAwareness(); // Cancel any existing assist window
-        if (context == null) return;
+    private static void handleAssist100mTransition(Context context, int transitionType, Location triggerLocation, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
+        handleAssist300mTransition(context, transitionType, triggerLocation, pendingResult, finishedFlag);
+    }
 
-        // Only start assist window if user does NOT already have an active checked-in session
-        JSONObject activeSession = getActiveSession(context);
+    /**
+     * Starts temporary high-accuracy location monitoring upon 300m assist zone entry.
+     * Reuses FusedLocationProviderClient with Priority.PRIORITY_HIGH_ACCURACY.
+     * Interval: 6s (fastest 3s, max delay 10s).
+     */
+    public static synchronized void startTemporaryAssistMonitoring(Context context) {
+        if (context == null) return;
+        final Context appContext = context.getApplicationContext();
+
+        // If user already has an active session in ACTIVE state and is inside, assist entry monitoring is not needed
+        JSONObject activeSession = getActiveSession(appContext);
         if (activeSession != null) {
             String state = activeSession.optString("sessionState", "");
             if ("ACTIVE".equalsIgnoreCase(state)) {
-                Log.d(TAG, "[100M_ASSIST] Active session already present. No need for entry assist window.");
+                Log.d(TAG, "[NATIVE ATTENDANCE] Active session already present in ACTIVE state. Entry assist monitoring not required.");
                 return;
             }
         }
 
-        assistChecksCount.set(0);
-        final Context appContext = context.getApplicationContext();
-
-        Log.i(TAG, "[100M_ASSIST] Initiating 60-second temporary assist awareness window (15s intervals).");
-
-        activeAssistTask = scheduledExecutor.scheduleWithFixedDelay(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    int count = assistChecksCount.incrementAndGet();
-                    if (count > 4) { // Max 4 checks = 60 seconds max
-                        Log.i(TAG, "[100M_ASSIST] Assist window completed 4 checks (60s). Standing down to conserve battery.");
-                        stopTemporaryAssistAwareness();
-                        return;
-                    }
-
-                    if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                        stopTemporaryAssistAwareness();
-                        return;
-                    }
-
-                    FusedLocationProviderClient fused = LocationServices.getFusedLocationProviderClient(appContext);
-                    CancellationTokenSource cts = new CancellationTokenSource();
-
-                    fused.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.getToken())
-                            .addOnSuccessListener(loc -> {
-                                if (loc != null && isLocationTrustworthyForAttendance(loc)) {
-                                    double d = calculateDistance(loc.getLatitude(), loc.getLongitude(), OFFICE_LAT, OFFICE_LNG);
-                                    Log.i(TAG, "[100M_ASSIST_CHECK #" + count + "] Distance: " + String.format(Locale.US, "%.1f", d) + "m (acc=" + loc.getAccuracy() + "m)");
-                                    if (d <= AUTHORITATIVE_RADIUS_METERS) {
-                                        if (isLocationTrustworthyForCheckIn(loc)) {
-                                            Log.i(TAG, "[100M_ASSIST] Boundary crossed inside 25m (" + String.format(Locale.US, "%.1f", d) + "m <= 25m)! Triggering authoritative check-in and stopping assist window.");
-                                            stopTemporaryAssistAwareness();
-                                            evaluateAttendanceDecision(appContext, loc, "FUSED_CURRENT", Geofence.GEOFENCE_TRANSITION_ENTER, null, null);
-                                        } else {
-                                            Log.w(TAG, "[100M_ASSIST] Fix <= 25m but not trustworthy for check-in yet. Continuing assist window.");
-                                        }
-                                    }
-                                }
-                            })
-                            .addOnFailureListener(e -> {
-                                Log.d(TAG, "[100M_ASSIST_CHECK #" + count + "] Fix failed: " + e.getMessage());
-                            });
-                } catch (Exception e) {
-                    Log.w(TAG, "Error during assist awareness check: " + e.getMessage());
-                }
+        // Permission check
+        if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                Log.w(TAG, "[NATIVE ATTENDANCE] Precise location unavailable (only coarse/approximate granted). Cannot start high-accuracy 25m monitoring.");
+            } else {
+                Log.w(TAG, "[NATIVE ATTENDANCE] Location permission not granted. High-accuracy monitoring aborted.");
             }
-        }, 15, 15, TimeUnit.SECONDS);
+            return;
+        }
+
+        // If already actively monitoring, do not duplicate callbacks; reset timeout watchdog
+        if (isAssistMonitoringActive.get()) {
+            Log.d(TAG, "[NATIVE ATTENDANCE] High accuracy monitoring already active. Resetting watchdog timer.");
+            resetAssistTimeoutWatchdog(appContext);
+            return;
+        }
+
+        isAssistMonitoringActive.set(true);
+        assistChecksCount.set(0);
+        Log.i(TAG, "[NATIVE ATTENDANCE] High accuracy monitoring started");
+
+        try {
+            FusedLocationProviderClient fusedClient = LocationServices.getFusedLocationProviderClient(appContext);
+
+            LocationRequest assistRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 6000)
+                    .setMinUpdateIntervalMillis(3000)
+                    .setMaxUpdateDelayMillis(10000)
+                    .setWaitForAccurateLocation(true)
+                    .build();
+
+            assistLocationCallback = new LocationCallback() {
+                @Override
+                public void onLocationResult(LocationResult locationResult) {
+                    if (locationResult == null || !isAssistMonitoringActive.get()) return;
+                    for (Location loc : locationResult.getLocations()) {
+                        if (loc != null) {
+                            processAssistLocationUpdate(appContext, loc);
+                        }
+                    }
+                }
+            };
+
+            fusedClient.requestLocationUpdates(assistRequest, assistLocationCallback, Looper.getMainLooper());
+
+            // Immediate fresh fix to prime hardware without waiting for first interval
+            CancellationTokenSource cts = new CancellationTokenSource();
+            fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.getToken())
+                    .addOnSuccessListener(loc -> {
+                        if (loc != null && isAssistMonitoringActive.get()) {
+                            processAssistLocationUpdate(appContext, loc);
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.d(TAG, "[NATIVE ATTENDANCE] Initial getCurrentLocation warm-up: " + e.getMessage());
+                    });
+
+            // Start 150-second (2.5 minute) timeout watchdog to guarantee battery safety
+            resetAssistTimeoutWatchdog(appContext);
+
+        } catch (SecurityException se) {
+            Log.e(TAG, "[NATIVE ATTENDANCE] SecurityException starting high-accuracy monitoring: " + se.getMessage());
+            isAssistMonitoringActive.set(false);
+        } catch (Exception e) {
+            Log.e(TAG, "[NATIVE ATTENDANCE] Exception starting high-accuracy monitoring: " + e.getMessage(), e);
+            isAssistMonitoringActive.set(false);
+        }
+    }
+
+    private static synchronized void resetAssistTimeoutWatchdog(Context context) {
+        if (assistTimeoutTask != null) {
+            try {
+                assistTimeoutTask.cancel(false);
+            } catch (Exception ignored) {}
+            assistTimeoutTask = null;
+        }
+        assistTimeoutTask = scheduledExecutor.schedule(() -> {
+            Log.i(TAG, "[NATIVE ATTENDANCE] Monitoring stopped (Timeout expired: 150s)");
+            stopTemporaryAssistMonitoring(context);
+        }, 150, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Processes high-accuracy location updates during temporary assist monitoring.
+     * Evaluates accuracy, freshness, and the strict 25m authoritative attendance boundary.
+     * Resolves the 270m problem: initial inaccurate/coarse fixes are rejected and monitoring continues.
+     */
+    private static void processAssistLocationUpdate(Context context, Location location) {
+        if (context == null || location == null || !isAssistMonitoringActive.get()) return;
+
+        double lat = location.getLatitude();
+        double lng = location.getLongitude();
+        float accuracy = location.hasAccuracy() ? location.getAccuracy() : 999.0f;
+        long now = System.currentTimeMillis();
+        long ageMs = location.getTime() > 0 ? (now - location.getTime()) : 0;
+        long ageSec = ageMs / 1000L;
+        double distance = calculateDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
+
+        // Required diagnostic log:
+        Log.i(TAG, "[NATIVE ATTENDANCE] Location accuracy=" + Math.round(accuracy) + "m, age=" + ageSec + "s, officeDistance=" + Math.round(distance) + "m");
+        saveLastLocationDiagnostic(context, lat, lng, accuracy, location.getTime(), distance);
+
+        // 1. Accuracy validation: Reject inaccurate positions (e.g. 270m cell jumps, accuracy > 50m)
+        if (!location.hasAccuracy() || accuracy > MAX_USABLE_ACCURACY_METERS) {
+            Log.w(TAG, "[NATIVE ATTENDANCE] Location rejected: accuracy=" + Math.round(accuracy) + "m (exceeds " + Math.round(MAX_USABLE_ACCURACY_METERS) + "m limit). Inaccurate location (e.g. 270m jump) - continuing high-accuracy acquisition.");
+            return;
+        }
+
+        // 2. Freshness validation: Reject stale cached fixes (must be <= 15s old for check-in)
+        if (ageMs > MAX_AUTHORITATIVE_CHECKIN_LOCATION_AGE_MS || ageMs < -1000L) {
+            Log.w(TAG, "[NATIVE ATTENDANCE] Location rejected: stale location age=" + ageSec + "s (must be <= " + (MAX_AUTHORITATIVE_CHECKIN_LOCATION_AGE_MS / 1000) + "s)");
+            return;
+        }
+
+        // 3. Precise location validation
+        if (!isLocationTrustworthyForCheckIn(location)) {
+            Log.w(TAG, "[NATIVE ATTENDANCE] Location rejected: failed check-in trustworthiness validation");
+            return;
+        }
+
+        // Location is trustworthy and fresh!
+        Log.i(TAG, "[NATIVE ATTENDANCE] Location accepted for authoritative evaluation");
+
+        // 4. Authoritative boundary decision: STRICT 25-METER RADIUS
+        if (distance <= AUTHORITATIVE_RADIUS_METERS) {
+            Log.i(TAG, "[NATIVE ATTENDANCE] officeDistance=" + Math.round(distance) + "m <= " + Math.round(AUTHORITATIVE_RADIUS_METERS) + "m");
+            Log.i(TAG, "[NATIVE ATTENDANCE] AUTHORITATIVE CHECK_IN triggered");
+
+            // Stop temporary high-accuracy monitoring to preserve battery
+            stopTemporaryAssistMonitoring(context);
+
+            // Execute existing authoritative transition
+            evaluateAttendanceDecision(context, location, "FUSED_ASSIST_HIGH_ACCURACY", Geofence.GEOFENCE_TRANSITION_ENTER, null, null);
+            return;
+        } else {
+            // Distance is > 25m (e.g. 270m, 150m, 80m, 50m, 30m)
+            Log.i(TAG, "[NATIVE ATTENDANCE] Authoritative check-in boundary not met: distance=" + Math.round(distance) + "m > " + Math.round(AUTHORITATIVE_RADIUS_METERS) + "m. Attendance state UNCHANGED. Monitoring continues.");
+
+            // If the employee is clearly far away (> 350m), stop monitoring to save battery
+            if (distance > 350.0) {
+                Log.i(TAG, "[NATIVE ATTENDANCE] Monitoring stopped (Employee clearly away from office: " + Math.round(distance) + "m)");
+                stopTemporaryAssistMonitoring(context);
+            }
+        }
+    }
+
+    public static synchronized void stopTemporaryAssistMonitoring(Context context) {
+        if (!isAssistMonitoringActive.getAndSet(false)) {
+            return;
+        }
+        try {
+            if (assistTimeoutTask != null) {
+                assistTimeoutTask.cancel(false);
+                assistTimeoutTask = null;
+            }
+            if (activeAssistTask != null) {
+                activeAssistTask.cancel(true);
+                activeAssistTask = null;
+            }
+            if (assistLocationCallback != null && context != null) {
+                FusedLocationProviderClient fused = LocationServices.getFusedLocationProviderClient(context.getApplicationContext());
+                fused.removeLocationUpdates(assistLocationCallback);
+                assistLocationCallback = null;
+            }
+            Log.i(TAG, "[NATIVE ATTENDANCE] High accuracy monitoring stopped");
+        } catch (Exception e) {
+            Log.w(TAG, "Error stopping assist monitoring: " + e.getMessage());
+        }
     }
 
     public static synchronized void stopTemporaryAssistAwareness() {
-        if (activeAssistTask != null) {
-            try {
-                activeAssistTask.cancel(true);
-                Log.d(TAG, "[100M_ASSIST] Temporary assist awareness stopped.");
-            } catch (Exception ignored) {}
-            activeAssistTask = null;
-        }
-        assistChecksCount.set(0);
+        stopTemporaryAssistMonitoring(null);
+    }
+
+    public static synchronized void startTemporaryAssistAwarenessWindow(Context context) {
+        startTemporaryAssistMonitoring(context);
     }
 
     private static void requestHighAccuracyLocationAndDecide(Context context, int transitionType, Location triggerLocation, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
@@ -874,6 +971,8 @@ public class OfficeGeofenceHelper {
                 }
 
                 Log.i(TAG, "=== NATIVE AUTHORITATIVE CHECK-IN TRIGGERED (Distance: " + String.format(Locale.US, "%.1f", distance) + "m <= 25m, Provider: " + locationProvider + ") ===");
+                stopTemporaryAssistMonitoring(context);
+                Log.i(TAG, "[NATIVE ATTENDANCE] High accuracy monitoring stopped (Authoritative check-in succeeded)");
                 logNativeAttendanceTimestampDiagnostic("CHECK_IN", "NATIVE_GEOFENCE", locationProvider, location, distance, employeeId);
 
                 String eventId = "evt_native_CHECK_IN_" + employeeId + "_" + dateStr;
@@ -1222,6 +1321,8 @@ public class OfficeGeofenceHelper {
 
         consecutiveOutsideReadings = 0;
         Log.i(TAG, "=== NATIVE AUTHORITATIVE CHECK-OUT TRIGGERED (Distance: " + String.format(Locale.US, "%.1f", distance) + "m > 25m, Source: " + source + ", Provider: " + locationProvider + ") ===");
+        stopTemporaryAssistMonitoring(context);
+        Log.i(TAG, "[NATIVE ATTENDANCE] High accuracy monitoring stopped (Authoritative check-out triggered)");
         logNativeAttendanceTimestampDiagnostic("CHECK_OUT", "NATIVE_GEOFENCE", locationProvider, location, distance, employeeId);
 
         // Date strings in Asia/Kolkata timezone
@@ -1341,6 +1442,8 @@ public class OfficeGeofenceHelper {
         }
 
         Log.i(TAG, "=== NATIVE RETURN INSIDE 25m OFFICE GEOFENCE CONFIRMED (Cancelling Pending Exit via " + source + ") ===");
+        stopTemporaryAssistMonitoring(context);
+        Log.i(TAG, "[NATIVE ATTENDANCE] High accuracy monitoring stopped (Authoritative return triggered)");
         logNativeAttendanceTimestampDiagnostic("GEOFENCE_RETURN", "NATIVE_GEOFENCE", "FUSED_CURRENT", location, distance, employeeId);
 
         // 1. Cancel pending exit and restore session to ACTIVE
