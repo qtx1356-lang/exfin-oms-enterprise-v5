@@ -54,13 +54,39 @@ jobs:
         id: versioning
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES_INPUT: ${{ github.event.inputs.releaseNotes }}
         run: |
           node -e '
           const fs = require("fs");
           const { execSync } = require("child_process");
 
-          let highestCode = 9;
-          let highestName = "1.0.8";
+          let highestCode = 0;
+          let highestName = "1.0.0";
+
+          // Helper to compare two semver strings
+          function isSemverHigher(cand, current) {
+            const cParts = cand.split(".").map(p => parseInt(p, 10));
+            const curParts = current.split(".").map(p => parseInt(p, 10));
+            if (cParts.length !== 3 || cParts.some(isNaN)) return false;
+            if (curParts.length !== 3 || curParts.some(isNaN)) return true;
+            
+            if (cParts[0] > curParts[0]) return true;
+            if (cParts[0] < curParts[0]) return false;
+            if (cParts[1] > curParts[1]) return true;
+            if (cParts[1] < curParts[1]) return false;
+            return cParts[2] > curParts[2];
+          }
+
+          // Helper to estimate versionCode from semver patch version (for 1.0.X baselines)
+          function estimateCode(semver) {
+            const parts = semver.split(".").map(p => parseInt(p, 10));
+            if (parts.length === 3 && !parts.some(isNaN)) {
+              if (parts[0] === 1 && parts[1] === 0) {
+                return parts[2] + 1;
+              }
+            }
+            return 0;
+          }
 
           // 1. Read local manifest
           try {
@@ -70,7 +96,10 @@ jobs:
                 highestCode = Math.max(highestCode, manifest.versionCode);
               }
               if (typeof manifest.versionName === "string" && manifest.versionName.trim()) {
-                highestName = manifest.versionName.trim();
+                const name = manifest.versionName.trim();
+                if (isSemverHigher(name, highestName)) {
+                  highestName = name;
+                }
               }
             }
           } catch (err) {
@@ -85,22 +114,11 @@ jobs:
               const tags = tagsOutput.split("\n").map(t => t.trim()).filter(t => t.startsWith("v"));
               for (const tag of tags) {
                 const semver = tag.substring(1);
-                const parts = semver.split(".").map(p => parseInt(p, 10));
-                if (parts.length === 3 && !parts.some(isNaN)) {
-                  let estimatedCode = 0;
-                  if (parts[0] === 1 && parts[1] === 0) {
-                    estimatedCode = parts[2] + 1;
-                  }
-                  highestCode = Math.max(highestCode, estimatedCode);
+                const estimatedCode = estimateCode(semver);
+                highestCode = Math.max(highestCode, estimatedCode);
 
-                  const curParts = highestName.split(".").map(p => parseInt(p, 10));
-                  if (curParts.length === 3 && !curParts.some(isNaN)) {
-                    if (parts[0] > curParts[0] ||
-                       (parts[0] === curParts[0] && parts[1] > curParts[1]) ||
-                       (parts[0] === curParts[0] && parts[1] === curParts[1] && parts[2] > curParts[2])) {
-                      highestName = semver;
-                    }
-                  }
+                if (isSemverHigher(semver, highestName)) {
+                  highestName = semver;
                 }
               }
             }
@@ -110,52 +128,36 @@ jobs:
 
           // 3. Query gh releases and download their manifests
           try {
-            const releaseListOutput = execSync("gh release list --limit 10 --json tagName 2>/dev/null || true").toString().trim();
+            const releaseListOutput = execSync("gh release list --limit 15 --json tagName 2>/dev/null || true").toString().trim();
             if (releaseListOutput) {
               const releases = JSON.parse(releaseListOutput);
               for (const rel of releases) {
                 if (rel.tagName && rel.tagName.startsWith("v")) {
                   const semver = rel.tagName.substring(1);
-                  const parts = semver.split(".").map(p => parseInt(p, 10));
-                  if (parts.length === 3 && !parts.some(isNaN)) {
-                    try {
-                      const tempDir = `/tmp/release-${rel.tagName}`;
-                      execSync(`mkdir -p ${tempDir} && gh release download ${rel.tagName} --pattern "android-version-manifest.json" --dir ${tempDir} --clobber 2>/dev/null || true`);
-                      const manifestPath = `${tempDir}/android-version-manifest.json`;
-                      if (fs.existsSync(manifestPath)) {
-                        const remoteManifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-                        if (typeof remoteManifest.versionCode === "number") {
-                          highestCode = Math.max(highestCode, remoteManifest.versionCode);
-                        }
-                        if (typeof remoteManifest.versionName === "string" && remoteManifest.versionName.trim()) {
-                          const rParts = remoteManifest.versionName.trim().split(".").map(p => parseInt(p, 10));
-                          const curParts = highestName.split(".").map(p => parseInt(p, 10));
-                          if (rParts.length === 3 && !rParts.some(isNaN) && curParts.length === 3 && !curParts.some(isNaN)) {
-                            if (rParts[0] > curParts[0] ||
-                               (rParts[0] === curParts[0] && rParts[1] > curParts[1]) ||
-                               (rParts[0] === curParts[0] && rParts[1] === curParts[1] && rParts[2] > curParts[2])) {
-                              highestName = remoteManifest.versionName.trim();
-                            }
-                          }
-                        }
-                      } else {
-                        let estimatedCode = 0;
-                        if (parts[0] === 1 && parts[1] === 0) {
-                          estimatedCode = parts[2] + 1;
-                        }
-                        highestCode = Math.max(highestCode, estimatedCode);
-                        
-                        const curParts = highestName.split(".").map(p => parseInt(p, 10));
-                        if (curParts.length === 3 && !curParts.some(isNaN)) {
-                          if (parts[0] > curParts[0] ||
-                             (parts[0] === curParts[0] && parts[1] > curParts[1]) ||
-                             (parts[0] === curParts[0] && parts[1] === curParts[1] && parts[2] > curParts[2])) {
-                            highestName = semver;
-                          }
+                  const estimatedCode = estimateCode(semver);
+                  highestCode = Math.max(highestCode, estimatedCode);
+
+                  if (isSemverHigher(semver, highestName)) {
+                    highestName = semver;
+                  }
+
+                  try {
+                    const tempDir = `/tmp/release-${rel.tagName}`;
+                    execSync(`mkdir -p ${tempDir} && gh release download ${rel.tagName} --pattern "android-version-manifest.json" --dir ${tempDir} --clobber 2>/dev/null || true`);
+                    const manifestPath = `${tempDir}/android-version-manifest.json`;
+                    if (fs.existsSync(manifestPath)) {
+                      const remoteManifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+                      if (typeof remoteManifest.versionCode === "number") {
+                        highestCode = Math.max(highestCode, remoteManifest.versionCode);
+                      }
+                      if (typeof remoteManifest.versionName === "string" && remoteManifest.versionName.trim()) {
+                        const name = remoteManifest.versionName.trim();
+                        if (isSemverHigher(name, highestName)) {
+                          highestName = name;
                         }
                       }
-                    } catch (e) {}
-                  }
+                    }
+                  } catch (e) {}
                 }
               }
             }
@@ -165,8 +167,14 @@ jobs:
 
           // Calculate final next values
           const nextVersionCode = highestCode + 1;
-          let nextVersionName = highestName;
 
+          // SAFETY GURANTEE CHECK
+          if (nextVersionCode <= highestCode) {
+            console.error(`::error::Safety Check Failed! Calculated nextVersionCode (${nextVersionCode}) is not strictly greater than highestCode (${highestCode})`);
+            process.exit(1);
+          }
+
+          let nextVersionName = "1.0.1";
           const nameParts = highestName.split(".").map(p => parseInt(p, 10));
           if (nameParts.length === 3 && !nameParts.some(isNaN)) {
             nextVersionName = `${nameParts[0]}.${nameParts[1]}.${nameParts[2] + 1}`;
@@ -185,13 +193,14 @@ jobs:
 
           // Update local public/android-version-manifest.json in workspace before building
           const repo = process.env.GITHUB_REPOSITORY || "qtx1356-lang/exfin-oms-enterprise-v5";
+          const releaseNotesInput = process.env.RELEASE_NOTES_INPUT || "";
+          const releaseNotes = releaseNotesInput.trim() ? [releaseNotesInput.trim()] : [`Automatic Android release for EXFIN OMS.`];
+
           const updatedManifest = {
             versionCode: nextVersionCode,
             versionName: nextVersionName,
             apkUrl: `https://github.com/${repo}/releases/download/v${nextVersionName}/EXFIN-OMS-Android-v${nextVersionName}.apk`,
-            releaseNotes: [
-              `EXFIN OMS Android update Version ${nextVersionName} (Build ${nextVersionCode})`
-            ]
+            releaseNotes: releaseNotes
           };
           fs.writeFileSync("public/android-version-manifest.json", JSON.stringify(updatedManifest, null, 2) + "\n");
           console.log("Updated public/android-version-manifest.json successfully.");
@@ -252,7 +261,7 @@ jobs:
         run: |
           cd android
           echo "Building Release APK with Version Code: $ANDROID_VERSION_CODE, Version Name: $ANDROID_VERSION_NAME..."
-          ./gradlew assembleRelease --stacktrace --no-daemon
+          ./gradlew assembleRelease -PversionCode=$ANDROID_VERSION_CODE -PversionName=$ANDROID_VERSION_NAME --stacktrace --no-daemon
 
       - name: Locate, Verify & Stage Release APK
         run: |
@@ -293,20 +302,7 @@ jobs:
           echo "Staged APK to artifact/$APK_FILENAME and artifact/exfin-oms-android.apk"
 
           # Stage update manifest matching the built APK
-          REPO_NAME="${{ github.repository }}"
-          APK_DOWNLOAD_URL="https://github.com/${REPO_NAME}/releases/download/v${{ env.VERSION_NAME }}/${APK_FILENAME}"
-
-          cat <<EOF > artifact/android-version-manifest.json
-          {
-            "versionCode": ${{ env.VERSION_CODE }},
-            "versionName": "${{ env.VERSION_NAME }}",
-            "apkUrl": "${APK_DOWNLOAD_URL}",
-            "releaseNotes": [
-              "Automatic Android update release"
-            ]
-          }
-          EOF
-
+          cp public/android-version-manifest.json artifact/android-version-manifest.json
           echo "=== Generated Manifest ==="
           cat artifact/android-version-manifest.json
 
