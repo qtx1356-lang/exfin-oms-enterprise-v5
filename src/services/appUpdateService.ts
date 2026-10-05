@@ -102,16 +102,29 @@ async function fetchGithubReleaseManifest(): Promise<AndroidUpdateManifest | nul
   const timeoutId = setTimeout(() => controller.abort(), 8000);
   try {
     const url = `${GITHUB_RELEASES_LATEST_API_URL}${GITHUB_RELEASES_LATEST_API_URL.includes('?') ? '&' : '?'}t=${Date.now()}`;
-    const releaseResp = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/vnd.github+json',
-      },
-    });
-    if (!releaseResp.ok) {
-      return null;
+    let releaseData: any = null;
+
+    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+      try {
+        const nativeJson = await ExfinUpdate.fetchRemoteManifest?.({ url });
+        if (nativeJson && (nativeJson.tag_name || Array.isArray(nativeJson.assets))) {
+          releaseData = nativeJson;
+        }
+      } catch {}
     }
-    const releaseData = await releaseResp.json();
+
+    if (!releaseData) {
+      const releaseResp = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/vnd.github+json',
+        },
+      });
+      if (releaseResp.ok) {
+        releaseData = await releaseResp.json();
+      }
+    }
+
     if (!releaseData || !Array.isArray(releaseData.assets)) {
       return null;
     }
@@ -121,10 +134,11 @@ async function fetchGithubReleaseManifest(): Promise<AndroidUpdateManifest | nul
       (asset: any) => asset && asset.name === 'android-version-manifest.json'
     );
     if (manifestAsset && typeof manifestAsset.browser_download_url === 'string') {
+      const assetUrl = `${manifestAsset.browser_download_url}${manifestAsset.browser_download_url.includes('?') ? '&' : '?'}t=${Date.now()}`;
       // First try via native plugin to avoid browser CORS/redirect restrictions
       if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
         try {
-          const nativeData = await ExfinUpdate.fetchRemoteManifest?.({ url: manifestAsset.browser_download_url });
+          const nativeData = await ExfinUpdate.fetchRemoteManifest?.({ url: assetUrl });
           if (nativeData && isValidAndroidManifest(nativeData)) {
             return nativeData;
           }
@@ -133,7 +147,7 @@ async function fetchGithubReleaseManifest(): Promise<AndroidUpdateManifest | nul
 
       // Web fetch fallback (simple GET without custom headers that trigger preflight)
       try {
-        const assetResp = await fetch(manifestAsset.browser_download_url);
+        const assetResp = await fetch(assetUrl);
         if (assetResp.ok) {
           const data = await assetResp.json();
           if (isValidAndroidManifest(data)) {

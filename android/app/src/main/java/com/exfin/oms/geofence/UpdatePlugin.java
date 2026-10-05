@@ -93,6 +93,8 @@ public class UpdatePlugin extends Plugin {
                     connection.setInstanceFollowRedirects(false);
                     connection.setRequestProperty("User-Agent", "EXFIN-OMS-Updater/1.0 (Android)");
                     connection.setRequestProperty("Accept", "application/json, */*");
+                    connection.setRequestProperty("Cache-Control", "no-cache, no-store, must-revalidate");
+                    connection.setRequestProperty("Pragma", "no-cache");
                     connection.connect();
 
                     int responseCode = connection.getResponseCode();
