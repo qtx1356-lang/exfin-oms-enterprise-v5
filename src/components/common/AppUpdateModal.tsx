@@ -43,25 +43,51 @@ export const AppUpdateModal: React.FC = () => {
     isCheckingRef.current = true;
 
     try {
+      console.log('[AppUpdateModal] Triggering silent update check...');
       const updateInfo = await checkAppUpdateSilently();
+      console.log('[AppUpdateModal] Update check result retrieved:', {
+        updateAvailable: updateInfo?.updateAvailable,
+        installedCode: updateInfo?.installedVersion?.versionCode,
+        installedName: updateInfo?.installedVersion?.versionName,
+        remoteCode: updateInfo?.remoteManifest?.versionCode,
+        remoteName: updateInfo?.remoteManifest?.versionName
+      });
+
       if (updateInfo?.updateAvailable && updateInfo.remoteManifest) {
         const remote = updateInfo.remoteManifest;
+        
         // If user previously pressed 'Later' for this exact version code during this session, do not prompt again
-        if (isUpdateDismissedForSession(remote.versionCode)) {
+        const isDismissed = isUpdateDismissedForSession(remote.versionCode);
+        console.log(`[AppUpdateModal] Checking if version ${remote.versionCode} was dismissed:`, isDismissed);
+        
+        if (isDismissed) {
+          console.log('[AppUpdateModal] Update check skipped because this version was dismissed for the current session.');
           return;
         }
 
         const installPermission = await checkCanInstallUnknownApps();
+        console.log('[AppUpdateModal] Install unknown apps permission state:', installPermission);
+        
         setCanInstall(installPermission);
         setManifest(remote);
         setModalState('PROMPT');
         setDownloadProgress(0);
+        console.log('[AppUpdateModal] Successfully set manifest and state to PROMPT. Alert modal will now render.');
+      } else {
+        console.log('[AppUpdateModal] No update available or remote manifest is missing.');
       }
     } catch (err) {
       console.debug('[AppUpdateModal] Update check error ignored silently:', err);
     } finally {
       isCheckingRef.current = false;
     }
+  }, []);
+
+  useEffect(() => {
+    console.log('[AppUpdateModal] Component mounted into visual tree');
+    return () => {
+      console.log('[AppUpdateModal] Component unmounted from visual tree');
+    };
   }, []);
 
   useEffect(() => {
