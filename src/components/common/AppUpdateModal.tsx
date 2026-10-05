@@ -8,6 +8,7 @@ import {
   openUnknownAppsSettings,
   ExfinUpdate,
   AndroidUpdateManifest,
+  InstalledAppVersion,
   UpdateProgressEvent,
 } from '../../services/appUpdateService';
 import { Download, RefreshCw, AlertCircle, CheckCircle2, ShieldAlert, Sparkles, ExternalLink, Loader2 } from 'lucide-react';
@@ -20,6 +21,7 @@ const PERIODIC_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 export const AppUpdateModal: React.FC = () => {
   const [manifest, setManifest] = useState<AndroidUpdateManifest | null>(null);
+  const [installedVersion, setInstalledVersion] = useState<InstalledAppVersion | null>(null);
   const [modalState, setModalState] = useState<UpdateModalState>('PROMPT');
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [bytesDownloaded, setBytesDownloaded] = useState<number>(0);
@@ -68,6 +70,7 @@ export const AppUpdateModal: React.FC = () => {
         console.log('[AppUpdateModal] Install unknown apps permission state:', installPermission);
         
         setCanInstall(installPermission);
+        setInstalledVersion(updateInfo.installedVersion);
         setManifest(remote);
         setModalState('PROMPT');
         setDownloadProgress(0);
@@ -90,7 +93,11 @@ export const AppUpdateModal: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // 1. Initial silent check with a safe 3.5s delay to ensure the native bridge is fully initialized
+    // 1. Initial silent check shortly after startup, followed by a secondary check at 3.5s
+    const earlyStartupTimer = setTimeout(() => {
+      void performUpdateCheck();
+    }, 800);
+
     const startupTimer = setTimeout(() => {
       void performUpdateCheck();
     }, 3500);
@@ -244,10 +251,15 @@ export const AppUpdateModal: React.FC = () => {
             </div>
 
             <div>
-              <h3 className="text-xl font-bold tracking-tight text-white">New Update Available</h3>
-              <p className="text-sm text-purple-300 font-medium mt-0.5">
-                Version {manifest.versionName} (Build {manifest.versionCode})
-              </p>
+              <h3 className="text-xl font-bold tracking-tight text-white">New update available</h3>
+              <div className="mt-2 space-y-1 text-sm">
+                <p className="text-slate-300">
+                  Current version: <span className="font-semibold text-white">{installedVersion?.versionName || '1.0.16'}</span>
+                </p>
+                <p className="text-purple-300">
+                  New version: <span className="font-semibold text-purple-200">{manifest.versionName}</span>
+                </p>
+              </div>
             </div>
 
             {releaseNotesList.length > 0 && (

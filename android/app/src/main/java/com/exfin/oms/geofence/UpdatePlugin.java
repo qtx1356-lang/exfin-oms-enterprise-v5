@@ -48,6 +48,9 @@ public class UpdatePlugin extends Plugin {
             String versionName = com.exfin.oms.BuildConfig.VERSION_NAME;
             String packageName = context.getPackageName();
 
+            Log.i(TAG, "[APP UPDATE] Installed versionCode=" + versionCode);
+            Log.i(TAG, "[APP UPDATE] Installed versionName=" + versionName);
+
             boolean canInstall = true;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 canInstall = context.getPackageManager().canRequestPackageInstalls();
@@ -63,6 +66,89 @@ public class UpdatePlugin extends Plugin {
             Log.e(TAG, "Failed to get installed version: " + e.getMessage(), e);
             call.reject("Failed to get installed version: " + e.getMessage());
         }
+    }
+
+    @PluginMethod
+    public void fetchRemoteManifest(PluginCall call) {
+        String urlString = call.getString("url");
+        if (urlString == null || urlString.trim().isEmpty()) {
+            call.reject("URL is required");
+            return;
+        }
+
+        downloadExecutor.submit(() -> {
+            HttpURLConnection connection = null;
+            InputStream inputStream = null;
+            try {
+                String currentUrl = urlString;
+                int redirectCount = 0;
+                while (redirectCount < MAX_REDIRECTS) {
+                    URL url = new URL(currentUrl);
+                    if (!"https".equalsIgnoreCase(url.getProtocol())) {
+                        throw new SecurityException("Only HTTPS permitted");
+                    }
+                    connection = (HttpURLConnection) url.openConnection();
+                    connection.setConnectTimeout(10000);
+                    connection.setReadTimeout(15000);
+                    connection.setInstanceFollowRedirects(false);
+                    connection.setRequestProperty("User-Agent", "EXFIN-OMS-Updater/1.0 (Android)");
+                    connection.setRequestProperty("Accept", "application/json, */*");
+                    connection.connect();
+
+                    int responseCode = connection.getResponseCode();
+                    if (responseCode == HttpURLConnection.HTTP_MOVED_PERM ||
+                        responseCode == HttpURLConnection.HTTP_MOVED_TEMP ||
+                        responseCode == HttpURLConnection.HTTP_SEE_OTHER ||
+                        responseCode == 307 ||
+                        responseCode == 308) {
+
+                        String location = connection.getHeaderField("Location");
+                        connection.disconnect();
+                        connection = null;
+                        if (location == null || location.trim().isEmpty()) {
+                            throw new IllegalStateException("Redirect missing Location header");
+                        }
+                        URL redirectUrl = new URL(url, location);
+                        currentUrl = redirectUrl.toString();
+                        redirectCount++;
+                        continue;
+                    }
+
+                    if (responseCode != HttpURLConnection.HTTP_OK) {
+                        throw new IllegalStateException("HTTP error " + responseCode);
+                    }
+                    break;
+                }
+
+                if (connection == null) {
+                    throw new IllegalStateException("Failed to connect");
+                }
+
+                inputStream = new BufferedInputStream(connection.getInputStream(), 8192);
+                java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = inputStream.read(buf)) != -1) {
+                    baos.write(buf, 0, n);
+                }
+                String content = baos.toString("UTF-8");
+                org.json.JSONObject json = new org.json.JSONObject(content);
+
+                JSObject ret = JSObject.fromJSONObject(json);
+                call.resolve(ret);
+
+            } catch (Exception e) {
+                Log.w(TAG, "[APP UPDATE] Native manifest fetch failed: " + e.getMessage());
+                call.reject("Failed to fetch manifest: " + e.getMessage());
+            } finally {
+                if (inputStream != null) {
+                    try { inputStream.close(); } catch (Exception ignored) {}
+                }
+                if (connection != null) {
+                    try { connection.disconnect(); } catch (Exception ignored) {}
+                }
+            }
+        });
     }
 
     @PluginMethod

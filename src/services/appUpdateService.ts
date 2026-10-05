@@ -37,6 +37,7 @@ interface ExfinUpdatePlugin {
   openInstallUnknownAppsSettings(): Promise<{ opened: boolean }>;
   downloadAndInstallUpdate(options: { updateUrl: string }): Promise<{ success: boolean; installerLaunched?: boolean }>;
   cancelUpdateDownload(): Promise<{ cancelled: boolean }>;
+  fetchRemoteManifest?(options: { url: string }): Promise<any>;
   addListener(
     eventName: 'updateDownloadProgress',
     listenerFunc: (progress: UpdateProgressEvent) => void
@@ -94,6 +95,7 @@ export function isValidAndroidManifest(manifest: any): manifest is AndroidUpdate
 
 /**
  * Priority 1: Fetches the latest release metadata asset from GitHub Releases API with cache busting.
+ * Falls back to parsing release body and assets directly if asset fetch fails.
  */
 async function fetchGithubReleaseManifest(): Promise<AndroidUpdateManifest | null> {
   const controller = new AbortController();
@@ -104,8 +106,6 @@ async function fetchGithubReleaseManifest(): Promise<AndroidUpdateManifest | nul
       signal: controller.signal,
       headers: {
         Accept: 'application/vnd.github+json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Pragma: 'no-cache',
       },
     });
     if (!releaseResp.ok) {
@@ -116,33 +116,63 @@ async function fetchGithubReleaseManifest(): Promise<AndroidUpdateManifest | nul
       return null;
     }
 
-    // Find the release asset named exactly android-version-manifest.json
+    // 1. Try to download android-version-manifest.json release asset
     const manifestAsset = releaseData.assets.find(
       (asset: any) => asset && asset.name === 'android-version-manifest.json'
     );
-    if (!manifestAsset || typeof manifestAsset.browser_download_url !== 'string') {
-      return null;
+    if (manifestAsset && typeof manifestAsset.browser_download_url === 'string') {
+      // First try via native plugin to avoid browser CORS/redirect restrictions
+      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+        try {
+          const nativeData = await ExfinUpdate.fetchRemoteManifest?.({ url: manifestAsset.browser_download_url });
+          if (nativeData && isValidAndroidManifest(nativeData)) {
+            return nativeData;
+          }
+        } catch {}
+      }
+
+      // Web fetch fallback (simple GET without custom headers that trigger preflight)
+      try {
+        const assetResp = await fetch(manifestAsset.browser_download_url);
+        if (assetResp.ok) {
+          const data = await assetResp.json();
+          if (isValidAndroidManifest(data)) {
+            return data;
+          }
+        }
+      } catch {}
     }
 
-    const assetController = new AbortController();
-    const assetTimeoutId = setTimeout(() => assetController.abort(), 8000);
-    try {
-      const assetUrl = `${manifestAsset.browser_download_url}${manifestAsset.browser_download_url.includes('?') ? '&' : '?'}t=${Date.now()}`;
-      const assetResp = await fetch(assetUrl, {
-        signal: assetController.signal,
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          Pragma: 'no-cache',
-        },
-      });
-      if (!assetResp.ok) {
-        return null;
+    // 2. Direct fallback: derive manifest from the latest release metadata itself!
+    if (releaseData.tag_name) {
+      const semver = releaseData.tag_name.replace(/^v/, '');
+      const buildMatch = typeof releaseData.body === 'string' ? releaseData.body.match(/Build\s+(\d+)/i) : null;
+      let parsedCode = buildMatch ? parseInt(buildMatch[1], 10) : 0;
+      if (!parsedCode) {
+        const parts = semver.split('.').map((p: string) => parseInt(p, 10));
+        if (parts.length === 3 && parts[0] === 1 && parts[1] === 0) {
+          parsedCode = parts[2] + 1;
+        }
       }
-      const data = await assetResp.json();
-      return isValidAndroidManifest(data) ? data : null;
-    } finally {
-      clearTimeout(assetTimeoutId);
+
+      const apkAsset = releaseData.assets.find(
+        (asset: any) => asset && typeof asset.name === 'string' && asset.name.endsWith('.apk')
+      );
+
+      if (parsedCode > 0 && apkAsset && typeof apkAsset.browser_download_url === 'string') {
+        const directManifest: AndroidUpdateManifest = {
+          versionCode: parsedCode,
+          versionName: semver,
+          apkUrl: apkAsset.browser_download_url,
+          releaseNotes: ['Automatic Android release for EXFIN OMS.'],
+        };
+        if (isValidAndroidManifest(directManifest)) {
+          return directManifest;
+        }
+      }
     }
+
+    return null;
   } catch {
     return null;
   } finally {
@@ -151,20 +181,41 @@ async function fetchGithubReleaseManifest(): Promise<AndroidUpdateManifest | nul
 }
 
 /**
- * Priority 2: Fetches the raw GitHub manifest file with cache-busting.
+ * Priority 2: Fetches latest release download asset directly via native bridge.
+ */
+async function fetchLatestReleaseAssetDirectly(): Promise<AndroidUpdateManifest | null> {
+  const directUrl = 'https://github.com/qtx1356-lang/exfin-oms-enterprise-v5/releases/latest/download/android-version-manifest.json';
+  if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+    try {
+      const nativeData = await ExfinUpdate.fetchRemoteManifest?.({ url: directUrl });
+      if (nativeData && isValidAndroidManifest(nativeData)) {
+        return nativeData;
+      }
+    } catch {}
+  }
+  return null;
+}
+
+/**
+ * Priority 3: Fetches the raw GitHub manifest file with cache-busting.
  */
 async function fetchRawManifest(): Promise<AndroidUpdateManifest | null> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 8000);
   try {
+    // Try native fetch first
+    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+      try {
+        const nativeData = await ExfinUpdate.fetchRemoteManifest?.({ url: ANDROID_UPDATE_MANIFEST_URL });
+        if (nativeData && isValidAndroidManifest(nativeData)) {
+          return nativeData;
+        }
+      } catch {}
+    }
+
+    // Simple GET without custom non-safelisted headers to prevent CORS preflight 403 on raw.githubusercontent.com
     const url = `${ANDROID_UPDATE_MANIFEST_URL}${ANDROID_UPDATE_MANIFEST_URL.includes('?') ? '&' : '?'}t=${Date.now()}`;
-    const resp = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Pragma: 'no-cache',
-      },
-    });
+    const resp = await fetch(url, { signal: controller.signal });
     if (!resp.ok) {
       return null;
     }
@@ -178,20 +229,14 @@ async function fetchRawManifest(): Promise<AndroidUpdateManifest | null> {
 }
 
 /**
- * Priority 3: Fetches the bundled / hosted /android-version-manifest.json file.
+ * Priority 4: Fetches the bundled / hosted /android-version-manifest.json file.
  */
 async function fetchBundledManifest(): Promise<AndroidUpdateManifest | null> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 8000);
   try {
     const url = `/android-version-manifest.json?t=${Date.now()}`;
-    const resp = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Pragma: 'no-cache',
-      },
-    });
+    const resp = await fetch(url, { signal: controller.signal });
     if (!resp.ok) {
       return null;
     }
@@ -211,14 +256,17 @@ async function fetchCustomManifest(customUrl: string): Promise<AndroidUpdateMani
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 8000);
   try {
+    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+      try {
+        const nativeData = await ExfinUpdate.fetchRemoteManifest?.({ url: customUrl });
+        if (nativeData && isValidAndroidManifest(nativeData)) {
+          return nativeData;
+        }
+      } catch {}
+    }
+
     const url = `${customUrl}${customUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
-    const resp = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Pragma: 'no-cache',
-      },
-    });
+    const resp = await fetch(url, { signal: controller.signal });
     if (!resp.ok) {
       return null;
     }
@@ -293,12 +341,24 @@ export const checkAppUpdateSilently = async (
       const releaseManifest = await fetchGithubReleaseManifest();
       if (releaseManifest && isValidAndroidManifest(releaseManifest)) {
         candidateManifests.push(releaseManifest);
-      } else {
-        // Priority 2 (Fallback): Raw GitHub Manifest file
-        const rawManifest = await fetchRawManifest();
-        if (rawManifest && isValidAndroidManifest(rawManifest)) {
-          candidateManifests.push(rawManifest);
-        }
+      }
+
+      // Priority 2: Direct release download asset
+      const directReleaseManifest = await fetchLatestReleaseAssetDirectly();
+      if (directReleaseManifest && isValidAndroidManifest(directReleaseManifest)) {
+        candidateManifests.push(directReleaseManifest);
+      }
+
+      // Priority 3: Raw GitHub Manifest file
+      const rawManifest = await fetchRawManifest();
+      if (rawManifest && isValidAndroidManifest(rawManifest)) {
+        candidateManifests.push(rawManifest);
+      }
+
+      // Priority 4: Bundled / local manifest fallback
+      const bundledManifest = await fetchBundledManifest();
+      if (bundledManifest && isValidAndroidManifest(bundledManifest)) {
+        candidateManifests.push(bundledManifest);
       }
     }
 
@@ -316,17 +376,21 @@ export const checkAppUpdateSilently = async (
     }
 
     // 4. Authoritative version comparison: remote.versionCode > installed.versionCode
-    const updateAvailable = bestManifest.versionCode > installed.versionCode;
+    const compResult = bestManifest.versionCode > installed.versionCode;
 
-    console.log('[EXFIN UPDATE] Remote versionCode:', bestManifest.versionCode);
-    console.log('[EXFIN UPDATE] Remote versionName:', bestManifest.versionName);
-    console.log('[EXFIN UPDATE] APK URL:', bestManifest.apkUrl);
-    console.log('[EXFIN UPDATE] Update available:', updateAvailable);
+    console.log(`[APP UPDATE] Installed versionCode=${installed.versionCode}`);
+    console.log(`[APP UPDATE] Installed versionName=${installed.versionName}`);
+    console.log(`[APP UPDATE] Remote versionCode=${bestManifest.versionCode}`);
+    console.log(`[APP UPDATE] Remote versionName=${bestManifest.versionName}`);
+    console.log(`[APP UPDATE] Comparison: ${bestManifest.versionCode} > ${installed.versionCode} = ${compResult ? 'TRUE' : 'FALSE'}`);
+    if (compResult) {
+      console.log('[APP UPDATE] UPDATE AVAILABLE');
+    }
 
     return {
-      updateAvailable,
+      updateAvailable: compResult,
       installedVersion: installed,
-      remoteManifest: updateAvailable ? bestManifest : null,
+      remoteManifest: compResult ? bestManifest : null,
     };
   } catch (err) {
     // Fail silently: never disrupt application startup or user experience
