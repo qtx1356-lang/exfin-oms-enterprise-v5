@@ -309,17 +309,19 @@ export function speakGreeting(text: string, options?: SpeakOptions): boolean {
       activeUtterance = null;
     }
 
-    // Cancel any previous queued speech
-    window.speechSynthesis.cancel();
+    // Cancel any previous active queued speech only if currently speaking or pending
+    try {
+      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+        window.speechSynthesis.cancel();
+      }
+    } catch (e) {}
 
     // Safe resume for Android Chrome
     try {
       if (typeof window.speechSynthesis.resume === 'function') {
         window.speechSynthesis.resume();
       }
-    } catch (e) {
-      // Ignore if resume is not supported
-    }
+    } catch (e) {}
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.volume = 1.0;
@@ -370,6 +372,13 @@ export function speakGreeting(text: string, options?: SpeakOptions): boolean {
 
     activeUtterance = utterance;
     window.speechSynthesis.speak(utterance);
+
+    // CRITICAL CHROME & ANDROID WEBVIEW FIX: Ensure synthesis queue is resumed immediately after speak()
+    try {
+      if (typeof window.speechSynthesis.resume === 'function') {
+        window.speechSynthesis.resume();
+      }
+    } catch (e) {}
 
     // Fallback safety timeout if speech end event never fires
     setTimeout(() => {

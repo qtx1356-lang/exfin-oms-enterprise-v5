@@ -91,6 +91,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         const parsed = JSON.parse(raw);
         if (parsed.firstName) return parsed.firstName;
         if (parsed.name) return parsed.name;
+        if (parsed.fullName) return parsed.fullName;
+        if (parsed.employeeName) return parsed.employeeName;
         if (parsed.displayName) return parsed.displayName;
       }
       const rawAuth = localStorage.getItem('exfin_auth_user');
@@ -99,6 +101,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
         if (parsedAuth.displayName) return parsedAuth.displayName;
         if (parsedAuth.name) return parsedAuth.name;
       }
+      const rawProf = localStorage.getItem('exfin_employee_profile');
+      if (rawProf) {
+        const parsedProf = JSON.parse(rawProf);
+        if (parsedProf.firstName) return parsedProf.firstName;
+        if (parsedProf.name) return parsedProf.name;
+      }
+      const directName = localStorage.getItem('employee_name') || localStorage.getItem('registration_name') || localStorage.getItem('user_name');
+      if (directName) return directName;
     } catch (e) {}
     return '';
   });
@@ -273,92 +283,80 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     console.log('[GREETING VOICE] waiting for user interaction:', !speechAudibleRef.current);
   }, [displayName, resolvedFirstName, greetingText, greetingInfo]);
 
-  // Automatic Welcome Screen greeting: speaking the complete sentence once
+  // Automatic Welcome Screen greeting: triggers IMMEDIATELY as soon as Welcome Screen mounts and name is available
   useEffect(() => {
-    if (speechAudibleRef.current) return;
+    if (speechAudibleRef.current || speechTriggeredRef.current) return;
 
     let isCancelled = false;
 
     const performGreeting = (isUserGesture: boolean) => {
-      if (speechAudibleRef.current || isCancelled) return;
+      if (speechAudibleRef.current || speechTriggeredRef.current || isCancelled) return;
 
+      const firstName = resolvedFirstNameRef.current || resolvedFirstName;
+      if (status !== 'unregistered' && !firstName) {
+        console.log('[WelcomeGreeting] Employee first name not loaded yet, waiting for data...');
+        return;
+      }
+
+      speechTriggeredRef.current = true;
       logStartupTag('WELCOME_RENDER', 'Instant Welcome screen rendered on UI');
       setIsSpeaking(true);
 
-      const attemptSpeech = (attemptsLeft: number) => {
-        if (isCancelled) {
-          setIsSpeaking(false);
-          return;
-        }
+      const timeGreeting = greetingInfo.label; // e.g. "Good morning", "Good afternoon", "Good evening"
+      const fullGreetingText = firstName ? `${timeGreeting}, ${firstName}.` : `${timeGreeting}.`;
 
-        const firstName = resolvedFirstNameRef.current;
-        if (status !== 'unregistered' && !firstName && attemptsLeft > 0) {
-          // Wait 150ms and try again if employee data is still resolving from auth context
-          console.log('[WelcomeGreeting] Employee name not resolved yet, waiting...');
-          setTimeout(() => attemptSpeech(attemptsLeft - 1), 150);
-          return;
-        }
+      console.log('[WelcomeGreeting] Triggering instant greeting:', fullGreetingText);
+      console.log('[GREETING VOICE] speak() called');
 
-        // If registered but name is still missing after all attempts, do not speak a generic greeting
-        if (status !== 'unregistered' && !firstName) {
-          console.log('[WelcomeGreeting] Employee is registered but first name has not loaded yet, aborting generic greeting');
-          setIsSpeaking(false);
-          return;
-        }
-
-        // Name resolved or unregistered
-        const timeGreeting = greetingInfo.label; // e.g. "Good Morning", "Good Afternoon", "Good Evening"
-        const fullGreetingText = firstName ? `${timeGreeting}, ${firstName}.` : `${timeGreeting}.`;
-
-        console.log('[WelcomeGreeting] Determined complete greeting string:', fullGreetingText);
-        console.log('[GREETING VOICE] speak() called');
-
-        // Enforce the greeting delay before speaking the COMPLETE greeting (as in Requirement 6)
-        // Let's add a safe, natural delay of 600ms
-        setTimeout(() => {
-          if (isCancelled) {
-            setIsSpeaking(false);
-            return;
-          }
-
-          if (isSpeechAvailable()) {
-            try {
-              console.log('[WelcomeGreeting] Speaking complete personalized greeting:', fullGreetingText);
-              speakGreeting(fullGreetingText, {
-                isUserGesture,
-                onStart: () => {
-                  if (!isCancelled) {
-                    setIsSpeaking(true);
-                    speechAudibleRef.current = true;
-                    speechTriggeredRef.current = true;
-                  }
-                },
-                onEnd: () => {
-                  setIsSpeaking(false);
-                },
-                onError: (err) => {
-                  console.warn('[WelcomeGreeting] Speech synthesis error:', err);
-                  setIsSpeaking(false);
-                }
-              });
-            } catch (speechErr) {
-              console.warn('[WelcomeGreeting] Speech synthesis exception:', speechErr);
-              setIsSpeaking(false);
+      if (isSpeechAvailable()) {
+        try {
+          speakGreeting(fullGreetingText, {
+            isUserGesture,
+            onStart: () => {
+              if (!isCancelled) {
+                setIsSpeaking(true);
+                speechAudibleRef.current = true;
+              }
+            },
+            onEnd: () => {
+              if (!isCancelled) {
+                setIsSpeaking(false);
+              }
+            },
+            onError: (err) => {
+              console.warn('[WelcomeGreeting] Speech synthesis error:', err);
+              if (!isCancelled) {
+                setIsSpeaking(false);
+              }
             }
-          } else {
-            console.warn('[WelcomeGreeting] Speech synthesis is not supported on this device/browser');
-            setIsSpeaking(false);
-          }
-        }, 600); // 600ms greeting delay
-      };
-
-      attemptSpeech(25);
+          });
+        } catch (speechErr) {
+          console.warn('[WelcomeGreeting] Speech synthesis exception:', speechErr);
+          setIsSpeaking(false);
+        }
+      } else {
+        console.warn('[WelcomeGreeting] Speech synthesis is not supported on this device/browser');
+        setIsSpeaking(false);
+      }
     };
 
-    // 1. Immediate automatic greeting attempt on Welcome Screen entry
-    if (!speechAudibleRef.current && !startupAttemptedRef.current) {
-      startupAttemptedRef.current = true;
+    // 1. Immediate greeting attempt if name is available or if unregistered
+    const currentFirstName = resolvedFirstNameRef.current || resolvedFirstName;
+    if (currentFirstName || status === 'unregistered') {
       performGreeting(false);
+    } else {
+      // Safety fallback: if employee data is delayed, trigger greeting after 500ms threshold
+      const fallbackTimer = setTimeout(() => {
+        if (!speechTriggeredRef.current && !speechAudibleRef.current && !isCancelled) {
+          console.log('[WelcomeGreeting] Safety fallback timer fired (500ms) - triggering greeting');
+          performGreeting(false);
+        }
+      }, 500);
+      return () => {
+        isCancelled = true;
+        clearTimeout(fallbackTimer);
+        cleanupInteractionListeners();
+      };
     }
 
     // 2. Interaction retry (safeguard for mobile PWA / Android autoplay restrictions)
@@ -379,7 +377,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
       window.removeEventListener('click', handleFirstInteraction, true);
     };
 
-    if (!speechAudibleRef.current) {
+    if (!speechAudibleRef.current && !speechTriggeredRef.current) {
       window.addEventListener('pointerdown', handleFirstInteraction, { capture: true, passive: true });
       window.addEventListener('touchstart', handleFirstInteraction, { capture: true, passive: true });
       window.addEventListener('click', handleFirstInteraction, { capture: true, passive: true });
@@ -388,12 +386,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onProceed }) => {
     return () => {
       isCancelled = true;
       cleanupInteractionListeners();
-      // If the speech was never actually audible, reset the startupAttempted flag so remounts can retry
-      if (!speechAudibleRef.current) {
-        startupAttemptedRef.current = false;
-      }
     };
-  }, [greetingInfo]);
+  }, [resolvedFirstName, status, greetingInfo]);
 
   // Derive Location & Distance display states dynamically
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
