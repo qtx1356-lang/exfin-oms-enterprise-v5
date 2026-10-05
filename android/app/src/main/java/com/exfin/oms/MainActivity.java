@@ -1,6 +1,7 @@
 package com.exfin.oms;
 
 import android.os.Bundle;
+import android.util.Log;
 import com.getcapacitor.BridgeActivity;
 import com.exfin.oms.geofence.GeofencePlugin;
 import com.exfin.oms.geofence.UpdatePlugin;
@@ -15,8 +16,10 @@ import java.util.TimeZone;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        Log.d("APP_UPDATE_DEBUG", "[APP UPDATE DEBUG] EXFIN_UPDATER_BUILD=2026-10-05-01");
         registerPlugin(GeofencePlugin.class);
         registerPlugin(UpdatePlugin.class);
+        Log.d("APP_UPDATE_DEBUG", "[APP UPDATE DEBUG] UpdatePlugin registered");
         registerPlugin(GreetingTtsPlugin.class);
         super.onCreate(savedInstanceState);
 

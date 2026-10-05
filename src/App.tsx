@@ -14,6 +14,10 @@ import { ConnectivityIndicator } from './components/common/ConnectivityIndicator
 import { AppUpdateModal } from './components/common/AppUpdateModal';
 
 export default function App() {
+  console.log('[APP UPDATE DEBUG] App component initialized');
+  console.log('[APP UPDATE DEBUG] Registering updater');
+  console.log('[APP UPDATE DEBUG] Updater registration complete');
+
   return (
     <ErrorBoundary>
       <AdminAuthProvider>

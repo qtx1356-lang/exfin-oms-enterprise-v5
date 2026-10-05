@@ -354,7 +354,8 @@ export const checkAppUpdateSilently = async (
       return null;
     }
 
-    console.log(`[APP UPDATE DEBUG] Native installed version received: versionCode=${installed.versionCode}, versionName=${installed.versionName}`);
+    console.log(`[APP UPDATE DEBUG] Installed versionCode=${installed.versionCode}`);
+    console.log(`[APP UPDATE DEBUG] Installed versionName=${installed.versionName}`);
     console.log(`[APP UPDATE DEBUG] Installed versionCode: ${installed.versionCode}`);
     console.log(`[APP UPDATE DEBUG] Installed versionName: ${installed.versionName}`);
 
@@ -411,14 +412,19 @@ export const checkAppUpdateSilently = async (
 
     console.log('[APP UPDATE DEBUG] Remote HTTP status: 200');
     console.log('[APP UPDATE DEBUG] Remote manifest parsed');
+    console.log(`[APP UPDATE DEBUG] Remote versionCode=${bestManifest.versionCode}`);
+    console.log(`[APP UPDATE DEBUG] Remote versionName=${bestManifest.versionName}`);
     console.log(`[APP UPDATE DEBUG] Remote versionCode: ${bestManifest.versionCode}`);
     console.log(`[APP UPDATE DEBUG] Remote versionName: ${bestManifest.versionName}`);
 
     // 4. Authoritative version comparison: remote.versionCode > installed.versionCode
     const compResult = bestManifest.versionCode > installed.versionCode;
 
-    console.log(`[APP UPDATE DEBUG] Comparison: ${bestManifest.versionCode} > ${installed.versionCode} = ${compResult ? 'true' : 'false'}`);
+    console.log(`[APP UPDATE DEBUG] Comparison: ${bestManifest.versionCode} > ${installed.versionCode} = ${compResult ? 'TRUE' : 'FALSE'}`);
     console.log(`[APP UPDATE DEBUG] Update available: ${compResult ? 'true' : 'false'}`);
+    if (compResult) {
+      console.log('[APP UPDATE DEBUG] UPDATE AVAILABLE');
+    }
 
     // Also output standard logs
     console.log(`[APP UPDATE] Installed versionCode=${installed.versionCode}`);

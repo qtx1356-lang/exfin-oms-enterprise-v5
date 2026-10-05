@@ -48,6 +48,9 @@ public class UpdatePlugin extends Plugin {
             String versionName = com.exfin.oms.BuildConfig.VERSION_NAME;
             String packageName = context.getPackageName();
 
+            Log.d("APP_UPDATE_DEBUG", "[APP UPDATE DEBUG] Native getInstalledVersion called");
+            Log.d("APP_UPDATE_DEBUG", "[APP UPDATE DEBUG] Native versionCode=" + versionCode);
+            Log.d("APP_UPDATE_DEBUG", "[APP UPDATE DEBUG] Native versionName=" + versionName);
             Log.i(TAG, "[APP UPDATE DEBUG] Native installed version received: versionCode=" + versionCode + ", versionName=" + versionName);
             Log.i(TAG, "[APP UPDATE DEBUG] Installed versionCode: " + versionCode);
             Log.i(TAG, "[APP UPDATE DEBUG] Installed versionName: " + versionName);

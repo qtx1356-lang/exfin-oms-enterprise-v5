@@ -65,8 +65,8 @@ export const AppUpdateModal: React.FC = () => {
           return;
         }
 
-        console.log('[APP UPDATE DEBUG] Modal eligibility: true');
-        console.log('[APP UPDATE DEBUG] Attempting to open update modal');
+        console.log('[APP UPDATE DEBUG] Setting updateAvailable=true');
+        console.log('[APP UPDATE DEBUG] Rendering AppUpdateModal');
 
         const installPermission = await checkCanInstallUnknownApps();
         
@@ -95,7 +95,10 @@ export const AppUpdateModal: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    console.log('[APP UPDATE DEBUG] Update check scheduled');
+    console.log('[APP UPDATE DEBUG] Capacitor ready');
+    console.log('[APP UPDATE DEBUG] Registering updater');
+    console.log('[APP UPDATE DEBUG] Updater registration complete');
+    console.log('[APP UPDATE DEBUG] Starting automatic update check');
 
     // 1. Initial silent check shortly after startup, followed by a secondary check at 3.5s
     const earlyStartupTimer = setTimeout(() => {
@@ -113,8 +116,9 @@ export const AppUpdateModal: React.FC = () => {
     if (Capacitor.isNativePlatform()) {
       CapacitorApp.addListener('appStateChange', (state) => {
         if (state.isActive) {
+          console.log('[APP UPDATE DEBUG] App foreground detected');
           console.log('[APP UPDATE DEBUG] appStateChange received: active');
-          console.log('[APP UPDATE DEBUG] Foreground update check starting');
+          console.log('[APP UPDATE DEBUG] Starting foreground update check');
           void performUpdateCheck();
         }
       }).then((handle) => {
