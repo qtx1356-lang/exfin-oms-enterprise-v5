@@ -40,7 +40,7 @@
         <!-- Firebase Cloud Messaging Default Notification Channel & Icon -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="exfin_oms_important" />
+            android:value="exfin_oms_messages_v2" />
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"

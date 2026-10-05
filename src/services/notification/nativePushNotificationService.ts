@@ -48,6 +48,10 @@ export async function initNativePushNotifications(userContext: {
   }
 
   try {
+    // Ensure notification channels with sound & vibration exist
+    const { ensureNotificationChannelsCreated } = await import('./pushNotificationService');
+    await ensureNotificationChannelsCreated().catch(() => {});
+
     // 1. Request OS Permission (Android 13+ requires POST_NOTIFICATIONS)
     const permission = await PushNotifications.requestPermissions().catch((e) => {
       console.warn('[NativePush] requestPermissions error:', e);

@@ -522,15 +522,15 @@ export const playAlertSound = (
     if ((window as any).Capacitor && (window as any).Capacitor.isNativePlatform()) {
       import('@capacitor/local-notifications').then(({ LocalNotifications }) => {
         console.log(`[NotificationSound] NATIVE_SOUND_REQUEST ${notifId}`);
-        const channelId = 'exfin_oms_employee_alerts';
+        const channelId = 'exfin_oms_messages_v2';
         
         LocalNotifications.createChannel({
           id: channelId,
-          name: 'Employee Notifications',
-          description: 'Employee Alerts and Updates',
+          name: 'EXFIN OMS Messages',
+          description: 'Normal and High Priority EXFIN OMS Push Notifications & Alerts',
           importance: 5, // IMPORTANCE_HIGH for audible sound and heads-up
           visibility: 1,
-          sound: 'alert.wav',
+          sound: 'notification.wav',
           vibration: true,
         }).then(() => {
           // Schedule a Local Notification instantly to trigger the native sound

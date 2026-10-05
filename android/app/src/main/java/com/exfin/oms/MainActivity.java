@@ -38,6 +38,9 @@ public class MainActivity extends BridgeActivity {
             Log.w("MainActivity", "FirebaseApp initialization safe check caught: " + t.getMessage());
         }
 
+        // Create high-importance Android notification channel with sound & vibration
+        createDefaultNotificationChannels();
+
         // Ensure native office geofence is active
         OfficeGeofenceHelper.registerOfficeGeofence(this);
         checkAndRestoreActiveLocationService();
@@ -67,5 +70,37 @@ public class MainActivity extends BridgeActivity {
                 }
             }
         } catch (Exception ignored) {}
+    }
+
+    private void createDefaultNotificationChannels() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            try {
+                android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+                if (nm != null) {
+                    String channelId = "exfin_oms_messages_v2";
+                    CharSequence channelName = "EXFIN OMS Messages";
+                    String channelDesc = "Normal and High Priority EXFIN OMS Push Notifications & Alerts";
+                    int importance = android.app.NotificationManager.IMPORTANCE_HIGH;
+
+                    android.app.NotificationChannel channel = new android.app.NotificationChannel(channelId, channelName, importance);
+                    channel.setDescription(channelDesc);
+
+                    android.media.AudioAttributes audioAttributes = new android.media.AudioAttributes.Builder()
+                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                            .build();
+                    android.net.Uri soundUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION);
+                    channel.setSound(soundUri, audioAttributes);
+
+                    channel.enableVibration(true);
+                    channel.setVibrationPattern(new long[]{0, 250, 150, 250});
+
+                    nm.createNotificationChannel(channel);
+                    Log.d("MainActivity", "Successfully registered exfin_oms_messages_v2 channel with sound & vibration");
+                }
+            } catch (Exception e) {
+                Log.e("MainActivity", "Error creating notification channel: " + e.getMessage());
+            }
+        }
     }
 }

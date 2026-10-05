@@ -290,6 +290,16 @@ export const ensureNotificationChannelsCreated = async (): Promise<void> => {
         '@capacitor/local-notifications'
       );
       await LocalNotifications.createChannel({
+        id: 'exfin_oms_messages_v2',
+        name: 'EXFIN OMS Messages',
+        description: 'Normal and High Priority EXFIN OMS Push Notifications & Alerts',
+        importance: 5,
+        visibility: 1,
+        sound: 'notification.wav',
+        vibration: true,
+      }).catch(() => {});
+
+      await LocalNotifications.createChannel({
         id: 'exfin_oms_important',
         name: 'Smart Workforce Urgent & High Priority Alerts',
         description: 'Urgent tasks, leave approvals, and critical messages',
@@ -303,9 +313,10 @@ export const ensureNotificationChannelsCreated = async (): Promise<void> => {
         id: 'exfin_oms_normal',
         name: 'Smart Workforce Standard Updates',
         description: 'Task progress updates and routine team messages',
-        importance: 3,
+        importance: 5,
         visibility: 1,
-        vibration: false,
+        sound: 'notification.wav',
+        vibration: true,
       }).catch(() => {});
 
       // Add listener to open AlertPopup when native Android notification is tapped
@@ -590,10 +601,7 @@ export const triggerOSPushNotification = async (
 
     const title = notif.title || 'Smart Workforce Alert';
     const body = notif.message || '';
-    const channelId =
-      priority === 'HIGH' || priority === 'URGENT'
-        ? 'exfin_oms_important'
-        : 'exfin_oms_normal';
+    const channelId = 'exfin_oms_messages_v2';
 
     // 1. Try Capacitor LocalNotifications if available
     if (typeof window !== 'undefined' && (window as any).Capacitor) {
