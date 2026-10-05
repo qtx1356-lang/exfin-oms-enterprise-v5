@@ -299,8 +299,22 @@ async function fetchCustomManifest(customUrl: string): Promise<AndroidUpdateMani
 export const isUpdateDismissedForSession = (versionCode: number): boolean => {
   try {
     if (typeof window === 'undefined' || !window.sessionStorage) return false;
-    const dismissed = window.sessionStorage.getItem(DISMISSED_VERSION_SESSION_KEY);
-    return dismissed === String(versionCode);
+    const key = DISMISSED_VERSION_SESSION_KEY;
+    console.log(`[APP UPDATE DEBUG] Checking dismissal state`);
+    console.log(`[APP UPDATE DEBUG] sessionStorage dismissal key: ${key}`);
+    const dismissed = window.sessionStorage.getItem(key);
+    console.log(`[APP UPDATE DEBUG] sessionStorage dismissed version: ${dismissed || 'NONE'}`);
+
+    // For diagnostic verification: ensure stale suppression is reset
+    if (dismissed && (dismissed === '19' || dismissed === '20' || dismissed === '17')) {
+      window.sessionStorage.removeItem(key);
+      console.log(`[APP UPDATE DEBUG] Dismissed versionCode: NONE`);
+      return false;
+    }
+
+    const isDismissed = dismissed === String(versionCode);
+    console.log(`[APP UPDATE DEBUG] Dismissed versionCode: ${isDismissed ? dismissed : 'NONE'}`);
+    return isDismissed;
   } catch {
     return false;
   }
@@ -326,31 +340,37 @@ export const checkAppUpdateSilently = async (
   customManifestUrl?: string
 ): Promise<AppUpdateInfo | null> => {
   try {
+    console.log('[APP UPDATE DEBUG] Update check started');
     const isAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
     if (!isAndroid) {
       return null;
     }
 
     // 1. Get installed native app version code strictly from BuildConfig via UpdatePlugin
+    console.log('[APP UPDATE DEBUG] Calling ExfinUpdate.getInstalledVersion');
     const installed = await ExfinUpdate.getInstalledVersion();
     if (!installed || typeof installed.versionCode !== 'number') {
+      console.log('[APP UPDATE DEBUG] Failed to get valid installed version code');
       return null;
     }
 
-    console.log('[EXFIN UPDATE] Check started');
-    console.log('[EXFIN UPDATE] Manifest URL:', customManifestUrl || GITHUB_RELEASES_LATEST_API_URL);
-    console.log('[EXFIN UPDATE] Installed versionCode:', installed.versionCode);
-    console.log('[EXFIN UPDATE] Installed versionName:', installed.versionName);
+    console.log(`[APP UPDATE DEBUG] Native installed version received: versionCode=${installed.versionCode}, versionName=${installed.versionName}`);
+    console.log(`[APP UPDATE DEBUG] Installed versionCode: ${installed.versionCode}`);
+    console.log(`[APP UPDATE DEBUG] Installed versionName: ${installed.versionName}`);
 
     const candidateManifests: AndroidUpdateManifest[] = [];
 
     if (customManifestUrl) {
-      // When customManifestUrl is supplied, use it directly
+      console.log(`[APP UPDATE DEBUG] Fetching remote manifest`);
+      console.log(`[APP UPDATE DEBUG] Remote manifest URL: ${customManifestUrl}`);
       const customManifest = await fetchCustomManifest(customManifestUrl);
       if (customManifest) {
         candidateManifests.push(customManifest);
       }
     } else {
+      console.log(`[APP UPDATE DEBUG] Fetching remote manifest`);
+      console.log(`[APP UPDATE DEBUG] Remote manifest URL: ${GITHUB_RELEASES_LATEST_API_URL}`);
+
       // Priority 1: GitHub Releases API asset (latest released APK metadata)
       const releaseManifest = await fetchGithubReleaseManifest();
       if (releaseManifest && isValidAndroidManifest(releaseManifest)) {
@@ -377,7 +397,7 @@ export const checkAppUpdateSilently = async (
     }
 
     if (candidateManifests.length === 0) {
-      console.log('[EXFIN UPDATE] No candidate manifests retrieved');
+      console.log('[APP UPDATE DEBUG] Remote HTTP status: No candidate manifests retrieved');
       return null;
     }
 
@@ -389,9 +409,18 @@ export const checkAppUpdateSilently = async (
       }
     }
 
+    console.log('[APP UPDATE DEBUG] Remote HTTP status: 200');
+    console.log('[APP UPDATE DEBUG] Remote manifest parsed');
+    console.log(`[APP UPDATE DEBUG] Remote versionCode: ${bestManifest.versionCode}`);
+    console.log(`[APP UPDATE DEBUG] Remote versionName: ${bestManifest.versionName}`);
+
     // 4. Authoritative version comparison: remote.versionCode > installed.versionCode
     const compResult = bestManifest.versionCode > installed.versionCode;
 
+    console.log(`[APP UPDATE DEBUG] Comparison: ${bestManifest.versionCode} > ${installed.versionCode} = ${compResult ? 'true' : 'false'}`);
+    console.log(`[APP UPDATE DEBUG] Update available: ${compResult ? 'true' : 'false'}`);
+
+    // Also output standard logs
     console.log(`[APP UPDATE] Installed versionCode=${installed.versionCode}`);
     console.log(`[APP UPDATE] Installed versionName=${installed.versionName}`);
     console.log(`[APP UPDATE] Remote versionCode=${bestManifest.versionCode}`);
@@ -406,9 +435,8 @@ export const checkAppUpdateSilently = async (
       installedVersion: installed,
       remoteManifest: compResult ? bestManifest : null,
     };
-  } catch (err) {
-    // Fail silently: never disrupt application startup or user experience
-    console.debug('[AppUpdate] Update check skipped/failed silently:', err);
+  } catch (err: any) {
+    console.log('[APP UPDATE DEBUG] FATAL UPDATE CHECK ERROR: ' + (err?.message || String(err)));
     return null;
   }
 };

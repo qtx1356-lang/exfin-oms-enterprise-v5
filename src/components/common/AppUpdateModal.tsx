@@ -20,6 +20,7 @@ type UpdateModalState = 'PROMPT' | 'DOWNLOADING' | 'DOWNLOADED' | 'FAILED' | 'PE
 const PERIODIC_CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 export const AppUpdateModal: React.FC = () => {
+  console.log('[APP UPDATE DEBUG] AppUpdateModal component initialized');
   const [manifest, setManifest] = useState<AndroidUpdateManifest | null>(null);
   const [installedVersion, setInstalledVersion] = useState<InstalledAppVersion | null>(null);
   const [modalState, setModalState] = useState<UpdateModalState>('PROMPT');
@@ -32,6 +33,9 @@ export const AppUpdateModal: React.FC = () => {
   const isCheckingRef = useRef<boolean>(false);
 
   const performUpdateCheck = useCallback(async () => {
+    console.log('[APP UPDATE DEBUG] App initialization started');
+    console.log(`[APP UPDATE DEBUG] Capacitor initialized: native=${Capacitor.isNativePlatform()}, platform=${Capacitor.getPlatform()}`);
+
     // Only check if running on native Android
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') {
       return;
@@ -44,61 +48,63 @@ export const AppUpdateModal: React.FC = () => {
     isCheckingRef.current = true;
 
     try {
-      console.log('[AppUpdateModal] Triggering silent update check...');
       const updateInfo = await checkAppUpdateSilently();
-      console.log('[AppUpdateModal] Update check result retrieved:', {
-        updateAvailable: updateInfo?.updateAvailable,
-        installedCode: updateInfo?.installedVersion?.versionCode,
-        installedName: updateInfo?.installedVersion?.versionName,
-        remoteCode: updateInfo?.remoteManifest?.versionCode,
-        remoteName: updateInfo?.remoteManifest?.versionName
-      });
+      console.log('[APP UPDATE DEBUG] Service result received');
+      console.log(`[APP UPDATE DEBUG] updateAvailable=${updateInfo?.updateAvailable ? 'true' : 'false'}`);
+      console.log(`[APP UPDATE DEBUG] newVersionCode=${updateInfo?.remoteManifest?.versionCode ?? 'NONE'}`);
+      console.log(`[APP UPDATE DEBUG] newVersionName=${updateInfo?.remoteManifest?.versionName ?? 'NONE'}`);
 
       if (updateInfo?.updateAvailable && updateInfo.remoteManifest) {
         const remote = updateInfo.remoteManifest;
         
         // If user previously pressed 'Later' for this exact version code during this session, do not prompt again
         const isDismissed = isUpdateDismissedForSession(remote.versionCode);
-        console.log(`[AppUpdateModal] Checking if version ${remote.versionCode} was dismissed:`, isDismissed);
         
         if (isDismissed) {
-          console.log('[AppUpdateModal] Update check skipped because this version was dismissed for the current session.');
+          console.log('[APP UPDATE DEBUG] Modal eligibility: false (Dismissed for current session)');
           return;
         }
 
+        console.log('[APP UPDATE DEBUG] Modal eligibility: true');
+        console.log('[APP UPDATE DEBUG] Attempting to open update modal');
+
         const installPermission = await checkCanInstallUnknownApps();
-        console.log('[AppUpdateModal] Install unknown apps permission state:', installPermission);
         
         setCanInstall(installPermission);
         setInstalledVersion(updateInfo.installedVersion);
         setManifest(remote);
         setModalState('PROMPT');
         setDownloadProgress(0);
-        console.log('[AppUpdateModal] Successfully set manifest and state to PROMPT. Alert modal will now render.');
+        console.log('[APP UPDATE DEBUG] AppUpdateModal visible: true');
+        console.log('[APP UPDATE DEBUG] AppUpdateModal visible=true');
       } else {
-        console.log('[AppUpdateModal] No update available or remote manifest is missing.');
+        console.log('[APP UPDATE DEBUG] Modal eligibility: false');
       }
-    } catch (err) {
-      console.debug('[AppUpdateModal] Update check error ignored silently:', err);
+    } catch (err: any) {
+      console.log('[APP UPDATE DEBUG] FATAL UPDATE CHECK ERROR: ' + (err?.message || String(err)));
     } finally {
       isCheckingRef.current = false;
     }
   }, []);
 
   useEffect(() => {
-    console.log('[AppUpdateModal] Component mounted into visual tree');
+    console.log('[APP UPDATE DEBUG] AppUpdateModal mounted');
     return () => {
-      console.log('[AppUpdateModal] Component unmounted from visual tree');
+      console.log('[APP UPDATE DEBUG] AppUpdateModal unmounted');
     };
   }, []);
 
   useEffect(() => {
+    console.log('[APP UPDATE DEBUG] Update check scheduled');
+
     // 1. Initial silent check shortly after startup, followed by a secondary check at 3.5s
     const earlyStartupTimer = setTimeout(() => {
+      console.log('[APP UPDATE DEBUG] Startup timer fired: 800ms');
       void performUpdateCheck();
     }, 800);
 
     const startupTimer = setTimeout(() => {
+      console.log('[APP UPDATE DEBUG] Verification timer fired: 3500ms');
       void performUpdateCheck();
     }, 3500);
 
@@ -107,6 +113,8 @@ export const AppUpdateModal: React.FC = () => {
     if (Capacitor.isNativePlatform()) {
       CapacitorApp.addListener('appStateChange', (state) => {
         if (state.isActive) {
+          console.log('[APP UPDATE DEBUG] appStateChange received: active');
+          console.log('[APP UPDATE DEBUG] Foreground update check starting');
           void performUpdateCheck();
         }
       }).then((handle) => {
@@ -130,6 +138,7 @@ export const AppUpdateModal: React.FC = () => {
     }
 
     return () => {
+      clearTimeout(earlyStartupTimer);
       clearTimeout(startupTimer);
       clearInterval(periodicInterval);
       if (typeof window !== 'undefined') {

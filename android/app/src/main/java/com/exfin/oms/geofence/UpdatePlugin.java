@@ -48,8 +48,9 @@ public class UpdatePlugin extends Plugin {
             String versionName = com.exfin.oms.BuildConfig.VERSION_NAME;
             String packageName = context.getPackageName();
 
-            Log.i(TAG, "[APP UPDATE] Installed versionCode=" + versionCode);
-            Log.i(TAG, "[APP UPDATE] Installed versionName=" + versionName);
+            Log.i(TAG, "[APP UPDATE DEBUG] Native installed version received: versionCode=" + versionCode + ", versionName=" + versionName);
+            Log.i(TAG, "[APP UPDATE DEBUG] Installed versionCode: " + versionCode);
+            Log.i(TAG, "[APP UPDATE DEBUG] Installed versionName: " + versionName);
 
             boolean canInstall = true;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -63,7 +64,7 @@ public class UpdatePlugin extends Plugin {
             ret.put("canInstallUnknownApps", canInstall);
             call.resolve(ret);
         } catch (Exception e) {
-            Log.e(TAG, "Failed to get installed version: " + e.getMessage(), e);
+            Log.e(TAG, "[APP UPDATE DEBUG] Failed to get installed version: " + e.getMessage(), e);
             call.reject("Failed to get installed version: " + e.getMessage());
         }
     }
@@ -134,13 +135,22 @@ public class UpdatePlugin extends Plugin {
                     baos.write(buf, 0, n);
                 }
                 String content = baos.toString("UTF-8");
+                Log.i(TAG, "[APP UPDATE DEBUG] Remote HTTP status: 200");
                 org.json.JSONObject json = new org.json.JSONObject(content);
+                if (json.has("versionCode")) {
+                    Log.i(TAG, "[APP UPDATE DEBUG] Remote versionCode: " + json.optInt("versionCode"));
+                }
+                if (json.has("versionName")) {
+                    Log.i(TAG, "[APP UPDATE DEBUG] Remote versionName: " + json.optString("versionName"));
+                }
 
                 JSObject ret = JSObject.fromJSONObject(json);
+                ret.put("rawContent", content);
+                ret.put("httpStatus", 200);
                 call.resolve(ret);
 
             } catch (Exception e) {
-                Log.w(TAG, "[APP UPDATE] Native manifest fetch failed: " + e.getMessage());
+                Log.w(TAG, "[APP UPDATE DEBUG] Native manifest fetch failed: " + e.getMessage());
                 call.reject("Failed to fetch manifest: " + e.getMessage());
             } finally {
                 if (inputStream != null) {
