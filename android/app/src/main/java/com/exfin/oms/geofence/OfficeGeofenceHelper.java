@@ -109,6 +109,40 @@ public class OfficeGeofenceHelper {
     public static final String KEY_LAST_SYNC_TIME = "last_sync_timestamp";
     public static final String KEY_LAST_EXIT_TIME = "last_native_exit_time";
     public static final String KEY_LAST_RETURN_TIME = "last_native_return_time";
+    public static final String STATE_EXIT_PROMPT_RESOLVED_OUTSIDE = "EXIT_PROMPT_RESOLVED_OUTSIDE";
+    public static final String KEY_EXIT_PROMPT_RESOLVED_OUTSIDE = "exit_prompt_resolved_outside";
+
+    public static boolean isExitPromptResolvedOutside(Context context) {
+        if (context == null) return false;
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            boolean isResolved = prefs.getBoolean(KEY_EXIT_PROMPT_RESOLVED_OUTSIDE, false);
+            JSONObject session = getActiveSession(context);
+            if (session != null) {
+                String state = session.optString("sessionState", "");
+                if (STATE_EXIT_PROMPT_RESOLVED_OUTSIDE.equalsIgnoreCase(state) || "RETURNING_TO_OFFICE".equalsIgnoreCase(state) || session.optBoolean("exitPromptResolvedOutside", false)) {
+                    return true;
+                }
+            }
+            return isResolved;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public static String getAttendanceState(Context context) {
+        if (context == null) return "UNKNOWN";
+        try {
+            JSONObject session = getActiveSession(context);
+            if (session != null) {
+                return session.optString("sessionState", "UNKNOWN");
+            }
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            return prefs.getString(KEY_LAST_KNOWN_STATE, "UNKNOWN");
+        } catch (Exception e) {
+            return "UNKNOWN";
+        }
+    }
 
     private static PendingIntent geofencePendingIntent;
     private static final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -340,6 +374,22 @@ public class OfficeGeofenceHelper {
         if (context == null) {
             safeFinishPendingResult(pendingResult, finishedFlag);
             return;
+        }
+
+        double trigDist = -1;
+        if (triggerLocation != null && !Double.isNaN(triggerLocation.getLatitude()) && !Double.isNaN(triggerLocation.getLongitude())) {
+            trigDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+        }
+
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Exit candidate received");
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Distance from office: " + (trigDist >= 0 ? String.format(Locale.US, "%.1f", trigDist) : "300.0") + "m");
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Current attendance state: " + getAttendanceState(context));
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Exit prompt resolved outside: " + isExitPromptResolvedOutside(context));
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Evaluation result: IGNORE_ASSIST_ONLY");
+
+        Log.i(TAG, "[NATIVE ATTENDANCE] ASSIST GEOFENCE EVENT");
+        if (isExitPromptResolvedOutside(context)) {
+            Log.i(TAG, "[NATIVE ATTENDANCE] OUTSIDE STATE PRESERVED");
         }
 
         if (transitionType == Geofence.GEOFENCE_TRANSITION_ENTER || transitionType == Geofence.GEOFENCE_TRANSITION_DWELL) {
@@ -933,7 +983,12 @@ public class OfficeGeofenceHelper {
             JSONObject activeSession = getActiveSession(context);
             String sessionState = activeSession != null ? activeSession.optString("sessionState", "") : "";
             String checkoutStatus = activeSession != null ? activeSession.optString("checkoutStatus", "") : "";
-            if ("PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(sessionState) || "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(sessionState) || "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(checkoutStatus)) {
+            boolean isResolvedOutside = isExitPromptResolvedOutside(context);
+            if ("PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(sessionState) || 
+                "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(sessionState) || 
+                "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(checkoutStatus) || 
+                STATE_EXIT_PROMPT_RESOLVED_OUTSIDE.equalsIgnoreCase(sessionState) || 
+                isResolvedOutside) {
                 Log.i(TAG, "=== NATIVE RETURN TO OFFICE DETECTED (Inside 25m) ===");
                 processReturnTransition(context, location, "NATIVE_GEOFENCE_VERIFIED", pendingResult, finishedFlag);
                 return;
@@ -1093,6 +1148,30 @@ public class OfficeGeofenceHelper {
             return;
         }
 
+        double candDist = 25.0;
+        if (triggerLocation != null && !Double.isNaN(triggerLocation.getLatitude()) && !Double.isNaN(triggerLocation.getLongitude())) {
+            candDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+        }
+
+        String currentState = getAttendanceState(context);
+        boolean isAlreadyResolved = isExitPromptResolvedOutside(context);
+
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Exit candidate received");
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Distance from office: " + String.format(Locale.US, "%.1f", candDist) + "m");
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Current attendance state: " + currentState);
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Exit prompt resolved outside: " + isAlreadyResolved);
+
+        Log.i(TAG, "[NATIVE ATTENDANCE] EXIT EVENT RECEIVED");
+        Log.i(TAG, "[NATIVE ATTENDANCE] CURRENT STATE=" + currentState);
+        Log.i(TAG, "[NATIVE ATTENDANCE] EXIT PROMPT ALREADY RESOLVED=" + isAlreadyResolved);
+
+        if (isAlreadyResolved || STATE_EXIT_PROMPT_RESOLVED_OUTSIDE.equalsIgnoreCase(currentState) || "RETURNING_TO_OFFICE".equalsIgnoreCase(currentState)) {
+            Log.i(TAG, "[GEOFENCE EXIT DEBUG] Evaluation result: SUPPRESS_ALREADY_RESOLVED");
+            Log.i(TAG, "[NATIVE ATTENDANCE] EXIT EVENT IGNORED - EXIT ALREADY RESOLVED OUTSIDE");
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         JSONObject activeSession = getActiveSession(context);
 
@@ -1103,6 +1182,7 @@ public class OfficeGeofenceHelper {
 
         // A. Verify there is an active attendance session for today's date
         if (activeSession == null) {
+            Log.i(TAG, "[GEOFENCE EXIT DEBUG] Evaluation result: SUPPRESS_NO_SESSION");
             Log.w(TAG, "[EXIT_CANDIDATE_IGNORED] No active attendance session found. Exit candidate suppressed.");
             safeFinishPendingResult(pendingResult, finishedFlag);
             return;
@@ -1110,6 +1190,7 @@ public class OfficeGeofenceHelper {
 
         String sessionDate = activeSession.optString("date", "");
         if (!todayDateStr.equals(sessionDate)) {
+            Log.i(TAG, "[GEOFENCE EXIT DEBUG] Evaluation result: SUPPRESS_DATE_MISMATCH");
             Log.w(TAG, "[EXIT_CANDIDATE_IGNORED] Active session date (" + sessionDate + ") does not match today (" + todayDateStr + "). Exit candidate suppressed.");
             safeFinishPendingResult(pendingResult, finishedFlag);
             return;
@@ -1118,6 +1199,7 @@ public class OfficeGeofenceHelper {
         // B. Verify today's attendance has a valid check-in
         String checkInTime = activeSession.optString("checkInTime", "");
         if (checkInTime == null || checkInTime.trim().isEmpty() || "--:--".equals(checkInTime) || "null".equalsIgnoreCase(checkInTime)) {
+            Log.i(TAG, "[GEOFENCE EXIT DEBUG] Evaluation result: SUPPRESS_NO_CHECKIN");
             Log.w(TAG, "[EXIT_CANDIDATE_IGNORED] Active session has no valid check-in time ('" + checkInTime + "'). Exit candidate suppressed.");
             safeFinishPendingResult(pendingResult, finishedFlag);
             return;
@@ -1133,10 +1215,22 @@ public class OfficeGeofenceHelper {
                                      (checkOutTime != null && !checkOutTime.trim().isEmpty() && !"null".equalsIgnoreCase(checkOutTime) && !"--:--".equals(checkOutTime));
 
         if (isAlreadyFinalized) {
+            Log.i(TAG, "[GEOFENCE EXIT DEBUG] Evaluation result: SUPPRESS_ALREADY_FINALIZED");
             Log.i(TAG, "[EXIT_CANDIDATE_IGNORED] Session already finalized/checked out. Exit candidate suppressed.");
             safeFinishPendingResult(pendingResult, finishedFlag);
             return;
         }
+
+        if ("PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(sessionState) || "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(sessionState)) {
+            Log.i(TAG, "[GEOFENCE EXIT DEBUG] Evaluation result: SUPPRESS_ALREADY_PENDING");
+            Log.i(TAG, "[NATIVE ATTENDANCE] EXIT EVENT IGNORED - EXIT CONFIRMATION ALREADY PENDING");
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Evaluation result: SHOW_POPUP");
+        Log.i(TAG, "[NATIVE ATTENDANCE] NEW AUTHORITATIVE EXIT AFTER RE-ENTRY");
+        Log.i(TAG, "[NATIVE ATTENDANCE] SHOWING EXIT CONFIRMATION");
 
         // E. Best available geofence event timestamp (no System.currentTimeMillis() overwrite if trigger location has valid time)
         long eventTimestamp;
@@ -1295,13 +1389,44 @@ public class OfficeGeofenceHelper {
         long eventTimestamp = (location.getTime() > 0) ? location.getTime() : System.currentTimeMillis();
         double distance = calculateDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
 
+        String currentState = getAttendanceState(context);
+        boolean isAlreadyResolved = isExitPromptResolvedOutside(context);
+
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Exit candidate received");
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Distance from office: " + String.format(Locale.US, "%.1f", distance) + "m");
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Current attendance state: " + currentState);
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Exit prompt resolved outside: " + isAlreadyResolved);
+
+        Log.i(TAG, "[NATIVE ATTENDANCE] EXIT EVENT RECEIVED");
+        Log.i(TAG, "[NATIVE ATTENDANCE] CURRENT STATE=" + currentState);
+        Log.i(TAG, "[NATIVE ATTENDANCE] EXIT PROMPT ALREADY RESOLVED=" + isAlreadyResolved);
+
+        if (isAlreadyResolved || STATE_EXIT_PROMPT_RESOLVED_OUTSIDE.equalsIgnoreCase(currentState) || "RETURNING_TO_OFFICE".equalsIgnoreCase(currentState)) {
+            Log.i(TAG, "[GEOFENCE EXIT DEBUG] Evaluation result: SUPPRESS_ALREADY_RESOLVED");
+            Log.i(TAG, "[NATIVE ATTENDANCE] EXIT EVENT IGNORED - EXIT ALREADY RESOLVED OUTSIDE");
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
+        JSONObject activeSession = getActiveSession(context);
+        String sessionState = activeSession != null ? activeSession.optString("sessionState", "") : "";
+        if ("PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(sessionState) || "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(sessionState)) {
+            Log.i(TAG, "[GEOFENCE EXIT DEBUG] Evaluation result: SUPPRESS_ALREADY_PENDING");
+            Log.i(TAG, "[NATIVE ATTENDANCE] EXIT EVENT IGNORED - EXIT CONFIRMATION ALREADY PENDING");
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
+
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Evaluation result: SHOW_POPUP");
+        Log.i(TAG, "[NATIVE ATTENDANCE] NEW AUTHORITATIVE EXIT AFTER RE-ENTRY");
+        Log.i(TAG, "[NATIVE ATTENDANCE] SHOWING EXIT CONFIRMATION");
+
         saveLastLocationDiagnostic(context, lat, lng, accuracy, eventTimestamp, distance);
 
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String lastKnownState = prefs.getString(KEY_LAST_KNOWN_STATE, "UNKNOWN");
         long lastTransitionTime = prefs.getLong(KEY_LAST_TRANSITION_TIMESTAMP, 0);
 
-        JSONObject activeSession = getActiveSession(context);
         boolean hasOpenSession = (activeSession != null && 
                 ("ACTIVE".equalsIgnoreCase(activeSession.optString("sessionState")) || 
                  "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(activeSession.optString("sessionState"))));
@@ -1447,19 +1572,43 @@ public class OfficeGeofenceHelper {
             townCity = activeSession.optString("townCity", "Raniganj HQ");
         }
 
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Confirmed re-entry to 25m detected -> re-arming exit detection");
+        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Exit state reset: EXIT_PROMPT_RESOLVED_OUTSIDE cleared");
+        Log.i(TAG, "[NATIVE ATTENDANCE] AUTHORITATIVE RE-ENTRY CONFIRMED");
+        Log.i(TAG, "[NATIVE ATTENDANCE] EXIT PROMPT RE-ARMED");
         Log.i(TAG, "=== NATIVE RETURN INSIDE 25m OFFICE GEOFENCE CONFIRMED (Cancelling Pending Exit via " + source + ") ===");
         stopTemporaryAssistMonitoring(context, "return");
         logNativeAttendanceTimestampDiagnostic("GEOFENCE_RETURN", "NATIVE_GEOFENCE", "FUSED_CURRENT", location, distance, employeeId);
 
-        // 1. Cancel pending exit and restore session to ACTIVE
-        cancelPendingExit(context);
+        // 1. Restore session to ACTIVE and re-arm exit prompt
+        try {
+            String sessionStr = prefs.getString(KEY_ACTIVE_SESSION, null);
+            if (sessionStr != null) {
+                JSONObject session = new JSONObject(sessionStr);
+                session.put("recordedExitTime", JSONObject.NULL);
+                session.put("exitDetectedAt", JSONObject.NULL);
+                session.put("exitSource", "NONE");
+                session.put("sessionState", "ACTIVE");
+                session.put("checkoutStatus", "ACTIVE");
+                session.put("pendingCheckoutConfirmation", false);
+                session.put("pendingCheckoutEventId", JSONObject.NULL);
+                session.put("exitPromptResolvedOutside", false);
 
-        // 2. Update persistent state
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.putString(KEY_LAST_KNOWN_STATE, "INSIDE");
-        editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, eventTimestamp);
-        editor.putString(KEY_LAST_RETURN_TIME, timeStr);
-        editor.apply();
+                SharedPreferences.Editor editor = prefs.edit();
+                editor.putString(KEY_ACTIVE_SESSION, session.toString());
+                editor.putString(KEY_LAST_KNOWN_STATE, "INSIDE");
+                editor.putBoolean(KEY_EXIT_PROMPT_RESOLVED_OUTSIDE, false);
+                editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, eventTimestamp);
+                editor.putString(KEY_LAST_RETURN_TIME, timeStr);
+                editor.putBoolean("pendingCheckoutConfirmation", false);
+                editor.putString("pendingCheckoutEventId", null);
+                editor.putString("currentState", "CHECKED_IN");
+                editor.putString("checkoutStatus", "ACTIVE");
+                editor.apply();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error updating activeSession on return: " + e.getMessage());
+        }
 
         // 3. Create return event for backend & JS bridge
         String eventId = "evt_native_RETURN_" + employeeId + "_" + dateStr + "_" + eventTimestamp;
@@ -1875,31 +2024,28 @@ public class OfficeGeofenceHelper {
     public static synchronized void cancelPendingExit(Context context) {
         if (context == null) return;
         try {
+            Log.i(TAG, "[GEOFENCE EXIT DEBUG] Stay Active pressed -> setting state to EXIT_PROMPT_RESOLVED_OUTSIDE");
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             String sessionStr = prefs.getString(KEY_ACTIVE_SESSION, null);
             if (sessionStr == null) return;
 
             JSONObject session = new JSONObject(sessionStr);
-            String sessionState = session.optString("sessionState");
-            if ("PENDING_EXIT_CONFIRMATION".equals(sessionState) || "ACTIVE".equals(sessionState) || "PENDING_AUTO_CHECKOUT".equals(sessionState)) {
-                session.put("recordedExitTime", JSONObject.NULL);
-                session.put("exitDetectedAt", JSONObject.NULL);
-                session.put("exitSource", "NONE");
-                session.put("sessionState", "ACTIVE");
-                session.put("checkoutStatus", "ACTIVE");
-                session.put("pendingCheckoutConfirmation", false);
-                session.put("pendingCheckoutEventId", JSONObject.NULL);
-                SharedPreferences.Editor editor = prefs.edit();
-                editor.putString(KEY_ACTIVE_SESSION, session.toString());
-                editor.putString(KEY_LAST_KNOWN_STATE, "INSIDE");
-                editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, System.currentTimeMillis());
-                editor.putBoolean("pendingCheckoutConfirmation", false);
-                editor.putString("pendingCheckoutEventId", null);
-                editor.putString("currentState", "CHECKED_IN");
-                editor.putString("checkoutStatus", "ACTIVE");
-                editor.apply();
-                Log.i(TAG, "[NATIVE_RETURN_CANCELLED] Stay Active / Return to office executed. Cancelled pending exit state while preserving authoritative lastExitTime.");
-            }
+            session.put("sessionState", STATE_EXIT_PROMPT_RESOLVED_OUTSIDE);
+            session.put("exitPromptResolvedOutside", true);
+            session.put("pendingCheckoutConfirmation", false);
+            session.put("pendingCheckoutEventId", JSONObject.NULL);
+
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putString(KEY_ACTIVE_SESSION, session.toString());
+            editor.putBoolean(KEY_EXIT_PROMPT_RESOLVED_OUTSIDE, true);
+            editor.putString(KEY_LAST_KNOWN_STATE, "OUTSIDE");
+            editor.putString("sessionState", STATE_EXIT_PROMPT_RESOLVED_OUTSIDE);
+            editor.putString("currentState", STATE_EXIT_PROMPT_RESOLVED_OUTSIDE);
+            editor.putBoolean("pendingCheckoutConfirmation", false);
+            editor.putString("pendingCheckoutEventId", null);
+            editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, System.currentTimeMillis());
+            editor.apply();
+            Log.i(TAG, "[NATIVE_RETURN_CANCELLED] Stay Active / Return to office executed. Set state to EXIT_PROMPT_RESOLVED_OUTSIDE while preserving session.");
         } catch (Exception e) {
             Log.e(TAG, "Failed to cancel pending exit: " + e.getMessage(), e);
         }

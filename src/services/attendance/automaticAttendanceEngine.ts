@@ -718,23 +718,35 @@ export const AutomaticAttendanceEngine = {
 
       case 'GEOFENCE_EXIT':
         if (
+          record.exitPromptResolvedOutside ||
+          record.returningToOffice ||
+          record.currentState === 'RETURNING_TO_OFFICE' ||
+          record.currentState === 'EXIT_PROMPT_RESOLVED_OUTSIDE'
+        ) {
+          console.log('[GEOFENCE EXIT DEBUG] Exit candidate received');
+          console.log(`[GEOFENCE EXIT DEBUG] Distance from office: ${Math.round(distance)}m`);
+          console.log(`[GEOFENCE EXIT DEBUG] Current attendance state: ${record.currentState}`);
+          console.log('[GEOFENCE EXIT DEBUG] Exit prompt resolved outside: true');
+          console.log('[GEOFENCE EXIT DEBUG] Evaluation result: SUPPRESS_ALREADY_RESOLVED');
+          break;
+        }
+
+        if (
           record.currentState === 'CHECKED_IN' ||
           record.currentState === 'ENTERING' ||
-          record.currentState === 'RETURNING_TO_OFFICE' ||
           record.currentState === 'PENDING_AUTO_CHECKOUT' ||
           record.currentState === 'PENDING_EXIT_CONFIRMATION' ||
           record.pendingCheckoutConfirmation ||
           !record.currentState
         ) {
-          // State Transition: CHECKED_IN / RETURNING_TO_OFFICE -> PENDING_AUTO_CHECKOUT
+          // State Transition: CHECKED_IN -> PENDING_AUTO_CHECKOUT
           const newTimestampMs = eventTimestamp.getTime();
           const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : 0;
 
           // UNIQUE IDENTITY REQUIREMENT: Use eventIso (ISO timestamp) to ensure every exit has a unique ID
           const exitEventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_EXIT', eventIso);
 
-          // Rule: If we were previously returning to office, or have no exit recorded, or this is a NEWER exit (bug fix), overwrite fields
-          if (record.currentState === 'RETURNING_TO_OFFICE' || record.currentState === 'CHECKED_IN' || !record.geofenceExitTime || !record.recordedExitTime || newTimestampMs > existingTimestampMs) {
+          if (record.currentState === 'CHECKED_IN' || !record.geofenceExitTime || !record.recordedExitTime || newTimestampMs > existingTimestampMs) {
             record.geofenceExitTime = timeStr;
             record.geofenceExitTimestamp = eventIso;
             record.recordedExitTime = timeStr;
@@ -745,6 +757,7 @@ export const AutomaticAttendanceEngine = {
             record.exitTime = record.exitTime || timeStr;
             record.exitDetectionSource = source === 'AUTO_GEOFENCE' ? 'NATIVE_GEOFENCE' : 'FOREGROUND_GPS';
             record.returningToOffice = false;
+            record.exitPromptResolvedOutside = false;
           }
           record.pendingCheckoutConfirmation = true;
           record.pendingCheckoutEventId = exitEventId;
@@ -797,6 +810,12 @@ export const AutomaticAttendanceEngine = {
             source: source === 'MANUAL' ? 'MANUAL' : 'AUTO_GEOFENCE'
           });
 
+          console.log('[GEOFENCE EXIT DEBUG] Exit candidate received');
+          console.log(`[GEOFENCE EXIT DEBUG] Distance from office: ${Math.round(distance)}m`);
+          console.log(`[GEOFENCE EXIT DEBUG] Current attendance state: ${record.currentState}`);
+          console.log('[GEOFENCE EXIT DEBUG] Exit prompt resolved outside: false');
+          console.log('[GEOFENCE EXIT DEBUG] Evaluation result: SHOW_POPUP');
+
           logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[CHECKOUT_POPUP_OPEN] Office geofence exit recorded at ${timeStr}. Event ID: ${exitEventId}`, {
             eventId: exitEventId,
             eventTimestamp: eventIso,
@@ -822,24 +841,30 @@ export const AutomaticAttendanceEngine = {
           record.currentState === 'PENDING_AUTO_CHECKOUT' ||
           record.currentState === 'CHECKOUT_NOT_DETECTED' ||
           record.currentState === 'RETURNING_TO_OFFICE' ||
+          record.currentState === 'EXIT_PROMPT_RESOLVED_OUTSIDE' ||
           record.pendingCheckoutConfirmation ||
+          record.returningToOffice ||
+          record.exitPromptResolvedOutside ||
           record.lastExitTime ||
           record.exitTime ||
           record.geofenceExitTime ||
           record.recordedExitTime
         ) {
-          // State Transition: PENDING_AUTO_CHECKOUT -> CHECKED_IN
+          console.log('[GEOFENCE EXIT DEBUG] Confirmed re-entry to 25m detected -> re-arming exit detection');
+          console.log('[GEOFENCE EXIT DEBUG] Exit state reset: EXIT_PROMPT_RESOLVED_OUTSIDE cleared');
+
+          // State Transition: PENDING_AUTO_CHECKOUT / RETURNING_TO_OFFICE -> CHECKED_IN
           const prevExitTime = record.recordedExitTime || record.geofenceExitTime || record.lastExitTime || record.exitTime;
           record.returnTime = timeStr;
           record.lastReturnTime = timeStr;
           record.lastReturnAt = eventIso;
 
-          // CRITICAL BUG FIX: DO NOT clear historical lastExitTime, lastExitAt, or exitTime!
-          // They are the durable evidence of the exit event for the Admin Forensic Audit.
-          // Only clear the pending checkout flags and candidate exit location:
+          // Clear the pending checkout flags and re-arm exit detection:
           record.pendingCheckoutConfirmation = false;
           record.pendingCheckoutEventId = null;
           record.returningToOffice = false;
+          record.exitPromptResolvedOutside = false;
+          record.lastActedExitEventId = null;
           record.currentState = 'CHECKED_IN';
           record.checkoutStatus = undefined;
           record.checkOutTime = null;
@@ -1173,12 +1198,31 @@ export const AutomaticAttendanceEngine = {
 
     const timeKolkata = getFormattedTimeStr(timestamp);
     const hasValidCoords = coords && typeof coords.latitude === 'number' && typeof coords.longitude === 'number' && !isNaN(coords.latitude) && !isNaN(coords.longitude);
+    const distance = hasValidCoords
+      ? Math.round(getDistanceFromLatLonInM(coords.latitude!, coords.longitude!, OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude))
+      : 25;
+
+    const isAlreadyResolvedOutside = record?.exitPromptResolvedOutside === true ||
+                                     record?.returningToOffice === true ||
+                                     record?.currentState === 'RETURNING_TO_OFFICE' ||
+                                     record?.currentState === 'EXIT_PROMPT_RESOLVED_OUTSIDE';
+
+    console.log('[GEOFENCE EXIT DEBUG] Exit candidate received');
+    console.log(`[GEOFENCE EXIT DEBUG] Distance from office: ${distance}m`);
+    console.log(`[GEOFENCE EXIT DEBUG] Current attendance state: ${record?.currentState || 'UNKNOWN'}`);
+    console.log(`[GEOFENCE EXIT DEBUG] Exit prompt resolved outside: ${isAlreadyResolvedOutside}`);
+
+    if (isAlreadyResolvedOutside) {
+      console.log('[GEOFENCE EXIT DEBUG] Evaluation result: SUPPRESS_ALREADY_RESOLVED');
+      return record!;
+    }
+
     console.log('[AUTO_EXIT_DETECTED]', {
       employeeId,
       timestamp: timestamp.toISOString(),
       localTime: timeKolkata,
       source: isNativeEvent ? 'NATIVE_GEOFENCE' : 'AUTO_GEOFENCE',
-      distance: hasValidCoords ? Math.round(getDistanceFromLatLonInM(coords.latitude!, coords.longitude!, OFFICE_LOCATION.latitude, OFFICE_LOCATION.longitude)) : 25
+      distance
     });
 
     if (
@@ -1186,50 +1230,12 @@ export const AutomaticAttendanceEngine = {
       record.checkInTime &&
       isCheckOutMissingLocally(record.checkOutTime)
     ) {
-      if (record.currentState === 'PENDING_FINAL_EXIT' || record.currentState === 'PENDING_EXIT_CONFIRMATION' || record.currentState === 'PENDING_AUTO_CHECKOUT' || record.currentState === 'RETURNING_TO_OFFICE') {
-        const timeStr = getFormattedTimeStr(timestamp);
-        const eventIso = timestamp.toISOString();
-        const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : 0;
-        const newTimestampMs = timestamp.getTime();
-        const exitEventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_EXIT', eventIso);
-
-        if (!record.geofenceExitTime || !record.recordedExitTime || newTimestampMs > existingTimestampMs || record.currentState === 'RETURNING_TO_OFFICE') {
-          record.geofenceExitTime = timeStr;
-          record.geofenceExitTimestamp = eventIso;
-          record.recordedExitTime = timeStr;
-          record.exitDetectedAt = eventIso;
-          record.exitDetectedTime = timeStr;
-          record.exitDetectionSource = isNativeEvent ? 'NATIVE_GEOFENCE' : 'AUTO_GEOFENCE';
-          record.lastExitTime = timeStr;
-          record.exitTime = record.exitTime || timeStr;
-          record.pendingCheckoutConfirmation = true;
-          record.pendingCheckoutEventId = exitEventId;
-          record.returningToOffice = false;
-          record.currentState = 'PENDING_AUTO_CHECKOUT';
-          record.checkoutStatus = 'PENDING_AUTO_CHECKOUT';
-          record.processedEvents = Array.from(new Set([...(record.processedEvents || []), exitEventId]));
-          saveAttendanceRecord(record);
-          console.log('[AUTO_EXIT_PENDING]', {
-            employeeId,
-            exitTime: timeStr,
-            source: record.exitDetectionSource,
-            eventId: exitEventId
-          });
-          console.log('[AUTO_EXIT_AUTHORITATIVE_TIMESTAMP_UPDATED]', {
-            employeeId,
-            geofenceExitTime: timeStr,
-            recordedExitTime: timeStr,
-            geofenceExitTimestamp: eventIso,
-            isNativeEvent
-          });
-        }
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('exfin-checkout-confirmation-needed', { detail: { employeeId, record } }));
-          window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
-        }
+      if (record.currentState === 'PENDING_FINAL_EXIT' || record.currentState === 'PENDING_EXIT_CONFIRMATION' || record.currentState === 'PENDING_AUTO_CHECKOUT') {
+        console.log('[GEOFENCE EXIT DEBUG] Evaluation result: SUPPRESS_ALREADY_PENDING');
         return record;
       }
 
+      console.log('[GEOFENCE EXIT DEBUG] Evaluation result: SHOW_POPUP');
       return this.transitionState(
         employeeId,
         employeeName,
@@ -1299,6 +1305,7 @@ export const AutomaticAttendanceEngine = {
     record.checkoutConfirmed = true;
     record.checkoutFinalized = true;
     record.returningToOffice = false;
+    record.exitPromptResolvedOutside = false;
     record.syncStatus = 'Pending';
     record.resolutionSource = 'AUTO_GEOFENCE';
 
@@ -1361,7 +1368,7 @@ export const AutomaticAttendanceEngine = {
   },
 
   /**
-   * Sets the attendance session to Returning to Office when the mandatory popup "Returning to Office" button is clicked.
+   * Sets the attendance session to Returning to Office / EXIT_PROMPT_RESOLVED_OUTSIDE when "Stay Active" button is clicked.
    * Keeps the attendance session active and clears the popup state.
    */
   setReturningToOffice(
@@ -1376,12 +1383,14 @@ export const AutomaticAttendanceEngine = {
 
     const actedExitEventId = eventId || record.pendingCheckoutEventId;
 
+    console.log('[GEOFENCE EXIT DEBUG] Stay Active pressed -> setting state to EXIT_PROMPT_RESOLVED_OUTSIDE');
     logAttendanceEvent('RETURN_DETECTED', employeeId, `[CHECKOUT_EVENT_CANCELLED] Employee clicked 'STAY ACTIVE'. Preserving historical exit evidence. Event ID: ${actedExitEventId}`);
 
     // Cancel pending checkout state, but PRESERVE historical lastExitTime, lastExitAt, and exitTime
     record.pendingCheckoutConfirmation = false;
     record.returningToOffice = true;
-    record.currentState = 'RETURNING_TO_OFFICE';
+    record.exitPromptResolvedOutside = true;
+    record.currentState = 'EXIT_PROMPT_RESOLVED_OUTSIDE';
     record.checkoutStatus = undefined;
     record.syncStatus = 'Pending';
     record.updatedAt = new Date().toISOString();
@@ -1415,7 +1424,7 @@ export const AutomaticAttendanceEngine = {
 
     saveAttendanceRecord(record);
 
-    // Cancel the corresponding native pending EXIT state so native doesn't retain the old exit
+    // Cancel the corresponding native pending EXIT state so native sets state to EXIT_PROMPT_RESOLVED_OUTSIDE
     cancelPendingNativeExit().catch((err) => console.warn('[NativeGeofenceBridge] Failed to cancel native pending exit on stay active:', err));
 
     logAttendanceEvent('GEOFENCE_EXIT', employeeId, `Employee indicated returning to office (exit recorded at ${record.recordedExitTime || record.geofenceExitTime || record.exitTime}). Active attendance session preserved.`, {

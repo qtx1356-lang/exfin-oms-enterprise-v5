@@ -324,6 +324,22 @@ export const reconcileAttendanceOnResume = async (
           // Record app open / resume timestamp separately
           record.appOpenedAt = nowIso;
 
+          // If exit prompt has already been resolved while outside (Stay Active), do NOT prompt again!
+          if (
+            currentState === 'RETURNING_TO_OFFICE' ||
+            currentState === 'EXIT_PROMPT_RESOLVED_OUTSIDE' ||
+            record.returningToOffice === true ||
+            record.exitPromptResolvedOutside === true
+          ) {
+            console.log('[GEOFENCE EXIT DEBUG] Exit candidate received');
+            console.log(`[GEOFENCE EXIT DEBUG] Distance from office: ${Math.round(distance)}m`);
+            console.log(`[GEOFENCE EXIT DEBUG] Current attendance state: ${currentState}`);
+            console.log('[GEOFENCE EXIT DEBUG] Exit prompt resolved outside: true');
+            console.log('[GEOFENCE EXIT DEBUG] Evaluation result: SUPPRESS_ALREADY_RESOLVED');
+            saveAttendanceRecord(record);
+            return;
+          }
+
           if (
             currentState === 'CHECKED_IN' || 
             currentState === 'ENTERING' || 
@@ -425,11 +441,17 @@ export const reconcileAttendanceOnResume = async (
             currentState === 'PENDING_AUTO_CHECKOUT' ||
             currentState === 'CHECKOUT_NOT_DETECTED' ||
             currentState === 'RETURNING_TO_OFFICE' ||
+            currentState === 'EXIT_PROMPT_RESOLVED_OUTSIDE' ||
             record.pendingCheckoutConfirmation ||
+            record.returningToOffice ||
+            record.exitPromptResolvedOutside ||
             record.lastExitTime ||
             record.geofenceExitTime ||
             record.recordedExitTime
           ) {
+            console.log('[GEOFENCE EXIT DEBUG] Confirmed re-entry to 25m detected -> re-arming exit detection');
+            console.log('[GEOFENCE EXIT DEBUG] Exit state reset: EXIT_PROMPT_RESOLVED_OUTSIDE cleared');
+
             // Return to office transition: Restore CHECKED_IN
             const eventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_RETURN', timeStr);
 
@@ -442,6 +464,8 @@ export const reconcileAttendanceOnResume = async (
             record.pendingCheckoutConfirmation = false;
             record.pendingCheckoutEventId = null;
             record.returningToOffice = false;
+            record.exitPromptResolvedOutside = false;
+            record.lastActedExitEventId = null;
             record.currentState = 'CHECKED_IN';
             record.checkoutStatus = undefined;
             record.checkOutTime = null;

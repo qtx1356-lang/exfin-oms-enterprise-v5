@@ -79,6 +79,17 @@ export const CheckoutConfirmationModal: React.FC = () => {
     const evaluateRecord = (record: AttendanceRecord | null): boolean => {
       if (!record) return false;
 
+      // RULE: If employee selected "Stay Active" (exitPromptResolvedOutside / returningToOffice),
+      // suppress popup completely until confirmed re-entry
+      if (
+        record.exitPromptResolvedOutside === true ||
+        record.returningToOffice === true ||
+        record.currentState === 'EXIT_PROMPT_RESOLVED_OUTSIDE' ||
+        record.currentState === 'RETURNING_TO_OFFICE'
+      ) {
+        return false;
+      }
+
       // RULE: If this specific exit event has already been acted upon (Confirmed or Stay Active),
       // it is PERMANENTLY ineligible for another popup.
       const pendingEventId = record.pendingCheckoutEventId;

@@ -32,6 +32,7 @@ export type AttendanceState =
   | 'PENDING_AUTO_CHECKOUT'
   | 'CHECKOUT_NOT_DETECTED'
   | 'RETURNING_TO_OFFICE'
+  | 'EXIT_PROMPT_RESOLVED_OUTSIDE'
   | 'FINALIZED_CHECKOUT'
   | 'NO_ATTENDANCE'
   | 'CHECKED_OUT'
@@ -143,6 +144,7 @@ export interface AttendanceRecord {
   geofenceExitTimestamp?: string | null;
   pendingCheckoutConfirmation?: boolean;
   returningToOffice?: boolean;
+  exitPromptResolvedOutside?: boolean;
   checkoutConfirmed?: boolean;
   checkoutFinalized?: boolean;
   checkoutSource?: string;
