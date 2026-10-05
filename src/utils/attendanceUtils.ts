@@ -358,6 +358,15 @@ export const shouldSuppressUnresolvedNotification = (
   notif: any,
   records: AttendanceRecord[]
 ): boolean => {
+  if (!notif) return false;
+
+  // Safety guard: Expense-related notifications are never suppressed by attendance logic
+  const category = String(notif.category || '').toUpperCase();
+  const type = String(notif.type || '').toUpperCase();
+  if (category === 'EXPENSE' || type.startsWith('EXPENSE_')) {
+    return false;
+  }
+
   if (!isUnresolvedCheckoutNotification(notif)) {
     return false;
   }

@@ -293,6 +293,12 @@ export const getNotificationsForUser = async (user: {
       queries.push(query(notifCollection, where('recipientUserId', '==', user.id), limit(50)));
     }
 
+    // PART 1 — Broadcast & General notification queries for employees
+    queries.push(query(notifCollection, where('recipientRole', '==', 'ALL'), limit(50)));
+    queries.push(query(notifCollection, where('recipientRole', '==', 'EVERYONE'), limit(50)));
+    queries.push(query(notifCollection, where('recipientEmployeeCode', '==', 'ALL'), limit(50)));
+    queries.push(query(notifCollection, where('recipientUserId', '==', 'ALL'), limit(50)));
+
     // Query 3: Team-specific notifications for Team Leaders
     if (user.role === 'TEAM_LEADER' || user.isTeamLeader) {
       if (user.id) {
@@ -342,8 +348,8 @@ export const getNotificationsForUser = async (user: {
           category: d.category || 'SYSTEM',
           title: d.title || '',
           message: d.message || '',
-          recipientUserId: d.recipientUserId || '',
-          recipientEmployeeCode: d.recipientEmployeeCode || '',
+          recipientUserId: d.recipientUserId || d.recipientEmployeeId || d.employeeId || d.uid || d.userId || '',
+          recipientEmployeeCode: d.recipientEmployeeCode || d.employeeCode || '',
           recipientRole: d.recipientRole || 'EMPLOYEE',
           recipientTeamLeaderId: d.recipientTeamLeaderId || '',
           priority: d.priority || 'NORMAL',
@@ -433,8 +439,8 @@ export const isNotificationForUser = (
   const userTokenSet = new Set(rawUserTokens.map((t) => t.trim().toLowerCase()));
 
   const recipientRole = String(n.recipientRole || '').toUpperCase().trim();
-  const recipientCode = String(n.recipientEmployeeCode || '').trim();
-  const recipientUserId = String(n.recipientUserId || '').trim();
+  const recipientCode = String(n.recipientEmployeeCode || (n as any).employeeCode || '').trim();
+  const recipientUserId = String(n.recipientUserId || (n as any).recipientEmployeeId || (n as any).employeeId || (n as any).uid || '').trim();
   const recipientTLId = String(n.recipientTeamLeaderId || '').trim();
 
   // 1. Broadcast / Universal / General Announcements

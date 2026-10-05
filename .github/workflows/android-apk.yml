@@ -221,6 +221,18 @@ jobs:
           echo "Building web application..."
           npm run build
 
+      - name: Restore Android Google Services JSON
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "GOOGLE_SERVICES_JSON_BASE64 secret detected. Restoring android/app/google-services.json..."
+            echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json
+          else
+            echo "WARNING: GOOGLE_SERVICES_JSON_BASE64 secret is not configured in GitHub Secrets."
+            echo "Firebase Push Notifications (FCM) will not compile/function properly without android/app/google-services.json."
+          fi
+
       - name: Sync Capacitor Android
         run: |
           echo "Syncing web assets to native Android project..."

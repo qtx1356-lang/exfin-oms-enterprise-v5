@@ -188,6 +188,21 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
     latestEmployeeDataRef.current = employeeData;
   }, [employeeData]);
 
+  // Setup Android Native Push Notification Registration upon identity availability
+  useEffect(() => {
+    if (activeUserContext && isOnline) {
+      import('../services/notification/nativePushNotificationService')
+        .then(({ initNativePushNotifications }) => {
+          initNativePushNotifications(activeUserContext).catch((err) => {
+            console.error('[RealtimeSync] Error initializing native push:', err);
+          });
+        })
+        .catch((err) => {
+          console.warn('[RealtimeSync] PushNotification plugin or service failed to load dynamically:', err);
+        });
+    }
+  }, [activeUserContext, isOnline]);
+
   // Active snapshot unsubscriptions
   const activeUnsubsRef = useRef<(() => void)[]>([]);
   const localNotifBaselineDoneRef = useRef<boolean>(false);
@@ -798,6 +813,37 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
         )
       );
     }
+
+    // PART 1 — Broadcast & General notification queries for employees
+    notifQueries.push(
+      query(
+        collection(db, 'notifications'),
+        where('recipientRole', '==', 'ALL'),
+        limit(50)
+      )
+    );
+    notifQueries.push(
+      query(
+        collection(db, 'notifications'),
+        where('recipientRole', '==', 'EVERYONE'),
+        limit(50)
+      )
+    );
+    notifQueries.push(
+      query(
+        collection(db, 'notifications'),
+        where('recipientEmployeeCode', '==', 'ALL'),
+        limit(50)
+      )
+    );
+    notifQueries.push(
+      query(
+        collection(db, 'notifications'),
+        where('recipientUserId', '==', 'ALL'),
+        limit(50)
+      )
+    );
+
     if (activeUserContext?.isTeamLeader || employeeData?.isTeamLeader) {
       if (activeUserId) {
         notifQueries.push(
@@ -881,8 +927,8 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
               category: d.category || 'SYSTEM',
               title: d.title || '',
               message: d.message || '',
-              recipientUserId: d.recipientUserId || '',
-              recipientEmployeeCode: d.recipientEmployeeCode || '',
+              recipientUserId: d.recipientUserId || d.recipientEmployeeId || d.employeeId || d.uid || d.userId || '',
+              recipientEmployeeCode: d.recipientEmployeeCode || d.employeeCode || '',
               recipientRole: d.recipientRole || 'EMPLOYEE',
               recipientTeamLeaderId: d.recipientTeamLeaderId || '',
               priority: d.priority || 'NORMAL',
