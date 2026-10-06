@@ -1,9 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogOut, Building2, AlertTriangle, Clock, MapPin, CheckCircle2, X, Send } from 'lucide-react';
-import { App as CapApp } from '@capacitor/app';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { db } from '../../services/firebase/config';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { getTodayAttendanceRecord, saveAttendanceRecord, getStoredAttendanceRecords } from '../../services/attendance/attendanceStorage';
@@ -22,6 +19,10 @@ export const CheckoutConfirmationModal: React.FC = () => {
   const [manualTime, setManualTime] = useState('18:00');
   const [showManualTimeInput, setShowManualTimeInput] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
+
+  // In-flight guard and cooldown timer to strictly prevent concurrent or looped executions
+  const isCheckingRef = useRef<boolean>(false);
+  const lastAsyncCheckTimestampRef = useRef<number>(0);
 
   // Robust multi-ID resolution across employeeData and cached registration data
   const candidateIds = React.useMemo(() => {
@@ -121,7 +122,6 @@ export const CheckoutConfirmationModal: React.FC = () => {
     }
 
     if (activeRecord && activeRecord.pendingCheckoutEventId && record.pendingCheckoutEventId && activeRecord.pendingCheckoutEventId !== record.pendingCheckoutEventId) {
-       console.log('[CheckoutConfirmationModal] CHECKOUT_POPUP_ALREADY_OPEN. Ignoring new event:', record.pendingCheckoutEventId);
        return false;
     }
 
@@ -168,19 +168,14 @@ export const CheckoutConfirmationModal: React.FC = () => {
         const todayDate = record.date || getFormattedDateStr();
         record.pendingCheckoutEventId = `evt_exit_${record.employeeId || 'emp'}_${todayDate}_${record.recordedExitTime || record.geofenceExitTime || 'exit'}`;
       }
-      if (!record.confirmationDisplayedAt) {
-        record.confirmationDisplayedAt = new Date().toISOString();
-        saveAttendanceRecord(record);
-      }
-      console.log('[CheckoutConfirmationModal] CHECKOUT_POPUP_OPEN:', record.pendingCheckoutEventId);
       setActiveRecord(record);
       return true;
     }
     return false;
   }, [activeRecord, actedEventIds, getPersistedHandledExitEvents]);
 
-  const checkPendingConfirmation = useCallback(async (passedRecord?: AttendanceRecord | null) => {
-    // 1. If a record was passed directly from custom event detail, evaluate it first
+  const checkPendingConfirmation = useCallback(async (passedRecord?: AttendanceRecord | null, forceAsync: boolean = false) => {
+    // 1. If a record was passed directly from custom event detail, evaluate it first (0ms synchronous)
     if (passedRecord && evaluateRecord(passedRecord)) {
       return;
     }
@@ -188,7 +183,7 @@ export const CheckoutConfirmationModal: React.FC = () => {
     const todayStr = getFormattedDateStr();
     let record: AttendanceRecord | null = null;
 
-    // 2. Try direct key lookup with all candidate IDs from local storage
+    // 2. Try direct key lookup with all candidate IDs from local storage (0ms synchronous)
     for (const id of candidateIds) {
       record = getTodayAttendanceRecord(id, todayStr);
       if (record && evaluateRecord(record)) {
@@ -196,7 +191,7 @@ export const CheckoutConfirmationModal: React.FC = () => {
       }
     }
 
-    // 3. Fallback scan across all stored local records
+    // 3. Fallback scan across stored local records
     const allStored = getStoredAttendanceRecords();
     if (Array.isArray(allStored)) {
       const cleanCandidates = candidateIds.map((c) => c.trim().toLowerCase());
@@ -212,8 +207,18 @@ export const CheckoutConfirmationModal: React.FC = () => {
       }
     }
 
-    // 4. Multi-Source Recovery A: Check Native Android persistent session
+    // 4. Rate-limit & in-flight guard for asynchronous native IPC checks
+    const nowMs = Date.now();
+    if (isCheckingRef.current) return;
+    if (!forceAsync && nowMs - lastAsyncCheckTimestampRef.current < 15000) {
+      return;
+    }
+
+    isCheckingRef.current = true;
+    lastAsyncCheckTimestampRef.current = nowMs;
+
     try {
+      // 5. Asynchronous Native Android persistent session check (Cold start recovery)
       const nativeState = await getNativeAttendanceState();
       if (nativeState?.hasActiveSession && nativeState.date === todayStr) {
         const hasNativeExit = !!nativeState.recordedExitTime;
@@ -276,108 +281,36 @@ export const CheckoutConfirmationModal: React.FC = () => {
       }
     } catch (nativeErr) {
       console.warn('[CheckoutConfirmationModal] Native state check warning:', nativeErr);
+    } finally {
+      isCheckingRef.current = false;
     }
-
-    // 5. Multi-Source Recovery B: Check Authoritative Backend / Firestore collection
-    if (typeof navigator !== 'undefined' && navigator.onLine && db && candidateIds.length > 0) {
-      try {
-        for (const empCode of candidateIds) {
-          const q = query(
-            collection(db, 'attendance'),
-            where('employeeId', '==', empCode),
-            where('date', '==', todayStr),
-            limit(1)
-          );
-          const snap = await getDocs(q);
-          if (!snap.empty) {
-            const serverDoc = snap.docs[0].data() as AttendanceRecord;
-            const checkOutValue = (serverDoc.checkOutTime || '').trim();
-            const isMissing = !checkOutValue || checkOutValue === '--:--' || checkOutValue === 'Pending' || checkOutValue === 'N/A' || checkOutValue === 'UNRESOLVED';
-            const hasRecordedExit = Boolean(serverDoc.recordedExitTime || serverDoc.geofenceExitTime || serverDoc.lastExitTime || serverDoc.exitTime);
-
-            if (serverDoc.checkInTime && isMissing && !serverDoc.checkoutFinalized && !serverDoc.checkoutConfirmed) {
-              if (serverDoc.pendingCheckoutConfirmation || serverDoc.currentState === 'PENDING_AUTO_CHECKOUT' || serverDoc.currentState === 'PENDING_EXIT_CONFIRMATION' || hasRecordedExit) {
-                const merged: AttendanceRecord = {
-                  ...serverDoc,
-                  id: snap.docs[0].id,
-                  pendingCheckoutConfirmation: true,
-                  currentState: 'PENDING_AUTO_CHECKOUT'
-                };
-                saveAttendanceRecord(merged);
-                if (evaluateRecord(merged)) {
-                  return;
-                }
-              }
-            }
-          }
-        }
-      } catch (backendErr) {
-        console.warn('[CheckoutConfirmationModal] Backend attendance query warning:', backendErr);
-      }
-    }
-
-    // No matching pending confirmation record found
-    setActiveRecord(null);
   }, [candidateIds, evaluateRecord]);
 
   useEffect(() => {
-    checkPendingConfirmation();
-
-    // Polling safety interval
-    const interval = setInterval(() => checkPendingConfirmation(), 5000);
+    // Single asynchronous cold-start check on initial component mount
+    checkPendingConfirmation(null, true);
 
     const handleAttendanceUpdated = (e?: Event) => {
       const customEvt = e as CustomEvent;
       const detailRec = customEvt?.detail?.record as AttendanceRecord | undefined;
-      checkPendingConfirmation(detailRec || null);
+      // Evaluate synchronously from detail or local storage without triggering recursive network queries
+      checkPendingConfirmation(detailRec || null, false);
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        checkPendingConfirmation();
+        checkPendingConfirmation(null, false);
       }
     };
-    const handleFocus = () => checkPendingConfirmation();
 
     window.addEventListener('exfin-attendance-updated', handleAttendanceUpdated);
     window.addEventListener('exfin-checkout-confirmation-needed', handleAttendanceUpdated);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-    window.addEventListener('pageshow', handleFocus);
-    window.addEventListener('storage', handleAttendanceUpdated);
-
-    // Capacitor App State Change listeners for native Android resume / restart
-    let removeAppStateListener: (() => void) | null = null;
-    let removeResumeListener: (() => void) | null = null;
-
-    try {
-      CapApp.addListener('appStateChange', (state) => {
-        if (state.isActive) {
-          checkPendingConfirmation();
-        }
-      }).then((handle) => {
-        removeAppStateListener = () => handle.remove();
-      }).catch(() => {});
-
-      CapApp.addListener('resume', () => {
-        checkPendingConfirmation();
-      }).then((handle) => {
-        removeResumeListener = () => handle.remove();
-      }).catch(() => {});
-    } catch (capErr) {
-      console.warn('[CheckoutConfirmationModal] CapApp listener error:', capErr);
-    }
 
     return () => {
-      clearInterval(interval);
       window.removeEventListener('exfin-attendance-updated', handleAttendanceUpdated);
       window.removeEventListener('exfin-checkout-confirmation-needed', handleAttendanceUpdated);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('pageshow', handleFocus);
-      window.removeEventListener('storage', handleAttendanceUpdated);
-      if (removeAppStateListener) removeAppStateListener();
-      if (removeResumeListener) removeResumeListener();
     };
   }, [checkPendingConfirmation]);
 
