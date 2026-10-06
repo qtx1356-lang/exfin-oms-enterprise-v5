@@ -846,10 +846,52 @@ export const EmployeeDashboard: React.FC = () => {
     }
   }
 
+  // Index check-ins across all employees in attendanceRecords for zero-checkin holiday detection
+  const officeCheckInCountsByDate = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (Array.isArray(attendanceRecords)) {
+      attendanceRecords.forEach(r => {
+        if (r && r.date && (r.checkInTime || r.status === 'CHECKED_IN' || r.status === 'CHECKED_OUT')) {
+          counts.set(r.date, (counts.get(r.date) || 0) + 1);
+        }
+      });
+    }
+    return counts;
+  }, [attendanceRecords]);
+
   // Monthly Attendance Metrics
-  const currentMonthRecords = attendanceRecords.filter(r => r.date.startsWith(currentMonthStr));
+  const currentMonthRecords = attendanceRecords.filter(r => (r.employeeId === employeeId || r.employeeCode === employeeData?.employeeCode) && r.date && r.date.startsWith(currentMonthStr));
   const presentRecords = currentMonthRecords.filter(r => ['OFFICE', 'WFH', 'CLIENT_VISIT', 'OUTDOOR'].includes(r.attendanceType || 'OFFICE'));
-  const presentDaysCount = presentRecords.length;
+  
+  // Count past dates in current month where 0 employees checked in across the office (whole-office holiday)
+  let zeroCheckInHolidayCount = 0;
+  const yesterdayStr = (() => {
+    const yDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    const pz = (n: number) => String(n).padStart(2, '0');
+    return `${yDay.getFullYear()}-${pz(yDay.getMonth() + 1)}-${pz(yDay.getDate())}`;
+  })();
+
+  const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  for (let d = 1; d <= daysInCurrentMonth; d++) {
+    const dStr = String(d).padStart(2, '0');
+    const mStr = String(currentMonth + 1).padStart(2, '0');
+    const dateStr = `${currentYear}-${mStr}-${dStr}`;
+    
+    if (dateStr > yesterdayStr) continue; // Only past completed days in current month
+
+    const empHasAtt = currentMonthRecords.some(r => r.date === dateStr);
+    if (!empHasAtt) {
+      const empHasLeave = allLeaves.some(l => l.status === 'APPROVED' && dateStr >= l.startDate && dateStr <= l.endDate);
+      if (!empHasLeave) {
+        const totalOfficeCheckIns = officeCheckInCountsByDate.get(dateStr) || 0;
+        if (totalOfficeCheckIns === 0) {
+          zeroCheckInHolidayCount++;
+        }
+      }
+    }
+  }
+
+  const presentDaysCount = presentRecords.length + zeroCheckInHolidayCount;
 
   const lateDaysCount = currentMonthRecords.filter(r => r.checkInTime && isSalaryLateCheckIn(r.checkInTime)).length;
   const wfhDaysCount = currentMonthRecords.filter(r => r.attendanceType === 'WFH').length;

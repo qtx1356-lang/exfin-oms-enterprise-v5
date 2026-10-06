@@ -57,6 +57,7 @@ export const SalaryManagementTab: React.FC = () => {
   
   // Attendance records for the selected month prefix
   const [attendanceRecords, setAttendanceRecords] = useState<Record<string, any[]>>({}); // keyed by employeeCode
+  const [allMonthAttendanceList, setAllMonthAttendanceList] = useState<any[]>([]); // complete list across all employees
   
   // Approved leaves covering the selected month
   const [approvedLeaveRequests, setApprovedLeaveRequests] = useState<any[]>([]);
@@ -203,8 +204,10 @@ export const SalaryManagementTab: React.FC = () => {
         );
         const attSnap = await getDocs(qAtt);
         const attMap: Record<string, any[]> = {};
+        const attList: any[] = [];
         attSnap.forEach((d) => {
           const data = d.data();
+          attList.push(data);
           const empCode = data.employeeId || data.employeeCode || '';
           if (empCode) {
             if (!attMap[empCode]) {
@@ -261,6 +264,7 @@ export const SalaryManagementTab: React.FC = () => {
           setEmployeeConfigs(configMap);
           setLeaveAudits(auditMap);
           setAttendanceRecords(attMap);
+          setAllMonthAttendanceList(attList);
           setApprovedLeaveRequests(leavesList);
           setOverrideBaseSalaries((prev) => ({
             ...baseSalMap,
@@ -330,7 +334,8 @@ export const SalaryManagementTab: React.FC = () => {
       allocated,
       atts,
       approvedLeaveRequests,
-      audits
+      audits,
+      allMonthAttendanceList
     );
   };
 
@@ -491,7 +496,8 @@ export const SalaryManagementTab: React.FC = () => {
         allocatedPaidLeaves,
         atts,
         approvedLeaveRequests,
-        audits
+        audits,
+        allMonthAttendanceList
       );
 
       const remainingLeaves = Math.max(
@@ -692,7 +698,8 @@ export const SalaryManagementTab: React.FC = () => {
           allocatedPaidLeaves,
           atts,
           approvedLeaveRequests,
-          audits
+          audits,
+          allMonthAttendanceList
         );
 
         const remainingLeaves = Math.max(

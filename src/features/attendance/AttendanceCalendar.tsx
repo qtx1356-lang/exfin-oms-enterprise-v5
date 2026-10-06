@@ -36,6 +36,7 @@ export type AttendanceDayCategory =
   | 'CLIENT_VISIT'
   | 'OUTDOOR'
   | 'LEAVE'
+  | 'HOLIDAY'
   | 'ABSENT'
   | 'NO_RECORD'
   | 'FUTURE';
@@ -157,6 +158,19 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
 
   const hasDataForMonth = monthRecords.length > 0 || monthLeaves.length > 0 || selectedMonthPrefix === todayStr.slice(0, 7);
 
+  // Map of dateStr -> count of check-ins across ALL employees
+  const officeCheckInCountsByDate = useMemo(() => {
+    const counts = new Map<string, number>();
+    if (Array.isArray(attendanceRecords)) {
+      attendanceRecords.forEach(r => {
+        if (r && r.date && (r.checkInTime || r.status === 'CHECKED_IN' || r.status === 'CHECKED_OUT')) {
+          counts.set(r.date, (counts.get(r.date) || 0) + 1);
+        }
+      });
+    }
+    return counts;
+  }, [attendanceRecords]);
+
   // Helper to map a specific date string (YYYY-MM-DD) to its attendance category & records
   const getDayInfo = (dateStr: string) => {
     const isToday = dateStr === todayStr;
@@ -213,6 +227,27 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
     }
 
     // 4. Past or Today Date without record or leave
+    if (!isFuture && !isToday) {
+      const officeCheckIns = officeCheckInCountsByDate.get(dateStr) || 0;
+      if (officeCheckIns === 0) {
+        return {
+          category: 'HOLIDAY' as AttendanceDayCategory,
+          attendanceRecord: null,
+          leaveRecord: null,
+          isToday,
+          isFuture: false
+        };
+      } else {
+        return {
+          category: 'ABSENT' as AttendanceDayCategory,
+          attendanceRecord: null,
+          leaveRecord: null,
+          isToday,
+          isFuture: false
+        };
+      }
+    }
+
     return {
       category: 'NO_RECORD' as AttendanceDayCategory,
       attendanceRecord: null,
@@ -230,6 +265,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
     let outdoorCount = 0;
     let leaveCount = 0;
     let absentCount = 0;
+    let holidayCount = 0;
 
     for (let day = 1; day <= daysInMonth; day++) {
       const mStr = String(currentMonth + 1).padStart(2, '0');
@@ -244,10 +280,11 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       else if (info.category === 'CLIENT_VISIT') clientVisitCount++;
       else if (info.category === 'OUTDOOR') outdoorCount++;
       else if (info.category === 'LEAVE') leaveCount++;
+      else if (info.category === 'HOLIDAY') holidayCount++;
       else if (info.category === 'ABSENT') absentCount++;
     }
 
-    const totalPresent = officeCount + wfhCount + clientVisitCount + outdoorCount;
+    const totalPresent = officeCount + wfhCount + clientVisitCount + outdoorCount + holidayCount;
 
     return {
       present: totalPresent,
@@ -256,9 +293,10 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       clientVisit: clientVisitCount,
       outdoor: outdoorCount,
       leave: leaveCount,
+      holiday: holidayCount,
       absent: absentCount
     };
-  }, [currentYear, currentMonth, daysInMonth, todayStr, monthRecords, currentEmployeeLeaves]);
+  }, [currentYear, currentMonth, daysInMonth, todayStr, monthRecords, currentEmployeeLeaves, officeCheckInCountsByDate]);
 
   // Working Days Calculation
   const workingDaysInfo = useMemo(() => {
@@ -551,6 +589,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                 selectedDayDetail.category === 'CLIENT_VISIT' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :
                 selectedDayDetail.category === 'OUTDOOR' ? 'bg-blue-500/20 text-blue-300 border-blue-500/40' :
                 selectedDayDetail.category === 'LEAVE' ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' :
+                selectedDayDetail.category === 'HOLIDAY' ? 'bg-purple-500/20 text-purple-300 border-purple-500/40' :
                 selectedDayDetail.category === 'ABSENT' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' :
                 'bg-[var(--surface-inner)] text-[var(--text-secondary)] border-[var(--border)]'
               }`}>
@@ -559,6 +598,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
                 {selectedDayDetail.category === 'CLIENT_VISIT' && '📍 CLIENT VISIT'}
                 {selectedDayDetail.category === 'OUTDOOR' && '🚗 OUTDOOR WORK'}
                 {selectedDayDetail.category === 'LEAVE' && '🏖 LEAVE'}
+                {selectedDayDetail.category === 'HOLIDAY' && '🎉 HOLIDAY'}
                 {selectedDayDetail.category === 'ABSENT' && '○ ABSENT'}
                 {selectedDayDetail.category === 'NO_RECORD' && '— NO RECORD'}
                 {selectedDayDetail.category === 'FUTURE' && '○ FUTURE DATE'}

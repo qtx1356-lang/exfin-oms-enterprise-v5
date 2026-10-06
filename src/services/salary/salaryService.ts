@@ -108,10 +108,31 @@ export function calculatePresentDays(
   allocatedPaidLeaves: number,
   attendanceRecords: any[], // Attendance records of this employee for this month
   approvedLeaveRequests: any[], // Approved leave requests covering this month
-  allLeaveAuditsForYear: SalaryLeaveAudit[] // All leave audits for this employee in the leave year
+  allLeaveAuditsForYear: SalaryLeaveAudit[], // All leave audits for this employee in the leave year
+  allOfficeAttendanceRecords?: any[] // Optional: Complete attendance records across all employees for this month
 ): PresentDaysResult {
   const daysInMonth = new Date(year, month, 0).getDate();
   const leaveYear = getLeaveYear(month, year);
+
+  // Index check-in counts across all employees for each date in the month
+  const officeCheckInCountsByDate = new Map<string, number>();
+  const hasOfficeAttendanceData = Array.isArray(allOfficeAttendanceRecords);
+  if (hasOfficeAttendanceData && allOfficeAttendanceRecords) {
+    allOfficeAttendanceRecords.forEach((rec) => {
+      if (rec && rec.date) {
+        const hasCheckIn = Boolean(
+          rec.checkInTime ||
+          rec.status === 'CHECKED_IN' ||
+          rec.status === 'CHECKED_OUT' ||
+          rec.checkInTimestamp
+        );
+        if (hasCheckIn) {
+          const count = officeCheckInCountsByDate.get(rec.date) || 0;
+          officeCheckInCountsByDate.set(rec.date, count + 1);
+        }
+      }
+    });
+  }
 
   // 1. Calculate Cut-off date Str (YYYY-MM-DD)
   const now = new Date();
@@ -219,8 +240,16 @@ export function calculatePresentDays(
           }
         }
       } else {
-        // Rule 2: NO ATTENDANCE MARKED -> Treat as Sunday/Holiday and count as PRESENT
-        sundayHolidayDays++;
+        // Rule 2: NO ATTENDANCE MARKED
+        // Evaluate whether the entire office had zero check-ins on this date (HOLIDAY).
+        // If 0 employee check-ins occurred across the entire office, classify as HOLIDAY and count as PRESENT DAY for salary.
+        // If 1+ employee check-ins occurred across the office, the office was open; this individual employee was ABSENT -> 0 present days.
+        const officeCheckInCount = hasOfficeAttendanceData ? (officeCheckInCountsByDate.get(dateStr) || 0) : 0;
+        const isZeroCheckInHoliday = hasOfficeAttendanceData ? (officeCheckInCount === 0) : true;
+
+        if (isZeroCheckInHoliday) {
+          sundayHolidayDays++;
+        }
       }
     }
   }
