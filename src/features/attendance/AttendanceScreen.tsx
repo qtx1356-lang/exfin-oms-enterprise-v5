@@ -43,7 +43,9 @@ import { useRealtimeSync } from '../../context/RealtimeSyncContext';
 import { LocationGate } from '../../components/common/LocationGate';
 import { AttendanceRecord, AttendanceType, OutdoorWorkTypeOption, LiveEmployeeLocation } from '../../types/attendance';
 import { getStoredLeaves } from '../../services/leave/leaveStorage';
-import { isAttendanceCheckoutUnresolved, isServerAttendanceAuthoritative, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasValidCheckoutTime } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, isServerAttendanceAuthoritative, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasValidCheckoutTime, hasOfficeAttendanceForDate } from '../../utils/attendanceUtils';
+import { db } from '../../services/firebase/config';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useSensitiveActionGuard } from '../../services/security/useSensitiveActionGuard';
 
 const ATTENDANCE_REFRESH_INTERVAL = 60000; // 60 seconds
@@ -338,6 +340,55 @@ export const AttendanceScreen: React.FC = () => {
   useEffect(() => {
     refreshRecords();
   }, [syncAttendance]);
+
+  // Company-wide attendance records for current month to determine company-wide OFFICE attendance
+  const [companyMonthAttendance, setCompanyMonthAttendance] = useState<AttendanceRecord[]>([]);
+  const [companyMonthLoaded, setCompanyMonthLoaded] = useState<boolean>(false);
+
+  useEffect(() => {
+    let active = true;
+    setCompanyMonthLoaded(false);
+
+    if (!db || !navigator.onLine) {
+      // Firebase failure / offline safety: do not assume zero office attendance
+      return;
+    }
+
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth();
+    const curMonthStr = String(curMonth + 1).padStart(2, '0');
+    const startOfMonth = `${curYear}-${curMonthStr}-01`;
+    const daysInCurMonth = new Date(curYear, curMonth + 1, 0).getDate();
+    const endOfMonth = `${curYear}-${curMonthStr}-${String(daysInCurMonth).padStart(2, '0')}`;
+
+    const q = query(
+      collection(db, 'attendance'),
+      where('date', '>=', startOfMonth),
+      where('date', '<=', endOfMonth)
+    );
+
+    getDocs(q)
+      .then((snap) => {
+        if (!active) return;
+        const list: AttendanceRecord[] = [];
+        snap.forEach((docSnap) => {
+          list.push({ id: docSnap.id, ...docSnap.data() } as AttendanceRecord);
+        });
+        setCompanyMonthAttendance(list);
+        setCompanyMonthLoaded(true);
+      })
+      .catch((err) => {
+        console.warn('[AttendanceScreen] Could not fetch company month attendance:', err);
+        if (active) {
+          setCompanyMonthLoaded(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [allRecords]);
 
   // Immediate Auto Check-In logic (OFFICE Mode ONLY)
   const handleImmediateAutoCheckIn = (inside: boolean, coords: { latitude: number; longitude: number }) => {
@@ -686,6 +737,7 @@ export const AttendanceScreen: React.FC = () => {
     let clientVisitCount = 0;
     let outdoorCount = 0;
     let leaveCount = 0;
+    let holidayCount = 0;
     let absentCount = 0;
 
     // Filter records for this month
@@ -745,17 +797,41 @@ export const AttendanceScreen: React.FC = () => {
         if (hasLeave) {
           leaveCount++;
         } else {
-          // If past today and not weekend, count as absent
-          const dObj = new Date(currentYear, currentMonth, day);
-          const dayOfWeek = dObj.getDay();
-          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-            absentCount++;
+          // Important current-day safety: do not count today as absent or holiday prematurely
+          const isToday = dateStr === todayStr;
+          if (isToday) {
+            continue;
+          }
+
+          // Completed past day without personal check-in and without leave:
+          if (companyMonthLoaded) {
+            const hasOffice = hasOfficeAttendanceForDate(dateStr, companyMonthAttendance);
+            if (!hasOffice) {
+              // Company had ZERO OFFICE attendance records on this date: HOLIDAY!
+              // Count as holiday and salary present day = +1
+              // It must NOT count as ABSENT!
+              holidayCount++;
+            } else {
+              // Company HAD office attendance, but this employee was absent
+              const dObj = new Date(currentYear, currentMonth, day);
+              const dayOfWeek = dObj.getDay();
+              if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                absentCount++;
+              }
+            }
+          } else {
+            // Firebase failure / offline safety: do NOT assume zero office attendance
+            const dObj = new Date(currentYear, currentMonth, day);
+            const dayOfWeek = dObj.getDay();
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+              absentCount++;
+            }
           }
         }
       }
     }
 
-    const presentCount = officeCount + wfhCount + clientVisitCount + outdoorCount;
+    const presentCount = officeCount + wfhCount + clientVisitCount + outdoorCount + holidayCount;
     const totalValidDays = presentCount + leaveCount;
     const rate = workingDaysElapsed > 0 ? Math.min(100, Math.round((totalValidDays / workingDaysElapsed) * 100)) : 100;
 
@@ -792,13 +868,14 @@ export const AttendanceScreen: React.FC = () => {
       clientVisit: clientVisitCount,
       outdoor: outdoorCount,
       leave: leaveCount,
+      holiday: holidayCount,
       absent: absentCount,
       attendanceRate: isNaN(rate) ? 0 : rate,
       avgWorkingTime: avgWorkingTimeStr,
       workingDaysElapsed,
       workingDaysTotal: totalWorkingDaysInMonth
     };
-  }, [allRecords, employeeId]);
+  }, [allRecords, employeeId, companyMonthAttendance, companyMonthLoaded]);
 
   if (isPermissionDenied || isGpsOff || (locationStatus === 'error' && isLocationUnavailable)) {
     return <LocationGate />;
@@ -1724,6 +1801,12 @@ export const AttendanceScreen: React.FC = () => {
               <span className="text-[var(--text-secondary)]">🏖 Leave</span>
               <span className="text-cyan-400">{monthlyStats.leave}</span>
             </div>
+            {monthlyStats.holiday > 0 && (
+              <div className="flex justify-between font-bold">
+                <span className="text-[var(--text-secondary)] ml-3">🎉 Holiday / Rest</span>
+                <span className="text-purple-300">+{monthlyStats.holiday}</span>
+              </div>
+            )}
             <div className="flex justify-between font-bold">
               <span className="text-[var(--text-secondary)]">○ Absent</span>
               <span className="text-rose-400">{monthlyStats.absent}</span>

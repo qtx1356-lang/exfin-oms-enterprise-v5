@@ -113,6 +113,52 @@ export const hasActualCheckIn = (record: AttendanceRecord | any | null | undefin
 };
 
 /**
+ * Authoritative predicate to determine if a record represents an actual OFFICE mode check-in.
+ * 
+ * Rules:
+ * 1. Must have attendanceType === "OFFICE" (or default "OFFICE").
+ * 2. WFH, CLIENT_VISIT, and OUTDOOR records are explicitly NOT office attendance.
+ * 3. Must have a valid physical check-in time via hasActualCheckIn.
+ */
+export const isOfficeAttendanceRecord = (record: any): boolean => {
+  if (!record || typeof record !== 'object') return false;
+  const rawType = (record.attendanceType || 'OFFICE').toString().trim().toUpperCase();
+  if (rawType === 'WFH' || rawType === 'CLIENT_VISIT' || rawType === 'OUTDOOR') {
+    return false;
+  }
+  if (rawType !== 'OFFICE') {
+    return false;
+  }
+  return hasActualCheckIn(record);
+};
+
+/**
+ * Checks if the company had at least one employee check-in in OFFICE MODE on a particular date.
+ */
+export const hasOfficeAttendanceForDate = (dateStr: string, allCompanyRecords: any[]): boolean => {
+  if (!dateStr || !Array.isArray(allCompanyRecords) || allCompanyRecords.length === 0) return false;
+  return allCompanyRecords.some((rec) => rec && rec.date === dateStr && isOfficeAttendanceRecord(rec));
+};
+
+/**
+ * Returns a map of date -> count of company-wide OFFICE attendance check-ins.
+ * Only records with attendanceType === "OFFICE" and a valid check-in are counted.
+ */
+export const getCompanyOfficeAttendanceCountsByDate = (allCompanyRecords: any[]): Map<string, number> => {
+  const counts = new Map<string, number>();
+  if (!Array.isArray(allCompanyRecords)) return counts;
+
+  for (const rec of allCompanyRecords) {
+    if (!rec || !rec.date) continue;
+    if (isOfficeAttendanceRecord(rec)) {
+      const cur = counts.get(rec.date) || 0;
+      counts.set(rec.date, cur + 1);
+    }
+  }
+  return counts;
+};
+
+/**
  * Authoritative predicate to determine if a Firestore (or local) attendance record
  * is Admin-authoritative.
  * 

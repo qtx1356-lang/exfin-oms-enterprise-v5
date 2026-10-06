@@ -22,6 +22,9 @@ import { AttendanceRecord, AttendanceType } from '../../types/attendance';
 import { LeaveRecord } from '../../types/leave';
 import { getStoredLeaves } from '../../services/leave/leaveStorage';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
+import { db } from '../../services/firebase/config';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { getCompanyOfficeAttendanceCountsByDate } from '../../utils/attendanceUtils';
 
 interface AttendanceCalendarProps {
   employeeId: string;
@@ -121,6 +124,52 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
     }
   };
 
+  // Company-wide attendance records for the currently selected month
+  const [companyAttendanceRecords, setCompanyAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [companyAttendanceLoaded, setCompanyAttendanceLoaded] = useState<boolean>(false);
+
+  useEffect(() => {
+    let active = true;
+    setCompanyAttendanceLoaded(false);
+
+    if (!db || !navigator.onLine) {
+      // Offline / network failure safety: do not assume zero office attendance
+      return;
+    }
+
+    const mStr = String(currentMonth + 1).padStart(2, '0');
+    const startOfMonth = `${currentYear}-${mStr}-01`;
+    const lastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const endOfMonth = `${currentYear}-${mStr}-${String(lastDay).padStart(2, '0')}`;
+
+    const q = query(
+      collection(db, 'attendance'),
+      where('date', '>=', startOfMonth),
+      where('date', '<=', endOfMonth)
+    );
+
+    getDocs(q)
+      .then((snap) => {
+        if (!active) return;
+        const docs: AttendanceRecord[] = [];
+        snap.forEach((d) => {
+          docs.push({ id: d.id, ...d.data() } as AttendanceRecord);
+        });
+        setCompanyAttendanceRecords(docs);
+        setCompanyAttendanceLoaded(true);
+      })
+      .catch((err) => {
+        console.warn('[AttendanceCalendar] Failed to fetch company-wide attendance:', err);
+        if (active) {
+          setCompanyAttendanceLoaded(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentYear, currentMonth]);
+
   // Format month title (e.g. "AUGUST 2026")
   const monthTitle = useMemo(() => {
     const date = new Date(currentYear, currentMonth, 1);
@@ -158,18 +207,12 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
 
   const hasDataForMonth = monthRecords.length > 0 || monthLeaves.length > 0 || selectedMonthPrefix === todayStr.slice(0, 7);
 
-  // Map of dateStr -> count of check-ins across ALL employees
+  // Map of dateStr -> count of OFFICE check-ins across ALL employees
+  // Counts ONLY attendanceType === "OFFICE" with a valid check-in.
   const officeCheckInCountsByDate = useMemo(() => {
-    const counts = new Map<string, number>();
-    if (Array.isArray(attendanceRecords)) {
-      attendanceRecords.forEach(r => {
-        if (r && r.date && (r.checkInTime || r.status === 'CHECKED_IN' || r.status === 'CHECKED_OUT')) {
-          counts.set(r.date, (counts.get(r.date) || 0) + 1);
-        }
-      });
-    }
-    return counts;
-  }, [attendanceRecords]);
+    if (!companyAttendanceLoaded) return new Map<string, number>();
+    return getCompanyOfficeAttendanceCountsByDate(companyAttendanceRecords);
+  }, [companyAttendanceRecords, companyAttendanceLoaded]);
 
   // Helper to map a specific date string (YYYY-MM-DD) to its attendance category & records
   const getDayInfo = (dateStr: string) => {
@@ -228,24 +271,34 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
 
     // 4. Past or Today Date without record or leave
     if (!isFuture && !isToday) {
-      const officeCheckIns = officeCheckInCountsByDate.get(dateStr) || 0;
-      if (officeCheckIns === 0) {
-        return {
-          category: 'HOLIDAY' as AttendanceDayCategory,
-          attendanceRecord: null,
-          leaveRecord: null,
-          isToday,
-          isFuture: false
-        };
-      } else {
-        return {
-          category: 'ABSENT' as AttendanceDayCategory,
-          attendanceRecord: null,
-          leaveRecord: null,
-          isToday,
-          isFuture: false
-        };
+      // Firebase failure safety: only classify as HOLIDAY when company dataset is confirmed loaded
+      if (companyAttendanceLoaded) {
+        const officeCheckIns = officeCheckInCountsByDate.get(dateStr) || 0;
+        if (officeCheckIns === 0) {
+          return {
+            category: 'HOLIDAY' as AttendanceDayCategory,
+            attendanceRecord: null,
+            leaveRecord: null,
+            isToday,
+            isFuture: false
+          };
+        } else {
+          return {
+            category: 'ABSENT' as AttendanceDayCategory,
+            attendanceRecord: null,
+            leaveRecord: null,
+            isToday,
+            isFuture: false
+          };
+        }
       }
+      return {
+        category: 'NO_RECORD' as AttendanceDayCategory,
+        attendanceRecord: null,
+        leaveRecord: null,
+        isToday,
+        isFuture: false
+      };
     }
 
     return {

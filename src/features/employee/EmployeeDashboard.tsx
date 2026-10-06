@@ -43,7 +43,7 @@ import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEn
 import { syncPendingAttendanceRecords } from '../../services/attendance/syncEngine';
 import { AttendanceRecord } from '../../types/attendance';
 import { UnresolvedCheckoutModal } from '../../components/ui/UnresolvedCheckoutModal';
-import { hasValidCheckoutTime } from '../../utils/attendanceUtils';
+import { hasValidCheckoutTime, getCompanyOfficeAttendanceCountsByDate } from '../../utils/attendanceUtils';
 import { dismissUnresolvedNotificationForDate } from '../../services/notification/notificationService';
 import { getStoredLeaves, getStoredLeaveConfig, getStoredEmployeeAllowances } from '../../services/leave/leaveStorage';
 import { calculateLeaveBalance } from '../../services/leave/leaveService';
@@ -846,17 +846,9 @@ export const EmployeeDashboard: React.FC = () => {
     }
   }
 
-  // Index check-ins across all employees in attendanceRecords for zero-checkin holiday detection
+  // Index ONLY company-wide OFFICE check-ins for whole-office holiday detection
   const officeCheckInCountsByDate = useMemo(() => {
-    const counts = new Map<string, number>();
-    if (Array.isArray(attendanceRecords)) {
-      attendanceRecords.forEach(r => {
-        if (r && r.date && (r.checkInTime || r.status === 'CHECKED_IN' || r.status === 'CHECKED_OUT')) {
-          counts.set(r.date, (counts.get(r.date) || 0) + 1);
-        }
-      });
-    }
-    return counts;
+    return getCompanyOfficeAttendanceCountsByDate(attendanceRecords);
   }, [attendanceRecords]);
 
   // Monthly Attendance Metrics

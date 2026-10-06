@@ -1,5 +1,6 @@
 import { db } from '../firebase/config';
 import { collection, doc, setDoc, getDocs, deleteDoc, query, where } from 'firebase/firestore';
+import { getCompanyOfficeAttendanceCountsByDate } from '../../utils/attendanceUtils';
 
 export interface SalaryRecord {
   id: string; // ${employeeCode}_${year}_${month}
@@ -114,25 +115,12 @@ export function calculatePresentDays(
   const daysInMonth = new Date(year, month, 0).getDate();
   const leaveYear = getLeaveYear(month, year);
 
-  // Index check-in counts across all employees for each date in the month
-  const officeCheckInCountsByDate = new Map<string, number>();
+  // Index ONLY company-wide OFFICE mode check-in counts for each date in the month
+  // WFH, CLIENT_VISIT, and OUTDOOR records do NOT make the day an office day.
   const hasOfficeAttendanceData = Array.isArray(allOfficeAttendanceRecords);
-  if (hasOfficeAttendanceData && allOfficeAttendanceRecords) {
-    allOfficeAttendanceRecords.forEach((rec) => {
-      if (rec && rec.date) {
-        const hasCheckIn = Boolean(
-          rec.checkInTime ||
-          rec.status === 'CHECKED_IN' ||
-          rec.status === 'CHECKED_OUT' ||
-          rec.checkInTimestamp
-        );
-        if (hasCheckIn) {
-          const count = officeCheckInCountsByDate.get(rec.date) || 0;
-          officeCheckInCountsByDate.set(rec.date, count + 1);
-        }
-      }
-    });
-  }
+  const officeCheckInCountsByDate = hasOfficeAttendanceData && allOfficeAttendanceRecords
+    ? getCompanyOfficeAttendanceCountsByDate(allOfficeAttendanceRecords)
+    : new Map<string, number>();
 
   // 1. Calculate Cut-off date Str (YYYY-MM-DD)
   const now = new Date();
