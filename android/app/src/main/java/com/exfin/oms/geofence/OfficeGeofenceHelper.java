@@ -1285,13 +1285,10 @@ public class OfficeGeofenceHelper {
             activeSession.put("checkoutStatus", "PENDING_AUTO_CHECKOUT");
             activeSession.put("sessionState", "PENDING_EXIT_CONFIRMATION");
 
-            // G. Preserve historical EXIT event
-            String existingRecordedExitTime = activeSession.optString("recordedExitTime", null);
-            if (existingRecordedExitTime == null || existingRecordedExitTime.isEmpty() || "null".equals(existingRecordedExitTime)) {
-                activeSession.put("recordedExitTime", timeStr);
-                activeSession.put("exitDetectedAt", isoTimestamp);
-                activeSession.put("exitSource", source);
-            }
+            // G. Update active session with latest authoritative EXIT candidate
+            activeSession.put("recordedExitTime", timeStr);
+            activeSession.put("exitDetectedAt", isoTimestamp);
+            activeSession.put("exitSource", source);
             activeSession.put("timestampQuality", timestampQuality);
         } catch (Exception e) {
             Log.e(TAG, "Error updating activeSession with exit candidate: " + e.getMessage());
@@ -2056,12 +2053,6 @@ public class OfficeGeofenceHelper {
                 return;
             }
 
-            String existingRecordedExitTime = session.optString("recordedExitTime", null);
-            if (existingRecordedExitTime != null && !existingRecordedExitTime.isEmpty() && !"null".equals(existingRecordedExitTime)) {
-                Log.i(TAG, "[IMMUTABLE_EXIT_TIME] Native exit timestamp already set: " + existingRecordedExitTime + ". Skipping overwrite from " + source);
-                return;
-            }
-
             long eventTimestamp = (location != null && location.getTime() > 0) ? location.getTime() : System.currentTimeMillis();
             SimpleDateFormat sdf = new SimpleDateFormat("hh:mm a", Locale.US);
             sdf.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
@@ -2078,7 +2069,7 @@ public class OfficeGeofenceHelper {
             session.put("checkoutStatus", "PENDING_EXIT_CONFIRMATION");
 
             prefs.edit().putString(KEY_ACTIVE_SESSION, session.toString()).apply();
-            Log.i(TAG, "[NATIVE_EXIT_RECORDED] Authoritative immutable exit time captured: " + timeStr + " via " + source);
+            Log.i(TAG, "[NATIVE_EXIT_RECORDED] Authoritative exit time captured: " + timeStr + " via " + source);
         } catch (Exception e) {
             Log.e(TAG, "Failed to record native exit event: " + e.getMessage(), e);
         }

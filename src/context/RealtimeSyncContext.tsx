@@ -582,7 +582,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                   const isLocalSameEpisode = localRec?.currentState !== 'CHECKED_IN' &&
                     !(returnMins !== null && localExitMins !== null && localExitMins <= returnMins);
 
-                  if (isServerSameEpisode && serverExitMs < localExitMs && sa?.geofenceExitTime) {
+                  if (isServerSameEpisode && (serverExitMs > localExitMs || localExitMs === Infinity) && sa?.geofenceExitTime) {
                     finalRec = {
                       ...finalRec,
                       geofenceExitTime: sa.geofenceExitTime,
@@ -591,7 +591,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                       exitTime: sa.exitTime || sa.geofenceExitTime,
                       pendingCheckoutConfirmation: sa.pendingCheckoutConfirmation ?? finalRec.pendingCheckoutConfirmation
                     };
-                  } else if (isLocalSameEpisode && localExitMs < serverExitMs && localRec?.geofenceExitTime) {
+                  } else if (isLocalSameEpisode && (localExitMs > serverExitMs || serverExitMs === Infinity) && localRec?.geofenceExitTime) {
                     finalRec = {
                       ...finalRec,
                       geofenceExitTime: localRec.geofenceExitTime,

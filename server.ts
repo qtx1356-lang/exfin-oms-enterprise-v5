@@ -170,6 +170,62 @@ function calculateWorkingHours(checkInTimeStr: string | null | undefined, checkO
   return `${h}h ${m}m`;
 }
 
+function getAuthoritativeServerExit(data: any): string | null {
+  if (!data) return null;
+
+  // 1. If eventHistory is present, evaluate chronologically to find latest unpaired EXIT
+  if (Array.isArray(data.eventHistory) && data.eventHistory.length > 0) {
+    const validEvents = data.eventHistory.slice().sort((a: any, b: any) => {
+      const tA = new Date(a.timestamp || a.eventTime).getTime();
+      const tB = new Date(b.timestamp || b.eventTime).getTime();
+      if (isNaN(tA) || isNaN(tB)) return 0;
+      return tA - tB;
+    });
+
+    let openExitTime: string | null = null;
+    let openExitMs = 0;
+
+    for (const evt of validEvents) {
+      const type = (evt.eventType || "").toUpperCase();
+      const ms = new Date(evt.timestamp || evt.eventTime).getTime();
+      if (type.includes("EXIT") || type === "OUT") {
+        openExitTime = evt.eventTime;
+        openExitMs = ms;
+      } else if (type.includes("RETURN") || type === "ENTER" || type === "CHECK_IN") {
+        if (openExitTime && ms >= openExitMs) {
+          openExitTime = null;
+          openExitMs = 0;
+        }
+      }
+    }
+
+    if (openExitTime) {
+      return openExitTime;
+    }
+  }
+
+  // 2. Direct timestamp comparison: exit must be >= return timestamp
+  const exitTime = data.lastExitTime || data.geofenceExitTime || data.recordedExitTime || data.exitTime;
+  const exitIso = data.lastExitAt || data.geofenceExitTimestamp || data.exitDetectedAt;
+  const returnIso = data.lastReturnAt;
+
+  if (exitTime && exitTime !== "Pending" && exitTime !== "N/A" && exitTime !== "UNRESOLVED") {
+    if (!returnIso || !exitIso) {
+      if (data.currentState === "PENDING_EXIT_CONFIRMATION" || data.currentState === "PENDING_AUTO_CHECKOUT" || data.pendingCheckoutConfirmation) {
+        return exitTime;
+      }
+    } else {
+      const exitMs = new Date(exitIso).getTime();
+      const returnMs = new Date(returnIso).getTime();
+      if (exitMs >= returnMs) {
+        return exitTime;
+      }
+    }
+  }
+
+  return null;
+}
+
 let firestoreAdminNoticeLogged = false;
 
 async function runServerAttendanceFinalizer() {
@@ -226,10 +282,10 @@ async function runServerAttendanceFinalizer() {
 
       // 2. Determine checkout time strictly adhering to priority:
       // Priority 1: Genuine manual checkout (already handled above)
-      // Priority 2: Genuine GPS/native geofence exit observation (e.g. 6:40 PM exit preserved)
+      // Priority 2: Authoritative latest unpaired GPS/native geofence exit observation (e.g. 6:17 PM exit preserved)
       // Priority 3: Existing valid automatic checkout
       // Priority 4: 11:59 PM end-of-day settlement boundary
-      const genuineExitTime = data.geofenceExitTime || data.lastExitTime || data.exitTime;
+      const genuineExitTime = getAuthoritativeServerExit(data);
       let finalCheckoutTime: string;
       let resolutionSource: string;
 

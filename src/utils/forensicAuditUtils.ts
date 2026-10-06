@@ -375,3 +375,87 @@ export function analyzeAttendanceForensics(
     totalReturns
   };
 }
+
+/**
+ * Determines the authoritative exit time to use for checkout finalization.
+ * 
+ * CORE RULES:
+ * 1. If multiple EXIT -> RETURN cycles occurred, only the CURRENT UNPAIRED EXIT
+ *    (an exit with NO subsequent return) can be used as the final checkout time.
+ * 2. An older EXIT that was followed by a RETURN is closed and MUST NEVER be used as final checkout
+ *    if a newer unpaired EXIT exists or if the employee returned to the office.
+ * 3. Never downgrade a newer exit to an older exit.
+ */
+export function getAuthoritativeExitForCheckout(
+  record: AttendanceRecord | null | undefined,
+  events: AttendanceHistoryEvent[] = []
+): {
+  authoritativeExitTime: string | null;
+  authoritativeExitTimestamp: string | null;
+  isUnpairedExit: boolean;
+  currentGeofenceState: 'INSIDE' | 'OUTSIDE' | 'UNKNOWN';
+} {
+  if (!record) {
+    return {
+      authoritativeExitTime: null,
+      authoritativeExitTimestamp: null,
+      isUnpairedExit: false,
+      currentGeofenceState: 'UNKNOWN'
+    };
+  }
+
+  const analysis = analyzeAttendanceForensics(record, events);
+
+  if (analysis.activeCycle) {
+    // Open/unpaired exit exists (e.g. 06:17 PM)
+    return {
+      authoritativeExitTime: analysis.activeCycle.exitEvent.eventTime,
+      authoritativeExitTimestamp: analysis.activeCycle.exitEvent.timestamp || null,
+      isUnpairedExit: true,
+      currentGeofenceState: 'OUTSIDE'
+    };
+  }
+
+  // If no active cycle detected from events list, evaluate direct record timestamps
+  const recExit = record.lastExitTime || record.geofenceExitTime || record.recordedExitTime || record.exitTime || null;
+  const recExitIso = record.lastExitAt || record.geofenceExitTimestamp || record.exitDetectedAt || null;
+  const recReturnIso = record.lastReturnAt || null;
+
+  if (recExit) {
+    if (!recReturnIso || !recExitIso) {
+      if (
+        record.currentState === 'PENDING_AUTO_CHECKOUT' ||
+        record.currentState === 'PENDING_FINAL_EXIT' ||
+        record.currentState === 'PENDING_EXIT_CONFIRMATION' ||
+        record.currentState === 'CHECKOUT_NOT_DETECTED' ||
+        record.pendingCheckoutConfirmation
+      ) {
+        return {
+          authoritativeExitTime: recExit,
+          authoritativeExitTimestamp: recExitIso,
+          isUnpairedExit: true,
+          currentGeofenceState: 'OUTSIDE'
+        };
+      }
+    } else {
+      const exitMs = new Date(recExitIso).getTime();
+      const returnMs = new Date(recReturnIso).getTime();
+      if (exitMs >= returnMs) {
+        return {
+          authoritativeExitTime: recExit,
+          authoritativeExitTimestamp: recExitIso,
+          isUnpairedExit: true,
+          currentGeofenceState: 'OUTSIDE'
+        };
+      }
+    }
+  }
+
+  return {
+    authoritativeExitTime: null,
+    authoritativeExitTimestamp: null,
+    isUnpairedExit: false,
+    currentGeofenceState: analysis.currentGeofenceState
+  };
+}
+

@@ -18,6 +18,7 @@ import { syncPendingAttendanceRecords } from './syncEngine';
 import { updateLiveEmployeeLocation } from '../location/liveLocationService';
 import { isAdminContextActive, logAttendanceWriteDiagnostic, isServerAttendanceAuthoritative, hasValidCheckoutTime } from '../../utils/attendanceUtils';
 import { startNativeActiveSession, clearNativeActiveSession, cancelPendingNativeExit } from './nativeGeofenceBridge';
+import { getAuthoritativeExitForCheckout } from '../../utils/forensicAuditUtils';
 
 export const appendEventHistory = (
   history: AttendanceHistoryEvent[] | undefined,
@@ -1586,10 +1587,12 @@ export const AutomaticAttendanceEngine = {
     }
 
     if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
-      const hasExitEvent = !!(record.recordedExitTime || record.geofenceExitTime || record.lastExitTime || record.exitTime || record.exitDetectedTime);
-      if (hasExitEvent) {
-        // CASE 1: Valid final exit exists (Auto finalized at recorded exit time at 11:59 PM settlement)
-        const checkoutTimeStr = record.recordedExitTime || record.geofenceExitTime || record.lastExitTime || record.exitTime || record.exitDetectedTime!;
+      const authoritativeExit = getAuthoritativeExitForCheckout(record, record.eventHistory || []);
+      const hasExitEvent = Boolean(authoritativeExit.authoritativeExitTime);
+
+      if (hasExitEvent && authoritativeExit.authoritativeExitTime) {
+        // CASE 1: Valid authoritative final exit exists (Auto finalized at the latest unpaired recorded exit time at 11:59 PM settlement)
+        const checkoutTimeStr = authoritativeExit.authoritativeExitTime;
         const workingHours = calculateWorkingHours(record.checkInTime, checkoutTimeStr);
         const settledIso = timestamp.toISOString();
         record.checkOutTime = checkoutTimeStr;
