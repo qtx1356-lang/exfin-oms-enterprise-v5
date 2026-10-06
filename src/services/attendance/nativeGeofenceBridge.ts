@@ -3,6 +3,7 @@ import { AutomaticAttendanceEngine, getFormattedTimeStr, getDistanceFromLatLonIn
 import { logAttendanceEvent } from './attendanceLogger';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { getApiBaseUrl } from '../../utils/apiConfig';
+import { getTodayAttendanceRecord, saveAttendanceRecord } from './attendanceStorage';
 
 export interface NativeAttendanceEvent {
   eventId: string;
@@ -49,6 +50,9 @@ export interface NativeGeofencePluginInterface {
     recordedExitTime?: string | null;
     exitDetectedAt?: string | null;
     exitSource?: string;
+    pendingCheckoutConfirmation?: boolean;
+    pendingCheckoutEventId?: string | null;
+    currentState?: string;
     isGeofenceRegistered: boolean;
     isLocationServiceRunning: boolean;
   }>;
@@ -121,6 +125,21 @@ export const checkNativeGeofenceStatus = async (): Promise<boolean> => {
     return !!status.isRegistered;
   } catch (err) {
     return false;
+  }
+};
+
+/**
+ * Safely fetches active native attendance state from NativeGeofencePlugin
+ */
+export const getNativeAttendanceState = async () => {
+  if (!Capacitor.isNativePlatform()) {
+    return null;
+  }
+  try {
+    return await NativeGeofencePlugin.getActiveAttendanceState();
+  } catch (err) {
+    console.warn('[NativeGeofenceBridge] Error fetching active attendance state:', err);
+    return null;
   }
 };
 
@@ -268,6 +287,48 @@ export const reconcileNativeGeofenceEvents = async (
             verificationMeta
           );
         }
+      }
+
+      // Also inspect persistent active session from native SharedPreferences
+      try {
+        const activeState = await NativeGeofencePlugin.getActiveAttendanceState();
+        if (activeState?.hasActiveSession && activeState.date) {
+          const todayDateStr = activeState.date;
+          const hasNativeExit = !!activeState.recordedExitTime;
+          const isPendingExit = activeState.pendingCheckoutConfirmation ||
+            activeState.sessionState === 'PENDING_EXIT_CONFIRMATION' ||
+            activeState.currentState === 'PENDING_AUTO_CHECKOUT';
+
+          if (hasNativeExit || isPendingExit) {
+            const todayRec = getTodayAttendanceRecord(employeeId, todayDateStr);
+            if (todayRec && !todayRec.checkOutTime && !todayRec.checkoutFinalized) {
+              let changed = false;
+              if (activeState.recordedExitTime && !todayRec.recordedExitTime) {
+                todayRec.recordedExitTime = activeState.recordedExitTime;
+                todayRec.geofenceExitTime = todayRec.geofenceExitTime || activeState.recordedExitTime;
+                todayRec.exitDetectedAt = activeState.exitDetectedAt || todayRec.exitDetectedAt;
+                todayRec.exitDetectionSource = activeState.exitSource || 'NATIVE_GEOFENCE';
+                changed = true;
+              }
+              if (!todayRec.pendingCheckoutConfirmation && isPendingExit) {
+                todayRec.pendingCheckoutConfirmation = true;
+                todayRec.pendingCheckoutEventId = activeState.pendingCheckoutEventId || todayRec.pendingCheckoutEventId || `evt_native_${employeeId}_${todayDateStr}_${activeState.recordedExitTime || 'exit'}`;
+                todayRec.currentState = (activeState.currentState as any) || 'PENDING_AUTO_CHECKOUT';
+                todayRec.checkoutStatus = 'PENDING_AUTO_CHECKOUT';
+                changed = true;
+              }
+              if (changed) {
+                saveAttendanceRecord(todayRec);
+              }
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('exfin-checkout-confirmation-needed', { detail: { employeeId, record: todayRec } }));
+                window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+              }
+            }
+          }
+        }
+      } catch (stateErr) {
+        console.warn('[NativeGeofenceBridge] Error checking active native session during reconciliation:', stateErr);
       }
 
       // Trigger client-side sync if online

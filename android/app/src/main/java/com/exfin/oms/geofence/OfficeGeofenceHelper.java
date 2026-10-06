@@ -1906,6 +1906,46 @@ public class OfficeGeofenceHelper {
         if (context == null) return;
         try {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+
+            // Preserved exit fields if existing session already recorded an exit for this date
+            String preservedExitTime = null;
+            String preservedExitDetectedAt = null;
+            String preservedExitSource = null;
+            String preservedPendingEventId = null;
+            boolean preservedPendingCheckout = false;
+            String preservedSessionState = null;
+            String preservedCurrentState = null;
+
+            String existingSessionStr = prefs.getString(KEY_ACTIVE_SESSION, null);
+            if (existingSessionStr != null) {
+                try {
+                    JSONObject existing = new JSONObject(existingSessionStr);
+                    String existingDate = existing.optString("date", "");
+                    String existingEmp = existing.optString("employeeId", "");
+                    if (existingDate.equals(date) && (existingEmp.isEmpty() || existingEmp.equalsIgnoreCase(employeeId))) {
+                        String existingExit = existing.optString("recordedExitTime", null);
+                        if (existingExit == null || existingExit.isEmpty() || "null".equalsIgnoreCase(existingExit)) {
+                            existingExit = prefs.getString(KEY_LAST_EXIT_TIME, null);
+                        }
+                        if (existingExit != null && !existingExit.isEmpty() && !"null".equalsIgnoreCase(existingExit)) {
+                            preservedExitTime = existingExit;
+                            preservedExitDetectedAt = existing.optString("exitDetectedAt", null);
+                            preservedExitSource = existing.optString("exitSource", "NATIVE_GEOFENCE");
+                        }
+                        if (existing.optBoolean("pendingCheckoutConfirmation", false) ||
+                            prefs.getBoolean("pendingCheckoutConfirmation", false) ||
+                            "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(existing.optString("sessionState", "")) ||
+                            "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(existing.optString("currentState", "")) ||
+                            "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(prefs.getString("currentState", ""))) {
+                            preservedPendingCheckout = true;
+                            preservedPendingEventId = existing.optString("pendingCheckoutEventId", prefs.getString("pendingCheckoutEventId", null));
+                            preservedSessionState = existing.optString("sessionState", "PENDING_EXIT_CONFIRMATION");
+                            preservedCurrentState = existing.optString("currentState", prefs.getString("currentState", "PENDING_AUTO_CHECKOUT"));
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
             JSONObject session = new JSONObject();
             session.put("attendanceId", "att_" + employeeId + "_" + date);
             session.put("employeeId", employeeId);
@@ -1917,19 +1957,41 @@ public class OfficeGeofenceHelper {
             session.put("officeLatitude", OFFICE_LAT);
             session.put("officeLongitude", OFFICE_LNG);
             session.put("geofenceRadius", AUTHORITATIVE_RADIUS_METERS);
-            session.put("sessionState", "ACTIVE");
-            session.put("checkoutStatus", "ACTIVE");
-            session.put("recordedExitTime", JSONObject.NULL);
-            session.put("exitDetectedAt", JSONObject.NULL);
-            session.put("exitSource", "NONE");
             session.put("verificationStatus", verificationStatus != null ? verificationStatus : "VERIFIED");
+
+            if (preservedExitTime != null || preservedPendingCheckout) {
+                // PRESERVE EXIT CANDIDATE: Do not overwrite with active state!
+                session.put("sessionState", preservedSessionState != null ? preservedSessionState : "PENDING_EXIT_CONFIRMATION");
+                session.put("checkoutStatus", "PENDING_AUTO_CHECKOUT");
+                session.put("currentState", preservedCurrentState != null ? preservedCurrentState : "PENDING_AUTO_CHECKOUT");
+                session.put("pendingCheckoutConfirmation", true);
+                if (preservedPendingEventId != null) {
+                    session.put("pendingCheckoutEventId", preservedPendingEventId);
+                }
+                if (preservedExitTime != null) {
+                    session.put("recordedExitTime", preservedExitTime);
+                    if (preservedExitDetectedAt != null) {
+                        session.put("exitDetectedAt", preservedExitDetectedAt);
+                    }
+                    session.put("exitSource", preservedExitSource != null ? preservedExitSource : "NATIVE_GEOFENCE");
+                }
+                Log.i(TAG, "[NATIVE_SESSION_PRESERVED] Preserved existing exit state for " + employeeId + " (exitTime: " + preservedExitTime + ", pending: true)");
+            } else {
+                session.put("sessionState", "ACTIVE");
+                session.put("checkoutStatus", "ACTIVE");
+                session.put("recordedExitTime", JSONObject.NULL);
+                session.put("exitDetectedAt", JSONObject.NULL);
+                session.put("exitSource", "NONE");
+            }
 
             SharedPreferences.Editor editor = prefs.edit();
             editor.putString(KEY_ACTIVE_SESSION, session.toString());
             editor.putString("employee_id", employeeId);
             editor.putString("employee_name", employeeName);
             editor.putString("town_city", townCity != null ? townCity : "Raniganj HQ");
-            editor.putString(KEY_LAST_KNOWN_STATE, "INSIDE");
+            if (!preservedPendingCheckout) {
+                editor.putString(KEY_LAST_KNOWN_STATE, "INSIDE");
+            }
             editor.putLong(KEY_LAST_CHECKIN_TIMESTAMP, System.currentTimeMillis());
             editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, System.currentTimeMillis());
             editor.apply();

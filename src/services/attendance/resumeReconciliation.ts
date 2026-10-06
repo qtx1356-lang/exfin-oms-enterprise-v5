@@ -29,7 +29,7 @@ import { updateLiveEmployeeLocation } from '../location/liveLocationService';
 import { AutomaticAttendanceEngine, appendEventHistory } from './automaticAttendanceEngine';
 import { createNotification, dismissUnresolvedNotificationForDate } from '../notification/notificationService';
 import { isAdminContextActive, hasValidCheckoutTime } from '../../utils/attendanceUtils';
-import { reconcileNativeGeofenceEvents, startNativeActiveSession, cancelPendingNativeExit } from './nativeGeofenceBridge';
+import { reconcileNativeGeofenceEvents, startNativeActiveSession, cancelPendingNativeExit, getNativeAttendanceState } from './nativeGeofenceBridge';
 
 let activeResumePromise: Promise<AttendanceRecord | null> | null = null;
 
