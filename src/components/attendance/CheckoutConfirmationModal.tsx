@@ -1,31 +1,118 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogOut, Building2, AlertTriangle, Clock, MapPin, CheckCircle2, X, Send } from 'lucide-react';
+import { LogOut, Building2, AlertTriangle, Clock, MapPin, CheckCircle2, X, Send, Calendar, Sparkles } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { getTodayAttendanceRecord, saveAttendanceRecord, getStoredAttendanceRecords } from '../../services/attendance/attendanceStorage';
 import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEngine';
 import { AutomaticAttendanceEngine } from '../../services/attendance/automaticAttendanceEngine';
-import { getNativeAttendanceState } from '../../services/attendance/nativeGeofenceBridge';
-import { AttendanceRecord } from '../../types/attendance';
-import { isServerAttendanceAuthoritative } from '../../utils/attendanceUtils';
+import { getNativeAttendanceState, clearNativeActiveSession } from '../../services/attendance/nativeGeofenceBridge';
+import { AttendanceRecord, AttendanceHistoryEvent } from '../../types/attendance';
+import { isServerAttendanceAuthoritative, parseAttendanceTimeToMinutes } from '../../utils/attendanceUtils';
+import { getUnresolvedPastAttendanceRecords, getAuthoritativeExitForCheckout } from '../../utils/forensicAuditUtils';
+import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
+import { syncPendingAttendanceRecords } from '../../services/attendance/syncEngine';
+
+interface ParsedTimeResult {
+  isValid: boolean;
+  error?: string;
+  formatted12?: string;
+  hours24?: number;
+  minutes?: number;
+}
+
+const parseAndValidateTime = (rawInput: string): ParsedTimeResult => {
+  const trimmed = (rawInput || '').trim();
+  if (!trimmed) {
+    return { isValid: false, error: 'Please enter a checkout time.' };
+  }
+
+  const match = trimmed.match(/^(\d{1,2})[:.](\d{1,2})(?:\s*(AM|PM|am|pm|A\.M\.|P\.M\.))?$/i);
+  if (!match) {
+    return {
+      isValid: false,
+      error: 'Invalid time format. Please enter time as HH:MM AM/PM (e.g. 06:17 PM).'
+    };
+  }
+
+  const rawHour = parseInt(match[1], 10);
+  const rawMin = parseInt(match[2], 10);
+  const rawAmPm = match[3] ? match[3].replace(/\./g, '').toUpperCase() : null;
+
+  if (isNaN(rawHour) || isNaN(rawMin)) {
+    return { isValid: false, error: 'Hours and minutes must be numbers.' };
+  }
+
+  if (rawMin < 0 || rawMin > 59) {
+    return { isValid: false, error: 'Minutes must be between 00 and 59.' };
+  }
+
+  let hours24: number;
+  let ampm: 'AM' | 'PM';
+
+  if (rawAmPm) {
+    if (rawHour < 1 || rawHour > 12) {
+      return { isValid: false, error: 'Hour must be between 1 and 12 when AM/PM is specified.' };
+    }
+    ampm = rawAmPm === 'PM' ? 'PM' : 'AM';
+    if (ampm === 'PM') {
+      hours24 = rawHour === 12 ? 12 : rawHour + 12;
+    } else {
+      hours24 = rawHour === 12 ? 0 : rawHour;
+    }
+  } else {
+    if (rawHour < 0 || rawHour > 23) {
+      return { isValid: false, error: 'Hour must be between 00 and 23.' };
+    }
+    hours24 = rawHour;
+    ampm = hours24 >= 12 ? 'PM' : 'AM';
+  }
+
+  let displayH = hours24 % 12;
+  if (displayH === 0) displayH = 12;
+  const formatted12 = `${String(displayH).padStart(2, '0')}:${String(rawMin).padStart(2, '0')} ${ampm}`;
+
+  return {
+    isValid: true,
+    formatted12,
+    hours24,
+    minutes: rawMin
+  };
+};
+
+const formatDisplayDate = (dateStr: string): string => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(`${dateStr}T00:00:00`);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+  } catch {}
+  return dateStr;
+};
 
 export const CheckoutConfirmationModal: React.FC = () => {
   const { employeeData } = useRegistration();
   const { liveLocation, currentAddress } = useLocationContext();
+
   const [activeRecord, setActiveRecord] = useState<AttendanceRecord | null>(null);
+  const [isPreviousDay, setIsPreviousDay] = useState(false);
+  const [suggestedExitTime, setSuggestedExitTime] = useState<string | null>(null);
+  const [timeInput24, setTimeInput24] = useState('18:00');
+  const [timeInput12, setTimeInput12] = useState('06:00 PM');
   const [isProcessing, setIsProcessing] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [manualTime, setManualTime] = useState('18:00');
-  const [showManualTimeInput, setShowManualTimeInput] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
 
-  // In-flight guard and cooldown timer to strictly prevent concurrent or looped executions
+  // In-flight guard to prevent multiple concurrent queries
   const isCheckingRef = useRef<boolean>(false);
   const lastAsyncCheckTimestampRef = useRef<number>(0);
 
-  // Robust multi-ID resolution across employeeData and cached registration data
-  const candidateIds = React.useMemo(() => {
+  // Session-level dismissal memory: prevents continuous re-prompts within the same app session
+  // if the user chose "Decide Later", while ensuring it prompts again on cold restart.
+  const [dismissedRecordIds, setDismissedRecordIds] = useState<Set<string>>(() => new Set<string>());
+
+  const candidateIds = useMemo(() => {
     const ids: string[] = [];
     if (employeeData?.employeeCode) ids.push(employeeData.employeeCode);
     if (employeeData?.employeeId) ids.push(employeeData.employeeId);
@@ -41,12 +128,12 @@ export const CheckoutConfirmationModal: React.FC = () => {
         if (p.uid && !ids.includes(p.uid)) ids.push(p.uid);
         if (p.id && !ids.includes(p.id)) ids.push(p.id);
       }
-    } catch (e) {}
+    } catch {}
 
     try {
       const lastKnown = typeof localStorage !== 'undefined' ? localStorage.getItem('exfin_last_known_employee_id') : null;
       if (lastKnown && !ids.includes(lastKnown)) ids.push(lastKnown);
-    } catch (e) {}
+    } catch {}
 
     return ids.filter(Boolean);
   }, [employeeData]);
@@ -54,160 +141,111 @@ export const CheckoutConfirmationModal: React.FC = () => {
   const resolvedEmployeeId = candidateIds[0] || undefined;
   const employeeId = resolvedEmployeeId;
 
-  const STORAGE_KEY_HANDLED_EXIT_EVENTS = 'exfin_handled_exit_events_v1';
+  const evaluateAndOpenRecord = useCallback((record: AttendanceRecord, isPast: boolean): boolean => {
+    if (!record || !record.date) return false;
 
-  const getPersistedHandledExitEvents = useCallback((): Record<string, { eventId: string; action: 'STAY_ACTIVE' | 'CONFIRM_CHECKOUT'; timestamp: string }> => {
-    try {
-      if (typeof localStorage === 'undefined') return {};
-      const raw = localStorage.getItem(STORAGE_KEY_HANDLED_EXIT_EVENTS);
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  }, []);
-
-  const persistHandledExitEvent = useCallback((eventId: string, action: 'STAY_ACTIVE' | 'CONFIRM_CHECKOUT') => {
-    try {
-      if (typeof localStorage === 'undefined' || !eventId) return;
-      const map = getPersistedHandledExitEvents();
-      map[eventId] = {
-        eventId,
-        action,
-        timestamp: new Date().toISOString()
-      };
-      localStorage.setItem(STORAGE_KEY_HANDLED_EXIT_EVENTS, JSON.stringify(map));
-    } catch (e) {
-      console.warn('Failed to persist handled exit event:', e);
-    }
-  }, [getPersistedHandledExitEvents]);
-
-  // SESSION-LEVEL CACHE: Tracks events that have already been acted upon in this session 
-  // to provide instantaneous UI suppression before persistence completes.
-  const [actedEventIds] = useState(() => new Set<string>());
-
-  const evaluateRecord = useCallback((record: AttendanceRecord | null): boolean => {
-    if (!record) return false;
-
-    // RULE 1: If employee selected "Stay Active" (exitPromptResolvedOutside / returningToOffice),
-    // suppress popup completely until confirmed re-entry
-    if (
-      record.exitPromptResolvedOutside === true ||
-      record.returningToOffice === true ||
-      record.currentState === 'EXIT_PROMPT_RESOLVED_OUTSIDE' ||
-      record.currentState === 'RETURNING_TO_OFFICE'
-    ) {
+    // Check if dismissed in this app session
+    const recKey = record.id || `${record.employeeId}_${record.date}`;
+    if (dismissedRecordIds.has(recKey)) {
       return false;
     }
 
-    // RULE 2: If this specific exit event has already been acted upon (Confirmed or Stay Active),
-    // it is PERMANENTLY ineligible for another popup.
-    const pendingEventId = record.pendingCheckoutEventId;
-    if (pendingEventId) {
-      if (record.lastActedExitEventId === pendingEventId) {
-        return false;
-      }
+    // Check authoritative exit
+    const exitAnalysis = getAuthoritativeExitForCheckout(record, record.eventHistory || []);
+    const authoritativeExit = exitAnalysis.authoritativeExitTime;
 
-      if (record.handledExitEvents && record.handledExitEvents[pendingEventId]) {
-        return false;
-      }
+    let initialTime12 = '06:00 PM';
+    let initialTime24 = '18:00';
+    let suggested: string | null = null;
 
-      const persistedHandled = getPersistedHandledExitEvents();
-      if (persistedHandled[pendingEventId]) {
-        return false;
+    if (authoritativeExit) {
+      suggested = authoritativeExit;
+      const parsed = parseAndValidateTime(authoritativeExit);
+      if (parsed.isValid && parsed.formatted12 && parsed.hours24 !== undefined && parsed.minutes !== undefined) {
+        initialTime12 = parsed.formatted12;
+        initialTime24 = `${String(parsed.hours24).padStart(2, '0')}:${String(parsed.minutes).padStart(2, '0')}`;
       }
-
-      if (actedEventIds.has(pendingEventId)) {
-        return false;
+    } else if (record.checkInTime) {
+      // If check-in was at 09:55 AM, set default to 9 hours later (~06:55 PM) or 06:00 PM
+      const inMins = parseAttendanceTimeToMinutes(record.checkInTime);
+      if (inMins !== null) {
+        const targetMins = Math.min(23 * 60 + 59, inMins + 9 * 60);
+        const h = Math.floor(targetMins / 60);
+        const m = targetMins % 60;
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 === 0 ? 12 : h % 12;
+        initialTime12 = `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+        initialTime24 = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
       }
     }
 
-    if (activeRecord && activeRecord.pendingCheckoutEventId && record.pendingCheckoutEventId && activeRecord.pendingCheckoutEventId !== record.pendingCheckoutEventId) {
-       return false;
-    }
-
-    const checkOutValue = (record.checkOutTime || '').trim();
-    const isCheckOutMissing = !checkOutValue || 
-                              checkOutValue === '--:--' || 
-                              checkOutValue === '--:-- --' ||
-                              checkOutValue === 'Pending' ||
-                              checkOutValue === 'N/A' ||
-                              checkOutValue === 'UNRESOLVED';
-
-    const hasRecordedExit = Boolean(
-      record.recordedExitTime ||
-      record.geofenceExitTime ||
-      record.lastExitTime ||
-      record.exitTime
-    );
-
-    const hasPendingExitState = record.pendingCheckoutConfirmation === true ||
-      record.currentState === 'PENDING_AUTO_CHECKOUT' ||
-      record.currentState === 'PENDING_EXIT_CONFIRMATION' ||
-      record.currentState === 'PENDING_FINAL_EXIT' ||
-      record.currentState === 'CHECKOUT_NOT_DETECTED' ||
-      (hasRecordedExit && isCheckOutMissing && !record.checkoutFinalized && !record.checkoutConfirmed);
-
-    if (
-      !isServerAttendanceAuthoritative(record) &&
-      !record.isAdminRectified &&
-      !record.checkoutFinalized &&
-      !record.checkoutConfirmed &&
-      record.checkInTime &&
-      record.checkInTime !== '--:--' &&
-      isCheckOutMissing &&
-      (record.attendanceType === 'OFFICE' || !record.attendanceType) &&
-      hasPendingExitState
-    ) {
-      if (!record.pendingCheckoutConfirmation) {
-        record.pendingCheckoutConfirmation = true;
-      }
-      if (!record.currentState || record.currentState === 'CHECKED_IN') {
-        record.currentState = 'PENDING_AUTO_CHECKOUT';
-      }
-      if (!record.pendingCheckoutEventId) {
-        const todayDate = record.date || getFormattedDateStr();
-        record.pendingCheckoutEventId = `evt_exit_${record.employeeId || 'emp'}_${todayDate}_${record.recordedExitTime || record.geofenceExitTime || 'exit'}`;
-      }
-      setActiveRecord(record);
-      return true;
-    }
-    return false;
-  }, [activeRecord, actedEventIds, getPersistedHandledExitEvents]);
+    setSuggestedExitTime(suggested);
+    setTimeInput12(initialTime12);
+    setTimeInput24(initialTime24);
+    setIsPreviousDay(isPast);
+    setManualError(null);
+    setActiveRecord(record);
+    return true;
+  }, [dismissedRecordIds]);
 
   const checkPendingConfirmation = useCallback(async (passedRecord?: AttendanceRecord | null, forceAsync: boolean = false) => {
-    // 1. If a record was passed directly from custom event detail, evaluate it first (0ms synchronous)
-    if (passedRecord && evaluateRecord(passedRecord)) {
-      return;
+    // 1. Direct record evaluation from event detail
+    if (passedRecord) {
+      const today = getFormattedDateStr();
+      const isPast = Boolean(passedRecord.date && passedRecord.date < today);
+      if (evaluateAndOpenRecord(passedRecord, isPast)) {
+        return;
+      }
     }
 
     const todayStr = getFormattedDateStr();
-    let record: AttendanceRecord | null = null;
+    const allStored = getStoredAttendanceRecords();
 
-    // 2. Try direct key lookup with all candidate IDs from local storage (0ms synchronous)
+    // 2. SAME-DAY CHECK (Scenario A): Check today's active session / exit candidate
+    let todayRecord: AttendanceRecord | null = null;
     for (const id of candidateIds) {
-      record = getTodayAttendanceRecord(id, todayStr);
-      if (record && evaluateRecord(record)) {
-        return;
-      }
+      todayRecord = getTodayAttendanceRecord(id, todayStr);
+      if (todayRecord) break;
     }
 
-    // 3. Fallback scan across stored local records
-    const allStored = getStoredAttendanceRecords();
-    if (Array.isArray(allStored)) {
-      const cleanCandidates = candidateIds.map((c) => c.trim().toLowerCase());
-      const fallbackRecord = allStored.find((r) => {
+    if (!todayRecord && Array.isArray(allStored)) {
+      const cleanCandidates = candidateIds.map(c => c.trim().toLowerCase());
+      todayRecord = allStored.find(r => {
         if (!r || r.date !== todayStr) return false;
         const rDocId = (r.docId || '').trim().toLowerCase();
-        const rEmpId = (r.employeeId || r.employeeCode || r.id || '').trim().toLowerCase();
-        return cleanCandidates.length === 0 || cleanCandidates.some((cid) => rDocId.includes(cid) || rEmpId === cid);
-      });
+        const rEmpId = (r.employeeId || (r as any).employeeCode || r.id || '').trim().toLowerCase();
+        return cleanCandidates.length === 0 || cleanCandidates.some(cid => rDocId.includes(cid) || rEmpId === cid);
+      }) || null;
+    }
 
-      if (fallbackRecord && evaluateRecord(fallbackRecord)) {
+    if (todayRecord) {
+      const coVal = (todayRecord.checkOutTime || '').trim();
+      const isCheckOutMissing = !coVal || coVal === '--:--' || coVal === 'Pending' || coVal === 'N/A' || coVal === 'UNRESOLVED';
+      const hasPendingState = todayRecord.pendingCheckoutConfirmation === true ||
+        todayRecord.currentState === 'PENDING_AUTO_CHECKOUT' ||
+        todayRecord.currentState === 'PENDING_EXIT_CONFIRMATION' ||
+        todayRecord.currentState === 'CHECKOUT_NOT_DETECTED' ||
+        todayRecord.currentState === 'PENDING_FINAL_EXIT';
+
+      const isResolvedOutside = todayRecord.exitPromptResolvedOutside === true || todayRecord.returningToOffice === true;
+
+      if (!isResolvedOutside && !todayRecord.checkoutFinalized && isCheckOutMissing && hasPendingState) {
+        if (evaluateAndOpenRecord(todayRecord, false)) {
+          return;
+        }
+      }
+    }
+
+    // 3. NEXT-DAY / PREVIOUS-DAY CHECK (Scenario B): Check unresolved records from previous days
+    const unresolvedPast = getUnresolvedPastAttendanceRecords(allStored, candidateIds, todayStr);
+    if (unresolvedPast.length > 0) {
+      const oldestUnresolved = unresolvedPast[0];
+      if (evaluateAndOpenRecord(oldestUnresolved, true)) {
         return;
       }
     }
 
-    // 4. Rate-limit & in-flight guard for asynchronous native IPC checks
+    // 4. Rate-limited native IPC check for cold-start exit recovery
     const nowMs = Date.now();
     if (isCheckingRef.current) return;
     if (!forceAsync && nowMs - lastAsyncCheckTimestampRef.current < 15000) {
@@ -218,7 +256,6 @@ export const CheckoutConfirmationModal: React.FC = () => {
     lastAsyncCheckTimestampRef.current = nowMs;
 
     try {
-      // 5. Asynchronous Native Android persistent session check (Cold start recovery)
       const nativeState = await getNativeAttendanceState();
       if (nativeState?.hasActiveSession && nativeState.date === todayStr) {
         const hasNativeExit = !!nativeState.recordedExitTime;
@@ -229,9 +266,9 @@ export const CheckoutConfirmationModal: React.FC = () => {
         if (hasNativeExit || isPendingNativeExit) {
           const empCode = nativeState.employeeId || candidateIds[0] || '';
           if (empCode) {
-            let todayRec = getTodayAttendanceRecord(empCode, todayStr);
-            if (!todayRec) {
-              todayRec = {
+            let rec = getTodayAttendanceRecord(empCode, todayStr);
+            if (!rec) {
+              rec = {
                 id: `att_${empCode}_${todayStr}`,
                 docId: `${empCode}_${todayStr}`,
                 employeeId: empCode,
@@ -262,38 +299,31 @@ export const CheckoutConfirmationModal: React.FC = () => {
                 pendingCheckoutEventId: nativeState.pendingCheckoutEventId || `evt_native_${empCode}_${todayStr}_${nativeState.recordedExitTime || 'exit'}`
               };
             } else {
-              todayRec.pendingCheckoutConfirmation = true;
-              todayRec.currentState = 'PENDING_AUTO_CHECKOUT';
-              if (nativeState.recordedExitTime && !todayRec.recordedExitTime) {
-                todayRec.recordedExitTime = nativeState.recordedExitTime;
-                todayRec.geofenceExitTime = todayRec.geofenceExitTime || nativeState.recordedExitTime;
-              }
-              if (nativeState.pendingCheckoutEventId) {
-                todayRec.pendingCheckoutEventId = nativeState.pendingCheckoutEventId;
+              rec.pendingCheckoutConfirmation = true;
+              rec.currentState = 'PENDING_AUTO_CHECKOUT';
+              if (nativeState.recordedExitTime && !rec.recordedExitTime) {
+                rec.recordedExitTime = nativeState.recordedExitTime;
+                rec.geofenceExitTime = rec.geofenceExitTime || nativeState.recordedExitTime;
               }
             }
-            saveAttendanceRecord(todayRec);
-            if (evaluateRecord(todayRec)) {
-              return;
-            }
+            saveAttendanceRecord(rec);
+            evaluateAndOpenRecord(rec, false);
           }
         }
       }
-    } catch (nativeErr) {
-      console.warn('[CheckoutConfirmationModal] Native state check warning:', nativeErr);
+    } catch (e) {
+      console.warn('[CheckoutConfirmationModal] Native check notice:', e);
     } finally {
       isCheckingRef.current = false;
     }
-  }, [candidateIds, evaluateRecord]);
+  }, [candidateIds, evaluateAndOpenRecord]);
 
   useEffect(() => {
-    // Single asynchronous cold-start check on initial component mount
     checkPendingConfirmation(null, true);
 
     const handleAttendanceUpdated = (e?: Event) => {
       const customEvt = e as CustomEvent;
       const detailRec = customEvt?.detail?.record as AttendanceRecord | undefined;
-      // Evaluate synchronously from detail or local storage without triggering recursive network queries
       checkPendingConfirmation(detailRec || null, false);
     };
 
@@ -314,7 +344,7 @@ export const CheckoutConfirmationModal: React.FC = () => {
     };
   }, [checkPendingConfirmation]);
 
-  // Prevent background scrolling while modal is active
+  // Prevent background scrolling
   useEffect(() => {
     if (activeRecord) {
       document.body.style.overflow = 'hidden';
@@ -328,176 +358,142 @@ export const CheckoutConfirmationModal: React.FC = () => {
     };
   }, [activeRecord]);
 
-  const hasRecordedExit = !!(activeRecord?.recordedExitTime || activeRecord?.geofenceExitTime);
-
-  // Trap Android / Browser Back button navigation ONLY when an exit was authoritatively recorded
-  useEffect(() => {
-    if (!activeRecord || !hasRecordedExit) return;
-
-    window.history.pushState({ checkoutModal: true }, '', window.location.href);
-
-    const handlePopState = (e: PopStateEvent) => {
-      e.preventDefault();
-      window.history.pushState({ checkoutModal: true }, '', window.location.href);
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [activeRecord, hasRecordedExit]);
-
-  // Prevent Escape key dismissal ONLY when authoritative exit was recorded
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (activeRecord && (e.key === 'Escape' || e.key === 'Esc')) {
-        if (!hasRecordedExit) {
-          setActiveRecord(null);
-          return;
-        }
-        e.preventDefault();
-        e.stopPropagation();
+  const handleTime24Change = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value; // "HH:MM"
+    setTimeInput24(val);
+    if (val) {
+      const parsed = parseAndValidateTime(val);
+      if (parsed.isValid && parsed.formatted12) {
+        setTimeInput12(parsed.formatted12);
+        setManualError(null);
       }
-    };
-    window.addEventListener('keydown', handleKeyDown, true);
-    return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [activeRecord, hasRecordedExit]);
+    }
+  };
 
   const handleConfirmCheckout = async () => {
-    if (!employeeId || isProcessing || !activeRecord) return;
-    
-    const eventId = activeRecord.pendingCheckoutEventId || undefined;
-    if (eventId) {
-      console.log('[CheckoutConfirmationModal] CHECKOUT_CONFIRM_CLICKED:', eventId);
-      actedEventIds.add(eventId);
-      persistHandledExitEvent(eventId, 'CONFIRM_CHECKOUT');
-    }
-    
-    setIsProcessing(true);
-    setFeedback('Finalizing checkout at recorded exit time...');
+    if (!activeRecord || isProcessing) return;
 
-    try {
-      const todayStr = getFormattedDateStr();
-      const result = AutomaticAttendanceEngine.confirmCheckoutFromExit(
-        employeeId,
-        todayStr,
-        liveLocation || undefined,
-        currentAddress || undefined,
-        eventId
-      );
-
-      if (result) {
-        setFeedback(`Checkout confirmed at ${result.checkOutTime}`);
-        setTimeout(() => {
-          setActiveRecord(null);
-          setIsProcessing(false);
-          setFeedback(null);
-        }, 500);
-      } else {
-        setActiveRecord(null);
-        setIsProcessing(false);
-      }
-    } catch (err: any) {
-      console.error('Error confirming checkout:', err);
-      setIsProcessing(false);
-      setFeedback(err.message || 'Failed to confirm checkout');
-    }
-  };
-
-  const handleReturningToOffice = async () => {
-    if (!employeeId || isProcessing || !activeRecord) return;
-
-    const eventId = activeRecord.pendingCheckoutEventId || undefined;
-    if (eventId) {
-      console.log('[CheckoutConfirmationModal] CHECKOUT_STAY_ACTIVE_CLICKED:', eventId);
-      actedEventIds.add(eventId);
-      persistHandledExitEvent(eventId, 'STAY_ACTIVE');
-    }
-
-    setIsProcessing(true);
-    setFeedback('Preserving active session...');
-
-    try {
-      const todayStr = getFormattedDateStr();
-      const result = AutomaticAttendanceEngine.setReturningToOffice(
-        employeeId,
-        todayStr,
-        eventId
-      );
-
-      if (result) {
-        setFeedback('Active attendance session preserved.');
-        setTimeout(() => {
-          setActiveRecord(null);
-          setIsProcessing(false);
-          setFeedback(null);
-        }, 500);
-      } else {
-        setActiveRecord(null);
-        setIsProcessing(false);
-      }
-    } catch (err: any) {
-      console.error('Error setting returning to office:', err);
-      setIsProcessing(false);
-      setFeedback(err.message || 'Failed to update status');
-    }
-  };
-
-  const handleManualCheckoutSubmit = async () => {
-    if (!employeeId || isProcessing || !activeRecord) return;
     setManualError(null);
 
-    const [h, m] = manualTime.split(':').map(Number);
-    if (isNaN(h) || isNaN(m)) {
-      setManualError('Please enter a valid time.');
+    const validation = parseAndValidateTime(timeInput12);
+    if (!validation.isValid || !validation.formatted12) {
+      setManualError(validation.error || 'Please enter a valid checkout time (e.g. 06:17 PM).');
       return;
     }
 
-    let ampm = 'AM';
-    let formattedH = h;
-    if (h >= 12) {
-      ampm = 'PM';
-      if (h > 12) formattedH = h - 12;
+    const confirmedTimeStr = validation.formatted12;
+
+    // Check-in validation: checkout must not be earlier than check-in time
+    if (activeRecord.checkInTime && activeRecord.checkInTime !== '--:--') {
+      const inMins = parseAttendanceTimeToMinutes(activeRecord.checkInTime);
+      const outMins = parseAttendanceTimeToMinutes(confirmedTimeStr);
+      if (inMins !== null && outMins !== null && outMins < inMins) {
+        setManualError(`Checkout time (${confirmedTimeStr}) cannot be earlier than check-in time (${activeRecord.checkInTime}).`);
+        return;
+      }
     }
-    if (formattedH === 0) formattedH = 12;
-    const formattedTime = `${String(formattedH).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
 
     setIsProcessing(true);
-    setFeedback('Recording checkout time for admin review...');
+    setFeedback(`Confirming checkout for ${formatDisplayDate(activeRecord.date)} at ${confirmedTimeStr}...`);
 
     try {
-      const todayStr = getFormattedDateStr();
-      const result = AutomaticAttendanceEngine.submitEmployeeCheckoutTime(
-        employeeId,
-        todayStr,
-        formattedTime,
-        false
-      );
+      const nowIso = new Date().toISOString();
+      const workingHours = activeRecord.checkInTime
+        ? calculateWorkingHours(activeRecord.checkInTime, confirmedTimeStr)
+        : null;
 
-      if (result) {
-        setFeedback(`Checkout recorded at ${formattedTime}. Status: UNRESOLVED`);
-        setTimeout(() => {
-          setActiveRecord(null);
-          setIsProcessing(false);
-          setFeedback(null);
-          setShowManualTimeInput(false);
-        }, 600);
-      } else {
-        setActiveRecord(null);
-        setIsProcessing(false);
+      const empId = activeRecord.employeeId || employeeId || 'emp';
+      const eventId = `evt_manual_confirm_${empId}_${activeRecord.date}_${confirmedTimeStr.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+      // Update the record deterministically for its authoritative date
+      activeRecord.checkOutTime = confirmedTimeStr;
+      activeRecord.workingHours = workingHours;
+      activeRecord.checkoutStatus = 'FINALIZED';
+      activeRecord.checkoutFinalized = true;
+      activeRecord.checkoutConfirmed = true;
+      activeRecord.attendanceStatus = 'RESOLVED';
+      activeRecord.status = 'completed';
+      activeRecord.currentState = 'FINALIZED_CHECKOUT';
+      activeRecord.checkOutMode = 'MANUAL';
+      activeRecord.checkoutType = suggestedExitTime ? 'AUTO_CHECKOUT' : 'MANUAL_CONFIRMED';
+      activeRecord.checkoutSource = suggestedExitTime ? 'CONFIRMED_NATIVE_EXIT' : 'EMPLOYEE_REPORTED';
+      activeRecord.resolutionSource = 'EMPLOYEE_CONFIRMED';
+      activeRecord.pendingCheckoutConfirmation = false;
+      activeRecord.pendingCheckoutEventId = null;
+      activeRecord.returningToOffice = false;
+      activeRecord.exitPromptResolvedOutside = false;
+      activeRecord.confirmationCompletedAt = nowIso;
+      activeRecord.syncStatus = 'Pending';
+      activeRecord.updatedAt = nowIso;
+
+      const manualEvent: AttendanceHistoryEvent = {
+        eventId,
+        employeeId: empId,
+        eventType: 'CHECK_OUT',
+        eventTime: confirmedTimeStr,
+        timestamp: nowIso,
+        source: 'MANUAL_CONFIRMATION',
+        action: 'CONFIRM_CHECKOUT'
+      };
+
+      const history = Array.isArray(activeRecord.eventHistory) ? [...activeRecord.eventHistory] : [];
+      history.push(manualEvent);
+      activeRecord.eventHistory = history.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      saveAttendanceRecord(activeRecord);
+
+      // Clean up native session if same day
+      const todayStr = getFormattedDateStr();
+      if (activeRecord.date === todayStr) {
+        clearNativeActiveSession().catch(() => {});
       }
+
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        syncPendingAttendanceRecords().catch(() => {});
+      }
+
+      setFeedback(`✓ Checkout confirmed at ${confirmedTimeStr}`);
+
+      setTimeout(() => {
+        setIsProcessing(false);
+        setFeedback(null);
+        setActiveRecord(null);
+        // Automatically check if another unresolved previous day exists
+        checkPendingConfirmation(null, false);
+      }, 600);
     } catch (err: any) {
-      console.error('Error submitting manual checkout time:', err);
+      console.error('Failed to confirm checkout:', err);
       setIsProcessing(false);
-      setManualError(err.message || 'Failed to submit checkout time');
+      setManualError(err?.message || 'Failed to save checkout confirmation. Please try again.');
     }
   };
 
-  const handleDismiss = () => {
+  const handleStayActive = async () => {
+    if (!activeRecord || isProcessing || isPreviousDay) return;
+    setIsProcessing(true);
+    setFeedback('Preserving active office attendance session...');
+
+    try {
+      const todayStr = getFormattedDateStr();
+      const empId = activeRecord.employeeId || employeeId || 'emp';
+      AutomaticAttendanceEngine.setReturningToOffice(empId, todayStr, activeRecord.pendingCheckoutEventId || undefined);
+
+      setFeedback('Active session preserved.');
+      setTimeout(() => {
+        setIsProcessing(false);
+        setFeedback(null);
+        setActiveRecord(null);
+      }, 500);
+    } catch (err: any) {
+      setIsProcessing(false);
+      setManualError(err?.message || 'Failed to update session');
+    }
+  };
+
+  const handleDismissLater = () => {
     if (activeRecord) {
-      // Allow dismissing the non-blocking prompt
-      activeRecord.pendingCheckoutConfirmation = false;
-      saveAttendanceRecord(activeRecord);
+      const recKey = activeRecord.id || `${activeRecord.employeeId}_${activeRecord.date}`;
+      setDismissedRecordIds(prev => new Set(prev).add(recKey));
       setActiveRecord(null);
     }
   };
@@ -506,21 +502,14 @@ export const CheckoutConfirmationModal: React.FC = () => {
     return null;
   }
 
-  const exitTimeDisplay = activeRecord.recordedExitTime || activeRecord.geofenceExitTime;
+  const recordDateDisplay = formatDisplayDate(activeRecord.date);
 
   return (
     <AnimatePresence>
-      <div 
+      <div
         id="checkout-confirmation-backdrop"
         className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md select-none"
-        onClick={(e) => {
-          if (!hasRecordedExit) {
-            handleDismiss();
-          } else {
-            e.preventDefault();
-            e.stopPropagation();
-          }
-        }}
+        onClick={handleDismissLater}
       >
         <motion.div
           id="checkout-confirmation-modal"
@@ -531,16 +520,15 @@ export const CheckoutConfirmationModal: React.FC = () => {
           className="relative w-full max-w-md glass-card border border-purple-800/60 rounded-2xl shadow-2xl shadow-purple-950/80 overflow-hidden text-white"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Dismiss button when non-blocking */}
-          {!hasRecordedExit && (
-            <button
-              onClick={handleDismiss}
-              className="absolute top-4 right-4 z-10 p-2 text-purple-300 hover:text-white hover:bg-purple-900/50 rounded-xl transition-colors cursor-pointer"
-              title="Dismiss for now"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          {/* Close / Dismiss */}
+          <button
+            type="button"
+            onClick={handleDismissLater}
+            className="absolute top-4 right-4 z-10 p-2 text-purple-300 hover:text-white hover:bg-purple-900/50 rounded-xl transition-colors cursor-pointer"
+            title="Decide later"
+          >
+            <X className="w-5 h-5" />
+          </button>
 
           {/* Header Banner */}
           <div className="glass-card border-b border-[var(--border)] px-6 pt-6 pb-5">
@@ -550,49 +538,80 @@ export const CheckoutConfirmationModal: React.FC = () => {
               </div>
               <div>
                 <span className="text-[11px] font-semibold tracking-wider text-purple-300 uppercase block">
-                  {hasRecordedExit ? 'Geofence Exit Detected' : 'Checkout Not Detected'}
+                  {isPreviousDay ? 'Previous Day Checkout' : 'Checkout Confirmation'}
                 </span>
                 <h3 className="text-lg font-bold text-white tracking-tight leading-snug">
-                  {hasRecordedExit ? 'You have left the office premises.' : 'Office Checkout Not Detected'}
+                  {isPreviousDay 
+                    ? `Checkout not recorded for ${recordDateDisplay}`
+                    : 'Checkout time was not recorded'}
                 </h3>
               </div>
             </div>
-            <p className="text-sm text-purple-200/90 font-medium pl-[58px]">
-              {hasRecordedExit 
-                ? 'What would you like to do?' 
-                : 'You are currently outside the office geofence. What would you like to do?'}
+            <p className="text-xs text-purple-200/90 font-medium pl-[58px]">
+              {isPreviousDay
+                ? `Please enter your actual checkout time for ${recordDateDisplay}.`
+                : 'Please confirm your checkout time to complete your attendance.'}
             </p>
           </div>
 
-          {/* Details Card */}
+          {/* Body Content */}
           <div className="p-6 space-y-4">
+            {/* Record Context Card */}
             <div className="bg-purple-950/40 rounded-xl border border-purple-800/30 p-3.5 space-y-2">
-              {hasRecordedExit ? (
-                <div className="flex items-center justify-between text-xs text-purple-200">
-                  <span className="flex items-center gap-1.5 text-purple-300">
-                    <Clock className="w-3.5 h-3.5 text-purple-400" />
-                    Recorded Exit Time:
+              <div className="flex items-center justify-between text-xs text-purple-200">
+                <span className="flex items-center gap-1.5 text-purple-300">
+                  <Calendar className="w-3.5 h-3.5 text-purple-400" />
+                  Attendance Date:
+                </span>
+                <span className="font-bold text-sm text-white">
+                  {recordDateDisplay}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-purple-200">
+                <span className="flex items-center gap-1.5 text-purple-300">
+                  <Clock className="w-3.5 h-3.5 text-purple-400" />
+                  Check-In Time:
+                </span>
+                <span className="font-medium text-emerald-300">
+                  {activeRecord.checkInTime || '--:--'}
+                </span>
+              </div>
+              {suggestedExitTime && (
+                <div className="flex items-center justify-between text-xs text-purple-200 pt-1 border-t border-purple-900/50">
+                  <span className="flex items-center gap-1.5 text-amber-300">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    Suggested Exit:
                   </span>
-                  <span className="font-bold text-sm text-amber-300">
-                    {exitTimeDisplay}
+                  <span className="font-bold text-amber-300">
+                    {suggestedExitTime}
                   </span>
-                </div>
-              ) : (
-                <div className="text-xs text-purple-200/90 leading-relaxed">
-                  No automatic geofence exit was recorded while the app was closed. You can provide your checkout time or indicate you are returning to the office.
                 </div>
               )}
-              <div className="flex items-center justify-between text-xs text-purple-300/80 pt-1 border-t border-purple-900/50">
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-purple-400" />
-                  Office Geofence:
-                </span>
-                <span className="font-medium text-purple-200">
-                  Outside 25m boundary
-                </span>
+            </div>
+
+            {/* Time Picker Control */}
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-purple-200">
+                Select / Enter Checkout Time:
+              </label>
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400 pointer-events-none" />
+                  <input
+                    type="time"
+                    value={timeInput24}
+                    onChange={handleTime24Change}
+                    className="w-full pl-9 pr-4 py-2.5 bg-purple-950/80 border border-purple-700/80 text-white rounded-xl focus:outline-none focus:border-purple-400 font-bold text-base cursor-pointer"
+                  />
+                </div>
+                <div className="px-3 py-2.5 bg-purple-900/40 border border-purple-700/40 rounded-xl text-center min-w-[100px]">
+                  <span className="text-xs text-purple-400 block font-mono">12-Hour</span>
+                  <span className="text-sm font-bold text-amber-300">{timeInput12}</span>
+                </div>
               </div>
             </div>
 
+            {/* Status Feedback / Errors */}
             {feedback && (
               <div className="p-3 bg-purple-900/40 border border-purple-700/50 rounded-xl text-xs text-purple-200 text-center font-medium flex items-center justify-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -606,161 +625,66 @@ export const CheckoutConfirmationModal: React.FC = () => {
               </div>
             )}
 
-            {/* If has recorded exit: Show Confirm Checkout vs Returning to Office */}
-            {hasRecordedExit && (
-              <div className="pt-2 space-y-3">
-                {/* Option 1: Confirm Checkout */}
-                <button
-                  id="btn-confirm-checkout"
-                  type="button"
-                  disabled={isProcessing}
-                  onClick={handleConfirmCheckout}
-                  className="w-full group relative flex items-center justify-between px-4 py-3.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:from-emerald-700 active:to-emerald-800 text-white font-semibold rounded-xl shadow-lg shadow-emerald-950/40 border border-emerald-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  <div className="flex items-center gap-3 text-left">
-                    <div className="w-9 h-9 rounded-lg bg-emerald-800/60 border border-emerald-400/30 flex items-center justify-center text-emerald-200 group-hover:scale-105 transition-transform">
-                      <LogOut className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold tracking-tight">Confirm Checkout</div>
-                      <div className="text-[11px] text-emerald-100/80 font-normal">
-                        Finalize at {exitTimeDisplay}
-                      </div>
+            {/* Action Buttons */}
+            <div className="pt-2 space-y-3">
+              <button
+                id="btn-confirm-checkout"
+                type="button"
+                disabled={isProcessing}
+                onClick={handleConfirmCheckout}
+                className="w-full group relative flex items-center justify-between px-4 py-3.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:from-emerald-700 active:to-emerald-800 text-white font-semibold rounded-xl shadow-lg shadow-emerald-950/40 border border-emerald-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <div className="flex items-center gap-3 text-left">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-800/60 border border-emerald-400/30 flex items-center justify-center text-emerald-200 group-hover:scale-105 transition-transform">
+                    <LogOut className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold tracking-tight">Confirm Checkout</div>
+                    <div className="text-[11px] text-emerald-100/80 font-normal">
+                      Finalize {recordDateDisplay} at {timeInput12}
                     </div>
                   </div>
-                  <div className="text-xs font-semibold px-2.5 py-1 bg-emerald-800/70 border border-emerald-400/30 rounded-lg text-emerald-100">
-                    End Day
-                  </div>
-                </button>
-
-                {/* Option 2: Returning to Office */}
-                <button
-                  id="btn-returning-to-office"
-                  type="button"
-                  disabled={isProcessing}
-                  onClick={handleReturningToOffice}
-                  className="w-full group relative flex items-center justify-between px-4 py-3.5 bg-purple-900/60 hover:bg-purple-800/80 active:bg-purple-950 text-white font-semibold rounded-xl shadow-lg shadow-purple-950/40 border border-purple-700/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  <div className="flex items-center gap-3 text-left">
-                    <div className="w-9 h-9 rounded-lg bg-purple-800/70 border border-purple-600/40 flex items-center justify-center text-purple-200 group-hover:scale-105 transition-transform">
-                      <Building2 className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold tracking-tight">Returning to Office</div>
-                      <div className="text-[11px] text-purple-200/80 font-normal">
-                        Keep attendance session active
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-xs font-semibold px-2.5 py-1 bg-purple-800/80 border border-purple-600/40 rounded-lg text-purple-200">
-                    Stay Active
-                  </div>
-                </button>
-              </div>
-            )}
-
-            {/* If NO recorded exit: Provide Enter Checkout Time or Returning to Office */}
-            {!hasRecordedExit && (
-              <div className="pt-2 space-y-3">
-                {showManualTimeInput ? (
-                  <div className="p-4 bg-purple-900/30 border border-purple-700/50 rounded-xl space-y-3">
-                    <label className="block text-xs font-semibold text-purple-200">
-                      When did you leave the office?
-                    </label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400" />
-                      <input
-                        type="time"
-                        value={manualTime}
-                        onChange={(e) => setManualTime(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2.5 bg-purple-950/80 border border-purple-700/80 text-white rounded-xl focus:outline-none focus:border-purple-400 font-medium text-sm"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setShowManualTimeInput(false)}
-                        className="flex-1 py-2 px-3 bg-purple-900/40 hover:bg-purple-900/60 border border-purple-700/40 text-xs font-semibold rounded-lg text-purple-300 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isProcessing}
-                        onClick={handleManualCheckoutSubmit}
-                        className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-xs font-bold rounded-lg text-white transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Submit Time</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    id="btn-enter-checkout-time"
-                    type="button"
-                    disabled={isProcessing}
-                    onClick={() => setShowManualTimeInput(true)}
-                    className="w-full group relative flex items-center justify-between px-4 py-3.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-semibold rounded-xl shadow-lg shadow-amber-950/40 border border-amber-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3 text-left">
-                      <div className="w-9 h-9 rounded-lg bg-amber-800/60 border border-amber-400/30 flex items-center justify-center text-amber-200 group-hover:scale-105 transition-transform">
-                        <Clock className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold tracking-tight">Enter Checkout Time</div>
-                        <div className="text-[11px] text-amber-100/80 font-normal">
-                          Provide exit time for review
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-xs font-semibold px-2.5 py-1 bg-amber-800/70 border border-amber-400/30 rounded-lg text-amber-100">
-                      Specify Time
-                    </div>
-                  </button>
-                )}
-
-                {/* Option 2: Returning to Office */}
-                <button
-                  id="btn-returning-to-office-unresolved"
-                  type="button"
-                  disabled={isProcessing}
-                  onClick={handleReturningToOffice}
-                  className="w-full group relative flex items-center justify-between px-4 py-3.5 bg-purple-900/60 hover:bg-purple-800/80 active:bg-purple-950 text-white font-semibold rounded-xl shadow-lg shadow-purple-950/40 border border-purple-700/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  <div className="flex items-center gap-3 text-left">
-                    <div className="w-9 h-9 rounded-lg bg-purple-800/70 border border-purple-600/40 flex items-center justify-center text-purple-200 group-hover:scale-105 transition-transform">
-                      <Building2 className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold tracking-tight">Returning to Office</div>
-                      <div className="text-[11px] text-purple-200/80 font-normal">
-                        Keep attendance session active
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-xs font-semibold px-2.5 py-1 bg-purple-800/80 border border-purple-600/40 rounded-lg text-purple-200">
-                    Stay Active
-                  </div>
-                </button>
-
-                <div className="text-center pt-1">
-                  <button
-                    type="button"
-                    onClick={handleDismiss}
-                    className="text-xs text-purple-300 hover:text-white underline underline-offset-2 transition-colors cursor-pointer"
-                  >
-                    Decide later (keep session open)
-                  </button>
                 </div>
-              </div>
-            )}
+                <div className="text-xs font-semibold px-2.5 py-1 bg-emerald-800/70 border border-emerald-400/30 rounded-lg text-emerald-100">
+                  Save
+                </div>
+              </button>
 
-            <p className="text-[11px] text-center text-purple-400/80 pt-1">
-              {hasRecordedExit 
-                ? 'Please choose an action. This prompt will remain until resolved.' 
-                : 'Your attendance remains open until confirmed, returned, or settled at 11:59 PM.'}
-            </p>
+              {!isPreviousDay && (
+                <button
+                  id="btn-stay-active"
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={handleStayActive}
+                  className="w-full group relative flex items-center justify-between px-4 py-3 bg-purple-900/60 hover:bg-purple-800/80 active:bg-purple-950 text-white font-semibold rounded-xl shadow-lg shadow-purple-950/40 border border-purple-700/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 text-left">
+                    <div className="w-8 h-8 rounded-lg bg-purple-800/70 border border-purple-600/40 flex items-center justify-center text-purple-200 group-hover:scale-105 transition-transform">
+                      <Building2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold tracking-tight">Returning to Office</div>
+                      <div className="text-[10px] text-purple-200/80 font-normal">
+                        Keep today's attendance session active
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-xs font-semibold px-2.5 py-0.5 bg-purple-800/80 border border-purple-600/40 rounded-lg text-purple-200">
+                    Stay Active
+                  </div>
+                </button>
+              )}
+
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  onClick={handleDismissLater}
+                  className="text-xs text-purple-300 hover:text-white underline underline-offset-2 transition-colors cursor-pointer"
+                >
+                  Decide later (keep unresolved)
+                </button>
+              </div>
+            </div>
           </div>
         </motion.div>
       </div>

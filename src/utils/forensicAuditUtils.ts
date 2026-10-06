@@ -459,3 +459,54 @@ export function getAuthoritativeExitForCheckout(
   };
 }
 
+/**
+ * Identifies previous attendance days with a valid check-in but unresolved/missing checkout.
+ * Returns records sorted chronologically ascending (oldest unresolved day first).
+ */
+export function getUnresolvedPastAttendanceRecords(
+  records: AttendanceRecord[],
+  employeeIds: string[],
+  todayStr: string
+): AttendanceRecord[] {
+  if (!Array.isArray(records) || records.length === 0) return [];
+
+  const cleanCandidates = employeeIds.map(id => (id || '').trim().toLowerCase()).filter(Boolean);
+
+  const unresolved = records.filter(rec => {
+    if (!rec || !rec.date) return false;
+    // Only previous days
+    if (rec.date >= todayStr) return false;
+
+    // Filter by employee identity
+    const recEmp = (rec.employeeId || (rec as any).employeeCode || rec.id || '').trim().toLowerCase();
+    const recDocId = (rec.docId || '').trim().toLowerCase();
+    const matchesEmp = cleanCandidates.length === 0 || cleanCandidates.some(cid => recEmp === cid || recDocId.includes(cid));
+    if (!matchesEmp) return false;
+
+    // Must have a valid check-in
+    if (!rec.checkInTime || rec.checkInTime === '--:--' || rec.checkInTime === 'null') {
+      return false;
+    }
+
+    // Never re-prompt if already finalized by Admin
+    if (rec.isAdminRectified || rec.manualRectified) {
+      return false;
+    }
+
+    const coTime = (rec.checkOutTime || '').trim();
+    const isCompleted = rec.checkoutFinalized === true ||
+      rec.checkoutConfirmed === true ||
+      rec.checkoutStatus === 'FINALIZED' ||
+      rec.checkoutStatus === 'COMPLETED';
+
+    if (isCompleted && coTime && coTime !== '--:--' && coTime !== 'UNRESOLVED' && coTime !== 'Pending' && coTime !== 'N/A') {
+      return false;
+    }
+
+    return true;
+  });
+
+  return unresolved.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+
