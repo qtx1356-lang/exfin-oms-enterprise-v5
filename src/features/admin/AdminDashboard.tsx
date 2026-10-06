@@ -68,6 +68,7 @@ import { calculateWorkingHours } from '../../services/attendance/smartAttendance
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { ExpenseRecord } from '../../types/expense';
 import { TaskRecord, TaskPriority, TaskStatus, AssignmentType, TaskComment, getEffectiveTaskStatus } from '../../types/planner';
+import { analyzeAttendanceForensics } from '../../utils/forensicAuditUtils';
 import { getStoredTasks, saveTaskRecord } from '../../services/planner/taskStorage';
 import { EfficiencyDashboard } from '../efficiency/EfficiencyDashboard';
 import { ReportsAnalyticsTab } from './ReportsAnalyticsTab';
@@ -2625,51 +2626,40 @@ export const AdminDashboard: React.FC = () => {
                   
                   {/* Geo-Fencing Logs */}
                   {(() => {
-                    const lastExitEvt = forensicEvents.slice().reverse().find(e => 
-                      e.eventType === 'GEOFENCE_EXIT' || e.eventType === 'EXIT'
-                    );
-                    const lastReturnEvt = forensicEvents.slice().reverse().find(e => 
-                      e.eventType === 'GEOFENCE_RETURN' || e.eventType === 'RETURN'
-                    );
-
-                    const effectiveLastExit = 
-                      selectedAttendance.lastExitTime ||
-                      selectedAttendance.exitTime ||
-                      selectedAttendance.recordedExitTime ||
-                      selectedAttendance.geofenceExitTime ||
-                      lastExitEvt?.eventTime ||
-                      null;
-
-                    const effectiveLastReturn = 
-                      selectedAttendance.lastReturnTime ||
-                      selectedAttendance.returnTime ||
-                      lastReturnEvt?.eventTime ||
-                      null;
+                    const analysis = analyzeAttendanceForensics(selectedAttendance, forensicEvents);
 
                     const shouldShowGeoLogs = Boolean(
-                      effectiveLastExit || 
-                      effectiveLastReturn || 
+                      analysis.lastExitTime || 
+                      analysis.lastReturnTime || 
+                      analysis.isPendingReturn ||
                       selectedAttendance.lastExitAt || 
                       selectedAttendance.lastReturnAt || 
-                      forensicEvents.some(e => e.eventType.includes('EXIT') || e.eventType.includes('RETURN'))
+                      analysis.sortedEvents.some(e => e.eventType.includes('EXIT') || e.eventType.includes('RETURN'))
                     );
 
                     if (!shouldShowGeoLogs) return null;
 
-                    const exitDisplay = effectiveLastExit 
-                      ? safeStringify(effectiveLastExit) 
-                      : (effectiveLastReturn ? 'Not Detected' : '—');
-                    const returnDisplay = effectiveLastReturn 
-                      ? safeStringify(effectiveLastReturn) 
-                      : '—';
+                    const exitDisplay = analysis.lastExitDisplay;
+                    const returnDisplay = analysis.lastReturnDisplay;
 
                     return (
                       <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-xl space-y-2">
                         <div className="text-[11px] text-red-300 font-bold flex items-center justify-between">
-                          <span>Geofence Violation Logs</span>
-                          {forensicEvents.length > 0 && (
+                          <span className="flex items-center gap-1.5">
+                            <span>Geofence Forensic Audit</span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-medium ${
+                              analysis.currentGeofenceState === 'OUTSIDE' 
+                                ? 'bg-red-500/20 text-red-300 border border-red-500/30' 
+                                : analysis.currentGeofenceState === 'INSIDE'
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : 'bg-white/10 text-white/60'
+                            }`}>
+                              {analysis.currentGeofenceState === 'OUTSIDE' ? 'OUTSIDE OFFICE' : analysis.currentGeofenceState === 'INSIDE' ? 'INSIDE OFFICE' : 'UNKNOWN'}
+                            </span>
+                          </span>
+                          {analysis.sortedEvents.length > 0 && (
                             <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-200 font-mono">
-                              {forensicEvents.length} {forensicEvents.length === 1 ? 'event' : 'events'} recorded
+                              {analysis.sortedEvents.length} {analysis.sortedEvents.length === 1 ? 'event' : 'events'}
                             </span>
                           )}
                         </div>
@@ -2682,40 +2672,58 @@ export const AdminDashboard: React.FC = () => {
                           </div>
                           <div className="flex justify-between text-[10px]">
                             <span className="text-white/60">Last Return:</span>
-                            <span className="text-white font-bold">{returnDisplay}</span>
+                            <span className={`font-bold ${analysis.isPendingReturn ? 'text-amber-400 font-mono' : 'text-white'}`}>
+                              {returnDisplay}
+                            </span>
                           </div>
+                          {analysis.lastCompletedCycle && analysis.activeCycle && (
+                            <div className="text-[9px] text-white/40 pt-0.5 flex justify-between">
+                              <span>Prior Cycle:</span>
+                              <span className="font-mono text-white/60">
+                                {analysis.lastCompletedCycle.exitEvent.eventTime} → {analysis.lastCompletedCycle.returnEvent?.eventTime || '—'}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Chronological Event Audit Trail if events exist */}
-                        {forensicEvents.length > 0 && (
+                        {analysis.sortedEvents.length > 0 && (
                           <div className="mt-2 pt-2 border-t border-red-500/15 space-y-1">
-                            <div className="text-[9px] text-white/40 uppercase tracking-widest font-mono">Forensic Timeline</div>
+                            <div className="text-[9px] text-white/40 uppercase tracking-widest font-mono">Chronological Audit Trail</div>
                             <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
-                              {forensicEvents.map((evt, idx) => (
-                                <div key={evt.eventId || idx} className="flex items-center justify-between text-[9px] bg-black/20 p-1.5 rounded">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className={`w-1.5 h-1.5 rounded-full ${
-                                      evt.eventType === 'CHECK_IN' ? 'bg-emerald-400' :
-                                      evt.eventType.includes('EXIT') ? 'bg-red-400' :
-                                      evt.eventType.includes('RETURN') ? 'bg-blue-400' : 'bg-amber-400'
-                                    }`} />
-                                    <span className="text-white/80 font-mono">
-                                      {evt.eventType.replace('GEOFENCE_', '')}
-                                    </span>
-                                    {evt.source && (
-                                      <span className="text-[8px] text-white/40 font-mono">({evt.source})</span>
-                                    )}
-                                  </div>
-                                  <div className="text-right">
-                                    <span className="text-white font-bold">{evt.eventTime}</span>
-                                    {evt.distance !== undefined && (
-                                      <span className="text-[8px] text-white/40 ml-1">
-                                        ({typeof evt.distance === 'number' ? `${Math.round(evt.distance)}m` : evt.distance})
+                              {analysis.sortedEvents.map((evt, idx) => {
+                                const isExit = evt.eventType.includes('EXIT');
+                                const isReturn = evt.eventType.includes('RETURN');
+                                const isCheckIn = evt.eventType === 'CHECK_IN';
+                                const isStayActive = evt.eventType === 'STAY_ACTIVE';
+
+                                return (
+                                  <div key={evt.eventId || idx} className="flex items-center justify-between text-[9px] bg-black/20 p-1.5 rounded">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className={`w-1.5 h-1.5 rounded-full ${
+                                        isCheckIn ? 'bg-emerald-400' :
+                                        isExit ? 'bg-red-400' :
+                                        isReturn ? 'bg-blue-400' :
+                                        isStayActive ? 'bg-amber-400' : 'bg-purple-400'
+                                      }`} />
+                                      <span className="text-white/80 font-mono">
+                                        {evt.eventType.replace('GEOFENCE_', '')}
                                       </span>
-                                    )}
+                                      {evt.source && (
+                                        <span className="text-[8px] text-white/40 font-mono">({evt.source})</span>
+                                      )}
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="text-white font-bold">{evt.eventTime}</span>
+                                      {evt.distance !== undefined && (
+                                        <span className="text-[8px] text-white/40 ml-1">
+                                          ({typeof evt.distance === 'number' ? `${Math.round(evt.distance)}m` : evt.distance})
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         )}

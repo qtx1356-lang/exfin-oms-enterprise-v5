@@ -758,6 +758,10 @@ export const AutomaticAttendanceEngine = {
             record.exitDetectionSource = source === 'AUTO_GEOFENCE' ? 'NATIVE_GEOFENCE' : 'FOREGROUND_GPS';
             record.returningToOffice = false;
             record.exitPromptResolvedOutside = false;
+            // Clear return fields for the new active exit cycle (prior returns are preserved in eventHistory and audit log)
+            record.lastReturnTime = null;
+            record.lastReturnAt = null;
+            record.returnTime = null;
           }
           record.pendingCheckoutConfirmation = true;
           record.pendingCheckoutEventId = exitEventId;
