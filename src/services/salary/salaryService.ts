@@ -197,46 +197,51 @@ export function calculatePresentDays(
         officeDays++;
       }
     } else {
-      // No attendance marked.
-      // Is the employee absent on an approved leave?
-      const isAbsentOnLeave = approvedLeaveRequests.some((req) => {
-        const start = req.startDate || '';
-        const end = req.endDate || '';
-        return (
-          req.status === 'APPROVED' &&
-          dateStr >= start &&
-          dateStr <= end
-        );
-      });
+      // No physical attendance marked by this employee.
+      // Check if this date was a Sunday
+      const dayOfWeek = new Date(year, month - 1, day).getDay();
+      const isSunday = dayOfWeek === 0;
 
-      if (isAbsentOnLeave) {
-        // Rule 3: ABSENT + PAID LEAVE AVAILABLE
-        // First check if a paid leave audit already exists for this date
-        const existingAudit = auditsThisMonth.find((a) => a.date === dateStr);
+      // Rule: If 0 employees checked in across the office on this completed date, the date is a HOLIDAY.
+      // A HOLIDAY counts as 1 PRESENT DAY for salary and does NOT consume an employee's allocated paid leave balance.
+      const officeCheckInCount = hasOfficeAttendanceData ? (officeCheckInCountsByDate.get(dateStr) || 0) : null;
+      const isZeroOfficeCheckInHoliday = officeCheckInCount !== null ? (officeCheckInCount === 0) : isSunday;
 
-        if (existingAudit) {
-          paidLeaveDays++;
-          usedAuditsThisMonth.add(dateStr);
-        } else {
-          // Check if we have remaining balance
-          const totalPaidLeavesUsedSoFar = usedLeavesOtherMonths + paidLeaveDays;
-          if (totalPaidLeavesUsedSoFar < allocatedPaidLeaves) {
-            paidLeaveDays++;
-            datesConvertedToPaidLeave.push(dateStr);
-          } else {
-            // No paid leaves available, counts as 0 PRESENT days (absent without paid leave)
-          }
-        }
+      if (isZeroOfficeCheckInHoliday) {
+        // Classify as HOLIDAY: +1 PRESENT DAY for salary, 0 ABSENT, no paid leave deduction
+        sundayHolidayDays++;
       } else {
-        // Rule 2: NO ATTENDANCE MARKED
-        // Evaluate whether the entire office had zero check-ins on this date (HOLIDAY).
-        // If 0 employee check-ins occurred across the entire office, classify as HOLIDAY and count as PRESENT DAY for salary.
-        // If 1+ employee check-ins occurred across the office, the office was open; this individual employee was ABSENT -> 0 present days.
-        const officeCheckInCount = hasOfficeAttendanceData ? (officeCheckInCountsByDate.get(dateStr) || 0) : 0;
-        const isZeroCheckInHoliday = hasOfficeAttendanceData ? (officeCheckInCount === 0) : true;
+        // Office was open with check-ins. Check if employee is absent on an approved leave:
+        const isAbsentOnLeave = approvedLeaveRequests.some((req) => {
+          const start = req.startDate || '';
+          const end = req.endDate || '';
+          return (
+            req.status === 'APPROVED' &&
+            dateStr >= start &&
+            dateStr <= end
+          );
+        });
 
-        if (isZeroCheckInHoliday) {
-          sundayHolidayDays++;
+        if (isAbsentOnLeave) {
+          // Rule 3: ABSENT on working day + PAID LEAVE AVAILABLE
+          // First check if a paid leave audit already exists for this date
+          const existingAudit = auditsThisMonth.find((a) => a.date === dateStr);
+
+          if (existingAudit) {
+            paidLeaveDays++;
+            usedAuditsThisMonth.add(dateStr);
+          } else {
+            // Check if we have remaining balance
+            const totalPaidLeavesUsedSoFar = usedLeavesOtherMonths + paidLeaveDays;
+            if (totalPaidLeavesUsedSoFar < allocatedPaidLeaves) {
+              paidLeaveDays++;
+              datesConvertedToPaidLeave.push(dateStr);
+            } else {
+              // No paid leaves available, counts as 0 PRESENT days (absent without paid leave)
+            }
+          }
+        } else {
+          // Rule 2: Unapproved absence on an open office day -> 0 PRESENT days
         }
       }
     }

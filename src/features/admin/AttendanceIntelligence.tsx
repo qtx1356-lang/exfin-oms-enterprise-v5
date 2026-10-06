@@ -9,7 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ManagedUser } from '../../types/user';
 import { AttendanceRecord, AttendanceCorrection } from '../../types/attendance';
-import { getEffectiveCheckoutStatus, isSameEmployee } from '../../utils/attendanceUtils';
+import { getEffectiveCheckoutStatus, isSameEmployee, getCompanyOfficeAttendanceCountsByDate } from '../../utils/attendanceUtils';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
 import { exportToCSV } from '../../services/reports/exportService';
 import { fetchDepartments } from '../../services/organization/organizationService';
@@ -541,12 +541,19 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
         recMap.set(`${r.employeeId}_${r.date}`, r);
       });
 
+      // Index company-wide office check-ins for holiday evaluation
+      const officeCheckInCounts = getCompanyOfficeAttendanceCountsByDate(attendanceRecords);
+
       datesList.forEach(d => {
         // Is Sunday?
         let isSunday = false;
         try {
           isSunday = new Date(d).getDay() === 0;
         } catch {}
+
+        const isPastCompletedDay = d < todayDateStr;
+        const totalOfficeCheckIns = officeCheckInCounts.get(d) || 0;
+        const isWholeOfficeHoliday = isPastCompletedDay && totalOfficeCheckIns === 0;
 
         approvedEmps.forEach(emp => {
           const rec = recMap.get(`${emp.employeeCode}_${d}`) || recMap.get(`${emp.id}_${d}`);
@@ -568,7 +575,10 @@ export const AttendanceIntelligence: React.FC<AttendanceIntelligenceProps> = ({
               d >= l.startDate && d <= l.endDate
             );
 
-            if (isLeave) {
+            if (isWholeOfficeHoliday) {
+              // 0 office check-ins across the whole company on a completed day = HOLIDAY (Present Day)
+              totalPresents++;
+            } else if (isLeave) {
               totalLeaves++;
               totalPresents++; // counts as present for salary/attendance
             } else if (isSunday) {

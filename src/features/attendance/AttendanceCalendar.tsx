@@ -239,7 +239,23 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       };
     }
 
-    // 2. Check for Approved Leave
+    // Whole-office holiday evaluation:
+    // If the entire company had ZERO OFFICE check-ins on a completed past day, that date is a HOLIDAY.
+    const officeCheckIns = officeCheckInCountsByDate.get(dateStr) || 0;
+    const isWholeOfficeHoliday = !isFuture && !isToday && companyAttendanceLoaded && officeCheckIns === 0;
+
+    // 2. Check for Whole-Office Holiday (when employee has no active physical/work attendance)
+    if (isWholeOfficeHoliday) {
+      return {
+        category: 'HOLIDAY' as AttendanceDayCategory,
+        attendanceRecord: null,
+        leaveRecord: null,
+        isToday,
+        isFuture: false
+      };
+    }
+
+    // 3. Check for Approved Leave on open office days
     const targetTime = new Date(dateStr).getTime();
     const leaveRecord = currentEmployeeLeaves.find(l => {
       if (l.status !== 'APPROVED') return false;
@@ -258,7 +274,7 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       };
     }
 
-    // 3. Future Date
+    // 4. Future Date
     if (isFuture) {
       return {
         category: 'FUTURE' as AttendanceDayCategory,
@@ -269,28 +285,16 @@ export const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({
       };
     }
 
-    // 4. Past or Today Date without record or leave
+    // 5. Past Date without record or leave on open office days
     if (!isFuture && !isToday) {
-      // Firebase failure safety: only classify as HOLIDAY when company dataset is confirmed loaded
       if (companyAttendanceLoaded) {
-        const officeCheckIns = officeCheckInCountsByDate.get(dateStr) || 0;
-        if (officeCheckIns === 0) {
-          return {
-            category: 'HOLIDAY' as AttendanceDayCategory,
-            attendanceRecord: null,
-            leaveRecord: null,
-            isToday,
-            isFuture: false
-          };
-        } else {
-          return {
-            category: 'ABSENT' as AttendanceDayCategory,
-            attendanceRecord: null,
-            leaveRecord: null,
-            isToday,
-            isFuture: false
-          };
-        }
+        return {
+          category: 'ABSENT' as AttendanceDayCategory,
+          attendanceRecord: null,
+          leaveRecord: null,
+          isToday,
+          isFuture: false
+        };
       }
       return {
         category: 'NO_RECORD' as AttendanceDayCategory,

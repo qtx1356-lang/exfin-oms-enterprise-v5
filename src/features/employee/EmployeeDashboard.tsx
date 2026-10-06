@@ -873,12 +873,11 @@ export const EmployeeDashboard: React.FC = () => {
 
     const empHasAtt = currentMonthRecords.some(r => r.date === dateStr);
     if (!empHasAtt) {
-      const empHasLeave = allLeaves.some(l => l.status === 'APPROVED' && dateStr >= l.startDate && dateStr <= l.endDate);
-      if (!empHasLeave) {
-        const totalOfficeCheckIns = officeCheckInCountsByDate.get(dateStr) || 0;
-        if (totalOfficeCheckIns === 0) {
-          zeroCheckInHolidayCount++;
-        }
+      // If 0 employees checked in across the office, this date was a whole-office HOLIDAY
+      // Even if the employee had a leave application, the date is a holiday and counts as present
+      const totalOfficeCheckIns = officeCheckInCountsByDate.get(dateStr) || 0;
+      if (totalOfficeCheckIns === 0) {
+        zeroCheckInHolidayCount++;
       }
     }
   }
@@ -908,7 +907,12 @@ export const EmployeeDashboard: React.FC = () => {
           dateStr >= l.startDate && 
           dateStr <= l.endDate
         );
-        if (!hasLeave) {
+        const isPastCompletedDay = dateStr <= yesterdayStr;
+        const totalOfficeCheckIns = officeCheckInCountsByDate.get(dateStr) || 0;
+        const isZeroCheckInHoliday = isPastCompletedDay && totalOfficeCheckIns === 0;
+
+        // A whole-office holiday or approved leave must NOT count as ABSENT
+        if (!hasLeave && !isZeroCheckInHoliday) {
           actualAbsentDays++;
         }
       }
