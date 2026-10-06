@@ -283,6 +283,16 @@ async function startServer() {
 
   app.use(express.json());
 
+  // EXFIN ACCESS CONTROL: Block requests from legacy Median / GoNative native wrapper apps
+  app.use((req, res, next) => {
+    const userAgent = (req.headers['user-agent'] as string) || '';
+    if (/median|gonative/i.test(userAgent)) {
+      console.log('[EXFIN ACCESS CONTROL] Median/GoNative request blocked');
+      return res.status(403).type('text/plain').send('Access through the legacy mobile application is no longer supported. Please use the official EXFIN OMS application or web portal.');
+    }
+    next();
+  });
+
   // CORS Middleware for Cloudflare Pages and cross-origin frontend apps
   app.use((req, res, next) => {
     const origin = req.headers.origin;
