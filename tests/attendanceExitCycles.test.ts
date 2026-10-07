@@ -328,4 +328,59 @@ console.log('=== RUNNING MULTIPLE EXIT/RETURN CYCLE TESTS ===\n');
   assert(res.currentGeofenceState === 'INSIDE', 'Test 10: Current state is INSIDE');
 }
 
-console.log('\n=== ALL 10 TESTS PASSED SUCCESSFULLY! ===\n');
+// -------------------------------------------------------------
+// TEST 11:
+// REPEATED APP RESUME WHILE EMPLOYEE REMAINS INSIDE
+// Expected: isUnpairedExit remains false, state remains INSIDE, NO POPUP
+// -------------------------------------------------------------
+{
+  const events: AttendanceHistoryEvent[] = [
+    { eventId: 'e1', employeeId: 'EMP01', eventType: 'CHECK_IN', eventTime: '10:03 AM', timestamp: '2026-10-06T04:33:00.000Z', source: 'FOREGROUND_GPS' },
+  ];
+
+  const record = {
+    id: 'att_11',
+    employeeId: 'EMP01',
+    date: '2026-10-06',
+    checkInTime: '10:03 AM',
+    attendanceType: 'OFFICE',
+    currentState: 'CHECKED_IN',
+    eventHistory: events,
+  } as unknown as AttendanceRecord;
+
+  for (let resumeCount = 1; resumeCount <= 5; resumeCount++) {
+    const res = getAuthoritativeExitForCheckout(record, events);
+    assert(res.authoritativeExitTime === null, `Test 11 (Resume #${resumeCount}): Authoritative exit is null`);
+    assert(res.isUnpairedExit === false, `Test 11 (Resume #${resumeCount}): isUnpairedExit is false (NO POPUP)`);
+    assert(res.currentGeofenceState === 'INSIDE', `Test 11 (Resume #${resumeCount}): State is INSIDE`);
+  }
+}
+
+// -------------------------------------------------------------
+// TEST 12:
+// NETWORK TEMPORARILY OFFLINE / LOCATION UNAVAILABLE WHILE INSIDE
+// Expected: NO FALSE EXIT, NO FALSE CHECKOUT
+// -------------------------------------------------------------
+{
+  const events: AttendanceHistoryEvent[] = [
+    { eventId: 'e1', employeeId: 'EMP01', eventType: 'CHECK_IN', eventTime: '10:03 AM', timestamp: '2026-10-06T04:33:00.000Z', source: 'FOREGROUND_GPS' },
+  ];
+
+  const record = {
+    id: 'att_12',
+    employeeId: 'EMP01',
+    date: '2026-10-06',
+    checkInTime: '10:03 AM',
+    attendanceType: 'OFFICE',
+    currentState: 'CHECKED_IN',
+    isOffline: true,
+    eventHistory: events,
+  } as unknown as AttendanceRecord;
+
+  const res = getAuthoritativeExitForCheckout(record, events);
+  assert(res.authoritativeExitTime === null, 'Test 12: Offline status does not create false exit');
+  assert(res.isUnpairedExit === false, 'Test 12: isUnpairedExit is false');
+  assert(res.currentGeofenceState === 'INSIDE', 'Test 12: Employee remains INSIDE');
+}
+
+console.log('\n=== ALL 12 TESTS PASSED SUCCESSFULLY! ===\n');

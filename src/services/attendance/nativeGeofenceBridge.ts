@@ -294,12 +294,12 @@ export const reconcileNativeGeofenceEvents = async (
         const activeState = await NativeGeofencePlugin.getActiveAttendanceState();
         if (activeState?.hasActiveSession && activeState.date) {
           const todayDateStr = activeState.date;
-          const hasNativeExit = !!activeState.recordedExitTime;
-          const isPendingExit = activeState.pendingCheckoutConfirmation ||
+          const hasNativeExit = !!(activeState.recordedExitTime && activeState.recordedExitTime !== 'null' && activeState.recordedExitTime.trim() !== '');
+          const isPendingExit = (activeState.pendingCheckoutConfirmation ||
             activeState.sessionState === 'PENDING_EXIT_CONFIRMATION' ||
-            activeState.currentState === 'PENDING_AUTO_CHECKOUT';
+            activeState.currentState === 'PENDING_AUTO_CHECKOUT') && hasNativeExit;
 
-          if (hasNativeExit || isPendingExit) {
+          if (hasNativeExit && isPendingExit) {
             const todayRec = getTodayAttendanceRecord(employeeId, todayDateStr);
             if (todayRec && !todayRec.checkOutTime && !todayRec.checkoutFinalized) {
               let changed = false;
@@ -324,6 +324,13 @@ export const reconcileNativeGeofenceEvents = async (
                 window.dispatchEvent(new CustomEvent('exfin-checkout-confirmation-needed', { detail: { employeeId, record: todayRec } }));
                 window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
               }
+            }
+          } else if (!hasNativeExit) {
+            const todayRec = getTodayAttendanceRecord(employeeId, todayDateStr);
+            if (todayRec && todayRec.pendingCheckoutConfirmation && !todayRec.lastExitTime && !todayRec.geofenceExitTime && !todayRec.recordedExitTime) {
+              todayRec.pendingCheckoutConfirmation = false;
+              todayRec.currentState = 'CHECKED_IN';
+              saveAttendanceRecord(todayRec);
             }
           }
         }

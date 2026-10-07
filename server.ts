@@ -1068,8 +1068,24 @@ async function startServer() {
         const updatedProcessedEvents = Array.from(new Set([...(record.processedEvents || []), eventId]));
         let modified = false;
 
-        if (!isInside) {
-          console.log(`[BackgroundAttendance] GEOFENCE_EXIT detected for ${employeeId} on ${dateStr}`);
+        const isExplicitExitEvent =
+          eventTypeParam === "GEOFENCE_EXIT" ||
+          eventTypeParam === "EXIT" ||
+          eventTypeParam === "GEOFENCE_TRANSITION_EXIT" ||
+          payload.transition === "EXIT" ||
+          payload.eventType === "CHECK_OUT" ||
+          (source && String(source).toUpperCase().includes("NATIVE_GEOFENCE_EXIT"));
+
+        const isExplicitReturnEvent =
+          eventTypeParam === "GEOFENCE_RETURN" ||
+          eventTypeParam === "RETURN" ||
+          eventTypeParam === "ENTRY" ||
+          eventTypeParam === "GEOFENCE_TRANSITION_ENTER" ||
+          payload.transition === "ENTER" ||
+          (source && String(source).toUpperCase().includes("NATIVE_GEOFENCE_ENTER"));
+
+        if (!isInside && isExplicitExitEvent) {
+          console.log(`[BackgroundAttendance] Explicit GEOFENCE_EXIT received for ${employeeId} on ${dateStr}`);
           // Geofence exit transition (INSIDE -> OUTSIDE)
           if (currentState === "CHECKED_IN" || currentState === "ENTERING" || currentState === "RETURNING_TO_OFFICE") {
             const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : 0;
@@ -1133,52 +1149,65 @@ async function startServer() {
             transitionRecorded = true;
             console.log(`[BackgroundAttendance] EXIT_SYNCED: Recorded geofence exit for ${employeeId} at ${timeStr}`);
           }
-        } else {
-          // Return to office transition (OUTSIDE -> INSIDE)
+        } else if (isInside) {
+          // Employee is INSIDE office geofence (distance <= 25m)
+          // Update live location attributes
+          if (!isLocationUnavailable && latitude && longitude) {
+            record.currentLatitude = latitude;
+            record.currentLongitude = longitude;
+            record.currentDistance = distance;
+            record.currentTownCity = townCity;
+            record.currentLocationTimestamp = eventIso;
+            record.currentLocationStatus = "LIVE";
+          }
+
+          // Return to office transition or inside state restoration:
+          // Ensure pendingCheckoutConfirmation is CLEARED and currentState is CHECKED_IN
           if (
+            isExplicitReturnEvent ||
             currentState === "PENDING_FINAL_EXIT" ||
             currentState === "PENDING_EXIT_CONFIRMATION" ||
+            currentState === "PENDING_AUTO_CHECKOUT" ||
             currentState === "RETURNING_TO_OFFICE" ||
-            record.pendingCheckoutConfirmation ||
-            record.lastExitTime ||
-            record.exitTime ||
-            record.geofenceExitTime
+            record.pendingCheckoutConfirmation
           ) {
-            record.returnTime = timeStr;
-            record.lastReturnTime = timeStr;
-            record.lastReturnAt = eventIso;
-            // CRITICAL FIX: DO NOT clear lastExitTime, lastExitAt, or exitTime!
-            // Retain historical exit evidence for Admin forensic audit
+            if (isExplicitReturnEvent) {
+              record.returnTime = timeStr;
+              record.lastReturnTime = timeStr;
+              record.lastReturnAt = eventIso;
+            }
             record.pendingCheckoutConfirmation = false;
             record.returningToOffice = false;
             record.currentState = "CHECKED_IN";
+            record.checkoutStatus = undefined;
 
             const currentHistory = Array.isArray(record.eventHistory) ? record.eventHistory : [];
-            const returnHistoryEvent = {
-              eventId,
-              employeeId,
-              eventType: "GEOFENCE_RETURN",
-              eventTime: timeStr,
-              timestamp: eventIso,
-              source: source || "NATIVE_GEOFENCE",
-              location: {
-                latitude: isLocationUnavailable ? null : latitude,
-                longitude: isLocationUnavailable ? null : longitude,
-                townCity,
+            if (isExplicitReturnEvent) {
+              const returnHistoryEvent = {
+                eventId,
+                employeeId,
+                eventType: "GEOFENCE_RETURN",
+                eventTime: timeStr,
+                timestamp: eventIso,
+                source: source || "NATIVE_GEOFENCE",
+                location: {
+                  latitude: isLocationUnavailable ? null : latitude,
+                  longitude: isLocationUnavailable ? null : longitude,
+                  townCity,
+                  distance: isLocationUnavailable ? "location unavailable" : distance
+                },
                 distance: isLocationUnavailable ? "location unavailable" : distance
-              },
-              distance: isLocationUnavailable ? "location unavailable" : distance
-            };
-            const updatedHist = currentHistory.filter((e: any) => e.eventId !== eventId);
-            updatedHist.push(returnHistoryEvent);
-            updatedHist.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-            record.eventHistory = updatedHist;
+              };
+              const updatedHist = currentHistory.filter((e: any) => e.eventId !== eventId);
+              updatedHist.push(returnHistoryEvent);
+              updatedHist.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+              record.eventHistory = updatedHist;
+            }
 
-            // Remove candidate exit fields cleanly
-            record.checkoutLatitude = FieldValue.delete();
-            record.checkoutLongitude = FieldValue.delete();
-            record.checkoutDistance = FieldValue.delete();
-            record.checkoutTownCity = FieldValue.delete();
+            delete record.checkoutLatitude;
+            delete record.checkoutLongitude;
+            delete record.checkoutDistance;
+            delete record.checkoutTownCity;
 
             record.processedEvents = updatedProcessedEvents;
             record.syncStatus = "Synced";
@@ -1189,6 +1218,13 @@ async function startServer() {
             modified = true;
             targetState = "CHECKED_IN";
             transitionRecorded = true;
+            console.log(`[BackgroundAttendance] INSIDE_CONFIRMED: Restored CHECKED_IN for ${employeeId} at ${timeStr}`);
+          } else {
+            // Passive inside location update on existing checked-in record
+            record.processedEvents = updatedProcessedEvents;
+            record.updatedAt = new Date().toISOString();
+            record.serverSyncTime = new Date().toISOString();
+            modified = true;
           }
         }
 
