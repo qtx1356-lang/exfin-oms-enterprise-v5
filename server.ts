@@ -313,7 +313,7 @@ async function runServerAttendanceFinalizer() {
 
     // Fetch active/unsettled attendance documents
     const qSnap = await db.collection("attendance")
-      .where("checkoutStatus", "in", ["Pending", "PENDING_CONFIRMATION", null])
+      .where("checkoutStatus", "in", ["Pending", "PENDING_CONFIRMATION", "PENDING_EXIT_CONFIRMATION", "PENDING_AUTO_CHECKOUT", "ACTIVE", null])
       .limit(100)
       .get()
       .catch(async (queryErr: any) => {
