@@ -99,6 +99,47 @@ const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
   'Inspection'
 ];
 
+const getLatestGeofenceTransitionTime = (
+  record: AttendanceRecord | null,
+  eventType: 'GEOFENCE_EXIT' | 'GEOFENCE_RETURN'
+): string | null => {
+  if (!record) return null;
+
+  const historyCandidates = Array.isArray(record.eventHistory)
+    ? record.eventHistory
+        .filter((event) => event.eventType === eventType && event.eventTime)
+        .map((event) => ({
+          time: event.eventTime,
+          timestamp: new Date(event.timestamp).getTime()
+        }))
+        .filter((event) => Number.isFinite(event.timestamp))
+    : [];
+
+  const directTimestamp =
+    eventType === 'GEOFENCE_EXIT'
+      ? record.lastExitAt
+      : record.lastReturnAt;
+
+  const directTime =
+    eventType === 'GEOFENCE_EXIT'
+      ? (record.lastExitTime || record.geofenceExitTime || record.recordedExitTime || record.exitTime)
+      : (record.lastReturnTime || record.returnTime);
+
+  if (directTimestamp && directTime) {
+    const timestamp = new Date(directTimestamp).getTime();
+    if (Number.isFinite(timestamp)) {
+      historyCandidates.push({ time: directTime, timestamp });
+    }
+  }
+
+  if (historyCandidates.length === 0) {
+    return directTime || null;
+  }
+
+  historyCandidates.sort((a, b) => b.timestamp - a.timestamp);
+  return historyCandidates[0]?.time || directTime || null;
+};
+
 export const AttendanceScreen: React.FC = () => {
   const { employeeData } = useRegistration();
   const { executeSensitiveAction, isVerifying } = useSensitiveActionGuard();
@@ -1137,6 +1178,26 @@ export const AttendanceScreen: React.FC = () => {
                       <span>WORKDAY COMPLETED</span>
                     </div>
                   )}
+
+                  {/* Latest geofence transition times — only the latest exit and latest return are shown. */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="rounded-xl border border-[var(--danger)]/20 bg-[var(--surface-elevated)] px-3 py-2">
+                      <div className="text-[9px] font-black uppercase tracking-wider text-[var(--text-secondary)]">
+                        Last Exit
+                      </div>
+                      <div className="mt-0.5 text-xs font-black font-mono text-[var(--danger)]">
+                        {getLatestGeofenceTransitionTime(todayRecord, 'GEOFENCE_EXIT') || '--'}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-[var(--success)]/20 bg-[var(--surface-elevated)] px-3 py-2">
+                      <div className="text-[9px] font-black uppercase tracking-wider text-[var(--text-secondary)]">
+                        Last Return
+                      </div>
+                      <div className="mt-0.5 text-xs font-black font-mono text-[var(--success)]">
+                        {getLatestGeofenceTransitionTime(todayRecord, 'GEOFENCE_RETURN') || '--'}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
