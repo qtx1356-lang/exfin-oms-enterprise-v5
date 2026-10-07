@@ -72,6 +72,16 @@
             android:enabled="true" />
 
         <!-- Exfin OMS Native Boot Receiver (Re-registers Office Geofence on Device Reboot) -->
+        <!-- Repairs geofence/location monitoring when Android Location Services are turned back on -->
+        <receiver
+            android:name=".geofence.LocationModeReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.location.MODE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
         <receiver
             android:name=".geofence.BootReceiver"
             android:enabled="true"
