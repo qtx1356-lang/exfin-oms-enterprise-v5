@@ -1262,9 +1262,91 @@ export const AutomaticAttendanceEngine = {
       employeeId,
       timestamp: timestamp.toISOString(),
       localTime: timeKolkata,
-      source: isNativeEvent ? 'NATIVE_GEOFENCE' : 'AUTO_GEOFENCE',
+      source: isNativeEvent ? 'NATIVE_GEOFENCE_EXIT' : 'AUTO_GEOFENCE',
       distance
     });
+
+    // Native Android has already verified this exit against the authoritative 25m
+    // boundary. Finalize immediately; never show the employee confirmation popup.
+    if (
+      isNativeEvent &&
+      record &&
+      record.checkInTime &&
+      isCheckOutMissingLocally(record.checkOutTime)
+    ) {
+      if (timestamp.getTime() > Date.now() + 30000) {
+        console.warn('[AutomaticAttendanceEngine] Rejected future native exit timestamp:', timestamp.toISOString());
+        return record;
+      }
+
+      const checkoutTimeStr = timeKolkata;
+      const eventIso = timestamp.toISOString();
+      const resolvedEventId = generateIdempotentEventId(employeeId, dateStr, 'CHECK_OUT', checkoutTimeStr);
+      const workingHours = calculateWorkingHours(record.checkInTime, checkoutTimeStr);
+
+      const nativeExitEventId = record.pendingCheckoutEventId || resolvedEventId;
+      record.checkOutTime = checkoutTimeStr;
+      record.checkOutMode = 'AUTO_SYSTEM';
+      record.checkoutType = 'AUTO_CHECKOUT';
+      record.checkoutSource = 'EXIT_DETECTED';
+      record.attendanceStatus = 'RESOLVED';
+      record.checkoutStatus = 'COMPLETED';
+      record.checkoutFinalizationSource = 'NATIVE_GEOFENCE_EXIT';
+      record.checkoutFinalized = true;
+      record.checkoutConfirmed = true;
+      record.confirmationCompletedAt = eventIso;
+      record.status = 'completed';
+      record.workingHours = workingHours;
+      record.currentState = 'FINALIZED_CHECKOUT';
+      record.pendingCheckoutConfirmation = false;
+      record.pendingCheckoutEventId = null;
+      record.returningToOffice = false;
+      record.exitPromptResolvedOutside = false;
+      record.resolutionSource = 'AUTO_GEOFENCE';
+      record.resolutionReason = 'Native Android geofence exit finalized automatically.';
+      record.recordedExitTime = checkoutTimeStr;
+      record.geofenceExitTime = checkoutTimeStr;
+      record.geofenceExitTimestamp = eventIso;
+      record.lastExitTime = checkoutTimeStr;
+      record.exitDetectionSource = 'NATIVE_GEOFENCE_EXIT';
+      record.syncStatus = 'Pending';
+      record.updatedAt = eventIso;
+      record.lastActedExitEventId = nativeExitEventId;
+      record.processedEvents = Array.from(new Set([
+        ...(record.processedEvents || []),
+        nativeExitEventId,
+        resolvedEventId
+      ]));
+
+      saveAttendanceRecord(record);
+      markEventIdProcessed(nativeExitEventId);
+      markEventIdProcessed(resolvedEventId);
+
+      logAttendanceEvent(
+        'CHECKOUT_CREATED',
+        employeeId,
+        `[NATIVE_GEOFENCE_EXIT] Automatic checkout finalized at ${checkoutTimeStr}; no confirmation popup required.`,
+        {
+          eventTimestamp: eventIso,
+          metadata: {
+            checkoutTime: checkoutTimeStr,
+            checkoutFinalizationSource: 'NATIVE_GEOFENCE_EXIT',
+            distance,
+            source: 'NATIVE_GEOFENCE_EXIT'
+          }
+        }
+      );
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+      }
+
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        syncPendingAttendanceRecords().catch((e) => console.warn('Sync error on native automatic checkout:', e));
+      }
+
+      return record;
+    }
 
     if (
       record &&
