@@ -1533,7 +1533,9 @@ public class OfficeGeofenceHelper {
             checkOutEvent.put("accuracy", accuracy);
             checkOutEvent.put("distanceFromOffice", distance);
             checkOutEvent.put("distance", distance);
-            checkOutEvent.put("source", "native_geofence");
+            checkOutEvent.put("source", "NATIVE_GEOFENCE_EXIT");
+            checkOutEvent.put("autoCheckoutFinalized", true);
+            checkOutEvent.put("checkoutFinalizationSource", "NATIVE_GEOFENCE_EXIT");
             checkOutEvent.put("locationProvider", locationProvider);
             checkOutEvent.put("schemaVersion", SCHEMA_VERSION);
             checkOutEvent.put("deviceId", getDeviceId(context));
@@ -2056,11 +2058,21 @@ public class OfficeGeofenceHelper {
 
             JSONObject session = new JSONObject(sessionStr);
             String sessionState = session.optString("sessionState", "ACTIVE");
-            if (!"ACTIVE".equals(sessionState) && !"PENDING_EXIT_CONFIRMATION".equals(sessionState)) {
+            if (!"ACTIVE".equalsIgnoreCase(sessionState) &&
+                !"PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(sessionState) &&
+                !"PENDING_AUTO_CHECKOUT".equalsIgnoreCase(sessionState)) {
                 return;
             }
 
-            long eventTimestamp = (location != null && location.getTime() > 0) ? location.getTime() : System.currentTimeMillis();
+            long eventTimestamp = (location != null && location.getTime() > 0)
+                    ? location.getTime()
+                    : System.currentTimeMillis();
+
+            if (eventTimestamp > System.currentTimeMillis() + 30000L) {
+                Log.w(TAG, "[NATIVE_EXIT_RECORDED] Rejected future exit timestamp: " + eventTimestamp);
+                return;
+            }
+
             SimpleDateFormat sdf = new SimpleDateFormat("hh:mm a", Locale.US);
             sdf.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
             String timeStr = sdf.format(new Date(eventTimestamp));
@@ -2071,17 +2083,38 @@ public class OfficeGeofenceHelper {
 
             session.put("recordedExitTime", timeStr);
             session.put("exitDetectedAt", isoTimestamp);
-            session.put("exitSource", source);
-            session.put("sessionState", "PENDING_EXIT_CONFIRMATION");
-            session.put("checkoutStatus", "PENDING_EXIT_CONFIRMATION");
+            session.put("exitSource", "NATIVE_GEOFENCE_EXIT");
+            session.put("checkOutTime", timeStr);
+            session.put("checkOutMode", "AUTO_SYSTEM");
+            session.put("checkoutType", "AUTO_CHECKOUT");
+            session.put("checkoutSource", "EXIT_DETECTED");
+            session.put("checkoutFinalized", true);
+            session.put("checkoutConfirmed", true);
+            session.put("checkoutFinalizationSource", "NATIVE_GEOFENCE_EXIT");
+            session.put("pendingCheckoutConfirmation", false);
+            session.put("pendingCheckoutEventId", JSONObject.NULL);
+            session.put("returningToOffice", false);
+            session.put("exitPromptResolvedOutside", false);
+            session.put("sessionState", "FINALIZED_CHECKOUT");
+            session.put("currentState", "FINALIZED_CHECKOUT");
+            session.put("checkoutStatus", "COMPLETED");
 
-            prefs.edit().putString(KEY_ACTIVE_SESSION, session.toString()).apply();
-            Log.i(TAG, "[NATIVE_EXIT_RECORDED] Authoritative exit time captured: " + timeStr + " via " + source);
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to record native exit event: " + e.getMessage(), e);
+            prefs.edit()
+                    .putString(KEY_ACTIVE_SESSION, session.toString())
+                    .putBoolean(KEY_EXIT_PROMPT_RESOLVED_OUTSIDE, false)
+                    .putString("sessionState", "FINALIZED_CHECKOUT")
+                    .putString("currentState", "FINALIZED_CHECKOUT")
+                    .putString("checkoutStatus", "COMPLETED")
+                    .putBoolean("pendingCheckoutConfirmation", false)
+                    .putString("pendingCheckoutEventId", null)
+                    .apply();
+
+            Log.i(TAG, "[NATIVE_EXIT_FINALIZED] Authoritative checkout finalized at " + timeStr +
+                    " via NATIVE_GEOFENCE_EXIT");
+        } catch (Exception ex) {
+            Log.e(TAG, "Failed to record native exit event: " + ex.getMessage(), ex);
         }
     }
-
     public static synchronized void cancelPendingExit(Context context) {
         if (context == null) return;
         try {
