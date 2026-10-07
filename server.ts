@@ -1162,10 +1162,27 @@ async function startServer() {
               record.exitDetectedTime = timeStr;
               record.exitDetectionSource = "NATIVE_GEOFENCE";
             }
-            record.pendingCheckoutConfirmation = true;
-            record.pendingCheckoutEventId = eventId;
+            // A verified native 25m EXIT is authoritative: finalize checkout immediately.
+            // The timestamp comes from the native event (tsDate), which has already passed
+            // the server future/staleness validation above. Never use request receipt time.
+            const workingHours = calculateWorkingHours(record.checkInTime, timeStr);
+            record.checkOutTime = timeStr;
+            record.checkOutMode = "AUTO_SYSTEM";
+            record.checkoutType = "AUTO_CHECKOUT";
+            record.checkoutSource = "EXIT_DETECTED";
+            record.attendanceStatus = "RESOLVED";
+            record.status = "completed";
+            record.checkoutStatus = "COMPLETED";
+            record.checkoutFinalized = true;
+            record.checkoutConfirmed = true;
+            record.checkoutFinalizationSource = "NATIVE_GEOFENCE_EXIT";
+            record.workingHours = workingHours;
+            record.pendingCheckoutConfirmation = false;
+            record.pendingCheckoutEventId = null;
             record.returningToOffice = false;
-            record.currentState = "PENDING_EXIT_CONFIRMATION";
+            record.exitPromptResolvedOutside = false;
+            record.currentState = "FINALIZED_CHECKOUT";
+            record.resolutionSource = "AUTO_GEOFENCE";
 
             const currentHistory = Array.isArray(record.eventHistory) ? record.eventHistory : [];
             const exitHistoryEvent = {
@@ -1205,9 +1222,9 @@ async function startServer() {
             record.serverSyncTimestamp = FieldValue.serverTimestamp();
 
             modified = true;
-            targetState = "PENDING_EXIT_CONFIRMATION";
+            targetState = "FINALIZED_CHECKOUT";
             transitionRecorded = true;
-            console.log(`[BackgroundAttendance] EXIT_SYNCED: Recorded geofence exit for ${employeeId} at ${timeStr}`);
+            console.log(`[BackgroundAttendance] AUTO_CHECKOUT_FINALIZED: Native 25m exit for ${employeeId} at ${timeStr}; checkout finalized immediately.`);
           }
         } else if (isInside) {
           // Employee is INSIDE office geofence (distance <= 25m)
