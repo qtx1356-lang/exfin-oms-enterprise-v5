@@ -1,4 +1,5 @@
 import { AttendanceRecord, AttendanceHistoryEvent } from '../types/attendance';
+import { isAttendanceTimeInFuture } from './attendanceUtils';
 
 export interface ForensicCycle {
   cycleId: number;
@@ -477,7 +478,7 @@ export function getAuthoritativeExitForCheckout(
     const checkInMs = record.checkInTime ? parseEventTimeToMs(record.checkInTime, record.date) : 0;
     const exitMs = exitEvt.timestamp ? parseEventTimeToMs(exitEvt.timestamp, record.date) : parseEventTimeToMs(exitEvt.eventTime, record.date);
 
-    if (evtDate === record.date && (checkInMs === 0 || exitMs >= checkInMs)) {
+    if (evtDate === record.date && (checkInMs === 0 || exitMs >= checkInMs) && !isAttendanceTimeInFuture(exitEvt.eventTime, record.date)) {
       return {
         authoritativeExitTime: exitEvt.eventTime,
         authoritativeExitTimestamp: exitEvt.timestamp || null,
@@ -497,8 +498,8 @@ export function getAuthoritativeExitForCheckout(
     const checkInMs = record.checkInTime ? parseEventTimeToMs(record.checkInTime, record.date) : 0;
     const exitMs = recExitIso ? parseEventTimeToMs(recExitIso, record.date) : parseEventTimeToMs(recExit, record.date);
 
-    // Only consider exit if it belongs to this exact record date AND occurred after check-in
-    if (exitDatePart === record.date && (checkInMs === 0 || exitMs >= checkInMs)) {
+    // Only consider exit if it belongs to this exact record date, occurred after check-in, and is NOT in the future
+    if (exitDatePart === record.date && (checkInMs === 0 || exitMs >= checkInMs) && !isAttendanceTimeInFuture(recExit, record.date)) {
       if (!recReturnIso || !recExitIso) {
         if (
           record.currentState === 'PENDING_AUTO_CHECKOUT' ||

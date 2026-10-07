@@ -1,4 +1,5 @@
 import { analyzeAttendanceForensics, getAuthoritativeExitForCheckout, getUnresolvedPastAttendanceRecords } from '../src/utils/forensicAuditUtils';
+import { hasValidCheckoutTime, getEffectiveCheckoutStatus } from '../src/utils/attendanceUtils';
 import { AttendanceRecord, AttendanceHistoryEvent } from '../src/types/attendance';
 
 function assert(condition: boolean, msg: string) {
@@ -479,13 +480,13 @@ console.log('=== RUNNING MULTIPLE EXIT/RETURN CYCLE TESTS ===\n');
 
 // -------------------------------------------------------------
 // TEST 16:
-// TODAY 07 OCT: Check-in 10:05 AM, genuine EXIT at 06:17 PM (after check-in), NO RETURN.
-// Expected: Authoritative exit IS 06:17 PM, isUnpairedExit is true, state is OUTSIDE.
+// TODAY 07 OCT: Check-in 10:05 AM, genuine EXIT at 02:15 PM (past exit today after check-in), NO RETURN.
+// Expected: Authoritative exit IS 02:15 PM, isUnpairedExit is true, state is OUTSIDE.
 // -------------------------------------------------------------
 {
   const events: AttendanceHistoryEvent[] = [
     { eventId: 'e1', employeeId: 'SANJIV', eventType: 'CHECK_IN', eventTime: '10:05 AM', timestamp: '2026-10-07T04:35:00.000Z', source: 'FOREGROUND_GPS' },
-    { eventId: 'e2', employeeId: 'SANJIV', eventType: 'GEOFENCE_EXIT', eventTime: '06:17 PM', timestamp: '2026-10-07T12:47:00.000Z', source: 'NATIVE_GEOFENCE' },
+    { eventId: 'e2', employeeId: 'SANJIV', eventType: 'GEOFENCE_EXIT', eventTime: '02:15 PM', timestamp: '2026-10-07T08:45:00.000Z', source: 'NATIVE_GEOFENCE' },
   ];
 
   const record = {
@@ -495,15 +496,50 @@ console.log('=== RUNNING MULTIPLE EXIT/RETURN CYCLE TESTS ===\n');
     checkInTime: '10:05 AM',
     attendanceType: 'OFFICE',
     currentState: 'PENDING_AUTO_CHECKOUT',
-    lastExitTime: '06:17 PM',
-    lastExitAt: '2026-10-07T12:47:00.000Z',
+    lastExitTime: '02:15 PM',
+    lastExitAt: '2026-10-07T08:45:00.000Z',
     eventHistory: events,
   } as unknown as AttendanceRecord;
 
   const res = getAuthoritativeExitForCheckout(record, events);
-  assert(res.authoritativeExitTime === '06:17 PM', 'Test 16: Genuine exit on 07 Oct is 06:17 PM');
+  assert(res.authoritativeExitTime === '02:15 PM', 'Test 16: Genuine past exit today on 07 Oct is 02:15 PM');
   assert(res.isUnpairedExit === true, 'Test 16: isUnpairedExit is true for genuine exit');
   assert(res.currentGeofenceState === 'OUTSIDE', 'Test 16: State is OUTSIDE');
 }
 
-console.log('\n=== ALL 16 TESTS PASSED SUCCESSFULLY! ===\n');
+// -------------------------------------------------------------
+// TEST 17:
+// ABSOLUTE INTEGRITY RULE — FUTURE EXIT TIME REJECTION:
+// TODAY 07 OCT: Check-in 10:29 AM, proposed / recorded EXIT at 05:50 PM while current time is ~03:40 PM.
+// Expected: 05:50 PM is in the FUTURE relative to current time!
+// Authoritative exit must be NULL, isUnpairedExit is false, and hasValidCheckoutTime is false.
+// -------------------------------------------------------------
+{
+  const events: AttendanceHistoryEvent[] = [
+    { eventId: 'e1', employeeId: 'EXFRNG010', eventType: 'CHECK_IN', eventTime: '10:29 AM', timestamp: '2026-10-07T04:59:00.000Z', source: 'NATIVE_GEOFENCE' },
+    { eventId: 'e2', employeeId: 'EXFRNG010', eventType: 'GEOFENCE_EXIT', eventTime: '05:50 PM', timestamp: '2026-10-07T12:20:00.000Z', source: 'NATIVE_GEOFENCE' },
+  ];
+
+  const record = {
+    id: 'att_future_checkout_test',
+    employeeId: 'EXFRNG010',
+    date: '2026-10-07',
+    checkInTime: '10:29 AM',
+    checkOutTime: '05:50 PM',
+    attendanceType: 'OFFICE',
+    currentState: 'CHECKED_IN',
+    lastExitTime: '05:50 PM',
+    recordedExitTime: '05:50 PM',
+    geofenceExitTime: '05:50 PM',
+    eventHistory: events,
+  } as unknown as AttendanceRecord;
+
+  const res = getAuthoritativeExitForCheckout(record, events);
+  assert(res.authoritativeExitTime === null, 'Test 17: Future exit 05:50 PM must be rejected (null)');
+  assert(res.isUnpairedExit === false, 'Test 17: Future exit does NOT create unpaired exit');
+
+  assert(hasValidCheckoutTime(record) === false, 'Test 17: hasValidCheckoutTime must be false for future checkout time');
+  assert(getEffectiveCheckoutStatus(record) === 'PENDING_AUTO_CHECKOUT', 'Test 17: getEffectiveCheckoutStatus must NOT be COMPLETED for future checkout');
+}
+
+console.log('\n=== ALL 17 TESTS PASSED SUCCESSFULLY! ===\n');

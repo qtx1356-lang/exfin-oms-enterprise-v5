@@ -41,7 +41,8 @@ import {
   isServerAttendanceAuthoritative,
   findLatestAdminCorrection,
   recoverAuthoritativeAdminFields,
-  shouldSuppressUnresolvedNotification
+  shouldSuppressUnresolvedNotification,
+  isAttendanceTimeInFuture
 } from '../utils/attendanceUtils';
 import { logSyncListenerUpdate } from '../services/sync/syncPerformanceLogger';
 import { useNetworkStatus, networkStatusService } from '../services/network/networkStatusService';
@@ -478,27 +479,36 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
                     }
                   }
 
+                  if (authoritativeCheckOut && isAttendanceTimeInFuture(authoritativeCheckOut, sa.date)) {
+                    console.warn(`[RealtimeSyncContext] Nullified future authoritative checkout ${authoritativeCheckOut} on ${sa.date}`);
+                    authoritativeCheckOut = null;
+                  }
+
+                  const isCompleted = !!(authoritativeCheckOut || sa.checkOutTime) && !isAttendanceTimeInFuture(authoritativeCheckOut || sa.checkOutTime, sa.date);
+
                   syncDecision = 'SERVER_ADMIN_AUTHORITATIVE';
                   finalRec = {
                     ...sa,
-                    checkOutTime: authoritativeCheckOut || sa.checkOutTime,
-                    checkoutStatus: 'COMPLETED',
-                    status: sa.status && sa.status !== 'UNRESOLVED' ? sa.status : 'completed',
-                    attendanceStatus: 'RESOLVED',
-                    isAdminRectified: true,
-                    manualRectified: true,
-                    checkoutFinalized: true,
+                    checkOutTime: isCompleted ? (authoritativeCheckOut || sa.checkOutTime) : null,
+                    checkoutStatus: isCompleted ? 'COMPLETED' : 'PENDING',
+                    status: isCompleted ? (sa.status && sa.status !== 'UNRESOLVED' ? sa.status : 'completed') : 'active',
+                    attendanceStatus: isCompleted ? 'RESOLVED' : 'UNRESOLVED',
+                    isAdminRectified: isCompleted,
+                    manualRectified: isCompleted,
+                    checkoutFinalized: isCompleted,
                     checkoutResolvedBy: sa.checkoutResolvedBy || 'admin',
                     checkoutResolvedAt: sa.checkoutResolvedAt || (sa.correctionHistory?.[0] as any)?.correctedAt || sa.updatedAt || new Date().toISOString(),
-                    currentState: 'CHECKED_OUT',
+                    currentState: isCompleted ? 'CHECKED_OUT' : (sa.currentState || 'CHECKED_IN'),
                     pendingCheckoutConfirmation: false,
                     syncStatus: 'Synced'
                   };
                   delete (finalRec as any).employeeProposedCheckoutTime;
                   delete (finalRec as any).employeeProvidedCheckoutTime;
                   delete (finalRec as any).resolutionReason;
-                  if (!finalRec.workingHours && finalRec.checkInTime && finalRec.checkOutTime) {
+                  if (isCompleted && !finalRec.workingHours && finalRec.checkInTime && finalRec.checkOutTime) {
                     finalRec.workingHours = calculateWorkingHours(finalRec.checkInTime, finalRec.checkOutTime);
+                  } else if (!isCompleted) {
+                    finalRec.workingHours = null;
                   }
                 } else {
                   // Check for Server 11:59 PM EOD Fallback vs Local Precise Exit Candidate or Unresolved/Pending Review

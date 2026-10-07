@@ -130,6 +130,82 @@ function getFormattedTimeStr(date: Date): string {
   }
 }
 
+function normalizeDateToYMDServer(dateInput: any): string {
+  if (!dateInput) return "";
+  if (typeof dateInput === "string") {
+    const s = dateInput.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const dMmmY = s.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})/);
+    if (dMmmY) {
+      const day = dMmmY[1].padStart(2, "0");
+      const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+      const mPrefix = dMmmY[2].substring(0, 3).toLowerCase();
+      const mIdx = monthNames.indexOf(mPrefix);
+      if (mIdx >= 0) {
+        const month = String(mIdx + 1).padStart(2, "0");
+        const year = dMmmY[3];
+        return `${year}-${month}-${day}`;
+      }
+    }
+    const dmy = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+    if (dmy) {
+      const day = dmy[1].padStart(2, "0");
+      const month = dmy[2].padStart(2, "0");
+      const year = dmy[3];
+      return `${year}-${month}-${day}`;
+    }
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      try {
+        const formatter = new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Asia/Kolkata",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit"
+        });
+        const parts = formatter.formatToParts(d);
+        const y = parts.find(p => p.type === "year")?.value;
+        const m = parts.find(p => p.type === "month")?.value;
+        const day = parts.find(p => p.type === "day")?.value;
+        if (y && m && day) return `${y}-${m}-${day}`;
+      } catch (e) {}
+    }
+  } else if (dateInput instanceof Date && !isNaN(dateInput.getTime())) {
+    try {
+      const formatter = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      });
+      const parts = formatter.formatToParts(dateInput);
+      const y = parts.find(p => p.type === "year")?.value;
+      const m = parts.find(p => p.type === "month")?.value;
+      const day = parts.find(p => p.type === "day")?.value;
+      if (y && m && day) return `${y}-${m}-${day}`;
+    } catch (e) {}
+  }
+  return String(dateInput);
+}
+
+function isAttendanceTimeInFutureServer(timeStr: string | null | undefined, recordDate?: string | null, referenceDate: Date = new Date()): boolean {
+  if (!timeStr) return false;
+  const timeMins = parseAttendanceTimeToMinutes(timeStr);
+  if (timeMins === null) return false;
+
+  const todayKolkata = getKolkataDateString(referenceDate);
+  const currentKolkataMins = getKolkataCurrentMinutes(referenceDate);
+  const normalizedTargetDate = recordDate ? normalizeDateToYMDServer(recordDate) : todayKolkata;
+
+  if (normalizedTargetDate > todayKolkata) {
+    return true;
+  }
+  if (normalizedTargetDate === todayKolkata) {
+    return timeMins > currentKolkataMins;
+  }
+  return false;
+}
+
 function parseAttendanceTimeToMinutes(timeStr: string | null | undefined): number | null {
   if (!timeStr) return null;
   const clean = timeStr.trim();
@@ -231,21 +307,9 @@ let firestoreAdminNoticeLogged = false;
 async function runServerAttendanceFinalizer() {
   if (!db) return;
   try {
-    const now = new Date();
-    // Deterministic Asia/Kolkata timezone resolution
-    const kolkataStr = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-    const nowKolkata = new Date(kolkataStr);
-    
-    const year = nowKolkata.getFullYear();
-    const month = String(nowKolkata.getMonth() + 1).padStart(2, "0");
-    const day = String(nowKolkata.getDate()).padStart(2, "0");
-    const todayKolkataStr = `${year}-${month}-${day}`;
-    
-    const hours = nowKolkata.getHours();
-    const minutes = nowKolkata.getMinutes();
-
-    // 11:59 PM (23:59) is the attendance day settlement boundary
-    const isEndOfDay = hours === 23 && minutes >= 59;
+    const todayKolkataStr = getKolkataDateString();
+    const currentMins = getKolkataCurrentMinutes();
+    const isEndOfDay = currentMins >= 23 * 60 + 59;
 
     // Fetch active/unsettled attendance documents
     const qSnap = await db.collection("attendance")
@@ -297,6 +361,12 @@ async function runServerAttendanceFinalizer() {
         // Day-end settlement boundary at 11:59 PM
         finalCheckoutTime = "11:59 PM";
         resolutionSource = "AUTO_SYSTEM";
+      }
+
+      // CRITICAL DATA INTEGRITY: Reject future checkout timestamps on server
+      if (isAttendanceTimeInFutureServer(finalCheckoutTime, recDate)) {
+        console.warn(`[ServerFinalizer] REJECTED future checkout timestamp ${finalCheckoutTime} on ${recDate} for ${data.employeeId}. Record remains active.`);
+        continue;
       }
 
       const workingHours = calculateWorkingHours(data.checkInTime, finalCheckoutTime);
@@ -1333,6 +1403,11 @@ async function startServer() {
       let liveData = liveSnap.exists ? liveSnap.data() || {} : {};
       let attData = attSnap.exists ? attSnap.data() || {} : {};
 
+      let rawCheckOut = attData.checkOutTime || attData.exitTime || null;
+      if (rawCheckOut && isAttendanceTimeInFutureServer(rawCheckOut, attData.date || todayStr)) {
+        rawCheckOut = null;
+      }
+
       return res.json({
         date: todayStr,
         employeeId,
@@ -1340,10 +1415,10 @@ async function startServer() {
         currentDistanceMeters: liveData.distanceFromOffice ?? null,
         lastLocationAt: liveData.timestamp || null,
         checkInAt: attData.checkInTime || null,
-        checkOutAt: attData.checkOutTime || attData.exitTime || null,
-        workedDuration: attData.workingHours || "00:00:00",
+        checkOutAt: rawCheckOut,
+        workedDuration: rawCheckOut ? (attData.workingHours || "00:00:00") : "00:00:00",
         attendanceSource: attData.checkInMode || "AUTOMATIC_GEOFENCE",
-        status: attData.currentState || (attData.checkInTime ? "CHECKED_IN" : "ABSENT")
+        status: rawCheckOut ? (attData.currentState || "CHECKED_OUT") : (attData.checkInTime ? "CHECKED_IN" : "ABSENT")
       });
     } catch (err: any) {
       console.error("[Attendance Today API] Error:", err);

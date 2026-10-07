@@ -62,7 +62,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useNavigate } from 'react-router-dom';
 import { AttendanceRecord, AttendanceCorrection, LiveEmployeeLocation, AttendanceHistoryEvent } from '../../types/attendance';
-import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn, sanitizeFirestorePayload, logAttendanceWriteDiagnostic, getAttendanceCanonicalKey, getEarliestCheckInTime, isServerAttendanceAuthoritative, recoverAuthoritativeAdminFields } from '../../utils/attendanceUtils';
+import { isAttendanceCheckoutUnresolved, getEffectiveCheckoutStatus, getCheckInLocationDetails, getCheckoutLocationDetails, getCurrentLocationDetails, hasActualCheckIn, sanitizeFirestorePayload, logAttendanceWriteDiagnostic, getAttendanceCanonicalKey, getEarliestCheckInTime, isServerAttendanceAuthoritative, recoverAuthoritativeAdminFields, isAttendanceTimeInFuture } from '../../utils/attendanceUtils';
 import { getStoredAttendanceRecords, saveAttendanceRecord } from '../../services/attendance/attendanceStorage';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { isSalaryLateCheckIn } from '../../services/salary/salaryService';
@@ -2299,6 +2299,10 @@ export const AdminDashboard: React.FC = () => {
                                     ) : getEffectiveCheckoutStatus(rec) === 'PENDING_ADMIN_REVIEW' ? (
                                       <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
                                         {rec.employeeProposedCheckoutTime ? `Review (${rec.employeeProposedCheckoutTime})` : 'Pending Review'}
+                                      </span>
+                                    ) : checkoutLoc.time === 'Pending' || checkoutLoc.time === '--:--' || isAttendanceTimeInFuture(rec.checkOutTime, rec.date) ? (
+                                      <span className="text-purple-300/60 font-mono">
+                                        Pending
                                       </span>
                                     ) : (
                                       <span className="text-purple-200 font-mono font-medium">

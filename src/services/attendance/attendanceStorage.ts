@@ -1,6 +1,6 @@
 import { AttendanceRecord } from '../../types/attendance';
 import { calculateWorkingHours } from './smartAttendanceEngine';
-import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic, getAttendanceCanonicalKey, isServerAttendanceAuthoritative } from '../../utils/attendanceUtils';
+import { hasActualCheckIn, getEarliestCheckInTime, logAttendanceWriteDiagnostic, getAttendanceCanonicalKey, isServerAttendanceAuthoritative, isAttendanceTimeInFuture } from '../../utils/attendanceUtils';
 
 export const isAdminContext = (): boolean => {
   if (typeof window === 'undefined') return false;
@@ -234,7 +234,24 @@ export const getAllStoredAttendanceRecords = (): AttendanceRecord[] => {
     }
   });
 
-  return Array.from(recordMap.values());
+  const records = Array.from(recordMap.values());
+  for (const rec of records) {
+    if (rec && isAttendanceTimeInFuture(rec.checkOutTime, rec.date)) {
+      rec.checkOutTime = null;
+      rec.workingHours = null;
+      rec.checkOutMode = 'N/A';
+      rec.checkoutType = undefined;
+      if (rec.checkoutStatus === 'COMPLETED' || rec.checkoutStatus === 'FINALIZED') {
+        rec.checkoutStatus = 'PENDING';
+        rec.status = 'active';
+        rec.currentState = 'CHECKED_IN';
+        rec.checkoutFinalized = false;
+        rec.checkoutConfirmed = false;
+      }
+    }
+  }
+
+  return records;
 };
 
 export const getStoredAttendanceRecords = (): AttendanceRecord[] => {
@@ -339,23 +356,23 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
     }
 
     // HISTORICAL EXIT & RETURN EVIDENCE PRESERVATION:
-    // Retain historical exit and return evidence across all operational updates
-    if (!record.lastExitTime && existingRecord.lastExitTime) {
+    // Retain historical exit and return evidence across all operational updates (never propagate future timestamps)
+    if (!record.lastExitTime && existingRecord.lastExitTime && !isAttendanceTimeInFuture(existingRecord.lastExitTime, record.date)) {
       record.lastExitTime = existingRecord.lastExitTime;
     }
     if (!record.lastExitAt && existingRecord.lastExitAt) {
       record.lastExitAt = existingRecord.lastExitAt;
     }
-    if (!record.exitTime && existingRecord.exitTime) {
+    if (!record.exitTime && existingRecord.exitTime && !isAttendanceTimeInFuture(existingRecord.exitTime, record.date)) {
       record.exitTime = existingRecord.exitTime;
     }
-    if (!record.lastReturnTime && existingRecord.lastReturnTime) {
+    if (!record.lastReturnTime && existingRecord.lastReturnTime && !isAttendanceTimeInFuture(existingRecord.lastReturnTime, record.date)) {
       record.lastReturnTime = existingRecord.lastReturnTime;
     }
     if (!record.lastReturnAt && existingRecord.lastReturnAt) {
       record.lastReturnAt = existingRecord.lastReturnAt;
     }
-    if (!record.returnTime && existingRecord.returnTime) {
+    if (!record.returnTime && existingRecord.returnTime && !isAttendanceTimeInFuture(existingRecord.returnTime, record.date)) {
       record.returnTime = existingRecord.returnTime;
     }
     if (existingRecord.eventHistory && existingRecord.eventHistory.length > 0) {
@@ -379,7 +396,7 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
       const existingExitMins = existingRecord.geofenceExitTime ? parseAttendanceTimeToMinutes(existingRecord.geofenceExitTime) : null;
       const isExistingSameEpisode = !(returnMins !== null && existingExitMins !== null && existingExitMins <= returnMins);
 
-      if (isExistingSameEpisode) {
+      if (isExistingSameEpisode && !isAttendanceTimeInFuture(existingRecord.geofenceExitTime, record.date)) {
         const existingExitMs = existingRecord.geofenceExitTimestamp ? new Date(existingRecord.geofenceExitTimestamp).getTime() : Infinity;
         const incomingExitMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : Infinity;
 
@@ -460,7 +477,7 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
         }
       }
 
-      if (recoveredCheckOutTime && recoveredCheckOutTime !== 'UNRESOLVED' && recoveredCheckOutTime !== '--:--') {
+      if (recoveredCheckOutTime && recoveredCheckOutTime !== 'UNRESOLVED' && recoveredCheckOutTime !== '--:--' && !isAttendanceTimeInFuture(recoveredCheckOutTime, record.date)) {
         record.checkOutTime = recoveredCheckOutTime;
         record.checkoutStatus = 'COMPLETED';
         record.status = existingRecord.status && existingRecord.status !== 'UNRESOLVED' ? existingRecord.status : 'completed';
@@ -478,22 +495,49 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
           record.syncStatus = 'Synced';
         }
       } else {
-        record.isAdminRectified = existingRecord.isAdminRectified ?? true;
-        record.manualRectified = existingRecord.manualRectified ?? true;
-        record.checkoutResolvedBy = existingRecord.checkoutResolvedBy || 'admin';
-        record.checkoutResolvedAt = existingRecord.checkoutResolvedAt || existingRecord.updatedAt;
-        record.correctionHistory = existingRecord.correctionHistory || record.correctionHistory;
-        if (existingRecord.checkoutStatus && existingRecord.checkoutStatus !== 'UNRESOLVED') {
-          record.checkoutStatus = existingRecord.checkoutStatus;
-        }
-        if (existingRecord.status && existingRecord.status !== 'UNRESOLVED') {
-          record.status = existingRecord.status;
+        // If the checkout time is in the future, it cannot be considered completed!
+        if (isAttendanceTimeInFuture(record.checkOutTime, record.date)) {
+          record.checkOutTime = null;
+          record.checkoutStatus = 'PENDING';
+          record.status = 'active';
+          record.currentState = 'CHECKED_IN';
+          record.workingHours = null;
+          record.checkoutFinalized = false;
+          record.checkoutConfirmed = false;
+        } else {
+          record.isAdminRectified = existingRecord.isAdminRectified ?? true;
+          record.manualRectified = existingRecord.manualRectified ?? true;
+          record.checkoutResolvedBy = existingRecord.checkoutResolvedBy || 'admin';
+          record.checkoutResolvedAt = existingRecord.checkoutResolvedAt || existingRecord.updatedAt;
+          record.correctionHistory = existingRecord.correctionHistory || record.correctionHistory;
+          if (existingRecord.checkoutStatus && existingRecord.checkoutStatus !== 'UNRESOLVED') {
+            record.checkoutStatus = existingRecord.checkoutStatus;
+          }
+          if (existingRecord.status && existingRecord.status !== 'UNRESOLVED') {
+            record.status = existingRecord.status;
+          }
         }
       }
     }
 
+    // CRITICAL DATA INTEGRITY: A completed checkout event whose timestamp is in the future relative to the actual current time MUST NEVER exist!
+    if (isAttendanceTimeInFuture(record.checkOutTime, record.date)) {
+      console.warn(`[attendanceStorage] Nullifying future checkout ${record.checkOutTime} for ${record.employeeId} on ${record.date}`);
+      record.checkOutTime = null;
+      record.workingHours = null;
+      record.checkOutMode = 'N/A';
+      record.checkoutType = undefined;
+      if (record.checkoutStatus === 'COMPLETED' || record.checkoutStatus === 'FINALIZED') {
+        record.checkoutStatus = 'PENDING';
+        record.status = 'active';
+        record.currentState = 'CHECKED_IN';
+        record.checkoutFinalized = false;
+        record.checkoutConfirmed = false;
+      }
+    }
+
     // Authoritatively calculate workingHours when valid check-in and check-out exist
-    if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+    if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW' || !record.checkOutTime) {
       record.workingHours = null;
     } else if (
       record.checkInTime &&
@@ -508,8 +552,23 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
 
     records[existingIndex] = record;
   } else {
+    // CRITICAL DATA INTEGRITY for new records:
+    if (isAttendanceTimeInFuture(record.checkOutTime, record.date)) {
+      record.checkOutTime = null;
+      record.workingHours = null;
+      record.checkOutMode = 'N/A';
+      record.checkoutType = undefined;
+      if (record.checkoutStatus === 'COMPLETED' || record.checkoutStatus === 'FINALIZED') {
+        record.checkoutStatus = 'PENDING';
+        record.status = 'active';
+        record.currentState = 'CHECKED_IN';
+        record.checkoutFinalized = false;
+        record.checkoutConfirmed = false;
+      }
+    }
+
     // Authoritatively calculate workingHours for new records
-    if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW') {
+    if (record.checkoutStatus === 'UNRESOLVED' || record.checkoutStatus === 'PENDING_ADMIN_REVIEW' || !record.checkOutTime) {
       record.workingHours = null;
     } else if (
       record.checkInTime &&
@@ -530,6 +589,20 @@ const processSingleRecordInMemory = (records: AttendanceRecord[], record: Attend
 
 export const saveAttendanceRecord = (record: AttendanceRecord): void => {
   try {
+    if (isAttendanceTimeInFuture(record.checkOutTime, record.date)) {
+      console.warn(`[saveAttendanceRecord] Intercepted and nullified future checkout ${record.checkOutTime} for ${record.employeeId} on ${record.date}`);
+      record.checkOutTime = null;
+      record.workingHours = null;
+      record.checkOutMode = 'N/A';
+      record.checkoutType = undefined;
+      if (record.checkoutStatus === 'COMPLETED' || record.checkoutStatus === 'FINALIZED') {
+        record.checkoutStatus = 'PENDING';
+        record.status = 'active';
+        record.currentState = 'CHECKED_IN';
+        record.checkoutFinalized = false;
+        record.checkoutConfirmed = false;
+      }
+    }
     const records = getStoredAttendanceRecords();
     const isUpdate = processSingleRecordInMemory(records, record);
     cachedRecordsMemory[getStorageKey()] = records;

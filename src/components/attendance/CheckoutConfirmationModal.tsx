@@ -8,7 +8,7 @@ import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEn
 import { AutomaticAttendanceEngine } from '../../services/attendance/automaticAttendanceEngine';
 import { getNativeAttendanceState, clearNativeActiveSession } from '../../services/attendance/nativeGeofenceBridge';
 import { AttendanceRecord, AttendanceHistoryEvent } from '../../types/attendance';
-import { isServerAttendanceAuthoritative, parseAttendanceTimeToMinutes } from '../../utils/attendanceUtils';
+import { isServerAttendanceAuthoritative, parseAttendanceTimeToMinutes, isAttendanceTimeInFuture, getKolkataTimeAndDate } from '../../utils/attendanceUtils';
 import { getUnresolvedPastAttendanceRecords, getAuthoritativeExitForCheckout } from '../../utils/forensicAuditUtils';
 import { calculateWorkingHours } from '../../services/attendance/smartAttendanceEngine';
 import { syncPendingAttendanceRecords } from '../../services/attendance/syncEngine';
@@ -196,6 +196,12 @@ export const CheckoutConfirmationModal: React.FC = () => {
 
     const authoritativeExit = exitAnalysis.authoritativeExitTime;
 
+    if (authoritativeExit && isAttendanceTimeInFuture(authoritativeExit, record.date)) {
+      // A future exit event is physically impossible and must not open the checkout confirmation modal!
+      setActiveRecord((curr) => (curr && (curr.id === record.id || curr.date === record.date) ? null : curr));
+      return false;
+    }
+
     let initialTime12 = '06:00 PM';
     let initialTime24 = '18:00';
     let suggested: string | null = null;
@@ -207,17 +213,27 @@ export const CheckoutConfirmationModal: React.FC = () => {
         initialTime12 = parsed.formatted12;
         initialTime24 = `${String(parsed.hours24).padStart(2, '0')}:${String(parsed.minutes).padStart(2, '0')}`;
       }
-    } else if (record.checkInTime) {
-      // If check-in was at 09:55 AM, set default to 9 hours later (~06:55 PM) or 06:00 PM
-      const inMins = parseAttendanceTimeToMinutes(record.checkInTime);
-      if (inMins !== null) {
-        const targetMins = Math.min(23 * 60 + 59, inMins + 9 * 60);
-        const h = Math.floor(targetMins / 60);
-        const m = targetMins % 60;
+    } else {
+      const kolkata = getKolkataTimeAndDate();
+      if (record.date === kolkata.todayDateStr) {
+        const h = Math.floor(kolkata.currentMinutes / 60);
+        const m = kolkata.currentMinutes % 60;
         const ampm = h >= 12 ? 'PM' : 'AM';
         const h12 = h % 12 === 0 ? 12 : h % 12;
         initialTime12 = `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
         initialTime24 = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      } else if (record.checkInTime) {
+        // For past day fallback
+        const inMins = parseAttendanceTimeToMinutes(record.checkInTime);
+        if (inMins !== null) {
+          const targetMins = Math.min(23 * 60 + 59, inMins + 9 * 60);
+          const h = Math.floor(targetMins / 60);
+          const m = targetMins % 60;
+          const ampm = h >= 12 ? 'PM' : 'AM';
+          const h12 = h % 12 === 0 ? 12 : h % 12;
+          initialTime12 = `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+          initialTime24 = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        }
       }
     }
 
@@ -464,6 +480,12 @@ export const CheckoutConfirmationModal: React.FC = () => {
         setManualError(`Checkout time (${confirmedTimeStr}) cannot be earlier than check-in time (${activeRecord.checkInTime}).`);
         return;
       }
+    }
+
+    // Future validation: checkout must NOT be in the future relative to current time
+    if (isAttendanceTimeInFuture(confirmedTimeStr, activeRecord.date)) {
+      setManualError(`Checkout time (${confirmedTimeStr}) cannot be in the future relative to current time.`);
+      return;
     }
 
     setIsProcessing(true);

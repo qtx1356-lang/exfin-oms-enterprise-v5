@@ -9,7 +9,8 @@ import {
   isAdminContextActive,
   isServerAttendanceAuthoritative,
   findLatestAdminCorrection,
-  recoverAuthoritativeAdminFields
+  recoverAuthoritativeAdminFields,
+  isAttendanceTimeInFuture
 } from '../../utils/attendanceUtils';
 import {
   getPendingAttendanceRecords,
@@ -323,12 +324,21 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                 }
 
                 if (authoritativeCheckOutTime) {
-                  finalCheckOutTime = authoritativeCheckOutTime;
+                  if (isAttendanceTimeInFuture(authoritativeCheckOutTime, record.date)) {
+                    console.warn(`[syncEngine] REJECTED future authoritative server checkout ${authoritativeCheckOutTime} on ${record.date}`);
+                    finalCheckOutTime = null;
+                    finalCheckoutStatus = 'PENDING';
+                    finalStatus = 'active';
+                  } else {
+                    finalCheckOutTime = authoritativeCheckOutTime;
+                    finalCheckoutStatus = 'COMPLETED';
+                    finalStatus = (serverData.status && serverData.status !== 'UNRESOLVED') ? serverData.status : 'completed';
+                  }
+                } else {
+                  finalCheckOutTime = null;
+                  finalCheckoutStatus = 'PENDING';
+                  finalStatus = 'active';
                 }
-
-                // Protect checkout status & status: Authoritatively COMPLETED & completed / RESOLVED
-                finalCheckoutStatus = 'COMPLETED';
-                finalStatus = (serverData.status && serverData.status !== 'UNRESOLVED') ? serverData.status : 'completed';
 
                 // Protect/Recover workingHours
                 if (serverData.workingHours !== undefined && serverData.workingHours !== null && serverData.workingHours !== '') {
@@ -394,6 +404,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
                 serverData.checkOutTime !== 'UNRESOLVED' &&
                 serverData.checkOutTime !== 'Pending' &&
                 serverData.checkOutTime !== 'N/A' &&
+                !isAttendanceTimeInFuture(serverData.checkOutTime, record.date) &&
                 (!record.checkOutTime || record.checkOutTime === '--:--' || record.checkOutTime === 'UNRESOLVED')
               ) {
                 // Server already has a valid checkout time, do not let stale local null/unresolved overwrite it
@@ -420,13 +431,15 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
         if (!isRecordProtectedByAdmin && (record.isAdminRectified || record.manualRectified || String(record.checkoutResolvedBy || '').toLowerCase().includes('admin'))) {
           isRecordProtectedByAdmin = true;
           const latestCorrection = findLatestAdminCorrection(record.correctionHistory);
-          if ((!finalCheckOutTime || finalCheckOutTime === 'UNRESOLVED' || finalCheckOutTime === '--:--') && latestCorrection?.correctedCheckOut) {
+          if ((!finalCheckOutTime || finalCheckOutTime === 'UNRESOLVED' || finalCheckOutTime === '--:--') && latestCorrection?.correctedCheckOut && !isAttendanceTimeInFuture(latestCorrection.correctedCheckOut, record.date)) {
             finalCheckOutTime = latestCorrection.correctedCheckOut;
           }
-          finalCheckoutStatus = 'COMPLETED';
-          finalStatus = (record.status && record.status !== 'UNRESOLVED') ? record.status : 'completed';
-          if (!finalWorkingHours && finalCheckInTime && finalCheckOutTime) {
-            finalWorkingHours = calculateWorkingHours(finalCheckInTime, finalCheckOutTime);
+          if (finalCheckOutTime && !isAttendanceTimeInFuture(finalCheckOutTime, record.date)) {
+            finalCheckoutStatus = 'COMPLETED';
+            finalStatus = (record.status && record.status !== 'UNRESOLVED') ? record.status : 'completed';
+            if (!finalWorkingHours && finalCheckInTime && finalCheckOutTime) {
+              finalWorkingHours = calculateWorkingHours(finalCheckInTime, finalCheckOutTime);
+            }
           }
         }
 
@@ -452,28 +465,30 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           const sanitizedSafeUpdate = sanitizeFirestorePayload(safeOperationalUpdate);
           await setDoc(targetDocRef, sanitizedSafeUpdate, { merge: true });
 
+          const isCompleted = !!(finalCheckOutTime && !isAttendanceTimeInFuture(finalCheckOutTime, record.date));
+
           const authoritativeLocalRecord: AttendanceRecord = {
             ...(serverData || {}),
             ...record,
             id: record.id,
             docId: targetDocRef.id,
             checkInTime: finalCheckInTime,
-            checkOutTime: finalCheckOutTime,
-            checkoutStatus: 'COMPLETED',
-            status: finalStatus || 'completed',
-            attendanceStatus: 'RESOLVED',
-            workingHours: finalWorkingHours,
-            isAdminRectified: true,
-            manualRectified: true,
+            checkOutTime: isCompleted ? finalCheckOutTime : null,
+            checkoutStatus: isCompleted ? 'COMPLETED' : 'PENDING',
+            status: isCompleted ? (finalStatus || 'completed') : 'active',
+            attendanceStatus: isCompleted ? 'RESOLVED' : 'UNRESOLVED',
+            workingHours: isCompleted ? finalWorkingHours : null,
+            isAdminRectified: isCompleted,
+            manualRectified: isCompleted,
             checkoutResolvedBy: finalCheckoutResolvedBy || 'admin',
             checkoutResolvedAt: finalCheckoutResolvedAt || localServerSyncTime,
             correctionHistory: finalCorrectionHistory,
             checkoutType: finalCheckoutType || 'Manual Checkout',
             resolutionSource: finalResolutionSource || 'ADMIN_CORRECTION',
             checkoutFinalizationSource: finalCheckoutFinalizationSource || 'MANUAL_CHECKOUT',
-            currentState: 'CHECKED_OUT',
-            checkoutFinalized: true,
-            checkoutConfirmed: true,
+            currentState: isCompleted ? 'CHECKED_OUT' : (record.currentState || 'CHECKED_IN'),
+            checkoutFinalized: isCompleted,
+            checkoutConfirmed: isCompleted,
             pendingCheckoutConfirmation: false,
             syncStatus: 'Synced',
             serverSyncTime: localServerSyncTime
@@ -492,6 +507,19 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           break;
         }
 
+        // CRITICAL DATA INTEGRITY:
+        // A completed checkout event whose timestamp is in the future relative to the actual current time MUST NEVER be uploaded or saved!
+        if (isAttendanceTimeInFuture(finalCheckOutTime, record.date)) {
+          console.warn(`[SyncEngine] Intercepted future checkout time ${finalCheckOutTime} on ${record.date}. Resetting to null/pending.`);
+          finalCheckOutTime = null;
+          finalCheckoutStatus = 'PENDING';
+          finalStatus = 'active';
+          finalWorkingHours = null;
+          if (record.checkOutMode === 'AUTO_SYSTEM' || record.checkOutMode === 'MANUAL') {
+            record.checkOutMode = 'N/A';
+          }
+        }
+
         const sanitizedRecord = sanitizeFirestorePayload({
           ...record,
           docId: targetDocRef.id,
@@ -506,6 +534,7 @@ export const syncPendingAttendanceRecords = async (): Promise<{ syncedCount: num
           checkInTownCity: finalCheckInTownCity,
           checkInMode: finalCheckInMode,
           checkOutTime: finalCheckOutTime,
+          checkOutMode: finalCheckOutTime ? record.checkOutMode : 'N/A',
           checkoutStatus: finalCheckoutStatus,
           status: finalStatus,
           attendanceStatus: isRecordProtectedByAdmin ? 'RESOLVED' : (record.attendanceStatus || (finalCheckoutStatus === 'COMPLETED' ? 'RESOLVED' : null)),

@@ -307,6 +307,7 @@ export function recoverAuthoritativeAdminFields(record: any): {
   }
 
   if (!checkOutTime) return null;
+  if (isAttendanceTimeInFuture(checkOutTime, record.date)) return null;
 
   const checkInTime = record.checkInTime;
   const workingHours = record.workingHours || (checkInTime && checkOutTime ? calculateWorkingHours(checkInTime, checkOutTime) : null);
@@ -325,6 +326,156 @@ export function recoverAuthoritativeAdminFields(record: any): {
 }
 
 /**
+ * Parses 12h or 24h formatted time strings into minutes since midnight (0..1439).
+ */
+export const parseTimeToMinutesOfDay = (timeStr: string | null | undefined): number | null => {
+  if (!timeStr || typeof timeStr !== 'string') return null;
+  const trimmed = timeStr.trim().toUpperCase();
+  if (!trimmed || ['PENDING', 'N/A', '--:--', '--:-- --', 'UNRESOLVED', 'NULL', 'UNDEFINED'].includes(trimmed)) {
+    return null;
+  }
+  const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?(?:\s*([AP]M))?$/);
+  if (!match) return null;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const modifier = match[3];
+
+  if (modifier === 'PM' && hours < 12) hours += 12;
+  if (modifier === 'AM' && hours === 12) hours = 0;
+
+  return hours * 60 + minutes;
+};
+
+/**
+ * Robust date parser and normalizer that converts any input date format
+ * (YYYY-MM-DD, DD MMM YYYY, DD-MM-YYYY, DD/MM/YYYY, YYYY/MM/DD, ISO string, Date object)
+ * into a canonical YYYY-MM-DD string in Asia/Kolkata timezone.
+ */
+export const normalizeDateToYMD = (dateInput: any): string => {
+  if (!dateInput) return '';
+  if (typeof dateInput === 'string') {
+    const s = dateInput.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // Handle DD MMM YYYY (e.g. "07 Oct 2026" or "7 October 2026")
+    const dMmmY = s.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})/);
+    if (dMmmY) {
+      const day = dMmmY[1].padStart(2, '0');
+      const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+      const mPrefix = dMmmY[2].substring(0, 3).toLowerCase();
+      const mIdx = monthNames.indexOf(mPrefix);
+      if (mIdx >= 0) {
+        const month = String(mIdx + 1).padStart(2, '0');
+        const year = dMmmY[3];
+        return `${year}-${month}-${day}`;
+      }
+    }
+    // Handle DD-MM-YYYY or DD/MM/YYYY
+    const dmy = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+    if (dmy) {
+      const day = dmy[1].padStart(2, '0');
+      const month = dmy[2].padStart(2, '0');
+      const year = dmy[3];
+      return `${year}-${month}-${day}`;
+    }
+    // Handle ISO string or parseable date string
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      try {
+        const formatter = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Kolkata',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+        const parts = formatter.formatToParts(d);
+        const y = parts.find(p => p.type === 'year')?.value;
+        const m = parts.find(p => p.type === 'month')?.value;
+        const day = parts.find(p => p.type === 'day')?.value;
+        if (y && m && day) return `${y}-${m}-${day}`;
+      } catch (e) {}
+    }
+  } else if (dateInput instanceof Date && !isNaN(dateInput.getTime())) {
+    try {
+      const formatter = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      const parts = formatter.formatToParts(dateInput);
+      const y = parts.find(p => p.type === 'year')?.value;
+      const m = parts.find(p => p.type === 'month')?.value;
+      const day = parts.find(p => p.type === 'day')?.value;
+      if (y && m && day) return `${y}-${m}-${day}`;
+    } catch (e) {}
+  }
+  return String(dateInput);
+};
+
+/**
+ * Deterministically resolves today's date string (YYYY-MM-DD) and current minutes of the day in Asia/Kolkata timezone.
+ */
+export const getKolkataTimeAndDate = (baseDate: Date = new Date()): { todayDateStr: string; currentMinutes: number } => {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(baseDate);
+    const year = parts.find(p => p.type === 'year')?.value || '1970';
+    const month = parts.find(p => p.type === 'month')?.value || '01';
+    const day = parts.find(p => p.type === 'day')?.value || '01';
+    const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+    const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+
+    return {
+      todayDateStr: `${year}-${month}-${day}`,
+      currentMinutes: hour * 60 + minute
+    };
+  } catch (e) {
+    const d = new Date(baseDate);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return {
+      todayDateStr: `${year}-${month}-${day}`,
+      currentMinutes: d.getHours() * 60 + d.getMinutes()
+    };
+  }
+};
+
+/**
+ * CRITICAL DATA-INTEGRITY RULE:
+ * Checks whether an attendance event or checkout time occurs in the future relative to current time.
+ * For today's attendance: checkoutTime <= currentTime must ALWAYS be true for a completed checkout.
+ * If checkoutTime > now, it MUST NEVER be treated or saved as a completed checkout.
+ */
+export const isAttendanceTimeInFuture = (timeStr: string | null | undefined, recordDate?: string | null, referenceDate: Date = new Date()): boolean => {
+  if (!timeStr) return false;
+  const timeMins = parseTimeToMinutesOfDay(timeStr);
+  if (timeMins === null) return false;
+
+  const kolkata = getKolkataTimeAndDate(referenceDate);
+  const normalizedTargetDate = recordDate ? normalizeDateToYMD(recordDate) : kolkata.todayDateStr;
+
+  if (normalizedTargetDate > kolkata.todayDateStr) {
+    // Target date is in the future
+    return true;
+  }
+  if (normalizedTargetDate === kolkata.todayDateStr) {
+    // For today's date, time must NOT be greater than current authoritative time
+    return timeMins > kolkata.currentMinutes;
+  }
+  // Past dates: time belongs to past day
+  return false;
+};
+
+/**
  * Checks if an attendance record has a valid recorded or employee-provided checkout time.
  * When a valid checkout time is present, the checkout is considered resolved from the
  * Employee UI's perspective.
@@ -340,7 +491,9 @@ export const hasValidCheckoutTime = (record: AttendanceRecord | null | undefined
   ).trim();
   if (!val) return false;
   const invalid = ['--:--', '--:-- --', 'Pending', 'N/A', 'UNRESOLVED', 'null', 'undefined'];
-  return !invalid.includes(val);
+  if (invalid.includes(val)) return false;
+  if (isAttendanceTimeInFuture(val, record.date)) return false;
+  return true;
 };
 
 /**
@@ -554,11 +707,13 @@ export const isAttendanceCheckoutUnresolved = (record: AttendanceRecord): boolea
 export const getEffectiveCheckoutStatus = (record: AttendanceRecord): 'COMPLETED' | 'FINALIZED' | 'UNRESOLVED' | 'PENDING_ADMIN_REVIEW' | 'PENDING_EXIT_CONFIRMATION' | 'PENDING_AUTO_CHECKOUT' | 'UNRESOLVED_CHECKOUT' | undefined => {
   if (!record) return undefined;
 
-  const checkOutValue = (record.checkOutTime || '').trim();
-  const isCheckOutMissing = !checkOutValue || checkOutValue === '--:--' || checkOutValue === '--:-- --' || checkOutValue === 'Pending' || checkOutValue === 'N/A' || checkOutValue === 'UNRESOLVED';
+  const rawCheckOut = (record.checkOutTime || '').trim();
+  const isFuture = isAttendanceTimeInFuture(rawCheckOut, record.date);
+  const isCheckOutMissing = !rawCheckOut || isFuture || rawCheckOut === '--:--' || rawCheckOut === '--:-- --' || rawCheckOut === 'Pending' || rawCheckOut === 'N/A' || rawCheckOut === 'UNRESOLVED';
 
   // 1. ADMIN AUTHORITATIVE OVERRIDE: If Admin has approved or rectified this record, it is ALWAYS COMPLETED
-  if (isServerAttendanceAuthoritative(record)) {
+  // (Unless the timestamp is in the future for today's record, which is physically impossible and must remain pending)
+  if (isServerAttendanceAuthoritative(record) && !isFuture) {
     if (record.checkoutStatus === 'FINALIZED') return 'FINALIZED';
     return 'COMPLETED';
   }
@@ -566,7 +721,7 @@ export const getEffectiveCheckoutStatus = (record: AttendanceRecord): 'COMPLETED
   // 2. Pending Admin Review for employee proposed checkout (before Admin approval)
   if (record.checkoutStatus === 'PENDING_ADMIN_REVIEW') return 'PENDING_ADMIN_REVIEW';
   const propVal = (record.employeeProposedCheckoutTime || record.employeeProvidedCheckoutTime || '').trim();
-  const hasValidProposal = propVal !== '' && propVal !== 'UNRESOLVED' && propVal !== '--:--' && propVal !== 'Pending' && propVal !== 'N/A';
+  const hasValidProposal = propVal !== '' && !isAttendanceTimeInFuture(propVal, record.date) && propVal !== 'UNRESOLVED' && propVal !== '--:--' && propVal !== 'Pending' && propVal !== 'N/A';
   if (hasValidProposal && isCheckOutMissing) {
     return 'PENDING_ADMIN_REVIEW';
   }
@@ -579,7 +734,7 @@ export const getEffectiveCheckoutStatus = (record: AttendanceRecord): 'COMPLETED
 
   // 4. Pending exit confirmation / auto checkout in progress
   if (record.checkoutStatus === 'PENDING_EXIT_CONFIRMATION') return 'PENDING_EXIT_CONFIRMATION';
-  if (record.checkoutStatus === 'PENDING_AUTO_CHECKOUT') return 'PENDING_AUTO_CHECKOUT';
+  if (record.checkoutStatus === 'PENDING_AUTO_CHECKOUT' || isFuture) return 'PENDING_AUTO_CHECKOUT';
 
   // 5. Genuinely Unresolved Checkouts
   if (isAttendanceCheckoutUnresolved(record)) {
@@ -766,7 +921,12 @@ export const getCheckoutLocationDetails = (record: AttendanceRecord): {
   let time = '--:--';
   
   if (record.checkOutTime && record.checkOutTime !== 'Pending' && record.checkOutTime !== 'N/A' && record.checkOutTime !== '--:--') {
-    time = record.checkOutTime;
+    if (isAttendanceTimeInFuture(record.checkOutTime, record.date)) {
+      // Future checkout cannot be displayed as completed checkout!
+      time = 'Pending';
+    } else {
+      time = record.checkOutTime;
+    }
   } else if (unresolved) {
     time = 'UNRESOLVED';
   } else {

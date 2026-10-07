@@ -16,7 +16,7 @@ import { logAttendanceEvent } from './attendanceLogger';
 import { createNotification, dismissUnresolvedNotificationForDate } from '../notification/notificationService';
 import { syncPendingAttendanceRecords } from './syncEngine';
 import { updateLiveEmployeeLocation } from '../location/liveLocationService';
-import { isAdminContextActive, logAttendanceWriteDiagnostic, isServerAttendanceAuthoritative, hasValidCheckoutTime } from '../../utils/attendanceUtils';
+import { isAdminContextActive, logAttendanceWriteDiagnostic, isServerAttendanceAuthoritative, hasValidCheckoutTime, isAttendanceTimeInFuture } from '../../utils/attendanceUtils';
 import { startNativeActiveSession, clearNativeActiveSession, cancelPendingNativeExit } from './nativeGeofenceBridge';
 import { getAuthoritativeExitForCheckout } from '../../utils/forensicAuditUtils';
 
@@ -991,6 +991,13 @@ export const AutomaticAttendanceEngine = {
           }
         }
 
+        // CRITICAL DATA INTEGRITY RULE:
+        // A completed checkout event whose timestamp is in the future relative to the actual current time MUST NEVER be created!
+        if (isAttendanceTimeInFuture(checkoutTimeStr, dateStr, timestamp)) {
+          console.warn(`[AutomaticAttendanceEngine] REJECTED future checkout ${checkoutTimeStr} on ${dateStr}. Session remains active.`);
+          return record;
+        }
+
         const workingHours = calculateWorkingHours(record.checkInTime, checkoutTimeStr);
 
         record.checkOutTime = checkoutTimeStr;
@@ -1319,6 +1326,11 @@ export const AutomaticAttendanceEngine = {
     }
 
     const checkoutTimeStr = nativeExitTime;
+    if (isAttendanceTimeInFuture(checkoutTimeStr, dateStr)) {
+      console.warn(`[AutomaticAttendanceEngine] REJECTED confirmCheckoutFromExit for future exit time ${checkoutTimeStr} on ${dateStr}. Session remains active.`);
+      return record;
+    }
+
     const eventIso = new Date().toISOString();
     const resolvedEventId = eventId || generateIdempotentEventId(employeeId, dateStr, 'CHECK_OUT', checkoutTimeStr);
 
@@ -1500,6 +1512,11 @@ export const AutomaticAttendanceEngine = {
       return record;
     }
 
+    if (isAttendanceTimeInFuture(checkoutTimeStr, dateStr)) {
+      console.warn(`[submitEmployeeCheckoutTime] Blocked employee proposal in future: ${checkoutTimeStr} on ${dateStr}`);
+      return record;
+    }
+
     const eventIso = new Date().toISOString();
     const workingHours = record.checkInTime ? calculateWorkingHours(record.checkInTime, checkoutTimeStr) : null;
 
@@ -1615,6 +1632,16 @@ export const AutomaticAttendanceEngine = {
       return null;
     }
 
+    const todayStr = getFormattedDateStr(timestamp);
+    if (dateStr === todayStr) {
+      // Today's record can ONLY be settled at or after 23:59 Asia/Kolkata!
+      const kolkataTimeStr = getFormattedTimeStr(timestamp);
+      const kolkataMins = parseAttendanceTimeToMinutes(kolkataTimeStr);
+      if (kolkataMins !== null && kolkataMins < 23 * 60 + 59) {
+        return null;
+      }
+    }
+
     if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
       const authoritativeExit = getAuthoritativeExitForCheckout(record, record.eventHistory || []);
       const hasExitEvent = Boolean(authoritativeExit.authoritativeExitTime);
@@ -1622,6 +1649,9 @@ export const AutomaticAttendanceEngine = {
       if (hasExitEvent && authoritativeExit.authoritativeExitTime) {
         // CASE 1: Valid authoritative final exit exists (Auto finalized at the latest unpaired recorded exit time at 11:59 PM settlement)
         const checkoutTimeStr = authoritativeExit.authoritativeExitTime;
+        if (isAttendanceTimeInFuture(checkoutTimeStr, dateStr, timestamp)) {
+          return null;
+        }
         const workingHours = calculateWorkingHours(record.checkInTime, checkoutTimeStr);
         const settledIso = timestamp.toISOString();
         record.checkOutTime = checkoutTimeStr;

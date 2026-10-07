@@ -340,6 +340,24 @@ public class GeofencePlugin extends Plugin {
             String recExit = session.optString("recordedExitTime", null);
             if (recExit == null || "null".equalsIgnoreCase(recExit) || recExit.trim().isEmpty()) {
                 recExit = null;
+            } else {
+                try {
+                    java.text.SimpleDateFormat sdfTime = new java.text.SimpleDateFormat("hh:mm a", java.util.Locale.US);
+                    sdfTime.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Kolkata"));
+                    java.util.Date exitDate = sdfTime.parse(recExit);
+                    
+                    java.util.Calendar calNow = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kolkata"));
+                    int currentMins = calNow.get(java.util.Calendar.HOUR_OF_DAY) * 60 + calNow.get(java.util.Calendar.MINUTE);
+                    
+                    if (exitDate != null) {
+                        java.util.Calendar calExit = java.util.Calendar.getInstance();
+                        calExit.setTime(exitDate);
+                        int exitMins = calExit.get(java.util.Calendar.HOUR_OF_DAY) * 60 + calExit.get(java.util.Calendar.MINUTE);
+                        if (exitMins > currentMins) {
+                            recExit = null; // Future exit time is rejected
+                        }
+                    }
+                } catch (Exception ignored) {}
             }
 
             // A valid native exit candidate for today requires:
