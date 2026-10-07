@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
@@ -82,6 +83,7 @@ import {
   trackResourceCleaned,
 } from '../../services/monitoring/performanceDiagnostics';
 import { TodayAttendanceCard } from './TodayAttendanceCard';
+import { getNativeLocationReadiness, openNativeLocationSettings, repairNativeLocationMonitoring } from '../../services/attendance/nativeGeofenceBridge';
 import { AttendanceCalendar } from './AttendanceCalendar';
 import {
   getWhatsAppAttendanceUrl,
@@ -184,6 +186,7 @@ export const AttendanceScreen: React.FC = () => {
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+  const [nativeLocationReadiness, setNativeLocationReadiness] = useState<Awaited<ReturnType<typeof getNativeLocationReadiness>>(null);
 
   // Selected Mode State ('OFFICE' | 'WFH' | 'CLIENT_VISIT' | 'OUTDOOR')
   const [activeMode, setActiveMode] = useState<AttendanceType>('OFFICE');
@@ -228,6 +231,48 @@ export const AttendanceScreen: React.FC = () => {
   };
 
   const todayStr = getFormattedDateStr();
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let mounted = true;
+    let resumeHandle: { remove: () => Promise<void> } | null = null;
+
+    const repairAndCheckLocation = async () => {
+      try {
+        const readiness = await getNativeLocationReadiness();
+        if (mounted) setNativeLocationReadiness(readiness);
+
+        if (readiness?.locationEnabled && readiness.fineLocationGranted && readiness.backgroundLocationGranted) {
+          await repairNativeLocationMonitoring();
+          const refreshed = await getNativeLocationReadiness();
+          if (mounted) setNativeLocationReadiness(refreshed);
+          refreshRecords();
+        }
+      } catch (err) {
+        console.warn('[AttendanceScreen] Native location readiness check failed:', err);
+      }
+    };
+
+    repairAndCheckLocation();
+
+    CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) {
+        repairAndCheckLocation();
+      }
+    }).then((handle) => {
+      resumeHandle = handle;
+    });
+
+    const intervalId = window.setInterval(repairAndCheckLocation, 30000);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(intervalId);
+      resumeHandle?.remove().catch(() => {});
+    };
+  }, [employeeId]);
+
 
   // Find unresolved records from past days (strictly before today)
   const unresolvedPastRecords = useMemo(() => {
@@ -992,6 +1037,40 @@ export const AttendanceScreen: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {Capacitor.isNativePlatform() && nativeLocationReadiness && !nativeLocationReadiness.locationReady && (
+        <Card className="p-3 rounded-2xl border border-amber-500/30 bg-amber-500/10">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/15">
+              <MapPin className="w-4 h-4 text-amber-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-black text-amber-300">
+                Automatic attendance is paused
+              </p>
+              <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
+                {!nativeLocationReadiness.locationEnabled
+                  ? 'Location Services are OFF. Turn them on for automatic check-in and exit/return detection.'
+                  : !nativeLocationReadiness.fineLocationGranted
+                    ? 'Precise location permission is required for the 25m attendance boundary.'
+                    : !nativeLocationReadiness.backgroundLocationGranted
+                      ? 'Allow background location so attendance can work when the app is closed.'
+                      : 'Location monitoring is recovering. Please keep Location Services enabled.'}
+              </p>
+            </div>
+            {!nativeLocationReadiness.locationEnabled && (
+              <Button
+                onClick={async () => {
+                  await openNativeLocationSettings();
+                }}
+                className="shrink-0 px-3 py-2 text-[10px] font-black rounded-xl"
+              >
+                TURN ON
+              </Button>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* ==================================================== */}
       {/* 2. ATTENDANCE MODE (Moved to Top immediately below Header) */}
