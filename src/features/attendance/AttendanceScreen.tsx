@@ -186,7 +186,7 @@ export const AttendanceScreen: React.FC = () => {
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
-  const [nativeLocationReadiness, setNativeLocationReadiness] = useState<Awaited<ReturnType<typeof getNativeLocationReadiness>>(null);
+  const [nativeLocationReadiness, setNativeLocationReadiness] = useState<Awaited<ReturnType<typeof getNativeLocationReadiness>>>(null);
 
   // Selected Mode State ('OFFICE' | 'WFH' | 'CLIENT_VISIT' | 'OUTDOOR')
   const [activeMode, setActiveMode] = useState<AttendanceType>('OFFICE');
