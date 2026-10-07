@@ -299,9 +299,24 @@ export const reconcileNativeGeofenceEvents = async (
             activeState.sessionState === 'PENDING_EXIT_CONFIRMATION' ||
             activeState.currentState === 'PENDING_AUTO_CHECKOUT') && hasNativeExit;
 
-          if (hasNativeExit && isPendingExit) {
-            const todayRec = getTodayAttendanceRecord(employeeId, todayDateStr);
-            if (todayRec && !todayRec.checkOutTime && !todayRec.checkoutFinalized) {
+          const todayRec = getTodayAttendanceRecord(employeeId, todayDateStr);
+          const isTodayCheckedIn = todayRec?.currentState === 'CHECKED_IN';
+          const isNativeInside = activeState.sessionState === 'ACTIVE' || activeState.currentState === 'CHECKED_IN';
+
+          if (isTodayCheckedIn || isNativeInside) {
+            // Employee is inside! Ensure pendingCheckoutConfirmation is false
+            if (todayRec && todayRec.pendingCheckoutConfirmation) {
+              todayRec.pendingCheckoutConfirmation = false;
+              todayRec.currentState = 'CHECKED_IN';
+              saveAttendanceRecord(todayRec);
+            }
+          } else if (hasNativeExit && isPendingExit && !isTodayCheckedIn) {
+            // Ensure native exit belongs to todayDateStr
+            const exitDate = activeState.exitDetectedAt && activeState.exitDetectedAt.includes('-')
+              ? activeState.exitDetectedAt.substring(0, 10)
+              : todayDateStr;
+
+            if (exitDate === todayDateStr && todayRec && !todayRec.checkOutTime && !todayRec.checkoutFinalized) {
               let changed = false;
               if (activeState.recordedExitTime && !todayRec.recordedExitTime) {
                 todayRec.recordedExitTime = activeState.recordedExitTime;
@@ -326,7 +341,6 @@ export const reconcileNativeGeofenceEvents = async (
               }
             }
           } else if (!hasNativeExit) {
-            const todayRec = getTodayAttendanceRecord(employeeId, todayDateStr);
             if (todayRec && todayRec.pendingCheckoutConfirmation && !todayRec.lastExitTime && !todayRec.geofenceExitTime && !todayRec.recordedExitTime) {
               todayRec.pendingCheckoutConfirmation = false;
               todayRec.currentState = 'CHECKED_IN';

@@ -112,6 +112,9 @@ public class OfficeGeofenceHelper {
     public static final String KEY_LAST_NATIVE_ERROR = "last_native_error";
     public static final String KEY_LAST_SYNC_TIME = "last_sync_timestamp";
     public static final String KEY_LAST_EXIT_TIME = "last_native_exit_time";
+    public static final String KEY_LAST_EXIT_DATE = "last_native_exit_date";
+    public static final String KEY_LAST_EXIT_EMPLOYEE_ID = "last_native_exit_employee_id";
+    public static final String KEY_LAST_EXIT_SESSION_ID = "last_native_exit_session_id";
     public static final String KEY_LAST_RETURN_TIME = "last_native_return_time";
     public static final String STATE_EXIT_PROMPT_RESOLVED_OUTSIDE = "EXIT_PROMPT_RESOLVED_OUTSIDE";
     public static final String KEY_EXIT_PROMPT_RESOLVED_OUTSIDE = "exit_prompt_resolved_outside";
@@ -1313,6 +1316,9 @@ public class OfficeGeofenceHelper {
         editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, eventTimestamp);
         editor.putString(KEY_LAST_PROCESSED_EVENT_ID, uniqueExitEventId);
         editor.putString(KEY_LAST_EXIT_TIME, timeStr);
+        editor.putString(KEY_LAST_EXIT_DATE, sessionDate);
+        editor.putString(KEY_LAST_EXIT_EMPLOYEE_ID, employeeId);
+        editor.putString(KEY_LAST_EXIT_SESSION_ID, activeSession.optString("attendanceId", ""));
         editor.putBoolean("pendingCheckoutConfirmation", true);
         editor.putString("pendingCheckoutEventId", uniqueExitEventId);
         editor.putString("currentState", "PENDING_AUTO_CHECKOUT");
@@ -1610,9 +1616,14 @@ public class OfficeGeofenceHelper {
                 editor.putBoolean(KEY_EXIT_PROMPT_RESOLVED_OUTSIDE, false);
                 editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, eventTimestamp);
                 editor.putString(KEY_LAST_RETURN_TIME, timeStr);
+                editor.remove(KEY_LAST_EXIT_TIME);
+                editor.remove(KEY_LAST_EXIT_DATE);
+                editor.remove(KEY_LAST_EXIT_EMPLOYEE_ID);
+                editor.remove(KEY_LAST_EXIT_SESSION_ID);
                 editor.putBoolean("pendingCheckoutConfirmation", false);
                 editor.putString("pendingCheckoutEventId", null);
                 editor.putString("currentState", "CHECKED_IN");
+                editor.putString("sessionState", "ACTIVE");
                 editor.putString("checkoutStatus", "ACTIVE");
                 editor.apply();
             }
@@ -1916,45 +1927,6 @@ public class OfficeGeofenceHelper {
         try {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
 
-            // Preserved exit fields if existing session already recorded an exit for this date
-            String preservedExitTime = null;
-            String preservedExitDetectedAt = null;
-            String preservedExitSource = null;
-            String preservedPendingEventId = null;
-            boolean preservedPendingCheckout = false;
-            String preservedSessionState = null;
-            String preservedCurrentState = null;
-
-            String existingSessionStr = prefs.getString(KEY_ACTIVE_SESSION, null);
-            if (existingSessionStr != null) {
-                try {
-                    JSONObject existing = new JSONObject(existingSessionStr);
-                    String existingDate = existing.optString("date", "");
-                    String existingEmp = existing.optString("employeeId", "");
-                    if (existingDate.equals(date) && (existingEmp.isEmpty() || existingEmp.equalsIgnoreCase(employeeId))) {
-                        String existingExit = existing.optString("recordedExitTime", null);
-                        if (existingExit == null || existingExit.isEmpty() || "null".equalsIgnoreCase(existingExit)) {
-                            existingExit = prefs.getString(KEY_LAST_EXIT_TIME, null);
-                        }
-                        if (existingExit != null && !existingExit.isEmpty() && !"null".equalsIgnoreCase(existingExit)) {
-                            preservedExitTime = existingExit;
-                            preservedExitDetectedAt = existing.optString("exitDetectedAt", null);
-                            preservedExitSource = existing.optString("exitSource", "NATIVE_GEOFENCE");
-                            if (existing.optBoolean("pendingCheckoutConfirmation", false) ||
-                                prefs.getBoolean("pendingCheckoutConfirmation", false) ||
-                                "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(existing.optString("sessionState", "")) ||
-                                "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(existing.optString("currentState", "")) ||
-                                "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(prefs.getString("currentState", ""))) {
-                                preservedPendingCheckout = true;
-                                preservedPendingEventId = existing.optString("pendingCheckoutEventId", prefs.getString("pendingCheckoutEventId", null));
-                                preservedSessionState = existing.optString("sessionState", "PENDING_EXIT_CONFIRMATION");
-                                preservedCurrentState = existing.optString("currentState", prefs.getString("currentState", "PENDING_AUTO_CHECKOUT"));
-                            }
-                        }
-                    }
-                } catch (Exception ignored) {}
-            }
-
             JSONObject session = new JSONObject();
             session.put("attendanceId", "att_" + employeeId + "_" + date);
             session.put("employeeId", employeeId);
@@ -1967,45 +1939,37 @@ public class OfficeGeofenceHelper {
             session.put("officeLongitude", OFFICE_LNG);
             session.put("geofenceRadius", AUTHORITATIVE_RADIUS_METERS);
             session.put("verificationStatus", verificationStatus != null ? verificationStatus : "VERIFIED");
-
-            if (preservedExitTime != null || preservedPendingCheckout) {
-                // PRESERVE EXIT CANDIDATE: Do not overwrite with active state!
-                session.put("sessionState", preservedSessionState != null ? preservedSessionState : "PENDING_EXIT_CONFIRMATION");
-                session.put("checkoutStatus", "PENDING_AUTO_CHECKOUT");
-                session.put("currentState", preservedCurrentState != null ? preservedCurrentState : "PENDING_AUTO_CHECKOUT");
-                session.put("pendingCheckoutConfirmation", true);
-                if (preservedPendingEventId != null) {
-                    session.put("pendingCheckoutEventId", preservedPendingEventId);
-                }
-                if (preservedExitTime != null) {
-                    session.put("recordedExitTime", preservedExitTime);
-                    if (preservedExitDetectedAt != null) {
-                        session.put("exitDetectedAt", preservedExitDetectedAt);
-                    }
-                    session.put("exitSource", preservedExitSource != null ? preservedExitSource : "NATIVE_GEOFENCE");
-                }
-                Log.i(TAG, "[NATIVE_SESSION_PRESERVED] Preserved existing exit state for " + employeeId + " (exitTime: " + preservedExitTime + ", pending: true)");
-            } else {
-                session.put("sessionState", "ACTIVE");
-                session.put("checkoutStatus", "ACTIVE");
-                session.put("recordedExitTime", JSONObject.NULL);
-                session.put("exitDetectedAt", JSONObject.NULL);
-                session.put("exitSource", "NONE");
-            }
+            session.put("sessionState", "ACTIVE");
+            session.put("checkoutStatus", "ACTIVE");
+            session.put("currentState", "CHECKED_IN");
+            session.put("lastKnownState", "INSIDE");
+            session.put("recordedExitTime", JSONObject.NULL);
+            session.put("exitDetectedAt", JSONObject.NULL);
+            session.put("exitSource", "NONE");
+            session.put("pendingCheckoutConfirmation", false);
+            session.put("pendingCheckoutEventId", JSONObject.NULL);
 
             SharedPreferences.Editor editor = prefs.edit();
             editor.putString(KEY_ACTIVE_SESSION, session.toString());
             editor.putString("employee_id", employeeId);
             editor.putString("employee_name", employeeName);
             editor.putString("town_city", townCity != null ? townCity : "Raniganj HQ");
-            if (!preservedPendingCheckout) {
-                editor.putString(KEY_LAST_KNOWN_STATE, "INSIDE");
-            }
+            editor.putString(KEY_LAST_KNOWN_STATE, "INSIDE");
+            editor.putString("currentState", "CHECKED_IN");
+            editor.putString("sessionState", "ACTIVE");
+            editor.putString("checkoutStatus", "ACTIVE");
+            editor.putBoolean("pendingCheckoutConfirmation", false);
+            editor.remove("pendingCheckoutEventId");
+            editor.remove(KEY_LAST_EXIT_TIME);
+            editor.remove(KEY_LAST_EXIT_DATE);
+            editor.remove(KEY_LAST_EXIT_EMPLOYEE_ID);
+            editor.remove(KEY_LAST_EXIT_SESSION_ID);
+            editor.remove(KEY_EXIT_PROMPT_RESOLVED_OUTSIDE);
             editor.putLong(KEY_LAST_CHECKIN_TIMESTAMP, System.currentTimeMillis());
             editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, System.currentTimeMillis());
             editor.apply();
 
-            Log.i(TAG, "[NATIVE_SESSION_STARTED] Active office session initialized for " + employeeId + " at " + checkInTime);
+            Log.i(TAG, "[NATIVE_SESSION_STARTED] Fresh active office session initialized for " + employeeId + " on " + date + " at " + checkInTime + ". All prior exit states strictly cleared.");
 
             stopTemporaryAssistAwareness();
             registerOfficeGeofence(context);
@@ -2029,6 +1993,16 @@ public class OfficeGeofenceHelper {
                 editor.putString(KEY_ACTIVE_SESSION, session.toString());
             }
             editor.putString(KEY_LAST_KNOWN_STATE, "OUTSIDE");
+            editor.remove(KEY_LAST_EXIT_TIME);
+            editor.remove(KEY_LAST_EXIT_DATE);
+            editor.remove(KEY_LAST_EXIT_EMPLOYEE_ID);
+            editor.remove(KEY_LAST_EXIT_SESSION_ID);
+            editor.putBoolean("pendingCheckoutConfirmation", false);
+            editor.remove("pendingCheckoutEventId");
+            editor.remove(KEY_EXIT_PROMPT_RESOLVED_OUTSIDE);
+            editor.putString("currentState", "FINALIZED");
+            editor.putString("sessionState", "FINALIZED");
+            editor.putString("checkoutStatus", "FINALIZED");
             editor.putLong(KEY_LAST_TRANSITION_TIMESTAMP, System.currentTimeMillis());
             editor.apply();
             Log.i(TAG, "[NATIVE_SESSION_FINALIZED] Native active session cleared.");

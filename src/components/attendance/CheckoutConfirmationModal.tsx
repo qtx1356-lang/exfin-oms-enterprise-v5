@@ -150,6 +150,14 @@ export const CheckoutConfirmationModal: React.FC = () => {
       return false;
     }
 
+    // CORE ACCEPTANCE RULE:
+    // If employee is currently CHECKED_IN, they are inside the office premises.
+    // NEVER show checkout confirmation popup when currentState is CHECKED_IN.
+    if (!isPast && record.currentState === 'CHECKED_IN') {
+      setActiveRecord((curr) => (curr && (curr.id === record.id || curr.date === record.date) ? null : curr));
+      return false;
+    }
+
     // Check authoritative exit
     const exitAnalysis = getAuthoritativeExitForCheckout(record, record.eventHistory || []);
     
@@ -161,9 +169,29 @@ export const CheckoutConfirmationModal: React.FC = () => {
     // 4. No subsequent RETURN event closed that EXIT;
     // 5. The checkout/final exitTime is genuinely unresolved.
     // IF THERE IS NO VALID UNPAIRED EXIT EVENT: DO NOT SHOW POPUP.
-    if (!exitAnalysis.isUnpairedExit) {
+    if (!exitAnalysis.isUnpairedExit || !exitAnalysis.authoritativeExitTime) {
       setActiveRecord((curr) => (curr && (curr.id === record.id || curr.date === record.date) ? null : curr));
       return false;
+    }
+
+    // Scoping Rule: Verify exit timestamp belongs to this exact record date
+    if (exitAnalysis.authoritativeExitTimestamp && exitAnalysis.authoritativeExitTimestamp.includes('-')) {
+      const exitDatePart = exitAnalysis.authoritativeExitTimestamp.substring(0, 10);
+      if (exitDatePart !== record.date) {
+        // Exit timestamp belongs to another day (e.g. yesterday). Discard!
+        setActiveRecord((curr) => (curr && (curr.id === record.id || curr.date === record.date) ? null : curr));
+        return false;
+      }
+    }
+
+    // Scoping Rule: Verify exit time is after check-in time of this session
+    if (record.checkInTime) {
+      const inMins = parseAttendanceTimeToMinutes(record.checkInTime);
+      const outMins = parseAttendanceTimeToMinutes(exitAnalysis.authoritativeExitTime);
+      if (inMins !== null && outMins !== null && outMins <= inMins) {
+        setActiveRecord((curr) => (curr && (curr.id === record.id || curr.date === record.date) ? null : curr));
+        return false;
+      }
     }
 
     const authoritativeExit = exitAnalysis.authoritativeExitTime;
@@ -233,18 +261,27 @@ export const CheckoutConfirmationModal: React.FC = () => {
     }
 
     if (todayRecord) {
-      const exitAnalysis = getAuthoritativeExitForCheckout(todayRecord, todayRecord.eventHistory || []);
-      if (!exitAnalysis.isUnpairedExit) {
-        // Employee is inside or no unpaired exit -> dismiss any popup for today
+      if (todayRecord.currentState === 'CHECKED_IN') {
+        // Employee is inside! Suppress popup and clear any false pending checkout flag
+        if (todayRecord.pendingCheckoutConfirmation) {
+          todayRecord.pendingCheckoutConfirmation = false;
+          saveAttendanceRecord(todayRecord);
+        }
         setActiveRecord((curr) => (curr && curr.date === todayStr ? null : curr));
       } else {
-        const coVal = (todayRecord.checkOutTime || '').trim();
-        const isCheckOutMissing = !coVal || coVal === '--:--' || coVal === 'Pending' || coVal === 'N/A' || coVal === 'UNRESOLVED';
-        const isResolvedOutside = todayRecord.exitPromptResolvedOutside === true || todayRecord.returningToOffice === true;
+        const exitAnalysis = getAuthoritativeExitForCheckout(todayRecord, todayRecord.eventHistory || []);
+        if (!exitAnalysis.isUnpairedExit) {
+          // Employee is inside or no unpaired exit -> dismiss any popup for today
+          setActiveRecord((curr) => (curr && curr.date === todayStr ? null : curr));
+        } else {
+          const coVal = (todayRecord.checkOutTime || '').trim();
+          const isCheckOutMissing = !coVal || coVal === '--:--' || coVal === 'Pending' || coVal === 'N/A' || coVal === 'UNRESOLVED';
+          const isResolvedOutside = todayRecord.exitPromptResolvedOutside === true || todayRecord.returningToOffice === true;
 
-        if (!isResolvedOutside && !todayRecord.checkoutFinalized && isCheckOutMissing) {
-          if (evaluateAndOpenRecord(todayRecord, false)) {
-            return;
+          if (!isResolvedOutside && !todayRecord.checkoutFinalized && isCheckOutMissing) {
+            if (evaluateAndOpenRecord(todayRecord, false)) {
+              return;
+            }
           }
         }
       }
@@ -272,10 +309,30 @@ export const CheckoutConfirmationModal: React.FC = () => {
     try {
       const nativeState = await getNativeAttendanceState();
       if (nativeState?.hasActiveSession && nativeState.date === todayStr) {
+        // If employee is already checked in and inside, native IPC must never revert state to pending exit
+        const primaryEmp = candidateIds[0] || nativeState.employeeId || '';
+        const curLocalToday = primaryEmp ? getTodayAttendanceRecord(primaryEmp, todayStr) : null;
+        if (curLocalToday && curLocalToday.currentState === 'CHECKED_IN') {
+          return;
+        }
+
+        const isNativeInside = nativeState.sessionState === 'ACTIVE' || nativeState.currentState === 'CHECKED_IN';
+        if (isNativeInside) {
+          return;
+        }
+
         const hasNativeExit = !!(nativeState.recordedExitTime && nativeState.recordedExitTime !== 'null' && nativeState.recordedExitTime.trim() !== '');
         const isPendingNativeExit = (nativeState.pendingCheckoutConfirmation ||
           nativeState.sessionState === 'PENDING_EXIT_CONFIRMATION' ||
           nativeState.currentState === 'PENDING_AUTO_CHECKOUT') && hasNativeExit;
+
+        // Date scoping safeguard for native exit timestamp
+        if (nativeState.exitDetectedAt && nativeState.exitDetectedAt.includes('-')) {
+          const exitDate = nativeState.exitDetectedAt.substring(0, 10);
+          if (exitDate !== todayStr) {
+            return;
+          }
+        }
 
         if (hasNativeExit && isPendingNativeExit) {
           const empCode = nativeState.employeeId || candidateIds[0] || '';
@@ -312,7 +369,7 @@ export const CheckoutConfirmationModal: React.FC = () => {
                 geofenceExitTime: nativeState.recordedExitTime || null,
                 pendingCheckoutEventId: nativeState.pendingCheckoutEventId || `evt_native_${empCode}_${todayStr}_${nativeState.recordedExitTime || 'exit'}`
               };
-            } else {
+            } else if (rec.currentState !== 'CHECKED_IN') {
               rec.pendingCheckoutConfirmation = true;
               rec.currentState = 'PENDING_AUTO_CHECKOUT';
               if (nativeState.recordedExitTime && !rec.recordedExitTime) {
@@ -320,8 +377,10 @@ export const CheckoutConfirmationModal: React.FC = () => {
                 rec.geofenceExitTime = rec.geofenceExitTime || nativeState.recordedExitTime;
               }
             }
-            saveAttendanceRecord(rec);
-            evaluateAndOpenRecord(rec, false);
+            if (rec.currentState !== 'CHECKED_IN') {
+              saveAttendanceRecord(rec);
+              evaluateAndOpenRecord(rec, false);
+            }
           }
         }
       }

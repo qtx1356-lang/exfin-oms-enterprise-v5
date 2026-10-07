@@ -302,58 +302,72 @@ public class GeofencePlugin extends Plugin {
             android.content.SharedPreferences prefs = context.getSharedPreferences(OfficeGeofenceHelper.PREFS_NAME, Context.MODE_PRIVATE);
             JSObject ret = new JSObject();
 
-            String recExit = session != null ? session.optString("recordedExitTime", null) : null;
-            if (recExit == null || "null".equalsIgnoreCase(recExit) || recExit.trim().isEmpty()) {
-                recExit = prefs.getString(OfficeGeofenceHelper.KEY_LAST_EXIT_TIME, null);
-            }
-            boolean hasValidExitTime = recExit != null && !"null".equalsIgnoreCase(recExit) && !recExit.trim().isEmpty();
-
-            boolean pendingConf = hasValidExitTime && ((session != null && session.optBoolean("pendingCheckoutConfirmation", false)) ||
-                    prefs.getBoolean("pendingCheckoutConfirmation", false) ||
-                    "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(session != null ? session.optString("sessionState", "") : prefs.getString("sessionState", "")) ||
-                    "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(session != null ? session.optString("currentState", "") : prefs.getString("currentState", "")));
-
-            if (session != null || pendingConf || (recExit != null && !recExit.trim().isEmpty())) {
-                ret.put("hasActiveSession", true);
-                ret.put("attendanceId", session != null ? session.optString("attendanceId") : prefs.getString("attendanceId", ""));
-                ret.put("employeeId", session != null ? session.optString("employeeId", prefs.getString("employee_id", "")) : prefs.getString("employee_id", ""));
-                ret.put("employeeName", session != null ? session.optString("employeeName", prefs.getString("employee_name", "")) : prefs.getString("employee_name", ""));
-                ret.put("townCity", session != null ? session.optString("townCity", prefs.getString("town_city", "Raniganj HQ")) : prefs.getString("town_city", "Raniganj HQ"));
-
-                java.text.SimpleDateFormat sdfDate = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
-                sdfDate.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Kolkata"));
-                String todayDate = sdfDate.format(new java.util.Date());
-
-                ret.put("date", session != null ? session.optString("date", todayDate) : todayDate);
-                ret.put("checkInTime", session != null ? session.optString("checkInTime", "09:00 AM") : "09:00 AM");
-                ret.put("attendanceMode", session != null ? session.optString("attendanceMode", "OFFICE") : "OFFICE");
-                ret.put("sessionState", session != null ? session.optString("sessionState", pendingConf ? "PENDING_EXIT_CONFIRMATION" : "ACTIVE") : (pendingConf ? "PENDING_EXIT_CONFIRMATION" : "ACTIVE"));
-                ret.put("checkoutStatus", session != null ? session.optString("checkoutStatus", pendingConf ? "PENDING_AUTO_CHECKOUT" : "ACTIVE") : (pendingConf ? "PENDING_AUTO_CHECKOUT" : "ACTIVE"));
-
-                if (recExit != null && !"null".equalsIgnoreCase(recExit) && !recExit.trim().isEmpty()) {
-                    ret.put("recordedExitTime", recExit);
-                } else {
-                    ret.put("recordedExitTime", null);
-                }
-
-                String exitDetAt = session != null ? session.optString("exitDetectedAt", null) : null;
-                if (exitDetAt != null && !"null".equalsIgnoreCase(exitDetAt)) {
-                    ret.put("exitDetectedAt", exitDetAt);
-                } else {
-                    ret.put("exitDetectedAt", null);
-                }
-
-                ret.put("exitSource", session != null ? session.optString("exitSource", "NATIVE_GEOFENCE") : "NATIVE_GEOFENCE");
-                ret.put("pendingCheckoutConfirmation", pendingConf);
-
-                String pendingEvtId = session != null ? session.optString("pendingCheckoutEventId", prefs.getString("pendingCheckoutEventId", null)) : prefs.getString("pendingCheckoutEventId", null);
-                ret.put("pendingCheckoutEventId", pendingEvtId);
-
-                String currState = session != null ? session.optString("currentState", prefs.getString("currentState", pendingConf ? "PENDING_AUTO_CHECKOUT" : "ACTIVE")) : prefs.getString("currentState", pendingConf ? "PENDING_AUTO_CHECKOUT" : "ACTIVE");
-                ret.put("currentState", currState);
-            } else {
+            if (session == null) {
                 ret.put("hasActiveSession", false);
+                ret.put("isGeofenceRegistered", OfficeGeofenceHelper.isGeofenceRegistered(context));
+                ret.put("isLocationServiceRunning", OfficeLocationService.isRunning());
+                call.resolve(ret);
+                return;
             }
+
+            java.text.SimpleDateFormat sdfDate = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+            sdfDate.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Kolkata"));
+            String todayDate = sdfDate.format(new java.util.Date());
+
+            String sessionDate = session.optString("date", "");
+            if (!todayDate.equals(sessionDate)) {
+                // Session is from a previous day. Not active today.
+                ret.put("hasActiveSession", false);
+                ret.put("isGeofenceRegistered", OfficeGeofenceHelper.isGeofenceRegistered(context));
+                ret.put("isLocationServiceRunning", OfficeLocationService.isRunning());
+                call.resolve(ret);
+                return;
+            }
+
+            ret.put("hasActiveSession", true);
+            ret.put("attendanceId", session.optString("attendanceId", ""));
+            ret.put("employeeId", session.optString("employeeId", prefs.getString("employee_id", "")));
+            ret.put("employeeName", session.optString("employeeName", prefs.getString("employee_name", "")));
+            ret.put("townCity", session.optString("townCity", prefs.getString("town_city", "Raniganj HQ")));
+            ret.put("date", sessionDate);
+            ret.put("checkInTime", session.optString("checkInTime", "09:00 AM"));
+            ret.put("attendanceMode", session.optString("attendanceMode", "OFFICE"));
+
+            String sessionState = session.optString("sessionState", "ACTIVE");
+            String lastKnown = prefs.getString(OfficeGeofenceHelper.KEY_LAST_KNOWN_STATE, "INSIDE");
+            boolean isInside = "INSIDE".equalsIgnoreCase(lastKnown) || "ACTIVE".equalsIgnoreCase(sessionState);
+
+            String recExit = session.optString("recordedExitTime", null);
+            if (recExit == null || "null".equalsIgnoreCase(recExit) || recExit.trim().isEmpty()) {
+                recExit = null;
+            }
+
+            // A valid native exit candidate for today requires:
+            // 1. Employee is NOT inside
+            // 2. An exit was actually recorded in today's active session
+            // 3. pendingCheckoutConfirmation flag is set in the session
+            boolean pendingConf = !isInside && recExit != null && session.optBoolean("pendingCheckoutConfirmation", false);
+
+            if (pendingConf) {
+                ret.put("recordedExitTime", recExit);
+                ret.put("exitDetectedAt", session.optString("exitDetectedAt", null));
+                ret.put("exitSource", session.optString("exitSource", "NATIVE_GEOFENCE"));
+                ret.put("pendingCheckoutConfirmation", true);
+                ret.put("sessionState", "PENDING_EXIT_CONFIRMATION");
+                ret.put("currentState", "PENDING_AUTO_CHECKOUT");
+                ret.put("checkoutStatus", "PENDING_AUTO_CHECKOUT");
+                ret.put("pendingCheckoutEventId", session.optString("pendingCheckoutEventId", null));
+            } else {
+                ret.put("recordedExitTime", (String) null);
+                ret.put("exitDetectedAt", (String) null);
+                ret.put("exitSource", "NONE");
+                ret.put("pendingCheckoutConfirmation", false);
+                ret.put("sessionState", "ACTIVE");
+                ret.put("currentState", "CHECKED_IN");
+                ret.put("checkoutStatus", "ACTIVE");
+                ret.put("pendingCheckoutEventId", (String) null);
+            }
+
             ret.put("isGeofenceRegistered", OfficeGeofenceHelper.isGeofenceRegistered(context));
             ret.put("isLocationServiceRunning", OfficeLocationService.isRunning());
             call.resolve(ret);

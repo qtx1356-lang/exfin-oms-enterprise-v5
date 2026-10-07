@@ -383,4 +383,127 @@ console.log('=== RUNNING MULTIPLE EXIT/RETURN CYCLE TESTS ===\n');
   assert(res.currentGeofenceState === 'INSIDE', 'Test 12: Employee remains INSIDE');
 }
 
-console.log('\n=== ALL 12 TESTS PASSED SUCCESSFULLY! ===\n');
+// -------------------------------------------------------------
+// TEST 13:
+// PREVIOUS DAY 06 OCT: Check-in 09:55 AM, Check-out / Exit 02:03 PM.
+// TODAY 07 OCT: Check-in 10:05 AM, employee remains INSIDE office (<= 25m).
+// Expected: 07 Oct record MUST NEVER inherit 02:03 PM from 06 Oct.
+// Authoritative exit MUST be null, isUnpairedExit MUST be false, state MUST be INSIDE.
+// -------------------------------------------------------------
+{
+  const eventsDay1: AttendanceHistoryEvent[] = [
+    { eventId: 'e1_d1', employeeId: 'SANJIV', eventType: 'CHECK_IN', eventTime: '09:55 AM', timestamp: '2026-10-06T04:25:00.000Z', source: 'FOREGROUND_GPS' },
+    { eventId: 'e2_d1', employeeId: 'SANJIV', eventType: 'GEOFENCE_EXIT', eventTime: '02:03 PM', timestamp: '2026-10-06T08:33:00.000Z', source: 'NATIVE_GEOFENCE' },
+  ];
+
+  const eventsDay2: AttendanceHistoryEvent[] = [
+    { eventId: 'e1_d2', employeeId: 'SANJIV', eventType: 'CHECK_IN', eventTime: '10:05 AM', timestamp: '2026-10-07T04:35:00.000Z', source: 'FOREGROUND_GPS' },
+  ];
+
+  const recordDay2 = {
+    id: 'att_sanjiv_2026-10-07',
+    employeeId: 'SANJIV',
+    date: '2026-10-07',
+    checkInTime: '10:05 AM',
+    attendanceType: 'OFFICE',
+    currentState: 'CHECKED_IN',
+    eventHistory: [...eventsDay1, ...eventsDay2], // Mixed event store scenario
+  } as unknown as AttendanceRecord;
+
+  const res = getAuthoritativeExitForCheckout(recordDay2, recordDay2.eventHistory);
+  assert(res.authoritativeExitTime === null, 'Test 13: Today record must NOT use yesterday 02:03 PM exit');
+  assert(res.isUnpairedExit === false, 'Test 13: isUnpairedExit is FALSE for today (NO POPUP)');
+  assert(res.currentGeofenceState === 'INSIDE', 'Test 13: Today state remains INSIDE');
+
+  const forensic = analyzeAttendanceForensics(recordDay2, recordDay2.eventHistory);
+  assert(forensic.lastExitDisplay === '—', 'Test 13: Today last exit display is —');
+  assert(forensic.activeCycle === null, 'Test 13: Today active cycle is null');
+}
+
+// -------------------------------------------------------------
+// TEST 14:
+// TODAY 07 OCT: Record has stale top-level fields carrying yesterday exit:
+// lastExitTime: "02:03 PM", lastExitAt: "2026-10-06T08:33:00.000Z"
+// But currentState is CHECKED_IN and date is 2026-10-07.
+// Expected: Must strictly REJECT the stale exit from 06 Oct.
+// -------------------------------------------------------------
+{
+  const recordWithStaleProps = {
+    id: 'att_sanjiv_2026-10-07_stale',
+    employeeId: 'SANJIV',
+    date: '2026-10-07',
+    checkInTime: '10:05 AM',
+    attendanceType: 'OFFICE',
+    currentState: 'CHECKED_IN',
+    lastExitTime: '02:03 PM',
+    lastExitAt: '2026-10-06T08:33:00.000Z',
+    recordedExitTime: '02:03 PM',
+    geofenceExitTime: '02:03 PM',
+    eventHistory: [
+      { eventId: 'e1_today', employeeId: 'SANJIV', eventType: 'CHECK_IN', eventTime: '10:05 AM', timestamp: '2026-10-07T04:35:00.000Z', source: 'FOREGROUND_GPS' },
+    ],
+  } as unknown as AttendanceRecord;
+
+  const res = getAuthoritativeExitForCheckout(recordWithStaleProps, recordWithStaleProps.eventHistory);
+  assert(res.authoritativeExitTime === null, 'Test 14: Stale top-level exit from previous day is rejected');
+  assert(res.isUnpairedExit === false, 'Test 14: isUnpairedExit is FALSE despite stale exit fields (NO POPUP)');
+  assert(res.currentGeofenceState === 'INSIDE', 'Test 14: State is INSIDE');
+}
+
+// -------------------------------------------------------------
+// TEST 15:
+// Exit timestamp occurs BEFORE check-in time of the current session
+// (e.g. check-in at 10:05 AM, stale exit at 09:30 AM).
+// Expected: Must be rejected because exit was before check-in.
+// -------------------------------------------------------------
+{
+  const events: AttendanceHistoryEvent[] = [
+    { eventId: 'e_early_exit', employeeId: 'EMP01', eventType: 'GEOFENCE_EXIT', eventTime: '09:30 AM', timestamp: '2026-10-07T04:00:00.000Z', source: 'NATIVE_GEOFENCE' },
+    { eventId: 'e_checkin', employeeId: 'EMP01', eventType: 'CHECK_IN', eventTime: '10:05 AM', timestamp: '2026-10-07T04:35:00.000Z', source: 'FOREGROUND_GPS' },
+  ];
+
+  const record = {
+    id: 'att_early',
+    employeeId: 'EMP01',
+    date: '2026-10-07',
+    checkInTime: '10:05 AM',
+    attendanceType: 'OFFICE',
+    currentState: 'CHECKED_IN',
+    eventHistory: events,
+  } as unknown as AttendanceRecord;
+
+  const res = getAuthoritativeExitForCheckout(record, events);
+  assert(res.authoritativeExitTime === null, 'Test 15: Exit before check-in time is rejected');
+  assert(res.isUnpairedExit === false, 'Test 15: isUnpairedExit is FALSE');
+}
+
+// -------------------------------------------------------------
+// TEST 16:
+// TODAY 07 OCT: Check-in 10:05 AM, genuine EXIT at 06:17 PM (after check-in), NO RETURN.
+// Expected: Authoritative exit IS 06:17 PM, isUnpairedExit is true, state is OUTSIDE.
+// -------------------------------------------------------------
+{
+  const events: AttendanceHistoryEvent[] = [
+    { eventId: 'e1', employeeId: 'SANJIV', eventType: 'CHECK_IN', eventTime: '10:05 AM', timestamp: '2026-10-07T04:35:00.000Z', source: 'FOREGROUND_GPS' },
+    { eventId: 'e2', employeeId: 'SANJIV', eventType: 'GEOFENCE_EXIT', eventTime: '06:17 PM', timestamp: '2026-10-07T12:47:00.000Z', source: 'NATIVE_GEOFENCE' },
+  ];
+
+  const record = {
+    id: 'att_sanjiv_exit_valid',
+    employeeId: 'SANJIV',
+    date: '2026-10-07',
+    checkInTime: '10:05 AM',
+    attendanceType: 'OFFICE',
+    currentState: 'PENDING_AUTO_CHECKOUT',
+    lastExitTime: '06:17 PM',
+    lastExitAt: '2026-10-07T12:47:00.000Z',
+    eventHistory: events,
+  } as unknown as AttendanceRecord;
+
+  const res = getAuthoritativeExitForCheckout(record, events);
+  assert(res.authoritativeExitTime === '06:17 PM', 'Test 16: Genuine exit on 07 Oct is 06:17 PM');
+  assert(res.isUnpairedExit === true, 'Test 16: isUnpairedExit is true for genuine exit');
+  assert(res.currentGeofenceState === 'OUTSIDE', 'Test 16: State is OUTSIDE');
+}
+
+console.log('\n=== ALL 16 TESTS PASSED SUCCESSFULLY! ===\n');

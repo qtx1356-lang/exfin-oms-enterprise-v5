@@ -140,6 +140,9 @@ export const reconcileAttendanceOnResume = async (
         console.warn('[ResumeReconciliation] Could not obtain GPS fix on resume. Retaining current state.');
         const existingRecord = getTodayAttendanceRecord(employeeId, dateStr);
         if (existingRecord && !hasValidCheckoutTime(existingRecord)) {
+          if (existingRecord.currentState === 'CHECKED_IN') {
+            return existingRecord;
+          }
           const exitCheck = getAuthoritativeExitForCheckout(existingRecord, existingRecord.eventHistory || []);
           if (exitCheck.isUnpairedExit && (existingRecord.pendingCheckoutConfirmation || existingRecord.currentState === 'PENDING_AUTO_CHECKOUT' || existingRecord.currentState === 'PENDING_EXIT_CONFIRMATION')) {
             if (typeof window !== 'undefined') {
