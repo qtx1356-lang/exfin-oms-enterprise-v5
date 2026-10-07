@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.location.Location;
+import android.location.LocationManager;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.Looper;
@@ -74,19 +75,65 @@ public class OfficeLocationService extends Service {
     public static void verifyCurrentLocationAndDecide(Context context) {
         if (context == null) return;
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "Cannot verify current location: precise location permission is not granted.");
             return;
         }
+
         try {
+            LocationManager lm = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+            boolean locationEnabled = lm != null && (Build.VERSION.SDK_INT < Build.VERSION_CODES.P
+                    ? (lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER))
+                    : lm.isLocationEnabled());
+            if (!locationEnabled) {
+                Log.w(TAG, "Cannot verify current location: device Location Services are OFF.");
+                return;
+            }
+
             FusedLocationProviderClient client = LocationServices.getFusedLocationProviderClient(context);
             client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
                     .addOnSuccessListener(loc -> {
-                        if (loc != null && OfficeGeofenceHelper.validateLocation(loc)) {
-                            OfficeGeofenceHelper.evaluateAttendanceDecision(context, loc, com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_EXIT, null, null);
+                        if (loc == null || !OfficeGeofenceHelper.isLocationTrustworthyForAttendance(loc)) {
+                            Log.w(TAG, "Current location verification unavailable or inaccurate.");
+                            return;
+                        }
+
+                        double distance = OfficeGeofenceHelper.calculateDistance(
+                                loc.getLatitude(), loc.getLongitude(),
+                                OfficeGeofenceHelper.OFFICE_LAT, OfficeGeofenceHelper.OFFICE_LNG
+                        );
+                        OfficeGeofenceHelper.saveLastLocationDiagnostic(
+                                context, loc.getLatitude(), loc.getLongitude(),
+                                loc.getAccuracy(), loc.getTime(), distance
+                        );
+
+                        JSONObject activeSession = OfficeGeofenceHelper.getActiveSession(context);
+                        String state = activeSession != null ? activeSession.optString("sessionState", "ACTIVE") : "NO_SESSION";
+
+                        if ("NO_SESSION".equalsIgnoreCase(state)) {
+                            if (distance <= OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS) {
+                                Log.i(TAG, "[LOCATION_RECOVERY] Current location is inside 25m. Verifying automatic check-in.");
+                                OfficeGeofenceHelper.evaluateAttendanceDecision(
+                                        context, loc, "LOCATION_RECOVERY", com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_ENTER, null, null
+                                );
+                            } else {
+                                Log.i(TAG, "[LOCATION_RECOVERY] Current location is outside 25m (" + Math.round(distance) + "m). No attendance mutation.");
+                            }
+                        } else if ("ACTIVE".equalsIgnoreCase(state)) {
+                            if (distance > OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS) {
+                                Log.i(TAG, "[LOCATION_RECOVERY] Current location is outside 25m. Verifying exit.");
+                                OfficeGeofenceHelper.processExitTransition(context, loc, "NATIVE_LOCATION_RECOVERY", null, null);
+                            }
+                        } else if ("PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(state)
+                                || "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(state)
+                                || OfficeGeofenceHelper.STATE_EXIT_PROMPT_RESOLVED_OUTSIDE.equalsIgnoreCase(state)
+                                || "RETURNING_TO_OFFICE".equalsIgnoreCase(state)) {
+                            if (distance <= OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS) {
+                                Log.i(TAG, "[LOCATION_RECOVERY] Current location is back inside 25m. Verifying return.");
+                                OfficeGeofenceHelper.processReturnTransition(context, loc, "NATIVE_LOCATION_RECOVERY_RETURN", null, null);
+                            }
                         }
                     })
-                    .addOnFailureListener(e -> {
-                        Log.w(TAG, "verifyCurrentLocationAndDecide failed: " + e.getMessage());
-                    });
+                    .addOnFailureListener(e -> Log.w(TAG, "Current location recovery failed: " + e.getMessage()));
         } catch (Exception e) {
             Log.e(TAG, "Error in verifyCurrentLocationAndDecide: " + e.getMessage(), e);
         }
