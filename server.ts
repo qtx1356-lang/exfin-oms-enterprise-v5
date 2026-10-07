@@ -1162,27 +1162,26 @@ async function startServer() {
               record.exitDetectedTime = timeStr;
               record.exitDetectionSource = "NATIVE_GEOFENCE";
             }
-            // A verified native 25m EXIT is authoritative: finalize checkout immediately.
-            // The timestamp comes from the native event (tsDate), which has already passed
-            // the server future/staleness validation above. Never use request receipt time.
-            const workingHours = calculateWorkingHours(record.checkInTime, timeStr);
-            record.checkOutTime = timeStr;
-            record.checkOutMode = "AUTO_SYSTEM";
-            record.checkoutType = "AUTO_CHECKOUT";
+            // A 25m EXIT is an observation, not a final checkout.
+            // The employee may return later the same day. Preserve the exact exit time
+            // and leave the existing confirmation workflow active.
+            record.checkOutTime = null;
+            record.checkOutMode = "N/A";
+            record.checkoutType = null;
             record.checkoutSource = "EXIT_DETECTED";
-            record.attendanceStatus = "RESOLVED";
-            record.status = "completed";
-            record.checkoutStatus = "COMPLETED";
-            record.checkoutFinalized = true;
-            record.checkoutConfirmed = true;
-            record.checkoutFinalizationSource = "NATIVE_GEOFENCE_EXIT";
-            record.workingHours = workingHours;
-            record.pendingCheckoutConfirmation = false;
-            record.pendingCheckoutEventId = null;
+            record.attendanceStatus = "PENDING";
+            record.status = "active";
+            record.checkoutStatus = "PENDING_EXIT_CONFIRMATION";
+            record.checkoutFinalized = false;
+            record.checkoutConfirmed = false;
+            record.checkoutFinalizationSource = null;
+            record.workingHours = null;
+            record.pendingCheckoutConfirmation = true;
+            record.pendingCheckoutEventId = eventId;
             record.returningToOffice = false;
             record.exitPromptResolvedOutside = false;
-            record.currentState = "FINALIZED_CHECKOUT";
-            record.resolutionSource = "AUTO_GEOFENCE";
+            record.currentState = "PENDING_EXIT_CONFIRMATION";
+            record.resolutionSource = null;
 
             const currentHistory = Array.isArray(record.eventHistory) ? record.eventHistory : [];
             const exitHistoryEvent = {
@@ -1191,7 +1190,7 @@ async function startServer() {
               eventType: "GEOFENCE_EXIT",
               eventTime: timeStr,
               timestamp: eventIso,
-              source: source || "NATIVE_GEOFENCE",
+              source: source || "NATIVE_GEOFENCE_EXIT",
               location: {
                 latitude: isLocationUnavailable ? null : latitude,
                 longitude: isLocationUnavailable ? null : longitude,
@@ -1204,7 +1203,7 @@ async function startServer() {
             updatedHist.push(exitHistoryEvent);
             updatedHist.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
             record.eventHistory = updatedHist;
-            
+
             if (!isLocationUnavailable) {
               record.checkoutLatitude = latitude;
               record.checkoutLongitude = longitude;
@@ -1222,9 +1221,9 @@ async function startServer() {
             record.serverSyncTimestamp = FieldValue.serverTimestamp();
 
             modified = true;
-            targetState = "FINALIZED_CHECKOUT";
+            targetState = "PENDING_EXIT_CONFIRMATION";
             transitionRecorded = true;
-            console.log(`[BackgroundAttendance] AUTO_CHECKOUT_FINALIZED: Native 25m exit for ${employeeId} at ${timeStr}; checkout finalized immediately.`);
+            console.log(`[BackgroundAttendance] EXIT_RECORDED_PENDING_CONFIRMATION: Native 25m exit for ${employeeId} at ${timeStr}; employee can CHECK OUT or STAY ACTIVE.`);
           }
         } else if (isInside) {
           // Employee is INSIDE office geofence (distance <= 25m)
