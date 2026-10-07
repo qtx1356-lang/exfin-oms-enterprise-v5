@@ -99,35 +99,55 @@ const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
   'Inspection'
 ];
 
-const getLatestGeofenceTransitionTime = (
-  record: AttendanceRecord | null,
+const getLatestGeofenceTransitionDisplay = (
+  records: AttendanceRecord[],
+  employeeId: string,
   eventType: 'GEOFENCE_EXIT' | 'GEOFENCE_RETURN'
 ): string | null => {
-  if (!record) return null;
+  const candidates: Array<{ timestamp: number; time: string }> = [];
 
-  const historyCandidates = Array.isArray(record.eventHistory)
-    ? record.eventHistory
-        .filter((event) => event.eventType === eventType && event.eventTime)
-        .map((event) => ({
-          time: event.eventTime,
-          timestamp: new Date(event.timestamp).getTime()
-        }))
-        .filter((event) => Number.isFinite(event.timestamp))
-    : [];
+  records
+    .filter((record) => (record.employeeId || record.employeeCode) === employeeId)
+    .forEach((record) => {
+      if (Array.isArray(record.eventHistory)) {
+        record.eventHistory
+          .filter((event) => event.eventType === eventType && event.eventTime && event.timestamp)
+          .forEach((event) => {
+            const timestamp = new Date(event.timestamp).getTime();
+            if (Number.isFinite(timestamp)) {
+              candidates.push({ timestamp, time: event.eventTime });
+            }
+          });
+      }
 
-  const directTimestamp = eventType === 'GEOFENCE_EXIT' ? record.lastExitAt : record.lastReturnAt;
-  const directTime = eventType === 'GEOFENCE_EXIT'
-    ? (record.lastExitTime || record.geofenceExitTime || record.recordedExitTime || record.exitTime)
-    : (record.lastReturnTime || record.returnTime);
+      const directTimestamp = eventType === 'GEOFENCE_EXIT' ? record.lastExitAt : record.lastReturnAt;
+      const directTime = eventType === 'GEOFENCE_EXIT'
+        ? (record.lastExitTime || record.geofenceExitTime || record.recordedExitTime || record.exitTime)
+        : (record.lastReturnTime || record.returnTime);
 
-  if (directTimestamp && directTime) {
-    const timestamp = new Date(directTimestamp).getTime();
-    if (Number.isFinite(timestamp)) historyCandidates.push({ time: directTime, timestamp });
-  }
+      if (directTimestamp && directTime) {
+        const timestamp = new Date(directTimestamp).getTime();
+        if (Number.isFinite(timestamp)) {
+          candidates.push({ timestamp, time: directTime });
+        }
+      }
+    });
 
-  if (historyCandidates.length === 0) return directTime || null;
-  historyCandidates.sort((a, b) => b.timestamp - a.timestamp);
-  return historyCandidates[0]?.time || directTime || null;
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => b.timestamp - a.timestamp);
+  const latest = candidates[0];
+  const dateTime = new Date(latest.timestamp);
+
+  if (!Number.isFinite(dateTime.getTime())) return latest.time;
+
+  const formattedDate = new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(dateTime);
+
+  return `${latest.time} • ${formattedDate}`;
 };
 
 export const AttendanceScreen: React.FC = () => {
@@ -1173,13 +1193,13 @@ export const AttendanceScreen: React.FC = () => {
                     <div className="rounded-xl border border-[var(--danger)]/20 bg-[var(--surface-elevated)] px-3 py-2">
                       <div className="text-[9px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Last Exit</div>
                       <div className="mt-0.5 text-xs font-black font-mono text-[var(--danger)]">
-                        {getLatestGeofenceTransitionTime(todayRecord, 'GEOFENCE_EXIT') || '--'}
+                        {getLatestGeofenceTransitionDisplay(allRecords, employeeId, 'GEOFENCE_EXIT') || '--'}
                       </div>
                     </div>
                     <div className="rounded-xl border border-[var(--success)]/20 bg-[var(--surface-elevated)] px-3 py-2">
                       <div className="text-[9px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Last Return</div>
                       <div className="mt-0.5 text-xs font-black font-mono text-[var(--success)]">
-                        {getLatestGeofenceTransitionTime(todayRecord, 'GEOFENCE_RETURN') || '--'}
+                        {getLatestGeofenceTransitionDisplay(allRecords, employeeId, 'GEOFENCE_RETURN') || '--'}
                       </div>
                     </div>
                   </div>
