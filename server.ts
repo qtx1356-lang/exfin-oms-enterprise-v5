@@ -409,16 +409,6 @@ async function startServer() {
 
   app.use(express.json());
 
-  // EXFIN ACCESS CONTROL: Block requests from legacy Median / GoNative native wrapper apps
-  app.use((req, res, next) => {
-    const userAgent = (req.headers['user-agent'] as string) || '';
-    if (/median|gonative/i.test(userAgent)) {
-      console.log('[EXFIN ACCESS CONTROL] Median/GoNative request blocked');
-      return res.status(403).type('text/plain').send('Access through the legacy mobile application is no longer supported. Please use the official EXFIN OMS application or web portal.');
-    }
-    next();
-  });
-
   // CORS Middleware for Cloudflare Pages and cross-origin frontend apps
   app.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -866,7 +856,7 @@ async function startServer() {
   });
 
   // Secure Median Background Location POST endpoint
-  app.post("/api/median-background-location", async (req, res) => {
+  app.post("/api/native-background-location", async (req, res) => {
     try {
       const payload = req.body || {};
       const query = req.query || {};
@@ -1375,10 +1365,10 @@ async function startServer() {
     }
   });
 
-  // Secure /api/background-location alias endpoint matching Median background configuration
+  // Secure /api/background-location compatibility alias for native clients
   app.post("/api/background-location", async (req, res) => {
-    // Delegate to the robust median-background-location handler
-    req.url = "/api/median-background-location";
+    // Delegate to the robust native background-location handler
+    req.url = "/api/native-background-location";
     return app._router.handle(req, res);
   });
 
