@@ -59,7 +59,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * 3. Accuracy & Jitter Filtering: Rejects accuracy > 50.0m. Requires consecutive confirmations or hysteresis.
  * 4. Debounced Boundary Transitions: Prevents rapid ping-pong transitions (60s minimum transition interval).
  * 5. Idempotent Deduplication: Deterministic canonical event IDs prevent duplicate check-ins or check-outs.
- * 6. Autonomous Background HTTP Queue: Direct sync to /api/median-background-location with automatic network recovery.
+ * 6. Autonomous Background HTTP Queue: Direct sync to /api/native-background-location with automatic network recovery.
  * 7. Multi-OS Android 12/13/14/15/16 Compliance: Proper PendingIntent flags, ForegroundServiceTypes, and power locks.
  */
 public class OfficeGeofenceHelper {
