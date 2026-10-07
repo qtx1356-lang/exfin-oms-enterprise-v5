@@ -971,9 +971,25 @@ export const AutomaticAttendanceEngine = {
         if (source === 'AUTO_SYSTEM_END_OF_DAY') {
           if (record.attendanceType === 'OFFICE' || !record.attendanceType) {
             const nativeExit = record.recordedExitTime || record.geofenceExitTime;
-            // If an exit was recorded, preserve that exact exit time as the final checkout.
-            // If no exit was captured, the business-day boundary itself becomes 11:59 PM.
-            checkoutTimeStr = nativeExit || '11:59 PM';
+            // 11:59 PM is only the end-of-day processing boundary; it is NEVER a checkout time
+            // when no exit was recorded. If an exit exists, preserve that exact exit time.
+            // If no exit exists, leave checkout unresolved so the existing confirmation/manual-time
+            // workflow appears when the app is opened later (same day or a later day).
+            if (nativeExit) {
+              checkoutTimeStr = nativeExit;
+            } else {
+              record.checkoutStatus = 'PENDING_EXIT_CONFIRMATION';
+              record.pendingCheckoutConfirmation = true;
+              record.currentState = 'PENDING_EXIT_CONFIRMATION';
+              record.attendanceStatus = 'PENDING';
+              record.status = 'active';
+              record.checkoutFinalized = false;
+              record.checkoutConfirmed = false;
+              record.checkoutFinalizationSource = null;
+              saveAttendanceRecord(record);
+              logAttendanceEvent('END_OF_DAY_PROCESSING', employeeId, `No exit recorded for ${dateStr}; no checkout time assigned. Confirmation/manual checkout workflow remains pending.`);
+              return record;
+            }
           } else {
             checkoutTimeStr = timeStr;
           }
@@ -997,7 +1013,7 @@ export const AutomaticAttendanceEngine = {
         record.checkoutStatus = 'FINALIZED';
         record.checkoutFinalized = true;
         record.checkoutConfirmed = true;
-        record.checkoutFinalizationSource = source === 'MANUAL' ? 'MANUAL_CHECKOUT' : (record.recordedExitTime || record.geofenceExitTime ? 'END_OF_DAY_RECORDED_EXIT' : 'END_OF_DAY_11_59_PM');
+        record.checkoutFinalizationSource = source === 'MANUAL' ? 'MANUAL_CHECKOUT' : 'END_OF_DAY_RECORDED_EXIT';
         if (source === 'MANUAL') {
           record.manualCheckoutTime = checkoutTimeStr;
         }
