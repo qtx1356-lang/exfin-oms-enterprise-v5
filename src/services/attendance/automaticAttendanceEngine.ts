@@ -993,7 +993,7 @@ export const AutomaticAttendanceEngine = {
 
         // CRITICAL DATA INTEGRITY RULE:
         // A completed checkout event whose timestamp is in the future relative to the actual current time MUST NEVER be created!
-        if (isAttendanceTimeInFuture(checkoutTimeStr, dateStr, timestamp)) {
+        if (isAttendanceTimeInFuture(checkoutTimeStr, dateStr)) {
           console.warn(`[AutomaticAttendanceEngine] REJECTED future checkout ${checkoutTimeStr} on ${dateStr}. Session remains active.`);
           return record;
         }

@@ -82,7 +82,7 @@ public class OfficeGeofenceHelper {
 
     public static final float MAX_USABLE_ACCURACY_METERS = 50.0f; // Reject fixes with accuracy > 50m
     public static final long MAX_ATTENDANCE_LOCATION_AGE_MS = 120000L; // 2 minutes max age for authoritative attendance mutation
-    public static final long MAX_AUTHORITATIVE_CHECKIN_LOCATION_AGE_MS = 15000L; // 15 seconds max age for authoritative check-in location fix
+    public static final long MAX_AUTHORITATIVE_CHECKIN_LOCATION_AGE_MS = 120000L; // 2 minutes max age for authoritative check-in location fix (compatible with background geofence wake-up)
     public static final long MIN_TRANSITION_COOLDOWN_MS = 60000L; // 60s cooldown to prevent boundary oscillation
     public static final String DEFAULT_SERVER_URL = "https://exfin-oms-enterprise-v5.pages.dev";
 
@@ -645,6 +645,27 @@ public class OfficeGeofenceHelper {
             return;
         }
 
+        boolean isEnterOrDwell = (transitionType == Geofence.GEOFENCE_TRANSITION_ENTER || transitionType == Geofence.GEOFENCE_TRANSITION_DWELL);
+        boolean isExit = (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT);
+
+        // PRIORITY 1: Check if Google Play Services geofence triggerLocation is immediately trustworthy and <= 25m
+        if (triggerLocation != null) {
+            double trigDist = calculateDistance(triggerLocation.getLatitude(), triggerLocation.getLongitude(), OFFICE_LAT, OFFICE_LNG);
+            if (isEnterOrDwell && trigDist <= AUTHORITATIVE_RADIUS_METERS && isLocationTrustworthyForCheckIn(triggerLocation)) {
+                Log.i(TAG, "[GEOFENCE_TRIGGER] Immediate authoritative 25m ENTER from geofence trigger: dist=" +
+                        String.format(Locale.US, "%.1f", trigDist) + "m <= " + AUTHORITATIVE_RADIUS_METERS +
+                        "m (acc=" + triggerLocation.getAccuracy() + "m). Executing immediate background check-in.");
+                evaluateAttendanceDecision(context, triggerLocation, "GEOFENCE_TRIGGER", transitionType, pendingResult, finishedFlag);
+                return;
+            } else if (isExit && trigDist > AUTHORITATIVE_RADIUS_METERS && isLocationTrustworthyForAttendance(triggerLocation)) {
+                Log.i(TAG, "[GEOFENCE_TRIGGER] Immediate authoritative 25m EXIT from geofence trigger: dist=" +
+                        String.format(Locale.US, "%.1f", trigDist) + "m > " + AUTHORITATIVE_RADIUS_METERS +
+                        "m (acc=" + triggerLocation.getAccuracy() + "m). Executing exit processing.");
+                processExitTransition(context, triggerLocation, "NATIVE_GEOFENCE_TRIGGER", "GEOFENCE_TRIGGER", pendingResult, finishedFlag);
+                return;
+            }
+        }
+
         FusedLocationProviderClient fusedClient = LocationServices.getFusedLocationProviderClient(context);
 
         // Immediate diagnostic inspection of cached location (awareness only; NEVER mutates attendance per Rule 1)
@@ -659,7 +680,7 @@ public class OfficeGeofenceHelper {
             });
         } catch (Exception ignored) {}
 
-        // PRIORITY 1: Always request fresh high-accuracy location first
+        // PRIORITY 2: Request fresh high-accuracy location with 8s watchdog
         requestFreshLocation(context, fusedClient, transitionType, triggerLocation, pendingResult, finishedFlag);
     }
 
@@ -667,16 +688,16 @@ public class OfficeGeofenceHelper {
         final CancellationTokenSource cts = new CancellationTokenSource();
         final AtomicBoolean handled = new AtomicBoolean(false);
 
-        // Strict 5-second watchdog timer: Play Services getCurrentLocation must not block receiver completion
+        // 8-second watchdog timer: Play Services getCurrentLocation within WakeLock window
         final ScheduledFuture<?> watchdogTask = scheduledExecutor.schedule(() -> {
             if (handled.compareAndSet(false, true)) {
                 try {
                     cts.cancel();
                 } catch (Exception ignored) {}
-                Log.i(TAG, "[Watchdog] Fresh location request exceeded 5s. Falling back to trustworthy geofence trigger if available.");
+                Log.i(TAG, "[Watchdog] Fresh location request exceeded 8s. Falling back to trustworthy geofence trigger if available.");
                 fallbackToTrustworthyLocation(context, fusedClient, triggerLocation, transitionType, pendingResult, finishedFlag);
             }
-        }, 5000, TimeUnit.MILLISECONDS);
+        }, 8000, TimeUnit.MILLISECONDS);
 
         try {
             fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.getToken())

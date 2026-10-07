@@ -54,6 +54,16 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
             }
         }
 
+        String transitionName = transitionType == Geofence.GEOFENCE_TRANSITION_ENTER ? "ENTER" :
+                                (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT ? "EXIT" : "DWELL");
+        long eventTs = (triggerLocation != null && triggerLocation.getTime() > 0) ? triggerLocation.getTime() : System.currentTimeMillis();
+        Log.i(TAG, "[GEOFENCE_EVENT_RECEIVED] transition=" + transitionName +
+                " timestamp=" + eventTs +
+                " geofenceId=" + triggeringGeofenceIds +
+                " lat=" + (triggerLocation != null ? triggerLocation.getLatitude() : "N/A") +
+                " lng=" + (triggerLocation != null ? triggerLocation.getLongitude() : "N/A") +
+                " accuracy=" + (triggerLocation != null ? triggerLocation.getAccuracy() : "N/A"));
+
         // Delegate to high-accuracy verification and decision engine with goAsync()
         final PendingResult pendingResult = goAsync();
         Log.i(TAG, "[NativeGeofenceLifecycle] GO_ASYNC_STARTED for transition: " + transitionType);

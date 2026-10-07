@@ -171,7 +171,7 @@ export interface AttendanceRecord {
   confirmationCompletedAt?: string | null;
   exitDetectionSource?: 'NATIVE_GEOFENCE' | 'NONE' | string | null;
   checkoutFinalizationSource?: 'MANUAL_CHECKOUT' | 'CONFIRMED_NATIVE_EXIT' | 'END_OF_DAY_NATIVE_EXIT' | 'NONE' | string | null;
-  checkoutStatus?: 'FINALIZED' | 'COMPLETED' | 'UNRESOLVED' | 'PENDING_EXIT_CONFIRMATION' | 'PENDING_ADMIN_REVIEW' | 'PENDING_AUTO_CHECKOUT' | 'UNRESOLVED_CHECKOUT';
+  checkoutStatus?: 'FINALIZED' | 'COMPLETED' | 'UNRESOLVED' | 'PENDING' | 'ACTIVE' | 'PENDING_EXIT_CONFIRMATION' | 'PENDING_ADMIN_REVIEW' | 'PENDING_AUTO_CHECKOUT' | 'UNRESOLVED_CHECKOUT';
   attendanceStatus?: 'RESOLVED' | 'UNRESOLVED';
   exitDetectedTime?: string | null;
   employeeProposedCheckoutTime?: string | null;
