@@ -5,6 +5,7 @@ import { getFormattedDateStr } from '../../services/attendance/smartAttendanceEn
 import { AutomaticAttendanceEngine } from '../../services/attendance/automaticAttendanceEngine';
 import { useRegistration } from '../../context/RegistrationContext';
 import { isServerAttendanceAuthoritative, isAttendanceCheckoutUnresolved, hasValidCheckoutTime } from '../../utils/attendanceUtils';
+import { getUnresolvedPastAttendanceRecords } from '../../utils/forensicAuditUtils';
 import { dismissUnresolvedNotificationForDate } from '../../services/notification/notificationService';
 import { useSensitiveActionGuard } from '../../services/security/useSensitiveActionGuard';
 import { Dialog } from '../ui/Dialog';
@@ -94,7 +95,7 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
 
   const todayStr = getFormattedDateStr();
 
-  // Polling to keep records up to date
+  // Event-driven records sync without continuous polling
   useEffect(() => {
     const fetchRecords = () => {
       if (employeeData) {
@@ -103,50 +104,20 @@ export const GlobalUnresolvedRecovery: React.FC = () => {
     };
     fetchRecords();
     
-    const interval = setInterval(fetchRecords, 5000);
     window.addEventListener('focus', fetchRecords);
+    window.addEventListener('exfin-attendance-updated', fetchRecords);
     
     return () => {
-      clearInterval(interval);
       window.removeEventListener('focus', fetchRecords);
+      window.removeEventListener('exfin-attendance-updated', fetchRecords);
     };
   }, [employeeData]);
 
-  // Find oldest unresolved record
+  // Find oldest unresolved record with a valid unpaired EXIT
   const unresolvedRecord = useMemo(() => {
     if (!employeeData || !records.length) return null;
     const empId = employeeData.employeeCode || employeeData.id;
-    
-    const pastRecords = records
-      .filter((r) => {
-        const rEmp = r.employeeId || r.employeeCode;
-        if (rEmp !== empId) return false;
-        if (r.date >= todayStr) return false;
-        
-        // Never trigger recovery modal for records that are already Admin-authoritative or resolved
-        if (isServerAttendanceAuthoritative(r)) return false;
-        if (hasValidCheckoutTime(r)) return false;
-        if (!isAttendanceCheckoutUnresolved(r)) return false;
-
-        // Target specifically: attendance is applicable Office attendance AND date is previous day AND attendanceStatus/checkoutStatus = UNRESOLVED AND checkoutTime = EMPTY AND not already EMPLOYEE_REPORTED
-        const isOffice = r.attendanceType === 'OFFICE' || !r.attendanceType;
-        const isUnresolved = r.attendanceStatus === 'UNRESOLVED' || r.checkoutStatus === 'UNRESOLVED';
-        const hasCheckIn = !!(r.checkInTime && r.checkInTime !== '--:--');
-        
-        const checkOutVal = (r.checkOutTime || '').trim();
-        const isCheckoutEmpty = !checkOutVal || 
-                                checkOutVal === '--:--' || 
-                                checkOutVal === '--:-- --' ||
-                                checkOutVal === 'Pending' ||
-                                checkOutVal === 'N/A' ||
-                                checkOutVal === 'UNRESOLVED';
-
-        const notReported = r.checkoutSource !== 'EMPLOYEE_REPORTED';
-        
-        return isOffice && isUnresolved && hasCheckIn && isCheckoutEmpty && notReported;
-      })
-      .sort((a, b) => a.date.localeCompare(b.date)); // Oldest first
-      
+    const pastRecords = getUnresolvedPastAttendanceRecords(records, [empId], todayStr);
     return pastRecords.length > 0 ? pastRecords[0] : null;
   }, [records, employeeData, todayStr]);
 

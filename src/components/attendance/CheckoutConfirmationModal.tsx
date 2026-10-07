@@ -152,6 +152,20 @@ export const CheckoutConfirmationModal: React.FC = () => {
 
     // Check authoritative exit
     const exitAnalysis = getAuthoritativeExitForCheckout(record, record.eventHistory || []);
+    
+    // CORE ACCEPTANCE RULE:
+    // A checkout confirmation popup may ONLY appear when there is reliable evidence that:
+    // 1. The employee was checked in;
+    // 2. A valid EXIT event actually occurred;
+    // 3. That EXIT belongs to the current attendance session/day;
+    // 4. No subsequent RETURN event closed that EXIT;
+    // 5. The checkout/final exitTime is genuinely unresolved.
+    // IF THERE IS NO VALID UNPAIRED EXIT EVENT: DO NOT SHOW POPUP.
+    if (!exitAnalysis.isUnpairedExit) {
+      setActiveRecord((curr) => (curr && (curr.id === record.id || curr.date === record.date) ? null : curr));
+      return false;
+    }
+
     const authoritativeExit = exitAnalysis.authoritativeExitTime;
 
     let initialTime12 = '06:00 PM';
@@ -219,19 +233,19 @@ export const CheckoutConfirmationModal: React.FC = () => {
     }
 
     if (todayRecord) {
-      const coVal = (todayRecord.checkOutTime || '').trim();
-      const isCheckOutMissing = !coVal || coVal === '--:--' || coVal === 'Pending' || coVal === 'N/A' || coVal === 'UNRESOLVED';
-      const hasPendingState = todayRecord.pendingCheckoutConfirmation === true ||
-        todayRecord.currentState === 'PENDING_AUTO_CHECKOUT' ||
-        todayRecord.currentState === 'PENDING_EXIT_CONFIRMATION' ||
-        todayRecord.currentState === 'CHECKOUT_NOT_DETECTED' ||
-        todayRecord.currentState === 'PENDING_FINAL_EXIT';
+      const exitAnalysis = getAuthoritativeExitForCheckout(todayRecord, todayRecord.eventHistory || []);
+      if (!exitAnalysis.isUnpairedExit) {
+        // Employee is inside or no unpaired exit -> dismiss any popup for today
+        setActiveRecord((curr) => (curr && curr.date === todayStr ? null : curr));
+      } else {
+        const coVal = (todayRecord.checkOutTime || '').trim();
+        const isCheckOutMissing = !coVal || coVal === '--:--' || coVal === 'Pending' || coVal === 'N/A' || coVal === 'UNRESOLVED';
+        const isResolvedOutside = todayRecord.exitPromptResolvedOutside === true || todayRecord.returningToOffice === true;
 
-      const isResolvedOutside = todayRecord.exitPromptResolvedOutside === true || todayRecord.returningToOffice === true;
-
-      if (!isResolvedOutside && !todayRecord.checkoutFinalized && isCheckOutMissing && hasPendingState) {
-        if (evaluateAndOpenRecord(todayRecord, false)) {
-          return;
+        if (!isResolvedOutside && !todayRecord.checkoutFinalized && isCheckOutMissing) {
+          if (evaluateAndOpenRecord(todayRecord, false)) {
+            return;
+          }
         }
       }
     }
@@ -258,12 +272,12 @@ export const CheckoutConfirmationModal: React.FC = () => {
     try {
       const nativeState = await getNativeAttendanceState();
       if (nativeState?.hasActiveSession && nativeState.date === todayStr) {
-        const hasNativeExit = !!nativeState.recordedExitTime;
-        const isPendingNativeExit = nativeState.pendingCheckoutConfirmation ||
+        const hasNativeExit = !!(nativeState.recordedExitTime && nativeState.recordedExitTime !== 'null' && nativeState.recordedExitTime.trim() !== '');
+        const isPendingNativeExit = (nativeState.pendingCheckoutConfirmation ||
           nativeState.sessionState === 'PENDING_EXIT_CONFIRMATION' ||
-          nativeState.currentState === 'PENDING_AUTO_CHECKOUT';
+          nativeState.currentState === 'PENDING_AUTO_CHECKOUT') && hasNativeExit;
 
-        if (hasNativeExit || isPendingNativeExit) {
+        if (hasNativeExit && isPendingNativeExit) {
           const empCode = nativeState.employeeId || candidateIds[0] || '';
           if (empCode) {
             let rec = getTodayAttendanceRecord(empCode, todayStr);

@@ -1,4 +1,4 @@
-import { analyzeAttendanceForensics, getAuthoritativeExitForCheckout } from '../src/utils/forensicAuditUtils';
+import { analyzeAttendanceForensics, getAuthoritativeExitForCheckout, getUnresolvedPastAttendanceRecords } from '../src/utils/forensicAuditUtils';
 import { AttendanceRecord, AttendanceHistoryEvent } from '../src/types/attendance';
 
 function assert(condition: boolean, msg: string) {
@@ -208,4 +208,124 @@ console.log('=== RUNNING MULTIPLE EXIT/RETURN CYCLE TESTS ===\n');
   assert(forensic.lastExitDisplay === '06:17 PM', 'Test 6: Exit display is 06:17 PM');
 }
 
-console.log('\n=== ALL 6 TESTS PASSED SUCCESSFULLY! ===\n');
+// -------------------------------------------------------------
+// TEST 7:
+// 10:03 AM CHECK-IN -> NO EXIT -> STILL INSIDE (TODAY'S SCENARIO)
+// Expected: isUnpairedExit = false, authoritativeExitTime = null, state = INSIDE -> NO POPUP
+// -------------------------------------------------------------
+{
+  const events: AttendanceHistoryEvent[] = [
+    { eventId: 'e1', employeeId: 'EMP01', eventType: 'CHECK_IN', eventTime: '10:03 AM', timestamp: '2026-10-06T04:33:00.000Z', source: 'FOREGROUND_GPS' },
+  ];
+
+  const record = {
+    id: 'att_7',
+    employeeId: 'EMP01',
+    date: '2026-10-06',
+    checkInTime: '10:03 AM',
+    attendanceType: 'OFFICE',
+    currentState: 'CHECKED_IN',
+    lastExitTime: null,
+    lastExitAt: null,
+    lastReturnTime: null,
+    eventHistory: events,
+  } as unknown as AttendanceRecord;
+
+  const res = getAuthoritativeExitForCheckout(record, events);
+  assert(res.authoritativeExitTime === null, 'Test 7: Authoritative exit is NULL when employee remains inside');
+  assert(res.isUnpairedExit === false, 'Test 7: isUnpairedExit is FALSE (NO POPUP)');
+  assert(res.currentGeofenceState === 'INSIDE', 'Test 7: Current state must be INSIDE');
+
+  const forensic = analyzeAttendanceForensics(record, events);
+  assert(forensic.lastExitDisplay === '—', 'Test 7: Last exit display is —');
+  assert(forensic.lastReturnDisplay === '—', 'Test 7: Last return display is —');
+  assert(forensic.activeCycle === null, 'Test 7: Active cycle is null');
+}
+
+// -------------------------------------------------------------
+// TEST 8:
+// PREVIOUS DAY: CHECK-IN 10:03 AM, NO EXIT
+// Expected: getUnresolvedPastAttendanceRecords MUST NOT return this record (NO POPUP)
+// -------------------------------------------------------------
+{
+  const pastEvents: AttendanceHistoryEvent[] = [
+    { eventId: 'e1', employeeId: 'EMP01', eventType: 'CHECK_IN', eventTime: '10:03 AM', timestamp: '2026-10-05T04:33:00.000Z', source: 'FOREGROUND_GPS' },
+  ];
+
+  const pastRecord = {
+    id: 'att_prev_no_exit',
+    employeeId: 'EMP01',
+    date: '2026-10-05',
+    checkInTime: '10:03 AM',
+    checkOutTime: null,
+    attendanceType: 'OFFICE',
+    currentState: 'CHECKED_IN',
+    eventHistory: pastEvents,
+  } as unknown as AttendanceRecord;
+
+  const unresolved = getUnresolvedPastAttendanceRecords([pastRecord], ['EMP01'], '2026-10-06');
+  assert(unresolved.length === 0, 'Test 8: Previous day with CHECK-IN and NO EXIT must NOT trigger popup (unresolved = 0)');
+}
+
+// -------------------------------------------------------------
+// TEST 9:
+// PREVIOUS DAY: CHECK-IN 10:03 AM, VALID EXIT 06:17 PM, NO RETURN, exitTime MISSING
+// Expected: getUnresolvedPastAttendanceRecords MUST return this record (TRIGGER POPUP)
+// -------------------------------------------------------------
+{
+  const pastEvents: AttendanceHistoryEvent[] = [
+    { eventId: 'e1', employeeId: 'EMP01', eventType: 'CHECK_IN', eventTime: '10:03 AM', timestamp: '2026-10-05T04:33:00.000Z', source: 'FOREGROUND_GPS' },
+    { eventId: 'e2', employeeId: 'EMP01', eventType: 'GEOFENCE_EXIT', eventTime: '06:17 PM', timestamp: '2026-10-05T12:47:00.000Z', source: 'NATIVE_GEOFENCE' },
+  ];
+
+  const pastRecord = {
+    id: 'att_prev_with_exit',
+    employeeId: 'EMP01',
+    date: '2026-10-05',
+    checkInTime: '10:03 AM',
+    checkOutTime: null,
+    attendanceType: 'OFFICE',
+    currentState: 'PENDING_AUTO_CHECKOUT',
+    lastExitTime: '06:17 PM',
+    lastExitAt: '2026-10-05T12:47:00.000Z',
+    eventHistory: pastEvents,
+  } as unknown as AttendanceRecord;
+
+  const unresolved = getUnresolvedPastAttendanceRecords([pastRecord], ['EMP01'], '2026-10-06');
+  assert(unresolved.length === 1, 'Test 9: Previous day with VALID EXIT and missing checkout MUST trigger popup (unresolved = 1)');
+  assert(unresolved[0].date === '2026-10-05', 'Test 9: Date is 2026-10-05');
+}
+
+// -------------------------------------------------------------
+// TEST 10:
+// 10:03 CHECK-IN -> EXIT 14:03 -> RETURN 14:30 -> EMPLOYEE STILL INSIDE
+// Expected: NO POPUP (all exits are closed/paired)
+// -------------------------------------------------------------
+{
+  const events: AttendanceHistoryEvent[] = [
+    { eventId: 'e1', employeeId: 'EMP01', eventType: 'CHECK_IN', eventTime: '10:03 AM', timestamp: '2026-10-06T04:33:00.000Z', source: 'FOREGROUND_GPS' },
+    { eventId: 'e2', employeeId: 'EMP01', eventType: 'GEOFENCE_EXIT', eventTime: '02:03 PM', timestamp: '2026-10-06T08:33:00.000Z', source: 'NATIVE_GEOFENCE' },
+    { eventId: 'e3', employeeId: 'EMP01', eventType: 'GEOFENCE_RETURN', eventTime: '02:30 PM', timestamp: '2026-10-06T09:00:00.000Z', source: 'NATIVE_GEOFENCE' },
+  ];
+
+  const record = {
+    id: 'att_10',
+    employeeId: 'EMP01',
+    date: '2026-10-06',
+    checkInTime: '10:03 AM',
+    attendanceType: 'OFFICE',
+    currentState: 'CHECKED_IN',
+    lastExitTime: '02:03 PM',
+    lastExitAt: '2026-10-06T08:33:00.000Z',
+    lastReturnTime: '02:30 PM',
+    lastReturnAt: '2026-10-06T09:00:00.000Z',
+    eventHistory: events,
+  } as unknown as AttendanceRecord;
+
+  const res = getAuthoritativeExitForCheckout(record, events);
+  assert(res.authoritativeExitTime === null, 'Test 10: Authoritative exit is null after returning');
+  assert(res.isUnpairedExit === false, 'Test 10: isUnpairedExit is FALSE (NO POPUP)');
+  assert(res.currentGeofenceState === 'INSIDE', 'Test 10: Current state is INSIDE');
+}
+
+console.log('\n=== ALL 10 TESTS PASSED SUCCESSFULLY! ===\n');

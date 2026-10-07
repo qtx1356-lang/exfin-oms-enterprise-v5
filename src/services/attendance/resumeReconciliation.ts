@@ -29,6 +29,7 @@ import { updateLiveEmployeeLocation } from '../location/liveLocationService';
 import { AutomaticAttendanceEngine, appendEventHistory } from './automaticAttendanceEngine';
 import { createNotification, dismissUnresolvedNotificationForDate } from '../notification/notificationService';
 import { isAdminContextActive, hasValidCheckoutTime } from '../../utils/attendanceUtils';
+import { getAuthoritativeExitForCheckout } from '../../utils/forensicAuditUtils';
 import { reconcileNativeGeofenceEvents, startNativeActiveSession, cancelPendingNativeExit, getNativeAttendanceState } from './nativeGeofenceBridge';
 
 let activeResumePromise: Promise<AttendanceRecord | null> | null = null;
@@ -138,10 +139,13 @@ export const reconcileAttendanceOnResume = async (
       if (!pos) {
         console.warn('[ResumeReconciliation] Could not obtain GPS fix on resume. Retaining current state.');
         const existingRecord = getTodayAttendanceRecord(employeeId, dateStr);
-        if (existingRecord && (existingRecord.pendingCheckoutConfirmation || existingRecord.currentState === 'PENDING_AUTO_CHECKOUT' || existingRecord.currentState === 'PENDING_EXIT_CONFIRMATION') && !hasValidCheckoutTime(existingRecord)) {
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('exfin-checkout-confirmation-needed', { detail: { employeeId, record: existingRecord } }));
-            window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+        if (existingRecord && !hasValidCheckoutTime(existingRecord)) {
+          const exitCheck = getAuthoritativeExitForCheckout(existingRecord, existingRecord.eventHistory || []);
+          if (exitCheck.isUnpairedExit && (existingRecord.pendingCheckoutConfirmation || existingRecord.currentState === 'PENDING_AUTO_CHECKOUT' || existingRecord.currentState === 'PENDING_EXIT_CONFIRMATION')) {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('exfin-checkout-confirmation-needed', { detail: { employeeId, record: existingRecord } }));
+              window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+            }
           }
         }
         return existingRecord;

@@ -302,15 +302,16 @@ public class GeofencePlugin extends Plugin {
             android.content.SharedPreferences prefs = context.getSharedPreferences(OfficeGeofenceHelper.PREFS_NAME, Context.MODE_PRIVATE);
             JSObject ret = new JSObject();
 
-            boolean pendingConf = (session != null && session.optBoolean("pendingCheckoutConfirmation", false)) ||
-                    prefs.getBoolean("pendingCheckoutConfirmation", false) ||
-                    "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(session != null ? session.optString("sessionState", "") : prefs.getString("sessionState", "")) ||
-                    "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(session != null ? session.optString("currentState", "") : prefs.getString("currentState", ""));
-
             String recExit = session != null ? session.optString("recordedExitTime", null) : null;
             if (recExit == null || "null".equalsIgnoreCase(recExit) || recExit.trim().isEmpty()) {
                 recExit = prefs.getString(OfficeGeofenceHelper.KEY_LAST_EXIT_TIME, null);
             }
+            boolean hasValidExitTime = recExit != null && !"null".equalsIgnoreCase(recExit) && !recExit.trim().isEmpty();
+
+            boolean pendingConf = hasValidExitTime && ((session != null && session.optBoolean("pendingCheckoutConfirmation", false)) ||
+                    prefs.getBoolean("pendingCheckoutConfirmation", false) ||
+                    "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(session != null ? session.optString("sessionState", "") : prefs.getString("sessionState", "")) ||
+                    "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(session != null ? session.optString("currentState", "") : prefs.getString("currentState", "")));
 
             if (session != null || pendingConf || (recExit != null && !recExit.trim().isEmpty())) {
                 ret.put("hasActiveSession", true);

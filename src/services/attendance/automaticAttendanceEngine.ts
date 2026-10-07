@@ -374,27 +374,56 @@ export const AutomaticAttendanceEngine = {
     }
 
     if (record && isCheckOutMissingLocally(record.checkOutTime) && (record.attendanceType === 'OFFICE' || !record.attendanceType)) {
-      if ((currentState === 'CHECKED_IN' || currentState === 'ENTERING') && !isInside) {
-        // EXIT GEOFENCE: CHECKED_IN -> PENDING_AUTO_CHECKOUT
-        console.log('[AUTO_EXIT_DETECTED]', {
-          employeeId,
-          date: dateStr,
-          distance: Math.round(distance),
-          timestamp: timestamp.toISOString(),
-          localTime: timeStr,
-          source: 'FOREGROUND_GPS'
-        });
-        logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[AUTO_EXIT_DETECTED] Exited office geofence (${Math.round(distance)}m) at ${timeStr}. Transitioning to PENDING_AUTO_CHECKOUT.`);
+      if (isInside) {
+        try {
+          localStorage.removeItem(`consecutive_exit_${employeeId}_${dateStr}`);
+        } catch {}
+      }
 
-        return this.transitionState(
-          employeeId,
-          employeeName,
-          { latitude, longitude },
-          townCity,
-          'GEOFENCE_EXIT',
-          'AUTO_GEOFENCE',
-          timestamp
-        );
+      if ((currentState === 'CHECKED_IN' || currentState === 'ENTERING') && !isInside) {
+        let isConfirmedExit = false;
+        if (distance > 45) {
+          // Confirmed well outside (>45m)
+          isConfirmedExit = true;
+        } else {
+          // Near boundary (25m - 45m): require 3 consecutive readings to prevent single GPS noise spike (e.g. 27m) from triggering false exit
+          try {
+            const exitCountKey = `consecutive_exit_${employeeId}_${dateStr}`;
+            const curExitCount = parseInt(localStorage.getItem(exitCountKey) || '0', 10) + 1;
+            localStorage.setItem(exitCountKey, String(curExitCount));
+            if (curExitCount >= 3) {
+              isConfirmedExit = true;
+              localStorage.removeItem(exitCountKey);
+            } else {
+              console.log(`[AttendanceEngine] Exit candidate detected at ${Math.round(distance)}m, awaiting confirmation (count: ${curExitCount}/3).`);
+            }
+          } catch {
+            isConfirmedExit = true;
+          }
+        }
+
+        if (isConfirmedExit) {
+          // EXIT GEOFENCE: CHECKED_IN -> PENDING_AUTO_CHECKOUT
+          console.log('[AUTO_EXIT_DETECTED]', {
+            employeeId,
+            date: dateStr,
+            distance: Math.round(distance),
+            timestamp: timestamp.toISOString(),
+            localTime: timeStr,
+            source: 'FOREGROUND_GPS'
+          });
+          logAttendanceEvent('GEOFENCE_EXIT', employeeId, `[AUTO_EXIT_DETECTED] Exited office geofence (${Math.round(distance)}m) at ${timeStr}. Transitioning to PENDING_AUTO_CHECKOUT.`);
+
+          return this.transitionState(
+            employeeId,
+            employeeName,
+            { latitude, longitude },
+            townCity,
+            'GEOFENCE_EXIT',
+            'AUTO_GEOFENCE',
+            timestamp
+          );
+        }
       }
 
       if (currentState === 'PENDING_FINAL_EXIT' || currentState === 'PENDING_EXIT_CONFIRMATION' || currentState === 'PENDING_AUTO_CHECKOUT' || currentState === 'CHECKOUT_NOT_DETECTED' || currentState === 'RETURNING_TO_OFFICE') {

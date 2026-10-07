@@ -503,7 +503,27 @@ export function getUnresolvedPastAttendanceRecords(
       return false;
     }
 
-    return true;
+    // CORE ACCEPTANCE RULE:
+    // A missing checkout on a past day ONLY triggers manual confirmation if there is evidence
+    // that a valid EXIT actually occurred and remained unpaired.
+    // If a past day only has CHECK_IN with NO EXIT event, do NOT trigger the popup.
+    const exitAnalysis = getAuthoritativeExitForCheckout(rec, rec.eventHistory || []);
+    const hasExplicitExit = Boolean(
+      exitAnalysis.isUnpairedExit ||
+      rec.lastExitTime ||
+      rec.geofenceExitTime ||
+      rec.recordedExitTime ||
+      rec.exitTime ||
+      rec.exitDetectedAt ||
+      (Array.isArray(rec.eventHistory) && rec.eventHistory.some(e => (e.eventType || '').toUpperCase().includes('EXIT')))
+    );
+
+    // If there is an explicit return that closed the exit, ensure it is not considered an unresolved exit
+    if (exitAnalysis.currentGeofenceState === 'INSIDE' && !exitAnalysis.isUnpairedExit) {
+      return false;
+    }
+
+    return hasExplicitExit;
   });
 
   return unresolved.sort((a, b) => a.date.localeCompare(b.date));

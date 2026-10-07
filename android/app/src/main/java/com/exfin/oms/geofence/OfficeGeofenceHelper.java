@@ -1120,6 +1120,18 @@ public class OfficeGeofenceHelper {
         // EXIT LOGIC: INSIDE -> OUTSIDE (distance > 25.0m)
         // -------------------------------------------------------------
         else if ("OUTSIDE".equals(currentCalculatedState)) {
+            consecutiveOutsideReadings++;
+            consecutiveInsideReadings = 0;
+
+            // GPS Accuracy & Noise Filter:
+            // If distance is near the 25m boundary (25.1m to 40m), require at least 2 consecutive
+            // outside readings to prevent a single noisy GPS spike from generating a false EXIT event.
+            if (distance <= 40.0 && consecutiveOutsideReadings < 2 && transitionType != Geofence.GEOFENCE_TRANSITION_EXIT) {
+                Log.i(TAG, "[GPS Noise Filter] Near-boundary distance: " + String.format(Locale.US, "%.1f", distance) + "m (reading " + consecutiveOutsideReadings + "/2). Awaiting confirmation before EXIT.");
+                safeFinishPendingResult(pendingResult, finishedFlag);
+                return;
+            }
+
             processExitTransition(context, location, "NATIVE_GEOFENCE_VERIFIED", locationProvider, pendingResult, finishedFlag);
             return;
         }
@@ -1928,16 +1940,16 @@ public class OfficeGeofenceHelper {
                             preservedExitTime = existingExit;
                             preservedExitDetectedAt = existing.optString("exitDetectedAt", null);
                             preservedExitSource = existing.optString("exitSource", "NATIVE_GEOFENCE");
-                        }
-                        if (existing.optBoolean("pendingCheckoutConfirmation", false) ||
-                            prefs.getBoolean("pendingCheckoutConfirmation", false) ||
-                            "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(existing.optString("sessionState", "")) ||
-                            "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(existing.optString("currentState", "")) ||
-                            "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(prefs.getString("currentState", ""))) {
-                            preservedPendingCheckout = true;
-                            preservedPendingEventId = existing.optString("pendingCheckoutEventId", prefs.getString("pendingCheckoutEventId", null));
-                            preservedSessionState = existing.optString("sessionState", "PENDING_EXIT_CONFIRMATION");
-                            preservedCurrentState = existing.optString("currentState", prefs.getString("currentState", "PENDING_AUTO_CHECKOUT"));
+                            if (existing.optBoolean("pendingCheckoutConfirmation", false) ||
+                                prefs.getBoolean("pendingCheckoutConfirmation", false) ||
+                                "PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(existing.optString("sessionState", "")) ||
+                                "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(existing.optString("currentState", "")) ||
+                                "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(prefs.getString("currentState", ""))) {
+                                preservedPendingCheckout = true;
+                                preservedPendingEventId = existing.optString("pendingCheckoutEventId", prefs.getString("pendingCheckoutEventId", null));
+                                preservedSessionState = existing.optString("sessionState", "PENDING_EXIT_CONFIRMATION");
+                                preservedCurrentState = existing.optString("currentState", prefs.getString("currentState", "PENDING_AUTO_CHECKOUT"));
+                            }
                         }
                     }
                 } catch (Exception ignored) {}
