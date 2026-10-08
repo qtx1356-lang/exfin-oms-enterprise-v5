@@ -1,1 +1,110 @@
-# One-time fixer removed. This placeholder intentionally contains no workflow trigger.
+name: One-time native exit recovery fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-native-exit-recovery-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply source fixes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/src/main/java/com/exfin/oms/geofence/GeofencePlugin.java')
+          s = p.read_text()
+          old = 'boolean pendingConf = !isInside && recExit != null && session.optBoolean("pendingCheckoutConfirmation", false);'
+          new = 'boolean pendingConf = recExit != null && session.optBoolean("pendingCheckoutConfirmation", false);'
+          assert old in s, 'GeofencePlugin target not found'
+          p.write_text(s.replace(old, new, 1))
+
+          p = Path('src/services/attendance/nativeGeofenceBridge.ts')
+          s = p.read_text()
+          old = '''          if (isTodayCheckedIn || isNativeInside) {
+            // Employee is inside! Ensure pendingCheckoutConfirmation is false
+            if (todayRec && todayRec.pendingCheckoutConfirmation) {
+              todayRec.pendingCheckoutConfirmation = false;
+              todayRec.currentState = 'CHECKED_IN';
+              saveAttendanceRecord(todayRec);
+            }
+          } else if (hasNativeExit && isPendingExit && !isTodayCheckedIn) {'''
+          new = '''          // A persisted native exit is authoritative. Rehydrate it before honoring any stale
+          // local CHECKED_IN/native ACTIVE state so app-open time can never replace the exit time.
+          if (hasNativeExit && isPendingExit) {'''
+          assert old in s, 'nativeGeofenceBridge target header not found'
+          s = s.replace(old, new, 1)
+          old2 = '''            // Ensure native exit belongs to todayDateStr
+            const exitDate = activeState.exitDetectedAt && activeState.exitDetectedAt.includes('-')'''
+          new2 = '''            const exitDate = activeState.exitDetectedAt && activeState.exitDetectedAt.includes('-')'''
+          assert old2 in s, 'nativeGeofenceBridge duplicate comment target not found'
+          s = s.replace(old2, new2, 1)
+          marker = '''          } else if (!hasNativeExit) {
+'''
+          insert = '''          } else if (isTodayCheckedIn || isNativeInside) {
+            // No persisted native exit exists, so the local/native inside state remains authoritative.
+            if (todayRec && todayRec.pendingCheckoutConfirmation) {
+              todayRec.pendingCheckoutConfirmation = false;
+              todayRec.currentState = 'CHECKED_IN';
+              saveAttendanceRecord(todayRec);
+            }
+          } else if (!hasNativeExit) {
+'''
+          assert marker in s, 'nativeGeofenceBridge fallback marker not found'
+          s = s.replace(marker, insert, 1)
+          p.write_text(s)
+
+          p = Path('src/components/attendance/CheckoutConfirmationModal.tsx')
+          s = p.read_text()
+          old = '''        if (curLocalToday && curLocalToday.currentState === 'CHECKED_IN') {
+          return;
+        }
+
+        const isNativeInside = nativeState.sessionState === 'ACTIVE' || nativeState.currentState === 'CHECKED_IN';
+        if (isNativeInside) {
+          return;
+        }
+
+        const hasNativeExit = !!(nativeState.recordedExitTime && nativeState.recordedExitTime !== 'null' && nativeState.recordedExitTime.trim() !== '');
+        const isPendingNativeExit = (nativeState.pendingCheckoutConfirmation ||
+          nativeState.sessionState === 'PENDING_EXIT_CONFIRMATION' ||
+          nativeState.currentState === 'PENDING_AUTO_CHECKOUT') && hasNativeExit;
+'''
+          new = '''        const hasNativeExit = !!(nativeState.recordedExitTime && nativeState.recordedExitTime !== 'null' && nativeState.recordedExitTime.trim() !== '');
+        const isPendingNativeExit = (nativeState.pendingCheckoutConfirmation ||
+          nativeState.sessionState === 'PENDING_EXIT_CONFIRMATION' ||
+          nativeState.currentState === 'PENDING_AUTO_CHECKOUT') && hasNativeExit;
+
+        // A persisted native exit is authoritative and must be handled even if the local record
+        // still says CHECKED_IN or native state is otherwise stale/ACTIVE.
+        if (curLocalToday && curLocalToday.currentState === 'CHECKED_IN' && !isPendingNativeExit) {
+          return;
+        }
+
+        const isNativeInside = nativeState.sessionState === 'ACTIVE' || nativeState.currentState === 'CHECKED_IN';
+        if (isNativeInside && !isPendingNativeExit) {
+          return;
+        }
+'''
+          assert old in s, 'CheckoutConfirmationModal target not found'
+          p.write_text(s.replace(old, new, 1))
+          PY
+          echo '--- diff ---'
+          git diff -- android/app/src/main/java/com/exfin/oms/geofence/GeofencePlugin.java src/services/attendance/nativeGeofenceBridge.ts src/components/attendance/CheckoutConfirmationModal.tsx
+      - name: Commit source fixes and remove one-time workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add android/app/src/main/java/com/exfin/oms/geofence/GeofencePlugin.java src/services/attendance/nativeGeofenceBridge.ts src/components/attendance/CheckoutConfirmationModal.tsx .github/workflows/apply-native-exit-recovery-fix.yml
+          git rm .github/workflows/apply-native-exit-recovery-fix.yml
+          git commit -m 'fix: preserve native exit timestamp on cold-start recovery'
+          git push origin main
