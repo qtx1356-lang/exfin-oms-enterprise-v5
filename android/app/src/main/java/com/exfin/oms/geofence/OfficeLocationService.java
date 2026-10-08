@@ -250,8 +250,24 @@ public class OfficeLocationService extends Service {
 
         JSONObject activeSession = OfficeGeofenceHelper.getActiveSession(this);
         if (activeSession == null) {
-            Log.i(TAG, "No active office session found in native storage. Stopping location service.");
-            stopSelf();
+            // Before automatic check-in there is intentionally no active session.
+            // The 300m geofence wakes this foreground service so it can continue
+            // obtaining fresh GPS while the app UI is closed.
+            if (distance <= OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS &&
+                    OfficeGeofenceHelper.isLocationTrustworthyForCheckIn(location)) {
+                Log.i(TAG, "[AUTO_CHECKIN_BACKGROUND] Fresh location is inside 25m; creating automatic check-in.");
+                OfficeGeofenceHelper.evaluateAttendanceDecision(
+                        this,
+                        location,
+                        "NATIVE_BACKGROUND_FUSED_LOCATION",
+                        com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_ENTER,
+                        null,
+                        null
+                );
+                return;
+            }
+
+            Log.i(TAG, "[AUTO_CHECKIN_BACKGROUND] No active session yet; continuing background monitoring until the 25m boundary is verified.");
             return;
         }
 
