@@ -459,6 +459,34 @@ export function getAuthoritativeExitForCheckout(
     };
   }
 
+  // CORE RULE: A successfully finalized checkout is terminal for this attendance record.
+  // The audit history intentionally keeps the original EXIT event for audit purposes, but
+  // that historical EXIT must NEVER reopen the checkout confirmation after a restart.
+  const finalizedCheckoutTime = (record.checkOutTime || '').trim();
+  const isTerminalCheckout =
+    record.checkoutFinalized === true ||
+    record.checkoutConfirmed === true ||
+    record.checkoutStatus === 'FINALIZED' ||
+    record.checkoutStatus === 'COMPLETED' ||
+    record.currentState === 'FINALIZED_CHECKOUT' ||
+    record.currentState === 'CHECKED_OUT';
+
+  if (
+    isTerminalCheckout &&
+    finalizedCheckoutTime &&
+    finalizedCheckoutTime !== '--:--' &&
+    finalizedCheckoutTime !== 'UNRESOLVED' &&
+    finalizedCheckoutTime !== 'Pending' &&
+    finalizedCheckoutTime !== 'N/A'
+  ) {
+    return {
+      authoritativeExitTime: null,
+      authoritativeExitTimestamp: null,
+      isUnpairedExit: false,
+      currentGeofenceState: 'OUTSIDE'
+    };
+  }
+
   // CORE RULE: If employee is currently CHECKED_IN, they are INSIDE the office.
   // There is NO unpaired exit, NO pending checkout, and NO checkout confirmation.
   if (record.currentState === 'CHECKED_IN') {
