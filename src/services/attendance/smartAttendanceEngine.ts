@@ -284,9 +284,17 @@ export const trackSmartOfficeExit = (
   record: AttendanceRecord,
   currentDistance: number,
   currentCoords?: { latitude: number; longitude: number },
-  currentTownCity?: string
+  currentTownCity?: string,
+  locationTimestamp?: string | Date | number
 ): AttendanceRecord => {
   if (!record || record.checkOutTime || record.manualRectified || record.isAdminRectified || record.correctedAt) {
+    return record;
+  }
+
+  // Native Android attendance is authoritative. A foreground/app-resume GPS read must
+  // never invent an exit time from the moment the employee opened the app.
+  // NativeGeofenceBridge/OfficeLocationService persists the real boundary timestamp.
+  if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()) {
     return record;
   }
 
@@ -296,6 +304,17 @@ export const trackSmartOfficeExit = (
   }
 
   const town = currentTownCity || record.townCity || 'Raniganj HQ';
+  const eventTimestamp = locationTimestamp instanceof Date
+    ? locationTimestamp
+    : typeof locationTimestamp === 'number'
+      ? new Date(locationTimestamp)
+      : typeof locationTimestamp === 'string' && locationTimestamp.trim()
+        ? new Date(locationTimestamp)
+        : new Date();
+
+  if (Number.isNaN(eventTimestamp.getTime())) {
+    return record;
+  }
 
   const result = AutomaticAttendanceEngine.processLocationUpdate(
     coords.latitude,
@@ -303,7 +322,7 @@ export const trackSmartOfficeExit = (
     record.employeeId,
     record.employeeName,
     town,
-    new Date()
+    eventTimestamp
   );
 
   return result || record;
