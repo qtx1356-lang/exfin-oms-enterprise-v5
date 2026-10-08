@@ -555,11 +555,18 @@ jobs:
             exit 0
           fi
 
-          # Main may have received unrelated commits. Rebase safely before pushing.
-          git rebase origin/main || {
-            echo "::error::Could not safely rebase release manifest onto current main."
-            git rebase --abort || true
-            exit 1
-          }
+          # The Android/web build can leave generated working-tree changes behind.
+          # They are not part of the release manifest commit and must not block the rebase.
+          git reset --hard HEAD
+
+          # Main may have received unrelated commits while this build was running.
+          # Rebase the single release-manifest commit safely before pushing.
+          if ! git diff --quiet origin/main..HEAD; then
+            git rebase origin/main || {
+              echo "::error::Could not safely rebase release manifest onto current main."
+              git rebase --abort || true
+              exit 1
+            }
+          fi
 
           git push origin HEAD:main
