@@ -199,11 +199,16 @@ export const reconcileNativeGeofenceEvents = async (
       events.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
       for (const evt of events) {
-        const eventDate = (typeof evt.timestamp === 'number' && evt.timestamp > 0)
-          ? new Date(evt.timestamp)
+        const nativeTimestamp = (typeof evt.timestamp === 'number' && evt.timestamp > 0)
+          ? evt.timestamp
           : (typeof evt.eventTimestamp === 'number' && evt.eventTimestamp > 0)
-            ? new Date(evt.eventTimestamp)
-            : new Date(evt.timestamp || Date.now());
+            ? evt.eventTimestamp
+            : null;
+        if (!nativeTimestamp || !Number.isFinite(nativeTimestamp)) {
+          console.warn('[NATIVE_GEOFENCE_RECONCILE_REJECTED] Missing native event timestamp; refusing to substitute app-open time:', evt.eventId);
+          continue;
+        }
+        const eventDate = new Date(nativeTimestamp);
         const timeKolkata = getFormattedTimeStr(eventDate);
         const eventType = evt.eventType || (evt.transition === 'EXIT' ? 'CHECK_OUT' : 'CHECK_IN');
 
@@ -496,11 +501,16 @@ export const initNativeGeofenceListener = async (
         return;
       }
 
-      const eventDate = (typeof evt.timestamp === 'number' && evt.timestamp > 0)
-        ? new Date(evt.timestamp)
+      const nativeTimestamp = (typeof evt.timestamp === 'number' && evt.timestamp > 0)
+        ? evt.timestamp
         : (typeof evt.eventTimestamp === 'number' && evt.eventTimestamp > 0)
-          ? new Date(evt.eventTimestamp)
-          : new Date();
+          ? evt.eventTimestamp
+          : null;
+      if (!nativeTimestamp || !Number.isFinite(nativeTimestamp)) {
+        console.warn('[NATIVE_GEOFENCE_EVENT_REJECTED] Missing native exit timestamp; refusing to use app-open time:', evt.eventId);
+        return;
+      }
+      const eventDate = new Date(nativeTimestamp);
       logAttendanceEvent('GEOFENCE_EXIT', currentEmp.id, `Native authoritative check-out event received: ${evt.eventId} at ${evt.time}`);
       const validCoords = (typeof evt.latitude === 'number' && typeof evt.longitude === 'number' && !isNaN(evt.latitude) && !isNaN(evt.longitude))
         ? { latitude: evt.latitude, longitude: evt.longitude }
