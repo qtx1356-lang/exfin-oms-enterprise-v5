@@ -37,7 +37,7 @@ import {
 } from 'lucide-react';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
-import { App as CapacitorApp } from '@capacitor/app';
+import { App as CapApp } from '@capacitor/app';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { useRealtimeSync } from '../../context/RealtimeSyncContext';
@@ -48,6 +48,13 @@ import { isAttendanceCheckoutUnresolved, isServerAttendanceAuthoritative, getChe
 import { db } from '../../services/firebase/config';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useSensitiveActionGuard } from '../../services/security/useSensitiveActionGuard';
+import {
+  getNativeLocationReadiness,
+  openNativeLocationSettings,
+  openNativeAppLocationSettings,
+  repairNativeLocationMonitoring,
+  NativeLocationReadiness
+} from '../../services/attendance/nativeGeofenceBridge';
 
 const ATTENDANCE_REFRESH_INTERVAL = 60000; // 60 seconds
 import { createNotification, dismissUnresolvedNotificationForDate } from '../../services/notification/notificationService';
@@ -83,7 +90,6 @@ import {
   trackResourceCleaned,
 } from '../../services/monitoring/performanceDiagnostics';
 import { TodayAttendanceCard } from './TodayAttendanceCard';
-import { getNativeLocationReadiness, openNativeLocationSettings, repairNativeLocationMonitoring } from '../../services/attendance/nativeGeofenceBridge';
 import { AttendanceCalendar } from './AttendanceCalendar';
 import {
   getWhatsAppAttendanceUrl,
@@ -100,57 +106,6 @@ const OUTDOOR_TYPE_OPTIONS: OutdoorWorkTypeOption[] = [
   'Delivery',
   'Inspection'
 ];
-
-const getLatestGeofenceTransitionDisplay = (
-  records: AttendanceRecord[],
-  employeeId: string,
-  eventType: 'GEOFENCE_EXIT' | 'GEOFENCE_RETURN'
-): string | null => {
-  const candidates: Array<{ timestamp: number; time: string }> = [];
-
-  records
-    .filter((record) => (record.employeeId || record.employeeCode) === employeeId)
-    .forEach((record) => {
-      if (Array.isArray(record.eventHistory)) {
-        record.eventHistory
-          .filter((event) => event.eventType === eventType && event.eventTime && event.timestamp)
-          .forEach((event) => {
-            const timestamp = new Date(event.timestamp).getTime();
-            if (Number.isFinite(timestamp)) {
-              candidates.push({ timestamp, time: event.eventTime });
-            }
-          });
-      }
-
-      const directTimestamp = eventType === 'GEOFENCE_EXIT' ? record.lastExitAt : record.lastReturnAt;
-      const directTime = eventType === 'GEOFENCE_EXIT'
-        ? (record.lastExitTime || record.geofenceExitTime || record.recordedExitTime || record.exitTime)
-        : (record.lastReturnTime || record.returnTime);
-
-      if (directTimestamp && directTime) {
-        const timestamp = new Date(directTimestamp).getTime();
-        if (Number.isFinite(timestamp)) {
-          candidates.push({ timestamp, time: directTime });
-        }
-      }
-    });
-
-  if (candidates.length === 0) return null;
-
-  candidates.sort((a, b) => b.timestamp - a.timestamp);
-  const latest = candidates[0];
-  const dateTime = new Date(latest.timestamp);
-
-  if (!Number.isFinite(dateTime.getTime())) return latest.time;
-
-  const formattedDate = new Intl.DateTimeFormat('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(dateTime);
-
-  return `${latest.time} • ${formattedDate}`;
-};
 
 export const AttendanceScreen: React.FC = () => {
   const { employeeData } = useRegistration();
@@ -180,13 +135,141 @@ export const AttendanceScreen: React.FC = () => {
       setActiveAttendanceMode(false);
     };
   }, [setActiveAttendanceMode]);
+
+  // Native Location Readiness State & Actions
+  const [nativeReadiness, setNativeReadiness] = useState<NativeLocationReadiness | null>(null);
+  const [isRepairingMonitoring, setIsRepairingMonitoring] = useState<boolean>(false);
+
+  const checkReadiness = React.useCallback(async () => {
+    if (!Capacitor.isNativePlatform()) return;
+    try {
+      const readiness = await getNativeLocationReadiness();
+      setNativeReadiness(readiness);
+      if (readiness) {
+        // If all permissions are granted, ensure monitoring is healthy
+        if (readiness.locationEnabled && readiness.fineLocationGranted && readiness.backgroundLocationGranted) {
+          if (!readiness.geofenceRegistered || !readiness.foregroundServiceRunning) {
+            console.log('[AttendanceScreen] Permissions healthy but monitoring needs repair. Auto-repairing...');
+            await repairNativeLocationMonitoring();
+            const updated = await getNativeLocationReadiness();
+            if (updated) setNativeReadiness(updated);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[AttendanceScreen] Error checking location readiness:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkReadiness();
+    const interval = setInterval(checkReadiness, 5000);
+
+    let appStateHandle: any = null;
+    if (Capacitor.isNativePlatform()) {
+      CapApp.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) {
+          console.log('[AttendanceScreen] App resumed from background/settings. Re-checking location readiness...');
+          checkReadiness();
+          refreshLocation?.();
+        }
+      }).then(handle => {
+        appStateHandle = handle;
+      }).catch(err => {
+        console.warn('[AttendanceScreen] Failed to attach appStateChange listener:', err);
+      });
+    }
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkReadiness();
+        refreshLocation?.();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      if (appStateHandle) appStateHandle.remove?.();
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+    };
+  }, [checkReadiness, refreshLocation]);
+
+  const readinessIssue = useMemo(() => {
+    if (!nativeReadiness) {
+      if (isGpsOff) {
+        return {
+          message: 'Location Services are OFF. Turn them on for automatic check-in and exit/return detection.',
+          buttonText: 'TURN ON LOCATION',
+          action: async () => {
+            await openNativeLocationSettings();
+            await refreshLocation?.();
+          }
+        };
+      }
+      return null;
+    }
+
+    // 1. Location Services OFF
+    if (!nativeReadiness.locationEnabled) {
+      return {
+        message: 'Location Services are OFF. Turn them on for automatic check-in and exit/return detection.',
+        buttonText: 'TURN ON LOCATION',
+        action: async () => {
+          await openNativeLocationSettings();
+        }
+      };
+    }
+
+    // 2. Precise location missing
+    if (!nativeReadiness.fineLocationGranted) {
+      return {
+        message: 'Precise location is required for the 25m attendance boundary.',
+        buttonText: 'ENABLE PRECISE LOCATION',
+        action: async () => {
+          await openNativeAppLocationSettings();
+        }
+      };
+    }
+
+    // 3. Background location missing
+    if (!nativeReadiness.backgroundLocationGranted) {
+      return {
+        message: 'Allow background location so attendance can work when the app is closed.',
+        buttonText: 'ALLOW ALL THE TIME',
+        action: async () => {
+          await openNativeAppLocationSettings();
+        }
+      };
+    }
+
+    // 4. Monitoring is not healthy
+    if (!nativeReadiness.geofenceRegistered || !nativeReadiness.foregroundServiceRunning) {
+      return {
+        message: 'Location monitoring needs repair.',
+        buttonText: isRepairingMonitoring ? 'REPAIRING...' : 'REPAIR LOCATION MONITORING',
+        action: async () => {
+          setIsRepairingMonitoring(true);
+          try {
+            await repairNativeLocationMonitoring();
+            await checkReadiness();
+          } finally {
+            setIsRepairingMonitoring(false);
+          }
+        }
+      };
+    }
+
+    return null;
+  }, [nativeReadiness, isGpsOff, isRepairingMonitoring, checkReadiness, refreshLocation]);
   
   // Attendance state
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
-  const [nativeLocationReadiness, setNativeLocationReadiness] = useState<Awaited<ReturnType<typeof getNativeLocationReadiness>>>(null);
 
   // Selected Mode State ('OFFICE' | 'WFH' | 'CLIENT_VISIT' | 'OUTDOOR')
   const [activeMode, setActiveMode] = useState<AttendanceType>('OFFICE');
@@ -231,48 +314,6 @@ export const AttendanceScreen: React.FC = () => {
   };
 
   const todayStr = getFormattedDateStr();
-
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-
-    let mounted = true;
-    let resumeHandle: { remove: () => Promise<void> } | null = null;
-
-    const repairAndCheckLocation = async () => {
-      try {
-        const readiness = await getNativeLocationReadiness();
-        if (mounted) setNativeLocationReadiness(readiness);
-
-        if (readiness?.locationEnabled && readiness.fineLocationGranted && readiness.backgroundLocationGranted) {
-          await repairNativeLocationMonitoring();
-          const refreshed = await getNativeLocationReadiness();
-          if (mounted) setNativeLocationReadiness(refreshed);
-          refreshRecords();
-        }
-      } catch (err) {
-        console.warn('[AttendanceScreen] Native location readiness check failed:', err);
-      }
-    };
-
-    repairAndCheckLocation();
-
-    CapacitorApp.addListener('appStateChange', ({ isActive }) => {
-      if (isActive) {
-        repairAndCheckLocation();
-      }
-    }).then((handle) => {
-      resumeHandle = handle;
-    });
-
-    const intervalId = window.setInterval(repairAndCheckLocation, 30000);
-
-    return () => {
-      mounted = false;
-      window.clearInterval(intervalId);
-      resumeHandle?.remove().catch(() => {});
-    };
-  }, [employeeId]);
-
 
   // Find unresolved records from past days (strictly before today)
   const unresolvedPastRecords = useMemo(() => {
@@ -973,7 +1014,7 @@ export const AttendanceScreen: React.FC = () => {
     };
   }, [allRecords, employeeId, companyMonthAttendance, companyMonthLoaded]);
 
-  if (isPermissionDenied || isGpsOff || (locationStatus === 'error' && isLocationUnavailable)) {
+  if (!Capacitor.isNativePlatform() && (isPermissionDenied || isGpsOff || (locationStatus === 'error' && isLocationUnavailable))) {
     return <LocationGate />;
   }
 
@@ -1038,38 +1079,35 @@ export const AttendanceScreen: React.FC = () => {
         </div>
       </div>
 
-      {Capacitor.isNativePlatform() && nativeLocationReadiness && !nativeLocationReadiness.locationReady && (
-        <Card className="p-3 rounded-2xl border border-amber-500/30 bg-amber-500/10">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/15">
-              <MapPin className="w-4 h-4 text-amber-400" />
+      {/* ==================================================== */}
+      {/* LOCATION READINESS WARNING CARD */}
+      {/* ==================================================== */}
+      {readinessIssue && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-[var(--text-primary)] space-y-3 shadow-lg">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 mt-0.5 flex-shrink-0">
+              <AlertTriangle className="w-5 h-5" />
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-black text-amber-300">
+            <div className="space-y-1 flex-1">
+              <h3 className="text-sm font-bold text-amber-300 tracking-wide uppercase flex items-center gap-1.5">
                 Automatic attendance is paused
-              </p>
-              <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
-                {!nativeLocationReadiness.locationEnabled
-                  ? 'Location Services are OFF. Turn them on for automatic check-in and exit/return detection.'
-                  : !nativeLocationReadiness.fineLocationGranted
-                    ? 'Precise location permission is required for the 25m attendance boundary.'
-                    : !nativeLocationReadiness.backgroundLocationGranted
-                      ? 'Allow background location so attendance can work when the app is closed.'
-                      : 'Location monitoring is recovering. Please keep Location Services enabled.'}
+              </h3>
+              <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed">
+                {readinessIssue.message}
               </p>
             </div>
-            {!nativeLocationReadiness.locationEnabled && (
-              <Button
-                onClick={async () => {
-                  await openNativeLocationSettings();
-                }}
-                className="shrink-0 px-3 py-2 text-[10px] font-black rounded-xl"
-              >
-                TURN ON
-              </Button>
-            )}
           </div>
-        </Card>
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={readinessIssue.action}
+              disabled={isRepairingMonitoring}
+              className="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {readinessIssue.buttonText}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ==================================================== */}
@@ -1267,21 +1305,6 @@ export const AttendanceScreen: React.FC = () => {
                       <span>WORKDAY COMPLETED</span>
                     </div>
                   )}
-
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div className="rounded-xl border border-[var(--danger)]/20 bg-[var(--surface-elevated)] px-3 py-2">
-                      <div className="text-[9px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Last Exit</div>
-                      <div className="mt-0.5 text-xs font-black font-mono text-[var(--danger)]">
-                        {getLatestGeofenceTransitionDisplay(allRecords, employeeId, 'GEOFENCE_EXIT') || '--'}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-[var(--success)]/20 bg-[var(--surface-elevated)] px-3 py-2">
-                      <div className="text-[9px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Last Return</div>
-                      <div className="mt-0.5 text-xs font-black font-mono text-[var(--success)]">
-                        {getLatestGeofenceTransitionDisplay(allRecords, employeeId, 'GEOFENCE_RETURN') || '--'}
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>

@@ -2615,6 +2615,80 @@ function getFormattedTimeStr(date) {
     return `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
   }
 }
+function normalizeDateToYMDServer(dateInput) {
+  if (!dateInput) return "";
+  if (typeof dateInput === "string") {
+    const s = dateInput.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const dMmmY = s.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})/);
+    if (dMmmY) {
+      const day = dMmmY[1].padStart(2, "0");
+      const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+      const mPrefix = dMmmY[2].substring(0, 3).toLowerCase();
+      const mIdx = monthNames.indexOf(mPrefix);
+      if (mIdx >= 0) {
+        const month = String(mIdx + 1).padStart(2, "0");
+        const year = dMmmY[3];
+        return `${year}-${month}-${day}`;
+      }
+    }
+    const dmy = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+    if (dmy) {
+      const day = dmy[1].padStart(2, "0");
+      const month = dmy[2].padStart(2, "0");
+      const year = dmy[3];
+      return `${year}-${month}-${day}`;
+    }
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      try {
+        const formatter = new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Asia/Kolkata",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit"
+        });
+        const parts = formatter.formatToParts(d);
+        const y = parts.find((p) => p.type === "year")?.value;
+        const m = parts.find((p) => p.type === "month")?.value;
+        const day = parts.find((p) => p.type === "day")?.value;
+        if (y && m && day) return `${y}-${m}-${day}`;
+      } catch (e) {
+      }
+    }
+  } else if (dateInput instanceof Date && !isNaN(dateInput.getTime())) {
+    try {
+      const formatter = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      });
+      const parts = formatter.formatToParts(dateInput);
+      const y = parts.find((p) => p.type === "year")?.value;
+      const m = parts.find((p) => p.type === "month")?.value;
+      const day = parts.find((p) => p.type === "day")?.value;
+      if (y && m && day) return `${y}-${m}-${day}`;
+    } catch (e) {
+    }
+  }
+  return String(dateInput);
+}
+function isAttendanceTimeInFutureServer(timeStr, recordDate, referenceDate = /* @__PURE__ */ new Date()) {
+  if (!timeStr) return false;
+  const timeMins = parseAttendanceTimeToMinutes(timeStr);
+  if (timeMins === null) return false;
+  const todayKolkata = getKolkataDateString(referenceDate);
+  const currentKolkataMins = getKolkataCurrentMinutes(referenceDate);
+  const normalizedTargetDate = recordDate ? normalizeDateToYMDServer(recordDate) : todayKolkata;
+  if (normalizedTargetDate > todayKolkata) {
+    return true;
+  }
+  if (normalizedTargetDate === todayKolkata) {
+    return timeMins > currentKolkataMins;
+  }
+  return false;
+}
 function parseAttendanceTimeToMinutes(timeStr) {
   if (!timeStr) return null;
   const clean = timeStr.trim();
@@ -2653,20 +2727,59 @@ function calculateWorkingHours(checkInTimeStr, checkOutTimeStr) {
   const m = diffMins % 60;
   return `${h}h ${m}m`;
 }
+function getAuthoritativeServerExit(data) {
+  if (!data) return null;
+  if (Array.isArray(data.eventHistory) && data.eventHistory.length > 0) {
+    const validEvents = data.eventHistory.slice().sort((a, b) => {
+      const tA = new Date(a.timestamp || a.eventTime).getTime();
+      const tB = new Date(b.timestamp || b.eventTime).getTime();
+      if (isNaN(tA) || isNaN(tB)) return 0;
+      return tA - tB;
+    });
+    let openExitTime = null;
+    let openExitMs = 0;
+    for (const evt of validEvents) {
+      const type = (evt.eventType || "").toUpperCase();
+      const ms = new Date(evt.timestamp || evt.eventTime).getTime();
+      if (type.includes("EXIT") || type === "OUT") {
+        openExitTime = evt.eventTime;
+        openExitMs = ms;
+      } else if (type.includes("RETURN") || type === "ENTER" || type === "CHECK_IN") {
+        if (openExitTime && ms >= openExitMs) {
+          openExitTime = null;
+          openExitMs = 0;
+        }
+      }
+    }
+    if (openExitTime) {
+      return openExitTime;
+    }
+  }
+  const exitTime = data.lastExitTime || data.geofenceExitTime || data.recordedExitTime || data.exitTime;
+  const exitIso = data.lastExitAt || data.geofenceExitTimestamp || data.exitDetectedAt;
+  const returnIso = data.lastReturnAt;
+  if (exitTime && exitTime !== "Pending" && exitTime !== "N/A" && exitTime !== "UNRESOLVED") {
+    if (!returnIso || !exitIso) {
+      if (data.currentState === "PENDING_EXIT_CONFIRMATION" || data.currentState === "PENDING_AUTO_CHECKOUT" || data.pendingCheckoutConfirmation) {
+        return exitTime;
+      }
+    } else {
+      const exitMs = new Date(exitIso).getTime();
+      const returnMs = new Date(returnIso).getTime();
+      if (exitMs >= returnMs) {
+        return exitTime;
+      }
+    }
+  }
+  return null;
+}
 var firestoreAdminNoticeLogged = false;
 async function runServerAttendanceFinalizer() {
   if (!db2) return;
   try {
-    const now = /* @__PURE__ */ new Date();
-    const kolkataStr = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-    const nowKolkata = new Date(kolkataStr);
-    const year = nowKolkata.getFullYear();
-    const month = String(nowKolkata.getMonth() + 1).padStart(2, "0");
-    const day = String(nowKolkata.getDate()).padStart(2, "0");
-    const todayKolkataStr = `${year}-${month}-${day}`;
-    const hours = nowKolkata.getHours();
-    const minutes = nowKolkata.getMinutes();
-    const isEndOfDay = hours === 23 && minutes >= 59;
+    const todayKolkataStr = getKolkataDateString();
+    const currentMins = getKolkataCurrentMinutes();
+    const isEndOfDay = currentMins >= 23 * 60 + 59;
     const qSnap = await db2.collection("attendance").where("checkoutStatus", "in", ["Pending", "PENDING_CONFIRMATION", null]).limit(100).get().catch(async (queryErr) => {
       if (queryErr?.code === 7 || queryErr?.message?.includes("PERMISSION_DENIED") || queryErr?.message?.includes("7 PERMISSION_DENIED")) {
         throw queryErr;
@@ -2686,7 +2799,7 @@ async function runServerAttendanceFinalizer() {
       if (!isPastDay && (!isToday || !isEndOfDay)) {
         continue;
       }
-      const genuineExitTime = data.geofenceExitTime || data.lastExitTime || data.exitTime;
+      const genuineExitTime = getAuthoritativeServerExit(data);
       let finalCheckoutTime;
       let resolutionSource;
       if (genuineExitTime && genuineExitTime !== "Pending" && genuineExitTime !== "N/A" && genuineExitTime !== "UNRESOLVED") {
@@ -2695,6 +2808,10 @@ async function runServerAttendanceFinalizer() {
       } else {
         finalCheckoutTime = "11:59 PM";
         resolutionSource = "AUTO_SYSTEM";
+      }
+      if (isAttendanceTimeInFutureServer(finalCheckoutTime, recDate)) {
+        console.warn(`[ServerFinalizer] REJECTED future checkout timestamp ${finalCheckoutTime} on ${recDate} for ${data.employeeId}. Record remains active.`);
+        continue;
       }
       const workingHours = calculateWorkingHours(data.checkInTime, finalCheckoutTime);
       const cleanTimeKey = finalCheckoutTime.replace(/[^a-zA-Z0-9]/g, "_");
@@ -2731,6 +2848,14 @@ async function startServer() {
   const app2 = (0, import_express.default)();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3e3;
   app2.use(import_express.default.json());
+  app2.use((req, res, next) => {
+    const userAgent = req.headers["user-agent"] || "";
+    if (/median|gonative/i.test(userAgent)) {
+      console.log("[EXFIN ACCESS CONTROL] Median/GoNative request blocked");
+      return res.status(403).type("text/plain").send("Access through the legacy mobile application is no longer supported. Please use the official EXFIN OMS application or web portal.");
+    }
+    next();
+  });
   app2.use((req, res, next) => {
     const origin = req.headers.origin;
     if (origin) {
@@ -3306,8 +3431,10 @@ async function startServer() {
         }
         const updatedProcessedEvents = Array.from(/* @__PURE__ */ new Set([...record.processedEvents || [], eventId]));
         let modified = false;
-        if (!isInside) {
-          console.log(`[BackgroundAttendance] GEOFENCE_EXIT detected for ${employeeId} on ${dateStr}`);
+        const isExplicitExitEvent = eventTypeParam === "GEOFENCE_EXIT" || eventTypeParam === "EXIT" || eventTypeParam === "GEOFENCE_TRANSITION_EXIT" || payload.transition === "EXIT" || payload.eventType === "CHECK_OUT" || source && String(source).toUpperCase().includes("NATIVE_GEOFENCE_EXIT");
+        const isExplicitReturnEvent = eventTypeParam === "GEOFENCE_RETURN" || eventTypeParam === "RETURN" || eventTypeParam === "ENTRY" || eventTypeParam === "GEOFENCE_TRANSITION_ENTER" || payload.transition === "ENTER" || source && String(source).toUpperCase().includes("NATIVE_GEOFENCE_ENTER");
+        if (!isInside && isExplicitExitEvent) {
+          console.log(`[BackgroundAttendance] Explicit GEOFENCE_EXIT received for ${employeeId} on ${dateStr}`);
           if (currentState === "CHECKED_IN" || currentState === "ENTERING" || currentState === "RETURNING_TO_OFFICE") {
             const existingTimestampMs = record.geofenceExitTimestamp ? new Date(record.geofenceExitTimestamp).getTime() : 0;
             const newTimestampMs = tsDate.getTime();
@@ -3365,38 +3492,51 @@ async function startServer() {
             transitionRecorded = true;
             console.log(`[BackgroundAttendance] EXIT_SYNCED: Recorded geofence exit for ${employeeId} at ${timeStr}`);
           }
-        } else {
-          if (currentState === "PENDING_FINAL_EXIT" || currentState === "PENDING_EXIT_CONFIRMATION" || currentState === "RETURNING_TO_OFFICE" || record.pendingCheckoutConfirmation || record.lastExitTime || record.exitTime || record.geofenceExitTime) {
-            record.returnTime = timeStr;
-            record.lastReturnTime = timeStr;
-            record.lastReturnAt = eventIso;
+        } else if (isInside) {
+          if (!isLocationUnavailable && latitude && longitude) {
+            record.currentLatitude = latitude;
+            record.currentLongitude = longitude;
+            record.currentDistance = distance;
+            record.currentTownCity = townCity;
+            record.currentLocationTimestamp = eventIso;
+            record.currentLocationStatus = "LIVE";
+          }
+          if (isExplicitReturnEvent || currentState === "PENDING_FINAL_EXIT" || currentState === "PENDING_EXIT_CONFIRMATION" || currentState === "PENDING_AUTO_CHECKOUT" || currentState === "RETURNING_TO_OFFICE" || record.pendingCheckoutConfirmation) {
+            if (isExplicitReturnEvent) {
+              record.returnTime = timeStr;
+              record.lastReturnTime = timeStr;
+              record.lastReturnAt = eventIso;
+            }
             record.pendingCheckoutConfirmation = false;
             record.returningToOffice = false;
             record.currentState = "CHECKED_IN";
+            record.checkoutStatus = void 0;
             const currentHistory = Array.isArray(record.eventHistory) ? record.eventHistory : [];
-            const returnHistoryEvent = {
-              eventId,
-              employeeId,
-              eventType: "GEOFENCE_RETURN",
-              eventTime: timeStr,
-              timestamp: eventIso,
-              source: source || "NATIVE_GEOFENCE",
-              location: {
-                latitude: isLocationUnavailable ? null : latitude,
-                longitude: isLocationUnavailable ? null : longitude,
-                townCity,
+            if (isExplicitReturnEvent) {
+              const returnHistoryEvent = {
+                eventId,
+                employeeId,
+                eventType: "GEOFENCE_RETURN",
+                eventTime: timeStr,
+                timestamp: eventIso,
+                source: source || "NATIVE_GEOFENCE",
+                location: {
+                  latitude: isLocationUnavailable ? null : latitude,
+                  longitude: isLocationUnavailable ? null : longitude,
+                  townCity,
+                  distance: isLocationUnavailable ? "location unavailable" : distance
+                },
                 distance: isLocationUnavailable ? "location unavailable" : distance
-              },
-              distance: isLocationUnavailable ? "location unavailable" : distance
-            };
-            const updatedHist = currentHistory.filter((e) => e.eventId !== eventId);
-            updatedHist.push(returnHistoryEvent);
-            updatedHist.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-            record.eventHistory = updatedHist;
-            record.checkoutLatitude = import_firestore5.FieldValue.delete();
-            record.checkoutLongitude = import_firestore5.FieldValue.delete();
-            record.checkoutDistance = import_firestore5.FieldValue.delete();
-            record.checkoutTownCity = import_firestore5.FieldValue.delete();
+              };
+              const updatedHist = currentHistory.filter((e) => e.eventId !== eventId);
+              updatedHist.push(returnHistoryEvent);
+              updatedHist.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+              record.eventHistory = updatedHist;
+            }
+            delete record.checkoutLatitude;
+            delete record.checkoutLongitude;
+            delete record.checkoutDistance;
+            delete record.checkoutTownCity;
             record.processedEvents = updatedProcessedEvents;
             record.syncStatus = "Synced";
             record.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
@@ -3405,6 +3545,12 @@ async function startServer() {
             modified = true;
             targetState = "CHECKED_IN";
             transitionRecorded = true;
+            console.log(`[BackgroundAttendance] INSIDE_CONFIRMED: Restored CHECKED_IN for ${employeeId} at ${timeStr}`);
+          } else {
+            record.processedEvents = updatedProcessedEvents;
+            record.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+            record.serverSyncTime = (/* @__PURE__ */ new Date()).toISOString();
+            modified = true;
           }
         }
         if (modified) {
@@ -3496,6 +3642,10 @@ async function startServer() {
       const liveSnap = await db2.collection("live_locations").doc(employeeId).get();
       let liveData = liveSnap.exists ? liveSnap.data() || {} : {};
       let attData = attSnap.exists ? attSnap.data() || {} : {};
+      let rawCheckOut = attData.checkOutTime || attData.exitTime || null;
+      if (rawCheckOut && isAttendanceTimeInFutureServer(rawCheckOut, attData.date || todayStr)) {
+        rawCheckOut = null;
+      }
       return res.json({
         date: todayStr,
         employeeId,
@@ -3503,10 +3653,10 @@ async function startServer() {
         currentDistanceMeters: liveData.distanceFromOffice ?? null,
         lastLocationAt: liveData.timestamp || null,
         checkInAt: attData.checkInTime || null,
-        checkOutAt: attData.checkOutTime || attData.exitTime || null,
-        workedDuration: attData.workingHours || "00:00:00",
+        checkOutAt: rawCheckOut,
+        workedDuration: rawCheckOut ? attData.workingHours || "00:00:00" : "00:00:00",
         attendanceSource: attData.checkInMode || "AUTOMATIC_GEOFENCE",
-        status: attData.currentState || (attData.checkInTime ? "CHECKED_IN" : "ABSENT")
+        status: rawCheckOut ? attData.currentState || "CHECKED_OUT" : attData.checkInTime ? "CHECKED_IN" : "ABSENT"
       });
     } catch (err) {
       console.error("[Attendance Today API] Error:", err);

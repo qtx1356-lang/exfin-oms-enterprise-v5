@@ -27,6 +27,16 @@ export interface NativeAttendanceEvent {
   deviceId?: string;
 }
 
+export interface NativeLocationReadiness {
+  locationEnabled: boolean;
+  fineLocationGranted: boolean;
+  coarseLocationGranted: boolean;
+  backgroundLocationGranted: boolean;
+  locationReady: boolean;
+  geofenceRegistered: boolean;
+  foregroundServiceRunning: boolean;
+}
+
 export interface NativeGeofencePluginInterface {
   registerOfficeGeofence(): Promise<{ success: boolean; geofenceId: string; authoritativeRadius: number; wakeupTriggerRadius: number; assistRadius?: number; latitude: number; longitude: number }>;
   getLocationReadiness(): Promise<{
@@ -54,6 +64,10 @@ export interface NativeGeofencePluginInterface {
   clearActiveSession(): Promise<{ success: boolean }>;
   cancelPendingExit(): Promise<{ success: boolean }>;
   forceSyncPendingEvents(): Promise<{ success: boolean }>;
+  getLocationReadiness(): Promise<NativeLocationReadiness>;
+  openLocationSettings(): Promise<void>;
+  openAppLocationSettings(): Promise<void>;
+  repairLocationMonitoring(): Promise<{ success: boolean; geofenceRegistered: boolean; foregroundServiceRunning: boolean }>;
   getActiveAttendanceState(): Promise<{
     hasActiveSession: boolean;
     attendanceId?: string;
@@ -694,5 +708,44 @@ export const getNativeDiagnosticInfo = async () => {
   } catch (err) {
     console.warn('[NativeGeofenceBridge] Failed to get native diagnostic info:', err);
     return null;
+  }
+};
+
+export const getNativeLocationReadiness = async (): Promise<NativeLocationReadiness | null> => {
+  if (!Capacitor.isNativePlatform()) return null;
+  try {
+    return await NativeGeofencePlugin.getLocationReadiness();
+  } catch (err) {
+    console.warn('[NativeGeofenceBridge] Failed to get native location readiness:', err);
+    return null;
+  }
+};
+
+export const openNativeLocationSettings = async (): Promise<void> => {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    await NativeGeofencePlugin.openLocationSettings();
+  } catch (err) {
+    console.warn('[NativeGeofenceBridge] Failed to open native location settings:', err);
+  }
+};
+
+export const openNativeAppLocationSettings = async (): Promise<void> => {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    await NativeGeofencePlugin.openAppLocationSettings();
+  } catch (err) {
+    console.warn('[NativeGeofenceBridge] Failed to open native app location settings:', err);
+  }
+};
+
+export const repairNativeLocationMonitoring = async (): Promise<boolean> => {
+  if (!Capacitor.isNativePlatform()) return false;
+  try {
+    const res = await NativeGeofencePlugin.repairLocationMonitoring();
+    return !!res?.success;
+  } catch (err) {
+    console.warn('[NativeGeofenceBridge] Failed to repair native location monitoring:', err);
+    return false;
   }
 };

@@ -1,11 +1,16 @@
 package com.exfin.oms.geofence;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.location.LocationManager;
+import android.net.Uri;
+import android.os.Build;
 import android.provider.Settings;
 import android.util.Log;
-import android.os.Build;
+
+import androidx.core.content.ContextCompat;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -126,85 +131,6 @@ public class GeofencePlugin extends Plugin {
             } catch (Exception e) {
                 Log.e(TAG, "Error notifying JS listeners: " + e.getMessage(), e);
             }
-        }
-    }
-
-    @PluginMethod
-    public void getLocationReadiness(PluginCall call) {
-        try {
-            Context context = getContext();
-            LocationManager lm = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
-            boolean locationEnabled = false;
-            if (lm != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    locationEnabled = lm.isLocationEnabled();
-                } else {
-                    locationEnabled = lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
-                            || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
-                }
-            }
-
-            boolean fine = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-            boolean coarse = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-            boolean background = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
-                    androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_BACKGROUND_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-
-            JSObject ret = new JSObject();
-            ret.put("locationEnabled", locationEnabled);
-            ret.put("fineLocationGranted", fine);
-            ret.put("coarseLocationGranted", coarse);
-            ret.put("backgroundLocationGranted", background);
-            ret.put("locationReady", locationEnabled && fine && background);
-            ret.put("geofenceRegistered", OfficeGeofenceHelper.isGeofenceRegistered(context));
-            ret.put("foregroundServiceRunning", OfficeLocationService.isRunning());
-            call.resolve(ret);
-        } catch (Exception e) {
-            call.reject("Failed to check location readiness: " + e.getMessage(), e);
-        }
-    }
-
-    @PluginMethod
-    public void openLocationSettings(PluginCall call) {
-        try {
-            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            getContext().startActivity(intent);
-            call.resolve();
-        } catch (Exception e) {
-            call.reject("Failed to open Location Settings: " + e.getMessage(), e);
-        }
-    }
-
-    @PluginMethod
-    public void repairLocationMonitoring(PluginCall call) {
-        try {
-            Context context = getContext();
-            LocationManager lm = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
-            boolean locationEnabled = lm != null && (Build.VERSION.SDK_INT < Build.VERSION_CODES.P
-                    ? (lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER))
-                    : lm.isLocationEnabled());
-
-            boolean fine = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-            if (!locationEnabled || !fine) {
-                JSObject ret = new JSObject();
-                ret.put("success", false);
-                ret.put("locationEnabled", locationEnabled);
-                ret.put("fineLocationGranted", fine);
-                call.resolve(ret);
-                return;
-            }
-
-            OfficeGeofenceHelper.ensureNativeAttendanceReady(context);
-            OfficeLocationService.verifyCurrentLocationAndDecide(context);
-
-            JSObject ret = new JSObject();
-            ret.put("success", true);
-            ret.put("locationEnabled", true);
-            ret.put("geofenceRegistered", OfficeGeofenceHelper.isGeofenceRegistered(context));
-            ret.put("foregroundServiceRunning", OfficeLocationService.isRunning());
-            call.resolve(ret);
-        } catch (Exception e) {
-            call.reject("Failed to repair native location monitoring: " + e.getMessage(), e);
         }
     }
 
@@ -486,6 +412,115 @@ public class GeofencePlugin extends Plugin {
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Failed to get diagnostic info: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void getLocationReadiness(PluginCall call) {
+        try {
+            Context context = getContext();
+
+            // 1. Device Location Services (Global GPS/Network master switch)
+            LocationManager lm = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+            boolean locationEnabled = false;
+            if (lm != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    locationEnabled = lm.isLocationEnabled();
+                } else {
+                    locationEnabled = lm.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                                      lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+                }
+            }
+
+            // 2. Precise Location (ACCESS_FINE_LOCATION)
+            boolean fineLocationGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+
+            // 3. Approximate Location (ACCESS_COARSE_LOCATION)
+            boolean coarseLocationGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+
+            // 4. Background Location (ACCESS_BACKGROUND_LOCATION)
+            boolean backgroundLocationGranted = false;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                backgroundLocationGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            } else {
+                // Below Android 10, background location is inherently granted if fine location is granted
+                backgroundLocationGranted = fineLocationGranted;
+            }
+
+            // 5. Geofence registered with Google Play Services
+            boolean geofenceRegistered = OfficeGeofenceHelper.isGeofenceRegistered(context);
+
+            // 6. Foreground monitoring service running
+            boolean foregroundServiceRunning = OfficeLocationService.isRunning();
+
+            // 7. Overall location readiness
+            boolean locationReady = locationEnabled && fineLocationGranted && backgroundLocationGranted;
+
+            JSObject ret = new JSObject();
+            ret.put("locationEnabled", locationEnabled);
+            ret.put("fineLocationGranted", fineLocationGranted);
+            ret.put("coarseLocationGranted", coarseLocationGranted);
+            ret.put("backgroundLocationGranted", backgroundLocationGranted);
+            ret.put("locationReady", locationReady);
+            ret.put("geofenceRegistered", geofenceRegistered);
+            ret.put("foregroundServiceRunning", foregroundServiceRunning);
+
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get location readiness: " + e.getMessage(), e);
+            call.reject("Failed to get location readiness: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void openLocationSettings(PluginCall call) {
+        try {
+            Context context = getContext();
+            Intent intent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to open location settings: " + e.getMessage(), e);
+            call.reject("Failed to open location settings: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void openAppLocationSettings(PluginCall call) {
+        try {
+            Context context = getContext();
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(Uri.parse("package:" + context.getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to open app location settings: " + e.getMessage(), e);
+            call.reject("Failed to open app location settings: " + e.getMessage(), e);
+        }
+    }
+
+    @PluginMethod
+    public void repairLocationMonitoring(PluginCall call) {
+        try {
+            Context context = getContext();
+            Log.i(TAG, "[REPAIR] Re-registering office geofence and checking location monitoring...");
+            OfficeGeofenceHelper.registerOfficeGeofence(context);
+
+            JSONObject activeSession = OfficeGeofenceHelper.getActiveSession(context);
+            if (activeSession != null) {
+                OfficeLocationService.start(context);
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            ret.put("geofenceRegistered", OfficeGeofenceHelper.isGeofenceRegistered(context));
+            ret.put("foregroundServiceRunning", OfficeLocationService.isRunning());
+            call.resolve(ret);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to repair location monitoring: " + e.getMessage(), e);
+            call.reject("Failed to repair location monitoring: " + e.getMessage(), e);
         }
     }
 }
