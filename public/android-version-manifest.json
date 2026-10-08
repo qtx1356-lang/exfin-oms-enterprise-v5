@@ -1,9 +1,8 @@
 {
-  "versionCode": 68,
-  "versionName": "1.0.67",
-  "apkUrl": "https://github.com/qtx1356-lang/exfin-oms-enterprise-v5/releases/download/v1.0.67/EXFIN-OMS-Android-v1.0.67.apk",
+  "versionCode": 69,
+  "versionName": "1.0.68",
+  "apkUrl": "https://github.com/qtx1356-lang/exfin-oms-enterprise-v5/releases/download/v1.0.68/EXFIN-OMS-Android-v1.0.68.apk",
   "releaseNotes": [
-    "Fix repeated checkout confirmation after saving checkout time.",
-    "Improve native attendance session finalization and background attendance reliability."
+    "Automatic Android release for EXFIN OMS."
   ]
 }
