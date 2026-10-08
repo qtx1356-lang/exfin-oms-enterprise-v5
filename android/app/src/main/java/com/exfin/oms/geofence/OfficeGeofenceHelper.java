@@ -1892,7 +1892,7 @@ public class OfficeGeofenceHelper {
 
                 boolean success = false;
                 try {
-                    URL url = new URL(serverUrl + "/api/median-background-location");
+                    URL url = new URL(serverUrl + "/api/native-background-location");
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.setRequestMethod("POST");
                     conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
