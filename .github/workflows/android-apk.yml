@@ -492,10 +492,74 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add public/android-version-manifest.json
-          if ! git diff --staged --quiet; then
-            git commit -m "chore(release): bump android version to v${{ env.VERSION_NAME }} (build ${{ env.VERSION_CODE }}) [skip ci]"
-            git push origin main
+
+          # A newer release workflow may have advanced main while this build was running.
+          # Never overwrite a newer manifest with an older/stale build manifest.
+          git fetch origin main --quiet
+
+          REMOTE_MANIFEST="$(git show origin/main:public/android-version-manifest.json 2>/dev/null || true)"
+          LOCAL_MANIFEST="$(cat public/android-version-manifest.json)"
+
+          REMOTE_CODE="$(printf '%s' "$REMOTE_MANIFEST" | node -e '
+            let s="";
+            process.stdin.on("data", d => s += d);
+            process.stdin.on("end", () => {
+              try { const m = JSON.parse(s); process.stdout.write(String(Number.isFinite(m.versionCode) ? m.versionCode : 0)); }
+              catch (_) { process.stdout.write("0"); }
+            });
+          ')"
+
+          LOCAL_CODE="$(printf '%s' "$LOCAL_MANIFEST" | node -e '
+            let s="";
+            process.stdin.on("data", d => s += d);
+            process.stdin.on("end", () => {
+              try { const m = JSON.parse(s); process.stdout.write(String(Number.isFinite(m.versionCode) ? m.versionCode : 0)); }
+              catch (_) { process.stdout.write("0"); }
+            });
+          ')"
+
+          echo "Remote manifest versionCode: $REMOTE_CODE"
+          echo "This build manifest versionCode: $LOCAL_CODE"
+
+          if [ "$REMOTE_CODE" -gt "$LOCAL_CODE" ]; then
+            echo "A newer release is already published on main. Skipping manifest push to avoid overwriting it."
+            exit 0
           fi
+
+          git add public/android-version-manifest.json
+          if git diff --staged --quiet; then
+            echo "No manifest changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore(release): bump android version to v${{ env.VERSION_NAME }} (build ${{ env.VERSION_CODE }}) [skip ci]"
+
+          # Re-check main immediately before pushing. If another release advanced
+          # the manifest, leave that newer release untouched and finish successfully.
+          git fetch origin main --quiet
+          FINAL_REMOTE_CODE="$(git show origin/main:public/android-version-manifest.json 2>/dev/null | node -e '
+            let s="";
+            process.stdin.on("data", d => s += d);
+            process.stdin.on("end", () => {
+              try { const m = JSON.parse(s); process.stdout.write(String(Number.isFinite(m.versionCode) ? m.versionCode : 0)); }
+              catch (_) { process.stdout.write("0"); }
+            });
+          ')"
+
+          if [ "$FINAL_REMOTE_CODE" -gt "$LOCAL_CODE" ]; then
+            echo "A newer release appeared during final synchronization. Skipping this stale manifest push."
+            exit 0
+          fi
+
+          # Main may have received unrelated commits. Rebase safely before pushing.
+          git rebase origin/main || {
+            echo "::error::Could not safely rebase release manifest onto current main."
+            git rebase --abort || true
+            exit 1
+          }
+
+          git push origin HEAD:main
