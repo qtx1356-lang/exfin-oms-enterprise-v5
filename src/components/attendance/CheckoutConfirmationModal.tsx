@@ -144,6 +144,28 @@ export const CheckoutConfirmationModal: React.FC = () => {
   const evaluateAndOpenRecord = useCallback((record: AttendanceRecord, isPast: boolean): boolean => {
     if (!record || !record.date) return false;
 
+    // A checkout that was already saved/finalized is terminal. Keep the historical
+    // EXIT event for audit, but never reopen the confirmation popup after app restart.
+    const savedCheckoutTime = (record.checkOutTime || '').trim();
+    const recordIsFinalized =
+      record.checkoutFinalized === true ||
+      record.checkoutConfirmed === true ||
+      record.checkoutStatus === 'FINALIZED' ||
+      record.checkoutStatus === 'COMPLETED' ||
+      record.currentState === 'FINALIZED_CHECKOUT' ||
+      record.currentState === 'CHECKED_OUT';
+    if (
+      recordIsFinalized &&
+      savedCheckoutTime &&
+      savedCheckoutTime !== '--:--' &&
+      savedCheckoutTime !== 'UNRESOLVED' &&
+      savedCheckoutTime !== 'Pending' &&
+      savedCheckoutTime !== 'N/A'
+    ) {
+      setActiveRecord((curr) => (curr && (curr.id === record.id || curr.date === record.date) ? null : curr));
+      return false;
+    }
+
     // Check if dismissed in this app session
     const recKey = record.id || `${record.employeeId}_${record.date}`;
     if (dismissedRecordIds.has(recKey)) {
