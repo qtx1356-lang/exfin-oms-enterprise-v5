@@ -415,7 +415,18 @@ public class OfficeGeofenceHelper {
                 return;
             }
 
-            // Start temporary high-accuracy monitoring
+            // A geofence transition is an Android-approved exemption for starting a
+            // foreground service. Keep native location acquisition alive even when
+            // the Capacitor/WebView process is minimized or killed.
+            try {
+                OfficeLocationService.start(context);
+                Log.i(TAG, "[AUTO_CHECKIN_BACKGROUND] Started OfficeLocationService from 300m geofence ENTER.");
+            } catch (Exception e) {
+                Log.w(TAG, "[AUTO_CHECKIN_BACKGROUND] Could not start OfficeLocationService: " + e.getMessage());
+            }
+
+            // Retain the existing short-lived high-accuracy assist path as a second
+            // verification mechanism. Neither path fabricates a check-in.
             startTemporaryAssistMonitoring(context);
             safeFinishPendingResult(pendingResult, finishedFlag);
 
