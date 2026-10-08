@@ -343,6 +343,22 @@ public class GeofencePlugin extends Plugin {
             ret.put("attendanceMode", session.optString("attendanceMode", "OFFICE"));
 
             String sessionState = session.optString("sessionState", "ACTIVE");
+            String currentState = session.optString("currentState", sessionState);
+            if ("FINALIZED".equalsIgnoreCase(sessionState) ||
+                "FINALIZED_CHECKOUT".equalsIgnoreCase(sessionState) ||
+                "CHECKED_OUT".equalsIgnoreCase(sessionState) ||
+                "FINALIZED".equalsIgnoreCase(currentState) ||
+                "FINALIZED_CHECKOUT".equalsIgnoreCase(currentState) ||
+                "CHECKED_OUT".equalsIgnoreCase(currentState)) {
+                ret.put("hasActiveSession", false);
+                ret.put("isGeofenceRegistered", OfficeGeofenceHelper.isGeofenceRegistered(context));
+                ret.put("isLocationServiceRunning", OfficeLocationService.isRunning());
+                ret.put("sessionState", sessionState);
+                ret.put("currentState", currentState);
+                ret.put("checkoutStatus", session.optString("checkoutStatus", "FINALIZED"));
+                call.resolve(ret);
+                return;
+            }
             String lastKnown = prefs.getString(OfficeGeofenceHelper.KEY_LAST_KNOWN_STATE, "INSIDE");
             boolean isInside = "INSIDE".equalsIgnoreCase(lastKnown) || "ACTIVE".equalsIgnoreCase(sessionState);
 
