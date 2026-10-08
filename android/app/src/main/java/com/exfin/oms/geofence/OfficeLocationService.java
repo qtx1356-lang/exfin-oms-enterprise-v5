@@ -200,9 +200,10 @@ public class OfficeLocationService extends Service {
             return;
         }
 
-        LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 30000)
-                .setMinUpdateIntervalMillis(15000)
-                .setWaitForAccurateLocation(false)
+        LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 8000)
+                .setMinUpdateIntervalMillis(4000)
+                .setMaxUpdateDelayMillis(10000)
+                .setWaitForAccurateLocation(true)
                 .build();
 
         locationCallback = new LocationCallback() {
@@ -219,7 +220,7 @@ public class OfficeLocationService extends Service {
 
         try {
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
-            Log.i(TAG, "Fused location updates requested every 30s.");
+            Log.i(TAG, "Fused high-accuracy location updates requested every 8s.");
         } catch (SecurityException se) {
             Log.e(TAG, "SecurityException requesting location updates: " + se.getMessage(), se);
             stopSelf();
