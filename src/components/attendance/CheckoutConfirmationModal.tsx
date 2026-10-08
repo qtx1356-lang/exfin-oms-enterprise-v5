@@ -561,10 +561,16 @@ export const CheckoutConfirmationModal: React.FC = () => {
 
       saveAttendanceRecord(activeRecord);
 
-      // Clean up native session if same day
+      // Clean up native session if same day. Await this before any follow-up
+      // reconciliation so a stale native pending-exit cannot immediately reopen
+      // the checkout confirmation after the employee has already confirmed it.
       const todayStr = getFormattedDateStr();
       if (activeRecord.date === todayStr) {
-        clearNativeActiveSession().catch(() => {});
+        try {
+          await clearNativeActiveSession();
+        } catch {
+          // Local checkout is already finalized; native cleanup is best-effort.
+        }
       }
 
       if (typeof navigator !== 'undefined' && navigator.onLine) {
