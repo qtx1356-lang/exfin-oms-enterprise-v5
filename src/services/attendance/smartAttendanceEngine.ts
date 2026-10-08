@@ -294,7 +294,7 @@ export const trackSmartOfficeExit = (
   // Native Android attendance is authoritative. A foreground/app-resume GPS read must
   // never invent an exit time from the moment the employee opened the app.
   // NativeGeofenceBridge/OfficeLocationService persists the real boundary timestamp.
-  if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()) {
+  if (Capacitor.isNativePlatform()) {
     return record;
   }
 
