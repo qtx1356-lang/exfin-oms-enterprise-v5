@@ -325,22 +325,38 @@ export const CheckoutConfirmationModal: React.FC = () => {
     try {
       const nativeState = await getNativeAttendanceState();
       if (nativeState?.hasActiveSession && nativeState.date === todayStr) {
+        const hasNativeExit =
+          !!(
+            nativeState.recordedExitTime &&
+            nativeState.recordedExitTime !== 'null' &&
+            nativeState.recordedExitTime.trim() !== ''
+          );
+
+        const isPendingNativeExit =
+          (
+            nativeState.pendingCheckoutConfirmation ||
+            nativeState.sessionState === 'PENDING_EXIT_CONFIRMATION' ||
+            nativeState.currentState === 'PENDING_AUTO_CHECKOUT'
+          ) && hasNativeExit;
+
         // If employee is already checked in and inside, native IPC must never revert state to pending exit
         const primaryEmp = candidateIds[0] || nativeState.employeeId || '';
         const curLocalToday = primaryEmp ? getTodayAttendanceRecord(primaryEmp, todayStr) : null;
-        if (curLocalToday && curLocalToday.currentState === 'CHECKED_IN') {
+        if (
+          curLocalToday &&
+          curLocalToday.currentState === 'CHECKED_IN' &&
+          !isPendingNativeExit
+        ) {
           return;
         }
 
-        const isNativeInside = nativeState.sessionState === 'ACTIVE' || nativeState.currentState === 'CHECKED_IN';
-        if (isNativeInside) {
+        const isNativeInside =
+          nativeState.sessionState === 'ACTIVE' ||
+          nativeState.currentState === 'CHECKED_IN';
+
+        if (isNativeInside && !isPendingNativeExit) {
           return;
         }
-
-        const hasNativeExit = !!(nativeState.recordedExitTime && nativeState.recordedExitTime !== 'null' && nativeState.recordedExitTime.trim() !== '');
-        const isPendingNativeExit = (nativeState.pendingCheckoutConfirmation ||
-          nativeState.sessionState === 'PENDING_EXIT_CONFIRMATION' ||
-          nativeState.currentState === 'PENDING_AUTO_CHECKOUT') && hasNativeExit;
 
         // Date scoping safeguard for native exit timestamp
         if (nativeState.exitDetectedAt && nativeState.exitDetectedAt.includes('-')) {
@@ -385,18 +401,26 @@ export const CheckoutConfirmationModal: React.FC = () => {
                 geofenceExitTime: nativeState.recordedExitTime || null,
                 pendingCheckoutEventId: nativeState.pendingCheckoutEventId || `evt_native_${empCode}_${todayStr}_${nativeState.recordedExitTime || 'exit'}`
               };
-            } else if (rec.currentState !== 'CHECKED_IN') {
+            } else {
               rec.pendingCheckoutConfirmation = true;
               rec.currentState = 'PENDING_AUTO_CHECKOUT';
-              if (nativeState.recordedExitTime && !rec.recordedExitTime) {
+              rec.checkoutStatus = 'PENDING_AUTO_CHECKOUT';
+              if (nativeState.recordedExitTime) {
                 rec.recordedExitTime = nativeState.recordedExitTime;
                 rec.geofenceExitTime = rec.geofenceExitTime || nativeState.recordedExitTime;
               }
+              if (nativeState.exitDetectedAt) {
+                rec.exitDetectedAt = nativeState.exitDetectedAt;
+              }
+              if (nativeState.exitSource) {
+                rec.exitDetectionSource = nativeState.exitSource;
+              }
+              if (nativeState.pendingCheckoutEventId) {
+                rec.pendingCheckoutEventId = nativeState.pendingCheckoutEventId;
+              }
             }
-            if (rec.currentState !== 'CHECKED_IN') {
-              saveAttendanceRecord(rec);
-              evaluateAndOpenRecord(rec, false);
-            }
+            saveAttendanceRecord(rec);
+            evaluateAndOpenRecord(rec, false);
           }
         }
       }

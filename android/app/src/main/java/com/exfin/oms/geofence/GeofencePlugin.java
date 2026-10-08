@@ -370,10 +370,9 @@ public class GeofencePlugin extends Plugin {
             }
 
             // A valid native exit candidate for today requires:
-            // 1. Employee is NOT inside
-            // 2. An exit was actually recorded in today's active session
-            // 3. pendingCheckoutConfirmation flag is set in the session
-            boolean pendingConf = !isInside && recExit != null && session.optBoolean("pendingCheckoutConfirmation", false);
+            // 1. An exit was actually recorded in today's active session
+            // 2. pendingCheckoutConfirmation flag is set in the session
+            boolean pendingConf = recExit != null && session.optBoolean("pendingCheckoutConfirmation", false);
 
             if (pendingConf) {
                 ret.put("recordedExitTime", recExit);

@@ -328,29 +328,37 @@ export const reconcileNativeGeofenceEvents = async (
           const isTodayCheckedIn = todayRec?.currentState === 'CHECKED_IN';
           const isNativeInside = activeState.sessionState === 'ACTIVE' || activeState.currentState === 'CHECKED_IN';
 
-          if (isTodayCheckedIn || isNativeInside) {
-            // Employee is inside! Ensure pendingCheckoutConfirmation is false
-            if (todayRec && todayRec.pendingCheckoutConfirmation) {
-              todayRec.pendingCheckoutConfirmation = false;
-              todayRec.currentState = 'CHECKED_IN';
-              saveAttendanceRecord(todayRec);
-            }
-          } else if (hasNativeExit && isPendingExit && !isTodayCheckedIn) {
-            // Ensure native exit belongs to todayDateStr
+          if (hasNativeExit && isPendingExit) {
+            // Rehydrate the persisted native exit into today's local attendance record.
+            // Preserve activeState.recordedExitTime exactly.
+            // Preserve activeState.exitDetectedAt exactly.
+            // NEVER use Date.now(), new Date(), app-open time, or current time
+            // as a replacement for the native exit timestamp.
             const exitDate = activeState.exitDetectedAt && activeState.exitDetectedAt.includes('-')
               ? activeState.exitDetectedAt.substring(0, 10)
               : todayDateStr;
 
             if (exitDate === todayDateStr && todayRec && !todayRec.checkOutTime && !todayRec.checkoutFinalized) {
               let changed = false;
-              if (activeState.recordedExitTime && !todayRec.recordedExitTime) {
-                todayRec.recordedExitTime = activeState.recordedExitTime;
-                todayRec.geofenceExitTime = todayRec.geofenceExitTime || activeState.recordedExitTime;
-                todayRec.exitDetectedAt = activeState.exitDetectedAt || todayRec.exitDetectedAt;
-                todayRec.exitDetectionSource = activeState.exitSource || 'NATIVE_GEOFENCE';
+              if (activeState.recordedExitTime) {
+                if (todayRec.recordedExitTime !== activeState.recordedExitTime) {
+                  todayRec.recordedExitTime = activeState.recordedExitTime;
+                  changed = true;
+                }
+                if (!todayRec.geofenceExitTime) {
+                  todayRec.geofenceExitTime = activeState.recordedExitTime;
+                  changed = true;
+                }
+              }
+              if (activeState.exitDetectedAt && todayRec.exitDetectedAt !== activeState.exitDetectedAt) {
+                todayRec.exitDetectedAt = activeState.exitDetectedAt;
                 changed = true;
               }
-              if (!todayRec.pendingCheckoutConfirmation && isPendingExit) {
+              if (!todayRec.exitDetectionSource && activeState.exitSource) {
+                todayRec.exitDetectionSource = activeState.exitSource;
+                changed = true;
+              }
+              if (!todayRec.pendingCheckoutConfirmation || todayRec.currentState !== 'PENDING_AUTO_CHECKOUT') {
                 todayRec.pendingCheckoutConfirmation = true;
                 todayRec.pendingCheckoutEventId = activeState.pendingCheckoutEventId || todayRec.pendingCheckoutEventId || `evt_native_${employeeId}_${todayDateStr}_${activeState.recordedExitTime || 'exit'}`;
                 todayRec.currentState = (activeState.currentState as any) || 'PENDING_AUTO_CHECKOUT';
@@ -364,6 +372,13 @@ export const reconcileNativeGeofenceEvents = async (
                 window.dispatchEvent(new CustomEvent('exfin-checkout-confirmation-needed', { detail: { employeeId, record: todayRec } }));
                 window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
               }
+            }
+          } else if (isTodayCheckedIn || isNativeInside) {
+            // Employee is inside! Ensure pendingCheckoutConfirmation is false
+            if (todayRec && todayRec.pendingCheckoutConfirmation) {
+              todayRec.pendingCheckoutConfirmation = false;
+              todayRec.currentState = 'CHECKED_IN';
+              saveAttendanceRecord(todayRec);
             }
           } else if (!hasNativeExit) {
             if (todayRec && todayRec.pendingCheckoutConfirmation && !todayRec.lastExitTime && !todayRec.geofenceExitTime && !todayRec.recordedExitTime) {
