@@ -1,20 +1,16 @@
 name: Apply native exit recovery fix
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   fix:
-    if: github.event.head_commit.message != 'fix(attendance): preserve native exit timestamp on app reopen'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Apply exact recovery fixes
         shell: python3 {0}
         run: |
@@ -37,7 +33,7 @@ jobs:
             }
           } else if (hasNativeExit && isPendingExit && !isTodayCheckedIn) {'''
           new = '''          if (hasNativeExit && isPendingExit) {
-            // A persisted native exit is authoritative even if the local web record still says CHECKED_IN.
+            // Persisted native exit is authoritative even if local state is stale CHECKED_IN.
             if (todayRec && !todayRec.checkOutTime && !todayRec.checkoutFinalized) {'''
           if old not in s: raise SystemExit('nativeGeofenceBridge.ts target block not found')
           s = s.replace(old, new, 1)
@@ -73,26 +69,16 @@ jobs:
         const isPendingNativeExit = (nativeState.pendingCheckoutConfirmation ||
           nativeState.sessionState === 'PENDING_EXIT_CONFIRMATION' ||
           nativeState.currentState === 'PENDING_AUTO_CHECKOUT') && hasNativeExit;
-        if (curLocalToday && curLocalToday.currentState === 'CHECKED_IN' && !isPendingNativeExit) {
-          return;
-        }
+        if (curLocalToday && curLocalToday.currentState === 'CHECKED_IN' && !isPendingNativeExit) return;
         const isNativeInside = nativeState.sessionState === 'ACTIVE' || nativeState.currentState === 'CHECKED_IN';
-        if (isNativeInside && !isPendingNativeExit) {
-          return;
-        }'''
+        if (isNativeInside && !isPendingNativeExit) return;'''
           if old not in s: raise SystemExit('CheckoutConfirmationModal.tsx target block not found')
           p.write_text(s.replace(old, new, 1))
 
-      - name: Verify changes
+      - name: Commit and remove fixer
         run: |
-          grep -F 'boolean pendingConf = recExit != null' android/app/src/main/java/com/exfin/oms/geofence/GeofencePlugin.java
-          grep -F 'A persisted native exit is authoritative' src/services/attendance/nativeGeofenceBridge.ts
-          grep -F 'const hasNativeExit = !!' src/components/attendance/CheckoutConfirmationModal.tsx
-
-      - name: Commit fixes and remove fixer
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add android/app/src/main/java/com/exfin/oms/geofence/GeofencePlugin.java src/services/attendance/nativeGeofenceBridge.ts src/components/attendance/CheckoutConfirmationModal.tsx
           git commit -m 'fix(attendance): preserve native exit timestamp on app reopen'
           git push origin main
