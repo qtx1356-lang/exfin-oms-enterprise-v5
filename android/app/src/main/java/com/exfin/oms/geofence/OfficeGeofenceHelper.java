@@ -734,7 +734,8 @@ public class OfficeGeofenceHelper {
                                     }
                                 } else if (isExit) {
                                     if (dist > AUTHORITATIVE_RADIUS_METERS && isLocationTrustworthyForAttendance(location)) {
-                                        processExitTransition(context, location, "NATIVE_GEOFENCE_VERIFIED", "FUSED_CURRENT", pendingResult, finishedFlag);
+                                        processExitTransition(context, location, "NATIVE_GEOFENCE_VERIFIED", "FUSED_CURRENT", pendingResult, finishedFlag,
+                                                triggerLocation != null && triggerLocation.getTime() > 0 ? triggerLocation.getTime() : location.getTime());
                                         return;
                                     } else {
                                         Log.i(TAG, "[FUSED_CURRENT] Fresh location did not confirm exit (" + String.format(Locale.US, "%.1f", dist) + "m for transition=" + transitionType + "). Checking triggeringLocation fallback.");
@@ -1426,6 +1427,15 @@ public class OfficeGeofenceHelper {
     }
 
     public static synchronized void processExitTransition(Context context, Location location, String source, String locationProvider, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag) {
+        long locationTimestamp = (location != null && location.getTime() > 0) ? location.getTime() : 0L;
+        processExitTransition(context, location, source, locationProvider, pendingResult, finishedFlag, locationTimestamp);
+    }
+
+    /**
+     * Preserves the original geofence-trigger timestamp while using the fresh location
+     * only to verify the outside boundary and capture coordinates.
+     */
+    public static synchronized void processExitTransition(Context context, Location location, String source, String locationProvider, BroadcastReceiver.PendingResult pendingResult, AtomicBoolean finishedFlag, long authoritativeEventTimestamp) {
         if (context == null || location == null) {
             safeFinishPendingResult(pendingResult, finishedFlag);
             return;
@@ -1434,7 +1444,13 @@ public class OfficeGeofenceHelper {
         double lat = location.getLatitude();
         double lng = location.getLongitude();
         float accuracy = location.getAccuracy();
-        long eventTimestamp = (location.getTime() > 0) ? location.getTime() : System.currentTimeMillis();
+        long eventTimestamp = authoritativeEventTimestamp > 0
+                ? authoritativeEventTimestamp
+                : ((location.getTime() > 0) ? location.getTime() : System.currentTimeMillis());
+        if (authoritativeEventTimestamp > 0 && location.getTime() > 0 && authoritativeEventTimestamp != location.getTime()) {
+            Log.i(TAG, "[NATIVE_ATTENDANCE_TIMESTAMP] Preserving geofence-trigger timestamp=" + authoritativeEventTimestamp
+                    + " instead of fresh verification-location timestamp=" + location.getTime());
+        }
         double distance = calculateDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
 
         String currentState = getAttendanceState(context);
@@ -1566,7 +1582,7 @@ public class OfficeGeofenceHelper {
         editor.apply();
 
         // Update active session with immutable exit time
-        recordExitEvent(context, location, source);
+        recordExitEvent(context, location, source, eventTimestamp);
 
         // Add to unconsumed events queue for JS bridge
         addUnconsumedEvent(context, checkOutEvent);
@@ -2060,7 +2076,7 @@ public class OfficeGeofenceHelper {
         return null;
     }
 
-    public static synchronized void recordExitEvent(Context context, Location location, String source) {
+    public static synchronized void recordExitEvent(Context context, Location location, String source, long authoritativeEventTimestamp) {
         if (context == null) return;
         try {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -2075,9 +2091,9 @@ public class OfficeGeofenceHelper {
                 return;
             }
 
-            long eventTimestamp = (location != null && location.getTime() > 0)
-                    ? location.getTime()
-                    : System.currentTimeMillis();
+            long eventTimestamp = authoritativeEventTimestamp > 0
+                    ? authoritativeEventTimestamp
+                    : ((location != null && location.getTime() > 0) ? location.getTime() : System.currentTimeMillis());
 
             if (eventTimestamp > System.currentTimeMillis() + 30000L) {
                 Log.w(TAG, "[NATIVE_EXIT_RECORDED] Rejected future exit timestamp: " + eventTimestamp);
