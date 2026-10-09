@@ -1,3 +1,4 @@
+# Trigger temporary patch workflow after creation.
 name: Temporary first-return check-in fix
 
 on:
