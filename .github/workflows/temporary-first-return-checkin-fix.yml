@@ -1,0 +1,218 @@
+name: Temporary first-return check-in fix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/temporary-first-return-checkin-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Apply first-return check-in fix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          engine = Path('src/services/attendance/automaticAttendanceEngine.ts')
+          text = engine.read_text()
+          old = '''  processGeofenceReturn(
+    employeeId: string,
+    employeeName: string,
+    coords: { latitude: number; longitude: number },
+    townCity: string,
+    timestamp: Date = new Date()
+  ): AttendanceRecord {
+    if (!employeeId || !isEmployeeApprovedLocally(employeeId)) {
+      if (employeeId && employeeId !== 'ANONYMOUS' && employeeId !== 'SYSTEM') {
+        console.warn(`[AutomaticAttendanceEngine] Ignored geofence return for unapproved/unknown employee: ${employeeId}`);
+      }
+      return null as any;
+    }
+
+    const dateStr = getFormattedDateStr(timestamp);
+    const record = getTodayAttendanceRecord(employeeId, dateStr);
+
+    if (record && record.checkInTime && !record.checkOutTime) {
+      return this.transitionState(
+        employeeId,
+        employeeName,
+        coords,
+        townCity,
+        'GEOFENCE_RETURN',
+        'AUTO_GEOFENCE',
+        timestamp
+      );
+    }
+    return record!;
+  },'''
+          new = '''  processGeofenceReturn(
+    employeeId: string,
+    employeeName: string,
+    coords: { latitude: number; longitude: number },
+    townCity: string,
+    timestamp: Date = new Date()
+  ): AttendanceRecord {
+    if (!employeeId || !isEmployeeApprovedLocally(employeeId)) {
+      if (employeeId && employeeId !== 'ANONYMOUS' && employeeId !== 'SYSTEM') {
+        console.warn(`[AutomaticAttendanceEngine] Ignored geofence return for unapproved/unknown employee: ${employeeId}`);
+      }
+      return null as any;
+    }
+
+    const dateStr = getFormattedDateStr(timestamp);
+    let record = getTodayAttendanceRecord(employeeId, dateStr);
+
+    // BUSINESS RULE: the first ENTER/RETURN event of a day is also the authoritative
+    // check-in. Keep the event as GEOFENCE_RETURN for audit/return tracking, but use
+    // the native event timestamp for check-in. Never substitute app-open time.
+    if (!record || !record.checkInTime || record.checkInTime === '--:--' || record.checkInTime === 'Pending' || record.checkInTime === 'UNRESOLVED' || record.checkInTime === 'N/A') {
+      const distance = getDistanceFromLatLonInM(
+        coords.latitude,
+        coords.longitude,
+        OFFICE_LOCATION.latitude,
+        OFFICE_LOCATION.longitude
+      );
+      if (distance > OFFICE_LOCATION.radius) {
+        console.warn(`[AutomaticAttendanceEngine] Ignored first geofence return: distance ${distance.toFixed(1)}m > ${OFFICE_LOCATION.radius}m authoritative boundary.`);
+        return record!;
+      }
+
+      console.log(`[AUTO_FIRST_RETURN_AS_CHECKIN] First return of ${dateStr} becomes check-in at ${getFormattedTimeStr(timestamp)}; native event timestamp is authoritative.`);
+      record = this.transitionState(
+        employeeId,
+        employeeName,
+        coords,
+        townCity,
+        'CHECK_IN',
+        'AUTO_GEOFENCE',
+        timestamp
+      );
+      return record;
+    }
+
+    if (record.checkInTime && !record.checkOutTime) {
+      return this.transitionState(
+        employeeId,
+        employeeName,
+        coords,
+        townCity,
+        'GEOFENCE_RETURN',
+        'AUTO_GEOFENCE',
+        timestamp
+      );
+    }
+    return record!;
+  },'''
+          if old not in text:
+              raise SystemExit('Expected processGeofenceReturn block was not found; refusing to patch.')
+          engine.write_text(text.replace(old, new, 1))
+
+          java = Path('android/app/src/main/java/com/exfin/oms/geofence/OfficeGeofenceHelper.java')
+          text = java.read_text()
+          marker = '''        Log.i(TAG, "[GEOFENCE EXIT DEBUG] Confirmed re-entry to 25m detected -> re-arming exit detection");'''
+          insertion = '''        // BUSINESS RULE: The first native RETURN/ENTER of the day is also the
+        // authoritative check-in. Preserve the event as RETURN, but persist its exact
+        // native timestamp as check-in so app-open time can never replace it.
+        try {
+            String existingCheckIn = activeSession != null ? activeSession.optString("checkInTime", "") : "";
+            boolean missingCheckIn = existingCheckIn == null || existingCheckIn.trim().isEmpty() ||
+                    "--:--".equals(existingCheckIn) || "Pending".equalsIgnoreCase(existingCheckIn) ||
+                    "UNRESOLVED".equalsIgnoreCase(existingCheckIn) || "N/A".equalsIgnoreCase(existingCheckIn);
+            if (missingCheckIn) {
+                if (activeSession == null) {
+                    activeSession = new JSONObject();
+                    activeSession.put("attendanceId", "att_" + employeeId + "_" + dateStr);
+                    activeSession.put("employeeId", employeeId);
+                    activeSession.put("employeeName", employeeName);
+                    activeSession.put("townCity", townCity != null ? townCity : "Raniganj HQ");
+                    activeSession.put("date", dateStr);
+                    activeSession.put("attendanceMode", "OFFICE");
+                    activeSession.put("officeLatitude", OFFICE_LAT);
+                    activeSession.put("officeLongitude", OFFICE_LNG);
+                    activeSession.put("geofenceRadius", AUTHORITATIVE_RADIUS_METERS);
+                    activeSession.put("verificationStatus", "VERIFIED");
+                }
+                activeSession.put("checkInTime", timeStr);
+                activeSession.put("checkInTimestamp", eventTimestamp);
+                activeSession.put("sessionState", "ACTIVE");
+                activeSession.put("checkoutStatus", "ACTIVE");
+                activeSession.put("currentState", "CHECKED_IN");
+                activeSession.put("lastKnownState", "INSIDE");
+                activeSession.put("pendingCheckoutConfirmation", false);
+                activeSession.put("pendingCheckoutEventId", JSONObject.NULL);
+                activeSession.put("recordedExitTime", JSONObject.NULL);
+                activeSession.put("exitDetectedAt", JSONObject.NULL);
+                activeSession.put("exitSource", "NONE");
+
+                prefs.edit()
+                        .putString(KEY_ACTIVE_SESSION, activeSession.toString())
+                        .putString("employee_id", employeeId)
+                        .putString("employee_name", employeeName)
+                        .putString("town_city", townCity != null ? townCity : "Raniganj HQ")
+                        .putString(KEY_LAST_KNOWN_STATE, "INSIDE")
+                        .putString("currentState", "CHECKED_IN")
+                        .putString("sessionState", "ACTIVE")
+                        .putString("checkoutStatus", "ACTIVE")
+                        .putBoolean("pendingCheckoutConfirmation", false)
+                        .putLong(KEY_LAST_CHECKIN_TIMESTAMP, eventTimestamp)
+                        .putLong(KEY_LAST_TRANSITION_TIMESTAMP, eventTimestamp)
+                        .apply();
+
+                Log.i(TAG, "[AUTO_FIRST_RETURN_AS_CHECKIN] First native return of " + dateStr +
+                        " established check-in at " + timeStr + " using eventTimestamp=" + eventTimestamp);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to persist first native return as check-in: " + e.getMessage(), e);
+        }
+
+'''
+          if text.count(marker) != 1:
+              raise SystemExit('Expected native return marker was not found exactly once; refusing to patch.')
+          java.write_text(text.replace(marker, insertion + marker, 1))
+          PY
+
+      - name: Validate web build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Sync Capacitor and compile Android
+        run: |
+          npx cap sync android
+          cd android
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Commit the validated fix and remove temporary workflow
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/attendance/automaticAttendanceEngine.ts android/app/src/main/java/com/exfin/oms/geofence/OfficeGeofenceHelper.java
+          git rm .github/workflows/temporary-first-return-checkin-fix.yml
+          git commit -m "fix: use first native return timestamp as check-in"
+          git push origin HEAD:main
