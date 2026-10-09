@@ -1,6 +1,7 @@
 // APPLICATION STARTUP MUST NEVER DEPEND ON NETWORK CONNECTIVITY. OFFLINE MUST BOOT THE NORMAL APPLICATION SHELL.
 import React from 'react';
 import './services/startup/startupPerformanceLogger';
+import './services/attendance/firstReturnCheckInPatch';
 import { ErrorBoundary } from './app/ErrorBoundary';
 import { AppRouter } from './app/Router';
 import { AdminAuthProvider } from './context/AdminAuthContext';
