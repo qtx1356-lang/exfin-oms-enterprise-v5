@@ -7,6 +7,7 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.location.Location;
@@ -37,6 +38,12 @@ public class OfficeLocationService extends Service {
     public static final String TAG = "OfficeLocationService";
     public static final String CHANNEL_ID = "exfin_oms_location_channel";
     public static final int NOTIFICATION_ID = 2502;
+
+    // Persistent exit candidate state. The first trustworthy outside reading is the
+    // authoritative candidate; later readings only confirm the transition.
+    private static final String KEY_PENDING_EXIT_CANDIDATE_TIMESTAMP = "pending_exit_candidate_timestamp";
+    private static final String KEY_PENDING_EXIT_CANDIDATE_SESSION_ID = "pending_exit_candidate_session_id";
+    private static final String KEY_PENDING_EXIT_CANDIDATE_DATE = "pending_exit_candidate_date";
 
     private static boolean isServiceRunning = false;
     private FusedLocationProviderClient fusedLocationClient;
@@ -128,6 +135,7 @@ public class OfficeLocationService extends Service {
                                 || OfficeGeofenceHelper.STATE_EXIT_PROMPT_RESOLVED_OUTSIDE.equalsIgnoreCase(state)
                                 || "RETURNING_TO_OFFICE".equalsIgnoreCase(state)) {
                             if (distance <= OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS) {
+                                clearPendingExitCandidate(context);
                                 Log.i(TAG, "[LOCATION_RECOVERY] Current location is back inside 25m. Verifying return.");
                                 OfficeGeofenceHelper.processReturnTransition(context, loc, "NATIVE_LOCATION_RECOVERY_RETURN", null, null);
                             }
@@ -239,10 +247,9 @@ public class OfficeLocationService extends Service {
         long time = location.getTime() > 0 ? location.getTime() : System.currentTimeMillis();
         double distance = OfficeGeofenceHelper.calculateDistance(lat, lng, OfficeGeofenceHelper.OFFICE_LAT, OfficeGeofenceHelper.OFFICE_LNG);
 
-        // Update native diagnostic state
         OfficeGeofenceHelper.saveLastLocationDiagnostic(this, lat, lng, accuracy, time, distance);
 
-        // Validate accuracy to reject wild GPS jumps
+        // Validate accuracy to reject wild GPS jumps.
         if (accuracy > OfficeGeofenceHelper.MAX_USABLE_ACCURACY_METERS) {
             Log.d(TAG, "Ignoring location update due to poor accuracy: " + accuracy + "m > " + OfficeGeofenceHelper.MAX_USABLE_ACCURACY_METERS + "m");
             return;
@@ -250,9 +257,6 @@ public class OfficeLocationService extends Service {
 
         JSONObject activeSession = OfficeGeofenceHelper.getActiveSession(this);
         if (activeSession == null) {
-            // Before automatic check-in there is intentionally no active session.
-            // The 300m geofence wakes this foreground service so it can continue
-            // obtaining fresh GPS while the app UI is closed.
             if (distance <= OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS &&
                     OfficeGeofenceHelper.isLocationTrustworthyForCheckIn(location)) {
                 Log.i(TAG, "[AUTO_CHECKIN_BACKGROUND] Fresh location is inside 25m; creating automatic check-in.");
@@ -275,24 +279,46 @@ public class OfficeLocationService extends Service {
 
         if ("ACTIVE".equalsIgnoreCase(sessionState)) {
             if (distance > OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS) {
+                // IMPORTANT: latch the FIRST trustworthy outside reading. The second
+                // reading only confirms the exit and must never replace its timestamp.
+                long candidateTimestamp = getPendingExitCandidateTimestamp(activeSession, time);
+                if (candidateTimestamp <= 0) {
+                    candidateTimestamp = time;
+                }
+                latchPendingExitCandidate(this, activeSession, candidateTimestamp);
+
                 consecutiveOutsideCount++;
                 consecutiveInsideCount = 0;
-                Log.i(TAG, "Outside 25m boundary: " + Math.round(distance) + "m (count: " + consecutiveOutsideCount + "/2)");
+                Log.i(TAG, "Outside 25m boundary: " + Math.round(distance) + "m (count: " + consecutiveOutsideCount + "/2), firstOutsideTimestamp=" + candidateTimestamp);
 
                 if (consecutiveOutsideCount >= 2 || distance > 35.0) {
                     consecutiveOutsideCount = 0;
+                    long authoritativeExitTimestamp = getPendingExitCandidateTimestamp(activeSession, candidateTimestamp);
+                    if (authoritativeExitTimestamp <= 0) authoritativeExitTimestamp = candidateTimestamp;
                     Log.i(TAG, "[NATIVE ATTENDANCE] === Authoritative 25m exit detected (dist=" + Math.round(distance) + "m > 25m) ===");
-                    OfficeGeofenceHelper.processExitTransition(this, location, "NATIVE_FUSED_LOCATION", null, null);
+                    Log.i(TAG, "[NATIVE ATTENDANCE] Preserving FIRST outside reading timestamp=" + authoritativeExitTimestamp + "; confirmation reading timestamp=" + time);
+                    OfficeGeofenceHelper.processExitTransition(
+                            this,
+                            location,
+                            "NATIVE_FUSED_LOCATION",
+                            "FUSED_CURRENT",
+                            null,
+                            null,
+                            authoritativeExitTimestamp
+                    );
+                    clearPendingExitCandidate(this);
                 }
             } else {
+                // Outside candidate was not confirmed; employee returned inside.
                 consecutiveOutsideCount = 0;
                 consecutiveInsideCount++;
+                clearPendingExitCandidate(this);
             }
         } else if ("PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(sessionState)) {
-            // Check return hysteresis: if employee returns within 25.0m of office
             if (distance <= OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS) {
                 consecutiveInsideCount++;
                 consecutiveOutsideCount = 0;
+                clearPendingExitCandidate(this);
                 Log.i(TAG, "Returned inside 25m office boundary: " + Math.round(distance) + "m (count: " + consecutiveInsideCount + "/2)");
 
                 if (consecutiveInsideCount >= 2 || distance <= 20.0) {
@@ -304,9 +330,56 @@ public class OfficeLocationService extends Service {
                 consecutiveInsideCount = 0;
             }
         } else if ("CHECKED_OUT".equalsIgnoreCase(sessionState) || "FINALIZED".equalsIgnoreCase(sessionState)) {
+            clearPendingExitCandidate(this);
             Log.i(TAG, "Session is finalized. Stopping OfficeLocationService.");
             stopSelf();
         }
+    }
+
+    private long getPendingExitCandidateTimestamp(JSONObject activeSession, long fallbackTimestamp) {
+        SharedPreferences prefs = getSharedPreferences(OfficeGeofenceHelper.PREFS_NAME, Context.MODE_PRIVATE);
+        long candidate = prefs.getLong(KEY_PENDING_EXIT_CANDIDATE_TIMESTAMP, 0L);
+        String candidateSessionId = prefs.getString(KEY_PENDING_EXIT_CANDIDATE_SESSION_ID, "");
+        String candidateDate = prefs.getString(KEY_PENDING_EXIT_CANDIDATE_DATE, "");
+        String sessionId = activeSession != null ? activeSession.optString("attendanceId", "") : "";
+        String sessionDate = activeSession != null ? activeSession.optString("date", "") : "";
+
+        if (candidate > 0 && (candidateSessionId.isEmpty() || candidateSessionId.equals(sessionId)) &&
+                (candidateDate.isEmpty() || candidateDate.equals(sessionDate))) {
+            return candidate;
+        }
+        return fallbackTimestamp;
+    }
+
+    private void latchPendingExitCandidate(Context context, JSONObject activeSession, long timestamp) {
+        if (context == null || timestamp <= 0) return;
+        SharedPreferences prefs = context.getSharedPreferences(OfficeGeofenceHelper.PREFS_NAME, Context.MODE_PRIVATE);
+        String sessionId = activeSession != null ? activeSession.optString("attendanceId", "") : "";
+        String sessionDate = activeSession != null ? activeSession.optString("date", "") : "";
+        long existing = prefs.getLong(KEY_PENDING_EXIT_CANDIDATE_TIMESTAMP, 0L);
+
+        // Never move the candidate forward while the same attendance session is active.
+        String existingSessionId = prefs.getString(KEY_PENDING_EXIT_CANDIDATE_SESSION_ID, "");
+        if (existing > 0 && (existingSessionId.isEmpty() || existingSessionId.equals(sessionId))) {
+            return;
+        }
+
+        prefs.edit()
+                .putLong(KEY_PENDING_EXIT_CANDIDATE_TIMESTAMP, timestamp)
+                .putString(KEY_PENDING_EXIT_CANDIDATE_SESSION_ID, sessionId)
+                .putString(KEY_PENDING_EXIT_CANDIDATE_DATE, sessionDate)
+                .apply();
+        Log.i(TAG, "[NATIVE ATTENDANCE] Latched first trustworthy outside timestamp=" + timestamp + " for session=" + sessionId);
+    }
+
+    private static void clearPendingExitCandidate(Context context) {
+        if (context == null) return;
+        SharedPreferences prefs = context.getSharedPreferences(OfficeGeofenceHelper.PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit()
+                .remove(KEY_PENDING_EXIT_CANDIDATE_TIMESTAMP)
+                .remove(KEY_PENDING_EXIT_CANDIDATE_SESSION_ID)
+                .remove(KEY_PENDING_EXIT_CANDIDATE_DATE)
+                .apply();
     }
 
     @Override
