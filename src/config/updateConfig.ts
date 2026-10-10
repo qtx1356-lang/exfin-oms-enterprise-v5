@@ -3,6 +3,7 @@
  * The manifest URL is configurable and can be overridden via VITE_ANDROID_UPDATE_MANIFEST_URL.
  * By default, it checks the raw repository manifest for qtx1356-lang/exfin-oms-enterprise-v5,
  * or falls back to the hosted /android-version-manifest.json endpoint.
+ * Foreground attendance location responsiveness is maintained by LocationContext.tsx.
  */
 export const ANDROID_UPDATE_MANIFEST_URL: string =
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ANDROID_UPDATE_MANIFEST_URL) ||
