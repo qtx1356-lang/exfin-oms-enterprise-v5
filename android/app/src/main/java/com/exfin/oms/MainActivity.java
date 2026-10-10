@@ -57,7 +57,7 @@ public class MainActivity extends BridgeActivity {
         // using the app-open timestamp.
         restoreNativePendingExitState("onCreate");
 
-        OfficeGeofenceHelper.registerOfficeGeofence(this);
+        refreshNativeGeofenceRegistration("onCreate");
         ensureNativeAttendanceMonitoring("onCreate");
         checkAndRestoreActiveLocationService();
     }
@@ -71,9 +71,27 @@ public class MainActivity extends BridgeActivity {
         // the first EXIT remains authoritative until a genuine <=25m RETURN.
         restoreNativePendingExitState("onResume");
 
-        OfficeGeofenceHelper.registerOfficeGeofence(this);
+        refreshNativeGeofenceRegistration("onResume");
         ensureNativeAttendanceMonitoring("onResume");
         checkAndRestoreActiveLocationService();
+    }
+
+    /**
+     * Samsung/Android can retain our local "registered" flag even if Google Play
+     * Services has dropped the actual geofence. Force the native registration path
+     * to reconcile the durable registration with Play Services whenever the Activity
+     * starts/resumes. The same request IDs are used, so the native registration is
+     * refreshed rather than creating a second attendance boundary.
+     */
+    private void refreshNativeGeofenceRegistration(String reason) {
+        try {
+            SharedPreferences prefs = getSharedPreferences(OfficeGeofenceHelper.PREFS_NAME, Context.MODE_PRIVATE);
+            prefs.edit().putBoolean(OfficeGeofenceHelper.KEY_IS_REGISTERED, false).apply();
+            OfficeGeofenceHelper.registerOfficeGeofence(this);
+            Log.i("MainActivity", "[AUTO_ATTENDANCE_GEOFENCE] Forced geofence registration refresh (reason=" + reason + ").");
+        } catch (Exception e) {
+            Log.w("MainActivity", "[AUTO_ATTENDANCE_GEOFENCE] Registration refresh failed: " + e.getMessage());
+        }
     }
 
     /**
@@ -185,6 +203,23 @@ public class MainActivity extends BridgeActivity {
         } catch (Exception e) {
             Log.e("MainActivity", "[AUTO_ATTENDANCE_BACKGROUND] Failed to start native monitor: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * When the user swipes EXFIN OMS away from Recents, explicitly reassert the native
+     * foreground monitoring service. START_STICKY remains enabled in the service itself;
+     * this hook adds a second lifecycle safeguard so task removal does not become a
+     * hidden attendance-monitoring stop point on Samsung/Android builds.
+     */
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        try {
+            Log.i("MainActivity", "[AUTO_ATTENDANCE_BACKGROUND] Activity task removed; reasserting native location service.");
+            OfficeLocationService.start(getApplicationContext());
+        } catch (Exception e) {
+            Log.w("MainActivity", "[AUTO_ATTENDANCE_BACKGROUND] Could not reassert service after task removal: " + e.getMessage());
+        }
+        super.onTaskRemoved(rootIntent);
     }
 
     private void checkAndRestoreActiveLocationService() {
