@@ -187,7 +187,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const isStale = React.useMemo(() => {
     if (!isFreshFixReceived || !locationTimestamp) return false;
     const ageMs = Date.now() - locationTimestamp;
-    return ageMs > 45000;
+    return ageMs > 15000;
   }, [isFreshFixReceived, locationTimestamp]);
 
   const formattedDistance = React.useMemo(() => {
@@ -887,8 +887,8 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
 
       // Stage A/B vs Far detection
       const isApproachingOrNear = currentDist !== null && currentDist <= 500;
-      const maxAllowedAgeMs = isApproachingOrNear ? 3000 : 20000;
-      const nextDelayMs = isApproachingOrNear ? 3000 : 20000;
+      const maxAllowedAgeMs = isApproachingOrNear ? 3000 : 5000;
+      const nextDelayMs = isApproachingOrNear ? 3000 : 5000;
 
       if (lastFixTime > 0 && lastFixAge > maxAllowedAgeMs) {
         console.warn(`[Location Engine - Stage ${isApproachingOrNear ? 'A/B (Fast)' : 'Normal'}] Fix is ${(lastFixAge / 1000).toFixed(1)}s old. Requesting fresh position...`);
@@ -911,7 +911,7 @@ SYNC IN PROGRESS: ${snap.isSyncEngineLocked ? 'YES' : 'NO'}`);
       }
     };
 
-    const initialDelay = (latestDistanceRef.current !== null && latestDistanceRef.current <= 500) ? 3000 : 20000;
+    const initialDelay = (latestDistanceRef.current !== null && latestDistanceRef.current <= 500) ? 3000 : 5000;
     adaptiveTimerRef.current = setTimeout(checkLocationHealth, initialDelay);
 
     return () => {
