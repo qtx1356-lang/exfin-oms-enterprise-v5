@@ -2,6 +2,7 @@ package com.exfin.oms;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.os.Build;
@@ -48,13 +49,14 @@ public class MainActivity extends BridgeActivity {
             Log.w("MainActivity", "FirebaseApp initialization safe check caught: " + t.getMessage());
         }
 
-        // Create high-importance Android notification channel with sound & vibration
         createDefaultNotificationChannels();
 
-        // Ensure the native geofence and the continuous foreground location monitor are
-        // both initialized while the app is still in the foreground. The foreground
-        // service is deliberately kept independent from the WebView lifecycle so
-        // attendance continues when the app is minimized or its task is swiped away.
+        // Native attendance owns physical entry/exit state. Before starting the
+        // foreground monitor, restore any native EXIT already detected while the
+        // Activity was closed so reopening the UI cannot manufacture a new exit
+        // using the app-open timestamp.
+        restoreNativePendingExitState("onCreate");
+
         OfficeGeofenceHelper.registerOfficeGeofence(this);
         ensureNativeAttendanceMonitoring("onCreate");
         checkAndRestoreActiveLocationService();
@@ -63,17 +65,103 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
-        // Re-verify registration and native monitoring after returning to the UI.
+
+        // Restore the native exit state BEFORE restarting location monitoring.
+        // This is critical when the WebView/app was closed after a real EXIT:
+        // the first EXIT remains authoritative until a genuine <=25m RETURN.
+        restoreNativePendingExitState("onResume");
+
         OfficeGeofenceHelper.registerOfficeGeofence(this);
         ensureNativeAttendanceMonitoring("onResume");
         checkAndRestoreActiveLocationService();
     }
 
     /**
+     * Reconciles native durable EXIT state before the Activity/WebView resumes.
+     *
+     * Rule: one EXIT per continuous outside session. If native state already has
+     * a today's EXIT and the employee is still OUTSIDE, restore PENDING_EXIT_CONFIRMATION
+     * instead of allowing app-open/current-location recovery to create another EXIT.
+     * Stay Active is respected through KEY_EXIT_PROMPT_RESOLVED_OUTSIDE and therefore
+     * does not get converted back into a new pending prompt.
+     */
+    private void restoreNativePendingExitState(String reason) {
+        try {
+            SharedPreferences prefs = getSharedPreferences(OfficeGeofenceHelper.PREFS_NAME, Context.MODE_PRIVATE);
+            JSONObject session = OfficeGeofenceHelper.getActiveSession(this);
+            if (session == null) return;
+
+            String sessionDate = session.optString("date", "");
+            String todayDate = new SimpleDateFormat("yyyy-MM-dd", Locale.US) {
+                {
+                    setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
+                }
+            }.format(new Date());
+
+            if (!todayDate.equals(sessionDate)) return;
+
+            String sessionState = session.optString("sessionState", "ACTIVE");
+            if ("PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(sessionState)
+                    || "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(sessionState)
+                    || OfficeGeofenceHelper.STATE_EXIT_PROMPT_RESOLVED_OUTSIDE.equalsIgnoreCase(sessionState)
+                    || session.optBoolean("exitPromptResolvedOutside", false)
+                    || prefs.getBoolean(OfficeGeofenceHelper.KEY_EXIT_PROMPT_RESOLVED_OUTSIDE, false)) {
+                return;
+            }
+
+            String lastKnownState = prefs.getString(OfficeGeofenceHelper.KEY_LAST_KNOWN_STATE, "UNKNOWN");
+            if (!"OUTSIDE".equalsIgnoreCase(lastKnownState)) return;
+
+            String exitTime = prefs.getString(OfficeGeofenceHelper.KEY_LAST_EXIT_TIME, "");
+            String exitDate = prefs.getString(OfficeGeofenceHelper.KEY_LAST_EXIT_DATE, "");
+            String exitSessionId = prefs.getString(OfficeGeofenceHelper.KEY_LAST_EXIT_SESSION_ID, "");
+            String attendanceId = session.optString("attendanceId", "");
+
+            if (exitTime == null || exitTime.trim().isEmpty() || !todayDate.equals(exitDate)) return;
+            if (!exitSessionId.isEmpty() && !attendanceId.isEmpty() && !exitSessionId.equals(attendanceId)) return;
+
+            long exitTimestamp = prefs.getLong(OfficeGeofenceHelper.KEY_LAST_CHECKOUT_TIMESTAMP, 0L);
+            String existingExitDetectedAt = session.optString("exitDetectedAt", "");
+            if ((existingExitDetectedAt == null || existingExitDetectedAt.trim().isEmpty()) && exitTimestamp > 0) {
+                SimpleDateFormat iso = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+                iso.setTimeZone(TimeZone.getTimeZone("UTC"));
+                existingExitDetectedAt = iso.format(new Date(exitTimestamp));
+            }
+
+            String pendingEventId = session.optString("pendingCheckoutEventId", "");
+            if (pendingEventId == null || pendingEventId.trim().isEmpty()) {
+                pendingEventId = "evt_native_EXIT_RESTORED_" + attendanceId + "_" + exitTimestamp;
+            }
+
+            session.put("recordedExitTime", exitTime);
+            session.put("exitDetectedAt", existingExitDetectedAt);
+            session.put("exitSource", session.optString("exitSource", "NATIVE_BACKGROUND"));
+            session.put("pendingCheckoutConfirmation", true);
+            session.put("pendingCheckoutEventId", pendingEventId);
+            session.put("currentState", "PENDING_AUTO_CHECKOUT");
+            session.put("checkoutStatus", "PENDING_AUTO_CHECKOUT");
+            session.put("sessionState", "PENDING_EXIT_CONFIRMATION");
+            session.put("exitPromptResolvedOutside", false);
+
+            prefs.edit()
+                    .putString(OfficeGeofenceHelper.KEY_ACTIVE_SESSION, session.toString())
+                    .putString("currentState", "PENDING_AUTO_CHECKOUT")
+                    .putString("checkoutStatus", "PENDING_AUTO_CHECKOUT")
+                    .putBoolean("pendingCheckoutConfirmation", true)
+                    .putString("pendingCheckoutEventId", pendingEventId)
+                    .apply();
+
+            Log.i("MainActivity", "[AUTO_ATTENDANCE_RESTORE] Restored native EXIT=" + exitTime
+                    + " before app resume; app-open timestamp will NOT create a new EXIT (reason=" + reason + ").");
+        } catch (Exception e) {
+            Log.w("MainActivity", "[AUTO_ATTENDANCE_RESTORE] Failed to restore native exit state: " + e.getMessage());
+        }
+    }
+
+    /**
      * Starts the native foreground location service independently of the WebView/session UI.
-     * This is the key background-attendance guarantee: once initialized while the app is
-     * in the foreground, the native service owns the 8-second fused-location loop and can
-     * continue detecting entry/exit while the Activity is minimized or the task is closed.
+     * Once initialized while the app is in the foreground, the native service owns the
+     * fused-location loop and continues detecting entry/exit while the UI is minimized.
      */
     private void ensureNativeAttendanceMonitoring(String reason) {
         try {
