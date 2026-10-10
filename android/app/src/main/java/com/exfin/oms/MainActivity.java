@@ -34,7 +34,6 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(GreetingTtsPlugin.class);
         super.onCreate(savedInstanceState);
 
-        // Safely initialize FirebaseApp if configured in native resources
         try {
             int resId = getResources().getIdentifier("google_app_id", "string", getPackageName());
             if (resId != 0) {
@@ -50,13 +49,7 @@ public class MainActivity extends BridgeActivity {
         }
 
         createDefaultNotificationChannels();
-
-        // Native attendance owns physical entry/exit state. Before starting the
-        // foreground monitor, restore any native EXIT already detected while the
-        // Activity was closed so reopening the UI cannot manufacture a new exit
-        // using the app-open timestamp.
         restoreNativePendingExitState("onCreate");
-
         refreshNativeGeofenceRegistration("onCreate");
         ensureNativeAttendanceMonitoring("onCreate");
         checkAndRestoreActiveLocationService();
@@ -65,23 +58,17 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onResume() {
         super.onResume();
-
-        // Restore the native exit state BEFORE restarting location monitoring.
-        // This is critical when the WebView/app was closed after a real EXIT:
-        // the first EXIT remains authoritative until a genuine <=25m RETURN.
         restoreNativePendingExitState("onResume");
-
         refreshNativeGeofenceRegistration("onResume");
         ensureNativeAttendanceMonitoring("onResume");
         checkAndRestoreActiveLocationService();
     }
 
     /**
-     * Samsung/Android can retain our local "registered" flag even if Google Play
-     * Services has dropped the actual geofence. Force the native registration path
-     * to reconcile the durable registration with Play Services whenever the Activity
-     * starts/resumes. The same request IDs are used, so the native registration is
-     * refreshed rather than creating a second attendance boundary.
+     * Force the native geofence registration path to reconcile the durable
+     * registration with Google Play Services whenever the Activity starts/resumes.
+     * The existing request IDs are reused, so this refreshes the office boundary
+     * rather than creating a second attendance boundary.
      */
     private void refreshNativeGeofenceRegistration(String reason) {
         try {
@@ -95,13 +82,9 @@ public class MainActivity extends BridgeActivity {
     }
 
     /**
-     * Reconciles native durable EXIT state before the Activity/WebView resumes.
-     *
-     * Rule: one EXIT per continuous outside session. If native state already has
-     * a today's EXIT and the employee is still OUTSIDE, restore PENDING_EXIT_CONFIRMATION
-     * instead of allowing app-open/current-location recovery to create another EXIT.
-     * Stay Active is respected through KEY_EXIT_PROMPT_RESOLVED_OUTSIDE and therefore
-     * does not get converted back into a new pending prompt.
+     * Restores a durable native EXIT before the Activity/WebView resumes.
+     * One EXIT is allowed per continuous outside session; app-open/current-location
+     * recovery must never manufacture a later EXIT while the employee remains outside.
      */
     private void restoreNativePendingExitState(String reason) {
         try {
@@ -110,12 +93,9 @@ public class MainActivity extends BridgeActivity {
             if (session == null) return;
 
             String sessionDate = session.optString("date", "");
-            String todayDate = new SimpleDateFormat("yyyy-MM-dd", Locale.US) {
-                {
-                    setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
-                }
-            }.format(new Date());
-
+            SimpleDateFormat todayFormatter = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            todayFormatter.setTimeZone(TimeZone.getTimeZone("Asia/Kolkata"));
+            String todayDate = todayFormatter.format(new Date());
             if (!todayDate.equals(sessionDate)) return;
 
             String sessionState = session.optString("sessionState", "ACTIVE");
@@ -134,7 +114,6 @@ public class MainActivity extends BridgeActivity {
             String exitDate = prefs.getString(OfficeGeofenceHelper.KEY_LAST_EXIT_DATE, "");
             String exitSessionId = prefs.getString(OfficeGeofenceHelper.KEY_LAST_EXIT_SESSION_ID, "");
             String attendanceId = session.optString("attendanceId", "");
-
             if (exitTime == null || exitTime.trim().isEmpty() || !todayDate.equals(exitDate)) return;
             if (!exitSessionId.isEmpty() && !attendanceId.isEmpty() && !exitSessionId.equals(attendanceId)) return;
 
@@ -203,23 +182,6 @@ public class MainActivity extends BridgeActivity {
         } catch (Exception e) {
             Log.e("MainActivity", "[AUTO_ATTENDANCE_BACKGROUND] Failed to start native monitor: " + e.getMessage(), e);
         }
-    }
-
-    /**
-     * When the user swipes EXFIN OMS away from Recents, explicitly reassert the native
-     * foreground monitoring service. START_STICKY remains enabled in the service itself;
-     * this hook adds a second lifecycle safeguard so task removal does not become a
-     * hidden attendance-monitoring stop point on Samsung/Android builds.
-     */
-    @Override
-    public void onTaskRemoved(Intent rootIntent) {
-        try {
-            Log.i("MainActivity", "[AUTO_ATTENDANCE_BACKGROUND] Activity task removed; reasserting native location service.");
-            OfficeLocationService.start(getApplicationContext());
-        } catch (Exception e) {
-            Log.w("MainActivity", "[AUTO_ATTENDANCE_BACKGROUND] Could not reassert service after task removal: " + e.getMessage());
-        }
-        super.onTaskRemoved(rootIntent);
     }
 
     private void checkAndRestoreActiveLocationService() {
