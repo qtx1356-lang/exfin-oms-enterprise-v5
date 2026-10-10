@@ -1,13 +1,23 @@
 package com.exfin.oms;
 
+import android.Manifest;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+
+import androidx.core.content.ContextCompat;
+
 import com.getcapacitor.BridgeActivity;
 import com.exfin.oms.geofence.GeofencePlugin;
 import com.exfin.oms.geofence.UpdatePlugin;
 import com.exfin.oms.geofence.OfficeGeofenceHelper;
 import com.exfin.oms.geofence.OfficeLocationService;
+
 import org.json.JSONObject;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -41,17 +51,52 @@ public class MainActivity extends BridgeActivity {
         // Create high-importance Android notification channel with sound & vibration
         createDefaultNotificationChannels();
 
-        // Ensure native office geofence is active
+        // Ensure the native geofence and the continuous foreground location monitor are
+        // both initialized while the app is still in the foreground. The foreground
+        // service is deliberately kept independent from the WebView lifecycle so
+        // attendance continues when the app is minimized or its task is swiped away.
         OfficeGeofenceHelper.registerOfficeGeofence(this);
+        ensureNativeAttendanceMonitoring("onCreate");
         checkAndRestoreActiveLocationService();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        // Re-verify registration on resume
+        // Re-verify registration and native monitoring after returning to the UI.
         OfficeGeofenceHelper.registerOfficeGeofence(this);
+        ensureNativeAttendanceMonitoring("onResume");
         checkAndRestoreActiveLocationService();
+    }
+
+    /**
+     * Starts the native foreground location service independently of the WebView/session UI.
+     * This is the key background-attendance guarantee: once initialized while the app is
+     * in the foreground, the native service owns the 8-second fused-location loop and can
+     * continue detecting entry/exit while the Activity is minimized or the task is closed.
+     */
+    private void ensureNativeAttendanceMonitoring(String reason) {
+        try {
+            LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+            boolean locationEnabled = lm != null && (Build.VERSION.SDK_INT < Build.VERSION_CODES.P
+                    ? (lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER))
+                    : lm.isLocationEnabled());
+            boolean fineGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            boolean backgroundGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+                    || ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED;
+
+            if (!locationEnabled || !fineGranted || !backgroundGranted) {
+                Log.w("MainActivity", "[AUTO_ATTENDANCE_BACKGROUND] Native monitor not started: locationEnabled="
+                        + locationEnabled + ", fineLocation=" + fineGranted + ", backgroundLocation=" + backgroundGranted
+                        + " (reason=" + reason + ")");
+                return;
+            }
+
+            OfficeLocationService.start(this);
+            Log.i("MainActivity", "[AUTO_ATTENDANCE_BACKGROUND] Native foreground location monitoring started independently of Activity/UI (reason=" + reason + ").");
+        } catch (Exception e) {
+            Log.e("MainActivity", "[AUTO_ATTENDANCE_BACKGROUND] Failed to start native monitor: " + e.getMessage(), e);
+        }
     }
 
     private void checkAndRestoreActiveLocationService() {
