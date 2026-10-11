@@ -52,7 +52,6 @@ import {
   getNativeLocationReadiness,
   openNativeLocationSettings,
   openNativeAppLocationSettings,
-  repairNativeLocationMonitoring,
   NativeLocationReadiness
 } from '../../services/attendance/nativeGeofenceBridge';
 
@@ -138,8 +137,6 @@ export const AttendanceScreen: React.FC = () => {
 
   // Native Location Readiness State & Actions
   const [nativeReadiness, setNativeReadiness] = useState<NativeLocationReadiness | null>(null);
-  const [isRepairingMonitoring, setIsRepairingMonitoring] = useState<boolean>(false);
-
   const checkReadiness = React.useCallback(async () => {
     if (!Capacitor.isNativePlatform()) return;
     try {
@@ -253,7 +250,7 @@ export const AttendanceScreen: React.FC = () => {
     }
 
     return null;
-  }, [nativeReadiness, isGpsOff, isRepairingMonitoring, checkReadiness, refreshLocation]);
+  }, [nativeReadiness, isGpsOff]);
   
   // Attendance state
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
