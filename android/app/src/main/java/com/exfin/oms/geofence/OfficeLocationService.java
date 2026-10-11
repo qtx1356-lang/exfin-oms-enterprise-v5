@@ -281,6 +281,19 @@ public class OfficeLocationService extends Service {
         }
 
         JSONObject activeSession = OfficeGeofenceHelper.getActiveSession(this);
+
+        // A finalized session belongs only to the current attendance day. Keep the
+        // native monitor alive after checkout, but allow a new day to become eligible
+        // for automatic check-in without requiring the employee to open the app.
+        if (activeSession != null) {
+            String storedSessionDate = activeSession.optString("date", "");
+            String todayDate = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                    .format(new java.util.Date());
+            if (!todayDate.equals(storedSessionDate)) {
+                activeSession = null;
+            }
+        }
+
         if (activeSession == null) {
             if (distance <= OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS &&
                     OfficeGeofenceHelper.isLocationTrustworthyForCheckIn(location)) {
@@ -348,9 +361,14 @@ public class OfficeLocationService extends Service {
                 consecutiveInsideCount = 0;
             }
         } else if ("CHECKED_OUT".equalsIgnoreCase(sessionState) || "FINALIZED".equalsIgnoreCase(sessionState)) {
+            // Do NOT stop the native monitor after checkout. It must remain alive in
+            // the background so the next attendance day can auto-check-in without
+            // requiring the employee to open the app. The date guard above prevents
+            // the finalized current-day record from creating another check-in today.
             clearPendingExitCandidate(this);
-            Log.i(TAG, "Session is finalized. Stopping OfficeLocationService.");
-            stopSelf();
+            consecutiveOutsideCount = 0;
+            consecutiveInsideCount = 0;
+            Log.i(TAG, "Session is finalized for today; continuing native background monitoring for the next attendance day.");
         }
     }
 

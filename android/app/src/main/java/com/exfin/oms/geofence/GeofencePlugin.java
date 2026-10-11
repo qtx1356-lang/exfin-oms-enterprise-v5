@@ -523,10 +523,10 @@ public class GeofencePlugin extends Plugin {
             Log.i(TAG, "[REPAIR] Re-registering office geofence and checking location monitoring...");
             OfficeGeofenceHelper.registerOfficeGeofence(context);
 
-            JSONObject activeSession = OfficeGeofenceHelper.getActiveSession(context);
-            if (activeSession != null) {
-                OfficeLocationService.start(context);
-            }
+            // Repair the native monitor regardless of whether today's attendance
+            // session exists. The service must be alive before check-in so the employee
+            // never needs to open the app just to restart monitoring.
+            OfficeLocationService.start(context);
 
             JSObject ret = new JSObject();
             ret.put("success", true);

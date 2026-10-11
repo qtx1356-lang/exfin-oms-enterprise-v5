@@ -245,21 +245,11 @@ export const AttendanceScreen: React.FC = () => {
       };
     }
 
-    // 4. Monitoring is not healthy
+    // 4. Native monitoring is self-healing. Do not expose a manual repair
+    // button in Attendance; the Android service repairs/reasserts monitoring
+    // independently of the WebView and continues while the app is closed.
     if (!nativeReadiness.geofenceRegistered || !nativeReadiness.foregroundServiceRunning) {
-      return {
-        message: 'Location monitoring needs repair.',
-        buttonText: isRepairingMonitoring ? 'REPAIRING...' : 'REPAIR LOCATION MONITORING',
-        action: async () => {
-          setIsRepairingMonitoring(true);
-          try {
-            await repairNativeLocationMonitoring();
-            await checkReadiness();
-          } finally {
-            setIsRepairingMonitoring(false);
-          }
-        }
-      };
+      return null;
     }
 
     return null;
