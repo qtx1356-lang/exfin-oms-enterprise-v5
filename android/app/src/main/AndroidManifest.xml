@@ -63,7 +63,8 @@
         <service
             android:name=".geofence.OfficeLocationService"
             android:foregroundServiceType="location"
-            android:exported="false" />
+            android:exported="false"
+            android:stopWithTask="false" />
 
         <!-- Exfin OMS Native Geofence Broadcast Receiver (Handles EXIT & ENTER transitions) -->
         <receiver

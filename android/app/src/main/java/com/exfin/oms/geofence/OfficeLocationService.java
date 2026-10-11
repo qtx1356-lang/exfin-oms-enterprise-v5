@@ -15,6 +15,7 @@ import android.location.LocationManager;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -48,6 +49,7 @@ public class OfficeLocationService extends Service {
     private static boolean isServiceRunning = false;
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
+    private PowerManager.WakeLock cpuWakeLock;
     private int consecutiveOutsideCount = 0;
     private int consecutiveInsideCount = 0;
 
@@ -151,6 +153,7 @@ public class OfficeLocationService extends Service {
     public void onCreate() {
         super.onCreate();
         isServiceRunning = true;
+        acquireCpuWakeLock();
         Log.i(TAG, "OfficeLocationService created. Starting foreground monitoring.");
         createNotificationChannel();
         Notification notification = buildNotification("Active Office Attendance Monitoring");
@@ -171,6 +174,7 @@ public class OfficeLocationService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         isServiceRunning = true;
+        acquireCpuWakeLock();
         Log.i(TAG, "OfficeLocationService onStartCommand executed.");
         return START_STICKY;
     }
@@ -208,9 +212,9 @@ public class OfficeLocationService extends Service {
             return;
         }
 
-        LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 8000)
-                .setMinUpdateIntervalMillis(4000)
-                .setMaxUpdateDelayMillis(10000)
+        LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000)
+                .setMinUpdateIntervalMillis(2500)
+                .setMaxUpdateDelayMillis(5000)
                 .setWaitForAccurateLocation(true)
                 .build();
 
@@ -228,7 +232,7 @@ public class OfficeLocationService extends Service {
 
         try {
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
-            Log.i(TAG, "Fused high-accuracy location updates requested every 8s.");
+            Log.i(TAG, "Fused high-accuracy location updates requested every 5s (min 2.5s), including screen-off operation.");
         } catch (SecurityException se) {
             Log.e(TAG, "SecurityException requesting location updates: " + se.getMessage(), se);
             stopSelf();
@@ -382,8 +386,37 @@ public class OfficeLocationService extends Service {
                 .apply();
     }
 
+    private void acquireCpuWakeLock() {
+        try {
+            if (cpuWakeLock != null && cpuWakeLock.isHeld()) return;
+            PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (powerManager != null) {
+                cpuWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG + ":AttendanceCpu");
+                cpuWakeLock.setReferenceCounted(false);
+                cpuWakeLock.acquire();
+                Log.i(TAG, "[BACKGROUND_ATTENDANCE] Partial CPU wake lock acquired for active location monitoring.");
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "[BACKGROUND_ATTENDANCE] Unable to acquire CPU wake lock: " + e.getMessage());
+        }
+    }
+
+    private void releaseCpuWakeLock() {
+        try {
+            if (cpuWakeLock != null && cpuWakeLock.isHeld()) {
+                cpuWakeLock.release();
+                Log.i(TAG, "[BACKGROUND_ATTENDANCE] Partial CPU wake lock released.");
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "[BACKGROUND_ATTENDANCE] Unable to release CPU wake lock: " + e.getMessage());
+        } finally {
+            cpuWakeLock = null;
+        }
+    }
+
     @Override
     public void onDestroy() {
+        releaseCpuWakeLock();
         super.onDestroy();
         isServiceRunning = false;
         Log.i(TAG, "OfficeLocationService destroyed.");
