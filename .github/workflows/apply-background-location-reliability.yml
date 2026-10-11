@@ -1,0 +1,89 @@
+name: Apply Background Location Reliability Fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Harden native attendance service for screen-off operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('android/app/src/main/java/com/exfin/oms/geofence/OfficeLocationService.java')
+          s = p.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  'import android.os.Looper;\n',
+                  'import android.os.Looper;\nimport android.os.PowerManager;\n'
+              ),
+              (
+                  '    private LocationCallback locationCallback;\n',
+                  '    private LocationCallback locationCallback;\n    private PowerManager.WakeLock cpuWakeLock;\n'
+              ),
+              (
+                  '        super.onCreate();\n        isServiceRunning = true;\n',
+                  '        super.onCreate();\n        isServiceRunning = true;\n        acquireCpuWakeLock();\n'
+              ),
+              (
+                  '        isServiceRunning = true;\n        Log.i(TAG, "OfficeLocationService onStartCommand executed.");\n',
+                  '        isServiceRunning = true;\n        acquireCpuWakeLock();\n        Log.i(TAG, "OfficeLocationService onStartCommand executed.");\n'
+              ),
+              (
+                  'new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 8000)\n                .setMinUpdateIntervalMillis(4000)\n                .setMaxUpdateDelayMillis(10000)',
+                  'new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000)\n                .setMinUpdateIntervalMillis(2500)\n                .setMaxUpdateDelayMillis(5000)'
+              ),
+              (
+                  'Log.i(TAG, "Fused high-accuracy location updates requested every 8s.");',
+                  'Log.i(TAG, "Fused high-accuracy location updates requested every 5s (min 2.5s), including screen-off operation.");'
+              ),
+              (
+                  '    @Override\n    public void onDestroy() {\n        super.onDestroy();\n',
+                  '    private void acquireCpuWakeLock() {\n        try {\n            if (cpuWakeLock != null && cpuWakeLock.isHeld()) return;\n            PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);\n            if (powerManager != null) {\n                cpuWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG + ":AttendanceCpu");\n                cpuWakeLock.setReferenceCounted(false);\n                cpuWakeLock.acquire();\n                Log.i(TAG, "[BACKGROUND_ATTENDANCE] Partial CPU wake lock acquired for active location monitoring.");\n            }\n        } catch (Exception e) {\n            Log.w(TAG, "[BACKGROUND_ATTENDANCE] Unable to acquire CPU wake lock: " + e.getMessage());\n        }\n    }\n\n    private void releaseCpuWakeLock() {\n        try {\n            if (cpuWakeLock != null && cpuWakeLock.isHeld()) {\n                cpuWakeLock.release();\n                Log.i(TAG, "[BACKGROUND_ATTENDANCE] Partial CPU wake lock released.");\n            }\n        } catch (Exception e) {\n            Log.w(TAG, "[BACKGROUND_ATTENDANCE] Unable to release CPU wake lock: " + e.getMessage());\n        } finally {\n            cpuWakeLock = null;\n        }\n    }\n\n    @Override\n    public void onDestroy() {\n        releaseCpuWakeLock();\n        super.onDestroy();\n'
+              )
+          ]
+
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit(f'Missing expected source text: {old}')
+              s = s.replace(old, new, 1)
+
+          p.write_text(s, encoding='utf-8')
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          m = manifest.read_text(encoding='utf-8')
+          old_service = '<service\n            android:name=".geofence.OfficeLocationService"\n            android:foregroundServiceType="location"\n            android:exported="false" />'
+          new_service = '<service\n            android:name=".geofence.OfficeLocationService"\n            android:foregroundServiceType="location"\n            android:exported="false"\n            android:stopWithTask="false" />'
+          if old_service not in m:
+              raise SystemExit('Expected OfficeLocationService manifest declaration not found')
+          manifest.write_text(m.replace(old_service, new_service, 1), encoding='utf-8')
+          PY
+
+          git diff --check
+          git diff -- android/app/src/main/java/com/exfin/oms/geofence/OfficeLocationService.java android/app/src/main/AndroidManifest.xml
+
+      - name: Commit patch and remove one-time workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/apply-background-location-reliability.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android/app/src/main/java/com/exfin/oms/geofence/OfficeLocationService.java android/app/src/main/AndroidManifest.xml .github/workflows/apply-background-location-reliability.yml
+          git commit -m "fix: keep native attendance active with screen off"
+          git push origin HEAD:main
