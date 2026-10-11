@@ -32,16 +32,15 @@ import com.google.android.gms.location.Priority;
 import org.json.JSONObject;
 
 /**
- * Foreground Service that provides location updates during an active office session.
- * Fully compatible with Android 12, 13, 14, 15, and 16 foreground service lifecycles.
+ * Native foreground location service for automatic office attendance.
+ * This service is intentionally independent of the WebView/Activity lifecycle so
+ * attendance continues while the app is minimized and while the display is off.
  */
 public class OfficeLocationService extends Service {
     public static final String TAG = "OfficeLocationService";
     public static final String CHANNEL_ID = "exfin_oms_location_channel";
     public static final int NOTIFICATION_ID = 2502;
 
-    // Persistent exit candidate state. The first trustworthy outside reading is the
-    // authoritative candidate; later readings only confirm the transition.
     private static final String KEY_PENDING_EXIT_CANDIDATE_TIMESTAMP = "pending_exit_candidate_timestamp";
     private static final String KEY_PENDING_EXIT_CANDIDATE_SESSION_ID = "pending_exit_candidate_session_id";
     private static final String KEY_PENDING_EXIT_CANDIDATE_DATE = "pending_exit_candidate_date";
@@ -74,8 +73,7 @@ public class OfficeLocationService extends Service {
     public static void stop(Context context) {
         if (context == null) return;
         try {
-            Intent intent = new Intent(context, OfficeLocationService.class);
-            context.stopService(intent);
+            context.stopService(new Intent(context, OfficeLocationService.class));
         } catch (Exception e) {
             Log.e(TAG, "Failed to stop OfficeLocationService: " + e.getMessage(), e);
         }
@@ -154,7 +152,7 @@ public class OfficeLocationService extends Service {
         super.onCreate();
         isServiceRunning = true;
         acquireCpuWakeLock();
-        Log.i(TAG, "OfficeLocationService created. Starting foreground monitoring.");
+        Log.i(TAG, "OfficeLocationService created. Starting foreground monitoring with screen-off protection.");
         createNotificationChannel();
         Notification notification = buildNotification("Active Office Attendance Monitoring");
         try {
@@ -175,8 +173,36 @@ public class OfficeLocationService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         isServiceRunning = true;
         acquireCpuWakeLock();
-        Log.i(TAG, "OfficeLocationService onStartCommand executed.");
+        Log.i(TAG, "OfficeLocationService onStartCommand executed; START_STICKY background monitoring active.");
         return START_STICKY;
+    }
+
+    private void acquireCpuWakeLock() {
+        try {
+            if (cpuWakeLock != null && cpuWakeLock.isHeld()) return;
+            PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (powerManager != null) {
+                cpuWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG + ":AttendanceCpu");
+                cpuWakeLock.setReferenceCounted(false);
+                cpuWakeLock.acquire();
+                Log.i(TAG, "[BACKGROUND_ATTENDANCE] Partial CPU wake lock acquired; screen-off GPS processing remains active.");
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "[BACKGROUND_ATTENDANCE] Unable to acquire CPU wake lock: " + e.getMessage());
+        }
+    }
+
+    private void releaseCpuWakeLock() {
+        try {
+            if (cpuWakeLock != null && cpuWakeLock.isHeld()) {
+                cpuWakeLock.release();
+                Log.i(TAG, "[BACKGROUND_ATTENDANCE] Partial CPU wake lock released.");
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "[BACKGROUND_ATTENDANCE] Unable to release CPU wake lock: " + e.getMessage());
+        } finally {
+            cpuWakeLock = null;
+        }
     }
 
     private void createNotificationChannel() {
@@ -188,25 +214,23 @@ public class OfficeLocationService extends Service {
             );
             channel.setDescription("Monitors office attendance location in background");
             NotificationManager nm = getSystemService(NotificationManager.class);
-            if (nm != null) {
-                nm.createNotificationChannel(channel);
-            }
+            if (nm != null) nm.createNotificationChannel(channel);
         }
     }
 
     private Notification buildNotification(String contentText) {
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Smart Workforce Attendance")
                 .setContentText(contentText)
                 .setSmallIcon(android.R.drawable.ic_menu_compass)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
-                .setOngoing(true);
-        return builder.build();
+                .setOngoing(true)
+                .build();
     }
 
     private void startLocationUpdates() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             Log.w(TAG, "Location permissions missing. Stopping OfficeLocationService.");
             stopSelf();
             return;
@@ -223,9 +247,7 @@ public class OfficeLocationService extends Service {
             public void onLocationResult(LocationResult locationResult) {
                 if (locationResult == null) return;
                 for (Location location : locationResult.getLocations()) {
-                    if (location != null) {
-                        processLocationUpdate(location);
-                    }
+                    if (location != null) processLocationUpdate(location);
                 }
             }
         };
@@ -253,7 +275,6 @@ public class OfficeLocationService extends Service {
 
         OfficeGeofenceHelper.saveLastLocationDiagnostic(this, lat, lng, accuracy, time, distance);
 
-        // Validate accuracy to reject wild GPS jumps.
         if (accuracy > OfficeGeofenceHelper.MAX_USABLE_ACCURACY_METERS) {
             Log.d(TAG, "Ignoring location update due to poor accuracy: " + accuracy + "m > " + OfficeGeofenceHelper.MAX_USABLE_ACCURACY_METERS + "m");
             return;
@@ -272,10 +293,9 @@ public class OfficeLocationService extends Service {
                         null,
                         null
                 );
-                return;
+            } else {
+                Log.i(TAG, "[AUTO_CHECKIN_BACKGROUND] No active session yet; continuing background monitoring until the 25m boundary is verified.");
             }
-
-            Log.i(TAG, "[AUTO_CHECKIN_BACKGROUND] No active session yet; continuing background monitoring until the 25m boundary is verified.");
             return;
         }
 
@@ -283,12 +303,8 @@ public class OfficeLocationService extends Service {
 
         if ("ACTIVE".equalsIgnoreCase(sessionState)) {
             if (distance > OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS) {
-                // IMPORTANT: latch the FIRST trustworthy outside reading. The second
-                // reading only confirms the exit and must never replace its timestamp.
                 long candidateTimestamp = getPendingExitCandidateTimestamp(activeSession, time);
-                if (candidateTimestamp <= 0) {
-                    candidateTimestamp = time;
-                }
+                if (candidateTimestamp <= 0) candidateTimestamp = time;
                 latchPendingExitCandidate(this, activeSession, candidateTimestamp);
 
                 consecutiveOutsideCount++;
@@ -299,8 +315,7 @@ public class OfficeLocationService extends Service {
                     consecutiveOutsideCount = 0;
                     long authoritativeExitTimestamp = getPendingExitCandidateTimestamp(activeSession, candidateTimestamp);
                     if (authoritativeExitTimestamp <= 0) authoritativeExitTimestamp = candidateTimestamp;
-                    Log.i(TAG, "[NATIVE ATTENDANCE] === Authoritative 25m exit detected (dist=" + Math.round(distance) + "m > 25m) ===");
-                    Log.i(TAG, "[NATIVE ATTENDANCE] Preserving FIRST outside reading timestamp=" + authoritativeExitTimestamp + "; confirmation reading timestamp=" + time);
+                    Log.i(TAG, "[NATIVE ATTENDANCE] Authoritative 25m exit detected; preserving FIRST outside timestamp=" + authoritativeExitTimestamp + "; confirmation=" + time);
                     OfficeGeofenceHelper.processExitTransition(
                             this,
                             location,
@@ -313,7 +328,6 @@ public class OfficeLocationService extends Service {
                     clearPendingExitCandidate(this);
                 }
             } else {
-                // Outside candidate was not confirmed; employee returned inside.
                 consecutiveOutsideCount = 0;
                 consecutiveInsideCount++;
                 clearPendingExitCandidate(this);
@@ -327,7 +341,7 @@ public class OfficeLocationService extends Service {
 
                 if (consecutiveInsideCount >= 2 || distance <= 20.0) {
                     consecutiveInsideCount = 0;
-                    Log.i(TAG, "[NATIVE ATTENDANCE] === Authoritative 25m return to office detected (dist=" + Math.round(distance) + "m <= 25m) ===");
+                    Log.i(TAG, "[NATIVE ATTENDANCE] Authoritative 25m return to office detected.");
                     OfficeGeofenceHelper.processReturnTransition(this, location, "NATIVE_FUSED_LOCATION_RETURN", null, null);
                 }
             } else {
@@ -361,12 +375,8 @@ public class OfficeLocationService extends Service {
         String sessionId = activeSession != null ? activeSession.optString("attendanceId", "") : "";
         String sessionDate = activeSession != null ? activeSession.optString("date", "") : "";
         long existing = prefs.getLong(KEY_PENDING_EXIT_CANDIDATE_TIMESTAMP, 0L);
-
-        // Never move the candidate forward while the same attendance session is active.
         String existingSessionId = prefs.getString(KEY_PENDING_EXIT_CANDIDATE_SESSION_ID, "");
-        if (existing > 0 && (existingSessionId.isEmpty() || existingSessionId.equals(sessionId))) {
-            return;
-        }
+        if (existing > 0 && (existingSessionId.isEmpty() || existingSessionId.equals(sessionId))) return;
 
         prefs.edit()
                 .putLong(KEY_PENDING_EXIT_CANDIDATE_TIMESTAMP, timestamp)
@@ -384,34 +394,6 @@ public class OfficeLocationService extends Service {
                 .remove(KEY_PENDING_EXIT_CANDIDATE_SESSION_ID)
                 .remove(KEY_PENDING_EXIT_CANDIDATE_DATE)
                 .apply();
-    }
-
-    private void acquireCpuWakeLock() {
-        try {
-            if (cpuWakeLock != null && cpuWakeLock.isHeld()) return;
-            PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            if (powerManager != null) {
-                cpuWakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG + ":AttendanceCpu");
-                cpuWakeLock.setReferenceCounted(false);
-                cpuWakeLock.acquire();
-                Log.i(TAG, "[BACKGROUND_ATTENDANCE] Partial CPU wake lock acquired for active location monitoring.");
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "[BACKGROUND_ATTENDANCE] Unable to acquire CPU wake lock: " + e.getMessage());
-        }
-    }
-
-    private void releaseCpuWakeLock() {
-        try {
-            if (cpuWakeLock != null && cpuWakeLock.isHeld()) {
-                cpuWakeLock.release();
-                Log.i(TAG, "[BACKGROUND_ATTENDANCE] Partial CPU wake lock released.");
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "[BACKGROUND_ATTENDANCE] Unable to release CPU wake lock: " + e.getMessage());
-        } finally {
-            cpuWakeLock = null;
-        }
     }
 
     @Override
