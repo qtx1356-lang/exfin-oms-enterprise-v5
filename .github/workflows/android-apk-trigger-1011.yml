@@ -1,0 +1,9 @@
+name: Android APK Trigger
+on:
+  push:
+    branches: [main]
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Android APK trigger commit detected"
