@@ -224,7 +224,7 @@ const executeLiveLocationWrite = async (params: UpdateLiveLocationParams): Promi
  * Writes or updates the employee's live location document in Firestore:
  * live_locations/{employeeId}
  * 
- * Throttles writes to at most once per 30 seconds unless force is true or user moved >=20m.
+ * Throttles routine live-location writes to 10 seconds, with an earlier write after 10 metres of movement.
  */
 export const updateLiveEmployeeLocation = async (params: UpdateLiveLocationParams): Promise<boolean> => {
   const { employeeId, latitude, longitude, force } = params;
@@ -257,7 +257,7 @@ export const updateLiveEmployeeLocation = async (params: UpdateLiveLocationParam
   const timeSinceLastWrite = now - state.lastPersistedTime;
   const distMoved = getDistanceFromLatLonInM(latitude, longitude, state.lastPersistedLat, state.lastPersistedLon);
 
-  const shouldWriteNow = force || state.lastPersistedTime === 0 || timeSinceLastWrite >= 30000 || distMoved >= 20;
+  const shouldWriteNow = force || state.lastPersistedTime === 0 || timeSinceLastWrite >= 10000 || distMoved >= 10;
 
   if (shouldWriteNow) {
     if (state.timer) {
@@ -274,7 +274,7 @@ export const updateLiveEmployeeLocation = async (params: UpdateLiveLocationParam
     // Coalesce into pending write
     state.pendingParams = params;
     if (!state.timer) {
-      const delay = Math.max(1000, 30000 - timeSinceLastWrite);
+      const delay = Math.max(1000, 10000 - timeSinceLastWrite);
       state.timer = setTimeout(() => {
         if (state && state.pendingParams) {
           const p = state.pendingParams;
