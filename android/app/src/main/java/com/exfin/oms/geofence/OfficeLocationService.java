@@ -45,6 +45,13 @@ public class OfficeLocationService extends Service {
     private static final String KEY_PENDING_EXIT_CANDIDATE_SESSION_ID = "pending_exit_candidate_session_id";
     private static final String KEY_PENDING_EXIT_CANDIDATE_DATE = "pending_exit_candidate_date";
 
+    // A single GPS/geofence sample is never authoritative for an attendance
+    // boundary transition. Two consecutive fresh, usable readings are required.
+    // At the normal 2.5-5s location cadence this keeps transitions responsive
+    // while filtering transient GPS jumps such as 25m -> 53m -> 2m.
+    private static final int REQUIRED_OUTSIDE_CONFIRMATIONS = 2;
+    private static final int REQUIRED_INSIDE_CONFIRMATIONS = 2;
+
     private static boolean isServiceRunning = false;
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
@@ -118,26 +125,28 @@ public class OfficeLocationService extends Service {
 
                         if ("NO_SESSION".equalsIgnoreCase(state)) {
                             if (distance <= OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS) {
-                                Log.i(TAG, "[LOCATION_RECOVERY] Current location is inside 25m. Verifying automatic check-in.");
-                                OfficeGeofenceHelper.evaluateAttendanceDecision(
-                                        context, loc, "LOCATION_RECOVERY", com.google.android.gms.location.Geofence.GEOFENCE_TRANSITION_ENTER, null, null
-                                );
+                                Log.i(TAG, "[LOCATION_RECOVERY] Current location is inside 25m. Starting native monitoring for stable automatic check-in.");
+                                start(context);
                             } else {
                                 Log.i(TAG, "[LOCATION_RECOVERY] Current location is outside 25m (" + Math.round(distance) + "m). No attendance mutation.");
                             }
                         } else if ("ACTIVE".equalsIgnoreCase(state)) {
                             if (distance > OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS) {
-                                Log.i(TAG, "[LOCATION_RECOVERY] Current location is outside 25m. Verifying exit.");
-                                OfficeGeofenceHelper.processExitTransition(context, loc, "NATIVE_LOCATION_RECOVERY", null, null);
+                                // Never turn a single recovery fix into an EXIT. Start the
+                                // background service and let its consecutive-reading guard
+                                // confirm the transition.
+                                Log.i(TAG, "[LOCATION_RECOVERY] Current location is outside 25m (" + Math.round(distance) + "m). Starting native monitoring for stable exit confirmation.");
+                                start(context);
                             }
                         } else if ("PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(state)
                                 || "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(state)
                                 || OfficeGeofenceHelper.STATE_EXIT_PROMPT_RESOLVED_OUTSIDE.equalsIgnoreCase(state)
                                 || "RETURNING_TO_OFFICE".equalsIgnoreCase(state)) {
                             if (distance <= OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS) {
-                                clearPendingExitCandidate(context);
-                                Log.i(TAG, "[LOCATION_RECOVERY] Current location is back inside 25m. Verifying return.");
-                                OfficeGeofenceHelper.processReturnTransition(context, loc, "NATIVE_LOCATION_RECOVERY_RETURN", null, null);
+                                // Never turn a single recovery fix into a RETURN. The
+                                // service will require consecutive inside readings.
+                                Log.i(TAG, "[LOCATION_RECOVERY] Current location is back inside 25m. Starting native monitoring for stable return confirmation.");
+                                start(context);
                             }
                         }
                     })
@@ -322,13 +331,16 @@ public class OfficeLocationService extends Service {
 
                 consecutiveOutsideCount++;
                 consecutiveInsideCount = 0;
-                Log.i(TAG, "Outside 25m boundary: " + Math.round(distance) + "m (count: " + consecutiveOutsideCount + "/2), firstOutsideTimestamp=" + candidateTimestamp);
+                Log.i(TAG, "Outside 25m boundary: " + Math.round(distance) + "m (count: " + consecutiveOutsideCount + "/" + REQUIRED_OUTSIDE_CONFIRMATIONS + "), firstOutsideTimestamp=" + candidateTimestamp);
 
-                if (consecutiveOutsideCount >= 2 || distance > 35.0) {
+                // IMPORTANT: do not bypass this confirmation for larger distances.
+                // A transient 53m GPS jump while physically inside must not become an
+                // attendance EXIT. The next fresh fix must confirm the same state.
+                if (consecutiveOutsideCount >= REQUIRED_OUTSIDE_CONFIRMATIONS) {
                     consecutiveOutsideCount = 0;
                     long authoritativeExitTimestamp = getPendingExitCandidateTimestamp(activeSession, candidateTimestamp);
                     if (authoritativeExitTimestamp <= 0) authoritativeExitTimestamp = candidateTimestamp;
-                    Log.i(TAG, "[NATIVE ATTENDANCE] Authoritative 25m exit detected; preserving FIRST outside timestamp=" + authoritativeExitTimestamp + "; confirmation=" + time);
+                    Log.i(TAG, "[NATIVE ATTENDANCE] Stable 25m exit confirmed; preserving FIRST outside timestamp=" + authoritativeExitTimestamp + "; confirmation=" + time);
                     OfficeGeofenceHelper.processExitTransition(
                             this,
                             location,
@@ -345,16 +357,19 @@ public class OfficeLocationService extends Service {
                 consecutiveInsideCount++;
                 clearPendingExitCandidate(this);
             }
-        } else if ("PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(sessionState)) {
+        } else if ("PENDING_EXIT_CONFIRMATION".equalsIgnoreCase(sessionState)
+                || "PENDING_AUTO_CHECKOUT".equalsIgnoreCase(sessionState)
+                || OfficeGeofenceHelper.STATE_EXIT_PROMPT_RESOLVED_OUTSIDE.equalsIgnoreCase(sessionState)
+                || "RETURNING_TO_OFFICE".equalsIgnoreCase(sessionState)) {
             if (distance <= OfficeGeofenceHelper.AUTHORITATIVE_RADIUS_METERS) {
                 consecutiveInsideCount++;
                 consecutiveOutsideCount = 0;
-                clearPendingExitCandidate(this);
-                Log.i(TAG, "Returned inside 25m office boundary: " + Math.round(distance) + "m (count: " + consecutiveInsideCount + "/2)");
+                Log.i(TAG, "Returned inside 25m office boundary: " + Math.round(distance) + "m (count: " + consecutiveInsideCount + "/" + REQUIRED_INSIDE_CONFIRMATIONS + ")");
 
-                if (consecutiveInsideCount >= 2 || distance <= 20.0) {
+                if (consecutiveInsideCount >= REQUIRED_INSIDE_CONFIRMATIONS) {
                     consecutiveInsideCount = 0;
-                    Log.i(TAG, "[NATIVE ATTENDANCE] Authoritative 25m return to office detected.");
+                    clearPendingExitCandidate(this);
+                    Log.i(TAG, "[NATIVE ATTENDANCE] Stable 25m return to office confirmed.");
                     OfficeGeofenceHelper.processReturnTransition(this, location, "NATIVE_FUSED_LOCATION_RETURN", null, null);
                 }
             } else {
