@@ -64,9 +64,21 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
                 " lng=" + (triggerLocation != null ? triggerLocation.getLongitude() : "N/A") +
                 " accuracy=" + (triggerLocation != null ? triggerLocation.getAccuracy() : "N/A"));
 
-        // Delegate to high-accuracy verification and decision engine with goAsync()
+        // IMPORTANT: a raw Play Services EXIT is only a wake-up signal. Never create
+        // an attendance EXIT from this callback because a single GPS/geofence sample
+        // can jump outside the 25m boundary and immediately return. The foreground
+        // location service must confirm the transition with consecutive fresh fixes.
         final PendingResult pendingResult = goAsync();
         Log.i(TAG, "[NativeGeofenceLifecycle] GO_ASYNC_STARTED for transition: " + transitionType);
+
+        if (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT) {
+            Log.i(TAG, "[NATIVE ATTENDANCE] Primary 25m EXIT received: waking OfficeLocationService for stable confirmation; no direct EXIT mutation.");
+            OfficeLocationService.start(context);
+            pendingResult.finish();
+            return;
+        }
+
+        // ENTER/DWELL continues through the existing high-accuracy verification path.
         OfficeGeofenceHelper.handleNativeGeofenceTransition(context, transitionType, triggerLocation, triggeringGeofenceIds, pendingResult);
     }
 }
