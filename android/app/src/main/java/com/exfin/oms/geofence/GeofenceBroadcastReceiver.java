@@ -19,8 +19,10 @@ import java.util.List;
  */
 public class GeofenceBroadcastReceiver extends BroadcastReceiver {
     private static final String TAG = "GeofenceReceiver";
-    private static final String PREF_PENDING_EXIT_GEOFENCE_TIMESTAMP = "pending_exit_geofence_timestamp";
-    private static final String PREF_PENDING_EXIT_GEOFENCE_DATE = "pending_exit_geofence_date";
+    // These keys are intentionally shared with OfficeLocationService so the exact
+    // Play Services EXIT timestamp survives the hand-off into the foreground service.
+    private static final String PREF_PENDING_EXIT_CANDIDATE_TIMESTAMP = "pending_exit_candidate_timestamp";
+    private static final String PREF_PENDING_EXIT_CANDIDATE_DATE = "pending_exit_candidate_date";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -72,18 +74,19 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
 
         if (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT) {
             // Persist the actual Play Services geofence timestamp before waking the
-            // foreground service. This closes the timing gap where the service may
-            // start several seconds later and otherwise lose the true exit time.
+            // foreground service. OfficeLocationService already knows how to consume
+            // this candidate and will preserve it as the authoritative exit time.
             String eventDate = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
                     .format(new java.util.Date(eventTs));
             SharedPreferences prefs = context.getSharedPreferences(
                     OfficeGeofenceHelper.PREFS_NAME, Context.MODE_PRIVATE);
-            long existingTimestamp = prefs.getLong(PREF_PENDING_EXIT_GEOFENCE_TIMESTAMP, 0L);
-            String existingDate = prefs.getString(PREF_PENDING_EXIT_GEOFENCE_DATE, "");
+            long existingTimestamp = prefs.getLong(PREF_PENDING_EXIT_CANDIDATE_TIMESTAMP, 0L);
+            String existingDate = prefs.getString(PREF_PENDING_EXIT_CANDIDATE_DATE, "");
             if (existingTimestamp <= 0L || !eventDate.equals(existingDate)) {
                 prefs.edit()
-                        .putLong(PREF_PENDING_EXIT_GEOFENCE_TIMESTAMP, eventTs)
-                        .putString(PREF_PENDING_EXIT_GEOFENCE_DATE, eventDate)
+                        .putLong(PREF_PENDING_EXIT_CANDIDATE_TIMESTAMP, eventTs)
+                        .putString(PREF_PENDING_EXIT_CANDIDATE_DATE, eventDate)
+                        .remove("pending_exit_candidate_session_id")
                         .apply();
                 Log.i(TAG, "[NATIVE ATTENDANCE] Latched authoritative geofence EXIT timestamp=" + eventTs);
             } else {
