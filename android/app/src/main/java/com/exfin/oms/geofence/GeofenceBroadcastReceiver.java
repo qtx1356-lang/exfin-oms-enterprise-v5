@@ -97,6 +97,6 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
         }
 
         // ENTER/DWELL continues through the existing high-accuracy verification path.
-        OfficeGeofenceHelper.handleNativeGeofenceTransition(context, transitionType, triggerLocation, triggeringGeofences == null ? triggeringGeofenceIds : triggeringGeofences, pendingResult);
+        OfficeGeofenceHelper.handleNativeGeofenceTransition(context, transitionType, triggerLocation, triggeringGeofenceIds, pendingResult);
     }
 }
