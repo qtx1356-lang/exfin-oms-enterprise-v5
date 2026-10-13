@@ -100,7 +100,6 @@ export function analyzeAttendanceForensics(
     const key = evt.eventId || `${evt.eventType}_${evt.timestamp || evt.eventTime}`;
     const sameId = allEventsMap.get(key);
     if (sameId) {
-      // Keep the original event timestamp when both sources reference the same ID.
       allEventsMap.set(key, {
         ...evt,
         ...sameId,
@@ -109,10 +108,6 @@ export function analyzeAttendanceForensics(
       return;
     }
 
-    // The attendance record embeds eventHistory, while attendance_events separately
-    // stores the queued/synced copy. Their IDs can differ for a single exit callback.
-    // Collapse only same-employee, same-category callbacks that occurred within a
-    // very short window; keep later, genuine exit/return cycles intact.
     const category = getEventCategory(evt.eventType);
     const evtMs = evt.timestamp
       ? parseEventTimeToMs(evt.timestamp, baseDate)
@@ -141,9 +136,6 @@ export function analyzeAttendanceForensics(
   if (Array.isArray(record?.eventHistory)) record.eventHistory.forEach(addEvent);
   if (Array.isArray(rawEvents)) rawEvents.forEach(addEvent);
 
-  // IMPORTANT: eventHistory/rawEvents are the authoritative chronological audit trail.
-  // Top-level lastExitTime/lastReturnTime are summaries/caches and may be stale.
-  // Never synthesize a second EXIT/RETURN merely because the summary timestamp differs.
   const isCurrentlyCheckedIn = record?.currentState === 'CHECKED_IN';
   const hasHistoricalExitEvent = Array.from(allEventsMap.values()).some(e => getEventCategory(e.eventType) === 'EXIT');
   const hasHistoricalReturnEvent = Array.from(allEventsMap.values()).some(e => getEventCategory(e.eventType) === 'RETURN');
@@ -200,7 +192,71 @@ export function analyzeAttendanceForensics(
     ? a.epochMs - b.epochMs
     : a.categoryPriority - b.categoryPriority);
 
-  const sortedEvents = enrichedEvents.map(e => e.event);
+  // Build a canonical movement trail. A real attendance movement is a state
+  // transition, not every callback emitted by geofencing, app-resume recovery,
+  // queue retry, or Firestore synchronization. Only CHECK_IN -> EXIT -> RETURN
+  // transitions are allowed into the chronological geofence trail.
+  const canonicalEvents: typeof enrichedEvents = [];
+  let canonicalState: 'INSIDE' | 'OUTSIDE' = 'INSIDE';
+  let sawCheckIn = false;
+  let canonicalOpenExit = false;
+
+  for (const item of enrichedEvents) {
+    const { category } = item;
+    if (category === 'CHECK_IN') {
+      if (!sawCheckIn) {
+        canonicalEvents.push(item);
+        sawCheckIn = true;
+        canonicalState = 'INSIDE';
+      }
+      continue;
+    }
+
+    if (category === 'EXIT') {
+      if (canonicalOpenExit || canonicalState === 'OUTSIDE') continue;
+      canonicalEvents.push(item);
+      canonicalOpenExit = true;
+      canonicalState = 'OUTSIDE';
+      continue;
+    }
+
+    if (category === 'RETURN') {
+      // A RETURN without an open EXIT is a recovery/duplicate callback, not a
+      // new physical movement. Ignore it so the audit cannot show dozens of
+      // returns while the employee is already inside.
+      if (!canonicalOpenExit) continue;
+      canonicalEvents.push(item);
+      canonicalOpenExit = false;
+      canonicalState = 'INSIDE';
+      continue;
+    }
+  }
+
+  // If the stored record has a check-in but eventHistory omitted the CHECK_IN
+  // event, add one synthetic audit anchor so the chronological trail still
+  // starts with the real check-in time.
+  if (!sawCheckIn && record?.checkInTime) {
+    const syntheticCheckIn: AttendanceHistoryEvent = {
+      eventId: `synth_checkin_${baseDate}_${record.checkInTime}`,
+      employeeId: record.employeeId || (record as any).employeeCode || 'emp',
+      eventType: 'CHECK_IN',
+      eventTime: record.checkInTime,
+      timestamp: record.checkInAt || new Date(checkInMs || parseEventTimeToMs(record.checkInTime, baseDate)).toISOString(),
+      source: 'RECORD_STATE'
+    };
+    canonicalEvents.unshift({
+      event: syntheticCheckIn,
+      epochMs: checkInMs || parseEventTimeToMs(record.checkInTime, baseDate),
+      category: 'CHECK_IN',
+      categoryPriority: 1
+    });
+  }
+
+  canonicalEvents.sort((a, b) => a.epochMs !== b.epochMs
+    ? a.epochMs - b.epochMs
+    : a.categoryPriority - b.categoryPriority);
+
+  const sortedEvents = canonicalEvents.map(e => e.event);
   const cycles: ForensicCycle[] = [];
   let currentOpenExit: AttendanceHistoryEvent | null = null;
   let currentOpenExitMs = 0;
@@ -209,26 +265,21 @@ export function analyzeAttendanceForensics(
   let totalExits = 0;
   let totalReturns = 0;
 
-  for (const item of enrichedEvents) {
+  for (const item of canonicalEvents) {
     const { event, epochMs, category } = item;
     if (category === 'CHECK_IN') {
       state = 'INSIDE';
     } else if (category === 'EXIT') {
       state = 'OUTSIDE';
-      if (currentOpenExit) {
-        // An EXIT cycle cannot legitimately begin again until a RETURN closes
-        // the current one. Later EXIT callbacks before that RETURN are duplicate
-        // or recovery-time events; preserve the first real boundary timestamp.
-        // This prevents app-open time from replacing the original geofence exit.
-        continue;
-      }
+      if (currentOpenExit) continue;
       totalExits++;
       currentOpenExit = event;
       currentOpenExitMs = epochMs;
     } else if (category === 'RETURN') {
+      if (!currentOpenExit) continue;
       totalReturns++;
       state = 'INSIDE';
-      if (currentOpenExit && epochMs >= currentOpenExitMs) {
+      if (epochMs >= currentOpenExitMs) {
         const durationMin = currentOpenExitMs > 0 && epochMs > currentOpenExitMs
           ? Math.round((epochMs - currentOpenExitMs) / 60000)
           : null;
@@ -241,25 +292,7 @@ export function analyzeAttendanceForensics(
         });
         currentOpenExit = null;
         currentOpenExitMs = 0;
-      } else {
-        cycles.push({
-          cycleId: cycleCounter++,
-          exitEvent: {
-            eventId: `inferred_exit_${cycleCounter}`,
-            employeeId: event.employeeId,
-            eventType: 'GEOFENCE_EXIT',
-            eventTime: 'Prior to return',
-            timestamp: event.timestamp,
-            source: 'INFERRED'
-          },
-          returnEvent: event,
-          isResolved: true
-        });
       }
-    } else if (category === 'STAY_ACTIVE') {
-      state = 'INSIDE';
-    } else if (category === 'CHECK_OUT') {
-      state = 'OUTSIDE';
     }
   }
 
