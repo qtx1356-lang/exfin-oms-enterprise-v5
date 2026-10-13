@@ -96,7 +96,41 @@ export function analyzeAttendanceForensics(
 
   const addEvent = (evt: AttendanceHistoryEvent) => {
     if (!evt || !(evt.eventId || evt.timestamp || evt.eventTime) || !isEventMatchingSession(evt)) return;
+
     const key = evt.eventId || `${evt.eventType}_${evt.timestamp || evt.eventTime}`;
+    const sameId = allEventsMap.get(key);
+    if (sameId) {
+      // Keep the original event timestamp when both sources reference the same ID.
+      allEventsMap.set(key, { ...evt, ...sameId, ...evt.location ? { location: { ...sameId.location, ...evt.location } } : {} });
+      return;
+    }
+
+    // The attendance record embeds eventHistory, while attendance_events separately
+    // stores the queued/synced copy. Their IDs can differ for a single exit callback.
+    // Collapse only same-employee, same-category callbacks that occurred within a
+    // very short window; keep later, genuine exit/return cycles intact.
+    const category = getEventCategory(evt.eventType);
+    const evtMs = evt.timestamp
+      ? parseEventTimeToMs(evt.timestamp, baseDate)
+      : parseEventTimeToMs(evt.eventTime, baseDate);
+    const evtEmployee = (evt.employeeId || targetEmpId).trim().toLowerCase();
+    const duplicate = Array.from(allEventsMap.values()).find(existing => {
+      if (getEventCategory(existing.eventType) !== category || category === 'OTHER') return false;
+      const existingEmployee = (existing.employeeId || targetEmpId).trim().toLowerCase();
+      if (evtEmployee && existingEmployee && evtEmployee !== existingEmployee) return false;
+
+      const existingMs = existing.timestamp
+        ? parseEventTimeToMs(existing.timestamp, baseDate)
+        : parseEventTimeToMs(existing.eventTime, baseDate);
+      if (!(evtMs > 0) || !(existingMs > 0)) {
+        return Boolean(evt.eventTime && existing.eventTime && evt.eventTime === existing.eventTime);
+      }
+
+      const sameDisplayTime = Boolean(evt.eventTime && existing.eventTime && evt.eventTime === existing.eventTime);
+      return Math.abs(evtMs - existingMs) <= (sameDisplayTime ? 5000 : 1500);
+    });
+
+    if (duplicate) return;
     allEventsMap.set(key, evt);
   };
 
