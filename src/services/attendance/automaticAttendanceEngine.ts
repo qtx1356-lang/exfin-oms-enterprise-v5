@@ -547,23 +547,26 @@ export const AutomaticAttendanceEngine = {
       return record;
     }
 
-    // Queue the event offline for idempotency
-    enqueueAttendanceEvent({
-      eventId,
-      employeeId,
-      attendanceDate: dateStr,
-      eventType,
-      eventTime: timeStr,
-      createdAt: eventIso,
-      location: hasValidCoords ? {
-        latitude: coords.latitude!,
-        longitude: coords.longitude!,
-        townCity: townCity || 'Raniganj HQ',
-        distance
-      } : undefined,
-      attendanceMode,
-      source
-    });
+    // EXIT gets a separate timestamp-stable ID inside its state transition.
+    // Do not queue a second minute-based copy here; it appears as a duplicate in audits.
+    if (eventType !== 'GEOFENCE_EXIT') {
+      enqueueAttendanceEvent({
+        eventId,
+        employeeId,
+        attendanceDate: dateStr,
+        eventType,
+        eventTime: timeStr,
+        createdAt: eventIso,
+        location: hasValidCoords ? {
+          latitude: coords.latitude!,
+          longitude: coords.longitude!,
+          townCity: townCity || 'Raniganj HQ',
+          distance
+        } : undefined,
+        attendanceMode,
+        source
+      });
+    }
 
     const processedEvents = Array.from(new Set([...(record?.processedEvents || []), eventId]));
 
@@ -747,6 +750,32 @@ export const AutomaticAttendanceEngine = {
         break;
 
       case 'GEOFENCE_EXIT':
+        // One open exit represents the employee being outside. GPS/native callbacks
+        // received while that exit is still pending must not create new audit events.
+        if (
+          (
+            record.currentState === 'PENDING_AUTO_CHECKOUT' ||
+            record.currentState === 'PENDING_EXIT_CONFIRMATION' ||
+            record.currentState === 'PENDING_FINAL_EXIT' ||
+            record.currentState === 'CHECKOUT_NOT_DETECTED'
+          ) &&
+          (
+            record.pendingCheckoutConfirmation ||
+            record.pendingCheckoutEventId ||
+            record.lastExitAt ||
+            record.geofenceExitTimestamp ||
+            record.recordedExitTime ||
+            record.lastExitTime
+          )
+        ) {
+          console.log('[DUPLICATE_GEOFENCE_EXIT_SUPPRESSED]', {
+            employeeId,
+            currentState: record.currentState,
+            pendingCheckoutEventId: record.pendingCheckoutEventId || null
+          });
+          break;
+        }
+
         if (
           record.exitPromptResolvedOutside ||
           record.returningToOffice ||
@@ -1057,9 +1086,17 @@ export const AutomaticAttendanceEngine = {
     }
 
     if (modified) {
-      record.processedEvents = processedEvents;
+      // Preserve transition-specific IDs (especially the authoritative EXIT ID)
+      // alongside the generic idempotency ID. Do not overwrite branch-added IDs.
+      record.processedEvents = Array.from(new Set([
+        ...(record.processedEvents || []),
+        ...processedEvents
+      ]));
       saveAttendanceRecord(record);
       markEventIdProcessed(eventId);
+      if (eventType === 'GEOFENCE_EXIT' && record.pendingCheckoutEventId) {
+        markEventIdProcessed(record.pendingCheckoutEventId);
+      }
 
       if (navigator.onLine) {
         syncPendingAttendanceRecords().catch((e) => console.warn('Sync error:', e));
