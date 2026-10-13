@@ -3,6 +3,7 @@ package com.exfin.oms.geofence;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.location.Location;
 import android.util.Log;
 
@@ -18,6 +19,8 @@ import java.util.List;
  */
 public class GeofenceBroadcastReceiver extends BroadcastReceiver {
     private static final String TAG = "GeofenceReceiver";
+    private static final String PREF_PENDING_EXIT_GEOFENCE_TIMESTAMP = "pending_exit_geofence_timestamp";
+    private static final String PREF_PENDING_EXIT_GEOFENCE_DATE = "pending_exit_geofence_date";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -64,21 +67,36 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
                 " lng=" + (triggerLocation != null ? triggerLocation.getLongitude() : "N/A") +
                 " accuracy=" + (triggerLocation != null ? triggerLocation.getAccuracy() : "N/A"));
 
-        // IMPORTANT: a raw Play Services EXIT is only a wake-up signal. Never create
-        // an attendance EXIT from this callback because a single GPS/geofence sample
-        // can jump outside the 25m boundary and immediately return. The foreground
-        // location service must confirm the transition with consecutive fresh fixes.
         final PendingResult pendingResult = goAsync();
         Log.i(TAG, "[NativeGeofenceLifecycle] GO_ASYNC_STARTED for transition: " + transitionType);
 
         if (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT) {
-            Log.i(TAG, "[NATIVE ATTENDANCE] Primary 25m EXIT received: waking OfficeLocationService for stable confirmation; no direct EXIT mutation.");
+            // Persist the actual Play Services geofence timestamp before waking the
+            // foreground service. This closes the timing gap where the service may
+            // start several seconds later and otherwise lose the true exit time.
+            String eventDate = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                    .format(new java.util.Date(eventTs));
+            SharedPreferences prefs = context.getSharedPreferences(
+                    OfficeGeofenceHelper.PREFS_NAME, Context.MODE_PRIVATE);
+            long existingTimestamp = prefs.getLong(PREF_PENDING_EXIT_GEOFENCE_TIMESTAMP, 0L);
+            String existingDate = prefs.getString(PREF_PENDING_EXIT_GEOFENCE_DATE, "");
+            if (existingTimestamp <= 0L || !eventDate.equals(existingDate)) {
+                prefs.edit()
+                        .putLong(PREF_PENDING_EXIT_GEOFENCE_TIMESTAMP, eventTs)
+                        .putString(PREF_PENDING_EXIT_GEOFENCE_DATE, eventDate)
+                        .apply();
+                Log.i(TAG, "[NATIVE ATTENDANCE] Latched authoritative geofence EXIT timestamp=" + eventTs);
+            } else {
+                Log.i(TAG, "[NATIVE ATTENDANCE] Existing geofence EXIT timestamp retained=" + existingTimestamp);
+            }
+
+            Log.i(TAG, "[NATIVE ATTENDANCE] Primary 25m EXIT received: waking OfficeLocationService for fresh-location confirmation; no direct EXIT mutation.");
             OfficeLocationService.start(context);
             pendingResult.finish();
             return;
         }
 
         // ENTER/DWELL continues through the existing high-accuracy verification path.
-        OfficeGeofenceHelper.handleNativeGeofenceTransition(context, transitionType, triggerLocation, triggeringGeofenceIds, pendingResult);
+        OfficeGeofenceHelper.handleNativeGeofenceTransition(context, transitionType, triggerLocation, triggeringGeofences == null ? triggeringGeofenceIds : triggeringGeofences, pendingResult);
     }
 }
