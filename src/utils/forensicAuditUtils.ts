@@ -101,7 +101,11 @@ export function analyzeAttendanceForensics(
     const sameId = allEventsMap.get(key);
     if (sameId) {
       // Keep the original event timestamp when both sources reference the same ID.
-      allEventsMap.set(key, { ...evt, ...sameId, ...evt.location ? { location: { ...sameId.location, ...evt.location } } : {} });
+      allEventsMap.set(key, {
+        ...evt,
+        ...sameId,
+        ...(evt.location ? { location: { ...sameId.location, ...evt.location } } : {})
+      });
       return;
     }
 
