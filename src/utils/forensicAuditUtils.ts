@@ -214,11 +214,15 @@ export function analyzeAttendanceForensics(
     if (category === 'CHECK_IN') {
       state = 'INSIDE';
     } else if (category === 'EXIT') {
-      totalExits++;
       state = 'OUTSIDE';
       if (currentOpenExit) {
-        cycles.push({ cycleId: cycleCounter++, exitEvent: currentOpenExit, returnEvent: null, isResolved: false });
+        // An EXIT cycle cannot legitimately begin again until a RETURN closes
+        // the current one. Later EXIT callbacks before that RETURN are duplicate
+        // or recovery-time events; preserve the first real boundary timestamp.
+        // This prevents app-open time from replacing the original geofence exit.
+        continue;
       }
+      totalExits++;
       currentOpenExit = event;
       currentOpenExitMs = epochMs;
     } else if (category === 'RETURN') {
