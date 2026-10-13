@@ -12,6 +12,7 @@ import com.google.android.gms.location.GeofenceStatusCodes;
 import com.google.android.gms.location.GeofencingEvent;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Intercepts Google Play Services geofence wake-up transitions even when the app is killed,
@@ -19,8 +20,6 @@ import java.util.List;
  */
 public class GeofenceBroadcastReceiver extends BroadcastReceiver {
     private static final String TAG = "GeofenceReceiver";
-    // These keys are intentionally shared with OfficeLocationService so the exact
-    // Play Services EXIT timestamp survives the hand-off into the foreground service.
     private static final String PREF_PENDING_EXIT_CANDIDATE_TIMESTAMP = "pending_exit_candidate_timestamp";
     private static final String PREF_PENDING_EXIT_CANDIDATE_DATE = "pending_exit_candidate_date";
 
@@ -33,7 +32,6 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
             Log.e(TAG, "GeofencingEvent is null");
             return;
         }
-
         if (geofencingEvent.hasError()) {
             String errorMessage = GeofenceStatusCodes.getStatusCodeString(geofencingEvent.getErrorCode());
             Log.e(TAG, "Geofence error code: " + geofencingEvent.getErrorCode() + " (" + errorMessage + ")");
@@ -43,39 +41,29 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
 
         int transitionType = geofencingEvent.getGeofenceTransition();
         Location triggerLocation = geofencingEvent.getTriggeringLocation();
-        if (triggerLocation != null) {
-            long ageMs = triggerLocation.getTime() > 0 ? (System.currentTimeMillis() - triggerLocation.getTime()) : -1;
-            Log.i(TAG, "[GeofenceReceiver] Triggering location present: time=" + triggerLocation.getTime() + " (age=" + ageMs + "ms), acc=" + triggerLocation.getAccuracy() + "m");
-        }
-
         List<Geofence> triggeringGeofences = geofencingEvent.getTriggeringGeofences();
         List<String> triggeringGeofenceIds = new java.util.ArrayList<>();
         if (triggeringGeofences != null) {
             for (Geofence geofence : triggeringGeofences) {
                 if (geofence != null && geofence.getRequestId() != null) {
                     triggeringGeofenceIds.add(geofence.getRequestId());
-                    Log.i(TAG, "[NATIVE ATTENDANCE] Native Geofence wake-up triggered by: " + geofence.getRequestId() + " (transition=" + transitionType + ")");
                 }
             }
         }
 
         String transitionName = transitionType == Geofence.GEOFENCE_TRANSITION_ENTER ? "ENTER" :
-                                (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT ? "EXIT" : "DWELL");
-        long eventTs = (triggerLocation != null && triggerLocation.getTime() > 0) ? triggerLocation.getTime() : System.currentTimeMillis();
+                (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT ? "EXIT" : "DWELL");
+        long eventTs = (triggerLocation != null && triggerLocation.getTime() > 0)
+                ? triggerLocation.getTime() : System.currentTimeMillis();
         Log.i(TAG, "[GEOFENCE_EVENT_RECEIVED] transition=" + transitionName +
-                " timestamp=" + eventTs +
-                " geofenceId=" + triggeringGeofenceIds +
-                " lat=" + (triggerLocation != null ? triggerLocation.getLatitude() : "N/A") +
-                " lng=" + (triggerLocation != null ? triggerLocation.getLongitude() : "N/A") +
-                " accuracy=" + (triggerLocation != null ? triggerLocation.getAccuracy() : "N/A"));
+                " timestamp=" + eventTs + " geofenceId=" + triggeringGeofenceIds);
 
         final PendingResult pendingResult = goAsync();
-        Log.i(TAG, "[NativeGeofenceLifecycle] GO_ASYNC_STARTED for transition: " + transitionType);
+        final AtomicBoolean finishedFlag = new AtomicBoolean(false);
 
         if (transitionType == Geofence.GEOFENCE_TRANSITION_EXIT) {
-            // Persist the actual Play Services geofence timestamp before waking the
-            // foreground service. OfficeLocationService already knows how to consume
-            // this candidate and will preserve it as the authoritative exit time.
+            // Preserve the Play Services boundary timestamp for the authoritative exit
+            // record, while still requiring the normal fresh-location verification.
             String eventDate = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
                     .format(new java.util.Date(eventTs));
             SharedPreferences prefs = context.getSharedPreferences(
@@ -88,18 +76,18 @@ public class GeofenceBroadcastReceiver extends BroadcastReceiver {
                         .putString(PREF_PENDING_EXIT_CANDIDATE_DATE, eventDate)
                         .remove("pending_exit_candidate_session_id")
                         .apply();
-                Log.i(TAG, "[NATIVE ATTENDANCE] Latched authoritative geofence EXIT timestamp=" + eventTs);
-            } else {
-                Log.i(TAG, "[NATIVE ATTENDANCE] Existing geofence EXIT timestamp retained=" + existingTimestamp);
             }
 
-            Log.i(TAG, "[NATIVE ATTENDANCE] Primary 25m EXIT received: waking OfficeLocationService for fresh-location confirmation; no direct EXIT mutation.");
-            OfficeLocationService.start(context);
-            pendingResult.finish();
+            // Do not wait for the service's next periodic GPS callback. The same
+            // authoritative verifier used by the foreground path runs immediately;
+            // if it cannot confirm the exit, its existing fallback leaves attendance
+            // unchanged and the native monitor remains responsible for confirmation.
+            OfficeGeofenceHelper.handleNativeGeofenceTransition(
+                    context, transitionType, triggerLocation, triggeringGeofenceIds, pendingResult);
             return;
         }
 
-        // ENTER/DWELL continues through the existing high-accuracy verification path.
-        OfficeGeofenceHelper.handleNativeGeofenceTransition(context, transitionType, triggerLocation, triggeringGeofenceIds, pendingResult);
+        OfficeGeofenceHelper.handleNativeGeofenceTransition(
+                context, transitionType, triggerLocation, triggeringGeofenceIds, pendingResult);
     }
 }
