@@ -746,7 +746,7 @@ export const AdminDashboard: React.FC = () => {
               employeeId: data.employeeId,
               eventType: data.eventType,
               eventTime: data.eventTime,
-              timestamp: data.syncedAt || data.eventIso || data.eventTime,
+              timestamp: data.eventIso || data.createdAt || data.timestamp || data.syncedAt || data.eventTime,
               source: data.source || 'NATIVE_GEOFENCE',
               location: data.location,
               distance: data.location?.distance ?? data.distance,
