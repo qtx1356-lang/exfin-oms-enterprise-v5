@@ -593,4 +593,35 @@ console.log('=== RUNNING MULTIPLE EXIT/RETURN CYCLE TESTS ===\n');
   assert(forensic.totalExits === 1, 'Test 18: Duplicate copies count as one logical exit');
 }
 
-console.log('\n=== ALL 18 TESTS PASSED SUCCESSFULLY! ===\n');
+// -------------------------------------------------------------
+// TEST 19:
+// Genuine EXIT at 02:01 PM followed by a later duplicate/recovery EXIT at
+// 02:11 PM when the app is reopened. No RETURN occurred between them.
+// Expected: keep the original 02:01 PM boundary; count only one logical EXIT.
+// -------------------------------------------------------------
+{
+  const events: AttendanceHistoryEvent[] = [
+    { eventId: 'e1', employeeId: 'EMP01', eventType: 'CHECK_IN', eventTime: '09:00 AM', timestamp: '2026-10-06T03:30:00.000Z', source: 'NATIVE_GEOFENCE' },
+    { eventId: 'real_exit_1401', employeeId: 'EMP01', eventType: 'GEOFENCE_EXIT', eventTime: '02:01 PM', timestamp: '2026-10-06T08:31:00.000Z', source: 'NATIVE_GEOFENCE' },
+    { eventId: 'recovery_exit_1411', employeeId: 'EMP01', eventType: 'GEOFENCE_EXIT', eventTime: '02:11 PM', timestamp: '2026-10-06T08:41:00.000Z', source: 'APP_RESUME_RECOVERY' },
+  ];
+  const record = {
+    id: 'att_19',
+    employeeId: 'EMP01',
+    date: '2026-10-06',
+    checkInTime: '09:00 AM',
+    attendanceType: 'OFFICE',
+    currentState: 'PENDING_AUTO_CHECKOUT',
+    lastExitTime: '02:11 PM',
+    lastExitAt: '2026-10-06T08:41:00.000Z',
+    eventHistory: events,
+  } as unknown as AttendanceRecord;
+
+  const forensic = analyzeAttendanceForensics(record, events);
+  const authoritative = getAuthoritativeExitForCheckout(record, events);
+  assert(forensic.totalExits === 1, 'Test 19: Later EXIT without intervening RETURN is not a second exit cycle');
+  assert(forensic.activeCycle?.exitEvent.eventTime === '02:01 PM', 'Test 19: Active cycle preserves original 02:01 PM exit');
+  assert(authoritative.authoritativeExitTime === '02:01 PM', 'Test 19: Confirmation popup must suggest actual exit 02:01 PM, not app-open time 02:11 PM');
+}
+
+console.log('\n=== ALL 19 TESTS PASSED SUCCESSFULLY! ===\n');
