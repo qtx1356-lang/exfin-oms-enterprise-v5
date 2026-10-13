@@ -1,0 +1,3 @@
+EXFIN OMS admin audit trail deployment marker
+Version: 2026-10-13-canonical-audit-3
+This file intentionally forces a new main-branch Cloudflare Pages deployment for the canonical chronological audit trail fix.
