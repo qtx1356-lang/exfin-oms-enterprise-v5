@@ -542,4 +542,55 @@ console.log('=== RUNNING MULTIPLE EXIT/RETURN CYCLE TESTS ===\n');
   assert(getEffectiveCheckoutStatus(record) === 'PENDING_AUTO_CHECKOUT', 'Test 17: getEffectiveCheckoutStatus must NOT be COMPLETED for future checkout');
 }
 
-console.log('\n=== ALL 17 TESTS PASSED SUCCESSFULLY! ===\n');
+// -------------------------------------------------------------
+// TEST 18:
+// The same logical EXIT exists in attendance.eventHistory and attendance_events
+// with different IDs and a sub-second timestamp difference.
+// Expected: one visible forensic EXIT; independent later cycles remain intact.
+// -------------------------------------------------------------
+{
+  const checkIn: AttendanceHistoryEvent = {
+    eventId: 'checkin_record',
+    employeeId: 'EMP01',
+    eventType: 'CHECK_IN',
+    eventTime: '09:55 AM',
+    timestamp: '2026-10-06T04:25:00.000Z',
+    source: 'NATIVE_GEOFENCE'
+  };
+  const recordedExit: AttendanceHistoryEvent = {
+    eventId: 'exit_precise_record',
+    employeeId: 'EMP01',
+    eventType: 'GEOFENCE_EXIT',
+    eventTime: '06:17 PM',
+    timestamp: '2026-10-06T12:47:00.000Z',
+    source: 'NATIVE_GEOFENCE'
+  };
+  const separatelySyncedCopy: AttendanceHistoryEvent = {
+    eventId: 'exit_minute_queue_id',
+    employeeId: 'EMP01',
+    eventType: 'GEOFENCE_EXIT',
+    eventTime: '06:17 PM',
+    timestamp: '2026-10-06T12:47:00.800Z',
+    source: 'AUTO_GEOFENCE'
+  };
+  const record = {
+    id: 'att_18',
+    employeeId: 'EMP01',
+    date: '2026-10-06',
+    checkInTime: '09:55 AM',
+    attendanceType: 'OFFICE',
+    currentState: 'PENDING_AUTO_CHECKOUT',
+    lastExitTime: '06:17 PM',
+    lastExitAt: '2026-10-06T12:47:00.000Z',
+    eventHistory: [checkIn, recordedExit],
+  } as unknown as AttendanceRecord;
+
+  const forensic = analyzeAttendanceForensics(record, [checkIn, separatelySyncedCopy]);
+  assert(
+    forensic.sortedEvents.filter(e => (e.eventType || '').toUpperCase().includes('EXIT')).length === 1,
+    'Test 18: Duplicate EXIT copies from separate stores collapse into one audit event'
+  );
+  assert(forensic.totalExits === 1, 'Test 18: Duplicate copies count as one logical exit');
+}
+
+console.log('\n=== ALL 18 TESTS PASSED SUCCESSFULLY! ===\n');
