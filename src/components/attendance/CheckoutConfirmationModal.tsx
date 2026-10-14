@@ -688,16 +688,20 @@ export const CheckoutConfirmationModal: React.FC = () => {
                   {isPreviousDay ? 'Previous Day Checkout' : 'Checkout Confirmation'}
                 </span>
                 <h3 className="text-lg font-bold text-white tracking-tight leading-snug">
-                  {isPreviousDay 
+                  {isPreviousDay
                     ? `Checkout not recorded for ${recordDateDisplay}`
-                    : 'Checkout time was not recorded'}
+                    : suggestedExitTime
+                      ? 'Exit time recorded'
+                      : 'Checkout time was not recorded'}
                 </h3>
               </div>
             </div>
             <p className="text-xs text-purple-200/90 font-medium pl-[58px]">
               {isPreviousDay
                 ? `Please enter your actual checkout time for ${recordDateDisplay}.`
-                : 'Please confirm your checkout time to complete your attendance.'}
+                : suggestedExitTime
+                  ? 'The exit time was recorded automatically. Confirm checkout using this recorded time.'
+                  : 'Please confirm your checkout time to complete your attendance.'}
             </p>
           </div>
 
@@ -727,7 +731,7 @@ export const CheckoutConfirmationModal: React.FC = () => {
                 <div className="flex items-center justify-between text-xs text-purple-200 pt-1 border-t border-purple-900/50">
                   <span className="flex items-center gap-1.5 text-amber-300">
                     <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    Suggested Exit:
+                    Recorded Exit:
                   </span>
                   <span className="font-bold text-amber-300">
                     {suggestedExitTime}
@@ -736,27 +740,29 @@ export const CheckoutConfirmationModal: React.FC = () => {
               )}
             </div>
 
-            {/* Time Picker Control */}
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-purple-200">
-                Select / Enter Checkout Time:
-              </label>
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400 pointer-events-none" />
-                  <input
-                    type="time"
-                    value={timeInput24}
-                    onChange={handleTime24Change}
-                    className="w-full pl-9 pr-4 py-2.5 bg-purple-950/80 border border-purple-700/80 text-white rounded-xl focus:outline-none focus:border-purple-400 font-bold text-base cursor-pointer"
-                  />
-                </div>
-                <div className="px-3 py-2.5 bg-purple-900/40 border border-purple-700/40 rounded-xl text-center min-w-[100px]">
-                  <span className="text-xs text-purple-400 block font-mono">12-Hour</span>
-                  <span className="text-sm font-bold text-amber-300">{timeInput12}</span>
+            {/* Time Picker Control — only shown when no authoritative EXIT time exists. */}
+            {!suggestedExitTime && (
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-purple-200">
+                  Select / Enter Checkout Time:
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="relative flex-1">
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-purple-400 pointer-events-none" />
+                    <input
+                      type="time"
+                      value={timeInput24}
+                      onChange={handleTime24Change}
+                      className="w-full pl-9 pr-4 py-2.5 bg-purple-950/80 border border-purple-700/80 text-white rounded-xl focus:outline-none focus:border-purple-400 font-bold text-base cursor-pointer"
+                    />
+                  </div>
+                  <div className="px-3 py-2.5 bg-purple-900/40 border border-purple-700/40 rounded-xl text-center min-w-[100px]">
+                    <span className="text-xs text-purple-400 block font-mono">12-Hour</span>
+                    <span className="text-sm font-bold text-amber-300">{timeInput12}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Status Feedback / Errors */}
             {feedback && (
@@ -788,7 +794,9 @@ export const CheckoutConfirmationModal: React.FC = () => {
                   <div>
                     <div className="text-sm font-bold tracking-tight">Confirm Checkout</div>
                     <div className="text-[11px] text-emerald-100/80 font-normal">
-                      Finalize {recordDateDisplay} at {timeInput12}
+                      {suggestedExitTime
+                        ? `Finalize ${recordDateDisplay} at recorded exit ${timeInput12}`
+                        : `Finalize ${recordDateDisplay} at ${timeInput12}`}
                     </div>
                   </div>
                 </div>
