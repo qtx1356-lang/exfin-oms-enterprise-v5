@@ -388,7 +388,13 @@ public class GeofencePlugin extends Plugin {
             // A valid native exit candidate for today requires:
             // 1. An exit was actually recorded in today's active session
             // 2. pendingCheckoutConfirmation flag is set in the session
-            boolean pendingConf = recExit != null && session.optBoolean("pendingCheckoutConfirmation", false);
+            // Do not expose a stale EXIT candidate to the WebView when native state
+            // already says the employee is inside/active. RETURN processing updates
+            // KEY_LAST_KNOWN_STATE and sessionState; this guard prevents the checkout
+            // popup from reopening due to an old pending flag after re-entry.
+            boolean pendingConf = recExit != null
+                    && session.optBoolean("pendingCheckoutConfirmation", false)
+                    && !isInside;
 
             if (pendingConf) {
                 ret.put("recordedExitTime", recExit);
