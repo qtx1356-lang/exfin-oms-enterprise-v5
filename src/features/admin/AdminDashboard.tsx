@@ -731,19 +731,38 @@ export const AdminDashboard: React.FC = () => {
     const fetchAuditEvents = async () => {
       try {
         const eventsRef = collection(db, 'attendance_events');
-        const qEvts = query(
-          eventsRef,
-          where('employeeId', '==', empId),
-          where('attendanceDate', '==', attDate)
-        );
-        const snap = await getDocs(qEvts);
-        if (!snap.empty) {
-          const fetchedEvents: AttendanceHistoryEvent[] = [];
+
+        // Historical event documents may identify an employee by employeeId
+        // or employeeCode. Query both fields using every identifier available
+        // on the selected attendance record, then deduplicate by event ID.
+        const identifiers = Array.from(new Set([
+          empId,
+          selectedAttendance.employeeId,
+          selectedAttendance.employeeCode,
+        ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+          .map((value) => value.trim())));
+
+        const pendingQueries = identifiers.flatMap((identifier) => [
+          getDocs(query(
+            eventsRef,
+            where('employeeId', '==', identifier),
+            where('attendanceDate', '==', attDate)
+          )),
+          getDocs(query(
+            eventsRef,
+            where('employeeCode', '==', identifier),
+            where('attendanceDate', '==', attDate)
+          )),
+        ]);
+
+        const snapshots = await Promise.all(pendingQueries);
+        const fetchedById = new Map<string, AttendanceHistoryEvent>();
+        snapshots.forEach((snap) => {
           snap.forEach((docSnap) => {
             const data = docSnap.data();
-            fetchedEvents.push({
+            const event: AttendanceHistoryEvent = {
               eventId: data.eventId || docSnap.id,
-              employeeId: data.employeeId,
+              employeeId: data.employeeId || data.employeeCode || empId,
               eventType: data.eventType,
               eventTime: data.eventTime,
               timestamp: data.eventIso || data.createdAt || data.timestamp || data.syncedAt || data.eventTime,
@@ -751,23 +770,25 @@ export const AdminDashboard: React.FC = () => {
               location: data.location,
               distance: data.location?.distance ?? data.distance,
               action: data.action
-            });
+            };
+            if (event.eventId) fetchedById.set(event.eventId, event);
           });
-          setForensicEvents((prev) => {
-            const map = new Map<string, AttendanceHistoryEvent>();
-            for (const item of [...prev, ...fetchedEvents]) {
-              if (item && item.eventId) map.set(item.eventId, item);
-            }
-            return Array.from(map.values()).sort((a, b) => {
-              const tA = new Date(a.timestamp).getTime();
-              const tB = new Date(b.timestamp).getTime();
-              if (isNaN(tA) || isNaN(tB)) return 0;
-              return tA - tB;
-            });
+        });
+
+        setForensicEvents((prev) => {
+          const byId = new Map<string, AttendanceHistoryEvent>();
+          for (const item of [...prev, ...Array.from(fetchedById.values())]) {
+            if (item && item.eventId) byId.set(item.eventId, item);
+          }
+          return Array.from(byId.values()).sort((a, b) => {
+            const tA = new Date(a.timestamp).getTime();
+            const tB = new Date(b.timestamp).getTime();
+            if (isNaN(tA) || isNaN(tB)) return 0;
+            return tA - tB;
           });
-        }
+        });
       } catch (err) {
-        console.warn('[AdminDashboard] Failed to fetch forensic attendance_events:', err);
+        console.warn('[AdminDashboard] Failed to fetch forensic attendance_events by employeeId/employeeCode:', err);
       }
     };
     fetchAuditEvents();
