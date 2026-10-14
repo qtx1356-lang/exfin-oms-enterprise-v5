@@ -172,17 +172,18 @@ export const CheckoutConfirmationModal: React.FC = () => {
       return false;
     }
 
-    // CORE ACCEPTANCE RULE:
-    // If employee is currently CHECKED_IN, they are inside the office premises.
-    // NEVER show checkout confirmation popup when currentState is CHECKED_IN.
-    if (!isPast && record.currentState === 'CHECKED_IN') {
+    // Check the authoritative event sequence before trusting the potentially stale
+    // currentState field. Reconciliation can briefly mark a record CHECKED_IN while an
+    // unpaired EXIT is still pending; suppressing the popup here makes it flash/disappear.
+    const exitAnalysis = getAuthoritativeExitForCheckout(record, record.eventHistory || []);
+
+    // CHECKED_IN suppresses the popup only when there is no authoritative unpaired EXIT.
+    // A subsequent RETURN event will pair the exit and close the popup below.
+    if (!isPast && record.currentState === 'CHECKED_IN' && !exitAnalysis.isUnpairedExit) {
       setActiveRecord((curr) => (curr && (curr.id === record.id || curr.date === record.date) ? null : curr));
       return false;
     }
 
-    // Check authoritative exit
-    const exitAnalysis = getAuthoritativeExitForCheckout(record, record.eventHistory || []);
-    
     // CORE ACCEPTANCE RULE:
     // A checkout confirmation popup may ONLY appear when there is reliable evidence that:
     // 1. The employee was checked in;
