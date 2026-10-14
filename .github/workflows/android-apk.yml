@@ -17,7 +17,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'src/**'
-      - 'public/android-version-manifest.json'
+      - 'public/**'
 
 concurrency:
   group: android-release-main
@@ -50,6 +50,521 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      # The remaining release/build steps are intentionally unchanged.
-      # This workflow now only triggers from Android/native-relevant changes
-      # or an explicit manual dispatch; admin-only public assets do not create APKs.
+      - name: Calculate Next Automatic Version Code and Semantic Version Name
+        id: versioning
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES_INPUT: ${{ github.event.inputs.releaseNotes }}
+        run: |
+          node -e '
+          const fs = require("fs");
+          const { execSync } = require("child_process");
+
+          let highestCode = 0;
+          let highestName = "1.0.0";
+
+          // Helper to compare two semver strings
+          function isSemverHigher(cand, current) {
+            const cParts = cand.split(".").map(p => parseInt(p, 10));
+            const curParts = current.split(".").map(p => parseInt(p, 10));
+            if (cParts.length !== 3 || cParts.some(isNaN)) return false;
+            if (curParts.length !== 3 || curParts.some(isNaN)) return true;
+            
+            if (cParts[0] > curParts[0]) return true;
+            if (cParts[0] < curParts[0]) return false;
+            if (cParts[1] > curParts[1]) return true;
+            if (cParts[1] < curParts[1]) return false;
+            return cParts[2] > curParts[2];
+          }
+
+          // Helper to estimate versionCode from semver patch version (for 1.0.X baselines)
+          function estimateCode(semver) {
+            const parts = semver.split(".").map(p => parseInt(p, 10));
+            if (parts.length === 3 && !parts.some(isNaN)) {
+              if (parts[0] === 1 && parts[1] === 0) {
+                return parts[2] + 1;
+              }
+            }
+            return 0;
+          }
+
+          // 1. Read local manifest
+          try {
+            if (fs.existsSync("public/android-version-manifest.json")) {
+              const manifest = JSON.parse(fs.readFileSync("public/android-version-manifest.json", "utf8"));
+              if (typeof manifest.versionCode === "number") {
+                highestCode = Math.max(highestCode, manifest.versionCode);
+              }
+              if (typeof manifest.versionName === "string" && manifest.versionName.trim()) {
+                const name = manifest.versionName.trim();
+                if (isSemverHigher(name, highestName)) {
+                  highestName = name;
+                }
+              }
+            }
+          } catch (err) {
+            console.warn("Could not read local manifest:", err.message);
+          }
+
+          // 2. Query git tags
+          try {
+            execSync("git fetch --tags --force 2>/dev/null || true");
+            const tagsOutput = execSync("git tag -l").toString().trim();
+            if (tagsOutput) {
+              const tags = tagsOutput.split("\n").map(t => t.trim()).filter(t => t.startsWith("v"));
+              for (const tag of tags) {
+                const semver = tag.substring(1);
+                const estimatedCode = estimateCode(semver);
+                highestCode = Math.max(highestCode, estimatedCode);
+
+                if (isSemverHigher(semver, highestName)) {
+                  highestName = semver;
+                }
+              }
+            }
+          } catch (err) {
+            console.warn("Could not parse local git tags:", err.message);
+          }
+
+          // 3. Query gh releases and download their manifests
+          try {
+            const releaseListOutput = execSync("gh release list --limit 15 --json tagName 2>/dev/null || true").toString().trim();
+            if (releaseListOutput) {
+              const releases = JSON.parse(releaseListOutput);
+              for (const rel of releases) {
+                if (rel.tagName && rel.tagName.startsWith("v")) {
+                  const semver = rel.tagName.substring(1);
+                  const estimatedCode = estimateCode(semver);
+                  highestCode = Math.max(highestCode, estimatedCode);
+
+                  if (isSemverHigher(semver, highestName)) {
+                    highestName = semver;
+                  }
+
+                  try {
+                    const tempDir = `/tmp/release-${rel.tagName}`;
+                    execSync(`mkdir -p ${tempDir} && gh release download ${rel.tagName} --pattern "android-version-manifest.json" --dir ${tempDir} --clobber 2>/dev/null || true`);
+                    const manifestPath = `${tempDir}/android-version-manifest.json`;
+                    if (fs.existsSync(manifestPath)) {
+                      const remoteManifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+                      if (typeof remoteManifest.versionCode === "number") {
+                        highestCode = Math.max(highestCode, remoteManifest.versionCode);
+                      }
+                      if (typeof remoteManifest.versionName === "string" && remoteManifest.versionName.trim()) {
+                        const name = remoteManifest.versionName.trim();
+                        if (isSemverHigher(name, highestName)) {
+                          highestName = name;
+                        }
+                      }
+                    }
+                  } catch (e) {}
+                }
+              }
+            }
+          } catch (err) {
+            console.warn("Could not query GitHub releases via CLI:", err.message);
+          }
+
+          // Calculate final next values
+          const nextVersionCode = highestCode + 1;
+
+          // SAFETY GURANTEE CHECK
+          if (nextVersionCode <= highestCode) {
+            console.error(`::error::Safety Check Failed! Calculated nextVersionCode (${nextVersionCode}) is not strictly greater than highestCode (${highestCode})`);
+            process.exit(1);
+          }
+
+          let nextVersionName = "1.0.1";
+          const nameParts = highestName.split(".").map(p => parseInt(p, 10));
+          if (nameParts.length === 3 && !nameParts.some(isNaN)) {
+            nextVersionName = `${nameParts[0]}.${nameParts[1]}.${nameParts[2] + 1}`;
+          } else {
+            nextVersionName = `1.0.${nextVersionCode - 1}`;
+          }
+
+          console.log(`=== DETERMINED NEXT AUTOMATIC VERSION ===`);
+          console.log(`Highest Known Version Code: ${highestCode}`);
+          console.log(`Highest Known Version Name: ${highestName}`);
+          console.log(`Calculated Next Version Code: ${nextVersionCode}`);
+          console.log(`Calculated Next Version Name: ${nextVersionName}`);
+
+          fs.appendFileSync(process.env.GITHUB_ENV, `VERSION_CODE=${nextVersionCode}\nVERSION_NAME=${nextVersionName}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version_code=${nextVersionCode}\nversion_name=${nextVersionName}\n`);
+
+          // Update local public/android-version-manifest.json in workspace before building
+          const repo = process.env.GITHUB_REPOSITORY || "qtx1356-lang/exfin-oms-enterprise-v5";
+          const releaseNotesInput = process.env.RELEASE_NOTES_INPUT || "";
+          const releaseNotes = releaseNotesInput.trim() ? [releaseNotesInput.trim()] : [`Automatic Android release for EXFIN OMS.`];
+
+          const updatedManifest = {
+            versionCode: nextVersionCode,
+            versionName: nextVersionName,
+            apkUrl: `https://github.com/${repo}/releases/download/v${nextVersionName}/EXFIN-OMS-Android-v${nextVersionName}.apk`,
+            releaseNotes: releaseNotes
+          };
+          fs.writeFileSync("public/android-version-manifest.json", JSON.stringify(updatedManifest, null, 2) + "\n");
+          console.log("Updated public/android-version-manifest.json successfully.");
+          '
+
+      - name: Install Dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "package-lock.json detected. Running npm ci..."
+            npm ci
+          else
+            echo "No package-lock.json found. Running npm install..."
+            npm install
+          fi
+
+      - name: Build Web Assets
+        run: |
+          echo "Building web application..."
+          npm run build
+
+      - name: Restore and Validate Android Google Services JSON
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          echo "=== Starting Production Google Services JSON Validation ==="
+          
+          # 1. Check if GOOGLE_SERVICES_JSON_BASE64 is configured
+          if [ -z "$GOOGLE_SERVICES_JSON_BASE64" ]; then
+            echo "::error::CRITICAL SECRET MISSING: GOOGLE_SERVICES_JSON_BASE64 is not set in GitHub Secrets!"
+            echo "To build a production release APK, you MUST configure the GOOGLE_SERVICES_JSON_BASE64 secret with your base64-encoded google-services.json file."
+            exit 1
+          fi
+
+          echo "Decoding GOOGLE_SERVICES_JSON_BASE64..."
+          # 2. Decode Base64 and check for decoding errors
+          if ! echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json; then
+            echo "::error::BASE64 DECODING FAILED: The value provided for GOOGLE_SERVICES_JSON_BASE64 is not valid Base64!"
+            exit 1
+          fi
+
+          # 3. Validate JSON structure, syntax, and com.exfin.oms client presence via Node.js
+          node -e '
+          const fs = require("fs");
+          const path = "android/app/google-services.json";
+
+          console.log("Checking if google-services.json file was created...");
+          if (!fs.existsSync(path)) {
+            console.error("::error::FILE NOT FOUND: android/app/google-services.json was not successfully written!");
+            process.exit(1);
+          }
+
+          let json;
+          try {
+            console.log("Parsing google-services.json...");
+            json = JSON.parse(fs.readFileSync(path, "utf8"));
+          } catch (err) {
+            console.error("::error::INVALID JSON: android/app/google-services.json contains invalid JSON syntax: " + err.message);
+            process.exit(1);
+          }
+
+          console.log("Validating Firebase configuration structure...");
+          if (!json.client || !Array.isArray(json.client)) {
+            console.error("::error::INVALID STRUCTURE: The google-services.json is missing the required \"client\" array property!");
+            process.exit(1);
+          }
+
+          console.log("Verifying Android client for package com.exfin.oms...");
+          const packageToFind = "com.exfin.oms";
+          const clientExists = json.client.some(c => {
+            const clientInfo = c.client_info;
+            if (clientInfo && clientInfo.android_client_info) {
+              return clientInfo.android_client_info.package_name === packageToFind;
+            }
+            return false;
+          });
+
+          if (!clientExists) {
+            console.error(`::error::CLIENT NOT FOUND: No Android client found with package name "${packageToFind}" in google-services.json!`);
+            console.error("Make sure your Firebase Android app package name matches \"com.exfin.oms\" in your Firebase project.");
+            process.exit(1);
+          }
+
+          console.log("Successfully verified com.exfin.oms Android client in google-services.json!");
+          '
+
+      - name: Sync Capacitor Android
+        run: |
+          echo "Verifying presence of google-services.json before sync..."
+          if [ ! -f "android/app/google-services.json" ]; then
+            echo "::error::CRITICAL ERROR: android/app/google-services.json is missing! npx cap sync android cannot be safely executed for production."
+            exit 1
+          fi
+          echo "Syncing web assets to native Android project..."
+          npx cap sync android
+
+      - name: Validate and Set up Production Signing Key
+        id: signing
+        run: |
+          echo "=== Checking Production Keystore Secrets ==="
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ] || [ -z "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" ] || [ -z "${{ secrets.ANDROID_KEY_ALIAS }}" ] || [ -z "${{ secrets.ANDROID_KEY_PASSWORD }}" ]; then
+            echo "::error::Production release signing secrets are missing!"
+            echo "The following GitHub Secrets are required to sign the release APK:"
+            echo "  1. ANDROID_KEYSTORE_BASE64"
+            echo "  2. ANDROID_KEYSTORE_PASSWORD"
+            echo "  3. ANDROID_KEY_ALIAS"
+            echo "  4. ANDROID_KEY_PASSWORD"
+            echo "Release build aborted. Debug keystore fallback is strictly prohibited for production APKs."
+            exit 1
+          fi
+
+          echo "Decoding release keystore from GitHub Secrets..."
+          mkdir -p ${{ runner.temp }}/keystore
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > ${{ runner.temp }}/keystore/release.keystore
+          echo "ANDROID_KEYSTORE_FILE=${{ runner.temp }}/keystore/release.keystore" >> $GITHUB_ENV
+          echo "ANDROID_KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "ANDROID_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "ANDROID_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> $GITHUB_ENV
+          echo "Production keystore configured successfully."
+
+      - name: Make Gradle Wrapper Executable
+        run: |
+          chmod +x android/gradlew
+
+      - name: Build Optimized Android Release APK
+        env:
+          ANDROID_VERSION_CODE: ${{ env.VERSION_CODE }}
+          ANDROID_VERSION_NAME: ${{ env.VERSION_NAME }}
+        run: |
+          cd android
+          echo "Building Release APK with Version Code: $ANDROID_VERSION_CODE, Version Name: $ANDROID_VERSION_NAME..."
+          ./gradlew assembleRelease -PversionCode=$ANDROID_VERSION_CODE -PversionName=$ANDROID_VERSION_NAME --stacktrace --no-daemon
+
+      - name: Locate, Verify & Stage Release APK
+        run: |
+          echo "=== Locating Built APKs ==="
+          find android/app/build/outputs -type f -name "*.apk" -print
+
+          RELEASE_DIR="android/app/build/outputs/apk/release"
+          RELEASE_APK=""
+          if [ -f "$RELEASE_DIR/app-release.apk" ]; then
+            RELEASE_APK="$RELEASE_DIR/app-release.apk"
+          elif [ -d "$RELEASE_DIR" ]; then
+            RELEASE_APK=$(find "$RELEASE_DIR" -type f -name "*.apk" | head -n 1)
+          fi
+
+          if [ -z "$RELEASE_APK" ] || [ ! -f "$RELEASE_APK" ]; then
+            echo "ERROR: No release APK found in Android build outputs."
+            find android/app/build/outputs -type f -print || true
+            exit 1
+          fi
+
+          echo "Found Android release APK: $RELEASE_APK"
+
+          echo "=== APK Verification & Signing Details ==="
+          if command -v apksigner >/dev/null 2>&1; then
+            apksigner verify --verbose --print-certs "$RELEASE_APK" || true
+          fi
+
+          echo "APK SHA-256 Checksum:"
+          sha256sum "$RELEASE_APK"
+
+          echo "APK Exact Size:"
+          ls -l "$RELEASE_APK"
+
+          mkdir -p artifact
+          APK_FILENAME="EXFIN-OMS-Android-v${{ env.VERSION_NAME }}.apk"
+          cp "$RELEASE_APK" "artifact/$APK_FILENAME"
+          cp "$RELEASE_APK" "artifact/exfin-oms-android.apk"
+          echo "Staged APK to artifact/$APK_FILENAME and artifact/exfin-oms-android.apk"
+
+          # Stage update manifest matching the built APK
+          cp public/android-version-manifest.json artifact/android-version-manifest.json
+          echo "=== Generated Manifest ==="
+          cat artifact/android-version-manifest.json
+
+      - name: Validate APK Metadata and Manifest Consistency
+        env:
+          VERSION_CODE: ${{ env.VERSION_CODE }}
+          VERSION_NAME: ${{ env.VERSION_NAME }}
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          node -e '
+          const { execSync } = require("child_process");
+          const fs = require("fs");
+
+          const expectedCode = process.env.VERSION_CODE;
+          const expectedName = process.env.VERSION_NAME;
+          const apkPath = "artifact/exfin-oms-android.apk";
+          const manifestPath = "artifact/android-version-manifest.json";
+
+          console.log(`=== STARTING APK VALIDATION ===`);
+          console.log(`Expected Application ID: com.exfin.oms`);
+          console.log(`Expected Version Code: ${expectedCode}`);
+          console.log(`Expected Version Name: ${expectedName}`);
+
+          try {
+            // 1. Verify manifest and build consistency
+            if (!fs.existsSync(manifestPath)) {
+              throw new Error("Local android-version-manifest.json not found in artifacts.");
+            }
+            const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+            if (String(manifest.versionCode) !== String(expectedCode)) {
+              throw new Error(`Manifest Code Mismatch! expected=${expectedCode}, found=${manifest.versionCode}`);
+            }
+            if (String(manifest.versionName) !== String(expectedName)) {
+              throw new Error(`Manifest Name Mismatch! expected=${expectedName}, found=${manifest.versionName}`);
+            }
+            console.log("Local manifest matches expectations.");
+
+            // 2. Locate aapt tool
+            const androidHome = process.env.ANDROID_HOME || "/usr/local/lib/android/sdk";
+            const findAapt = execSync(`find ${androidHome}/build-tools -name aapt | head -n 1`).toString().trim();
+            if (!findAapt) {
+              throw new Error("aapt tool not found in Android SDK directory.");
+            }
+            console.log(`Using aapt tool at: ${findAapt}`);
+
+            // 3. Run aapt dump badging
+            const dump = execSync(`"${findAapt}" dump badging ${apkPath}`).toString();
+            
+            // 4. Parse package line
+            const packageLine = dump.split("\n").find(line => line.startsWith("package:"));
+            if (!packageLine) {
+              throw new Error("Could not find package line in aapt dump badging output.");
+            }
+            console.log(`Found package line: ${packageLine}`);
+
+            // 5. Extract values and assert
+            const nameMatch = packageLine.match(/name=\x27([^\x27]+)\x27/);
+            const codeMatch = packageLine.match(/versionCode=\x27([^\x27]+)\x27/);
+            const nameValMatch = packageLine.match(/versionName=\x27([^\x27]+)\x27/);
+
+            if (!nameMatch || nameMatch[1] !== "com.exfin.oms") {
+              throw new Error(`Application ID mismatch! Found: ${nameMatch ? nameMatch[1] : "null"}`);
+            }
+            if (!codeMatch || String(codeMatch[1]) !== String(expectedCode)) {
+              throw new Error(`Version Code mismatch! Found: ${codeMatch ? codeMatch[1] : "null"}`);
+            }
+            if (!nameValMatch || String(nameValMatch[1]) !== String(expectedName)) {
+              throw new Error(`Version Name mismatch! Found: ${nameValMatch ? nameValMatch[1] : "null"}`);
+            }
+
+            console.log(`APK validation succeeded! All checks passed.`);
+          } catch (err) {
+            console.error(`::error::APK validation failed: ${err.message}`);
+            process.exit(1);
+          }
+          '
+
+      - name: Display Build & Size Information
+        run: |
+          echo "=== Build Environment & Artifact Information ==="
+          java -version 2>&1 || true
+          node -v || true
+          (cd android && ./gradlew --version) || true
+          echo "Optimized Release APK Size:"
+          ls -lh artifact/*.apk || true
+
+      - name: Upload APK & Manifest Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: exfin-oms-android-release
+          path: |
+            artifact/*.apk
+            artifact/android-version-manifest.json
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.VERSION_NAME }}
+          name: "EXFIN OMS Release v${{ env.VERSION_NAME }}"
+          body: |
+            ## EXFIN OMS Android App Update v${{ env.VERSION_NAME }} (Build ${{ env.VERSION_CODE }})
+            
+            ### What's New:
+            - Automatic Android update release
+            
+            ### Direct APK Download:
+            - **APK:** [EXFIN-OMS-Android-v${{ env.VERSION_NAME }}.apk](${{ github.server_url }}/${{ github.repository }}/releases/download/v${{ env.VERSION_NAME }}/EXFIN-OMS-Android-v${{ env.VERSION_NAME }}.apk)
+            - **Stable Link:** [exfin-oms-android.apk](${{ github.server_url }}/${{ github.repository }}/releases/download/v${{ env.VERSION_NAME }}/exfin-oms-android.apk)
+          files: |
+            artifact/*.apk
+            artifact/android-version-manifest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and Push Updated Manifest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # A newer release workflow may have advanced main while this build was running.
+          # Never overwrite a newer manifest with an older/stale build manifest.
+          git fetch origin main --quiet
+
+          REMOTE_MANIFEST="$(git show origin/main:public/android-version-manifest.json 2>/dev/null || true)"
+          LOCAL_MANIFEST="$(cat public/android-version-manifest.json)"
+          printf '%s' "$LOCAL_MANIFEST" > "$RUNNER_TEMP/release-manifest.json"
+
+          REMOTE_CODE="$(printf '%s' "$REMOTE_MANIFEST" | node -e '
+            let s="";
+            process.stdin.on("data", d => s += d);
+            process.stdin.on("end", () => {
+              try { const m = JSON.parse(s); process.stdout.write(String(Number.isFinite(m.versionCode) ? m.versionCode : 0)); }
+              catch (_) { process.stdout.write("0"); }
+            });
+          ')"
+
+          LOCAL_CODE="$(printf '%s' "$LOCAL_MANIFEST" | node -e '
+            let s="";
+            process.stdin.on("data", d => s += d);
+            process.stdin.on("end", () => {
+              try { const m = JSON.parse(s); process.stdout.write(String(Number.isFinite(m.versionCode) ? m.versionCode : 0)); }
+              catch (_) { process.stdout.write("0"); }
+            });
+          ')"
+
+          echo "Remote manifest versionCode: $REMOTE_CODE"
+          echo "This build manifest versionCode: $LOCAL_CODE"
+
+          if [ "$REMOTE_CODE" -ge "$LOCAL_CODE" ]; then
+            echo "Main already contains an equal or newer manifest. Skipping this release manifest commit."
+            exit 0
+          fi
+
+          # Start from the latest remote main instead of rebasing a commit that
+          # modifies the same manifest file. This avoids deterministic conflicts
+          # when two release workflows finish close together.
+          git reset --hard origin/main
+          cp "$RUNNER_TEMP/release-manifest.json" public/android-version-manifest.json
+
+          git add public/android-version-manifest.json
+          if git diff --staged --quiet; then
+            echo "No manifest changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore(release): bump android version to v${{ env.VERSION_NAME }} (build ${{ env.VERSION_CODE }}) [skip ci]"
+
+          # Push only if main has not advanced to an equal/newer manifest.
+          # If another release wins the race, leave its manifest untouched.
+          if ! git push origin HEAD:main; then
+            echo "Manifest push raced with another main update. Refreshing remote state..."
+            git fetch origin main --quiet
+            FINAL_REMOTE_MANIFEST="$(git show origin/main:public/android-version-manifest.json 2>/dev/null || true)"
+            FINAL_REMOTE_CODE="$(printf '%s' "$FINAL_REMOTE_MANIFEST" | node -e '
+              let s="";
+              process.stdin.on("data", d => s += d);
+              process.stdin.on("end", () => {
+                try { const m = JSON.parse(s); process.stdout.write(String(Number.isFinite(m.versionCode) ? m.versionCode : 0)); }
+                catch (_) { process.stdout.write("0"); }
+              });
+            ')"
+
+            if [ "$FINAL_REMOTE_CODE" -ge "$LOCAL_CODE" ]; then
+              echo "Another release already published an equal or newer manifest. Finishing successfully."
+              exit 0
+            fi
+
+            echo "::error::Manifest push failed and remote manifest is still older than this build."
+            exit 1
+          fi
