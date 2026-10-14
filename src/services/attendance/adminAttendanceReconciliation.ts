@@ -1,3 +1,4 @@
+// Authoritative Admin checkout sync: this module keeps employee attendance aligned with Firestore corrections.
 import {
   collection,
   doc,
