@@ -144,24 +144,14 @@ export const CheckoutConfirmationModal: React.FC = () => {
   const evaluateAndOpenRecord = useCallback((record: AttendanceRecord, isPast: boolean): boolean => {
     if (!record || !record.date) return false;
 
-    // A checkout that was already saved/finalized is terminal. Keep the historical
-    // EXIT event for audit, but never reopen the confirmation popup after app restart.
+    // A real saved checkout time is terminal even if an older/stale record failed
+    // to persist its finalized flags. Do not reopen a historical confirmation merely
+    // because a stale EXIT event is still retained for forensic audit.
     const savedCheckoutTime = (record.checkOutTime || '').trim();
-    const recordIsFinalized =
-      record.checkoutFinalized === true ||
-      record.checkoutConfirmed === true ||
-      record.checkoutStatus === 'FINALIZED' ||
-      record.checkoutStatus === 'COMPLETED' ||
-      record.currentState === 'FINALIZED_CHECKOUT' ||
-      record.currentState === 'CHECKED_OUT';
-    if (
-      recordIsFinalized &&
-      savedCheckoutTime &&
-      savedCheckoutTime !== '--:--' &&
-      savedCheckoutTime !== 'UNRESOLVED' &&
-      savedCheckoutTime !== 'Pending' &&
-      savedCheckoutTime !== 'N/A'
-    ) {
+    const hasSavedCheckoutTime =
+      !!savedCheckoutTime &&
+      !['--:--', 'UNRESOLVED', 'Pending', 'N/A', 'null'].includes(savedCheckoutTime);
+    if (hasSavedCheckoutTime) {
       setActiveRecord((curr) => (curr && (curr.id === record.id || curr.date === record.date) ? null : curr));
       return false;
     }
