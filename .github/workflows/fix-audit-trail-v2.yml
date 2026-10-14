@@ -1,0 +1,85 @@
+name: Audit Trail Employee Identity Fix V2
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Patch AdminDashboard
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/features/admin/AdminDashboard.tsx')
+          text = p.read_text(encoding='utf-8')
+          start = text.index("    const fetchAuditEvents = async () => {")
+          end = text.index("    fetchAuditEvents();", start)
+          replacement = '''    const fetchAuditEvents = async () => {
+      try {
+        const eventsRef = collection(db, 'attendance_events');
+        const identifiers = Array.from(new Set([
+          empId,
+          selectedAttendance.employeeId,
+          selectedAttendance.employeeCode,
+        ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+          .map((value) => value.trim())));
+
+        const queries = [];
+        for (const identifier of identifiers) {
+          queries.push(getDocs(query(eventsRef, where('employeeId', '==', identifier), where('attendanceDate', '==', attDate))));
+          queries.push(getDocs(query(eventsRef, where('employeeCode', '==', identifier), where('attendanceDate', '==', attDate))));
+        }
+
+        const snapshots = await Promise.all(queries);
+        const fetchedByKey = new Map<string, AttendanceHistoryEvent>();
+        snapshots.forEach((snap) => {
+          snap.forEach((docSnap) => {
+            const data = docSnap.data();
+            const event: AttendanceHistoryEvent = {
+              eventId: data.eventId || docSnap.id,
+              employeeId: data.employeeId || data.employeeCode,
+              eventType: data.eventType,
+              eventTime: data.eventTime,
+              timestamp: data.eventIso || data.createdAt || data.timestamp || data.syncedAt || data.eventTime,
+              source: data.source || 'NATIVE_GEOFENCE',
+              location: data.location,
+              distance: data.location?.distance ?? data.distance,
+              action: data.action
+            };
+            if (event.eventId) fetchedByKey.set(event.eventId, event);
+          });
+        });
+
+        const fetchedEvents = Array.from(fetchedByKey.values());
+        setForensicEvents((prev) => {
+          const map = new Map<string, AttendanceHistoryEvent>();
+          for (const item of [...prev, ...fetchedEvents]) {
+            if (item && item.eventId) map.set(item.eventId, item);
+          }
+          return Array.from(map.values()).sort((a, b) => {
+            const tA = new Date(a.timestamp).getTime();
+            const tB = new Date(b.timestamp).getTime();
+            if (isNaN(tA) || isNaN(tB)) return 0;
+            return tA - tB;
+          });
+        });
+      } catch (err) {
+        console.warn('[AdminDashboard] Failed to fetch forensic attendance_events for employee identity variants:', err);
+      }
+    };
+'''
+          p.write_text(text[:start] + replacement + text[end:], encoding='utf-8')
+          PY
+          grep -q "where('employeeCode', '==', identifier)" src/features/admin/AdminDashboard.tsx
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/features/admin/AdminDashboard.tsx
+          git commit -m "Fix chronological audit trail employee lookup"
+          git push origin main
