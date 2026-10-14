@@ -1,0 +1,4 @@
+EXFIN OMS admin-panel deployment refresh marker
+Version: 2026-10-14-canonical-audit-4
+Purpose: force a fresh Cloudflare Pages production deployment so the canonical chronological attendance audit trail is published.
+This file is intentionally outside src/, public/, android/, and the Android release workflow paths.
