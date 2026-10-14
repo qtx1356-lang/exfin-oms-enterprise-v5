@@ -498,8 +498,10 @@ export function getUnresolvedPastAttendanceRecords(
     if ((rec as any).isAdminRectified || (rec as any).manualRectified) return false;
 
     const coTime = (rec.checkOutTime || '').trim();
-    const isCompleted = rec.checkoutFinalized === true || rec.checkoutConfirmed === true || rec.checkoutStatus === 'FINALIZED' || rec.checkoutStatus === 'COMPLETED';
-    if (isCompleted && coTime && coTime !== '--:--' && coTime !== 'UNRESOLVED' && coTime !== 'Pending' && coTime !== 'N/A') return false;
+    const hasSavedCheckoutTime =
+      !!coTime && !['--:--', 'UNRESOLVED', 'Pending', 'N/A', 'null'].includes(coTime);
+    // The time itself is authoritative; legacy records may lack finalized flags.
+    if (hasSavedCheckoutTime) return false;
 
     const exitAnalysis = getAuthoritativeExitForCheckout(rec, rec.eventHistory || []);
     const hasExplicitExit = Boolean(
@@ -512,8 +514,14 @@ export function getUnresolvedPastAttendanceRecords(
       (Array.isArray(rec.eventHistory) && rec.eventHistory.some(e => (e.eventType || '').toUpperCase().includes('EXIT')))
     );
 
+    // If an exit is present but the authoritative sequence says it was paired by
+    // a RETURN, it is historical audit data—not an unresolved checkout.
+    if (hasExplicitExit && !exitAnalysis.isUnpairedExit) return false;
     if (exitAnalysis.currentGeofenceState === 'INSIDE' && !exitAnalysis.isUnpairedExit) return false;
-    return hasExplicitExit;
+
+    // Preserve the existing recovery flow for a genuinely unresolved prior-day
+    // attendance record that has no saved checkout time.
+    return true;
   });
 
   return unresolved.sort((a, b) => a.date.localeCompare(b.date));
