@@ -299,27 +299,28 @@ export const CheckoutConfirmationModal: React.FC = () => {
     }
 
     if (todayRecord) {
-      if (todayRecord.currentState === 'CHECKED_IN') {
-        // Employee is inside! Suppress popup and clear any false pending checkout flag
-        if (todayRecord.pendingCheckoutConfirmation) {
+      // Always evaluate the authoritative event sequence before trusting currentState.
+      // Location reconciliation can briefly write CHECKED_IN from an inside-range fix
+      // while the exit event/popup state is still being synchronized. Closing the modal
+      // on currentState alone causes it to flash and disappear on repeated location updates.
+      const exitAnalysis = getAuthoritativeExitForCheckout(todayRecord, todayRecord.eventHistory || []);
+      const hasUnpairedExit = exitAnalysis.isUnpairedExit && !!exitAnalysis.authoritativeExitTime;
+
+      if (!hasUnpairedExit) {
+        // A real RETURN (or no valid EXIT) closes the pending confirmation.
+        if (todayRecord.currentState === 'CHECKED_IN' && todayRecord.pendingCheckoutConfirmation) {
           todayRecord.pendingCheckoutConfirmation = false;
           saveAttendanceRecord(todayRecord);
         }
         setActiveRecord((curr) => (curr && curr.date === todayStr ? null : curr));
       } else {
-        const exitAnalysis = getAuthoritativeExitForCheckout(todayRecord, todayRecord.eventHistory || []);
-        if (!exitAnalysis.isUnpairedExit) {
-          // Employee is inside or no unpaired exit -> dismiss any popup for today
-          setActiveRecord((curr) => (curr && curr.date === todayStr ? null : curr));
-        } else {
-          const coVal = (todayRecord.checkOutTime || '').trim();
-          const isCheckOutMissing = !coVal || coVal === '--:--' || coVal === 'Pending' || coVal === 'N/A' || coVal === 'UNRESOLVED';
-          const isResolvedOutside = todayRecord.exitPromptResolvedOutside === true || todayRecord.returningToOffice === true;
+        const coVal = (todayRecord.checkOutTime || '').trim();
+        const isCheckOutMissing = !coVal || coVal === '--:--' || coVal === 'Pending' || coVal === 'N/A' || coVal === 'UNRESOLVED';
+        const isResolvedOutside = todayRecord.exitPromptResolvedOutside === true || todayRecord.returningToOffice === true;
 
-          if (!isResolvedOutside && !todayRecord.checkoutFinalized && isCheckOutMissing) {
-            if (evaluateAndOpenRecord(todayRecord, false)) {
-              return;
-            }
+        if (!isResolvedOutside && !todayRecord.checkoutFinalized && isCheckOutMissing) {
+          if (evaluateAndOpenRecord(todayRecord, false)) {
+            return;
           }
         }
       }
