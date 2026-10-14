@@ -31,6 +31,7 @@ import { createNotification, dismissUnresolvedNotificationForDate } from '../not
 import { isAdminContextActive, hasValidCheckoutTime } from '../../utils/attendanceUtils';
 import { getAuthoritativeExitForCheckout } from '../../utils/forensicAuditUtils';
 import { reconcileNativeGeofenceEvents, startNativeActiveSession, cancelPendingNativeExit, getNativeAttendanceState } from './nativeGeofenceBridge';
+import { refreshAuthoritativeAttendanceFromServer, startAuthoritativeAttendanceListener } from './adminAttendanceReconciliation';
 
 let activeResumePromise: Promise<AttendanceRecord | null> | null = null;
 
@@ -114,6 +115,22 @@ export const reconcileAttendanceOnResume = async (
       const dateStr = getFormattedDateStr(now);
       const timeStr = getFormattedTimeStr(now);
       const nowIso = now.toISOString();
+
+      // 0. FIRST: Pull authoritative Admin corrections before any local/native reconciliation.
+      // This prevents stale employee-local checkout state from masking an Admin-edited checkout time.
+      try {
+        const refreshed = await refreshAuthoritativeAttendanceFromServer(employeeId, dateStr);
+        if (refreshed?.checkOutTime) {
+          console.log('[ResumeReconciliation] Applied authoritative Admin checkout before local reconciliation', {
+            employeeId,
+            date: dateStr,
+            checkOutTime: refreshed.checkOutTime,
+          });
+        }
+        await startAuthoritativeAttendanceListener(employeeId, dateStr);
+      } catch (adminSyncErr) {
+        console.warn('[ResumeReconciliation] Admin attendance reconciliation warning:', adminSyncErr);
+      }
 
       // 1. FIRST: Reconcile any unconsumed native background geofence events BEFORE evaluating current resume GPS
       try {
