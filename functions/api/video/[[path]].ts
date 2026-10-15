@@ -58,7 +58,47 @@ async function updateDoc(env: Env, collection: string, id: string, data: Record<
 async function listCollection(env: Env, collection: string, limit = 500): Promise<any[]> { const documents: any[] = []; let pageToken = ''; do { const query = new URLSearchParams({ pageSize: String(Math.min(1000, Math.max(1, limit - documents.length))) }); if (pageToken) query.set('pageToken', pageToken); const response = await firestoreRequest(env, `projects/${PROJECT_ID}/databases/(default)/documents/${collection}?${query.toString()}`); if (!response.ok) throw new Error(`Firestore LIST failed: ${response.status}`); const payload = await response.json() as any; if (Array.isArray(payload.documents)) documents.push(...payload.documents); pageToken = String(payload.nextPageToken || ''); } while (pageToken && documents.length < limit); return documents.slice(0, limit); }
 async function queryByField(env: Env, collection: string, field: string, value: string, limit = 20): Promise<any[]> { const body = { structuredQuery: { from: [{ collectionId: collection }], where: { fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: encodeFs(value) } }, limit } }; const response = await firestoreRequest(env, `projects/${PROJECT_ID}/databases/(default)/documents:runQuery`, { method: 'POST', body: JSON.stringify(body) }); if (!response.ok) throw new Error(`Firestore QUERY failed: ${response.status}`); const rows = await response.json() as any[]; return rows.filter((row) => row.document).map((row) => row.document); }
 
-async function findRegistration(env: Env, uid: string): Promise<any | null> { const direct = await getDoc(env, 'registrations', uid); if (direct) { const data = decodeDoc(direct); if (String(data.uid || data.authUid || uid) === uid) return { document: direct, data, id: uid }; } const matches = await queryByField(env, 'registrations', 'uid', uid, 1); if (matches.length) return { document: matches[0], data: decodeDoc(matches[0]), id: String(matches[0].name).split('/').pop() }; return null; }
+async function findRegistration(env: Env, uid: string, email?: string): Promise<any | null> {
+  const matchesIdentity = (data: any) => {
+    const storedUid = String(data.uid || '').trim();
+    const storedAuthUid = String(data.authUid || '').trim();
+    return (!storedUid && !storedAuthUid) || storedUid === uid || storedAuthUid === uid;
+  };
+  const wrap = (document: any) => {
+    const data = decodeDoc(document);
+    return matchesIdentity(data)
+      ? { document, data, id: String(document.name || '').split('/').pop() || uid }
+      : null;
+  };
+
+  // Some registration records are keyed by Firebase UID; others use a generated
+  // registration document ID and store the Firebase UID in uid/authUid.
+  const direct = await getDoc(env, 'registrations', uid);
+  if (direct) {
+    const found = wrap(direct);
+    if (found) return found;
+  }
+
+  for (const field of ['uid', 'authUid']) {
+    const matches = await queryByField(env, 'registrations', field, uid, 5);
+    for (const document of matches) {
+      const found = wrap(document);
+      if (found) return found;
+    }
+  }
+
+  // Compatibility fallback for older registrations linked by email only. Do not
+  // allow an email match to override a conflicting stored Firebase UID.
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (normalizedEmail) {
+    const matches = await queryByField(env, 'registrations', 'email', normalizedEmail, 5);
+    for (const document of matches) {
+      const found = wrap(document);
+      if (found && String(found.data.email || '').trim().toLowerCase() === normalizedEmail) return found;
+    }
+  }
+  return null;
+}
 
 function decodeBase64UrlSegment(segment: string): Uint8Array {
   const normalized = segment.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - segment.length % 4) % 4);
@@ -108,10 +148,10 @@ async function verifyCaller(request: Request, env: Env): Promise<Caller | null> 
     const data = decodeDoc(adminDoc), role = normalizeRole(data.role || data.userRole || data.roleName);
     if (ADMIN_ROLES.has(role)) return { uid, email: String(data.email || decoded.email || ''), role, employeeId: String(data.employeeId || ''), employeeCode: String(data.employeeCode || ''), isAdmin: true };
   }
-  const registration = await findRegistration(env, uid), data = registration?.data || {};
+  const registration = await findRegistration(env, uid, String(decoded.email || '')), data = registration?.data || {};
   return { uid, email: String(decoded.email || data.email || ''), role: 'EMPLOYEE', employeeId: registration?.id || uid, employeeCode: String(data.employeeCode || ''), isAdmin: false };
 }
-async function isCallerActive(env: Env, caller: Caller): Promise<boolean> { if (caller.isAdmin) { const doc = await getDoc(env, 'admin_users', caller.uid); if (!doc) return false; const data = decodeDoc(doc); return ADMIN_ROLES.has(normalizeRole(data.role || data.userRole || data.roleName)) && data.active !== false && !['SUSPENDED', 'DELETED', 'INACTIVE', 'DISABLED', 'BLOCKED'].includes(normalizeStatus(data.status)); } const employee = await findRegistration(env, caller.uid); if (!employee) return false; const data = employee.data || {}; return normalizeStatus(data.status || 'Pending Approval') === 'APPROVED' && data.isDeleted !== true && data.active !== false; }
+async function isCallerActive(env: Env, caller: Caller): Promise<boolean> { if (caller.isAdmin) { const doc = await getDoc(env, 'admin_users', caller.uid); if (!doc) return false; const data = decodeDoc(doc); return ADMIN_ROLES.has(normalizeRole(data.role || data.userRole || data.roleName)) && data.active !== false && !['SUSPENDED', 'DELETED', 'INACTIVE', 'DISABLED', 'BLOCKED'].includes(normalizeStatus(data.status)); } const employee = await findRegistration(env, caller.uid, caller.email); if (!employee) return false; const data = employee.data || {}; return normalizeStatus(data.status || 'Pending Approval') === 'APPROVED' && data.isDeleted !== true && data.active !== false; }
 async function findApprovedEmployee(env: Env, uid: string) { const found = await findRegistration(env, uid); if (!found) return null; const data = found.data || {}; if (normalizeStatus(data.status || 'Pending Approval') !== 'APPROVED' || data.isDeleted === true || data.active === false) return null; return found; }
 async function nameForUid(env: Env, uid: string): Promise<string> { const admin = await getDoc(env, 'admin_users', uid); if (admin) { const data = decodeDoc(admin); return String(data.name || data.displayName || data.loginId || data.email || 'Administrator').slice(0, 80); } const employee = await findRegistration(env, uid); if (employee) { const data = employee.data || {}; return String(data.name || data.fullName || data.employeeCode || 'Employee').slice(0, 80); } return 'EXFIN OMS user'; }
 
