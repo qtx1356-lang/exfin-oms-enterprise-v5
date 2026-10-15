@@ -104,7 +104,7 @@ export async function initNativePushNotifications(userContext: {
 }
 
 /**
- * Registers device push token with Express backend securely.
+ * Registers device push token with the authenticated Cloudflare video API securely.
  */
 async function registerTokenWithBackend(
   token: string,
@@ -121,7 +121,7 @@ async function registerTokenWithBackend(
   // Retrieve fresh auth token to verify identity securely
   const idToken = await currentUser.getIdToken(true);
 
-  const response = await fetch(`${API_BASE_URL}/api/notifications/register-device`, {
+  const response = await fetch(`${API_BASE_URL}/api/video/device-token`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -157,7 +157,7 @@ export async function unregisterTokenFromBackend() {
 
   try {
     const idToken = await currentUser.getIdToken();
-    const response = await fetch(`${API_BASE_URL}/api/notifications/unregister-device`, {
+    const response = await fetch(`${API_BASE_URL}/api/video/device-token/unregister`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
