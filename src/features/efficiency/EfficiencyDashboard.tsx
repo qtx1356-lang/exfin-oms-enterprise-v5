@@ -549,10 +549,10 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
   }, [isAdmin, allEmployees, authorizedEmployees, startDate, endDate, tasks, attendance, weightages, workDetails, disciplineDailyScores]);
 
   const currentRank = useMemo(() => {
-    if (!targetEmpCode || !companyLeaderboard.length) return null;
+    if (!targetEmpCode || !companyLeaderboard.length || (currentCalculation && currentCalculation.finalScore < 0)) return null;
     const idx = companyLeaderboard.findIndex(i => i.employee.employeeCode === targetEmpCode || i.employee.id === targetEmpId);
     return idx !== -1 ? idx + 1 : null;
-  }, [companyLeaderboard, targetEmpCode, targetEmpId]);
+  }, [companyLeaderboard, targetEmpCode, targetEmpId, currentCalculation]);
 
   // Monthly Comparison Stats
   const monthlyComparisonStats = useMemo(() => {
@@ -634,6 +634,7 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
     if (!myTeamMembers.length) return null;
 
     let totalTeamScore = 0;
+    let scoredTeamMembers = 0;
     let totalTeamWorkMins = 0;
     let totalTeamAssigned = 0;
     let totalTeamCompleted = 0;
@@ -701,7 +702,10 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
       const mOverdue = mTasks.filter(t => getEffectiveTaskStatus(t) === 'Overdue').length;
       const mRevs = mTasks.reduce((s, t) => s + (t.revisionCount || t.revisions?.length || 0), 0);
 
-      totalTeamScore += calc.finalScore;
+      if (calc.finalScore >= 0) {
+        totalTeamScore += calc.finalScore;
+        scoredTeamMembers++;
+      }
       totalTeamWorkMins += mWorkMins;
       totalTeamAssigned += mTasks.length;
       totalTeamCompleted += mComp;
@@ -725,7 +729,7 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
       };
     }).sort((a, b) => b.score - a.score);
 
-    const avgTeamScore = Math.round(totalTeamScore / myTeamMembers.length);
+    const avgTeamScore = scoredTeamMembers > 0 ? Math.round(totalTeamScore / scoredTeamMembers) : -1;
     const teamPunctualityPct = totalAttDays > 0 ? Math.round(((totalAttDays - totalLateCheckIns) / totalAttDays) * 100) : 100;
 
     return {
@@ -872,7 +876,7 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
         doc.setFontSize(10);
         doc.text(`Employee: ${selectedEmployee?.name || selectedEmployeeCode}`, 15, 48);
         doc.text(`Department: ${selectedEmployee?.department || 'Operations'}`, 15, 54);
-        doc.text(`Overall Efficiency Score: ${currentCalculation.finalScore}% (${currentCalculation.grade})`, 15, 60);
+        doc.text(`Overall Efficiency Score: ${currentCalculation.finalScore >= 0 ? `${currentCalculation.finalScore}%` : 'N/A (No measurable activity)'} (${currentCalculation.grade})`, 15, 60);
 
         doc.text(`Total Work Hours: ${workHoursMetrics.totalFormatted}`, 15, 70);
         doc.text(`Tasks Completed: ${taskMetrics.completed} / ${taskMetrics.assigned}`, 15, 76);
@@ -1085,7 +1089,7 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
               </div>
               <div className="my-2">
                 <p className="text-2xl font-black text-[var(--text-primary)] leading-none">
-                  {currentCalculation ? `${currentCalculation.finalScore}%` : 'N/A'}
+                  {currentCalculation && currentCalculation.finalScore >= 0 ? `${currentCalculation.finalScore}%` : 'N/A'}
                 </p>
                 <p className="text-[10px] font-bold text-[var(--primary-light)] mt-1">
                   Grade: {currentCalculation ? currentCalculation.grade : 'N/A'}
@@ -1429,7 +1433,7 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
                   <div className="flex justify-between items-center">
                     <span className="text-[var(--text-secondary)]">Final Score:</span>
                     <span className="font-black text-xl text-[var(--text-primary)]">
-                      {currentCalculation ? `${currentCalculation.finalScore}%` : 'N/A'}
+                      {currentCalculation && currentCalculation.finalScore >= 0 ? `${currentCalculation.finalScore}%` : 'N/A'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -1472,7 +1476,7 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
                 <div className="text-right">
                   <span className="text-[10px] text-[var(--text-secondary)] font-bold uppercase">Avg Team Efficiency</span>
                   <p className="text-2xl font-black text-[var(--primary-light)] leading-none mt-0.5">
-                    {teamMetricsSummary.avgTeamScore}%
+                    {teamMetricsSummary.avgTeamScore >= 0 ? `${teamMetricsSummary.avgTeamScore}%` : 'N/A'}
                   </p>
                 </div>
               </div>
@@ -1572,7 +1576,7 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
                           {item.lateArrivals}
                         </td>
                         <td className="py-3.5 px-4 text-right font-black text-[var(--primary-light)] text-sm">
-                          {item.score}% ({item.grade})
+                          {item.score >= 0 ? `${item.score}% (${item.grade})` : 'N/A (No activity)'}
                         </td>
                         <td className="py-3.5 px-4 text-center">
                           <button
