@@ -1,5 +1,7 @@
 type Env = {
-  DAILY_API_KEY: string;
+  LIVEKIT_API_KEY: string;
+  LIVEKIT_API_SECRET: string;
+  LIVEKIT_URL: string;
   FIREBASE_SERVICE_ACCOUNT_KEY: string;
   FIREBASE_PROJECT_ID?: string;
 };
@@ -109,8 +111,35 @@ async function isCallerActive(env: Env, caller: Caller): Promise<boolean> { if (
 async function findApprovedEmployee(env: Env, uid: string) { const found = await findRegistration(env, uid); if (!found) return null; const data = found.data || {}; if (String(data.status || 'Pending Approval') !== 'Approved' || data.isDeleted === true || data.active === false) return null; return found; }
 async function nameForUid(env: Env, uid: string): Promise<string> { const admin = await getDoc(env, 'admin_users', uid); if (admin) { const data = decodeDoc(admin); return String(data.name || data.displayName || data.loginId || data.email || 'Administrator').slice(0, 80); } const employee = await findRegistration(env, uid); if (employee) { const data = employee.data || {}; return String(data.name || data.fullName || data.employeeCode || 'Employee').slice(0, 80); } return 'EXFIN OMS user'; }
 
-async function dailyRequest(env: Env, endpoint: string, method: string, body?: unknown) { if (!env.DAILY_API_KEY) throw new Error('DAILY_NOT_CONFIGURED'); const response = await fetch(`https://api.daily.co/v1/${endpoint}`, { method, headers: { authorization: `Bearer ${env.DAILY_API_KEY}`, 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) }); if (!response.ok) throw new Error('DAILY_PROVIDER_ERROR'); return response.json() as Promise<any>; }
-async function createMeetingToken(env: Env, roomName: string, uid: string, userName: string, owner: boolean, exp: number) { const response = await dailyRequest(env, 'meeting-tokens', 'POST', { properties: { room_name: roomName, user_id: uid.slice(0, 36), user_name: userName.slice(0, 80), is_owner: owner, exp, eject_at_token_exp: true } }); if (!response.token) throw new Error('DAILY_PROVIDER_ERROR'); return String(response.token); }
+function liveKitUrl(env: Env): string {
+  if (!env.LIVEKIT_API_KEY || !env.LIVEKIT_API_SECRET || !env.LIVEKIT_URL) throw new Error('LIVEKIT_NOT_CONFIGURED');
+  const value = String(env.LIVEKIT_URL).trim().replace(/\/$/, '');
+  if (!/^wss:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(value)) throw new Error('LIVEKIT_NOT_CONFIGURED');
+  return value;
+}
+function base64UrlEncodeBytes(bytes: Uint8Array): string {
+  let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+async function signLiveKitJwt(env: Env, claims: Record<string, unknown>): Promise<string> {
+  liveKitUrl(env);
+  const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = base64UrlEncode(JSON.stringify(claims));
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.LIVEKIT_API_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(header + '.' + payload));
+  return header + '.' + payload + '.' + base64UrlEncodeBytes(new Uint8Array(signature));
+}
+async function createMeetingToken(env: Env, roomName: string, uid: string, userName: string, _owner: boolean, exp: number) {
+  const now = Math.floor(Date.now() / 1000);
+  return signLiveKitJwt(env, { iss: env.LIVEKIT_API_KEY, sub: uid, name: userName.slice(0, 80), nbf: now - 5, iat: now, exp, video: { roomJoin: true, room: roomName, canPublish: true, canSubscribe: true, canPublishData: true } });
+}
+async function deleteLiveKitRoom(env: Env, roomName: string) {
+  const url = liveKitUrl(env).replace(/^wss:/, 'https:');
+  const now = Math.floor(Date.now() / 1000);
+  const token = await signLiveKitJwt(env, { iss: env.LIVEKIT_API_KEY, sub: env.LIVEKIT_API_KEY, nbf: now - 5, iat: now, exp: now + 60, video: { roomAdmin: true, room: roomName } });
+  const response = await fetch(url + '/twirp/livekit.RoomService/DeleteRoom', { method: 'POST', headers: { authorization: 'Bearer ' + token, 'content-type': 'application/json' }, body: JSON.stringify({ room: roomName }) });
+  if (!response.ok && response.status !== 404) throw new Error('LIVEKIT_PROVIDER_ERROR');
+}
 function pathParts(request: Request) { const pathname = new URL(request.url).pathname.replace(/^\/api\/video\/?/, '').replace(/\/$/, ''); return pathname ? pathname.split('/') : []; }
 
 export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
@@ -135,11 +164,11 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       const resolved: Array<{ uid: string; name: string; role: string }> = [];
       for (const uid of recipientUids) { if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) { const employee = await findApprovedEmployee(env, uid); if (!employee) return json({ success: false, error: 'One or more selected employees are not active and approved.' }, 403); const data = employee.data || {}; resolved.push({ uid, name: String(data.name || data.fullName || data.employeeCode || 'Employee').slice(0, 80), role: 'EMPLOYEE' }); } else { const admin = await getDoc(env, 'admin_users', uid); if (!admin) return json({ success: false, error: 'The selected administrator is not available.' }, 403); const data = decodeDoc(admin), role = String(data.role || ''); if (!ADMIN_ROLES.has(role) || data.active === false || data.status === 'Suspended' || data.status === 'Deleted') return json({ success: false, error: 'The selected administrator is not active.' }, 403); resolved.push({ uid, name: String(data.name || data.displayName || data.loginId || data.email || 'Administrator').slice(0, 80), role }); } }
       const now = Math.floor(Date.now() / 1000), exp = now + 60 * 60 * 2, roomName = `exfin-${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
-      const room = await dailyRequest(env, 'rooms', 'POST', { name: roomName, privacy: 'private', properties: { exp, max_participants: recipientUids.length + 1, enable_chat: true } }); if (!room.url || !room.name) throw new Error('DAILY_PROVIDER_ERROR');
-      const callId = crypto.randomUUID(), callerName = await nameForUid(env, caller.uid), title = String(body?.title || (mode === 'group' ? 'EXFIN OMS group meeting' : 'EXFIN OMS video call')).trim().slice(0, 100) || 'EXFIN OMS video call', token = await createMeetingToken(env, String(room.name), caller.uid, callerName, true, exp), createdAt = new Date().toISOString(), expiresAt = new Date(exp * 1000).toISOString(), participantUids = [caller.uid, ...recipientUids];
-      await setDoc(env, 'video_calls', callId, { callId, roomName: String(room.name), roomUrl: String(room.url), title, mode, callerUid: caller.uid, participantUids, status: 'active', createdAt, expiresAt });
-      for (const person of resolved) { const inviteId = `${callId}_${person.uid}`; await setDoc(env, 'video_call_invites', inviteId, { callId, recipientUid: person.uid, senderUid: caller.uid, senderName: callerName, senderRole: caller.role, roomName: String(room.name), roomUrl: String(room.url), title, mode, status: 'pending', createdAt, expiresAt }); }
-      return json({ success: true, callId, roomUrl: String(room.url), token, title, peerName: resolved.map((item) => item.name).join(', ') });
+      const roomUrl = liveKitUrl(env);
+      const callId = crypto.randomUUID(), callerName = await nameForUid(env, caller.uid), title = String(body?.title || (mode === 'group' ? 'EXFIN OMS group meeting' : 'EXFIN OMS video call')).trim().slice(0, 100) || 'EXFIN OMS video call', token = await createMeetingToken(env, roomName, caller.uid, callerName, true, exp), createdAt = new Date().toISOString(), expiresAt = new Date(exp * 1000).toISOString(), participantUids = [caller.uid, ...recipientUids];
+      await setDoc(env, 'video_calls', callId, { callId, roomName, roomUrl, title, mode, callerUid: caller.uid, participantUids, status: 'active', createdAt, expiresAt });
+      for (const person of resolved) { const inviteId = `${callId}_${person.uid}`; await setDoc(env, 'video_call_invites', inviteId, { callId, recipientUid: person.uid, senderUid: caller.uid, senderName: callerName, senderRole: caller.role, roomName, roomUrl, title, mode, status: 'pending', createdAt, expiresAt }); }
+      return json({ success: true, callId, roomUrl, token, title, peerName: resolved.map((item) => item.name).join(', ') });
     }
 
     if (method === 'POST' && parts.length === 3 && parts[0] === 'calls' && ['accept', 'decline', 'leave'].includes(parts[2])) {
@@ -147,11 +176,11 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       if (action === 'accept') { if (invite.status !== 'pending' || !invite.expiresAt || new Date(String(invite.expiresAt)).getTime() <= Date.now()) return json({ success: false, error: 'This call invitation has expired or is no longer available.' }, 410); const callDoc = await getDoc(env, 'video_calls', callId); if (!callDoc || decodeDoc(callDoc).status !== 'active') return json({ success: false, error: 'This call has ended.' }, 410); const callData = decodeDoc(callDoc), owner = caller.isAdmin && ADMIN_ROLES.has(caller.role), token = await createMeetingToken(env, String(invite.roomName), caller.uid, await nameForUid(env, caller.uid), owner, Math.floor(new Date(String(invite.expiresAt)).getTime() / 1000)); await updateDoc(env, 'video_call_invites', inviteId, { status: 'accepted', acceptedAt: new Date().toISOString() }); return json({ success: true, token, roomUrl: invite.roomUrl || callData.roomUrl, title: invite.title || callData.title, callerName: invite.senderName || 'EXFIN OMS user' }); }
       if (action === 'decline') { await updateDoc(env, 'video_call_invites', inviteId, { status: 'declined', respondedAt: new Date().toISOString() }); return json({ success: true }); }
       const callDoc = await getDoc(env, 'video_calls', callId); if (!callDoc) return json({ success: false, error: 'Call not found.' }, 404); const callData = decodeDoc(callDoc), participants = Array.isArray(callData.participantUids) ? callData.participantUids.map(String) : []; if (!participants.includes(caller.uid)) return json({ success: false, error: 'You are not a participant in this call.' }, 403);
-      if (String(callData.callerUid) === caller.uid) { await updateDoc(env, 'video_calls', callId, { status: 'ended', endedAt: new Date().toISOString() }); try { await dailyRequest(env, `rooms/${encodeURIComponent(String(callData.roomName))}`, 'DELETE'); } catch (_) {} } else await updateDoc(env, 'video_call_invites', inviteId, { status: 'left', leftAt: new Date().toISOString() });
+      if (String(callData.callerUid) === caller.uid) { await updateDoc(env, 'video_calls', callId, { status: 'ended', endedAt: new Date().toISOString() }); try { await deleteLiveKitRoom(env, String(callData.roomName)); } catch (error) { console.warn('[Pages Video API] LiveKit room cleanup failed:', (error as any)?.message || error); } } else await updateDoc(env, 'video_call_invites', inviteId, { status: 'left', leftAt: new Date().toISOString() });
       return json({ success: true });
     }
 
     if (method === 'POST' && parts.length === 1 && parts[0] === 'push-subscription') { const body = await request.json().catch(() => ({})) as any; if (!body?.subscription) return json({ success: false, error: 'Push subscription is required.' }, 400); await setDoc(env, 'video_push_subscriptions', `${caller.uid}_${crypto.randomUUID()}`, { uid: caller.uid, subscription: body.subscription, createdAt: new Date().toISOString() }); return json({ success: true }); }
     return json({ success: false, error: 'Video API endpoint not found.' }, 404);
-  } catch (error: any) { console.error('[Pages Video API]', error?.message || error); if (error?.message === 'DAILY_NOT_CONFIGURED') return json({ success: false, error: 'Video calling is not configured on the server yet.' }, 503); if (error?.message === 'DAILY_PROVIDER_ERROR') return json({ success: false, error: 'The video provider is temporarily unavailable.' }, 502); if (error?.message?.includes('FIREBASE_SERVICE_ACCOUNT_KEY')) return json({ success: false, error: 'Video server Firebase credentials are not configured yet.' }, 503); return json({ success: false, error: 'Could not process the video request.' }, 500); }
+  } catch (error: any) { console.error('[Pages Video API]', error?.message || error); if (error?.message === 'LIVEKIT_NOT_CONFIGURED') return json({ success: false, error: 'LiveKit is not configured yet. Add LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET to Cloudflare Pages production secrets.' }, 503); if (error?.message === 'LIVEKIT_PROVIDER_ERROR') return json({ success: false, error: 'The video provider is temporarily unavailable.' }, 502); if (error?.message?.includes('FIREBASE_SERVICE_ACCOUNT_KEY')) return json({ success: false, error: 'Video server Firebase credentials are not configured yet.' }, 503); return json({ success: false, error: 'Could not process the video request.' }, 500); }
 };
