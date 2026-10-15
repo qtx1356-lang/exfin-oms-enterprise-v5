@@ -559,7 +559,12 @@ async function startServer() {
   const findApprovedEmployee = async (uid: string) => {
     if (!db) return null;
     const direct = await db.collection("registrations").doc(uid).get();
-    if (direct.exists) return { ref: direct.ref, data: direct.data() || {}, uid: direct.id };
+    if (direct.exists) {
+      const directData = direct.data() || {};
+      const declaredUid = String(directData.uid || directData.authUid || "");
+      if ((declaredUid && declaredUid !== uid) || (!declaredUid && directData.employeeCode && String(directData.employeeCode) === direct.id)) return null;
+      return { ref: direct.ref, data: directData, uid };
+    }
     const byUid = await db.collection("registrations").where("uid", "==", uid).limit(1).get();
     if (!byUid.empty) return { ref: byUid.docs[0].ref, data: byUid.docs[0].data(), uid };
     return null;
@@ -603,7 +608,7 @@ async function startServer() {
         snapshot.forEach((item) => {
           const data = item.data();
           const status = String(data.status || "Pending Approval");
-          const uid = String(data.uid || data.authUid || item.id);
+          const uid = String(data.uid || data.authUid || (String(data.employeeCode || "") === item.id ? "" : item.id));
           if (uid && uid !== caller.uid && status === "Approved" && data.isDeleted !== true && data.active !== false) {
             recipients.push({
               uid,
@@ -622,10 +627,9 @@ async function startServer() {
           if (item.id !== caller.uid && videoAdminRoles.has(role) && data.active !== false && data.status !== "Suspended") {
             recipients.push({
               uid: item.id,
-              name: String(data.name || data.displayName || data.loginId || data.email || "Administrator"),
+              name: String(data.name || data.displayName || data.loginId || "Administrator"),
               employeeCode: String(data.loginId || ""),
-              role,
-              email: String(data.email || "")
+              role
             });
           }
         });
