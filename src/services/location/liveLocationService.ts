@@ -15,9 +15,7 @@ export interface UpdateLiveLocationParams {
   force?: boolean;
 }
 
-/**
- * Defensive coordinate validation
- */
+/** Defensive coordinate validation. */
 export const isValidGpsCoordinate = (lat: any, lon: any): boolean => {
   return (
     typeof lat === 'number' &&
@@ -32,40 +30,28 @@ export const isValidGpsCoordinate = (lat: any, lon: any): boolean => {
   );
 };
 
-/**
- * Format live distance from office in meters (<1000m) or kilometers (>=1000m).
- */
+/** Format live distance from office in meters (<1000m) or kilometers (>=1000m). */
 export const formatLiveDistance = (meters: number | null | undefined): string | null => {
   if (typeof meters !== 'number' || isNaN(meters) || !Number.isFinite(meters) || meters < 0) {
     return null;
   }
-  if (meters < 1000) {
-    return `${Math.round(meters)} m from office`;
-  }
+  if (meters < 1000) return `${Math.round(meters)} m from office`;
   return `${(meters / 1000).toFixed(2)} km from office`;
 };
 
 /**
- * Determine location freshness based on timestamp age.
- * Rules:
- * < 2 minutes: LIVE
- * 2–15 minutes: RECENT
- * > 15 minutes: STALE
- * No live location: UNAVAILABLE
+ * Determine location freshness based on the employee app's GPS-fix timestamp.
+ * < 2 minutes: LIVE, 2–15 minutes: RECENT, > 15 minutes: STALE.
  */
 export const getLiveLocationFreshness = (timestampIso?: string | null): {
   status: 'LIVE' | 'RECENT' | 'STALE' | 'UNAVAILABLE';
   statusText: string;
   ageMinutes: number | null;
 } => {
-  if (!timestampIso) {
-    return { status: 'UNAVAILABLE', statusText: 'Location unavailable', ageMinutes: null };
-  }
+  if (!timestampIso) return { status: 'UNAVAILABLE', statusText: 'Location unavailable', ageMinutes: null };
 
   const dateObj = new Date(timestampIso);
-  if (isNaN(dateObj.getTime())) {
-    return { status: 'UNAVAILABLE', statusText: 'Location unavailable', ageMinutes: null };
-  }
+  if (isNaN(dateObj.getTime())) return { status: 'UNAVAILABLE', statusText: 'Location unavailable', ageMinutes: null };
 
   const ageMs = Math.max(0, Date.now() - dateObj.getTime());
   const ageSec = Math.floor(ageMs / 1000);
@@ -76,26 +62,18 @@ export const getLiveLocationFreshness = (timestampIso?: string | null): {
     const text = ageSec < 15 ? 'Live · Updated just now' : `Live · Updated ${ageSec} sec ago`;
     return { status: 'LIVE', statusText: text, ageMinutes: ageMin };
   }
-
-  if (ageMin < 15) {
-    return { status: 'RECENT', statusText: `Last updated ${ageMin} min ago`, ageMinutes: ageMin };
-  }
+  if (ageMin < 15) return { status: 'RECENT', statusText: `Last updated ${ageMin} min ago`, ageMinutes: ageMin };
 
   let text = `Last updated ${ageMin} min ago`;
-  if (ageHr >= 24) {
-    text = `Last updated ${Math.floor(ageHr / 24)} d ago`;
-  } else if (ageHr >= 1) {
-    text = `Last updated ${ageHr} hr ago`;
-  }
+  if (ageHr >= 24) text = `Last updated ${Math.floor(ageHr / 24)} d ago`;
+  else if (ageHr >= 1) text = `Last updated ${ageHr} hr ago`;
 
   return { status: 'STALE', statusText: text, ageMinutes: ageMin };
 };
 
 /**
- * Recalculate distance and extract live location details for an employee.
- * Authoritatively computes distance from liveLocation coordinates against OFFICE_LOCATION (0.0, 0.0).
- * DOES NOT blindly trust stored distanceFromOffice.
- * NEVER falls back to check-in coordinates.
+ * Recalculate distance from the latest live GPS coordinates.
+ * Stored historical check-in coordinates are never used as a fallback.
  */
 export const extractLiveEmployeeDetails = (liveLoc?: LiveEmployeeLocation | null): {
   time: string | null;
@@ -121,14 +99,12 @@ export const extractLiveEmployeeDetails = (liveLoc?: LiveEmployeeLocation | null
     };
   }
 
-  // Recalculate distance dynamically using Haversine against authoritative office coordinates
   const recalculatedDistance = getDistanceFromLatLonInM(
     liveLoc.latitude,
     liveLoc.longitude,
     OFFICE_LOCATION.latitude,
     OFFICE_LOCATION.longitude
   );
-
   const formattedDistance = formatLiveDistance(recalculatedDistance);
   const freshness = getLiveLocationFreshness(liveLoc.timestamp);
 
@@ -154,21 +130,20 @@ export const extractLiveEmployeeDetails = (liveLoc?: LiveEmployeeLocation | null
   };
 };
 
-// In-memory cache & throttle state for Firestore live location writes
 interface LiveWriteState {
   lastPersistedTime: number;
   lastPersistedLat: number;
   lastPersistedLon: number;
   pendingParams: UpdateLiveLocationParams | null;
-  timer: any | null;
+  timer: ReturnType<typeof setTimeout> | null;
 }
 
 const liveWriteCache = new Map<string, LiveWriteState>();
 
 const executeLiveLocationWrite = async (params: UpdateLiveLocationParams): Promise<boolean> => {
   const { employeeId, employeeName, latitude, longitude, accuracy, townCity, timestamp } = params;
+  const normalizedEmployeeId = employeeId.trim();
 
-  // Authoritative Haversine distance calculation from OFFICE_LOCATION
   const calculatedDistance = getDistanceFromLatLonInM(
     latitude,
     longitude,
@@ -182,31 +157,39 @@ const executeLiveLocationWrite = async (params: UpdateLiveLocationParams): Promi
   } else if (typeof timestamp === 'number') {
     fixTimestampIso = new Date(timestamp).toISOString();
   } else if (typeof timestamp === 'string' && timestamp.trim()) {
-    fixTimestampIso = new Date(timestamp).toISOString();
+    const parsed = new Date(timestamp);
+    fixTimestampIso = isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
   } else {
     fixTimestampIso = new Date().toISOString();
   }
 
   const cleanTownCity = (townCity && townCity.trim()) ? townCity.trim() : 'Raniganj HQ';
 
-  const liveDocPayload: LiveEmployeeLocation = {
-    employeeId: employeeId.trim(),
+  // Keep both canonical and compatibility fields in the same authoritative document.
+  // This lets the admin panel match employeeCode/employeeId variants without creating
+  // duplicate live-location documents.
+  const liveDocPayload: LiveEmployeeLocation & Record<string, any> = {
+    employeeId: normalizedEmployeeId,
+    employeeCode: normalizedEmployeeId,
     employeeName: (employeeName && employeeName.trim()) ? employeeName.trim() : '',
     latitude,
     longitude,
     accuracy: (typeof accuracy === 'number' && Number.isFinite(accuracy)) ? accuracy : null,
     distanceFromOffice: calculatedDistance,
+    currentDistance: calculatedDistance,
     townCity: cleanTownCity,
     timestamp: fixTimestampIso,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
+    locationSource: 'EMPLOYEE_APP_GPS',
+    locationVersion: 2
   };
 
   try {
-    const docRef = doc(db, 'live_locations', employeeId.trim());
+    const docRef = doc(db, 'live_locations', normalizedEmployeeId);
     await setDoc(docRef, liveDocPayload, { merge: true });
 
     console.log('[LIVE_LOCATION_PERSISTED]', {
-      employeeId,
+      employeeId: normalizedEmployeeId,
       latitude,
       longitude,
       distanceFromOffice: calculatedDistance,
@@ -221,21 +204,15 @@ const executeLiveLocationWrite = async (params: UpdateLiveLocationParams): Promi
 };
 
 /**
- * Writes or updates the employee's live location document in Firestore:
- * live_locations/{employeeId}
- * 
- * Throttles routine live-location writes to 10 seconds, with an earlier write after 10 metres of movement.
+ * Writes/updates live_locations/{employeeId}.
+ * Normal updates are persisted at least every 5 seconds, or immediately after
+ * approximately 10m movement. Forced writes bypass the throttle.
  */
 export const updateLiveEmployeeLocation = async (params: UpdateLiveLocationParams): Promise<boolean> => {
   const { employeeId, latitude, longitude, force } = params;
-
-  if (!employeeId || !employeeId.trim()) {
-    return false;
-  }
+  if (!employeeId || !employeeId.trim()) return false;
 
   const empId = employeeId.trim();
-
-  // 1. Validate coordinates
   if (!isValidGpsCoordinate(latitude, longitude)) {
     console.warn('[updateLiveEmployeeLocation] Ignored invalid GPS coordinates:', { employeeId: empId, latitude, longitude });
     return false;
@@ -255,9 +232,11 @@ export const updateLiveEmployeeLocation = async (params: UpdateLiveLocationParam
 
   const now = Date.now();
   const timeSinceLastWrite = now - state.lastPersistedTime;
-  const distMoved = getDistanceFromLatLonInM(latitude, longitude, state.lastPersistedLat, state.lastPersistedLon);
+  const distMoved = state.lastPersistedTime === 0
+    ? Infinity
+    : getDistanceFromLatLonInM(latitude, longitude, state.lastPersistedLat, state.lastPersistedLon);
 
-  const shouldWriteNow = force || state.lastPersistedTime === 0 || timeSinceLastWrite >= 10000 || distMoved >= 10;
+  const shouldWriteNow = force || state.lastPersistedTime === 0 || timeSinceLastWrite >= 5000 || distMoved >= 10;
 
   if (shouldWriteNow) {
     if (state.timer) {
@@ -268,25 +247,29 @@ export const updateLiveEmployeeLocation = async (params: UpdateLiveLocationParam
     state.lastPersistedTime = now;
     state.lastPersistedLat = latitude;
     state.lastPersistedLon = longitude;
-
     return executeLiveLocationWrite(params);
-  } else {
-    // Coalesce into pending write
-    state.pendingParams = params;
-    if (!state.timer) {
-      const delay = Math.max(1000, 10000 - timeSinceLastWrite);
-      state.timer = setTimeout(() => {
-        if (state && state.pendingParams) {
-          const p = state.pendingParams;
-          state.pendingParams = null;
-          state.timer = null;
-          state.lastPersistedTime = Date.now();
-          state.lastPersistedLat = p.latitude;
-          state.lastPersistedLon = p.longitude;
-          executeLiveLocationWrite(p);
-        }
-      }, delay);
-    }
-    return true;
   }
+
+  // Coalesce intermediate GPS fixes so the admin panel receives the newest fix,
+  // without generating a Firestore write for every native GPS callback.
+  state.pendingParams = params;
+  if (!state.timer) {
+    const delay = Math.max(500, 5000 - timeSinceLastWrite);
+    state.timer = setTimeout(() => {
+      if (!state || !state.pendingParams) {
+        if (state) state.timer = null;
+        return;
+      }
+
+      const p = state.pendingParams;
+      state.pendingParams = null;
+      state.timer = null;
+      state.lastPersistedTime = Date.now();
+      state.lastPersistedLat = p.latitude;
+      state.lastPersistedLon = p.longitude;
+      void executeLiveLocationWrite(p);
+    }, delay);
+  }
+
+  return true;
 };
