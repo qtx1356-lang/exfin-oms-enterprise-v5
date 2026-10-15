@@ -33,3 +33,10 @@
 - API tokens are short-lived and scoped to a private room. Room expiry is a fallback if a client exits unexpectedly.
 - Invite notifications contain a call ID only; they do not contain a Daily meeting token.
 - Never log provider authorization headers, Daily API keys, or meeting tokens.
+
+## Optional browser push for admin incoming calls
+- Generate a VAPID key pair with `npx web-push generate-vapid-keys`.
+- Set `WEB_PUSH_VAPID_PUBLIC_KEY`, `WEB_PUSH_VAPID_PRIVATE_KEY`, and `WEB_PUSH_VAPID_SUBJECT` only in the Express backend secret environment. Do not expose the private key.
+- Set `VITE_WEB_PUSH_VAPID_PUBLIC_KEY` to the public key in the Cloudflare Pages build environment.
+- Deploy `public/video-call-notifications/sw.js`, then open Video calls in the admin browser and select **Enable browser call notifications**. The browser asks permission on the user's explicit action.
+- Browser subscriptions are stored server-side and used for incoming call alerts. Android still uses FCM.

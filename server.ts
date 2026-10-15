@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { randomUUID, createHash } from "crypto";
 import { getMessaging } from "firebase-admin/messaging";
+import webpush from "web-push";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore, FieldValue, Firestore } from "firebase-admin/firestore";
 import { getAuth, Auth } from "firebase-admin/auth";
@@ -581,6 +582,57 @@ async function startServer() {
     return !!employee && String(employee.data.status || "Pending Approval") === "Approved" && employee.data.isDeleted !== true && employee.data.active !== false;
   };
 
+
+  const sendVideoWebPush = async (uid: string, payload: { title: string; body: string; callId: string }) => {
+    if (!db || !process.env.WEB_PUSH_VAPID_PUBLIC_KEY || !process.env.WEB_PUSH_VAPID_PRIVATE_KEY) return;
+    try {
+      webpush.setVapidDetails(
+        process.env.WEB_PUSH_VAPID_SUBJECT || "mailto:admin@exfin-oms.com",
+        process.env.WEB_PUSH_VAPID_PUBLIC_KEY,
+        process.env.WEB_PUSH_VAPID_PRIVATE_KEY
+      );
+      const subscriptions = await db.collection("push_web_subscriptions").where("uid", "==", uid).get();
+      await Promise.allSettled(subscriptions.docs.map(async (item) => {
+        const data = item.data();
+        if (!data.subscription) return;
+        try {
+          await webpush.sendNotification(data.subscription, JSON.stringify({
+            title: payload.title,
+            body: payload.body,
+            data: { type: "video_call", callId: payload.callId, url: "/" }
+          }));
+        } catch (error: any) {
+          if (error?.statusCode === 404 || error?.statusCode === 410) await item.ref.delete().catch(() => {});
+          else console.warn("[VideoCalls] Browser push delivery failed for a registered subscription.");
+        }
+      }));
+    } catch (error) {
+      console.warn("[VideoCalls] Browser push service is not configured or unavailable.");
+    }
+  };
+
+  app.post("/api/video/push-subscription", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!(await videoCallerIsActive(caller))) return res.status(403).json({ success: false, error: "Your account is inactive or not approved for video calls." });
+    if (!db) return res.status(503).json({ success: false, error: "Notification service is not ready." });
+    const subscription = req.body?.subscription;
+    if (!subscription || typeof subscription.endpoint !== "string" || !subscription.endpoint.startsWith("https://") ||
+        typeof subscription.keys?.p256dh !== "string" || typeof subscription.keys?.auth !== "string") {
+      return res.status(400).json({ success: false, error: "Invalid browser push subscription." });
+    }
+    try {
+      const subscriptionId = createHash("sha256").update(subscription.endpoint).digest("hex");
+      await db.collection("push_web_subscriptions").doc(subscriptionId).set({
+        uid: caller.uid, subscription, updatedAt: new Date().toISOString()
+      }, { merge: true });
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("[VideoCalls] Browser push subscription could not be saved.");
+      return res.status(500).json({ success: false, error: "Could not enable browser call notifications." });
+    }
+  });
+
   const createVideoMeetingToken = async (roomName: string, uid: string, userName: string, owner: boolean, exp: number) => {
     const response = await videoDailyRequest("meeting-tokens", "POST", {
       properties: {
@@ -725,6 +777,7 @@ async function startServer() {
             });
           });
           await Promise.allSettled(notifications);
+          await sendVideoWebPush(person.uid, { title: "Incoming EXFIN OMS video call", body: callerName + " is calling you", callId });
         } catch (pushError) {
           console.warn("[VideoCalls] Push notification could not be delivered for recipient", person.uid);
         }

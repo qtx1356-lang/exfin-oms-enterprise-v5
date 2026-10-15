@@ -145,6 +145,38 @@ export const VideoConferenceCenter: React.FC = () => {
     }
   };
 
+
+  const enableBrowserNotifications = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const publicKey = (import.meta as any).env?.VITE_WEB_PUSH_VAPID_PUBLIC_KEY || '';
+      if (!publicKey) throw new Error('Browser push is not configured yet. Ask the administrator to set the Web Push public key.');
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        throw new Error('This browser does not support push notifications.');
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') throw new Error('Allow notifications in your browser settings to receive incoming calls.');
+      const registration = await navigator.serviceWorker.register('/video-call-notifications/sw.js', { scope: '/video-call-notifications/' });
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        const padding = '='.repeat((4 - publicKey.length % 4) % 4);
+        const base64 = (publicKey + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw = window.atob(base64);
+        const applicationServerKey = new Uint8Array(raw.length);
+        for (let index = 0; index < raw.length; index += 1) applicationServerKey[index] = raw.charCodeAt(index);
+        subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
+      }
+      await videoApi('/api/video/push-subscription', { subscription: subscription.toJSON() as unknown as Record<string, unknown> });
+      setError('');
+      window.alert('Browser call notifications are enabled on this device.');
+    } catch (err: any) {
+      setError(err?.message || 'Could not enable browser notifications.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const acceptCall = async (invite: IncomingCall) => {
     setBusy(true);
     setError('');
@@ -239,6 +271,10 @@ export const VideoConferenceCenter: React.FC = () => {
             </div>
             <div className="max-h-[calc(92vh-80px)] space-y-4 overflow-y-auto p-5">
               <div className="flex items-center gap-2 rounded-xl bg-indigo-50 p-3 text-xs text-indigo-900"><ShieldCheck className="h-4 w-4 shrink-0" /> Private rooms and short-lived participant tokens are issued by the authenticated server.</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" disabled={busy} onClick={() => void enableBrowserNotifications()} className="rounded-xl border border-indigo-200 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50">Enable browser call notifications</button>
+                <span className="text-xs text-slate-500">For browser alerts when this tab is in the background.</span>
+              </div>
               {isAdmin && (
                 <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
                   <button type="button" onClick={() => changeMode('direct')} className={'rounded-lg px-3 py-2 text-sm font-bold ' + (mode === 'direct' ? 'bg-white shadow' : 'text-slate-500')}>Direct call</button>
