@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { PhoneCall, Video, X, Users, PhoneIncoming, PhoneOff, Loader2, ShieldCheck } from 'lucide-react';
+import { PhoneCall, X, Users, PhoneIncoming, PhoneOff, Loader2, ShieldCheck } from 'lucide-react';
 import { LiveKitMeeting } from './LiveKitMeeting';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useAdminAuth } from '../../context/AdminAuthContext';
