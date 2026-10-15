@@ -61,14 +61,18 @@ export const getSavedWeightages = async (): Promise<EfficiencyWeightages> => {
     
     if (snap.exists()) {
       const data = snap.data() as SystemSettings;
-      const weightages: EfficiencyWeightages = {
-        taskCompletion: data.efficiencyTaskCompletionWeight ?? DEFAULT_WEIGHTAGES.taskCompletion,
-        onTimeCompletion: data.efficiencyOnTimeWeight ?? DEFAULT_WEIGHTAGES.onTimeCompletion,
-        quality: data.efficiencyQualityWeight ?? DEFAULT_WEIGHTAGES.quality,
-        punctuality: data.efficiencyPunctualityWeight ?? DEFAULT_WEIGHTAGES.punctuality,
-        workload: data.efficiencyWorkloadWeight ?? DEFAULT_WEIGHTAGES.workload,
-        discipline: data.efficiencyDisciplineWeight ?? DEFAULT_WEIGHTAGES.discipline
-      };
+      // Migrate legacy five-criterion settings to the six-criterion defaults once.
+      // Without this guard, old 100% weights plus the new discipline weight would exceed 100%.
+      const weightages: EfficiencyWeightages = data.efficiencyDisciplineWeight == null
+        ? DEFAULT_WEIGHTAGES
+        : {
+            taskCompletion: data.efficiencyTaskCompletionWeight ?? DEFAULT_WEIGHTAGES.taskCompletion,
+            onTimeCompletion: data.efficiencyOnTimeWeight ?? DEFAULT_WEIGHTAGES.onTimeCompletion,
+            quality: data.efficiencyQualityWeight ?? DEFAULT_WEIGHTAGES.quality,
+            punctuality: data.efficiencyPunctualityWeight ?? DEFAULT_WEIGHTAGES.punctuality,
+            workload: data.efficiencyWorkloadWeight ?? DEFAULT_WEIGHTAGES.workload,
+            discipline: data.efficiencyDisciplineWeight
+          };
       
       console.log(`[EFFICIENCY_FIRESTORE_END] reqId=${reqId} path=system_settings/efficiency_config docsReturned=1 elapsedMs=${elapsedMs}ms source=remote`);
       // Update local storage
