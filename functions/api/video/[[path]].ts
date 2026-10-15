@@ -345,6 +345,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
               pushFailed: pushResult.failed,
               pushErrors: pushResult.errors,
               pushAttemptedAt: new Date().toISOString(),
+            }).catch((diagnosticError: any) => {
+              console.warn('[Video API] Could not persist incoming-call push diagnostics:', diagnosticError?.message || diagnosticError);
             });
           } catch (pushError: any) {
             const error = String(pushError?.message || pushError || 'FCM_SEND_FAILED').slice(0, 240);
