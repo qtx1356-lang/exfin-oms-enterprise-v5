@@ -4,6 +4,8 @@ type Env = {
   LIVEKIT_URL: string;
   FIREBASE_SERVICE_ACCOUNT_KEY: string;
   FIREBASE_PROJECT_ID?: string;
+  VAPID_PUBLIC_KEY?: string;
+  VITE_WEB_PUSH_VAPID_PUBLIC_KEY?: string;
 };
 
 type PagesFunction<E> = (context: { request: Request; env: E }) => Response | Promise<Response>;
@@ -149,6 +151,13 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const caller = await verifyCaller(request, env); if (!caller) return json({ success: false, error: 'Authentication required.' }, 401); if (!(await isCallerActive(env, caller))) return json({ success: false, error: 'Your account is inactive or not approved for video calls.' }, 403);
     const parts = pathParts(request), method = request.method;
+
+    if (method === 'GET' && parts.length === 1 && parts[0] === 'push-config') {
+      const publicKey = String(env.VAPID_PUBLIC_KEY || env.VITE_WEB_PUSH_VAPID_PUBLIC_KEY || '').trim();
+      return publicKey
+        ? json({ success: true, publicKey })
+        : json({ success: false, error: 'Web Push public key is missing. Add VAPID_PUBLIC_KEY to the Cloudflare Pages production environment variables, then redeploy.' }, 503);
+    }
 
     if (method === 'GET' && parts.length === 1 && parts[0] === 'recipients') {
       const recipients: Array<{ uid: string; name: string; employeeCode?: string; role: string; email?: string }> = [];
