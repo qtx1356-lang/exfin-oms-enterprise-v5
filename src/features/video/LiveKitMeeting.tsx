@@ -26,8 +26,8 @@ function loadLiveKitClient(): Promise<any> {
   return liveKitScriptPromise;
 }
 
-type Props = { serverUrl: string; token: string; onLeave: () => void };
-export const LiveKitMeeting: React.FC<Props> = ({ serverUrl, token, onLeave }) => {
+type Props = { serverUrl: string; token: string; title: string; peerName: string; onLeave: () => void };
+export const LiveKitMeeting: React.FC<Props> = ({ serverUrl, token, title, peerName, onLeave }) => {
   const videoGridRef = useRef<HTMLDivElement>(null);
   const audioGridRef = useRef<HTMLDivElement>(null);
   const roomRef = useRef<any>(null);
@@ -129,7 +129,7 @@ export const LiveKitMeeting: React.FC<Props> = ({ serverUrl, token, onLeave }) =
   return (
     <div className="fixed inset-0 z-[110] flex flex-col bg-slate-950 text-white">
       <div className="flex items-center justify-between gap-3 bg-slate-900 px-4 py-3">
-        <div className="text-sm font-bold">EXFIN OMS secure video call</div>
+        <div className="min-w-0"><div className="truncate text-sm font-bold">{title || "EXFIN OMS secure video call"}</div><div className="truncate text-xs text-slate-300">With {peerName || "EXFIN OMS user"}</div></div>
         <span className="text-xs text-slate-300">{connecting ? 'Connecting…' : 'Connected'}</span>
       </div>
       {error && <div role="alert" className="mx-3 mt-3 rounded-xl bg-red-950 p-3 text-sm text-red-200">{error}</div>}
