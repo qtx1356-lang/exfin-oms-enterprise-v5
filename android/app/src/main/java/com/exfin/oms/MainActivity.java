@@ -1,6 +1,7 @@
 package com.exfin.oms;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -8,10 +9,13 @@ import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.webkit.PermissionRequest;
 
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebChromeClient;
 import com.exfin.oms.geofence.GeofencePlugin;
 import com.exfin.oms.geofence.UpdatePlugin;
 import com.exfin.oms.geofence.OfficeGeofenceHelper;
@@ -20,11 +24,16 @@ import com.exfin.oms.geofence.OfficeLocationService;
 import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 
 public class MainActivity extends BridgeActivity {
+    private static final int VIDEO_PERMISSION_REQUEST_CODE = 41042;
+    private PermissionRequest pendingVideoPermissionRequest;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         Log.d("APP_UPDATE_DEBUG", "[APP UPDATE DEBUG] EXFIN_UPDATER_BUILD=2026-10-05-01");
@@ -33,6 +42,20 @@ public class MainActivity extends BridgeActivity {
         Log.d("APP_UPDATE_DEBUG", "[APP UPDATE DEBUG] UpdatePlugin registered");
         registerPlugin(GreetingTtsPlugin.class);
         super.onCreate(savedInstanceState);
+
+        // Capacitor's default WebChromeClient is retained through inheritance, while
+        // this subclass adds the Android runtime permission bridge required by
+        // WebRTC/LiveKit getUserMedia() inside the Capacitor WebView.
+        try {
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                getBridge().getWebView().setWebChromeClient(
+                        new ExfinWebChromeClient(getBridge(), this)
+                );
+                Log.d("MainActivity", "Video WebView permission bridge installed");
+            }
+        } catch (Throwable t) {
+            Log.w("MainActivity", "Could not install video WebView permission bridge: " + t.getMessage());
+        }
 
         try {
             int resId = getResources().getIdentifier("google_app_id", "string", getPackageName());
@@ -62,6 +85,113 @@ public class MainActivity extends BridgeActivity {
         refreshNativeGeofenceRegistration("onResume");
         ensureNativeAttendanceMonitoring("onResume");
         checkAndRestoreActiveLocationService();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode != VIDEO_PERMISSION_REQUEST_CODE) return;
+
+        PermissionRequest request = pendingVideoPermissionRequest;
+        pendingVideoPermissionRequest = null;
+        if (request == null) return;
+
+        boolean cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED;
+        boolean microphoneGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED;
+
+        if (cameraGranted && microphoneGranted) {
+            try {
+                request.grant(request.getResources());
+                Log.i("MainActivity", "WebRTC camera/microphone permission granted");
+            } catch (Exception e) {
+                Log.w("MainActivity", "Failed to grant WebRTC permission: " + e.getMessage());
+            }
+        } else {
+            try {
+                request.deny();
+            } catch (Exception ignored) {}
+            Log.w("MainActivity", "WebRTC camera/microphone permission denied");
+        }
+    }
+
+    /**
+     * Bridges WebView getUserMedia() requests to Android runtime permissions while
+     * preserving Capacitor's normal BridgeWebChromeClient behavior.
+     */
+    private static final class ExfinWebChromeClient extends BridgeWebChromeClient {
+        private final Activity activity;
+
+        ExfinWebChromeClient(com.getcapacitor.Bridge bridge, Activity activity) {
+            super(bridge);
+            this.activity = activity;
+        }
+
+        @Override
+        public void onPermissionRequest(final PermissionRequest request) {
+            activity.runOnUiThread(() -> {
+                String[] resources = request.getResources();
+                boolean wantsCamera = false;
+                boolean wantsMicrophone = false;
+
+                for (String resource : resources) {
+                    if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) wantsCamera = true;
+                    if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) wantsMicrophone = true;
+                }
+
+                // Do not grant unrelated WebView protected resources.
+                if (!wantsCamera && !wantsMicrophone) {
+                    request.deny();
+                    return;
+                }
+
+                List<String> missingPermissions = new ArrayList<>();
+                if (wantsCamera && ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    missingPermissions.add(Manifest.permission.CAMERA);
+                }
+                if (wantsMicrophone && ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    missingPermissions.add(Manifest.permission.RECORD_AUDIO);
+                }
+
+                if (missingPermissions.isEmpty()) {
+                    try {
+                        request.grant(request.getResources());
+                        Log.i("MainActivity", "WebRTC permission granted from existing Android permissions");
+                    } catch (Exception e) {
+                        Log.w("MainActivity", "Failed to grant existing WebRTC permissions: " + e.getMessage());
+                        request.deny();
+                    }
+                    return;
+                }
+
+                if (activity instanceof MainActivity) {
+                    MainActivity mainActivity = (MainActivity) activity;
+                    mainActivity.pendingVideoPermissionRequest = request;
+                    ActivityCompat.requestPermissions(
+                            mainActivity,
+                            missingPermissions.toArray(new String[0]),
+                            VIDEO_PERMISSION_REQUEST_CODE
+                    );
+                } else {
+                    request.deny();
+                }
+            });
+        }
+
+        @Override
+        public void onPermissionRequestCanceled(PermissionRequest request) {
+            if (activity instanceof MainActivity) {
+                MainActivity mainActivity = (MainActivity) activity;
+                if (mainActivity.pendingVideoPermissionRequest == request) {
+                    mainActivity.pendingVideoPermissionRequest = null;
+                }
+            }
+            super.onPermissionRequestCanceled(request);
+        }
     }
 
     /**
