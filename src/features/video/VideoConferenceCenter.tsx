@@ -160,8 +160,14 @@ export const VideoConferenceCenter: React.FC = () => {
     setBusy(true);
     setError('');
     try {
-      const publicKey = (import.meta as any).env?.VITE_WEB_PUSH_VAPID_PUBLIC_KEY || '';
-      if (!publicKey) throw new Error('Browser push is not configured yet. Ask the administrator to set the Web Push public key.');
+      let publicKey = String((import.meta as any).env?.VITE_WEB_PUSH_VAPID_PUBLIC_KEY || '').trim();
+      // Read the public key at runtime as well, so Cloudflare Pages environment changes
+      // do not depend on a Vite build-time variable being embedded in the bundle.
+      if (!publicKey) {
+        const pushConfig = await videoApi('/api/video/push-config');
+        publicKey = String(pushConfig.publicKey || '').trim();
+      }
+      if (!publicKey) throw new Error('Web Push public key is missing. Set VAPID_PUBLIC_KEY in Cloudflare Pages production environment variables and redeploy.');
       if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
         throw new Error('This browser does not support push notifications.');
       }
