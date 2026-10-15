@@ -11,6 +11,8 @@ type Caller = { uid: string; email?: string; role: string; employeeId?: string; 
 type FsValue = Record<string, unknown>;
 
 const ADMIN_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'HR', 'TEAM_LEADER']);
+function normalizeRole(value: unknown): string { return String(value || '').trim().toUpperCase().replace(/[\\s-]+/g, '_'); }
+function normalizeStatus(value: unknown): string { return String(value || '').trim().toUpperCase(); }
 const PROJECT_ID = 'exfin-oms-production';
 
 function json(data: unknown, status = 200) { return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } }); }
@@ -51,7 +53,7 @@ async function firestoreRequest(env: Env, path: string, init: RequestInit = {}) 
 async function getDoc(env: Env, collection: string, id: string): Promise<any | null> { const response = await firestoreRequest(env, docPath(collection, id)); if (response.status === 404) return null; if (!response.ok) throw new Error(`Firestore GET failed: ${response.status}`); return response.json(); }
 async function setDoc(env: Env, collection: string, id: string, data: Record<string, unknown>) { const fields: Record<string, FsValue> = {}; for (const [key, value] of Object.entries(data)) fields[key] = encodeFs(value); const response = await firestoreRequest(env, `${docPath(collection, id)}?currentDocument.exists=false`, { method: 'PATCH', body: JSON.stringify({ fields }) }); if (!response.ok) throw new Error(`Firestore SET failed: ${response.status}`); return response.json(); }
 async function updateDoc(env: Env, collection: string, id: string, data: Record<string, unknown>) { const fields: Record<string, FsValue> = {}; for (const [key, value] of Object.entries(data)) fields[key] = encodeFs(value); const updateMask = Object.keys(fields).map((field) => `updateMask.fieldPaths=${encodeURIComponent(field)}`).join('&'); const response = await firestoreRequest(env, `${docPath(collection, id)}?${updateMask}`, { method: 'PATCH', body: JSON.stringify({ fields }) }); if (!response.ok) throw new Error(`Firestore UPDATE failed: ${response.status}`); return response.json(); }
-async function listCollection(env: Env, collection: string, limit = 500): Promise<any[]> { const response = await firestoreRequest(env, `projects/${PROJECT_ID}/databases/(default)/documents/${collection}?pageSize=${limit}`); if (!response.ok) throw new Error(`Firestore LIST failed: ${response.status}`); const payload = await response.json() as any; return Array.isArray(payload.documents) ? payload.documents : []; }
+async function listCollection(env: Env, collection: string, limit = 500): Promise<any[]> { const documents: any[] = []; let pageToken = ''; do { const query = new URLSearchParams({ pageSize: String(Math.min(1000, Math.max(1, limit - documents.length))) }); if (pageToken) query.set('pageToken', pageToken); const response = await firestoreRequest(env, `projects/${PROJECT_ID}/databases/(default)/documents/${collection}?${query.toString()}`); if (!response.ok) throw new Error(`Firestore LIST failed: ${response.status}`); const payload = await response.json() as any; if (Array.isArray(payload.documents)) documents.push(...payload.documents); pageToken = String(payload.nextPageToken || ''); } while (pageToken && documents.length < limit); return documents.slice(0, limit); }
 async function queryByField(env: Env, collection: string, field: string, value: string, limit = 20): Promise<any[]> { const body = { structuredQuery: { from: [{ collectionId: collection }], where: { fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: encodeFs(value) } }, limit } }; const response = await firestoreRequest(env, `projects/${PROJECT_ID}/databases/(default)/documents:runQuery`, { method: 'POST', body: JSON.stringify(body) }); if (!response.ok) throw new Error(`Firestore QUERY failed: ${response.status}`); const rows = await response.json() as any[]; return rows.filter((row) => row.document).map((row) => row.document); }
 
 async function findRegistration(env: Env, uid: string): Promise<any | null> { const direct = await getDoc(env, 'registrations', uid); if (direct) { const data = decodeDoc(direct); if (String(data.uid || data.authUid || uid) === uid) return { document: direct, data, id: uid }; } const matches = await queryByField(env, 'registrations', 'uid', uid, 1); if (matches.length) return { document: matches[0], data: decodeDoc(matches[0]), id: String(matches[0].name).split('/').pop() }; return null; }
@@ -101,14 +103,14 @@ async function verifyCaller(request: Request, env: Env): Promise<Caller | null> 
   if (!decoded) return null;
   const uid = String(decoded.sub), adminDoc = await getDoc(env, 'admin_users', uid);
   if (adminDoc) {
-    const data = decodeDoc(adminDoc), role = String(data.role || '');
+    const data = decodeDoc(adminDoc), role = normalizeRole(data.role || data.userRole || data.roleName);
     if (ADMIN_ROLES.has(role)) return { uid, email: String(data.email || decoded.email || ''), role, employeeId: String(data.employeeId || ''), employeeCode: String(data.employeeCode || ''), isAdmin: true };
   }
   const registration = await findRegistration(env, uid), data = registration?.data || {};
   return { uid, email: String(decoded.email || data.email || ''), role: 'EMPLOYEE', employeeId: registration?.id || uid, employeeCode: String(data.employeeCode || ''), isAdmin: false };
 }
-async function isCallerActive(env: Env, caller: Caller): Promise<boolean> { if (caller.isAdmin) { const doc = await getDoc(env, 'admin_users', caller.uid); if (!doc) return false; const data = decodeDoc(doc); return ADMIN_ROLES.has(String(data.role || '')) && data.active !== false && data.status !== 'Suspended' && data.status !== 'Deleted'; } const employee = await findRegistration(env, caller.uid); if (!employee) return false; const data = employee.data || {}; return String(data.status || 'Pending Approval') === 'Approved' && data.isDeleted !== true && data.active !== false; }
-async function findApprovedEmployee(env: Env, uid: string) { const found = await findRegistration(env, uid); if (!found) return null; const data = found.data || {}; if (String(data.status || 'Pending Approval') !== 'Approved' || data.isDeleted === true || data.active === false) return null; return found; }
+async function isCallerActive(env: Env, caller: Caller): Promise<boolean> { if (caller.isAdmin) { const doc = await getDoc(env, 'admin_users', caller.uid); if (!doc) return false; const data = decodeDoc(doc); return ADMIN_ROLES.has(normalizeRole(data.role || data.userRole || data.roleName)) && data.active !== false && !['SUSPENDED', 'DELETED', 'INACTIVE', 'DISABLED', 'BLOCKED'].includes(normalizeStatus(data.status)); } const employee = await findRegistration(env, caller.uid); if (!employee) return false; const data = employee.data || {}; return normalizeStatus(data.status || 'Pending Approval') === 'APPROVED' && data.isDeleted !== true && data.active !== false; }
+async function findApprovedEmployee(env: Env, uid: string) { const found = await findRegistration(env, uid); if (!found) return null; const data = found.data || {}; if (normalizeStatus(data.status || 'Pending Approval') !== 'APPROVED' || data.isDeleted === true || data.active === false) return null; return found; }
 async function nameForUid(env: Env, uid: string): Promise<string> { const admin = await getDoc(env, 'admin_users', uid); if (admin) { const data = decodeDoc(admin); return String(data.name || data.displayName || data.loginId || data.email || 'Administrator').slice(0, 80); } const employee = await findRegistration(env, uid); if (employee) { const data = employee.data || {}; return String(data.name || data.fullName || data.employeeCode || 'Employee').slice(0, 80); } return 'EXFIN OMS user'; }
 
 function liveKitUrl(env: Env): string {
@@ -154,7 +156,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
         const documents = await listCollection(env, 'registrations', 500);
         for (const document of documents) {
           const data = decodeDoc(document);
-          const status = String(data.status || 'Pending Approval').trim().toUpperCase();
+          const status = normalizeStatus(data.status || 'Pending Approval');
           const uid = String(data.uid || data.authUid || '');
           if (!uid || uid === caller.uid || status !== 'APPROVED' || data.isDeleted === true || data.active === false) continue;
           recipients.push({ uid, name: String(data.name || data.fullName || data.employeeCode || 'Employee').slice(0, 80), employeeCode: String(data.employeeCode || ''), role: 'EMPLOYEE', email: String(data.email || '') });
@@ -164,8 +166,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
         for (const document of documents) {
           const data = decodeDoc(document);
           const uid = String(document.name || '').split('/').pop() || String(data.uid || data.authUid || '');
-          const role = String(data.role || '').trim().toUpperCase();
-          const status = String(data.status || '').trim().toUpperCase();
+          const role = normalizeRole(data.role || data.userRole || data.roleName);
+          const status = normalizeStatus(data.status);
           const inactive = data.active === false || ['SUSPENDED', 'DELETED', 'INACTIVE', 'DISABLED', 'BLOCKED'].includes(status);
           if (!uid || uid === caller.uid || !ADMIN_ROLES.has(role) || inactive) continue;
           recipients.push({ uid, name: String(data.name || data.displayName || data.loginId || data.email || 'Administrator').slice(0, 80), role, email: String(data.email || '') });
@@ -181,7 +183,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       if (mode === 'group' && (!caller.isAdmin || !ADMIN_ROLES.has(caller.role))) return json({ success: false, error: 'Only authorized administrators can start group meetings.' }, 403);
       if (recipientUids.includes(caller.uid)) return json({ success: false, error: 'You cannot call your own account.' }, 400);
       const resolved: Array<{ uid: string; name: string; role: string }> = [];
-      for (const uid of recipientUids) { if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) { const employee = await findApprovedEmployee(env, uid); if (!employee) return json({ success: false, error: 'One or more selected employees are not active and approved.' }, 403); const data = employee.data || {}; resolved.push({ uid, name: String(data.name || data.fullName || data.employeeCode || 'Employee').slice(0, 80), role: 'EMPLOYEE' }); } else { const admin = await getDoc(env, 'admin_users', uid); if (!admin) return json({ success: false, error: 'The selected administrator is not available.' }, 403); const data = decodeDoc(admin), role = String(data.role || ''); if (!ADMIN_ROLES.has(role) || data.active === false || data.status === 'Suspended' || data.status === 'Deleted') return json({ success: false, error: 'The selected administrator is not active.' }, 403); resolved.push({ uid, name: String(data.name || data.displayName || data.loginId || data.email || 'Administrator').slice(0, 80), role }); } }
+      for (const uid of recipientUids) { if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) { const employee = await findApprovedEmployee(env, uid); if (!employee) return json({ success: false, error: 'One or more selected employees are not active and approved.' }, 403); const data = employee.data || {}; resolved.push({ uid, name: String(data.name || data.fullName || data.employeeCode || 'Employee').slice(0, 80), role: 'EMPLOYEE' }); } else { const admin = await getDoc(env, 'admin_users', uid); if (!admin) return json({ success: false, error: 'The selected administrator is not available.' }, 403); const data = decodeDoc(admin), role = normalizeRole(data.role || data.userRole || data.roleName); if (!ADMIN_ROLES.has(role) || data.active === false || ['SUSPENDED', 'DELETED', 'INACTIVE', 'DISABLED', 'BLOCKED'].includes(normalizeStatus(data.status))) return json({ success: false, error: 'The selected administrator is not active.' }, 403); resolved.push({ uid, name: String(data.name || data.displayName || data.loginId || data.email || 'Administrator').slice(0, 80), role }); } }
       const now = Math.floor(Date.now() / 1000), exp = now + 60 * 60 * 2, roomName = `exfin-${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
       const roomUrl = liveKitUrl(env);
       const callId = crypto.randomUUID(), callerName = await nameForUid(env, caller.uid), title = String(body?.title || (mode === 'group' ? 'EXFIN OMS group meeting' : 'EXFIN OMS video call')).trim().slice(0, 100) || 'EXFIN OMS video call', token = await createMeetingToken(env, roomName, caller.uid, callerName, true, exp), createdAt = new Date().toISOString(), expiresAt = new Date(exp * 1000).toISOString(), participantUids = [caller.uid, ...recipientUids];
