@@ -24,7 +24,7 @@ function getServiceAccount(env: Env): any { if (!env.FIREBASE_SERVICE_ACCOUNT_KE
 async function getGoogleAccessToken(env: Env): Promise<string> {
   const account = getServiceAccount(env), now = Math.floor(Date.now() / 1000);
   const header = base64UrlEncode(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const claim = base64UrlEncode(JSON.stringify({ iss: account.client_email, scope: 'https://www.googleapis.com/auth/datastore', aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 }));
+  const claim = base64UrlEncode(JSON.stringify({ iss: account.client_email, scope: 'https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/firebase.messaging', aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 }));
   const pem = String(account.private_key).replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, '');
   const binary = atob(pem), keyBytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
   const key = await crypto.subtle.importKey('pkcs8', keyBytes, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
@@ -57,6 +57,58 @@ async function setDoc(env: Env, collection: string, id: string, data: Record<str
 async function updateDoc(env: Env, collection: string, id: string, data: Record<string, unknown>) { const fields: Record<string, FsValue> = {}; for (const [key, value] of Object.entries(data)) fields[key] = encodeFs(value); const updateMask = Object.keys(fields).map((field) => `updateMask.fieldPaths=${encodeURIComponent(field)}`).join('&'); const response = await firestoreRequest(env, `${docPath(collection, id)}?${updateMask}`, { method: 'PATCH', body: JSON.stringify({ fields }) }); if (!response.ok) throw new Error(`Firestore UPDATE failed: ${response.status}`); return response.json(); }
 async function listCollection(env: Env, collection: string, limit = 500): Promise<any[]> { const documents: any[] = []; let pageToken = ''; do { const query = new URLSearchParams({ pageSize: String(Math.min(1000, Math.max(1, limit - documents.length))) }); if (pageToken) query.set('pageToken', pageToken); const response = await firestoreRequest(env, `projects/${PROJECT_ID}/databases/(default)/documents/${collection}?${query.toString()}`); if (!response.ok) throw new Error(`Firestore LIST failed: ${response.status}`); const payload = await response.json() as any; if (Array.isArray(payload.documents)) documents.push(...payload.documents); pageToken = String(payload.nextPageToken || ''); } while (pageToken && documents.length < limit); return documents.slice(0, limit); }
 async function queryByField(env: Env, collection: string, field: string, value: string, limit = 20): Promise<any[]> { const body = { structuredQuery: { from: [{ collectionId: collection }], where: { fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: encodeFs(value) } }, limit } }; const response = await firestoreRequest(env, `projects/${PROJECT_ID}/databases/(default)/documents:runQuery`, { method: 'POST', body: JSON.stringify(body) }); if (!response.ok) throw new Error(`Firestore QUERY failed: ${response.status}`); const rows = await response.json() as any[]; return rows.filter((row) => row.document).map((row) => row.document); }
+
+async function sendIncomingCallPush(env: Env, recipientUid: string, callId: string, callerName: string, title: string): Promise<void> {
+  // Only send native incoming-call alerts to the EXFIN OMS Android app. Browser
+  // subscriptions are handled separately and must not receive an Android FCM send.
+  const tokenDocs = await queryByField(env, 'push_device_tokens', 'uid', recipientUid, 50);
+  const devices = tokenDocs
+    .map((document) => decodeDoc(document))
+    .filter((device) => device.token && device.platform === 'android' && device.appId === 'com.exfin.oms');
+  if (!devices.length) {
+    console.info('[Video API] No registered native Android push token for call recipient.');
+    return;
+  }
+
+  const accessToken = await getGoogleAccessToken(env);
+  const projectId = env.FIREBASE_PROJECT_ID || PROJECT_ID;
+  const payload = {
+    message: {
+      notification: {
+        title: 'Incoming EXFIN OMS video call',
+        body: (callerName || 'EXFIN OMS Admin') + ' is calling you',
+      },
+      data: {
+        type: 'video_call',
+        callId,
+        route: '/video-calls',
+        title: title || 'EXFIN OMS video call',
+      },
+      android: {
+        priority: 'HIGH',
+        notification: {
+          channel_id: 'exfin_oms_messages_v2',
+          sound: 'default',
+          click_action: 'FCM_PLUGIN_ACTIVITY',
+        },
+      },
+    },
+  };
+
+  const results = await Promise.allSettled(devices.map(async (device) => {
+    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/messages:send`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ message: { ...payload.message, token: String(device.token) } }),
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(`FCM send failed (${response.status}): ${detail.slice(0, 200)}`);
+    }
+  }));
+  const failed = results.filter((result) => result.status === 'rejected').length;
+  if (failed) console.warn(`[Video API] ${failed} incoming-call FCM delivery attempt(s) failed.`);
+}
 
 async function findRegistration(env: Env, uid: string, email?: string): Promise<any | null> {
   const matchesIdentity = (data: any) => {
@@ -237,7 +289,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       const roomUrl = liveKitUrl(env);
       const callId = crypto.randomUUID(), callerName = await nameForUid(env, caller.uid), title = String(body?.title || (mode === 'group' ? 'EXFIN OMS group meeting' : 'EXFIN OMS video call')).trim().slice(0, 100) || 'EXFIN OMS video call', token = await createMeetingToken(env, roomName, caller.uid, callerName, true, exp), createdAt = new Date().toISOString(), expiresAt = new Date(exp * 1000).toISOString(), participantUids = [caller.uid, ...recipientUids];
       await setDoc(env, 'video_calls', callId, { callId, roomName, roomUrl, title, mode, callerUid: caller.uid, participantUids, status: 'active', createdAt, expiresAt });
-      for (const person of resolved) { const inviteId = `${callId}_${person.uid}`; await setDoc(env, 'video_call_invites', inviteId, { callId, recipientUid: person.uid, senderUid: caller.uid, senderName: callerName, senderRole: caller.role, roomName, roomUrl, title, mode, status: 'pending', createdAt, expiresAt }); }
+      for (const person of resolved) { const inviteId = `${callId}_${person.uid}`; await setDoc(env, 'video_call_invites', inviteId, { callId, recipientUid: person.uid, senderUid: caller.uid, senderName: callerName, senderRole: caller.role, roomName, roomUrl, title, mode, status: 'pending', createdAt, expiresAt }); if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) { try { await sendIncomingCallPush(env, person.uid, callId, callerName, title); } catch (pushError: any) { console.warn('[Video API] Incoming-call FCM delivery failed:', pushError?.message || pushError); } } }
       return json({ success: true, callId, roomUrl, token, title, peerName: resolved.map((item) => item.name).join(', ') });
     }
 
