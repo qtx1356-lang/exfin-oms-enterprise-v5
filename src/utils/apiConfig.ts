@@ -1,11 +1,10 @@
 /**
- * Resolves the API Base URL for backend Express requests.
- * 
- * In production (e.g. Cloudflare Pages frontend hosted separately from Cloud Run Express backend),
- * this returns either:
- * 1. VITE_API_BASE_URL (if specified at build time or runtime env)
- * 2. The production Cloud Run backend URL when running on external origins (like *.pages.dev)
- * 3. Relative empty string ('') when running in full-stack Express container where SPA and API share origin.
+ * Resolves the API Base URL for browser and native clients.
+ *
+ * Browser deployments on Cloudflare Pages can use same-origin relative API routes.
+ * Capacitor Android runs the bundled UI on its local WebView origin, so relative
+ * /api requests would target the local app instead of the deployed Pages Functions.
+ * VITE_API_BASE_URL remains the explicit override for deployments using another API.
  */
 export function getApiBaseUrl(): string {
   const envUrl = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_API_BASE_URL)
@@ -13,6 +12,19 @@ export function getApiBaseUrl(): string {
     : '';
   if (envUrl !== '') {
     return envUrl.replace(/\/$/, '');
+  }
+
+  // Keep browser requests same-origin, but route native Android API calls to the
+  // Cloudflare Pages deployment that hosts the authenticated video API.
+  if (typeof window !== 'undefined') {
+    try {
+      const capacitor = (window as any).Capacitor;
+      if (typeof capacitor?.isNativePlatform === 'function' && capacitor.isNativePlatform()) {
+        return 'https://exfin-oms-enterprise-v5.pages.dev';
+      }
+    } catch {
+      // Fall through to same-origin behavior if native-platform detection fails.
+    }
   }
 
   return '';
@@ -34,5 +46,3 @@ export function buildApiUrl(path: string): string {
   }
   return base + cleanPath;
 }
-
-
