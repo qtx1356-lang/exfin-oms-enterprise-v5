@@ -63,6 +63,7 @@ export interface SystemSettings {
   efficiencyQualityWeight: number;        // 20
   efficiencyPunctualityWeight: number;    // 15
   efficiencyWorkloadWeight: number;       // 10
+  efficiencyDisciplineWeight: number;     // 10
   updatedAt: string;
   updatedBy: string;
   updatedByName: string;
