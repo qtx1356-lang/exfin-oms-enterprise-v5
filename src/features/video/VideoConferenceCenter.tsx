@@ -243,6 +243,18 @@ export const VideoConferenceCenter: React.FC = () => {
 
   return (
     <>
+      {isAdmin && !open && !activeCall && (
+        <button
+          type="button"
+          onClick={() => { setOpen(true); setError(''); }}
+          aria-label="Open video calls"
+          title="Video calls"
+          className="fixed bottom-5 right-5 z-[90] flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-xl ring-2 ring-white/80 transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300"
+        >
+          <PhoneCall className="h-5 w-5" />
+          <span>Video call</span>
+        </button>
+      )}
       {incoming.length > 0 && !activeCall && (
         <div className="fixed bottom-20 right-4 z-[95] w-[min(92vw,360px)] space-y-3">
           {incoming.map((invite) => (
