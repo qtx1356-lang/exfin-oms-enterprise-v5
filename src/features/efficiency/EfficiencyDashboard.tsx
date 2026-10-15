@@ -1662,7 +1662,7 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
               </div>
               <div>
                 <label className="block text-xs text-[var(--text-primary)] font-bold mb-1">Employee</label>
-                <select value={disciplineEmployeeCode} onChange={(e) => { setDisciplineEmployeeCode(e.target.value); setDisciplineMessage(null); }} className="w-full bg-[var(--surface-elevated)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)]">
+                <select value={disciplineEmployeeCode} onChange={(e) => { setDisciplineEmployeeCode(e.target.value); setSelectedEmployeeCode(e.target.value); setDisciplineMessage(null); }} className="w-full bg-[var(--surface-elevated)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)]">
                   <option value="">Select employee</option>
                   {allEmployees.map((employee: any) => {
                     const code = String(employee.employeeCode || employee.id || employee.uid || '').trim();
