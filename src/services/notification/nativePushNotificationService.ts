@@ -1,10 +1,14 @@
 import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { API_BASE_URL } from '@/src/utils/apiConfig';
 import { auth } from '../firebase/config';
 
 const DEVICE_TOKEN_KEY = 'exfin_device_fcm_token';
+
+let activePushContext: { userId: string; employeeCode: string; role: string } | null = null;
+let appResumeListenerInstalled = false;
 
 /**
  * Initializes Native Android Push Notifications with permission requests and token registration.
@@ -31,6 +35,7 @@ export async function initNativePushNotifications(userContext: {
   const userId = userContext.userId || userContext.id || userContext.uid || '';
   const employeeCode = userContext.employeeCode || '';
   const role = userContext.role || 'EMPLOYEE';
+  activePushContext = { userId, employeeCode, role };
 
   if (!userId) {
     console.log('[NativePush] No valid userId or employeeCode found. Skipping registration.');
@@ -110,6 +115,37 @@ export async function initNativePushNotifications(userContext: {
         window.location.hash = String(extra.route || '/video-calls');
       }
     }).catch((e) => console.warn('[NativePush] local notification listener error:', e));
+
+    // Re-sync a cached token when initialization runs again after a transient API failure.
+    const cachedToken = localStorage.getItem(DEVICE_TOKEN_KEY);
+    if (cachedToken) {
+      try {
+        await registerTokenWithBackend(cachedToken, userId, employeeCode, role);
+        console.log('[NativePush] Cached FCM token re-registered with backend.');
+      } catch (err) {
+        console.warn('[NativePush] Cached FCM token re-registration failed:', err);
+      }
+    }
+
+    // Retry native registration whenever the employee returns to the foreground.
+    if (!appResumeListenerInstalled) {
+      await App.addListener('appStateChange', async ({ isActive }) => {
+        const context = activePushContext;
+        if (!isActive || !context) return;
+        const savedToken = localStorage.getItem(DEVICE_TOKEN_KEY);
+        if (savedToken) {
+          try {
+            await registerTokenWithBackend(savedToken, context.userId, context.employeeCode, context.role);
+          } catch (err) {
+            console.warn('[NativePush] Foreground token re-registration failed:', err);
+          }
+        }
+        await PushNotifications.register().catch((err) => {
+          console.error('[NativePush] Foreground FCM re-registration failed:', err);
+        });
+      }).then(() => { appResumeListenerInstalled = true; })
+        .catch((e) => console.warn('[NativePush] appStateChange listener error:', e));
+    }
 
     await PushNotifications.register().catch((err) => {
       console.error('[NativePush] PushNotifications.register failed:', err);
