@@ -59,7 +59,15 @@ async function updateDoc(env: Env, collection: string, id: string, data: Record<
 async function listCollection(env: Env, collection: string, limit = 500): Promise<any[]> { const documents: any[] = []; let pageToken = ''; do { const query = new URLSearchParams({ pageSize: String(Math.min(1000, Math.max(1, limit - documents.length))) }); if (pageToken) query.set('pageToken', pageToken); const response = await firestoreRequest(env, `projects/${PROJECT_ID}/databases/(default)/documents/${collection}?${query.toString()}`); if (!response.ok) throw new Error(`Firestore LIST failed: ${response.status}`); const payload = await response.json() as any; if (Array.isArray(payload.documents)) documents.push(...payload.documents); pageToken = String(payload.nextPageToken || ''); } while (pageToken && documents.length < limit); return documents.slice(0, limit); }
 async function queryByField(env: Env, collection: string, field: string, value: string, limit = 20): Promise<any[]> { const body = { structuredQuery: { from: [{ collectionId: collection }], where: { fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: encodeFs(value) } }, limit } }; const response = await firestoreRequest(env, `projects/${PROJECT_ID}/databases/(default)/documents:runQuery`, { method: 'POST', body: JSON.stringify(body) }); if (!response.ok) throw new Error(`Firestore QUERY failed: ${response.status}`); const rows = await response.json() as any[]; return rows.filter((row) => row.document).map((row) => row.document); }
 
-async function sendIncomingCallPush(env: Env, recipientUid: string, callId: string, callerName: string, title: string): Promise<void> {
+type IncomingCallPushResult = {
+  tokenCount: number;
+  attempted: number;
+  sent: number;
+  failed: number;
+  errors: string[];
+};
+
+async function sendIncomingCallPush(env: Env, recipientUid: string, callId: string, callerName: string, title: string): Promise<IncomingCallPushResult> {
   // Only send native incoming-call alerts to the EXFIN OMS Android app. Browser
   // subscriptions are handled separately and must not receive an Android FCM send.
   const tokenDocs = await queryByField(env, 'push_device_tokens', 'uid', recipientUid, 50);
@@ -67,8 +75,8 @@ async function sendIncomingCallPush(env: Env, recipientUid: string, callId: stri
     .map((document) => decodeDoc(document))
     .filter((device) => device.token && device.platform === 'android' && device.appId === 'com.exfin.oms');
   if (!devices.length) {
-    console.info('[Video API] No registered native Android push token for call recipient.');
-    return;
+    console.warn('[Video API] No registered native Android push token for call recipient.');
+    return { tokenCount: 0, attempted: 0, sent: 0, failed: 0, errors: ['NO_ANDROID_FCM_TOKEN_REGISTERED'] };
   }
 
   const accessToken = await getGoogleAccessToken(env);
@@ -104,11 +112,16 @@ async function sendIncomingCallPush(env: Env, recipientUid: string, callId: stri
     });
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
-      throw new Error(`FCM send failed (${response.status}): ${detail.slice(0, 200)}`);
+      throw new Error(`FCM send failed (${response.status}): ${detail.slice(0, 240)}`);
     }
+    return await response.json().catch(() => ({}));
   }));
-  const failed = results.filter((result) => result.status === 'rejected').length;
-  if (failed) console.warn(`[Video API] ${failed} incoming-call FCM delivery attempt(s) failed.`);
+  const errors = results
+    .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+    .map((result) => String((result.reason as any)?.message || result.reason || 'FCM_SEND_FAILED').slice(0, 240));
+  const sent = results.filter((result) => result.status === 'fulfilled').length;
+  if (errors.length) console.warn(`[Video API] Incoming-call FCM delivery failures: ${errors.join(' | ')}`);
+  return { tokenCount: devices.length, attempted: devices.length, sent, failed: errors.length, errors };
 }
 
 async function findRegistration(env: Env, uid: string, email?: string): Promise<any | null> {
@@ -316,8 +329,32 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       const roomUrl = liveKitUrl(env);
       const callId = crypto.randomUUID(), callerName = await nameForUid(env, caller.uid), title = String(body?.title || (mode === 'group' ? 'EXFIN OMS group meeting' : 'EXFIN OMS video call')).trim().slice(0, 100) || 'EXFIN OMS video call', token = await createMeetingToken(env, roomName, caller.uid, callerName, true, exp), createdAt = new Date().toISOString(), expiresAt = new Date(exp * 1000).toISOString(), participantUids = [caller.uid, ...recipientUids];
       await setDoc(env, 'video_calls', callId, { callId, roomName, roomUrl, title, mode, callerUid: caller.uid, participantUids, status: 'active', createdAt, expiresAt });
-      for (const person of resolved) { const inviteId = `${callId}_${person.uid}`; await setDoc(env, 'video_call_invites', inviteId, { callId, recipientUid: person.uid, senderUid: caller.uid, senderName: callerName, senderRole: caller.role, roomName, roomUrl, title, mode, status: 'pending', createdAt, expiresAt }); if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) { try { await sendIncomingCallPush(env, person.uid, callId, callerName, title); } catch (pushError: any) { console.warn('[Video API] Incoming-call FCM delivery failed:', pushError?.message || pushError); } } }
-      return json({ success: true, callId, roomUrl, token, title, peerName: resolved.map((item) => item.name).join(', ') });
+      const pushDiagnostics: Array<{ recipientUid: string; employeeName: string; tokenCount: number; attempted: number; sent: number; failed: number; errors: string[] }> = [];
+      for (const person of resolved) {
+        const inviteId = `${callId}_${person.uid}`;
+        await setDoc(env, 'video_call_invites', inviteId, { callId, recipientUid: person.uid, senderUid: caller.uid, senderName: callerName, senderRole: caller.role, roomName, roomUrl, title, mode, status: 'pending', createdAt, expiresAt });
+        if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) {
+          try {
+            const pushResult = await sendIncomingCallPush(env, person.uid, callId, callerName, title);
+            pushDiagnostics.push({ recipientUid: person.uid, employeeName: person.name, ...pushResult });
+            await updateDoc(env, 'video_call_invites', inviteId, {
+              pushStatus: pushResult.sent > 0 ? 'sent' : pushResult.tokenCount === 0 ? 'no_token' : 'failed',
+              pushTokenCount: pushResult.tokenCount,
+              pushAttempted: pushResult.attempted,
+              pushSent: pushResult.sent,
+              pushFailed: pushResult.failed,
+              pushErrors: pushResult.errors,
+              pushAttemptedAt: new Date().toISOString(),
+            });
+          } catch (pushError: any) {
+            const error = String(pushError?.message || pushError || 'FCM_SEND_FAILED').slice(0, 240);
+            console.warn('[Video API] Incoming-call FCM delivery failed:', error);
+            pushDiagnostics.push({ recipientUid: person.uid, employeeName: person.name, tokenCount: 0, attempted: 0, sent: 0, failed: 1, errors: [error] });
+            await updateDoc(env, 'video_call_invites', inviteId, { pushStatus: 'error', pushErrors: [error], pushAttemptedAt: new Date().toISOString() }).catch(() => {});
+          }
+        }
+      }
+      return json({ success: true, callId, roomUrl, token, title, peerName: resolved.map((item) => item.name).join(', '), ...(pushDiagnostics.length ? { pushDiagnostics } : {}) });
     }
 
     if (method === 'POST' && parts.length === 3 && parts[0] === 'calls' && ['accept', 'decline', 'leave'].includes(parts[2])) {
