@@ -516,9 +516,10 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
       tasks,
       attendance,
       weightages,
-      workDetails
+      workDetails,
+      getPeriodDisciplineScore(String(emp.employeeCode || targetEmpCode), prevStartDate, prevEndDate)
     );
-  }, [selectedEmployee, targetEmpCode, targetEmpId, prevStartDate, prevEndDate, tasks, attendance, weightages, workDetails]);
+  }, [selectedEmployee, targetEmpCode, targetEmpId, prevStartDate, prevEndDate, tasks, attendance, weightages, workDetails, disciplineDailyScores]);
 
   // Leaderboard Ranking
   const companyLeaderboard = useMemo(() => {
