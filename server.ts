@@ -564,6 +564,18 @@ async function startServer() {
     if (!byUid.empty) return { ref: byUid.docs[0].ref, data: byUid.docs[0].data(), uid };
     return null;
   };
+
+  const videoCallerIsActive = async (caller: { uid: string; employeeId?: string; role: string; isAdmin: boolean }) => {
+    if (!db) return false;
+    const adminSnap = await db.collection("admin_users").doc(caller.uid).get();
+    if (adminSnap.exists) {
+      const data = adminSnap.data() || {};
+      return videoAdminRoles.has(String(data.role || "")) && data.active !== false && data.status !== "Suspended" && data.status !== "Deleted";
+    }
+    const employee = (await findApprovedEmployee(caller.uid)) || (caller.employeeId ? await findApprovedEmployee(caller.employeeId) : null);
+    return !!employee && String(employee.data.status || "Pending Approval") === "Approved" && employee.data.isDeleted !== true && employee.data.active !== false;
+  };
+
   const createVideoMeetingToken = async (roomName: string, uid: string, userName: string, owner: boolean, exp: number) => {
     const response = await videoDailyRequest("meeting-tokens", "POST", {
       properties: {
@@ -582,6 +594,7 @@ async function startServer() {
   app.get("/api/video/recipients", async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!(await videoCallerIsActive(caller))) return res.status(403).json({ success: false, error: "Your account is inactive or not approved for video calls." });
     if (!db) return res.status(503).json({ success: false, error: "Video service is not ready." });
     try {
       const recipients: any[] = [];
@@ -628,6 +641,7 @@ async function startServer() {
   app.post("/api/video/calls", async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!(await videoCallerIsActive(caller))) return res.status(403).json({ success: false, error: "Your account is inactive or not approved for video calls." });
     if (!db) return res.status(503).json({ success: false, error: "Video service is not ready." });
     if (!videoDailyKey()) return res.status(503).json({ success: false, error: "Video calling is not configured on the server yet." });
 
@@ -722,6 +736,7 @@ async function startServer() {
   app.post("/api/video/calls/:callId/accept", async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!(await videoCallerIsActive(caller))) return res.status(403).json({ success: false, error: "Your account is inactive or not approved for video calls." });
     if (!db) return res.status(503).json({ success: false, error: "Video service is not ready." });
     try {
       const inviteRef = db.collection("video_call_invites").doc(req.params.callId + "_" + caller.uid);
@@ -747,6 +762,7 @@ async function startServer() {
   app.post("/api/video/calls/:callId/decline", async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!(await videoCallerIsActive(caller))) return res.status(403).json({ success: false, error: "Your account is inactive or not approved for video calls." });
     if (!db) return res.status(503).json({ success: false, error: "Video service is not ready." });
     try {
       const inviteRef = db.collection("video_call_invites").doc(req.params.callId + "_" + caller.uid);
@@ -762,6 +778,7 @@ async function startServer() {
   app.post("/api/video/calls/:callId/leave", async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!(await videoCallerIsActive(caller))) return res.status(403).json({ success: false, error: "Your account is inactive or not approved for video calls." });
     if (!db) return res.status(503).json({ success: false, error: "Video service is not ready." });
     try {
       const callRef = db.collection("video_calls").doc(req.params.callId);
@@ -789,6 +806,7 @@ async function startServer() {
   app.post("/api/notifications/register-device", async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!(await videoCallerIsActive(caller))) return res.status(403).json({ success: false, error: "Your account is inactive or not approved for video calls." });
     if (!db) return res.status(503).json({ success: false, error: "Notification service is not ready." });
     const token = typeof req.body?.token === "string" ? req.body.token.trim() : "";
     if (token.length < 20 || token.length > 4096) return res.status(400).json({ success: false, error: "Invalid device token." });
@@ -810,6 +828,7 @@ async function startServer() {
   app.post("/api/notifications/unregister-device", async (req, res) => {
     const caller = await verifyCaller(req);
     if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!(await videoCallerIsActive(caller))) return res.status(403).json({ success: false, error: "Your account is inactive or not approved for video calls." });
     if (!db) return res.status(503).json({ success: false, error: "Notification service is not ready." });
     const token = typeof req.body?.token === "string" ? req.body.token.trim() : "";
     if (!token) return res.status(400).json({ success: false, error: "Device token is required." });
