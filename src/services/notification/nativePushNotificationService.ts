@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { API_BASE_URL } from '@/src/utils/apiConfig';
 import { auth } from '../firebase/config';
 
@@ -7,6 +8,8 @@ const DEVICE_TOKEN_KEY = 'exfin_device_fcm_token';
 
 /**
  * Initializes Native Android Push Notifications with permission requests and token registration.
+ * FCM itself is the source of truth for Firebase configuration; do not gate registration on
+ * an unrelated native startup/configuration probe.
  */
 export async function initNativePushNotifications(userContext: {
   userId?: string;
@@ -34,25 +37,10 @@ export async function initNativePushNotifications(userContext: {
     return;
   }
 
-  // Safe Check: Verify if Firebase is configured/initialized natively (google-services.json is present)
   try {
-    const { GreetingTts } = await import('../speech/greetingSpeechService');
-    const isConfiguredRes = await GreetingTts.isFirebaseConfigured().catch(() => ({ configured: false }));
-    if (!isConfiguredRes || !isConfiguredRes.configured) {
-      console.warn('[NativePush] Firebase FCM is NOT configured on this device (google-services.json is missing in android/app). Skipping native push initialization to prevent JVM startup crash.');
-      return;
-    }
-  } catch (err) {
-    console.warn('[NativePush] Error checking native Firebase configuration:', err);
-    return;
-  }
-
-  try {
-    // Ensure notification channels with sound & vibration exist
     const { ensureNotificationChannelsCreated } = await import('./pushNotificationService');
     await ensureNotificationChannelsCreated().catch(() => {});
 
-    // 1. Request OS Permission (Android 13+ requires POST_NOTIFICATIONS)
     const permission = await PushNotifications.requestPermissions().catch((e) => {
       console.warn('[NativePush] requestPermissions error:', e);
       return { receive: 'denied' as const };
@@ -63,11 +51,9 @@ export async function initNativePushNotifications(userContext: {
       return;
     }
 
-    // 2. Setup listeners BEFORE register to catch immediate registration events
-    await PushNotifications.removeAllListeners().catch(() => {});
-
+    // Do not remove all listeners: other EXFIN OMS notification handlers may be active.
     await PushNotifications.addListener('registration', async (token) => {
-      console.log('[NativePush] Device successfully registered with FCM. Token:', token.value);
+      console.log('[NativePush] Device successfully registered with FCM.');
       localStorage.setItem(DEVICE_TOKEN_KEY, token.value);
       try {
         await registerTokenWithBackend(token.value, userId, employeeCode, role);
@@ -80,20 +66,51 @@ export async function initNativePushNotifications(userContext: {
       console.error('[NativePush] Push registration failed:', error.error);
     }).catch((e) => console.warn('[NativePush] addListener registrationError error:', e));
 
-    await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+    await PushNotifications.addListener('pushNotificationReceived', async (notification) => {
       console.log('[NativePush] Native push received in foreground:', notification);
+
+      // Android does not automatically display an FCM notification while the app is
+      // foregrounded. Surface incoming calls explicitly as a local notification.
+      const data = notification.data || {};
+      if (String(data.type || '') === 'video_call') {
+        try {
+          await LocalNotifications.schedule({
+            notifications: [{
+              id: Math.floor(Date.now() % 2147483647),
+              title: notification.title || 'Incoming EXFIN OMS video call',
+              body: notification.body || 'EXFIN OMS Admin is calling you',
+              channelId: 'exfin_oms_messages_v2',
+              sound: 'notification.wav',
+              extra: {
+                type: 'video_call',
+                callId: data.callId || '',
+                route: data.route || '/video-calls',
+                title: data.title || 'EXFIN OMS video call',
+              },
+            }],
+          });
+        } catch (err) {
+          console.warn('[NativePush] Failed to show foreground incoming-call notification:', err);
+        }
+      }
     }).catch((e) => console.warn('[NativePush] addListener pushNotificationReceived error:', e));
 
     await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
       console.log('[NativePush] Push action performed by user:', action);
-      const data = action.notification?.data;
-      const route = data?.route || '/notifications';
+      const data = action.notification?.data || {};
+      const route = data?.route || '/video-calls';
       if (route && typeof window !== 'undefined') {
         window.location.hash = route;
       }
     }).catch((e) => console.warn('[NativePush] addListener pushNotificationActionPerformed error:', e));
 
-    // 3. Register with Firebase Cloud Messaging
+    await LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
+      const extra = action.notification?.extra || {};
+      if (String(extra.type || '') === 'video_call' && typeof window !== 'undefined') {
+        window.location.hash = String(extra.route || '/video-calls');
+      }
+    }).catch((e) => console.warn('[NativePush] local notification listener error:', e));
+
     await PushNotifications.register().catch((err) => {
       console.error('[NativePush] PushNotifications.register failed:', err);
     });
@@ -118,7 +135,6 @@ async function registerTokenWithBackend(
     return;
   }
 
-  // Retrieve fresh auth token to verify identity securely
   const idToken = await currentUser.getIdToken(true);
 
   const response = await fetch(`${API_BASE_URL}/api/video/device-token`, {
