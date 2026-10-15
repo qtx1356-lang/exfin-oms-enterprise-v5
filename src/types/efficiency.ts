@@ -6,14 +6,16 @@ export interface EfficiencyWeightages {
   quality: number;              // default: 20
   punctuality: number;          // default: 15
   workload: number;             // default: 10
+  discipline: number;           // default: 10
 }
 
 export const DEFAULT_WEIGHTAGES: EfficiencyWeightages = {
-  taskCompletion: 30,
-  onTimeCompletion: 25,
-  quality: 20,
-  punctuality: 15,
-  workload: 10
+  taskCompletion: 27,
+  onTimeCompletion: 22,
+  quality: 18,
+  punctuality: 13,
+  workload: 10,
+  discipline: 10
 };
 
 export type EfficiencyPeriodType = 'WEEKLY' | 'MONTHLY' | 'CUSTOM';
@@ -30,6 +32,7 @@ export interface EfficiencyBreakdown {
   qualityScore: number;            // 0-100 or -1 for NO DATA
   punctualityScore: number;        // 0-100 or -1 for NO DATA
   workloadScore: number;           // 0-100 or -1 for NO DATA
+  disciplineScore: number;         // manually rated 0-100
   
   // Counts and details used in calculation
   assignedTasksCount: number;
