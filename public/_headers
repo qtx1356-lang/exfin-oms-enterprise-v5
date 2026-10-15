@@ -21,3 +21,6 @@
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+/video-call-notifications/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
