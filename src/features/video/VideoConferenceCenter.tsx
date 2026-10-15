@@ -324,6 +324,8 @@ export const VideoConferenceCenter: React.FC = () => {
         <LiveKitMeeting
           serverUrl={activeCall.roomUrl}
           token={activeCall.token}
+          title={activeCall.title}
+          peerName={activeCall.peerName}
           onLeave={() => void leaveCall()}
         />
       )}
