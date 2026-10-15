@@ -212,5 +212,24 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
     }
+
+    // Video calls are created and mutated only by the authenticated server (Firebase Admin SDK).
+    // Clients can read only invitations addressed to them or sent by them, and calls they participate in.
+    match /video_call_invites/{inviteId} {
+      allow read: if request.auth != null &&
+        (resource.data.recipientUid == request.auth.uid || resource.data.senderUid == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    match /video_calls/{callId} {
+      allow read: if request.auth != null && request.auth.uid in resource.data.participantUids;
+      allow create, update, delete: if false;
+    }
+
+    // Device tokens are private server-side delivery addresses; never expose them to clients.
+    match /push_device_tokens/{tokenId} {
+      allow read, create, update, delete: if false;
+    }
+
   }
 }

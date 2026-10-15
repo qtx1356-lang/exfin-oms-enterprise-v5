@@ -1,6 +1,8 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import { randomUUID, createHash } from "crypto";
+import { getMessaging } from "firebase-admin/messaging";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore, FieldValue, Firestore } from "firebase-admin/firestore";
 import { getAuth, Auth } from "firebase-admin/auth";
@@ -513,6 +515,314 @@ async function startServer() {
       return null;
     }
   }
+
+
+  // =======================================================
+  // SECURE DAILY.CO VIDEO CALLS (private rooms + short-lived tokens)
+  // =======================================================
+  const videoAdminRoles = new Set(["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEADER"]);
+  const videoDailyKey = () => process.env.DAILY_API_KEY || "";
+  const videoDailyRequest = async (endpoint: string, method: string, body?: Record<string, unknown>) => {
+    const apiKey = videoDailyKey();
+    if (!apiKey) throw new Error("DAILY_NOT_CONFIGURED");
+    const response = await fetch("https://api.daily.co/v1/" + endpoint, {
+      method,
+      headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+    if (!response.ok) {
+      // Do not log or return the credential or raw provider payload.
+      console.error("[VideoCalls] Daily API request failed with status", response.status);
+      throw new Error("DAILY_PROVIDER_ERROR");
+    }
+    return response.json() as Promise<any>;
+  };
+  const videoNameForUid = async (uid: string) => {
+    if (!db) return "EXFIN OMS user";
+    const adminDoc = await db.collection("admin_users").doc(uid).get();
+    if (adminDoc.exists) {
+      const data = adminDoc.data() || {};
+      return String(data.name || data.displayName || data.loginId || data.email || "Administrator").slice(0, 80);
+    }
+    const regDoc = await db.collection("registrations").doc(uid).get();
+    if (regDoc.exists) {
+      const data = regDoc.data() || {};
+      return String(data.name || data.fullName || data.employeeCode || "Employee").slice(0, 80);
+    }
+    const match = await db.collection("registrations").where("uid", "==", uid).limit(1).get();
+    if (!match.empty) {
+      const data = match.docs[0].data();
+      return String(data.name || data.fullName || data.employeeCode || "Employee").slice(0, 80);
+    }
+    return "EXFIN OMS user";
+  };
+  const findApprovedEmployee = async (uid: string) => {
+    if (!db) return null;
+    const direct = await db.collection("registrations").doc(uid).get();
+    if (direct.exists) return { ref: direct.ref, data: direct.data() || {}, uid: direct.id };
+    const byUid = await db.collection("registrations").where("uid", "==", uid).limit(1).get();
+    if (!byUid.empty) return { ref: byUid.docs[0].ref, data: byUid.docs[0].data(), uid };
+    return null;
+  };
+  const createVideoMeetingToken = async (roomName: string, uid: string, userName: string, owner: boolean, exp: number) => {
+    const response = await videoDailyRequest("meeting-tokens", "POST", {
+      properties: {
+        room_name: roomName,
+        user_id: uid.slice(0, 36),
+        user_name: userName.slice(0, 80),
+        is_owner: owner,
+        exp,
+        eject_at_token_exp: true
+      }
+    });
+    if (!response.token) throw new Error("DAILY_PROVIDER_ERROR");
+    return String(response.token);
+  };
+
+  app.get("/api/video/recipients", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!db) return res.status(503).json({ success: false, error: "Video service is not ready." });
+    try {
+      const recipients: any[] = [];
+      if (caller.isAdmin && videoAdminRoles.has(caller.role)) {
+        const snapshot = await db.collection("registrations").limit(500).get();
+        snapshot.forEach((item) => {
+          const data = item.data();
+          const status = String(data.status || "Pending Approval");
+          const uid = String(data.uid || data.authUid || item.id);
+          if (uid && uid !== caller.uid && status === "Approved" && data.isDeleted !== true && data.active !== false) {
+            recipients.push({
+              uid,
+              name: String(data.name || data.fullName || data.employeeCode || "Employee"),
+              employeeCode: String(data.employeeCode || ""),
+              role: "EMPLOYEE",
+              email: String(data.email || "")
+            });
+          }
+        });
+      } else {
+        const snapshot = await db.collection("admin_users").limit(100).get();
+        snapshot.forEach((item) => {
+          const data = item.data();
+          const role = String(data.role || "");
+          if (item.id !== caller.uid && videoAdminRoles.has(role) && data.active !== false && data.status !== "Suspended") {
+            recipients.push({
+              uid: item.id,
+              name: String(data.name || data.displayName || data.loginId || data.email || "Administrator"),
+              employeeCode: String(data.loginId || ""),
+              role,
+              email: String(data.email || "")
+            });
+          }
+        });
+      }
+      recipients.sort((a, b) => a.name.localeCompare(b.name));
+      return res.json({ success: true, recipients });
+    } catch (err) {
+      console.error("[VideoCalls] Failed to list recipients:", err);
+      return res.status(500).json({ success: false, error: "Could not load call recipients." });
+    }
+  });
+
+  app.post("/api/video/calls", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!db) return res.status(503).json({ success: false, error: "Video service is not ready." });
+    if (!videoDailyKey()) return res.status(503).json({ success: false, error: "Video calling is not configured on the server yet." });
+
+    try {
+      const mode = req.body?.mode === "group" ? "group" : "direct";
+      const rawRecipients = Array.isArray(req.body?.recipientUids) ? req.body.recipientUids : [];
+      const recipientUids = Array.from(new Set(rawRecipients.filter((value: unknown) => typeof value === "string" && value.length > 0 && value.length <= 128))) as string[];
+      if (!recipientUids.length || recipientUids.length > 50 || (mode === "direct" && recipientUids.length !== 1)) {
+        return res.status(400).json({ success: false, error: "Select one recipient for a direct call, or up to 50 for a group meeting." });
+      }
+      if (mode === "group" && (!caller.isAdmin || !videoAdminRoles.has(caller.role))) {
+        return res.status(403).json({ success: false, error: "Only authorized administrators can start group meetings." });
+      }
+      if (recipientUids.includes(caller.uid)) return res.status(400).json({ success: false, error: "You cannot call your own account." });
+
+      const isCallerAdmin = caller.isAdmin && videoAdminRoles.has(caller.role);
+      const resolved: Array<{ uid: string; name: string; role: string }> = [];
+      for (const uid of recipientUids) {
+        if (isCallerAdmin) {
+          const employee = await findApprovedEmployee(uid);
+          if (!employee || String(employee.data.status || "Pending Approval") !== "Approved" || employee.data.isDeleted === true || employee.data.active === false) {
+            return res.status(403).json({ success: false, error: "One or more selected employees are not active and approved." });
+          }
+          resolved.push({ uid, name: String(employee.data.name || employee.data.fullName || employee.data.employeeCode || "Employee").slice(0, 80), role: "EMPLOYEE" });
+        } else {
+          const adminDoc = await db.collection("admin_users").doc(uid).get();
+          const adminData = adminDoc.data() || {};
+          if (!adminDoc.exists || !videoAdminRoles.has(String(adminData.role || "")) || adminData.active === false || adminData.status === "Suspended") {
+            return res.status(403).json({ success: false, error: "Employees can call active administrators only." });
+          }
+          resolved.push({ uid, name: String(adminData.name || adminData.displayName || adminData.loginId || adminData.email || "Administrator").slice(0, 80), role: String(adminData.role) });
+        }
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const exp = now + 60 * 60 * 2;
+      const roomName = "exfin-" + randomUUID().replace(/-/g, "").slice(0, 24);
+      const room = await videoDailyRequest("rooms", "POST", {
+        name: roomName,
+        privacy: "private",
+        properties: { exp, max_participants: recipientUids.length + 1, enable_chat: true }
+      });
+      if (!room.url || !room.name) throw new Error("DAILY_PROVIDER_ERROR");
+
+      const callId = randomUUID();
+      const callerName = await videoNameForUid(caller.uid);
+      const title = String(req.body?.title || (mode === "group" ? "EXFIN OMS group meeting" : "EXFIN OMS video call")).trim().slice(0, 100) || "EXFIN OMS video call";
+      const token = await createVideoMeetingToken(String(room.name), caller.uid, callerName, isCallerAdmin, exp);
+      const participantUids = [caller.uid, ...recipientUids];
+      const createdAt = new Date().toISOString();
+      const expiresAt = new Date((exp) * 1000).toISOString();
+      await db.collection("video_calls").doc(callId).set({
+        callId, roomName: String(room.name), roomUrl: String(room.url), title, mode,
+        callerUid: caller.uid, callerName, callerRole: caller.role, participantUids,
+        status: "active", createdAt, expiresAt
+      });
+
+      const messaging = getMessaging();
+      for (const person of resolved) {
+        const inviteId = callId + "_" + person.uid;
+        await db.collection("video_call_invites").doc(inviteId).set({
+          callId, recipientUid: person.uid, senderUid: caller.uid, senderName: callerName,
+          senderRole: caller.role, roomName: String(room.name), roomUrl: String(room.url),
+          title, mode, status: "pending", createdAt, expiresAt
+        });
+        try {
+          const devices = await db.collection("push_device_tokens").where("uid", "==", person.uid).get();
+          const notifications = devices.docs.map(async (device) => {
+            const deviceData = device.data();
+            if (!deviceData.token) return;
+            await messaging.send({
+              token: String(deviceData.token),
+              notification: { title: "Incoming EXFIN OMS video call", body: callerName + " is calling you" },
+              data: { type: "video_call", callId, route: "/video-calls", title },
+              android: { priority: "high", notification: { channelId: "calls", sound: "default" } },
+              webpush: { headers: { Urgency: "high" }, notification: { title: "Incoming EXFIN OMS video call", body: callerName + " is calling you", requireInteraction: true } }
+            });
+          });
+          await Promise.allSettled(notifications);
+        } catch (pushError) {
+          console.warn("[VideoCalls] Push notification could not be delivered for recipient", person.uid);
+        }
+      }
+      return res.json({ success: true, callId, roomUrl: String(room.url), token, title, expiresAt });
+    } catch (err: any) {
+      if (err?.message === "DAILY_NOT_CONFIGURED") return res.status(503).json({ success: false, error: "Video calling is not configured on the server yet." });
+      console.error("[VideoCalls] Call creation failed:", err?.message || err);
+      return res.status(502).json({ success: false, error: "Could not create the video call. Please try again." });
+    }
+  });
+
+  app.post("/api/video/calls/:callId/accept", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!db) return res.status(503).json({ success: false, error: "Video service is not ready." });
+    try {
+      const inviteRef = db.collection("video_call_invites").doc(req.params.callId + "_" + caller.uid);
+      const inviteSnap = await inviteRef.get();
+      if (!inviteSnap.exists) return res.status(403).json({ success: false, error: "This call invitation is not addressed to your account." });
+      const invite = inviteSnap.data() || {};
+      if (invite.status !== "pending" || !invite.expiresAt || new Date(invite.expiresAt).getTime() <= Date.now()) {
+        return res.status(410).json({ success: false, error: "This call invitation has expired or is no longer available." });
+      }
+      const callRef = db.collection("video_calls").doc(String(invite.callId));
+      const callSnap = await callRef.get();
+      if (!callSnap.exists || callSnap.data()?.status !== "active") return res.status(410).json({ success: false, error: "This call has ended." });
+      const isOwner = caller.isAdmin && videoAdminRoles.has(caller.role);
+      const token = await createVideoMeetingToken(String(invite.roomName), caller.uid, await videoNameForUid(caller.uid), isOwner, Math.floor(new Date(invite.expiresAt).getTime() / 1000));
+      await inviteRef.update({ status: "accepted", acceptedAt: new Date().toISOString() });
+      return res.json({ success: true, token, roomUrl: invite.roomUrl, title: invite.title, callerName: invite.senderName });
+    } catch (err: any) {
+      console.error("[VideoCalls] Accept failed:", err?.message || err);
+      return res.status(502).json({ success: false, error: "Could not join this call. Please try again." });
+    }
+  });
+
+  app.post("/api/video/calls/:callId/decline", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!db) return res.status(503).json({ success: false, error: "Video service is not ready." });
+    try {
+      const inviteRef = db.collection("video_call_invites").doc(req.params.callId + "_" + caller.uid);
+      const inviteSnap = await inviteRef.get();
+      if (!inviteSnap.exists) return res.status(403).json({ success: false, error: "This call invitation is not addressed to your account." });
+      await inviteRef.update({ status: "declined", respondedAt: new Date().toISOString() });
+      return res.json({ success: true });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: "Could not decline this call." });
+    }
+  });
+
+  app.post("/api/video/calls/:callId/leave", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!db) return res.status(503).json({ success: false, error: "Video service is not ready." });
+    try {
+      const callRef = db.collection("video_calls").doc(req.params.callId);
+      const callSnap = await callRef.get();
+      if (!callSnap.exists || !callSnap.data()?.participantUids?.includes(caller.uid)) {
+        return res.status(403).json({ success: false, error: "You are not a participant in this call." });
+      }
+      const callData = callSnap.data() || {};
+      if (callData.callerUid === caller.uid) {
+        await callRef.update({ status: "ended", endedAt: new Date().toISOString() });
+        const pending = await db.collection("video_call_invites").where("callId", "==", req.params.callId).get();
+        await Promise.all(pending.docs.map((item) => item.ref.update({ status: item.data().status === "pending" ? "ended" : item.data().status, endedAt: new Date().toISOString() })));
+        try { await videoDailyRequest("rooms/" + encodeURIComponent(String(callData.roomName)), "DELETE"); } catch (e) { /* room expiration is the fallback */ }
+      } else {
+        const inviteRef = db.collection("video_call_invites").doc(req.params.callId + "_" + caller.uid);
+        const inviteSnap = await inviteRef.get();
+        if (inviteSnap.exists) await inviteRef.update({ status: "left", leftAt: new Date().toISOString() });
+      }
+      return res.json({ success: true });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: "Could not leave this call." });
+    }
+  });
+
+  app.post("/api/notifications/register-device", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!db) return res.status(503).json({ success: false, error: "Notification service is not ready." });
+    const token = typeof req.body?.token === "string" ? req.body.token.trim() : "";
+    if (token.length < 20 || token.length > 4096) return res.status(400).json({ success: false, error: "Invalid device token." });
+    try {
+      const tokenId = createHash("sha256").update(token).digest("hex");
+      await db.collection("push_device_tokens").doc(tokenId).set({
+        token, uid: caller.uid, employeeCode: caller.employeeCode || "",
+        role: caller.role, platform: req.body?.platform === "android" ? "android" : "web",
+        appId: req.body?.appId === "com.exfin.oms" ? "com.exfin.oms" : "web",
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("[Push] Device token registration failed:", err);
+      return res.status(500).json({ success: false, error: "Could not register this device for notifications." });
+    }
+  });
+
+  app.post("/api/notifications/unregister-device", async (req, res) => {
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+    if (!db) return res.status(503).json({ success: false, error: "Notification service is not ready." });
+    const token = typeof req.body?.token === "string" ? req.body.token.trim() : "";
+    if (!token) return res.status(400).json({ success: false, error: "Device token is required." });
+    try {
+      const tokenId = createHash("sha256").update(token).digest("hex");
+      const tokenRef = db.collection("push_device_tokens").doc(tokenId);
+      const tokenSnap = await tokenRef.get();
+      if (tokenSnap.exists && tokenSnap.data()?.uid === caller.uid) await tokenRef.delete();
+      return res.json({ success: true });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: "Could not unregister this device." });
+    }
+  });
 
   // Backward compatibility alias for existing admin routes
   const verifyAdminCaller = verifyCaller;

@@ -13,6 +13,7 @@ import { AlertPopupProvider } from './context/AlertPopupContext';
 import { SecurityVerificationProvider } from './context/SecurityVerificationContext';
 import { ConnectivityIndicator } from './components/common/ConnectivityIndicator';
 import { AppUpdateModal } from './components/common/AppUpdateModal';
+import { VideoConferenceCenter } from './features/video/VideoConferenceCenter';
 
 export default function App() {
   console.log('[APP UPDATE DEBUG] App component initialized');
@@ -30,6 +31,7 @@ export default function App() {
                   <SecurityVerificationProvider>
                     <ConnectivityIndicator />
                     <AppUpdateModal />
+                    <VideoConferenceCenter />
                     <AppRouter />
                   </SecurityVerificationProvider>
                 </AlertPopupProvider>
