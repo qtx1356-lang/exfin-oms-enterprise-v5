@@ -232,7 +232,7 @@ export const VideoConferenceCenter: React.FC = () => {
         type="button"
         onClick={() => { setOpen((value) => !value); setError(''); }}
         aria-label="Open EXFIN OMS video calls"
-        className="fixed bottom-5 right-5 z-[90] flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-2xl hover:bg-indigo-700"
+        className="fixed bottom-24 right-4 z-[9999] flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-2xl ring-2 ring-white/90 hover:bg-indigo-700 sm:bottom-5 sm:right-5"
       >
         <Video className="h-5 w-5" />
         <span>Video calls</span>
