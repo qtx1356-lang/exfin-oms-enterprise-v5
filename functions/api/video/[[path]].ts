@@ -150,8 +150,27 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
 
     if (method === 'GET' && parts.length === 1 && parts[0] === 'recipients') {
       const recipients: Array<{ uid: string; name: string; employeeCode?: string; role: string; email?: string }> = [];
-      if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) { const documents = await listCollection(env, 'registrations', 500); for (const document of documents) { const data = decodeDoc(document), status = String(data.status || 'Pending Approval'), uid = String(data.uid || data.authUid || ''); if (!uid || uid === caller.uid || status !== 'Approved' || data.isDeleted === true || data.active === false) continue; recipients.push({ uid, name: String(data.name || data.fullName || data.employeeCode || 'Employee').slice(0, 80), employeeCode: String(data.employeeCode || ''), role: 'EMPLOYEE', email: String(data.email || '') }); } }
-      else { const documents = await listCollection(env, 'admin_users', 200); for (const document of documents) { const data = decodeDoc(document), uid = String(document.name || '').split('/').pop() || '', role = String(data.role || ''); if (!uid || uid === caller.uid || !ADMIN_ROLES.has(role) || data.active === false || data.status === 'Suspended' || data.status === 'Deleted') continue; recipients.push({ uid, name: String(data.name || data.displayName || data.loginId || data.email || 'Administrator').slice(0, 80), role, email: String(data.email || '') }); } }
+      if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) {
+        const documents = await listCollection(env, 'registrations', 500);
+        for (const document of documents) {
+          const data = decodeDoc(document);
+          const status = String(data.status || 'Pending Approval').trim().toUpperCase();
+          const uid = String(data.uid || data.authUid || '');
+          if (!uid || uid === caller.uid || status !== 'APPROVED' || data.isDeleted === true || data.active === false) continue;
+          recipients.push({ uid, name: String(data.name || data.fullName || data.employeeCode || 'Employee').slice(0, 80), employeeCode: String(data.employeeCode || ''), role: 'EMPLOYEE', email: String(data.email || '') });
+        }
+      } else {
+        const documents = await listCollection(env, 'admin_users', 500);
+        for (const document of documents) {
+          const data = decodeDoc(document);
+          const uid = String(document.name || '').split('/').pop() || String(data.uid || data.authUid || '');
+          const role = String(data.role || '').trim().toUpperCase();
+          const status = String(data.status || '').trim().toUpperCase();
+          const inactive = data.active === false || ['SUSPENDED', 'DELETED', 'INACTIVE', 'DISABLED', 'BLOCKED'].includes(status);
+          if (!uid || uid === caller.uid || !ADMIN_ROLES.has(role) || inactive) continue;
+          recipients.push({ uid, name: String(data.name || data.displayName || data.loginId || data.email || 'Administrator').slice(0, 80), role, email: String(data.email || '') });
+        }
+      }
       recipients.sort((a, b) => a.name.localeCompare(b.name)); return json({ success: true, recipients });
     }
 
