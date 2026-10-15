@@ -720,7 +720,7 @@ async function startServer() {
               token: String(deviceData.token),
               notification: { title: "Incoming EXFIN OMS video call", body: callerName + " is calling you" },
               data: { type: "video_call", callId, route: "/video-calls", title },
-              android: { priority: "high", notification: { channelId: "calls", sound: "default" } },
+              android: { priority: "high", notification: { channelId: "exfin_oms_messages_v2", sound: "default" } },
               webpush: { headers: { Urgency: "high" }, notification: { title: "Incoming EXFIN OMS video call", body: callerName + " is calling you", requireInteraction: true } }
             });
           });
