@@ -1348,7 +1348,28 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
                 </div>
               </div>
 
-              {/* Card 6: Overall Efficiency Summary */}
+              {/* Card 6: Discipline Rating */}
+              <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
+                <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
+                  <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-violet-400" /> 6. Discipline
+                  </span>
+                  <span className="text-xs font-black text-violet-400 font-mono">
+                    {weightages.discipline}% Weight
+                  </span>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[var(--text-secondary)]">Admin-rated score:</span>
+                    <span className="font-black text-[var(--text-primary)]">{bd ? bd.disciplineScore + '%' : 'N/A'}</span>
+                  </div>
+                  <p className="text-[10px] text-[var(--text-secondary)] italic pt-1">
+                    Discipline ratings are maintained by an administrator in Efficiency Settings for the selected employee and period.
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 7: Overall Efficiency Summary */}
               <div className="bg-[var(--surface-inner)] p-4 rounded-2xl border border-[var(--border)] space-y-3">
                 <div className="flex items-center justify-between border-b border-[var(--border)] pb-2">
                   <span className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
