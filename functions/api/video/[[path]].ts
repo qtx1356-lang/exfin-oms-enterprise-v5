@@ -17,7 +17,7 @@ function normalizeRole(value: unknown): string { return String(value || '').trim
 function normalizeStatus(value: unknown): string { return String(value || '').trim().toUpperCase(); }
 const PROJECT_ID = 'exfin-oms-production';
 
-function json(data: unknown, status = 200) { return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } }); }
+function json(data: unknown, status = 200) { return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'access-control-allow-origin': '*' } }); }
 function base64UrlEncode(value: string): string { const bytes = new TextEncoder().encode(value); let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte); return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, ''); }
 function getServiceAccount(env: Env): any { if (!env.FIREBASE_SERVICE_ACCOUNT_KEY) throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY is not configured.'); return JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_KEY); }
 
