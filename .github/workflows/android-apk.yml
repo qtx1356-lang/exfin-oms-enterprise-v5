@@ -174,13 +174,32 @@ jobs:
           '
 
       - name: Install Dependencies
+        timeout-minutes: 15
         run: |
+          set -euo pipefail
           if [ -f package-lock.json ]; then
-            echo "package-lock.json detected. Running npm ci..."
-            npm ci
+            echo "package-lock.json detected. Installing with retry for transient npm registry/network failures..."
+            npm config set fetch-retries 5
+            npm config set fetch-retry-mintimeout 20000
+            npm config set fetch-retry-maxtimeout 120000
+            for attempt in 1 2 3; do
+              if npm ci --no-audit --no-fund --prefer-offline; then
+                echo "Dependency installation succeeded on attempt $attempt."
+                exit 0
+              fi
+              if [ "$attempt" -lt 3 ]; then
+                echo "npm ci failed on attempt $attempt; retrying in $((attempt * 15)) seconds..."
+                sleep $((attempt * 15))
+              fi
+            done
+            echo "::error::npm ci failed after 3 attempts. Review the npm registry/network error above."
+            exit 1
           else
-            echo "No package-lock.json found. Running npm install..."
-            npm install
+            echo "No package-lock.json found. Running npm install with retry settings..."
+            npm config set fetch-retries 5
+            npm config set fetch-retry-mintimeout 20000
+            npm config set fetch-retry-maxtimeout 120000
+            npm install --no-audit --no-fund
           fi
 
       - name: Build Web Assets
