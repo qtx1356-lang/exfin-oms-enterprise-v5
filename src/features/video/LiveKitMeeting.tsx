@@ -52,7 +52,7 @@ export const LiveKitMeeting: React.FC<Props> = ({ serverUrl, token, onLeave }) =
       }
       if (track.kind !== window.LivekitClient?.Track?.Kind?.Video || tileMap.has(key)) return;
       const tile = document.createElement('div');
-      tile.className = 'relative min-h-0 overflow-hidden rounded-xl bg-slate-800';
+      tile.className = 'relative min-h-[180px] aspect-video overflow-hidden rounded-xl bg-slate-800';
       const video = track.attach() as HTMLVideoElement;
       video.autoplay = true;
       video.playsInline = true;
@@ -90,7 +90,7 @@ export const LiveKitMeeting: React.FC<Props> = ({ serverUrl, token, onLeave }) =
         if (disposed) { await room.disconnect(); return; }
         await room.localParticipant.enableCameraAndMicrophone();
         for (const publication of room.localParticipant.trackPublications.values()) {
-          if (publication.track) attachTrack(publication.track, room.localParticipant.identity, 'You');
+          if (publication.track && publication.track.kind === client.Track.Kind.Video) attachTrack(publication.track, room.localParticipant.identity, 'You');
         }
         for (const participant of room.remoteParticipants.values()) {
           for (const publication of participant.trackPublications.values()) {
