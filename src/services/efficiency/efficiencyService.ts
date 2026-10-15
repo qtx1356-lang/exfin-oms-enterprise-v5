@@ -34,7 +34,10 @@ export const getSavedWeightages = async (): Promise<EfficiencyWeightages> => {
   try {
     const local = localStorage.getItem(WEIGHTS_LOCAL_KEY);
     if (local) {
-      cached = JSON.parse(local);
+      const parsed = JSON.parse(local) as Partial<EfficiencyWeightages>;
+      cached = parsed.discipline == null
+        ? DEFAULT_WEIGHTAGES
+        : { ...DEFAULT_WEIGHTAGES, ...parsed };
     }
   } catch (err) {
     console.warn('Failed to read cached weightages:', err);
