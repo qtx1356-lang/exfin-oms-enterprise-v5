@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { collection, onSnapshot, query, where, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, limit, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
@@ -217,6 +217,11 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
 
   // Administration State
   const [adminWeights, setAdminWeights] = useState<EfficiencyWeightages>(DEFAULT_WEIGHTAGES);
+  const [disciplineEmployeeCode, setDisciplineEmployeeCode] = useState<string>(customEmployeeCode || activeEmployeeCode);
+  const [disciplineScore, setDisciplineScore] = useState<number>(100);
+  const [disciplineNote, setDisciplineNote] = useState<string>('');
+  const [disciplineLoading, setDisciplineLoading] = useState(false);
+  const [disciplineMessage, setDisciplineMessage] = useState<string | null>(null);
   const [weightsError, setWeightsError] = useState<string | null>(null);
   const [weightsSuccess, setWeightsSuccess] = useState(false);
 
@@ -410,7 +415,8 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       tasks,
       attendance,
       weightages,
-      workDetails
+      workDetails,
+      String(disciplineEmployeeCode).trim().toUpperCase() === String(emp.employeeCode || targetEmpCode).trim().toUpperCase() ? disciplineScore : 100
     );
 
     // Filter attendance records in the period to print detailed logs
@@ -709,6 +715,54 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
       memberBreakdowns
     };
   }, [myTeamMembers, activeEmployeeCode, startDate, endDate, tasks, attendance, weightages]);
+
+  // Load the admin-maintained discipline rating for the selected employee and period.
+  useEffect(() => {
+    let cancelled = false;
+    const loadDisciplineRating = async () => {
+      const code = String(disciplineEmployeeCode || '').trim();
+      if (!db || !code) { setDisciplineScore(100); setDisciplineNote(''); return; }
+      setDisciplineLoading(true);
+      try {
+        const ratingId = code.toUpperCase().replace(/[^A-Z0-9_-]/g, '_') + '_' + startDate + '_' + endDate;
+        const snap = await getDoc(doc(db, 'employee_discipline_scores', ratingId));
+        if (!cancelled) {
+          setDisciplineScore(snap.exists() ? Math.max(0, Math.min(100, Number(snap.data().score ?? 100))) : 100);
+          setDisciplineNote(snap.exists() ? String(snap.data().note || '') : '');
+        }
+      } catch (error) {
+        console.warn('[EFFICIENCY_DISCIPLINE_LOAD_ERROR]', error);
+        if (!cancelled) setDisciplineMessage('Could not load discipline rating. Check database access.');
+      } finally { if (!cancelled) setDisciplineLoading(false); }
+    };
+    void loadDisciplineRating();
+    return () => { cancelled = true; };
+  }, [disciplineEmployeeCode, startDate, endDate]);
+
+  const handleSaveDisciplineRating = async () => {
+    const code = String(disciplineEmployeeCode || '').trim();
+    if (!db || !code) { setDisciplineMessage('Select an employee before saving.'); return; }
+    const employee = allEmployees.find((item: any) => String(item.employeeCode || item.id || item.uid || '').trim().toUpperCase() === code.toUpperCase());
+    const ratingId = code.toUpperCase().replace(/[^A-Z0-9_-]/g, '_') + '_' + startDate + '_' + endDate;
+    try {
+      await setDoc(doc(db, 'employee_discipline_scores', ratingId), {
+        employeeCode: code,
+        employeeId: employee?.id || employee?.uid || code,
+        employeeName: employee?.name || employee?.employeeName || code,
+        startDate,
+        endDate,
+        score: Math.max(0, Math.min(100, Number(disciplineScore) || 0)),
+        note: disciplineNote.trim(),
+        updatedAt: new Date().toISOString(),
+        updatedBy: adminUser?.uid || employeeData?.id || 'ADMIN',
+        updatedByName: adminUser?.email || employeeData?.name || 'Administrator'
+      }, { merge: true });
+      setDisciplineMessage('Discipline rating saved for this employee and period.');
+    } catch (error) {
+      console.error('[EFFICIENCY_DISCIPLINE_SAVE_ERROR]', error);
+      setDisciplineMessage('Could not save discipline rating. Check Firestore permissions.');
+    }
+  };
 
   // Administration Weightages Submit
   const handleSaveWeightages = async (e: React.FormEvent) => {
@@ -1578,6 +1632,33 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
                   max="100"
                 />
               </div>
+            </div>
+
+            <div className="mt-8 border-t border-[var(--border)] pt-5 space-y-4">
+              <div>
+                <h3 className="text-sm font-black text-[var(--text-primary)] uppercase tracking-wide">Employee Discipline Rating</h3>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">Set a 0–100 discipline score for the selected employee and efficiency period ({startDate} to {endDate}). It contributes to the overall Efficiency score.</p>
+              </div>
+              <div>
+                <label className="block text-xs text-[var(--text-primary)] font-bold mb-1">Employee</label>
+                <select value={disciplineEmployeeCode} onChange={(e) => { setDisciplineEmployeeCode(e.target.value); setDisciplineMessage(null); }} className="w-full bg-[var(--surface-elevated)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)]">
+                  <option value="">Select employee</option>
+                  {allEmployees.map((employee: any) => {
+                    const code = String(employee.employeeCode || employee.id || employee.uid || '').trim();
+                    return code ? <option key={code} value={code}>{employee.name || employee.employeeName || code} ({code})</option> : null;
+                  })}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-[var(--text-primary)] font-bold mb-1">Discipline Score (0–100)</label>
+                <input type="number" min="0" max="100" value={disciplineScore} onChange={(e) => setDisciplineScore(Math.max(0, Math.min(100, Number(e.target.value))))} className="w-full bg-[var(--surface-elevated)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)]" />
+              </div>
+              <div>
+                <label className="block text-xs text-[var(--text-primary)] font-bold mb-1">Admin Note (optional)</label>
+                <textarea value={disciplineNote} onChange={(e) => setDisciplineNote(e.target.value)} rows={2} maxLength={500} className="w-full bg-[var(--surface-elevated)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)]" placeholder="Reason or observation for this rating" />
+              </div>
+              {disciplineMessage && <p className="text-xs font-bold text-[var(--text-secondary)]">{disciplineMessage}</p>}
+              <button type="button" disabled={disciplineLoading || !disciplineEmployeeCode} onClick={() => void handleSaveDisciplineRating()} className="px-5 py-2.5 bg-[var(--button-primary)] text-white font-extrabold text-xs rounded-xl disabled:opacity-50">Save Discipline Rating</button>
             </div>
 
             {weightsError && (
