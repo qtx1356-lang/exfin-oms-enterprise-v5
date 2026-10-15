@@ -720,7 +720,8 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
                   adminWeights.onTimeCompletion + 
                   adminWeights.quality + 
                   adminWeights.punctuality + 
-                  adminWeights.workload;
+                  adminWeights.workload +
+                  adminWeights.discipline;
 
     if (total !== 100) {
       setWeightsError('Efficiency weightages must total exactly 100%.');
@@ -1487,7 +1488,7 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
                 Configure Efficiency Weightages
               </h2>
               <p className="text-xs text-[var(--text-secondary)]">
-                Adjust the weights for the 5 efficiency parameters. Total must equal 100%.
+                Adjust all 6 efficiency criteria. Total must equal 100%.
               </p>
             </div>
           </div>
@@ -1544,6 +1545,20 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
                   type="number"
                   value={adminWeights.punctuality}
                   onChange={(e) => setAdminWeights({ ...adminWeights, punctuality: Number(e.target.value) })}
+                  className="w-full bg-[var(--surface-elevated)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
+                  min="0"
+                  max="100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[var(--text-primary)] font-bold mb-1">
+                  Discipline Weight (%):
+                </label>
+                <input
+                  type="number"
+                  value={adminWeights.discipline}
+                  onChange={(e) => setAdminWeights({ ...adminWeights, discipline: Number(e.target.value) })}
                   className="w-full bg-[var(--surface-elevated)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)] focus:border-[var(--primary)] focus:outline-none"
                   min="0"
                   max="100"
