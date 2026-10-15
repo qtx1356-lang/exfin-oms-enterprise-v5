@@ -12,6 +12,7 @@ import {
 import { clearNotificationStorageForUser, dispatchNotificationsUpdated } from '../services/notification/notificationStorage';
 import { createAuditLog } from '../services/audit/auditService';
 import { syncEmployeeIdentityToNative } from '../services/attendance/nativeGeofenceBridge';
+import { initNativePushNotifications } from '../services/notification/nativePushNotificationService';
 
 type RegistrationStatus = 'unregistered' | 'Pending Approval' | 'Approved' | 'Rejected' | 'loading' | 'mobile_recovery' | 'suspended_notice';
 
@@ -111,6 +112,20 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
     return () => unsubAuth();
   }, []);
+
+  // Register the real FCM device token after the employee's authenticated session is approved.
+  // This is separate from Firestore notification records and does not change attendance monitoring.
+  useEffect(() => {
+    const approved = String(status || '').toUpperCase() === 'APPROVED'
+      || String(employeeData?.status || '').toUpperCase() === 'APPROVED';
+    if (!authUser?.uid || !approved) return;
+    void initNativePushNotifications({
+      userId: authUser.uid,
+      uid: authUser.uid,
+      employeeCode: employeeData?.employeeCode || '',
+      role: 'EMPLOYEE',
+    });
+  }, [authUser?.uid, status, employeeData?.employeeCode, employeeData?.status]);
 
   // Keep Native Geofence Employee Identity synchronized whenever employeeData is present and approved
   useEffect(() => {
