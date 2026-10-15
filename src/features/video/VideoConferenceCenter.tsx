@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { PhoneCall, Video, X, Users, PhoneIncoming, PhoneOff, Loader2, ShieldCheck, Mic, Camera } from 'lucide-react';
+import { PhoneCall, Video, X, Users, PhoneIncoming, PhoneOff, Loader2, ShieldCheck } from 'lucide-react';
+import { LiveKitMeeting } from './LiveKitMeeting';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { auth, db } from '../../services/firebase/config';
@@ -320,23 +321,11 @@ export const VideoConferenceCenter: React.FC = () => {
       )}
 
       {activeCall && (
-        <div className="fixed inset-0 z-[110] flex flex-col bg-slate-950">
-          <div className="flex items-center justify-between gap-3 bg-slate-900 px-4 py-3 text-white">
-            <div className="min-w-0">
-              <div className="truncate text-sm font-black">{activeCall.title}</div>
-              <div className="truncate text-xs text-slate-300">With {activeCall.peerName}</div>
-            </div>
-            <button type="button" disabled={busy} onClick={() => void leaveCall()} className="flex shrink-0 items-center gap-2 rounded-xl bg-red-600 px-3 py-2 text-sm font-bold disabled:opacity-50"><PhoneOff className="h-4 w-4" /> Leave</button>
-          </div>
-          <iframe
-            title="EXFIN OMS Daily video meeting"
-            src={activeCall.roomUrl + '?t=' + encodeURIComponent(activeCall.token)}
-            allow="camera; microphone; fullscreen; display-capture; autoplay"
-            allowFullScreen
-            className="min-h-0 flex-1 border-0 bg-black"
-          />
-          <div className="flex items-center justify-center gap-4 bg-slate-900 px-3 py-2 text-xs text-slate-300"><span className="flex items-center gap-1"><Mic className="h-3.5 w-3.5" /> Microphone</span><span className="flex items-center gap-1"><Camera className="h-3.5 w-3.5" /> Camera</span><span>Encrypted transport · private room</span></div>
-        </div>
+        <LiveKitMeeting
+          serverUrl={activeCall.roomUrl}
+          token={activeCall.token}
+          onLeave={() => void leaveCall()}
+        />
       )}
     </>
   );
