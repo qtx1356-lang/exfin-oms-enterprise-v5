@@ -54,12 +54,54 @@ async function queryByField(env: Env, collection: string, field: string, value: 
 
 async function findRegistration(env: Env, uid: string): Promise<any | null> { const direct = await getDoc(env, 'registrations', uid); if (direct) { const data = decodeDoc(direct); if (String(data.uid || data.authUid || uid) === uid) return { document: direct, data, id: uid }; } const matches = await queryByField(env, 'registrations', 'uid', uid, 1); if (matches.length) return { document: matches[0], data: decodeDoc(matches[0]), id: String(matches[0].name).split('/').pop() }; return null; }
 
+function decodeBase64UrlSegment(segment: string): Uint8Array {
+  const normalized = segment.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - segment.length % 4) % 4);
+  const binary = atob(normalized);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+async function verifyFirebaseIdToken(token: string, projectId: string): Promise<any | null> {
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  let header: any, claims: any;
+  try {
+    header = JSON.parse(new TextDecoder().decode(decodeBase64UrlSegment(parts[0])));
+    claims = JSON.parse(new TextDecoder().decode(decodeBase64UrlSegment(parts[1])));
+  } catch (_) { return null; }
+  if (header.alg !== 'RS256' || !header.kid || !claims.sub || claims.aud !== projectId ||
+      claims.iss !== `https://securetoken.google.com/${projectId}` ||
+      Number(claims.exp || 0) <= Math.floor(Date.now() / 1000) ||
+      Number(claims.iat || 0) > Math.floor(Date.now() / 1000) + 60 ||
+      Number(claims.auth_time || 0) > Math.floor(Date.now() / 1000) + 60 ||
+      typeof claims.sub !== 'string' || claims.sub.length === 0 || claims.sub.length > 128) return null;
+
+  const keysResponse = await fetch('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com');
+  if (!keysResponse.ok) return null;
+  const keySet = await keysResponse.json() as any;
+  const jwk = Array.isArray(keySet.keys) ? keySet.keys.find((key: any) => key.kid === header.kid && key.kty === 'RSA') : null;
+  if (!jwk) return null;
+  try {
+    const publicKey = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+    const signature = decodeBase64UrlSegment(parts[2]);
+    const signedBytes = new TextEncoder().encode(parts[0] + '.' + parts[1]);
+    const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', publicKey, signature, signedBytes);
+    return valid ? claims : null;
+  } catch (_) { return null; }
+}
+
 async function verifyCaller(request: Request, env: Env): Promise<Caller | null> {
-  const header = request.headers.get('authorization') || ''; if (!header.startsWith('Bearer ')) return null; const token = header.slice(7).trim(); if (!token) return null;
-  const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`); if (!response.ok) return null; const decoded = await response.json() as any;
-  const projectId = env.FIREBASE_PROJECT_ID || PROJECT_ID; if (decoded.aud !== projectId || decoded.iss !== `https://securetoken.google.com/${projectId}` || !decoded.sub || Number(decoded.exp || 0) <= Math.floor(Date.now() / 1000)) return null;
+  const header = request.headers.get('authorization') || '';
+  if (!header.startsWith('Bearer ')) return null;
+  const token = header.slice(7).trim();
+  if (!token) return null;
+  const projectId = env.FIREBASE_PROJECT_ID || PROJECT_ID;
+  const decoded = await verifyFirebaseIdToken(token, projectId);
+  if (!decoded) return null;
   const uid = String(decoded.sub), adminDoc = await getDoc(env, 'admin_users', uid);
-  if (adminDoc) { const data = decodeDoc(adminDoc), role = String(data.role || ''); if (ADMIN_ROLES.has(role)) return { uid, email: String(data.email || decoded.email || ''), role, employeeId: String(data.employeeId || ''), employeeCode: String(data.employeeCode || ''), isAdmin: true }; }
+  if (adminDoc) {
+    const data = decodeDoc(adminDoc), role = String(data.role || '');
+    if (ADMIN_ROLES.has(role)) return { uid, email: String(data.email || decoded.email || ''), role, employeeId: String(data.employeeId || ''), employeeCode: String(data.employeeCode || ''), isAdmin: true };
+  }
   const registration = await findRegistration(env, uid), data = registration?.data || {};
   return { uid, email: String(decoded.email || data.email || ''), role: 'EMPLOYEE', employeeId: registration?.id || uid, employeeCode: String(data.employeeCode || ''), isAdmin: false };
 }
