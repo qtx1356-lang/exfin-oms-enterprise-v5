@@ -273,9 +273,12 @@ export const calculateEfficiency = (
   // 5. ATTENDANCE / PUNCTUALITY SCORE
   // ----------------------------------------------------
   const expectedWorkingDays = calculateExpectedWorkingDays(startDateStr, endDateStr);
-  const attendanceDaysCount = periodAttendance.length;
-  
-  const validCheckInsCount = periodAttendance.filter(rec => rec.checkInTime).length;
+  // Count actual check-in attempts, not placeholder/partial attendance documents.
+  const validCheckInsCount = periodAttendance.filter(rec => {
+    const value = String(rec.checkInTime || '').trim().toUpperCase();
+    return value !== '' && value !== 'N/A' && value !== 'NULL' && value !== 'UNDEFINED';
+  }).length;
+  const attendanceDaysCount = validCheckInsCount;
   const validCheckOutsCount = periodAttendance.filter(rec => 
     rec.checkOutTime && 
     rec.checkOutTime !== 'N/A' && 
@@ -386,11 +389,24 @@ export const calculateEfficiency = (
     : 0;
 
   // Final Score = Weighted Base - Overdue Penalty - Revision Penalty
-  const calculatedFinalScore = sumOfAvailableWeights > 0
+  // An employee with no actual check-in, no assigned tasks, and no valid daily work details
+  // has no measurable performance data for this period. Never rank the default 100% discipline
+  // score as if it were demonstrated performance.
+  const hasMeaningfulActivity = validCheckInsCount > 0 || assignedTasksCount > 0 || validWorkDetails.length > 0;
+
+  let calculatedFinalScore = sumOfAvailableWeights > 0
     ? Math.max(0, Math.min(100, Math.round(weightedBaseScore - overduePenalty - revisionPenalty)))
     : -1;
 
-  const finalScore = calculatedFinalScore;
+  // When attendance is the only evidence of activity, make attendance coverage meaningful in
+  // the overall result. Task/work-detail activity is scored by its own criteria, so it is not
+  // multiplied by attendance coverage (which could unfairly penalize remote/field work).
+  if (calculatedFinalScore >= 0 && attendanceDaysCount > 0 && assignedTasksCount === 0 && validWorkDetails.length === 0) {
+    const attendanceCoverage = Math.min(1, attendanceDaysCount / Math.max(1, expectedWorkingDays));
+    calculatedFinalScore = Math.round(calculatedFinalScore * attendanceCoverage);
+  }
+
+  const finalScore = hasMeaningfulActivity ? calculatedFinalScore : -1;
   const grade = finalScore < 0 ? ('N/A' as EfficiencyGrade) : getEfficiencyGrade(finalScore);
 
   const breakdown: EfficiencyBreakdown = {
@@ -422,7 +438,7 @@ export const calculateEfficiency = (
   };
 
   const durationMs = Math.round((performance.now() - startTime) * 100) / 100;
-  console.log(`[EFFICIENCY_DIAGNOSTIC] empCode=${employeeCode || employeeId} targetDate=${startDateStr} attendanceFound=${attendanceDaysCount > 0} taskCount=${assignedTasksCount} completedTaskCount=${completedTasksCount} taskCompletionScore=${taskCompletionScore} onTimeCompletionScore=${onTimeCompletionScore} qualityScore=${qualityScore} punctualityScore=${punctualityScore} workloadScore=${workloadScore} overduePenalty=${overduePenalty} revisionPenalty=${revisionPenalty} sumOfAvailableWeights=${sumOfAvailableWeights} weightedScoreSum=${weightedScoreSum} weightedBaseScore=${weightedBaseScore} finalScore=${finalScore}`);
+  console.log(`[EFFICIENCY_DIAGNOSTIC] empCode=${employeeCode || employeeId} targetDate=${startDateStr} attendanceFound=${attendanceDaysCount > 0} attendanceDays=${attendanceDaysCount}/${expectedWorkingDays} taskCount=${assignedTasksCount} completedTaskCount=${completedTasksCount} taskCompletionScore=${taskCompletionScore} onTimeCompletionScore=${onTimeCompletionScore} qualityScore=${qualityScore} punctualityScore=${punctualityScore} workloadScore=${workloadScore} hasMeaningfulActivity=${hasMeaningfulActivity} overduePenalty=${overduePenalty} revisionPenalty=${revisionPenalty} sumOfAvailableWeights=${sumOfAvailableWeights} weightedScoreSum=${weightedScoreSum} weightedBaseScore=${weightedBaseScore} finalScore=${finalScore}`);
   console.log(`[EFFICIENCY_CALC_END] #${calcId} employee=${employeeCode || employeeId} finalScore=${finalScore}% grade=${grade} elapsedMs=${durationMs}ms (totalCalculationsTotal=${calcInvocationCount})`);
 
   return {
