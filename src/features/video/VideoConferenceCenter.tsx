@@ -22,6 +22,7 @@ type IncomingCall = {
   expiresAt?: string;
 };
 type ActiveCall = { callId: string; roomUrl: string; token: string; title: string; peerName: string };
+type PushDiagnostic = { recipientUid: string; employeeName: string; tokenCount: number; attempted: number; sent: number; failed: number; errors: string[] };
 
 async function videoApi(path: string, body?: Record<string, unknown>) {
   const currentUser = auth.currentUser;
@@ -138,6 +139,20 @@ export const VideoConferenceCenter: React.FC = () => {
         mode,
         title: title.trim() || (mode === 'group' ? 'EXFIN OMS group meeting' : 'EXFIN OMS video call'),
       });
+      const pushDiagnostics = Array.isArray(response.pushDiagnostics)
+        ? response.pushDiagnostics as PushDiagnostic[]
+        : [];
+      const pushProblems = pushDiagnostics.filter((item) => item.sent === 0);
+      if (isAdmin && pushProblems.length > 0) {
+        const details = pushProblems.map((item) => {
+          if (item.tokenCount === 0) {
+            return `${item.employeeName}: no Android FCM token is registered. Ask the employee to open the latest EXFIN OMS Android app, sign in, and allow notifications.`;
+          }
+          const reason = item.errors?.[0] || 'FCM did not accept the notification.';
+          return `${item.employeeName}: ${reason}`;
+        }).join('\n');
+        window.alert('The video call was created, but the employee alert was not sent.\n\n' + details);
+      }
       setActiveCall({
         callId: response.callId,
         roomUrl: response.roomUrl,
