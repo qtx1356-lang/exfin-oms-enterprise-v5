@@ -81,7 +81,8 @@ export const calculateEfficiency = (
   tasks: TaskRecord[],
   attendanceRecords: AttendanceRecord[],
   weightages: EfficiencyWeightages,
-  workDetails: DailyWorkDetailRecord[] = []
+  workDetails: DailyWorkDetailRecord[] = [],
+  disciplineScore = 100
 ): { finalScore: number; grade: EfficiencyGrade; breakdown: EfficiencyBreakdown } => {
   calcInvocationCount++;
   const calcId = calcInvocationCount;
@@ -366,7 +367,8 @@ export const calculateEfficiency = (
     { score: onTimeCompletionScore, weight: weightages.onTimeCompletion },
     { score: qualityScore, weight: weightages.quality },
     { score: punctualityScore, weight: weightages.punctuality },
-    { score: workloadScore, weight: weightages.workload }
+    { score: workloadScore, weight: weightages.workload },
+    { score: Math.max(0, Math.min(100, disciplineScore)), weight: weightages.discipline }
   ];
 
   let sumOfAvailableWeights = 0;
@@ -397,6 +399,7 @@ export const calculateEfficiency = (
     qualityScore,
     punctualityScore,
     workloadScore,
+    disciplineScore: Math.max(0, Math.min(100, disciplineScore)),
     
     assignedTasksCount,
     completedTasksCount,
