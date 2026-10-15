@@ -63,6 +63,15 @@ export const VideoConferenceCenter: React.FC = () => {
   );
 
   useEffect(() => {
+    const openVideoCalls = () => {
+      setOpen(true);
+      setError('');
+    };
+    window.addEventListener('exfin:open-video-calls', openVideoCalls);
+    return () => window.removeEventListener('exfin:open-video-calls', openVideoCalls);
+  }, []);
+
+  useEffect(() => {
     if (!user?.uid) {
       setIncoming([]);
       return;
@@ -228,17 +237,6 @@ export const VideoConferenceCenter: React.FC = () => {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => { setOpen((value) => !value); setError(''); }}
-        aria-label="Open EXFIN OMS video calls"
-        className="fixed bottom-24 right-4 z-[9999] flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-2xl ring-2 ring-white/90 hover:bg-indigo-700 sm:bottom-5 sm:right-5"
-      >
-        <Video className="h-5 w-5" />
-        <span>Video calls</span>
-        {incoming.length > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs">{incoming.length}</span>}
-      </button>
-
       {incoming.length > 0 && !activeCall && (
         <div className="fixed bottom-20 right-4 z-[95] w-[min(92vw,360px)] space-y-3">
           {incoming.map((invite) => (
