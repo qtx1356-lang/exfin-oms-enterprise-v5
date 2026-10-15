@@ -18,6 +18,7 @@ import {
   MapPin,
   Building2,
   PhoneCall,
+  Video,
   Sparkles,
   Users,
   BarChart3,
@@ -590,6 +591,12 @@ export const EmployeeDashboard: React.FC = () => {
       label: 'Chat', 
       onClick: () => navigate('/chat'), 
       bg: 'bg-cyan-50 text-cyan-700 border-cyan-200' 
+    },
+    { 
+      icon: Video, 
+      label: 'Video Calls', 
+      onClick: () => window.dispatchEvent(new Event('exfin:open-video-calls')), 
+      bg: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' 
     },
     { 
       icon: Bell, 
