@@ -50,6 +50,7 @@ function encodeFs(value: unknown): FsValue {
 function decodeFs(value: any): any { if (!value || typeof value !== 'object') return null; if ('stringValue' in value) return value.stringValue; if ('integerValue' in value) return Number(value.integerValue); if ('doubleValue' in value) return value.doubleValue; if ('booleanValue' in value) return value.booleanValue; if ('timestampValue' in value) return value.timestampValue; if ('nullValue' in value) return null; if ('referenceValue' in value) return value.referenceValue; if ('arrayValue' in value) return (value.arrayValue?.values || []).map(decodeFs); if ('mapValue' in value) return Object.fromEntries(Object.entries(value.mapValue?.fields || {}).map(([k, v]) => [k, decodeFs(v)])); return null; }
 function decodeDoc(document: any): any { const result: Record<string, unknown> = {}; for (const [key, value] of Object.entries(document?.fields || {})) result[key] = decodeFs(value); return result; }
 function docPath(collection: string, id: string) { return `projects/${PROJECT_ID}/databases/(default)/documents/${collection}/${encodeURIComponent(id)}`; }
+async function sha256Hex(value: string): Promise<string> { const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join(''); }
 
 async function firestoreRequest(env: Env, path: string, init: RequestInit = {}) { const token = await getGoogleAccessToken(env); const headers = new Headers(init.headers); headers.set('authorization', `Bearer ${token}`); headers.set('content-type', 'application/json'); return fetch(`https://firestore.googleapis.com/v1/${path}`, { ...init, headers }); }
 async function getDoc(env: Env, collection: string, id: string): Promise<any | null> { const response = await firestoreRequest(env, docPath(collection, id)); if (response.status === 404) return null; if (!response.ok) throw new Error(`Firestore GET failed: ${response.status}`); return response.json(); }
@@ -249,6 +250,32 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       return publicKey
         ? json({ success: true, publicKey })
         : json({ success: false, error: 'Web Push public key is missing. Add VAPID_PUBLIC_KEY to the Cloudflare Pages production environment variables, then redeploy.' }, 503);
+    }
+
+    if (method === 'POST' && parts.length === 1 && parts[0] === 'device-token') {
+      const body = await request.json().catch(() => ({})) as any;
+      const token = typeof body?.token === 'string' ? body.token.trim() : '';
+      if (token.length < 20 || token.length > 4096) return json({ success: false, error: 'Invalid device token.' }, 400);
+      const tokenId = await sha256Hex(token);
+      await updateDoc(env, 'push_device_tokens', tokenId, {
+        token, uid: caller.uid, employeeCode: caller.employeeCode || '',
+        role: caller.role, platform: body?.platform === 'android' ? 'android' : 'web',
+        appId: body?.appId === 'com.exfin.oms' ? 'com.exfin.oms' : 'web',
+        updatedAt: new Date().toISOString(),
+      });
+      return json({ success: true });
+    }
+
+    if (method === 'POST' && parts.length === 2 && parts[0] === 'device-token' && parts[1] === 'unregister') {
+      const body = await request.json().catch(() => ({})) as any;
+      const token = typeof body?.token === 'string' ? body.token.trim() : '';
+      if (!token) return json({ success: false, error: 'Device token is required.' }, 400);
+      const tokenId = await sha256Hex(token), existing = await getDoc(env, 'push_device_tokens', tokenId);
+      if (existing && String(decodeDoc(existing).uid || '') === caller.uid) {
+        const response = await firestoreRequest(env, docPath('push_device_tokens', tokenId), { method: 'DELETE' });
+        if (!response.ok && response.status !== 404) throw new Error('Firestore DELETE failed: ' + response.status);
+      }
+      return json({ success: true });
     }
 
     if (method === 'GET' && parts.length === 1 && parts[0] === 'recipients') {
