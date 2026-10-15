@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { collection, onSnapshot, query, where, limit, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, limit, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase/config';
 import { useRegistration } from '../../context/RegistrationContext';
 import { useAdminAuth } from '../../context/AdminAuthContext';
@@ -218,12 +218,32 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
   // Administration State
   const [adminWeights, setAdminWeights] = useState<EfficiencyWeightages>(DEFAULT_WEIGHTAGES);
   const [disciplineEmployeeCode, setDisciplineEmployeeCode] = useState<string>(customEmployeeCode || activeEmployeeCode);
+  const [disciplineDate, setDisciplineDate] = useState<string>(() => getKolkataDateStr());
+  const [disciplineDailyScores, setDisciplineDailyScores] = useState<any[]>([]);
   const [disciplineScore, setDisciplineScore] = useState<number>(100);
   const [disciplineNote, setDisciplineNote] = useState<string>('');
   const [disciplineLoading, setDisciplineLoading] = useState(false);
   const [disciplineMessage, setDisciplineMessage] = useState<string | null>(null);
   const [weightsError, setWeightsError] = useState<string | null>(null);
   const [weightsSuccess, setWeightsSuccess] = useState(false);
+
+  // Daily overrides are scoped to one employee and one date. Unedited dates remain at 100%.
+  const getPeriodDisciplineScore = (employeeCode: string, periodStart: string, periodEnd: string): number => {
+    const code = String(employeeCode || '').trim().toUpperCase();
+    if (!code || !periodStart || !periodEnd || periodEnd < periodStart) return 100;
+    let total = 0;
+    let days = 0;
+    const cursor = new Date(`${periodStart}T12:00:00`);
+    const end = new Date(`${periodEnd}T12:00:00`);
+    while (cursor <= end) {
+      const date = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
+      const record = disciplineDailyScores.find((item: any) => String(item.employeeCode || '').trim().toUpperCase() === code && item.date === date);
+      total += record ? Math.max(0, Math.min(100, Number(record.score ?? 100))) : 100;
+      days++;
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return days > 0 ? Math.round(total / days) : 100;
+  };
 
   // ----------------------------------------------------
   // TARGET EMPLOYEE IDENTITY RESOLUTION
@@ -416,7 +436,7 @@ export const EfficiencyDashboard: React.FC<EfficiencyDashboardProps> = ({
       attendance,
       weightages,
       workDetails,
-      String(disciplineEmployeeCode).trim().toUpperCase() === String(emp.employeeCode || targetEmpCode).trim().toUpperCase() ? disciplineScore : 100
+      getPeriodDisciplineScore(String(emp.employeeCode || targetEmpCode), startDate, endDate)
     );
 
     // Filter attendance records in the period to print detailed logs
@@ -473,7 +493,7 @@ Work sessions: ${calcResult.breakdown.validCheckOutsCount}
 Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
 
     return calcResult;
-  }, [selectedEmployee, targetEmpCode, targetEmpId, startDate, endDate, tasks, attendance, weightages, workDetails]);
+  }, [selectedEmployee, targetEmpCode, targetEmpId, startDate, endDate, tasks, attendance, weightages, workDetails, disciplineDailyScores]);
 
   const previousCalculation = useMemo(() => {
     if (!targetEmpCode) return null;
@@ -515,7 +535,8 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
         tasks,
         attendance,
         weightages,
-        workDetails
+        workDetails,
+        getPeriodDisciplineScore(String(emp.employeeCode || emp.id || ''), startDate, endDate)
       );
       return {
         employee: emp,
@@ -524,7 +545,7 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
         breakdown: calc.breakdown
       };
     }).sort((a, b) => b.score - a.score);
-  }, [isAdmin, allEmployees, authorizedEmployees, startDate, endDate, tasks, attendance, weightages, workDetails]);
+  }, [isAdmin, allEmployees, authorizedEmployees, startDate, endDate, tasks, attendance, weightages, workDetails, disciplineDailyScores]);
 
   const currentRank = useMemo(() => {
     if (!targetEmpCode || !companyLeaderboard.length) return null;
@@ -634,7 +655,9 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
         endDate,
         tasks,
         attendance,
-        weightages
+        weightages,
+        workDetails,
+        getPeriodDisciplineScore(String(mCode || member.id || ''), startDate, endDate)
       );
 
       // Work hours
@@ -714,17 +737,18 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
       teamPunctualityPct,
       memberBreakdowns
     };
-  }, [myTeamMembers, activeEmployeeCode, startDate, endDate, tasks, attendance, weightages]);
+  }, [myTeamMembers, activeEmployeeCode, startDate, endDate, tasks, attendance, weightages, workDetails, disciplineDailyScores]);
 
-  // Load the admin-maintained discipline rating for the selected employee and period.
+  // Load the selected employee's rating for one date. Missing records mean 100%.
   useEffect(() => {
     let cancelled = false;
     const loadDisciplineRating = async () => {
       const code = String(disciplineEmployeeCode || '').trim();
-      if (!db || !code) { setDisciplineScore(100); setDisciplineNote(''); return; }
+      if (!db || !code || !disciplineDate) { setDisciplineScore(100); setDisciplineNote(''); return; }
       setDisciplineLoading(true);
+      setDisciplineMessage(null);
       try {
-        const ratingId = code.toUpperCase().replace(/[^A-Z0-9_-]/g, '_') + '_' + startDate + '_' + endDate;
+        const ratingId = code.toUpperCase().replace(/[^A-Z0-9_-]/g, '_') + '_' + disciplineDate;
         const snap = await getDoc(doc(db, 'employee_discipline_scores', ratingId));
         if (!cancelled) {
           setDisciplineScore(snap.exists() ? Math.max(0, Math.min(100, Number(snap.data().score ?? 100))) : 100);
@@ -737,27 +761,47 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
     };
     void loadDisciplineRating();
     return () => { cancelled = true; };
-  }, [disciplineEmployeeCode, startDate, endDate]);
+  }, [disciplineEmployeeCode, disciplineDate]);
+
+  // Fetch daily overrides for the displayed period; all missing dates contribute 100%.
+  useEffect(() => {
+    let cancelled = false;
+    const loadPeriodDisciplineScores = async () => {
+      if (!db) { setDisciplineDailyScores([]); return; }
+      try {
+        const scoresQuery = query(collection(db, 'employee_discipline_scores'), where('date', '>=', startDate), where('date', '<=', endDate));
+        const snapshot = await getDocs(scoresQuery);
+        if (!cancelled) setDisciplineDailyScores(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
+      } catch (error) {
+        console.warn('[EFFICIENCY_DISCIPLINE_PERIOD_LOAD_ERROR]', error);
+        if (!cancelled) setDisciplineDailyScores([]);
+      }
+    };
+    void loadPeriodDisciplineScores();
+    return () => { cancelled = true; };
+  }, [startDate, endDate]);
 
   const handleSaveDisciplineRating = async () => {
     const code = String(disciplineEmployeeCode || '').trim();
     if (!db || !code) { setDisciplineMessage('Select an employee before saving.'); return; }
     const employee = allEmployees.find((item: any) => String(item.employeeCode || item.id || item.uid || '').trim().toUpperCase() === code.toUpperCase());
-    const ratingId = code.toUpperCase().replace(/[^A-Z0-9_-]/g, '_') + '_' + startDate + '_' + endDate;
+    const ratingId = code.toUpperCase().replace(/[^A-Z0-9_-]/g, '_') + '_' + disciplineDate;
     try {
       await setDoc(doc(db, 'employee_discipline_scores', ratingId), {
         employeeCode: code,
         employeeId: employee?.id || employee?.uid || code,
         employeeName: employee?.name || employee?.employeeName || code,
-        startDate,
-        endDate,
+        date: disciplineDate,
+        startDate: disciplineDate,
+        endDate: disciplineDate,
         score: Math.max(0, Math.min(100, Number(disciplineScore) || 0)),
         note: disciplineNote.trim(),
         updatedAt: new Date().toISOString(),
         updatedBy: adminUser?.uid || employeeData?.id || 'ADMIN',
         updatedByName: adminUser?.email || employeeData?.name || 'Administrator'
       }, { merge: true });
-      setDisciplineMessage('Discipline rating saved for this employee and period.');
+      setDisciplineDailyScores((current) => [...current.filter((item: any) => !(String(item.employeeCode || '').trim().toUpperCase() === code.toUpperCase() && item.date === disciplineDate)), { employeeCode: code, date: disciplineDate, score: Math.max(0, Math.min(100, Number(disciplineScore) || 0)) }]);
+      setDisciplineMessage('Daily discipline rating saved. Other dates remain unchanged.');
     } catch (error) {
       console.error('[EFFICIENCY_DISCIPLINE_SAVE_ERROR]', error);
       setDisciplineMessage('Could not save discipline rating. Check Firestore permissions.');
@@ -1658,7 +1702,7 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
             <div className="mt-8 border-t border-[var(--border)] pt-5 space-y-4">
               <div>
                 <h3 className="text-sm font-black text-[var(--text-primary)] uppercase tracking-wide">Employee Discipline Rating</h3>
-                <p className="text-xs text-[var(--text-secondary)] mt-1">Set a 0–100 discipline score for the selected employee and efficiency period ({startDate} to {endDate}). It contributes to the overall Efficiency score.</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">Every employee starts at 100% each day. Change only the selected employee and date; unedited dates remain 100%.</p>
               </div>
               <div>
                 <label className="block text-xs text-[var(--text-primary)] font-bold mb-1">Employee</label>
@@ -1669,6 +1713,10 @@ Quality logs: ${calcResult.breakdown.totalRevisionRequests}`);
                     return code ? <option key={code} value={code}>{employee.name || employee.employeeName || code} ({code})</option> : null;
                   })}
                 </select>
+              </div>
+              <div>
+                <label className="block text-xs text-[var(--text-primary)] font-bold mb-1">Date</label>
+                <input type="date" value={disciplineDate} onChange={(e) => { setDisciplineDate(e.target.value); setDisciplineMessage(null); }} className="w-full bg-[var(--surface-elevated)] text-[var(--text-primary)] p-2.5 rounded-xl border border-[var(--border)]" />
               </div>
               <div>
                 <label className="block text-xs text-[var(--text-primary)] font-bold mb-1">Discipline Score (0–100)</label>
