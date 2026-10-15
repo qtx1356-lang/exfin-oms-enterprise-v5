@@ -16,11 +16,12 @@ import { DailyWorkDetailRecord } from '../../types/workDetails';
 const WEIGHTS_LOCAL_KEY = 'exfin_efficiency_weights';
 
 export const DEFAULT_WEIGHTAGES: EfficiencyWeightages = {
-  taskCompletion: 30,
-  onTimeCompletion: 25,
-  quality: 20,
-  punctuality: 15,
-  workload: 10
+  taskCompletion: 27,
+  onTimeCompletion: 22,
+  quality: 18,
+  punctuality: 13,
+  workload: 10,
+  discipline: 10
 };
 
 /**
@@ -65,7 +66,8 @@ export const getSavedWeightages = async (): Promise<EfficiencyWeightages> => {
         onTimeCompletion: data.efficiencyOnTimeWeight ?? DEFAULT_WEIGHTAGES.onTimeCompletion,
         quality: data.efficiencyQualityWeight ?? DEFAULT_WEIGHTAGES.quality,
         punctuality: data.efficiencyPunctualityWeight ?? DEFAULT_WEIGHTAGES.punctuality,
-        workload: data.efficiencyWorkloadWeight ?? DEFAULT_WEIGHTAGES.workload
+        workload: data.efficiencyWorkloadWeight ?? DEFAULT_WEIGHTAGES.workload,
+        discipline: data.efficiencyDisciplineWeight ?? DEFAULT_WEIGHTAGES.discipline
       };
       
       console.log(`[EFFICIENCY_FIRESTORE_END] reqId=${reqId} path=system_settings/efficiency_config docsReturned=1 elapsedMs=${elapsedMs}ms source=remote`);
@@ -92,8 +94,8 @@ export const saveWeightages = async (
   userId: string,
   userName: string
 ): Promise<void> => {
-  const { taskCompletion, onTimeCompletion, quality, punctuality, workload } = weightages;
-  const total = taskCompletion + onTimeCompletion + quality + punctuality + workload;
+  const { taskCompletion, onTimeCompletion, quality, punctuality, workload, discipline } = weightages;
+  const total = taskCompletion + onTimeCompletion + quality + punctuality + workload + discipline;
   
   if (total !== 100) {
     throw new Error('Efficiency weightages must total 100%.');
@@ -115,6 +117,7 @@ export const saveWeightages = async (
       efficiencyQualityWeight: quality,
       efficiencyPunctualityWeight: punctuality,
       efficiencyWorkloadWeight: workload,
+      efficiencyDisciplineWeight: discipline,
       updatedAt: new Date().toISOString(),
       updatedBy: userId,
       updatedByName: userName
