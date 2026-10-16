@@ -238,22 +238,21 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
     const employeeCode = typeof body?.employeeCode === 'string' ? body.employeeCode.trim() : '';
     if (token.length < 20 || token.length > 4096) return json({ success: false, error: 'Invalid device token.' }, 400);
 
-    // Normal path: the authenticated Firebase UID already belongs to the approved employee.
-    // Recovery path: Android anonymous auth can legitimately receive a new UID after app data
-    // loss/reinstall. In that case bind the FCM token to the existing approved registration
-    // identified by employeeCode so the admin recipient UID and push token remain aligned.
+    // Always resolve an employee token through the approved registration when an employeeCode
+    // is supplied. This prevents anonymous-auth UID changes from leaving an otherwise valid
+    // FCM token attached to a stale Firebase UID. Admin accounts keep their authenticated UID.
     let tokenOwnerUid = uid;
     let resolvedEmployeeCode = employeeCode;
-    const callerIsActive = await isCallerActive(env, uid, email);
-    if (!callerIsActive) {
-      if (!employeeCode) return json({ success: false, error: 'Employee identity could not be matched for device-token registration.' }, 403);
+    const adminDoc = await getDoc(env, 'admin_users', uid);
+    const callerIsAdmin = !!adminDoc && ADMIN_ROLES.has(String(decodeDoc(adminDoc).role || decodeDoc(adminDoc).userRole || decodeDoc(adminDoc).roleName || '').trim().toUpperCase().replace(/[\s-]+/g, '_'));
+    if (!callerIsAdmin && employeeCode) {
       const employee = await findApprovedEmployeeByCode(env, employeeCode);
       if (!employee) return json({ success: false, error: 'Employee account is not approved or could not be matched.' }, 403);
       tokenOwnerUid = employee.uid;
       resolvedEmployeeCode = String(employee.data.employeeCode || employeeCode);
-    } else if (!resolvedEmployeeCode) {
-      const employee = await findApprovedEmployeeByCode(env, employeeCode).catch(() => null);
-      if (employee) resolvedEmployeeCode = String(employee.data.employeeCode || employeeCode);
+    } else if (!callerIsAdmin && !employeeCode) {
+      const active = await isCallerActive(env, uid, email);
+      if (!active) return json({ success: false, error: 'Employee identity could not be matched for device-token registration.' }, 403);
     }
 
     const tokenIdBytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
