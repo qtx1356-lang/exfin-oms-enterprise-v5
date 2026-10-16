@@ -74,7 +74,7 @@ export const NotificationCenter: React.FC = () => {
       };
     }
     return null;
-  }, [adminUser, adminRole, employeeData]);
+  }, [adminUser, adminRole, adminLoginId, employeeData]);
 
   const loadNotifications = async () => {
     if (!currentUser) return;
