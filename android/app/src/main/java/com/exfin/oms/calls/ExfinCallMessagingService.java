@@ -15,7 +15,6 @@ import androidx.core.app.Person;
 
 import com.capacitorjs.plugins.pushnotifications.MessagingService;
 import com.exfin.oms.MainActivity;
-import com.exfin.oms.R;
 import com.google.firebase.messaging.RemoteMessage;
 
 import java.util.Map;
@@ -62,7 +61,7 @@ public class ExfinCallMessagingService extends MessagingService {
                 .build();
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_stat_notify)
+                .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(callerName + " is calling")
                 .setContentText(title)
                 .setCategory(NotificationCompat.CATEGORY_CALL)
