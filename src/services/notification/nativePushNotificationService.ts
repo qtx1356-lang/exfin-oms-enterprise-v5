@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { API_BASE_URL } from '@/src/utils/apiConfig';
+import { buildApiUrl } from '@/src/utils/apiConfig';
 import { auth } from '../firebase/config';
 
 const DEVICE_TOKEN_KEY = 'exfin_device_fcm_token';
@@ -61,7 +61,8 @@ export async function initNativePushNotifications(userContext: {
       console.log('[NativePush] Device successfully registered with FCM.');
       localStorage.setItem(DEVICE_TOKEN_KEY, token.value);
       try {
-        await registerTokenWithBackend(token.value, userId, employeeCode, role);
+        const context = activePushContext;
+        if (context) await registerTokenWithBackend(token.value, context.userId, context.employeeCode, context.role);
       } catch (err) {
         console.error('[NativePush] Failed to register token with backend:', err);
       }
@@ -145,13 +146,14 @@ async function registerTokenWithBackend(
 ) {
   const currentUser = auth.currentUser;
   if (!currentUser) {
-    console.warn('[NativePush] Cannot register token with backend: Firebase user is not authenticated.');
-    return;
+    // Do not silently treat a token registration attempt as successful before auth is ready.
+    // The app-resume path retries registration after Firebase authentication is available.
+    throw new Error('Firebase user is not authenticated yet; token registration will be retried.');
   }
 
   const idToken = await currentUser.getIdToken(true);
 
-  const response = await fetch(`${API_BASE_URL}/api/video/device-token`, {
+  const response = await fetch(buildApiUrl('/api/video/device-token'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
