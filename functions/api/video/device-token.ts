@@ -208,10 +208,41 @@ async function isCallerActive(env: Env, uid: string, email: string): Promise<boo
   return status === 'APPROVED' && data.isDeleted !== true && data.active !== false;
 }
 
+async function listCollection(env: Env, collection: string, limit = 500): Promise<any[]> {
+  const documents: any[] = [];
+  let pageToken = '';
+  do {
+    const query = new URLSearchParams({ pageSize: String(Math.min(1000, Math.max(1, limit - documents.length))) });
+    if (pageToken) query.set('pageToken', pageToken);
+    const response = await firestoreRequest(env, `projects/${PROJECT_ID}/databases/(default)/documents/${collection}?${query.toString()}`);
+    if (!response.ok) throw new Error(`Firestore LIST failed: ${response.status}`);
+    const payload = await response.json() as any;
+    if (Array.isArray(payload.documents)) documents.push(...payload.documents);
+    pageToken = String(payload.nextPageToken || '');
+  } while (pageToken && documents.length < limit);
+  return documents.slice(0, limit);
+}
+
 async function findApprovedEmployeeByCode(env: Env, employeeCode: string): Promise<{ uid: string; data: any } | null> {
-  const matches = await queryByField(env, 'registrations', 'employeeCode', employeeCode, 5);
+  const normalizedCode = employeeCode.trim().toUpperCase();
+  if (!normalizedCode) return null;
+  // Firestore equality queries are case-sensitive. Try the indexed query first,
+  // then recover older registrations whose employeeCode casing is inconsistent.
+  const exactMatches = await queryByField(env, 'registrations', 'employeeCode', employeeCode, 10);
+  const matches = [...exactMatches];
+  if (!matches.some((document) => String(decodeDoc(document).employeeCode || '').trim().toUpperCase() === normalizedCode)) {
+    const allRegistrations = await listCollection(env, 'registrations', 500).catch(() => []);
+    const seen = new Set(matches.map((document) => document.name));
+    for (const document of allRegistrations) {
+      if (!seen.has(document.name) &&
+          String(decodeDoc(document).employeeCode || '').trim().toUpperCase() === normalizedCode) {
+        matches.push(document);
+      }
+    }
+  }
   for (const document of matches) {
     const data = decodeDoc(document);
+    if (String(data.employeeCode || '').trim().toUpperCase() !== normalizedCode) continue;
     const status = String(data.status || 'Pending Approval').trim().toUpperCase();
     if (status !== 'APPROVED' || data.isDeleted === true || data.active === false) continue;
     const documentUid = String(document.name || '').split('/').pop() || '';
