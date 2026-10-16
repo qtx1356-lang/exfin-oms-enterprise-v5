@@ -17,6 +17,7 @@ import { db, auth, storage } from '../firebase/config';
 import { ChatConversation, ChatMessage, ChatType, ChatAttachment } from '../../types/chat';
 import { ref, uploadBytesResumable, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { signInAnonymously } from 'firebase/auth';
+import { createNotification } from '../notification/notificationService';
 
 export async function ensureFirebaseAuth(): Promise<void> {
   if (!auth) return;
@@ -501,6 +502,40 @@ export async function sendMessage(
       unreadCounts: updatedUnread,
       updatedAt: timestampStr
     });
+
+    // Create one identity-scoped in-app notification for each recipient.
+    // Keep this independent from the conversation unread counter: the two
+    // read states serve different purposes in the UI.
+    const notificationPreview = lastMsgContent.length > 160
+      ? `${lastMsgContent.slice(0, 157)}...`
+      : lastMsgContent;
+    const recipients = convData.participantIds.filter(pid => pid && pid !== senderId);
+    await Promise.all(recipients.map(async (recipientId) => {
+      try {
+        await createNotification({
+          type: 'CHAT_MESSAGE',
+          category: 'TEAM',
+          title: `New message from ${senderName || 'a colleague'}`,
+          message: notificationPreview,
+          recipientUserId: recipientId,
+          recipientEmployeeCode: recipientId,
+          // Use identity matching rather than role-wide ADMIN broadcasts so
+          // private chat notifications are not shown to unrelated accounts.
+          recipientRole: 'EMPLOYEE',
+          priority: 'NORMAL',
+          entityId: messageId,
+          relatedRecordId: conversationId,
+          entityType: 'CHAT_MESSAGE',
+          source: 'CHAT',
+          channels: ['IN_APP'],
+          idempotencyKey: `chat_message_${messageId}_${recipientId}`,
+        });
+      } catch (notificationError) {
+        // A notification failure must not make an already-sent chat message
+        // appear to have failed; log it for diagnosis instead.
+        console.warn('[CHAT_NOTIFICATION] Failed to create in-app notification:', notificationError);
+      }
+    }));
 
     return messageId;
   } catch (error) {
