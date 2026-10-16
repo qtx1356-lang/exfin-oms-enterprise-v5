@@ -149,7 +149,7 @@ async function registerTokenWithBackend(
 
   const idToken = await currentUser.getIdToken(true);
 
-  const response = await fetch(buildApiUrl('/api/notifications/register-device'), {
+  const response = await fetch(buildApiUrl('/api/video/device-token'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
