@@ -223,6 +223,36 @@ async function listCollection(env: Env, collection: string, limit = 500): Promis
   return documents.slice(0, limit);
 }
 
+async function findApprovedEmployeeByIdentity(env: Env, uid: string, email: string): Promise<{ uid: string; data: any } | null> {
+  const candidates: any[] = [];
+  const direct = await getDoc(env, 'registrations', uid);
+  if (direct) candidates.push(direct);
+  for (const field of ['uid', 'authUid']) {
+    candidates.push(...await queryByField(env, 'registrations', field, uid, 10));
+  }
+  const normalizedEmail = email.trim().toLowerCase();
+  if (normalizedEmail) {
+    candidates.push(...await queryByField(env, 'registrations', 'email', normalizedEmail, 10));
+  }
+  const seen = new Set<string>();
+  for (const document of candidates) {
+    const documentId = String(document.name || '').split('/').pop() || '';
+    if (seen.has(documentId)) continue;
+    seen.add(documentId);
+    const data = decodeDoc(document);
+    const storedUid = String(data.uid || '').trim();
+    const storedAuthUid = String(data.authUid || '').trim();
+    const storedEmail = String(data.email || '').trim().toLowerCase();
+    // Email is only a fallback for legacy registrations that have no conflicting UID.
+    const identityMatches = storedUid === uid || storedAuthUid === uid ||
+      ((!storedUid && !storedAuthUid) && !!normalizedEmail && storedEmail === normalizedEmail);
+    const status = String(data.status || 'Pending Approval').trim().toUpperCase();
+    if (!identityMatches || status !== 'APPROVED' || data.isDeleted === true || data.active === false) continue;
+    return { uid: storedUid || storedAuthUid || documentId, data };
+  }
+  return null;
+}
+
 async function findApprovedEmployeeByCode(env: Env, employeeCode: string): Promise<{ uid: string; data: any } | null> {
   const normalizedCode = employeeCode.trim().toUpperCase();
   if (!normalizedCode) return null;
@@ -283,9 +313,21 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
     const callerIsAdmin = !!adminDoc && ADMIN_ROLES.has(String(decodeDoc(adminDoc).role || decodeDoc(adminDoc).userRole || decodeDoc(adminDoc).roleName || '').trim().toUpperCase().replace(/[\s-]+/g, '_'));
     if (!callerIsAdmin && employeeCode) {
       const employee = await findApprovedEmployeeByCode(env, employeeCode);
-      if (!employee) return json({ success: false, error: 'Employee account is not approved or could not be matched.' }, 403);
-      tokenOwnerUid = employee.uid;
-      resolvedEmployeeCode = String(employee.data.employeeCode || employeeCode);
+      if (employee) {
+        tokenOwnerUid = employee.uid;
+        resolvedEmployeeCode = String(employee.data.employeeCode || employeeCode);
+      } else {
+        // Cached employee data can carry an outdated/mistyped code after account
+        // recovery. Never discard a valid device token solely because that code
+        // failed to match: resolve the authenticated caller against an approved
+        // registration and use that registration's canonical identity instead.
+        const identityEmployee = await findApprovedEmployeeByIdentity(env, uid, email);
+        if (!identityEmployee) {
+          return json({ success: false, error: 'Employee identity could not be matched to an approved registration.' }, 403);
+        }
+        tokenOwnerUid = identityEmployee.uid;
+        resolvedEmployeeCode = String(identityEmployee.data.employeeCode || '');
+      }
     } else if (!callerIsAdmin && !employeeCode) {
       const active = await isCallerActive(env, uid, email);
       if (!active) return json({ success: false, error: 'Employee identity could not be matched for device-token registration.' }, 403);
