@@ -83,23 +83,20 @@ async function sendIncomingCallPush(env: Env, recipientUid: string, callId: stri
   const projectId = env.FIREBASE_PROJECT_ID || PROJECT_ID;
   const payload = {
     message: {
-      notification: {
-        title: 'Incoming EXFIN OMS video call',
-        body: (callerName || 'EXFIN OMS Admin') + ' is calling you',
-      },
+      // Deliberately data-only: a generic FCM notification payload is rendered by
+      // Android as a normal message notification and bypasses native CallStyle UI.
+      // ExfinCallMessagingService renders the incoming-call notification instead.
       data: {
         type: 'video_call',
         callId,
+        callerName: callerName || 'EXFIN OMS Admin',
         route: '/video-calls',
         title: title || 'EXFIN OMS video call',
       },
       android: {
         priority: 'HIGH',
-        notification: {
-          channel_id: 'exfin_oms_messages_v2',
-          sound: 'default',
-          click_action: 'FCM_PLUGIN_ACTIVITY',
-        },
+        ttl: '60s',
+        collapse_key: 'exfin_video_call_' + callId,
       },
     },
   };
