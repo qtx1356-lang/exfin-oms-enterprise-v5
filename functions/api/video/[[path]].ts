@@ -103,8 +103,19 @@ async function sendIncomingCallPush(env: Env, recipientUid: string, employeeCode
   }
   const devices = Array.from(uniqueTokens.values());
   if (!devices.length) {
-    console.warn('[Video API] No registered native Android push token for call recipient.');
-    return { tokenCount: 0, attempted: 0, sent: 0, failed: 0, errors: ['NO_ANDROID_FCM_TOKEN_REGISTERED'] };
+    // Include counts only—never expose token values—in the admin call response.
+    // This distinguishes a client that never registered from identity/metadata mismatch.
+    const allScanned = [...queriedDocuments, ...fallbackDocuments].map(decodeDoc);
+    const uniqueRecords = new Map<string, any>();
+    for (const [index, device] of allScanned.entries()) uniqueRecords.set(String(device.token || device.uid || `record-${index}`), device);
+    const records = Array.from(uniqueRecords.values());
+    const uidMatches = records.filter((device) => String(device.uid || '') === recipientUid).length;
+    const codeMatches = records.filter((device) => !!employeeCode &&
+      String(device.employeeCode || '').trim().toUpperCase() === employeeCode.trim().toUpperCase()).length;
+    const androidMatches = records.filter((device) => device.platform === 'android' || device.appId === 'com.exfin.oms').length;
+    const diagnostic = `FCM_TOKEN_DIAGNOSTIC totalRecordsScanned=${records.length}, uidMatches=${uidMatches}, employeeCodeMatches=${codeMatches}, androidTagged=${androidMatches}, recipientHasEmployeeCode=${!!employeeCode}`;
+    console.warn('[Video API] No registered native Android push token for call recipient.', diagnostic);
+    return { tokenCount: 0, attempted: 0, sent: 0, failed: 0, errors: ['NO_ANDROID_FCM_TOKEN_REGISTERED', diagnostic] };
   }
 
   const accessToken = await getGoogleAccessToken(env);
