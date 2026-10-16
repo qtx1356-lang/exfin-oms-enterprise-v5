@@ -18,6 +18,7 @@ on:
       - 'package-lock.json'
       - 'src/**'
       - 'public/android-version-manifest.json'
+      - 'functions/**'
 
 concurrency:
   group: android-release-main
