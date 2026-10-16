@@ -14,13 +14,13 @@ export function getApiBaseUrl(): string {
     return envUrl.replace(/\/$/, '');
   }
 
-  // Keep browser requests same-origin. Native Android must use the Pages project
-  // configured by wrangler.jsonc and the deploy script: office-management-system.
+  // Keep browser requests same-origin. Native Android must use the deployed EXFIN
+  // OMS Pages origin that serves the working admin video API and its Pages Functions.
   if (typeof window !== 'undefined') {
     try {
       const capacitor = (window as any).Capacitor;
       if (typeof capacitor?.isNativePlatform === 'function' && capacitor.isNativePlatform()) {
-        return 'https://office-management-system.pages.dev';
+        return 'https://exfin-oms-enterprise-v5.pages.dev';
       }
     } catch {
       // Fall through to same-origin behavior if native-platform detection fails.
