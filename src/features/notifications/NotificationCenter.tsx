@@ -56,6 +56,7 @@ export const NotificationCenter: React.FC = () => {
         uid: adminUser.uid,
         userId: adminUser.uid,
         employeeCode: 'ADMIN',
+        loginId: (adminUser as any).loginId || '',
         role: adminRole || 'ADMIN',
         isAdmin: true,
       };
