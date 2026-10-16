@@ -519,7 +519,7 @@ async function startServer() {
 
 
   // =======================================================
-  // SECURE DAILY.CO VIDEO CALLS (private rooms + short-lived tokens)
+  // SECURE LIVEKIT VIDEO CALLS (private rooms + short-lived tokens)
   // =======================================================
   const videoAdminRoles = new Set(["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEADER"]);
   const liveKitConfig = () => {
@@ -753,7 +753,7 @@ async function startServer() {
       const callId = randomUUID();
       const callerName = await videoNameForUid(caller.uid);
       const title = String(req.body?.title || (mode === "group" ? "EXFIN OMS group meeting" : "EXFIN OMS video call")).trim().slice(0, 100) || "EXFIN OMS video call";
-      const token = await createVideoMeetingToken(String(room.name), caller.uid, callerName, isCallerAdmin, exp);
+      const token = await createVideoMeetingToken(roomName, caller.uid, callerName, isCallerAdmin, exp);
       const participantUids = [caller.uid, ...recipientUids];
       const createdAt = new Date().toISOString();
       const expiresAt = new Date((exp) * 1000).toISOString();
