@@ -33,7 +33,7 @@ import { NotificationSettingsCard } from '../../components/common/NotificationSe
 export const NotificationCenter: React.FC = () => {
   const navigate = useNavigate();
   const { employeeData } = useRegistration();
-  const { user: adminUser, role: adminRole } = useAdminAuth();
+  const { user: adminUser, role: adminRole, loginId: adminLoginId } = useAdminAuth();
 
   let realtimeSync: any = null;
   try {
@@ -56,7 +56,7 @@ export const NotificationCenter: React.FC = () => {
         uid: adminUser.uid,
         userId: adminUser.uid,
         employeeCode: 'ADMIN',
-        loginId: (adminUser as any).loginId || '',
+        loginId: adminLoginId || '',
         role: adminRole || 'ADMIN',
         isAdmin: true,
       };
