@@ -52,15 +52,10 @@ export async function initNativePushNotifications(userContext: {
     });
 
     if (permission.receive !== 'granted') {
-      // Notification permission controls whether Android may display alerts; it must not
-      // prevent FCM token generation/registration. Register anyway so the backend can
-      // diagnose the device, and ask for notification permission again through Android
-      // settings if the user wants incoming-call alerts displayed.
       console.warn('[NativePush] OS notification permission is not granted:', permission.receive,
         '- continuing FCM token registration; visible alerts may be blocked by Android.');
     }
 
-    // Do not remove all listeners: other EXFIN OMS notification handlers may be active.
     await PushNotifications.addListener('registration', async (token) => {
       console.log('[NativePush] Device successfully registered with FCM.');
       localStorage.setItem(DEVICE_TOKEN_KEY, token.value);
@@ -90,7 +85,7 @@ export async function initNativePushNotifications(userContext: {
       if (route && typeof window !== 'undefined') {
         window.location.hash = route;
       }
-    }).catch((e) => console.warn('[NativePush] addListener pushNotificationActionPerformed error:', e));
+    }).catch((e) => console.warn('[NativePush] Push action listener error:', e));
 
     await LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
       const extra = action.notification?.extra || {};
@@ -99,7 +94,6 @@ export async function initNativePushNotifications(userContext: {
       }
     }).catch((e) => console.warn('[NativePush] local notification listener error:', e));
 
-    // Re-sync a cached token when initialization runs again after a transient API failure.
     const cachedToken = localStorage.getItem(DEVICE_TOKEN_KEY);
     if (cachedToken) {
       try {
@@ -110,7 +104,6 @@ export async function initNativePushNotifications(userContext: {
       }
     }
 
-    // Retry native registration whenever the employee returns to the foreground.
     if (!appResumeListenerInstalled) {
       await App.addListener('appStateChange', async ({ isActive }) => {
         const context = activePushContext;
@@ -140,7 +133,8 @@ export async function initNativePushNotifications(userContext: {
 }
 
 /**
- * Registers device push token with the authenticated Cloudflare video API securely.
+ * Registers device push token with the authenticated backend securely.
+ * This must match the server's canonical notification token route.
  */
 async function registerTokenWithBackend(
   token: string,
@@ -150,14 +144,12 @@ async function registerTokenWithBackend(
 ) {
   const currentUser = auth.currentUser;
   if (!currentUser) {
-    // Do not silently treat a token registration attempt as successful before auth is ready.
-    // The app-resume path retries registration after Firebase authentication is available.
     throw new Error('Firebase user is not authenticated yet; token registration will be retried.');
   }
 
   const idToken = await currentUser.getIdToken(true);
 
-  const response = await fetch(buildApiUrl('/api/video/device-token'), {
+  const response = await fetch(buildApiUrl('/api/notifications/register-device'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -193,7 +185,7 @@ export async function unregisterTokenFromBackend() {
 
   try {
     const idToken = await currentUser.getIdToken();
-    const response = await fetch(buildApiUrl('/api/video/device-token/unregister'), {
+    const response = await fetch(buildApiUrl('/api/notifications/unregister-device'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
