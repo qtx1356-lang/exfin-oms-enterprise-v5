@@ -810,8 +810,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       notifQueries.push(
         query(
           collection(db, 'notifications'),
-          where('recipientEmployeeCode', '==', activeEmpCode),
-          limit(50)
+          where('recipientEmployeeCode', '==', activeEmpCode)
         )
       );
     }
@@ -819,8 +818,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       notifQueries.push(
         query(
           collection(db, 'notifications'),
-          where('recipientUserId', '==', activeUserId),
-          limit(50)
+          where('recipientUserId', '==', activeUserId)
         )
       );
     }
@@ -832,15 +830,13 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       notifQueries.push(
         query(
           collection(db, 'notifications'),
-          where('recipientEmployeeCode', '==', activeAdminLoginId),
-          limit(50)
+          where('recipientEmployeeCode', '==', activeAdminLoginId)
         )
       );
       notifQueries.push(
         query(
           collection(db, 'notifications'),
-          where('recipientUserId', '==', activeAdminLoginId),
-          limit(50)
+          where('recipientUserId', '==', activeAdminLoginId)
         )
       );
     }
