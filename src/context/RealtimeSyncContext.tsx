@@ -127,7 +127,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
       };
     }
     return null;
-  }, [adminUser, adminRole, employeeData]);
+  }, [adminUser, adminRole, adminAuthContext?.loginId, employeeData]);
 
   const networkStatus = useNetworkStatus();
   const isOnline = networkStatus.isOnline;
