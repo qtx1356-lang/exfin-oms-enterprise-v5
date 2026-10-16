@@ -104,8 +104,11 @@ async function writeDoc(env: Env, collection: string, id: string, data: Record<s
   const response = await firestore(env, `${docPath(env, collection, id)}?${mask}${precondition}`, {
     method: 'PATCH', body: JSON.stringify({ fields }),
   });
-  if (!response.ok && !(createOnly && response.status === 409 && (await response.text()).length >= 0)) {
-    throw new Error(`Firestore write failed (${response.status})`);
+  if (!response.ok) {
+    const detail = await response.text();
+    const alreadyExists = createOnly && (response.status === 409 ||
+      (response.status === 400 && /FAILED_PRECONDITION|already exists/i.test(detail)));
+    if (!alreadyExists) throw new Error(`Firestore write failed (${response.status})`);
   }
 }
 function kolkataParts(date: Date): { date: string; time: string } {
@@ -154,7 +157,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const longitude = Number(payload.longitude);
     const coordsAvailable = validCoords(latitude, longitude);
     const explicitExit = transition === 'EXIT' || ['CHECK_OUT', 'EXIT', 'GEOFENCE_EXIT', 'GEOFENCE_TRANSITION_EXIT'].includes(eventType);
-    const explicitReturn = eventType === 'GEOFENCE_RETURN' || eventType === 'RETURN' || eventType === 'ENTRY' || transition === 'ENTER';
+    const explicitReturn = !explicitExit && (eventType === 'GEOFENCE_RETURN' || eventType === 'RETURN' || eventType === 'ENTRY' || transition === 'ENTER');
     if (!coordsAvailable && !explicitExit && !explicitReturn && eventType !== 'CHECK_IN') {
       return json({ success: false, error: 'Valid coordinates are required for this event' }, 400);
     }
@@ -191,7 +194,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (!record) {
       const isEntry = eventType === 'CHECK_IN' || eventType === 'ENTER' || eventType === 'GEOFENCE_RETURN' || explicitReturn;
-      if (!isEntry || (!inside && !(source.toUpperCase().includes('NATIVE_GEOFENCE') && eventType === 'CHECK_IN'))) {
+      if (!isEntry || !inside) {
         // A return can be the first observed event after a process restart; only create attendance
         // if it is physically inside the authoritative 25m boundary.
         return json({ success: true, processed: true, transitionOccurred: false, newState: 'UNCHANGED', employeeId, timestamp: eventIso });
@@ -221,7 +224,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (record.checkOutTime && record.checkoutStatus === 'COMPLETED') {
         return json({ success: true, processed: true, transitionOccurred: false, newState: 'CHECKED_OUT', employeeId, timestamp: eventIso });
       }
-      if (explicitExit) {
+      if (explicitExit && !inside) {
         canonicalType = 'GEOFENCE_EXIT';
         transitionOccurred = true;
         nextRecord.lastExitAt = eventIso;
