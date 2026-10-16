@@ -179,7 +179,7 @@ export const VideoConferenceCenter: React.FC = () => {
           const reason = item.errors?.[0] || 'FCM did not accept the notification.';
           return `${item.employeeName}: ${reason}`;
         }).join('\n');
-        window.alert('The video call was created, but the employee alert was not sent.\n\n' + details);
+        setPushAlert('The video call was created, but the employee alert was not sent.\\n\\n' + details);\n        setPushAlertCopyStatus('');
       }
       setActiveCall({
         callId: response.callId,
