@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
-import { randomUUID, createHash } from "crypto";
+import { randomUUID, createHash, createHmac } from "crypto";
 import { getMessaging } from "firebase-admin/messaging";
 import webpush from "web-push";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
@@ -522,21 +522,37 @@ async function startServer() {
   // SECURE DAILY.CO VIDEO CALLS (private rooms + short-lived tokens)
   // =======================================================
   const videoAdminRoles = new Set(["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEADER"]);
-  const videoDailyKey = () => process.env.DAILY_API_KEY || "";
-  const videoDailyRequest = async (endpoint: string, method: string, body?: Record<string, unknown>) => {
-    const apiKey = videoDailyKey();
-    if (!apiKey) throw new Error("DAILY_NOT_CONFIGURED");
-    const response = await fetch("https://api.daily.co/v1/" + endpoint, {
-      method,
-      headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
-      ...(body ? { body: JSON.stringify(body) } : {})
-    });
-    if (!response.ok) {
-      // Do not log or return the credential or raw provider payload.
-      console.error("[VideoCalls] Daily API request failed with status", response.status);
-      throw new Error("DAILY_PROVIDER_ERROR");
+  const liveKitConfig = () => {
+    const url = String(process.env.LIVEKIT_URL || "").trim().replace(/\/$/, "");
+    const apiKey = String(process.env.LIVEKIT_API_KEY || "").trim();
+    const apiSecret = String(process.env.LIVEKIT_API_SECRET || "").trim();
+    if (!/^wss:\/\/[a-z0-9.-]+(?::\d+)?$/i.test(url) || !apiKey || !apiSecret) {
+      throw new Error("LIVEKIT_NOT_CONFIGURED");
     }
-    return response.json() as Promise<any>;
+    return { url, apiKey, apiSecret };
+  };
+  const signLiveKitJwt = (claims: Record<string, unknown>) => {
+    const { apiKey, apiSecret } = liveKitConfig();
+    const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+    const header = encode({ alg: "HS256", typ: "JWT" });
+    const payload = encode({ iss: apiKey, ...claims });
+    const signature = createHmac("sha256", apiSecret).update(header + "." + payload).digest("base64url");
+    return header + "." + payload + "." + signature;
+  };
+  const deleteLiveKitRoom = async (roomName: string) => {
+    const { url } = liveKitConfig();
+    const now = Math.floor(Date.now() / 1000);
+    const token = signLiveKitJwt({
+      sub: process.env.LIVEKIT_API_KEY,
+      nbf: now - 5, iat: now, exp: now + 60,
+      video: { roomAdmin: true, room: roomName }
+    });
+    const response = await fetch(url.replace(/^wss:/, "https:") + "/twirp/livekit.RoomService/DeleteRoom", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ room: roomName })
+    });
+    if (!response.ok && response.status !== 404) throw new Error("LIVEKIT_PROVIDER_ERROR");
   };
   const videoNameForUid = async (uid: string) => {
     if (!db) return "EXFIN OMS user";
@@ -633,19 +649,16 @@ async function startServer() {
     }
   });
 
-  const createVideoMeetingToken = async (roomName: string, uid: string, userName: string, owner: boolean, exp: number) => {
-    const response = await videoDailyRequest("meeting-tokens", "POST", {
-      properties: {
-        room_name: roomName,
-        user_id: uid.slice(0, 36),
-        user_name: userName.slice(0, 80),
-        is_owner: owner,
-        exp,
-        eject_at_token_exp: true
-      }
+  const createVideoMeetingToken = async (roomName: string, uid: string, userName: string, _owner: boolean, exp: number) => {
+    const now = Math.floor(Date.now() / 1000);
+    return signLiveKitJwt({
+      sub: uid,
+      name: userName.slice(0, 80),
+      nbf: now - 5,
+      iat: now,
+      exp,
+      video: { roomJoin: true, room: roomName, canPublish: true, canSubscribe: true, canPublishData: true }
     });
-    if (!response.token) throw new Error("DAILY_PROVIDER_ERROR");
-    return String(response.token);
   };
 
   app.get("/api/video/recipients", async (req, res) => {
@@ -699,7 +712,7 @@ async function startServer() {
     if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
     if (!(await videoCallerIsActive(caller))) return res.status(403).json({ success: false, error: "Your account is inactive or not approved for video calls." });
     if (!db) return res.status(503).json({ success: false, error: "Video service is not ready." });
-    if (!videoDailyKey()) return res.status(503).json({ success: false, error: "Video calling is not configured on the server yet." });
+    try { liveKitConfig(); } catch { return res.status(503).json({ success: false, error: "LiveKit is not configured. Add LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET to the server environment." }); }
 
     try {
       const mode = req.body?.mode === "group" ? "group" : "direct";
@@ -735,12 +748,7 @@ async function startServer() {
       const now = Math.floor(Date.now() / 1000);
       const exp = now + 60 * 60 * 2;
       const roomName = "exfin-" + randomUUID().replace(/-/g, "").slice(0, 24);
-      const room = await videoDailyRequest("rooms", "POST", {
-        name: roomName,
-        privacy: "private",
-        properties: { exp, max_participants: recipientUids.length + 1, enable_chat: true }
-      });
-      if (!room.url || !room.name) throw new Error("DAILY_PROVIDER_ERROR");
+      const roomUrl = liveKitConfig().url;
 
       const callId = randomUUID();
       const callerName = await videoNameForUid(caller.uid);
@@ -750,7 +758,7 @@ async function startServer() {
       const createdAt = new Date().toISOString();
       const expiresAt = new Date((exp) * 1000).toISOString();
       await db.collection("video_calls").doc(callId).set({
-        callId, roomName: String(room.name), roomUrl: String(room.url), title, mode,
+        callId, roomName, roomUrl, title, mode,
         callerUid: caller.uid, callerName, callerRole: caller.role, participantUids,
         status: "active", createdAt, expiresAt
       });
@@ -760,7 +768,7 @@ async function startServer() {
         const inviteId = callId + "_" + person.uid;
         await db.collection("video_call_invites").doc(inviteId).set({
           callId, recipientUid: person.uid, senderUid: caller.uid, senderName: callerName,
-          senderRole: caller.role, roomName: String(room.name), roomUrl: String(room.url),
+          senderRole: caller.role, roomName, roomUrl,
           title, mode, status: "pending", createdAt, expiresAt
         });
         try {
@@ -796,9 +804,10 @@ async function startServer() {
           console.warn("[VideoCalls] Push notification could not be delivered for recipient", person.uid);
         }
       }
-      return res.json({ success: true, callId, roomUrl: String(room.url), token, title, expiresAt });
+      return res.json({ success: true, callId, roomUrl, token, title, expiresAt });
     } catch (err: any) {
-      if (err?.message === "DAILY_NOT_CONFIGURED") return res.status(503).json({ success: false, error: "Video calling is not configured on the server yet." });
+      if (err?.message === "LIVEKIT_NOT_CONFIGURED") return res.status(503).json({ success: false, error: "LiveKit is not configured. Add LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET to the server environment." });
+      if (err?.message === "LIVEKIT_PROVIDER_ERROR") return res.status(502).json({ success: false, error: "The LiveKit video service is temporarily unavailable." });
       console.error("[VideoCalls] Call creation failed:", err?.message || err);
       return res.status(502).json({ success: false, error: "Could not create the video call. Please try again." });
     }
@@ -862,7 +871,7 @@ async function startServer() {
         await callRef.update({ status: "ended", endedAt: new Date().toISOString() });
         const pending = await db.collection("video_call_invites").where("callId", "==", req.params.callId).get();
         await Promise.all(pending.docs.map((item) => item.ref.update({ status: item.data().status === "pending" ? "ended" : item.data().status, endedAt: new Date().toISOString() })));
-        try { await videoDailyRequest("rooms/" + encodeURIComponent(String(callData.roomName)), "DELETE"); } catch (e) { /* room expiration is the fallback */ }
+        try { await deleteLiveKitRoom(String(callData.roomName)); } catch (e) { console.warn("[VideoCalls] LiveKit room cleanup failed:", (e as any)?.message || e); }
       } else {
         const inviteRef = db.collection("video_call_invites").doc(req.params.callId + "_" + caller.uid);
         const inviteSnap = await inviteRef.get();
