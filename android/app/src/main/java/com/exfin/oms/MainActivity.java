@@ -145,23 +145,32 @@ public class MainActivity extends BridgeActivity {
         pendingVideoPermissionRequest = null;
         if (request == null) return;
 
-        boolean cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                == PackageManager.PERMISSION_GRANTED;
-        boolean microphoneGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                == PackageManager.PERMISSION_GRANTED;
+        // Android returns results only for the runtime permissions requested in this
+        // particular WebView request. Do not require BOTH camera and microphone when
+        // LiveKit asks for only one of them; that incorrectly denies camera-only capture.
+        boolean requestedPermissionsGranted = grantResults.length > 0;
+        for (int result : grantResults) {
+            if (result != PackageManager.PERMISSION_GRANTED) {
+                requestedPermissionsGranted = false;
+                break;
+            }
+        }
 
-        if (cameraGranted && microphoneGranted) {
+        if (requestedPermissionsGranted) {
             try {
                 request.grant(request.getResources());
-                Log.i("MainActivity", "WebRTC camera/microphone permission granted");
+                Log.i("MainActivity", "WebRTC protected resources granted: "
+                        + java.util.Arrays.toString(request.getResources()));
             } catch (Exception e) {
                 Log.w("MainActivity", "Failed to grant WebRTC permission: " + e.getMessage());
+                try { request.deny(); } catch (Exception ignored) {}
             }
         } else {
             try {
                 request.deny();
             } catch (Exception ignored) {}
-            Log.w("MainActivity", "WebRTC camera/microphone permission denied");
+            Log.w("MainActivity", "WebRTC runtime permission denied for requested resources: "
+                    + java.util.Arrays.toString(request.getResources()));
         }
     }
 
