@@ -109,6 +109,7 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
         uid: adminUser.uid,
         userId: adminUser.uid,
         employeeCode: 'ADMIN',
+        loginId: adminAuthContext?.loginId || '',
         role: adminRole || 'ADMIN',
         isAdmin: true,
       };
@@ -819,6 +820,26 @@ export const RealtimeSyncProvider: React.FC<{ children: React.ReactNode }> = ({
         query(
           collection(db, 'notifications'),
           where('recipientUserId', '==', activeUserId),
+          limit(50)
+        )
+      );
+    }
+    // Chat conversations use the admin login ID as the participant identity,
+    // while notification UI authentication uses the Firebase UID. Query the
+    // login ID separately so direct chat notifications reach the intended admin.
+    const activeAdminLoginId = activeUserContext?.loginId;
+    if (activeAdminLoginId && activeAdminLoginId !== activeUserId) {
+      notifQueries.push(
+        query(
+          collection(db, 'notifications'),
+          where('recipientEmployeeCode', '==', activeAdminLoginId),
+          limit(50)
+        )
+      );
+      notifQueries.push(
+        query(
+          collection(db, 'notifications'),
+          where('recipientUserId', '==', activeAdminLoginId),
           limit(50)
         )
       );
