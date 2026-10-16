@@ -5,7 +5,7 @@ declare global {
   interface Window { LivekitClient?: any; }
 }
 
-const LIVEKIT_CLIENT_SCRIPT = 'https://cdn.jsdelivr.net/npm/livekit-client@2.15.6/dist/livekit-client.umd.min.js';
+const LIVEKIT_CLIENT_SCRIPT = 'https://cdn.jsdelivr.net/npm/livekit-client@2.15.6/dist/livekit-client.umd.js';
 let liveKitScriptPromise: Promise<any> | null = null;
 
 function loadLiveKitClient(): Promise<any> {
