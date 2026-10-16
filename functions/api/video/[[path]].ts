@@ -76,10 +76,28 @@ async function sendIncomingCallPush(env: Env, recipientUid: string, employeeCode
     queryByField(env, 'push_device_tokens', 'uid', recipientUid, 50),
     employeeCode ? queryByField(env, 'push_device_tokens', 'employeeCode', employeeCode, 50) : Promise.resolve([]),
   ]);
-  const uniqueTokens = new Map<string, any>();
-  for (const document of tokenQueries.flat()) {
+  // Recover legacy records that predate platform/appId metadata or whose indexed
+  // fields are inconsistent. Only send records linked to this exact UID/code.
+  const queriedDocuments = tokenQueries.flat();
+  const hasUsableAndroidToken = queriedDocuments.some((document) => {
     const device = decodeDoc(document);
-    if (device.token && device.platform === 'android' && device.appId === 'com.exfin.oms') {
+    return !!device.token && (device.platform === 'android' || device.appId === 'com.exfin.oms');
+  });
+  const fallbackDocuments = hasUsableAndroidToken
+    ? []
+    : await listCollection(env, 'push_device_tokens', 500).catch((error) => {
+        console.warn('[Video API] FCM token fallback scan failed:', (error as any)?.message || error);
+        return [];
+      });
+  const uniqueTokens = new Map<string, any>();
+  for (const document of [...queriedDocuments, ...fallbackDocuments]) {
+    const device = decodeDoc(document);
+    const linkedByUid = String(device.uid || '') === recipientUid;
+    const linkedByCode = !!employeeCode &&
+      String(device.employeeCode || '').trim().toUpperCase() === employeeCode.trim().toUpperCase();
+    const knownAndroid = device.platform === 'android' || device.appId === 'com.exfin.oms';
+    const legacyUnlabelledEmployeeToken = !device.platform && !device.appId && linkedByCode;
+    if (device.token && (linkedByUid || linkedByCode) && (knownAndroid || legacyUnlabelledEmployeeToken)) {
       uniqueTokens.set(String(device.token), device);
     }
   }
