@@ -73,31 +73,9 @@ export async function initNativePushNotifications(userContext: {
 
     await PushNotifications.addListener('pushNotificationReceived', async (notification) => {
       console.log('[NativePush] Native push received in foreground:', notification);
-
-      // Android does not automatically display an FCM notification while the app is
-      // foregrounded. Surface incoming calls explicitly as a local notification.
-      const data = notification.data || {};
-      if (String(data.type || '') === 'video_call') {
-        try {
-          await LocalNotifications.schedule({
-            notifications: [{
-              id: Math.floor(Date.now() % 2147483647),
-              title: notification.title || 'Incoming EXFIN OMS video call',
-              body: notification.body || 'EXFIN OMS Admin is calling you',
-              channelId: 'exfin_oms_messages_v2',
-              sound: 'notification.wav',
-              extra: {
-                type: 'video_call',
-                callId: data.callId || '',
-                route: data.route || '/video-calls',
-                title: data.title || 'EXFIN OMS video call',
-              },
-            }],
-          });
-        } catch (err) {
-          console.warn('[NativePush] Failed to show foreground incoming-call notification:', err);
-        }
-      }
+      // Incoming video-call UI is rendered by ExfinCallMessagingService as a native
+      // CallStyle notification in both foreground and background. Do not schedule a
+      // second generic LocalNotifications alert for the same FCM message.
     }).catch((e) => console.warn('[NativePush] addListener pushNotificationReceived error:', e));
 
     await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
