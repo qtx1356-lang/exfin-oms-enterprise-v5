@@ -203,6 +203,19 @@ async function isCallerActive(env: Env, uid: string, email: string): Promise<boo
   return status === 'APPROVED' && data.isDeleted !== true && data.active !== false;
 }
 
+async function findApprovedEmployeeByCode(env: Env, employeeCode: string): Promise<{ uid: string; data: any } | null> {
+  const matches = await queryByField(env, 'registrations', 'employeeCode', employeeCode, 5);
+  for (const document of matches) {
+    const data = decodeDoc(document);
+    const status = String(data.status || 'Pending Approval').trim().toUpperCase();
+    if (status !== 'APPROVED' || data.isDeleted === true || data.active === false) continue;
+    const documentUid = String(document.name || '').split('/').pop() || '';
+    const uid = String(data.uid || data.authUid || documentUid).trim();
+    if (uid) return { uid, data };
+  }
+  return null;
+}
+
 export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
   if (request.method === 'OPTIONS') return new Response(null, {
     status: 204,
@@ -219,25 +232,43 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
     const decoded = await verifyFirebaseIdToken(authHeader.slice(7).trim(), env.FIREBASE_PROJECT_ID || PROJECT_ID);
     if (!decoded) return json({ success: false, error: 'Authentication required.' }, 401);
     const uid = String(decoded.sub), email = String(decoded.email || '').trim().toLowerCase();
-    if (!(await isCallerActive(env, uid, email))) return json({ success: false, error: 'Your account is inactive or not approved.' }, 403);
 
     const body = await request.json().catch(() => ({})) as any;
     const token = typeof body?.token === 'string' ? body.token.trim() : '';
+    const employeeCode = typeof body?.employeeCode === 'string' ? body.employeeCode.trim() : '';
     if (token.length < 20 || token.length > 4096) return json({ success: false, error: 'Invalid device token.' }, 400);
+
+    // Normal path: the authenticated Firebase UID already belongs to the approved employee.
+    // Recovery path: Android anonymous auth can legitimately receive a new UID after app data
+    // loss/reinstall. In that case bind the FCM token to the existing approved registration
+    // identified by employeeCode so the admin recipient UID and push token remain aligned.
+    let tokenOwnerUid = uid;
+    let resolvedEmployeeCode = employeeCode;
+    const callerIsActive = await isCallerActive(env, uid, email);
+    if (!callerIsActive) {
+      if (!employeeCode) return json({ success: false, error: 'Employee identity could not be matched for device-token registration.' }, 403);
+      const employee = await findApprovedEmployeeByCode(env, employeeCode);
+      if (!employee) return json({ success: false, error: 'Employee account is not approved or could not be matched.' }, 403);
+      tokenOwnerUid = employee.uid;
+      resolvedEmployeeCode = String(employee.data.employeeCode || employeeCode);
+    } else if (!resolvedEmployeeCode) {
+      const employee = await findApprovedEmployeeByCode(env, employeeCode).catch(() => null);
+      if (employee) resolvedEmployeeCode = String(employee.data.employeeCode || employeeCode);
+    }
 
     const tokenIdBytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
     const tokenId = Array.from(new Uint8Array(tokenIdBytes)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
     await createOrUpdateDoc(env, 'push_device_tokens', tokenId, {
       token,
-      uid,
-      employeeCode: typeof body?.employeeCode === 'string' ? body.employeeCode : '',
+      uid: tokenOwnerUid,
+      employeeCode: resolvedEmployeeCode,
       role: typeof body?.role === 'string' ? body.role : 'EMPLOYEE',
       platform: body?.platform === 'android' ? 'android' : 'web',
       appId: body?.appId === 'com.exfin.oms' ? 'com.exfin.oms' : 'web',
       updatedAt: new Date().toISOString(),
     });
 
-    return json({ success: true, registered: true });
+    return json({ success: true, registered: true, tokenOwnerUid, recoveredIdentity: tokenOwnerUid !== uid });
   } catch (error: any) {
     console.error('[Video device-token]', error?.message || error);
     if (error?.message?.includes('FIREBASE_SERVICE_ACCOUNT_KEY')) return json({ success: false, error: 'Video server Firebase credentials are not configured yet.' }, 503);
