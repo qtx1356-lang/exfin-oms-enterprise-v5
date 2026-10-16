@@ -76,6 +76,45 @@ public class MainActivity extends BridgeActivity {
         refreshNativeGeofenceRegistration("onCreate");
         ensureNativeAttendanceMonitoring("onCreate");
         checkAndRestoreActiveLocationService();
+        dispatchNativeVideoCallAction(getIntent());
+    }
+
+    @Override
+    public void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        dispatchNativeVideoCallAction(intent);
+    }
+
+    /** Delivers native Answer/Decline actions to the existing authenticated video-call UI. */
+    private void dispatchNativeVideoCallAction(android.content.Intent intent) {
+        if (intent == null) return;
+        String callId = intent.getStringExtra("exfin_video_call_id");
+        String action = intent.getStringExtra("exfin_video_call_action");
+        String eventId = intent.getStringExtra("exfin_video_call_event_id");
+        if (callId == null || callId.trim().isEmpty() || action == null || action.trim().isEmpty()) return;
+        if (eventId == null || eventId.trim().isEmpty()) eventId = callId + ":" + action;
+        final String script = "window.dispatchEvent(new CustomEvent('exfin:native-video-call-action',{detail:{callId:" +
+                org.json.JSONObject.quote(callId) + ",action:" + org.json.JSONObject.quote(action) +
+                ",eventId:" + org.json.JSONObject.quote(eventId) + "}}));";
+        final String route = intent.getStringExtra("exfin_video_call_route");
+        if ("open".equalsIgnoreCase(action) && route != null && !route.isEmpty()) {
+            getWindow().getDecorView().post(() -> {
+                if (getBridge() != null && getBridge().getWebView() != null) {
+                    getBridge().getWebView().evaluateJavascript("window.location.hash=" + org.json.JSONObject.quote(route) + ";", null);
+                }
+            });
+        }
+        final android.os.Handler handler = new android.os.Handler(getMainLooper());
+        handler.postDelayed(new Runnable() {
+            int attempts = 0;
+            @Override public void run() {
+                if (getBridge() != null && getBridge().getWebView() != null) {
+                    getBridge().getWebView().evaluateJavascript(script, null);
+                }
+                if (++attempts < 10) handler.postDelayed(this, 700L);
+            }
+        }, 900L);
     }
 
     @Override
