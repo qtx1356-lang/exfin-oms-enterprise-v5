@@ -171,7 +171,8 @@ export const VideoConferenceCenter: React.FC = () => {
       if (isAdmin && pushProblems.length > 0) {
         const details = pushProblems.map((item) => {
           if (item.tokenCount === 0) {
-            return `${item.employeeName}: no Android FCM token is registered. Ask the employee to open the latest EXFIN OMS Android app, sign in, and allow notifications.`;
+            const diagnostic = item.errors?.find((entry) => entry.startsWith('FCM_TOKEN_DIAGNOSTIC'));
+            return `${item.employeeName}: no Android FCM token was found. Ask the employee to open EXFIN OMS and keep it open briefly.\n${diagnostic ? 'Backend lookup: ' + diagnostic : ''}`;
           }
           const reason = item.errors?.[0] || 'FCM did not accept the notification.';
           return `${item.employeeName}: ${reason}`;
