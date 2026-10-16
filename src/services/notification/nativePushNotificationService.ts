@@ -189,7 +189,7 @@ export async function unregisterTokenFromBackend() {
 
   try {
     const idToken = await currentUser.getIdToken();
-    const response = await fetch(`${API_BASE_URL}/api/video/device-token/unregister`, {
+    const response = await fetch(buildApiUrl('/api/video/device-token/unregister'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
