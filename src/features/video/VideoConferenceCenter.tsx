@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PhoneCall, X, Users, PhoneIncoming, PhoneOff, Loader2, ShieldCheck } from 'lucide-react';
 import { LiveKitMeeting } from './LiveKitMeeting';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
@@ -56,6 +56,8 @@ export const VideoConferenceCenter: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [loadingRecipients, setLoadingRecipients] = useState(false);
+  const [nativeCallAction, setNativeCallAction] = useState<{ callId: string; action: string; eventId: string } | null>(null);
+  const seenNativeCallEventsRef = useRef<Set<string>>(new Set());
 
   const displayName = user?.displayName || loginId || user?.email || 'EXFIN OMS user';
   const selectedRecipients = useMemo(
@@ -70,6 +72,29 @@ export const VideoConferenceCenter: React.FC = () => {
     };
     window.addEventListener('exfin:open-video-calls', openVideoCalls);
     return () => window.removeEventListener('exfin:open-video-calls', openVideoCalls);
+  }, []);
+
+  useEffect(() => {
+    const handleNativeCallAction = (event: Event) => {
+      const detail = (event as CustomEvent<{ callId?: string; action?: string; eventId?: string }>).detail;
+      const callId = String(detail?.callId || '');
+      const action = String(detail?.action || '').toLowerCase();
+      const eventId = String(detail?.eventId || callId + ':' + action);
+      if (!callId || !['open', 'answer', 'decline'].includes(action)) return;
+      if (seenNativeCallEventsRef.current.has(eventId)) return;
+      seenNativeCallEventsRef.current.add(eventId);
+      if (seenNativeCallEventsRef.current.size > 50) {
+        seenNativeCallEventsRef.current = new Set(Array.from(seenNativeCallEventsRef.current).slice(-25));
+      }
+      if (action === 'open') {
+        setOpen(true);
+        setError('');
+        return;
+      }
+      setNativeCallAction({ callId, action, eventId });
+    };
+    window.addEventListener('exfin:native-video-call-action', handleNativeCallAction);
+    return () => window.removeEventListener('exfin:native-video-call-action', handleNativeCallAction);
   }, []);
 
   useEffect(() => {
@@ -240,6 +265,18 @@ export const VideoConferenceCenter: React.FC = () => {
       setBusy(false);
     }
   };
+
+  // Native notification actions arrive even when the app was previously backgrounded.
+  // Wait until Firestore's authenticated invite listener has hydrated the matching call.
+  useEffect(() => {
+    if (!nativeCallAction || nativeCallAction.action === 'open') return;
+    const invite = incoming.find((item) => item.callId === nativeCallAction.callId);
+    if (!invite) return;
+    const action = nativeCallAction.action;
+    setNativeCallAction(null);
+    if (action === 'answer') void acceptCall(invite);
+    else if (action === 'decline') void declineCall(invite);
+  }, [nativeCallAction, incoming, acceptCall, declineCall]);
 
   const leaveCall = async () => {
     if (!activeCall) return;
