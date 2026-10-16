@@ -1,8 +1,10 @@
 package com.exfin.oms.geofence;
 
 import android.Manifest;
+import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
+import android.app.PendingIntent;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
@@ -427,6 +429,65 @@ public class OfficeLocationService extends Service {
                 .remove(KEY_PENDING_EXIT_CANDIDATE_SESSION_ID)
                 .remove(KEY_PENDING_EXIT_CANDIDATE_DATE)
                 .apply();
+    }
+
+    /**
+     * Some Android/OEM task managers terminate or detach background work when the
+     * user swipes the app task away. Keep the geofence receiver registered and
+     * schedule one foreground-service recovery start after task removal. This is
+     * a recovery guard, not a polling loop; START_STICKY remains the normal path.
+     */
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        Log.w(TAG, "[BACKGROUND_ATTENDANCE] App task removed from Recents; preserving native geofence and scheduling service recovery.");
+        try {
+            OfficeGeofenceHelper.registerOfficeGeofence(getApplicationContext());
+        } catch (Exception e) {
+            Log.w(TAG, "[BACKGROUND_ATTENDANCE] Geofence re-registration after task removal failed: " + e.getMessage());
+        }
+
+        try {
+            Intent restartIntent = new Intent(getApplicationContext(), OfficeLocationService.class);
+            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                flags |= PendingIntent.FLAG_IMMUTABLE;
+            }
+
+            PendingIntent restartPendingIntent;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                restartPendingIntent = PendingIntent.getForegroundService(
+                        getApplicationContext(), 2503, restartIntent, flags);
+            } else {
+                restartPendingIntent = PendingIntent.getService(
+                        getApplicationContext(), 2503, restartIntent, flags);
+            }
+
+            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            if (alarmManager != null) {
+                long recoveryAt = SystemClock.elapsedRealtime() + 10_000L;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setAndAllowWhileIdle(
+                            AlarmManager.ELAPSED_REALTIME_WAKEUP, recoveryAt, restartPendingIntent);
+                } else {
+                    alarmManager.set(
+                            AlarmManager.ELAPSED_REALTIME_WAKEUP, recoveryAt, restartPendingIntent);
+                }
+                Log.i(TAG, "[BACKGROUND_ATTENDANCE] One-shot native location-service recovery scheduled.");
+            }
+
+            // Reassert the already-running foreground service immediately. If the
+            // process is removed after this callback, the one-shot alarm and
+            // START_STICKY provide independent recovery paths.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(new Intent(this, OfficeLocationService.class));
+            } else {
+                startService(new Intent(this, OfficeLocationService.class));
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "[BACKGROUND_ATTENDANCE] Immediate service recovery could not be requested: " + e.getMessage());
+        }
+
+        super.onTaskRemoved(rootIntent);
     }
 
     @Override
