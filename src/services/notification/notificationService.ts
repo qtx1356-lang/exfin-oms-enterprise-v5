@@ -285,12 +285,18 @@ export const getNotificationsForUser = async (user: {
 
     // Query 1: Scoped directly by recipientEmployeeCode
     if (user.employeeCode) {
-      queries.push(query(notifCollection, where('recipientEmployeeCode', '==', user.employeeCode), limit(50)));
+      queries.push(query(notifCollection, where('recipientEmployeeCode', '==', user.employeeCode)));
     }
 
     // Query 2: Scoped directly by recipientUserId
     if (user.id && user.id !== user.employeeCode) {
-      queries.push(query(notifCollection, where('recipientUserId', '==', user.id), limit(50)));
+      queries.push(query(notifCollection, where('recipientUserId', '==', user.id)));
+    }
+
+    // Admin chat participants are identified by loginId, not Firebase UID or employeeCode.
+    if (user.loginId) {
+      queries.push(query(notifCollection, where('recipientEmployeeCode', '==', user.loginId)));
+      queries.push(query(notifCollection, where('recipientUserId', '==', user.loginId)));
     }
 
     // PART 1 — Broadcast & General notification queries for employees
