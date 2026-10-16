@@ -94,6 +94,15 @@ public class MainActivity extends BridgeActivity {
         String eventId = intent.getStringExtra("exfin_video_call_event_id");
         if (callId == null || callId.trim().isEmpty() || action == null || action.trim().isEmpty()) return;
         if (eventId == null || eventId.trim().isEmpty()) eventId = callId + ":" + action;
+        if ("answer".equalsIgnoreCase(action) || "decline".equalsIgnoreCase(action)) {
+            try {
+                android.app.NotificationManager notificationManager = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                if (notificationManager != null) {
+                    int requestBase = callId.hashCode() & 0x00ffffff;
+                    notificationManager.cancel(700000 + (requestBase % 100000));
+                }
+            } catch (Exception ignored) {}
+        }
         final String script = "window.dispatchEvent(new CustomEvent('exfin:native-video-call-action',{detail:{callId:" +
                 org.json.JSONObject.quote(callId) + ",action:" + org.json.JSONObject.quote(action) +
                 ",eventId:" + org.json.JSONObject.quote(eventId) + "}}));";
