@@ -13,7 +13,7 @@ type Caller = { uid: string; email?: string; role: string; employeeId?: string; 
 type FsValue = Record<string, unknown>;
 
 const ADMIN_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'HR', 'TEAM_LEADER']);
-function normalizeRole(value: unknown): string { return String(value || '').trim().toUpperCase().replace(/[\\s-]+/g, '_'); }
+function normalizeRole(value: unknown): string { return String(value || '').trim().toUpperCase().replace(/[\s-]+/g, '_'); }
 function normalizeStatus(value: unknown): string { return String(value || '').trim().toUpperCase(); }
 const PROJECT_ID = 'exfin-oms-production';
 
