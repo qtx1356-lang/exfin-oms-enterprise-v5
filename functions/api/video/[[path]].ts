@@ -67,13 +67,23 @@ type IncomingCallPushResult = {
   errors: string[];
 };
 
-async function sendIncomingCallPush(env: Env, recipientUid: string, callId: string, callerName: string, title: string): Promise<IncomingCallPushResult> {
-  // Only send native incoming-call alerts to the EXFIN OMS Android app. Browser
-  // subscriptions are handled separately and must not receive an Android FCM send.
-  const tokenDocs = await queryByField(env, 'push_device_tokens', 'uid', recipientUid, 50);
-  const devices = tokenDocs
-    .map((document) => decodeDoc(document))
-    .filter((device) => device.token && device.platform === 'android' && device.appId === 'com.exfin.oms');
+async function sendIncomingCallPush(env: Env, recipientUid: string, employeeCode: string, callId: string, callerName: string, title: string): Promise<IncomingCallPushResult> {
+  // Match by authenticated UID first, but also by approved employee code. Some
+  // older native sessions registered a token before the Firebase UID was linked
+  // to the employee registration; querying both prevents a false "no token" result.
+  // Browser subscriptions are never sent Android FCM messages.
+  const tokenQueries = await Promise.all([
+    queryByField(env, 'push_device_tokens', 'uid', recipientUid, 50),
+    employeeCode ? queryByField(env, 'push_device_tokens', 'employeeCode', employeeCode, 50) : Promise.resolve([]),
+  ]);
+  const uniqueTokens = new Map<string, any>();
+  for (const document of tokenQueries.flat()) {
+    const device = decodeDoc(document);
+    if (device.token && device.platform === 'android' && device.appId === 'com.exfin.oms') {
+      uniqueTokens.set(String(device.token), device);
+    }
+  }
+  const devices = Array.from(uniqueTokens.values());
   if (!devices.length) {
     console.warn('[Video API] No registered native Android push token for call recipient.');
     return { tokenCount: 0, attempted: 0, sent: 0, failed: 0, errors: ['NO_ANDROID_FCM_TOKEN_REGISTERED'] };
@@ -325,8 +335,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       if (!recipientUids.length || recipientUids.length > 50 || (mode === 'direct' && recipientUids.length !== 1)) return json({ success: false, error: 'Select one recipient for a direct call, or up to 50 for a group meeting.' }, 400);
       if (mode === 'group' && (!caller.isAdmin || !ADMIN_ROLES.has(caller.role))) return json({ success: false, error: 'Only authorized administrators can start group meetings.' }, 403);
       if (recipientUids.includes(caller.uid)) return json({ success: false, error: 'You cannot call your own account.' }, 400);
-      const resolved: Array<{ uid: string; name: string; role: string }> = [];
-      for (const uid of recipientUids) { if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) { const employee = await findApprovedEmployee(env, uid); if (!employee) return json({ success: false, error: 'One or more selected employees are not active and approved.' }, 403); const data = employee.data || {}; resolved.push({ uid, name: String(data.name || data.fullName || data.employeeCode || 'Employee').slice(0, 80), role: 'EMPLOYEE' }); } else { const admin = await getDoc(env, 'admin_users', uid); if (!admin) return json({ success: false, error: 'The selected administrator is not available.' }, 403); const data = decodeDoc(admin), role = normalizeRole(data.role || data.userRole || data.roleName); if (!ADMIN_ROLES.has(role) || data.active === false || ['SUSPENDED', 'DELETED', 'INACTIVE', 'DISABLED', 'BLOCKED'].includes(normalizeStatus(data.status))) return json({ success: false, error: 'The selected administrator is not active.' }, 403); resolved.push({ uid, name: String(data.name || data.displayName || data.loginId || data.email || 'Administrator').slice(0, 80), role }); } }
+      const resolved: Array<{ uid: string; name: string; role: string; employeeCode?: string }> = [];
+      for (const uid of recipientUids) { if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) { const employee = await findApprovedEmployee(env, uid); if (!employee) return json({ success: false, error: 'One or more selected employees are not active and approved.' }, 403); const data = employee.data || {}; resolved.push({ uid, name: String(data.name || data.fullName || data.employeeCode || 'Employee').slice(0, 80), role: 'EMPLOYEE', employeeCode: String(data.employeeCode || '') }); } else { const admin = await getDoc(env, 'admin_users', uid); if (!admin) return json({ success: false, error: 'The selected administrator is not available.' }, 403); const data = decodeDoc(admin), role = normalizeRole(data.role || data.userRole || data.roleName); if (!ADMIN_ROLES.has(role) || data.active === false || ['SUSPENDED', 'DELETED', 'INACTIVE', 'DISABLED', 'BLOCKED'].includes(normalizeStatus(data.status))) return json({ success: false, error: 'The selected administrator is not active.' }, 403); resolved.push({ uid, name: String(data.name || data.displayName || data.loginId || data.email || 'Administrator').slice(0, 80), role }); } }
       const now = Math.floor(Date.now() / 1000), exp = now + 60 * 60 * 2, roomName = `exfin-${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
       const roomUrl = liveKitUrl(env);
       const callId = crypto.randomUUID(), callerName = await nameForUid(env, caller.uid), title = String(body?.title || (mode === 'group' ? 'EXFIN OMS group meeting' : 'EXFIN OMS video call')).trim().slice(0, 100) || 'EXFIN OMS video call', token = await createMeetingToken(env, roomName, caller.uid, callerName, true, exp), createdAt = new Date().toISOString(), expiresAt = new Date(exp * 1000).toISOString(), participantUids = [caller.uid, ...recipientUids];
@@ -337,7 +347,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
         await setDoc(env, 'video_call_invites', inviteId, { callId, recipientUid: person.uid, senderUid: caller.uid, senderName: callerName, senderRole: caller.role, roomName, roomUrl, title, mode, status: 'pending', createdAt, expiresAt });
         if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) {
           try {
-            const pushResult = await sendIncomingCallPush(env, person.uid, callId, callerName, title);
+            const pushResult = await sendIncomingCallPush(env, person.uid, String(person.employeeCode || ''), callId, callerName, title);
             pushDiagnostics.push({ recipientUid: person.uid, employeeName: person.name, ...pushResult });
             await updateDoc(env, 'video_call_invites', inviteId, {
               pushStatus: pushResult.sent > 0 ? 'sent' : pushResult.tokenCount === 0 ? 'no_token' : 'failed',
