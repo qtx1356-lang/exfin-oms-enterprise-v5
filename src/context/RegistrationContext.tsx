@@ -119,13 +119,44 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const approved = String(status || '').toUpperCase() === 'APPROVED'
       || String(employeeData?.status || '').toUpperCase() === 'APPROVED';
     if (!authUser?.uid || !approved) return;
+
+    // Legacy registration records may store the employee code in employeeId or id,
+    // and the registration document ID is a final fallback. The token API needs a
+    // canonical employee identity when Firebase Auth has issued a new/anonymous UID.
+    let cachedRegistration: any = null;
+    try {
+      const raw = localStorage.getItem('cached_registration_data');
+      cachedRegistration = raw ? JSON.parse(raw) : null;
+    } catch {
+      cachedRegistration = null;
+    }
+    const employeeCode = String(
+      employeeData?.employeeCode
+      || employeeData?.employeeId
+      || employeeData?.id
+      || cachedRegistration?.employeeCode
+      || cachedRegistration?.employeeId
+      || cachedRegistration?.id
+      || localRegId
+      || localStorage.getItem('registrationId')
+      || ''
+    ).trim();
+
     void initNativePushNotifications({
       userId: authUser.uid,
       uid: authUser.uid,
-      employeeCode: employeeData?.employeeCode || '',
+      employeeCode,
       role: 'EMPLOYEE',
     });
-  }, [authUser?.uid, status, employeeData?.employeeCode, employeeData?.status]);
+  }, [
+    authUser?.uid,
+    status,
+    employeeData?.employeeCode,
+    employeeData?.employeeId,
+    employeeData?.id,
+    employeeData?.status,
+    localRegId,
+  ]);
 
   // Keep Native Geofence Employee Identity synchronized whenever employeeData is present and approved
   useEffect(() => {
