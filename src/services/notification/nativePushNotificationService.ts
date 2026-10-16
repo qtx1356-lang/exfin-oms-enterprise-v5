@@ -52,8 +52,12 @@ export async function initNativePushNotifications(userContext: {
     });
 
     if (permission.receive !== 'granted') {
-      console.warn('[NativePush] OS push notifications permission denied:', permission.receive);
-      return;
+      // Notification permission controls whether Android may display alerts; it must not
+      // prevent FCM token generation/registration. Register anyway so the backend can
+      // diagnose the device, and ask for notification permission again through Android
+      // settings if the user wants incoming-call alerts displayed.
+      console.warn('[NativePush] OS notification permission is not granted:', permission.receive,
+        '- continuing FCM token registration; visible alerts may be blocked by Android.');
     }
 
     // Do not remove all listeners: other EXFIN OMS notification handlers may be active.
