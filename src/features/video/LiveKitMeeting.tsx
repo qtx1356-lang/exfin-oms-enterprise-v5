@@ -88,7 +88,30 @@ export const LiveKitMeeting: React.FC<Props> = ({ serverUrl, token, title, peerN
         room.prepareConnection(serverUrl, token);
         await room.connect(serverUrl, token);
         if (disposed) { await room.disconnect(); return; }
-        await room.localParticipant.enableCameraAndMicrophone();
+        // Start audio and video independently. A camera capture failure should not
+        // tear down an otherwise valid meeting, and should leave the camera control
+        // available for the user to retry after closing another app using the camera.
+        try {
+          await room.localParticipant.setMicrophoneEnabled(true);
+        } catch (mediaError: any) {
+          console.warn('[VideoCalls] Could not start microphone:', mediaError);
+          if (!disposed) setError('You joined the call, but the microphone could not start. Check the browser microphone permission and close other apps using the microphone. Details: ' + (mediaError?.message || 'microphone unavailable'));
+        }
+        try {
+          await room.localParticipant.setCameraEnabled(true);
+        } catch (mediaError: any) {
+          console.warn('[VideoCalls] Could not start camera:', mediaError);
+          if (!disposed) {
+            setCameraEnabled(false);
+            const name = String(mediaError?.name || '');
+            let guidance = 'Check that the camera is connected, allowed for this website, and not being used by another app.';
+            if (name === 'NotAllowedError' || name === 'PermissionDeniedError') guidance = 'Allow camera access for this website in the browser address-bar permissions, then retry.';
+            else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') guidance = 'No available camera was detected. Connect or enable a camera, then retry.';
+            else if (name === 'NotReadableError' || name === 'TrackStartError') guidance = 'The camera may be busy or blocked by another app. Close other apps or tabs using it, then retry.';
+            else if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') guidance = 'The camera rejected its requested settings. Try another camera or browser.';
+            setError('You joined the call, but the camera could not start. ' + guidance + ' Details: ' + (mediaError?.message || name || 'camera unavailable'));
+          }
+        }
         for (const publication of room.localParticipant.trackPublications.values()) {
           if (publication.track && publication.track.kind === client.Track.Kind.Video) attachTrack(publication.track, room.localParticipant.identity, 'You');
         }
@@ -101,7 +124,12 @@ export const LiveKitMeeting: React.FC<Props> = ({ serverUrl, token, title, peerN
       } catch (cause: any) {
         if (!disposed) {
           setConnecting(false);
-          setError(cause?.message || 'Could not connect to the video meeting. Check camera/microphone permissions and LiveKit configuration.');
+          console.error('[VideoCalls] Meeting connection failed:', cause);
+          const name = String(cause?.name || '');
+          let message = cause?.message || 'Could not connect to the video meeting.';
+          if (name === 'NotAllowedError' || name === 'PermissionDeniedError') message = 'Browser blocked camera or microphone access. Allow both permissions for this website and retry. Details: ' + message;
+          else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') message = 'No camera or microphone was detected. Connect or enable the devices and retry. Details: ' + message;
+          setError(message + ' If camera capture alone fails, you can still stay in the call and retry the camera control.');
         }
       }
     };
