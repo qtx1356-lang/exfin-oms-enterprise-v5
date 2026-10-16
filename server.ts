@@ -768,11 +768,25 @@ async function startServer() {
           const notifications = devices.docs.map(async (device) => {
             const deviceData = device.data();
             if (!deviceData.token) return;
+            if (deviceData.platform && deviceData.platform !== "android") return;
+            if (deviceData.appId && deviceData.appId !== "com.exfin.oms") return;
             await messaging.send({
               token: String(deviceData.token),
-              notification: { title: "Incoming EXFIN OMS video call", body: callerName + " is calling you" },
-              data: { type: "video_call", callId, route: "/video-calls", title },
-              android: { priority: "high", notification: { channelId: "exfin_oms_messages_v2", sound: "default" } },
+              // Data-only FCM is required so the native Android service can render a
+              // ringing CallStyle alert with Answer/Decline actions. A notification
+              // payload is auto-rendered as a generic message while the app is closed.
+              data: {
+                type: "video_call",
+                callId,
+                callerName: callerName || "EXFIN OMS user",
+                route: "/video-calls",
+                title: title || "EXFIN OMS video call"
+              },
+              android: {
+                priority: "high",
+                ttl: 60_000,
+                collapseKey: "exfin_video_call_" + callId
+              },
               webpush: { headers: { Urgency: "high" }, notification: { title: "Incoming EXFIN OMS video call", body: callerName + " is calling you", requireInteraction: true } }
             });
           });
