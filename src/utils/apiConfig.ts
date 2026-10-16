@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core';
+
 /**
  * Resolves the API Base URL for browser and native clients.
  *
@@ -16,15 +18,16 @@ export function getApiBaseUrl(): string {
 
   // Keep browser requests same-origin. Native Android must use the deployed EXFIN
   // OMS Pages origin that serves the working admin video API and its Pages Functions.
-  if (typeof window !== 'undefined') {
-    try {
-      const capacitor = (window as any).Capacitor;
-      if (typeof capacitor?.isNativePlatform === 'function' && capacitor.isNativePlatform()) {
-        return 'https://exfin-oms-enterprise-v5.pages.dev';
-      }
-    } catch {
-      // Fall through to same-origin behavior if native-platform detection fails.
+  try {
+    // Use Capacitor's imported API instead of relying on window.Capacitor being
+    // exposed globally in every Android WebView. If that global is absent, the
+    // old check silently returned relative URLs and token registration never
+    // reached the deployed Pages Functions.
+    if (Capacitor.isNativePlatform()) {
+      return 'https://exfin-oms-enterprise-v5.pages.dev';
     }
+  } catch {
+    // Fall through to same-origin behavior if native-platform detection fails.
   }
 
   return '';
