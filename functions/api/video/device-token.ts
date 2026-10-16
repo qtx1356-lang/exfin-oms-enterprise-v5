@@ -155,6 +155,11 @@ async function createOrUpdateDoc(env: Env, collection: string, id: string, data:
   return response.json();
 }
 
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 async function verifyFirebaseIdToken(token: string, projectId: string): Promise<any | null> {
   const parts = token.split('.');
   if (parts.length !== 3) return null;
@@ -255,17 +260,30 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       if (!active) return json({ success: false, error: 'Employee identity could not be matched for device-token registration.' }, 403);
     }
 
-    const tokenIdBytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
-    const tokenId = Array.from(new Uint8Array(tokenIdBytes)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
-    await createOrUpdateDoc(env, 'push_device_tokens', tokenId, {
+    const tokenId = await sha256Hex(token);
+    const commonData = {
       token,
-      uid: tokenOwnerUid,
       employeeCode: resolvedEmployeeCode,
       role: typeof body?.role === 'string' ? body.role : 'EMPLOYEE',
       platform: body?.platform === 'android' ? 'android' : 'web',
       appId: body?.appId === 'com.exfin.oms' ? 'com.exfin.oms' : 'web',
       updatedAt: new Date().toISOString(),
+    };
+
+    await createOrUpdateDoc(env, 'push_device_tokens', tokenId, {
+      ...commonData,
+      uid: tokenOwnerUid,
     });
+
+    // Keep an alias under the active Firebase UID when anonymous-auth identity changed.
+    // The approved employee UID remains the primary identity used by the video sender.
+    if (tokenOwnerUid !== uid) {
+      const activeAliasId = await sha256Hex(`${token}|active:${uid}`);
+      await createOrUpdateDoc(env, 'push_device_tokens', activeAliasId, {
+        ...commonData,
+        uid,
+      });
+    }
 
     return json({ success: true, registered: true, tokenOwnerUid, recoveredIdentity: tokenOwnerUid !== uid });
   } catch (error: any) {
