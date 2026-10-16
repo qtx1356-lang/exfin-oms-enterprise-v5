@@ -55,6 +55,8 @@ export const VideoConferenceCenter: React.FC = () => {
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [pushAlert, setPushAlert] = useState('');
+  const [pushAlertCopyStatus, setPushAlertCopyStatus] = useState('');
   const [loadingRecipients, setLoadingRecipients] = useState(false);
   const [nativeCallAction, setNativeCallAction] = useState<{ callId: string; action: string; eventId: string } | null>(null);
   const seenNativeCallEventsRef = useRef<Set<string>>(new Set());
@@ -385,6 +387,43 @@ export const VideoConferenceCenter: React.FC = () => {
                 {busy ? 'Connecting…' : mode === 'group' ? 'Start group meeting' : 'Start video call'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {pushAlert && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 p-3" role="alertdialog" aria-modal="true" aria-labelledby="push-alert-title">
+          <div className="w-full max-w-xl rounded-2xl bg-white p-5 text-slate-900 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <h2 id="push-alert-title" className="text-lg font-black">Video call alert diagnostic</h2>
+              <button type="button" onClick={() => setPushAlert('')} aria-label="Close diagnostic" className="rounded-lg p-2 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+            </div>
+            <pre className="mt-3 max-h-[55vh] overflow-auto whitespace-pre-wrap break-words rounded-xl bg-slate-50 p-3 text-sm leading-relaxed">{pushAlert}</pre>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button type="button" onClick={async () => {
+                try {
+                  if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(pushAlert);
+                  } else {
+                    const field = document.createElement('textarea');
+                    field.value = pushAlert;
+                    field.setAttribute('readonly', '');
+                    field.style.position = 'fixed';
+                    field.style.opacity = '0';
+                    document.body.appendChild(field);
+                    field.select();
+                    const copied = document.execCommand('copy');
+                    document.body.removeChild(field);
+                    if (!copied) throw new Error('Clipboard unavailable');
+                  }
+                  setPushAlertCopyStatus('Copied. Paste the diagnostic into this chat.');
+                } catch {
+                  setPushAlertCopyStatus('Automatic copy was blocked. Press and hold the diagnostic text above, then choose Copy.');
+                }
+              }} className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700">Copy diagnostic</button>
+              <button type="button" onClick={() => setPushAlert('')} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold hover:bg-slate-50">Close</button>
+            </div>
+            {pushAlertCopyStatus && <p role="status" className="mt-3 text-sm text-slate-600">{pushAlertCopyStatus}</p>}
           </div>
         </div>
       )}
