@@ -215,9 +215,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     } else {
       nextRecord = { ...record };
       const processed = Array.isArray(record.processedEvents) ? record.processedEvents.map(String) : [];
-      if (processed.includes(eventId)) {
-        return json({ success: true, processed: true, duplicate: true, employeeId, eventId, timestamp: eventIso });
-      }
+      // If the attendance write succeeded but the audit-event write failed on a prior
+      // attempt, continue through the idempotent merge below to repair the audit row.
+      // eventHistory and processedEvents are deduplicated before being written.
       if (record.checkOutTime && record.checkoutStatus === 'COMPLETED') {
         return json({ success: true, processed: true, transitionOccurred: false, newState: 'CHECKED_OUT', employeeId, timestamp: eventIso });
       }
