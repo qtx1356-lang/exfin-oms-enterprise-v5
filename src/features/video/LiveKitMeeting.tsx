@@ -5,24 +5,58 @@ declare global {
   interface Window { LivekitClient?: any; }
 }
 
+const LIVEKIT_CLIENT_SCRIPT = 'https://cdn.jsdelivr.net/npm/livekit-client@2.15.6/dist/livekit-client.umd.min.js';
 let liveKitScriptPromise: Promise<any> | null = null;
+
 function loadLiveKitClient(): Promise<any> {
   if (window.LivekitClient) return Promise.resolve(window.LivekitClient);
-  if (!liveKitScriptPromise) {
-    liveKitScriptPromise = new Promise((resolve, reject) => {
-      const existing = document.querySelector<HTMLScriptElement>('script[data-exfin-livekit="true"]');
-      const script = existing || document.createElement('script');
-      const fail = () => { liveKitScriptPromise = null; reject(new Error('Could not load the video calling library. Check your internet connection and retry.')); };
-      script.addEventListener('load', () => window.LivekitClient ? resolve(window.LivekitClient) : fail(), { once: true });
-      script.addEventListener('error', fail, { once: true });
-      if (!existing) {
-        script.src = 'https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js';
-        script.async = true;
-        script.dataset.exfinLivekit = 'true';
-        document.head.appendChild(script);
+  if (liveKitScriptPromise) return liveKitScriptPromise;
+
+  liveKitScriptPromise = new Promise((resolve, reject) => {
+    let script = document.querySelector<HTMLScriptElement>('script[data-exfin-livekit="true"]');
+    // A previously failed script element cannot emit another load event. Remove it so
+    // Retry can genuinely reload the pinned client instead of hanging forever.
+    if (script?.dataset.exfinLivekitFailed === 'true') {
+      script.remove();
+      script = null;
+    }
+
+    const fail = () => {
+      if (script) {
+        script.dataset.exfinLivekitFailed = 'true';
+        script.remove();
       }
-    });
-  }
+      liveKitScriptPromise = null;
+      reject(new Error('Could not load the video calling library. Check the connection and retry.'));
+    };
+
+    if (script?.dataset.exfinLivekitLoaded === 'true') {
+      if (window.LivekitClient) resolve(window.LivekitClient);
+      else fail();
+      return;
+    }
+
+    if (!script) {
+      script = document.createElement('script');
+      script.src = LIVEKIT_CLIENT_SCRIPT;
+      script.async = true;
+      script.dataset.exfinLivekit = 'true';
+    }
+
+    const activeScript = script;
+    activeScript.addEventListener('load', () => {
+      if (window.LivekitClient) {
+        activeScript.dataset.exfinLivekitLoaded = 'true';
+        resolve(window.LivekitClient);
+      } else {
+        fail();
+      }
+    }, { once: true });
+    activeScript.addEventListener('error', fail, { once: true });
+
+    if (!activeScript.isConnected) document.head.appendChild(activeScript);
+  });
+
   return liveKitScriptPromise;
 }
 
