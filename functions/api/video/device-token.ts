@@ -304,6 +304,7 @@ async function findApprovedEmployeeByCode(env: Env, employeeCode: string): Promi
 }
 
 export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
+  let stage = 'request_validation';
   if (request.method === 'OPTIONS') return new Response(null, {
     status: 204,
     headers: {
@@ -317,16 +318,17 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       return json({
         success: true,
         endpoint: 'video-device-token',
-        routeVersion: 'native-fcm-fallback-2026-10-17',
+        routeVersion: 'native-fcm-diagnostic-2026-10-17',
         projectId: PROJECT_ID,
         registrationRequiresAuthentication: true,
       });
     }
     if (request.method !== 'POST') return json({ success: false, error: 'Method not allowed.' }, 405);
+    stage = 'firebase_authentication';
     const authHeader = request.headers.get('authorization') || '';
-    if (!authHeader.startsWith('Bearer ')) return json({ success: false, error: 'Authentication required.' }, 401);
+    if (!authHeader.startsWith('Bearer ')) return json({ success: false, error: 'Authentication required.', stage, diagnosticCode: 'BEARER_TOKEN_MISSING' }, 401);
     const decoded = await verifyFirebaseIdToken(authHeader.slice(7).trim(), env.FIREBASE_PROJECT_ID || PROJECT_ID);
-    if (!decoded) return json({ success: false, error: 'Authentication required.' }, 401);
+    if (!decoded) return json({ success: false, error: 'Authentication required.', stage, diagnosticCode: 'FIREBASE_ID_TOKEN_INVALID' }, 401);
     const uid = String(decoded.sub), email = String(decoded.email || '').trim().toLowerCase();
 
     const body = await request.json().catch(() => ({})) as any;
@@ -334,6 +336,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
     const employeeCode = typeof body?.employeeCode === 'string' ? body.employeeCode.trim() : '';
     if (token.length < 20 || token.length > 4096) return json({ success: false, error: 'Invalid device token.' }, 400);
 
+    stage = 'employee_identity_resolution';
     // Always resolve an employee token through the approved registration when an employeeCode
     // is supplied. This prevents anonymous-auth UID changes from leaving an otherwise valid
     // FCM token attached to a stale Firebase UID. Admin accounts keep their authenticated UID.
@@ -353,16 +356,17 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
         // registration and use that registration's canonical identity instead.
         const identityEmployee = await findApprovedEmployeeByIdentity(env, uid, email);
         if (!identityEmployee) {
-          return json({ success: false, error: 'Employee identity could not be matched to an approved registration.' }, 403);
+          return json({ success: false, error: 'Employee identity could not be matched to an approved registration.', stage, diagnosticCode: 'APPROVED_EMPLOYEE_NOT_FOUND' }, 403);
         }
         tokenOwnerUid = identityEmployee.uid;
         resolvedEmployeeCode = String(identityEmployee.data.employeeCode || '');
       }
     } else if (!callerIsAdmin && !employeeCode) {
       const active = await isCallerActive(env, uid, email);
-      if (!active) return json({ success: false, error: 'Employee identity could not be matched for device-token registration.' }, 403);
+      if (!active) return json({ success: false, error: 'Employee identity could not be matched for device-token registration.', stage, diagnosticCode: 'ACTIVE_EMPLOYEE_NOT_FOUND' }, 403);
     }
 
+    stage = 'firestore_token_write';
     const tokenId = await sha256Hex(token);
     const commonData = {
       token,
@@ -388,10 +392,31 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       });
     }
 
-    return json({ success: true, registered: true, tokenOwnerUid, recoveredIdentity: tokenOwnerUid !== uid });
+    stage = 'complete';
+    return json({ success: true, registered: true, tokenOwnerUid, recoveredIdentity: tokenOwnerUid !== uid, stage, diagnosticCode: 'TOKEN_SAVED' });
   } catch (error: any) {
-    console.error('[Video device-token]', error?.message || error);
-    if (error?.message?.includes('FIREBASE_SERVICE_ACCOUNT_KEY')) return json({ success: false, error: 'Video server Firebase credentials are not configured yet.' }, 503);
-    return json({ success: false, error: 'Could not register the device token.' }, 500);
+    const message = String(error?.message || error || '');
+    console.error('[Video device-token]', { stage, message });
+    if (message.includes('FIREBASE_SERVICE_ACCOUNT_KEY')) {
+      return json({ success: false, error: 'Video server Firebase credentials are not configured yet.', stage, diagnosticCode: 'FIREBASE_CREDENTIALS_MISSING' }, 503);
+    }
+    const firestoreFailure = message.match(/Firestore (GET|QUERY|LIST|SET|UPDATE) failed: (\\d{3})/);
+    const diagnosticCode = firestoreFailure
+      ? `FIRESTORE_${firestoreFailure[1]}_${firestoreFailure[2]}`
+      : message.includes('Could not obtain Firebase service token')
+        ? 'GOOGLE_SERVICE_TOKEN_FAILED'
+        : message.includes('Firebase service token was not returned')
+          ? 'GOOGLE_SERVICE_TOKEN_EMPTY'
+          : message.includes('Invalid key') || message.includes('Data provided to an operation does not meet requirements')
+            ? 'SERVICE_ACCOUNT_PRIVATE_KEY_INVALID'
+            : 'REGISTRATION_INTERNAL_ERROR';
+    const publicError = diagnosticCode.startsWith('FIRESTORE_')
+      ? 'Firestore rejected the token registration operation.'
+      : diagnosticCode.startsWith('GOOGLE_SERVICE_TOKEN')
+        ? 'The server could not authenticate to Google Firebase.'
+        : diagnosticCode === 'SERVICE_ACCOUNT_PRIVATE_KEY_INVALID'
+          ? 'The server Firebase service-account key is invalid.'
+          : 'Could not register the device token.';
+    return json({ success: false, error: publicError, stage, diagnosticCode }, 500);
   }
 };
