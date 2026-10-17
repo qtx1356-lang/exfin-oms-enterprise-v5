@@ -332,6 +332,32 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
       return json({ success: true });
     }
 
+    if (method === 'GET' && parts.length === 1 && parts[0] === 'incoming') {
+      // Resolve all trusted identifiers for the signed-in employee. Some older
+      // registrations use the registration document ID while the active Firebase
+      // session uses a different UID; invitations are stored against the canonical ID.
+      const identityIds = new Set<string>([caller.uid]);
+      if (!caller.isAdmin) {
+        const registration = await findRegistration(env, caller.uid, caller.email);
+        if (registration) {
+          identityIds.add(String(registration.id || '').trim());
+          identityIds.add(String(registration.data?.uid || '').trim());
+          identityIds.add(String(registration.data?.authUid || '').trim());
+        }
+      }
+      identityIds.delete('');
+      const documents = await listCollection(env, 'video_call_invites', 500);
+      const now = Date.now();
+      const invites = documents
+        .map((document) => ({ id: String(document.name || '').split('/').pop() || '', ...decodeDoc(document) }))
+        .filter((invite) => identityIds.has(String(invite.recipientUid || '')) &&
+          invite.status === 'pending' &&
+          (!invite.expiresAt || new Date(String(invite.expiresAt)).getTime() > now))
+        .sort((left, right) => String(right.createdAt || '').localeCompare(String(left.createdAt || '')))
+        .slice(0, 5);
+      return json({ success: true, invites });
+    }
+
     if (method === 'GET' && parts.length === 1 && parts[0] === 'recipients') {
       const recipients: Array<{ uid: string; name: string; employeeCode?: string; role: string; email?: string }> = [];
       if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) {
@@ -401,7 +427,33 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (method === 'POST' && parts.length === 3 && parts[0] === 'calls' && ['accept', 'decline', 'leave'].includes(parts[2])) {
-      const callId = decodeURIComponent(parts[1]), action = parts[2], inviteId = `${callId}_${caller.uid}`, inviteDoc = await getDoc(env, 'video_call_invites', inviteId); if (!inviteDoc) return json({ success: false, error: 'This call invitation is not addressed to your account.' }, 403); const invite = decodeDoc(inviteDoc);
+      const callId = decodeURIComponent(parts[1]), action = parts[2];
+      const identityIds = new Set<string>([caller.uid]);
+      if (!caller.isAdmin) {
+        const registration = await findRegistration(env, caller.uid, caller.email);
+        if (registration) {
+          identityIds.add(String(registration.id || '').trim());
+          identityIds.add(String(registration.data?.uid || '').trim());
+          identityIds.add(String(registration.data?.authUid || '').trim());
+        }
+      }
+      identityIds.delete('');
+      let inviteId = `${callId}_${caller.uid}`;
+      let inviteDoc = await getDoc(env, 'video_call_invites', inviteId);
+      if (!inviteDoc || !identityIds.has(String(decodeDoc(inviteDoc).recipientUid || ''))) {
+        inviteDoc = null;
+        for (const identityId of identityIds) {
+          const candidateId = `${callId}_${identityId}`;
+          const candidate = await getDoc(env, 'video_call_invites', candidateId);
+          if (candidate && identityIds.has(String(decodeDoc(candidate).recipientUid || ''))) {
+            inviteId = candidateId;
+            inviteDoc = candidate;
+            break;
+          }
+        }
+      }
+      if (!inviteDoc) return json({ success: false, error: 'This call invitation is not addressed to your account.' }, 403);
+      const invite = decodeDoc(inviteDoc);
       if (action === 'accept') { if (invite.status !== 'pending' || !invite.expiresAt || new Date(String(invite.expiresAt)).getTime() <= Date.now()) return json({ success: false, error: 'This call invitation has expired or is no longer available.' }, 410); const callDoc = await getDoc(env, 'video_calls', callId); if (!callDoc || decodeDoc(callDoc).status !== 'active') return json({ success: false, error: 'This call has ended.' }, 410); const callData = decodeDoc(callDoc), owner = caller.isAdmin && ADMIN_ROLES.has(caller.role), token = await createMeetingToken(env, String(invite.roomName), caller.uid, await nameForUid(env, caller.uid), owner, Math.floor(new Date(String(invite.expiresAt)).getTime() / 1000)); await updateDoc(env, 'video_call_invites', inviteId, { status: 'accepted', acceptedAt: new Date().toISOString() }); return json({ success: true, token, roomUrl: liveKitUrl(env), title: invite.title || callData.title, callerName: invite.senderName || 'EXFIN OMS user' }); }
       if (action === 'decline') { await updateDoc(env, 'video_call_invites', inviteId, { status: 'declined', respondedAt: new Date().toISOString() }); return json({ success: true }); }
       const callDoc = await getDoc(env, 'video_calls', callId); if (!callDoc) return json({ success: false, error: 'Call not found.' }, 404); const callData = decodeDoc(callDoc), participants = Array.isArray(callData.participantUids) ? callData.participantUids.map(String) : []; if (!participants.includes(caller.uid)) return json({ success: false, error: 'You are not a participant in this call.' }, 403);
