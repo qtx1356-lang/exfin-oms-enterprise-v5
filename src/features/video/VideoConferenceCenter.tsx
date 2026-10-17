@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { diagnoseAndRepairNativePushRegistration } from '../../services/notification/nativePushNotificationService';
 import { PhoneCall, X, Users, PhoneIncoming, PhoneOff, Loader2, ShieldCheck } from 'lucide-react';
 import { LiveKitMeeting } from './LiveKitMeeting';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
@@ -57,6 +59,7 @@ export const VideoConferenceCenter: React.FC = () => {
   const [error, setError] = useState('');
   const [pushAlert, setPushAlert] = useState('');
   const [pushAlertCopyStatus, setPushAlertCopyStatus] = useState('');
+  const [pushRepairBusy, setPushRepairBusy] = useState(false);
   const [loadingRecipients, setLoadingRecipients] = useState(false);
   const [nativeCallAction, setNativeCallAction] = useState<{ callId: string; action: string; eventId: string } | null>(null);
   const seenNativeCallEventsRef = useRef<Set<string>>(new Set());
@@ -237,6 +240,19 @@ export const VideoConferenceCenter: React.FC = () => {
     }
   };
 
+  const repairAndroidCallAlerts = async () => {
+    setPushRepairBusy(true);
+    setPushAlertCopyStatus('');
+    try {
+      const result = await diagnoseAndRepairNativePushRegistration();
+      setPushAlert(result);
+    } catch (err: any) {
+      setPushAlert('Android FCM diagnostic failed: ' + String(err?.message || err));
+    } finally {
+      setPushRepairBusy(false);
+    }
+  };
+
   const acceptCall = async (invite: IncomingCall) => {
     setBusy(true);
     setError('');
@@ -348,6 +364,20 @@ export const VideoConferenceCenter: React.FC = () => {
                 <button type="button" disabled={busy} onClick={() => void enableBrowserNotifications()} className="rounded-xl border border-indigo-200 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-50 disabled:opacity-50">Enable browser call notifications</button>
                 <span className="text-xs text-slate-500">For browser alerts when this tab is in the background.</span>
               </div>
+              {!isAdmin && Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android' && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <div className="text-sm font-bold text-amber-950">Android incoming-call alerts</div>
+                  <p className="mt-1 text-xs text-amber-900">Run a fresh Firebase token check and securely retry server registration. The token itself is never displayed.</p>
+                  <button
+                    type="button"
+                    disabled={busy || pushRepairBusy}
+                    onClick={() => void repairAndroidCallAlerts()}
+                    className="mt-2 rounded-xl bg-amber-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
+                  >
+                    {pushRepairBusy ? 'Checking Android alerts…' : 'Repair / diagnose Android call alerts'}
+                  </button>
+                </div>
+              )}
               {isAdmin && (
                 <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
                   <button type="button" onClick={() => changeMode('direct')} className={'rounded-lg px-3 py-2 text-sm font-bold ' + (mode === 'direct' ? 'bg-white shadow' : 'text-slate-500')}>Direct call</button>
