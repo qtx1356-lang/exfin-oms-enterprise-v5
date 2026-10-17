@@ -3,9 +3,8 @@ import { Capacitor } from '@capacitor/core';
 import { diagnoseAndRepairNativePushRegistration } from '../../services/notification/nativePushNotificationService';
 import { PhoneCall, X, Users, PhoneIncoming, PhoneOff, Loader2, ShieldCheck } from 'lucide-react';
 import { LiveKitMeeting } from './LiveKitMeeting';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { useAdminAuth } from '../../context/AdminAuthContext';
-import { auth, db } from '../../services/firebase/config';
+import { auth } from '../../services/firebase/config';
 import { buildApiUrl } from '../../utils/apiConfig';
 
 type Recipient = { uid: string; name: string; employeeCode?: string; role: string; email?: string };
@@ -107,19 +106,34 @@ export const VideoConferenceCenter: React.FC = () => {
       setIncoming([]);
       return;
     }
-    const activeDb = (db as any).concrete || db;
-    const invitesQuery = query(
-      collection(activeDb, 'video_call_invites'),
-      where('recipientUid', '==', user.uid),
-    );
-    return onSnapshot(invitesQuery, (snapshot) => {
-      const now = Date.now();
-      const pending = snapshot.docs
-        .map((item) => ({ id: item.id, ...(item.data() as Omit<IncomingCall, 'id'>) }))
-        .filter((item) => item.status === 'pending' && (!item.expiresAt || new Date(item.expiresAt).getTime() > now))
-        .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-      setIncoming(pending.slice(0, 5));
-    }, (err) => console.warn('[VideoCalls] Incoming call listener unavailable:', err.message));
+    // Use the authenticated video API as the fallback source of truth rather than
+    // relying only on the client Firestore listener. The API resolves canonical and
+    // legacy employee identity IDs server-side, so a UID mismatch cannot hide an invite.
+    let disposed = false;
+    let polling = false;
+    const refreshIncoming = async () => {
+      if (disposed || polling || document.visibilityState === 'hidden') return;
+      polling = true;
+      try {
+        const response = await videoApi('/api/video/incoming');
+        if (!disposed && Array.isArray(response.invites)) {
+          setIncoming(response.invites.slice(0, 5) as IncomingCall[]);
+        }
+      } catch (err: any) {
+        console.warn('[VideoCalls] Incoming-call fallback check failed:', err?.message || err);
+      } finally {
+        polling = false;
+      }
+    };
+    void refreshIncoming();
+    const interval = window.setInterval(() => void refreshIncoming(), 4000);
+    const onVisible = () => { if (document.visibilityState === 'visible') void refreshIncoming(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [user?.uid]);
 
   const loadRecipients = useCallback(async () => {
