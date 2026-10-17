@@ -300,17 +300,46 @@ export const VideoConferenceCenter: React.FC = () => {
     }
   };
 
-  // Native notification actions arrive even when the app was previously backgrounded.
-  // Wait until Firestore's authenticated invite listener has hydrated the matching call.
+  // Answer can arrive before the first incoming-call poll finishes. Resolve the
+  // invitation directly from the authenticated API instead of dropping the action.
+  const processingNativeCallActionRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!nativeCallAction || nativeCallAction.action === 'open') return;
-    const invite = incoming.find((item) => item.callId === nativeCallAction.callId);
-    if (!invite) return;
-    const action = nativeCallAction.action;
-    setNativeCallAction(null);
-    if (action === 'answer') void acceptCall(invite);
-    else if (action === 'decline') void declineCall(invite);
-  }, [nativeCallAction, incoming, acceptCall, declineCall]);
+    if (!nativeCallAction || nativeCallAction.action === 'open' || !user?.uid) return;
+    if (processingNativeCallActionRef.current === nativeCallAction.eventId) return;
+    processingNativeCallActionRef.current = nativeCallAction.eventId;
+    let cancelled = false;
+    const processAction = async () => {
+      try {
+        let invite = incoming.find((item) => item.callId === nativeCallAction.callId);
+        if (!invite) {
+          const response = await videoApi('/api/video/incoming');
+          const invites = Array.isArray(response.invites) ? response.invites as IncomingCall[] : [];
+          if (invites.length) setIncoming(invites.slice(0, 5));
+          invite = invites.find((item) => item.callId === nativeCallAction.callId);
+        }
+        if (cancelled) return;
+        if (!invite) {
+          setError('This incoming call is no longer active. Ask the administrator to call again.');
+          setNativeCallAction(null);
+          return;
+        }
+        setNativeCallAction(null);
+        if (nativeCallAction.action === 'answer') await acceptCall(invite);
+        else if (nativeCallAction.action === 'decline') await declineCall(invite);
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err?.message || 'Could not process the incoming call. Please ask the administrator to call again.');
+          setNativeCallAction(null);
+        }
+      } finally {
+        if (processingNativeCallActionRef.current === nativeCallAction.eventId) {
+          processingNativeCallActionRef.current = null;
+        }
+      }
+    };
+    void processAction();
+    return () => { cancelled = true; };
+  }, [nativeCallAction, incoming, user?.uid]);
 
   const leaveCall = async () => {
     if (!activeCall) return;
