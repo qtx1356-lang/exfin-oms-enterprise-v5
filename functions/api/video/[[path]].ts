@@ -1,4 +1,5 @@
 type Env = {
+import { onRequest as registerDeviceToken } from './device-token';
   LIVEKIT_API_KEY: string;
   LIVEKIT_API_SECRET: string;
   LIVEKIT_URL: string;
@@ -311,22 +312,10 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (method === 'POST' && parts.length === 1 && parts[0] === 'device-token') {
-      const body = await request.json().catch(() => ({})) as any;
-      const token = typeof body?.token === 'string' ? body.token.trim() : '';
-      if (token.length < 20 || token.length > 4096) return json({ success: false, error: 'Invalid device token.' }, 400);
-      const tokenId = await sha256Hex(token);
-      const tokenRecord = {
-        token, uid: caller.uid, employeeCode: caller.employeeCode || '',
-        role: caller.role, platform: body?.platform === 'android' ? 'android' : 'web',
-        appId: body?.appId === 'com.exfin.oms' ? 'com.exfin.oms' : 'web',
-        updatedAt: new Date().toISOString(),
-      };
-      // FCM tokens are commonly new on first install. PATCH without an existence
-      // precondition does not create missing Firestore documents, so upsert here.
-      const existingTokenDoc = await getDoc(env, 'push_device_tokens', tokenId);
-      if (existingTokenDoc) await updateDoc(env, 'push_device_tokens', tokenId, tokenRecord);
-      else await setDoc(env, 'push_device_tokens', tokenId, tokenRecord);
-      return json({ success: true, registered: true });
+      // Keep the catch-all fallback on the same authenticated identity-repair handler
+      // as the dedicated /api/video/device-token route. Never write tokens using the
+      // legacy caller.uid-only implementation.
+      return registerDeviceToken({ request, env });
     }
 
     if (method === 'POST' && parts.length === 2 && parts[0] === 'device-token' && parts[1] === 'unregister') {
