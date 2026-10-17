@@ -228,6 +228,71 @@ async function registerTokenWithBackend(
 }
 
 /**
+ * On-demand native push repair and safe diagnostics for employee support.
+ * Never returns or logs the actual FCM token.
+ */
+export async function diagnoseAndRepairNativePushRegistration(): Promise<string> {
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') {
+    return 'This diagnostic is available only in the native Android app.';
+  }
+  const currentUser = auth.currentUser;
+  if (!currentUser) return 'Firebase authentication is not ready. Sign out, sign in again, and retry.';
+  let employeeCode = activePushContext?.employeeCode || '';
+  if (!employeeCode) {
+    try {
+      const cached = JSON.parse(localStorage.getItem('cached_registration_data') || '{}');
+      employeeCode = String(cached.employeeCode || cached.employeeId || cached.id || localStorage.getItem('registrationId') || '').trim();
+    } catch {
+      employeeCode = String(localStorage.getItem('registrationId') || '').trim();
+    }
+  }
+  let token = '';
+  try {
+    const nativeResult = await NativeFcmToken.getToken();
+    token = String(nativeResult?.token || '').trim();
+  } catch (error: any) {
+    const message = String(error?.message || error || 'Unknown native Firebase error');
+    localStorage.setItem('exfin_fcm_registration_error', 'native-token: ' + message);
+    return 'FCM token retrieval failed: ' + message;
+  }
+  if (token.length < 20) return 'Firebase did not return a usable FCM token.';
+  try {
+    const idToken = await currentUser.getIdToken(true);
+    const response = await fetch(buildApiUrl('/api/video/device-token'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+      body: JSON.stringify({
+        token,
+        userId: currentUser.uid,
+        employeeCode,
+        role: activePushContext?.role || 'EMPLOYEE',
+        platform: 'android',
+        appId: 'com.exfin.oms',
+      }),
+    });
+    const payload = await response.json().catch(() => ({})) as { success?: boolean; registered?: boolean; error?: string; diagnosticCode?: string; stage?: string };
+    if (!response.ok || payload.success === false || payload.registered === false) {
+      const detail = [`HTTP ${response.status}`, payload.stage, payload.diagnosticCode, payload.error].filter(Boolean).join(' · ');
+      localStorage.setItem('exfin_fcm_registration_error', detail || 'Backend rejected FCM token registration.');
+      return 'FCM token acquired, but backend registration failed: ' + (detail || 'No registration confirmation was returned.') +
+        `\nEmployee code available: ${employeeCode ? 'yes' : 'no'}.`;
+    }
+    localStorage.setItem(DEVICE_TOKEN_KEY, token);
+    localStorage.setItem('exfin_fcm_registration_status', JSON.stringify({
+      registered: true, at: new Date().toISOString(), employeeCodePresent: Boolean(employeeCode),
+      httpStatus: response.status,
+    }));
+    localStorage.removeItem('exfin_fcm_registration_error');
+    return 'SUCCESS: Android FCM token was acquired and the server confirmed it was saved. ' +
+      `Employee code available: ${employeeCode ? 'yes' : 'no'}. Try an admin-to-employee call now.`;
+  } catch (error: any) {
+    const message = String(error?.message || error || 'Network request failed');
+    localStorage.setItem('exfin_fcm_registration_error', 'network: ' + message);
+    return 'FCM token acquired, but the registration request failed: ' + message;
+  }
+}
+
+/**
  * Removes device push token from backend on logout.
  */
 export async function unregisterTokenFromBackend() {
