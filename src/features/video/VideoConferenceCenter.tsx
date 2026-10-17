@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { diagnoseAndRepairNativePushRegistration } from '../../services/notification/nativePushNotificationService';
+import { diagnoseAndRepairNativePushRegistration, initNativePushNotifications } from '../../services/notification/nativePushNotificationService';
 import { PhoneCall, X, Users, PhoneIncoming, PhoneOff, Loader2, ShieldCheck } from 'lucide-react';
 import { LiveKitMeeting } from './LiveKitMeeting';
 import { useAdminAuth } from '../../context/AdminAuthContext';
@@ -110,6 +110,26 @@ export const VideoConferenceCenter: React.FC = () => {
     pending.forEach((detail) => window.dispatchEvent(new CustomEvent('exfin:native-video-call-action', { detail })));
     return () => window.removeEventListener('exfin:native-video-call-action', handleNativeCallAction);
   }, []);
+
+  // Register/repair the native FCM token whenever an authenticated user is present.
+  // The helper is idempotent and resolves employee identity server-side, so call alerts
+  // do not depend on the employee manually opening the Video Calls panel.
+  useEffect(() => {
+    if (!user?.uid || !Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return;
+    let employeeCode = '';
+    try {
+      const cached = JSON.parse(localStorage.getItem('cached_registration_data') || '{}');
+      employeeCode = String(cached.employeeCode || cached.employeeId || cached.id || localStorage.getItem('registrationId') || '').trim();
+    } catch {
+      employeeCode = String(localStorage.getItem('registrationId') || '').trim();
+    }
+    void initNativePushNotifications({
+      userId: user.uid,
+      uid: user.uid,
+      employeeCode,
+      role: role || 'EMPLOYEE',
+    });
+  }, [user?.uid, role]);
 
   useEffect(() => {
     if (!user?.uid) {
