@@ -1,4 +1,12 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
+interface NativeFcmTokenBridge {
+  getToken(): Promise<{ token?: string }>;
+}
+
+// Direct native Firebase SDK fallback: this works even if the JS plugin's
+// registration event is missed during startup or WebView initialization.
+const NativeFcmToken = registerPlugin<NativeFcmTokenBridge>('ExfinFcmToken');
 import { App } from '@capacitor/app';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { LocalNotifications } from '@capacitor/local-notifications';
@@ -126,6 +134,25 @@ export async function initNativePushNotifications(userContext: {
     await PushNotifications.register().catch((err) => {
       console.error('[NativePush] PushNotifications.register failed:', err);
     });
+
+    // Ask Firebase's native SDK for the actual FCM token independently of the
+    // Capacitor registration event. Backend writes are idempotent by token hash.
+    try {
+      const nativeResult = await NativeFcmToken.getToken();
+      const nativeToken = String(nativeResult?.token || '').trim();
+      if (nativeToken.length >= 20) {
+        localStorage.setItem(DEVICE_TOKEN_KEY, nativeToken);
+        await registerTokenWithBackend(nativeToken, userId, employeeCode, role);
+        console.info('[NativePush] Native Firebase token fallback registered successfully.');
+      } else {
+        console.warn('[NativePush] Native Firebase token fallback returned an empty token.');
+      }
+    } catch (err) {
+      console.error('[NativePush] Native Firebase token fallback failed:', err);
+      try {
+        localStorage.setItem('exfin_fcm_registration_error', String((err as any)?.message || err));
+      } catch {}
+    }
 
   } catch (err) {
     console.error('[NativePush] Exception initializing PushNotifications:', err);
