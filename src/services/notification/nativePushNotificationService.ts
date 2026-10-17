@@ -142,35 +142,62 @@ async function registerTokenWithBackend(
   employeeCode: string,
   role: string
 ) {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    throw new Error('Firebase user is not authenticated yet; token registration will be retried.');
+  // Retry transient startup/network failures. A token is cached before this call,
+  // so retries and app-resume registration are safe and idempotent on the server.
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('Firebase user is not authenticated yet; token registration will be retried.');
+      }
+
+      const idToken = await currentUser.getIdToken(true);
+      const response = await fetch(buildApiUrl('/api/video/device-token'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          token,
+          userId,
+          employeeCode,
+          role,
+          platform: 'android',
+          appId: 'com.exfin.oms'
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const error = new Error(`Server returned ${response.status}: ${errorText}`);
+        // Authentication/identity errors need a code or account fix, not rapid retries.
+        if (response.status < 500 && response.status !== 408 && response.status !== 429) throw error;
+        lastError = error;
+      } else {
+        const payload = await response.json().catch(() => ({})) as { success?: boolean; registered?: boolean; error?: string };
+        if (payload.success === false || payload.registered === false) {
+          throw new Error(payload.error || 'Server did not confirm FCM token registration.');
+        }
+        console.log('[NativePush] Device token successfully registered/updated on backend.', {
+          employeeCodePresent: Boolean(employeeCode),
+          attempt
+        });
+        return;
+      }
+    } catch (err) {
+      lastError = err;
+      const message = String((err as any)?.message || err);
+      console.warn(`[NativePush] Token registration attempt ${attempt}/3 failed:`, message);
+      // Do not hammer the backend for invalid credentials or rejected employee identity.
+      if (/Server returned 4(?!08|29)\d\d/.test(message)) throw err;
+    }
+
+    if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 1000));
   }
 
-  const idToken = await currentUser.getIdToken(true);
-
-  const response = await fetch(buildApiUrl('/api/video/device-token'), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${idToken}`
-    },
-    body: JSON.stringify({
-      token,
-      userId,
-      employeeCode,
-      role,
-      platform: 'android',
-      appId: 'com.exfin.oms'
-    })
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Server returned ${response.status}: ${errorText}`);
-  }
-
-  console.log('[NativePush] Device token successfully registered/updated on backend.');
+  throw lastError instanceof Error ? lastError : new Error('FCM token registration failed after retries.');
 }
 
 /**
