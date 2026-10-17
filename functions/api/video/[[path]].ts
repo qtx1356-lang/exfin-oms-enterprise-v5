@@ -68,16 +68,25 @@ type IncomingCallPushResult = {
 };
 
 async function sendIncomingCallPush(env: Env, recipientUid: string, employeeCode: string, callId: string, callerName: string, title: string): Promise<IncomingCallPushResult> {
-  // Match by authenticated UID first, but also by approved employee code. Some
-  // older native sessions registered a token before the Firebase UID was linked
-  // to the employee registration; querying both prevents a false "no token" result.
-  // Browser subscriptions are never sent Android FCM messages.
+  // Build the complete trusted identity set from the approved employee registration.
+  // Older installations have stored tokens under the live Firebase UID, the registration
+  // document ID, or the canonical UID. Resolve those aliases server-side rather than
+  // requiring every employee to manually repair/reinstall their device.
+  const identityIds = new Set<string>([recipientUid]);
+  const registration = await findRegistration(env, recipientUid);
+  if (registration) {
+    identityIds.add(String(registration.id || '').trim());
+    identityIds.add(String(registration.data?.uid || '').trim());
+    identityIds.add(String(registration.data?.authUid || '').trim());
+  }
+  identityIds.delete('');
   const tokenQueries = await Promise.all([
-    queryByField(env, 'push_device_tokens', 'uid', recipientUid, 50),
+    ...Array.from(identityIds).map((uid) => queryByField(env, 'push_device_tokens', 'uid', uid, 50)),
     employeeCode ? queryByField(env, 'push_device_tokens', 'employeeCode', employeeCode, 50) : Promise.resolve([]),
   ]);
-  // Recover legacy records that predate platform/appId metadata or whose indexed
-  // fields are inconsistent. Only send records linked to this exact UID/code.
+  // Recover legacy records whose identity metadata is incomplete. We still require
+  // an exact trusted UID alias or exact approved employee-code match; never send an
+  // arbitrary Android token belonging to an unrelated employee.
   const queriedDocuments = tokenQueries.flat();
   const hasUsableAndroidToken = queriedDocuments.some((document) => {
     const device = decodeDoc(document);
@@ -92,7 +101,7 @@ async function sendIncomingCallPush(env: Env, recipientUid: string, employeeCode
   const uniqueTokens = new Map<string, any>();
   for (const document of [...queriedDocuments, ...fallbackDocuments]) {
     const device = decodeDoc(document);
-    const linkedByUid = String(device.uid || '') === recipientUid;
+    const linkedByUid = identityIds.has(String(device.uid || ''));
     const linkedByCode = !!employeeCode &&
       String(device.employeeCode || '').trim().toUpperCase() === employeeCode.trim().toUpperCase();
     const knownAndroid = device.platform === 'android' || device.appId === 'com.exfin.oms';
@@ -109,7 +118,7 @@ async function sendIncomingCallPush(env: Env, recipientUid: string, employeeCode
     const uniqueRecords = new Map<string, any>();
     for (const [index, device] of allScanned.entries()) uniqueRecords.set(String(device.token || device.uid || `record-${index}`), device);
     const records = Array.from(uniqueRecords.values());
-    const uidMatches = records.filter((device) => String(device.uid || '') === recipientUid).length;
+    const uidMatches = records.filter((device) => identityIds.has(String(device.uid || ''))).length;
     const codeMatches = records.filter((device) => !!employeeCode &&
       String(device.employeeCode || '').trim().toUpperCase() === employeeCode.trim().toUpperCase()).length;
     const androidMatches = records.filter((device) => device.platform === 'android' || device.appId === 'com.exfin.oms').length;
