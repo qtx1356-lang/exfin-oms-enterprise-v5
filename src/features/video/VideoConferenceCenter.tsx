@@ -62,6 +62,8 @@ export const VideoConferenceCenter: React.FC = () => {
   const [loadingRecipients, setLoadingRecipients] = useState(false);
   const [nativeCallAction, setNativeCallAction] = useState<{ callId: string; action: string; eventId: string } | null>(null);
   const seenNativeCallEventsRef = useRef<Set<string>>(new Set());
+  const incomingRef = useRef<IncomingCall[]>(incoming);
+  useEffect(() => { incomingRef.current = incoming; }, [incoming]);
 
   const displayName = user?.displayName || loginId || user?.email || 'EXFIN OMS user';
   const selectedRecipients = useMemo(
@@ -318,7 +320,7 @@ export const VideoConferenceCenter: React.FC = () => {
     let cancelled = false;
     const processAction = async () => {
       try {
-        let invite = incoming.find((item) => item.callId === nativeCallAction.callId);
+        let invite = incomingRef.current.find((item) => item.callId === nativeCallAction.callId);
         if (!invite) {
           const response = await videoApi('/api/video/incoming');
           const invites = Array.isArray(response.invites) ? response.invites as IncomingCall[] : [];
@@ -347,7 +349,7 @@ export const VideoConferenceCenter: React.FC = () => {
     };
     void processAction();
     return () => { cancelled = true; };
-  }, [nativeCallAction, incoming, user?.uid]);
+  }, [nativeCallAction, user?.uid]);
 
   const leaveCall = async () => {
     if (!activeCall) return;
