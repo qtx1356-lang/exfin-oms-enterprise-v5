@@ -116,9 +116,11 @@ export const RegistrationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Register the real FCM device token after the employee's authenticated session is approved.
   // This is separate from Firestore notification records and does not change attendance monitoring.
   useEffect(() => {
-    const approved = String(status || '').toUpperCase() === 'APPROVED'
-      || String(employeeData?.status || '').toUpperCase() === 'APPROVED';
-    if (!authUser?.uid || !approved) return;
+    // Always obtain/cache the Android FCM token for an authenticated native session.
+    // The server endpoint independently verifies employee approval before storing it.
+    // This avoids silently skipping token acquisition while registration status is still
+    // loading or uses legacy values such as "Approved " / a recovery status.
+    if (!authUser?.uid) return;
 
     // Legacy registration records may store the employee code in employeeId or id,
     // and the registration document ID is a final fallback. The token API needs a
