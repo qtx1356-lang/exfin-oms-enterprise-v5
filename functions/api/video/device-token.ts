@@ -256,28 +256,49 @@ async function findApprovedEmployeeByIdentity(env: Env, uid: string, email: stri
 async function findApprovedEmployeeByCode(env: Env, employeeCode: string): Promise<{ uid: string; data: any } | null> {
   const normalizedCode = employeeCode.trim().toUpperCase();
   if (!normalizedCode) return null;
-  // Firestore equality queries are case-sensitive. Try the indexed query first,
-  // then recover older registrations whose employeeCode casing is inconsistent.
+
+  // The client may only have the registration document ID in older cached state.
+  // Resolve that ID directly before relying on employeeCode field queries.
+  const direct = await getDoc(env, 'registrations', employeeCode.trim()).catch(() => null);
+  if (direct) {
+    const data = decodeDoc(direct);
+    const documentId = String(direct.name || '').split('/').pop() || '';
+    const storedCode = String(data.employeeCode || data.employeeId || '').trim().toUpperCase();
+    const status = String(data.status || 'Pending Approval').trim().toUpperCase();
+    if ((!storedCode || storedCode === normalizedCode) &&
+        status === 'APPROVED' && data.isDeleted !== true && data.active !== false) {
+      const uid = String(data.uid || data.authUid || documentId).trim();
+      if (uid) {
+        return {
+          uid,
+          data: { ...data, employeeCode: String(data.employeeCode || data.employeeId || documentId) },
+        };
+      }
+    }
+  }
+
+  // Firestore equality queries are case-sensitive. Try exact code first, then recover
+  // legacy records whose employeeCode casing or field population is inconsistent.
   const exactMatches = await queryByField(env, 'registrations', 'employeeCode', employeeCode, 10);
   const matches = [...exactMatches];
   if (!matches.some((document) => String(decodeDoc(document).employeeCode || '').trim().toUpperCase() === normalizedCode)) {
     const allRegistrations = await listCollection(env, 'registrations', 500).catch(() => []);
     const seen = new Set(matches.map((document) => document.name));
     for (const document of allRegistrations) {
-      if (!seen.has(document.name) &&
-          String(decodeDoc(document).employeeCode || '').trim().toUpperCase() === normalizedCode) {
-        matches.push(document);
-      }
+      const data = decodeDoc(document);
+      const codes = [data.employeeCode, data.employeeId].map((value) => String(value || '').trim().toUpperCase());
+      if (!seen.has(document.name) && codes.includes(normalizedCode)) matches.push(document);
     }
   }
   for (const document of matches) {
     const data = decodeDoc(document);
-    if (String(data.employeeCode || '').trim().toUpperCase() !== normalizedCode) continue;
+    const codes = [data.employeeCode, data.employeeId].map((value) => String(value || '').trim().toUpperCase());
+    if (!codes.includes(normalizedCode)) continue;
     const status = String(data.status || 'Pending Approval').trim().toUpperCase();
     if (status !== 'APPROVED' || data.isDeleted === true || data.active === false) continue;
     const documentUid = String(document.name || '').split('/').pop() || '';
     const uid = String(data.uid || data.authUid || documentUid).trim();
-    if (uid) return { uid, data };
+    if (uid) return { uid, data: { ...data, employeeCode: String(data.employeeCode || data.employeeId || documentUid) } };
   }
   return null;
 }
@@ -292,6 +313,15 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
     },
   });
   try {
+    if (request.method === 'GET') {
+      return json({
+        success: true,
+        endpoint: 'video-device-token',
+        routeVersion: 'native-fcm-fallback-2026-10-17',
+        projectId: PROJECT_ID,
+        registrationRequiresAuthentication: true,
+      });
+    }
     if (request.method !== 'POST') return json({ success: false, error: 'Method not allowed.' }, 405);
     const authHeader = request.headers.get('authorization') || '';
     if (!authHeader.startsWith('Bearer ')) return json({ success: false, error: 'Authentication required.' }, 401);
