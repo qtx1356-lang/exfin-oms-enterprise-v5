@@ -1,5 +1,5 @@
-type Env = {
 import { onRequest as registerDeviceToken } from './device-token';
+type Env = {
   LIVEKIT_API_KEY: string;
   LIVEKIT_API_SECRET: string;
   LIVEKIT_URL: string;
