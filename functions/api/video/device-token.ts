@@ -400,7 +400,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
     if (message.includes('FIREBASE_SERVICE_ACCOUNT_KEY')) {
       return json({ success: false, error: 'Video server Firebase credentials are not configured yet.', stage, diagnosticCode: 'FIREBASE_CREDENTIALS_MISSING' }, 503);
     }
-    const firestoreFailure = message.match(/Firestore (GET|QUERY|LIST|SET|UPDATE) failed: (\\d{3})/);
+    const firestoreFailure = message.match(/Firestore (GET|QUERY|LIST|SET|UPDATE) failed: (\d{3})/);
     const diagnosticCode = firestoreFailure
       ? `FIRESTORE_${firestoreFailure[1]}_${firestoreFailure[2]}`
       : message.includes('Could not obtain Firebase service token')
