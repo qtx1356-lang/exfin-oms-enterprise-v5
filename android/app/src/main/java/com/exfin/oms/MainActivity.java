@@ -105,9 +105,13 @@ public class MainActivity extends BridgeActivity {
                 }
             } catch (Exception ignored) {}
         }
-        final String script = "window.dispatchEvent(new CustomEvent('exfin:native-video-call-action',{detail:{callId:" +
+        final String script = "(function(){var d={callId:" +
                 org.json.JSONObject.quote(callId) + ",action:" + org.json.JSONObject.quote(action) +
-                ",eventId:" + org.json.JSONObject.quote(eventId) + "}}));";
+                ",eventId:" + org.json.JSONObject.quote(eventId) +
+                "};window.__exfinPendingVideoCallActions=window.__exfinPendingVideoCallActions||[];" +
+                "if(!window.__exfinPendingVideoCallActions.some(function(x){return x.eventId===d.eventId;}))" +
+                "window.__exfinPendingVideoCallActions.push(d);" +
+                "window.dispatchEvent(new CustomEvent('exfin:native-video-call-action',{detail:d}));})();";
         final String route = intent.getStringExtra("exfin_video_call_route");
         if ("open".equalsIgnoreCase(action) && route != null && !route.isEmpty()) {
             getWindow().getDecorView().post(() -> {
