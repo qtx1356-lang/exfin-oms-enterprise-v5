@@ -218,10 +218,24 @@ jobs:
             echo "To build a production release APK, you MUST configure the GOOGLE_SERVICES_JSON_BASE64 secret with your base64-encoded google-services.json file."
             exit 1
           fi
-          echo "Decoding GOOGLE_SERVICES_JSON_BASE64..."
-          if ! echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > android/app/google-services.json; then
-            echo "::error::BASE64 DECODING FAILED: The value provided for GOOGLE_SERVICES_JSON_BASE64 is not valid Base64!"
-            exit 1
+          echo "Preparing GOOGLE_SERVICES_JSON_BASE64..."
+          # Accept either the Base64-encoded file (recommended) or raw JSON.
+          # Normalize whitespace and optional surrounding quotes to avoid copy/paste issues.
+          normalized_value="$(printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | tr -d '[:space:]')"
+          normalized_value="${normalized_value#\"}"
+          normalized_value="${normalized_value%\"}"
+          normalized_value="${normalized_value#\'}"
+          normalized_value="${normalized_value%\'}"
+          if [[ "$normalized_value" == \{* ]]; then
+            printf '%s' "$normalized_value" > android/app/google-services.json
+            echo "Detected raw JSON secret; wrote configuration file."
+          else
+            if ! printf '%s' "$normalized_value" | base64 --decode > android/app/google-services.json; then
+              rm -f android/app/google-services.json
+              echo "::error::BASE64 DECODING FAILED: GOOGLE_SERVICES_JSON_BASE64 is malformed or truncated."
+              echo "Recreate the secret from the downloaded google-services.json file; do not paste the Firebase service-account key here."
+              exit 1
+            fi
           fi
           node -e '
           const fs = require("fs");
