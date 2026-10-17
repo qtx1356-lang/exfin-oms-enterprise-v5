@@ -98,6 +98,14 @@ export const VideoConferenceCenter: React.FC = () => {
       setNativeCallAction({ callId, action, eventId });
     };
     window.addEventListener('exfin:native-video-call-action', handleNativeCallAction);
+    // If Android opened this activity before React mounted, replay the queued
+    // Answer/Decline action now that the listener is ready.
+    const pendingWindow = window as Window & { __exfinPendingVideoCallActions?: Array<{ callId?: string; action?: string; eventId?: string }> };
+    const pending = Array.isArray(pendingWindow.__exfinPendingVideoCallActions)
+      ? pendingWindow.__exfinPendingVideoCallActions.slice()
+      : [];
+    pendingWindow.__exfinPendingVideoCallActions = [];
+    pending.forEach((detail) => window.dispatchEvent(new CustomEvent('exfin:native-video-call-action', { detail })));
     return () => window.removeEventListener('exfin:native-video-call-action', handleNativeCallAction);
   }, []);
 
