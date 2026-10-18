@@ -727,14 +727,14 @@ async function startServer() {
       if (recipientUids.includes(caller.uid)) return res.status(400).json({ success: false, error: "You cannot call your own account." });
 
       const isCallerAdmin = caller.isAdmin && videoAdminRoles.has(caller.role);
-      const resolved: Array<{ uid: string; name: string; role: string }> = [];
+      const resolved: Array<{ uid: string; name: string; role: string; employeeCode?: string }> = [];
       for (const uid of recipientUids) {
         if (isCallerAdmin) {
           const employee = await findApprovedEmployee(uid);
           if (!employee || String(employee.data.status || "Pending Approval") !== "Approved" || employee.data.isDeleted === true || employee.data.active === false) {
             return res.status(403).json({ success: false, error: "One or more selected employees are not active and approved." });
           }
-          resolved.push({ uid, name: String(employee.data.name || employee.data.fullName || employee.data.employeeCode || "Employee").slice(0, 80), role: "EMPLOYEE" });
+          resolved.push({ uid, name: String(employee.data.name || employee.data.fullName || employee.data.employeeCode || "Employee").slice(0, 80), role: "EMPLOYEE", employeeCode: String(employee.data.employeeCode || employee.data.employeeId || employee.data.id || "").trim() });
         } else {
           const adminDoc = await db.collection("admin_users").doc(uid).get();
           const adminData = adminDoc.data() || {};
@@ -774,7 +774,20 @@ async function startServer() {
         try {
           // Query by authenticated Firebase UID only; never send a call invite to
           // a token merely because its employeeCode matches another account.
-          const devices = await db.collection("push_device_tokens").where("uid", "==", person.uid).get();
+          const tokenCollection = db.collection("push_device_tokens");
+          // Legacy registration records can have a stale/missing Firebase UID while
+          // the same employee's device token is keyed by employeeCode. Query both
+          // identities and deduplicate by document ID; never fan out to other employees.
+          const [uidDevices, employeeCodeDevices] = await Promise.all([
+            tokenCollection.where("uid", "==", person.uid).get(),
+            person.employeeCode
+              ? tokenCollection.where("employeeCode", "==", person.employeeCode).get()
+              : Promise.resolve(null)
+          ]);
+          const candidateDocs = new Map<string, any>();
+          uidDevices.docs.forEach((device) => candidateDocs.set(device.id, device));
+          employeeCodeDevices?.docs.forEach((device) => candidateDocs.set(device.id, device));
+          const devices = { docs: Array.from(candidateDocs.values()), size: candidateDocs.size };
           const androidDevices = devices.docs.filter((device) => {
             const data = device.data();
             return !!data.token &&
