@@ -772,36 +772,70 @@ async function startServer() {
           title, mode, status: "pending", createdAt, expiresAt
         });
         try {
+          // Query by authenticated Firebase UID only; never send a call invite to
+          // a token merely because its employeeCode matches another account.
           const devices = await db.collection("push_device_tokens").where("uid", "==", person.uid).get();
-          const notifications = devices.docs.map(async (device) => {
-            const deviceData = device.data();
-            if (!deviceData.token) return;
-            if (deviceData.platform && deviceData.platform !== "android") return;
-            if (deviceData.appId && deviceData.appId !== "com.exfin.oms") return;
-            await messaging.send({
-              token: String(deviceData.token),
-              // Data-only FCM is required so the native Android service can render a
-              // ringing CallStyle alert with Answer/Decline actions. A notification
-              // payload is auto-rendered as a generic message while the app is closed.
-              data: {
-                type: "video_call",
-                callId,
-                callerName: callerName || "EXFIN OMS user",
-                route: "/video-calls",
-                title: title || "EXFIN OMS video call"
-              },
-              android: {
-                priority: "high",
-                ttl: 60_000,
-                collapseKey: "exfin_video_call_" + callId
-              },
-              webpush: { headers: { Urgency: "high" }, notification: { title: "Incoming EXFIN OMS video call", body: callerName + " is calling you", requireInteraction: true } }
-            });
+          const androidDevices = devices.docs.filter((device) => {
+            const data = device.data();
+            return !!data.token &&
+              (!data.platform || data.platform === "android") &&
+              (!data.appId || data.appId === "com.exfin.oms");
           });
-          await Promise.allSettled(notifications);
+          if (androidDevices.length === 0) {
+            console.warn("[VideoCalls] No registered Android FCM token for recipient", person.uid,
+              "registeredTokenDocs=" + devices.size);
+          }
+          const deliveryResults = await Promise.allSettled(androidDevices.map(async (device) => {
+            const deviceData = device.data();
+            try {
+              const messageId = await messaging.send({
+                token: String(deviceData.token),
+                // Data-only FCM is required so the native Android service can render a
+                // ringing CallStyle alert with Answer/Decline actions. A notification
+                // payload is auto-rendered as a generic message while the app is closed.
+                data: {
+                  type: "video_call",
+                  callId,
+                  callerName: callerName || "EXFIN OMS user",
+                  route: "/video-calls",
+                  title: title || "EXFIN OMS video call"
+                },
+                android: {
+                  priority: "high",
+                  ttl: 60_000,
+                  collapseKey: "exfin_video_call_" + callId
+                }
+              });
+              console.info("[VideoCalls] FCM accepted incoming-call message", {
+                recipientUid: person.uid, messageId
+              });
+              return messageId;
+            } catch (sendError: any) {
+              const code = String(sendError?.code || "unknown");
+              console.error("[VideoCalls] FCM send failed", {
+                recipientUid: person.uid, code,
+                message: String(sendError?.message || "unknown").slice(0, 240)
+              });
+              // FCM confirms these tokens are no longer usable. Remove only the
+              // exact token document that failed, so the next app login can re-register.
+              if (code === "messaging/registration-token-not-registered" ||
+                  code === "messaging/invalid-registration-token") {
+                await device.ref.delete().catch(() => {});
+              }
+              throw sendError;
+            }
+          }));
+          const sentCount = deliveryResults.filter((result) => result.status === "fulfilled").length;
+          const failedCount = deliveryResults.length - sentCount;
+          if (failedCount > 0) {
+            console.warn("[VideoCalls] Android call-alert delivery failures", {
+              recipientUid: person.uid, sentCount, failedCount
+            });
+          }
           await sendVideoWebPush(person.uid, { title: "Incoming EXFIN OMS video call", body: callerName + " is calling you", callId });
-        } catch (pushError) {
-          console.warn("[VideoCalls] Push notification could not be delivered for recipient", person.uid);
+        } catch (pushError: any) {
+          console.warn("[VideoCalls] Push notification processing failed for recipient", person.uid,
+            String(pushError?.code || pushError?.message || "unknown").slice(0, 200));
         }
       }
       return res.json({ success: true, callId, roomUrl, token, title, expiresAt });
