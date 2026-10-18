@@ -44,14 +44,16 @@
         </activity>
 
         <!-- Replace Capacitor's standard FCM service with a subclass that preserves its bridge
-             and adds native CallStyle / full-screen incoming-call alerts. -->
+             and adds native CallStyle / full-screen incoming-call alerts. The service is
+             direct-boot aware so a locked device can still surface an incoming call. -->
         <service
             android:name="com.capacitorjs.plugins.pushnotifications.MessagingService"
             tools:node="remove" />
 
         <service
             android:name=".calls.ExfinCallMessagingService"
-            android:exported="false">
+            android:exported="false"
+            android:directBootAware="true">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
