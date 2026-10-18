@@ -180,7 +180,7 @@ async function registerTokenWithBackend(
       }
 
       const idToken = await currentUser.getIdToken(true);
-      const response = await fetch(buildApiUrl('/api/video/device-token'), {
+      const response = await fetch(buildApiUrl('/api/notifications/register-device'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -258,7 +258,7 @@ export async function diagnoseAndRepairNativePushRegistration(): Promise<string>
   if (token.length < 20) return 'Firebase did not return a usable FCM token.';
   try {
     const idToken = await currentUser.getIdToken(true);
-    const response = await fetch(buildApiUrl('/api/video/device-token'), {
+    const response = await fetch(buildApiUrl('/api/notifications/register-device'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
       body: JSON.stringify({
