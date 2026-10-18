@@ -772,8 +772,8 @@ async function startServer() {
           title, mode, status: "pending", createdAt, expiresAt
         });
         try {
-          // Query by authenticated Firebase UID only; never send a call invite to
-          // a token merely because its employeeCode matches another account.
+          // Prefer the authenticated Firebase UID, with the same employee's canonical
+          // employeeCode as a fallback for legacy/stale registration UID mappings.
           const tokenCollection = db.collection("push_device_tokens");
           // Legacy registration records can have a stale/missing Firebase UID while
           // the same employee's device token is keyed by employeeCode. Query both
