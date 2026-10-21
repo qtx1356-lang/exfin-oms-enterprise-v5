@@ -20,6 +20,7 @@ import {
   DEFAULT_META_TEMPLATES,
   ALLOWED_ATTENDANCE_EVENT_TYPES
 } from "./server/services/whatsappService";
+import { mountNativeWebRtcRoutes } from "./server/services/nativeWebRtcRoutes";
 import {
   getDailyReportConfig,
   saveDailyReportConfig,
@@ -411,6 +412,9 @@ async function startServer() {
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   app.use(express.json());
+
+  // Native WebRTC call ring endpoint sends direct high-priority FCM to the employee device.
+  mountNativeWebRtcRoutes(app, db, authAdmin);
 
   // CORS Middleware for Cloudflare Pages and cross-origin frontend apps
   app.use((req, res, next) => {
