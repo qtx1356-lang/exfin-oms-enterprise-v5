@@ -4,19 +4,13 @@ console.log('[APP UPDATE DEBUG] EXFIN_UPDATER_BUILD=2026-10-05-01');
 console.log('[APP UPDATE DEBUG] UPDATE SYSTEM LOADED');
 
 import './services/startup/startupPerformanceLogger';
-import { initNativeEmployeeCallChannel } from './services/notification/nativeCallChannelService';
 import React, { Component, StrictMode } from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-// Subscribe the Android installation to its private employee call channel.
-// This is independent of the WebView being open when a future call is received.
-void initNativeEmployeeCallChannel();
-
 // Global error and dynamic chunk load recovery handler
 if (typeof window !== 'undefined') {
-  // 1. Chunk load error detector
   window.addEventListener('error', (event) => {
     const errorMsg = event.message || (event.error && event.error.message) || '';
     const isChunkError =
@@ -41,12 +35,10 @@ if (typeof window !== 'undefined') {
     }
   });
 
-  // 2. Unhandled rejection logger for production observability
   window.addEventListener('unhandledrejection', (event) => {
     console.warn('[OMS-OBSERVABILITY] Unhandled Promise Rejection:', event.reason?.message || event.reason);
   });
 
-  // 3. Clear single-recovery marker upon successful startup when online
   if (window.sessionStorage) {
     try {
       if (typeof navigator !== 'undefined' && navigator.onLine) {
@@ -59,16 +51,9 @@ if (typeof window !== 'undefined') {
   }
 }
 
-interface RootErrorBoundaryProps {
-  children: React.ReactNode;
-}
+interface RootErrorBoundaryProps { children: React.ReactNode; }
+interface RootErrorBoundaryState { hasError: boolean; error: Error | null; }
 
-interface RootErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
-// Simple Error Boundary for the root level to catch React rendering errors
 class RootErrorBoundary extends Component<RootErrorBoundaryProps, RootErrorBoundaryState> {
   public state: RootErrorBoundaryState;
   public declare props: RootErrorBoundaryProps;
@@ -78,9 +63,7 @@ class RootErrorBoundary extends Component<RootErrorBoundaryProps, RootErrorBound
     this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
+  static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('[FATAL] React Error Boundary caught an error:', error, errorInfo);
@@ -92,15 +75,8 @@ class RootErrorBoundary extends Component<RootErrorBoundaryProps, RootErrorBound
         <div style={{ padding: '20px', fontFamily: 'monospace', color: '#F87171', background: '#0F1025', minHeight: '100vh' }}>
           <h2 style={{ color: '#EF4444' }}>Application Error</h2>
           <p>The application encountered an unexpected error and could not render.</p>
-          <pre style={{ background: '#171938', padding: '12px', borderRadius: '8px', overflowX: 'auto', fontSize: '12px' }}>
-            {this.state.error?.toString()}
-          </pre>
-          <button 
-            onClick={() => window.location.reload()}
-            style={{ marginTop: '16px', background: '#10B981', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
-          >
-            Reload Application
-          </button>
+          <pre style={{ background: '#171938', padding: '12px', borderRadius: '8px', overflowX: 'auto', fontSize: '12px' }}>{this.state.error?.toString()}</pre>
+          <button onClick={() => window.location.reload()} style={{ marginTop: '16px', background: '#10B981', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}>Reload Application</button>
         </div>
       );
     }
@@ -128,4 +104,3 @@ if (rootElement) {
 } else {
   console.error('[FATAL] Root DOM element #root not found in document.');
 }
-
