@@ -22,8 +22,11 @@ async function isApprovedAdmin(db: Firestore, uid: string): Promise<boolean> {
   const admin = await db.collection("admin_users").doc(uid).get();
   if (!admin.exists) return false;
   const data = admin.data() || {};
+  const role = String(data.role || "").toUpperCase();
   const status = String(data.status || data.accountStatus || "ACTIVE").toUpperCase();
-  return data.active !== false && !["INACTIVE", "DISABLED", "SUSPENDED"].includes(status);
+  return ["SUPER_ADMIN", "ADMIN", "HR", "TEAM_LEADER"].includes(role)
+    && data.active !== false
+    && !["INACTIVE", "DISABLED", "SUSPENDED", "REJECTED", "PENDING"].includes(status);
 }
 
 async function sendNativeCallPush(db: Firestore, recipientUid: string, employeeCode: string, payload: Record<string, string>) {
