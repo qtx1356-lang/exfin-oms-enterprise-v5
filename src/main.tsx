@@ -4,10 +4,15 @@ console.log('[APP UPDATE DEBUG] EXFIN_UPDATER_BUILD=2026-10-05-01');
 console.log('[APP UPDATE DEBUG] UPDATE SYSTEM LOADED');
 
 import './services/startup/startupPerformanceLogger';
+import { initNativeEmployeeCallChannel } from './services/notification/nativeCallChannelService';
 import React, { Component, StrictMode } from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+
+// Subscribe the Android installation to its private employee call channel.
+// This is independent of the WebView being open when a future call is received.
+void initNativeEmployeeCallChannel();
 
 // Global error and dynamic chunk load recovery handler
 if (typeof window !== 'undefined') {
