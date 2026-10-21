@@ -32,9 +32,7 @@ export type NativeWebRtcCallHandlers = {
 const CALL_COLLECTION = 'native_webrtc_calls';
 const ICE_SERVERS = (() => {
   const configured = String(import.meta.env.VITE_WEBRTC_ICE_SERVERS || '').trim();
-  if (!configured) {
-    return [{ urls: 'stun:stun.l.google.com:19302' }];
-  }
+  if (!configured) return [{ urls: 'stun:stun.l.google.com:19302' }];
   try {
     const parsed = JSON.parse(configured);
     return Array.isArray(parsed) && parsed.length ? parsed : [{ urls: 'stun:stun.l.google.com:19302' }];
@@ -61,28 +59,60 @@ async function addIceCandidate(callId: string, side: 'callerCandidates' | 'calle
   });
 }
 
-function applyRemoteCandidates(
+function watchRemoteCandidates(
   callId: string,
   side: 'callerCandidates' | 'calleeCandidates',
   peer: RTCPeerConnection,
   onError?: (error: Error) => void,
-): Unsubscribe {
-  return onSnapshot(collection(callRef(callId), side), (snapshot) => {
+): { unsubscribe: Unsubscribe; markRemoteDescriptionReady: () => Promise<void> } {
+  const pending: RTCIceCandidateInit[] = [];
+  let remoteDescriptionReady = !!peer.remoteDescription;
+
+  const addCandidate = async (candidate: RTCIceCandidateInit) => {
+    if (!remoteDescriptionReady) {
+      pending.push(candidate);
+      return;
+    }
+    try {
+      await peer.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (error) {
+      onError?.(error instanceof Error ? error : new Error(String(error)));
+    }
+  };
+
+  const unsubscribe = onSnapshot(collection(callRef(callId), side), (snapshot) => {
     for (const change of snapshot.docChanges()) {
       if (change.type !== 'added') continue;
       const candidate = change.doc.data().candidate;
-      if (!candidate) continue;
-      void peer.addIceCandidate(new RTCIceCandidate(candidate)).catch((error) => {
-        onError?.(error instanceof Error ? error : new Error(String(error)));
-      });
+      if (candidate) void addCandidate(candidate);
     }
   }, (error) => onError?.(error));
+
+  return {
+    unsubscribe,
+    markRemoteDescriptionReady: async () => {
+      remoteDescriptionReady = true;
+      while (pending.length) {
+        const candidate = pending.shift();
+        if (candidate) await addCandidate(candidate);
+      }
+    },
+  };
+}
+
+function attachPeerHandlers(peer: RTCPeerConnection, handlers: NativeWebRtcCallHandlers) {
+  peer.ontrack = (event) => {
+    const stream = event.streams[0];
+    if (stream) handlers.onRemoteStream?.(stream);
+  };
+  peer.onconnectionstatechange = () => handlers.onStateChange?.(peer.connectionState);
 }
 
 export async function createNativeWebRtcCall(params: {
   recipientUid: string;
   recipientEmployeeCode: string;
   recipientName: string;
+  callerName: string;
   title?: string;
   handlers?: NativeWebRtcCallHandlers;
 }) {
@@ -94,16 +124,12 @@ export async function createNativeWebRtcCall(params: {
 
   const callDoc = doc(collection(db.concrete || db, CALL_COLLECTION));
   const callId = callDoc.id;
-  const remoteCandidatesUnsub = applyRemoteCandidates(callId, 'calleeCandidates', peer, handlers.onError);
+  const remoteCandidates = watchRemoteCandidates(callId, 'calleeCandidates', peer, handlers.onError);
 
   peer.onicecandidate = (event) => {
     if (event.candidate) void addIceCandidate(callId, 'callerCandidates', event.candidate).catch(handlers.onError);
   };
-  peer.ontrack = (event) => {
-    const stream = event.streams[0];
-    if (stream) handlers.onRemoteStream?.(stream);
-  };
-  peer.onconnectionstatechange = () => handlers.onStateChange?.(peer.connectionState);
+  attachPeerHandlers(peer, handlers);
 
   const offer = await peer.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
   await peer.setLocalDescription(offer);
@@ -111,7 +137,7 @@ export async function createNativeWebRtcCall(params: {
   await setDoc(callDoc, {
     callId,
     callerUid,
-    callerName: params.recipientName ? 'EXFIN OMS Admin' : 'EXFIN OMS user',
+    callerName: String(params.callerName || 'EXFIN OMS Admin').slice(0, 80),
     recipientUid: params.recipientUid,
     recipientEmployeeCode: params.recipientEmployeeCode,
     recipientName: params.recipientName,
@@ -124,9 +150,12 @@ export async function createNativeWebRtcCall(params: {
 
   const statusUnsub = onSnapshot(callDoc, async (snapshot) => {
     const data = snapshot.data() as any;
-    if (!data?.answer || peer.currentRemoteDescription) return;
+    if (!data) return;
+    if (data.status === 'declined' || data.status === 'ended' || data.status === 'expired') return;
+    if (!data.answer || peer.currentRemoteDescription) return;
     try {
       await peer.setRemoteDescription(new RTCSessionDescription(data.answer));
+      await remoteCandidates.markRemoteDescriptionReady();
     } catch (error) {
       handlers.onError?.(error instanceof Error ? error : new Error(String(error)));
     }
@@ -137,7 +166,7 @@ export async function createNativeWebRtcCall(params: {
     peer,
     localStream,
     close: async () => {
-      remoteCandidatesUnsub();
+      remoteCandidates.unsubscribe();
       statusUnsub();
       localStream.getTracks().forEach((track) => track.stop());
       peer.close();
@@ -154,23 +183,21 @@ export async function acceptNativeWebRtcCall(callId: string, handlers: NativeWeb
   const data = snapshot.data() as any;
   if (data.recipientUid !== uid) throw new Error('This call is not addressed to the signed-in employee.');
   if (data.status !== 'ringing') throw new Error('This call is no longer ringing.');
+  if (!data.expiresAt || new Date(data.expiresAt).getTime() <= Date.now()) throw new Error('This video call has expired.');
   if (!data.offer?.sdp) throw new Error('The caller offer is missing.');
 
   const peer = new RTCPeerConnection({ iceServers: ICE_SERVERS });
   const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   for (const track of localStream.getTracks()) peer.addTrack(track, localStream);
 
-  const remoteCandidatesUnsub = applyRemoteCandidates(callId, 'callerCandidates', peer, handlers.onError);
+  const remoteCandidates = watchRemoteCandidates(callId, 'callerCandidates', peer, handlers.onError);
   peer.onicecandidate = (event) => {
     if (event.candidate) void addIceCandidate(callId, 'calleeCandidates', event.candidate).catch(handlers.onError);
   };
-  peer.ontrack = (event) => {
-    const stream = event.streams[0];
-    if (stream) handlers.onRemoteStream?.(stream);
-  };
-  peer.onconnectionstatechange = () => handlers.onStateChange?.(peer.connectionState);
+  attachPeerHandlers(peer, handlers);
 
   await peer.setRemoteDescription(new RTCSessionDescription(data.offer));
+  await remoteCandidates.markRemoteDescriptionReady();
   const answer = await peer.createAnswer();
   await peer.setLocalDescription(answer);
   await updateDoc(callDoc, {
@@ -186,7 +213,7 @@ export async function acceptNativeWebRtcCall(callId: string, handlers: NativeWeb
     callerName: String(data.callerName || 'EXFIN OMS user'),
     title: String(data.title || 'EXFIN OMS video call'),
     close: async () => {
-      remoteCandidatesUnsub();
+      remoteCandidates.unsubscribe();
       localStream.getTracks().forEach((track) => track.stop());
       peer.close();
       await updateDoc(callDoc, { status: 'ended', endedAt: serverTimestamp() }).catch(() => {});
@@ -201,5 +228,5 @@ export async function declineNativeWebRtcCall(callId: string) {
   if (!snapshot.exists()) return;
   const data = snapshot.data() as any;
   if (data.recipientUid !== uid) throw new Error('This call is not addressed to the signed-in employee.');
-  await updateDoc(ref, { status: 'declined', declinedAt: serverTimestamp(), declinedBy: uid });
+  await updateDoc(ref, { status: 'declined', declinedAt: serverTimestamp() });
 }
