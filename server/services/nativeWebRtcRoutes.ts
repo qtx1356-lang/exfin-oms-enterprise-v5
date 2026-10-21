@@ -1,7 +1,7 @@
 import type express from "express";
 import { getMessaging } from "firebase-admin/messaging";
 import type { Auth } from "firebase-admin/auth";
-import type { Firestore } from "firebase-admin/firestore";
+import type { Firestore, DocumentReference, QuerySnapshot } from "firebase-admin/firestore";
 
 const CALL_COLLECTION = "native_webrtc_calls";
 const TOKEN_COLLECTION = "push_device_tokens";
@@ -15,11 +15,7 @@ function bearerToken(req: express.Request): string {
 async function verifyFirebaseCaller(req: express.Request, authAdmin: Auth) {
   const token = bearerToken(req);
   if (!token) return null;
-  try {
-    return await authAdmin.verifyIdToken(token, true);
-  } catch {
-    return null;
-  }
+  try { return await authAdmin.verifyIdToken(token, true); } catch { return null; }
 }
 
 async function isApprovedAdmin(db: Firestore, uid: string): Promise<boolean> {
@@ -31,13 +27,12 @@ async function isApprovedAdmin(db: Firestore, uid: string): Promise<boolean> {
 }
 
 async function sendNativeCallPush(db: Firestore, recipientUid: string, employeeCode: string, payload: Record<string, string>) {
-  const candidates = new Map<string, { token: string; ref: FirebaseFirestore.DocumentReference }>();
-  const addSnapshot = (snap: FirebaseFirestore.QuerySnapshot) => {
+  const candidates = new Map<string, { token: string; ref: DocumentReference }>();
+  const addSnapshot = (snap: QuerySnapshot) => {
     for (const item of snap.docs) {
       const data = item.data() || {};
       const token = String(data.token || data.fcmToken || data.deviceToken || "").trim();
-      if (!token) continue;
-      candidates.set(token, { token, ref: item.ref });
+      if (token) candidates.set(token, { token, ref: item.ref });
     }
   };
 
@@ -45,18 +40,12 @@ async function sendNativeCallPush(db: Firestore, recipientUid: string, employeeC
   if (employeeCode) addSnapshot(await db.collection(TOKEN_COLLECTION).where("employeeCode", "==", employeeCode).limit(50).get());
 
   const tokens = Array.from(candidates.keys());
-  if (!tokens.length) {
-    return { tokenCount: 0, sent: 0, failed: 0, errors: ["NO_ANDROID_FCM_TOKEN"] };
-  }
+  if (!tokens.length) return { tokenCount: 0, sent: 0, failed: 0, errors: ["NO_ANDROID_FCM_TOKEN"] };
 
   const response = await getMessaging().sendEachForMulticast({
     tokens,
     data: payload,
-    android: {
-      priority: "high",
-      ttl: RING_TTL_SECONDS * 1000,
-      collapseKey: `exfin_call_${payload.callId}`,
-    },
+    android: { priority: "high", ttl: RING_TTL_SECONDS * 1000, collapseKey: `exfin_call_${payload.callId}` },
     fcmOptions: { analyticsLabel: "exfin-native-video-call" },
   });
 
@@ -65,24 +54,18 @@ async function sendNativeCallPush(db: Firestore, recipientUid: string, employeeC
     if (!result.success) errors.push(`token-${index}: ${result.error?.code || result.error?.message || "FCM_SEND_FAILED"}`);
   });
 
-  // Remove invalid tokens so a stale device cannot poison future call delivery.
   await Promise.all(response.responses.map(async (result, index) => {
     if (result.success) return;
     const code = String(result.error?.code || "");
     if (!/registration-token-not-registered|invalid-registration-token/i.test(code)) return;
-    const token = tokens[index];
-    const entry = candidates.get(token);
+    const entry = candidates.get(tokens[index]);
     if (entry) await entry.ref.delete().catch(() => {});
   }));
 
   return { tokenCount: tokens.length, sent: response.successCount, failed: response.failureCount, errors };
 }
 
-export function mountNativeWebRtcRoutes(
-  app: express.Express,
-  db: Firestore | null,
-  authAdmin: Auth | null,
-) {
+export function mountNativeWebRtcRoutes(app: express.Express, db: Firestore | null, authAdmin: Auth | null) {
   app.post("/api/native-webrtc/calls/:callId/ring", async (req, res) => {
     if (!db || !authAdmin) return res.status(503).json({ success: false, error: "Video service is not ready." });
     const caller = await verifyFirebaseCaller(req, authAdmin);
@@ -109,14 +92,10 @@ export function mountNativeWebRtcRoutes(
 
       const employeeCode = String(call.recipientEmployeeCode || "").trim().toUpperCase();
       const push = await sendNativeCallPush(db, recipientUid, employeeCode, {
-        type: "video_call",
-        callId,
-        callerUid: caller.uid,
+        type: "video_call", callId, callerUid: caller.uid,
         callerName: String(call.callerName || "EXFIN OMS Admin").slice(0, 80),
         title: String(call.title || "EXFIN OMS video call").slice(0, 100),
-        recipientUid,
-        employeeCode,
-        route: "/video-calls",
+        recipientUid, employeeCode, route: "/video-calls",
       });
 
       await callRef.update({ pushSentAt: new Date().toISOString(), pushDelivery: push });
