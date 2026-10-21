@@ -131,7 +131,6 @@ export async function createNativeWebRtcCall(params: {
 
   const callDoc = doc(collection(db.concrete || db, CALL_COLLECTION));
   const callId = callDoc.id;
-  const remoteCandidates = watchRemoteCandidates(callId, 'calleeCandidates', peer, handlers.onError);
   const pendingLocalCandidates: RTCIceCandidate[] = [];
   let callDocumentReady = false;
 
@@ -165,6 +164,8 @@ export async function createNativeWebRtcCall(params: {
   for (const candidate of pendingLocalCandidates.splice(0)) {
     void addIceCandidate(callId, 'callerCandidates', candidate).catch(handlers.onError);
   }
+  // The parent signaling document must exist before participant-scoped candidate reads begin.
+  const remoteCandidates = watchRemoteCandidates(callId, 'calleeCandidates', peer, handlers.onError);
 
   const statusUnsub = onSnapshot(callDoc, async (snapshot) => {
     const data = snapshot.data() as any;
