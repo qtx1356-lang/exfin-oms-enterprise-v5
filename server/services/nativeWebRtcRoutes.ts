@@ -81,6 +81,50 @@ export function mountNativeWebRtcRoutes(app: express.Express, db: Firestore | nu
     const stunUrls = String(process.env.WEBRTC_STUN_URLS || "stun:stun.l.google.com:19302")
       .split(",").map((value) => value.trim()).filter(Boolean);
     const iceServers: Array<Record<string, unknown>> = stunUrls.length ? [{ urls: stunUrls }] : [];
+    // Managed TURN provider path (Twilio Network Traversal Service). API credentials
+    // remain server-side; only short-lived ICE credentials are returned to the caller.
+    const accountSid = String(process.env.TWILIO_ACCOUNT_SID || "");
+    const apiKeySid = String(process.env.TWILIO_API_KEY_SID || "");
+    const apiKeySecret = String(process.env.TWILIO_API_KEY_SECRET || "");
+    if (accountSid && apiKeySid && apiKeySecret) {
+      try {
+        const tokenResponse = await fetch(
+          `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Tokens.json`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: "Basic " + Buffer.from(apiKeySid + ":" + apiKeySecret).toString("base64"),
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({ Ttl: "3600" }),
+          },
+        );
+        const tokenBody = await tokenResponse.json() as {
+          ice_servers?: Array<Record<string, unknown>>;
+          iceServers?: Array<Record<string, unknown>>;
+          message?: string;
+        };
+        if (!tokenResponse.ok) {
+          console.error("[NativeWebRTC] TURN provider token request failed:", tokenResponse.status, tokenBody.message || "");
+          return res.status(502).json({ success: false, error: "Secure WebRTC relay credentials are temporarily unavailable." });
+        }
+        const providerServers = tokenBody.ice_servers || tokenBody.iceServers || [];
+        const usableServers = providerServers.filter((server) => server && server.urls);
+        if (!usableServers.length) {
+          return res.status(502).json({ success: false, error: "TURN provider returned no usable ICE servers." });
+        }
+        res.setHeader("Cache-Control", "no-store");
+        return res.json({ success: true, iceServers: usableServers, turnConfigured: usableServers.some((server) => {
+          const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+          return urls.some((url) => typeof url === "string" && url.startsWith("turn"));
+        }) });
+      } catch (error: any) {
+        console.error("[NativeWebRTC] TURN provider request failed:", error?.message || error);
+        return res.status(502).json({ success: false, error: "Secure WebRTC relay credentials are temporarily unavailable." });
+      }
+    }
+
+    // Self-hosted coturn REST credentials are supported as an alternative.
     const turnUrls = String(process.env.WEBRTC_TURN_URLS || "")
       .split(",").map((value) => value.trim()).filter(Boolean);
     const sharedSecret = String(process.env.WEBRTC_TURN_SHARED_SECRET || "");
@@ -90,8 +134,12 @@ export function mountNativeWebRtcRoutes(app: express.Express, db: Firestore | nu
       const credential = createHmac("sha1", sharedSecret).update(username).digest("base64");
       iceServers.push({ urls: turnUrls, username, credential });
     }
+    const turnConfigured = iceServers.some((server) => {
+      const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+      return urls.some((url) => typeof url === "string" && url.startsWith("turn"));
+    });
     res.setHeader("Cache-Control", "no-store");
-    return res.json({ success: true, iceServers, turnConfigured: turnUrls.length > 0 && Boolean(sharedSecret) });
+    return res.json({ success: true, iceServers, turnConfigured });
   });
 
   app.post("/api/native-webrtc/calls/:callId/ring", async (req, res) => {
