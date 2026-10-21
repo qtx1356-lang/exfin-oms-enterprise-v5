@@ -193,7 +193,7 @@ export async function acceptNativeWebRtcCall(callId: string, handlers: NativeWeb
   if (!data.expiresAt || new Date(data.expiresAt).getTime() <= Date.now()) throw new Error('This video call has expired.');
   if (!data.offer?.sdp) throw new Error('The caller offer is missing.');
 
-  const peer = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const peer = new RTCPeerConnection({ iceServers: await loadIceServers() });
   const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   for (const track of localStream.getTracks()) peer.addTrack(track, localStream);
 
