@@ -132,9 +132,16 @@ export async function createNativeWebRtcCall(params: {
   const callDoc = doc(collection(db.concrete || db, CALL_COLLECTION));
   const callId = callDoc.id;
   const remoteCandidates = watchRemoteCandidates(callId, 'calleeCandidates', peer, handlers.onError);
+  const pendingLocalCandidates: RTCIceCandidate[] = [];
+  let callDocumentReady = false;
 
   peer.onicecandidate = (event) => {
-    if (event.candidate) void addIceCandidate(callId, 'callerCandidates', event.candidate).catch(handlers.onError);
+    if (!event.candidate) return;
+    if (!callDocumentReady) {
+      pendingLocalCandidates.push(event.candidate);
+      return;
+    }
+    void addIceCandidate(callId, 'callerCandidates', event.candidate).catch(handlers.onError);
   };
   attachPeerHandlers(peer, handlers);
 
@@ -154,6 +161,10 @@ export async function createNativeWebRtcCall(params: {
     createdAt: serverTimestamp(),
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
   });
+  callDocumentReady = true;
+  for (const candidate of pendingLocalCandidates.splice(0)) {
+    void addIceCandidate(callId, 'callerCandidates', candidate).catch(handlers.onError);
+  }
 
   const statusUnsub = onSnapshot(callDoc, async (snapshot) => {
     const data = snapshot.data() as any;
