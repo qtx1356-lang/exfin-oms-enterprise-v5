@@ -10,6 +10,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
+import { buildApiUrl } from '../../utils/apiConfig';
 
 export type NativeWebRtcCall = {
   callId: string;
@@ -30,17 +31,23 @@ export type NativeWebRtcCallHandlers = {
 };
 
 const CALL_COLLECTION = 'native_webrtc_calls';
-const ICE_SERVERS = (() => {
-  const configured = String(import.meta.env.VITE_WEBRTC_ICE_SERVERS || '').trim();
-  if (!configured) return [{ urls: 'stun:stun.l.google.com:19302' }];
-  try {
-    const parsed = JSON.parse(configured);
-    return Array.isArray(parsed) && parsed.length ? parsed : [{ urls: 'stun:stun.l.google.com:19302' }];
-  } catch {
-    console.warn('[NativeWebRTC] Invalid VITE_WEBRTC_ICE_SERVERS; using public STUN only.');
-    return [{ urls: 'stun:stun.l.google.com:19302' }];
+async function loadIceServers(): Promise<RTCIceServer[]> {
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error('Firebase authentication is required for video calls.');
+  const token = await currentUser.getIdToken();
+  const response = await fetch(buildApiUrl('/api/native-webrtc/ice-servers'), {
+    headers: { Authorization: 'Bearer ' + token },
+  });
+  if (!response.ok) throw new Error('Could not load secure WebRTC connectivity settings.');
+  const result = await response.json() as { iceServers?: RTCIceServer[]; turnConfigured?: boolean };
+  if (!Array.isArray(result.iceServers) || result.iceServers.length === 0) {
+    throw new Error('WebRTC ICE server configuration is empty.');
   }
-})();
+  if (!result.turnConfigured) {
+    console.warn('[NativeWebRTC] TURN is not configured; calls may fail behind restrictive NAT/firewalls.');
+  }
+  return result.iceServers;
+}
 
 function currentUid(): string {
   const uid = auth.currentUser?.uid || '';
@@ -118,7 +125,7 @@ export async function createNativeWebRtcCall(params: {
 }) {
   const callerUid = currentUid();
   const handlers = params.handlers || {};
-  const peer = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  const peer = new RTCPeerConnection({ iceServers: await loadIceServers() });
   const localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   for (const track of localStream.getTracks()) peer.addTrack(track, localStream);
 
