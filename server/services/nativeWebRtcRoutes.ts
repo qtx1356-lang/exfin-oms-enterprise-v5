@@ -1,4 +1,5 @@
 import type express from "express";
+import { createHmac } from "crypto";
 import { getMessaging } from "firebase-admin/messaging";
 import type { Auth } from "firebase-admin/auth";
 import type { Firestore, DocumentReference, QuerySnapshot } from "firebase-admin/firestore";
@@ -69,6 +70,29 @@ async function sendNativeCallPush(db: Firestore, recipientUid: string, employeeC
 }
 
 export function mountNativeWebRtcRoutes(app: express.Express, db: Firestore | null, authAdmin: Auth | null) {
+  // Return only short-lived, caller-scoped ICE credentials. Coturn must be configured
+  // with the matching WEBRTC_TURN_SHARED_SECRET and the listed TURN URLs.
+  app.get("/api/native-webrtc/ice-servers", async (req, res) => {
+    if (!authAdmin) return res.status(503).json({ success: false, error: "Video service is not ready." });
+    const caller = await verifyFirebaseCaller(req, authAdmin);
+    if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
+
+    const stunUrls = String(process.env.WEBRTC_STUN_URLS || "stun:stun.l.google.com:19302")
+      .split(",").map((value) => value.trim()).filter(Boolean);
+    const iceServers: Array<Record<string, unknown>> = stunUrls.length ? [{ urls: stunUrls }] : [];
+    const turnUrls = String(process.env.WEBRTC_TURN_URLS || "")
+      .split(",").map((value) => value.trim()).filter(Boolean);
+    const sharedSecret = String(process.env.WEBRTC_TURN_SHARED_SECRET || "");
+    if (turnUrls.length && sharedSecret) {
+      const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60;
+      const username = expiresAt + ":" + caller.uid;
+      const credential = createHmac("sha1", sharedSecret).update(username).digest("base64");
+      iceServers.push({ urls: turnUrls, username, credential });
+    }
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ success: true, iceServers, turnConfigured: turnUrls.length > 0 && Boolean(sharedSecret) });
+  });
+
   app.post("/api/native-webrtc/calls/:callId/ring", async (req, res) => {
     if (!db || !authAdmin) return res.status(503).json({ success: false, error: "Video service is not ready." });
     const caller = await verifyFirebaseCaller(req, authAdmin);
