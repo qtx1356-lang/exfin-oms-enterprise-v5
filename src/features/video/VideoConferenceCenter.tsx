@@ -153,6 +153,41 @@ export const VideoConferenceCenter: React.FC = () => {
     if (current) await current.close().catch(() => {});
   };
 
+  // Handle native notification Answer/Decline actions after Android has opened the app.
+  useEffect(() => {
+    const seen = new Set<string>();
+    const onNativeAction = async (event: Event) => {
+      const detail = (event as CustomEvent<{ callId?: string; action?: string; eventId?: string }>).detail;
+      const callId = String(detail?.callId || '').trim();
+      const action = String(detail?.action || '').toLowerCase();
+      const eventId = String(detail?.eventId || callId + ':' + action);
+      if (!callId || !['open', 'answer', 'decline'].includes(action) || seen.has(eventId)) return;
+      seen.add(eventId);
+      if (action === 'open') { setOpen(true); return; }
+      if (action === 'decline') {
+        try { await declineNativeWebRtcCall(callId); }
+        catch (err: any) { setError(err?.message || 'Could not decline the incoming call.'); }
+        setIncoming((previous) => previous.filter((item) => item.callId !== callId));
+        return;
+      }
+      setBusy(true); setError('');
+      try {
+        const accepted = await acceptNativeWebRtcCall(callId, {
+          onRemoteStream: setRemoteStream,
+          onError: (err) => setError(err.message || 'WebRTC connection error.'),
+        });
+        setActive({ ...accepted, title: accepted.title, peerName: accepted.callerName });
+        setLocalStream(accepted.localStream);
+        setIncoming((previous) => previous.filter((item) => item.callId !== callId));
+      } catch (err: any) {
+        setError(err?.message || 'Could not answer the call. Check camera and microphone permissions.');
+        setOpen(true);
+      } finally { setBusy(false); }
+    };
+    window.addEventListener('exfin:native-video-call-action', onNativeAction);
+    return () => window.removeEventListener('exfin:native-video-call-action', onNativeAction);
+  }, []);
+
   return (
     <>
       <button type="button" onClick={() => { setOpen(true); setError(''); }} aria-label="Open EXFIN video calls"
