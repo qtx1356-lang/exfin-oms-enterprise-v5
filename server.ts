@@ -413,9 +413,6 @@ async function startServer() {
 
   app.use(express.json());
 
-  // Native WebRTC call ring endpoint sends direct high-priority FCM to the employee device.
-  mountNativeWebRtcRoutes(app, db, authAdmin);
-
   // CORS Middleware for Cloudflare Pages and cross-origin frontend apps
   app.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -436,6 +433,9 @@ async function startServer() {
 
     next();
   });
+
+  // Register native WebRTC routes after CORS middleware so Cloudflare Pages can call them.
+  mountNativeWebRtcRoutes(app, db, authAdmin);
 
   // Health check endpoint
   app.get("/api/health", (req, res) => {
