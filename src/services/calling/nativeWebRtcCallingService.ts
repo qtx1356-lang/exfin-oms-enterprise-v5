@@ -159,7 +159,7 @@ export async function createNativeWebRtcCall(params: {
     const data = snapshot.data() as any;
     if (!data) return;
     if (data.status === 'declined' || data.status === 'ended' || data.status === 'expired') return;
-    if (!data.answer || peer.currentRemoteDescription) return;
+    if (!data.answer || peer.remoteDescription) return;
     try {
       await peer.setRemoteDescription(new RTCSessionDescription(data.answer));
       await remoteCandidates.markRemoteDescriptionReady();
