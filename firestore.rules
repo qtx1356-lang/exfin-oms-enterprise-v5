@@ -25,7 +25,7 @@ service cloud.firestore {
 
     match /metadata/counters {
       allow read: if true;
-      allow write: if true; // Needs to be true for transaction to work during registration
+      allow write: if true;
     }
 
     match /departments/{departmentId} {
@@ -42,7 +42,7 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isSuperAdmin();
     }
-
+    
     match /login_ids/{loginId} {
       allow get: if true;
       allow list, write: if isSuperAdmin();
@@ -122,8 +122,7 @@ service cloud.firestore {
     }
 
     match /employee_allowances/{allowanceId} {
-      allow read: if true;
-      allow write: if isSuperAdmin() || isHR();
+      allow read, write: if isSuperAdmin() || isHR();
     }
 
     match /leaves/{leaveId} {
@@ -155,7 +154,6 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // Helper to get chat identity (employeeCode or admin loginId)
     function getChatIdentity() {
       return exists(/databases/$(database)/documents/registrations/$(request.auth.uid))
         ? get(/databases/$(database)/documents/registrations/$(request.auth.uid)).data.employeeCode
@@ -189,7 +187,7 @@ service cloud.firestore {
            getChatIdentity() in get(/databases/$(database)/documents/chat_conversations/$(conversationId)).data.participantIds) &&
           request.resource.data.senderId == getChatIdentity()
         );
-        allow update, delete: if false; // Messages are immutable
+        allow update, delete: if false;
       }
     }
 
@@ -213,8 +211,8 @@ service cloud.firestore {
       }
     }
 
-    // Video calls are created and mutated only by the authenticated server (Firebase Admin SDK).
-    // Clients can read only invitations addressed to them or sent by them, and calls they participate in.
+    // Legacy LiveKit collections remain server-managed while the replacement WebRTC
+    // signaling channel is introduced separately.
     match /video_call_invites/{inviteId} {
       allow read: if request.auth != null &&
         (resource.data.recipientUid == request.auth.uid || resource.data.senderUid == request.auth.uid);
@@ -226,7 +224,45 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
-    // Device tokens are private server-side delivery addresses; never expose them to clients.
+    // Native WebRTC signaling. Only an authorized admin can create a call. Only
+    // the two participants can read it. Caller/employee updates are constrained
+    // to signaling state fields; identity and participant membership cannot change.
+    match /native_webrtc_calls/{callId} {
+      allow create: if request.auth != null
+        && isAdmin()
+        && request.resource.data.callerUid == request.auth.uid
+        && request.resource.data.recipientUid is string
+        && request.resource.data.recipientUid != request.auth.uid
+        && request.resource.data.status == 'ringing'
+        && request.resource.data.callId == callId;
+
+      allow get: if request.auth != null
+        && (resource.data.callerUid == request.auth.uid || resource.data.recipientUid == request.auth.uid);
+
+      allow list: if false;
+
+      allow update: if request.auth != null
+        && (resource.data.callerUid == request.auth.uid || resource.data.recipientUid == request.auth.uid)
+        && request.resource.data.callerUid == resource.data.callerUid
+        && request.resource.data.recipientUid == resource.data.recipientUid
+        && request.resource.data.callId == resource.data.callId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'answer', 'status', 'acceptedAt', 'declinedAt', 'endedAt', 'expiresAt'
+        ]);
+
+      allow delete: if false;
+
+      match /callerCandidates/{candidateId} {
+        allow read, create: if request.auth != null
+          && get(/databases/$(database)/documents/native_webrtc_calls/$(callId)).data.callerUid == request.auth.uid;
+      }
+
+      match /calleeCandidates/{candidateId} {
+        allow read, create: if request.auth != null
+          && get(/databases/$(database)/documents/native_webrtc_calls/$(callId)).data.recipientUid == request.auth.uid;
+      }
+    }
+
     match /push_device_tokens/{tokenId} {
       allow read, create, update, delete: if false;
     }
@@ -234,7 +270,5 @@ service cloud.firestore {
     match /push_web_subscriptions/{subscriptionId} {
       allow read, create, update, delete: if false;
     }
-
-
   }
 }
