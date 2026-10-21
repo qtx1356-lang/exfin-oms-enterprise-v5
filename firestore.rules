@@ -240,6 +240,7 @@ service cloud.firestore {
     match /native_webrtc_calls/{callId} {
       allow create: if request.auth != null
         && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role in ['SUPER_ADMIN', 'ADMIN', 'HR', 'TEAM_LEADER']
         && request.resource.data.callerUid == request.auth.uid
         && request.resource.data.recipientUid is string
         && request.resource.data.recipientUid != request.auth.uid
