@@ -127,7 +127,13 @@ export const VideoConferenceCenter: React.FC = () => {
   useEffect(() => {
     const seen = new Set<string>();
     const onNativeAction = async (event: Event) => { const detail = (event as CustomEvent<NativeAction>).detail || {}; const id = String(detail.callId || '').trim(); const action = String(detail.action || '').toLowerCase(); const eventId = String(detail.eventId || `${id}:${action}`); if (!id || !['open', 'answer', 'decline'].includes(action) || seen.has(eventId)) return; seen.add(eventId);
-      if (action === 'decline') { setIncoming((previous) => previous.filter((item) => item.conferenceId !== id)); return; } if (action === 'open') { setOpen(true); return; } setIncoming((previous) => previous.filter((item) => item.conferenceId !== id)); await enterConference(id); };
+      if (action === 'decline') { setIncoming((previous) => previous.filter((item) => item.conferenceId !== id)); return; }
+      // Tapping the notification body must join the specific conference, just like Join/Answer.
+      // Merely opening the conference picker loses the conferenceId carried by the notification.
+      if (action === 'open' || action === 'answer') {
+        setIncoming((previous) => previous.filter((item) => item.conferenceId !== id));
+        await enterConference(id);
+      } };
     window.addEventListener('exfin:native-video-call-action', onNativeAction); const pendingWindow = window as Window & { __exfinPendingVideoCallActions?: NativeAction[] }; const pending = Array.isArray(pendingWindow.__exfinPendingVideoCallActions) ? pendingWindow.__exfinPendingVideoCallActions.slice() : []; pendingWindow.__exfinPendingVideoCallActions = []; pending.forEach((detail) => window.dispatchEvent(new CustomEvent('exfin:native-video-call-action', { detail }))); return () => window.removeEventListener('exfin:native-video-call-action', onNativeAction);
   }, []);
 
