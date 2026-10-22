@@ -70,61 +70,62 @@ async function sendNativeCallPush(db: Firestore, recipientUid: string, employeeC
   return { tokenCount: tokens.length, sent: response.successCount, failed: response.failureCount, errors };
 }
 
+async function getCloudflareTurnIceServers() {
+  const keyId = String(process.env.CLOUDFLARE_TURN_KEY_ID || "").trim();
+  const apiToken = String(process.env.CLOUDFLARE_TURN_API_TOKEN || "").trim();
+  if (!keyId || !apiToken) return null;
+
+  const response = await fetch(
+    `https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(keyId)}/credentials/generate-ice-servers`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ttl: 3600 }),
+    },
+  );
+
+  const body = await response.json() as { iceServers?: Array<Record<string, unknown>>; error?: string };
+  if (!response.ok) {
+    throw new Error(`Cloudflare TURN credential request failed (${response.status}): ${body.error || "unknown error"}`);
+  }
+
+  const servers = Array.isArray(body.iceServers)
+    ? body.iceServers.filter((server) => server && server.urls)
+    : [];
+  if (!servers.length) throw new Error("Cloudflare TURN returned no usable ICE servers.");
+  return servers;
+}
+
 export function mountNativeWebRtcRoutes(app: express.Express, db: Firestore | null, authAdmin: Auth | null) {
-  // Return only short-lived, caller-scoped ICE credentials. Coturn must be configured
-  // with the matching WEBRTC_TURN_SHARED_SECRET and the listed TURN URLs.
+  // Return only short-lived, caller-scoped ICE credentials. Cloudflare Realtime TURN
+  // or self-hosted coturn may be configured; no TURN secret is exposed to clients.
   app.get("/api/native-webrtc/ice-servers", async (req, res) => {
     if (!authAdmin) return res.status(503).json({ success: false, error: "Video service is not ready." });
     const caller = await verifyFirebaseCaller(req, authAdmin);
     if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
 
-    const stunUrls = String(process.env.WEBRTC_STUN_URLS || "stun:stun.l.google.com:19302")
+    const stunUrls = String(process.env.WEBRTC_STUN_URLS || "stun:stun.cloudflare.com:3478")
       .split(",").map((value) => value.trim()).filter(Boolean);
     const iceServers: Array<Record<string, unknown>> = stunUrls.length ? [{ urls: stunUrls }] : [];
-    // Managed TURN provider path (Twilio Network Traversal Service). API credentials
-    // remain server-side; only short-lived ICE credentials are returned to the caller.
-    const accountSid = String(process.env.TWILIO_ACCOUNT_SID || "");
-    const apiKeySid = String(process.env.TWILIO_API_KEY_SID || "");
-    const apiKeySecret = String(process.env.TWILIO_API_KEY_SECRET || "");
-    if (accountSid && apiKeySid && apiKeySecret) {
+
+    const cloudflareKeyConfigured = Boolean(
+      String(process.env.CLOUDFLARE_TURN_KEY_ID || "").trim()
+      && String(process.env.CLOUDFLARE_TURN_API_TOKEN || "").trim(),
+    );
+    if (cloudflareKeyConfigured) {
       try {
-        const tokenResponse = await fetch(
-          `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Tokens.json`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: "Basic " + Buffer.from(apiKeySid + ":" + apiKeySecret).toString("base64"),
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({ Ttl: "3600" }),
-          },
-        );
-        const tokenBody = await tokenResponse.json() as {
-          ice_servers?: Array<Record<string, unknown>>;
-          iceServers?: Array<Record<string, unknown>>;
-          message?: string;
-        };
-        if (!tokenResponse.ok) {
-          console.error("[NativeWebRTC] TURN provider token request failed:", tokenResponse.status, tokenBody.message || "");
-          return res.status(502).json({ success: false, error: "Secure WebRTC relay credentials are temporarily unavailable." });
-        }
-        const providerServers = tokenBody.ice_servers || tokenBody.iceServers || [];
-        const usableServers = providerServers.filter((server) => server && server.urls);
-        if (!usableServers.length) {
-          return res.status(502).json({ success: false, error: "TURN provider returned no usable ICE servers." });
-        }
-        res.setHeader("Cache-Control", "no-store");
-        return res.json({ success: true, iceServers: usableServers, turnConfigured: usableServers.some((server) => {
-          const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
-          return urls.some((url) => typeof url === "string" && url.startsWith("turn"));
-        }) });
+        const providerServers = await getCloudflareTurnIceServers();
+        iceServers.push(...providerServers);
       } catch (error: any) {
-        console.error("[NativeWebRTC] TURN provider request failed:", error?.message || error);
+        console.error("[NativeWebRTC] Cloudflare TURN credential request failed:", error?.message || error);
         return res.status(502).json({ success: false, error: "Secure WebRTC relay credentials are temporarily unavailable." });
       }
     }
 
-    // Self-hosted coturn REST credentials are supported as an alternative.
+    // Self-hosted coturn REST credentials remain supported as a fallback/alternative.
     const turnUrls = String(process.env.WEBRTC_TURN_URLS || "")
       .split(",").map((value) => value.trim()).filter(Boolean);
     const sharedSecret = String(process.env.WEBRTC_TURN_SHARED_SECRET || "");
@@ -134,6 +135,7 @@ export function mountNativeWebRtcRoutes(app: express.Express, db: Firestore | nu
       const credential = createHmac("sha1", sharedSecret).update(username).digest("base64");
       iceServers.push({ urls: turnUrls, username, credential });
     }
+
     const turnConfigured = iceServers.some((server) => {
       const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
       return urls.some((url) => typeof url === "string" && url.startsWith("turn"));
