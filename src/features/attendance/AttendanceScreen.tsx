@@ -52,6 +52,7 @@ import {
   getNativeLocationReadiness,
   openNativeLocationSettings,
   openNativeAppLocationSettings,
+  repairNativeLocationMonitoring,
   NativeLocationReadiness
 } from '../../services/attendance/nativeGeofenceBridge';
 
@@ -1088,7 +1089,6 @@ export const AttendanceScreen: React.FC = () => {
             <button
               type="button"
               onClick={readinessIssue.action}
-              disabled={isRepairingMonitoring}
               className="w-full py-3.5 px-4 bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {readinessIssue.buttonText}

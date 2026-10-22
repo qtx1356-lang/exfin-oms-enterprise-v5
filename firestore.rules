@@ -236,5 +236,44 @@ service cloud.firestore {
     }
 
 
+    // Replacement direct-call signaling. A participant can read only calls involving their UID.
+    match /native_webrtc_calls/{callId} {
+      allow create: if request.auth != null
+        && exists(/databases/$(database)/documents/admin_users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admin_users/$(request.auth.uid)).data.role in ['SUPER_ADMIN', 'ADMIN', 'HR', 'TEAM_LEADER']
+        && request.resource.data.callerUid == request.auth.uid
+        && request.resource.data.recipientUid is string
+        && request.resource.data.recipientUid != request.auth.uid
+        && request.resource.data.status == 'ringing'
+        && request.resource.data.callId == callId;
+      allow get, list: if request.auth != null
+        && (resource.data.callerUid == request.auth.uid || resource.data.recipientUid == request.auth.uid);
+      allow update: if request.auth != null
+        && (resource.data.callerUid == request.auth.uid || resource.data.recipientUid == request.auth.uid)
+        && request.resource.data.callerUid == resource.data.callerUid
+        && request.resource.data.recipientUid == resource.data.recipientUid
+        && request.resource.data.callId == resource.data.callId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer', 'status', 'acceptedAt', 'declinedAt', 'endedAt', 'expiresAt']);
+      allow delete: if false;
+
+      match /callerCandidates/{candidateId} {
+        allow read: if request.auth != null
+          && (get(/databases/$(database)/documents/native_webrtc_calls/$(callId)).data.callerUid == request.auth.uid
+            || get(/databases/$(database)/documents/native_webrtc_calls/$(callId)).data.recipientUid == request.auth.uid);
+        allow create: if request.auth != null
+          && get(/databases/$(database)/documents/native_webrtc_calls/$(callId)).data.callerUid == request.auth.uid;
+        allow update, delete: if false;
+      }
+      match /calleeCandidates/{candidateId} {
+        allow read: if request.auth != null
+          && (get(/databases/$(database)/documents/native_webrtc_calls/$(callId)).data.callerUid == request.auth.uid
+            || get(/databases/$(database)/documents/native_webrtc_calls/$(callId)).data.recipientUid == request.auth.uid);
+        allow create: if request.auth != null
+          && get(/databases/$(database)/documents/native_webrtc_calls/$(callId)).data.recipientUid == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+
   }
 }

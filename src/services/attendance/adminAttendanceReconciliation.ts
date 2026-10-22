@@ -98,7 +98,7 @@ const applyAuthoritativeServerRecord = (
     merged.checkoutResolvedBy =
       serverData.checkoutResolvedBy || recovered?.checkoutResolvedBy || merged.checkoutResolvedBy || 'admin';
     merged.checkoutResolvedAt =
-      serverData.checkoutResolvedAt || recovered?.checkoutResolvedAt || merged.checkoutResolvedAt || serverData.updatedAt;
+      serverData.checkoutResolvedAt || (recovered as any)?.checkoutResolvedAt || merged.checkoutResolvedAt || serverData.updatedAt;
   }
 
   saveAttendanceRecord(merged);

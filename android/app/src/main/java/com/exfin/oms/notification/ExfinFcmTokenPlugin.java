@@ -7,10 +7,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.google.firebase.messaging.FirebaseMessaging;
 
-/**
- * Direct access to Firebase's native FCM token. The JavaScript PushNotifications
- * registration event remains the primary path; this bridge is a startup fallback.
- */
+/** Native Firebase token bridge; delivery is targeted directly to the registered device token. */
 @CapacitorPlugin(name = "ExfinFcmToken")
 public class ExfinFcmTokenPlugin extends Plugin {
     @PluginMethod

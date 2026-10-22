@@ -20,6 +20,7 @@ import {
   DEFAULT_META_TEMPLATES,
   ALLOWED_ATTENDANCE_EVENT_TYPES
 } from "./server/services/whatsappService";
+import { mountNativeWebRtcRoutes } from "./server/services/nativeWebRtcRoutes";
 import {
   getDailyReportConfig,
   saveDailyReportConfig,
@@ -432,6 +433,9 @@ async function startServer() {
 
     next();
   });
+
+  // Register native WebRTC routes after CORS middleware so Cloudflare Pages can call them.
+  mountNativeWebRtcRoutes(app, db, authAdmin);
 
   // Health check endpoint
   app.get("/api/health", (req, res) => {
