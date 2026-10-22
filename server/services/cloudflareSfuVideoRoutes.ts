@@ -60,7 +60,7 @@ export function mountCloudflareSfuVideoRoutes(app: express.Express, db: Firestor
     if (!(await isApprovedAdmin(db, caller.uid))) return res.status(403).json({ success: false, error: "Only an active admin can start a conference." });
     if (!configured()) return res.status(503).json({ success: false, error: "Cloudflare Realtime SFU is not configured on the server." });
     const rawParticipants = Array.isArray(req.body?.participantUids) ? req.body.participantUids : [];
-    const participantUids = [...new Set(rawParticipants.map((value: unknown) => String(value || "").trim()).filter(Boolean))].filter((uid) => uid !== caller.uid).slice(0, MAX_PARTICIPANTS - 1);
+    const participantUids: string[] = [...new Set<string>(rawParticipants.map((value: unknown) => String(value || "").trim()).filter((value): value is string => Boolean(value)))].filter((uid) => uid !== caller.uid).slice(0, MAX_PARTICIPANTS - 1);
     if (!participantUids.length) return res.status(400).json({ success: false, error: "Select at least one employee." });
     const conferenceId = randomUUID(); const title = String(req.body?.title || "EXFIN OMS video conference").trim().slice(0, 120) || "EXFIN OMS video conference"; const now = new Date(); const expiresAt = new Date(now.getTime() + CONFERENCE_TTL_MS); const adminName = String(req.body?.adminName || caller.name || caller.email || "EXFIN OMS Admin").slice(0, 80);
     const participants = [{ uid: caller.uid, name: adminName, role: "ADMIN", status: "HOST" }, ...participantUids.map((uid) => ({ uid, name: "Employee", role: "EMPLOYEE", status: "INVITED" }))];
