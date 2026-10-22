@@ -32,9 +32,10 @@ async function api(path: string, init: RequestInit = {}): Promise<ApiResult> {
 function waitForIceGathering(pc: RTCPeerConnection, timeoutMs = 5000): Promise<void> {
   if (pc.iceGatheringState === 'complete') return Promise.resolve();
   return new Promise((resolve) => {
-    const timeout = window.setTimeout(cleanup, timeoutMs);
+    let timeout: number;
     const onState = () => { if (pc.iceGatheringState === 'complete') cleanup(); };
     const cleanup = () => { window.clearTimeout(timeout); pc.removeEventListener('icegatheringstatechange', onState); resolve(); };
+    timeout = window.setTimeout(cleanup, timeoutMs);
     pc.addEventListener('icegatheringstatechange', onState);
   });
 }
