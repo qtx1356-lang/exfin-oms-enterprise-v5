@@ -3,6 +3,7 @@ import { createHmac } from "crypto";
 import { getMessaging } from "firebase-admin/messaging";
 import type { Auth } from "firebase-admin/auth";
 import type { Firestore, DocumentReference, QuerySnapshot } from "firebase-admin/firestore";
+import { mountCloudflareSfuVideoRoutes } from "./cloudflareSfuVideoRoutes";
 
 const CALL_COLLECTION = "native_webrtc_calls";
 const TOKEN_COLLECTION = "push_device_tokens";
@@ -79,29 +80,19 @@ async function getCloudflareTurnIceServers() {
     `https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(keyId)}/credentials/generate-ice-servers`,
     {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiToken}`,
-        "Content-Type": "application/json",
-      },
+      headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ ttl: 3600 }),
     },
   );
 
   const body = await response.json() as { iceServers?: Array<Record<string, unknown>>; error?: string };
-  if (!response.ok) {
-    throw new Error(`Cloudflare TURN credential request failed (${response.status}): ${body.error || "unknown error"}`);
-  }
-
-  const servers = Array.isArray(body.iceServers)
-    ? body.iceServers.filter((server) => server && server.urls)
-    : [];
+  if (!response.ok) throw new Error(`Cloudflare TURN credential request failed (${response.status}): ${body.error || "unknown error"}`);
+  const servers = Array.isArray(body.iceServers) ? body.iceServers.filter((server) => server && server.urls) : [];
   if (!servers.length) throw new Error("Cloudflare TURN returned no usable ICE servers.");
   return servers;
 }
 
 export function mountNativeWebRtcRoutes(app: express.Express, db: Firestore | null, authAdmin: Auth | null) {
-  // Return only short-lived, caller-scoped ICE credentials. Cloudflare Realtime TURN
-  // or self-hosted coturn may be configured; no TURN secret is exposed to clients.
   app.get("/api/native-webrtc/ice-servers", async (req, res) => {
     if (!authAdmin) return res.status(503).json({ success: false, error: "Video service is not ready." });
     const caller = await verifyFirebaseCaller(req, authAdmin);
@@ -110,24 +101,16 @@ export function mountNativeWebRtcRoutes(app: express.Express, db: Firestore | nu
     const stunUrls = String(process.env.WEBRTC_STUN_URLS || "stun:stun.cloudflare.com:3478")
       .split(",").map((value) => value.trim()).filter(Boolean);
     const iceServers: Array<Record<string, unknown>> = stunUrls.length ? [{ urls: stunUrls }] : [];
-
-    const cloudflareKeyConfigured = Boolean(
-      String(process.env.CLOUDFLARE_TURN_KEY_ID || "").trim()
-      && String(process.env.CLOUDFLARE_TURN_API_TOKEN || "").trim(),
-    );
+    const cloudflareKeyConfigured = Boolean(String(process.env.CLOUDFLARE_TURN_KEY_ID || "").trim() && String(process.env.CLOUDFLARE_TURN_API_TOKEN || "").trim());
     if (cloudflareKeyConfigured) {
-      try {
-        const providerServers = await getCloudflareTurnIceServers();
-        iceServers.push(...providerServers);
-      } catch (error: any) {
+      try { iceServers.push(...(await getCloudflareTurnIceServers() || [])); }
+      catch (error: any) {
         console.error("[NativeWebRTC] Cloudflare TURN credential request failed:", error?.message || error);
         return res.status(502).json({ success: false, error: "Secure WebRTC relay credentials are temporarily unavailable." });
       }
     }
 
-    // Self-hosted coturn REST credentials remain supported as a fallback/alternative.
-    const turnUrls = String(process.env.WEBRTC_TURN_URLS || "")
-      .split(",").map((value) => value.trim()).filter(Boolean);
+    const turnUrls = String(process.env.WEBRTC_TURN_URLS || "").split(",").map((value) => value.trim()).filter(Boolean);
     const sharedSecret = String(process.env.WEBRTC_TURN_SHARED_SECRET || "");
     if (turnUrls.length && sharedSecret) {
       const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60;
@@ -135,7 +118,6 @@ export function mountNativeWebRtcRoutes(app: express.Express, db: Firestore | nu
       const credential = createHmac("sha1", sharedSecret).update(username).digest("base64");
       iceServers.push({ urls: turnUrls, username, credential });
     }
-
     const turnConfigured = iceServers.some((server) => {
       const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
       return urls.some((url) => typeof url === "string" && url.startsWith("turn"));
@@ -149,10 +131,8 @@ export function mountNativeWebRtcRoutes(app: express.Express, db: Firestore | nu
     const caller = await verifyFirebaseCaller(req, authAdmin);
     if (!caller) return res.status(401).json({ success: false, error: "Authentication required." });
     if (!(await isApprovedAdmin(db, caller.uid))) return res.status(403).json({ success: false, error: "Only an active admin can start an employee video call." });
-
     const callId = String(req.params.callId || "").trim();
     if (!callId) return res.status(400).json({ success: false, error: "Call ID is required." });
-
     try {
       const callRef = db.collection(CALL_COLLECTION).doc(callId);
       const snapshot = await callRef.get();
@@ -167,7 +147,6 @@ export function mountNativeWebRtcRoutes(app: express.Express, db: Firestore | nu
         await callRef.update({ status: "expired", expiredAt: new Date().toISOString() }).catch(() => {});
         return res.status(410).json({ success: false, error: "This call has expired." });
       }
-
       const employeeCode = String(call.recipientEmployeeCode || "").trim().toUpperCase();
       const push = await sendNativeCallPush(db, recipientUid, employeeCode, {
         type: "video_call", callId, callerUid: caller.uid,
@@ -175,7 +154,6 @@ export function mountNativeWebRtcRoutes(app: express.Express, db: Firestore | nu
         title: String(call.title || "EXFIN OMS video call").slice(0, 100),
         recipientUid, employeeCode, route: "/video-calls",
       });
-
       await callRef.update({ pushSentAt: new Date().toISOString(), pushDelivery: push });
       return res.json({ success: push.sent > 0, callId, push });
     } catch (error: any) {
@@ -183,4 +161,8 @@ export function mountNativeWebRtcRoutes(app: express.Express, db: Firestore | nu
       return res.status(502).json({ success: false, error: "Could not deliver the employee call alert." });
     }
   });
+
+  // The legacy 1:1 signaling endpoints remain available for existing records, while
+  // the new group-conference API uses Cloudflare Realtime SFU for scalable fan-out.
+  mountCloudflareSfuVideoRoutes(app, db, authAdmin);
 }
