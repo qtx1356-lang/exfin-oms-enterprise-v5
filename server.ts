@@ -21,6 +21,7 @@ import {
   ALLOWED_ATTENDANCE_EVENT_TYPES
 } from "./server/services/whatsappService";
 import { mountNativeWebRtcRoutes } from "./server/services/nativeWebRtcRoutes";
+import { mountCloudflareSfuVideoRoutes } from "./server/services/cloudflareSfuVideoRoutes";
 import {
   getDailyReportConfig,
   saveDailyReportConfig,
@@ -434,8 +435,9 @@ async function startServer() {
     next();
   });
 
-  // Register native WebRTC routes after CORS middleware so Cloudflare Pages can call them.
+  // Register authenticated native WebRTC and Cloudflare Realtime SFU routes after CORS middleware.
   mountNativeWebRtcRoutes(app, db, authAdmin);
+  mountCloudflareSfuVideoRoutes(app, db, authAdmin);
 
   // Health check endpoint
   app.get("/api/health", (req, res) => {
