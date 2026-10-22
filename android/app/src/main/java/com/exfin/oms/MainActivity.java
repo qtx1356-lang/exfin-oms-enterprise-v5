@@ -112,14 +112,8 @@ public class MainActivity extends BridgeActivity {
                 "if(!window.__exfinPendingVideoCallActions.some(function(x){return x.eventId===d.eventId;}))" +
                 "window.__exfinPendingVideoCallActions.push(d);" +
                 "window.dispatchEvent(new CustomEvent('exfin:native-video-call-action',{detail:d}));})();";
-        final String route = intent.getStringExtra("exfin_video_call_route");
-        if ("open".equalsIgnoreCase(action) && route != null && !route.isEmpty()) {
-            getWindow().getDecorView().post(() -> {
-                if (getBridge() != null && getBridge().getWebView() != null) {
-                    getBridge().getWebView().evaluateJavascript("window.location.hash=" + org.json.JSONObject.quote(route) + ";", null);
-                }
-            });
-        }
+        // The React video-call bridge consumes this event and joins the supplied conferenceId.
+        // Do not set window.location.hash: this app uses BrowserRouter, not HashRouter.
         final android.os.Handler handler = new android.os.Handler(getMainLooper());
         handler.postDelayed(new Runnable() {
             int attempts = 0;
