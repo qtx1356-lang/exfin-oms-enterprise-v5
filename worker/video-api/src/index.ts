@@ -167,7 +167,16 @@ async function setDoc(env: Env, collection: string, id: string, data: Json) {
 }
 
 async function updateDoc(env: Env, collection: string, id: string, data: Json) {
-  return setDoc(env, collection, id, data);
+  // Firestore PATCH without updateMask replaces the document's fields. Updates
+  // must mask only the supplied top-level fields so pushSummary/status changes
+  // cannot erase participantUids and other conference data.
+  const mask = Object.keys(data)
+    .map((field) => `updateMask.fieldPaths=${encodeURIComponent(field)}`)
+    .join("&");
+  return firestoreRequest(env, `${docName(env, collection, id)}?${mask}`, {
+    method: "PATCH",
+    body: JSON.stringify({ fields: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, firestoreValue(v)])) }),
+  });
 }
 
 async function deleteDoc(env: Env, collection: string, id: string) {
