@@ -67,9 +67,9 @@ public class ExfinCallMessagingService extends MessagingService {
 
         int requestBase = callId.hashCode() & 0x00ffffff;
         int notificationId = 700000 + (requestBase % 100000);
-        PendingIntent openIntent = activityIntent(context, callId, "open", requestBase + 1);
-        PendingIntent answerIntent = activityIntent(context, callId, "answer", requestBase + 2);
-        PendingIntent declineIntent = activityIntent(context, callId, "decline", requestBase + 3);
+        PendingIntent openIntent = activityIntent(context, callId, "open", callerName, title, requestBase + 1);
+        PendingIntent answerIntent = activityIntent(context, callId, "answer", callerName, title, requestBase + 2);
+        PendingIntent declineIntent = activityIntent(context, callId, "decline", callerName, title, requestBase + 3);
 
         Person caller = new Person.Builder().setName(callerName).setImportant(true)
                 .setIcon(androidx.core.graphics.drawable.IconCompat.createWithResource(context, R.mipmap.ic_launcher)).build();
@@ -96,13 +96,18 @@ public class ExfinCallMessagingService extends MessagingService {
         manager.notify(notificationId, builder.build());
     }
 
-    private PendingIntent activityIntent(Context context, String callId, String action, int requestCode) {
-        Intent intent = new Intent(context, MainActivity.class);
+    private PendingIntent activityIntent(Context context, String callId, String action, String callerName, String title, int requestCode) {
+        // A body tap/full-screen launch must show the native incoming-call screen,
+        // not the app home screen. Answer/Decline notification actions remain explicit.
+        Class<?> target = "open".equals(action) ? IncomingCallActivity.class : MainActivity.class;
+        Intent intent = new Intent(context, target);
         intent.setAction("com.exfin.oms.VIDEO_CALL_" + action.toUpperCase());
         intent.putExtra("exfin_video_call_id", callId);
         intent.putExtra("exfin_video_call_action", action);
         intent.putExtra("exfin_video_call_event_id", callId + ":" + action);
         intent.putExtra("exfin_video_call_route", "/video-calls");
+        intent.putExtra("exfin_video_caller_name", callerName);
+        intent.putExtra("exfin_video_call_title", title);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         return PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
