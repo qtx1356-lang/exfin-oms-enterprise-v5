@@ -216,7 +216,7 @@ async function sendConferencePush(env: Env, uid: string, payload: Json) {
   const accessToken = await googleAccessToken(env, FCM_SCOPE);
   let sent = 0, failed = 0;
   for (const token of tokens) {
-    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { token, data: Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, String(v)])), android: { priority: "HIGH", ttl: "60s", notification: { title: "Incoming EXFIN OMS video call", body: `${payload.callerName || "EXFIN OMS Admin"} is calling you` } } } }) });
+    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { token, data: Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, String(v)])), android: { priority: "HIGH", ttl: "60s" } } }) });
     if (response.ok) sent++; else failed++;
   }
   return { sent, failed };
