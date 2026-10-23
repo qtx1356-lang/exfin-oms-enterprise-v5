@@ -131,6 +131,7 @@ export const VideoConferenceCenter: React.FC = () => {
   }, [conferenceId]);
 
   const [pendingNativeAction, setPendingNativeAction] = useState<NativeAction | null>(null);
+  const [authStateVersion, setAuthStateVersion] = useState(0);
   const seenNativeActionsRef = useRef(new Set<string>());
   const processingNativeActionRef = useRef(false);
   const enterConferenceRef = useRef(enterConference);
@@ -164,6 +165,15 @@ export const VideoConferenceCenter: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Firebase may restore its persisted session after the notification event has
+    // already been queued. Subscribe explicitly so a pending join is retried when
+    // Firebase reports the authenticated user, even if React's user context did
+    // not change at the same moment.
+    const unsubscribe = auth.onAuthStateChanged(() => setAuthStateVersion((value) => value + 1));
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
     const detail = pendingNativeAction;
     const id = String(detail?.callId || '').trim();
     const action = String(detail?.action || '').toLowerCase();
@@ -194,7 +204,7 @@ export const VideoConferenceCenter: React.FC = () => {
       }
     })();
     return () => { cancelled = true; };
-  }, [pendingNativeAction, user?.uid]);
+  }, [pendingNativeAction, user?.uid, authStateVersion]);
 
   const incomingInvite = incoming[0]; const remoteEntries = Object.entries(remoteStreams);
   return <>
