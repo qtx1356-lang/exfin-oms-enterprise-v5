@@ -112,14 +112,16 @@ export const VideoConferenceCenter: React.FC = () => {
     try {
       const created = await createConference(selectedUids, title.trim() || 'EXFIN OMS video conference', displayName);
       const summary = created.pushSummary;
+      let deliveryWarning = '';
       if (summary && (summary.sent === 0 || summary.failed > 0)) {
         const details = Array.isArray(summary.recipients) ? summary.recipients.map((r: any) => {
           const reason = Array.isArray(r.errors) && r.errors.length ? r.errors.join('; ') : (r.tokenCount === 0 ? 'No registered Android FCM token found for this employee.' : 'Firebase accepted no message for this employee.');
           return `${r.uid}: ${reason}`;
         }).join(' | ') : 'The server reported an FCM delivery problem.';
-        setError(`Conference created, but the incoming-call alert may not have been delivered. ${details}`);
+        deliveryWarning = `Conference created, but the incoming-call alert may not have been delivered. ${details}`;
       }
-      await enterConference(created.conferenceId);
+      const joined = await enterConference(created.conferenceId);
+      if (joined && deliveryWarning) setError(deliveryWarning);
     } catch (err: any) {
       setError(err?.message || 'Could not start the conference.');
       setBusy(false);
