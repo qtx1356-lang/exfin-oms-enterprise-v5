@@ -37,16 +37,30 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
     @Override
     public void onMessageReceived(@NonNull RemoteMessage message) {
         Map<String, String> data = message.getData();
-        if (data == null || data.isEmpty()) return;
+        android.util.Log.i(TAG, "FCM_RECEIVED messageId=" + safe(message.getMessageId(), "none")
+                + " dataKeys=" + (data == null ? "null" : data.keySet().toString())
+                + " notificationPayload=" + (message.getNotification() != null));
+
+        if (data == null || data.isEmpty()) {
+            android.util.Log.w(TAG, "FCM message had no data payload; no native custom notification generated.");
+            return;
+        }
 
         String type = safe(data.get("type"), "");
-        if (!"video_call".equals(type) && !"video_conference".equals(type)) return;
+        if (!"video_call".equals(type) && !"video_conference".equals(type)) {
+            showGenericNotification(data, message.getNotification() == null ? null : message.getNotification().getTitle(),
+                    message.getNotification() == null ? null : message.getNotification().getBody());
+            return;
+        }
 
         String callId = safe(
                 "video_conference".equals(type) ? data.get("conferenceId") : data.get("callId"),
                 ""
         );
-        if (callId.isEmpty()) return;
+        if (callId.isEmpty()) {
+            android.util.Log.w(TAG, "FCM call alert ignored: missing callId/conferenceId.");
+            return;
+        }
 
         String callerName = safe(data.get("callerName"), "EXFIN OMS Admin");
         String title = safe(data.get("title"), "EXFIN OMS video conference");
@@ -79,6 +93,48 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
         // backend registration here; this callback only confirms that FCM has
         // refreshed the token for this Firebase app instance.
         android.util.Log.d(TAG, "FCM token refreshed");
+    }
+
+    private void showGenericNotification(Map<String, String> data, String notificationTitle, String notificationBody) {
+        Context context = getApplicationContext();
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager == null) {
+            android.util.Log.e(TAG, "FCM_RECEIVED but NotificationManager unavailable.");
+            return;
+        }
+
+        final String channelId = "exfin_oms_messages_v2";
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager.getNotificationChannel(channelId) == null) {
+            NotificationChannel channel = new NotificationChannel(
+                    channelId, "EXFIN OMS messages", NotificationManager.IMPORTANCE_HIGH);
+            channel.setDescription("General alerts and messages from EXFIN OMS");
+            manager.createNotificationChannel(channel);
+        }
+
+        String title = safe(data.get("title"), safe(notificationTitle, "EXFIN OMS notification"));
+        String body = safe(data.get("body"), safe(data.get("message"),
+                safe(data.get("text"), safe(notificationBody, "You have a new notification."))));
+        String route = safe(data.get("route"), "/notifications");
+        Intent intent = new Intent(context, MainActivity.class);
+        intent.setAction("com.exfin.oms.OPEN_NOTIFICATION");
+        intent.putExtra("exfin_notification_route", route);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pendingIntent = PendingIntent.getActivity(context,
+                (title + body).hashCode() & 0x00ffffff, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent);
+
+        int notificationId = 500000 + ((title + body).hashCode() & 0x000fffff);
+        manager.notify(notificationId, builder.build());
+        android.util.Log.i(TAG, "FCM_GENERIC_NOTIFICATION_POSTED id=" + notificationId + " channel=" + channelId);
     }
 
     private void showIncomingCall(String callId, String callerName, String title, boolean conference) {
