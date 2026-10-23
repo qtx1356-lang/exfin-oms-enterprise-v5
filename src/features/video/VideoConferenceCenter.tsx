@@ -108,7 +108,22 @@ export const VideoConferenceCenter: React.FC = () => {
 
   const startConference = async () => {
     if (!selectedUids.length) { setError('Select at least one employee.'); return; } if (selectedUids.length > 30) { setError('A conference can include up to 30 employees.'); return; }
-    setBusy(true); setError(''); try { const created = await createConference(selectedUids, title.trim() || 'EXFIN OMS video conference', displayName); await enterConference(created.conferenceId); } catch (err: any) { setError(err?.message || 'Could not start the conference.'); setBusy(false); }
+    setBusy(true); setError('');
+    try {
+      const created = await createConference(selectedUids, title.trim() || 'EXFIN OMS video conference', displayName);
+      const summary = created.pushSummary;
+      if (summary && (summary.sent === 0 || summary.failed > 0)) {
+        const details = Array.isArray(summary.recipients) ? summary.recipients.map((r: any) => {
+          const reason = Array.isArray(r.errors) && r.errors.length ? r.errors.join('; ') : (r.tokenCount === 0 ? 'No registered Android FCM token found for this employee.' : 'Firebase accepted no message for this employee.');
+          return `${r.uid}: ${reason}`;
+        }).join(' | ') : 'The server reported an FCM delivery problem.';
+        setError(`Conference created, but the incoming-call alert may not have been delivered. ${details}`);
+      }
+      await enterConference(created.conferenceId);
+    } catch (err: any) {
+      setError(err?.message || 'Could not start the conference.');
+      setBusy(false);
+    }
   };
 
   const leave = async () => {
