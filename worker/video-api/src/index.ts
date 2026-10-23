@@ -212,14 +212,27 @@ async function sfuRequest(env: Env, path: string, init: RequestInit = {}) {
 async function sendConferencePush(env: Env, uid: string, payload: Json) {
   const docs = await queryDocs(env, "push_device_tokens", [{ field: "uid", op: "EQUAL", value: uid }], 50);
   const tokens = [...new Set(docs.map((d) => String(d.data.token || d.data.fcmToken || d.data.deviceToken || "").trim()).filter(Boolean))];
-  if (!tokens.length) return { sent: 0, failed: 0 };
+  if (!tokens.length) {
+    console.warn("video_conference_push", JSON.stringify({ uid, result: "NO_REGISTERED_FCM_TOKEN", documentsFound: docs.length }));
+    return { uid, sent: 0, failed: 0, tokenCount: 0, errors: ["NO_REGISTERED_FCM_TOKEN"] };
+  }
   const accessToken = await googleAccessToken(env, FCM_SCOPE);
   let sent = 0, failed = 0;
+  const errors: string[] = [];
   for (const token of tokens) {
     const response = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { token, data: Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, String(v)])), android: { priority: "HIGH", ttl: "60s" } } }) });
-    if (response.ok) sent++; else failed++;
+    if (response.ok) {
+      sent++;
+    } else {
+      failed++;
+      const body = await response.json().catch(() => ({})) as any;
+      const status = String(body?.error?.status || `HTTP_${response.status}`).slice(0, 80);
+      const message = String(body?.error?.message || "FCM rejected message").slice(0, 240);
+      errors.push(`${status}: ${message}`);
+      console.error("video_conference_fcm_rejected", JSON.stringify({ uid, httpStatus: response.status, status, message }));
+    }
   }
-  return { sent, failed };
+  return { uid, sent, failed, tokenCount: tokens.length, errors };
 }
 
 async function auth(req: Request, env: Env) {
@@ -259,9 +272,23 @@ async function handler(req: Request, env: Env): Promise<Response> {
     const expiresAt = new Date(Date.now() + CONFERENCE_TTL_MS).toISOString();
     const participants = [{ uid: caller.uid, name: adminName, role: "ADMIN", status: "HOST" }, ...participantUids.map((uid) => ({ uid, name: "Employee", role: "EMPLOYEE", status: "INVITED" }))];
     await setDoc(env, "video_conferences", conferenceId, { conferenceId, title, callerUid: caller.uid, callerName: adminName, participantUids: [caller.uid, ...participantUids], participants, status: "active", createdAt: new Date().toISOString(), expiresAt });
-    const pushes = await Promise.all(participantUids.map((uid) => sendConferencePush(env, uid, { type: "video_conference", conferenceId, callerUid: caller.uid, callerName: adminName, title, route: "/video-calls", expiresAt }).catch(() => ({ sent: 0, failed: 1 }))));
-    await updateDoc(env, "video_conferences", conferenceId, { pushSummary: { invited: participantUids.length, sent: pushes.reduce((s, x) => s + x.sent, 0), failed: pushes.reduce((s, x) => s + x.failed, 0) } });
-    return json({ success: true, conferenceId, title, expiresAt, participantCount: participantUids.length + 1 }, 200, req, env);
+    const pushes = await Promise.all(participantUids.map(async (uid) => {
+      try {
+        return await sendConferencePush(env, uid, { type: "video_conference", conferenceId, callerUid: caller.uid, callerName: adminName, title, route: "/video-calls", expiresAt });
+      } catch (error) {
+        const message = String(error instanceof Error ? error.message : error || "Push send failed").slice(0, 240);
+        console.error("video_conference_push_exception", JSON.stringify({ uid, message }));
+        return { uid, sent: 0, failed: 1, tokenCount: 0, errors: [message] };
+      }
+    }));
+    const pushSummary = {
+      invited: participantUids.length,
+      sent: pushes.reduce((s, x) => s + x.sent, 0),
+      failed: pushes.reduce((s, x) => s + x.failed, 0),
+      recipients: pushes.map(({ uid, sent, failed, tokenCount, errors }) => ({ uid, sent, failed, tokenCount, errors }))
+    };
+    await updateDoc(env, "video_conferences", conferenceId, { pushSummary });
+    return json({ success: true, conferenceId, title, expiresAt, participantCount: participantUids.length + 1, pushSummary }, 200, req, env);
   }
 
   const snapshot = path.match(/^\/api\/video-conference\/([^/]+)\/snapshot$/);
