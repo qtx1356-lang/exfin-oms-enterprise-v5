@@ -93,11 +93,17 @@ export const VideoConferenceCenter: React.FC = () => {
     await publishConferenceMedia(id, pc, transceivers); await waitForConnection(pc);
   };
 
-  const enterConference = async (id: string) => {
-    setBusy(true); setError(''); try {
+  const enterConference = async (id: string): Promise<boolean> => {
+    setBusy(true); setError('');
+    try {
+      // A notification can cold-start the WebView before Firebase restores auth.
+      // Never attempt the conference API until the authenticated Firebase user exists.
+      if (!auth.currentUser || !user?.uid) throw new Error('Restoring your sign-in. Please tap Join again in a moment.');
       const joined = await joinConference(id, displayName); setConferenceId(id); setConferenceTitle(joined.title || 'EXFIN OMS video conference'); setOpen(false);
       const snapshot = await getConferenceSnapshot(id); setParticipants(snapshot.participants || []); await startMedia(id); await syncSubscriptions(id, snapshot);
-    } catch (err: any) { resetMedia(); setConferenceId(''); setError(err?.message || 'Could not join the video conference. Check camera and microphone permissions.'); setOpen(true); } finally { setBusy(false); }
+      return true;
+    } catch (err: any) { resetMedia(); setConferenceId(''); setError(err?.message || 'Could not join the video conference. Check camera and microphone permissions.'); setOpen(true); return false; }
+    finally { setBusy(false); }
   };
 
   const startConference = async () => {
@@ -124,18 +130,71 @@ export const VideoConferenceCenter: React.FC = () => {
     void sync(); const timer = window.setInterval(() => void sync(), 3500); return () => { stopped = true; window.clearInterval(timer); };
   }, [conferenceId]);
 
+  const [pendingNativeAction, setPendingNativeAction] = useState<NativeAction | null>(null);
+  const seenNativeActionsRef = useRef(new Set<string>());
+  const processingNativeActionRef = useRef(false);
+  const enterConferenceRef = useRef(enterConference);
+  enterConferenceRef.current = enterConference;
+
   useEffect(() => {
-    const seen = new Set<string>();
-    const onNativeAction = async (event: Event) => { const detail = (event as CustomEvent<NativeAction>).detail || {}; const id = String(detail.callId || '').trim(); const action = String(detail.action || '').toLowerCase(); const eventId = String(detail.eventId || `${id}:${action}`); if (!id || !['open', 'answer', 'decline'].includes(action) || seen.has(eventId)) return; seen.add(eventId);
-      if (action === 'decline') { setIncoming((previous) => previous.filter((item) => item.conferenceId !== id)); return; }
-      // Tapping the notification body must join the specific conference, just like Join/Answer.
-      // Merely opening the conference picker loses the conferenceId carried by the notification.
-      if (action === 'open' || action === 'answer') {
+    const onNativeAction = (event: Event) => {
+      const detail = (event as CustomEvent<NativeAction>).detail || {};
+      const id = String(detail.callId || '').trim();
+      const action = String(detail.action || '').toLowerCase();
+      const eventId = String(detail.eventId || `${id}:${action}`);
+      if (!id || !['open', 'answer', 'decline'].includes(action) || seenNativeActionsRef.current.has(eventId)) return;
+      if (action === 'decline') {
+        seenNativeActionsRef.current.add(eventId);
         setIncoming((previous) => previous.filter((item) => item.conferenceId !== id));
-        await enterConference(id);
-      } };
-    window.addEventListener('exfin:native-video-call-action', onNativeAction); const pendingWindow = window as Window & { __exfinPendingVideoCallActions?: NativeAction[] }; const pending = Array.isArray(pendingWindow.__exfinPendingVideoCallActions) ? pendingWindow.__exfinPendingVideoCallActions.slice() : []; pendingWindow.__exfinPendingVideoCallActions = []; pending.forEach((detail) => window.dispatchEvent(new CustomEvent('exfin:native-video-call-action', { detail }))); return () => window.removeEventListener('exfin:native-video-call-action', onNativeAction);
+        return;
+      }
+      // Retain the action until Firebase auth and the React video UI are ready.
+      // Do not mark it consumed here: a cold-start event can precede auth restoration.
+      setPendingNativeAction(detail);
+    };
+    window.addEventListener('exfin:native-video-call-action', onNativeAction);
+    const pendingWindow = window as Window & { __exfinPendingVideoCallActions?: NativeAction[] };
+    const pending = Array.isArray(pendingWindow.__exfinPendingVideoCallActions)
+      ? pendingWindow.__exfinPendingVideoCallActions.slice() : [];
+    pendingWindow.__exfinPendingVideoCallActions = [];
+    pending.forEach((detail) =>
+      window.dispatchEvent(new CustomEvent('exfin:native-video-call-action', { detail }))
+    );
+    return () => window.removeEventListener('exfin:native-video-call-action', onNativeAction);
   }, []);
+
+  useEffect(() => {
+    const detail = pendingNativeAction;
+    const id = String(detail?.callId || '').trim();
+    const action = String(detail?.action || '').toLowerCase();
+    const eventId = String(detail?.eventId || `${id}:${action}`);
+    if (!detail || !id || !['open', 'answer'].includes(action)
+      || !user?.uid || !auth.currentUser
+      || seenNativeActionsRef.current.has(eventId)
+      || processingNativeActionRef.current) return;
+
+    let cancelled = false;
+    processingNativeActionRef.current = true;
+    void (async () => {
+      try {
+        setIncoming((previous) => previous.filter((item) => item.conferenceId !== id));
+        const joined = await enterConferenceRef.current(id);
+        if (joined && !cancelled) {
+          seenNativeActionsRef.current.add(eventId);
+          setPendingNativeAction((current) => {
+            const currentId = String(current?.callId || '').trim();
+            const currentEventId = String(current?.eventId || `${currentId}:${String(current?.action || '').toLowerCase()}`);
+            return currentEventId === eventId ? null : current;
+          });
+        }
+        // On failure leave the action unconsumed. The error UI stays visible, and
+        // the employee can retry by tapping the invitation or notification again.
+      } finally {
+        processingNativeActionRef.current = false;
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [pendingNativeAction, user?.uid]);
 
   const incomingInvite = incoming[0]; const remoteEntries = Object.entries(remoteStreams);
   return <>
