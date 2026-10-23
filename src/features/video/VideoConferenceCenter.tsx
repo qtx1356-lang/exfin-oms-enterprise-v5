@@ -189,7 +189,7 @@ export const VideoConferenceCenter: React.FC = () => {
       try {
         setIncoming((previous) => previous.filter((item) => item.conferenceId !== id));
         const joined = await enterConferenceRef.current(id);
-        if (joined && !cancelled) {
+        if (joined) {
           seenNativeActionsRef.current.add(eventId);
           setPendingNativeAction((current) => {
             const currentId = String(current?.callId || '').trim();
