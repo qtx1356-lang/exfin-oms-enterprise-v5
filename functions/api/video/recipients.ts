@@ -2,7 +2,6 @@ import {
   ADMIN_ROLES,
   VideoEnv,
   decodeDoc,
-  isApprovedEmployee,
   json,
   listCollection,
   normalizeRole,
@@ -23,10 +22,9 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
     const recipients: Array<{ uid: string; name: string; employeeCode?: string; role: string; email?: string }> = [];
     if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) {
       const documents = await listCollection(env, 'registrations', 500);
-      // Device-token records are written by the authenticated device-token endpoint;
-      // their uid is taken from the verified Firebase ID token. Use that identity
-      // when available so the invitation UID and push recipient UID cannot diverge
-      // from the employee's currently registered Android identity.
+      // Device-token records are used only as an identity-recovery source.
+      // They must never hide an otherwise valid approved employee from the
+      // recipient list, especially when an employee has multiple stale tokens.
       const tokenDocuments = await listCollection(env, 'push_device_tokens', 1000);
       const tokenUidsByEmployeeCode = new Map<string, Set<string>>();
       const tokenUidsByEmail = new Map<string, Set<string>>();
@@ -51,21 +49,25 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
         const data = decodeDoc(document);
         // Older registration records may use employeeId/loginId for the employee
         // code and accountStatus/approvalStatus/employeeStatus for approval state.
-        // Keep the accepted states explicit; never treat arbitrary values as active.
         const employeeCode = String(data.employeeCode || data.employeeId || data.loginId || '').trim();
         const normalizedStatus = normalizeStatus(data.status || data.accountStatus || data.approvalStatus || data.employeeStatus || '');
         const approved = normalizedStatus === 'APPROVED' || normalizedStatus === 'ACTIVE' || normalizedStatus === 'APPROVED_ACTIVE';
         const inactive = data.isDeleted === true || data.active === false || ['SUSPENDED', 'DELETED', 'INACTIVE', 'DISABLED', 'BLOCKED', 'REJECTED', 'PENDING_APPROVAL'].includes(normalizedStatus);
         if (!approved || inactive) continue;
+
         const email = String(data.email || '').trim().toLowerCase();
+        const registrationUid = String(data.authUid || data.firebaseUid || data.uid || '').trim();
         const tokenMatches = (employeeCode ? tokenUidsByEmployeeCode.get(employeeCode.toUpperCase()) : undefined)
           || (email ? tokenUidsByEmail.get(email) : undefined);
-        // Only substitute a token-derived UID when the registration maps uniquely.
-        // Ambiguous matches are skipped rather than risking a call to the wrong person.
         const tokenUids = tokenMatches ? [...tokenMatches] : [];
-        const registrationUid = String(data.authUid || data.firebaseUid || data.uid || '').trim();
-        const uid = tokenUids.length === 1 ? tokenUids[0] : (!tokenUids.length ? registrationUid : '');
+
+        // The registration's Firebase identity is authoritative. A stale or
+        // duplicated push-token record must not make an approved employee vanish
+        // from the selector. Only fall back to a token-derived UID when the
+        // registration itself has no Firebase identity.
+        const uid = registrationUid || (tokenUids.length === 1 ? tokenUids[0] : '');
         if (!uid || uid === caller.uid) continue;
+
         recipients.push({
           uid,
           name: String(data.name || data.fullName || employeeCode || 'Employee').slice(0, 80),
