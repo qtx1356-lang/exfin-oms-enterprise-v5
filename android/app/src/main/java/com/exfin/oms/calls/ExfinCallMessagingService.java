@@ -190,7 +190,15 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             canUseFullScreen = manager.canUseFullScreenIntent();
         }
-        if (canUseFullScreen) builder.setFullScreenIntent(openIntent, true);
+        android.util.Log.i(TAG, "CALL_UI_PREPARED callId=" + callId
+                + " fullScreenAllowed=" + canUseFullScreen
+                + " sdk=" + Build.VERSION.SDK_INT
+                + " notificationsEnabled=" + androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled());
+        if (canUseFullScreen) {
+            builder.setFullScreenIntent(openIntent, true);
+        } else {
+            android.util.Log.w(TAG, "FULL_SCREEN_INTENT_BLOCKED callId=" + callId);
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             builder.setStyle(NotificationCompat.CallStyle.forIncomingCall(
@@ -198,7 +206,14 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
             ));
         }
 
-        manager.notify(notificationId, builder.build());
+        try {
+            manager.notify(notificationId, builder.build());
+            android.util.Log.i(TAG, "CALL_NOTIFICATION_POSTED id=" + notificationId
+                    + " callId=" + callId
+                    + " fullScreenIntentConfigured=" + canUseFullScreen);
+        } catch (Throwable error) {
+            android.util.Log.e(TAG, "CALL_NOTIFICATION_POST_FAILED callId=" + callId, error);
+        }
     }
 
     private PendingIntent activityIntent(
