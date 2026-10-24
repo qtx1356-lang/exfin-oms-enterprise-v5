@@ -31,12 +31,17 @@
 
         <activity
             android:name=".calls.IncomingCallActivity"
-            android:exported="false"
+            android:exported="true"
             android:excludeFromRecents="true"
             android:launchMode="singleTop"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
-            android:theme="@style/AppTheme.NoActionBar" />
+            android:theme="@style/AppTheme.NoActionBar">
+            <intent-filter>
+                <action android:name="com.exfin.oms.VIDEO_CALL_OPEN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
