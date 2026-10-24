@@ -37,13 +37,19 @@ public final class IncomingCallActivity extends Activity {
                 | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                 | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
-        callId = safe(getIntent().getStringExtra("exfin_video_call_id"), "");
-        callerName = safe(getIntent().getStringExtra("exfin_video_caller_name"), "EXFIN OMS Admin");
-        callTitle = safe(getIntent().getStringExtra("exfin_video_call_title"), "Incoming video conference");
+        Intent launchIntent = getIntent();
+        callId = safe(launchIntent.getStringExtra("exfin_video_call_id"),
+                safe(launchIntent.getStringExtra("conferenceId"), safe(launchIntent.getStringExtra("callId"), "")));
+        callerName = safe(launchIntent.getStringExtra("exfin_video_caller_name"),
+                safe(launchIntent.getStringExtra("callerName"), "EXFIN OMS Admin"));
+        callTitle = safe(launchIntent.getStringExtra("exfin_video_call_title"),
+                safe(launchIntent.getStringExtra("title"), "Incoming video conference"));
         if (callId.isEmpty()) { finish(); return; }
         render();
         startRinging();
     }
+
+    @Override protected void onNewIntent(Intent intent) { super.onNewIntent(intent); setIntent(intent); recreate(); }
 
     private void startRinging() {
         try {
