@@ -31,7 +31,7 @@ import java.util.Map;
  */
 public class ExfinCallMessagingService extends FirebaseMessagingService {
     private static final String TAG = "ExfinCallFCM";
-    private static final String CHANNEL_ID = "exfin_video_calls_v2";
+    private static final String CHANNEL_ID = "exfin_video_calls_v3";
     private static final long RING_TIMEOUT_MS = 60_000L;
 
     @Override
