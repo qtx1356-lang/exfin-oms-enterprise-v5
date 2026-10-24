@@ -25,7 +25,10 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
       const documents = await listCollection(env, 'registrations', 500);
       for (const document of documents) {
         const data = decodeDoc(document);
-        const uid = String(data.uid || data.authUid || data.firebaseUid || data.userId || '').trim();
+        // Conference authorization and FCM registration both use the Firebase Auth UID
+        // from the verified ID token. Prefer explicit auth UID fields over legacy
+        // registration/user IDs, which may be employee codes or stale application IDs.
+        const uid = String(data.authUid || data.firebaseUid || data.uid || '').trim();
         if (!uid || uid === caller.uid || !isApprovedEmployee(data)) continue;
         recipients.push({
           uid,
@@ -39,7 +42,7 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
       const documents = await listCollection(env, 'admin_users', 500);
       for (const document of documents) {
         const data = decodeDoc(document);
-        const uid = String(document.name || '').split('/').pop() || String(data.uid || data.authUid || '').trim();
+        const uid = String(data.authUid || data.firebaseUid || data.uid || document.name || '').split('/').pop()?.trim() || '';
         const role = normalizeRole(data.role || data.userRole || data.roleName);
         const status = normalizeStatus(data.status);
         const inactive = data.active === false || ['SUSPENDED', 'DELETED', 'INACTIVE', 'DISABLED', 'BLOCKED'].includes(status);
