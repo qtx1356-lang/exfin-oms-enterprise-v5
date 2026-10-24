@@ -22,6 +22,9 @@
 -keep class com.exfin.oms.geofence.OfficeGeofenceHelper { *; }
 -keep class com.exfin.oms.geofence.GeofenceBroadcastReceiver { *; }
 -keep class com.exfin.oms.geofence.BootReceiver { *; }
+-keep class com.exfin.oms.notification.ExfinFcmTokenPlugin { *; }
+-keep class com.exfin.oms.calls.ExfinCallMessagingService { *; }
+-keep class com.exfin.oms.calls.IncomingCallActivity { *; }
 -keep class com.exfin.oms.BuildConfig {
     public static final int VERSION_CODE;
     public static final java.lang.String VERSION_NAME;
@@ -45,4 +48,3 @@
 -dontwarn com.google.firebase.**
 -dontwarn com.getcapacitor.**
 -dontwarn androidx.**
-
