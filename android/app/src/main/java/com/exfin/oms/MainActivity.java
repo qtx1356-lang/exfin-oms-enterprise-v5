@@ -105,7 +105,7 @@ public class MainActivity extends BridgeActivity {
                 }
             } catch (Exception ignored) {}
         }
-        final String script = "(function(){var d={callId:" +
+        final String script = "(function(){try{if(window.location.pathname!=='/video-calls'){window.history.pushState({},'', '/video-calls');window.dispatchEvent(new PopStateEvent('popstate'));}}catch(e){}var d={callId:" +
                 org.json.JSONObject.quote(callId) + ",action:" + org.json.JSONObject.quote(action) +
                 ",eventId:" + org.json.JSONObject.quote(eventId) +
                 "};window.__exfinPendingVideoCallActions=window.__exfinPendingVideoCallActions||[];" +
