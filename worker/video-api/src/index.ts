@@ -220,7 +220,7 @@ async function sendConferencePush(env: Env, uid: string, payload: Json) {
   let sent = 0, failed = 0;
   const errors: string[] = [];
   for (const token of tokens) {
-    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { token, notification: { title: String(payload.title || "EXFIN OMS video conference"), body: "You have an incoming video conference." }, data: Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, String(v)])), android: { priority: "HIGH", ttl: "60s", notification: { channel_id: "exfin_video_calls_v2", sound: "default", priority: "HIGH", default_vibrate_timings: true, visibility: "PUBLIC" } } } }) });
+    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { token, notification: { title: String(payload.title || "EXFIN OMS video conference"), body: "You have an incoming video conference." }, data: Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, String(v)])), android: { priority: "HIGH", ttl: "60s", notification: { channel_id: "exfin_video_calls_v2", sound: "default", default_vibrate_timings: true, visibility: "PUBLIC" } } } }) });
     if (response.ok) {
       sent++;
     } else {
