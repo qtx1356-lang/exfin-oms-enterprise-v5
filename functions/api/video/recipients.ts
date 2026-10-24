@@ -34,7 +34,7 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
         const tokenData = decodeDoc(tokenDocument);
         const tokenUid = String(tokenData.uid || tokenData.authUid || tokenData.userId || '').trim();
         if (!tokenUid) continue;
-        const employeeCode = String(tokenData.employeeCode || '').trim().toUpperCase();
+        const employeeCode = String(tokenData.employeeCode || tokenData.employeeId || '').trim().toUpperCase();
         const email = String(tokenData.email || '').trim().toLowerCase();
         if (employeeCode) {
           const values = tokenUidsByEmployeeCode.get(employeeCode) || new Set<string>();
@@ -49,13 +49,19 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
       }
       for (const document of documents) {
         const data = decodeDoc(document);
-        if (!isApprovedEmployee(data)) continue;
-        const employeeCode = String(data.employeeCode || '').trim();
+        // Older registration records may use employeeId/loginId for the employee
+        // code and accountStatus/approvalStatus/employeeStatus for approval state.
+        // Keep the accepted states explicit; never treat arbitrary values as active.
+        const employeeCode = String(data.employeeCode || data.employeeId || data.loginId || '').trim();
+        const normalizedStatus = normalizeStatus(data.status || data.accountStatus || data.approvalStatus || data.employeeStatus || '');
+        const approved = normalizedStatus === 'APPROVED' || normalizedStatus === 'ACTIVE' || normalizedStatus === 'APPROVED_ACTIVE';
+        const inactive = data.isDeleted === true || data.active === false || ['SUSPENDED', 'DELETED', 'INACTIVE', 'DISABLED', 'BLOCKED', 'REJECTED', 'PENDING_APPROVAL'].includes(normalizedStatus);
+        if (!approved || inactive) continue;
         const email = String(data.email || '').trim().toLowerCase();
         const tokenMatches = (employeeCode ? tokenUidsByEmployeeCode.get(employeeCode.toUpperCase()) : undefined)
           || (email ? tokenUidsByEmail.get(email) : undefined);
         // Only substitute a token-derived UID when the registration maps uniquely.
-        // Ambiguous records are skipped rather than risking a call to the wrong person.
+        // Ambiguous matches are skipped rather than risking a call to the wrong person.
         const tokenUids = tokenMatches ? [...tokenMatches] : [];
         const registrationUid = String(data.authUid || data.firebaseUid || data.uid || '').trim();
         const uid = tokenUids.length === 1 ? tokenUids[0] : (!tokenUids.length ? registrationUid : '');
