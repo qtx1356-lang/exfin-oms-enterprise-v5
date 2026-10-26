@@ -22,9 +22,6 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
     const recipients: Array<{ uid: string; name: string; employeeCode?: string; role: string; email?: string }> = [];
     if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) {
       const documents = await listCollection(env, 'registrations', 500);
-      // Device-token records are used only as an identity-recovery source.
-      // They must never hide an otherwise valid approved employee from the
-      // recipient list, especially when an employee has multiple stale tokens.
       const tokenDocuments = await listCollection(env, 'push_device_tokens', 1000);
       const tokenUidsByEmployeeCode = new Map<string, Set<string>>();
       const tokenUidsByEmail = new Map<string, Set<string>>();
@@ -45,10 +42,9 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
           tokenUidsByEmail.set(email, values);
         }
       }
+
       for (const document of documents) {
         const data = decodeDoc(document);
-        // Older registration records may use employeeId/loginId for the employee
-        // code and accountStatus/approvalStatus/employeeStatus for approval state.
         const employeeCode = String(data.employeeCode || data.employeeId || data.loginId || '').trim();
         const normalizedStatus = normalizeStatus(data.status || data.accountStatus || data.approvalStatus || data.employeeStatus || '');
         const approved = normalizedStatus === 'APPROVED' || normalizedStatus === 'ACTIVE' || normalizedStatus === 'APPROVED_ACTIVE';
@@ -61,11 +57,13 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
           || (email ? tokenUidsByEmail.get(email) : undefined);
         const tokenUids = tokenMatches ? [...tokenMatches] : [];
 
-        // The registration's Firebase identity is authoritative. A stale or
-        // duplicated push-token record must not make an approved employee vanish
-        // from the selector. Only fall back to a token-derived UID when the
-        // registration itself has no Firebase identity.
-        const uid = registrationUid || (tokenUids.length === 1 ? tokenUids[0] : '');
+        // The Android device token is registered from the verified Firebase ID token.
+        // When there is exactly one token UID for this employee, use it as the
+        // conference participant identity. This prevents stale registration UIDs
+        // from creating a conference that the employee's authenticated Android app
+        // cannot join. If there is no token identity yet, retain the registration
+        // identity so approved employees remain visible to the administrator.
+        const uid = tokenUids.length === 1 ? tokenUids[0] : registrationUid;
         if (!uid || uid === caller.uid) continue;
 
         recipients.push({
