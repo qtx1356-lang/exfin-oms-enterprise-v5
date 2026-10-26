@@ -12,7 +12,7 @@ import { buildApiUrl } from '@/src/utils/apiConfig';
 import { auth } from '../firebase/config';
 
 const DEVICE_TOKEN_KEY = 'exfin_device_fcm_token';
-const DEVICE_TOKEN_REGISTER_ENDPOINT = '/api/notifications/register-device';
+const DEVICE_TOKEN_REGISTER_ENDPOINT = '/api/video/device-token';
 
 let activePushContext: { userId: string; employeeCode: string; role: string } | null = null;
 let appResumeListenerInstalled = false;
