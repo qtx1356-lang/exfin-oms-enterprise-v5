@@ -20,18 +20,11 @@ import com.google.firebase.messaging.RemoteMessage;
 
 import java.util.Map;
 
-/**
- * Native incoming-call/conference notification handler.
- *
- * This deliberately extends FirebaseMessagingService rather than Capacitor's
- * MessagingService. Capacitor documents that data-only FCM messages received
- * while the Android app is killed require a FirebaseMessagingService handler.
- * The handler therefore remains independent of the WebView/Capacitor bridge
- * and can publish the native incoming-call UI from a cold/background process.
- */
+/** Native incoming-call/conference notification handler. */
 public class ExfinCallMessagingService extends FirebaseMessagingService {
     private static final String TAG = "ExfinCallFCM";
-    private static final String CHANNEL_ID = "exfin_video_calls_v3";
+    // v4 intentionally avoids any previously user-downgraded channel settings.
+    private static final String CHANNEL_ID = "exfin_video_calls_v4";
     private static final long RING_TIMEOUT_MS = 60_000L;
 
     @Override
@@ -41,10 +34,7 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
                 + " dataKeys=" + (data == null ? "null" : data.keySet().toString())
                 + " notificationPayload=" + (message.getNotification() != null));
 
-        if (data == null || data.isEmpty()) {
-            android.util.Log.w(TAG, "FCM message had no data payload; no native custom notification generated.");
-            return;
-        }
+        if (data == null || data.isEmpty()) return;
 
         String type = safe(data.get("type"), "");
         if (!"video_call".equals(type) && !"video_conference".equals(type)) {
@@ -53,14 +43,8 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
             return;
         }
 
-        String callId = safe(
-                "video_conference".equals(type) ? data.get("conferenceId") : data.get("callId"),
-                ""
-        );
-        if (callId.isEmpty()) {
-            android.util.Log.w(TAG, "FCM call alert ignored: missing callId/conferenceId.");
-            return;
-        }
+        String callId = safe("video_conference".equals(type) ? data.get("conferenceId") : data.get("callId"), "");
+        if (callId.isEmpty()) return;
 
         String callerName = safe(data.get("callerName"), "EXFIN OMS Admin");
         String title = safe(data.get("title"), "EXFIN OMS video conference");
@@ -69,105 +53,61 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
         try {
             PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
             if (powerManager != null) {
-                wakeLock = powerManager.newWakeLock(
-                        PowerManager.PARTIAL_WAKE_LOCK,
-                        TAG + ":IncomingCall"
-                );
+                wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG + ":IncomingCall");
                 wakeLock.acquire(10_000L);
             }
-
             showIncomingCall(callId, callerName, title, "video_conference".equals(type));
         } catch (Throwable error) {
             android.util.Log.e(TAG, "Failed to publish incoming video alert", error);
         } finally {
-            if (wakeLock != null && wakeLock.isHeld()) {
-                try { wakeLock.release(); } catch (Throwable ignored) {}
-            }
+            if (wakeLock != null && wakeLock.isHeld()) try { wakeLock.release(); } catch (Throwable ignored) {}
         }
     }
 
-    @Override
-    public void onNewToken(@NonNull String token) {
-        // Capacitor's PushNotifications.register()/the existing native token
-        // bridge owns application-level token registration. Do not duplicate
-        // backend registration here; this callback only confirms that FCM has
-        // refreshed the token for this Firebase app instance.
+    @Override public void onNewToken(@NonNull String token) {
         android.util.Log.d(TAG, "FCM token refreshed");
     }
 
     private void showGenericNotification(Map<String, String> data, String notificationTitle, String notificationBody) {
         Context context = getApplicationContext();
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (manager == null) {
-            android.util.Log.e(TAG, "FCM_RECEIVED but NotificationManager unavailable.");
-            return;
-        }
-
+        if (manager == null) return;
         final String channelId = "exfin_oms_messages_v2";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager.getNotificationChannel(channelId) == null) {
-            NotificationChannel channel = new NotificationChannel(
-                    channelId, "EXFIN OMS messages", NotificationManager.IMPORTANCE_HIGH);
+            NotificationChannel channel = new NotificationChannel(channelId, "EXFIN OMS messages", NotificationManager.IMPORTANCE_HIGH);
             channel.setDescription("General alerts and messages from EXFIN OMS");
             manager.createNotificationChannel(channel);
         }
-
         String title = safe(data.get("title"), safe(notificationTitle, "EXFIN OMS notification"));
-        String body = safe(data.get("body"), safe(data.get("message"),
-                safe(data.get("text"), safe(notificationBody, "You have a new notification."))));
+        String body = safe(data.get("body"), safe(data.get("message"), safe(data.get("text"), safe(notificationBody, "You have a new notification."))));
         String route = safe(data.get("route"), "/notifications");
         Intent intent = new Intent(context, MainActivity.class);
         intent.setAction("com.exfin.oms.OPEN_NOTIFICATION");
         intent.putExtra("exfin_notification_route", route);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(context,
-                (title + body).hashCode() & 0x00ffffff, intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
+        PendingIntent pendingIntent = PendingIntent.getActivity(context, (title + body).hashCode() & 0x00ffffff, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle(title)
-                .setContentText(body)
-                .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setAutoCancel(true)
-                .setContentIntent(pendingIntent);
-
-        int notificationId = 500000 + ((title + body).hashCode() & 0x000fffff);
-        manager.notify(notificationId, builder.build());
-        android.util.Log.i(TAG, "FCM_GENERIC_NOTIFICATION_POSTED id=" + notificationId + " channel=" + channelId);
+                .setSmallIcon(R.mipmap.ic_launcher).setContentTitle(title).setContentText(body)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(body)).setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true).setContentIntent(pendingIntent);
+        manager.notify(500000 + ((title + body).hashCode() & 0x000fffff), builder.build());
     }
 
     private void showIncomingCall(String callId, String callerName, String title, boolean conference) {
         Context context = getApplicationContext();
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return;
-
         createCallChannel(manager);
 
         int requestBase = callId.hashCode() & 0x00ffffff;
         int notificationId = 700000 + (requestBase % 100000);
+        PendingIntent openIntent = activityIntent(context, callId, "open", callerName, title, requestBase + 1);
+        PendingIntent answerIntent = activityIntent(context, callId, "answer", callerName, title, requestBase + 2);
+        PendingIntent declineIntent = activityIntent(context, callId, "decline", callerName, title, requestBase + 3);
 
-        PendingIntent openIntent = activityIntent(
-                context, callId, "open", callerName, title, requestBase + 1
-        );
-        PendingIntent answerIntent = activityIntent(
-                context, callId, "answer", callerName, title, requestBase + 2
-        );
-        PendingIntent declineIntent = activityIntent(
-                context, callId, "decline", callerName, title, requestBase + 3
-        );
-
-        Person caller = new Person.Builder()
-                .setName(callerName)
-                .setImportant(true)
-                .setIcon(androidx.core.graphics.drawable.IconCompat.createWithResource(
-                        context, R.mipmap.ic_launcher
-                ))
-                .build();
-
-        String content = conference
-                ? "EXFIN OMS group video conference"
-                : title;
+        Person caller = new Person.Builder().setName(callerName).setImportant(true)
+                .setIcon(androidx.core.graphics.drawable.IconCompat.createWithResource(context, R.mipmap.ic_launcher)).build();
+        String content = conference ? "EXFIN OMS group video conference" : title;
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
@@ -181,55 +121,40 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
                 .setOnlyAlertOnce(true)
                 .setTimeoutAfter(RING_TIMEOUT_MS)
                 .setSound(android.provider.Settings.System.DEFAULT_RINGTONE_URI)
-                .setVibrate(new long[] { 0, 700, 350, 700 })
-                .setContentIntent(openIntent)
-                .addAction(new NotificationCompat.Action.Builder(0, "Later", declineIntent).build())
-                .addAction(new NotificationCompat.Action.Builder(0, "Join", answerIntent).build());
-
-        boolean canUseFullScreen = true;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            canUseFullScreen = manager.canUseFullScreenIntent();
-        }
-        android.util.Log.i(TAG, "CALL_UI_PREPARED callId=" + callId
-                + " fullScreenAllowed=" + canUseFullScreen
-                + " sdk=" + Build.VERSION.SDK_INT
-                + " notificationsEnabled=" + androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled());
-        if (canUseFullScreen) {
-            builder.setFullScreenIntent(openIntent, true);
-        } else {
-            android.util.Log.w(TAG, "FULL_SCREEN_INTENT_BLOCKED callId=" + callId);
-        }
+                .setVibrate(new long[] {0, 700, 350, 700})
+                .setContentIntent(openIntent);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setStyle(NotificationCompat.CallStyle.forIncomingCall(
-                    caller, declineIntent, answerIntent
-            ));
+            builder.setStyle(NotificationCompat.CallStyle.forIncomingCall(caller, declineIntent, answerIntent));
+        } else {
+            builder.addAction(new NotificationCompat.Action.Builder(0, "Decline", declineIntent).build())
+                    .addAction(new NotificationCompat.Action.Builder(0, "Join", answerIntent).build());
         }
+
+        boolean fullScreenAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE || manager.canUseFullScreenIntent();
+        if (fullScreenAllowed) {
+            // This is the critical path: Android launches IncomingCallActivity itself
+            // from the high-importance call notification. The employee must NOT have
+            // to tap the push notification first.
+            builder.setFullScreenIntent(openIntent, true);
+        }
+
+        android.util.Log.i(TAG, "CALL_UI_PREPARED callId=" + callId
+                + " fullScreenAllowed=" + fullScreenAllowed
+                + " channelImportance=" + manager.getNotificationChannel(CHANNEL_ID).getImportance()
+                + " notificationsEnabled=" + androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled());
 
         try {
             manager.notify(notificationId, builder.build());
-            android.util.Log.i(TAG, "CALL_NOTIFICATION_POSTED id=" + notificationId
-                    + " callId=" + callId
-                    + " fullScreenIntentConfigured=" + canUseFullScreen);
+            android.util.Log.i(TAG, "CALL_NOTIFICATION_POSTED id=" + notificationId + " callId=" + callId
+                    + " fullScreenIntentConfigured=" + fullScreenAllowed);
         } catch (Throwable error) {
             android.util.Log.e(TAG, "CALL_NOTIFICATION_POST_FAILED callId=" + callId, error);
         }
     }
 
-    private PendingIntent activityIntent(
-            Context context,
-            String callId,
-            String action,
-            String callerName,
-            String title,
-            int requestCode
-    ) {
-        // A body tap/full-screen launch must show the native incoming-call screen,
-        // not the app home screen. Answer/Decline notification actions remain explicit.
-        Class<?> target = "open".equals(action)
-                ? IncomingCallActivity.class
-                : MainActivity.class;
-
+    private PendingIntent activityIntent(Context context, String callId, String action, String callerName, String title, int requestCode) {
+        Class<?> target = "open".equals(action) ? IncomingCallActivity.class : MainActivity.class;
         Intent intent = new Intent(context, target);
         intent.setAction("com.exfin.oms.VIDEO_CALL_" + action.toUpperCase());
         intent.putExtra("exfin_video_call_id", callId);
@@ -239,39 +164,22 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
         intent.putExtra("exfin_video_caller_name", callerName);
         intent.putExtra("exfin_video_call_title", title);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-
-        return PendingIntent.getActivity(
-                context,
-                requestCode,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
+        return PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     private void createCallChannel(NotificationManager manager) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return;
-
-        NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID,
-                "Incoming video calls",
-                NotificationManager.IMPORTANCE_HIGH
-        );
+        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Incoming video calls", NotificationManager.IMPORTANCE_HIGH);
         channel.setDescription("Ringing alerts for EXFIN OMS direct calls and group conferences");
         channel.enableVibration(true);
-        channel.setVibrationPattern(new long[] { 0, 700, 350, 700 });
+        channel.setVibrationPattern(new long[] {0, 700, 350, 700});
         channel.setLockscreenVisibility(android.app.Notification.VISIBILITY_PUBLIC);
-        channel.setSound(
-                android.provider.Settings.System.DEFAULT_RINGTONE_URI,
-                new AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-        );
+        channel.setSound(android.provider.Settings.System.DEFAULT_RINGTONE_URI,
+                new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
         manager.createNotificationChannel(channel);
     }
 
-    private static String safe(String value, String fallback) {
-        return value == null || value.trim().isEmpty() ? fallback : value.trim();
-    }
+    private static String safe(String value, String fallback) { return value == null || value.trim().isEmpty() ? fallback : value.trim(); }
 }
