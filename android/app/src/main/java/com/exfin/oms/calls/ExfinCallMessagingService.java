@@ -1,5 +1,6 @@
 package com.exfin.oms.calls;
 
+import android.app.ActivityManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -15,6 +16,7 @@ import androidx.core.app.Person;
 
 import com.exfin.oms.MainActivity;
 import com.exfin.oms.R;
+import com.exfin.oms.notification.ExfinFcmTokenPlugin;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
@@ -23,8 +25,10 @@ import java.util.Map;
 /** Native incoming-call/conference notification handler. */
 public class ExfinCallMessagingService extends FirebaseMessagingService {
     private static final String TAG = "ExfinCallFCM";
-    // v4 intentionally avoids any previously user-downgraded channel settings.
-    private static final String CHANNEL_ID = "exfin_video_calls_v4";
+    // New channel ID forces a fresh HIGH-importance call channel on devices that
+    // may have an older channel with user-downgraded importance.
+    private static final String CHANNEL_ID = "exfin_video_calls_v5";
+    private static final String LEGACY_CHANNEL_ID = "exfin_video_calls_v4";
     private static final long RING_TIMEOUT_MS = 60_000L;
 
     @Override
@@ -65,7 +69,8 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
     }
 
     @Override public void onNewToken(@NonNull String token) {
-        android.util.Log.d(TAG, "FCM token refreshed");
+        android.util.Log.i(TAG, "FCM token refreshed; attempting native backend registration");
+        ExfinFcmTokenPlugin.registerTokenWithBackend(getApplicationContext(), token);
     }
 
     private void showGenericNotification(Map<String, String> data, String notificationTitle, String notificationBody) {
@@ -105,6 +110,29 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
         PendingIntent answerIntent = activityIntent(context, callId, "answer", callerName, title, requestBase + 2);
         PendingIntent declineIntent = activityIntent(context, callId, "decline", callerName, title, requestBase + 3);
 
+        // When EXFIN OMS is already visible, start the native call screen directly.
+        // Android permits this because the application process is in the foreground.
+        // When the app is backgrounded/closed, the notification full-screen intent is
+        // the supported Android mechanism and requires no tap on the notification.
+        if (isApplicationForeground(context)) {
+            try {
+                Intent directIntent = new Intent(context, IncomingCallActivity.class);
+                directIntent.setAction("com.exfin.oms.VIDEO_CALL_OPEN");
+                directIntent.putExtra("exfin_video_call_id", callId);
+                directIntent.putExtra("exfin_video_call_action", "open");
+                directIntent.putExtra("exfin_video_call_event_id", callId + ":open");
+                directIntent.putExtra("exfin_video_call_route", "/video-calls");
+                directIntent.putExtra("exfin_video_caller_name", callerName);
+                directIntent.putExtra("exfin_video_call_title", title);
+                directIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                context.startActivity(directIntent);
+                android.util.Log.i(TAG, "CALL_UI_DIRECT_STARTED callId=" + callId);
+                return;
+            } catch (Throwable error) {
+                android.util.Log.w(TAG, "Direct foreground call UI failed; falling back to notification", error);
+            }
+        }
+
         Person caller = new Person.Builder().setName(callerName).setImportant(true)
                 .setIcon(androidx.core.graphics.drawable.IconCompat.createWithResource(context, R.mipmap.ic_launcher)).build();
         String content = conference ? "EXFIN OMS group video conference" : title;
@@ -133,9 +161,8 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
 
         boolean fullScreenAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE || manager.canUseFullScreenIntent();
         if (fullScreenAllowed) {
-            // This is the critical path: Android launches IncomingCallActivity itself
-            // from the high-importance call notification. The employee must NOT have
-            // to tap the push notification first.
+            // Android launches IncomingCallActivity from this call notification without
+            // requiring the employee to tap the push notification first.
             builder.setFullScreenIntent(openIntent, true);
         }
 
@@ -151,6 +178,19 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
         } catch (Throwable error) {
             android.util.Log.e(TAG, "CALL_NOTIFICATION_POST_FAILED callId=" + callId, error);
         }
+    }
+
+    private boolean isApplicationForeground(Context context) {
+        try {
+            ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+            if (activityManager == null) return false;
+            for (ActivityManager.RunningAppProcessInfo process : activityManager.getRunningAppProcesses()) {
+                if (context.getPackageName().equals(process.processName)) {
+                    return process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND;
+                }
+            }
+        } catch (Throwable ignored) {}
+        return false;
     }
 
     private PendingIntent activityIntent(Context context, String callId, String action, String callerName, String title, int requestCode) {
@@ -169,6 +209,11 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
 
     private void createCallChannel(NotificationManager manager) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        // Do not reuse the v4 channel: Android channel importance is user-controlled
+        // and cannot be raised programmatically after creation.
+        if (manager.getNotificationChannel(LEGACY_CHANNEL_ID) != null) {
+            try { manager.deleteNotificationChannel(LEGACY_CHANNEL_ID); } catch (Throwable ignored) {}
+        }
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return;
         NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Incoming video calls", NotificationManager.IMPORTANCE_HIGH);
         channel.setDescription("Ringing alerts for EXFIN OMS direct calls and group conferences");
