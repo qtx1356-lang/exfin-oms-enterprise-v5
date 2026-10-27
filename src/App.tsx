@@ -19,8 +19,11 @@ function EmployeeVideoConferenceLauncherGuard() {
   const { role } = useAdminAuth();
 
   useEffect(() => {
-    const isEmployee = String(role || '').toUpperCase() === 'EMPLOYEE';
-    if (!isEmployee || typeof document === 'undefined') return;
+    // Never expose the admin conference launcher to employees or to the transient
+    // role/loading state. Only explicit privileged roles may use the launcher.
+    const normalizedRole = String(role || '').toUpperCase();
+    const isPrivileged = ['ADMIN', 'SUPER_ADMIN', 'HR', 'TEAM_LEADER', 'MANAGER'].includes(normalizedRole);
+    if (isPrivileged || typeof document === 'undefined') return;
 
     const style = document.createElement('style');
     style.setAttribute('data-exfin-employee-video-guard', 'true');
