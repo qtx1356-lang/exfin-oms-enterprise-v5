@@ -207,8 +207,9 @@ async function approvedEmployeeUidAliases(env: Env, uid: string): Promise<string
   const aliases = new Set<string>([uid]);
   for (const doc of matches) {
     const data = doc.data || {};
-    const status = String(data.status || "").trim().toLowerCase();
-    if (status !== "approved" || data.isDeleted === true || data.active === false) continue;
+    const status = String(data.status || data.accountStatus || "").trim().toLowerCase().replace(/\\s+/g, " ");
+    const approved = ["approved", "approved / active", "active", "approved/active"].includes(status);
+    if (!approved || data.isDeleted === true || data.active === false || data.disabled === true) continue;
     const docId = String(doc.name || "").split("/").pop() || "";
     for (const candidate of [data.uid, data.authUid, docId]) {
       const value = String(candidate || "").trim();
