@@ -2,6 +2,9 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 
 interface NativeFcmTokenBridge {
   getToken(): Promise<{ token?: string }>;
+  registerCurrentToken(): Promise<{ queued?: boolean; tokenPresent?: boolean }>;
+  getCallReadiness(): Promise<{ notificationsEnabled?: boolean; fullScreenIntentAllowed?: boolean; apiLevel?: number }>;
+  openFullScreenIntentSettings(): Promise<void>;
 }
 
 const NativeFcmToken = registerPlugin<NativeFcmTokenBridge>('ExfinFcmToken');
@@ -13,6 +16,7 @@ import { auth } from '../firebase/config';
 
 const DEVICE_TOKEN_KEY = 'exfin_device_fcm_token';
 const DEVICE_TOKEN_REGISTER_ENDPOINT = '/api/video/device-token';
+const FULL_SCREEN_PROMPT_KEY = 'exfin_call_full_screen_prompt_v5';
 
 let activePushContext: { userId: string; employeeCode: string; role: string } | null = null;
 let appResumeListenerInstalled = false;
@@ -39,6 +43,25 @@ export async function initNativePushNotifications(userContext: {
     });
     if (permission.receive !== 'granted') {
       console.warn('[NativePush] Android notification permission is not granted:', permission.receive);
+    }
+
+    // Android 14+ can disable full-screen intent access independently of POST_NOTIFICATIONS.
+    // Resolve that state during authenticated app startup instead of waiting for the first
+    // incoming call. The user is sent to Android's official per-app setting only once per
+    // v5 call-alert setup; after access is granted, incoming calls can surface directly.
+    try {
+      const readiness = await NativeFcmToken.getCallReadiness();
+      if (readiness?.apiLevel >= 34 && readiness.fullScreenIntentAllowed === false) {
+        const alreadyPrompted = localStorage.getItem(FULL_SCREEN_PROMPT_KEY) === 'true';
+        if (!alreadyPrompted) {
+          localStorage.setItem(FULL_SCREEN_PROMPT_KEY, 'true');
+          await NativeFcmToken.openFullScreenIntentSettings().catch((err) => {
+            console.warn('[NativePush] Could not open Android full-screen call setting:', err);
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('[NativePush] Call full-screen readiness check failed:', err);
     }
 
     await PushNotifications.addListener('registration', async (token) => {
@@ -76,12 +99,19 @@ export async function initNativePushNotifications(userContext: {
         console.warn('[NativePush] Cached FCM token re-registration failed:', err));
     }
 
+    // Native registration is a second independent path. It uses FirebaseAuth + the
+    // current FCM token directly and does not depend on a WebView registration event.
+    await NativeFcmToken.registerCurrentToken().catch((err) => {
+      console.warn('[NativePush] Native current-token backend registration failed:', err);
+    });
+
     if (!appResumeListenerInstalled) {
       await App.addListener('appStateChange', async ({ isActive }) => {
         const context = activePushContext;
         if (!isActive || !context) return;
         const savedToken = localStorage.getItem(DEVICE_TOKEN_KEY);
         if (savedToken) await registerTokenWithBackend(savedToken, context.userId, context.employeeCode, context.role).catch(() => {});
+        await NativeFcmToken.registerCurrentToken().catch(() => {});
         await PushNotifications.register().catch((err) => console.error('[NativePush] Foreground FCM registration failed:', err));
       }).then(() => { appResumeListenerInstalled = true; }).catch(() => {});
     }
