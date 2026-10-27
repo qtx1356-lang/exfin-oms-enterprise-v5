@@ -110,7 +110,7 @@ public class MainActivity extends BridgeActivity {
                         Log.i("MainActivity", "[VIDEO_CALL_NATIVE_BRIDGE] " + value + " eventId=" + finalEventId);
                     }
                 });
-                if (++attempts < 20) handler.postDelayed(this, 500L);
+                if (++attempts < 120) handler.postDelayed(this, 500L); else Log.w("MainActivity", "[VIDEO_CALL_NATIVE_BRIDGE] Delivery timed out after 60 seconds eventId=" + finalEventId);
             }
         });
     }
