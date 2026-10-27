@@ -87,7 +87,10 @@ export const VideoConferenceCenter: React.FC = () => {
     setBusy(true); setError('');
     try {
       if (typeof auth.authStateReady === 'function') await auth.authStateReady();
-      if (!auth.currentUser || !user?.uid) throw new Error('Restoring your sign-in. Please tap Join again in a moment.');
+      const authenticatedUser = auth.currentUser;
+      if (!authenticatedUser) throw new Error('Your EXFIN OMS sign-in is not available yet. Please return to the app sign-in screen, sign in, then answer the call again.');
+      // The auth context can lag behind Firebase's restored native WebView session.
+      // The Firebase user is the source of truth for API authorization here.
       const joined = await joinConference(id, displayName); setConferenceId(id); setConferenceTitle(joined.title || 'EXFIN OMS video conference'); setOpen(false);
       const snapshot = await getConferenceSnapshot(id); setParticipants(snapshot.participants || []); await startMedia(id); await syncSubscriptions(id, snapshot);
       return true;
@@ -160,7 +163,8 @@ export const VideoConferenceCenter: React.FC = () => {
 
   useEffect(() => {
     const detail = pendingNativeAction; const id = String(detail?.callId || '').trim(); const action = String(detail?.action || '').toLowerCase(); const eventId = String(detail?.eventId || `${id}:${action}`);
-    if (!detail || !id || !['open', 'answer'].includes(action) || !user?.uid || seenNativeActionsRef.current.has(eventId) || processingNativeActionRef.current) return;
+    const authenticatedUid = user?.uid || auth.currentUser?.uid;
+    if (!detail || !id || !['open', 'answer'].includes(action) || !authenticatedUid || seenNativeActionsRef.current.has(eventId) || processingNativeActionRef.current) return;
     processingNativeActionRef.current = true;
     void (async () => {
       try {
