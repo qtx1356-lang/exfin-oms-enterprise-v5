@@ -257,7 +257,7 @@ async function sendConferencePush(env: Env, uid: string, payload: Json) {
   let sent = 0, failed = 0;
   const errors: string[] = [];
   for (const token of tokens) {
-    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { token, notification: { title: `${String(payload.callerName || "EXFIN OMS Admin")} is inviting you`, body: String(payload.title || "Incoming EXFIN OMS video conference") }, data: Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, String(v)])), android: { priority: "HIGH", ttl: "60s", notification: { click_action: "com.exfin.oms.VIDEO_CALL_OPEN" } } } }) });
+    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { token, data: Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, String(v)])), android: { priority: "HIGH", ttl: "60s" } } }) });
     if (response.ok) {
       sent++;
     } else {
