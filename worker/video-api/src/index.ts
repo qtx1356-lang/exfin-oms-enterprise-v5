@@ -196,8 +196,14 @@ async function approvedEmployeeUidAliases(env: Env, uid: string): Promise<string
   const matches = [
     ...(await queryDocs(env, "registrations", [{ field: "uid", op: "EQUAL", value: uid }], 20)),
     ...(await queryDocs(env, "registrations", [{ field: "authUid", op: "EQUAL", value: uid }], 20)),
-    ...(await getDoc(env, "registrations", uid).then((doc) => doc ? [doc] : [])),
   ];
+  try {
+    const direct = await getDoc(env, "registrations", uid);
+    if (direct) matches.push(direct);
+  } catch {
+    // A missing document keyed by Firebase UID is normal; query aliases above
+    // still resolve records whose Firestore document ID is an employee code.
+  }
   const aliases = new Set<string>([uid]);
   for (const doc of matches) {
     const data = doc.data || {};
