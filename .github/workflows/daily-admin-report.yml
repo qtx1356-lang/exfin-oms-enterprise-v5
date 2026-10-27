@@ -2,10 +2,9 @@ name: Daily Admin Report Scheduler
 
 on:
   schedule:
-    # Testing schedule: runs every 5 minutes for rapid verification
+    # Runs every 5 minutes. Attendance settlement uses the previous IST day,
+    # so it is reliable even when every employee app is closed at midnight.
     - cron: "*/5 * * * *"
-    # Production daily schedule (9:00 AM IST / 03:30 UTC):
-    # - cron: "30 3 * * *"
   workflow_dispatch:
 
 jobs:
@@ -13,6 +12,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Trigger Attendance End-of-Day Settlement
+        env:
+          DAILY_REPORT_URL: ${{ secrets.DAILY_REPORT_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -e
+
+          BASE_URL="${DAILY_REPORT_URL:-https://your-domain.pages.dev}"
+          BASE_URL="${BASE_URL%/}"
+
+          if [ -z "$CRON_SECRET" ]; then
+            echo "Error: CRON_SECRET secret is missing in GitHub repository secrets."
+            exit 1
+          fi
+
+          ATTENDANCE_ENDPOINT="${BASE_URL}/api/internal/attendance-eod-settlement"
+          echo "Calling attendance settlement endpoint: $ATTENDANCE_ENDPOINT"
+
+          HTTP_STATUS=$(curl -sS -o attendance-settlement.json -w "%{http_code}" \
+            -X POST \
+            "$ATTENDANCE_ENDPOINT" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            --data '{}')
+
+          echo "Attendance settlement HTTP status: $HTTP_STATUS"
+          cat attendance-settlement.json
+          echo ""
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "FAILURE: Attendance end-of-day settlement failed."
+            exit 1
+          fi
+
       - name: Trigger Daily Admin Report Scheduler
         env:
           DAILY_REPORT_URL: ${{ secrets.DAILY_REPORT_URL }}
@@ -31,7 +64,6 @@ jobs:
             exit 1
           fi
 
-          # If triggered via workflow_dispatch, pass source flag so it can run immediately
           PAYLOAD='{"source":"github-actions"}'
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             PAYLOAD='{"source":"github-actions-dispatch","force":true}'
@@ -48,7 +80,6 @@ jobs:
             --data "$PAYLOAD")
 
           echo "HTTP status: $HTTP_STATUS"
-          echo "Response:"
           cat response.json
           echo ""
 
@@ -58,4 +89,3 @@ jobs:
           fi
 
           echo "SUCCESS: Daily Admin Report scheduler triggered successfully."
-
