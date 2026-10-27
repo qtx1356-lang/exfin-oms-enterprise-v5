@@ -108,6 +108,27 @@ public class ExfinFcmTokenPlugin extends Plugin {
         }
     }
 
+    /** Ensures the currently issued Firebase token is saved after Firebase authentication is ready. */
+    @PluginMethod
+    public void registerCurrentToken(PluginCall call) {
+        try {
+            FirebaseMessaging.getInstance().getToken()
+                .addOnSuccessListener(token -> {
+                    registerTokenWithBackend(getContext(), token);
+                    JSObject result = new JSObject();
+                    result.put("queued", true);
+                    result.put("tokenPresent", token != null && token.trim().length() >= 20);
+                    call.resolve(result);
+                })
+                .addOnFailureListener(error -> call.reject(
+                    "Native Firebase token registration could not obtain a token: " +
+                    (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage())
+                ));
+        } catch (Throwable error) {
+            call.reject("Native Firebase token registration failed: " + error.getMessage());
+        }
+    }
+
     /**
      * Registers a token directly from native Android as a safety net for token refreshes.
      * This does not depend on the React/WebView lifecycle and therefore repairs the
