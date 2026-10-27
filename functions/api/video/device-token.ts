@@ -37,6 +37,7 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
 
     const registration = caller.isAdmin ? null : await findRegistration(env, caller.uid, caller.email || '');
     const employeeCode = clientEmployeeCode || String(registration?.data?.employeeCode || registration?.data?.employeeId || '').trim();
+    const employeeId = String(registration?.id || '').trim();
     const tokenHash = await sha256Hex(token);
     const documentId = `android_${tokenHash}`;
     const now = new Date().toISOString();
@@ -60,7 +61,31 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
     if (existing) await updateDoc(env, 'push_device_tokens', documentId, record);
     else await setDoc(env, 'push_device_tokens', documentId, record);
 
-    return json({ success: true, registered: true, diagnosticCode: 'FCM_TOKEN_SAVED', stage: 'backend-storage', employeeCodePresent: Boolean(employeeCode) });
+    // The Cloudflare video worker may receive an employee-code/registration-id
+    // participant identifier from the admin panel while this device is registered
+    // under Firebase Auth UID. Keep a second trusted token record under the same
+    // employee identity so closed/background Android calls can resolve the device
+    // without asking the employee to reopen the app or reinstall it.
+    const aliases = [...new Set([employeeCode, employeeId].map((value) => String(value || '').trim()).filter(Boolean))];
+    for (const alias of aliases) {
+      if (alias === caller.uid) continue;
+      const aliasId = `android_alias_${await sha256Hex(`${alias}:${token}`)}`;
+      const aliasRecord = {
+        ...record,
+        uid: alias,
+        authUid: caller.uid,
+        userId: caller.uid,
+        identityAlias: true,
+        identitySourceUid: caller.uid,
+        updatedAt: now,
+        lastSeenAt: now,
+      };
+      const aliasExisting = await getDoc(env, 'push_device_tokens', aliasId);
+      if (aliasExisting) await updateDoc(env, 'push_device_tokens', aliasId, aliasRecord);
+      else await setDoc(env, 'push_device_tokens', aliasId, aliasRecord);
+    }
+
+    return json({ success: true, registered: true, diagnosticCode: 'FCM_TOKEN_SAVED', stage: 'backend-storage', employeeCodePresent: Boolean(employeeCode), aliasRecords: aliases.length });
   } catch (error: any) {
     console.error('[Video Device Token]', error?.message || error);
     if (error?.message?.includes('FIREBASE_SERVICE_ACCOUNT_KEY')) return json({ success: false, registered: false, error: 'Firebase server credentials are not configured.', diagnosticCode: 'FIREBASE_SERVER_CONFIG' }, 503);
