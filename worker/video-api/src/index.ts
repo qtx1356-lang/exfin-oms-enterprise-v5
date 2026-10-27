@@ -192,6 +192,26 @@ async function queryDocs(env: Env, collection: string, fieldFilters: Array<{ fie
   return (Array.isArray(rows) ? rows : []).filter((row) => row.document).map((row) => ({ name: row.document.name, data: fromDocument(row.document) }));
 }
 
+async function approvedEmployeeUidAliases(env: Env, uid: string): Promise<string[]> {
+  const matches = [
+    ...(await queryDocs(env, "registrations", [{ field: "uid", op: "EQUAL", value: uid }], 20)),
+    ...(await queryDocs(env, "registrations", [{ field: "authUid", op: "EQUAL", value: uid }], 20)),
+    ...(await getDoc(env, "registrations", uid).then((doc) => doc ? [doc] : [])),
+  ];
+  const aliases = new Set<string>([uid]);
+  for (const doc of matches) {
+    const data = doc.data || {};
+    const status = String(data.status || "").trim().toLowerCase();
+    if (status !== "approved" || data.isDeleted === true || data.active === false) continue;
+    const docId = String(doc.name || "").split("/").pop() || "";
+    for (const candidate of [data.uid, data.authUid, docId]) {
+      const value = String(candidate || "").trim();
+      if (value) aliases.add(value);
+    }
+  }
+  return [...aliases];
+}
+
 async function approvedAdmin(env: Env, uid: string) {
   const doc = await getDoc(env, "admin_users", uid);
   if (!doc) return false;
@@ -303,7 +323,14 @@ async function handler(req: Request, env: Env): Promise<Response> {
   if (!conferenceDoc) return json({ success: false, error: "Conference not found." }, 404, req, env);
   const conference = conferenceDoc.data || {};
   const participantUids = Array.isArray(conference.participantUids) ? conference.participantUids.map(String) : [];
-  if (!participantUids.includes(caller.uid)) return json({ success: false, error: "You are not invited to this conference." }, 403, req, env);
+  // Registration records can contain both uid and authUid from older account-linking
+  // flows. Accept an alias only when it belongs to an approved, active employee.
+  const uidAliases = await approvedEmployeeUidAliases(env, caller.uid);
+  const conferenceParticipantUid = participantUids.find((uid) => uidAliases.includes(uid));
+  if (!conferenceParticipantUid) {
+    console.warn("video_conference_invitation_mismatch", JSON.stringify({ conferenceId, callerUid: caller.uid, participantCount: participantUids.length }));
+    return json({ success: false, error: "You are not invited to this conference." }, 403, req, env);
+  }
   if (new Date(String(conference.expiresAt || 0)).getTime() <= Date.now() || conference.status !== "active") return json({ success: false, error: "This conference has ended or expired." }, 410, req, env);
 
   if (snapshot) {
@@ -314,7 +341,7 @@ async function handler(req: Request, env: Env): Promise<Response> {
   if (join) {
     const input = await body(req); const participantName = String(input.displayName || caller.name || caller.email || "EXFIN OMS user").slice(0, 80);
     const participants = Array.isArray(conference.participants) ? conference.participants : [];
-    await updateDoc(env, "video_conferences", conferenceId, { participants: participants.map((item: any) => String(item.uid) === caller.uid ? { ...item, name: participantName, status: "JOINED", joinedAt: new Date().toISOString() } : item) });
+    await updateDoc(env, "video_conferences", conferenceId, { participants: participants.map((item: any) => String(item.uid) === conferenceParticipantUid ? { ...item, name: participantName, status: "JOINED", joinedAt: new Date().toISOString() } : item) });
     return json({ success: true, conferenceId, title: conference.title, callerUid: conference.callerUid, participantName }, 200, req, env);
   }
 
@@ -332,7 +359,7 @@ async function handler(req: Request, env: Env): Promise<Response> {
 
   if (subscribe) {
     const input = await body(req); const requested = Array.isArray(input.publications) ? input.publications : [];
-    const allowed = new Set(participantUids.filter((uid) => uid !== caller.uid));
+    const allowed = new Set(participantUids.filter((uid) => uid !== conferenceParticipantUid));
     const publications = requested.filter((item: any) => allowed.has(String(item?.uid || "")) && String(item?.sessionId || "") && Array.isArray(item?.tracks));
     const locators = publications.flatMap((p: any) => p.tracks.map((t: any) => ({ location: "remote", sessionId: String(p.sessionId), trackName: String(t.trackName) })));
     if (!locators.length) return json({ success: true, empty: true, tracks: [] }, 200, req, env);
@@ -344,7 +371,7 @@ async function handler(req: Request, env: Env): Promise<Response> {
 
   if (leave) {
     const participants = Array.isArray(conference.participants) ? conference.participants : [];
-    await updateDoc(env, "video_conferences", conferenceId, { participants: participants.map((item: any) => String(item.uid) === caller.uid ? { ...item, status: "LEFT", leftAt: new Date().toISOString() } : item) });
+    await updateDoc(env, "video_conferences", conferenceId, { participants: participants.map((item: any) => String(item.uid) === conferenceParticipantUid ? { ...item, status: "LEFT", leftAt: new Date().toISOString() } : item) });
     const pubs = await queryDocs(env, "video_conference_publications", [{ field: "conferenceId", op: "EQUAL", value: conferenceId }, { field: "uid", op: "EQUAL", value: caller.uid }], 5);
     for (const pub of pubs) await updateDoc(env, "video_conference_publications", pub.name.split("/").pop() || `${conferenceId}_${caller.uid}`, { active: false, updatedAt: new Date().toISOString() });
     return json({ success: true }, 200, req, env);
