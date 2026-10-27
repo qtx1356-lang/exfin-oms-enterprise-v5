@@ -15,19 +15,28 @@ import { ConnectivityIndicator } from './components/common/ConnectivityIndicator
 import { AppUpdateModal } from './components/common/AppUpdateModal';
 import { VideoConferenceCenter } from './features/video/VideoConferenceCenter';
 
+const PRIVILEGED_VIDEO_ROLES = new Set(['ADMIN', 'SUPER_ADMIN', 'HR', 'TEAM_LEADER', 'MANAGER']);
+
 function EmployeeVideoConferenceLauncherGuard() {
   const { role } = useAdminAuth();
 
   useEffect(() => {
-    // Never expose the admin conference launcher to employees or to the transient
-    // role/loading state. Only explicit privileged roles may use the launcher.
-    const normalizedRole = String(role || '').toUpperCase();
-    const isPrivileged = ['ADMIN', 'SUPER_ADMIN', 'HR', 'TEAM_LEADER', 'MANAGER'].includes(normalizedRole);
-    if (isPrivileged || typeof document === 'undefined') return;
+    if (typeof document === 'undefined') return;
 
+    const normalizedRole = String(role || '').trim().toUpperCase();
+    const isPrivileged = PRIVILEGED_VIDEO_ROLES.has(normalizedRole);
+    if (isPrivileged) return;
+
+    // VideoConferenceCenter must remain mounted for employee incoming-call
+    // handling, but its manual launcher must never be visible to employees.
+    // Use both the stable aria label and the launcher's stable Tailwind class
+    // pattern so this remains effective if the button markup changes slightly.
     const style = document.createElement('style');
     style.setAttribute('data-exfin-employee-video-guard', 'true');
-    style.textContent = '[aria-label="Open EXFIN video conferences"]{display:none !important;}';
+    style.textContent = [
+      '[aria-label="Open EXFIN video conferences"]',
+      'button[class*="bottom-20"][class*="right-4"][class*="z-[80]"]',
+    ].join(',') + '{display:none !important;visibility:hidden !important;pointer-events:none !important;}';
     document.head.appendChild(style);
 
     return () => style.remove();
