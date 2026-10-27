@@ -110,29 +110,6 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
         PendingIntent answerIntent = activityIntent(context, callId, "answer", callerName, title, requestBase + 2);
         PendingIntent declineIntent = activityIntent(context, callId, "decline", callerName, title, requestBase + 3);
 
-        // When EXFIN OMS is already visible, start the native call screen directly.
-        // Android permits this because the application process is in the foreground.
-        // When the app is backgrounded/closed, the notification full-screen intent is
-        // the supported Android mechanism and requires no tap on the notification.
-        if (isApplicationForeground(context)) {
-            try {
-                Intent directIntent = new Intent(context, IncomingCallActivity.class);
-                directIntent.setAction("com.exfin.oms.VIDEO_CALL_OPEN");
-                directIntent.putExtra("exfin_video_call_id", callId);
-                directIntent.putExtra("exfin_video_call_action", "open");
-                directIntent.putExtra("exfin_video_call_event_id", callId + ":open");
-                directIntent.putExtra("exfin_video_call_route", "/video-calls");
-                directIntent.putExtra("exfin_video_caller_name", callerName);
-                directIntent.putExtra("exfin_video_call_title", title);
-                directIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                context.startActivity(directIntent);
-                android.util.Log.i(TAG, "CALL_UI_DIRECT_STARTED callId=" + callId);
-                return;
-            } catch (Throwable error) {
-                android.util.Log.w(TAG, "Direct foreground call UI failed; falling back to notification", error);
-            }
-        }
-
         Person caller = new Person.Builder().setName(callerName).setImportant(true)
                 .setIcon(androidx.core.graphics.drawable.IconCompat.createWithResource(context, R.mipmap.ic_launcher)).build();
         String content = conference ? "EXFIN OMS group video conference" : title;
@@ -161,15 +138,18 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
 
         boolean fullScreenAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE || manager.canUseFullScreenIntent();
         if (fullScreenAllowed) {
-            // Android launches IncomingCallActivity from this call notification without
-            // requiring the employee to tap the push notification first.
+            // Always configure the full-screen intent. This is required when the app is
+            // backgrounded/closed, and it also keeps the behavior identical for foreground calls.
             builder.setFullScreenIntent(openIntent, true);
         }
 
+        boolean notificationsEnabled = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled();
+        int channelImportance = manager.getNotificationChannel(CHANNEL_ID).getImportance();
         android.util.Log.i(TAG, "CALL_UI_PREPARED callId=" + callId
                 + " fullScreenAllowed=" + fullScreenAllowed
-                + " channelImportance=" + manager.getNotificationChannel(CHANNEL_ID).getImportance()
-                + " notificationsEnabled=" + androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled());
+                + " channelImportance=" + channelImportance
+                + " notificationsEnabled=" + notificationsEnabled
+                + " appForeground=" + isApplicationForeground(context));
 
         try {
             manager.notify(notificationId, builder.build());
@@ -177,6 +157,28 @@ public class ExfinCallMessagingService extends FirebaseMessagingService {
                     + " fullScreenIntentConfigured=" + fullScreenAllowed);
         } catch (Throwable error) {
             android.util.Log.e(TAG, "CALL_NOTIFICATION_POST_FAILED callId=" + callId, error);
+        }
+
+        // Do not rely on the notification tap when EXFIN OMS is already foregrounded.
+        // Launch the same native full-screen call activity directly as well. The
+        // notification is still posted, so foreground and background behavior share
+        // one delivery path and the employee can always see a call alert.
+        if (isApplicationForeground(context)) {
+            try {
+                Intent directIntent = new Intent(context, IncomingCallActivity.class);
+                directIntent.setAction("com.exfin.oms.VIDEO_CALL_OPEN");
+                directIntent.putExtra("exfin_video_call_id", callId);
+                directIntent.putExtra("exfin_video_call_action", "open");
+                directIntent.putExtra("exfin_video_call_event_id", callId + ":open");
+                directIntent.putExtra("exfin_video_call_route", "/video-calls");
+                directIntent.putExtra("exfin_video_caller_name", callerName);
+                directIntent.putExtra("exfin_video_call_title", title);
+                directIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                context.startActivity(directIntent);
+                android.util.Log.i(TAG, "CALL_UI_DIRECT_STARTED callId=" + callId);
+            } catch (Throwable error) {
+                android.util.Log.w(TAG, "Direct foreground call UI failed; notification remains available", error);
+            }
         }
     }
 
