@@ -236,10 +236,21 @@ async function sfuRequest(env: Env, path: string, init: RequestInit = {}) {
 }
 
 async function sendConferencePush(env: Env, uid: string, payload: Json) {
-  const docs = await queryDocs(env, "push_device_tokens", [{ field: "uid", op: "EQUAL", value: uid }], 50);
+  // A registration can retain a legacy document ID or uid while the Android
+  // app registers its FCM token under the authenticated Firebase UID. Resolve
+  // only approved, active employee aliases, then search token records for each.
+  const aliases = await approvedEmployeeUidAliases(env, uid);
+  const docGroups = await Promise.all(aliases.map(async (alias) => {
+    try { return await queryDocs(env, "push_device_tokens", [{ field: "uid", op: "EQUAL", value: alias }], 50); }
+    catch (error) {
+      console.warn("video_conference_token_lookup_failed", JSON.stringify({ invitedUid: uid, alias, message: error instanceof Error ? error.message : String(error) }));
+      return [];
+    }
+  }));
+  const docs = docGroups.flat();
   const tokens = [...new Set(docs.map((d) => String(d.data.token || d.data.fcmToken || d.data.deviceToken || "").trim()).filter(Boolean))];
   if (!tokens.length) {
-    console.warn("video_conference_push", JSON.stringify({ uid, result: "NO_REGISTERED_FCM_TOKEN", documentsFound: docs.length }));
+    console.warn("video_conference_push", JSON.stringify({ uid, uidAliasCount: aliases.length, result: "NO_REGISTERED_FCM_TOKEN", documentsFound: docs.length }));
     return { uid, sent: 0, failed: 0, tokenCount: 0, errors: ["NO_REGISTERED_FCM_TOKEN"] };
   }
   const accessToken = await googleAccessToken(env, FCM_SCOPE);
