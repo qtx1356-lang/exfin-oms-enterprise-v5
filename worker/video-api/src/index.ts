@@ -197,16 +197,25 @@ async function approvedEmployeeUidAliases(env: Env, uid: string, email?: string)
     } catch (error) {
       console.warn("video_conference_registration_email_lookup_failed", JSON.stringify({ uid, message: error instanceof Error ? error.message : String(error) }));
     }
-    // Firestore equality queries are case-sensitive and legacy registrations may
-    // store mixed-case email addresses. Fall back to a bounded scan and normalize.
-    if (!matches.some((doc) => String(doc.data?.email || "").trim().toLowerCase() === normalizedEmail)) {
-      try {
-        const registrations = await queryDocs(env, "registrations", [], 1000);
-        matches.push(...registrations.filter((doc) => String(doc.data?.email || "").trim().toLowerCase() === normalizedEmail));
-      } catch (error) {
-        console.warn("video_conference_registration_email_scan_failed", JSON.stringify({ uid, message: error instanceof Error ? error.message : String(error) }));
-      }
-    }
+  }
+
+  // Recipient lists in older EXFIN deployments may supply an employee code or
+  // registration document ID instead of the current Firebase Auth UID. Resolve
+  // those identifiers to the same approved registration before persisting an
+  // invitation. This scan is bounded and also handles legacy mixed-case emails.
+  try {
+    const registrations = await queryDocs(env, "registrations", [], 1000);
+    const normalizedUid = String(uid || "").trim().toLowerCase();
+    matches.push(...registrations.filter((doc) => {
+      const data = doc.data || {};
+      const docId = String(doc.name || "").split("/").pop() || "";
+      const identifiers = [docId, data.uid, data.authUid, data.employeeCode, data.employeeId, data.email]
+        .map((value) => String(value || "").trim().toLowerCase()).filter(Boolean);
+      return identifiers.includes(normalizedUid) ||
+        (normalizedEmail && String(data.email || "").trim().toLowerCase() === normalizedEmail);
+    }));
+  } catch (error) {
+    console.warn("video_conference_registration_identity_scan_failed", JSON.stringify({ uid, message: error instanceof Error ? error.message : String(error) }));
   }
   try {
     const direct = await getDoc(env, "registrations", uid);
