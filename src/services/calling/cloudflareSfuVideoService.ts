@@ -67,10 +67,16 @@ export async function leaveConference(conferenceId: string) { return api(`/api/v
 export async function endConference(conferenceId: string) { return api(`/api/video-conference/${encodeURIComponent(conferenceId)}/end`, { method: 'POST' }); }
 
 export async function getConferenceIceServers(): Promise<RTCIceServer[]> {
+  // Cloudflare Realtime SFU exposes the conference connectivity configuration
+  // through the video-conference API. Do not call the retired native-WebRTC
+  // /api/native-webrtc/ice-servers endpoint here: it is not part of the SFU
+  // deployment and causes a Pages 404 before a conference can open.
   try {
-    const result = await api('/api/native-webrtc/ice-servers');
+    const result = await api('/api/video-conference/config');
     if (Array.isArray(result.iceServers) && result.iceServers.length) return result.iceServers as RTCIceServer[];
-  } catch { /* fall back to Cloudflare public STUN */ }
+  } catch (error) {
+    console.warn('[CloudflareSFU] Could not load conference ICE configuration; using Cloudflare public STUN.', error);
+  }
   return [{ urls: ['stun:stun.cloudflare.com:3478'] }];
 }
 
