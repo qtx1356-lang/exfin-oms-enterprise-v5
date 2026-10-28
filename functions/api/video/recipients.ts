@@ -22,26 +22,6 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
     const recipients: Array<{ uid: string; name: string; employeeCode?: string; role: string; email?: string }> = [];
     if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) {
       const documents = await listCollection(env, 'registrations', 500);
-      const tokenDocuments = await listCollection(env, 'push_device_tokens', 1000);
-      const tokenUidsByEmployeeCode = new Map<string, Set<string>>();
-      const tokenUidsByEmail = new Map<string, Set<string>>();
-      for (const tokenDocument of tokenDocuments) {
-        const tokenData = decodeDoc(tokenDocument);
-        const tokenUid = String(tokenData.uid || tokenData.authUid || tokenData.userId || '').trim();
-        if (!tokenUid) continue;
-        const employeeCode = String(tokenData.employeeCode || tokenData.employeeId || '').trim().toUpperCase();
-        const email = String(tokenData.email || '').trim().toLowerCase();
-        if (employeeCode) {
-          const values = tokenUidsByEmployeeCode.get(employeeCode) || new Set<string>();
-          values.add(tokenUid);
-          tokenUidsByEmployeeCode.set(employeeCode, values);
-        }
-        if (email) {
-          const values = tokenUidsByEmail.get(email) || new Set<string>();
-          values.add(tokenUid);
-          tokenUidsByEmail.set(email, values);
-        }
-      }
 
       for (const document of documents) {
         const data = decodeDoc(document);
@@ -52,18 +32,13 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
         if (!approved || inactive) continue;
 
         const email = String(data.email || '').trim().toLowerCase();
-        const registrationUid = String(data.authUid || data.firebaseUid || data.uid || '').trim();
-        const tokenMatches = (employeeCode ? tokenUidsByEmployeeCode.get(employeeCode.toUpperCase()) : undefined)
-          || (email ? tokenUidsByEmail.get(email) : undefined);
-        const tokenUids = tokenMatches ? [...tokenMatches] : [];
-
-        // The Android device token is registered from the verified Firebase ID token.
-        // When there is exactly one token UID for this employee, use it as the
-        // conference participant identity. This prevents stale registration UIDs
-        // from creating a conference that the employee's authenticated Android app
-        // cannot join. If there is no token identity yet, retain the registration
-        // identity so approved employees remain visible to the administrator.
-        const uid = tokenUids.length === 1 ? tokenUids[0] : registrationUid;
+        // IMPORTANT: participant identity must be the canonical Firebase Auth UID.
+        // Token records may contain employee-code/legacy aliases, but those aliases
+        // must never replace the authenticated Firebase UID used by the conference
+        // authorization and Android call-join flow.
+        const canonicalUid = String(data.authUid || data.firebaseUid || data.uid || '').trim();
+        const documentId = String(document.name || '').split('/').pop()?.trim() || '';
+        const uid = canonicalUid || documentId;
         if (!uid || uid === caller.uid) continue;
 
         recipients.push({
@@ -71,7 +46,7 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
           name: String(data.name || data.fullName || employeeCode || 'Employee').slice(0, 80),
           employeeCode,
           role: 'EMPLOYEE',
-          email: String(data.email || ''),
+          email,
         });
       }
     } else {
