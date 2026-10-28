@@ -35,16 +35,15 @@ async function loadIceServers(): Promise<RTCIceServer[]> {
   const currentUser = auth.currentUser;
   if (!currentUser) throw new Error('Firebase authentication is required for video calls.');
   const token = await currentUser.getIdToken();
-  const response = await fetch(buildApiUrl('/api/native-webrtc/ice-servers'), {
+  // The old native-WebRTC ICE route is retired. Keep this legacy service
+  // compatible by consuming the active Cloudflare video API configuration.
+  const response = await fetch(buildApiUrl('/api/video-conference/config'), {
     headers: { Authorization: 'Bearer ' + token },
   });
   if (!response.ok) throw new Error('Could not load secure WebRTC connectivity settings.');
-  const result = await response.json() as { iceServers?: RTCIceServer[]; turnConfigured?: boolean };
+  const result = await response.json() as { iceServers?: RTCIceServer[] };
   if (!Array.isArray(result.iceServers) || result.iceServers.length === 0) {
     throw new Error('WebRTC ICE server configuration is empty.');
-  }
-  if (!result.turnConfigured) {
-    console.warn('[NativeWebRTC] TURN is not configured; calls may fail behind restrictive NAT/firewalls.');
   }
   return result.iceServers;
 }
@@ -164,7 +163,6 @@ export async function createNativeWebRtcCall(params: {
   for (const candidate of pendingLocalCandidates.splice(0)) {
     void addIceCandidate(callId, 'callerCandidates', candidate).catch(handlers.onError);
   }
-  // The parent signaling document must exist before participant-scoped candidate reads begin.
   const remoteCandidates = watchRemoteCandidates(callId, 'calleeCandidates', peer, handlers.onError);
 
   const statusUnsub = onSnapshot(callDoc, async (snapshot) => {
