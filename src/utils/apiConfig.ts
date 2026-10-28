@@ -1,51 +1,49 @@
 import { Capacitor } from '@capacitor/core';
 
+const PAGES_ORIGIN = 'https://exfin-oms-enterprise-v5.pages.dev';
+// Cloudflare account subdomain previously configured for EXFIN OMS Workers.
+// Can be overridden per deployment without changing the general API gateway.
+const DEFAULT_VIDEO_API_ORIGIN = 'https://exfin-oms-video-api.sanjivsinha06.workers.dev';
+
 /**
- * Resolves the API Base URL for browser and native clients.
- *
- * Browser deployments on Cloudflare Pages use same-origin relative API routes.
- * Capacitor Android runs the bundled UI on its local WebView origin, so relative
- * /api requests would target the local app instead of the deployed Pages Functions.
- * VITE_API_BASE_URL remains the explicit override for deployments using another API.
+ * Resolves the general API base URL. Browser deployments use same-origin Pages
+ * routes; Android uses Pages for existing non-video endpoints.
  */
 export function getApiBaseUrl(): string {
   const envUrl = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_API_BASE_URL)
     ? String(import.meta.env.VITE_API_BASE_URL).trim()
     : '';
-  if (envUrl !== '') {
-    return envUrl.replace(/\/$/, '');
-  }
-
-  // Keep browser requests same-origin. Native Android must use the deployed EXFIN
-  // OMS Pages origin that serves the working admin video API and its Pages Functions.
+  if (envUrl) return envUrl.replace(/\\/$/, '');
   try {
-    // Use Capacitor's imported API instead of relying on window.Capacitor being
-    // exposed globally in every Android WebView. If that global is absent, the
-    // old check silently returned relative URLs and token registration never
-    // reached the deployed Pages Functions.
-    if (Capacitor.isNativePlatform()) {
-      return 'https://exfin-oms-enterprise-v5.pages.dev';
-    }
+    if (Capacitor.isNativePlatform()) return PAGES_ORIGIN;
   } catch {
-    // Fall through to same-origin behavior if native-platform detection fails.
+    // Keep normal same-origin behavior if platform detection is unavailable.
   }
-
   return '';
 }
 
-export const API_BASE_URL = getApiBaseUrl();
+/** Video conferencing has its own deployed Worker, not a Pages /api route. */
+export function getVideoApiBaseUrl(): string {
+  const envUrl = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_VIDEO_API_BASE_URL)
+    ? String(import.meta.env.VITE_VIDEO_API_BASE_URL).trim()
+    : '';
+  return (envUrl || DEFAULT_VIDEO_API_ORIGIN).replace(/\\/$/, '');
+}
 
-/**
- * Builds a normalized, absolute or relative API URL avoiding duplicate /api paths.
- */
-export function buildApiUrl(path: string): string {
+export const API_BASE_URL = getApiBaseUrl();
+export const VIDEO_API_BASE_URL = getVideoApiBaseUrl();
+
+function buildUrl(base: string, path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  const base = getApiBaseUrl();
-  if (!base) {
-    return cleanPath;
-  }
-  if (base.endsWith('/api') && cleanPath.startsWith('/api')) {
-    return base + cleanPath.substring(4);
-  }
+  if (!base) return cleanPath;
+  if (base.endsWith('/api') && cleanPath.startsWith('/api')) return base + cleanPath.substring(4);
   return base + cleanPath;
+}
+
+export function buildApiUrl(path: string): string {
+  return buildUrl(getApiBaseUrl(), path);
+}
+
+export function buildVideoApiUrl(path: string): string {
+  return buildUrl(getVideoApiBaseUrl(), path);
 }
