@@ -1,5 +1,5 @@
 import { auth } from '../firebase/config';
-import { buildApiUrl } from '../../utils/apiConfig';
+import { buildVideoApiUrl } from '../../utils/apiConfig';
 
 export type SfuPublication = {
   publicationId?: string;
@@ -20,7 +20,7 @@ async function api(path: string, init: RequestInit = {}): Promise<ApiResult> {
   const currentUser = auth.currentUser;
   if (!currentUser) throw new Error('Please sign in again before joining the video conference.');
   const token = await currentUser.getIdToken();
-  const response = await fetch(buildApiUrl(path), {
+  const response = await fetch(buildVideoApiUrl(path), {
     ...init,
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers || {}) },
   });
