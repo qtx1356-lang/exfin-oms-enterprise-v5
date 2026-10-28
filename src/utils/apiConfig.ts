@@ -13,7 +13,7 @@ export function getApiBaseUrl(): string {
   const envUrl = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_API_BASE_URL)
     ? String(import.meta.env.VITE_API_BASE_URL).trim()
     : '';
-  if (envUrl) return envUrl.replace(/\\/$/, '');
+  if (envUrl) return envUrl.replace(/\/$/, '');
   try {
     if (Capacitor.isNativePlatform()) return PAGES_ORIGIN;
   } catch {
@@ -27,7 +27,7 @@ export function getVideoApiBaseUrl(): string {
   const envUrl = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_VIDEO_API_BASE_URL)
     ? String(import.meta.env.VITE_VIDEO_API_BASE_URL).trim()
     : '';
-  return (envUrl || DEFAULT_VIDEO_API_ORIGIN).replace(/\\/$/, '');
+  return (envUrl || DEFAULT_VIDEO_API_ORIGIN).replace(/\/$/, '');
 }
 
 export const API_BASE_URL = getApiBaseUrl();
