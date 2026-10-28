@@ -380,7 +380,7 @@ async function auth(req: Request, env: Env) {
 async function body(req: Request) { try { return await req.json() as Json; } catch { return {}; } }
 
 async function handler(req: Request, env: Env): Promise<Response> {
-  if (req.method === "OPTIONS") return json({}, 204, req, env);
+  if (req.method === "OPTIONS") return json({}, 200, req, env);
   const url = new URL(req.url);
   const path = url.pathname.replace(/\/$/, "");
   const caller = await auth(req, env);
