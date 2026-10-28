@@ -325,15 +325,27 @@ async function handler(req: Request, env: Env): Promise<Response> {
     if (!(await approvedAdmin(env, caller.uid))) return json({ success: false, error: "Only an active admin can start a conference." }, 403, req, env);
     const input = await body(req);
     const raw = Array.isArray(input.participantUids) ? input.participantUids : [];
-    const participantUids = [...new Set(raw.map((v: any) => String(v || "").trim()).filter(Boolean))].filter((uid) => uid !== caller.uid).slice(0, MAX_PARTICIPANTS - 1);
-    if (!participantUids.length) return json({ success: false, error: "Select at least one employee." }, 400, req, env);
+    const selectedUids = [...new Set(raw.map((v: any) => String(v || "").trim()).filter(Boolean))].filter((uid) => uid !== caller.uid).slice(0, MAX_PARTICIPANTS - 1);
+    if (!selectedUids.length) return json({ success: false, error: "Select at least one employee." }, 400, req, env);
+    // Store every approved identity alias for each selected employee. The admin recipient
+    // list can contain a legacy registration UID while the native app authenticates with
+    // the current Firebase Auth UID; both must be authorized to join the same conference.
+    const participantAliasesBySelectedUid = await Promise.all(selectedUids.map(async (uid) => {
+      try { return { selectedUid: uid, aliases: await approvedEmployeeUidAliases(env, uid) }; }
+      catch (error) {
+        console.error("video_conference_invitee_alias_resolution_failed", JSON.stringify({ selectedUid: uid, message: error instanceof Error ? error.message : String(error) }));
+        return { selectedUid: uid, aliases: [uid] };
+      }
+    }));
+    const participantUids = [...new Set(participantAliasesBySelectedUid.flatMap((entry) => entry.aliases))].filter((uid) => uid !== caller.uid);
+    if (!participantUids.length) return json({ success: false, error: "No valid employee identities were resolved for the selected invitees." }, 400, req, env);
     const conferenceId = crypto.randomUUID();
     const title = String(input.title || "EXFIN OMS video conference").trim().slice(0, 120) || "EXFIN OMS video conference";
     const adminName = String(input.adminName || caller.name || caller.email || "EXFIN OMS Admin").slice(0, 80);
     const expiresAt = new Date(Date.now() + CONFERENCE_TTL_MS).toISOString();
-    const participants = [{ uid: caller.uid, name: adminName, role: "ADMIN", status: "HOST" }, ...participantUids.map((uid) => ({ uid, name: "Employee", role: "EMPLOYEE", status: "INVITED" }))];
+    const participants = [{ uid: caller.uid, name: adminName, role: "ADMIN", status: "HOST" }, ...participantAliasesBySelectedUid.map((entry) => ({ uid: entry.selectedUid, identityAliases: entry.aliases, name: "Employee", role: "EMPLOYEE", status: "INVITED" }))];
     await setDoc(env, "video_conferences", conferenceId, { conferenceId, title, callerUid: caller.uid, callerName: adminName, participantUids: [caller.uid, ...participantUids], participants, status: "active", createdAt: new Date().toISOString(), expiresAt });
-    const pushes = await Promise.all(participantUids.map(async (uid) => {
+    const pushes = await Promise.all(selectedUids.map(async (uid) => {
       try {
         return await sendConferencePush(env, uid, { type: "video_conference", conferenceId, callerUid: caller.uid, callerName: adminName, title, route: "/video-calls", expiresAt });
       } catch (error) {
