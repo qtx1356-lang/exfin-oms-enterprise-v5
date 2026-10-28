@@ -33,6 +33,7 @@ import java.util.TimeZone;
 
 public class MainActivity extends BridgeActivity {
     private static final int VIDEO_PERMISSION_REQUEST_CODE = 41042;
+    private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 41043;
     private PermissionRequest pendingVideoPermissionRequest;
 
     @Override public void onCreate(Bundle savedInstanceState) {
@@ -57,6 +58,7 @@ public class MainActivity extends BridgeActivity {
             } else if (resId == 0) Log.w("MainActivity", "google_app_id resource not found; FCM push disabled");
         } catch (Throwable t) { Log.w("MainActivity", "FirebaseApp initialization safe check caught: " + t.getMessage()); }
         createDefaultNotificationChannels();
+        requestNotificationPermissionIfNeeded();
         restoreNativePendingExitState("onCreate");
         refreshNativeGeofenceRegistration("onCreate");
         ensureNativeAttendanceMonitoring("onCreate");
@@ -125,6 +127,10 @@ public class MainActivity extends BridgeActivity {
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
+            Log.i("MainActivity", "[FCM_PERMISSION] POST_NOTIFICATIONS result=" + (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED));
+            return;
+        }
         if (requestCode != VIDEO_PERMISSION_REQUEST_CODE) return;
         PermissionRequest request = pendingVideoPermissionRequest;
         pendingVideoPermissionRequest = null;
@@ -133,6 +139,20 @@ public class MainActivity extends BridgeActivity {
         for (int result : grantResults) if (result != PackageManager.PERMISSION_GRANTED) { granted = false; break; }
         if (granted) { try { request.grant(request.getResources()); } catch (Exception e) { try { request.deny(); } catch (Exception ignored) {} } }
         else { try { request.deny(); } catch (Exception ignored) {} }
+    }
+
+    private void requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return;
+        try {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                Log.i("MainActivity", "[FCM_PERMISSION] Requesting POST_NOTIFICATIONS before authenticated push registration");
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_PERMISSION_REQUEST_CODE);
+            } else {
+                Log.i("MainActivity", "[FCM_PERMISSION] POST_NOTIFICATIONS already granted");
+            }
+        } catch (Throwable error) {
+            Log.w("MainActivity", "[FCM_PERMISSION] Native notification permission request failed: " + error.getMessage());
+        }
     }
 
     private static final class ExfinWebChromeClient extends BridgeWebChromeClient {
