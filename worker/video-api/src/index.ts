@@ -197,6 +197,16 @@ async function approvedEmployeeUidAliases(env: Env, uid: string, email?: string)
     } catch (error) {
       console.warn("video_conference_registration_email_lookup_failed", JSON.stringify({ uid, message: error instanceof Error ? error.message : String(error) }));
     }
+    // Firestore equality queries are case-sensitive and legacy registrations may
+    // store mixed-case email addresses. Fall back to a bounded scan and normalize.
+    if (!matches.some((doc) => String(doc.data?.email || "").trim().toLowerCase() === normalizedEmail)) {
+      try {
+        const registrations = await queryDocs(env, "registrations", [], 1000);
+        matches.push(...registrations.filter((doc) => String(doc.data?.email || "").trim().toLowerCase() === normalizedEmail));
+      } catch (error) {
+        console.warn("video_conference_registration_email_scan_failed", JSON.stringify({ uid, message: error instanceof Error ? error.message : String(error) }));
+      }
+    }
   }
   try {
     const direct = await getDoc(env, "registrations", uid);
