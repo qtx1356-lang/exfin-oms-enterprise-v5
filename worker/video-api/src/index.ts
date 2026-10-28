@@ -182,11 +182,22 @@ async function queryDocs(env: Env, collection: string, fieldFilters: Array<{ fie
   return (Array.isArray(rows) ? rows : []).filter((row) => row.document).map((row) => ({ name: row.document.name, data: fromDocument(row.document) }));
 }
 
-async function approvedEmployeeUidAliases(env: Env, uid: string): Promise<string[]> {
+async function approvedEmployeeUidAliases(env: Env, uid: string, email?: string): Promise<string[]> {
   const matches = [
     ...(await queryDocs(env, "registrations", [{ field: "uid", op: "EQUAL", value: uid }], 20)),
     ...(await queryDocs(env, "registrations", [{ field: "authUid", op: "EQUAL", value: uid }], 20)),
   ];
+  // Older EXFIN registrations may be linked to Firebase Auth by email rather than UID.
+  // Resolve that approved registration so the authenticated employee can join their invitation.
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (normalizedEmail) {
+    try {
+      const byEmail = await queryDocs(env, "registrations", [{ field: "email", op: "EQUAL", value: normalizedEmail }], 20);
+      matches.push(...byEmail);
+    } catch (error) {
+      console.warn("video_conference_registration_email_lookup_failed", JSON.stringify({ uid, message: error instanceof Error ? error.message : String(error) }));
+    }
+  }
   try {
     const direct = await getDoc(env, "registrations", uid);
     if (direct) matches.push(direct);
@@ -348,7 +359,7 @@ async function handler(req: Request, env: Env): Promise<Response> {
   if (!conferenceDoc) return json({ success: false, error: "Conference not found." }, 404, req, env);
   const conference = conferenceDoc.data || {};
   const participantUids = Array.isArray(conference.participantUids) ? conference.participantUids.map(String) : [];
-  const uidAliases = await approvedEmployeeUidAliases(env, caller.uid);
+  const uidAliases = await approvedEmployeeUidAliases(env, caller.uid, caller.email);
   const conferenceParticipantUid = participantUids.find((uid) => uidAliases.includes(uid));
   if (!conferenceParticipantUid) {
     console.warn("video_conference_invitation_mismatch", JSON.stringify({ conferenceId, callerUid: caller.uid, participantCount: participantUids.length }));
