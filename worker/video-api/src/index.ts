@@ -417,7 +417,18 @@ async function handler(req: Request, env: Env): Promise<Response> {
         return { uid, sent: 0, failed: 1, tokenCount: 0, errors: [message] };
       }
     }));
-    const pushSummary = { invited: participantUids.length, sent: pushes.reduce((s, x) => s + x.sent, 0), failed: pushes.reduce((s, x) => s + x.failed, 0), recipients: pushes.map(({ uid, sent, failed, tokenCount, errors }) => ({ uid, sent, failed, tokenCount, errors })) };
+    const pushSummary = {
+      invited: selectedUids.length,
+      participantIdentityCount: participantUids.length,
+      sent: pushes.reduce((s, x) => s + x.sent, 0),
+      failed: pushes.reduce((s, x) => s + x.failed, 0),
+      recipients: pushes.map(({ uid, sent, failed, tokenCount, errors, diagnosticCode, ownerMatchedDocuments, rejectedOwnerDocuments }) => ({
+        uid, sent, failed, tokenCount, errors,
+        diagnosticCode: diagnosticCode || (sent > 0 ? "FCM_ACCEPTED" : failed > 0 ? "FCM_REJECTED" : "NO_EMPLOYEE_TOKEN"),
+        ownerMatchedDocuments: ownerMatchedDocuments ?? 0,
+        rejectedOwnerDocuments: rejectedOwnerDocuments ?? 0,
+      })),
+    };
     await updateDoc(env, "video_conferences", conferenceId, { pushSummary });
     return json({ success: true, conferenceId, title, expiresAt, participantCount: participantUids.length + 1, pushSummary }, 200, req, env);
   }
