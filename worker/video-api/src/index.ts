@@ -458,6 +458,14 @@ async function handler(req: Request, env: Env): Promise<Response> {
   const conference = conferenceDoc.data || {};
   const participantUids = Array.isArray(conference.participantUids) ? conference.participantUids.map(String) : [];
   const uidAliases = await approvedEmployeeUidAliases(env, caller.uid, caller.email);
+  // The invite document is created only by an authenticated, approved admin.
+  // Some legacy employee registrations store the email as the invite identity,
+  // even when the current Firebase UID cannot be resolved from registrations.
+  // Match the authenticated Firebase token's email against that explicit invite.
+  const normalizedCallerEmail = String(caller.email || "").trim().toLowerCase();
+  if (normalizedCallerEmail && !uidAliases.some((alias) => alias.trim().toLowerCase() === normalizedCallerEmail)) {
+    uidAliases.push(normalizedCallerEmail);
+  }
   const participants = Array.isArray(conference.participants) ? conference.participants : [];
   // Prefer the per-invitee identity aliases as well as the flattened legacy list.
   // This avoids losing an invite when older conference documents contain a
