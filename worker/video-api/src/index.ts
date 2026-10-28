@@ -277,10 +277,35 @@ async function sendConferencePush(env: Env, uid: string, payload: Json) {
     }),
   ]);
   const docs = docGroups.flat();
-  const tokens = [...new Set(docs.map((d) => String(d.data.token || d.data.fcmToken || d.data.deviceToken || "").trim()).filter(Boolean))];
+  const expectedUids = new Set(aliases.map((value) => value.trim()).filter(Boolean));
+  const expectedEmployeeCodes = new Set(employeeCodes.map((value) => value.trim().toLowerCase()).filter(Boolean));
+  // Only use tokens whose stored owner matches the selected approved employee.
+  // Employee-code lookup is a legacy fallback, not permission to send to a token
+  // that explicitly belongs to a different Firebase UID or an administrator.
+  const eligibleDocs = docs.filter((doc) => {
+    const data = doc.data || {};
+    const ownerIds = [data.uid, data.authUid, data.userId, data.firebaseUid]
+      .map((value) => String(value || "").trim()).filter(Boolean);
+    const ownerCodes = [data.employeeCode, data.employeeId]
+      .map((value) => String(value || "").trim().toLowerCase()).filter(Boolean);
+    const role = String(data.role || data.accountType || "").trim().toLowerCase();
+    if (role === "admin" || role === "administrator") return false;
+    if (ownerIds.length && !ownerIds.some((owner) => expectedUids.has(owner))) return false;
+    if (ownerCodes.length && !ownerCodes.some((code) => expectedEmployeeCodes.has(code))) return false;
+    if (!ownerIds.length && !ownerCodes.length) return false;
+    return ownerIds.some((owner) => expectedUids.has(owner)) ||
+      ownerCodes.some((code) => expectedEmployeeCodes.has(code));
+  });
+  const rejectedOwnerDocuments = docs.length - eligibleDocs.length;
+  const tokens = [...new Set(eligibleDocs.map((d) => String(d.data.token || d.data.fcmToken || d.data.deviceToken || "").trim()).filter(Boolean))];
   if (!tokens.length) {
-    console.warn("video_conference_push", JSON.stringify({ uid, uidAliasCount: aliases.length, result: "NO_REGISTERED_FCM_TOKEN", documentsFound: docs.length }));
-    return { uid, sent: 0, failed: 0, tokenCount: 0, errors: ["NO_REGISTERED_FCM_TOKEN"] };
+    const diagnosticCode = docs.length > 0 && rejectedOwnerDocuments > 0 ? "TOKEN_OWNER_MISMATCH" : "NO_EMPLOYEE_TOKEN";
+    console.warn("video_conference_push", JSON.stringify({
+      uid, uidAliasCount: aliases.length, result: diagnosticCode,
+      documentsFound: docs.length, ownerMatchedDocuments: eligibleDocs.length,
+      rejectedOwnerDocuments: rejectedOwnerDocuments,
+    }));
+    return { uid, sent: 0, failed: 0, tokenCount: 0, errors: [diagnosticCode], diagnosticCode, ownerMatchedDocuments: eligibleDocs.length, rejectedOwnerDocuments };
   }
   const accessToken = await googleAccessToken(env, FCM_SCOPE);
   let sent = 0, failed = 0;
@@ -326,7 +351,12 @@ async function sendConferencePush(env: Env, uid: string, payload: Json) {
       console.error("video_conference_fcm_rejected", JSON.stringify({ uid, httpStatus: response.status, status, message }));
     }
   }
-  return { uid, sent, failed, tokenCount: tokens.length, errors };
+  const diagnosticCode = sent > 0 ? "FCM_ACCEPTED" : "FCM_REJECTED";
+  console.info("video_conference_push", JSON.stringify({
+    uid, result: diagnosticCode, tokenCount: tokens.length, sent, failed,
+    ownerMatchedDocuments: eligibleDocs.length, rejectedOwnerDocuments,
+  }));
+  return { uid, sent, failed, tokenCount: tokens.length, errors, diagnosticCode, ownerMatchedDocuments: eligibleDocs.length, rejectedOwnerDocuments };
 }
 
 async function auth(req: Request, env: Env) {
