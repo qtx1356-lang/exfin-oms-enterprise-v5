@@ -228,7 +228,10 @@ async function approvedEmployeeUidAliases(env: Env, uid: string, email?: string)
     const approved = ["approved", "approved / active", "active", "approved/active"].includes(status);
     if (!approved || data.isDeleted === true || data.active === false || data.disabled === true) continue;
     const docId = String(doc.name || "").split("/").pop() || "";
-    for (const candidate of [data.uid, data.authUid, docId]) {
+    // Keep every supported identifier in the same identity set. The admin
+    // recipient endpoint can expose employeeCode/employeeId as the selected UID,
+    // while the employee joins using their Firebase Auth UID.
+    for (const candidate of [data.uid, data.authUid, docId, data.employeeCode, data.employeeId, data.email]) {
       const value = String(candidate || "").trim();
       if (value) aliases.add(value);
     }
