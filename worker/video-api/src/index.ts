@@ -458,10 +458,38 @@ async function handler(req: Request, env: Env): Promise<Response> {
   const conference = conferenceDoc.data || {};
   const participantUids = Array.isArray(conference.participantUids) ? conference.participantUids.map(String) : [];
   const uidAliases = await approvedEmployeeUidAliases(env, caller.uid, caller.email);
-  const conferenceParticipantUid = participantUids.find((uid) => uidAliases.includes(uid));
+  const participants = Array.isArray(conference.participants) ? conference.participants : [];
+  // Prefer the per-invitee identity aliases as well as the flattened legacy list.
+  // This avoids losing an invite when older conference documents contain a
+  // partial participantUids array but do retain the selected invitee's aliases.
+  const matchedParticipant = participants.find((item: any) => {
+    if (String(item?.role || "").toUpperCase() === "ADMIN" && String(item?.uid || "") !== caller.uid) return false;
+    const identities = [item?.uid, ...(Array.isArray(item?.identityAliases) ? item.identityAliases : [])]
+      .map((value) => String(value || "").trim()).filter(Boolean);
+    return identities.some((identity) => uidAliases.includes(identity));
+  });
+  const conferenceParticipantUid = participantUids.find((uid) => uidAliases.includes(uid)) ||
+    (matchedParticipant ? String(matchedParticipant.uid || "").trim() : "");
   if (!conferenceParticipantUid) {
-    console.warn("video_conference_invitation_mismatch", JSON.stringify({ conferenceId, callerUid: caller.uid, participantCount: participantUids.length }));
-    return json({ success: false, error: "You are not invited to this conference." }, 403, req, env);
+    // Server-side diagnostic only: do not expose employee identifiers to clients.
+    console.warn("video_conference_invitation_mismatch", JSON.stringify({
+      conferenceId,
+      callerUid: caller.uid,
+      callerEmailPresent: Boolean(caller.email),
+      callerAliasCount: uidAliases.length,
+      callerAliases: uidAliases,
+      storedParticipantUidCount: participantUids.length,
+      storedParticipantUids: participantUids,
+      participantAliasCounts: participants.map((item: any) => ({
+        role: String(item?.role || ""),
+        uid: String(item?.uid || ""),
+        aliasCount: Array.isArray(item?.identityAliases) ? item.identityAliases.length : 0,
+        aliases: Array.isArray(item?.identityAliases) ? item.identityAliases : [],
+      })),
+      conferenceStatus: String(conference.status || ""),
+      expiresAt: String(conference.expiresAt || ""),
+    }));
+    return json({ success: false, error: "You are not invited to this conference.", diagnosticCode: "INVITEE_IDENTITY_MISMATCH" }, 403, req, env);
   }
   if (new Date(String(conference.expiresAt || 0)).getTime() <= Date.now() || conference.status !== "active") return json({ success: false, error: "This conference has ended or expired." }, 410, req, env);
 
