@@ -177,7 +177,7 @@ async function updateDoc(env: Env, collection: string, id: string, data: Json) {
 async function queryDocs(env: Env, collection: string, fieldFilters: Array<{ field: string; op: string; value: any }>, limit = 50) {
   const structuredQuery: Json = { from: [{ collectionId: collection }], limit };
   if (fieldFilters.length === 1) structuredQuery.where = { fieldFilter: { field: { fieldPath: fieldFilters[0].field }, op: fieldFilters[0].op, value: firestoreValue(fieldFilters[0].value) } };
-  else if (fieldFilters.length > 1) structuredQuery.where = { compositeFilter: { op: "AND", filters: fieldFilters.map((f) => ({ fieldFilter: { field: { fieldPath: f.field }, op: f.op, value: firestoreValue(f.value) } })) };
+  else if (fieldFilters.length > 1) structuredQuery.where = { compositeFilter: { op: "AND", filters: fieldFilters.map((f) => ({ fieldFilter: { field: { fieldPath: f.field }, op: f.op, value: firestoreValue(f.value) } })) } };
   const rows = await firestoreRequest(env, `projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`, { method: "POST", body: JSON.stringify({ structuredQuery }) });
   return (Array.isArray(rows) ? rows : []).filter((row) => row.document).map((row) => ({ name: row.document.name, data: fromDocument(row.document) }));
 }
