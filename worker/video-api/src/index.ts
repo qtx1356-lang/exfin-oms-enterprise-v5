@@ -470,13 +470,17 @@ async function handler(req: Request, env: Env): Promise<Response> {
   // Prefer the per-invitee identity aliases as well as the flattened legacy list.
   // This avoids losing an invite when older conference documents contain a
   // partial participantUids array but do retain the selected invitee's aliases.
+  // Compare identity aliases case-insensitively. Legacy registration records may
+  // store email aliases with mixed casing while Firebase ID tokens normalize email.
+  const normalizeIdentity = (value: unknown) => String(value || "").trim().toLowerCase();
+  const callerIdentitySet = new Set(uidAliases.map(normalizeIdentity).filter(Boolean));
   const matchedParticipant = participants.find((item: any) => {
     if (String(item?.role || "").toUpperCase() === "ADMIN" && String(item?.uid || "") !== caller.uid) return false;
     const identities = [item?.uid, ...(Array.isArray(item?.identityAliases) ? item.identityAliases : [])]
-      .map((value) => String(value || "").trim()).filter(Boolean);
-    return identities.some((identity) => uidAliases.includes(identity));
+      .map(normalizeIdentity).filter(Boolean);
+    return identities.some((identity) => callerIdentitySet.has(identity));
   });
-  const conferenceParticipantUid = participantUids.find((uid) => uidAliases.includes(uid)) ||
+  const conferenceParticipantUid = participantUids.find((uid) => callerIdentitySet.has(normalizeIdentity(uid))) ||
     (matchedParticipant ? String(matchedParticipant.uid || "").trim() : "");
   if (!conferenceParticipantUid) {
     // Server-side diagnostic only: do not expose employee identifiers to clients.
