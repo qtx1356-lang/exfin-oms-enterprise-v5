@@ -414,7 +414,7 @@ async function handler(req: Request, env: Env): Promise<Response> {
       } catch (error) {
         const message = String(error instanceof Error ? error.message : error || "Push send failed").slice(0, 240);
         console.error("video_conference_push_exception", JSON.stringify({ uid, message }));
-        return { uid, sent: 0, failed: 1, tokenCount: 0, errors: [message] };
+        return { uid, sent: 0, failed: 1, tokenCount: 0, errors: [message], diagnosticCode: "FCM_REJECTED", ownerMatchedDocuments: 0, rejectedOwnerDocuments: 0 };
       }
     }));
     const pushSummary = {
