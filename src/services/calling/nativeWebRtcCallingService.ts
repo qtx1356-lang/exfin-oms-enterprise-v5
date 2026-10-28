@@ -10,7 +10,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase/config';
-import { buildApiUrl } from '../../utils/apiConfig';
+import { buildVideoApiUrl } from '../../utils/apiConfig';
 
 export type NativeWebRtcCall = {
   callId: string;
@@ -37,7 +37,7 @@ async function loadIceServers(): Promise<RTCIceServer[]> {
   const token = await currentUser.getIdToken();
   // The old native-WebRTC ICE route is retired. Keep this legacy service
   // compatible by consuming the active Cloudflare video API configuration.
-  const response = await fetch(buildApiUrl('/api/video-conference/config'), {
+  const response = await fetch(buildVideoApiUrl('/api/video-conference/config'), {
     headers: { Authorization: 'Bearer ' + token },
   });
   if (!response.ok) throw new Error('Could not load secure WebRTC connectivity settings.');
