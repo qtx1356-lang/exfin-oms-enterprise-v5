@@ -167,21 +167,11 @@ async function setDoc(env: Env, collection: string, id: string, data: Json) {
 }
 
 async function updateDoc(env: Env, collection: string, id: string, data: Json) {
-  // Firestore PATCH without updateMask replaces the document's fields. Updates
-  // must mask only the supplied top-level fields so pushSummary/status changes
-  // cannot erase participantUids and other conference data.
-  const mask = Object.keys(data)
-    .map((field) => `updateMask.fieldPaths=${encodeURIComponent(field)}`)
-    .join("&");
+  const mask = Object.keys(data).map((field) => `updateMask.fieldPaths=${encodeURIComponent(field)}`).join("&");
   return firestoreRequest(env, `${docName(env, collection, id)}?${mask}`, {
     method: "PATCH",
     body: JSON.stringify({ fields: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, firestoreValue(v)])) }),
   });
-}
-
-async function deleteDoc(env: Env, collection: string, id: string) {
-  const token = await googleAccessToken(env, FIRESTORE_SCOPE);
-  await fetch(`https://firestore.googleapis.com/v1/${docName(env, collection, id)}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
 }
 
 async function queryDocs(env: Env, collection: string, fieldFilters: Array<{ field: string; op: string; value: any }>, limit = 50) {
@@ -200,10 +190,7 @@ async function approvedEmployeeUidAliases(env: Env, uid: string): Promise<string
   try {
     const direct = await getDoc(env, "registrations", uid);
     if (direct) matches.push(direct);
-  } catch {
-    // A missing document keyed by Firebase UID is normal; query aliases above
-    // still resolve records whose Firestore document ID is an employee code.
-  }
+  } catch {}
   const aliases = new Set<string>([uid]);
   for (const doc of matches) {
     const data = doc.data || {};
@@ -237,9 +224,6 @@ async function sfuRequest(env: Env, path: string, init: RequestInit = {}) {
 }
 
 async function sendConferencePush(env: Env, uid: string, payload: Json) {
-  // A registration can retain a legacy document ID or uid while the Android
-  // app registers its FCM token under the authenticated Firebase UID. Resolve
-  // only approved, active employee aliases, then search token records for each.
   const aliases = await approvedEmployeeUidAliases(env, uid);
   const docGroups = await Promise.all(aliases.map(async (alias) => {
     try { return await queryDocs(env, "push_device_tokens", [{ field: "uid", op: "EQUAL", value: alias }], 50); }
@@ -258,29 +242,38 @@ async function sendConferencePush(env: Env, uid: string, payload: Json) {
   let sent = 0, failed = 0;
   const errors: string[] = [];
   for (const token of tokens) {
-    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: {
-      token,
-      notification: {
-        title: `${String(payload.callerName || "EXFIN OMS Admin")} is inviting you`,
-        body: String(payload.title || "EXFIN OMS video conference"),
-      },
-      data: Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, String(v)])),
-      android: {
-        priority: "HIGH",
-        ttl: "60s",
+    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ message: {
+        token,
+        data: Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, String(v)])),
         notification: {
-          channel_id: "exfin_oms_messages_v2",
-          click_action: "com.exfin.oms.VIDEO_CALL_OPEN",
-          sound: "default",
-          notification_priority: "PRIORITY_MAX",
-          visibility: "PUBLIC",
-          tag: `exfin_video_call_${String(payload.conferenceId || payload.callId || "incoming")}`,
+          title: `${String(payload.callerName || "EXFIN OMS Admin")} is inviting you`,
+          body: String(payload.title || "EXFIN OMS video conference"),
         },
-      },
-    } }) });
-    if (response.ok) {
-      sent++;
-    } else {
+        android_v2: {
+          ttl: "60s",
+          direct_boot_ok: true,
+          remote_notification: {
+            mutable_content: false,
+            notification: {
+              title: `${String(payload.callerName || "EXFIN OMS Admin")} is inviting you`,
+              body: String(payload.title || "EXFIN OMS video conference"),
+              channel_id: "exfin_oms_messages_v2",
+              click_action: "com.exfin.oms.VIDEO_CALL_OPEN",
+              sound: "default",
+              notification_priority: "PRIORITY_MAX",
+              visibility: "PUBLIC",
+              tag: `exfin_video_call_${String(payload.conferenceId || payload.callId || "incoming")}`,
+              id: 700001,
+            },
+          },
+        },
+      } }),
+    });
+    if (response.ok) sent++;
+    else {
       failed++;
       const body = await response.json().catch(() => ({})) as any;
       const status = String(body?.error?.status || `HTTP_${response.status}`).slice(0, 80);
@@ -338,12 +331,7 @@ async function handler(req: Request, env: Env): Promise<Response> {
         return { uid, sent: 0, failed: 1, tokenCount: 0, errors: [message] };
       }
     }));
-    const pushSummary = {
-      invited: participantUids.length,
-      sent: pushes.reduce((s, x) => s + x.sent, 0),
-      failed: pushes.reduce((s, x) => s + x.failed, 0),
-      recipients: pushes.map(({ uid, sent, failed, tokenCount, errors }) => ({ uid, sent, failed, tokenCount, errors }))
-    };
+    const pushSummary = { invited: participantUids.length, sent: pushes.reduce((s, x) => s + x.sent, 0), failed: pushes.reduce((s, x) => s + x.failed, 0), recipients: pushes.map(({ uid, sent, failed, tokenCount, errors }) => ({ uid, sent, failed, tokenCount, errors })) };
     await updateDoc(env, "video_conferences", conferenceId, { pushSummary });
     return json({ success: true, conferenceId, title, expiresAt, participantCount: participantUids.length + 1, pushSummary }, 200, req, env);
   }
@@ -360,8 +348,6 @@ async function handler(req: Request, env: Env): Promise<Response> {
   if (!conferenceDoc) return json({ success: false, error: "Conference not found." }, 404, req, env);
   const conference = conferenceDoc.data || {};
   const participantUids = Array.isArray(conference.participantUids) ? conference.participantUids.map(String) : [];
-  // Registration records can contain both uid and authUid from older account-linking
-  // flows. Accept an alias only when it belongs to an approved, active employee.
   const uidAliases = await approvedEmployeeUidAliases(env, caller.uid);
   const conferenceParticipantUid = participantUids.find((uid) => uidAliases.includes(uid));
   if (!conferenceParticipantUid) {
