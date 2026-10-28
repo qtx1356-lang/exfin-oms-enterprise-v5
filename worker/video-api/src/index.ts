@@ -187,7 +187,7 @@ async function deleteDoc(env: Env, collection: string, id: string) {
 async function queryDocs(env: Env, collection: string, fieldFilters: Array<{ field: string; op: string; value: any }>, limit = 50) {
   const structuredQuery: Json = { from: [{ collectionId: collection }], limit };
   if (fieldFilters.length === 1) structuredQuery.where = { fieldFilter: { field: { fieldPath: fieldFilters[0].field }, op: fieldFilters[0].op, value: firestoreValue(fieldFilters[0].value) } };
-  else if (fieldFilters.length > 1) structuredQuery.where = { compositeFilter: { op: "AND", filters: fieldFilters.map((f) => ({ fieldFilter: { field: { fieldPath: f.field }, op: f.op, value: firestoreValue(f.value) } })) } };
+  else if (fieldFilters.length > 1) structuredQuery.where = { compositeFilter: { op: "AND", filters: fieldFilters.map((f) => ({ fieldFilter: { field: { fieldPath: f.field }, op: f.op, value: firestoreValue(f.value) } })) };
   const rows = await firestoreRequest(env, `projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`, { method: "POST", body: JSON.stringify({ structuredQuery }) });
   return (Array.isArray(rows) ? rows : []).filter((row) => row.document).map((row) => ({ name: row.document.name, data: fromDocument(row.document) }));
 }
@@ -207,7 +207,7 @@ async function approvedEmployeeUidAliases(env: Env, uid: string): Promise<string
   const aliases = new Set<string>([uid]);
   for (const doc of matches) {
     const data = doc.data || {};
-    const status = String(data.status || data.accountStatus || "").trim().toLowerCase().replace(/\\s+/g, " ");
+    const status = String(data.status || data.accountStatus || "").trim().toLowerCase().replace(/\s+/g, " ");
     const approved = ["approved", "approved / active", "active", "approved/active"].includes(status);
     if (!approved || data.isDeleted === true || data.active === false || data.disabled === true) continue;
     const docId = String(doc.name || "").split("/").pop() || "";
@@ -258,7 +258,26 @@ async function sendConferencePush(env: Env, uid: string, payload: Json) {
   let sent = 0, failed = 0;
   const errors: string[] = [];
   for (const token of tokens) {
-    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: { token, data: Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, String(v)])), android: { priority: "HIGH", ttl: "60s" } } }) });
+    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: {
+      token,
+      notification: {
+        title: `${String(payload.callerName || "EXFIN OMS Admin")} is inviting you`,
+        body: String(payload.title || "EXFIN OMS video conference"),
+      },
+      data: Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, String(v)])),
+      android: {
+        priority: "HIGH",
+        ttl: "60s",
+        notification: {
+          channel_id: "exfin_oms_messages_v2",
+          click_action: "com.exfin.oms.VIDEO_CALL_OPEN",
+          sound: "default",
+          notification_priority: "PRIORITY_MAX",
+          visibility: "PUBLIC",
+          tag: `exfin_video_call_${String(payload.conferenceId || payload.callId || "incoming")}`,
+        },
+      },
+    } }) });
     if (response.ok) {
       sent++;
     } else {
