@@ -246,13 +246,36 @@ async function sfuRequest(env: Env, path: string, init: RequestInit = {}) {
 
 async function sendConferencePush(env: Env, uid: string, payload: Json) {
   const aliases = await approvedEmployeeUidAliases(env, uid);
-  const docGroups = await Promise.all(aliases.map(async (alias) => {
-    try { return await queryDocs(env, "push_device_tokens", [{ field: "uid", op: "EQUAL", value: alias }], 50); }
-    catch (error) {
-      console.warn("video_conference_token_lookup_failed", JSON.stringify({ invitedUid: uid, alias, message: error instanceof Error ? error.message : String(error) }));
-      return [];
-    }
+  // Older Android registrations sometimes key FCM tokens by employeeCode rather
+  // than Firebase UID. Resolve the approved registration and search both indexes.
+  const registrationGroups = await Promise.all(aliases.map(async (alias) => {
+    try {
+      const [byUid, byAuthUid, direct] = await Promise.all([
+        queryDocs(env, "registrations", [{ field: "uid", op: "EQUAL", value: alias }], 20),
+        queryDocs(env, "registrations", [{ field: "authUid", op: "EQUAL", value: alias }], 20),
+        getDoc(env, "registrations", alias).then((doc) => doc ? [doc] : []),
+      ]);
+      return [...byUid, ...byAuthUid, ...direct];
+    } catch { return []; }
   }));
+  const registrations = registrationGroups.flat();
+  const employeeCodes = [...new Set(registrations.map((doc) => String(doc.data?.employeeCode || doc.data?.employeeId || "").trim()).filter(Boolean))];
+  const docGroups = await Promise.all([
+    ...aliases.map(async (alias) => {
+      try { return await queryDocs(env, "push_device_tokens", [{ field: "uid", op: "EQUAL", value: alias }], 50); }
+      catch (error) {
+        console.warn("video_conference_token_lookup_failed", JSON.stringify({ invitedUid: uid, alias, message: error instanceof Error ? error.message : String(error) }));
+        return [];
+      }
+    }),
+    ...employeeCodes.map(async (employeeCode) => {
+      try { return await queryDocs(env, "push_device_tokens", [{ field: "employeeCode", op: "EQUAL", value: employeeCode }], 50); }
+      catch (error) {
+        console.warn("video_conference_token_employee_code_lookup_failed", JSON.stringify({ invitedUid: uid, message: error instanceof Error ? error.message : String(error) }));
+        return [];
+      }
+    }),
+  ]);
   const docs = docGroups.flat();
   const tokens = [...new Set(docs.map((d) => String(d.data.token || d.data.fcmToken || d.data.deviceToken || "").trim()).filter(Boolean))];
   if (!tokens.length) {
