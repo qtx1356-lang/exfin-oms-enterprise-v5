@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { CalendarPlus, Copy, ExternalLink, Loader2, Share2, Video } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CalendarPlus, Copy, Loader2, Share2, Video } from 'lucide-react';
 
 type MeetRecipient = { uid: string; name: string; phone?: string; mobile?: string; mobileNumber?: string; whatsapp?: string; email?: string };
 type Props = { recipients: MeetRecipient[]; selectedUids: string[]; title: string; adminName: string };
@@ -16,6 +16,11 @@ const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 let cachedAccessToken = '';
 let tokenExpiresAt = 0;
 const GOOGLE_CALENDAR_SCOPE_GRANTED = 'EXFIN_GOOGLE_CALENDAR_SCOPE_GRANTED';
+
+function toLocalDateTimeInput(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 function loadGoogleIdentity(): Promise<void> {
   if (window.google?.accounts?.oauth2) return Promise.resolve();
@@ -68,29 +73,27 @@ function getAccessToken(forceRefresh = false): Promise<string> {
   });
 }
 
-function normalizedPhone(recipient: MeetRecipient): string {
-  const raw = String(recipient.phone || recipient.mobile || recipient.mobileNumber || recipient.whatsapp || '').trim();
-  const digits = raw.replace(/[^0-9]/g, '');
-  return digits.length === 10 ? `91${digits}` : digits;
-}
-
 export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids, title, adminName }) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [meetUrl, setMeetUrl] = useState('');
-  const [eventUrl, setEventUrl] = useState('');
   const [meetingTitle, setMeetingTitle] = useState('');
+  const [meetingDateTime, setMeetingDateTime] = useState(() => toLocalDateTimeInput(new Date(Date.now() + 2 * 60 * 1000)));
   const selected = recipients.filter((person) => selectedUids.includes(person.uid));
+  const minimumDateTime = useMemo(() => toLocalDateTimeInput(new Date()), []);
 
   useEffect(() => { void loadGoogleIdentity().catch(() => {}); }, []);
 
   const createMeet = async () => {
     if (!selected.length) { setError('Select at least one employee first.'); return; }
+    if (!meetingDateTime) { setError('Select the meeting date and time first.'); return; }
+    const start = new Date(meetingDateTime);
+    if (Number.isNaN(start.getTime())) { setError('The selected meeting date and time is invalid.'); return; }
+    if (start.getTime() < Date.now()) { setError('Please select a future meeting date and time.'); return; }
+
     setBusy(true); setError('');
     try {
       let token = await getAccessToken();
-      const now = new Date();
-      const start = new Date(now.getTime() + 2 * 60 * 1000);
       const end = new Date(start.getTime() + 60 * 60 * 1000);
       const eventTitle = title.trim() || 'EXFIN OMS Google Meet';
       const attendees = selected.filter((person) => person.email && person.email.includes('@')).map((person) => ({ email: person.email }));
@@ -134,7 +137,6 @@ export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids
       }
       if (!videoLink) throw new Error('Google created the calendar event but has not returned a Meet link yet. Check Google Calendar before retrying to avoid duplicate events.');
       setMeetUrl(videoLink);
-      setEventUrl(String(eventResult?.htmlLink || result?.htmlLink || ''));
       setMeetingTitle(eventTitle);
     } catch (err: any) { setError(err?.message || 'Could not create the Google Meet.'); }
     finally { setBusy(false); }
@@ -143,7 +145,9 @@ export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids
   const shareWithSelected = async () => {
     if (!meetUrl) return;
     const names = selected.map((person) => person.name).filter(Boolean);
-    const message = `EXFIN OMS Google Meet: ${meetingTitle}\n\nSelected employees: ${names.join(', ')}\n\nMeet link: ${meetUrl}\n\nPlease join at the scheduled time.\n— ${adminName}, EXFIN OMS`;
+    const scheduled = new Date(meetingDateTime);
+    const scheduledText = Number.isNaN(scheduled.getTime()) ? meetingDateTime : scheduled.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+    const message = `EXFIN OMS Google Meet: ${meetingTitle}\n\nScheduled: ${scheduledText}\n\nSelected employees: ${names.join(', ')}\n\nMeet link: ${meetUrl}\n\nPlease join at the scheduled time.\n— ${adminName}, EXFIN OMS`;
     try {
       if (typeof navigator.share === 'function') {
         await navigator.share({ title: meetingTitle, text: message, url: meetUrl });
@@ -168,19 +172,36 @@ export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids
       <span className="rounded-xl bg-emerald-100 p-2 text-emerald-800"><Video size={20} /></span>
       <div className="min-w-0 flex-1">
         <div className="font-black text-slate-900">Google Meet + WhatsApp</div>
-        <p className="mt-1 text-xs leading-relaxed text-slate-600">Create a Google Meet link and share one invitation containing the selected employees' names.</p>
+        <p className="mt-1 text-xs leading-relaxed text-slate-600">Choose the meeting date and time, create the Google Meet link, and share one invitation containing the selected employees' names.</p>
       </div>
     </div>
-    <button type="button" disabled={busy || !selected.length} onClick={() => void createMeet()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 font-bold text-white disabled:opacity-50">
+
+    <div className="rounded-xl border border-emerald-200 bg-white p-3">
+      <label htmlFor="google-meet-datetime" className="mb-1 block text-sm font-bold text-slate-800">Meeting date &amp; time</label>
+      <input
+        id="google-meet-datetime"
+        type="datetime-local"
+        min={minimumDateTime}
+        value={meetingDateTime}
+        onChange={(event) => setMeetingDateTime(event.target.value)}
+        disabled={busy || !!meetUrl}
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100"
+      />
+      <p className="mt-1 text-xs text-slate-500">The meeting will be scheduled for 1 hour from the selected start time.</p>
+    </div>
+
+    <button type="button" disabled={busy || !!meetUrl || !selected.length} onClick={() => void createMeet()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 font-bold text-white disabled:opacity-50">
       {busy ? <Loader2 className="animate-spin" size={18} /> : <CalendarPlus size={18} />}
       {busy ? 'Creating Google Meet…' : `Create Google Meet (${selected.length} selected)`}
     </button>
+
     {meetUrl && <div className="space-y-3 rounded-xl border border-emerald-200 bg-white p-3">
       <div className="text-sm font-bold text-slate-900">Meeting link ready</div>
+      <div className="text-xs font-semibold text-slate-600">Scheduled: {new Date(meetingDateTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</div>
       <a href={meetUrl} target="_blank" rel="noreferrer" className="break-all text-sm font-semibold text-emerald-800 underline">{meetUrl}</a>
       <div className="grid grid-cols-2 gap-2">
         <button type="button" onClick={() => void copyLink()} className="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold text-slate-800"><Copy size={16} /> Copy link</button>
-        {eventUrl && <a href={eventUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold text-slate-800"><ExternalLink size={16} /> Calendar event</a>}
+        <button type="button" onClick={() => void shareWithSelected()} className="flex items-center justify-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-sm font-bold text-white"><Share2 size={16} /> Share invitation</button>
       </div>
       <div className="text-sm font-bold text-slate-700">Share with {selected.length} selected employee{selected.length === 1 ? '' : 's'}</div>
       <button type="button" onClick={() => void shareWithSelected()} className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 text-sm font-bold text-white"><Share2 size={17} /> Share invitation</button>
