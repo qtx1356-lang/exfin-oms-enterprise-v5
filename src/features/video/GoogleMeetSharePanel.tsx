@@ -94,10 +94,22 @@ export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids
         if (response.status === 401) throw new Error('Google authorization expired. Select Create Google Meet again and approve Calendar access.');
         throw new Error(result?.error?.message || 'Google Calendar could not create a Meet link. Check that Calendar API is enabled for the Google Cloud project.');
       }
-      const videoLink = String(result?.hangoutLink || result?.conferenceData?.entryPoints?.find((entry: any) => entry.entryPointType === 'video')?.uri || '');
-      if (!videoLink) throw new Error('Google created the calendar event but has not returned a Meet link yet. Wait a few seconds and try creating a new meeting.');
+      let eventResult = result;
+      let videoLink = String(eventResult?.hangoutLink || eventResult?.conferenceData?.entryPoints?.find((entry: any) => entry.entryPointType === 'video')?.uri || '');
+      // Google may return the Calendar event before the Meet conference is fully provisioned.
+      for (let attempt = 0; !videoLink && eventResult?.id && attempt < 5; attempt++) {
+        await new Promise((resolve) => window.setTimeout(resolve, 900));
+        const check = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(String(eventResult.id))}?conferenceDataVersion=1`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (check.ok) {
+          eventResult = await check.json().catch(() => eventResult);
+          videoLink = String(eventResult?.hangoutLink || eventResult?.conferenceData?.entryPoints?.find((entry: any) => entry.entryPointType === 'video')?.uri || '');
+        }
+      }
+      if (!videoLink) throw new Error('Google created the calendar event but has not returned a Meet link yet. Check Google Calendar before retrying to avoid duplicate events.');
       setMeetUrl(videoLink);
-      setEventUrl(String(result?.htmlLink || ''));
+      setEventUrl(String(eventResult?.htmlLink || result?.htmlLink || ''));
       setMeetingTitle(eventTitle);
     } catch (err: any) { setError(err?.message || 'Could not create the Google Meet.'); }
     finally { setBusy(false); }
