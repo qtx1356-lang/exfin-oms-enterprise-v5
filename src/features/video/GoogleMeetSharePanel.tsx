@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CalendarPlus, Copy, ExternalLink, Loader2, MessageCircle, Video } from 'lucide-react';
 
 type MeetRecipient = { uid: string; name: string; phone?: string; mobile?: string; mobileNumber?: string; whatsapp?: string; email?: string };
@@ -53,7 +53,8 @@ function getAccessToken(): Promise<string> {
 
 function normalizedPhone(recipient: MeetRecipient): string {
   const raw = String(recipient.phone || recipient.mobile || recipient.mobileNumber || recipient.whatsapp || '').trim();
-  return raw.replace(/[^0-9]/g, '');
+  const digits = raw.replace(/[^0-9]/g, '');
+  return digits.length === 10 ? `91${digits}` : digits;
 }
 
 export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids, title, adminName }) => {
@@ -63,6 +64,8 @@ export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids
   const [eventUrl, setEventUrl] = useState('');
   const [meetingTitle, setMeetingTitle] = useState('');
   const selected = recipients.filter((person) => selectedUids.includes(person.uid));
+
+  useEffect(() => { void loadGoogleIdentity().catch(() => {}); }, []);
 
   const createMeet = async () => {
     if (!selected.length) { setError('Select at least one employee first.'); return; }
