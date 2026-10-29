@@ -12,7 +12,6 @@ declare global {
 
 const GOOGLE_CLIENT_ID = String((import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '').trim();
 const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
-// Keep short-lived access tokens in memory only. Never persist Google bearer tokens in localStorage.
 let cachedAccessToken = '';
 let tokenExpiresAt = 0;
 const GOOGLE_CALENDAR_SCOPE_GRANTED = 'EXFIN_GOOGLE_CALENDAR_SCOPE_GRANTED';
@@ -43,9 +42,7 @@ function loadGoogleIdentity(): Promise<void> {
 }
 
 function getAccessToken(forceRefresh = false): Promise<string> {
-  if (!forceRefresh && cachedAccessToken && Date.now() < tokenExpiresAt - 60_000) {
-    return Promise.resolve(cachedAccessToken);
-  }
+  if (!forceRefresh && cachedAccessToken && Date.now() < tokenExpiresAt - 60_000) return Promise.resolve(cachedAccessToken);
   return new Promise(async (resolve, reject) => {
     try {
       if (!GOOGLE_CLIENT_ID) throw new Error('Google Meet is not configured yet. Add VITE_GOOGLE_CLIENT_ID to the Cloudflare Pages environment variables and redeploy.');
@@ -61,13 +58,10 @@ function getAccessToken(forceRefresh = false): Promise<string> {
             tokenExpiresAt = Date.now() + Math.max(60, Number(response.expires_in) || 3600) * 1000;
             try { sessionStorage.setItem(GOOGLE_CALENDAR_SCOPE_GRANTED, 'yes'); } catch { /* session storage may be disabled */ }
             resolve(cachedAccessToken);
-          } else {
-            reject(new Error(response?.error_description || response?.error || 'Google Calendar authorization was cancelled.'));
-          }
+          } else reject(new Error(response?.error_description || response?.error || 'Google Calendar authorization was cancelled.'));
         },
         error_callback: (error: any) => reject(new Error(error?.message || 'Google authorization popup was blocked. Allow popups and try again.')),
       });
-      // Do not force the consent screen on every request. Google will ask when authorization is genuinely needed.
       client.requestAccessToken();
     } catch (error) { reject(error); }
   });
@@ -106,30 +100,21 @@ export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids
         conferenceData: { createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: 'hangoutsMeet' } } },
       };
       let response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(eventBody),
+        method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(eventBody),
       });
       if (response.status === 401) {
-        cachedAccessToken = '';
-        tokenExpiresAt = 0;
-        token = await getAccessToken(true);
+        cachedAccessToken = ''; tokenExpiresAt = 0; token = await getAccessToken(true);
         response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify(eventBody),
+          method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(eventBody),
         });
       }
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result?.error?.message || 'Google Calendar could not create a Meet link. Check that Calendar API is enabled and Calendar access is authorized.');
       let eventResult = result;
       let videoLink = String(eventResult?.hangoutLink || eventResult?.conferenceData?.entryPoints?.find((entry: any) => entry.entryPointType === 'video')?.uri || '');
-      // Google may return the Calendar event before the Meet conference is fully provisioned.
       for (let attempt = 0; !videoLink && eventResult?.id && attempt < 5; attempt++) {
         await new Promise((resolve) => window.setTimeout(resolve, 900));
-        const check = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(String(eventResult.id))}?conferenceDataVersion=1`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const check = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(String(eventResult.id))}?conferenceDataVersion=1`, { headers: { Authorization: `Bearer ${token}` } });
         if (check.ok) {
           eventResult = await check.json().catch(() => eventResult);
           videoLink = String(eventResult?.hangoutLink || eventResult?.conferenceData?.entryPoints?.find((entry: any) => entry.entryPointType === 'video')?.uri || '');
@@ -149,17 +134,10 @@ export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids
     const scheduledText = Number.isNaN(scheduled.getTime()) ? meetingDateTime : scheduled.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
     const message = `EXFIN OMS Google Meet: ${meetingTitle}\n\nScheduled: ${scheduledText}\n\nSelected employees: ${names.join(', ')}\n\nMeet link: ${meetUrl}\n\nPlease join at the scheduled time.\n— ${adminName}, EXFIN OMS`;
     try {
-      if (typeof navigator.share === 'function') {
-        await navigator.share({ title: meetingTitle, text: message, url: meetUrl });
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(message);
-        setError('Meeting invitation copied. Open WhatsApp, choose a group or recipient, and paste it.');
-      } else {
-        setError('Sharing is unavailable in this browser. Copy the Meet link and share it manually: ' + meetUrl);
-      }
-    } catch (err: any) {
-      if (err?.name !== 'AbortError') setError(err?.message || 'Could not open the share menu. Copy the link and share it manually.');
-    }
+      if (typeof navigator.share === 'function') await navigator.share({ title: meetingTitle, text: message, url: meetUrl });
+      else if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(message); setError('Meeting invitation copied. Open WhatsApp, choose a group or recipient, and paste it.'); }
+      else setError('Sharing is unavailable in this browser. Copy the Meet link and share it manually: ' + meetUrl);
+    } catch (err: any) { if (err?.name !== 'AbortError') setError(err?.message || 'Could not open the share menu. Copy the link and share it manually.'); }
   };
 
   const copyLink = async () => {
@@ -178,15 +156,7 @@ export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids
 
     <div className="rounded-xl border border-emerald-200 bg-white p-3">
       <label htmlFor="google-meet-datetime" className="mb-1 block text-sm font-bold text-slate-800">Meeting date &amp; time</label>
-      <input
-        id="google-meet-datetime"
-        type="datetime-local"
-        min={minimumDateTime}
-        value={meetingDateTime}
-        onChange={(event) => setMeetingDateTime(event.target.value)}
-        disabled={busy || !!meetUrl}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100"
-      />
+      <input id="google-meet-datetime" type="datetime-local" min={minimumDateTime} value={meetingDateTime} onChange={(event) => setMeetingDateTime(event.target.value)} disabled={busy || !!meetUrl} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100" />
       <p className="mt-1 text-xs text-slate-500">The meeting will be scheduled for 1 hour from the selected start time.</p>
     </div>
 
@@ -203,8 +173,6 @@ export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids
         <button type="button" onClick={() => void copyLink()} className="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold text-slate-800"><Copy size={16} /> Copy link</button>
         <button type="button" onClick={() => void shareWithSelected()} className="flex items-center justify-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-sm font-bold text-white"><Share2 size={16} /> Share invitation</button>
       </div>
-      <div className="text-sm font-bold text-slate-700">Share with {selected.length} selected employee{selected.length === 1 ? '' : 's'}</div>
-      <button type="button" onClick={() => void shareWithSelected()} className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 text-sm font-bold text-white"><Share2 size={17} /> Share invitation</button>
       <p className="text-xs leading-relaxed text-slate-500">This opens your device's share menu so you can choose WhatsApp and send the invitation to a group or contact. WhatsApp does not let a website automatically send separate messages to multiple individual chats; that requires the WhatsApp Business API.</p>
     </div>}
     {error && <div role="alert" className="break-words rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
