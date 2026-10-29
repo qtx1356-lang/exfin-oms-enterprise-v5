@@ -329,27 +329,15 @@ async function sendConferencePush(env: Env, uid: string, payload: Json) {
       body: JSON.stringify({ message: {
         token,
         data: Object.fromEntries(Object.entries(payload).map(([k, v]) => [k, String(v)])),
-        notification: {
-          title: `${String(payload.callerName || "EXFIN OMS Admin")} is inviting you`,
-          body: String(payload.title || "EXFIN OMS video conference"),
-        },
-        android_v2: {
+        // Send a high-priority DATA-ONLY message so Android invokes
+        // ExfinCallMessagingService even when the app process is backgrounded
+        // or not running. A notification payload makes Android display its own
+        // generic tray notification and skips onMessageReceived in the background,
+        // bypassing the native CallStyle/full-screen call UI.
+        android: {
+          priority: "HIGH",
           ttl: "60s",
-          direct_boot_ok: true,
-          remote_notification: {
-            mutable_content: false,
-            notification: {
-              title: `${String(payload.callerName || "EXFIN OMS Admin")} is inviting you`,
-              body: String(payload.title || "EXFIN OMS video conference"),
-              channel_id: "exfin_oms_messages_v2",
-              click_action: "com.exfin.oms.VIDEO_CALL_OPEN",
-              sound: "default",
-              notification_priority: "PRIORITY_MAX",
-              visibility: "PUBLIC",
-              tag: `exfin_video_call_${String(payload.conferenceId || payload.callId || "incoming")}`,
-              id: 700001,
-            },
-          },
+          directBootOk: true,
         },
       } }),
     });
