@@ -47,6 +47,7 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
           employeeCode,
           role: 'EMPLOYEE',
           email,
+          phone: String(data.whatsappNumber || data.whatsapp || data.phoneNumber || data.mobileNumber || data.mobile || data.phone || '').trim(),
         });
       }
     } else {
