@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CalendarPlus, Copy, ExternalLink, Loader2, MessageCircle, Video } from 'lucide-react';
+import { CalendarPlus, Copy, ExternalLink, Loader2, Share2, Video } from 'lucide-react';
 
 type MeetRecipient = { uid: string; name: string; phone?: string; mobile?: string; mobileNumber?: string; whatsapp?: string; email?: string };
 type Props = { recipients: MeetRecipient[]; selectedUids: string[]; title: string; adminName: string };
@@ -12,6 +12,10 @@ declare global {
 
 const GOOGLE_CLIENT_ID = String((import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '').trim();
 const GOOGLE_CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+// Keep short-lived access tokens in memory only. Never persist Google bearer tokens in localStorage.
+let cachedAccessToken = '';
+let tokenExpiresAt = 0;
+const GOOGLE_CALENDAR_SCOPE_GRANTED = 'EXFIN_GOOGLE_CALENDAR_SCOPE_GRANTED';
 
 function loadGoogleIdentity(): Promise<void> {
   if (window.google?.accounts?.oauth2) return Promise.resolve();
@@ -33,7 +37,10 @@ function loadGoogleIdentity(): Promise<void> {
   });
 }
 
-function getAccessToken(): Promise<string> {
+function getAccessToken(forceRefresh = false): Promise<string> {
+  if (!forceRefresh && cachedAccessToken && Date.now() < tokenExpiresAt - 60_000) {
+    return Promise.resolve(cachedAccessToken);
+  }
   return new Promise(async (resolve, reject) => {
     try {
       if (!GOOGLE_CLIENT_ID) throw new Error('Google Meet is not configured yet. Add VITE_GOOGLE_CLIENT_ID to the Cloudflare Pages environment variables and redeploy.');
@@ -43,10 +50,20 @@ function getAccessToken(): Promise<string> {
       const client = oauth.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: GOOGLE_CALENDAR_SCOPE,
-        callback: (response: any) => response?.access_token ? resolve(String(response.access_token)) : reject(new Error(response?.error_description || response?.error || 'Google Calendar authorization was cancelled.')),
+        callback: (response: any) => {
+          if (response?.access_token) {
+            cachedAccessToken = String(response.access_token);
+            tokenExpiresAt = Date.now() + Math.max(60, Number(response.expires_in) || 3600) * 1000;
+            try { sessionStorage.setItem(GOOGLE_CALENDAR_SCOPE_GRANTED, 'yes'); } catch { /* session storage may be disabled */ }
+            resolve(cachedAccessToken);
+          } else {
+            reject(new Error(response?.error_description || response?.error || 'Google Calendar authorization was cancelled.'));
+          }
+        },
         error_callback: (error: any) => reject(new Error(error?.message || 'Google authorization popup was blocked. Allow popups and try again.')),
       });
-      client.requestAccessToken({ prompt: 'consent' });
+      // Do not force the consent screen on every request. Google will ask when authorization is genuinely needed.
+      client.requestAccessToken();
     } catch (error) { reject(error); }
   });
 }
@@ -71,29 +88,37 @@ export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids
     if (!selected.length) { setError('Select at least one employee first.'); return; }
     setBusy(true); setError('');
     try {
-      const token = await getAccessToken();
+      let token = await getAccessToken();
       const now = new Date();
       const start = new Date(now.getTime() + 2 * 60 * 1000);
       const end = new Date(start.getTime() + 60 * 60 * 1000);
       const eventTitle = title.trim() || 'EXFIN OMS Google Meet';
       const attendees = selected.filter((person) => person.email && person.email.includes('@')).map((person) => ({ email: person.email }));
-      const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all', {
+      const eventBody = {
+        summary: eventTitle,
+        description: `EXFIN OMS meeting created by ${adminName}. Invitees selected in EXFIN OMS: ${selected.map((person) => person.name).join(', ')}.`,
+        start: { dateTime: start.toISOString() },
+        end: { dateTime: end.toISOString() },
+        attendees,
+        conferenceData: { createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: 'hangoutsMeet' } } },
+      };
+      let response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          summary: eventTitle,
-          description: `EXFIN OMS meeting created by ${adminName}. Invitees selected in EXFIN OMS: ${selected.map((person) => person.name).join(', ')}.`,
-          start: { dateTime: start.toISOString() },
-          end: { dateTime: end.toISOString() },
-          attendees,
-          conferenceData: { createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: 'hangoutsMeet' } } },
-        }),
+        body: JSON.stringify(eventBody),
       });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        if (response.status === 401) throw new Error('Google authorization expired. Select Create Google Meet again and approve Calendar access.');
-        throw new Error(result?.error?.message || 'Google Calendar could not create a Meet link. Check that Calendar API is enabled for the Google Cloud project.');
+      if (response.status === 401) {
+        cachedAccessToken = '';
+        tokenExpiresAt = 0;
+        token = await getAccessToken(true);
+        response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(eventBody),
+        });
       }
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error?.message || 'Google Calendar could not create a Meet link. Check that Calendar API is enabled and Calendar access is authorized.');
       let eventResult = result;
       let videoLink = String(eventResult?.hangoutLink || eventResult?.conferenceData?.entryPoints?.find((entry: any) => entry.entryPointType === 'video')?.uri || '');
       // Google may return the Calendar event before the Meet conference is fully provisioned.
@@ -115,12 +140,22 @@ export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids
     finally { setBusy(false); }
   };
 
-  const shareOnWhatsApp = (recipient: MeetRecipient) => {
+  const shareWithSelected = async () => {
     if (!meetUrl) return;
-    const phone = normalizedPhone(recipient);
-    const message = `Hello ${recipient.name},\n\nYou are invited to: ${meetingTitle}\nGoogle Meet: ${meetUrl}\n\nPlease join at the scheduled time.\n— ${adminName}, EXFIN OMS`;
-    const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
+    const names = selected.map((person) => person.name).filter(Boolean);
+    const message = `EXFIN OMS Google Meet: ${meetingTitle}\n\nSelected employees: ${names.join(', ')}\n\nMeet link: ${meetUrl}\n\nPlease join at the scheduled time.\n— ${adminName}, EXFIN OMS`;
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share({ title: meetingTitle, text: message, url: meetUrl });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(message);
+        setError('Meeting invitation copied. Open WhatsApp, choose a group or recipient, and paste it.');
+      } else {
+        setError('Sharing is unavailable in this browser. Copy the Meet link and share it manually: ' + meetUrl);
+      }
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') setError(err?.message || 'Could not open the share menu. Copy the link and share it manually.');
+    }
   };
 
   const copyLink = async () => {
@@ -133,7 +168,7 @@ export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids
       <span className="rounded-xl bg-emerald-100 p-2 text-emerald-800"><Video size={20} /></span>
       <div className="min-w-0 flex-1">
         <div className="font-black text-slate-900">Google Meet + WhatsApp</div>
-        <p className="mt-1 text-xs leading-relaxed text-slate-600">Create a real Google Meet link, then open WhatsApp for each selected employee. EXFIN OMS will not use its current in-app calling/FCM flow for this meeting.</p>
+        <p className="mt-1 text-xs leading-relaxed text-slate-600">Create a Google Meet link and share one invitation containing the selected employees' names.</p>
       </div>
     </div>
     <button type="button" disabled={busy || !selected.length} onClick={() => void createMeet()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 font-bold text-white disabled:opacity-50">
@@ -147,14 +182,9 @@ export const GoogleMeetSharePanel: React.FC<Props> = ({ recipients, selectedUids
         <button type="button" onClick={() => void copyLink()} className="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold text-slate-800"><Copy size={16} /> Copy link</button>
         {eventUrl && <a href={eventUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold text-slate-800"><ExternalLink size={16} /> Calendar event</a>}
       </div>
-      <div className="text-xs font-bold text-slate-700">Share with selected employees</div>
-      <div className="max-h-48 space-y-2 overflow-y-auto">
-        {selected.map((person) => <div key={person.uid} className="flex items-center gap-2 rounded-lg border border-slate-100 p-2">
-          <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold text-slate-900">{person.name}</div><div className="text-xs text-slate-500">{normalizedPhone(person) ? 'WhatsApp number available' : 'WhatsApp will ask you to choose a contact'}</div></div>
-          <button type="button" onClick={() => shareOnWhatsApp(person)} className="flex shrink-0 items-center gap-1 rounded-lg bg-green-600 px-3 py-2 text-xs font-bold text-white"><MessageCircle size={15} /> WhatsApp</button>
-        </div>)}
-      </div>
-      <p className="text-xs leading-relaxed text-slate-500">WhatsApp requires the sender to confirm each message. EXFIN OMS cannot silently send messages or select multiple WhatsApp chats automatically.</p>
+      <div className="text-sm font-bold text-slate-700">Share with {selected.length} selected employee{selected.length === 1 ? '' : 's'}</div>
+      <button type="button" onClick={() => void shareWithSelected()} className="flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 text-sm font-bold text-white"><Share2 size={17} /> Share invitation</button>
+      <p className="text-xs leading-relaxed text-slate-500">This opens your device's share menu so you can choose WhatsApp and send the invitation to a group or contact. WhatsApp does not let a website automatically send separate messages to multiple individual chats; that requires the WhatsApp Business API.</p>
     </div>}
     {error && <div role="alert" className="break-words rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
   </section>;
