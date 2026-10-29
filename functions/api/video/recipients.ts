@@ -19,7 +19,7 @@ export const onRequest: PagesFunction<VideoEnv> = async ({ request, env }) => {
     if (!caller) return json({ success: false, error: 'Authentication required.' }, 401);
     if (!(await isCallerActive(env, caller))) return json({ success: false, error: 'Your account is inactive or not approved for video calls.' }, 403);
 
-    const recipients: Array<{ uid: string; name: string; employeeCode?: string; role: string; email?: string }> = [];
+    const recipients: Array<{ uid: string; name: string; employeeCode?: string; role: string; email?: string; phone?: string }> = [];
     if (caller.isAdmin && ADMIN_ROLES.has(caller.role)) {
       const documents = await listCollection(env, 'registrations', 500);
 
