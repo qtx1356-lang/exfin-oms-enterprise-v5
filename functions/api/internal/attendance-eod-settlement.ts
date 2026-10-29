@@ -212,7 +212,7 @@ function calculateWorkingHours(checkIn: unknown, checkOut: unknown): string | nu
   return `${Math.floor(diff / 60)}h ${diff % 60}m`;
 }
 
-export const onRequest: PagesFunction<Env> = async ({ request, env }: any) => {
+export const onRequest = async ({ request, env }: { request: Request; env: Env }): Promise<Response> => {
   if (request.method !== 'POST') return json({ success: false, error: 'Method not allowed' }, 405);
   const expected = String(env.CRON_SECRET || '');
   const authorization = request.headers.get('Authorization') || '';
@@ -292,9 +292,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }: any) => {
       finalized++;
     }
 
-    return json({ success: true, targetDate, finalized, unresolved, skipped });
-  } catch (error: any) {
-    console.error('[Attendance EOD Settlement]', error?.message || error);
-    return json({ success: false, error: error?.message || 'Attendance end-of-day settlement failed' }, 500);
+    return json({ success: true, finalized, unresolved, skipped, targetDate });
+  } catch (error) {
+    return json({ success: false, error: error instanceof Error ? error.message : String(error) }, 500);
   }
 };
