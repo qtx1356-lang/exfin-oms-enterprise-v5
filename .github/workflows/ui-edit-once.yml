@@ -23,7 +23,6 @@ jobs:
           block = """    { \n      icon: Video, \n      label: 'Video Calls',\n      onClick: () => window.dispatchEvent(new Event('exfin:open-video-calls')), \n      bg: 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' \n    },\n"""
           if block not in s: raise SystemExit('EmployeeDashboard Video Calls block not found')
           p.write_text(s.replace(block, '', 1))
-
           p = Path('src/features/employee/ChatScreen.tsx')
           s = p.read_text().replace('  Phone,\n  Video,\n', '')
           state = """  // Call Feature Placeholders State\n  const [callModal, setCallModal] = useState<{ isOpen: boolean; type: 'audio' | 'video' | null }>({\n    isOpen: false,\n    type: null,\n  });\n\n"""
@@ -35,7 +34,6 @@ jobs:
           modal = """\n      {/* CALL FEATURE MODAL PLACEHOLDER */}\n      <Dialog\n        isOpen={callModal.isOpen}\n        onClose={() => setCallModal({ isOpen: false, type: null })}\n        title={callModal.type === 'video' ? 'Video Conference' : 'Voice Connection'}\n      >\n        <div className=\"space-y-4 text-center p-4\">\n          <div className=\"w-16 h-16 rounded-full bg-[var(--primary)]/15 border border-[var(--primary)]/30 flex items-center justify-center mx-auto text-[var(--primary)]\">\n            {callModal.type === 'video' ? <Video className=\"w-8 h-8\" /> : <Phone className=\"w-8 h-8\" />}\n          </div>\n          <div className=\"space-y-2\">\n            <h4 className=\"text-base font-black text-[var(--text-primary)]\">Call Integration Sandbox</h4>\n            <p className=\"text-xs text-[var(--text-secondary)] leading-relaxed max-w-sm mx-auto\">\n              Real-time video and audio calling requires integration with a WebRTC or communication provider (e.g., Twilio, Zoom, or Jitsi). This UI shell is ready for deployment once credentials are configured.\n            </p>\n          </div>\n          <div className=\"pt-2\">\n            <Button\n              onClick={() => setCallModal({ isOpen: false, type: null })}\n              className=\"bg-[var(--button-primary)] hover:opacity-90 w-full rounded-xl text-white\"\n            >\n              Close Call Sandbox\n            </Button>\n          </div>\n        </div>\n      </Dialog>\n"""
           if modal not in s: raise SystemExit('ChatScreen call modal UI not found')
           p.write_text(s.replace(modal, '\n', 1))
-
           p = Path('src/components/layout/Layout.tsx')
           s = p.read_text()
           old = "import { Bell, ChevronRight, CheckCheck, Info, User, Home, MapPin, Trash2 } from 'lucide-react';"
