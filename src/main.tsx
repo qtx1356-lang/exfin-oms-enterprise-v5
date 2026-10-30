@@ -8,6 +8,7 @@ import React, { Component, StrictMode } from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import './employee-ui-overrides.css';
 
 // Global error and dynamic chunk load recovery handler
 if (typeof window !== 'undefined') {
