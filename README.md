@@ -38,3 +38,5 @@
 - **`LICENSE_NOTICES.md`**: Third-party open source attributions.
 
 Deployment verification: Cloudflare Pages Production deployment trigger.
+
+Build verification marker: employee UI cleanup validation.
