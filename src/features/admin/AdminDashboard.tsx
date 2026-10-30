@@ -1730,6 +1730,19 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </aside>
 
+      {/* Floating shortcut to the existing admin chat tab */}
+      {activeTab !== 'chat' && (
+        <button
+          type="button"
+          onClick={() => setActiveTab('chat')}
+          aria-label="Open admin chat"
+          className="fixed bottom-6 left-6 z-[80] flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-xl transition-transform hover:bg-indigo-700 active:scale-95"
+        >
+          <MessageCircle className="h-5 w-5" />
+          Chat
+        </button>
+      )}
+
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
         {/* Top Header */}
