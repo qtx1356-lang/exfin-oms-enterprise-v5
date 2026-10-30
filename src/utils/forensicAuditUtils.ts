@@ -32,7 +32,6 @@ export function parseEventTimeToMs(timeStr: string | undefined | null, baseDateS
     const parsed = new Date(timeStr).getTime();
     if (!isNaN(parsed)) return parsed;
   }
-
   const today = baseDateStr && /^\d{4}-\d{2}-\d{2}$/.test(baseDateStr)
     ? baseDateStr
     : new Date().toISOString().split('T')[0];
@@ -44,13 +43,9 @@ export function parseEventTimeToMs(timeStr: string | undefined | null, baseDateS
     const modifier = match[4]?.toUpperCase();
     if (modifier === 'PM' && hours < 12) hours += 12;
     if (modifier === 'AM' && hours === 12) hours = 0;
-
-    const istParsed = new Date(
-      `${today}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}+05:30`
-    ).getTime();
+    const istParsed = new Date(`${today}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}+05:30`).getTime();
     if (!isNaN(istParsed)) return istParsed;
   }
-
   const fallback = new Date(`${today} ${timeStr}`).getTime();
   return isNaN(fallback) ? 0 : fallback;
 }
@@ -65,10 +60,7 @@ function getEventCategory(eventType: string): 'CHECK_IN' | 'EXIT' | 'RETURN' | '
   return 'OTHER';
 }
 
-export function analyzeAttendanceForensics(
-  record: AttendanceRecord | null | undefined,
-  rawEvents: AttendanceHistoryEvent[] = []
-): ForensicAuditAnalysis {
+export function analyzeAttendanceForensics(record: AttendanceRecord | null | undefined, rawEvents: AttendanceHistoryEvent[] = []): ForensicAuditAnalysis {
   const baseDate = record?.date || new Date().toISOString().split('T')[0];
   const targetEmpId = (record?.employeeId || (record as any)?.employeeCode || '').trim().toLowerCase();
   const checkInMs = record?.checkInTime ? parseEventTimeToMs(record.checkInTime, baseDate) : 0;
@@ -76,19 +68,11 @@ export function analyzeAttendanceForensics(
 
   const isEventMatchingSession = (evt: AttendanceHistoryEvent | null | undefined): boolean => {
     if (!evt) return false;
-    if (targetEmpId && evt.employeeId) {
-      const eEmp = evt.employeeId.trim().toLowerCase();
-      if (eEmp && eEmp !== targetEmpId) return false;
-    }
-    if (evt.timestamp && evt.timestamp.includes('-')) {
-      const evtDate = evt.timestamp.substring(0, 10);
-      if (evtDate.length === 10 && evtDate !== baseDate) return false;
-    }
+    if (targetEmpId && evt.employeeId && evt.employeeId.trim().toLowerCase() !== targetEmpId) return false;
+    if (evt.timestamp && evt.timestamp.includes('-') && evt.timestamp.substring(0, 10) !== baseDate) return false;
     const category = getEventCategory(evt.eventType);
     if ((category === 'EXIT' || category === 'RETURN') && checkInMs > 0) {
-      const evtMs = evt.timestamp
-        ? parseEventTimeToMs(evt.timestamp, baseDate)
-        : parseEventTimeToMs(evt.eventTime, baseDate);
+      const evtMs = evt.timestamp ? parseEventTimeToMs(evt.timestamp, baseDate) : parseEventTimeToMs(evt.eventTime, baseDate);
       if (evtMs > 0 && evtMs < checkInMs) return false;
     }
     return true;
@@ -96,51 +80,34 @@ export function analyzeAttendanceForensics(
 
   const addEvent = (evt: AttendanceHistoryEvent) => {
     if (!evt || !(evt.eventId || evt.timestamp || evt.eventTime) || !isEventMatchingSession(evt)) return;
-
     const key = evt.eventId || `${evt.eventType}_${evt.timestamp || evt.eventTime}`;
     const sameId = allEventsMap.get(key);
     if (sameId) {
-      allEventsMap.set(key, {
-        ...evt,
-        ...sameId,
-        ...(evt.location ? { location: { ...sameId.location, ...evt.location } } : {})
-      });
+      allEventsMap.set(key, { ...evt, ...sameId, ...(evt.location ? { location: { ...sameId.location, ...evt.location } } : {}) });
       return;
     }
-
     const category = getEventCategory(evt.eventType);
-    const evtMs = evt.timestamp
-      ? parseEventTimeToMs(evt.timestamp, baseDate)
-      : parseEventTimeToMs(evt.eventTime, baseDate);
+    const evtMs = evt.timestamp ? parseEventTimeToMs(evt.timestamp, baseDate) : parseEventTimeToMs(evt.eventTime, baseDate);
     const evtEmployee = (evt.employeeId || targetEmpId).trim().toLowerCase();
     const duplicate = Array.from(allEventsMap.values()).find(existing => {
       if (getEventCategory(existing.eventType) !== category || category === 'OTHER') return false;
       const existingEmployee = (existing.employeeId || targetEmpId).trim().toLowerCase();
       if (evtEmployee && existingEmployee && evtEmployee !== existingEmployee) return false;
-
-      const existingMs = existing.timestamp
-        ? parseEventTimeToMs(existing.timestamp, baseDate)
-        : parseEventTimeToMs(existing.eventTime, baseDate);
-      if (!(evtMs > 0) || !(existingMs > 0)) {
-        return Boolean(evt.eventTime && existing.eventTime && evt.eventTime === existing.eventTime);
-      }
-
+      const existingMs = existing.timestamp ? parseEventTimeToMs(existing.timestamp, baseDate) : parseEventTimeToMs(existing.eventTime, baseDate);
+      if (!(evtMs > 0) || !(existingMs > 0)) return Boolean(evt.eventTime && existing.eventTime && evt.eventTime === existing.eventTime);
       const sameDisplayTime = Boolean(evt.eventTime && existing.eventTime && evt.eventTime === existing.eventTime);
       return Math.abs(evtMs - existingMs) <= (sameDisplayTime ? 5000 : 1500);
     });
-
-    if (duplicate) return;
-    allEventsMap.set(key, evt);
+    if (!duplicate) allEventsMap.set(key, evt);
   };
 
   if (Array.isArray(record?.eventHistory)) record.eventHistory.forEach(addEvent);
   if (Array.isArray(rawEvents)) rawEvents.forEach(addEvent);
 
-  const isCurrentlyCheckedIn = record?.currentState === 'CHECKED_IN';
   const hasHistoricalExitEvent = Array.from(allEventsMap.values()).some(e => getEventCategory(e.eventType) === 'EXIT');
   const hasHistoricalReturnEvent = Array.from(allEventsMap.values()).some(e => getEventCategory(e.eventType) === 'RETURN');
 
-  if (!isCurrentlyCheckedIn && !hasHistoricalExitEvent && (record?.lastExitTime || record?.geofenceExitTime || record?.exitTime)) {
+  if (!hasHistoricalExitEvent && (record?.lastExitTime || record?.geofenceExitTime || record?.exitTime)) {
     const exitTime = record.lastExitTime || record.geofenceExitTime || record.exitTime!;
     const exitIso = record.lastExitAt || record.geofenceExitTimestamp || record.exitDetectedAt || null;
     const exitDatePart = exitIso && exitIso.includes('-') ? exitIso.substring(0, 10) : baseDate;
@@ -148,14 +115,7 @@ export function analyzeAttendanceForensics(
       const exitMs = exitIso ? parseEventTimeToMs(exitIso, baseDate) : parseEventTimeToMs(exitTime, baseDate);
       if (checkInMs === 0 || exitMs >= checkInMs) {
         const key = `synth_exit_${exitTime}`;
-        allEventsMap.set(key, {
-          eventId: key,
-          employeeId: record.employeeId || (record as any).employeeCode || 'emp',
-          eventType: 'GEOFENCE_EXIT',
-          eventTime: exitTime,
-          timestamp: exitIso || new Date(exitMs).toISOString(),
-          source: (record as any).exitDetectionSource || 'RECORD_STATE'
-        });
+        allEventsMap.set(key, { eventId: key, employeeId: record.employeeId || (record as any).employeeCode || 'emp', eventType: 'GEOFENCE_EXIT', eventTime: exitTime, timestamp: exitIso || new Date(exitMs).toISOString(), source: (record as any).exitDetectionSource || 'RECORD_STATE' });
       }
     }
   }
@@ -168,14 +128,7 @@ export function analyzeAttendanceForensics(
       const returnMs = returnIso ? parseEventTimeToMs(returnIso, baseDate) : parseEventTimeToMs(returnTime, baseDate);
       if (checkInMs === 0 || returnMs >= checkInMs) {
         const key = `synth_return_${returnTime}`;
-        allEventsMap.set(key, {
-          eventId: key,
-          employeeId: record.employeeId || (record as any).employeeCode || 'emp',
-          eventType: 'GEOFENCE_RETURN',
-          eventTime: returnTime,
-          timestamp: returnIso || new Date(returnMs).toISOString(),
-          source: 'RECORD_STATE'
-        });
+        allEventsMap.set(key, { eventId: key, employeeId: record.employeeId || (record as any).employeeCode || 'emp', eventType: 'GEOFENCE_RETURN', eventTime: returnTime, timestamp: returnIso || new Date(returnMs).toISOString(), source: 'RECORD_STATE' });
       }
     }
   }
@@ -187,54 +140,29 @@ export function analyzeAttendanceForensics(
     const categoryPriority = { CHECK_IN: 1, EXIT: 2, STAY_ACTIVE: 3, RETURN: 4, CHECK_OUT: 5, OTHER: 6 }[category];
     return { event, epochMs, category, categoryPriority };
   });
+  enrichedEvents.sort((a, b) => a.epochMs !== b.epochMs ? a.epochMs - b.epochMs : a.categoryPriority - b.categoryPriority);
 
-  enrichedEvents.sort((a, b) => a.epochMs !== b.epochMs
-    ? a.epochMs - b.epochMs
-    : a.categoryPriority - b.categoryPriority);
-
-  // Build a canonical movement trail. A real attendance movement is a state
-  // transition, not every callback emitted by geofencing, app-resume recovery,
-  // queue retry, or Firestore synchronization. Only CHECK_IN -> EXIT -> RETURN
-  // transitions are allowed into the chronological geofence trail.
   const canonicalEvents: typeof enrichedEvents = [];
   let canonicalState: 'INSIDE' | 'OUTSIDE' = 'INSIDE';
   let sawCheckIn = false;
   let canonicalOpenExit = false;
-
   for (const item of enrichedEvents) {
     const { category } = item;
     if (category === 'CHECK_IN') {
-      if (!sawCheckIn) {
-        canonicalEvents.push(item);
-        sawCheckIn = true;
-        canonicalState = 'INSIDE';
-      }
+      if (!sawCheckIn) { canonicalEvents.push(item); sawCheckIn = true; canonicalState = 'INSIDE'; }
       continue;
     }
-
     if (category === 'EXIT') {
       if (canonicalOpenExit || canonicalState === 'OUTSIDE') continue;
-      canonicalEvents.push(item);
-      canonicalOpenExit = true;
-      canonicalState = 'OUTSIDE';
+      canonicalEvents.push(item); canonicalOpenExit = true; canonicalState = 'OUTSIDE';
       continue;
     }
-
     if (category === 'RETURN') {
-      // A RETURN without an open EXIT is a recovery/duplicate callback, not a
-      // new physical movement. Ignore it so the audit cannot show dozens of
-      // returns while the employee is already inside.
       if (!canonicalOpenExit) continue;
-      canonicalEvents.push(item);
-      canonicalOpenExit = false;
-      canonicalState = 'INSIDE';
-      continue;
+      canonicalEvents.push(item); canonicalOpenExit = false; canonicalState = 'INSIDE';
     }
   }
 
-  // If the stored record has a check-in but eventHistory omitted the CHECK_IN
-  // event, add one synthetic audit anchor so the chronological trail still
-  // starts with the real check-in time.
   if (!sawCheckIn && record?.checkInTime) {
     const syntheticCheckIn: AttendanceHistoryEvent = {
       eventId: `synth_checkin_${baseDate}_${record.checkInTime}`,
@@ -244,17 +172,9 @@ export function analyzeAttendanceForensics(
       timestamp: record.checkInAt || new Date(checkInMs || parseEventTimeToMs(record.checkInTime, baseDate)).toISOString(),
       source: 'RECORD_STATE'
     };
-    canonicalEvents.unshift({
-      event: syntheticCheckIn,
-      epochMs: checkInMs || parseEventTimeToMs(record.checkInTime, baseDate),
-      category: 'CHECK_IN',
-      categoryPriority: 1
-    });
+    canonicalEvents.unshift({ event: syntheticCheckIn, epochMs: checkInMs || parseEventTimeToMs(record.checkInTime, baseDate), category: 'CHECK_IN', categoryPriority: 1 });
   }
-
-  canonicalEvents.sort((a, b) => a.epochMs !== b.epochMs
-    ? a.epochMs - b.epochMs
-    : a.categoryPriority - b.categoryPriority);
+  canonicalEvents.sort((a, b) => a.epochMs !== b.epochMs ? a.epochMs - b.epochMs : a.categoryPriority - b.categoryPriority);
 
   const sortedEvents = canonicalEvents.map(e => e.event);
   const cycles: ForensicCycle[] = [];
@@ -267,41 +187,23 @@ export function analyzeAttendanceForensics(
 
   for (const item of canonicalEvents) {
     const { event, epochMs, category } = item;
-    if (category === 'CHECK_IN') {
-      state = 'INSIDE';
-    } else if (category === 'EXIT') {
+    if (category === 'CHECK_IN') state = 'INSIDE';
+    else if (category === 'EXIT') {
       state = 'OUTSIDE';
       if (currentOpenExit) continue;
-      totalExits++;
-      currentOpenExit = event;
-      currentOpenExitMs = epochMs;
+      totalExits++; currentOpenExit = event; currentOpenExitMs = epochMs;
     } else if (category === 'RETURN') {
       if (!currentOpenExit) continue;
-      totalReturns++;
-      state = 'INSIDE';
+      totalReturns++; state = 'INSIDE';
       if (epochMs >= currentOpenExitMs) {
-        const durationMin = currentOpenExitMs > 0 && epochMs > currentOpenExitMs
-          ? Math.round((epochMs - currentOpenExitMs) / 60000)
-          : null;
-        cycles.push({
-          cycleId: cycleCounter++,
-          exitEvent: currentOpenExit,
-          returnEvent: event,
-          durationMinutes: durationMin,
-          isResolved: true
-        });
-        currentOpenExit = null;
-        currentOpenExitMs = 0;
+        cycles.push({ cycleId: cycleCounter++, exitEvent: currentOpenExit, returnEvent: event, durationMinutes: currentOpenExitMs > 0 && epochMs > currentOpenExitMs ? Math.round((epochMs - currentOpenExitMs) / 60000) : null, isResolved: true });
+        currentOpenExit = null; currentOpenExitMs = 0;
       }
     }
   }
 
   let activeCycle: ForensicCycle | null = null;
-  if (currentOpenExit) {
-    activeCycle = { cycleId: cycleCounter++, exitEvent: currentOpenExit, returnEvent: null, isResolved: false };
-    cycles.push(activeCycle);
-  }
-
+  if (currentOpenExit) { activeCycle = { cycleId: cycleCounter++, exitEvent: currentOpenExit, returnEvent: null, isResolved: false }; cycles.push(activeCycle); }
   const completedCycles = cycles.filter(c => c.isResolved && c.returnEvent);
   const lastCompletedCycle = completedCycles.length > 0 ? completedCycles[completedCycles.length - 1] : null;
 
@@ -312,121 +214,57 @@ export function analyzeAttendanceForensics(
   let isPendingReturn = false;
 
   if (activeCycle) {
-    lastExitTime = activeCycle.exitEvent.eventTime;
-    lastExitTimestamp = activeCycle.exitEvent.timestamp;
-    lastReturnTime = null;
-    lastReturnTimestamp = null;
-    isPendingReturn = true;
-    state = 'OUTSIDE';
+    lastExitTime = activeCycle.exitEvent.eventTime; lastExitTimestamp = activeCycle.exitEvent.timestamp;
+    isPendingReturn = true; state = 'OUTSIDE';
   } else if (lastCompletedCycle) {
-    lastExitTime = lastCompletedCycle.exitEvent.eventTime;
-    lastExitTimestamp = lastCompletedCycle.exitEvent.timestamp;
-    lastReturnTime = lastCompletedCycle.returnEvent?.eventTime || null;
-    lastReturnTimestamp = lastCompletedCycle.returnEvent?.timestamp || null;
-    isPendingReturn = false;
+    lastExitTime = lastCompletedCycle.exitEvent.eventTime; lastExitTimestamp = lastCompletedCycle.exitEvent.timestamp;
+    lastReturnTime = lastCompletedCycle.returnEvent?.eventTime || null; lastReturnTimestamp = lastCompletedCycle.returnEvent?.timestamp || null;
     state = 'INSIDE';
   } else {
     const recExitTime = record?.lastExitTime || record?.geofenceExitTime || record?.exitTime || null;
     const recReturnTime = record?.lastReturnTime || record?.returnTime || null;
     const recExitIso = record?.lastExitAt || record?.geofenceExitTimestamp || null;
     const recReturnIso = record?.lastReturnAt || null;
-
     if (recExitTime && recReturnTime) {
       const exitMs = recExitIso ? parseEventTimeToMs(recExitIso, baseDate) : parseEventTimeToMs(recExitTime, baseDate);
       const returnMs = recReturnIso ? parseEventTimeToMs(recReturnIso, baseDate) : parseEventTimeToMs(recReturnTime, baseDate);
-      lastExitTime = recExitTime;
-      lastExitTimestamp = recExitIso;
-      if (returnMs > exitMs) {
-        lastReturnTime = recReturnTime;
-        lastReturnTimestamp = recReturnIso;
-        isPendingReturn = false;
-        state = 'INSIDE';
-      } else {
-        lastReturnTime = null;
-        lastReturnTimestamp = null;
-        isPendingReturn = true;
-        state = 'OUTSIDE';
-      }
-    } else if (recExitTime) {
-      lastExitTime = recExitTime;
-      lastExitTimestamp = recExitIso;
-      lastReturnTime = null;
-      isPendingReturn = true;
-      state = 'OUTSIDE';
-    } else if (recReturnTime) {
-      lastReturnTime = recReturnTime;
-      lastReturnTimestamp = recReturnIso;
-      state = 'INSIDE';
-    }
+      lastExitTime = recExitTime; lastExitTimestamp = recExitIso;
+      if (returnMs > exitMs) { lastReturnTime = recReturnTime; lastReturnTimestamp = recReturnIso; state = 'INSIDE'; }
+      else { isPendingReturn = true; state = 'OUTSIDE'; }
+    } else if (recExitTime) { lastExitTime = recExitTime; lastExitTimestamp = recExitIso; isPendingReturn = true; state = 'OUTSIDE'; }
+    else if (recReturnTime) { lastReturnTime = recReturnTime; lastReturnTimestamp = recReturnIso; state = 'INSIDE'; }
   }
 
   if (record?.currentState) {
-    if (
-      record.currentState === 'PENDING_AUTO_CHECKOUT' ||
-      record.currentState === 'PENDING_FINAL_EXIT' ||
-      record.currentState === 'PENDING_EXIT_CONFIRMATION' ||
-      record.currentState === 'CHECKOUT_NOT_DETECTED' ||
-      record.pendingCheckoutConfirmation
-    ) {
+    if (record.currentState === 'PENDING_AUTO_CHECKOUT' || record.currentState === 'PENDING_FINAL_EXIT' || record.currentState === 'PENDING_EXIT_CONFIRMATION' || record.currentState === 'CHECKOUT_NOT_DETECTED' || record.pendingCheckoutConfirmation) {
       state = 'OUTSIDE';
       if (!lastReturnTime) isPendingReturn = true;
-    } else if (record.currentState === 'CHECKED_IN') {
+    } else if (record.currentState === 'CHECKED_IN' && !activeCycle) {
+      // Only use CHECKED_IN as an override when the forensic sequence has no open EXIT.
       state = 'INSIDE';
     }
   }
 
   return {
-    sortedEvents,
-    cycles,
-    currentGeofenceState: state,
-    lastExitTime,
-    lastExitTimestamp,
-    lastReturnTime,
-    lastReturnTimestamp,
-    lastExitDisplay: lastExitTime || (lastReturnTime ? 'Not Detected' : '—'),
-    lastReturnDisplay: lastReturnTime || (isPendingReturn || lastExitTime ? 'Pending' : '—'),
-    isPendingReturn,
-    activeCycle,
-    lastCompletedCycle,
-    totalExits,
-    totalReturns
+    sortedEvents, cycles, currentGeofenceState: state, lastExitTime, lastExitTimestamp,
+    lastReturnTime, lastReturnTimestamp, lastExitDisplay: lastExitTime || (lastReturnTime ? 'Not Detected' : '—'),
+    lastReturnDisplay: lastReturnTime || (isPendingReturn || lastExitTime ? 'Pending' : '—'), isPendingReturn,
+    activeCycle, lastCompletedCycle, totalExits, totalReturns
   };
 }
 
-export function getAuthoritativeExitForCheckout(
-  record: AttendanceRecord | null | undefined,
-  events: AttendanceHistoryEvent[] = []
-): {
-  authoritativeExitTime: string | null;
-  authoritativeExitTimestamp: string | null;
-  isUnpairedExit: boolean;
-  currentGeofenceState: 'INSIDE' | 'OUTSIDE' | 'UNKNOWN';
-} {
-  if (!record) {
-    return { authoritativeExitTime: null, authoritativeExitTimestamp: null, isUnpairedExit: false, currentGeofenceState: 'UNKNOWN' };
-  }
+export function getAuthoritativeExitForCheckout(record: AttendanceRecord | null | undefined, events: AttendanceHistoryEvent[] = []) {
+  if (!record) return { authoritativeExitTime: null, authoritativeExitTimestamp: null, isUnpairedExit: false, currentGeofenceState: 'UNKNOWN' as const };
 
   const finalizedCheckoutTime = (record.checkOutTime || '').trim();
-  const isTerminalCheckout =
-    record.checkoutFinalized === true ||
-    record.checkoutConfirmed === true ||
-    record.checkoutStatus === 'FINALIZED' ||
-    record.checkoutStatus === 'COMPLETED' ||
-    record.currentState === 'FINALIZED_CHECKOUT' ||
-    record.currentState === 'CHECKED_OUT';
-
-  if (
-    isTerminalCheckout && finalizedCheckoutTime &&
-    finalizedCheckoutTime !== '--:--' && finalizedCheckoutTime !== 'UNRESOLVED' &&
-    finalizedCheckoutTime !== 'Pending' && finalizedCheckoutTime !== 'N/A'
-  ) {
-    return { authoritativeExitTime: null, authoritativeExitTimestamp: null, isUnpairedExit: false, currentGeofenceState: 'OUTSIDE' };
+  const isTerminalCheckout = record.checkoutFinalized === true || record.checkoutConfirmed === true || record.checkoutStatus === 'FINALIZED' || record.checkoutStatus === 'COMPLETED' || record.currentState === 'FINALIZED_CHECKOUT' || record.currentState === 'CHECKED_OUT';
+  if (isTerminalCheckout && finalizedCheckoutTime && !['--:--', 'UNRESOLVED', 'Pending', 'N/A'].includes(finalizedCheckoutTime)) {
+    return { authoritativeExitTime: null, authoritativeExitTimestamp: null, isUnpairedExit: false, currentGeofenceState: 'OUTSIDE' as const };
   }
 
-  if (record.currentState === 'CHECKED_IN') {
-    return { authoritativeExitTime: null, authoritativeExitTimestamp: null, isUnpairedExit: false, currentGeofenceState: 'INSIDE' };
-  }
-
+  // IMPORTANT: do not short-circuit on CHECKED_IN here. During location reconciliation
+  // the record can briefly become CHECKED_IN while its already-recorded EXIT remains the
+  // authoritative unpaired event. The forensic sequence must decide first.
   const analysis = analyzeAttendanceForensics(record, events);
   if (analysis.activeCycle) {
     const exitEvt = analysis.activeCycle.exitEvent;
@@ -434,95 +272,49 @@ export function getAuthoritativeExitForCheckout(
     const checkInMs = record.checkInTime ? parseEventTimeToMs(record.checkInTime, record.date) : 0;
     const exitMs = exitEvt.timestamp ? parseEventTimeToMs(exitEvt.timestamp, record.date) : parseEventTimeToMs(exitEvt.eventTime, record.date);
     if (evtDate === record.date && (checkInMs === 0 || exitMs >= checkInMs) && !isAttendanceTimeInFuture(exitEvt.eventTime, record.date)) {
-      return {
-        authoritativeExitTime: exitEvt.eventTime,
-        authoritativeExitTimestamp: exitEvt.timestamp || null,
-        isUnpairedExit: true,
-        currentGeofenceState: 'OUTSIDE'
-      };
+      return { authoritativeExitTime: exitEvt.eventTime, authoritativeExitTimestamp: exitEvt.timestamp || null, isUnpairedExit: true, currentGeofenceState: 'OUTSIDE' as const };
     }
   }
 
   const recExit = record.lastExitTime || record.geofenceExitTime || record.recordedExitTime || record.exitTime || null;
   const recExitIso = record.lastExitAt || record.geofenceExitTimestamp || record.exitDetectedAt || null;
   const recReturnIso = record.lastReturnAt || null;
-
   if (recExit) {
     const exitDatePart = recExitIso && recExitIso.includes('-') ? recExitIso.substring(0, 10) : record.date;
     const checkInMs = record.checkInTime ? parseEventTimeToMs(record.checkInTime, record.date) : 0;
     const exitMs = recExitIso ? parseEventTimeToMs(recExitIso, record.date) : parseEventTimeToMs(recExit, record.date);
-
     if (exitDatePart === record.date && (checkInMs === 0 || exitMs >= checkInMs) && !isAttendanceTimeInFuture(recExit, record.date)) {
       if (!recReturnIso || !recExitIso) {
-        if (
-          record.currentState === 'PENDING_AUTO_CHECKOUT' ||
-          record.currentState === 'PENDING_FINAL_EXIT' ||
-          record.currentState === 'PENDING_EXIT_CONFIRMATION' ||
-          record.currentState === 'CHECKOUT_NOT_DETECTED' ||
-          record.pendingCheckoutConfirmation
-        ) {
-          return { authoritativeExitTime: recExit, authoritativeExitTimestamp: recExitIso, isUnpairedExit: true, currentGeofenceState: 'OUTSIDE' };
+        if (record.currentState === 'PENDING_AUTO_CHECKOUT' || record.currentState === 'PENDING_FINAL_EXIT' || record.currentState === 'PENDING_EXIT_CONFIRMATION' || record.currentState === 'CHECKOUT_NOT_DETECTED' || record.pendingCheckoutConfirmation) {
+          return { authoritativeExitTime: recExit, authoritativeExitTimestamp: recExitIso, isUnpairedExit: true, currentGeofenceState: 'OUTSIDE' as const };
         }
       } else {
         const returnMs = new Date(recReturnIso).getTime();
-        if (exitMs >= returnMs) {
-          return { authoritativeExitTime: recExit, authoritativeExitTimestamp: recExitIso, isUnpairedExit: true, currentGeofenceState: 'OUTSIDE' };
-        }
+        if (exitMs >= returnMs) return { authoritativeExitTime: recExit, authoritativeExitTimestamp: recExitIso, isUnpairedExit: true, currentGeofenceState: 'OUTSIDE' as const };
       }
     }
   }
 
-  return {
-    authoritativeExitTime: null,
-    authoritativeExitTimestamp: null,
-    isUnpairedExit: false,
-    currentGeofenceState: analysis.currentGeofenceState === 'OUTSIDE' ? 'OUTSIDE' : 'INSIDE'
-  };
+  return { authoritativeExitTime: null, authoritativeExitTimestamp: null, isUnpairedExit: false, currentGeofenceState: analysis.currentGeofenceState === 'OUTSIDE' ? 'OUTSIDE' as const : 'INSIDE' as const };
 }
 
-export function getUnresolvedPastAttendanceRecords(
-  records: AttendanceRecord[],
-  employeeIds: string[],
-  todayStr: string
-): AttendanceRecord[] {
+export function getUnresolvedPastAttendanceRecords(records: AttendanceRecord[], employeeIds: string[], todayStr: string): AttendanceRecord[] {
   if (!Array.isArray(records) || records.length === 0) return [];
   const cleanCandidates = employeeIds.map(id => (id || '').trim().toLowerCase()).filter(Boolean);
-
   const unresolved = records.filter(rec => {
     if (!rec || !rec.date || rec.date >= todayStr) return false;
     const recEmp = (rec.employeeId || (rec as any).employeeCode || rec.id || '').trim().toLowerCase();
     const recDocId = (rec as any).docId ? String((rec as any).docId).trim().toLowerCase() : '';
-    const matchesEmp = cleanCandidates.length === 0 || cleanCandidates.some(cid => recEmp === cid || recDocId.includes(cid));
-    if (!matchesEmp) return false;
+    if (!(cleanCandidates.length === 0 || cleanCandidates.some(cid => recEmp === cid || recDocId.includes(cid)))) return false;
     if (!rec.checkInTime || rec.checkInTime === '--:--' || rec.checkInTime === 'null') return false;
     if ((rec as any).isAdminRectified || (rec as any).manualRectified) return false;
-
     const coTime = (rec.checkOutTime || '').trim();
-    const hasSavedCheckoutTime =
-      !!coTime && !['--:--', 'UNRESOLVED', 'Pending', 'N/A', 'null'].includes(coTime);
-    // The time itself is authoritative; legacy records may lack finalized flags.
-    if (hasSavedCheckoutTime) return false;
-
+    if (coTime && !['--:--', 'UNRESOLVED', 'Pending', 'N/A', 'null'].includes(coTime)) return false;
     const exitAnalysis = getAuthoritativeExitForCheckout(rec, rec.eventHistory || []);
-    const hasExplicitExit = Boolean(
-      exitAnalysis.isUnpairedExit ||
-      rec.lastExitTime ||
-      rec.geofenceExitTime ||
-      (rec as any).recordedExitTime ||
-      rec.exitTime ||
-      rec.exitDetectedAt ||
-      (Array.isArray(rec.eventHistory) && rec.eventHistory.some(e => (e.eventType || '').toUpperCase().includes('EXIT')))
-    );
-
-    // If an exit is present but the authoritative sequence says it was paired by
-    // a RETURN, it is historical audit data—not an unresolved checkout.
+    const hasExplicitExit = Boolean(exitAnalysis.isUnpairedExit || rec.lastExitTime || rec.geofenceExitTime || (rec as any).recordedExitTime || rec.exitTime || rec.exitDetectedAt || (Array.isArray(rec.eventHistory) && rec.eventHistory.some(e => (e.eventType || '').toUpperCase().includes('EXIT'))));
     if (hasExplicitExit && !exitAnalysis.isUnpairedExit) return false;
     if (exitAnalysis.currentGeofenceState === 'INSIDE' && !exitAnalysis.isUnpairedExit) return false;
-
-    // Preserve the existing recovery flow for a genuinely unresolved prior-day
-    // attendance record that has no saved checkout time.
     return true;
   });
-
   return unresolved.sort((a, b) => a.date.localeCompare(b.date));
 }
