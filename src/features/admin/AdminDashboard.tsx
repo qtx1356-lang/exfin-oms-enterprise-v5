@@ -2355,7 +2355,7 @@ export const AdminDashboard: React.FC = () => {
                                   {/* Current Location */}
                                   {isSuperAdmin() && (
                                     <td className="p-3 border-b border-purple-500/10 truncate max-w-[150px]" title={currentLoc.location}>
-                                      <div className="flex items-center gap-1.5">
+                                      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                                         <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase shrink-0 ${
                                           currentLoc.status === 'LIVE' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse' :
                                           currentLoc.status === 'RECENT' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
@@ -2519,6 +2519,7 @@ export const AdminDashboard: React.FC = () => {
         isOpen={showAttendanceDetails && !!selectedAttendance}
         onClose={() => setShowAttendanceDetails(false)}
         title="Attendance Forensic Audit"
+        maxWidth="max-w-3xl"
       >
         {selectedAttendance && (
           <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-purple-500/20">
@@ -2539,7 +2540,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {/* Event Timeline */}
               <div className="space-y-3">
                 <h5 className="text-[10px] font-black text-purple-300 uppercase tracking-widest flex items-center gap-2">
@@ -2548,7 +2549,7 @@ export const AdminDashboard: React.FC = () => {
                 <div className="space-y-2">
                   <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex justify-between items-center">
                     <span className="text-[11px] text-emerald-300 font-bold">Check-In</span>
-                    <div className="text-right">
+                    <div className="shrink-0 text-left sm:text-right">
                       <div className="text-sm font-black text-white">{safeStringify(selectedAttendance.checkInTime) || '—'}</div>
                       <div className="text-[9px] text-emerald-300/60 font-mono uppercase">{safeStringify(selectedAttendance.checkInMode) || 'N/A'} Mode</div>
                     </div>
@@ -2726,9 +2727,9 @@ export const AdminDashboard: React.FC = () => {
 
                         {/* Chronological Event Audit Trail if events exist */}
                         {analysis.sortedEvents.length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-red-500/15 space-y-1">
-                            <div className="text-[9px] text-white/40 uppercase tracking-widest font-mono">Chronological Audit Trail</div>
-                            <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                          <div className="mt-2 min-w-0 pt-2 border-t border-red-500/15 space-y-2">
+                            <div className="text-[10px] text-white/50 uppercase tracking-widest font-mono font-bold">Chronological Audit Trail</div>
+                            <div className="min-w-0 space-y-1.5 max-h-52 overflow-y-auto overscroll-contain pr-1">
                               {analysis.sortedEvents.map((evt, idx) => {
                                 const isExit = evt.eventType.includes('EXIT');
                                 const isReturn = evt.eventType.includes('RETURN');
@@ -2736,7 +2737,7 @@ export const AdminDashboard: React.FC = () => {
                                 const isStayActive = evt.eventType === 'STAY_ACTIVE';
 
                                 return (
-                                  <div key={evt.eventId || idx} className="flex items-center justify-between text-[9px] bg-black/20 p-1.5 rounded">
+                                  <div key={evt.eventId || idx} className="flex min-w-0 flex-col gap-1.5 rounded-lg bg-black/20 px-2.5 py-2 text-[11px] sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                                     <div className="flex items-center gap-1.5">
                                       <span className={`w-1.5 h-1.5 rounded-full ${
                                         isCheckIn ? 'bg-emerald-400' :
@@ -2744,17 +2745,17 @@ export const AdminDashboard: React.FC = () => {
                                         isReturn ? 'bg-blue-400' :
                                         isStayActive ? 'bg-amber-400' : 'bg-purple-400'
                                       }`} />
-                                      <span className="text-white/80 font-mono">
+                                      <span className="break-words text-white/90 font-mono font-semibold">
                                         {evt.eventType.replace('GEOFENCE_', '')}
                                       </span>
                                       {evt.source && (
-                                        <span className="text-[8px] text-white/40 font-mono">({evt.source})</span>
+                                        <span className="break-all text-[9px] text-white/50 font-mono">({evt.source})</span>
                                       )}
                                     </div>
                                     <div className="text-right">
-                                      <span className="text-white font-bold">{evt.eventTime}</span>
+                                      <span className="whitespace-nowrap text-xs text-white font-bold tabular-nums">{evt.eventTime}</span>
                                       {evt.distance !== undefined && (
-                                        <span className="text-[8px] text-white/40 ml-1">
+                                        <span className="ml-1 text-[10px] text-white/50">
                                           ({typeof evt.distance === 'number' ? `${Math.round(evt.distance)}m` : evt.distance})
                                         </span>
                                       )}
