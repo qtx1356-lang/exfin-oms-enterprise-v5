@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, ClipboardCheck, CalendarRange, Target, Users } from 'lucide-react';
+import { Home, ClipboardCheck, CalendarRange, Target, Users, MessageCircle } from 'lucide-react';
 import { useRegistration } from '../../context/RegistrationContext';
 
 const TABS = [
@@ -26,45 +26,59 @@ export const BottomNav: React.FC = () => {
   );
 
   const visibleTabs = TABS.filter(tab => tab.id !== 'team' || isTeamLeader);
+  const showFloatingChat = location.pathname !== '/chat';
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 glass-nav z-[90] pb-safe pt-1.5 px-1 sm:px-4">
-      <div className="flex justify-between items-center h-16 max-w-md mx-auto gap-1">
-        {visibleTabs.map((tab) => {
-          const isActive = tab.path === '/'
-            ? (location.pathname === '/' || location.pathname === '/employee-dashboard')
-            : location.pathname === tab.path;
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => navigate(tab.path)}
-              className={`relative flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-2xl transition-all duration-300 cursor-pointer select-none ${
-                isActive
-                  ? 'bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-600 text-white shadow-md shadow-emerald-500/20 scale-[1.02]'
-                  : 'text-[#CBD5E1] hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <Icon 
-                className={`w-5 h-5 transition-transform duration-300 ${
-                  isActive ? 'text-white scale-110 drop-shadow' : 'text-[#CBD5E1]'
-                }`}
-              />
-              <span 
-                className={`text-[10px] tracking-tight leading-tight mt-0.5 transition-all duration-300 whitespace-nowrap ${
-                  isActive ? 'text-white font-extrabold' : 'text-[#CBD5E1] font-semibold'
+    <>
+      {showFloatingChat && (
+        <button
+          type="button"
+          onClick={() => navigate('/chat')}
+          aria-label="Open employee chat"
+          className="fixed bottom-20 left-4 z-[80] flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-xl hover:bg-indigo-700 active:scale-95 transition-transform"
+        >
+          <MessageCircle className="h-5 w-5" />
+          Chat
+        </button>
+      )}
+
+      <nav className="fixed bottom-0 left-0 right-0 glass-nav z-[90] pb-safe pt-1.5 px-1 sm:px-4">
+        <div className="flex justify-between items-center h-16 max-w-md mx-auto gap-1">
+          {visibleTabs.map((tab) => {
+            const isActive = tab.path === '/'
+              ? (location.pathname === '/' || location.pathname === '/employee-dashboard')
+              : location.pathname === tab.path;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => navigate(tab.path)}
+                className={`relative flex flex-col items-center justify-center flex-1 py-1.5 px-1 rounded-2xl transition-all duration-300 cursor-pointer select-none ${
+                  isActive
+                    ? 'bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-600 text-white shadow-md shadow-emerald-500/20 scale-[1.02]'
+                    : 'text-[#CBD5E1] hover:text-white hover:bg-white/5'
                 }`}
               >
-                {tab.label}
-              </span>
-              {isActive && (
-                <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-6 h-1 bg-emerald-400 rounded-full shadow-sm" />
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </nav>
+                <Icon 
+                  className={`w-5 h-5 transition-transform duration-300 ${
+                    isActive ? 'text-white scale-110 drop-shadow' : 'text-[#CBD5E1]'
+                  }`}
+                />
+                <span 
+                  className={`text-[10px] tracking-tight leading-tight mt-0.5 transition-all duration-300 whitespace-nowrap ${
+                    isActive ? 'text-white font-extrabold' : 'text-[#CBD5E1] font-semibold'
+                  }`}
+                >
+                  {tab.label}
+                </span>
+                {isActive && (
+                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-6 h-1 bg-emerald-400 rounded-full shadow-sm" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+    </>
   );
 };
-
