@@ -6,14 +6,15 @@ interface DialogProps {
   title: string;
   children: React.ReactNode;
   hideDefaultFooter?: boolean;
+  maxWidth?: string;
 }
 
-export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children, hideDefaultFooter }) => {
+export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children, hideDefaultFooter, maxWidth = 'max-w-md' }) => {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="glass-card border border-white/25 w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col rounded-2xl p-0 shadow-[0_20px_50px_rgba(30,41,100,0.35)] animate-in zoom-in-95 duration-200 text-white">
+      <div className={`glass-card border border-white/25 w-full ${maxWidth} max-h-[90vh] overflow-hidden flex flex-col rounded-2xl p-0 shadow-[0_20px_50px_rgba(30,41,100,0.35)] animate-in zoom-in-95 duration-200 text-white`}>
         <div className="p-4 flex-shrink-0 border-b border-[var(--border)] flex items-center justify-between bg-black/20">
           <h2 className="text-sm font-bold text-white tracking-tight">{title}</h2>
           <button 
