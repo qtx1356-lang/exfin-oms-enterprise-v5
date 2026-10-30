@@ -1,0 +1,12 @@
+/* Employee-only UI cleanup. Admin video conference controls are intentionally untouched. */
+
+/* Remove legacy call controls from the employee chat header. */
+button[title="Audio Call"],
+button[title="Video Call"] {
+  display: none !important;
+}
+
+/* Remove the legacy Video Calls item from the employee dashboard Quick Actions grid. */
+div.grid.grid-cols-3.gap-2\.5.sm\:gap-3 > button:nth-child(5) {
+  display: none !important;
+}
