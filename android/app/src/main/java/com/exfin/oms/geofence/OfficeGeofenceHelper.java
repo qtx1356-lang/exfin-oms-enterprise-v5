@@ -1607,7 +1607,12 @@ public class OfficeGeofenceHelper {
         double lat = location.getLatitude();
         double lng = location.getLongitude();
         float accuracy = location.getAccuracy();
-        long eventTimestamp = (location.getTime() > 0) ? location.getTime() : System.currentTimeMillis();
+        long eventTimestamp = location.getTime();
+        if (eventTimestamp <= 0L) {
+            Log.w(TAG, "[NATIVE_RETURN_REJECTED] Location has no trustworthy occurrence timestamp; refusing to substitute processing time.");
+            safeFinishPendingResult(pendingResult, finishedFlag);
+            return;
+        }
         double distance = calculateDistance(lat, lng, OFFICE_LAT, OFFICE_LNG);
 
         saveLastLocationDiagnostic(context, lat, lng, accuracy, eventTimestamp, distance);
