@@ -1,85 +1,14 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import fs from 'fs';
-import {defineConfig, Plugin} from 'vite';
-
-function swPrecachePlugin(): Plugin {
-  return {
-    name: 'sw-precache-plugin',
-    closeBundle() {
-      try {
-        const distDir = path.resolve(__dirname, 'dist');
-        const assetsDir = path.resolve(distDir, 'assets');
-        const swPath = path.resolve(distDir, 'service-worker.js');
-        const indexHtmlPath = path.resolve(distDir, 'index.html');
-
-        if (fs.existsSync(swPath)) {
-          let assetPaths: string[] = [];
-          if (fs.existsSync(assetsDir)) {
-            const files = fs.readdirSync(assetsDir);
-            assetPaths = files
-              .filter((f) => !f.endsWith('.map'))
-              .map((f) => `/assets/${f}`);
-          }
-
-          let swContent = fs.readFileSync(swPath, 'utf-8');
-          const precacheArrayStr = JSON.stringify(
-            [
-              '/',
-              '/index.html',
-              '/manifest.json',
-              '/manifest-icon-192.png',
-              '/manifest-icon-512.png',
-              '/favicon.ico',
-              '/sounds/greetings/good_morning.wav',
-              '/sounds/greetings/good_afternoon.wav',
-              '/sounds/greetings/good_evening.wav',
-              ...assetPaths
-            ],
-            null,
-            2
-          );
-
-          // 1. Inject PRECACHE_ASSETS
-          swContent = swContent.replace(
-            /const PRECACHE_ASSETS = \[[\s\S]*?\];/,
-            `const PRECACHE_ASSETS = ${precacheArrayStr};`
-          );
-
-          // 2. Inject dynamic build version for CACHE_NAME to guarantee fresh cache on deployment
-          const buildHash = Date.now().toString(36);
-          const cacheVersion = `exfin-oms-v${buildHash}`;
-          swContent = swContent.replace(
-            /const CACHE_NAME = ['"][^'"]*['"];/,
-            `const CACHE_NAME = '${cacheVersion}';`
-          );
-
-          // 3. Inject embedded Fallback App Shell HTML
-          if (fs.existsSync(indexHtmlPath)) {
-            const indexHtmlContent = fs.readFileSync(indexHtmlPath, 'utf-8');
-            swContent = swContent.replace(
-              /let fallbackAppShellText = '';/,
-              `let fallbackAppShellText = ${JSON.stringify(indexHtmlContent)};`
-            );
-          }
-
-          fs.writeFileSync(swPath, swContent, 'utf-8');
-          console.log(`[SW Plugin] Injected ${assetPaths.length} build assets & embedded fallback app shell into dist/service-worker.js (Cache: ${cacheVersion})`);
-        }
-      } catch (err) {
-        console.warn('[SW Plugin] Error injecting precache assets:', err);
-      }
-    },
-  };
-}
+import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
     },
-    plugins: [react(), tailwindcss(), swPrecachePlugin()],
+    plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
