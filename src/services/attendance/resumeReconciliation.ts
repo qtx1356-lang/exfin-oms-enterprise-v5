@@ -476,78 +476,104 @@ export const reconcileAttendanceOnResume = async (
             console.log('[GEOFENCE EXIT DEBUG] Confirmed re-entry to 25m detected -> re-arming exit detection');
             console.log('[GEOFENCE EXIT DEBUG] Exit state reset: EXIT_PROMPT_RESOLVED_OUTSIDE cleared');
 
-            // Return to office transition: Restore CHECKED_IN
-            const eventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_RETURN', timeStr);
+            // A resume-time GPS fix proves only that the employee is inside NOW.
+            // It cannot establish when the 25m boundary was crossed while the app was closed.
+            // On Android, keep this as an observation and wait for the native geofence/
+            // foreground-service event to supply the immutable return event timestamp.
+            if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+              record.returnObservationAt = pos.timestamp > 0 ? new Date(pos.timestamp).toISOString() : nowIso;
+              record.returnObservationSource = 'PWA_RESUME_GPS';
+              record.currentState = 'CHECKED_IN';
+              record.pendingCheckoutConfirmation = false;
+              record.pendingCheckoutEventId = null;
+              record.returningToOffice = false;
+              record.exitPromptResolvedOutside = false;
+              record.checkoutStatus = undefined;
+              record.checkOutTime = null;
+              record.evidenceSource = 'PWA_RESUME_GPS';
+              record.syncStatus = 'Pending';
+              modified = true;
 
-            record.returnTime = timeStr;
-            record.lastReturnTime = timeStr;
-            record.lastReturnAt = nowIso;
-
-            // CRITICAL BUG FIX: DO NOT clear lastExitTime, lastExitAt, or exitTime!
-            // Retain historical exit timestamps for Admin Forensic Audit
-            record.pendingCheckoutConfirmation = false;
-            record.pendingCheckoutEventId = null;
-            record.returningToOffice = false;
-            record.exitPromptResolvedOutside = false;
-            record.lastActedExitEventId = null;
-            record.currentState = 'CHECKED_IN';
-            record.checkoutStatus = undefined;
-            record.checkOutTime = null;
-            record.evidenceSource = 'PWA_RESUME_GPS';
-            record.syncStatus = 'Pending';
-
-            delete record.checkoutLatitude;
-            delete record.checkoutLongitude;
-            delete record.checkoutDistance;
-            delete record.checkoutTownCity;
-
-            const returnHistEvent: AttendanceHistoryEvent = {
-              eventId,
-              employeeId,
-              eventType: 'GEOFENCE_RETURN',
-              eventTime: timeStr,
-              timestamp: nowIso,
-              source: 'PWA_RESUME_GPS',
-              location: pos ? {
-                latitude: pos.latitude,
-                longitude: pos.longitude,
-                distance,
-                townCity: cleanTown
-              } : undefined,
-              distance
-            };
-            record.eventHistory = appendEventHistory(record.eventHistory, returnHistEvent);
-
-            record.returnObservations = [...(record.returnObservations || []), observation];
-            record.processedEvents = Array.from(new Set([...(record.processedEvents || []), eventId]));
-
-            enqueueAttendanceEvent({
-              eventId,
-              employeeId,
-              attendanceDate: dateStr,
-              eventType: 'GEOFENCE_RETURN',
-              eventTime: timeStr,
-              createdAt: nowIso,
-              location: {
-                latitude: pos.latitude,
-                longitude: pos.longitude,
-                townCity: cleanTown,
+              // Do not append GEOFENCE_RETURN to eventHistory, set lastReturnTime,
+              // enqueue a synthetic return, or clear the native pending exit here.
+              // The native monitor remains armed to record the actual boundary return.
+              logAttendanceEvent('RETURN_DETECTED', employeeId, '[PWA_RESUME_GPS] Employee observed inside on resume; awaiting native boundary timestamp for forensic return event.');
+            } else {
+              // Return to office transition: Restore CHECKED_IN
+              const eventId = generateIdempotentEventId(employeeId, dateStr, 'GEOFENCE_RETURN', timeStr);
+  
+              record.returnTime = timeStr;
+              record.lastReturnTime = timeStr;
+              record.lastReturnAt = nowIso;
+  
+              // CRITICAL BUG FIX: DO NOT clear lastExitTime, lastExitAt, or exitTime!
+              // Retain historical exit timestamps for Admin Forensic Audit
+              record.pendingCheckoutConfirmation = false;
+              record.pendingCheckoutEventId = null;
+              record.returningToOffice = false;
+              record.exitPromptResolvedOutside = false;
+              record.lastActedExitEventId = null;
+              record.currentState = 'CHECKED_IN';
+              record.checkoutStatus = undefined;
+              record.checkOutTime = null;
+              record.evidenceSource = 'PWA_RESUME_GPS';
+              record.syncStatus = 'Pending';
+  
+              delete record.checkoutLatitude;
+              delete record.checkoutLongitude;
+              delete record.checkoutDistance;
+              delete record.checkoutTownCity;
+  
+              const returnHistEvent: AttendanceHistoryEvent = {
+                eventId,
+                employeeId,
+                eventType: 'GEOFENCE_RETURN',
+                eventTime: timeStr,
+                timestamp: nowIso,
+                source: 'PWA_RESUME_GPS',
+                location: pos ? {
+                  latitude: pos.latitude,
+                  longitude: pos.longitude,
+                  distance,
+                  townCity: cleanTown
+                } : undefined,
                 distance
-              },
-              attendanceMode: 'OFFICE',
-              source: 'AUTO_GEOFENCE'
-            });
-
-            markEventIdProcessed(eventId);
-            modified = true;
-
-            cancelPendingNativeExit().catch(() => {});
-
-            logAttendanceEvent('RETURN_DETECTED', employeeId, `[PWA_RESUME_GPS] Detected return to office (${Math.round(distance)}m) on resume at ${timeStr}. Restored CHECKED_IN.`);
-
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+              };
+              record.eventHistory = appendEventHistory(record.eventHistory, returnHistEvent);
+  
+              record.returnObservations = [...(record.returnObservations || []), observation];
+              record.processedEvents = Array.from(new Set([...(record.processedEvents || []), eventId]));
+  
+              enqueueAttendanceEvent({
+                eventId,
+                employeeId,
+                attendanceDate: dateStr,
+                eventType: 'GEOFENCE_RETURN',
+                eventTime: timeStr,
+                createdAt: nowIso,
+                location: {
+                  latitude: pos.latitude,
+                  longitude: pos.longitude,
+                  townCity: cleanTown,
+                  distance
+                },
+                attendanceMode: 'OFFICE',
+                source: 'AUTO_GEOFENCE'
+              });
+  
+              markEventIdProcessed(eventId);
+              modified = true;
+  
+              cancelPendingNativeExit().catch(() => {});
+  
+              logAttendanceEvent('RETURN_DETECTED', employeeId, `[PWA_RESUME_GPS] Detected return to office (${Math.round(distance)}m) on resume at ${timeStr}. Restored CHECKED_IN.`);
+  
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
+              }
+  
             }
+
           } else {
             // Already inside and checked in
             modified = true;
