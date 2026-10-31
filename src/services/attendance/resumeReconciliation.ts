@@ -386,7 +386,7 @@ export const reconcileAttendanceOnResume = async (
                 window.dispatchEvent(new CustomEvent('exfin-attendance-updated'));
               }
             } else {
-              // CASE C: Pure PWA / App closed without native exit event
+              // CASE C: Native app resumed outside without a recorded native exit event
               // NO PRIOR NATIVE EXIT RECORDED: DO NOT fabricate exit timestamp from app open time!
               console.log('[CHECKOUT_NOT_DETECTED]', {
                 employeeId,
