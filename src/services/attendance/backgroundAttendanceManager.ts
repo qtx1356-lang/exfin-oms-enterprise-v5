@@ -132,16 +132,33 @@ export const checkBackgroundPermissionStatus = async (): Promise<{
   isBackgroundGranted: boolean;
 }> => {
   try {
+    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
+      // Android's native permission state is authoritative. The Capacitor
+      // Geolocation plugin does not consistently expose ACCESS_BACKGROUND_LOCATION
+      // in checkPermissions(), so treating a missing backgroundLocation field as
+      // denied can silently prevent native geofence registration on Android.
+      const readiness = await NativeGeofencePlugin.getLocationReadiness();
+      return {
+        location: readiness.fineLocationGranted ? 'granted' : 'denied',
+        coarseLocation: readiness.coarseLocationGranted ? 'granted' : 'denied',
+        isBackgroundGranted: readiness.locationEnabled &&
+          readiness.fineLocationGranted &&
+          readiness.backgroundLocationGranted
+      };
+    }
+
     if (Capacitor.isNativePlatform()) {
       const status = await Geolocation.checkPermissions() as any;
       const foregroundGranted = status.location === 'granted' || status.coarseLocation === 'granted';
-      const backgroundGranted = status.backgroundLocation === 'granted' || (!status.backgroundLocation && foregroundGranted && Capacitor.getPlatform() !== 'android');
+      const backgroundGranted = status.backgroundLocation === 'granted' || (!status.backgroundLocation && foregroundGranted);
       return {
         location: status.location || 'prompt',
         coarseLocation: status.coarseLocation,
         isBackgroundGranted: backgroundGranted
       };
-    } else if (navigator.permissions && navigator.permissions.query) {
+    }
+
+    if (navigator.permissions && navigator.permissions.query) {
       const perm = await navigator.permissions.query({ name: 'geolocation' as any });
       return {
         location: perm.state,
@@ -149,11 +166,10 @@ export const checkBackgroundPermissionStatus = async (): Promise<{
       };
     }
   } catch (err) {
-    console.warn('Error checking location permissions:', err);
+    console.warn('[BackgroundAttendanceManager] Native background permission check failed:', err);
   }
   return { location: 'prompt', isBackgroundGranted: false };
 };
-
 export const requestBackgroundLocationPermission = async (): Promise<boolean> => {
   try {
     if (Capacitor.isNativePlatform()) {
