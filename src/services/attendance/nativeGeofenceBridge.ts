@@ -552,11 +552,20 @@ export const initNativeGeofenceListener = async (
         return;
       }
 
-      const eventDate = (typeof evt.timestamp === 'number' && evt.timestamp > 0)
-        ? new Date(evt.timestamp)
+      const nativeTimestamp = (typeof evt.timestamp === 'number' && evt.timestamp > 0)
+        ? evt.timestamp
         : (typeof evt.eventTimestamp === 'number' && evt.eventTimestamp > 0)
-          ? new Date(evt.eventTimestamp)
-          : new Date();
+          ? evt.eventTimestamp
+          : null;
+      if (!nativeTimestamp || !Number.isFinite(nativeTimestamp)) {
+        console.warn('[NATIVE_GEOFENCE_EVENT_REJECTED] Missing native return timestamp; refusing to substitute app-open time:', evt.eventId);
+        return;
+      }
+      const eventDate = new Date(nativeTimestamp);
+      if (isNaN(eventDate.getTime())) {
+        console.warn('[NATIVE_GEOFENCE_EVENT_REJECTED] Invalid native return timestamp:', evt.eventId);
+        return;
+      }
       logAttendanceEvent('GEOFENCE_ENTER', currentEmp.id, `Native authoritative return event received: ${evt.eventId} at ${evt.time}`);
       AutomaticAttendanceEngine.processGeofenceReturn(
         currentEmp.id,
